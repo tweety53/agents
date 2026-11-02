@@ -72,7 +72,7 @@ out, staged, committed or written by any phase of `/flow`; every path below reso
 `<project>-worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the
 plan and the decision JSON.
 
-Run the kickoff steps 1–4 in one call — 1 `check-worktree-location.sh <project>`; 2 the worktree
+Run the kickoff steps 1–4 in one call — 1 `flow-guard check-worktree-location <project>`; 2 the worktree
 add at `<project>-worktrees/<name>`, the sibling of the main checkout, on
 `spectre/<name>` tracking the remote branch when a `/flow-plan` capture or an earlier run pushed
 it, else a new `spectre/<name>` from `origin/<default-branch>` — never HEAD: the main checkout may
@@ -81,12 +81,12 @@ configuration**, `skills/flow-contracts/project-configuration.md`); 4 the push, 
 backup** (`skills/flow-contracts/git-boundaries.md`):
 
 ```bash
-kickoff-worktree.sh <project> <name> [<base>]
+flow-guard kickoff-worktree <project> <name> [<base>]
 ```
 
 `<base>` is the creating run's `--base <branch>` (`skills/flow/SKILL.md`), omitted when none was
 given: the new branch is then cut from `origin/<base>` instead of `origin/<default-branch>`, and the
-base is recorded on it for `resolve-base-branch.sh`; `origin/<base>` missing is exit 1.
+base is recorded on it for `flow-guard resolve-base-branch`; `origin/<base>` missing is exit 1.
 
 Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. **Persist the worktree into the
 state record before this step returns** — the script does, through `flow state add-worktree` right
@@ -124,7 +124,7 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
    plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`,
    dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
-   `-key explore-<n>|design-<n>`, each pair from `plan-agent-pair.sh <name> <n> explorer|plan-designer`, `<n>` continuing
+   `-key explore-<n>|design-<n>`, each pair from `flow-guard plan-agent-pair <name> <n> explorer|plan-designer`, `<n>` continuing
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
    a reused key restarts the earlier round's row), writing or
    updating the prototype file a visible change needs and never publishing it, and writes
@@ -148,7 +148,7 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    and `flow.writing-plans` begin marks under the run's session token, `spectre new`, the three
    artifacts from the approved design — read from every file under
    `<abs-worktree>/.superpowers/sdd/planner/`, where the approved design lives — writing-plans,
-   `spectre validate`, `check-plan-shape.sh`, the configured guards and `flow tasks count`. It
+   `spectre validate`, `flow-guard check-plan-shape`, the configured guards and `flow tasks count`. It
    returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a
    fresh one with that output until `PLAN-WRITTEN`; a redispatch skips section **C** and the
    `flow.writing-plans` begin, both already made, and resumes at the guard that failed.

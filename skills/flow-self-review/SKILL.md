@@ -210,7 +210,7 @@ reports it.**
 
 A pass with no angle-8 case writes nothing here. Otherwise this session, after the pass and before
 step 3, first resolves the worktree of `<fix-branch>` — the branch named at the end of this step —
-creating it with `<agents repo>/scripts/pipeline-fix.sh start <name>` when it is
+creating it with `<agents repo>/scripts/flow-guard pipeline-fix start <name>` when it is
 `self-review-<name>` and absent; it never writes the agents main checkout. It copies each `<sr-dir>/cases/<case-id>/` folder the pass wrote into that
 worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on the change's own branch,
 `<agents repo>-worktrees/self-review-<name>/docs/prompt-tuning/<case-id>/` otherwise, `<case-id>` being
@@ -230,7 +230,7 @@ extraction does. A `reviewer` case whose `target` is `skills/flow/visual-verify-
 `skills/flow/visual-verify.md` also carries `capture.png`, the capture the verifier judged, and
 `mockup.png`, the mockup frame it judged that capture against, both copied into the case folder.
 Once a case's folder is copied, run `flow prompt-tuning render <case-dir>`, then
-`<agents repo>/scripts/check-prompt-tuning-cases.sh` over the new folders. A red line is fixed by
+`<agents repo>/scripts/flow-guard check-prompt-tuning-cases` over the new folders. A red line is fixed by
 rewriting the field it names; a case no generic rewrite passes is dropped, and its report line says
 so, disposition `noted`.
 
@@ -238,7 +238,7 @@ The cases are committed as `docs(prompt-tuning): <name> cases` on the branch ste
 `<fix-branch>`: inside a run whose canonical repository is `<agents repo>`, the change's own branch,
 landed by the run's own route; otherwise, and standalone, `self-review-<name>`. When step 3 has no
 worktree — no non-`big` finding — the worktree this step created carries the cases alone: this session commits them there and lands that
-cases-only branch by step 3 item 5's route; `check-loop-landing.sh` admits a `self-review-*` branch
+cases-only branch by step 3 item 5's route; `flow-guard check-loop-landing` admits a `self-review-*` branch
 whose diff touches only `<agents repo>/docs/prompt-tuning/` without loop rows.
 
 ### 3. Fix every finding that is not `big`
@@ -280,10 +280,10 @@ NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a re
 (`skills/flow/gated-reviewer-brief.md`) too, and the plan's
 PLANNING DELEGATION below in place of NO DELEGATION — with **The
 handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
-it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on that row's `opus/flow-high` escalation, admitted only after `<agents repo>/scripts/pipeline-fix.sh escalate <key>` (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
+it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on that row's `opus/flow-high` escalation, admitted only after `<agents repo>/scripts/flow-guard pipeline-fix escalate <key>` (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
 
 **The pairs are the `self-review-*` and `pipeline-fix-*` rows** of **Allowed pairs**
-(`skills/flow-contracts/model-policy.md`), which `check-loop-dispatch.sh` reads and refuses a loop
+(`skills/flow-contracts/model-policy.md`), which `flow-guard check-loop-dispatch` reads and refuses a loop
 dispatch off, a key's suffix naming its row — `pass`, `plan`, `fix`, `review-1` and `review-r` for
 every re-review.
 
@@ -297,17 +297,17 @@ the two `review` rows: the first review on `flow-medium` or `flow-low` as the pl
 **Every loop dispatch is admitted and recorded mechanically.**
 `<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
 `Key: pipeline-fix-<k>-…` or `Key: self-review-<name>-…` line to
-`<agents repo>/scripts/check-loop-dispatch.sh`, which refuses it off its row of **Allowed pairs**,
+`<agents repo>/scripts/flow-guard check-loop-dispatch`, which refuses it off its row of **Allowed pairs**,
 while an earlier dispatch of the loop is still open, or — any dispatch but the plan and the pass —
 before a completed plan, and records the admitted one in flowd. The parent closes each dispatch
-once it returns with `<agents repo>/scripts/pipeline-fix.sh end <key> <outcome>`: `completed`, or
+once it returns with `<agents repo>/scripts/flow-guard pipeline-fix end <key> <outcome>`: `completed`, or
 `aborted` for one that did not finish or never ran — a dispatch denied after it was recorded is
 closed `aborted` and may be dispatched again under the same key. A review is closed with
-`<agents repo>/scripts/pipeline-fix.sh end <key> <report-file>`, its reviewer's report, whose `Critical: <n>` and
+`<agents repo>/scripts/flow-guard pipeline-fix end <key> <report-file>`, its reviewer's report, whose `Critical: <n>` and
 `Important: <n>` lines decide the outcome: `clean` when both are 0, `fix` otherwise. A dispatch on its row's escalation column is admitted only after
-`<agents repo>/scripts/pipeline-fix.sh escalate <key>`, and every loop branch's landing push only
-once `<agents repo>/scripts/check-loop-landing.sh` finds its plan, its fix and a last review
-closed `clean`. For an own-branch loop in another project, `pipeline-fix.sh end` and `escalate`
+`<agents repo>/scripts/flow-guard pipeline-fix escalate <key>`, and every loop branch's landing push only
+once `<agents repo>/scripts/flow-guard check-loop-landing` finds its plan, its fix and a last review
+closed `clean`. For an own-branch loop in another project, `flow-guard pipeline-fix end` and `escalate`
 run from that project's working directory, never from `<agents repo>`. A refusal or failure of any of these tools on a step this file prescribes is a
 pipeline defect, fixed in-run per **Pipeline defects found mid-run**
 (`skills/flow-contracts/pipeline.md`) and the loop resumed once the fix lands — never a stop or a
@@ -321,7 +321,7 @@ holds when the pass starts; standalone, or inside
 any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 
 1. **Plan, then fix** — on `self-review-<name>`, this session creates the worktree with
-   `<agents repo>/scripts/pipeline-fix.sh start <name>` — never the main checkout; on the change's
+   `<agents repo>/scripts/flow-guard pipeline-fix start <name>` — never the main checkout; on the change's
    own branch its worktree is already set up. It then dispatches key `self-review-<name>-plan` on the planner pair, its
    prompt naming `<sr-dir>/findings.md` and the non-`big` finding ids, whose evidence and counted blast radius that file carries. The planner
    plans them all in full as one spectre change, `self-review-<name>`, in that worktree, per
@@ -340,12 +340,12 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `<agents repo>-worktrees/<name>/.superpowers/sdd/` on the change's own branch. When it writes
    or changes a prototype, its report names the file's absolute path, and this session publishes it
    and prints its URL in its final report (**The checklist**, `skills/flow/brainstorm-planner.md`). Section D's
-   guards — `spectre validate "self-review-<name>"`, `check-plan-shape.sh`,
-   `check-plan-provenance.sh` and `check-task-build-green.sh` — pass before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no
+   guards — `spectre validate "self-review-<name>"`, `flow-guard check-plan-shape`,
+   `flow-guard check-plan-provenance` and `flow-guard check-task-build-green` — pass before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no
    `flow tasks count`, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
    review gate**. `design.md`'s decisions record instead this pass's dynamic choices: the first
    review's effort, `medium` or `low`, and the grouping of tasks into fixer dispatches. The effort is the entry `**ID:** first-review-effort`,
-   its `**Chosen:**` line naming `flow-low` or `flow-medium` — the ID `check-loop-dispatch.sh` parses;
+   its `**Chosen:**` line naming `flow-low` or `flow-medium` — the ID `flow-guard check-loop-dispatch` parses;
    under any other ID the guard sees no decision and wants `flow-medium`. It commits
    none of the artifacts — `<agents repo>/spectre/changes/` is gitignored — and never merges or pushes.
    A run-1 re-run never folds the loop's fix commits: the newest commit a `fixed` row names is its
@@ -356,7 +356,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    > **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
    > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
    > `fork`, and never an agent that edits files or commits. Each dispatch's model and effort come
-   > from `plan-agent-pair.sh <your Key> <n> <role>`, `<n>` counting your planning dispatches from
+   > from `flow-guard plan-agent-pair <your Key> <n> <role>`, `<n>` counting your planning dispatches from
    > 1 and `<role>` that dispatch's own Role, and every dispatch prompt carries the line
    > `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
    > (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
@@ -369,7 +369,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    and no `Task-Id:` trailer, never writing `<agents repo>/spectre/changes/` — the ticks are item
    4's — adding one test or guard that fails without the fix wherever the fix changes behaviour, and running
    the `<agents repo>/.flow/project.md` `## lint` lines its files need, save
-   `check-task-records.sh`, which judges those ticks. It reports each task's
+   `flow-guard check-task-records`, which judges those ticks. It reports each task's
    commit, or a finding it found `big` once under way, left uncommitted. It never merges or
    pushes.
 2. **Review** — key `self-review-<name>-review-<r>` on the review pair, over
@@ -377,7 +377,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    commit, judging the code against `tasks.md` and `design.md`'s decisions, and asking each review
    finding graded Critical, Important or Minor, and its report to open with one `Critical: <n>`
    and one `Important: <n>` line counting them.
-   Its prompt names `<sr-dir>/review-<r>.md` as its report file: it writes its report there and hands back only those two lines, and this session closes it with `<agents repo>/scripts/pipeline-fix.sh end <key> <sr-dir>/review-<r>.md`.
+   Its prompt names `<sr-dir>/review-<r>.md` as its report file: it writes its report there and hands back only those two lines, and this session closes it with `<agents repo>/scripts/flow-guard pipeline-fix end <key> <sr-dir>/review-<r>.md`.
 3. **Fix the review's findings** — key `self-review-<name>-fix-<r>` on the fixer pair, its prompt naming
    `<sr-dir>/review-<r>.md`. Each fix is folded into the commit of the task it fixes
    (`git commit --fixup <that commit>`, then `git rebase --autosquash <fix-base>`), so
@@ -392,9 +392,9 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    under way.
 4. **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session ticks each task whose commit is on `<fix-branch>`
    (`flow tasks tick -C <fix worktree> self-review-<name> <n>`), then runs
-   `<agents repo>/scripts/pipeline-fix.sh verify <fix worktree> > <sr-dir>/verify-<v>.log 2>&1`, `<v>` counting verify runs from 1, and reads only its exit code and its `red:` lines.
+   `<agents repo>/scripts/flow-guard pipeline-fix verify <fix worktree> > <sr-dir>/verify-<v>.log 2>&1`, `<v>` counting verify runs from 1, and reads only its exit code and its `red:` lines.
    On a `self-review-<name>` branch whose route is merge and push, that separate verify is not run:
-   step 5's `<agents repo>/scripts/pipeline-fix.sh land <fix worktree> > <sr-dir>/verify-<v>.log 2>&1` runs the same lint
+   step 5's `<agents repo>/scripts/flow-guard pipeline-fix land <fix worktree> > <sr-dir>/verify-<v>.log 2>&1` runs the same lint
    lines and tests on the rebased HEAD before it pushes, and its exit code and `red:` lines are read
    as this verify's (kan-1051 self-review, F18: the suite ran twice at one HEAD, about 5 min a loop).
    A red line is fixed by a fresh
@@ -416,7 +416,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    second row under the new sha. A pull request merged by squash or rebase rewrites the
    shas once more, and no commit then carries a fix's own sha. On `self-review-<name>`,
    land by `<agents repo>`'s `## default landing route`
-   (`project-get.sh <agents repo> 'default landing route'`), without asking — merge and push as
+   (`flow-guard project-get <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
    branch. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
    finding's sha is read off `<agents-base>` after the landing, never from

@@ -14,10 +14,10 @@ checked once when this stage opens its first round on the fix run, by one call �
 worktree's triple first:
 
 ```bash
-check-late-fix-trigger.sh <change> <changeRoot>/tasks.md <worktree> <since-close-sha|-> <base-verdict> [<worktree> <since-close-sha|-> <base-verdict>…]
+flow-guard check-late-fix-trigger <change> <changeRoot>/tasks.md <worktree> <since-close-sha|-> <base-verdict> [<worktree> <since-close-sha|-> <base-verdict>…]
 ```
 
-Its header (`<agents repo>/scripts/check-late-fix-trigger.sh`) is canonical for the five
+Its header (`<agents repo>/scripts/flow-guard check-late-fix-trigger`) is canonical for the five
 conditions; its plan-grew condition reads `<project>/.superpowers/sdd/<name>/tasks-at-close.md` in the canonical worktree,
 the copy the review panel's stage close writes (`skills/flow/review-panel.md`). `<since-close-sha>` is the sha this stage's last clean close on this change reviewed
 in that worktree, the pass log or the rendered panel record naming that close — `-` where it has
@@ -34,7 +34,7 @@ roster, never for the read scope; exit 4 → **The small append** below.
 **On trigger, pass 1 is one dispatch: `primary` alone**, beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the operator named at
 this stage's start, reading not the whole `final-review.diff` but only
 `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by
-`write-panel-diff.sh late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`,
+`flow-guard write-panel-diff late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`,
 whose exits read as the pass-1 write's. On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch`
 pair, its Role line `panel-rerun`, under the fix-round re-run's 5-minute ceiling; on a `default`
 panel, which carries no decision to read a pair from, on the `late-fix` row of **Allowed pairs**
@@ -71,7 +71,7 @@ rule — leaves every slot it did not dispatch current the same way.
 keeps the decided roster and narrows only the read scope.** Pass 1 runs the roster a full pass 1
 would: the same `panel.dispatches`, pairs and ceilings, and on a `default` panel its
 settings-store grouping. Every dispatch reads `<abs-worktree>/.superpowers/sdd/late-fix.diff`,
-written over the since-close range by the same `write-panel-diff.sh late-fix` call the late-fix
+written over the since-close range by the same `flow-guard write-panel-diff late-fix` call the late-fix
 reduction makes, whose exits read as the pass-1 write's, and rendered with `-diff late-fix`,
 never the whole `final-review.diff` — the render points every shared paragraph at that diff.
 Mutation, which reads no diff file, takes each worktree's since-close sha as its diff base in

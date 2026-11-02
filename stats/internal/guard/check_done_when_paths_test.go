@@ -293,7 +293,7 @@ func TestProjectLintRunsTheDoneWhenGuard(t *testing.T) {
 	}
 	_, lint, _ := strings.Cut(string(b), "\n## lint\n")
 	lint, _, _ = strings.Cut(lint, "\n## ")
-	if !strings.Contains(lint, "\nscripts/check-done-when-paths.sh .\n") {
-		t.Fatalf(".flow/project.md's ## lint does not run scripts/check-done-when-paths.sh .")
+	if !strings.Contains(lint, "\nscripts/flow-guard check-done-when-paths .\n") {
+		t.Fatalf(".flow/project.md's ## lint does not run scripts/flow-guard check-done-when-paths .")
 	}
 }

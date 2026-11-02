@@ -29,7 +29,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 capture — it reads the main checkout before then and writes nothing — and every write, stage,
 commit and push in the table above happens in a worktree. The main checkout is never checked out,
 staged, committed or written, whatever branch it sits on — save run 2's fast-forward of it, which
-`refresh-main-checkout.sh` refuses whenever it could lose anything.
+`flow-guard refresh-main-checkout` refuses whenever it could lose anything.
 
 ## The change directory is never committed
 
@@ -44,7 +44,7 @@ followed by `git push -u origin <branch>`, and every commit a run makes on the b
 commit, a fixup, a panel fix — is followed by `git push origin <branch>` from the same parent
 call that made or verified it. The one deferred push is a visual-verify commit in a `regression checkout` worktree
 (`skills/flow/visual-verify.md`): integrate's push below carries it. A lost worktree is then rebuilt with `git worktree add <path>
-origin/<branch>`. The one rewrite is integrate's reshape (`reshape-branch.sh`, then
+origin/<branch>`. The one rewrite is integrate's reshape (`flow-guard reshape-branch`, then
 the implementation commit), so that run's push is `git push --force-with-lease origin <branch>`, made
 before the self-review pass, so a run that stops before its route still
 leaves the remote on the rewritten branch; every other push is plain, save a branch a base-sync
@@ -79,14 +79,14 @@ the commit names them. The guarded commit chain (**The guarded commit chain**,
 `add -A` is what picks up operator edits and new files at the human gate, which a
 pathspec-scoped commit would drop.
 
-A `/flow-fast` branch's commit series is its whole record, and the route reads it back before anything lands — `check-fast-route-record.sh <worktree> <base>` in section 5's verify stage (`skills/flow-fast/SKILL.md`) asserts every commit since the merge base against the contract canonical in the guard's own header, a hit fixed and re-run under the route's commit rule.
+A `/flow-fast` branch's commit series is its whole record, and the route reads it back before anything lands — `flow-guard check-fast-route-record <worktree> <base>` in section 5's verify stage (`skills/flow-fast/SKILL.md`) asserts every commit since the merge base against the contract canonical in the guard's own header, a hit fixed and re-run under the route's commit rule.
 
 ## Commits outside every task
 
 **Commits outside every task carry a `Flow-Key:` trailer.** A commit a run makes on a change
 branch outside every task — the parent's full-suite fix, a panel fix or a gated reviewer's fix
 committed on top, the parent's inline review-Minors commit, `flow.visual-verify`'s capture
-commit, the brainstorm's handoff-asset commit, `commit-split.sh`'s implementation commit —
+commit, the brainstorm's handoff-asset commit, `flow-guard commit-split`'s implementation commit —
 carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded under
 (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
 records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,
@@ -95,12 +95,12 @@ carries `Task-Id:` instead. A `Flow-Key: pipeline-fix-…` commit
 is the one trailer that never passes: an in-run pipeline fix runs its own loop on its own branch,
 never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
 Run 1's unfinished-work gate lists
-every other non-`chore` commit with `check-untasked-commits.sh`
+every other non-`chore` commit with `flow-guard check-untasked-commits`
 (`skills/flow-contracts/finish-contract-run1.md`).
-**Before such a commit is pushed, `check-untasked-commits.sh` judges every commit the push sends**,
+**Before such a commit is pushed, `flow-guard check-untasked-commits` judges every commit the push sends**,
 mechanically at both points that push a change branch mid-run: `hooks/protect-main-checkout.py`
 denies a typed push of HEAD to `spectre/<name>` while it lists a commit origin's copy of that branch lacks,
-and `close-task.sh` refuses (exit 1, nothing ticked or pushed) on the same range per worktree
+and `flow-guard close-task` refuses (exit 1, nothing ticked or pushed) on the same range per worktree
 before its push. A listed HEAD takes the trailer through `git commit --amend`, an earlier commit
 through a reword; the push or the close is then made again. A commit already on origin is not
 judged there — run 1's unfinished-work gate lists it and handles `UNTASKED` (kan-941 pushed four
@@ -119,7 +119,7 @@ committed and pushed in one command, and run 1's gate listed it).
 a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names
 carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on
 it is lost with the flip a mutation proof made (kan-1006's self-review). Restore a flipped file
-with `break-and-prove.sh` or `mutate-and-verify.sh`, which restore from a pre-mutation byte
+with `flow-guard break-and-prove` or `flow-guard mutate-and-verify`, which restore from a pre-mutation byte
 snapshot (**Panel re-runs**, `skills/flow/review-panel.md`); `git restore --staged`, and a path
 with no unstaged edits, are restored as before.
 

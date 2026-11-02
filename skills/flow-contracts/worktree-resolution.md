@@ -24,7 +24,7 @@ operator, exactly as it would on any other refusal; a read-only report says so i
 instead of silently omitting the change.
 
 This binds every command that iterates a change's worktrees: the verify stage's workspace-isolation
-gate (`prepare-workspace.sh`, `skills/flow/verify-and-handoff.md`), `/flow-status`'s merge-status report, and bare `/flow`'s preflight verdict,
+gate (`flow-guard prepare-workspace`, `skills/flow/verify-and-handoff.md`), `/flow-status`'s merge-status report, and bare `/flow`'s preflight verdict,
 unfinished-work gate and run 2 removal alike — each resolves its own set through this rule rather
 than restating it. How a command resolves the set beyond reading the state file's map — whether it
 falls back to a filesystem scan, and what an inconclusive answer does next — is that command's own;

@@ -61,11 +61,11 @@
 
     **A flake fix carries its proof.** When the diff fixes a failure that does not recur on
     every run, its commits or the change's records state either the cause reproduced — in an isolated run, or
-    in a load run under run-capped.sh with a bounded worker count, at most 5 capped runs — and that
+    in a load run under flow-guard run-capped with a bounded worker count, at most 5 capped runs — and that
     run failing with the fix's mechanism removed, or that the flake did not reproduce within the cap
     and the fix went straight to code on deeper analysis
     (`~/.claude/rules/fix-determinism-at-the-source.md`). Report a fix that states neither, one
-    proven by a load reproduction not run under run-capped.sh with a bounded worker count, and one
+    proven by a load reproduction not run under flow-guard run-capped with a bounded worker count, and one
     that widens a tolerance, timeout, retry count or sleep.
 
     **Shared state the diff reuses — a required step, done before anything else:**

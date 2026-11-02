@@ -1,1 +1,0 @@
-../../../scripts/check-tree-markers.sh

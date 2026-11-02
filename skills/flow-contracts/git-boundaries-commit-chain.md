@@ -23,7 +23,7 @@ message also lists anything the operator integrated over
 (**1. Check for unfinished work**, `skills/flow/integrate.md`).
 
 **The change directory is left out by the ignore file alone.** `<project>/spectre/changes/` is
-gitignored, so `add -A` stages nothing under it; `commit-split.sh` refuses, exit 2 naming the
+gitignored, so `add -A` stages nothing under it; `flow-guard commit-split` refuses, exit 2 naming the
 path, a worktree where it is not ignored.
 
 **A skipped commit is reported, and a FAILED commit — one a hook rejects — is a git failure: report

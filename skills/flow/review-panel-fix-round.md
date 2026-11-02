@@ -10,7 +10,7 @@ there.
 ## Panel re-runs
 
 **Every round this stage dispatches after pass 1 — each fix-round re-run — opens by running **Check base movement first** again: the same
-per-worktree `sync-panel-base.sh` call, with that section's
+per-worktree `flow-guard sync-panel-base` call, with that section's
 verdicts, automatic no-overlap rebase, overlap prompt and conflict handling unchanged — a `MOVED`
 with no overlap rebases unasked at a round boundary just as at entry.** **Continue** at a round
 boundary proceeds into the round's own remaining steps — the citation pre-check that follows the
@@ -24,7 +24,7 @@ append scope, or `primary` alone on that delta under the small append — plus e
 that it did not already carry.** Only re-runs after a fix are scoped. A `test-sanity`, `call-efficiency`, `mutation` or `failure-modes` role re-runs in the round's rerun bundle like any other role, on `opus` on a `default` panel. Record
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
-`write-panel-diff.sh fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
+`flow-guard write-panel-diff fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
 whose exits read as the pass-1 write's (**The docs-only reduction**, `skills/flow/review-panel.md`).
 
 **A branch the remote already holds takes the fix as one new commit on top, never a rewrite.**
@@ -42,19 +42,19 @@ commit (`<task-sha>`), and the autosquash folds it in immediately, before anythi
 call, with the changed paths:
 
 ```bash
-fold-fixup.sh <worktree> <task-sha> <changeRoot>/tasks.md <the changed paths>
+flow-guard fold-fixup <worktree> <task-sha> <changeRoot>/tasks.md <the changed paths>
 ```
 
-Its header (`<agents repo>/scripts/fold-fixup.sh`) is canonical for the sequence it runs. The
+Its header (`<agents repo>/scripts/flow-guard fold-fixup`) is canonical for the sequence it runs. The
 route's own diff is `git diff "$FIX_BASE"..HEAD`, read once the fold has landed. Exit 0 → folded
 (`FOLDED:`), or, where the fold emptied its target commit, that commit dropped (`DROPPED:`) — the
 plan's task entry stays, the record of the mistake the branch no longer carries.
 `git diff "$FIX_BASE"..HEAD` then reads the restoration itself, and the round's reproducer
-re-runs and diff check close on it unchanged. Exit 1 → a `guard-autosquash.sh` refusal: the round stops before anything
+re-runs and diff check close on it unchanged. Exit 1 → a `flow-guard guard-autosquash` refusal: the round stops before anything
 builds on the rewritten history; exit 2 → it cannot answer: report its stderr and stop the round;
 exit 3 → a conflict between two of the branch's own commits is left in progress (`CONFLICT:`):
 resolve it by hand, keeping both sides, run `git rebase --continue`, then
-`fold-fixup.sh --finish <worktree> <task-sha> <changeRoot>/tasks.md`, whose exits read as the
+`flow-guard fold-fixup --finish <worktree> <task-sha> <changeRoot>/tasks.md`, whose exits read as the
 first call's.
 
 **A clean `git rebase --autosquash` is not evidence the fix survived it.** Where the fixup and the
@@ -80,7 +80,7 @@ Critical, Important or Minor alike.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
 was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
 `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), written
-with `write-panel-diff.sh slot-delta <round> <slot> <abs-worktree> <worktree> <merge-base> <held-sha|-> […]`
+with `flow-guard write-panel-diff slot-delta <round> <slot> <abs-worktree> <worktree> <merge-base> <held-sha|-> […]`
 — `-` where the slot holds no sha in that worktree, which then contributes its whole
 `git diff <merge-base>` section — whose exits read as the pass-1 write's. Every slot's dispatch prompt names the path it was given and, for a delta,
 each worktree's starting sha. **Check base movement first** above clears every slot's held sha in
@@ -146,7 +146,7 @@ that slot's `flow record dispatch end` is recorded, with `<report>` its
 it was sent to re-review:
 
 ```bash
-check-rerun-citations.sh <report> <diff> F<n> [F<n>…]
+flow-guard check-rerun-citations <report> <diff> F<n> [F<n>…]
 ```
 
 Exit 0 proceeds. Exit 1 sends the re-run dispatch back **once**, on the same model and effort — one
@@ -156,7 +156,7 @@ plus `-cite`, `-key panel-<round>-<slot|slot+slot+slot>-cite`, and its prompt ca
 cap, at most one per re-run dispatch. A second exit 1 counts that re-run as not clean, and each
 finding still `UNCITED` goes to the handback below. Exit 2 stops the run.
 **A pending send-back holds the stage:** the round neither closes nor hands to `flow.verify` until
-the `-cite` dispatch has returned and `check-rerun-citations.sh` has been run on its report.
+the `-cite` dispatch has returned and `flow-guard check-rerun-citations` has been run on its report.
 
 **From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
 reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
@@ -164,7 +164,7 @@ each site opened at its recorded `file:line` in the current tree — in place of
 delta; the re-run rule above is unchanged, and so is everything the round's own mutation-proof
 covers.
 
-**The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
+**The cap check on a re-run** is `flow-guard check-panel-diff-size <worktree> <sha> <cap>` once per
 worktree per **distinct** held sha among the diff-reading slots dispatched this round (two slots
 sharing a sha in a worktree need one call there, not two); a slot with no held sha in a worktree
 counts from that worktree's merge base. **The gating count is the largest per-slot sum across
@@ -174,7 +174,7 @@ roster**, above), reporting the gating sum, its per-worktree counts and, when it
 full-branch sum. Record both with `flow record pass -round <round>` for this round,
 alongside the agents-ran/why/diff-path lines the fix pass records.
 
-**The docs-only guard runs again beside that cap check**, `check-panel-docs-only.sh <worktree>
+**The docs-only guard runs again beside that cap check**, `flow-guard check-panel-docs-only <worktree>
 <merge-base>`. A branch that stays docs-only keeps the
 reduced roster, and `primary` re-runs on its delta as above. A branch the fix round made no
 longer docs-only — exit 1 or 2 where pass 1 saw exit 0 — dispatches, in this round, every
@@ -190,7 +190,7 @@ wrong, severity words and slot names stripped out.
 **Before dispatching the fix subagent**, the parent runs:
 
 ```bash
-check-panel-reproducers.sh <worktree> <change>
+flow-guard check-panel-reproducers <worktree> <change>
 ```
 
 Exit 0 proceeds. Exit 1 covers two classes: a **missing or malformed field** is added before
@@ -207,10 +207,10 @@ store read would otherwise answer is never a clean verdict (KAN-658).
 hand**:
 
 ```bash
-check-panel-reproducer-exit-contract.sh <worktree> <change>
+flow-guard check-panel-reproducer-exit-contract <worktree> <change>
 ```
 
-The guard runs every **open** finding's runnable reproducer through `run-reproducer.sh` against the
+The guard runs every **open** finding's runnable reproducer through `flow-guard run-reproducer` against the
 finding's own worktree — per finding, the worktree whose copy of the reproducer's recorded relative
 path resolves: the canonical worktree first, else the one other entry of the state record's
 `worktrees` map carrying the path; a path resolving in several recorded worktrees is cannot-answer,
@@ -253,7 +253,7 @@ gone, removed as its slot's dispatch closed), each run followed by `; echo "F<n>
 readable:
 
 ```bash
-run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
+flow-guard run-reproducer <worktree> "<the finding's finding-reproducer: text>"
 ```
 
 `<worktree>` is the cwd contract's per-finding resolution — the worktree whose copy of the
@@ -280,7 +280,7 @@ that run printed>`**: the verdict comparison is valid only between two runs of t
 runner pins the re-run to the dispatch-time reproducer and refuses a mismatch (exit 2, never
 executed). A refused re-run means the reproducer was re-authored — its mutation-convention
 declaration included — and it is re-run against the defect-present code — the pre-fix leg
-`prove-reproducer.sh` runs, against a scratch worktree at the pre-fix commit — for a fresh
+`flow-guard prove-reproducer` runs, against a scratch worktree at the pre-fix commit — for a fresh
 verdict and sha before the round continues: a run that answered `2`, `3` or `4` refused, went
 unverifiable,
 or stopped before any dispatch, so nothing re-runs for it — and
@@ -344,7 +344,7 @@ test exists to catch — and the test confirmed to fail under the flip is that a
 test, not merely any test that happens to trip: the flip is what shows the fix's own test tests
 what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
 round's re-review begins.
-`check-panel-findings-closed.sh` refuses the panel's close while a round with a fixed Critical or Important finding has no `flow record mutation` row, the predicate integrate's unfinished-work gate applies, so the omission surfaces while the fix round is still open (kan-1039: it surfaced only at the landing gate).
+`flow-guard check-panel-findings-closed` refuses the panel's close while a round with a fixed Critical or Important finding has no `flow record mutation` row, the predicate integrate's unfinished-work gate applies, so the omission surfaces while the fix round is still open (kan-1039: it surfaced only at the landing gate).
 
 **Every fixed Critical or Important finding leaves a tracked suite test behind** — the
 `regression-test:` line of the REPORT FILE paragraph (`skills/flow/review-panel.md`), so a
@@ -401,13 +401,13 @@ beside the mutation lines: the fix's report names the probe assertion it landed 
 actual rendered pixels, and a fix commit for this class of bug that landed no such
 probe is rejected at the fix step — the round does not close and the finding stays open, for the
 handback below — rather than the regression being discovered next round. **The same
-walk holds a folded fix to its PLAN FIELDS obligation:** a `fold-fixup.sh` hunk that adds a
+walk holds a folded fix to its PLAN FIELDS obligation:** a `flow-guard fold-fixup` hunk that adds a
 test case, adds a file, or changes what a task's `**Baseline:**` counts, whose task's `**Tests:**`,
 `**Baseline:**` or `**Files:**` field in `<changeRoot>/tasks.md` does not reflect it, does not close
 the round; it goes to the handback.
 
 Beside the reproducer re-runs above, the round close re-runs the task-field guard mechanically:
-`check-task-commit-fields.sh <worktree> <task-id> <task-sha> "" <canonical-worktree>
+`flow-guard check-task-commit-fields <worktree> <task-id> <task-sha> "" <canonical-worktree>
 <name>` for every task a fixup folded into — `<task-id>` from that commit's `Task-Id:` trailer,
 `<task-sha>` the folded commit as it now stands, the remaining arguments resolved the way
 `skills/flow/implement.md`'s task-close step resolves them. Exit 1 does not close the round; it
@@ -459,7 +459,7 @@ whatever the dispatch count, save the parent's own `full-suite-fix-<n>` rows rec
 `-agent-id inline` (`skills/flow/implement.md`). A gated reviewer's fix round is no panel-fix row: it records under `-role implementer` (`skills/flow/gated-review-fix.md`), and an in-run verify fix under its appended task's implementer pair (`skills/flow/verify-fix-loop.md`). A round may not chunk freely: its chunk count is bounded by
 `ceil(findings raised in earlier rounds / 10)`. Before recording each `dispatch begin`, confirm that key has
 no panel-fix begin already recorded — a second begin under a fresh key is over-dispatching even
-when every key is well-formed. `check-panel-fix-single-dispatch.sh` holds every run's panel close
+when every key is well-formed. `flow-guard check-panel-fix-single-dispatch` holds every run's panel close
 to exactly this shape (**Before closing the stage**, below). Inline
 (`skills/flow/implement.md`'s **Inline — the parent implements**), the parent applies the fix
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role

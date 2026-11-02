@@ -2,7 +2,7 @@
 
 **Loaded by `skills/flow/integrate.md`'s step 1 only when** a worktree reported `OUTSTANDING` or
 `UNTASKED`. `VISUAL-VERIFY-MISSING` never loads it: that verdict is `STOP: visual-verify`, which no
-course here passes. The verdicts and the stage mark are `integrate-change.sh`'s, the stop-and-ask rows that step's;
+course here passes. The verdicts and the stage mark are `flow-guard integrate-change`'s, the stop-and-ask rows that step's;
 **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) is canonical
 for the guards.
 
@@ -79,25 +79,25 @@ The signals that produce that list are the script's own.
 When the verdict is structural — the plan held in another worktree with every task ticked and no
 open finding — or an item **Finish it** above cannot finish, run once, before the landing question:
 
-```bash verified:the flag set is design.md §5's; the call shape mirrors the `flow record verdict` invocation in scripts/check-unfinished-work.sh
+```bash verified:the flag set is design.md §5's; the call shape mirrors the `flow record verdict` invocation in scripts/flow-guard check-unfinished-work
 flow record verdict false-positive -change <name> -guard check-unfinished-work \
   -reason "<the operator's reason, verbatim>" -C <canonical-worktree>
 ```
 
 Once, and at the canonical worktree, whichever worktrees reported `OUTSTANDING`: the guard records
 every worktree's verdict under the canonical project (THE STORE CALLS ANCHOR AT THE PLAN'S PROJECT,
-`<agents repo>/scripts/check-unfinished-work.sh`), and the command flags that project's newest verdict for the
+`<agents repo>/scripts/flow-guard check-unfinished-work`), and the command flags that project's newest verdict for the
 change — a satellite's `-C` names a project holding none, and the store refuses it (kan-941:
 "dispatch not found" for both satellites).
 
-**A flagged verify failure stays cleared.** `check-unfinished-work.sh` clears a verify failure
+**A flagged verify failure stays cleared.** `flow-guard check-unfinished-work` clears a verify failure
 whose `<spec>:<line>` an earlier false-positive verdict of the change names, so the `-reason`
 names each verify failure it flags by the `<spec>:<line>` the verdict printed (kan-1010:
 `screenshots.spec.ts:52` was flagged three times, each flag on that run's newest row alone).
 
 A write that falls back to the journal is one warning line and the run continues.
 
-**An `UNTASKED` listing is never flagged this way.** `check-untasked-commits.sh` records no
+**An `UNTASKED` listing is never flagged this way.** `flow-guard check-untasked-commits` records no
 verdict, so the flag would land on `check-unfinished-work`'s newest row, a `CLEAR` (kan-1003:
 verdict 646). A listed commit's author is the identity every session commits under, so the relay
 never calls it the operator's own.

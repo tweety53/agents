@@ -1,11 +1,11 @@
 # Clean up (run 2)
 
 Loaded either by `skills/flow/integrate.md`'s merge-and-push route, in the same invocation, or by a
-fresh bare `/flow <name>` invocation once `check-finish-preflight.sh` returns `RUN2` from every
+fresh bare `/flow <name>` invocation once `flow-guard check-finish-preflight` returns `RUN2` from every
 worktree.
 
 **`skills/flow-contracts/finish-contract-run2.md` is canonical for the full procedure.**
-`integrate-change.sh` runs it — chained from `land` on the merge-and-push route, or called once
+`flow-guard integrate-change` runs it — chained from `land` on the merge-and-push route, or called once
 `prepare`'s `NEXT:` names it — with its five stage marks; the parent handles each stop, makes the
 Jira transition, and prints the handoff. **Load `skills/flow-contracts/finish-contract-run2.md`
 only when** a stop below cites one of its sections, and **load
@@ -17,7 +17,7 @@ to `<agents repo>`'s own tooling integrates with the branch's copy of it**
 `timeout: 600000`):
 
 ```bash
-refresh-main-checkout.sh <agents repo> <agents-base>
+flow-guard refresh-main-checkout <agents repo> <agents-base>
 make -C <agents repo>/stats restart
 ```
 
@@ -42,7 +42,7 @@ Then call `cleanup` with the parent's own shell outside every worktree in the se
 **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```bash
-integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
 
 Run it with a Bash `timeout: 600000`: a refresh that moved `<agents repo>/stats/` restarts flowd inside the call,
@@ -126,7 +126,7 @@ Next:
 
 ## Worktree cleanup
 
-Run `remove-change-worktrees.sh` once per repository per **Worktree cleanup**
+Run `flow-guard remove-change-worktrees` once per repository per **Worktree cleanup**
 (`skills/flow-contracts/finish-contract-run2.md`), canonical for its checks, exit codes and relay:
 
 **Check 4 asks only about an irreplaceable, unpreserved entry**, per check 4 of **Worktree cleanup**

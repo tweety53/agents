@@ -31,7 +31,7 @@ shared `<worktree>` the other slots read, so every slot's findings are raised ag
 pristine snapshot and no slot's view ever contains another slot's work:
 
 **The parent creates and removes every throwaway copy itself, in its own Bash calls — never a
-subagent.** Run `throwaway-worktree.sh create <worktree> <worktree>-<slot>-<round> --sdd` once per
+subagent.** Run `flow-guard throwaway-worktree create <worktree> <worktree>-<slot>-<round> --sdd` once per
 worktree in the resolved set per slot, producing one `<worktree>-<slot>-<round>` per repository per
 slot — `<slot>` is the id (`mutation`). Exit 2 means a step failed, named on stderr: that slot is
 not dispatched against that copy.
@@ -42,7 +42,7 @@ Dispatch each slot present in this round's roster **once**, its prompt listing e
 that slot as the repository paths to mutate and test in, in place of `<worktree>`.
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
 (including after the wall-clock re-dispatch), or the run stopped — with
-`throwaway-worktree.sh remove <worktree> <worktree>-<slot>-<round> --fold-back`, which first copies
+`flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, which first copies
 each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md` and
 `<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
 

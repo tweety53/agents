@@ -98,25 +98,6 @@ sut prepare "$WORK/a" demo
 check "sync_conflict: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "sync_conflict: the stop line names the --resume call and what follows it" \
   'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: sync-conflict — .*flow-guard sync-onto-base --resume., the whole ## lint and ## test lists, then re-run prepare$"'`},
-		{"guard_test", `# --- guard_test ---
-# A scoped re-verification is <agents repo>/scripts/test-<stem>.sh, the repo
-# derived from the guards' own path: run a copy of scripts/ whose stats/ is
-# this checkout's, holding a failing test-gt.sh, so no test lands in the tree.
-fixture
-mkdir -p "$WORK/agents"
-cp -R "$SCRIPT_DIR" "$WORK/agents/scripts"
-ln -s "$(cd "$SCRIPT_DIR/../stats" && pwd -P)" "$WORK/agents/stats"
-printf '#!/usr/bin/env bash\necho gt-test-own-output\nexit 1\n' >"$WORK/agents/scripts/test-gt.sh"
-printf 'same\n' >"$WORK/b-worktrees/demo/gt.txt"
-g -C "$WORK/b-worktrees/demo" add gt.txt && g -C "$WORK/b-worktrees/demo" commit -qm "feat(b): gt" -m "Task-Id: 2"
-printf 'same\n' >"$WORK/b/gt.txt"
-g -C "$WORK/b" add gt.txt && g -C "$WORK/b" commit -qm "base: gt" && g -C "$WORK/b" push -q origin main
-SUT_SAVED="$SUT"; SUT="$WORK/agents/scripts/integrate-change.sh"
-sut prepare "$WORK/a" demo
-SUT="$SUT_SAVED"
-check "guard_test: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
-check "guard_test: the stop is STOP: guard-test" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: guard-test"'
-check "guard_test: the failing test's own output is relayed" 'printf "%s" "$OUT" | grep -qx "gt-test-own-output"'`},
 		{"rebase_lint", `# --- rebase_lint ---
 # b's base gains a .flow/project.md whose ## lint list fails and nothing this
 # change touches: the rebase is clean, and the rebased tree's lint list runs.

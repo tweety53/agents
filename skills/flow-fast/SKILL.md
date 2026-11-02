@@ -11,7 +11,7 @@ session token, so the stats views see a `/flow-fast` run as the same pipeline. N
 `/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`, no state file
 and no three states, no staged-diff gate, no archive, and no pipeline guard. Dispatch and a review panel exist only where the recorded
 decision names them (**Dynamic decisions** below). The only isolation is git's: a
-worktree on its own branch. `prepare-workspace.sh`, the per-change
+worktree on its own branch. `flow-guard prepare-workspace`, the per-change
 database, bucket, ports and cache index of **Workspace isolation**
 (`skills/flow-contracts/workspace-isolation.md`) are never set up.
 
@@ -82,11 +82,11 @@ standing wherever a cited section reads the working notes' merge base; and nothi
 skipped, the finding rows are the record. The scripts a cited section calls run as it says.
 
 - **writing-plans**: write `<changeRoot>/tasks.md` in `/flow`'s plan shape — the task line and
-  fields `check-plan-shape.sh` reads: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
+  fields `flow-guard check-plan-shape` reads: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
   `**Commit:**`, `**After:**` — plus each task's `**Build:** green` tag, the convention
-  `check-task-build-green.sh` requires at close time (**The build-green tag**,
+  `flow-guard check-task-build-green` requires at close time (**The build-green tag**,
   `skills/flow-contracts/build-green.md`) — one task per file or logical unit the change touches, then run
-  `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's
+  `flow-guard check-plan-shape <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's
   not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
   fixed by editing the plan. A re-run replaces the file with
   the fix's own tasks. A deliberate reword or addition to the run-loaded corpus is listed, exactly as
@@ -95,7 +95,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   `<changeRoot>/verbatim-moves.txt` — `<abs-worktree>/.superpowers/sdd/<change>/` — on this one,
   never `<project>/spectre/`.
   A minimal task in that shape — every field line at column 0, never indented under the task line
-  (an indented field is invisible to the parser and fails `check-plan-shape.sh`), and `**Tests:**`
+  (an indented field is invisible to the parser and fails `flow-guard check-plan-shape`), and `**Tests:**`
   naming the test in backticks or opening with `none — <reason>`:
 
 ```markdown
@@ -107,12 +107,12 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 **Build:** green
 ```
 
-- **decide**: `plan-class.sh <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5 and the tree `plan-class.sh` prints
+- **decide**: `flow-guard plan-class <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5 and the tree `flow-guard plan-class` prints
   (`skills/flow/brainstorm-planner.md`) as written — the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
-  written except its task close: `close-task.sh` is not run — its fields guard, gate and tick read a spectre plan,
+  written except its task close: `flow-guard close-task` is not run — its fields guard, gate and tick read a spectre plan,
   and its planning-paths guard a planning tree, neither of which flow-fast writes. A group closes on the implementer's
   `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests. On `inline`, section 4 as this file states it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
@@ -155,7 +155,7 @@ key's exit 1 (absent) continues with nothing run, its exit 2 stops the run, and 
 non-zero exit ends the run naming the command and its output. A re-run reusing an existing
 worktree runs nothing here — the creating run already ran it.
 
-**From here on, on every run, `<base>` is what `resolve-base-branch.sh <worktree>` prints** — the
+**From here on, on every run, `<base>` is what `flow-guard resolve-base-branch <worktree>` prints** — the
 recorded base when there is one — so a re-run lands where the creating run cut.
 
 Still nothing else: no database, no bucket. Every section from here on
@@ -227,9 +227,9 @@ add-worktree` call and `<name>` as the pushed branch.
 The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
 Claude Code, `<project>/AGENTS.md` on ZCode and Muse); never read either one here. Read
 `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, the
-first two read with `project-get.sh <project> <key>`, `## handoff` with
-`project-get.sh <project> handoff --enum required none` and `## default landing route` with
-`project-get.sh <project> "default landing route" --enum "pull request" "merge and push" manual`
+first two read with `flow-guard project-get <project> <key>`, `## handoff` with
+`flow-guard project-get <project> handoff --enum required none` and `## default landing route` with
+`flow-guard project-get <project> "default landing route" --enum "pull request" "merge and push" manual`
 (exit 1 absent; exit 3 malformed — report its stderr line by name and resolve as absent): sections
 5 and 7 take their commands from the first three, and `## handoff` says whether the run stops
 between them.
@@ -269,7 +269,7 @@ with `--force-with-lease`, never a bare `git push`, and never `--force`. A backi
 a withdrawn task — carries the rejection reason in its body (**Revert and back-out commits**,
 `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
 record; no task-fields guard reads it, and section 5's lint and tests are the only close a commit
-gets. The series is read back before section 7 lands anything — `check-fast-route-record.sh
+gets. The series is read back before section 7 lands anything — `flow-guard check-fast-route-record
 <worktree> <base>` in section 5's verify stage, per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`). Fix every lint hit the project's `## lint`
 raises on the files you touched rather than suppressing it.
@@ -291,15 +291,15 @@ flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome complet
 flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Run `<agents repo>/scripts/run-verify-list.sh <worktree> lint` — it runs every command of
-`## lint`'s fence, never the fence lines `project-get.sh` prints with them — and the `## test` commands scoped to what the
+Run `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint` — it runs every command of
+`## lint`'s fence, never the fence lines `flow-guard project-get` prints with them — and the `## test` commands scoped to what the
 change touched — the packages, modules or test files the diff names, never the full suite unless
 the operator asked for it. When the diff names nothing those commands can scope to, none of them
 runs — the change summary below states that empty-scope reason explicitly, the stated reason
 being what makes the skip auditable rather than lazy, never a reflexive full-suite run in its
-place. Then `check-fast-route-record.sh <worktree> <base>` reads the branch's
+place. Then `flow-guard check-fast-route-record <worktree> <base>` reads the branch's
 commit series as the record, per **Branch backup**
-(`skills/flow-contracts/git-boundaries.md`). Then `<agents repo>/scripts/run-verify-list.sh <worktree> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks; a failure that is the change's intended look is recaptured with the section's `capture` row and committed under section 4's commit rule before the run lands (kan-1052 self-review, F2). Where the section declares a `regression checkout`, the run first adds that repository's worktree on the change's branch, runs the section's `setup` command in it, and starts there the stack its `verify` row needs (the project's `## run`) — the one exception to the no-isolation rule above; the `visual` list never falls back to the main checkout, and exits 1 naming it while it holds no worktree on the branch (kan-1052 self-review, R1). A failure is fixed and re-run under section 4's
+(`skills/flow-contracts/git-boundaries.md`). Then `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks; a failure that is the change's intended look is recaptured with the section's `capture` row and committed under section 4's commit rule before the run lands (kan-1052 self-review, F2). Where the section declares a `regression checkout`, the run first adds that repository's worktree on the change's branch, runs the section's `setup` command in it, and starts there the stack its `verify` row needs (the project's `## run`) — the one exception to the no-isolation rule above; the `visual` list never falls back to the main checkout, and exits 1 naming it while it holds no worktree on the branch (kan-1052 self-review, R1). A failure is fixed and re-run under section 4's
 commit rule; the run never lands red, a failing test it did not introduce included (**the sweep**,
 `skills/flow-contracts/known-bugs.md`).
 

@@ -83,17 +83,17 @@ never an exit code the command did not return.
    never the whole suite; a non-zero exit blocks as any `capture` failure does, a failing test this
    change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
    Then rebuild the zip from exactly what the suite just produced with
-   `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>`, the one script every recapture
+   `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>`, the one script every recapture
    that moves the suite runs too (`skills/flow/verify-fix-loop.md`, `skills/flow/sync-onto-base.md`).
    Both arguments are absolute — the script refuses a relative root — and a project whose `capture`
    row chains this rebuild after Playwright has run it with `capture`, a second run rewriting nothing
    (group-allowed-pairs-roles self-review).
 
-   `<screenshots root>` is `screenshots` resolved the way `resolve-visual-screenshots.sh`
+   `<screenshots root>` is `screenshots` resolved the way `flow-guard resolve-visual-screenshots`
    resolves it. Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over
    unchanged images is then byte-identical and commits nothing. A non-zero exit blocks.
 
-   Then run `check-spec-reach.sh <worktree>` — the spec
+   Then run `flow-guard check-spec-reach <worktree>` — the spec
    `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
    exit 1 (an orphan, named) or 2 (cannot answer) blocks.
 9. **Measure in one call, then read in one turn.** Right after step 8's capture — after step 10's
@@ -101,12 +101,12 @@ never an exit code the command did not return.
    the bundle names:
 
    ```bash
-   visual-verify-pass.sh measure <worktree> <name> <key> <spec path> [--prototype]
+   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]
    ```
 
    `--prototype` when step 10's approved prototype is the frame. Its header is canonical for what it
-   runs — `resolve-visual-screenshots.sh`, `check-identical-baselines.sh`, `compose-mockup-frames.sh`
-   and `measure-visual-properties.sh`'s band, seam and matrix reads on every pair — the files it
+   runs — `flow-guard resolve-visual-screenshots`, `flow-guard check-identical-baselines`, `flow-guard compose-mockup-frames`
+   and `flow-guard measure-visual-properties`'s band, seam and matrix reads on every pair — the files it
    writes and its exits; it carries on past a step's non-zero exit and records each exit and its
    stderr in the manifest it names, `<abs-worktree>/.superpowers/sdd/visual-manifest-<key>.json`. A
    sidecar written later, or a recapture, runs it again. Then read the manifest and every image it
@@ -117,21 +117,21 @@ never an exit code the command did not return.
    never rendered, and its exit 2 (cannot answer) blocks the same way. **Read every capture** — no
    script can do that — and state, per view, what was seen.
    Each captured PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
-   composed for its `per view, no frame composed: <view> sweeps:` line — `check-verify-report.sh`
+   composed for its `per view, no frame composed: <view> sweeps:` line — `flow-guard check-verify-report`
    refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
    named only the prototype-framed captures, and a clipped chart label on an unnamed full-page
    capture surfaced a round later).
    An unreadable PNG is reported and blocks
    too.
 
-   The manifest's `identical` groups are `check-identical-baselines.sh`'s, whose header is canonical
+   The manifest's `identical` groups are `flow-guard check-identical-baselines`'s, whose header is canonical
    for what it compares: each names PNGs of one directory that are
    byte-identical, and the report carries one `- identical:` line per group stating why those views
    draw the same pixels, or the defect that made them, which blocks: kan-998's pad-up and pad-down
    baselines were one image, and only a reviewer saw it. Its exit 2 → it cannot answer, and blocks.
 10. **Compose captured frames against their mockups, if `mockups` is declared.** With a
    `<spec>.mockups` sidecar beside the capture spec, step 9's `measure` composed every pair it maps
-   through `compose-mockup-frames.sh`, with this project's resolved `mockup frame` value as its fourth
+   through `flow-guard compose-mockup-frames`, with this project's resolved `mockup frame` value as its fourth
    argument — a sidecar's own first `frame` line overrides it — and its manifest lists one
    `<composite path> diff=<ratio>` per pair: **read every one** and state,
    per pair, what the difference panel's white regions are, the ratio, and where the capture
@@ -186,7 +186,7 @@ never an exit code the command did not return.
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
    under a hundredth and vanishes in that white. Beside every composite the compose step writes
    the cropped frame as `<composite stem>.frame.png`, the capture's own size, and for every pair
-   `measure` ran `measure-visual-properties.sh <stem>.frame.png <capture PNG> --scale 1 --props
+   `measure` ran `flow-guard measure-visual-properties <stem>.frame.png <capture PNG> --scale 1 --props
    bands,seams`: the manifest lists each pair's flagged bands and seams, and its full output sits in
    the file the manifest names. Read `delta.bands` (the script's header is canonical for the property): every band the
    frame draws, paired with the capture's in order, a text or data difference never unpairing
@@ -253,7 +253,7 @@ never an exit code the command did not return.
    departure this change's, its line naming `merge-base capture failed — <reason>` beside it.
    A line attributing a departure as present at the merge base names its evidence beside it —
    `merge-base baseline: <merge-base sha>:<baseline png path>` or `merge-base capture: <absolute
-   png path>` — and `check-verify-report.sh` refuses a `pre-existing` or `present at the merge
+   png path>` — and `flow-guard check-verify-report` refuses a `pre-existing` or `present at the merge
    base` attribution that names neither (kan-1015: the kan-466 weight-tab button was attributed
    pre-existing from the code path alone, and its baseline re-captured over the defect).
    Every line that reports the departure names its cause or its attribution
@@ -387,7 +387,7 @@ never an exit code the command did not return.
       band — a control's sides, its cell dividers, a card's inner rules — are its seams, and the
       seam pairing above has listed each one the same way; this sweep reads both lists and adds
       the vertical inks neither can see, the dividers of a row with no border or fill: run
-      `measure-visual-properties.sh` with `--props runs` on the
+      `flow-guard measure-visual-properties` with `--props runs` on the
       frame alone, the region a full-width row through the centre of each such row, write down
       every run whose colour is neither the
       background's nor a text run's — its position and length — then the same region on the
@@ -417,7 +417,7 @@ never an exit code the command did not return.
       `extra`. A fix run enumerates afresh from the frame — the previous round's departures are
       cells in the new matrix, never its rows. Seed the enumeration with the matrix step 9's
       `measure` wrote to `<changeRoot>/visual-verification/matrix/<frame id>.json` —
-      `measure-visual-properties.sh --props matrix`, which finds each image's app surface — a sheet's
+      `flow-guard measure-visual-properties --props matrix`, which finds each image's app surface — a sheet's
       top edge on a scrim frame — lists every ink run inside it paired in order, and fills every
       column below for every paired element, each region clipped to its image; every element it
       merges or misses is added by hand (kan-1015: the band read took each scrim-dimmed frame as one
@@ -441,7 +441,7 @@ never an exit code the command did not return.
 
       The matrix table's header opens with `element` and names the columns above, and each row's
       `kind` cell opens with the row's class — `text run`; `control`, `row` or `card`; `rule`,
-      `divider` or `fill band` — then its role, so `check-verify-report.sh` can read which columns
+      `divider` or `fill band` — then its role, so `flow-guard check-verify-report` can read which columns
       may be n/a for it.
       Every cell holds the frame's number, the capture's and the `delta` — or n/a — `<why>`
       where the column does not apply to the row's class (the dashes above). **A cell the pixels
@@ -470,18 +470,18 @@ never an exit code the command did not return.
       `#<row>: <cause> — <key> a=<a> b=<b>`, `<key>` one of the row's over keys, so a cause given
       from a neighbouring row names figures its own row does not have (kan-1057 self-review, F20).
       A row whose `figures` are empty — `missing`, `extra`, or `unresolved` alone — quotes nothing.
-      `check-verify-report.sh` refuses a missing line, a wrong count, an unnamed row or a cause off
+      `flow-guard check-verify-report` refuses a missing line, a wrong count, an unnamed row or a cause off
       the list, and reads `over` from this dispatch's manifest, so a pass that skipped `measure`
       never stands on last round's numbers.
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
-   `measure-visual-properties.sh`, then eyeball what it measured.** A crop is for reading text
+   `flow-guard measure-visual-properties`, then eyeball what it measured.** A crop is for reading text
    and layout, never edges or centres — interpolation and a small viewport shift an edge by
    pixels and hide a gap outright. For every per-control comparison this step makes, run
 
    ```bash
-   measure-visual-properties.sh <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
+   flow-guard measure-visual-properties <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
    ```
 
    with each region a crop around that one control and a background margin on every side —
@@ -643,7 +643,7 @@ steps 8, 9 and 10 read n/a — wire contract, no view drawn — never `done` ove
 never ran (kan-1022's self-review).
 
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
-each of steps 4, 8–11 and the motion step a status `check-verify-report.sh` admits — its header
+each of steps 4, 8–11 and the motion step a status `flow-guard check-verify-report` admits — its header
 is canonical for them — and the parent runs that guard on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
@@ -655,7 +655,7 @@ dispatches cost 19 and 10 minutes).
 frame draws, every cell filled as step 10 states, and every sweep on each `sweeps:` and `added
 sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell left for time, context
 or a measurement the pixels could not give is step 10 undone.
-Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `check-verify-report.sh` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8).
+Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `flow-guard check-verify-report` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8).
 It refuses one the same way for a missing `bands:`, `seams:` or `over-tolerance:` line, an empty
 matrix cell, an n/a cell in a column that applies to its row's class and not reading
 `no mockup source`, and a sweep item reading neither `done` nor n/a — `<why it does not apply>`.

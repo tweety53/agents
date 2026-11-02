@@ -175,7 +175,7 @@ either says how it was checked, or says plainly that it was not.
 
 ## plan-provenance-guard.md — The guard's scope, and why it is narrow
 
-That is where the over-firing history bears. `<agents repo>/scripts/check-references.sh`'s own header records
+That is where the over-firing history bears. `<agents repo>/scripts/flow-guard check-references`'s own header records
 that an earlier guard in this repository, once widened past the shape it was designed for, produced
 28 false failures on this repo's own tree — none of them a genuine defect. The only way to silence
 a false failure under time pressure is a suppression marker, and a suppression marker placed to

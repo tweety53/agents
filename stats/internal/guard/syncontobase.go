@@ -11,7 +11,7 @@ import (
 // syncOntoBase is scripts/sync-onto-base.sh: that script's header comment is
 // the contract -- a finishing worktree synced onto its base's tip, every
 // check-base-moved line echoed on stdout, then one of CLEAN / REBASED (exit
-// 0, REBASED preceded by a GUARD-TEST or NO-GUARD-TEST line per overlap
+// 0, REBASED preceded by a NO-GUARD-TEST line per overlap
 // path) or CONFLICT (exit 1, left mid-rebase); exit 2 on a REFUSE, a
 // question it cannot answer.
 func init() {
@@ -117,14 +117,11 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 			paths = append(paths, p)
 		}
 		sort.Strings(paths)
+		// The per-guard bash harnesses (scripts/test-<stem>.sh) this looked
+		// up are gone — every guard's test is Go, run by the guard-tests
+		// suite — so no overlap path has a scoped test to name.
 		for _, p := range paths {
-			name := filepath.Base(p)
-			test := root + "/scripts/test-" + strings.TrimSuffix(name, filepath.Ext(name)) + ".sh"
-			if isFile(test) {
-				fmt.Fprintf(stdout, "GUARD-TEST: %s — %s\n", p, test)
-			} else {
-				fmt.Fprintf(stdout, "NO-GUARD-TEST: %s\n", p)
-			}
+			fmt.Fprintf(stdout, "NO-GUARD-TEST: %s\n", p)
 		}
 	}
 	fmt.Fprintf(stdout, "REBASED: %s — onto %s\n", wt, onto)

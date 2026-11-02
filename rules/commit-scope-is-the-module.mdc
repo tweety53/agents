@@ -38,7 +38,7 @@ four known-wrong shapes and accepts everything else.
 
 ## The guard
 
-Inside the flow pipeline, `<agents repo>/scripts/check-task-commit-fields.sh` — its Go port's `tcfCheckCommitScope`
+Inside the flow pipeline, `<agents repo>/scripts/flow-guard check-task-commit-fields` — its Go port's `tcfCheckCommitScope`
 (`<agents repo>/stats/internal/guard/taskcommitfields.go`) — enforces
 this on every task's **declared** `**Commit:**` field, at the point `/flow` commits the task —
 so a plan that declares one of the three prohibited shapes fails the guard even when the implementer

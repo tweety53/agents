@@ -1,6 +1,6 @@
 # Sync the branch onto the base
 
-**Loaded by `skills/flow/integrate.md` only when** `integrate-change.sh` stops on `sync-conflict` or
+**Loaded by `skills/flow/integrate.md` only when** `flow-guard integrate-change` stops on `sync-conflict` or
 `sync` — in its base-moved sync, or the merge-and-push route's re-sync after a rejected push; the
 script runs the clean sync and its scoped re-verification itself. `/flow-fast` and the review panel's fix round cite its **Conflict** bullet.
 
@@ -10,17 +10,17 @@ worktree in the resolved set whose verdict was `MOVED` — never one whose verdi
 already sits on the tip:
 
 ```bash
-sync-onto-base.sh <worktree> $BASE <recorded-merge-base>
+flow-guard sync-onto-base <worktree> $BASE <recorded-merge-base>
 ```
 
 The guard sets the run's own uncommitted planning artifacts aside around the rebase, rebases onto
 the base's tip, and re-checks until the base holds still; its header
-(`<agents repo>/scripts/sync-onto-base.sh`) is canonical for the exit contract. On every
+(`<agents repo>/scripts/flow-guard sync-onto-base`) is canonical for the exit contract. On every
 stop-and-ask, an aside still set aside is named in the handoff with `git stash list` as the
 recovery path.
 
-`origin/$BASE` is current: `resolve-base-branch.sh` fetched when the caller resolved the base ref,
-and `check-base-moved.sh` performs no fetch of its own.
+`origin/$BASE` is current: `flow-guard resolve-base-branch` fetched when the caller resolved the base ref,
+and `flow-guard check-base-moved` performs no fetch of its own.
 
 - **Clean** (exit 0, `REBASED: <worktree> — onto <sha>`): the merge base carried forward for the
   rest of **this run** becomes that `<sha>` — `<rebased-merge-base>`, a this-run-only value
@@ -28,8 +28,8 @@ and `check-base-moved.sh` performs no fetch of its own.
   base in this run means instead — most concretely the reshape in **Run 1 — the branch is not merged**
   (`skills/flow-contracts/finish-contract-run1.md`). Run **Scoped re-verification** below, then
   proceed to the landing question. Between the two, the rebased tree runs the project's whole
-  `## lint` list (`run-verify-list.sh <worktree> lint`, under the `KEY=value` lines
-  `prepare-workspace.sh` prints for it): a textually clean rebase can still break the build, as one
+  `## lint` list (`flow-guard run-verify-list <worktree> lint`, under the `KEY=value` lines
+  `flow-guard prepare-workspace` prints for it): a textually clean rebase can still break the build, as one
   that dropped a Go import did (KAN-900), so a failure is `STOP: rebase-lint`, and so is a passing
   list that rewrote tracked files,
   leaving the worktree rebased.
@@ -38,7 +38,7 @@ and `check-base-moved.sh` performs no fetch of its own.
   change *and* this change's intent, with no conflict marker left; `git add` it; then
   `git -C <worktree> rebase --continue`, repeating for every commit the rebase stops on until it
   finishes.
-  Then run `sync-onto-base.sh --resume <worktree> $BASE <sha>`, `<sha>` from the `CONFLICT:` line;
+  Then run `flow-guard sync-onto-base --resume <worktree> $BASE <sha>`, `<sha>` from the `CONFLICT:` line;
   it restores the aside and re-checks, and its exits read as the first call's.
   Never `rebase --abort`, never `rebase --skip`, never `-X ours`/`-X theirs`, and never a
   resolution that drops one side wholesale — a conflict is two changes to the same lines, and both
@@ -53,7 +53,7 @@ and `check-base-moved.sh` performs no fetch of its own.
      substituted and `--update-snapshots=all` appended (step 8 of
      `skills/flow/visual-verify-verifier.md` states why), in the checkout the conflict is in.
   3. Rebuild `full-app-suite.zip` when it was named, with
-     `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>` as step 8 of
+     `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>` as step 8 of
      `skills/flow/visual-verify-verifier.md` runs it.
   4. `git add` every recaptured PNG and the zip, stop the stack if step 1 started it, then continue the
      rebase as above.

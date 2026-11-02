@@ -213,7 +213,6 @@ func (c *ic) prepare() {
 			vline = vline[k+len("onto "):]
 		}
 		c.rb[i] = vline
-		c.guardTests()
 		c.rebaseLint(c.wt[i], "")
 		// The rebase made a HEAD no verifier saw: the gate again.
 		if !c.visualOK(c.wt[i], c.bases[i]) {

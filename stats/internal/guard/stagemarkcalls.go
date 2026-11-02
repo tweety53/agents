@@ -12,12 +12,12 @@ import (
 	"unicode/utf8"
 )
 
-// checkStageMarkCalls is scripts/check-stage-mark-calls.sh: that script's
+// checkStageMarkCalls is `flow-guard check-stage-mark-calls`: that script's
 // header comment is the contract -- every `flow stage begin` carries a
 // literal -session-token, a placeholder -harness, a served -stage key and no
 // guessed change name; every `flow record dispatch` a literal
-// -session-token; an `integrate-change.sh` or `visual-verify-pass.sh prepare`
-// call the begin token and harness rules, a `visual-verify-pass.sh close`
+// -session-token; a `flow-guard integrate-change` or `flow-guard visual-verify-pass prepare`
+// call the begin token and harness rules, a `flow-guard visual-verify-pass close`
 // call the token rules alone; exit 0 compliant, 1 violations (coverage included), 2
 // cannot answer. The reasoning for each step, moved here from the bash body
 // it replaced (d71a2327), sits beside the code it explains.
@@ -38,7 +38,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 	{"skills/flow-contracts/SKILL.md", "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"},
 	{"skills/flow-self-review/SKILL.md", "a standalone command with no per-change state, no implementation or verification stage to mark, and no `flow record dispatch` call — its one-shot dispatches are recorded by none"},
 	{"skills/flow-prompt-tuning/SKILL.md", "a standalone command with no per-change state, no pipeline stage to mark, and no `flow record dispatch` call — its replay dispatches are recorded by none"},
-	{"skills/flow-settings/SKILL.md", "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"},
+	{"skills/flow-settings/SKILL.md", "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks declared it expected-zero"},
 	{"skills/spectre-planning/SKILL.md", "the generic planning prompts spectre vendors and flow loads — shared prose with no change of its own, so the stage marks and dispatch records stay in flow's brainstorm-planner.md"},
 	{"skills/flow-experiment-close/SKILL.md", "a standalone closing skill, not a pipeline stage: it only calls the flow CLI and hands a positive verdict to a new /flow run, so it has no stage to mark and no subagent to dispatch"},
 	{"skills/flow-learn-quiz/SKILL.md", "a standalone teaching skill run only on request, not a pipeline stage: it has no stage to mark and no subagent to dispatch"},
@@ -80,7 +80,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 // restating its marks, the planner holds the only flow.design-approval,
 // flow.create-artifacts and flow.writing-plans `stage begin` lines.
 // KAN-1060 added skills/flow/visual-verify.md, whose one call is
-// `visual-verify-pass.sh close`.
+// `flow-guard visual-verify-pass close`.
 var smcCandidates = map[string]bool{
 	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "brainstorm-planner.md": true, "implement.md": true, "document-fix.md": true,
 	"review-panel.md": true, "verify-and-handoff.md": true, "integrate.md": true,
@@ -91,17 +91,17 @@ const (
 	smcBegin    = "flow stage begin"
 	smcMark     = "flow stage mark"
 	smcDispatch = "flow record dispatch"
-	// integrate-change.sh makes /flow's integrate and cleanup marks itself,
+	// flow-guard integrate-change makes /flow's integrate and cleanup marks itself,
 	// with the --session-token and --harness its caller passes: the literal
 	// a skill writes there is the one the daemon binds, so its call is held
 	// to the same token and harness rules (its stage keys are the script's).
-	smcIntegrate = "integrate-change.sh"
-	// visual-verify-pass.sh prepare begins flow.visual-verify and each
+	smcIntegrate = "flow-guard integrate-change"
+	// flow-guard visual-verify-pass prepare begins flow.visual-verify and each
 	// verifier row with the --session-token and --harness it is passed, so it
-	// takes integrate-change.sh's rules; close ends them and records with the
+	// takes flow-guard integrate-change's rules; close ends them and records with the
 	// token alone, so it takes `record dispatch`'s. measure marks nothing.
-	smcVVPrepare = "visual-verify-pass.sh prepare"
-	smcVVClose   = "visual-verify-pass.sh close"
+	smcVVPrepare = "flow-guard visual-verify-pass prepare"
+	smcVVClose   = "flow-guard visual-verify-pass close"
 )
 
 // The ERE patterns the bash ran through grep/awk. The value extractions are
@@ -112,9 +112,9 @@ var (
 	smcBeginLine     = regexp.MustCompile(`^[[:space:]]*flow stage begin([[:space:]]|\\|$)`)
 	smcMarkLine      = regexp.MustCompile(`^[[:space:]]*flow stage mark([[:space:]]|\\|$)`)
 	smcDispatchLine  = regexp.MustCompile(`^[[:space:]]*flow record dispatch([[:space:]]|\\|$)`)
-	smcIntegrateLine = regexp.MustCompile(`^[[:space:]]*integrate-change\.sh([[:space:]]|\\|$)`)
-	smcVVPrepareLine = regexp.MustCompile(`^[[:space:]]*visual-verify-pass\.sh prepare([[:space:]]|\\|$)`)
-	smcVVCloseLine   = regexp.MustCompile(`^[[:space:]]*visual-verify-pass\.sh close([[:space:]]|\\|$)`)
+	smcIntegrateLine = regexp.MustCompile(`^[[:space:]]*flow-guard integrate-change([[:space:]]|\\|$)`)
+	smcVVPrepareLine = regexp.MustCompile(`^[[:space:]]*flow-guard visual-verify-pass prepare([[:space:]]|\\|$)`)
+	smcVVCloseLine   = regexp.MustCompile(`^[[:space:]]*flow-guard visual-verify-pass close([[:space:]]|\\|$)`)
 	smcContinued     = regexp.MustCompile(`\\[[:space:]]*$`)
 	smcHasToken      = regexp.MustCompile(`(^|[[:space:]])-session-token([[:space:]]|=)`)
 	smcHasHarness    = regexp.MustCompile(`(^|[[:space:]])-harness([[:space:]]|=)`)
@@ -355,7 +355,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// COVERAGE — a file whose coverage is zero and is not declared above is
 	// folded into the ordinary violation count, exactly as
-	// check-references.sh and check-guard-symlinks.sh do it — never a
+	// check-references and check-guard-calls do it — never a
 	// separate exit status: "<member>: <text>" becomes "<member>:0: <text>".
 	for _, line := range cov.verdict() {
 		member, _, _ := strings.Cut(line, ":")

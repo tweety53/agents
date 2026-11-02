@@ -130,7 +130,7 @@ Next:
 lines than its template.
 
 **`Guards` is `(run-only)`.** It reports what that
-run's own start-of-run guard presence check found in `<skill-dir>/scripts/`,
+run's own start-of-run guard presence check found,
 per **Guard presence check** (`skills/flow-contracts/pipeline.md`) — a value only
 that run ever has, since no regeneration re-runs the check.
 

@@ -16,7 +16,7 @@ halves live in the one repo and are covered below.
 
 **This repository is Bash + Python + Go, not Bash-only.** The remaining `scripts/*.py` tools (`cache-misses.py`, `loaded-files.py`) and the `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `check-mockup-citations`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `check-plan-shape`, `check-task-build-green`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
 
-**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash. A new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — `run-guard-tests.sh` refuses the suite before anything runs while the companion is missing, a Go test in `stats/internal/guard/<name, - replaced by _>_test.go` standing in for it — `check_dispatch_pair_test.go` for `check-dispatch-pair.sh` (kan-903).
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash. A new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — `flow-guard run-guard-tests` refuses the suite before anything runs while the companion is missing, a Go test in `stats/internal/guard/<name, - replaced by _>_test.go` standing in for it — `check_dispatch_pair_test.go` for `flow-guard check-dispatch-pair` (kan-903).
 
 ### artifact tree
 
@@ -57,10 +57,10 @@ protected daemon. Neither target is isolated by the
 single, main-checkout-only fixture instead.
 
 **A live check against real data runs on a copy of the dev store**, never on the store itself:
-`scripts/live-store-copy.sh up <name> [<port>]` copies the dev `flow` database into
+`scripts/flow-guard live-store-copy up <name> [<port>]` copies the dev `flow` database into
 `flow_<name>_live`, builds `flowd` from the checkout it runs from and starts it on `<port>`
 (default 4175) against the copy, printing the `FLOW_ADDR`/`FLOW_RECORDS_ADDR` exports that point a
-session at it and registers a scratch change named `<name>` in the copy — a STARTED state record and `.superpowers/sdd/<name>/` in that checkout — so `flow record -change <name>` writes there; `scripts/live-store-copy.sh down <name>` stops that daemon and drops only that copy.
+session at it and registers a scratch change named `<name>` in the copy — a STARTED state record and `.superpowers/sdd/<name>/` in that checkout — so `flow record -change <name>` writes there; `scripts/flow-guard live-store-copy down <name>` stops that daemon and drops only that copy.
 It refuses ports 4173 and 4174, and its header carries its exit codes. A design's `## Live check`
 names it rather than re-specifying the copy.
 
@@ -77,12 +77,12 @@ forbids any agent action touching it at all.
 
 ```bash
 # suite: guard-tests
-scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) scripts/run-guard-tests.sh
+scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) scripts/flow-guard run-guard-tests
 # suite: stats-go
-scripts/unchanged.sh . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && make -s web-dist && GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -count=1 $(go list ./... | grep -v '/internal/guard$'); }
+scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && make -s web-dist && GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -count=1 $(go list ./... | grep -v '/internal/guard$'); }
 # suite: stats-spa
 # inputs: stats/web/ stats/Makefile
-scripts/unchanged.sh stats/web/ stats/Makefile || { cd stats && make -s web-dist && cd web && npm test; }
+scripts/flow-guard unchanged stats/web/ stats/Makefile || { cd stats && make -s web-dist && cd web && npm test; }
 ```
 
 The three suites run at once, so each Go suite runs on a third of the cores, rounded up —
@@ -92,9 +92,9 @@ suite starves another (kan-1052 self-review, F5: a 235 ms vitest test passed its
 both `-race` suites took every core).
 
 Each suite runs only when the branch changed, since its merge-base on `origin/main`, a path it
-reads (`scripts/unchanged.sh`): a change to `docs/` or `spectre/` alone runs no suite, and one to
+reads (`scripts/flow-guard unchanged`): a change to `docs/` or `spectre/` alone runs no suite, and one to
 `stats/web/` alone runs only the SPA's. The full suite — the three suite commands without the
-`unchanged.sh` guard — runs only when the operator asks for it, never as part of a `/flow` run.
+`flow-guard unchanged` guard — runs only when the operator asks for it, never as part of a `/flow` run.
 
 `stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
 refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens every line here and in
@@ -105,7 +105,7 @@ Only the SPA line declares `# inputs:` (`skills/flow-contracts/project-configura
 harnesses and the Go tests read files across the whole repository — `stats/internal/guard`'s tests
 open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always run.
 
-`scripts/run-guard-tests.sh` discovers every `scripts/test-*.sh` by glob and runs them concurrently
+`scripts/flow-guard run-guard-tests` discovers every `scripts/test-*.sh` by glob and runs them concurrently
 in `flow-guard` (`stats/internal/guard/runguardtests.go`); a new harness added to `scripts/` is picked up automatically, with
 no edit needed here. It points `FLOW_GUARD_CACHE_DIR` at its own temp directory, so a ported
 guard's shim builds `flow-guard` from this tree there rather than in the operator's cache;
@@ -117,53 +117,53 @@ companion task and review panels look for it, and the runner refuses the suite b
 runs while the companion is missing (kan-903).
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
-canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
+canonical suites are `guard-tests` (`scripts/flow-guard run-guard-tests`), `stats-go`
 (`go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')`) and `stats-spa` (`stats/web` `npm test`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
 invocation is answered by those recorded figures, not by a number pasted here. Each command a `# suite:` line names is
-recorded so on every `run-verify-list.sh <worktree> test`; record any other run with
+recorded so on every `flow-guard run-verify-list <worktree> test`; record any other run with
 `flow suite record -suite <name> -- <command>` — a store that cannot be reached costs one warning
 line and never changes the suite's own exit code.
 
-**`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
+**`flow-guard check-installed-citations` (named in `## lint` below) is unlike every other guard in that
 list: it shells out to a sandboxed `setup.sh` three times per invocation** — once for `global`, then
 `claude-code` and `zcode` into a sandboxed project — to derive the installed set it classifies
 citations against, rather than only reading files already on disk. A single invocation measured
 about 0.84s when it made two of those runs (`global` and the since-removed `all`) — worth naming
 here since it is the one guard in this repository paying for a subprocess rather than a plain file
 scan.
-<!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch kan-102-citations-resolve-to-installed-paths -->
+<!-- measured: time scripts/flow-guard check-installed-citations >/dev/null @ branch kan-102-citations-resolve-to-installed-paths -->
 
 ## lint
 
 ```bash
-scripts/check-references.sh
-scripts/check-python-suppressions.sh
-scripts/check-plan-provenance.sh
-scripts/check-task-build-green.sh
-scripts/check-plan-shape.sh
-scripts/check-task-records.sh
-scripts/check-workspace-isolation.sh
-scripts/check-visual-verification.sh .
-printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .
-scripts/check-spec-reach.sh .
-scripts/resolve-visual-screenshots.sh . baseline.spec.ts
-scripts/check-uitest-overrides.sh
-scripts/check-markdown-integrity.sh
-scripts/check-stage-mark-calls.sh
-scripts/check-guard-symlinks.sh
-scripts/check-dispatch-paragraphs.sh
-scripts/check-mutation-reproducer-pin.sh
-scripts/check-prompt-tuning-cases.sh
-scripts/check-installed-citations.sh
-scripts/check-installed-rules.sh
-scripts/check-hand-notes-in-step.sh
-scripts/check-normative-inventory.sh
-scripts/check-verbatim-moves.sh
-scripts/check-ask-silence.sh
-scripts/check-done-when-paths.sh .
-scripts/check-worktree-location.sh "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
+scripts/flow-guard check-references
+scripts/flow-guard check-python-suppressions
+scripts/flow-guard check-plan-provenance
+scripts/flow-guard check-task-build-green
+scripts/flow-guard check-plan-shape
+scripts/flow-guard check-task-records
+scripts/flow-guard check-workspace-isolation
+scripts/flow-guard check-visual-verification .
+printf 'stats/web/src/App.tsx\n' | scripts/flow-guard check-visual-trigger .
+scripts/flow-guard check-spec-reach .
+scripts/flow-guard resolve-visual-screenshots . baseline.spec.ts
+scripts/flow-guard check-uitest-overrides
+scripts/flow-guard check-markdown-integrity
+scripts/flow-guard check-stage-mark-calls
+scripts/flow-guard check-guard-calls
+scripts/flow-guard check-dispatch-paragraphs
+scripts/flow-guard check-mutation-reproducer-pin
+scripts/flow-guard check-prompt-tuning-cases
+scripts/flow-guard check-installed-citations
+scripts/flow-guard check-installed-rules
+scripts/flow-guard check-hand-notes-in-step
+scripts/flow-guard check-normative-inventory
+scripts/flow-guard check-verbatim-moves
+scripts/flow-guard check-ask-silence
+scripts/flow-guard check-done-when-paths .
+scripts/flow-guard check-worktree-location "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
 cd stats && gofmt -l .
 cd stats && make -s web-dist && go vet ./...
 cd stats && make -s web-dist && cd web && npx tsc -b
@@ -177,7 +177,7 @@ rule's "run the auto-fix command first" step. There is no equivalent for the SPA
 carries no lint or format script, only `tsc -b`'s type check, so a TypeScript violation is fixed by
 hand like a guard-script one.
 
-**`check-normative-inventory.sh` reports a set rather than a verdict.** It prints every sentence in
+**`flow-guard check-normative-inventory` reports a set rather than a verdict.** It prints every sentence in
 this repository's owned Markdown that carries `SHALL`, `SHALL NOT`, `MUST` or `MUST NOT` as a whole
 word — one per line, whitespace-normalised, sorted — and its exit codes are only `0` the inventory
 printed and `2` it cannot answer. It has no violation code deliberately: comparing two inventories
@@ -190,37 +190,37 @@ from it and no verdict line. It resolves the corpus through `stats/internal/guar
 **Its limit: it cannot prove a prose edit changed no behaviour.** It sees only the `MUST`/`SHALL`
 sentences — 8 in the whole corpus, against hundreds of rules stated with "never", "always" or
 "only" — and a `MUST` moved into a `-rationale.md`, which no run loads, leaves its output unchanged.
-`check-verbatim-moves.sh` is the guard for that: it fails a run-loaded sentence that was deleted or
+`flow-guard check-verbatim-moves` is the guard for that: it fails a run-loaded sentence that was deleted or
 reworded rather than moved verbatim, and new run-loaded prose, unless the change lists the sentence
 in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
-`check-verbatim-moves.sh` in that task's verify step and writes the change's `verbatim-moves.txt`,
+`flow-guard check-verbatim-moves` in that task's verify step and writes the change's `verbatim-moves.txt`,
 listing every sentence its tasks add or reword, with the plan**; it lives on disk only, in the
 gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
 review panel (kan-1027's F1 and F8).
 
-**`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
+**`flow-guard check-workspace-isolation` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
 about the text of `.flow/project.md` — so it runs against a bare tree like every other guard here.
-`check-cleanup-complete.sh` reads the same section and is excluded below for the opposite reason: it
+`flow-guard check-cleanup-complete` reads the same section and is excluded below for the opposite reason: it
 needs a change in flight.
 
-**`check-installed-rules.sh` and `check-hand-notes-in-step.sh` are the guards in this list that read
+**`flow-guard check-installed-rules` and `flow-guard check-hand-notes-in-step` are the guards in this list that read
 outside the repository.** The first compares the always-on rules this checkout declares against what
 `setup.sh global` last installed
 under `$HOME` — the symlinks in `~/.claude/rules/` and the per-rule markers in the two managed
 blocks — because a rule can merge and stay unreadable by every session. The second diffs the
 hand-maintained sections of those same two installed harness files against each other, so a
 one-sided edit fails loudly instead of drifting silently (KAN-808). Both still run against a bare tree and take no
-change-in-flight state, so they belong here for `check-installed-citations.sh`'s reason. A machine
+change-in-flight state, so they belong here for `flow-guard check-installed-citations`'s reason. A machine
 with no global install is not a failure: the first reports `INSTALLED-RULES-NONE` and exits 0, and
 the second reports `HAND-NOTES-NONE` the same way, which is what
 keeps them runnable in CI and a fresh clone. A partial install is a failure.
 
-**Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
+**Every guard in the list is currently expected to exit 0.** `flow-guard check-workspace-isolation` reports
 `ISOLATION-OK` and validates this repository's own declared section; its own header carries its
 full exit-code contract: 0 every project checked is well formed, 1 violations found, 2 it cannot
-answer at all. `check-plan-provenance.sh` reports
+answer at all. `flow-guard check-plan-provenance` reports
 "all provenance stated" — see the script's own header for the full exit-code contract: 0
 clean/nothing-in-flight, 1 violations found, 2 environment, 3 containment, 4
 content-classification; a caller that treats "non-zero" uniformly, as this repository's own lint
@@ -250,20 +250,20 @@ afterwards does not repair it, because whatever fell through to the journal whil
 there.
 
 **The one sanctioned restart is the one a landing runs.** After a landing that moved `stats/`,
-`scripts/pipeline-fix.sh land` and `scripts/refresh-main-checkout.sh` run `make -C <main>/stats
+`scripts/flow-guard pipeline-fix land` and `scripts/flow-guard refresh-main-checkout` run `make -C <main>/stats
 restart` — after the push, from the landed code, at the end of the run that landed it — so the live
 flowd and the installed `flow` CLI never keep the build the landing replaced.
 
 **A workspace's own derived resources are not protected, and removing them is correct.** The
 `flow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
-`scripts/workspace.sh remove <id>` drops them during the cleanup run exactly as the registry
+`scripts/flow-guard workspace remove <id>` drops them during the cleanup run exactly as the registry
 requires, and that must keep working. The line is the one **Workspace isolation**
 (`skills/flow-contracts/workspace-isolation.md`) already draws — what is isolated is the logical
 resource, never the service that holds it. This section protects the service and the dev workspace's
 own logical resources; it says nothing about anyone else's.
 
 **Nothing worktree-local exists for check 5 to stop.** A worktree gets its own database and port, and
-no `/flow` step starts a daemon against them. Check 6, `check-worktree-processes.sh`, is what proves
+no `/flow` step starts a daemon against them. Check 6, `flow-guard check-worktree-processes`, is what proves
 no process holds a worktree, and it remains a gate.
 
 Stopping the dev stack is an **operator** action, deliberately. The commands live where the operator
@@ -273,7 +273,7 @@ launchd agent.
 ## review panel citation check
 
 ```bash
-scripts/check-references.sh
+scripts/flow-guard check-references
 ```
 
 ## scripts
@@ -318,15 +318,15 @@ recommended
 the statement of that.** The record family (`flow record`, `flow stage`, `flow state`, `flow settings`, `flow jira`, `flow lesson resolve`, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`, `flow suite record`, `flow suite list`, `flow change save`, `flow change file`) resolves
 its store address from it, so an apply worktree's dispatch, finding and suite-runtime rows land in the
 persistent store the main checkout serves, and a deferred self-review bundle still finds them
-after `scripts/workspace.sh remove` has dropped the `database` row's resource; stage marks, state
+after `scripts/flow-guard workspace remove` has dropped the `database` row's resource; stage marks, state
 rows, settings and Jira transitions must outlive the worktree's daemon as the records do (kan-1038). The cell could not use the `database` word: that row is
 taken, and cleanup removes what it names — the persistent store must never be a removal target.
 
 | Command | Runs |
 |---------|------|
-| `create` | `scripts/workspace.sh create <id>` |
-| `remove` | `scripts/workspace.sh remove <id>` |
-| `survivors` | `scripts/workspace.sh survivors <id>` |
+| `create` | `scripts/flow-guard workspace create <id>` |
+| `remove` | `scripts/flow-guard workspace remove <id>` |
+| `survivors` | `scripts/flow-guard workspace survivors <id>` |
 
 **`FLOW_STATE_DIR` and `FLOW_TRANSCRIPTS_DIR` are deliberately not isolated.** The `Resource`
 column above is a closed vocabulary — `database`, `bucket`, `cache index`, `port`, `url`, and no
@@ -370,11 +370,11 @@ reused stack pays the restart. It then requires `skills/flow-contracts/model-pol
 that file does, so without it a reused stack would render the Experiments view from the old
 policy (kan-1052 self-review, R2).
 
-**`capture` and `verify` check the stack first.** Each opens on `check-dev-stack-fresh.sh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure (kan-1038); `make ui-test-up` touches only that stack, never the `flowd` on 4173.
+**`capture` and `verify` check the stack first.** Each opens on `flow-guard check-dev-stack-fresh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure (kan-1038); `make ui-test-up` touches only that stack, never the `flowd` on 4173.
 
 **`capture` rebuilds `full-app-suite.zip` after Playwright.** The row runs Playwright inside a shell
 function, so the arguments a caller appends — `--update-snapshots=all`, `-g '<titles>'` — still
-reach Playwright, and on its exit 0 runs `rebuild-full-app-suite-zip.sh` with the worktree and the
+reach Playwright, and on its exit 0 runs `flow-guard rebuild-full-app-suite-zip` with the worktree and the
 `screenshots` root resolved absolute, so no recapture leaves the zip trailing its PNGs
 (group-allowed-pairs-roles self-review).
 
@@ -386,8 +386,8 @@ reach Playwright, and on its exit 0 runs `rebuild-full-app-suite-zip.sh` with th
 | Command | Runs |
 |---------|------|
 | `setup` | `cd stats/web && npm install && npx playwright install chromium` |
-| `verify` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && npm run test:visual` |
-| `capture` | `cd stats/web && { ../../scripts/check-dev-stack-fresh.sh ../.. \|\| make -C .. ui-test-up; } && capture() { npx playwright test "$@" && ../../scripts/rebuild-full-app-suite-zip.sh "$(cd ../.. && pwd)" "$PWD/tests/visual"; } && capture <spec> --update-snapshots` |
+| `verify` | `cd stats/web && { ../../scripts/flow-guard check-dev-stack-fresh ../.. \|\| make -C .. ui-test-up; } && npm run test:visual` |
+| `capture` | `cd stats/web && { ../../scripts/flow-guard check-dev-stack-fresh ../.. \|\| make -C .. ui-test-up; } && capture() { npx playwright test "$@" && ../../scripts/flow-guard rebuild-full-app-suite-zip "$(cd ../.. && pwd)" "$PWD/tests/visual"; } && capture <spec> --update-snapshots` |
 | `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html && python3 -c 'import sys; sys.exit(open(sys.argv[1], "rb").read() not in open(sys.argv[2], "rb").read())' ../../skills/flow-contracts/model-policy.md /tmp/flow-uitest-flowd` |
 
 ## progress

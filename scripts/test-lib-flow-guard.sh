@@ -99,12 +99,6 @@ run env PATH="$NOGO_PATH" "$REPO/scripts/check-task-commit-fields.sh"
 [ "$RC" -eq 2 ] && [[ "$OUT" == *usage* ]] && [[ "$OUT" != *"cannot build flow-guard"* ]]
 check "case 2: a cached flow-guard answers with no go on PATH" $?
 
-# 3. Reached through a skills/flow/scripts/ symlink, the shim still finds the
-#    checkout's stats/ (the lib symlink resolves physically) and the cache.
-run env PATH="$NOGO_PATH" "$REPO/skills/flow/scripts/check-cleanup-complete.sh"
-[ "$RC" -eq 2 ] && [[ "$OUT" == *usage* ]] && [[ "$OUT" != *"cannot build flow-guard"* ]]
-check "case 3: a shim reached through a skill's scripts/ symlink runs the checkout's cached flow-guard" $?
-
 # 4. A source edit rebuilds: the guard answers with the edited source, never
 #    the binary cached for the old one.
 new_fixture v1
@@ -262,7 +256,7 @@ check "case 15d: called from a different repository carrying scripts/check-x.sh,
 
 # 16. Every guard that judges its own checkout makes the KAN-902 call before
 #     deriving its root.
-for shim in check-ask-silence check-dispatch-paragraphs check-guard-symlinks \
+for shim in check-ask-silence check-dispatch-paragraphs \
   check-installed-citations check-plan-provenance check-references \
   check-stage-mark-calls check-verbatim-moves; do
   call="$(grep -n -x 'flow_guard_cwd_checkout "${BASH_SOURCE\[0\]}" "\$@"' "$REPO/scripts/$shim.sh" | cut -d: -f1)"

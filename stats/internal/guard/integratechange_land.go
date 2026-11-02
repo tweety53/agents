@@ -168,7 +168,6 @@ func (c *ic) land() {
 				default:
 					c.stop("sync", fmt.Sprintf("sync-onto-base exit %d — report its output", c.rc))
 				}
-				c.guardTests()
 				c.rebaseLint(w, "already pushed: "+alreadyPushed()+"; ")
 				if !c.visualOK(w, c.base) {
 					c.stop("visual-verify", "re-synced onto origin/"+c.base+" after its push was rejected, so it was not pushed there; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))

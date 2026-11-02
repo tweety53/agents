@@ -73,7 +73,7 @@ var selfJudging = map[string]bool{
 	"check-ask-silence":             true,
 	"check-dev-stack-fresh":         true,
 	"check-installed-citations":     true,
-	"check-guard-symlinks":          true,
+	"check-guard-calls":             true,
 	"check-dispatch-paragraphs":     true,
 	"check-plan-shape":              true,
 	"check-references":              true,

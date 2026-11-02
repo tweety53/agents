@@ -89,7 +89,7 @@ type ic struct {
 //	gate (check-unfinished-work, check-visual-verify-dispatched against
 //	`git merge-base HEAD origin/$BASE`, check-untasked-commits from that
 //	base), check-base-moved and
-//	sync-onto-base on MOVED (running each GUARD-TEST it names, then
+//	sync-onto-base on MOVED (then
 //	the rebased worktree's ## lint list — rebase_lint below), and the
 //	default landing route (project-get.sh). Prints per worktree its
 //	reshape base and the diffstat the commit subjects are written from,
@@ -914,28 +914,6 @@ func (c *ic) writeState(state string, keep []string, pr string) bool {
 	cmd.Stdin = bytes.NewReader(b)
 	cmd.Stdout = c.stdout
 	return cmd.Run() == nil
-}
-
-// guardTests: run each GUARD-TEST the last sync-onto-base named; a failure
-// stops with the test's own output above the stop line.
-func (c *ic) guardTests() {
-	for _, l := range icLines(c.out) {
-		if !strings.HasPrefix(l, "GUARD-TEST: ") {
-			continue
-		}
-		t := l
-		if k := strings.LastIndex(t, " — "); k >= 0 {
-			t = t[k+len(" — "):]
-		}
-		cmd := c.cmd("/", "bash", t)
-		var b bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &b, &b
-		if cmd.Run() != nil {
-			fmt.Fprintln(c.stdout, strings.TrimRight(b.String(), "\n"))
-			c.stop("guard-test", "the scoped re-verification "+t+" failed — report its output above; the change stays IN_PROGRESS")
-		}
-		c.say("GUARD-TEST-PASSED: " + t)
-	}
 }
 
 // rebaseLint: a textually clean rebase can still break the build — one

@@ -151,7 +151,7 @@ can be bookmarked with no registry and no coordination — the same property the
 reason. See **What the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for
 why one offset covers the whole block rather than one per port.
 
-**The block is exported as derived, with no free check.** `prepare-workspace.sh` exports every
+**The block is exported as derived, with no free check.** `flow-guard prepare-workspace` exports every
 port of the block at its offset without probing whether anything holds it, and nothing later
 rediscovers, repairs or reassigns a port — a workspace's ports are always wholly its deterministic
 block. See **What the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for

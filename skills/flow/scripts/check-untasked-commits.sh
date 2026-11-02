@@ -1,1 +1,0 @@
-../../../scripts/check-untasked-commits.sh

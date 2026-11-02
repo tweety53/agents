@@ -39,7 +39,7 @@ func TestBaseSyncBeforeTaskOne(t *testing.T) {
 	for _, want := range []string{
 		step,
 		"It runs before the collision reconciliation above.",
-		"sync-panel-base.sh --rebase <worktree> <merge-base>",
+		"flow-guard sync-panel-base --rebase <worktree> <merge-base>",
 		"flow state add-worktree <name> <worktree> <sha>",
 		"git -C <worktree> push --force-with-lease origin spectre/<name>",
 	} {

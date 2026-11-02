@@ -1,1 +1,0 @@
-../../../scripts/refresh-main-checkout.sh

@@ -132,7 +132,7 @@ func TestCwdCheckoutReexec(t *testing.T) {
 func TestCwdCheckoutGuardSet(t *testing.T) {
 	t.Parallel()
 	want := []string{
-		"check-ask-silence", "check-dev-stack-fresh", "check-dispatch-paragraphs", "check-guard-symlinks",
+		"check-ask-silence", "check-dev-stack-fresh", "check-dispatch-paragraphs", "check-guard-calls",
 		"check-installed-citations", "check-markdown-integrity", "check-mutation-reproducer-pin",
 		"check-normative-inventory", "check-plan-provenance", "check-plan-shape", "check-python-suppressions",
 		"check-references", "check-spec-reach", "check-stage-mark-calls", "check-task-build-green",

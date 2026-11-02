@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-// checkDispatchParagraphs is scripts/check-dispatch-paragraphs.sh: that
+// checkDispatchParagraphs is `flow-guard check-dispatch-paragraphs`: that
 // script's header comment is the contract -- every required dispatch
 // paragraph is present, with every shared phrase and every required variant,
 // at every site the table below names; exit 0 clean, 1 a site missing a
@@ -80,10 +80,10 @@ var dpEntries = map[string]dpEntry{
 		[]string{"from its file", "on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/"},
 		map[string]string{"tdd": "skills/test-driven-development/SKILL.md`", "debugging": "skills/systematic-debugging/SKILL.md`"}},
 	"planning": {"**PLANNING DELEGATION:**",
-		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "plan-agent-pair.sh"}, nil},
+		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "flow-guard plan-agent-pair"}, nil},
 	"proofruns": {"**PROOF RUNS:**",
-		[]string{"run-capped.sh", "bounded worker count", "at most 5 capped runs", "straight to code", "shows the check failing with the mechanism removed"}, nil},
-	"cappedrepro": {"is allowed only under run-capped.sh", []string{"bounded worker count"}, nil},
+		[]string{"flow-guard run-capped", "bounded worker count", "at most 5 capped runs", "straight to code", "shows the check failing with the mechanism removed"}, nil},
+	"cappedrepro": {"is allowed only under flow-guard run-capped", []string{"bounded worker count"}, nil},
 }
 
 // dpSite is one row of SITE_ENTRY/SITE_PATHS/SITE_MIN_BLOCKS/SITE_VARIANTS:

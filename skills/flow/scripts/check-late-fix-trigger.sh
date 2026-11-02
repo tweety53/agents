@@ -1,1 +1,0 @@
-../../../scripts/check-late-fix-trigger.sh

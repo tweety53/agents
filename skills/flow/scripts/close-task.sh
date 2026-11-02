@@ -1,1 +1,0 @@
-../../../scripts/close-task.sh

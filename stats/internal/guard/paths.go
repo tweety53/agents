@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // isDir and isFile are bash's `[ -d ]` and `[ -f ]`: they follow symlinks.
@@ -13,6 +14,9 @@ func isDir(p string) bool {
 	fi, err := os.Stat(p)
 	return err == nil && fi.IsDir()
 }
+
+// gsReadableDir is `[ -d p ] && [ -r p ] && [ -x p ]`.
+func gsReadableDir(p string) bool { return isDir(p) && syscall.Access(p, 4|1) == nil }
 
 func isFile(p string) bool {
 	fi, err := os.Stat(p)
@@ -64,4 +68,15 @@ func hasDotDotSegment(p string) bool {
 // there, and migrate-worktrees moves there — one rule, one spelling.
 func siblingRoot(main string) string {
 	return filepath.Join(filepath.Dir(main), filepath.Base(main)+"-worktrees")
+}
+
+// gsASCIILower is awk's tolower in the byte-oriented awk the bash ran.
+func gsASCIILower(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		if 'A' <= c && c <= 'Z' {
+			b[i] = c + 'a' - 'A'
+		}
+	}
+	return string(b)
 }

@@ -3,8 +3,6 @@ package guard
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -600,25 +598,6 @@ func TestPlanClassOverrideFlag(t *testing.T) {
 		if !strings.Contains(r.stdout, "\nclass: "+c.class+"\n") || !strings.Contains(r.stdout, "\ntree: class "+c.tree+" · ") {
 			t.Errorf("%q: stdout=%q", c.args, r.stdout)
 		}
-	}
-}
-
-// TestFlowGuardRootThroughSkillSymlink pins flow_guard_root (KAN-860 F10),
-// the one derivation plan-class.sh and sync-onto-base.sh export as
-// FLOW_GUARD_REPO_ROOT: sourced through a skill's scripts/lib symlink, it
-// still answers the repository, never the skill directory.
-func TestFlowGuardRootThroughSkillSymlink(t *testing.T) {
-	t.Parallel()
-	repo, err := filepath.EvalSymlinks(filepath.Dir(tcfScriptsDir(t)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := exec.Command("bash", "-c", `. "$1/skills/flow/scripts/lib/flow-guard.sh" && flow_guard_root`, "_", repo).Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.TrimSpace(string(out)); got != repo {
-		t.Errorf("flow_guard_root through skills/flow/scripts/lib = %q, want the repository %q", got, repo)
 	}
 }
 

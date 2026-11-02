@@ -174,7 +174,7 @@ text after it is the passage, verbatim.
 
 - *The refusal exits are never repaired by editing the plan* — (KAN-601)
 - *…record its size as the change's first task-count observation — the planned figure every later fix round's growth is measured against* — (KAN-415)
-- *When the project declares `mockups`, also run `check-mockup-citations.sh`* — (KAN-558, KAN-565) kan-469's `design.md` and `tasks.md` cited `P6.png`, which no file in the mockups root held, and the gap surfaced only when visual verification skipped the comparison; kan-30 had planned fidelity specs believing no mockups existed. The guard reads only the path form because a bare `<frame id>.png` cannot be told from a capture screenshot's name: gymie's archived plans carried 178 bare `.png` tokens naming no mockup file, nearly all screenshots, against 100 path-form citations that all resolved.
+- *When the project declares `mockups`, also run `flow-guard check-mockup-citations`* — (KAN-558, KAN-565) kan-469's `design.md` and `tasks.md` cited `P6.png`, which no file in the mockups root held, and the gap surfaced only when visual verification skipped the comparison; kan-30 had planned fidelity specs believing no mockups existed. The guard reads only the path form because a bare `<frame id>.png` cannot be told from a capture screenshot's name: gymie's archived plans carried 178 bare `.png` tokens naming no mockup file, nearly all screenshots, against 100 path-form citations that all resolved.
 
 ### brainstorm-planner.md — D. Writing plans (live check)
 
@@ -204,7 +204,7 @@ text after it is the passage, verbatim.
 ### visual-verify.md — Visual verification, step 6 (fingerprint)
 
 - *…a stack step 5 found already running may be serving a build older than the worktree* — gymie KAN-29's last fix round captured, and nearly accepted, the bug the fix had removed.
-- *Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's* — gymie KAN-845: the verifier's step-6 restart was refused by the auto-mode permission classifier, so the dispatch closed `blocked` on a stale bundle one approved restart fixed, and integrate stopped on `VISUAL-VERIFY-MISSING`; the operator's own `devRestart` then dropped `-PisolateOAuthPorts` and rebound the stack to the shared 3000/8080. Since KAN-1060 those steps run in the parent's own calls to `visual-verify-pass.sh prepare` and `close` — the same reason keeps them out of the verifier — and the parent still starts, restarts and stops the stack itself, since `start` carries placeholders and `## run` is prose no script can run.
+- *Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's* — gymie KAN-845: the verifier's step-6 restart was refused by the auto-mode permission classifier, so the dispatch closed `blocked` on a stale bundle one approved restart fixed, and integrate stopped on `VISUAL-VERIFY-MISSING`; the operator's own `devRestart` then dropped `-PisolateOAuthPorts` and rebound the stack to the shared 3000/8080. Since KAN-1060 those steps run in the parent's own calls to `flow-guard visual-verify-pass prepare` and `close` — the same reason keeps them out of the verifier — and the parent still starts, restarts and stops the stack itself, since `start` carries placeholders and `## run` is prose no script can run.
 
 ### visual-verify.md — Visual verification, step 10 (sidecar)
 
@@ -248,7 +248,7 @@ text after it is the passage, verbatim.
 - *…a list row carrying a leading radio, or a quiet row whose only indicator is a trailing filled circle on the selected one; a segmented control of N cells each fitting its own label — a differing kind is a departure before any number is taken* — (gymie KAN-437 final verification, Q1: the WEIGHT field rendered in the weight tab's headline-figure style at about three times the frame's field height; every ACTIVITY row carried a leading outlined radio where the frame draws no indicator on unselected rows and a trailing filled circle on the selected one; the GOAL segments' two-line labels ran into the neighbouring cell — none subtle at 1x, none seen, the frame never on the list below)
 - *…fore starting the sweep, and account for each one by name at handoff — done, or why not.** "Did a screen-by-screen sweep" is unfalsifiable without a fixed list: a partial pass reads exactly like a complete one if nothing forces naming what was skipped* — (gymie KAN-30 fix round 7: two prior rounds each reported partial coverage as if it were the whole set, and the gap was caught only when the operator asked "so is X fully compared and fixed?" of a specific frame)
 - *…gainst that list and names every declared frame absent from the per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame list before applying **Blocking**, and a declared frame with no line blocks as a departure would* — (gymie KAN-437 final verification: `design.md` declared 22 frames, two `flow.visual-verify` rounds each ran three of five fidelity specs and reported 15/17 composed — Q1–Q3 and M1–M2 never composed, never named as skipped, unnoticed by the parent, and every Q1 defect above surfaced only when the operator opened the screen)
-- *The frame-list half of that reconciliation is a guard* — (KAN-549) the parent's by-hand reconciliation above is what missed 22 declared against 15/17 composed; `check-frame-list.sh` derives the declared list from the mockups directory's frames `design.md` names, so no second copy of the list exists to drift.
+- *The frame-list half of that reconciliation is a guard* — (KAN-549) the parent's by-hand reconciliation above is what missed 22 declared against 15/17 composed; `flow-guard check-frame-list` derives the declared list from the mockups directory's frames `design.md` names, so no second copy of the list exists to drift.
 - *…s below and capture each one; a state nobody drove into is a state nobody verified.** Each is a state a resting capture and a full-page composite cannot show, so each is reached deliberately rather than by whatever the walkthrough happens to pass through* — (gymie KAN-30 fix rounds 7 and 8: a blind click landed on a day's "Repeat that workout" suggestion instead of "Create a group session" because an extra card existed on that day only, and the sweep almost recorded the wrong screen as verified; one dialog's "selected" fill differed between two sub-states, two sibling cards diverged in shadow, and "Add user" carried a border on one code path and none on another because the empty and populated roster states routed to two different shared button components; a time wheel scrolled correctly one way only, a state-derivation bug no resting capture shows; an empty picker shipped in its pre-restyle appearance beneath a restyled populated sibling; a picker offered an option submit always rejected, surfaced only as a post-hoc toast)
 - *…e shows and state, per run, that it is a display value at the precision the frame shows — a raw float, a `NaN`, `null`, `undefined`, an empty string where the frame draws a value, a placeholder is a defect whatever the frame's own numbers are* — (gymie KAN-437: `82.333333333333 kg` on an axis the frame drew as `82.3 kg`, read as a data difference)
 - *…ading, chart, chips, list, link — and compare their order: a control present in both but in a different position relative to its siblings is a departure the per-control crop never sees, since each crop matches its own control wherever it sits* — (gymie KAN-437: preset chips rendered above the chart the frame drew them below)
@@ -261,7 +261,7 @@ text after it is the passage, verbatim.
 
 ### visual-verify.md — Visual verification, step 10 (measurement preconditions)
 
-- *…sized or cropped image; measure it with `measure-visual-properties.sh`, then eyeball what it measured.** A crop is for reading text and layout, never edges or centres — interpolation and a small viewport shift an edge by pixels and hide a gap outright* — (gymie KAN-30 fix round 9: a card corner read "square, no gap" from a tight crop that ended before the corner; a row-by-row background-colour scan of the same boundary found a rounded corner and a 9px gap — done by hand-written one-off scripts, three attempts, the first two wrong)
+- *…sized or cropped image; measure it with `flow-guard measure-visual-properties`, then eyeball what it measured.** A crop is for reading text and layout, never edges or centres — interpolation and a small viewport shift an edge by pixels and hide a gap outright* — (gymie KAN-30 fix round 9: a card corner read "square, no gap" from a tight crop that ended before the corner; a row-by-row background-colour scan of the same boundary found a rounded corner and a 9px gap — done by hand-written one-off scripts, three attempts, the first two wrong)
 - *…it lists is an edge the region can sit on, and a miscrop is the glance again; and `--edge` lowered below the distance `runs` reports between a control's fill and its background where that distance is under the default 24, since a surface-on-page card* — (gymie: `#eae9e9` on `#f3f2f2`, 15.6 apart)
 - *Two readings the eye reliably gets wrong: an icon's tint is `content.colour`, never `fill` — the fill is the box behind the glyph, and a grey glyph on the right fill matches on every other property* — (gymie KAN-437: two icons grey where the frame drew accent blue)
 - *…is the box behind the glyph, and a grey glyph on the right fill matches on every other property; and a pill is a `radius` equal to half the box height, while a rounded rectangle is any smaller number — read the number, since both look "rounded" at 1x* — (gymie KAN-437: preset chips shipped as rounded rectangles against a pill frame)
@@ -365,7 +365,7 @@ text after it is the passage, verbatim.
 ### review-panel.md — The mutation-testing brief
 
 > the declaration
-> `run-reproducer.sh` reads as the mutation convention (gymie KAN-568)
+> `flow-guard run-reproducer` reads as the mutation convention (gymie KAN-568)
 
 ### review-panel.md — The throwaway worktree
 
@@ -410,7 +410,7 @@ text after it is the passage, verbatim.
 
 The antecedent of "that change", recovered from the introducing commit (`9c60d2f`): KAN-500, whose fix rounds re-read a growing fix diff at roughly forty-five minutes a round; the sentence naming it was removed in a later edit.
 
-> `check-panel-docs-only.sh <worktree>
+> `flow-guard check-panel-docs-only <worktree>
 > <merge-base>`, per design.md's `fix-rounds-reclassify`.
 
 > **The exit-code contract is checked mechanically before any dispatch decision reads a reproducer by
@@ -446,7 +446,7 @@ budget is the first final pass and its one repeat — three whole-roster reads c
 silence closes the panel, and running beyond the cap is an explicit choice, put once per run.
 
 **Rejected — a hard stop at the cap, no prompt.** A silent close is the over-cap failure
-`check-panel-diff-size.sh` refuses for the same reason: a decision the operator did not see. The
+`flow-guard check-panel-diff-size` refuses for the same reason: a decision the operator did not see. The
 prompt is the bound; the operator-prompts contract's 🤖 marker in the handoff is what shows the
 silent default fired.
 
@@ -514,7 +514,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > never left for a reviewer to
 > catch next round (gymie kan-454, gymie KAN-459).
 
-> Scoped to the `fold-fixup.sh` route (kan-918): an on-top commit carrying `Flow-Key:` is outside
+> Scoped to the `flow-guard fold-fixup` route (kan-918): an on-top commit carrying `Flow-Key:` is outside
 > every task, and `check-task-records`' rule 2 holds a task's `**Files:**` to that task's own
 > commit, so task 3's fields widened for an on-top fix were refused at verify and reverted.
 
@@ -621,7 +621,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > commit small enough to hold in one glance added nothing the guard and the whole-branch panel did
 > not already cover, and roughly a third of that run's ninety dispatches were of that shape. Forty
 > changed lines is the boundary below which a diff still is one glance. It is a recorded constant
-> like `check-panel-diff-size.sh`'s cap — re-tune it by editing this sentence with the reason,
+> like `flow-guard check-panel-diff-size`'s cap — re-tune it by editing this sentence with the reason,
 > never by arguing it away per run.
 
 ### implement.md — The record carries its own corrections
@@ -743,7 +743,7 @@ in the run-loaded file.
 
 A subagent's prompt cache lives five minutes, so a child woken later re-writes its whole context at the cache-write price.
 
-**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md` — three definitions, one per effort, each carrying `effort:` and no `model:`, since the Agent tool's dispatch-time `model` parameter overrides a definition's `model`, and a loop dispatch's effort is read off its `subagent_type` by `check-loop-dispatch.sh`; the Agent tool's dispatch-time `effort` parameter is the one a planning dispatch passes from `plan-agent-pair.sh`) carries a `tools:` allowlist that omits `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent structurally does not have, not by prompt text alone.
+**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md` — three definitions, one per effort, each carrying `effort:` and no `model:`, since the Agent tool's dispatch-time `model` parameter overrides a definition's `model`, and a loop dispatch's effort is read off its `subagent_type` by `flow-guard check-loop-dispatch`; the Agent tool's dispatch-time `effort` parameter is the one a planning dispatch passes from `flow-guard plan-agent-pair`) carries a `tools:` allowlist that omits `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent structurally does not have, not by prompt text alone.
 
 **A dispatch whose agent dies is closed with `-outcome aborted`, reported, and not retried**: print `/flow <name>` for the operator — a re-run resumes from whatever was left (checkbox state, the state file's worktrees, findings in the store) through this file's own re-entry rules, and the operator should see the death rather than have it hidden by a second dispatch.
 
@@ -757,7 +757,7 @@ A run that stops, is interrupted, or is resumed after a context compaction anywh
 
 ### implement.md — 2. Isolate the workspace, additional worktrees (KAN-857)
 
-The working directory is what resolves the peers file's relative entries — `ResolvePeer` stats a declared peer path against the process working directory, so from inside a worktree `../<peer>` resolves into `<project>-worktrees/` and the link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side `link.md` into the worktree, where `check-unfinished-work.sh` reads it at integrate.
+The working directory is what resolves the peers file's relative entries — `ResolvePeer` stats a declared peer path against the process working directory, so from inside a worktree `../<peer>` resolves into `<project>-worktrees/` and the link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side `link.md` into the worktree, where `flow-guard check-unfinished-work` reads it at integrate.
 
 **A refusal is a hard failure of this stage**: report it and stop the run — a change whose cross-repo link cannot be established lands at integrate with a false OUTSTANDING verdict that forces hand verification.
 
@@ -846,13 +846,13 @@ The first line is the file's own answer to the reviewer who reads it as anything
 
 ### review-panel.md — Bundled dispatch (KAN-857)
 
-The same plan-tree discipline rides every round, re-run rounds included: before the launches the parent runs `check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`, and once every report file exists it runs `check-plan-unchanged.sh verify <worktree> <name> <snapshot-file>` before any report is read or finding recorded — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
+The same plan-tree discipline rides every round, re-run rounds included: before the launches the parent runs `flow-guard check-plan-unchanged snapshot <worktree> <name> <snapshot-file>`, and once every report file exists it runs `flow-guard check-plan-unchanged verify <worktree> <name> <snapshot-file>` before any report is read or finding recorded — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
 
 Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this verify is the assertion that a breach cannot slide past as a clean report.
 
 ### review-panel.md — the reproducer rule (KAN-857)
 
-`prove-reproducer.sh <worktree> <pre-fix-ref> <reproducer-path>` runs both legs and prints both exits for the record — the detached scratch worktree it materializes at the pre-fix commit, with the script copied to the same worktree-relative path inside it, is what keeps the pre-fix leg off the already-fixed live tree, the failure mode where a pre-fix check silently reads a fixed worktree and proves nothing.
+`flow-guard prove-reproducer <worktree> <pre-fix-ref> <reproducer-path>` runs both legs and prints both exits for the record — the detached scratch worktree it materializes at the pre-fix commit, with the script copied to the same worktree-relative path inside it, is what keeps the pre-fix leg off the already-fixed live tree, the failure mode where a pre-fix check silently reads a fixed worktree and proves nothing.
 
 ### review-panel.md — the rendered record's format (KAN-857; the renderer writes it, stats/internal/records/render.go)
 
@@ -981,7 +981,7 @@ so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path
 
 ### integrate.md — 3. Commit the staged work (reshape)
 
-Moved verbatim from the paragraph after the `reshape-branch.sh` call, where it followed "never the state file's now-stale pre-rebase value for that worktree."; the duplicate `reset --soft` sentence after it was cut, **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) being canonical for it:
+Moved verbatim from the paragraph after the `flow-guard reshape-branch` call, where it followed "never the state file's now-stale pre-rebase value for that worktree."; the duplicate `reset --soft` sentence after it was cut, **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) being canonical for it:
 
 This folds every commit since the merge base back into the index, uncommitted; using the
 stale value here would also collapse in the upstream commits the rebase just brought in, silently
@@ -1027,7 +1027,7 @@ Panels ran costlier than most changes need — `medium` below the 90 band, and a
 it, `high` included — and a hard-seam panel dispatch could reach `high` on the planner's say
 alone, without the operator ever seeing it. **panel-effort-roll-60-40:** every pass-1 panel
 dispatch and gated per-task reviewer bundle takes `low` below `effort_roll` 60 and `medium` at or
-above it, reusing the roll `plan-class.sh` already prints. **Rejected — a new independent
+above it, reusing the roll `flow-guard plan-class` already prints. **Rejected — a new independent
 `<name>paneleffort` roll:** a Go change and a ninth output line for no behaviour the shared roll
 lacks. **Rejected — keeping the planner's free choice above 90:** it leaves the ungated `high`
 path the ticket removes. **panel-high-operator-gated:** `high` reaches a panel dispatch only by an
@@ -1049,7 +1049,7 @@ handshake retry keeps its original bundle's pair.
 
 ## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)
 
-`check-visual-verify-dispatched.sh` fires `VISUAL-VERIFY-MISSING` whenever a diff touches a declared
+`flow-guard check-visual-verify-dispatched` fires `VISUAL-VERIFY-MISSING` whenever a diff touches a declared
 `ui paths` glob and no verifier dispatch is recorded. It exists because of kan-30, where a run wrote
 `flow.visual-verify`'s marks around no verifier and shipped broken screens. A glob is coarse,
 though: gymie declares `src/gateway/src/main/**`, so kan-863's actuator-only scrape-token filter
@@ -1095,7 +1095,7 @@ verifiers ran on Sonnet — the operator's global instructions put browser-drivi
 and both stopped after the tests and the capture, listing the reading, composing and
 record-writing steps under "Not done". **Rejected — raising the verifier's effort to `medium`.**
 The operator kept it at `low`: completeness is enforced by the report guard, not by effort. **A
-partial report is refused mechanically** (`check-verify-report.sh`), not by reading its prose: the
+partial report is refused mechanically** (`flow-guard check-verify-report`), not by reading its prose: the
 parent had accepted one whose prose named the undone steps.
 
 **Motion is recorded, not inferred from stills.** KAN-870's substance was motion — exits, slides,

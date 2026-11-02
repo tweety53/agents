@@ -65,7 +65,7 @@ states.
   spec the implementation and `flow.visual-verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
   hover, focus, pressed — so `flow.visual-verify` renders and compares that state too
-  (kan-1038). `check-plan-shape.sh` F22 refuses a plan whose design cites the prototype and whose
+  (kan-1038). `flow-guard check-plan-shape` F22 refuses a plan whose design cites the prototype and whose
   tasks touch a `ui paths` glob while no task's `**Files:**` names a file under `screenshots`
   (kan-1047). A change with nothing visible builds none. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
@@ -89,11 +89,11 @@ never develop" standing, and integrate stopped and asked again).
 
 A Done-when names only committed, tracked paths of the repository it belongs to — never a
 gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done
-criterion nothing satisfies — enforced by `check-done-when-paths.sh`.
+criterion nothing satisfies — enforced by `flow-guard check-done-when-paths`.
 
 ### Explore and design agents
 
-**Every planning dispatch** takes its pair from `plan-agent-pair.sh <seed> <n> <role>` — `<seed>` the
+**Every planning dispatch** takes its pair from `flow-guard plan-agent-pair <seed> <n> <role>` — `<seed>` the
 change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
 planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1, `<role>` the
 dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on — passing the
@@ -111,7 +111,7 @@ flow record dispatch begin -change <change> -role explorer|planner -model <m> -e
 flow record dispatch end -change <change> -key explore-<n>|design-<n> -session-token <token> -outcome completed
 ```
 
-`<m>` and `<e>` are the pair `plan-agent-pair.sh` printed, and `<change>` and `<token>` the change
+`<m>` and `<e>` are the pair `flow-guard plan-agent-pair` printed, and `<change>` and `<token>` the change
 and session token the planner's own prompt names. A Plan agent's row records the ledger role
 `planner` under its `design-<n>` key, whatever its `Role:` line says — `plan-designer` is the
 **Allowed pairs** role, which the stats derive from that key, and `flow record` refuses it. A
@@ -126,7 +126,7 @@ word the harvester stamps the launch's agent id onto.
 **Never end your turn while one of your agents runs.** A turn that ends to wait for a hand-back
 loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
 whole context. Once your own work is done, call
-`<agents repo>/scripts/await-sub-agents.sh <agent id>...` with the agent ids your launches returned:
+`<agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with the agent ids your launches returned:
 each call returns within two minutes — exit 0 once every agent finished, exit 1 naming those still
 running — so call it again on exit 1, and read each hand-back as it arrives. The
 `await-own-agents` SubagentStop hook refuses your turn end while one runs.
@@ -202,7 +202,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > module or repository suite: that run belongs to the parent's full-suite run after the last
 > group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
 > lint alone and no test command. A task whose `**Files:**` holds a Markdown file under `skills/` or
-> `rules/` is the exception: its verify step runs the whole list, `run-verify-list.sh <worktree>
+> `rules/` is the exception: its verify step runs the whole list, `flow-guard run-verify-list <worktree>
 > lint`, because the prose guards that list carries are too many to hand-pick and the one a subset
 > leaves out fails only at `flow.verify` (kan-1067 self-review, 1-F).
 
@@ -215,7 +215,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > UI-test source set of their own — Compose Multiplatform's `desktopTest`, and the like — the plan
 > carries two tasks: the feature task, whose `**Files:**` names the source files and the unit-test
 > (`commonTest`) files, then one follow-on task per feature task whose `**Files:**` names only that
-> feature's UI-test file(s), all of them. The two are file-disjoint, so `plan-dispatch-bundles.sh`
+> feature's UI-test file(s), all of them. The two are file-disjoint, so `flow-guard plan-dispatch-bundles`
 > keeps them separate bundles and the UI-test iteration starts in a fresh implementer at a small
 > context instead of the one that just wrote the feature. The follow-on declares
 > `**After:** Task <N>` naming its feature task, and the feature task declares its own
@@ -245,7 +245,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > write to the change's own integrate state is written as the stand-in that runs in its place — a
 > scratch fixture, a workspace's own service, a scratch copy of the record — named in the section
 > (kan-1019: a check deferred to integrate was never run). When `<project>/.flow/project.md` names
-> a tool for the check's stand-in — this repository's `<agents repo>/scripts/live-store-copy.sh` — the section
+> a tool for the check's stand-in — this repository's `<agents repo>/scripts/flow-guard live-store-copy` — the section
 > invokes that tool by name and never re-specifies what it does (kan-1046 self-review, 4a). The
 > no-runtime line opens with `None`.
 >
@@ -262,7 +262,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > itself writes, the report or record files the pass produces, never the surface it inspects, and
 > every real defect it finds becomes a new task appended to `tasks.md`, carrying the field family
 > with the fix's own `**Files:**` and `**Allowed-collateral:**`. The
-> appended task is what makes the fix declared — `check-task-commit-fields.sh` refuses a commit
+> appended task is what makes the fix declared — `flow-guard check-task-commit-fields` refuses a commit
 > touching paths no task declared — so the change stays self-contained and every fix stays
 > traceable to a declared task.
 
@@ -278,7 +278,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
 > nothing when the task is done, and any hit means it is not.
 > Its paths never cover a later task's `**Files:**` while that file still holds a string the
-> sweep removes — `check-plan-shape.sh` refuses that sweep (F18) — nor a comment or doc line a
+> sweep removes — `flow-guard check-plan-shape` refuses that sweep (F18) — nor a comment or doc line a
 > step of the plan tells the task to keep.
 >
 > A removed UI tag, test id or label that a declared `regression checkout` drives
@@ -294,17 +294,17 @@ provenance** (`skills/flow-contracts/plan-provenance.md`).
 
 **A block verified on a scratch copy has passed the lint list there.** When planning verifies a
 fenced block by applying it to a scratch copy of the branch — a diff, or a script that edits the
-tree — it runs `<agents repo>/scripts/run-verify-list.sh <scratch copy> lint` on that copy with
+tree — it runs `<agents repo>/scripts/flow-guard run-verify-list <scratch copy> lint` on that copy with
 the block applied before writing the tag, fixes every red line in the block itself, and the
 `verified:` tag names that run. A block the list was not run over is tagged
-`unverified:run-verify-list.sh lint on the applied copy`, never `verified:` (kan-1064
+`unverified:flow-guard run-verify-list lint on the applied copy`, never `verified:` (kan-1064
 self-review: task 2's prose diff, tagged `verified:` after a scratch apply, failed
-`check-installed-citations.sh` and `check-guard-symlinks.sh` at implementation). The scratch copy is
+`check-installed-citations` and `check-guard-symlinks` at implementation). The scratch copy is
 a detached worktree in the repository's sibling worktrees directory, `<project>-worktrees/<name>-scratch`
 — `<name>` your `Key:` on a loop planner — made with
-`<agents repo>/scripts/throwaway-worktree.sh create <worktree> <copy>` and removed with its `remove`
+`<agents repo>/scripts/flow-guard throwaway-worktree create <worktree> <copy>` and removed with its `remove`
 before you hand back, never under a scratchpad or `/tmp`, outside the layout
-`check-worktree-location.sh` holds every worktree to (kan-1057 self-review, F7).
+`flow-guard check-worktree-location` holds every worktree to (kan-1057 self-review, F7).
 
 **A `verified:` block for a parser or validator is run on what it must refuse.** Planning runs it
 on one rejecting input per rejection the plan states, beside its accepting ones, and the tag names
@@ -352,7 +352,7 @@ with `**Build:**` per **The build-green tag**
   outside the field, never inside it. A token written `Class.method` is found when both its
   segments are, so a test may be named as the pipeline's `fix-mutation:` lines name it (kan-1059
   self-review, 1f). A task adding none writes a field opening with the literal
-  `none`, and `check-task-commit-fields.sh` then never reads that field's backticks as test names
+  `none`, and `flow-guard check-task-commit-fields` then never reads that field's backticks as test names
   it must find in the commit's diff. **Bold `**none**` opens such a field; italic `_none_` does
   not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
   underscore swallows it.
@@ -378,7 +378,7 @@ with `**Build:**` per **The build-green tag**
   `**Tests:**` field names. The counts are exact integers: `after=~N` is unparseable by the guard
   and silently disables the re-measurement. A Baseline that records a plan-provenance `<!--
   measured: <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
-  `check-task-commit-fields.sh` re-runs that command at the commit's parent and at the commit, and
+  `flow-guard check-task-commit-fields` re-runs that command at the commit's parent and at the commit, and
   a count differing from the declared one fails the task — record a command whose stdout is one
   integer (a `| grep -c` pipeline is the shape), and read
   "never from a test run" as constraining how the declared numbers are derived at plan time, not
@@ -390,7 +390,7 @@ with `**Build:**` per **The build-green tag**
   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
 
 An `**After:**` field — `Task <id>[, <id>…]`, one `Task` prefix for the whole list (`Task 5, 6`, never `Task 5, Task 6`), or `none` — declares the task's predecessors, and **every
-task writes it**: a plan states its ordering in declarations, so `plan-dispatch-bundles.sh`
+task writes it**: a plan states its ordering in declarations, so `flow-guard plan-dispatch-bundles`
 resolves every bundle's after-set from what the tasks say and never needs a human judgment call
 about ordering. The dispatcher still reads an absent field as after every earlier task, so an
 older plan parses unchanged — the planner never relies on that inference. Name exactly the
@@ -401,7 +401,7 @@ Add this header to `tasks.md`:
 
 ```markdown
 > **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
-> `check-task-commit-fields.sh` passes on that task's commit.
+> `flow-guard check-task-commit-fields` passes on that task's commit.
 ```
 
 Add a second header line, in the same block, declaring whether this plan relocates existing
@@ -412,7 +412,7 @@ prose:
 ```
 
 or `**Relocation:** no`. This line is required and explicit on every plan — never omitted. `yes` scopes a mechanical passage
-comparison (generated later in the pipeline, by `generate-relocation-comparison.sh`,
+comparison (generated later in the pipeline, by `flow-guard generate-relocation-comparison`,
 run before the review panel's `final-review.diff`) to the union
 of every task's own `**Files:**` field across the plan.
 
@@ -423,7 +423,7 @@ generic moved into the vendored `skills/spectre-planning/SKILL.md`, and a fix ro
 lines back).
 
 Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
-carrying it, `check-plan-shape.sh` refuses a sibling `design.md` missing any of the four plan sections
+carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing any of the four plan sections
 (**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
 
 Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
@@ -438,15 +438,15 @@ same way and no later task can drift between conventions (KAN-678):
 > command naming no ref of its own.
 ```
 
-A plan that declares `**Baseline:**` fields and carries no such line fails `check-plan-shape.sh`
+A plan that declares `**Baseline:**` fields and carries no such line fails `flow-guard check-plan-shape`
 (F12). A plan whose tasks declare no Baselines states no convention and writes no line.
-Tasks whose Baselines carry the same `measured:` command form one chain in plan order: a task whose `before` is below the previous such task's `after` fails `check-plan-shape.sh` (F17), save the later task of a `**Squash-with:**` pair, which shares its partner's commit.
+Tasks whose Baselines carry the same `measured:` command form one chain in plan order: a task whose `before` is below the previous such task's `after` fails `flow-guard check-plan-shape` (F17), save the later task of a `**Squash-with:**` pair, which shares its partner's commit.
 
 Before continuing, run `spectre validate "<name>"` — implementation's entry check (section **1**,
 `skills/flow/implement.md`), run here so a capture it would refuse never reaches the gate — and
 repair any exit-1 finding; its exit 2 is reported and stops the plan.
 
-Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
+Before continuing, run `flow-guard check-plan-shape` — a shipped guard, run unconditionally — and the
 project's configured plan-provenance guard and its configured build-green guard, if the project
 declares them, and fix any hit. **A hit is exit 1, and only exit 1.** The refusal exits are
 never repaired by editing the plan: check-plan-provenance's exit 2 (environment) and
@@ -465,11 +465,11 @@ prescribed course, never accepting the plan while it stands.
 > capture to the task that builds that view or by a capture task of its own. **Cite each frame by
 > its project-relative path, the `mockups` root joined to `<frame id>.png`, never as a bare
 > `<frame id>.png`** — a capture screenshot's name takes that shape too, so only the path form is
-> a citation `check-mockup-citations.sh` can resolve.
+> a citation `flow-guard check-mockup-citations` can resolve.
 
 > **Write a capture task that baselines against a mockup to measure before it commits.** Such a
-> task's steps, after its capture, run `compose-mockup-frames.sh` on its spec's `<spec>.mockups`
-> sidecar and the band, seam and matrix reads of `measure-visual-properties.sh` on every pair, and
+> task's steps, after its capture, run `flow-guard compose-mockup-frames` on its spec's `<spec>.mockups`
+> sidecar and the band, seam and matrix reads of `flow-guard measure-visual-properties` on every pair, and
 > fix until they come back clean or each leftover is named with its cause — the rule
 > **The implementer measures before it hands back** in **The loop** (`skills/flow/verify-fix-loop.md`) states for a fix
 > round, applied at plan time (kan-1007: a plan-time capture was judged by eye). The same
@@ -491,7 +491,7 @@ prescribed course, never accepting the plan while it stands.
 > usual (KAN-821).
 
 When the project declares `mockups`, also run
-`check-mockup-citations.sh <worktree> <mockups root> <changeRoot>/design.md <changeRoot>/tasks.md`
+`flow-guard check-mockup-citations <worktree> <mockups root> <changeRoot>/design.md <changeRoot>/tasks.md`
 before continuing. Its exit 1 names a cited frame no file in the mockups root holds: a handoff asset
 **The checklist** above still owes, never a frame to plan against — commit the asset or record its
 location, or drop the citation and every task that rests on it. Its exit 2 is reported and stops
@@ -506,7 +506,7 @@ flow tasks count -C <worktree> <name>
 
 ### Decide
 
-Run `plan-class.sh <changeRoot>/tasks.md <repos> <abs-worktree> <merge-base>` — `<repos>` is the
+Run `flow-guard plan-class <changeRoot>/tasks.md <repos> <abs-worktree> <merge-base>` — `<repos>` is the
 number of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps`
 table; `1` when every path is in this one), `<abs-worktree>` the worktree `flow.kickoff` created, and
 `<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the
@@ -548,13 +548,13 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    the bundled findings need separation (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
    chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
    delta to confirm a fix and must be short and fast.
-4. **extra dispatches** — on every class, `micro` included: record `plan-class.sh`'s two `extra:`
+4. **extra dispatches** — on every class, `micro` included: record `flow-guard plan-class`'s two `extra:`
    lines, each `{slots, model, effort, reason}` — the first as `extra_dispatch`, `slots`
    `["test-sanity", "call-efficiency"]`, the second as `extra_dispatch_mutation`, `slots`
    `["mutation", "failure-modes"]` — `model` and `effort` each line's pair, `reason` naming its
    roll. Neither is chosen: the roll decides the model and the effort is `low`, always.
-5. **implementer groups** — on every run whose step 1 came out `sdd`: run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
-   `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
+5. **implementer groups** — on every run whose step 1 came out `sdd`: run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md`, then
+   `flow-guard plan-dispatch-groups <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
    most two implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
    is `groups_mechanical` verbatim unless the planner **splits** a mechanical group into more
@@ -643,7 +643,7 @@ there still applies and still only removes.
 Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — on a first creating
 run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
 (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `class`, `classMechanical`,
-`override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
+`override`, `inputs` (the four `flow-guard plan-class` booleans plus `tasks`/`files`/`repos`), `rolls`
 (`compact`, `experimental`, `bundle`, `effort`), `execution`, `implementer` and `fixer` (each an object
 `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
 [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
@@ -705,8 +705,8 @@ not asked and **No** is taken.
 
 On **No**,
 take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none),
-revise `tasks.md`, re-run `spectre validate "<name>"`, `check-plan-shape.sh` and the project's configured guards, re-run the
-Decide step from `plan-class.sh` on — in `/flow`, the `flow.decide` record sequence again, a second
+revise `tasks.md`, re-run `spectre validate "<name>"`, `flow-guard check-plan-shape` and the project's configured guards, re-run the
+Decide step from `flow-guard plan-class` on — in `/flow`, the `flow.decide` record sequence again, a second
 decision row — then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
 Under the `## decisions: recommended` mode the gate takes **Yes** without asking — the summary
 and the `## Decision` block still print, so the record of what was approved stays complete

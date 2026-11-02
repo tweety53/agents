@@ -4,10 +4,10 @@ Loaded from **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.
 
 **When a gate guard's verdict fires while the situation contradicts the pipeline's own structural
 conventions, the run relays how to hand-verify that verdict, and the operator verifies before
-choosing a course.** The gate guards are `check-foreign-staged.sh` (`STAGED-FOREIGN`),
-`check-finish-preflight.sh` (`REFUSE`),
-`check-unfinished-work.sh` (`OUTSTANDING`), `check-base-moved.sh` (`MOVED`) and
-`check-cleanup-complete.sh` (`LEFTOVER`). The contradiction is structural, not evidential: a
+choosing a course.** The gate guards are `flow-guard check-foreign-staged` (`STAGED-FOREIGN`),
+`flow-guard check-finish-preflight` (`REFUSE`),
+`flow-guard check-unfinished-work` (`OUTSTANDING`), `flow-guard check-base-moved` (`MOVED`) and
+`flow-guard check-cleanup-complete` (`LEFTOVER`). The contradiction is structural, not evidential: a
 cross-repo change whose plan resolves only in the canonical tree, a recorded merge base a rebase
 made stale, a worktree the state file keeps because its removal failed. The procedure the run
 relays is the guard's own — each gate guard's header carries its hand-verification paragraph,

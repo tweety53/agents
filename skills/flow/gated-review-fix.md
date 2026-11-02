@@ -16,7 +16,7 @@ report path, each finding's ref and MUTATION PROOF. Every task commit is pushed 
 fix is one new commit on top per task, carrying that task's `Task-Id:` trailer.
 
 **Each fixer's return is one Bash call**: the markers verify, then the guard on each fix commit,
-`check-task-commit-fields.sh <canonical> <id> <fix-sha> "" <canonical> <name>`, which
+`flow-guard check-task-commit-fields <canonical> <id> <fix-sha> "" <canonical> <name>`, which
 joins every commit carrying the task's `Task-Id:` trailer — a refusal handled as "The record
 carries its own corrections" (`skills/flow/implement.md`) states — the push, `flow record status
 -change <name> -ref F<n> -status fixed` for each Minor its summary head names `fixed:`, and, when a

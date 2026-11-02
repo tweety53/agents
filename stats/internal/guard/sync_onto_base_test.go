@@ -80,7 +80,6 @@ exec "$REAL" "$@"
 func TestSyncOntoBase(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	writeExec(t, root+"/scripts/test-multi.sh", "#!/usr/bin/env bash\n")
 	type sobCase struct {
 		label  string
 		fx     func(t *testing.T) *bmFx
@@ -94,10 +93,10 @@ func TestSyncOntoBase(t *testing.T) {
 	cases := []sobCase{
 		{label: "CLEAR is CLEAN", fx: rbNewFx, code: 0,
 			out: "CLEAR: $WT — main has not moved since the recorded merge base\nCLEAN: $WT — nothing to rebase\n"},
-		{label: "MOVED is REBASED with a guard-test line per overlap path", fx: sobOverlapFx, code: 0,
+		{label: "MOVED is REBASED with a NO-GUARD-TEST line per overlap path", fx: sobOverlapFx, code: 0,
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: multi.txt, plain.txt\n" +
 				"CLEAR: $WT — main has not moved since the recorded merge base\n" +
-				"GUARD-TEST: multi.txt — $ROOT/scripts/test-multi.sh\nNO-GUARD-TEST: plain.txt\nREBASED: $WT — onto $TIP\n",
+				"NO-GUARD-TEST: multi.txt\nNO-GUARD-TEST: plain.txt\nREBASED: $WT — onto $TIP\n",
 			verify: func(t *testing.T, fx *bmFx) {
 				if got := rbRead(fx.repo + "/multi.txt"); got != "base\n2\n3\n4\nchange\n" {
 					t.Errorf("multi.txt %q: want both sides kept", got)
@@ -107,7 +106,7 @@ func TestSyncOntoBase(t *testing.T) {
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: multi.txt, plain.txt\n" +
 				"MOVED: $WT — 1 commits on main since the recorded merge base; no overlap with this change's paths\n" +
 				"CLEAR: $WT — main has not moved since the recorded merge base\n" +
-				"GUARD-TEST: multi.txt — $ROOT/scripts/test-multi.sh\nNO-GUARD-TEST: plain.txt\nREBASED: $WT — onto $TIP\n"},
+				"NO-GUARD-TEST: multi.txt\nNO-GUARD-TEST: plain.txt\nREBASED: $WT — onto $TIP\n"},
 		{label: "the re-check loop is capped at 3 rebases", fx: sobOverlapFx, stub: "always", code: 2, moves: 3,
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: multi.txt, plain.txt\n" +
 				strings.Repeat("MOVED: $WT — 1 commits on main since the recorded merge base; no overlap with this change's paths\n", 3)},

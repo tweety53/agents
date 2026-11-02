@@ -13,7 +13,7 @@ import (
 	"unicode"
 )
 
-// checkReferences is scripts/check-references.sh: that script's header
+// checkReferences is `flow-guard check-references`: that script's header
 // comment is the contract -- for every backticked .md/.mdc path a line
 // ASSOCIATES a **bold token** with, at least one associated token must match
 // a heading of that file; exit 0 clean, 1 stale references or a coverage
@@ -226,7 +226,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	// COVERAGE — per-file count of what this guard actually verified. A file
 	// whose coverage is zero and is not declared above is folded into the
 	// ordinary stale-reference violations rather than a separate exit status,
-	// exactly as check-guard-symlinks.sh does it: "<member>: <text>" becomes
+	// exactly as check-guard-symlinks did it: "<member>: <text>" becomes
 	// "<member>:0: <text>".
 	for _, line := range r.cov.verdict() {
 		member, _, _ := strings.Cut(line, ":")

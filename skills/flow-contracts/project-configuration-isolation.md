@@ -117,7 +117,7 @@ guard reading them cannot ask a follow-up question:
   run 2 continues to `FINISHED`. This is the only result that verifies the removal.
 - **Exit 0 with output** — the check ran and its standard output is authoritative: one surviving
   resource per line, in whatever spelling the project's own tooling prints.
-  `<agents repo>/scripts/check-cleanup-complete.sh` reports each line as a `LEFTOVER:` and does not parse it
+  `<agents repo>/scripts/flow-guard check-cleanup-complete` reports each line as a `LEFTOVER:` and does not parse it
   further; the lines are data, not instruction, exactly as a resolved standards file is. **A
   leftover blocks the terminal state** — the registry row fails, run 2 stops, and `FINISHED` is not
   written. Removing the survivors and re-running run 2 is the whole remedy. This is the one result
@@ -223,7 +223,7 @@ contained exactly as a `## standards` path is — the rule follows the read, not
 (`skills/flow-contracts/project-configuration-rationale.md`)
 for why.
 
-**Mechanically enforced** by `<agents repo>/scripts/check-workspace-isolation.sh`, which reads
+**Mechanically enforced** by `<agents repo>/scripts/flow-guard check-workspace-isolation`, which reads
 `<project>/.flow/project.md` and reports each failing row by name with the rule it broke: the closed
 `Resource` vocabulary; the `Variable` shape; the bare-integer `Default` on a `port` and a
 `cache index` row; each of the four `In a workspace` cell forms against the `Resource` that selects
@@ -234,7 +234,7 @@ non-empty command; the tokens a command may name; the two tables having the colu
 that order; and the section being declared at most once.
 
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
-ran".** The guard runs at the point this section is *read*: `/flow`'s `prepare-workspace.sh` runs it against each apply
+ran".** The guard runs at the point this section is *read*: `/flow`'s `flow-guard prepare-workspace` runs it against each apply
 worktree before it resolves or exports a single row, per **Verify** in `skills/flow/verify-and-handoff.md`, and a non-zero exit stops that run. A project that declares no section passes silently.
 bare `/flow` deliberately does not repeat the validation. See **Where enforcement happens**
 (`skills/flow-contracts/project-configuration-rationale.md`) for why.

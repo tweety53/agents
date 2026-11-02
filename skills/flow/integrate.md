@@ -11,7 +11,7 @@ when the record's `reviewBeforeLanding` is not `true` and no open question is le
 base-branch resolution, the preflight checks, the removal sequence and their rationales live in
 that file. This file carries only what is specific to *executing* it under `/flow`.
 
-**`integrate-change.sh` runs every mechanical step of run 1 and run 2, in that file's order**
+**`flow-guard integrate-change` runs every mechanical step of run 1 and run 2, in that file's order**
 (`skills/flow-contracts/finish-contract-run1.md`), with its stage marks; the parent writes the
 commit subjects and the narrative, runs the self-review pass and the Jira calls, and handles each
 stop below. **Load `skills/flow-contracts/finish-contract-run1.md` only when** a stop below cites
@@ -23,22 +23,22 @@ already run at the top of this invocation.
 **A change to `<agents repo>`'s own tooling integrates with the branch's copy of it.** When the
 canonical repository is `<agents repo>` and `git -C <canonical-worktree> diff --name-only
 <base>...HEAD` names a path under `scripts/`, `stats/` or `skills/` — the three trees whose
-installed copies a run executes — every `integrate-change.sh` call this file and
+installed copies a run executes — every `flow-guard integrate-change` call this file and
 `skills/flow/cleanup.md` make resolves to the branch's own copy and runs with a `flow` built from
 the branch, both first on `PATH`:
 
 ```bash
 cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
-PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH flow-guard integrate-change prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
 
 The installed script and CLI predate the change, and the script builds its guards from its own
-checkout (`<agents repo>/scripts/lib/flow-guard.sh`) while taking `flow` from `PATH` — kan-1073's
+checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH` — kan-1073's
 installed `commit` failed on the branch's planning commit, and its installed `flow` had no
 `change` command.
 
 ```bash
-integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
 
 Every call takes the same `--harness` and `--session-token` its stage marks carry, relays each
@@ -46,7 +46,7 @@ guard's own lines, and ends on one machine-readable line — `NEXT:` (exit 0) or
 1); exit 2 is a usage error or an unreadable state record, reported and stopped on — or a guard
 missing beside the script, whose steps then run by hand from
 `skills/flow-contracts/finish-contract-run1.md` and `skills/flow-contracts/finish-contract-run2.md`. The script's
-header (`<agents repo>/scripts/integrate-change.sh`) is canonical for each subcommand's steps and
+header (`<agents repo>/scripts/flow-guard integrate-change`) is canonical for each subcommand's steps and
 the exit contract. A stop closes the stage mark it was in `stopped`; the parent re-runs the call
 that stopped once the stop is handled.
 
@@ -79,7 +79,7 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
   written from the change's `tasks.md` and `narrative.md` — with the command the breakdown names,
   then re-running `prepare`.
 - **`STOP: live-check`** → the change's `design.md` names a live check and `live-verification.md`
-  beside it is missing or fails `check-live-verification.sh`. Run **Live check**
+  beside it is missing or fails `flow-guard check-live-verification`. Run **Live check**
   (`skills/flow/verify-and-handoff.md`) now, through the stand-in the section states wherever a
   step would write this change's integrate state, then re-run `prepare`. `--accept-outstanding`
   never passes it.
@@ -106,7 +106,7 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ## 2. Ask how the branch should land
 
-`prepare` then runs `check-base-moved.sh` and, on `MOVED`, the sync and the scoped
+`prepare` then runs `flow-guard check-base-moved` and, on `MOVED`, the sync and the scoped
 re-verification of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`). A
 `REFUSE`, an exit 2 or an empty resolved set is `STOP: base-moved`, handled as `STOP: preflight`
 above. **Load `skills/flow/sync-onto-base.md` only when** the script stops on `sync-conflict` or
@@ -140,7 +140,7 @@ this run's preflight, the unfinished-work gate and the rebase — into the `narr
 `NEXT:` line names.
 
 ```bash
-integrate-change.sh commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --harness <harness> --session-token mf-<literal-token>
 ```
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the
@@ -162,7 +162,7 @@ and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the bra
 
 A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` whose sha no `In-run pipeline fix:` line names has that line appended to `narrative.md` by `commit` itself, from the row's ref, note and blast radius, and printed as `narrative: appended <the line>` (kan-1039: a fix the planning session landed had no narrative to be recorded in). **`STOP: narrative`** stops on such a row only when it carries no note or no blast radius: append that line by hand, in that format, and re-run `commit`.
 
-**`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`check-narrative-runs.sh`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
+**`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`flow-guard check-narrative-runs`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
 
 ## 4. Run the self-review pass
 
@@ -184,7 +184,7 @@ Call it with the parent's own shell outside every worktree in the set, per check
 cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```bash
-integrate-change.sh land <main-checkout> <name> [--route "<route>"] --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change land <main-checkout> <name> [--route "<route>"] --harness <harness> --session-token mf-<literal-token>
 ```
 
 `--route` carries the operator's answer to the landing question; without it `land` takes the
@@ -205,7 +205,7 @@ of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) — and writes `IN_P
 re-runs `land` with `--route`.
 
 `STOP: loop-landing` — on the merge-and-push route, before each landing push,
-`<agents repo>/scripts/check-loop-landing.sh <canonical worktree> spectre/<name>` refused (or could not answer)
+`<agents repo>/scripts/flow-guard check-loop-landing <canonical worktree> spectre/<name>` refused (or could not answer)
 the self-review loop run on the change's own branch: nothing more is pushed to the base, the change
 stays `IN_PROGRESS`, and the `LOOP-LANDING-REFUSED` lines are relayed — finish the loop they name,
 then re-run `land`. A branch with no loop rows answers `LOOP-LANDING-NA` and passes.

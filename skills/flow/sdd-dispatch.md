@@ -8,7 +8,7 @@ implements**, `skills/flow/implement.md`).
 
 **Dispatch one implementer per group, not per bundle.** The unit is the recorded decision's
 `groups` entry — `{bundles, model, effort}`, `bundles` an array of bundle ids from the same
-`plan-dispatch-bundles.sh` output above, `model`/`effort` what this group's implementer runs on; a
+`flow-guard plan-dispatch-bundles` output above, `model`/`effort` what this group's implementer runs on; a
 `null` `groups` field, which only inline execution ever records, never reaches this section, since
 inline runs bundles in plan order with no implementer dispatch at all. A group's implementer works
 its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task is bundled with, and
@@ -21,7 +21,7 @@ landed — committed and guard-passed, by direct commit or pick.
 A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
 worktree and commits directly; two ready groups launch together in one message,
 each into its own throwaway worktree created by
-`throwaway-worktree.sh create <worktree> <worktree>-wave-group-<g>`, each copy then running the
+`flow-guard throwaway-worktree create <worktree> <worktree>-wave-group-<g>`, each copy then running the
 project's resolved `## worktree setup` command once before its implementer dispatches. A third or
 later ready group queues in plan order and launches, into its own throwaway worktree by the same
 call, as soon as one of the two in-flight groups is picked — the cap bounds dispatches in
@@ -30,23 +30,23 @@ nothing is dispatched into that copy.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its wave is picked. The same
-`close-task.sh` call the task-close step (`skills/flow/implement.md`) runs covers each picked
+`flow-guard close-task` call the task-close step (`skills/flow/implement.md`) runs covers each picked
 commit, its `-end-commit` recording the picked sha. A pick conflict or a
 guard failure goes to a fresh fixer (**Every fix is a fresh one-shot**, `skills/flow/implement.md`)
 — a conflict aborted first, `git -C <canonical-worktree> cherry-pick --abort`, then the pick row
 dispatched into the canonical worktree, its `FIX INPUT:` naming the member's commits; a guard
 failure the re-commit row — and the parent re-runs the guard on what it commits, while sibling
 members, queued groups and already-ready later waves are unaffected. A copy is removed once its group is picked —
-`throwaway-worktree.sh remove <worktree> <worktree>-wave-group-<g>`. A member reporting BLOCKED follows the existing BLOCKED handback. The
+`flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g>`. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
 **Gather one context bundle per group, immediately before that group's implementer goes out.**
-Take `<g>` and the union of the ids from the `bundle <k>: <ids>` lines `plan-dispatch-bundles.sh`
+Take `<g>` and the union of the ids from the `bundle <k>: <ids>` lines `flow-guard plan-dispatch-bundles`
 printed for every bundle in the group, comma-separated:
 
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
-gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
+flow-guard gather-dispatch-context <worktree> <changeRoot> <name> <principles-path> \
   <worktree>/.superpowers/sdd/dispatch-context-group-<g>.md <id>[,<id>…] <canonical-worktree> <shape>
 ```
 

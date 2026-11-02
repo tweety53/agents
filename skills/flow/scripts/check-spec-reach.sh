@@ -1,1 +1,0 @@
-../../../scripts/check-spec-reach.sh

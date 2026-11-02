@@ -1,1 +1,0 @@
-../../../scripts/rebuild-full-app-suite-zip.sh

@@ -62,7 +62,7 @@ command to list or flush its stale indices; that is the project's tooling, and t
 claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
 
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
-ends at run 2 is checked back by `<agents repo>/scripts/check-cleanup-complete.sh`, whose header explains which
+ends at run 2 is checked back by `<agents repo>/scripts/flow-guard check-cleanup-complete`, whose header explains which
 rows that leaves it reading and why; step 7 of
 **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) is where its
 verdict is acted on.

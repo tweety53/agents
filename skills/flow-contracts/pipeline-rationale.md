@@ -68,7 +68,7 @@ fixes a review's findings inline, matching that file, whose session fixes nothin
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state. A marker written
 at dispatch and resolved at completion would survive a crashed run as a permanently in-progress
 task, in a file two guards parse. A second source of completion state would be one
-`check-unfinished-work.sh` cannot see.
+`flow-guard check-unfinished-work` cannot see.
 
 **The flow-task-list mod replaced the harness's task-list mechanism** (operator, 2026-10-03). The
 mod renders every dispatch as a row and the run's phase from its marks; the checklist's
@@ -120,17 +120,17 @@ that starts identifies itself with its own new token; a run that already has one
 later mark) reuses it.
 
 **The `<change>` argument is always a resolved change name, never a guess.**
-`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
+`<agents repo>/scripts/flow-guard check-stage-mark-calls` rejects a `stage begin` call site whose change argument is
 written as a placeholder naming a guess.
 
-`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a hardcoded `-harness` literal in skill source the same
+`<agents repo>/scripts/flow-guard check-stage-mark-calls` rejects a hardcoded `-harness` literal in skill source the same
 way it rejects a substituted session token.
 
 `-session-token "mf-$(date +%s)-$$"` is rejected, and so is any token carrying a
 backtick or a `$VAR` reference. A reader who does not know this will
 "improve" the literal into a substitution the first chance they get, which is exactly the regression
 this paragraph, `<agents repo>/stats/cmd/flow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
-`validateSessionTokenShape`, and `<agents repo>/scripts/check-stage-mark-calls.sh` all exist to stop. Write a
+`validateSessionTokenShape`, and `<agents repo>/scripts/flow-guard check-stage-mark-calls` all exist to stop. Write a
 concrete token in its place — `<literal-token>` above means "invent a short, unique string right
 here, once, and reuse it", not "leave this placeholder in the invocation" and not "invent a new one
 at every mark".
@@ -202,29 +202,6 @@ operator make, never a number a script checks.
 `open` resolves the
 app by name (bundle `com.jetbrains.intellij`), returns immediately instead of blocking the shell,
 and reuses a running instance.
-
-## Guard resolution
-
-Resolution against the **running command's own** skill directory is what lets a contract loaded
-by more than one command — `skills/flow-contracts/finish-contract-run1.md`, loaded by both
-bare `/flow` and `/flow-status` — name a guard at all: the same basename resolves inside
-whichever command is actually running, never a fixed one of them.
-
-Carrying the prefix says which
-repository is meant, and removes the need for any classifier to tell describing a guard from
-running one.
-
-Such a path resolves only when the project being worked on *is* the agents repository,
-which is the one case that is never the interesting one.
-
-## Guard presence check
-
-A
-guard that resolves a neighbour from its own `$SCRIPT_DIR` at runtime — for example
-`prepare-workspace.sh`
-needing `check-workspace-isolation.sh` —
-fails at the moment it reaches for that neighbour if the neighbour alone is missing, so a missing
-sibling is exactly as reportable as a missing guard, and the block names it the same way.
 
 ## Finish contract
 

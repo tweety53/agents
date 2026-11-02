@@ -46,9 +46,9 @@ Nobody running `go test` needs to bring up the UI-test stack first.
 ## flow-guard
 
 `flow-guard` (`cmd/flow-guard`) runs the Go ports of the repository's guard
-scripts. A ported `scripts/<name>.sh` keeps its header comment as the guard's
-contract and runs `flow-guard <name>` built from its own checkout
-(`scripts/lib/flow-guard.sh`): it hashes the sources `flow-guard` is built
+scripts. Every guard is called as `flow-guard <name>`, which resolves on `PATH` to
+the bootstrap `scripts/flow-guard`; it runs the binary built from its own checkout:
+it hashes the sources `flow-guard` is built
 from, builds on the first call for a hash into
 `${XDG_CACHE_HOME:-$HOME/.cache}/flow-guard/<hash>/flow-guard`
 (`FLOW_GUARD_CACHE_DIR` overrides the directory), and execs the cached binary

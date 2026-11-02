@@ -8,13 +8,13 @@ the section the passage came from.
 ## SKILL.md — 1. List open changes
 
 > Step 2 below still
-> reimplements `check-finish-preflight.sh`'s other merge-status steps in prose rather than invoking
+> reimplements `flow-guard check-finish-preflight`'s other merge-status steps in prose rather than invoking
 > that script (see the note there); only base-branch resolution is delegated to a real guard.
 
 ## SKILL.md — 2. Resolve each change's state
 
 > Read it there — it is not re-derived here, and it is not
-> re-derived from `<agents repo>/scripts/check-finish-preflight.sh` either: that script's resolve-first guard and
+> re-derived from `<agents repo>/scripts/flow-guard check-finish-preflight` either: that script's resolve-first guard and
 > its comment (b) are what `pipeline.md` cites in turn.
 
 ## SKILL.md — 4. Detail view (only when `<name>` was given)

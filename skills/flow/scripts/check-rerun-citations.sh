@@ -1,1 +1,0 @@
-../../../scripts/check-rerun-citations.sh

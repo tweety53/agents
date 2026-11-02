@@ -31,7 +31,7 @@ of its own — every commit it has, the base branch already had — and that is 
 change that has never been through bare `/flow` reads as merged and is shown *merged and waiting
 on run 2*. The test is `HEAD` against the merge base **already recorded for that worktree** in the
 state file's `worktrees` map: equal means the branch has no commits of its own and is therefore not
-merged, whatever the ancestor test then says. `<agents repo>/scripts/check-finish-preflight.sh` documents this
+merged, whatever the ancestor test then says. `<agents repo>/scripts/flow-guard check-finish-preflight` documents this
 trap and guards it in exactly that order — its comment (b), on why the recorded-merge-base check
 must run before the ancestor test.
 
@@ -43,7 +43,7 @@ being rewritten, the clone being shallow, or the object having been pruned are t
 condition carries a value, which is exactly what makes it easy to mishandle: compared as a *string*
 it is merely "not equal to `HEAD`", which reads as "the branch has commits of its own" and falls
 straight through to the bare ancestor test, reporting *merged* for a branch that has never been
-through bare `/flow`. That is the same refusal-to-infer `check-finish-preflight.sh` makes twice
+through bare `/flow`. That is the same refusal-to-infer `flow-guard check-finish-preflight` makes twice
 over — when it is handed `-` for the recorded merge base, and when `rev-parse --verify` on a
 recorded one fails — which is why **The block each state renders**
 (`skills/flow-contracts/handoff-blocks.md`) states resolve-then-compare as a rule rather than

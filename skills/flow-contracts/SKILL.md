@@ -28,7 +28,7 @@ flow's pipeline and its contract definitions.
 | [state-file-internals.md](state-file-internals.md) | How the CLI and daemon keep the record: the fallback paths, the project-key derivation, write ordering and journal replay. **Loaded by no `/flow*` command** |
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys. Resolution rules only — see below for authoring guidance |
 | [project-configuration-standards.md](project-configuration-standards.md) | Resolve a `## standards` entry: the three entry forms and containment. **Loaded at the principles dispatch** |
-| [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, the `survivors` output and exit contract, row validation and what is left to the agent. **Loaded only when `prepare-workspace.sh` or `check-cleanup-complete.sh` cannot be located** |
+| [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, the `survivors` output and exit contract, row validation and what is left to the agent. **Loaded only when `flow-guard prepare-workspace` or `flow-guard check-cleanup-complete` cannot be located** |
 | [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.visual-verify` begins** |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-integration-finish.md](jira-integration-finish.md) | The In Review timing, the join carve-out and echo, and labels on created issues. **Cited by every command that creates an issue; loaded by `/flow`'s integrate run 1 at the In Review transition** |
@@ -36,7 +36,7 @@ flow's pipeline and its contract definitions.
 | [jira-followups-join.md](jira-followups-join.md) | Join the follow-up the search found: the confirmation, the append and its per-write guards, and the three ordered writes a join makes. **Loaded by jira-followups.md only when the join search returned a candidate** |
 | [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty |
 | [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan. **Cited by `/flow`'s implementer dispatch** |
-| [plan-provenance-guard.md](plan-provenance-guard.md) | What check-plan-provenance.sh enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
+| [plan-provenance-guard.md](plan-provenance-guard.md) | What flow-guard check-plan-provenance enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
 | [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, that the change directory is never committed, and the branch backup. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, `/flow-plan` and `/flow-fast`** |

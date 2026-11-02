@@ -1,1 +1,0 @@
-../../../scripts/guard-autosquash.sh

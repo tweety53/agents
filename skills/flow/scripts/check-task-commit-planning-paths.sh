@@ -1,1 +1,0 @@
-../../../scripts/check-task-commit-planning-paths.sh

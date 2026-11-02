@@ -17,14 +17,14 @@ implements**, `skills/flow/implement.md`).
 > `git add`, so nothing an earlier step staged under a planning path rides the commit:
 >
 > ```bash
-> stage-task-files.sh <abs-worktree> <this task's files> \
+> flow-guard stage-task-files <abs-worktree> <this task's files> \
 >   && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
 > ```
 >
-> `stage-task-files.sh <abs-worktree> <file>…` runs that clearing reset, then the add of the task's
+> `flow-guard stage-task-files <abs-worktree> <file>…` runs that clearing reset, then the add of the task's
 > non-planning paths, then a second clearing reset, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and
 > commit nothing (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed).
-> Its header (`<agents repo>/scripts/stage-task-files.sh`) is canonical for the sequence.
+> Its header (`<agents repo>/scripts/flow-guard stage-task-files`) is canonical for the sequence.
 > Paths are relative to the worktree root, which `-C <abs-worktree>` anchors whatever directory
 > the shell is in — from a subdirectory of it, an unanchored `git add` reads them
 > against that directory and fails with a pathspec error. Both spec-tree leaf spellings are named because the
@@ -32,7 +32,7 @@ implements**, `skills/flow/implement.md`).
 > reset that clears nothing. **Never a bare
 > `git add -A`, `git add .`, or `git commit -a`**:
 > any of them sweeps already-staged planning artifacts into the task commit, which
-> `check-task-commit-planning-paths.sh` fails at the boundary. Never
+> `flow-guard check-task-commit-planning-paths` fails at the boundary. Never
 > `<project>/spectre/changes/` either — the clearing resets do not licence a second, deliberate add of it.
 > **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
 > `**Files:**` names one, edit it and commit it here, in this task's own commit. **A withdrawn
@@ -47,7 +47,7 @@ implements**, `skills/flow/implement.md`).
 implementer runs the red task first — writes its tests, runs them, and reports the failing
 output — then the green partner, and makes **one** commit for the pair: the partner's declared
 `**Commit:**` subject and `Task-Id: <partner>` trailer. The red task never has a commit of its
-own; `check-task-commit-fields.sh` resolves the pair from either id against that commit.
+own; `flow-guard check-task-commit-fields` resolves the pair from either id against that commit.
 
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
@@ -132,15 +132,15 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > own.
 
 > **PROOF RUNS:** Every build, test suite or probe you start runs under
-> `<agents repo>/scripts/run-capped.sh --`, which kills its whole process tree past the project's
-> `## resource cap` (default 4096 MB). The cap is per command; a run-capped.sh started under another
-> joins the outer cap. Gradle runs with `--no-daemon` (run-capped.sh sets it), since a daemon
+> `<agents repo>/scripts/flow-guard run-capped --`, which kills its whole process tree past the project's
+> `## resource cap` (default 4096 MB). The cap is per command; a flow-guard run-capped started under another
+> joins the outer cap. Gradle runs with `--no-daemon` (flow-guard run-capped sets it), since a daemon
 > reparents out of the tree, and with bounded `--max-workers` and `-Xmx`. A dev stack detaches, so
-> it is bounded by its own config — worker counts and heap — not by run-capped.sh. A flake fix
+> it is bounded by its own config — worker counts and heap — not by flow-guard run-capped. A flake fix
 > carries one of two proofs. Either its cause is reproduced — preferably in one isolated run, a delay
 > or fault injected at the seam, the test alone or with the one test whose leftover state it reads;
 > a load reproduction (backend or frontend) is allowed only
-> under run-capped.sh with an explicit bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`,
+> under flow-guard run-capped with an explicit bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`,
 > Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs — and the fix then shows the
 > check failing with the mechanism removed (`~/.claude/rules/fix-determinism-at-the-source.md`). Or
 > the flake does not reproduce within the cap and goes straight to code: no further reproduction
@@ -194,7 +194,7 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 
 > **FIX DISPATCH:** a prompt carrying a `FIX INPUT:` line makes you a fixer, not a task's
 > implementer: fix exactly what that line names — reviewer reports and finding refs, a
-> `close-task.sh` refusal's lines, a wave member's commits to re-apply, or a failing suite block —
+> `flow-guard close-task` refusal's lines, a wave member's commits to re-apply, or a failing suite block —
 > at its root cause, under every other paragraph of this brief save the commit subject and trailer
 > FLOW — COMMIT-PER-TASK names, which this paragraph's take the place of. A finding's fix is one
 > commit per task at the branch tip, carrying that task's `Task-Id:` trailer,
