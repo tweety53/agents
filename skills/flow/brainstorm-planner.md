@@ -150,7 +150,7 @@ silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fire
 
 > - **Dig deeper — quiz me on this design first** *(never recommended, never the default)*
 
-It first dispatches one Explore agent (**Explore and design agents**, above) to collect what the quiz
+Only once the operator picks it — never before, never in anticipation of the confirm — it first dispatches one Explore agent (**Explore and design agents**, above) to collect what the quiz
 needs — the problem and why it exists, the design as settled and why, the code it touches, its edge
 cases and what it impacts — and return it as a briefing. It then loads `skills/flow-learn-quiz/SKILL.md`
 and runs it over that briefing, the operator's understanding being what it checks, until that skill ends. It is a round — it counts toward the
