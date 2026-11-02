@@ -901,6 +901,11 @@ func (s *gsScan) coverage(skillNames []string, required []gsRow) (*coverage, err
 			return nil, gsRefusal(fmt.Sprintf("%v\ncheck-guard-symlinks: coverage_declare failed for 'flow-experiment-close' (see stderr above)\n", err))
 		}
 	}
+	if slices.Contains(skillNames, "flow-learn-quiz") {
+		if err := cov.declare("flow-learn-quiz", "invokes no guard — a standalone teaching skill run only on request, not a pipeline stage"); err != nil {
+			return nil, gsRefusal(fmt.Sprintf("%v\ncheck-guard-symlinks: coverage_declare failed for 'flow-learn-quiz' (see stderr above)\n", err))
+		}
+	}
 	for _, line := range cov.verdict() {
 		member, _, _ := strings.Cut(line, ":")
 		msg := line
