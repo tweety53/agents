@@ -74,6 +74,7 @@ var selfJudging = map[string]bool{
 	"check-dev-stack-fresh":         true,
 	"check-installed-citations":     true,
 	"check-guard-calls":             true,
+	"check-no-bash":                 true,
 	"check-dispatch-paragraphs":     true,
 	"check-plan-shape":              true,
 	"check-references":              true,
@@ -88,7 +89,6 @@ var selfJudging = map[string]bool{
 	"check-verbatim-moves":          true,
 	"check-stage-mark-calls":        true,
 	"plan-dispatch-bundles":         true,
-	"run-guard-tests":               true,
 }
 
 // CwdCheckout is the KAN-902 re-exec: for a self-judging guard called from

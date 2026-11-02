@@ -49,6 +49,17 @@ cd stats && make -s web-dist && cd web && npx tsc -b      # must exit clean befo
 
 ---
 
+### No scripts in bash
+
+Every new script, and any new logic added to an existing one, is Go in `flow-guard`:
+`stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as
+`flow-guard <name>`. `setup.sh` and `scripts/flow-guard` are the only bash files in this
+repository and stay that way; `flow-guard check-no-bash`, in `<project>/.flow/project.md`'s
+`## lint`, fails on any other tracked `.sh` file or file whose first line runs bash. The full rule
+is `rules/no-bash-scripts.mdc`.
+
+---
+
 ### Never stop the dev workspace's stats service or its storage
 
 `flowd` on `127.0.0.1:4173`, the `flow-postgres` container on host port 5433, and the default

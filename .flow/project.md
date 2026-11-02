@@ -150,6 +150,7 @@ scripts/flow-guard check-uitest-overrides
 scripts/flow-guard check-markdown-integrity
 scripts/flow-guard check-stage-mark-calls
 scripts/flow-guard check-guard-calls
+scripts/flow-guard check-no-bash
 scripts/flow-guard check-dispatch-paragraphs
 scripts/flow-guard check-mutation-reproducer-pin
 scripts/flow-guard check-prompt-tuning-cases

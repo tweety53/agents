@@ -133,10 +133,10 @@ func TestCwdCheckoutGuardSet(t *testing.T) {
 	t.Parallel()
 	want := []string{
 		"check-ask-silence", "check-dev-stack-fresh", "check-dispatch-paragraphs", "check-guard-calls",
-		"check-installed-citations", "check-markdown-integrity", "check-mutation-reproducer-pin",
+		"check-installed-citations", "check-markdown-integrity", "check-mutation-reproducer-pin", "check-no-bash",
 		"check-normative-inventory", "check-plan-provenance", "check-plan-shape", "check-python-suppressions",
 		"check-references", "check-spec-reach", "check-stage-mark-calls", "check-task-build-green",
-		"check-uitest-overrides", "check-verbatim-moves", "plan-dispatch-bundles", "run-guard-tests",
+		"check-uitest-overrides", "check-verbatim-moves", "plan-dispatch-bundles",
 	}
 	if got := slices.Sorted(maps.Keys(selfJudging)); !slices.Equal(got, want) {
 		t.Fatalf("selfJudging = %q, want %q", got, want)

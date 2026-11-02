@@ -131,6 +131,7 @@ var crExpectedZero = []struct {
 			"rules/fix-determinism-at-the-source.mdc",
 			"rules/lint-fix-priority.mdc",
 			"rules/never-touch-production.mdc",
+			"rules/no-bash-scripts.mdc",
 		}},
 	{"contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path",
 		[]string{
