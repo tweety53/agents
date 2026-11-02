@@ -1175,7 +1175,8 @@ install_project_standards() {
 # siblings through BASH_SOURCE (`$(dirname "${BASH_SOURCE[0]}")/lib/...`), which a symlink would
 # point at the bin dir; exec keeps $0/BASH_SOURCE at the real path. A shim carries the marker line
 # and only marked files are ever removed or rewritten — a user's own file of the same name is
-# SKIPPED with a warning, never touched. test-*.sh scripts get no shim.
+# SKIPPED with a warning, never touched. test-*.sh scripts get no shim. scripts/flow-guard, the
+# bootstrap every guard runs through as `flow-guard <name>`, gets one too.
 SHIM_MARKER='# flow script shim — written by setup.sh global; do not edit'
 install_script_shims() {
   local bin="$1" f src name
@@ -1186,7 +1187,7 @@ install_script_shims() {
   for f in "$bin"/*; do
     [[ -f "$f" && ! -L "$f" ]] && grep -qxF "$SHIM_MARKER" "$f" && rm -f "$f"
   done
-  for src in "$SCRIPT_DIR"/scripts/*.sh; do
+  for src in "$SCRIPT_DIR"/scripts/*.sh "$SCRIPT_DIR/scripts/flow-guard"; do
     name="$(basename "$src")"
     [[ "$name" == test-* || ! -x "$src" ]] && continue
     if [[ -e "$bin/$name" || -L "$bin/$name" ]]; then

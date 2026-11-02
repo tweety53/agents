@@ -272,7 +272,7 @@ func TestGlobalInstallsScriptShims(t *testing.T) {
 
 	g.runSetup(fx, home, "global", "")
 	g.assertRCZero("global succeeds", g.rc, g.log)
-	for _, name := range []string{"project-get.sh", "doomed.sh"} {
+	for _, name := range []string{"project-get.sh", "doomed.sh", "flow-guard"} {
 		p := filepath.Join(bin, name)
 		g.assertExecutable(name+" shim is executable", p)
 		if isSymlink(p) {
@@ -290,6 +290,13 @@ func TestGlobalInstallsScriptShims(t *testing.T) {
 	out, err := exec.Command(filepath.Join(bin, "project-get.sh"), proj, "default landing route").Output()
 	if err != nil || strings.TrimSpace(string(out)) != "merge and push" {
 		g.fail("the shim reaches the script's own lib/", string(out)+" "+errString(err))
+	}
+	if b, _ := os.ReadFile(filepath.Join(bin, "flow-guard")); !strings.Contains(string(b), "exec '"+filepath.Join(fx, "scripts/flow-guard")+"' \"$@\"\n") {
+		g.fail("the flow-guard shim execs the checkout's scripts/flow-guard", string(b))
+	}
+	out, err = exec.Command(filepath.Join(bin, "flow-guard"), "project-get", proj, "default landing route").Output()
+	if err != nil || strings.TrimSpace(string(out)) != "merge and push" {
+		g.fail("the flow-guard shim runs a guard through the checkout's bootstrap", string(out)+" "+errString(err))
 	}
 
 	if err := os.Remove(filepath.Join(fx, "scripts/doomed.sh")); err != nil {

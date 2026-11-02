@@ -269,6 +269,7 @@ func makeFixtureRepo(d string, badRule bool) error {
 	}{
 		{"scripts/project-get.sh", 0o755},
 		{"scripts/lib/flow-guard.sh", 0o644},
+		{"scripts/flow-guard", 0o755},
 	} {
 		b, err := os.ReadFile(filepath.Join(repoRoot, c.rel))
 		if err != nil {
