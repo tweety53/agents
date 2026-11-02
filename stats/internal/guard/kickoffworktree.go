@@ -35,6 +35,11 @@ func kwRun(env Env, dir, name string, args ...string) (int, string) {
 	if dir != "" {
 		cmd.Dir = dir
 	}
+	return kwCombined(cmd)
+}
+
+// kwCombined runs cmd, returning its exit code and combined output.
+func kwCombined(cmd *exec.Cmd) (int, string) {
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	return exitCode(cmd.Run()), out.String()
@@ -59,7 +64,7 @@ func kwFenced(body string) []string {
 
 func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "kickoff-worktree"
-	const usage = "usage: kickoff-worktree.sh [--from <worktree>] <project> <name> [<base>]\n"
+	const usage = "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n"
 	// --from names this change's existing worktree: the base defaults to the
 	// flowBase it records, and the state record is found through it.
 	from := ""
@@ -125,11 +130,6 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	location, projectGet := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"), env.Getenv("FLOW_GUARD_PROJECT_GET")
-	if location == "" || projectGet == "" {
-		fmt.Fprintf(stderr, "%s: FLOW_GUARD_WORKTREE_LOCATION or FLOW_GUARD_PROJECT_GET is unset — run scripts/kickoff-worktree.sh, which sets them\n", self)
-		return 2
-	}
 	// Before step 1: a worktree step 2 could not persist is never created.
 	flow, ok := lookPath(env, "flow")
 	if !ok {
@@ -142,7 +142,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// 1. The location guard: its exit 1 or 2 stops the run with its lines.
-	if rc, out := kwRun(env, "", location, project); rc != 0 {
+	if rc, out := kwCombined(siblingCmd(env, "FLOW_GUARD_WORKTREE_LOCATION", "check-worktree-location", project)); rc != 0 {
 		if rc != 1 {
 			rc = 2
 		}
@@ -233,7 +233,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// 3. The project's worktree setup, fenced lines only, in order.
-	if rc := kwSetup(env, projectGet, wt, self, stderr); rc != 0 {
+	if rc := kwSetup(env, wt, self, stderr); rc != 0 {
 		return rc
 	}
 
@@ -403,9 +403,8 @@ func kwMergeOrder(link, peer string) (bool, error) {
 // 0 done or none declared, 1 a command failed (named, its output relayed),
 // 2 project-get cannot answer. stdout alone is the section body; a warning
 // project-get prints on stderr is relayed, never parsed as a command.
-func kwSetup(env Env, projectGet, wt, self string, stderr io.Writer) int {
-	get := exec.Command(projectGet, wt, "worktree setup")
-	get.Dir = env.Dir
+func kwSetup(env Env, wt, self string, stderr io.Writer) int {
+	get := siblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "worktree setup")
 	var body, getErr bytes.Buffer
 	get.Stdout, get.Stderr = &body, &getErr
 	switch rc := exitCode(get.Run()); rc {

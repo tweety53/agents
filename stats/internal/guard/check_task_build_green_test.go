@@ -255,7 +255,7 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	_, r = run("- [ ] 1. \xff\n")
 	want("pin: a plan that is not UTF-8 exits 2", r.rc == 2 && has(r, "cannot read file: UnicodeDecodeError"), r)
 	r = runGuard("check-task-build-green", []string{"a", "b"}, env)
-	want("pin: the usage line", r.rc == 2 && r.err == "usage: check-task-build-green.sh [path-to-tasks.md]\n", r)
+	want("pin: the usage line", r.rc == 2 && r.err == "usage: flow-guard check-task-build-green [path-to-tasks.md]\n", r)
 	md, r = run("- [ ] 1. A\n\n- [ ] 2. B\n\n**Build:** red\n\n- [ ] 3. C\n\n**Build:** red\n\n**Squash-with:** Task 2, 9\n\n- [ ] 1. A again\n")
 	want("pin: violations go to stdout in order, duplicates first", r.rc == 1 && r.err == "" && r.stdout == md+":13: task 1 is defined more than once (first at line 1)\n"+
 		md+":1: task 1 has no **Build:** tag\n"+
@@ -269,7 +269,7 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	want("pin: with no override the root is FLOW_GUARD_REPO_ROOT", r.rc == 1 && r.out == root+"/spectre/changes/dirty-change/tasks.md:1: task 1 has no **Build:** tag", r)
 	r = runGuard("check-task-build-green", nil, Env{Getenv: psGetenv(nil)})
 	want("pin: with no override and no FLOW_GUARD_REPO_ROOT it exits 2", r.rc == 2 &&
-		r.err == "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-task-build-green.sh, which sets it\n", r)
+		r.err == "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-task-build-green, which sets it\n", r)
 	r = scan(t.TempDir())
 	want("pin: a root with no changes directory passes silently", r.rc == 0 && r.out == "", r)
 	root = t.TempDir()

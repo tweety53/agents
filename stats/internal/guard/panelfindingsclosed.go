@@ -46,7 +46,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintln(stderr, "usage: check-panel-findings-closed.sh <worktree> <change-name>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-panel-findings-closed <worktree> <change-name>")
 		return 2
 	}
 	// CONTAINMENT: plainChangeName (changename.go) is canonical for why

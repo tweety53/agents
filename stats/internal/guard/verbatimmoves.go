@@ -56,12 +56,12 @@ const vmAckFile = "verbatim-moves.txt"
 
 func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) > 1 {
-		fmt.Fprintln(stderr, "usage: check-verbatim-moves.sh [<base-ref>]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-verbatim-moves [<base-ref>]")
 		return 2
 	}
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
-		fmt.Fprintln(stderr, "check-verbatim-moves: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-verbatim-moves.sh, which sets it")
+		fmt.Fprintln(stderr, "check-verbatim-moves: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-verbatim-moves, which sets it")
 		return 2
 	}
 	gitEnv := []string{"LC_ALL=C"}

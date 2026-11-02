@@ -23,8 +23,8 @@ func init() {
 	Registry["throwaway-worktree"] = throwawayWorktree
 }
 
-const twUsage = "usage: throwaway-worktree.sh create <worktree> <copy> [--sdd]\n" +
-	"       throwaway-worktree.sh remove <worktree> <copy> [--fold-back]\n"
+const twUsage = "usage: flow-guard throwaway-worktree create <worktree> <copy> [--sdd]\n" +
+	"       flow-guard throwaway-worktree remove <worktree> <copy> [--fold-back]\n"
 
 func throwawayWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || len(args) > 4 {

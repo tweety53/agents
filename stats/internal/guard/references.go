@@ -152,7 +152,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprint(stderr, "check-references: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-references.sh, which sets it\n")
+			fmt.Fprint(stderr, "check-references: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-references, which sets it\n")
 			return 2
 		}
 	}

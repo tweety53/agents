@@ -24,7 +24,7 @@ var papPair = regexp.MustCompile(`^([a-z0-9.-]+)/[A-Za-z]+@([a-z]+)$`)
 
 func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: plan-agent-pair.sh <seed> <n> <explorer|plan-designer>")
+		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer>")
 		return 2
 	}
 	role := args[2]

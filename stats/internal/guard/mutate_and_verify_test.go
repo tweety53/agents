@@ -925,5 +925,5 @@ var mvPins = map[string]string{
 	"TestMutateAndVerify/silent_harness_on_the_baseline_pass": "mutate-and-verify: patch <patch> touches:\n  guard.sh\n\nmutate-and-verify: baseline pass (before mutation)\n--- stderr\nmutate-and-verify: cannot answer — harness silent.sh produced no ok:/FAIL: line on the baseline pass\n--- exit 4\n",
 	"TestMutateAndVerify/silent_harness_on_the_mutated_pass":  "mutate-and-verify: patch <patch> touches:\n  guard.sh\n\nmutate-and-verify: baseline pass (before mutation)\n  silent.sh: baseline ok=1 fail=0\n\nmutate-and-verify: mutated pass (after mutation)\n--- stderr\nmutate-and-verify: cannot answer — harness silent.sh produced no ok:/FAIL: line on the mutated pass\n--- exit 4\n",
 	"TestMutateAndVerify/unreadable_patch":                    "--- stderr\nmutate-and-verify: cannot answer — cannot read patch file: no-such.patch\n--- exit 4\n",
-	"TestMutateAndVerify/usage":                               "--- stderr\nmutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]\n--- exit 4\n",
+	"TestMutateAndVerify/usage":                               "--- stderr\nmutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]\n--- exit 4\n",
 }

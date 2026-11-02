@@ -30,17 +30,3 @@ func TestNoGuardNameExits2(t *testing.T) {
 		t.Fatalf("stderr = %q, want the usage", stderr.String())
 	}
 }
-
-func TestCannotAnswerIsTheGuardsOwnCode(t *testing.T) {
-	t.Parallel()
-	for name, want := range map[string]int{
-		"run-reproducer":           4,
-		"mutate-and-verify":        4,
-		"check-task-commit-fields": 2,
-		"check-cleanup-complete":   2,
-	} {
-		if got := cannotAnswer(name); got != want {
-			t.Errorf("cannotAnswer(%q) = %d, want %d", name, got, want)
-		}
-	}
-}

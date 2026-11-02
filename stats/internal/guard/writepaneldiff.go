@@ -21,10 +21,10 @@ func init() {
 	Registry["write-panel-diff"] = writePanelDiff
 }
 
-const wpdUsage = "usage: write-panel-diff.sh final <canonical-wt> <wt> <merge-base> [<wt> <merge-base>...]\n" +
-	"       write-panel-diff.sh late-fix <canonical-wt> <wt> <since-close-sha> [<wt> <since-close-sha>...]\n" +
-	"       write-panel-diff.sh fix-round <N> <canonical-wt> <wt> <fix-base> [<wt> <fix-base>...]\n" +
-	"       write-panel-diff.sh slot-delta <round> <slot> <canonical-wt> <wt> <merge-base> <held-sha|-> [...]\n"
+const wpdUsage = "usage: flow-guard write-panel-diff final <canonical-wt> <wt> <merge-base> [<wt> <merge-base>...]\n" +
+	"       flow-guard write-panel-diff late-fix <canonical-wt> <wt> <since-close-sha> [<wt> <since-close-sha>...]\n" +
+	"       flow-guard write-panel-diff fix-round <N> <canonical-wt> <wt> <fix-base> [<wt> <fix-base>...]\n" +
+	"       flow-guard write-panel-diff slot-delta <round> <slot> <canonical-wt> <wt> <merge-base> <held-sha|-> [...]\n"
 
 var (
 	wpdNumber = regexp.MustCompile(`^[0-9]+$`)

@@ -39,7 +39,7 @@ func TestCheckNarrativeRuns(t *testing.T) {
 		{"a failed store read exits 2", fx{fix: s("0"), narrative: s("## x"), rc: 2, prefix: "check-narrative-runs: flow stage sessions -stage flow.preserve-sessions failed"}},
 		{"a non-integer store read exits 2", fx{fix: s("two"), integrate: s("0"), rc: 2, prefix: "check-narrative-runs: flow stage sessions -stage flow.document-fix printed 'two', not one integer"}},
 		{"an unreadable narrative exits 2", fx{fix: s("0"), integrate: s("0"), narrative: s("## x"), unreadable: true, rc: 2, prefix: "check-narrative-runs: cannot read "}},
-		{"a usage error exits 2", fx{fix: s("0"), integrate: s("0"), args: []string{"only-one"}, rc: 2, prefix: "usage: check-narrative-runs.sh"}},
+		{"a usage error exits 2", fx{fix: s("0"), integrate: s("0"), args: []string{"only-one"}, rc: 2, prefix: "usage: flow-guard check-narrative-runs"}},
 	}
 	for _, c := range cases {
 		t.Run(c.label, func(t *testing.T) {
@@ -93,8 +93,8 @@ func TestCheckNarrativeRuns(t *testing.T) {
 			if grc != c.fx.rc || !strings.HasPrefix(gout.String()+gerr.String(), c.fx.prefix) {
 				t.Errorf("rc=%d stdout=%q stderr=%q, want rc=%d and output starting %q", grc, gout.String(), gerr.String(), c.fx.rc, c.fx.prefix)
 			}
-			if grc != brc || gout.String() != bout.String() || gerr.String() != berr.String() {
-				t.Errorf("port rc=%d stdout=%q stderr=%q\nbash rc=%d stdout=%q stderr=%q", grc, gout.String(), gerr.String(), brc, bout.String(), berr.String())
+			if grc != brc || gout.String() != bout.String() || gerr.String() != bashUsage(berr.String()) {
+				t.Errorf("port rc=%d stdout=%q stderr=%q\nbash rc=%d stdout=%q stderr=%q", grc, gout.String(), gerr.String(), brc, bout.String(), bashUsage(berr.String()))
 			}
 		})
 	}

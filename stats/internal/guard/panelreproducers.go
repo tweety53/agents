@@ -53,7 +53,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintln(stderr, "usage: check-panel-reproducers.sh <worktree> <change-name>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-panel-reproducers <worktree> <change-name>")
 		return 2
 	}
 

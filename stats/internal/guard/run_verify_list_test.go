@@ -34,7 +34,7 @@ func TestRunVerifyList(t *testing.T) {
 		}
 	}
 	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
-	goEnviron := append(environ[:len(environ):len(environ)], "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	goEnviron := append(environ[:len(environ):len(environ)], "FLOW_GUARD_REPO_ROOT="+repo)
 	getenv := func(k string) string {
 		for i := len(goEnviron) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(goEnviron[i], k+"="); ok {
@@ -109,7 +109,9 @@ func TestRunVerifyList(t *testing.T) {
 			}
 			brc = ee.ExitCode()
 		}
-		if b := (res{brc, norm(br, bo.String(), be.String())}); g != b {
+		// The port spells its usage and the spec-reach row as flow-guard calls.
+		respell := strings.NewReplacer("usage: run-verify-list.sh", "usage: flow-guard run-verify-list", "`check-spec-reach.sh ", "`flow-guard check-spec-reach ")
+		if b := (res{brc, respell.Replace(norm(br, bo.String(), be.String()))}); g != b {
 			t.Errorf("port rc=%d out=%q\nbash rc=%d out=%q", g.rc, g.out, b.rc, b.out)
 		}
 		return g
@@ -145,7 +147,7 @@ func TestRunVerifyList(t *testing.T) {
 		has(t, r, "(truncated — last 20 of 25 lines)\n  6\n")
 		lacks(t, r, "\n  5\n")
 		has(t, r, "  <ROOT>")
-		has(t, r, "- `check-spec-reach.sh <ROOT>` — exit 0\n  Spec reach: not configured")
+		has(t, r, "- `flow-guard check-spec-reach <ROOT>` — exit 0\n  Spec reach: not configured")
 		lacks(t, r, "full output:")
 	})
 
@@ -154,7 +156,7 @@ func TestRunVerifyList(t *testing.T) {
 		rc(t, r, 0)
 		has(t, r, "- `printf 'ok\\n'` — exit 0\n  ok")
 		has(t, r, "  nonl\n- `echo next` — exit 0")
-		lacks(t, r, "check-spec-reach.sh")
+		lacks(t, r, "check-spec-reach")
 	})
 
 	// Beyond the harness: the threshold itself, which 25 lines never pinned.
@@ -315,7 +317,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := dir + ":" + os.Getenv("PATH")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+path)
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo, "PATH="+path)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -379,7 +381,7 @@ func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n# suite: demo-suite\necho one\necho two\n```\n")
 	run := func(path string) (int, string) {
-		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+path)
+		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo, "PATH="+path)
 		getenv := func(k string) string {
 			for i := len(environ) - 1; i >= 0; i-- {
 				if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -419,7 +421,7 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo, "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -472,7 +474,7 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(canon, "spectre/changes/kan-1/tasks.md"), "")
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo, "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -528,7 +530,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo, "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -644,7 +646,7 @@ func TestRunVerifyListKeepsResultFiles(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nmkdir -p build/test-results && echo \"<x n='$$'/>\" > build/test-results/TEST-a.xml; exit 1\n```\n")
 	repo, _ := filepath.Abs("../../..")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -708,7 +710,7 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 	r.Close()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestRunVerifyListSurvivesAClosedStdout$")
 	cmd.Env = append(os.Environ(), "RVL_SIGPIPE_WT="+wt, "FLOW_GUARD_CACHE_DIR="+guardCache(t),
-		"FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+		"FLOW_GUARD_REPO_ROOT="+repo, "PATH="+dir+":"+os.Getenv("PATH"))
 	var stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = w, &stderr
 	err = cmd.Run()
@@ -734,7 +736,7 @@ func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("FLOW_GUARD_CACHE_DIR", guardCache(t))
-	t.Setenv("FLOW_GUARD_SCRIPT_DIR", filepath.Join(repo, "scripts"))
+	t.Setenv("FLOW_GUARD_REPO_ROOT", repo)
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -757,7 +759,7 @@ func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
 func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOrigin, checkout, noAppWT bool) (rc int, out, appWT string) {
 	t.Helper()
 	repo, _ := filepath.Abs("../../..")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -928,7 +930,7 @@ func TestRunVerifyListCapsMemory(t *testing.T) {
 	// An outer run-capped.sh's RUN_CAPPED_PGID would make the inner one run
 	// in place under the outer cap, never this fixture's 64 MB.
 	environ := slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "RUN_CAPPED_PGID=") })
-	environ = append(environ, "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	environ = append(environ, "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -963,7 +965,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 	}
 	wt := filepath.Join(tmp, "repo-x")
 	gitRun(t, tmp, "init", "-q", wt)
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo, "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1038,7 +1040,7 @@ func TestRunVerifyListRecordsHead(t *testing.T) {
 		}
 		return strings.TrimSpace(string(out))
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo, "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {

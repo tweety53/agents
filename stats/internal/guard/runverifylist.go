@@ -28,7 +28,7 @@
 //
 // THE LIST is every non-blank, non-`#` line inside a ```bash fence of
 // `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
-// appends `check-spec-reach.sh <worktree>`. A `# inputs: <pathspec>...`
+// appends `flow-guard check-spec-reach <worktree>`. A `# inputs: <pathspec>...`
 // line of the `test` list declares what the one command below it reads, and a
 // `# suite: <name>` line names the one command below it as that suite: it runs
 // under `flow suite record -C <worktree> -suite <name> --`, so its runtime
@@ -119,8 +119,9 @@
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
 //
-// project-get.sh and check-spec-reach.sh are exec'd from
-// FLOW_GUARD_SCRIPT_DIR, the directory the shim exports as its own. The test
+// project-get and check-spec-reach run in this same binary (runSibling);
+// run-capped.sh, not yet a guard, is exec'd from the scripts/ directory of
+// FLOW_GUARD_REPO_ROOT, the checkout flow-guard was built from. The test
 // list runs on rgtRun, run-guard-tests' job pool, with one job per command so
 // every one starts at once (decision verify-list-on-rgtrun).
 
@@ -133,7 +134,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -281,7 +281,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return p
 	}
-	const usage = "usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
+	const usage = "usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
 	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test" && args[1] != "visual") {
 		fmt.Fprintln(stderr, usage)
 		return 2
@@ -334,9 +334,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		args = args[:2]
 	}
-	scriptDir := env.Getenv("FLOW_GUARD_SCRIPT_DIR")
-	if scriptDir == "" {
-		fmt.Fprintln(stderr, "run-verify-list: FLOW_GUARD_SCRIPT_DIR is unset — run scripts/run-verify-list.sh, which sets it")
+	repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
+	if repoRoot == "" {
+		fmt.Fprintln(stderr, "run-verify-list: FLOW_GUARD_REPO_ROOT is unset — run flow-guard run-verify-list, which sets it")
 		return 2
 	}
 	wt, list := args[0], args[1]
@@ -345,8 +345,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// A visual list runs the `verify` row alone: no list to read.
 	var body []byte
 	if list != "visual" {
-		get := exec.Command(filepath.Join(scriptDir, "project-get.sh"), wt, list)
-		get.Dir, get.Env, get.Stderr = env.Dir, childEnv, stderr
+		get := runSibling(env, "project-get", wt, list)
+		get.Env, get.Stderr = childEnv, stderr
 		var err error
 		body, err = get.Output()
 		switch exitCode(err) {
@@ -487,7 +487,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	cmdEnv := append(childEnv[:len(childEnv):len(childEnv)], "PWD="+abs(wt))
 	// Every command runs under run-capped.sh, which kills its process tree
 	// past the project's `## resource cap` (kan-1044).
-	capped := filepath.Join(scriptDir, "run-capped.sh")
+	capped := filepath.Join(repoRoot, "scripts", "run-capped.sh")
 	// run runs one command in the foreground.
 	run := func(shown, cmd, key string) {
 		results := rgtRun(context.Background(), [][]string{{capped, "--", "bash", "-c", cmd}}, 1, outDir, abs(wt), cmdEnv)
@@ -570,7 +570,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		os.WriteFile(greenFile, []byte(headSHA+"\n"), 0o666)
 	}
 	if list == "lint" {
-		run("check-spec-reach.sh "+wt, `"`+scriptDir+`/check-spec-reach.sh" "`+wt+`"`, "spec-reach")
+		self, _ := selfExe()
+		run("flow-guard check-spec-reach "+wt, `"`+self+`" check-spec-reach "`+wt+`"`, "spec-reach")
 	}
 	// Lint and test share one dispatch key, and the later group's end
 	// overwrites the row (skills/flow/verify-and-handoff.md, Recording): a

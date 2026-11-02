@@ -260,7 +260,7 @@ func TestCheckWorktreeProcesses(t *testing.T) {
 		}}))
 
 	// The refusals the harness never named: the wrong number of arguments.
-	usage := "check-worktree-processes: usage: check-worktree-processes.sh <worktree>\n"
+	usage := "check-worktree-processes: usage: flow-guard check-worktree-processes <worktree>\n"
 	wpRunChecks(t, run(), wpCannot("no arguments", usage))
 	wpRunChecks(t, run(wt, wt), wpCannot("two arguments", usage))
 	wpRunChecks(t, run(""), wpCannot("an empty worktree argument",

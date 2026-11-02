@@ -23,7 +23,7 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 		return 2
 	}
 	if len(args) != 2 {
-		fmt.Fprintln(stderr, "usage: check-task-commit-planning-paths.sh <worktree> <base>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-task-commit-planning-paths <worktree> <base>")
 		return 2
 	}
 	wt, base := args[0], args[1]

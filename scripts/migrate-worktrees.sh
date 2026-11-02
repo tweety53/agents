@@ -65,6 +65,4 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   echo "migrate-worktrees: no executable check-worktree-processes.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-FLOW_GUARD_SELF="${BASH_SOURCE[0]}"
-export FLOW_GUARD_SELF
 flow_guard_exec migrate-worktrees 2 "migrate-worktrees:" "$@"

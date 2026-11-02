@@ -20,7 +20,7 @@ var stfPlanning = []string{"spectre/changes/", "openspec/changes/", "docs/superp
 
 func stageTaskFiles(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		fmt.Fprint(stderr, "usage: stage-task-files.sh <abs-worktree> <file>...\n")
+		fmt.Fprint(stderr, "usage: flow-guard stage-task-files <abs-worktree> <file>...\n")
 		return 2
 	}
 	wt, files := args[0], args[1:]

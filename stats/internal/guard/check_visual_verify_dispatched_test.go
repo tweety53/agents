@@ -401,7 +401,7 @@ func TestCheckVisualVerifyDispatched(t *testing.T) {
 		{"case 8d: an empty change name exits 2",
 			vvdCase{args: func(wt, base string) []string { return []string{wt, "", base} }}, 2, "",
 			func(vvdResult) string {
-				return p + "usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base> [<canonical-worktree>]\n"
+				return p + "usage: flow-guard check-visual-verify-dispatched <worktree> <change-name> <merge-base> [<canonical-worktree>]\n"
 			}, nil},
 		{"case 8e: an empty merge-base exits 2",
 			vvdCase{args: func(wt, _ string) []string { return []string{wt, "demo", ""} }}, 2, "",

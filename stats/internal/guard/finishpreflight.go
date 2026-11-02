@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -136,22 +135,14 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 
-	// check-worktree-location is exec'd as a sibling script, from beside the
-	// shim with the shim's argv. The shim exports its path as
-	// $SCRIPT_DIR/check-worktree-location.sh — the spelling check-guard-symlinks
-	// rule 2 reads to require the sibling wherever the shim is carried.
-	location := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION")
-	if location == "" {
-		fmt.Fprintln(stderr, "check-finish-preflight: FLOW_GUARD_WORKTREE_LOCATION is unset — run scripts/check-finish-preflight.sh, which sets it")
-		return 2
-	}
-	if syscall.Access(location, 1) != nil { // `[ -x ]`
+	// check-worktree-location runs in this same binary (runSibling), or as
+	// the executable FLOW_GUARD_WORKTREE_LOCATION names.
+	if location := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"); location != "" && syscall.Access(location, 1) != nil { // `[ -x ]`
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is missing or not executable — cannot determine anything\n", location)
 		return 2
 	}
 	var locOut, locErr bytes.Buffer
-	cmd := exec.Command(location, mainCheckout)
-	cmd.Dir = env.Dir
+	cmd := siblingCmd(env, "FLOW_GUARD_WORKTREE_LOCATION", "check-worktree-location", mainCheckout)
 	cmd.Stdout, cmd.Stderr = &locOut, &locErr
 	rc := exitCode(cmd.Run())
 	switch {

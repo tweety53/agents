@@ -55,7 +55,7 @@ func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-normative-inventory.sh, which sets it\n", niName)
+			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-normative-inventory, which sets it\n", niName)
 			return 2
 		}
 	}

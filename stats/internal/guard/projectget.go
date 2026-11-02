@@ -22,7 +22,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	// word-bounded literal (pgEnum), the longest match winning.
 	enum := len(args) > 3 && args[2] == "--enum"
 	if len(args) != 2 && !enum {
-		fmt.Fprintln(stderr, "usage: project-get.sh <project-root> <key>")
+		fmt.Fprintln(stderr, "usage: flow-guard project-get <project-root> <key>")
 		return 2
 	}
 	root, key := args[0], args[1]

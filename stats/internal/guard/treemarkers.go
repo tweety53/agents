@@ -35,7 +35,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	usage := func() int {
-		return fail("usage: check-tree-markers.sh snapshot|verify <worktree> <markers-file> <snapshot-file>")
+		return fail("usage: flow-guard check-tree-markers snapshot|verify <worktree> <markers-file> <snapshot-file>")
 	}
 	if mode != "snapshot" && mode != "verify" {
 		return usage()

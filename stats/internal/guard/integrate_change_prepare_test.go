@@ -97,7 +97,7 @@ g -C "$WORK/b" add work-b.txt && g -C "$WORK/b" commit -qm "base: work-b" && g -
 sut prepare "$WORK/a" demo
 check "sync_conflict: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "sync_conflict: the stop line names the --resume call and what follows it" \
-  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: sync-conflict — .*sync-onto-base.sh. --resume, the whole ## lint and ## test lists, then re-run prepare$"'`},
+  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: sync-conflict — .*flow-guard sync-onto-base --resume., the whole ## lint and ## test lists, then re-run prepare$"'`},
 		{"guard_test", `# --- guard_test ---
 # A scoped re-verification is <agents repo>/scripts/test-<stem>.sh, the repo
 # derived from the guards' own path: run a copy of scripts/ whose stats/ is

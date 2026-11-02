@@ -56,7 +56,7 @@ const pdgMaxInFlight = 2
 
 func planDispatchGroups(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "usage: plan-dispatch-groups.sh <path-to-tasks.md>")
+		fmt.Fprintln(stderr, "usage: flow-guard plan-dispatch-groups <path-to-tasks.md>")
 		return 2
 	}
 	bundles, afterSets, rc := pdbBundlesOf(args[0], env, stderr)

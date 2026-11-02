@@ -126,7 +126,7 @@ func lpPromptTuningOnly(env Env, git, repo, branch string) bool {
 func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-landing"
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		fmt.Fprint(stderr, "usage: check-loop-landing.sh <repo> <branch>\n")
+		fmt.Fprint(stderr, "usage: flow-guard check-loop-landing <repo> <branch>\n")
 		return 2
 	}
 	lp, ok := lpFromBranch(args[1])

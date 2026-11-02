@@ -76,7 +76,7 @@ type asSection struct {
 func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
-		fmt.Fprintf(stderr, askSilenceName+": FLOW_GUARD_REPO_ROOT is unset — run scripts/check-ask-silence.sh, which sets it\n")
+		fmt.Fprintf(stderr, askSilenceName+": FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-ask-silence, which sets it\n")
 		return 2
 	}
 	files, code := ownedCorpus(root, askSilenceName, stderr)

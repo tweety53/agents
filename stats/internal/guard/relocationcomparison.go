@@ -109,7 +109,7 @@ var (
 
 func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: generate-relocation-comparison.sh <worktree> <changeRoot> <merge-base>")
+		fmt.Fprintln(stderr, "usage: flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>")
 		return 2
 	}
 	worktree, base, tasksPath := args[0], args[2], args[1]+"/tasks.md"

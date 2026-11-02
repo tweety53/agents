@@ -208,13 +208,13 @@ func checkPlanShape(args []string, env Env, stdout, stderr io.Writer) int {
 		return psCheckOne(args[0], env, "", stdout, stderr)
 	case 0:
 	default:
-		fmt.Fprintln(stderr, "usage: check-plan-shape.sh [path-to-tasks.md]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-plan-shape [path-to-tasks.md]")
 		return 2
 	}
 	root := env.Getenv("CHECK_PLAN_SHAPE_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintln(stderr, "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-plan-shape.sh, which sets it")
+			fmt.Fprintln(stderr, "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-plan-shape, which sets it")
 			return 2
 		}
 	}

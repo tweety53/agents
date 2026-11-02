@@ -289,7 +289,7 @@ func TestGuardsReachInstallAndRunFromIt(t *testing.T) {
 	// the shim reporting that it could not load lib/flow-guard.sh or build flow-guard.
 	g.assertRCNonzero("check-panel-reproducers.sh with no change name exits non-zero (expected — not a failure)", guardRC)
 	g.assertContains("check-panel-reproducers.sh reaches its own usage message (proves lib/flow-guard.sh loaded and the flow-guard binary ran, not just that the file exists)",
-		guardLog, "usage: check-panel-reproducers.sh")
+		guardLog, "usage: flow-guard check-panel-reproducers")
 	g.assertNotContains("check-panel-reproducers.sh through the installed path does not report a missing lib/flow-guard.sh",
 		guardLog, "cannot load lib/flow-guard.sh")
 	built, _ := filepath.Glob(filepath.Join(guardCache, "*", "flow-guard"))

@@ -142,5 +142,9 @@ flow_guard_exec() {
       exit "$code"
     fi
   fi
+  # A guard runs its sibling guards in this same binary, and they read the
+  # checkout root from the environment: exported here unless the shim set it.
+  FLOW_GUARD_REPO_ROOT="${FLOW_GUARD_REPO_ROOT:-$(flow_guard_root)}"
+  export FLOW_GUARD_REPO_ROOT
   exec "$bin" "$name" "$@"
 }

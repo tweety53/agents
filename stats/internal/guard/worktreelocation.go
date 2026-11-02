@@ -29,7 +29,7 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 		return 2
 	}
 	if len(args) != 1 {
-		return die("usage: check-worktree-location.sh <project>")
+		return die("usage: flow-guard check-worktree-location <project>")
 	}
 
 	// PATHS ARE COMPARED IN PHYSICAL FORM. The project root is resolved as

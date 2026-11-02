@@ -76,7 +76,7 @@ func init() { Registry["workspace"] = workspace }
 const (
 	wsContainer = "flow-postgres"
 	wsSuperuser = "flow"
-	wsUsage     = "usage: workspace.sh {create|remove|survivors} <id> [--force]\n" +
+	wsUsage     = "usage: flow-guard workspace {create|remove|survivors} <id> [--force]\n" +
 		"       --force is accepted only by remove\n"
 )
 

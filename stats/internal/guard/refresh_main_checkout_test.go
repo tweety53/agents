@@ -171,7 +171,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 
 	t.Run("usage", func(t *testing.T) {
 		t.Parallel()
-		const usage = "usage: refresh-main-checkout.sh <main-checkout> <base>\n"
+		const usage = "usage: flow-guard refresh-main-checkout <main-checkout> <base>\n"
 		for _, args := range [][]string{{t.TempDir()}, {t.TempDir() + "/absent", "main"}} {
 			if r := run(args...); r.rc != 2 || r.stdout != "" || r.err != usage {
 				t.Fatalf("%v: want exit 2 with usage; got %+v", args, r)

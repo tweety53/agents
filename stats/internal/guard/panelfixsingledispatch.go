@@ -72,7 +72,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintf(stderr, "%susage: check-panel-fix-single-dispatch.sh <worktree> <change-name> <session-token>\n", pfdPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-panel-fix-single-dispatch <worktree> <change-name> <session-token>\n", pfdPrefix)
 		return 2
 	}
 	if token == "" {

@@ -829,7 +829,13 @@ Prose that is not a second declaration.
 	wiRefuses(t, r, "port: an unresolvable FLOW_GUARD_SELF with no argument")
 	wiCheck(t, "port: the refusal names the self-location failure", strings.Contains(r.err, "cannot resolve this script's own location"),
 		"stderr: %s", r.err)
-	wiRefuses(t, wiRun(t, nil), "port: no argument and no FLOW_GUARD_SELF")
+	wiRefuses(t, wiRun(t, nil), "port: no argument, no FLOW_GUARD_SELF and no FLOW_GUARD_REPO_ROOT")
+
+	// Called bare as `flow-guard check-workspace-isolation`, no shim sets
+	// FLOW_GUARD_SELF: the root scripts/flow-guard exports is checked.
+	r = wiRun(t, map[string]string{"FLOW_GUARD_REPO_ROOT": project})
+	wiOK(t, r, "bare through the bootstrap: FLOW_GUARD_REPO_ROOT is the project root checked")
+	wiReports(t, r, "resource row(s) and", "bare through the bootstrap: the root's .flow/project.md was read and validated")
 }
 
 // wiShimNoStats runs scripts/check-workspace-isolation.sh, copied with

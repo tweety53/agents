@@ -109,7 +109,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		return 2
 	}
 	if len(args) < 3 || len(args) > 6 {
-		return refuse(fmt.Sprintf("usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> [parent-sha] [canonical-worktree] [change-name] — got %d argument(s)", len(args)))
+		return refuse(fmt.Sprintf("usage: flow-guard check-task-commit-fields <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> [parent-sha] [canonical-worktree] [change-name] — got %d argument(s)", len(args)))
 	}
 	a := append(slices.Clone(args), "", "", "")
 	worktree, taskID, commit, parent, canonical, name := a[0], a[1], a[2], a[3], a[4], a[5]

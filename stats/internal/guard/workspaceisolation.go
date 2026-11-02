@@ -77,20 +77,27 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 	// symlink a command skill carries it under. Going up one level from the
 	// SECOND of those lands on the skill directory, which exists, so a
 	// fixed-depth guard would proceed against it and return a confident wrong
-	// answer (silently "declares nothing") rather than an error. The shim
-	// therefore exports the path it was invoked by as FLOW_GUARD_SELF, and
-	// resolveFile follows its symlinks first, so the root comes from the
-	// script's real physical location whichever path invoked it.
+	// answer (silently "declares nothing") rather than an error. The
+	// scripts/check-workspace-isolation.sh shim therefore exports the path it
+	// was invoked by as FLOW_GUARD_SELF, and resolveFile follows its symlinks
+	// first, so the root comes from the script's real physical location
+	// whichever path invoked it. Called as `flow-guard
+	// check-workspace-isolation`, the root is FLOW_GUARD_REPO_ROOT, the
+	// physical checkout root scripts/flow-guard exports.
 	if len(args) == 0 {
 		self := env.Getenv("FLOW_GUARD_SELF")
-		if self == "" {
-			return refuse("FLOW_GUARD_SELF is unset — run scripts/check-workspace-isolation.sh, which sets it")
+		switch root := env.Getenv("FLOW_GUARD_REPO_ROOT"); {
+		case self != "":
+			real, ok := resolveFile(wiAbs(env, self))
+			if !ok {
+				return refuse("cannot resolve this script's own location")
+			}
+			args = []string{gdcDirname(gdcDirname(real))}
+		case root != "":
+			args = []string{root}
+		default:
+			return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-workspace-isolation, which sets it")
 		}
-		real, ok := resolveFile(wiAbs(env, self))
-		if !ok {
-			return refuse("cannot resolve this script's own location")
-		}
-		args = []string{gdcDirname(gdcDirname(real))}
 	}
 
 	utf8Locale := smcUTF8(env)

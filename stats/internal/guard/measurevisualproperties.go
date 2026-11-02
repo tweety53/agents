@@ -47,14 +47,15 @@ type mvpUnresolved string
 
 func (e mvpUnresolved) Error() string { return string(e) }
 
-// mvpHelp is what argparse printed for -h with stdout not a terminal (80
-// columns): the port prints the same text wherever it runs.
-const mvpHelp = `usage: measure-visual-properties.sh [-h] [--region-a REGION_A]
-                                    [--region-b REGION_B] [--scale SCALE]
-                                    [--ref-a REF_A] [--ref-b REF_B]
-                                    [--props PROPS] [--edge EDGE]
-                                    [--noise NOISE]
-                                    image_a [image_b]
+// mvpHelp is what argparse prints for -h with stdout not a terminal (80
+// columns) and prog "flow-guard measure-visual-properties": the port prints
+// the same text wherever it runs.
+const mvpHelp = `usage: flow-guard measure-visual-properties [-h] [--region-a REGION_A]
+                                            [--region-b REGION_B]
+                                            [--scale SCALE] [--ref-a REF_A]
+                                            [--ref-b REF_B] [--props PROPS]
+                                            [--edge EDGE] [--noise NOISE]
+                                            image_a [image_b]
 
 positional arguments:
   image_a

@@ -55,7 +55,7 @@ func runGuardTests(_ []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	case !set:
 		if repoRoot == "" {
-			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run scripts/run-guard-tests.sh, which sets it\n", rgtName)
+			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard run-guard-tests, which sets it\n", rgtName)
 			return 2
 		}
 		testRoot = scriptDir

@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,14 @@ var execFixtures struct {
 }
 
 func TestMain(m *testing.M) {
+	// runSibling execs this very executable with a guard's name first: in a
+	// test binary that is the test binary, so it dispatches like flow-guard.
+	if len(os.Args) > 1 {
+		if fn, ok := Registry[os.Args[1]]; ok {
+			cwd, _ := os.Getwd()
+			os.Exit(fn(os.Args[2:], Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin}, os.Stdout, os.Stderr))
+		}
+	}
 	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
 	// Every allowed-pairs reader runs `flow experiment overrides`
 	// (policyTable). A real `flow` on PATH would read the dev store's open
@@ -63,6 +72,14 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	execFixtures.dir, execFixtures.masters = dir, map[string]string{}
+	// Every sibling a guard under test runs is the flow-guard these sources
+	// build, as in production; TestRunSiblingSelfExec covers the default.
+	bin, err := guardCacheBuilt()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	siblingExe = bin
 	code := m.Run()
 	_ = os.RemoveAll(dir)
 	os.Exit(code)
@@ -668,4 +685,13 @@ func TestChangeDirIsLiveOnly(t *testing.T) {
 	if got, want := ChangeDir(changes, "kan-1"), changes+"/kan-1"; got != want {
 		t.Fatalf("ChangeDir = %s; want %s", got, want)
 	}
+}
+
+// bashUsageRe matches a shim-era usage line's script name.
+var bashUsageRe = regexp.MustCompile(`usage: ([a-z][a-z0-9-]*)\.sh\b`)
+
+// bashUsage respells a bash-at-base usage line the way the guard now spells
+// it, so a parity test compares everything else byte for byte.
+func bashUsage(s string) string {
+	return bashUsageRe.ReplaceAllString(s, "usage: flow-guard $1")
 }

@@ -24,7 +24,7 @@ func init() {
 	Registry["panel-round-begins"] = panelRoundBegins
 }
 
-const prbUsage = "usage: panel-round-begins.sh <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...\n"
+const prbUsage = "usage: flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...\n"
 
 var prbRound = regexp.MustCompile(`^[0-9]+$`)
 

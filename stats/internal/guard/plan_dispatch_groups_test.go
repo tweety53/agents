@@ -67,7 +67,7 @@ func TestPlanDispatchGroups(t *testing.T) {
 
 	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, pdgShim)
 	want("case 7: no arguments exits 2", r.rc == 2, r)
-	want("pin: the usage line", r.err == "usage: plan-dispatch-groups.sh <path-to-tasks.md>\n", r)
+	want("pin: the usage line", r.err == "usage: flow-guard plan-dispatch-groups <path-to-tasks.md>\n", r)
 
 	// Beyond the harness: the outputs it never pinned, as the Python and its
 	// wrapper printed them at bbfe685e.

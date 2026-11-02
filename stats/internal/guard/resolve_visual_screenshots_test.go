@@ -212,7 +212,7 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 		root := rvsRoot(t)
 		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root}, 2, "",
-			rvsName + "usage: resolve-visual-screenshots.sh <project root> <capture spec basename>\n"}
+			rvsName + "usage: flow-guard resolve-visual-screenshots <project root> <capture spec basename>\n"}
 	},
 	"case 13": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)

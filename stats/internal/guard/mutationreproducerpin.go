@@ -15,7 +15,11 @@ import (
 // checkMutationReproducerPin is scripts/check-mutation-reproducer-pin.sh's
 // guard. The shim's header states the contract — the two canonical
 // declaration lines, the presence and near-miss checks, and the exit codes;
-// this file is the mechanism.
+// this file is the mechanism. The pinned sites are the Go source run-reproducer
+// runs (stats/internal/guard/runreproducer.go: the declaration, and its
+// leading comment's statement of the convention), scripts/flow-guard (the
+// bootstrap every run-reproducer call goes through) and
+// skills/flow/review-panel.md.
 func init() {
 	Registry["check-mutation-reproducer-pin"] = checkMutationReproducerPin
 }
@@ -51,7 +55,7 @@ func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) i
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-mutation-reproducer-pin.sh, which sets it\n", mrpName)
+			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-mutation-reproducer-pin, which sets it\n", mrpName)
 			return 2
 		}
 	}
@@ -67,7 +71,7 @@ func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) i
 		fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-INVALID: %s — %d violation(s)\n", root, len(violations))
 		return 1
 	}
-	fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-OK: %s — marker '%s' window %s pinned across stats/internal/guard/runreproducer.go, scripts/run-reproducer.sh and skills/flow/review-panel.md\n", root, marker, window)
+	fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-OK: %s — marker '%s' window %s pinned across stats/internal/guard/runreproducer.go, scripts/flow-guard and skills/flow/review-panel.md\n", root, marker, window)
 	return 0
 }
 
@@ -78,12 +82,12 @@ func mrpScan(env Env, root string) (violations []string, marker, window string, 
 	if !isDir(smcAbs(env, root)) {
 		return nil, "", "", &mrpExit2{root, "is not a directory — cannot scan"}
 	}
-	runner := root + "/scripts/run-reproducer.sh"
+	bootstrap := root + "/scripts/flow-guard"
 	panel := root + "/skills/flow/review-panel.md"
 	source := root + "/stats/internal/guard/runreproducer.go"
 
 	text := map[string]string{}
-	for _, pinned := range []string{source, runner, panel} {
+	for _, pinned := range []string{source, bootstrap, panel} {
 		p := smcAbs(env, pinned)
 		if lp, err := os.Lstat(p); err == nil && lp.Mode()&fs.ModeSymlink != 0 {
 			return nil, "", "", &mrpExit2{pinned, "is a symlink — a pinned site must be a real file, never a symlink"}
@@ -164,10 +168,10 @@ func mrpScan(env Env, root string) (violations []string, marker, window string, 
 	windowMsg := fmt.Sprintf(`no longer states the window as "first %s lines" — %s (window: %s); move every site together`, window, drift, window)
 	contains(panel, "`"+marker+"`", markerMsg, mrpMarkerAnchr)
 	contains(panel, "first "+window+" lines", windowMsg, mrpWindowStmt)
-	contains(runner, "`"+marker+"`", "its header comment "+markerMsg, mrpMarkerAnchr)
-	contains(runner, "first "+window+" lines", "its header comment "+windowMsg, mrpWindowStmt)
+	contains(source, "`"+marker+"`", "its leading comment "+markerMsg, mrpMarkerAnchr)
+	contains(source, "first "+window+" lines", "its leading comment "+windowMsg, mrpWindowStmt)
 
-	for _, pinned := range []string{source, runner, panel} {
+	for _, pinned := range []string{source, bootstrap, panel} {
 		violations = append(violations, mrpNearMiss(pinned, text[pinned], window, marker)...)
 	}
 	return violations, marker, window, nil

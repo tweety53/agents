@@ -482,7 +482,7 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(psFixture(t, "- [ ] 1. \xff\n"))
 	want("pin: a plan that is not UTF-8 exits 2", r.rc == 2 && has(r, "cannot read file: UnicodeDecodeError"), r)
 	r = runGuard("check-plan-shape", []string{"a", "b"}, env)
-	want("pin: the usage line", r.err == "usage: check-plan-shape.sh [path-to-tasks.md]\n", r)
+	want("pin: the usage line", r.err == "usage: flow-guard check-plan-shape [path-to-tasks.md]\n", r)
 	r = one(psFixture(t, psTasks("a", "a")))
 	want("pin: violations go to stdout, one per line", r.err == "" && strings.HasSuffix(r.stdout, "explicit\n"), r)
 	root = t.TempDir()
@@ -491,7 +491,7 @@ func TestCheckPlanShape(t *testing.T) {
 	want("pin: with no override the root is FLOW_GUARD_REPO_ROOT", r.rc == 1 && has(r, root+"/spectre/changes/dirty-change/tasks.md:1: task 1 has no **Files:** line"), r)
 	r = runGuard("check-plan-shape", nil, Env{Getenv: psGetenv(nil)})
 	want("pin: with no override and no FLOW_GUARD_REPO_ROOT it exits 2", r.rc == 2 &&
-		r.err == "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-plan-shape.sh, which sets it\n", r)
+		r.err == "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-plan-shape, which sets it\n", r)
 	r = one(psFixture(t, "- [ ] 1. Unread\n\n**Files:** `a.py`\n**Tests:** `x`\n\n  - [ ] **Step 1:** run `./gradlew test`\n"))
 	want("pin: the sub-guards' findings follow this guard's in one run", r.rc == 1 && has(r, "runs the suite"), r)
 

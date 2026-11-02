@@ -264,7 +264,7 @@ func TestProveReproducer(t *testing.T) {
 		{"usage and door refusals print the bash's lines", func(t *testing.T) {
 			repo, pre := prRepo(t, "repo")
 			writeFile(t, filepath.Join(repo, "noexec.sh"), "#!/bin/sh\n")
-			usage := "usage: prove-reproducer.sh <worktree> <pre-fix-ref> <reproducer-path>\n" +
+			usage := "usage: flow-guard prove-reproducer <worktree> <pre-fix-ref> <reproducer-path>\n" +
 				"       <reproducer-path> is relative to <worktree>; the pre-fix leg runs\n" +
 				"       it in a detached scratch worktree at <pre-fix-ref>, the post-fix\n" +
 				"       leg against <worktree> itself\n"

@@ -75,7 +75,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintln(stderr, "usage: check-panel-reproducer-exit-contract.sh <worktree> <change-name>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-panel-reproducer-exit-contract <worktree> <change-name>")
 		return 2
 	}
 	// CONTAINMENT, the same allowlist check-panel-reproducers and

@@ -42,24 +42,19 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// The sibling guard sits beside the shim: the bash took it from its own
-	// $SCRIPT_DIR, and the shim exports that path as
-	// FLOW_GUARD_WORKSPACE_ISOLATION, whatever the directory is named.
-	guard := env.Getenv("FLOW_GUARD_WORKSPACE_ISOLATION")
-	if guard == "" {
-		fmt.Fprint(stderr, "prepare-workspace: FLOW_GUARD_WORKSPACE_ISOLATION is unset — run scripts/prepare-workspace.sh, which sets it\n")
-		return 2
-	}
-	scriptDir := filepath.Dir(guard)
-	// Executable as well as a regular file: a present-but-non-executable
-	// guard is not runnable either, and letting the exec below hit it
-	// directly would fail with a raw exit 126 ("Permission denied") — outside
-	// this guard's own 0/1/2 exit contract and undocumented as such. Treated
-	// the same as "cannot find it at all", since neither case leaves this
-	// guard able to validate anything.
-	if st, err := os.Stat(guard); err != nil || !st.Mode().IsRegular() || syscall.Access(guard, 1) != nil {
-		fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation.sh in %s\n", scriptDir)
-		return 2
+	// The sibling guard, check-workspace-isolation, runs in this same binary
+	// (runSibling); FLOW_GUARD_WORKSPACE_ISOLATION, when set, names an
+	// executable to run instead. Executable as well as a regular file: a
+	// present-but-non-executable override is not runnable either, and letting
+	// the exec below hit it directly would fail with a raw exit 126
+	// ("Permission denied") — outside this guard's own 0/1/2 exit contract and
+	// undocumented as such. Treated the same as "cannot find it at all", since
+	// neither case leaves this guard able to validate anything.
+	if guard := env.Getenv("FLOW_GUARD_WORKSPACE_ISOLATION"); guard != "" {
+		if st, err := os.Stat(guard); err != nil || !st.Mode().IsRegular() || syscall.Access(guard, 1) != nil {
+			fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation.sh in %s\n", filepath.Dir(guard))
+			return 2
+		}
 	}
 
 	// Validate first, with the guard, not by eye — and before resolving a
@@ -74,8 +69,8 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// this guard needs: the guard already walked the file's cells to validate
 	// them, and the rows below are extracted from that same walk rather than
 	// a second one this guard would otherwise have to run itself.
-	cmd := exec.Command(guard, worktree)
-	cmd.Dir, cmd.Stderr = env.Dir, stderr
+	cmd := siblingCmd(env, "FLOW_GUARD_WORKSPACE_ISOLATION", "check-workspace-isolation", worktree)
+	cmd.Stderr = stderr
 	cmd.Env = append(os.Environ(), "CHECK_WORKSPACE_ISOLATION_PRINT_ROWS=1")
 	raw, err := cmd.Output()
 	// $(...) strips every trailing newline; the relay below adds one back.

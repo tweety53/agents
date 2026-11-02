@@ -15,15 +15,16 @@ import (
 // Env, and each `*"x"*` pattern is a substring check.
 
 const (
-	mrpRunner = "#!/usr/bin/env bash\n# THE MUTATION-REPRODUCER CONVENTION (KAN-568). Such a reproducer declares\n# itself with the exact line `# mutation-reproducer` within its first 10 lines,\n# and this script then reads it under that convention.\nexec flow-guard run-reproducer \"$@\"\n"
-	mrpSource = "package guard\n\nconst (\n\trrMarker     = \"# mutation-reproducer\"\n)\n\nfunc declaresMutation(path string) bool {\n\tfor _, l := range headLines(path, 10) {\n\t\tif l == rrMarker {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n"
-	mrpPanel  = "A surviving mutant's reproducer carries the exact line\n`# mutation-reproducer` within its first 10 lines — the declaration\n`run-reproducer.sh` reads as the mutation convention.\n"
+	mrpBootstrap = "#!/usr/bin/env bash\n# scripts/flow-guard — the one bootstrap every guard runs through.\nexec \"$bin\" \"$name\" \"$@\"\n"
+	mrpComment   = "// THE MUTATION-REPRODUCER CONVENTION (KAN-568). Such a reproducer declares\n// itself with the exact line `# mutation-reproducer` within its first 10 lines,\n// and this script then reads it under that convention.\n"
+	mrpSource    = "package guard\n\n" + mrpComment + "const (\n\trrMarker     = \"# mutation-reproducer\"\n)\n\nfunc declaresMutation(path string) bool {\n\tfor _, l := range headLines(path, 10) {\n\t\tif l == rrMarker {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n"
+	mrpPanel     = "A surviving mutant's reproducer carries the exact line\n`# mutation-reproducer` within its first 10 lines — the declaration\n`run-reproducer.sh` reads as the mutation convention.\n"
 )
 
 const (
-	mrpRunnerPath = "scripts/run-reproducer.sh"
-	mrpSourcePath = "stats/internal/guard/runreproducer.go"
-	mrpPanelPath  = "skills/flow/review-panel.md"
+	mrpBootstrapPath = "scripts/flow-guard"
+	mrpSourcePath    = "stats/internal/guard/runreproducer.go"
+	mrpPanelPath     = "skills/flow/review-panel.md"
 )
 
 // mrpCheck is one ok label: the exit code when want is "", else want as a
@@ -59,10 +60,10 @@ func TestCheckMutationReproducerPin(t *testing.T) {
 				{label: "window_drift_in_prose_fails: names the drifted window statement", want: "no longer states the window"},
 			}},
 		{name: "comment_drift_fails",
-			files: map[string]string{mrpRunnerPath: strings.Replace(mrpRunner, "first 10 lines", "first 12 lines", 1)},
+			files: map[string]string{mrpSourcePath: strings.Replace(mrpSource, "first 10 lines", "first 12 lines", 1)},
 			check: []mrpCheck{
 				{label: "comment_drift_fails: exits 1", rc: 1},
-				{label: "comment_drift_fails: names run-reproducer.sh", want: "run-reproducer.sh"},
+				{label: "comment_drift_fails: names runreproducer.go's leading comment", want: "runreproducer.go:4: its leading comment no longer states the window"},
 			}},
 		{name: "missing_declaration_is_exit_2",
 			files: map[string]string{mrpSourcePath: "package guard\n\n// The window is declared elsewhere now.\nconst rrMarker = \"# mutation-reproducer\"\n\nfunc declaresMutation(lines []string) bool {\n\tfor _, l := range lines {\n\t\tif l == rrMarker {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n"},
@@ -77,7 +78,7 @@ func TestCheckMutationReproducerPin(t *testing.T) {
 			files: map[string]string{mrpPanelPath: ""},
 			check: []mrpCheck{{label: "missing_site_file_is_exit_2: exits 2", rc: 2}}},
 		{name: "multi_site_drift_fails",
-			files: map[string]string{mrpRunnerPath: "#!/usr/bin/env bash\n# THE MUTATION-REPRODUCER CONVENTION (KAN-568). Such a reproducer declares\n# itself with the exact line `# mutation-reproducer` within its first 12 lines,\n# and this script then reads it under that convention.\n# Exact line, within the first 10 lines: a line that merely contains the\n# marker is prose, not a declaration.\nexec flow-guard run-reproducer \"$@\"\n"},
+			files: map[string]string{mrpSourcePath: strings.Replace(mrpSource, "first 10 lines,\n", "first 12 lines,\n// Exact line, within the first 10 lines: a line that merely contains the\n// marker is prose, not a declaration.\n", 1)},
 			check: []mrpCheck{
 				{label: "multi_site_drift_fails: exits 1", rc: 1},
 				{label: "multi_site_drift_fails: names the drifted statement at its line", want: `states the window as "first 12 lines"`},
@@ -102,7 +103,7 @@ func TestCheckMutationReproducerPin(t *testing.T) {
 			}},
 	} {
 		root := t.TempDir()
-		files := map[string]string{mrpRunnerPath: mrpRunner, mrpSourcePath: mrpSource, mrpPanelPath: mrpPanel}
+		files := map[string]string{mrpBootstrapPath: mrpBootstrap, mrpSourcePath: mrpSource, mrpPanelPath: mrpPanel}
 		for p, body := range tc.files {
 			files[p] = body
 		}
@@ -144,7 +145,7 @@ func TestCheckMutationReproducerPinOutput(t *testing.T) {
 	t.Parallel()
 	run := func(t *testing.T, panel string) (int, string, string) {
 		root := t.TempDir()
-		writeFile(t, filepath.Join(root, mrpRunnerPath), mrpRunner)
+		writeFile(t, filepath.Join(root, mrpBootstrapPath), mrpBootstrap)
 		writeFile(t, filepath.Join(root, mrpSourcePath), mrpSource)
 		writeFile(t, filepath.Join(root, mrpPanelPath), panel)
 		var stdout, stderr bytes.Buffer
@@ -154,7 +155,7 @@ func TestCheckMutationReproducerPinOutput(t *testing.T) {
 	t.Run("clean", func(t *testing.T) {
 		t.Parallel()
 		rc, out, errOut := run(t, mrpPanel)
-		want := "MUTATION-REPRODUCER-PIN-OK: R — marker '# mutation-reproducer' window 10 pinned across stats/internal/guard/runreproducer.go, scripts/run-reproducer.sh and skills/flow/review-panel.md\n"
+		want := "MUTATION-REPRODUCER-PIN-OK: R — marker '# mutation-reproducer' window 10 pinned across stats/internal/guard/runreproducer.go, scripts/flow-guard and skills/flow/review-panel.md\n"
 		if rc != 0 || out != want || errOut != "" {
 			t.Errorf("rc=%d\nstdout=%q\nstderr=%q", rc, out, errOut)
 		}
@@ -173,7 +174,7 @@ func TestCheckMutationReproducerPinOutput(t *testing.T) {
 	t.Run("symlinked site", func(t *testing.T) {
 		t.Parallel()
 		root := t.TempDir()
-		writeFile(t, filepath.Join(root, mrpRunnerPath), mrpRunner)
+		writeFile(t, filepath.Join(root, mrpBootstrapPath), mrpBootstrap)
 		writeFile(t, filepath.Join(root, mrpSourcePath), mrpSource)
 		writeFile(t, filepath.Join(root, "real.md"), mrpPanel)
 		mkdir(t, filepath.Join(root, "skills", "flow"))

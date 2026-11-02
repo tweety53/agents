@@ -19,7 +19,7 @@ func init() {
 	Registry["render-slot-prompt"] = renderSlotPrompt
 }
 
-const rspUsage = "usage: render-slot-prompt.sh <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \\\n" +
+const rspUsage = "usage: flow-guard render-slot-prompt <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \\\n" +
 	"         -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>...] [-fix-report <path>...] \\\n" +
 	"         -- <worktree>...\n"
 

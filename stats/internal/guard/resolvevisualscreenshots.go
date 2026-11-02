@@ -25,7 +25,7 @@ const rvsPrefix = "resolve-visual-screenshots: "
 
 func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
-		fmt.Fprint(stderr, rvsPrefix+"usage: resolve-visual-screenshots.sh <project root> <capture spec basename>\n")
+		fmt.Fprint(stderr, rvsPrefix+"usage: flow-guard resolve-visual-screenshots <project root> <capture spec basename>\n")
 		return 2
 	}
 	root, spec := args[0], args[1]

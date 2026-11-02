@@ -242,8 +242,8 @@ func TestPrepareWorkspace(t *testing.T) {
 			}},
 		}},
 		{"noroot", func(t *testing.T) pwResult { return pwRun(t, "", pwRepo(t, "kan-8-no-root", "")) }, []check{
-			{"FLOW_GUARD_WORKSPACE_ISOLATION unset is exit 2", func(r pwResult) bool {
-				return r.rc == 2 && r.err == "prepare-workspace: FLOW_GUARD_WORKSPACE_ISOLATION is unset — run scripts/prepare-workspace.sh, which sets it\n"
+			{"FLOW_GUARD_WORKSPACE_ISOLATION unset runs the sibling in this binary", func(r pwResult) bool {
+				return r.rc == 0 && r.err == ""
 			}},
 		}},
 		{"missing", func(t *testing.T) pwResult { return pwRun(t, t.TempDir(), pwRepo(t, "kan-9-missing", "")) }, []check{

@@ -17,7 +17,7 @@ func init() { Registry["check-mockup-citations"] = checkMockupCitations }
 func checkMockupCitations(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-mockup-citations"
 	if len(args) < 3 {
-		fmt.Fprintf(stderr, "%s: usage: check-mockup-citations.sh <project root> <mockups root> <file>...\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-mockup-citations <project root> <mockups root> <file>...\n", prog)
 		return 2
 	}
 	root := strings.TrimSuffix(args[1], "/")

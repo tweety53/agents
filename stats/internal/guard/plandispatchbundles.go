@@ -70,13 +70,13 @@ func planDispatchBundles(args []string, env Env, stdout, stderr io.Writer) int {
 		return pdbCheckFile(args[0], env, stdout, stderr)
 	case 0:
 	default:
-		fmt.Fprintln(stderr, "usage: plan-dispatch-bundles.sh [path-to-tasks.md]")
+		fmt.Fprintln(stderr, "usage: flow-guard plan-dispatch-bundles [path-to-tasks.md]")
 		return 2
 	}
 	root := env.Getenv("PLAN_DISPATCH_BUNDLES_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintln(stderr, "plan-dispatch-bundles: FLOW_GUARD_REPO_ROOT is unset — run scripts/plan-dispatch-bundles.sh, which sets it")
+			fmt.Fprintln(stderr, "plan-dispatch-bundles: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-dispatch-bundles, which sets it")
 			return 2
 		}
 	}

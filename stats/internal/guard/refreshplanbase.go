@@ -25,7 +25,7 @@ func refreshPlanBase(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) < 3 || args[0] == "" || args[1] == "" || args[2] == "" {
-		return refuse("usage: refresh-plan-base.sh <worktree> <merge-base> <tasks.md> [<spec-path>…]")
+		return refuse("usage: flow-guard refresh-plan-base <worktree> <merge-base> <tasks.md> [<spec-path>…]")
 	}
 	wt, mb, tasks, specs := args[0], args[1], args[2], args[3:]
 	git := envGit(env)

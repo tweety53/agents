@@ -22,18 +22,18 @@ func init() {
 	Registry["pipeline-fix"] = pipelineFix
 }
 
-const pfUsage = `usage: pipeline-fix.sh start <name> [<k>]
-       pipeline-fix.sh end <key> <outcome>
-       pipeline-fix.sh end <review-key> <report-file>|aborted
-       pipeline-fix.sh escalate <key>
-       pipeline-fix.sh verify <worktree>
-       pipeline-fix.sh land <worktree>
-       pipeline-fix.sh drop <worktree>
+const pfUsage = `usage: flow-guard pipeline-fix start <name> [<k>]
+       flow-guard pipeline-fix end <key> <outcome>
+       flow-guard pipeline-fix end <review-key> <report-file>|aborted
+       flow-guard pipeline-fix escalate <key>
+       flow-guard pipeline-fix verify <worktree>
+       flow-guard pipeline-fix land <worktree>
+       flow-guard pipeline-fix drop <worktree>
 `
 
 // pfEnv is what every subcommand resolves first.
 type pfEnv struct {
-	git, main, projectGet string
+	git, main string
 }
 
 func pipelineFix(args []string, env Env, stdout, stderr io.Writer) int {
@@ -42,9 +42,9 @@ func pipelineFix(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, pfUsage)
 		return 2
 	}
-	repo, projectGet := env.Getenv("FLOW_GUARD_REPO_ROOT"), env.Getenv("FLOW_GUARD_PROJECT_GET")
-	if repo == "" || projectGet == "" {
-		fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT or FLOW_GUARD_PROJECT_GET is unset — run scripts/pipeline-fix.sh, which sets them\n", self)
+	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
+	if repo == "" {
+		fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard pipeline-fix, which sets it\n", self)
 		return 2
 	}
 	git, ok := panelResolveGit(env, self, stderr)
@@ -56,7 +56,7 @@ func pipelineFix(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, repo)
 		return 2
 	}
-	pe := pfEnv{git: git, main: main, projectGet: projectGet}
+	pe := pfEnv{git: git, main: main}
 	sub, rest := args[0], args[1:]
 	switch {
 	case sub == "start" && (len(rest) == 1 || len(rest) == 2):
@@ -159,7 +159,7 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, out)
 		return 1
 	}
-	if rc := kwSetup(env, pe.projectGet, wt, self, stderr); rc != 0 {
+	if rc := kwSetup(env, wt, self, stderr); rc != 0 {
 		return rc
 	}
 	fmt.Fprintf(stdout, "worktree: %s\n", wt)
@@ -348,7 +348,7 @@ const pfScriptAudits = "cd stats && go test ./internal/guard/ -run '^Test(NoPipe
 // stats/internal/guard. The `## visual verification` row is not among them:
 // pfVerify resolves it last through rvlVisualVerify.
 func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
-	get := exec.Command(pe.projectGet, wt, "lint")
+	get := siblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "lint")
 	var body bytes.Buffer
 	get.Stdout = &body
 	if rc := exitCode(get.Run()); rc != 0 {
@@ -528,7 +528,7 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
-	get := exec.Command(pe.projectGet, wt, "default landing route")
+	get := siblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "default landing route")
 	var route bytes.Buffer
 	get.Stdout = &route
 	_ = get.Run()

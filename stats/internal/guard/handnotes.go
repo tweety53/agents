@@ -48,7 +48,7 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 	if setupSh == "" {
 		repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if repoRoot == "" {
-			return refuse("FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run scripts/check-hand-notes-in-step.sh, which sets it")
+			return refuse("FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run flow-guard check-hand-notes-in-step, which sets it")
 		}
 		setupSh = repoRoot + "/setup.sh"
 	}

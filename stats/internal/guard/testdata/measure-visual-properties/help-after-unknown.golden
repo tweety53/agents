@@ -1,11 +1,11 @@
 ["card-frame.png", "--bogus", "--help"]
 0
-usage: measure-visual-properties.sh [-h] [--region-a REGION_A]
-                                    [--region-b REGION_B] [--scale SCALE]
-                                    [--ref-a REF_A] [--ref-b REF_B]
-                                    [--props PROPS] [--edge EDGE]
-                                    [--noise NOISE]
-                                    image_a [image_b]
+usage: flow-guard measure-visual-properties [-h] [--region-a REGION_A]
+                                            [--region-b REGION_B]
+                                            [--scale SCALE] [--ref-a REF_A]
+                                            [--ref-b REF_B] [--props PROPS]
+                                            [--edge EDGE] [--noise NOISE]
+                                            image_a [image_b]
 
 positional arguments:
   image_a

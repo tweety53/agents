@@ -2031,8 +2031,16 @@ func ppCasesShim() []ppCase {
 		}},
 		{"root override unset or empty", func(t *testing.T) {
 			r := ppRunEnv(nil)
-			ok(t, "unset CHECK_PLAN_PROVENANCE_ROOT without the shim: exit 2, names the unset variable and the shim",
-				r.rc == 2 && r.out == "CHECK_PLAN_PROVENANCE_ROOT is unset — run scripts/check-plan-provenance.sh, which sets it\n", r)
+			ok(t, "unset CHECK_PLAN_PROVENANCE_ROOT and FLOW_GUARD_REPO_ROOT: exit 2, names both and flow-guard",
+				r.rc == 2 && r.out == "CHECK_PLAN_PROVENANCE_ROOT and FLOW_GUARD_REPO_ROOT are unset — run flow-guard check-plan-provenance, which sets the latter\n", r)
+			root := ppFixture(t)
+			ppWrite(t, root, ppDemo+"tasks.md", "Baseline: 197 tests\n")
+			r = ppRunEnv(map[string]string{"FLOW_GUARD_REPO_ROOT": root})
+			ok(t, "unset CHECK_PLAN_PROVENANCE_ROOT: FLOW_GUARD_REPO_ROOT is the tree scanned",
+				r.rc == 1 && has(r.out, "spectre/changes/demo-change/tasks.md:1: "+ppNoProv), r)
+			r = ppRunEnv(map[string]string{"FLOW_GUARD_REPO_ROOT": root, "CHECK_PLAN_PROVENANCE_ROOT": ""})
+			ok(t, "an empty CHECK_PLAN_PROVENANCE_ROOT is honoured over FLOW_GUARD_REPO_ROOT",
+				r.rc == 2 && r.out == "CHECK_PLAN_PROVENANCE_ROOT is set but empty\n", r)
 			r = ppRun("")
 			ok(t, "empty CHECK_PLAN_PROVENANCE_ROOT: exit 2, set but empty",
 				r.rc == 2 && r.out == "CHECK_PLAN_PROVENANCE_ROOT is set but empty\n", r)

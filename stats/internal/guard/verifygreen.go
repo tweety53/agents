@@ -25,7 +25,7 @@ var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+(-|$)`)
 
 func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || args[1] == "" || args[2] == "" {
-		fmt.Fprintf(stderr, "%susage: check-verify-green.sh <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-verify-green <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
 		return 2
 	}
 	wt, name, token := args[0], args[1], args[2]

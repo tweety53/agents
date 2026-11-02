@@ -15,7 +15,7 @@ func init() { Registry["reshape-branch"] = reshapeBranch }
 
 func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: reshape-branch.sh <worktree> <name> <merge-base>")
+		fmt.Fprintln(stderr, "usage: flow-guard reshape-branch <worktree> <name> <merge-base>")
 		return 2
 	}
 	wt, name, base := args[0], args[1], args[2]

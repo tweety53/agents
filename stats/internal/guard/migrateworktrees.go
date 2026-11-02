@@ -26,7 +26,7 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) == 0 {
-		return refuse("usage: migrate-worktrees.sh <main-checkout> [<main-checkout>...]")
+		return refuse("usage: flow-guard migrate-worktrees <main-checkout> [<main-checkout>...]")
 	}
 	git := envGit(env)
 	// Every repository is moved and its records read in one run: a
@@ -53,15 +53,6 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("cannot list the worktrees of %s", r.main)
 		}
 		all[r.main] = mwWorktrees(porcelain)
-	}
-	scriptDir, ok := guardSelfDir(env, stderr, "migrate-worktrees: ", "migrate-worktrees")
-	if !ok {
-		return 2
-	}
-	// Physical, as the worktree paths are: the guard may run from a worktree
-	// it moves, and its scripts directory then moves with it.
-	if p, err := filepath.EvalSymlinks(scriptDir); err == nil {
-		scriptDir = p
 	}
 	flow, ok := lookPath(env, "flow")
 	if !ok {
@@ -94,7 +85,7 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stdout, "FAILED: %s — holds the worktree %s\n", wt, inner)
 				continue
 			}
-			procs := exec.Command(scriptDir+"/check-worktree-processes.sh", wt)
+			procs := siblingCmd(env, "FLOW_GUARD_CHECK_WORKTREE_PROCESSES", "check-worktree-processes", wt)
 			procs.Stderr = stderr
 			verdict, err := procs.Output()
 			switch v := string(verdict); {
@@ -125,9 +116,6 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 				continue
 			}
 			fmt.Fprintf(stdout, "MIGRATED: %s -> %s\n", wt, dest)
-			if rel, ok := strings.CutPrefix(scriptDir, wt+"/"); ok {
-				scriptDir = dest + "/" + rel
-			}
 		}
 	}
 

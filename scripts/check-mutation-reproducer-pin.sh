@@ -5,9 +5,9 @@
 #
 # Why this exists: the exact literal `# mutation-reproducer` and the
 # 10-line window are each stated in skills/flow/review-panel.md (the
-# reproducer-convention paragraph and the mutation-testing brief),
-# scripts/run-reproducer.sh (the header comment) and the runner's Go port
-# stats/internal/guard/runreproducer.go, with no mechanical pin
+# reproducer-convention paragraph and the mutation-testing brief) and the
+# runner's Go source stats/internal/guard/runreproducer.go (its leading
+# comment and its declaration), with no mechanical pin
 # keeping them together — check-dispatch-paragraphs.sh covers the required
 # dispatch paragraphs but not this pair, so the two statements could drift
 # silently, one prose edit or one code edit at a time. This guard is the
@@ -23,9 +23,11 @@
 # ways:
 #
 #   - PRESENCE — skills/flow/review-panel.md carries the marker backticked
-#     and the window stated as "first <N> lines"; scripts/run-reproducer.sh
-#     carries the marker backticked (its header comment) and the same
-#     window statement.
+#     and the window stated as "first <N> lines";
+#     stats/internal/guard/runreproducer.go's leading comment carries the
+#     marker backticked and the same window statement. scripts/flow-guard,
+#     the bootstrap every run-reproducer call goes through, is a pinned
+#     site too: a missing, symlinked or unreadable one cannot answer.
 #   - NEAR-MISS ABSENCE — presence alone cannot see a single site drift
 #     while another copy of the same fact still reads correctly, which is
 #     the one-edit-at-a-time drift this guard exists to catch (KAN-624

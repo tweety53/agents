@@ -36,7 +36,7 @@ func checkForeignStaged(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "usage: check-foreign-staged.sh <main-checkout>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-foreign-staged <main-checkout>")
 		return 2
 	}
 	// The physical path the header's verdict names.

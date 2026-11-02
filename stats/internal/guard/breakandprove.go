@@ -35,7 +35,7 @@ func init() {
 	Registry["break-and-prove"] = breakAndProve
 }
 
-const bpUsageLine = "break-and-prove: usage: break-and-prove.sh [--clean <command>] <file> " +
+const bpUsageLine = "break-and-prove: usage: flow-guard break-and-prove [--clean <command>] <file> " +
 	"(--sed <expr> | --patch <patchfile>) -- <test-command> [<args>...]"
 
 func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {

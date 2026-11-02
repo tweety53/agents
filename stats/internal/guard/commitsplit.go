@@ -14,7 +14,7 @@ func init() { Registry["commit-split"] = commitSplit }
 
 func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 4 {
-		fmt.Fprintln(stderr, "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]")
+		fmt.Fprintln(stderr, "usage: flow-guard commit-split <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]")
 		return 2
 	}
 	worktree, name, implMsg, planMsg, trailers := args[0], args[1], args[2], args[3], args[4:]

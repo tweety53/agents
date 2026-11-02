@@ -95,7 +95,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	repo, name, stateDir := arg(0), arg(1), arg(2)
 	if repo == "" || name == "" || stateDir == "" {
-		fmt.Fprintln(stderr, "usage: check-cleanup-complete.sh <repo> <change-name> <state-dir>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-cleanup-complete <repo> <change-name> <state-dir>")
 		return 2
 	}
 	// CONTAINMENT: the change name arrives from a pull-request-editable state

@@ -27,10 +27,28 @@ import (
 // are still exit 4 with the bash's own lines. The bound and the grace are
 // timers; the descendant snapshot stays periodic, because a child that
 // calls setsid itself is visible only while its parent is alive.
+//
+// THE MUTATION-REPRODUCER CONVENTION (KAN-568). A surviving-mutant
+// reproducer — one that lands a mutation and runs the test suite — carries
+// the opposite answer in its own exit code from every other reproducer:
+// BUILD SUCCESSFUL with the mutation landed IS the bug present, the tests
+// having failed to catch it. Such a reproducer declares itself with the
+// exact line `# mutation-reproducer` within its first 10 lines, and this
+// script then reads it under that convention — exit 0 is "defect
+// demonstrated", any non-zero exit "not demonstrated" — instead of the
+// generic mapping in the exit-code list below. Everything else about this
+// script is identical under both conventions: containment, the bound, the
+// kill sequence and the exit-code vocabulary itself never move; only the
+// reading of the reproducer's own exit status flips, and because the
+// ambiguity refusal (KAN-524) compares verdicts rather than raw exit codes,
+// it works unchanged under either. A line within the first 10 lines that,
+// leading whitespace trimmed, opens with the marker but is not exactly it is
+// a near-miss: refused (exit 2, the shape class), never read under either
+// convention, since its author meant the inverted reading.
 func init() { Registry["run-reproducer"] = runReproducer }
 
 const (
-	rrUsage = "run-reproducer: usage: run-reproducer.sh <worktree> <reproducer-command-line> [--pre-fix-verdict <demonstrated|not-demonstrated>] [--reproducer-sha <sha>]"
+	rrUsage = "run-reproducer: usage: flow-guard run-reproducer <worktree> <reproducer-command-line> [--pre-fix-verdict <demonstrated|not-demonstrated>] [--reproducer-sha <sha>]"
 	// rrPoll is the bash guard's POLL: how often the descendant tree is
 	// snapshotted while the reproducer runs. Sub-second, as the bash's was
 	// where the platform's sleep accepted one; a Go ticker needs no probe.

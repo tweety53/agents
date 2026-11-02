@@ -49,7 +49,7 @@ func checkVisualTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 		repo, args = args[1]+"/", args[2:]
 	}
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "%susage: check-visual-trigger.sh [--repo <name>] <project root> (changed paths on stdin)\n", vtPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-visual-trigger [--repo <name>] <project root> (changed paths on stdin)\n", vtPrefix)
 		return vtRefuse(stderr, vtCannotAnswer, "(no root)", "usage")
 	}
 	// `while IFS= read -r changed || [ -n "$changed" ]`: a final line with

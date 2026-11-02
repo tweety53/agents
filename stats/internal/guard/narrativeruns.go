@@ -40,7 +40,7 @@ var (
 
 func checkNarrativeRuns(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: check-narrative-runs.sh <worktree> <change> <narrative.md>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-narrative-runs <worktree> <change> <narrative.md>")
 		return 2
 	}
 	wt, change, nf := args[0], args[1], args[2]

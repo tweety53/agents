@@ -53,7 +53,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	worktree, name, canonical := arg(0), arg(1), arg(2)
 	if worktree == "" || name == "" {
-		fmt.Fprintln(stderr, "usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...")
+		fmt.Fprintln(stderr, "usage: flow-guard check-unfinished-work <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...")
 		return 2
 	}
 	// The change's commit ranges, one per worktree of its resolved set:

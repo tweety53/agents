@@ -52,7 +52,7 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 	if len(args) != 2 {
-		fmt.Fprintln(stderr, "usage: check-fast-route-record.sh <worktree> <base>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-fast-route-record <worktree> <base>")
 		return 2
 	}
 	wt := pcAbs(env, args[0])

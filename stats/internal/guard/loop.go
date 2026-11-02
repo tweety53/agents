@@ -286,7 +286,7 @@ func lpFirstReviewType(env Env, git, repo string, lp lpLoop) (typ string, ok boo
 func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-dispatch"
 	if len(args) != 4 || args[0] == "" || args[1] == "" {
-		fmt.Fprint(stderr, "usage: check-loop-dispatch.sh <agents-repo> <key> <subagent_type> <model>\n")
+		fmt.Fprint(stderr, "usage: flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model>\n")
 		return 2
 	}
 	repo, key, typ, model := smcAbs(env, args[0]), args[1], args[2], args[3]

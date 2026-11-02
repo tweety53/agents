@@ -25,7 +25,7 @@ func checkReviewGate(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) < 5 {
-		return refuse(fmt.Sprintf("usage: check-review-gate.sh <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> <canonical-worktree> <change-name> [refused-path…] — got %d argument(s)", len(args)))
+		return refuse(fmt.Sprintf("usage: flow-guard check-review-gate <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> <canonical-worktree> <change-name> [refused-path…] — got %d argument(s)", len(args)))
 	}
 	worktree, taskID, commit, canonical, name, refused := args[0], args[1], args[2], args[3], args[4], args[5:]
 	if !isDir(worktree) {

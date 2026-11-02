@@ -178,7 +178,7 @@ func TestPlanDispatchBundles(t *testing.T) {
 	want("pin: a plan that is not UTF-8 exits 2 with the codec's message", r.rc == 2 &&
 		r.err == md+": cannot read file: 'utf-8' codec can't decode byte 0xff in position 9: invalid start byte\n", r)
 	r = runGuard("plan-dispatch-bundles", []string{"a", "b"}, env)
-	want("pin: the usage line", r.rc == 2 && r.err == "usage: plan-dispatch-bundles.sh [path-to-tasks.md]\n", r)
+	want("pin: the usage line", r.rc == 2 && r.err == "usage: flow-guard plan-dispatch-bundles [path-to-tasks.md]\n", r)
 	md, r = run("- [ ] 1. A\n\n**After:** Task 2 (soon)\n\n**Files:**\n- `a`\n\n- [ ] 2. B\n\nnothing\n\n- [x] 3. C\n\nnothing\n\n- [ ] 4. D\n\n**After:** sometime\n")
 	want("pin: violations go to stderr, every missing field before every malformed After", r.rc == 1 && r.stdout == "" &&
 		r.err == md+":8: task 2 has no **Files:** field\n"+
@@ -202,7 +202,7 @@ func TestPlanDispatchBundles(t *testing.T) {
 		r.stdout == "bundle 1: 1\nafter 1: none\n" && has(r, "c/tasks.md:1: task 1 has no **Files:** field"), r)
 	r = scan(nil)
 	want("pin: with no override and no FLOW_GUARD_REPO_ROOT it exits 2", r.rc == 2 &&
-		r.err == "plan-dispatch-bundles: FLOW_GUARD_REPO_ROOT is unset — run scripts/plan-dispatch-bundles.sh, which sets it\n", r)
+		r.err == "plan-dispatch-bundles: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-dispatch-bundles, which sets it\n", r)
 	r = scan(map[string]string{"PLAN_DISPATCH_BUNDLES_ROOT": t.TempDir()})
 	want("pin: a root with no changes directory passes silently", r.rc == 0 && r.out == "", r)
 

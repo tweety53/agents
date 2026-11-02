@@ -27,7 +27,7 @@ func init() {
 }
 
 const (
-	lftUsage = "usage: check-late-fix-trigger.sh <change> <tasks.md> <worktree> <since-close-sha|-> <base-verdict> [<worktree> <since-close-sha|-> <base-verdict>...]\n"
+	lftUsage = "usage: flow-guard check-late-fix-trigger <change> <tasks.md> <worktree> <since-close-sha|-> <base-verdict> [<worktree> <since-close-sha|-> <base-verdict>...]\n"
 	// lftMaxLines is condition 3's cap on the delta's changed lines.
 	lftMaxLines = 40
 	// lftSmallAppendLines caps the small append's countable delta.

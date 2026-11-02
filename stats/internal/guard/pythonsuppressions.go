@@ -85,7 +85,7 @@ func psScanSet(args []string, env Env, stderr io.Writer) ([]string, bool) {
 		// FLOW_GUARD_REPO_ROOT.
 		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if root == "" {
-			fmt.Fprintln(stderr, "check-python-suppressions: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-python-suppressions.sh, which sets it")
+			fmt.Fprintln(stderr, "check-python-suppressions: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-python-suppressions, which sets it")
 			return nil, false
 		}
 		out, rc := gitExec(root, nil, stderr, "ls-files", "-z", "--", "*.py")

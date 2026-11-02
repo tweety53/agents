@@ -15,7 +15,7 @@ func init() { Registry["check-base-behind"] = checkBaseBehind }
 func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-base-behind"
 	if len(args) == 0 {
-		fmt.Fprintf(stderr, "%s: usage: check-base-behind.sh <worktree>...\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-base-behind <worktree>...\n", prog)
 		return 2
 	}
 	git := envGit(env)

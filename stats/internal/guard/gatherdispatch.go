@@ -31,7 +31,7 @@ import (
 
 func init() { Registry["gather-dispatch-context"] = gatherDispatchContext }
 
-const gdcUsage = "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]\n"
+const gdcUsage = "usage: flow-guard gather-dispatch-context <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]\n"
 
 var gdcTaskIDs = regexp.MustCompile(`^[0-9]+(,[0-9]+)*$`)
 

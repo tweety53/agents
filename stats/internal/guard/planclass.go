@@ -179,7 +179,7 @@ func pcCandidates(root string) ([]pcExp, error) {
 }
 
 func planClass(args []string, env Env, stdout, stderr io.Writer) int {
-	const usage = "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"
+	const usage = "usage: flow-guard plan-class [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"
 	override := ""
 	if len(args) > 0 && args[0] == "-class" {
 		if len(args) < 2 {
@@ -329,7 +329,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
-		fmt.Fprint(stderr, "plan-class.sh: FLOW_GUARD_REPO_ROOT is unset — run scripts/plan-class.sh, which sets it\n")
+		fmt.Fprint(stderr, "plan-class.sh: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-class, which sets it\n")
 		return 2
 	}
 	cands, err := pcCandidates(root)

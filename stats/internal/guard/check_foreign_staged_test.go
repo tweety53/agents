@@ -53,7 +53,7 @@ func TestCheckForeignStaged(t *testing.T) {
 	}
 	t.Run("no argument: the usage line", func(t *testing.T) {
 		t.Parallel()
-		if r := runGuard("check-foreign-staged", nil, env); r.err != "usage: check-foreign-staged.sh <main-checkout>\n" {
+		if r := runGuard("check-foreign-staged", nil, env); r.err != "usage: flow-guard check-foreign-staged <main-checkout>\n" {
 			t.Errorf("stderr %q", r.err)
 		}
 	})

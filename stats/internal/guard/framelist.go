@@ -34,7 +34,7 @@ func flToken(id string) *regexp.Regexp {
 func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-frame-list"
 	if len(args) != 3 {
-		fmt.Fprintf(stderr, "%s: usage: check-frame-list.sh <design.md> <mockups dir> <report file>\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file>\n", prog)
 		return 2
 	}
 	design, err := os.ReadFile(args[0])

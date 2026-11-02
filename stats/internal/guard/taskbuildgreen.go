@@ -91,13 +91,13 @@ func checkTaskBuildGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		return tbgCheckFile(args[0], env, stdout, stderr)
 	case 0:
 	default:
-		fmt.Fprintln(stderr, "usage: check-task-build-green.sh [path-to-tasks.md]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-task-build-green [path-to-tasks.md]")
 		return 2
 	}
 	root := env.Getenv("CHECK_TASK_BUILD_GREEN_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintln(stderr, "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-task-build-green.sh, which sets it")
+			fmt.Fprintln(stderr, "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-task-build-green, which sets it")
 			return 2
 		}
 	}

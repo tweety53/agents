@@ -33,7 +33,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 		return 2
 	}
 	if len(args) != 1 {
-		return refuse("usage: check-visual-verification.sh <project root>")
+		return refuse("usage: flow-guard check-visual-verification <project root>")
 	}
 	root := args[0]
 	if !isDir(wiAbs(env, root)) {

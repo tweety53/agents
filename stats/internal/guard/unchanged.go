@@ -17,7 +17,7 @@ func init() { Registry["unchanged"] = unchanged }
 func unchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "unchanged"
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: unchanged.sh <pathspec>...")
+		fmt.Fprintln(stderr, "usage: flow-guard unchanged <pathspec>...")
 		return 2
 	}
 	gitBin, ok := panelResolveGit(env, prog, stderr)

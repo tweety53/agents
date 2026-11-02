@@ -18,9 +18,9 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: visual-verify-pass.sh prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
-	"       visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
-	"       visual-verify-pass.sh measure <worktree> <name> <key> <spec path> [--prototype]"
+const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
+	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
+	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
 
 // vvpExit unwinds a step to visualVerifyPass with its exit code.
 type vvpExit int

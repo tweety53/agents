@@ -23,7 +23,7 @@ func init() { Registry["close-task"] = closeTask }
 
 func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	usage := func(msg string) int {
-		fmt.Fprintf(stderr, "close-task: %s\nusage: close-task.sh [-end-key <key> -session-token <token> [-end-commit <sha>]] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…\n", msg)
+		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-end-key <key> -session-token <token> [-end-commit <sha>]] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…\n", msg)
 		return 2
 	}
 	fset := flag.NewFlagSet("close-task", flag.ContinueOnError)

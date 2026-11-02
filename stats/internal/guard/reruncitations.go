@@ -28,7 +28,7 @@ var (
 func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-rerun-citations"
 	if len(args) < 3 {
-		fmt.Fprintf(stderr, "%s: usage: check-rerun-citations.sh <report> <diff> F<n> [F<n>…]\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-rerun-citations <report> <diff> F<n> [F<n>…]\n", prog)
 		return 2
 	}
 	var files [2]string

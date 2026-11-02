@@ -196,7 +196,7 @@ func TestResolveBaseBranch(t *testing.T) {
 				err: "resolve-base-branch: " + dir + " is not a directory\n"}
 		}},
 		{"9", func(t *testing.T, fx rbbFixture) res {
-			return res{label: "no argument", code: 2, err: "usage: resolve-base-branch.sh <dir>\n"}
+			return res{label: "no argument", code: 2, err: "usage: flow-guard resolve-base-branch <dir>\n"}
 		}},
 		{"10", func(t *testing.T, fx rbbFixture) res {
 			wt := rbbCopy(t, fx.noHead)

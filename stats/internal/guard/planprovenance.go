@@ -36,11 +36,11 @@ import (
 //
 //   - The default root. The Python guard resolved it from its own file's
 //     location. A flow-guard binary lives in a build cache, not in the
-//     checkout, so scripts/check-plan-provenance.sh resolves the root from
-//     its own location and passes it in CHECK_PLAN_PROVENANCE_ROOT when that
-//     is unset. This guard therefore sees the variable unset only when
-//     flow-guard is run without its shim, and refuses it (exit 2) with a
-//     line naming the shim, apart from the set-but-empty refusal.
+//     checkout, so CHECK_PLAN_PROVENANCE_ROOT, when unset, defaults to
+//     FLOW_GUARD_REPO_ROOT, the checkout root scripts/flow-guard exports; a
+//     set value, even empty, is honoured. With neither set, this guard
+//     refuses (exit 2) with a line naming flow-guard, apart from the
+//     set-but-empty refusal.
 //   - The interpreter gates (python3 absent, or present and unable to run)
 //     went with the interpreter. The shim's build of flow-guard is the gate
 //     now, and every failure of it exits 2 (scripts/lib/flow-guard.sh).
@@ -3295,17 +3295,19 @@ func ppResolveExitCode(containmentErrors []string, failures int, abortMessages, 
 // sandboxed fixture tree under TMPDIR without touching this repo; never
 // set it for a normal invocation.
 //
-// Go: the default half of that is the shim's now — see this file's header.
-// The harness is TestCheckPlanProvenance, which sets the override on Env;
-// the shim sets the variable itself only to carry that default, and never
-// over a value the caller set.
+// Go: the default half of that is FLOW_GUARD_REPO_ROOT's now — see this
+// file's header. The harness is TestCheckPlanProvenance, which sets the
+// override on Env.
 // stdout needs no line buffering: every write here reaches its stream
 // immediately, so a caller merging both streams sees them in order.
 func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 	repoRoot, set := env.LookupEnv("CHECK_PLAN_PROVENANCE_ROOT")
 	if !set {
-		fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT is unset — run scripts/check-plan-provenance.sh, which sets it")
-		return 2
+		repoRoot = env.Getenv("FLOW_GUARD_REPO_ROOT")
+		if repoRoot == "" {
+			fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT and FLOW_GUARD_REPO_ROOT are unset — run flow-guard check-plan-provenance, which sets the latter")
+			return 2
+		}
 	}
 	if repoRoot == "" {
 		fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT is set but empty")

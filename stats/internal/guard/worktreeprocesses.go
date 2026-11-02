@@ -45,7 +45,7 @@ func worktreeProcesses(args []string, env Env, stdout, stderr io.Writer, atOrUnd
 		return 2
 	}
 	if len(args) != 1 {
-		return die("usage: check-worktree-processes.sh <worktree>")
+		return die("usage: flow-guard check-worktree-processes <worktree>")
 	}
 	wt := args[0]
 

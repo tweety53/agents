@@ -42,7 +42,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) != 1 {
-		return die("usage: check-done-when-paths.sh <worktree>")
+		return die("usage: flow-guard check-done-when-paths <worktree>")
 	}
 	root, ok := cdPhysical(env, args[0])
 	if !ok {

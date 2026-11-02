@@ -30,11 +30,11 @@ type ic struct {
 	stdout, stderr io.Writer
 	childEnv       []string
 
-	scriptDir, main, name, harness, token string
-	acceptForeign, acceptOutstanding      bool
-	planMsg, route, outstanding           string
-	squashed                              map[int][]string // by order index: the Task-Id trailers each reshape folds
-	prArgs, proceed, subjects             []string
+	main, name, harness, token       string
+	acceptForeign, acceptOutstanding bool
+	planMsg, route, outstanding      string
+	squashed                         map[int][]string // by order index: the Task-Id trailers each reshape folds
+	prArgs, proceed, subjects        []string
 
 	openStage, stopOutcome string
 	out                    string
@@ -180,11 +180,11 @@ type ic struct {
 // sequences missing beside it (named on stderr, nothing run), or the state
 // record cannot be read.
 //
-// Ported to Go (KAN-1019): scripts/integrate-change.sh is now the shim that
-// execs this guard, and every sibling below is exec'd from
-// FLOW_GUARD_SCRIPT_DIR, the directory the shim exports as its own. Every
-// child runs in `/` — the bash's `cd /` — save the calls the bash ran in a
-// subshell `cd`, which keep their own directory.
+// Every sibling guard below runs in this same binary (runSibling). The
+// process moves to `/` once its arguments are resolved, so it never holds a
+// worktree remove-change-worktrees' check 6 counts; every child runs in `/`
+// too, save the calls the bash ran in a subshell `cd`, which keep their own
+// directory.
 func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
@@ -197,13 +197,14 @@ func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int
 			code = int(e)
 		}
 	}()
-	c.scriptDir = env.Getenv("FLOW_GUARD_SCRIPT_DIR")
-	if c.scriptDir == "" {
-		fmt.Fprintln(stderr, "integrate-change: FLOW_GUARD_SCRIPT_DIR is unset — run scripts/integrate-change.sh, which sets it")
-		return 2
-	}
 	c.childEnv = icChildEnv(env)
 	c.parse(args)
+	if env.Dir != "/" {
+		// The process's own cwd: an in-process caller already runs in `/`.
+		if err := os.Chdir("/"); err != nil {
+			c.die("cannot cd /: %v", err)
+		}
+	}
 	switch args[0] {
 	case "prepare":
 		c.prepare()
@@ -242,19 +243,12 @@ func (c *ic) parse(args []string) {
 		}
 		return ""
 	}
-	// The bash's presence loop now lives in the shim, ahead of this exec.
 	sub, mainArg, name := arg(0), arg(1), arg(2)
 	if sub == "" || mainArg == "" || name == "" {
-		c.die("usage: integrate-change.sh prepare|commit|land|cleanup <main-checkout> <name> [flags]")
+		c.die("usage: flow-guard integrate-change prepare|commit|land|cleanup <main-checkout> <name> [flags]")
 	}
-	// The shim runs this from `/`, as the bash's `cd /` did, so the process
-	// never holds a worktree remove-change-worktrees' check 6 counts; a
-	// relative argument resolves against the directory it was called from.
-	dir := c.env.Getenv("FLOW_GUARD_CALLER_DIR")
-	if dir == "" {
-		dir = c.env.Dir
-	}
-	m, ok := icPhys(dir, mainArg)
+	// A relative argument resolves against the directory it was called from.
+	m, ok := icPhys(c.env.Dir, mainArg)
 	if !ok {
 		c.die("%s is not a directory", mainArg)
 	}
@@ -304,7 +298,7 @@ func (c *ic) parse(args []string) {
 			c.prArgs = append(c.prArgs, next())
 			i++
 		case "--proceed":
-			p, ok := icPhys(dir, next())
+			p, ok := icPhys(c.env.Dir, next())
 			if !ok {
 				c.die("--proceed takes the main checkout its disclosure stop named")
 			}
@@ -420,12 +414,19 @@ func (c *ic) gitPass(args ...string) bool {
 	return cmd.Run() == nil
 }
 
-func (c *ic) sibling(name string) string { return c.scriptDir + "/" + name + ".sh" }
+// sibling is sibling guard name's child process, run like c.cmd's.
+func (c *ic) sibling(name string, args ...string) *exec.Cmd {
+	cmd := runSibling(c.env, name, args...)
+	cmd.Dir = "/"
+	cmd.Env = c.childEnv
+	cmd.Stderr = c.stderr
+	return cmd
+}
 
 // run is the bash's run: OUT the guard's stdout, relayed; RC its exit
 // code. Its stderr goes straight through.
 func (c *ic) run(guard string, args ...string) {
-	c.out, c.rc = c.capture(c.cmd("/", c.sibling(guard), args...))
+	c.out, c.rc = c.capture(c.sibling(guard, args...))
 	if c.out != "" {
 		fmt.Fprintln(c.stdout, c.out)
 	}
@@ -782,7 +783,7 @@ func icLines(s string) []string {
 // answer (it fetches).
 func (c *ic) baseOf(i int) {
 	var rc int
-	c.base, rc = c.capture(c.cmd("/", c.sibling("resolve-base-branch"), c.wt[i]))
+	c.base, rc = c.capture(c.sibling("resolve-base-branch", c.wt[i]))
 	if rc == 3 {
 		c.stop("no-remote", c.wt[i]+": this repository has no remote, so there is nothing to push to or merge into")
 	}
@@ -952,12 +953,12 @@ func (c *ic) guardTests() {
 // what it already pushed.
 func (c *ic) rebaseLint(w, prefix string) {
 	before, _ := c.git("-C", w, "diff", "--no-renames", "HEAD")
-	out, rc := c.capture(c.cmd("/", c.sibling("prepare-workspace"), w))
+	out, rc := c.capture(c.sibling("prepare-workspace", w))
 	if rc != 0 {
 		fmt.Fprintln(c.stdout, out)
 		c.stop("rebase-lint", prefix+"prepare-workspace.sh failed on "+w+" after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS")
 	}
-	cmd := c.cmd("/", c.sibling("run-verify-list"), w, "lint")
+	cmd := c.sibling("run-verify-list", w, "lint")
 	cmd.Env = append([]string{}, c.childEnv...)
 	for _, kv := range icLines(out) {
 		// `export "$kv"` refused a name that is no identifier.

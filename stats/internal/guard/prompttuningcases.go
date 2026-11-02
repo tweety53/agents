@@ -56,7 +56,7 @@ func ptTarget(scope string) (exact string, prefix string) {
 func checkPromptTuningCases(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-prompt-tuning-cases"
 	if len(args) > 1 {
-		fmt.Fprint(stderr, "usage: check-prompt-tuning-cases.sh [dir]\n")
+		fmt.Fprint(stderr, "usage: flow-guard check-prompt-tuning-cases [dir]\n")
 		return 2
 	}
 	root := filepath.Join(env.Getenv("FLOW_GUARD_REPO_ROOT"), "docs", "prompt-tuning")

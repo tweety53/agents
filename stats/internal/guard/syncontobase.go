@@ -35,7 +35,7 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 		args = args[1:]
 	}
 	if len(args) != 3 || args[0] == "" || args[1] == "" || args[2] == "" {
-		return refuse("usage: sync-onto-base.sh [--resume] <worktree> <base-ref> <merge-base|onto>")
+		return refuse("usage: flow-guard sync-onto-base [--resume] <worktree> <base-ref> <merge-base|onto>")
 	}
 	wt, baseRef, base := args[0], args[1], args[2]
 
@@ -66,7 +66,7 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	} else {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			return refuse("FLOW_GUARD_REPO_ROOT is unset — run scripts/sync-onto-base.sh, which sets it")
+			return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard sync-onto-base, which sets it")
 		}
 		if v, ok = check(base); !ok {
 			return 2

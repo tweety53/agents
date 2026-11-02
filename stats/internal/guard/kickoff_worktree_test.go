@@ -393,7 +393,7 @@ func TestKickoffWorktree(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "", true)
 		r := fx.run(t, fx.project)
-		if r.rc != 2 || r.err != "usage: kickoff-worktree.sh [--from <worktree>] <project> <name> [<base>]\n" {
+		if r.rc != 2 || r.err != "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
 	})

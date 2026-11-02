@@ -20,6 +20,4 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   exit 2
 }
 : "$SCRIPT_DIR/resolve-visual-screenshots.sh"
-FLOW_GUARD_SCRIPT_DIR="$SCRIPT_DIR"
-export FLOW_GUARD_SCRIPT_DIR
 flow_guard_exec rebuild-full-app-suite-zip 2 "rebuild-full-app-suite-zip:" "$@"

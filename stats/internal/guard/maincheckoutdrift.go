@@ -25,7 +25,7 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 		return 2
 	}
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "usage: check-main-checkout-drift.sh <main-checkout>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-main-checkout-drift <main-checkout>")
 		return 2
 	}
 

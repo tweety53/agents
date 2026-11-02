@@ -40,7 +40,7 @@ func checkUitestOverrides(args []string, env Env, stdout, stderr io.Writer) int 
 		// cache, so the shim exports it.
 		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if root == "" {
-			fmt.Fprintln(stderr, "check-uitest-overrides: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-uitest-overrides.sh, which sets it")
+			fmt.Fprintln(stderr, "check-uitest-overrides: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-uitest-overrides, which sets it")
 			return 2
 		}
 		makefile = root + "/stats/Makefile"

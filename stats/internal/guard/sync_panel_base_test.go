@@ -111,7 +111,7 @@ func TestSyncPanelBase(t *testing.T) {
 				fx.g.git(fx.repo, "remote", "remove", "origin")
 				return []string{fx.repo, fx.recorded}
 			}},
-		{label: "a missing argument is a usage error", code: 2, err: "usage: sync-panel-base.sh",
+		{label: "a missing argument is a usage error", code: 2, err: "usage: flow-guard sync-panel-base",
 			args: func(fx *bmFx) []string { return []string{fx.repo} }},
 	}
 	for _, c := range cases {

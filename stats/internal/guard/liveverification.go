@@ -21,7 +21,7 @@ var (
 func checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-live-verification"
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "%s: usage: check-live-verification.sh <live-verification.md | changeRoot>\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-live-verification <live-verification.md | changeRoot>\n", prog)
 		return 2
 	}
 	record := args[0]

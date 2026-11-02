@@ -34,7 +34,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) != 3 {
-		fmt.Fprint(stderr, "usage: prove-reproducer.sh <worktree> <pre-fix-ref> <reproducer-path>\n"+
+		fmt.Fprint(stderr, "usage: flow-guard prove-reproducer <worktree> <pre-fix-ref> <reproducer-path>\n"+
 			"       <reproducer-path> is relative to <worktree>; the pre-fix leg runs\n"+
 			"       it in a detached scratch worktree at <pre-fix-ref>, the post-fix\n"+
 			"       leg against <worktree> itself\n")

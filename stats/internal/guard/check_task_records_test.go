@@ -232,7 +232,7 @@ func TestCheckTaskRecords(t *testing.T) {
 		rel+": task 4: subject 'feat(a): partial' is carried by 2 commits in origin/main..HEAD; expected one\n"+
 		rel+": task 4: declared file src/f4.go is not touched by its commit "+fx.head(t)[:12]+"\n", r)
 	r = run(Env{}, "a", "b", "c")
-	want("pin: the usage line", r.rc == 2 && r.stdout == "" && r.err == "usage: check-task-records.sh [repo-root] [base-ref]\n", r)
+	want("pin: the usage line", r.rc == 2 && r.stdout == "" && r.err == "usage: flow-guard check-task-records [repo-root] [base-ref]\n", r)
 	missing := t.TempDir() + "/nope"
 	r = run(Env{}, missing)
 	want("pin: a missing root exits 2", r.rc == 2 && r.err == "check-task-records: COULD NOT JUDGE — not a record verdict: repo root not found: "+trResolve(missing)+"\n", r)

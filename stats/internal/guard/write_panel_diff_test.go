@@ -186,12 +186,12 @@ func TestWritePanelDiffRefusals(t *testing.T) {
 		env   Env
 		err   string
 	}{
-		{"no arguments", nil, Env{}, "usage: write-panel-diff.sh"},
-		{"unknown kind", []string{"whole", w.path, w.path, w.mb}, Env{}, "usage: write-panel-diff.sh"},
-		{"a worktree without its sha", []string{"final", w.path, w.path}, Env{}, "usage: write-panel-diff.sh"},
-		{"slot-delta without its held sha", []string{"slot-delta", "1", "primary", w.path, w.path, w.mb}, Env{}, "usage: write-panel-diff.sh"},
-		{"a round that is not a number", []string{"fix-round", "x", w.path, w.path, w.mb}, Env{}, "usage: write-panel-diff.sh"},
-		{"a slot naming a path", []string{"slot-delta", "1", "../x", w.path, w.path, w.mb, "-"}, Env{}, "usage: write-panel-diff.sh"},
+		{"no arguments", nil, Env{}, "usage: flow-guard write-panel-diff"},
+		{"unknown kind", []string{"whole", w.path, w.path, w.mb}, Env{}, "usage: flow-guard write-panel-diff"},
+		{"a worktree without its sha", []string{"final", w.path, w.path}, Env{}, "usage: flow-guard write-panel-diff"},
+		{"slot-delta without its held sha", []string{"slot-delta", "1", "primary", w.path, w.path, w.mb}, Env{}, "usage: flow-guard write-panel-diff"},
+		{"a round that is not a number", []string{"fix-round", "x", w.path, w.path, w.mb}, Env{}, "usage: flow-guard write-panel-diff"},
+		{"a slot naming a path", []string{"slot-delta", "1", "../x", w.path, w.path, w.mb, "-"}, Env{}, "usage: flow-guard write-panel-diff"},
 		{"a worktree that is no directory", []string{"final", w.path, dir + "/absent", w.mb}, Env{}, "is not a directory"},
 		{"a sha that does not resolve", []string{"final", w.path, w.path, "deadbeef"}, Env{}, "does not resolve"},
 		{"a held sha that does not resolve", []string{"slot-delta", "1", "primary", w.path, w.path, w.mb, "deadbeef"}, Env{}, "does not resolve"},

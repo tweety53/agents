@@ -69,7 +69,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintf(stderr, "%susage: check-task-reviewer-single-dispatch.sh <worktree> <change-name> <session-token>\n", trsdPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-task-reviewer-single-dispatch <worktree> <change-name> <session-token>\n", trsdPrefix)
 		return 2
 	}
 	if token == "" {
@@ -93,12 +93,6 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		return 2
 	}
 
-	// The two siblings are exec'd from beside the shim, as the bash exec'd
-	// them from $SCRIPT_DIR.
-	scriptDir, ok := guardSelfDir(env, stderr, trsdPrefix, "check-task-reviewer-single-dispatch")
-	if !ok {
-		return 2
-	}
 	tasksMD := ChangeDir(worktree+"/spectre/changes", name) + "/tasks.md"
 	if fi, err := os.Stat(tasksMD); err != nil || !fi.Mode().IsRegular() {
 		fmt.Fprintf(stderr, "%sno tasks.md at %s -- cannot answer\n", trsdPrefix, tasksMD)
@@ -123,11 +117,11 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 
 	// Group membership: task id -> group number, from this run's own plan --
 	// never re-derived from the raw markdown by this guard.
-	bundleLines, ok := trsdSibling(env, scriptDir, "plan-dispatch-bundles.sh", tasksMD, stderr)
+	bundleLines, ok := trsdSibling(env, "FLOW_GUARD_PLAN_DISPATCH_BUNDLES", "plan-dispatch-bundles", tasksMD, stderr)
 	if !ok {
 		return 2
 	}
-	groupLines, ok := trsdSibling(env, scriptDir, "plan-dispatch-groups.sh", tasksMD, stderr)
+	groupLines, ok := trsdSibling(env, "FLOW_GUARD_PLAN_DISPATCH_GROUPS", "plan-dispatch-groups", tasksMD, stderr)
 	if !ok {
 		return 2
 	}
@@ -291,9 +285,8 @@ func trsdReviewerKeys(raw []byte, token string) ([]string, bool) {
 // output as `$(...)` did, run under LC_ALL=C as the bash exported it. On failure it prints the bash's cannot-answer line
 // and then the output (an empty line when there was none, as `echo ""`
 // printed); a sibling that could not be started prints its error instead.
-func trsdSibling(env Env, dir, script, tasksMD string, stderr io.Writer) (string, bool) {
-	cmd := exec.Command(dir+"/"+script, tasksMD)
-	cmd.Dir = env.Dir
+func trsdSibling(env Env, override, script, tasksMD string, stderr io.Writer) (string, bool) {
+	cmd := siblingCmd(env, override, script, tasksMD)
 	cmd.Env = append(os.Environ(), "LC_ALL=C") // the bash exported LC_ALL=C
 	var b bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &b, &b
@@ -393,21 +386,4 @@ func trsdNewestClass(raw []byte) (string, bool) {
 		}
 	}
 	return strings.TrimRight(strings.ReplaceAll(out.String(), "\x00", ""), "\n"), true
-}
-
-// guardSelfDir is the directory of the shim a guard was invoked through: the
-// shim exports the path it was invoked by as FLOW_GUARD_SELF, relative to the
-// caller's directory when not absolute, and the guard execs its siblings from
-// beside it. Unset is a cannot-answer, printed under the guard's prefix and
-// naming the guard's own script.
-func guardSelfDir(env Env, stderr io.Writer, prefix, name string) (string, bool) {
-	self := env.Getenv("FLOW_GUARD_SELF")
-	if self == "" {
-		fmt.Fprintf(stderr, "%sFLOW_GUARD_SELF is unset — run scripts/%s.sh, which sets it\n", prefix, name)
-		return "", false
-	}
-	if !filepath.IsAbs(self) {
-		self = filepath.Join(env.Dir, self)
-	}
-	return filepath.Dir(self), true
 }

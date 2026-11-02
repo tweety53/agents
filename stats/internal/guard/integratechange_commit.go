@@ -141,7 +141,7 @@ func (c *ic) checkNarrative(nf string) {
 	}
 	c.requireFixLines(named, nf)
 	// stderr too: its exit-2 message is the stop's cause.
-	runs := c.cmd("/", c.sibling("check-narrative-runs"), c.canon, c.name, nf)
+	runs := c.sibling("check-narrative-runs", c.canon, c.name, nf)
 	var b bytes.Buffer
 	runs.Stdout, runs.Stderr = &b, &b
 	c.rc = rcOf(runs.Run())

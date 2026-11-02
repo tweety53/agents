@@ -41,7 +41,7 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if worktree == "" {
-		return fail("usage: check-panel-diff-size.sh <worktree> <merge-base> [cap]")
+		return fail("usage: flow-guard check-panel-diff-size <worktree> <merge-base> [cap]")
 	}
 	if !isDir(smcAbs(env, worktree)) {
 		return fail("%s is not a directory", worktree)

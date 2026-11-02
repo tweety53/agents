@@ -208,7 +208,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
-				return "check-dispatch-paragraphs: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-dispatch-paragraphs.sh, which sets it\n"
+				return "check-dispatch-paragraphs: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-dispatch-paragraphs, which sets it\n"
 			}},
 		{label: "a root that is not a directory exits 2", files: clean,
 			env: func(root string) Env {

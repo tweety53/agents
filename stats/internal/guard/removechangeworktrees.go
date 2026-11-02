@@ -33,7 +33,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	proceed := slices.Contains(args, "--proceed")
 	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--proceed" })
 	if len(args) != 3 {
-		return refuse("usage: remove-change-worktrees.sh <repo> <name> <merge-base|-> [--proceed]")
+		return refuse("usage: flow-guard remove-change-worktrees <repo> <name> <merge-base|-> [--proceed]")
 	}
 	repo, name, mergeBase := pcAbs(env, args[0]), args[1], args[2]
 	if !plainChangeName(name) {
@@ -41,10 +41,6 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	if mergeBase != "-" && strings.HasPrefix(mergeBase, "-") {
 		return refuse("merge base %q is not a revision", mergeBase)
-	}
-	scriptDir, ok := guardSelfDir(env, stderr, "remove-change-worktrees: ", "remove-change-worktrees")
-	if !ok {
-		return 2
 	}
 	// LC_ALL=C keeps the remote delete's "remote ref does not exist" in
 	// English, the one git message this guard reads.
@@ -204,7 +200,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		}
 	}
 	for _, wt := range all {
-		procs := exec.Command(scriptDir+"/check-worktree-processes.sh", wt)
+		procs := siblingCmd(env, "FLOW_GUARD_CHECK_WORKTREE_PROCESSES", "check-worktree-processes", wt)
 		procs.Stderr = stderr
 		verdict, err := procs.Output()
 		switch v := string(verdict); {

@@ -211,7 +211,7 @@ func TestCommitSplit(t *testing.T) {
 	t.Run("usage: fewer than four arguments cannot answer", func(t *testing.T) {
 		t.Parallel()
 		rc, out := runSplitGuard(t, commitSplit, t.TempDir(), "a", "b", "c")
-		check(t, rc == 2 && out == "usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]", "usage", "rc=%d out=%q", rc, out)
+		check(t, rc == 2 && out == "usage: flow-guard commit-split <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]", "usage", "rc=%d out=%q", rc, out)
 	})
 }
 

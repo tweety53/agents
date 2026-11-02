@@ -15,7 +15,7 @@ var (
 // workspaceCommand: the Runs cell of <verb>'s row in <main>'s
 // `## workspace isolation` command table, or nothing.
 func (c *ic) workspaceCommand(m, verb string) string {
-	get := c.cmd("/", c.sibling("project-get"), m, "workspace isolation")
+	get := c.sibling("project-get", m, "workspace isolation")
 	get.Stderr = nil
 	out, _ := c.capture(get)
 	for _, l := range icLines(out) {

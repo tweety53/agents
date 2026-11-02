@@ -32,7 +32,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		dir = args[0]
 	}
 	if dir == "" {
-		fmt.Fprintln(stderr, "usage: resolve-base-branch.sh <dir>")
+		fmt.Fprintln(stderr, "usage: flow-guard resolve-base-branch <dir>")
 		return 2
 	}
 	if !isDir(pcAbs(env, dir)) {

@@ -57,7 +57,7 @@ func srReached(name string, spec []byte) bool {
 func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-sidecar-reach"
 	if len(args) != 1 && len(args) != 2 {
-		fmt.Fprintf(stderr, "%s: usage: check-sidecar-reach.sh <capture root> [<mockups root>]\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-sidecar-reach <capture root> [<mockups root>]\n", prog)
 		return 2
 	}
 	for _, dir := range args {

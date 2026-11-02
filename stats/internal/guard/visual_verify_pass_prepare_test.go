@@ -127,7 +127,7 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 		env := Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
 		rc := Registry["visual-verify-pass"](c.args, env, &out, &errb)
 		calls, _ := os.ReadFile(f.log)
-		if rc != 2 || !strings.Contains(errb.String(), "usage: visual-verify-pass.sh") || len(calls) != 0 || !strings.Contains(errb.String(), c.hint) {
+		if rc != 2 || !strings.Contains(errb.String(), "usage: flow-guard visual-verify-pass") || len(calls) != 0 || !strings.Contains(errb.String(), c.hint) {
 			t.Errorf("%s: exit %d, calls %q\n%s%s", c.name, rc, calls, out.String(), errb.String())
 		}
 	}

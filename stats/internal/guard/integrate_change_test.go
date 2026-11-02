@@ -33,7 +33,7 @@ halt() { printf '%s\n%s\n' "$OUT" "$(cat "$WORK/stderr")" >&2; printf '\n__IC_HA
 sut() {
   PATH="$WORK/bin:$PATH" GIT_AUTHOR_NAME=Test GIT_AUTHOR_EMAIL=test@example.invalid \
     GIT_COMMITTER_NAME=Test GIT_COMMITTER_EMAIL=test@example.invalid \
-    FLOW_GUARD_SCRIPT_DIR="$(dirname "$SUT")" env -0 >"$IC_TMP/sut.env"
+    FLOW_GUARD_REPO_ROOT="$(dirname "$(dirname "$SUT")")" env -0 >"$IC_TMP/sut.env"
   printf '%s\0' "$@" --harness test --session-token mf-test >"$IC_TMP/sut.args"
   printf '\n__IC_SUT__\n'
   read -r _ <"$IC_TMP/sut.ack"

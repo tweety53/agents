@@ -98,8 +98,8 @@ func bpParity(t *testing.T, base, bashDir string, prep func(t *testing.T, repo s
 			cmd.Stdout, cmd.Stderr = &out, &errb
 			_ = cmd.Run()
 			r = mvRes{cmd.ProcessState.ExitCode(),
-				bpBashDiag.ReplaceAllString(out.String(), "break-and-prove: "),
-				bpBashDiag.ReplaceAllString(errb.String(), "break-and-prove: ")}
+				bashUsage(bpBashDiag.ReplaceAllString(out.String(), "break-and-prove: ")),
+				bashUsage(bpBashDiag.ReplaceAllString(errb.String(), "break-and-prove: "))}
 		} else {
 			r = bpProve(repo, args...)
 		}
@@ -475,7 +475,7 @@ func TestBreakAndProve(t *testing.T) {
 }
 
 // bpUsage is the usage line break-and-prove.sh printed at 9cd35da8.
-const bpUsage = "break-and-prove: usage: break-and-prove.sh [--clean <command>] <file> " +
+const bpUsage = "break-and-prove: usage: flow-guard break-and-prove [--clean <command>] <file> " +
 	"(--sed <expr> | --patch <patchfile>) -- <test-command> [<args>...]"
 
 // A test command found through a relative PATH entry ran at base; Go's

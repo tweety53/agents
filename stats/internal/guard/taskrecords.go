@@ -125,7 +125,7 @@ type trPeer struct {
 
 func checkTaskRecords(args []string, env Env, stdout, stderr io.Writer) (rc int) {
 	if len(args) > 2 {
-		fmt.Fprintln(stderr, "usage: check-task-records.sh [repo-root] [base-ref]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-task-records [repo-root] [base-ref]")
 		return 2
 	}
 	defer func() {

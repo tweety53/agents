@@ -48,7 +48,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintf(stderr, "%susage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base> [<canonical-worktree>]\n", vvdPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-visual-verify-dispatched <worktree> <change-name> <merge-base> [<canonical-worktree>]\n", vvdPrefix)
 		return 2
 	}
 	if base == "" {

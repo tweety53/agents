@@ -27,7 +27,7 @@ func init() {
 
 const (
 	cmfPrefix = "compose-mockup-frames: "
-	cmfUsage  = "usage: compose-mockup-frames.sh <map file> <mockups root> <out dir>" +
+	cmfUsage  = "usage: flow-guard compose-mockup-frames <map file> <mockups root> <out dir>" +
 		" [scale=<n> status=<px> border=<px>]" +
 		"   (resolved PNG paths on stdin, one per line)\n"
 	cmfGutter = 16

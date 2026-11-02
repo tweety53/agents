@@ -27,7 +27,7 @@ func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
 		args = args[1:]
 	}
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		return refuse("usage: sync-panel-base.sh [--rebase] <worktree> <working-notes-merge-base>")
+		return refuse("usage: flow-guard sync-panel-base [--rebase] <worktree> <working-notes-merge-base>")
 	}
 	wt, mb := args[0], args[1]
 

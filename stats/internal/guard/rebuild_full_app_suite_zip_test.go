@@ -35,7 +35,7 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -76,7 +76,9 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 			}
 			rc = ee.ExitCode()
 		}
-		return res{rc, strings.ReplaceAll(o.String(), p, "<P>"), strings.ReplaceAll(e.String(), p, "<P>")}
+		// The port spells its usage as a flow-guard call.
+		errOut := strings.ReplaceAll(e.String(), "usage: rebuild-full-app-suite-zip.sh", "usage: flow-guard rebuild-full-app-suite-zip")
+		return res{rc, strings.ReplaceAll(o.String(), p, "<P>"), strings.ReplaceAll(errOut, p, "<P>")}
 	}
 	// rebuild runs one step on both twins: the Go result, after asserting parity.
 	rebuild := func(t *testing.T, g, b twin, args func(p string) []string) res {

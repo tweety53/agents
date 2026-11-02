@@ -21,7 +21,7 @@ func init() {
 
 func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 || !isDir(pcAbs(env, args[0])) {
-		fmt.Fprintln(stderr, "usage: refresh-main-checkout.sh <main-checkout> <base>")
+		fmt.Fprintln(stderr, "usage: flow-guard refresh-main-checkout <main-checkout> <base>")
 		return 2
 	}
 	repo, base := args[0], args[1]

@@ -106,9 +106,6 @@
 # flow-guard is built from this checkout, never taken from PATH:
 # scripts/lib/flow-guard.sh derives it, and exits 2 (this guard's
 # cannot-answer code) with the cause when it cannot.
-# FLOW_GUARD_SELF (the path this script was invoked by) is exported so the Go
-# guard execs $SCRIPT_DIR/plan-dispatch-bundles.sh and
-# $SCRIPT_DIR/plan-dispatch-groups.sh from beside this script, as the bash did.
 set -euo pipefail
 # $SCRIPT_DIR/ spells each sibling this shim needs where check-guard-symlinks rule 2 reads it.
 SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -116,6 +113,4 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   echo "check-task-reviewer-single-dispatch: cannot load lib/flow-guard.sh beside ${BASH_SOURCE[0]}" >&2
   exit 2
 }
-FLOW_GUARD_SELF="${BASH_SOURCE[0]}"
-export FLOW_GUARD_SELF
 flow_guard_exec check-task-reviewer-single-dispatch 2 "check-task-reviewer-single-dispatch:" "$@"

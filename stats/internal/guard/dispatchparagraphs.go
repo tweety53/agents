@@ -161,7 +161,7 @@ func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-dispatch-paragraphs.sh, which sets it\n", dpName)
+			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-dispatch-paragraphs, which sets it\n", dpName)
 			return 2
 		}
 	}

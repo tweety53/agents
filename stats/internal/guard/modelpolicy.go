@@ -100,7 +100,7 @@ func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-dispatch-pair"
 	roleOnly := len(args) == 2 && args[1] == "--role-only"
 	if !roleOnly && (len(args) < 3 || len(args) > 4) || args[0] == "" {
-		fmt.Fprint(stderr, "usage: check-dispatch-pair.sh <agents-repo> (<subagent_type> <model> [<effort>] | --role-only) < prompt\n")
+		fmt.Fprint(stderr, "usage: flow-guard check-dispatch-pair <agents-repo> (<subagent_type> <model> [<effort>] | --role-only) < prompt\n")
 		return 2
 	}
 	effort := ""

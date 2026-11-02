@@ -125,7 +125,7 @@ var cmfCases = []cmfCase{
 	{"case 7: stderr names both paths", "case-07", []cmfCheck{cmfErr(`a-darwin\.png.*a-linux\.png|a-linux\.png.*a-darwin\.png`)}},
 	{"case 8: unreadable PNG on stdin exits 2", "case-08", []cmfCheck{cmfRC(2)}},
 	{"case 9: wrong argument count exits 2", "case-09", []cmfCheck{cmfRC(2)}},
-	{"case 9: stderr carries the usage line", "case-09", []cmfCheck{cmfErr(`usage: compose-mockup-frames\.sh`)}},
+	{"case 9: stderr carries the usage line", "case-09", []cmfCheck{cmfErr(`usage: flow-guard compose-mockup-frames `)}},
 	{"case 10: mockups root not a directory exits 2", "case-10", []cmfCheck{cmfRC(2)}},
 	{"case 12: a shim copy with no lib/flow-guard.sh sibling exits 2", "case-12", []cmfCheck{cmfRC(2)}},
 	{"case 12: the message names the missing module", "case-12", []cmfCheck{cmfErr(`lib/flow-guard\.sh`)}},

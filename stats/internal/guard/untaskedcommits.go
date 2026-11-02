@@ -23,7 +23,7 @@ var ucPipelineFixBranchRE = regexp.MustCompile(`^pipeline-fix-.+-[0-9]+$`)
 
 func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" || (len(args) == 3 && args[2] != "--not-remotes") {
-		fmt.Fprintf(stderr, "%s usage: check-untasked-commits.sh <worktree> <base> [--not-remotes]\n", ucPrefix)
+		fmt.Fprintf(stderr, "%s usage: flow-guard check-untasked-commits <worktree> <base> [--not-remotes]\n", ucPrefix)
 		return 2
 	}
 	worktree, base := args[0], args[1]

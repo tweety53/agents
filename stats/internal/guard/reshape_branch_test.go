@@ -165,6 +165,6 @@ func TestReshapeBranch(t *testing.T) {
 	t.Run("usage: not three arguments cannot answer", func(t *testing.T) {
 		t.Parallel()
 		rc, out := runSplitGuard(t, reshapeBranch, t.TempDir(), "a", "b")
-		check(t, rc == 2 && out == "usage: reshape-branch.sh <worktree> <name> <merge-base>", "usage", "rc=%d out=%q", rc, out)
+		check(t, rc == 2 && out == "usage: flow-guard reshape-branch <worktree> <name> <merge-base>", "usage", "rc=%d out=%q", rc, out)
 	})
 }

@@ -181,7 +181,7 @@ func TestFastRouteRecordProseBodyClean(t *testing.T) {
 
 func TestFastRouteRecordCannotAnswer(t *testing.T) {
 	wt := fastRecordRepo(t, "kan-838-demo")
-	if code, out, errOut := runFastRecord(t, wt, "", []string{}); code != 2 || out != "" || !strings.Contains(errOut, "usage: check-fast-route-record.sh") {
+	if code, out, errOut := runFastRecord(t, wt, "", []string{}); code != 2 || out != "" || !strings.Contains(errOut, "usage: flow-guard check-fast-route-record") {
 		t.Fatalf("no args: exit %d, stdout %q, stderr %q", code, out, errOut)
 	}
 	if code, out, errOut := runFastRecord(t, t.TempDir(), "main", nil); code != 2 || out != "" || !strings.Contains(errOut, "is not a git worktree") {

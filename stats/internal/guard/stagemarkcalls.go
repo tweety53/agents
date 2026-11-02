@@ -262,7 +262,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 	// FLOW_GUARD_REPO_ROOT, derived the same way.
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
-		return die("FLOW_GUARD_REPO_ROOT is unset — run scripts/check-stage-mark-calls.sh, which sets it")
+		return die("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-stage-mark-calls, which sets it")
 	}
 	targets := args
 	if len(targets) == 0 {

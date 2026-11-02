@@ -39,7 +39,7 @@ const srFiles = `
 
 func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "usage: check-spec-reach.sh <project-root>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-spec-reach <project-root>")
 		return 2
 	}
 	root := args[0]

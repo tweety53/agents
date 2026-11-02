@@ -324,7 +324,7 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	b, _ := os.ReadFile(dir + "/.superpowers/sdd/relocation-comparison.md")
 	want("pin: the shim appends <changeRoot>/tasks.md", r.rc == 0 && in(string(b), "Shim-run moved text."), r, string(b))
 	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, grcShim, dir, dir)
-	want("pin: the usage line", r.rc == 2 && r.err == "usage: generate-relocation-comparison.sh <worktree> <changeRoot> <merge-base>\n", r, "")
+	want("pin: the usage line", r.rc == 2 && r.err == "usage: flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>\n", r, "")
 
 	for _, c := range checks {
 		t.Run(c.label, func(t *testing.T) {

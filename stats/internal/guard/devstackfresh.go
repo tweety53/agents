@@ -23,7 +23,7 @@ var (
 
 func checkDevStackFresh(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "check-dev-stack-fresh: usage: check-dev-stack-fresh.sh <worktree>")
+		fmt.Fprintln(stderr, "check-dev-stack-fresh: usage: flow-guard check-dev-stack-fresh <worktree>")
 		return 2
 	}
 	worktree := args[0]

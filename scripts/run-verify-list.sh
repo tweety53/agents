@@ -56,6 +56,4 @@ SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   exit 2
 }
 : "$SCRIPT_DIR/project-get.sh" "$SCRIPT_DIR/check-spec-reach.sh" "$SCRIPT_DIR/run-capped.sh"
-FLOW_GUARD_SCRIPT_DIR="$SCRIPT_DIR"
-export FLOW_GUARD_SCRIPT_DIR
 flow_guard_exec run-verify-list 2 "run-verify-list:" "$@"

@@ -312,8 +312,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 			{"port: a location check killed by a signal is named by bash's 128+n", func(r guardResult, _ *bmFx) bool {
 				return r.rc == 2 && strings.HasPrefix(r.err, "check-finish-preflight: check-worktree-location.sh exited 143 against ")
 			}}}},
-		// Run without the shim, the sibling's location is unknown: refused by
-		// name, never looked up at a path the guard made up.
+		// Without the override, the sibling runs in this same binary.
 		{setup: merged, run: func(fx *fpFx) (guardResult, error) {
 			lookup := func(k string) (string, bool) {
 				if k == "FLOW_GUARD_WORKTREE_LOCATION" {
@@ -324,9 +323,8 @@ func TestCheckFinishPreflight(t *testing.T) {
 			env := Env{Dir: fx.dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
 			return runGuard("check-finish-preflight", []string{fx.repo, "main", fx.recorded}, env), nil
 		}, checks: []bmCheck{
-			{"port: an unset FLOW_GUARD_WORKTREE_LOCATION is refused by name", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 2 && r.stdout == "" &&
-					r.err == "check-finish-preflight: FLOW_GUARD_WORKTREE_LOCATION is unset — run scripts/check-finish-preflight.sh, which sets it\n"
+			{"port: an unset FLOW_GUARD_WORKTREE_LOCATION runs check-worktree-location in this binary", func(r guardResult, _ *bmFx) bool {
+				return r.rc == 0 && strings.HasPrefix(r.stdout, "RUN2: ")
 			}}}},
 		// A relative worktree argument resolves against the working directory.
 		{setup: merged, args: func(fx *fpFx) []string { return []string{"main-worktrees/demo", "main", fx.recorded} },

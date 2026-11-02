@@ -38,7 +38,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 	// exports that location's parent as FLOW_GUARD_REPO_ROOT.
 	repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if repoRoot == "" {
-		return refuse("FLOW_GUARD_REPO_ROOT is unset — run scripts/check-installed-rules.sh, which sets it")
+		return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-installed-rules, which sets it")
 	}
 	rulesSrc := repoRoot + "/rules"
 	homeDir := env.Getenv("CHECK_INSTALLED_RULES_HOME")

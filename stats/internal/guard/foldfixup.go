@@ -3,7 +3,6 @@ package guard
 import (
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 )
 
@@ -18,8 +17,8 @@ func init() {
 	Registry["fold-fixup"] = foldFixup
 }
 
-const ffUsage = "usage: fold-fixup.sh <worktree> <task-sha> <tasks-md> <path>...\n" +
-	"       fold-fixup.sh --finish <worktree> <task-sha> <tasks-md>\n"
+const ffUsage = "usage: flow-guard fold-fixup <worktree> <task-sha> <tasks-md> <path>...\n" +
+	"       flow-guard fold-fixup --finish <worktree> <task-sha> <tasks-md>\n"
 
 func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 	refuse := func(format string, a ...any) int {
@@ -41,17 +40,12 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	// guard-autosquash is exec'd through its own shim beside this one,
-	// which exports its $SCRIPT_DIR/guard-autosquash.sh spelling.
-	autosquash := env.Getenv("FLOW_GUARD_AUTOSQUASH")
-	if autosquash == "" {
-		return refuse("FLOW_GUARD_AUTOSQUASH is unset — run scripts/fold-fixup.sh, which sets it")
-	}
+	// guard-autosquash runs in this same binary (runSibling), or as the
+	// executable FLOW_GUARD_AUTOSQUASH names.
 	// guard runs one guard-autosquash check, its lines on stderr; the exit
 	// code is the caller's: 0 passed, 1 refused, 2 cannot answer.
 	guard := func(a ...string) int {
-		cmd := exec.Command(autosquash, a...)
-		cmd.Dir = env.Dir
+		cmd := siblingCmd(env, "FLOW_GUARD_AUTOSQUASH", "guard-autosquash", a...)
 		cmd.Stdout, cmd.Stderr = stderr, stderr
 		switch rc := exitCode(cmd.Run()); rc {
 		case 0, 1:

@@ -45,12 +45,12 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	if i := slices.Index(args, "--"); i >= 0 {
 		rest, cmdArgv = args[:i], args[i+1:]
 		if len(cmdArgv) == 0 {
-			fmt.Fprintln(stderr, "mutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]")
+			fmt.Fprintln(stderr, "mutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]")
 			return 4
 		}
 	}
 	if len(rest) < 1 || (len(rest) < 2 && len(cmdArgv) == 0) {
-		fmt.Fprintln(stderr, "mutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]")
+		fmt.Fprintln(stderr, "mutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]")
 		return 4
 	}
 	args = rest

@@ -353,7 +353,7 @@ func TestPlanClass(t *testing.T) {
 				args []string
 				want string
 			}{
-				{[]string{"a"}, "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+				{[]string{"a"}, "usage: flow-guard plan-class [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
 				{[]string{"/nonexistent/tasks.md", "1"}, "plan-class.sh: no such file: /nonexistent/tasks.md\n"},
 				{[]string{docs, "0x1"}, "plan-class.sh: <repos> must be a non-negative integer, got: 0x1\n"},
 				{[]string{docs, "", repo, mb}, "plan-class.sh: <repos> must be a non-negative integer, got: \n"},
@@ -546,7 +546,7 @@ func TestPlanClassTree(t *testing.T) {
 	t.Run("FLOW_GUARD_REPO_ROOT unset exits 2", func(t *testing.T) {
 		t.Parallel()
 		r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", pin), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT="}))
-		want := "plan-class.sh: FLOW_GUARD_REPO_ROOT is unset — run scripts/plan-class.sh, which sets it\n"
+		want := "plan-class.sh: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-class, which sets it\n"
 		if r.rc != 2 || r.stdout != "" || r.err != want {
 			t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 		}
@@ -583,8 +583,8 @@ func TestPlanClassOverrideFlag(t *testing.T) {
 		{[]string{"-class", "micro", small, "1"}, 2, "", "", "plan-class.sh: -class micro must be small or one step above it\n"},
 		{[]string{"-class", "regular", micro, "1", tmpl, mb}, 2, "", "", "plan-class.sh: -class regular must be micro or one step above it\n"},
 		{[]string{"-class", "huge", small, "1"}, 2, "", "", "plan-class.sh: unknown class: huge\n"},
-		{[]string{"-class"}, 2, "", "", "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
-		{[]string{"-class", "small", small}, 2, "", "", "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+		{[]string{"-class"}, 2, "", "", "usage: flow-guard plan-class [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+		{[]string{"-class", "small", small}, 2, "", "", "usage: flow-guard plan-class [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
 	} {
 		r := runGuard("plan-class", c.args, env)
 		if r.rc != c.rc {

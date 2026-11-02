@@ -526,16 +526,10 @@ func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	fx := ctFixture(t, true, "0", "0")
 	base := fx.env.Getenv
 	fx.env.Getenv = func(k string) string {
 		switch k {
-		case "FLOW_GUARD_SCRIPT_DIR":
-			return filepath.Join(repo, "scripts")
 		case "FLOW_GUARD_CACHE_DIR":
 			return guardCache(t)
 		}
@@ -593,20 +587,15 @@ func TestCloseTaskRebuildsASuiteZipInTheRegressionCheckout(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	fx := ctFixture(t, true, "0", "0")
 	// The resolver answers with git's real paths; the temp dir sits under a symlink on macOS.
+	var err error
 	if fx.peer, err = filepath.EvalSymlinks(fx.peer); err != nil {
 		t.Fatal(err)
 	}
 	base := fx.env.Getenv
 	fx.env.Getenv = func(k string) string {
 		switch k {
-		case "FLOW_GUARD_SCRIPT_DIR":
-			return filepath.Join(repo, "scripts")
 		case "FLOW_GUARD_CACHE_DIR":
 			return guardCache(t)
 		}
@@ -659,16 +648,10 @@ func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	fx := ctFixture(t, true, "0", "0")
 	base := fx.env.Getenv
 	fx.env.Getenv = func(k string) string {
 		switch k {
-		case "FLOW_GUARD_SCRIPT_DIR":
-			return filepath.Join(repo, "scripts")
 		case "FLOW_GUARD_CACHE_DIR":
 			return guardCache(t)
 		}
@@ -718,10 +701,10 @@ func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
 }
 
 // scripts/close-task.sh is close-task's only caller, and it runs the zip
-// rebuild in-process: the shim exports FLOW_GUARD_SCRIPT_DIR, which the
-// rebuild needs to find resolve-visual-screenshots.sh (kan-1024 Task 14:
-// unset, close-task stopped on exit 2 for every committed zip).
-func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
+// rebuild in-process, whose resolve-visual-screenshots runs in the same
+// binary (kan-1024 Task 14: unable to reach it, close-task stopped on exit 2
+// for every committed zip).
+func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
 	t.Parallel()
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")

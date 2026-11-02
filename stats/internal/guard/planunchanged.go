@@ -34,7 +34,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	mode, worktree, name, snap := arg(0), arg(1), arg(2), arg(3)
 	usage := func() int {
-		fmt.Fprintln(stderr, "check-plan-unchanged: usage: check-plan-unchanged.sh snapshot|verify <worktree> <change-name> <snapshot-file>")
+		fmt.Fprintln(stderr, "check-plan-unchanged: usage: flow-guard check-plan-unchanged snapshot|verify <worktree> <change-name> <snapshot-file>")
 		return 2
 	}
 	if mode != "snapshot" && mode != "verify" {
