@@ -29,6 +29,8 @@ func TestCheckNoBash(t *testing.T) {
 		{"a tracked .sh fails", "x.sh", "echo\n", 1},
 		{"an extensionless env-bash script fails", "tool", "#!/usr/bin/env bash\necho\n", 1},
 		{"a /bin/sh script fails", "tool", "#!/bin/sh\necho\n", 1},
+		{"an env -S bash script fails", "tool", "#!/usr/bin/env -S bash -e\necho\n", 1},
+		{"an env -S python3 script passes", "tool", "#!/usr/bin/env -S python3 -u\nprint()\n", 0},
 		{"an env-python3 script passes", "tool", "#!/usr/bin/env python3\nprint()\n", 0},
 		{"setup.sh passes", "setup.sh", "#!/usr/bin/env bash\n", 0},
 		{"scripts/flow-guard passes", "scripts/flow-guard", "#!/usr/bin/env bash\n", 0},

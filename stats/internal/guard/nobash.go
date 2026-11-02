@@ -26,7 +26,8 @@ import (
 //	<path>: bash script — write it in Go in flow-guard (rules/no-bash-scripts.mdc)
 //
 // for every file ending in `.sh`, or whose first line is a `#!` whose
-// interpreter, or `env`'s first argument, is `bash` or `sh` — except
+// interpreter, or the command `env` runs past its options and assignments,
+// is `bash` or `sh` — except
 // setup.sh and scripts/flow-guard, the two bash files the repository keeps:
 // setup.sh installs everything, and the bootstrap must build the Go binary
 // before any Go can run. Only committed files count: a shell command line, a
@@ -108,8 +109,16 @@ func nbShebang(path string) (bool, error) {
 		return false, nil
 	}
 	interp := filepath.Base(fields[0])
-	if interp == "env" && len(fields) > 1 {
-		interp = fields[1]
+	if interp == "env" {
+		// env's options (`-S`, `-i`) and NAME=value assignments come
+		// before the command it runs.
+		interp = ""
+		for _, f := range fields[1:] {
+			if !strings.HasPrefix(f, "-") && !strings.Contains(f, "=") {
+				interp = f
+				break
+			}
+		}
 	}
 	return interp == "bash" || interp == "sh", nil
 }
