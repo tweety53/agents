@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -307,9 +308,10 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines []string) []string {
 }
 
 type vrOverRow struct {
-	Row    int    `json:"row"`
-	Status string `json:"status"`
-	Keys   string `json:"keys"`
+	Row     int                          `json:"row"`
+	Status  string                       `json:"status"`
+	Keys    string                       `json:"keys"`
+	Figures map[string]map[string]string `json:"figures"`
 }
 
 // vrOverTolerance reconciles each composed frame's `over-tolerance:` line with
@@ -367,6 +369,20 @@ func vrOverTolerance(report string, frames []string, lines map[string]string, de
 			named[n] = true
 			if r, ok := rows[n]; ok && !vrCauseAdmitted(mm[2], r, design) {
 				undone = append(undone, fmt.Sprintf("%s over-tolerance #%d: cause %q is off step 10's closed list", f, n, strings.TrimSpace(mm[2])))
+			}
+			// The item quotes its own row's figures (kan-1057 self-review, F20: a
+			// cause read off a neighbouring row stood).
+			if r, ok := rows[n]; ok && len(r.Figures) > 0 {
+				var quotes []string
+				quoted := false
+				for _, k := range slices.Sorted(maps.Keys(r.Figures)) {
+					q := k + " a=" + r.Figures[k]["a"] + " b=" + r.Figures[k]["b"]
+					quotes = append(quotes, q)
+					quoted = quoted || strings.Contains(mm[2], q)
+				}
+				if !quoted {
+					undone = append(undone, fmt.Sprintf("%s over-tolerance #%d: quotes none of its row's figures (%s)", f, n, strings.Join(quotes, "; ")))
+				}
 			}
 		}
 		for n := range rows {

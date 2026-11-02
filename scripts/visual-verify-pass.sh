@@ -211,7 +211,10 @@
 #      matrix}, stderr, bands_file, matrix_file, bands, seams, over} —
 #      `bands` and `seams` the entries flagged by mvpOverLength and
 #      mvpOverColour (measurevisualproperties.go) or missing/extra, `over`
-#      the matrix's summary.over; an exit is null for a step not run. Prints
+#      the matrix's summary.over, each row carrying `figures`, `{<key>: {a,
+#      b}}` per over key other than `unresolved`, read from the matrix row it
+#      indexes (kan-1057 self-review, F20); an exit is null for a step not
+#      run. Prints
 #        MANIFEST: <path>
 #   Exit 0 when every step exited 0, 1 when any did not, 2 on a usage error
 #   or an output directory or file it cannot write.

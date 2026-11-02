@@ -71,6 +71,8 @@
 # or `mockup source` on a row whose `keys` name `unresolved`. A missing or
 # unreadable manifest, a frame in none of its pairs, a missing line, a wrong
 # count, an unnamed row or a cause off the list is undone.
+# Each item whose manifest row carries figures quotes one as <key> a=<a> b=<b>;
+# an item quoting none of its row's figures is undone (kan-1057 self-review, F20).
 #
 # Every `sweeps:` line's ` | `-separated items each read `<sweep> done…` or
 # `<sweep> n/a — <why>`; any other leaves step 10 undone.

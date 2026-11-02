@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -234,5 +235,79 @@ func TestVisualVerifyPassMeasurePrototypeMissingMap(t *testing.T) {
 	rc, stdout, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype")
 	if rc == 0 {
 		t.Fatalf("exit 0 with no prototype.mockups, stdout %q, stderr %q", stdout, stderr)
+	}
+}
+
+// TestVisualVerifyPassMeasureOverFigures pins kan-1057's self-review, F20:
+// each manifest over row carries its own matrix row's figures, so a report
+// item can be checked against the row it names, never a neighbour's.
+func TestVisualVerifyPassMeasureOverFigures(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	if rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts"); rc != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q", rc, stdout, stderr)
+	}
+	var m struct {
+		Pairs []struct {
+			MatrixFile string `json:"matrix_file"`
+			Over       []struct {
+				Row     int                          `json:"row"`
+				Status  string                       `json:"status"`
+				Keys    string                       `json:"keys"`
+				Figures map[string]map[string]string `json:"figures"`
+			} `json:"over"`
+		} `json:"pairs"`
+	}
+	body, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-visual-verify.json"))
+	if err := json.Unmarshal(body, &m); err != nil || len(m.Pairs) != 1 {
+		t.Fatalf("manifest %s: %v", body, err)
+	}
+	var mx struct {
+		Matrix []map[string]any `json:"matrix"`
+	}
+	mb, _ := os.ReadFile(m.Pairs[0].MatrixFile)
+	if err := json.Unmarshal(mb, &mx); err != nil {
+		t.Fatal(err)
+	}
+	str := func(v any) string {
+		if n, ok := v.(float64); ok {
+			return strconv.FormatFloat(n, 'f', -1, 64)
+		}
+		s, _ := v.(string)
+		return s
+	}
+	keyed := 0
+	for _, r := range m.Pairs[0].Over {
+		var want []string
+		for _, k := range strings.Split(r.Keys, ", ") {
+			if k != "" && k != "unresolved" {
+				want = append(want, k)
+			}
+		}
+		if r.Status == "missing" || r.Status == "extra" || len(want) == 0 {
+			if len(r.Figures) != 0 {
+				t.Errorf("row %d (%s, keys %q): figures %v, want none", r.Row, r.Status, r.Keys, r.Figures)
+			}
+			continue
+		}
+		keyed++
+		if len(r.Figures) != len(want) {
+			t.Errorf("row %d: figures %v, want keys %v", r.Row, r.Figures, want)
+		}
+		row := mx.Matrix[r.Row-1]
+		for _, k := range want {
+			v, ok := row[k].(map[string]any)
+			if !ok {
+				meas, _ := row["measured"].(map[string]any)
+				d, _ := meas["delta"].(map[string]any)
+				v, _ = d[k].(map[string]any)
+			}
+			if got := r.Figures[k]; got["a"] != str(v["a"]) || got["b"] != str(v["b"]) || got["a"] == "" {
+				t.Errorf("row %d %s: figures %v, want a=%v b=%v", r.Row, k, got, v["a"], v["b"])
+			}
+		}
+	}
+	if keyed == 0 {
+		t.Fatalf("no paired over row with keys: %+v", m.Pairs[0].Over)
 	}
 }

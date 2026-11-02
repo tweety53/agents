@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -199,10 +200,14 @@ func (v *vvp) measure(args []string) {
 		p.MatrixFile = filepath.Join(matrixDir, l.frame+".json")
 		v.writeOut(p.MatrixFile, out)
 		var mx struct {
-			Summary struct{ Over []any } `json:"summary"`
+			Matrix  []map[string]any                `json:"matrix"`
+			Summary struct{ Over []map[string]any } `json:"summary"`
 		}
 		if json.Unmarshal([]byte(out), &mx) == nil && mx.Summary.Over != nil {
-			p.Over = mx.Summary.Over
+			for _, r := range mx.Summary.Over {
+				r["figures"] = vvmFigures(mx.Matrix, r)
+				p.Over = append(p.Over, r)
+			}
 		}
 		m.Pairs = append(m.Pairs, p)
 	}
@@ -236,6 +241,47 @@ func vvmLines(s string) []string {
 		}
 	}
 	return out
+}
+
+// vvmFigures is an over row's own figures (decision over-items-quote-figures):
+// per over key other than `unresolved`, the a and b of the matrix row the
+// over row indexes (1-based), its top-level key else measured.delta's.
+func vvmFigures(matrix []map[string]any, over map[string]any) map[string]map[string]string {
+	figures := map[string]map[string]string{}
+	row, _ := over["row"].(float64)
+	keys, _ := over["keys"].(string)
+	i := int(row) - 1
+	if i < 0 || i >= len(matrix) {
+		return figures
+	}
+	for _, k := range strings.Split(keys, ", ") {
+		if k == "" || k == "unresolved" {
+			continue
+		}
+		v, ok := matrix[i][k].(map[string]any)
+		if !ok {
+			measured, _ := matrix[i]["measured"].(map[string]any)
+			delta, _ := measured["delta"].(map[string]any)
+			v, _ = delta[k].(map[string]any)
+		}
+		a, okA := vvmFigure(v["a"])
+		b, okB := vvmFigure(v["b"])
+		if okA && okB {
+			figures[k] = map[string]string{"a": a, "b": b}
+		}
+	}
+	return figures
+}
+
+// vvmFigure formats a number shortest-exact and keeps a string as written.
+func vvmFigure(v any) (string, bool) {
+	switch t := v.(type) {
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64), true
+	case string:
+		return t, true
+	}
+	return "", false
 }
 
 func vvmExists(p string) bool { _, err := os.Stat(p); return err == nil }

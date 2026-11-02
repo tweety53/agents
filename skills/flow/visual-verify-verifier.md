@@ -465,7 +465,11 @@ never an exit code the command did not return.
       `transcription` or `text width` — a text difference the transcription names; `decision <ID>` —
       a recorded decision whose `**ID:**` `design.md` carries, for the deltas it names;
       `present at the merge base`, with its merge-base evidence beside it; `mockup source` — an
-      `unresolved` row's value measured from the mockup's source per the cell rule above.
+      `unresolved` row's value measured from the mockup's source per the cell rule above. Each item
+      also quotes its row's own figures as the manifest's `figures` carry them,
+      `#<row>: <cause> — <key> a=<a> b=<b>`, `<key>` one of the row's over keys, so a cause given
+      from a neighbouring row names figures its own row does not have (kan-1057 self-review, F20).
+      A row whose `figures` are empty — `missing`, `extra`, or `unresolved` alone — quotes nothing.
       `check-verify-report.sh` refuses a missing line, a wrong count, an unnamed row or a cause off
       the list, and reads `over` from this dispatch's manifest, so a pass that skipped `measure`
       never stands on last round's numbers.

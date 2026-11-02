@@ -548,3 +548,39 @@ func TestCheckVerifyReportUnresolvedBaselineCitation(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportOverItemQuotesRowFigures pins kan-1057's self-review,
+// F20: an over-tolerance item's cause was read off a neighbouring row. Each
+// item whose manifest row carries figures quotes one of its own.
+func TestCheckVerifyReportOverItemQuotesRowFigures(t *testing.T) {
+	row := func(n int, a, b string, figures bool) any {
+		r := map[string]any{"row": n, "status": "paired", "keys": "height"}
+		if figures {
+			r["figures"] = map[string]any{"height": map[string]string{"a": a, "b": b}}
+		}
+		return r
+	}
+	for _, tc := range []struct {
+		name, quote string
+		figures     bool
+		rc          int
+	}{
+		{"own figures", " — height a=25 b=28", true, 0},
+		{"row #6's figures under #8", " — height a=31 b=34", true, 1},
+		{"no quote", "", true, 1},
+		{"manifest without figures", "", false, 0},
+	} {
+		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
+		vrtManifest(t, sdd, "visual-verify", "W1", row(6, "31", "34", tc.figures), row(8, "25", "28", tc.figures))
+		first := " — height a=31 b=34"
+		if !tc.figures {
+			first = ""
+		}
+		path := filepath.Join(sdd, "verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+vrtDone+vrtFrame("W1")+"- W1 over-tolerance: 2 — #6: text width"+first+"; #8: text width"+tc.quote+"\n")
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || (tc.rc == 1 && (!strings.Contains(r.out, "W1 over-tolerance #8: quotes none of its row's figures (height a=25 b=28)") || strings.Contains(r.out, "#6: quotes"))) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d", tc.name, r.rc, r.out, tc.rc)
+		}
+	}
+}
