@@ -45,5 +45,6 @@ describe("mainAction", () => {
 describe("dispatchTasks", () => {
   it("splits a task group's id", () => expect(dispatchTasks({ taskId: "1+2+3+4" })).toEqual([1, 2, 3, 4]));
   it("reads the ids off a task key without a taskId", () => expect(dispatchTasks({ key: "task-5+6-implementer" })).toEqual([5, 6]));
+  it("takes the group from the key when the taskId names only its first", () => expect(dispatchTasks({ taskId: "1", key: "task-1+2+3+4+6-implementer" })).toEqual([1, 2, 3, 4, 6]));
   it("is empty for a non-task dispatch", () => expect(dispatchTasks({ key: "panel-1-correctness" })).toEqual([]));
 });

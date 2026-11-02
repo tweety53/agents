@@ -27,7 +27,8 @@ export function lastAction(row: StateBoardRow): string | null {
   return row.activity === "working" && row.activityDetail ? `Last: ${row.activityDetail}` : null;
 }
 
-/** The plan task numbers a dispatch carries: its taskId, else its task-<ids> key's, each id of a `+`-joined task group apart. */
+/** The plan task numbers a dispatch carries: its taskId's and its task-<ids> key's together (a group's taskId may name only its first), each id of a `+`-joined task group apart. */
 export function dispatchTasks(d: { taskId?: string; key?: string }): number[] {
-  return (d.taskId || /^tasks?-([\d+]+)-/.exec(d.key ?? "")?.[1] || "").split("+").filter(Boolean).map(Number);
+  const ids = `${d.taskId ?? ""}+${/^tasks?-([\d+]+)-/.exec(d.key ?? "")?.[1] ?? ""}`.split("+").filter(Boolean).map(Number);
+  return [...new Set(ids)];
 }
