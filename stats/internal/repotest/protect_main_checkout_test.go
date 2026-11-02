@@ -244,7 +244,7 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.bash("75 a heredoc inside bash <( keeps its body scanned", "deny", "{ROOT}", "bash <(\ncat > /dev/stdout <<'EOF'\nrm {MAIN}/f.txt\nEOF\n)")
 	f.bash("76 a heredoc written then run under another spelling keeps its body scanned", "deny", "{ROOT}", "cat > {SIB}/x.sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\nsh \"{SIB}\"/x.sh")
 
-	// 77-81: a fix loop lands only once check-loop-landing.sh admits it; the
+	// 77-81: a fix loop lands only once flow-guard check-loop-landing admits it; the
 	// checker is a stub here (the guard is covered by check_loop_landing_test.go).
 	loopLog, loopRC := root+"/loop-args", root+"/loop-rc"
 	f.write(root+"/loopcheck", "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" >\""+loopLog+"\"\necho \"LOOP-LANDING-REFUSED: REVIEW — stub\"\nexit \"$(cat \""+loopRC+"\")\"\n")

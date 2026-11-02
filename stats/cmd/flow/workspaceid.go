@@ -20,7 +20,7 @@ const workspaceIDUsage = `usage: flow workspace-id <name>
 
 workspace-id prints the workspace id derived from a change name -- the same
 deterministic id skills/flow-contracts/workspace-isolation.md's "The
-workspace id" defines and scripts/prepare-workspace.sh already derives in
+workspace id" defines and flow-guard prepare-workspace already derives in
 Bash for apply worktrees. The id is never recorded and never negotiated: the
 same name always yields the same id.
 `

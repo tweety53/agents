@@ -500,7 +500,7 @@ func ApplyIncidentRecord(ctx context.Context, rw RecordStore, projectKey string,
 
 // substitutionShapes is the closed set a substitution's Shape accepts: the
 // pipeline's own topology vocabulary for a change -- the same words
-// gather-dispatch-context.sh's eighth argument validates and Hazard.Applies
+// flow-guard gather-dispatch-context's eighth argument validates and Hazard.Applies
 // composes with. `all` is deliberately absent: it is a bundle-composition
 // wildcard, never a shape a change has.
 var substitutionShapes = []string{"single-repo", "cross-repo"}

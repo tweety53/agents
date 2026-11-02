@@ -5,10 +5,10 @@ A loop dispatch is an Agent/Task call whose prompt carries a `Key: pipeline-fix-
 `Key: self-review-...` line (skills/flow-contracts/pipeline.md **Pipeline defects found
 mid-run**, skills/flow-self-review/SKILL.md step 3). The loops were prose only, and a parent
 skipped their steps: fixers dispatched on flow-high without a planner, fixes landed with no
-review. This hook hands every such call to scripts/check-loop-dispatch.sh in the agents
+review. This hook hands every such call to flow-guard check-loop-dispatch in the agents
 checkout it is installed from, which refuses a pair off the canonical table, a fix with no
 completed plan, a dispatch while an earlier one is still open -- and records the admitted
-dispatch in flowd, so check-loop-landing.sh can refuse a landing those records do not cover.
+dispatch in flowd, so flow-guard check-loop-landing can refuse a landing those records do not cover.
 The checker runs in the payload's `cwd`, so a self-review on a change's own branch in another
 project files its rows in that project's flowd project, not the agents checkout's.
 
@@ -59,7 +59,9 @@ CHECK_TIMEOUT = 240
 REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # The checker the hook runs; overridable for the hook's own harness only.
-CHECK = os.environ.get("LOOP_DISPATCH_CHECK") or os.path.join(REPO, "scripts", "check-loop-dispatch.sh")
+CHECK = [os.environ["LOOP_DISPATCH_CHECK"]] if os.environ.get("LOOP_DISPATCH_CHECK") else [
+    os.path.join(REPO, "scripts", "flow-guard"), "check-loop-dispatch"
+]
 
 def bound(seconds):
     """A subprocess call's wall-clock bound. FLOW_HOOK_UNBOUNDED=1 lifts it: the hook's tests
@@ -166,15 +168,15 @@ def main():
         )
     if BASELINE not in prompt:
         return deny(f"Loop dispatch {key} blocked: the prompt carries no {BASELINE} pointer.")
-    args = [CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or "")]
+    args = [*CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or "")]
     try:
         r = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=bound(CHECK_TIMEOUT), cwd=cwd)
     except (OSError, subprocess.SubprocessError) as e:
-        return deny(f"Loop dispatch {key} blocked: check-loop-dispatch.sh could not run ({e}).")
+        return deny(f"Loop dispatch {key} blocked: flow-guard check-loop-dispatch could not run ({e}).")
     if r.returncode == 0:
         return 0
     return deny(
-        f"Loop dispatch {key} blocked (check-loop-dispatch.sh exit {r.returncode}):\n"
+        f"Loop dispatch {key} blocked (flow-guard check-loop-dispatch exit {r.returncode}):\n"
         f"{r.stdout}{r.stderr}"
     )
 

@@ -31,16 +31,16 @@ the default branch is how work gets a branch of its own.
 
 It also denies, in a linked worktree, a `git checkout … -- <path>` or `git restore <path>` naming
 a path with unstaged edits: the restore reverts it to its index state and an uncommitted fix dies
-with it. The reason points at break-and-prove.sh and mutate-and-verify.sh, which restore from a
+with it. The reason points at flow-guard break-and-prove and flow-guard mutate-and-verify, which restore from a
 byte snapshot.
 
 It also denies a landing push of a `pipeline-fix-*` or `self-review-*` branch unless
-scripts/check-loop-landing.sh, in the agents checkout this hook is installed from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
+flow-guard check-loop-landing, in the agents checkout this hook is installed from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
 check fails closed: a checker that cannot answer or cannot run denies the push.
 
 It also denies a push of a `/flow` change branch (`spectre/<name>`) whose unpushed commits —
 `origin/spectre/<name>..HEAD` — hold one outside every task with neither a `Task-Id:` nor a
-`Flow-Key:` trailer, as scripts/check-untasked-commits.sh judges them (**Commits outside every
+`Flow-Key:` trailer, as flow-guard check-untasked-commits judges them (**Commits outside every
 task**, skills/flow-contracts/git-boundaries.md; kan-941 pushed four such commits). It checks only a
 push of HEAD's commit to a branch origin already holds, and fails open: a checker that cannot
 answer, cannot run or times out lets the push through, and run 1's gate still lists the commit.
@@ -69,7 +69,7 @@ expanded first, so only names from outside the command count. Scripts are untouc
 sees the typed Bash command, never what a script it calls runs.
 
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
-`git worktree add`, `git push`, and the landing script `refresh-main-checkout.sh` — it is not a
+`git worktree add`, `git push`, and the landing script `flow-guard refresh-main-checkout` — it is not a
 `git` verb in the command text, and owns its own main-checkout rules.
 
 Denies, never rewrites: the PreToolUse contract cannot change tool input, so the deny reason
@@ -107,7 +107,7 @@ DENIED_GIT_VERBS = {
 FALLBACK_DEFAULT_BRANCHES = {"main", "master", "develop"}
 
 # A fix loop's branch, or a change's own branch a self-review loop may have run on
-# (check-loop-landing.sh answers LOOP-LANDING-NA for one with no loop rows).
+# (flow-guard check-loop-landing answers LOOP-LANDING-NA for one with no loop rows).
 # A bare `cat > <file>` with no input of its own: it reads stdin, which a Bash call
 # never has, so it waits until the call times out.
 # ponytail: a line scan — a heredoc body line opening with `cat > <file>` is denied
@@ -120,21 +120,22 @@ BARE_CAT_REASON = (
 )
 LOOP_BRANCH_RE = re.compile(r"^(pipeline-fix-.+-[0-9]+|self-review-.+|spectre/.+)$")
 
-# The whole budget for check-loop-landing.sh calls in one command (every push it makes), well under the
+# The whole budget for flow-guard check-loop-landing calls in one command (every push it makes), well under the
 # 300s setup.sh registers: a hook the harness times out fails open.
 LOOP_CHECK_TIMEOUT = 240
 LOOP_DEADLINE = None
 
 # The untasked-commits checker and its budget; overridable for the hook's own harness only.
-UNTASKED_CHECK = os.environ.get("UNTASKED_COMMITS_CHECK") or os.path.join(
-    os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "check-untasked-commits.sh"
-)
+FLOW_GUARD = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "flow-guard")
+UNTASKED_CHECK = [os.environ["UNTASKED_COMMITS_CHECK"]] if os.environ.get("UNTASKED_COMMITS_CHECK") else [
+    FLOW_GUARD, "check-untasked-commits"
+]
 UNTASKED_CHECK_TIMEOUT = 60
 
 # The loop-landing checker; overridable for the hook's own harness only.
-LOOP_CHECK = os.environ.get("LOOP_LANDING_CHECK") or os.path.join(
-    os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "check-loop-landing.sh"
-)
+LOOP_CHECK = [os.environ["LOOP_LANDING_CHECK"]] if os.environ.get("LOOP_LANDING_CHECK") else [
+    FLOW_GUARD, "check-loop-landing"
+]
 
 _git_cache = {}
 
@@ -206,7 +207,7 @@ def protected(path):
         # the nearest existing ancestor is a worktree root, so a missing component
         # below it is a future worktree — never main-checkout content; a
         # not-yet-existing worktree is where work goes. The root convention is owned
-        # by scripts/check-worktree-location.sh; this rule mirrors it for path
+        # by flow-guard check-worktree-location; this rule mirrors it for path
         # resolution, and the root itself — path == d — stays protected like any
         # other main-checkout directory.
         return None
@@ -335,23 +336,28 @@ READER_WORDS = {
 LEADING_KEYWORDS = {"do", "then", "else", "elif", "!"}
 GIT_READ_SUBCOMMANDS = {"diff", "add", "show", "log", "status"}
 CHECK_SCRIPT_RE = re.compile(r"check-[\w.-]*\.(?:sh|py)")
-# Pipeline scripts that only read a file argument: render-slot-prompt.sh names its -fix-report
+# A guard run through the bootstrap: `flow-guard check-…`, bare or as `…/scripts/flow-guard`.
+CHECK_GUARD_RE = re.compile(r"check-[\w.-]*")
+# Pipeline guards that only read a file argument: render-slot-prompt names its -fix-report
 # paths in the prompt it prints (kan-1026: a panel round's report write was denied over its body).
-PIPELINE_READERS = {"render-slot-prompt.sh"}
+PIPELINE_READERS = {"render-slot-prompt"}
 # Interpreters whose program text is not shell: a body they run is scanned for git verbs only.
 PROGRAM_RUNNERS = {"python", "python3", "node"}
 
 
 def reads_only(words, target):
     """True when the command words are one known not to execute its file arguments: a
-    pipeline guard `check-*.sh`/`check-*.py` other than the target itself (a written check
+    pipeline guard `flow-guard check-*`, `check-*.sh`/`check-*.py` other than the target itself (a written check
     script run afterwards runs the body), a reader in READER_WORDS (`rg` is not one: its
     `--pre` runs a command), `git` with a read subcommand, or `spectre validate`."""
     name = words[0].rsplit("/", 1)[-1]
     if CHECK_SCRIPT_RE.fullmatch(name) and name != target.rsplit("/", 1)[-1]:
         return True
-    if name in PIPELINE_READERS:
+    if name.removesuffix(".sh") in PIPELINE_READERS:
         return True
+    # The bootstrap runs a compiled guard, never a file it is given; written as the target it runs that body.
+    if name == "flow-guard" and name != target.rsplit("/", 1)[-1] and len(words) > 1:
+        return bool(CHECK_GUARD_RE.fullmatch(words[1])) or words[1] in PIPELINE_READERS
     if name in READER_WORDS:
         return True
     if name == "git":
@@ -433,7 +439,7 @@ def may_run_code(text, target):
     `eval "$(`), a word that runs code (RUNNER_WORDS, matched by file name so `/bin/bash`
     counts as `bash`) anywhere, or any command whose words may name target (`names_target` —
     the same spelling, the same file name, a bare `x.sh`, an expansion) unless that command is
-    one `reads_only` allows. A command naming another file (`check-plan-shape.sh /x/o.md`,
+    one `reads_only` allows. A command naming another file (`flow-guard check-plan-shape /x/o.md`,
     `./gradlew`) leaves the body as data; `php $T`, `setsid $T`, `find . -exec`, `ssh h $T`
     keep it scanned, as does any command behind a leading `NAME=value` or run under
     `env`/`export`. With target None no command names it, so substitutions, runner words, env
@@ -777,14 +783,14 @@ def unreadable_landing(args, target):
         "spectre change, a fix loop's records) cannot see what it lands. Write the push with "
         "literal names:\n\n"
         "  git -C /abs/path/to/worktree push origin <branch>:<default-branch>\n\n"
-        "A fix loop lands with scripts/pipeline-fix.sh land <worktree>."
+        "A fix loop lands with flow-guard pipeline-fix land <worktree>."
     )
 
 
 def loop_landing(args, target):
     """The deny reason when the push lands, on the default branch, a commit that
     contains the tip of a loop branch (or a change branch) not yet on
-    origin/<default> which check-loop-landing.sh refuses, else None. The pushed
+    origin/<default> which flow-guard check-loop-landing refuses, else None. The pushed
     <src> is resolved and every such branch it contains is checked, so a
     landing under another spelling -- `@:main`, `<sha>:main`, a temporary
     branch, `pull . <loop>` then `push origin main` -- is checked too."""
@@ -816,23 +822,23 @@ def loop_landing(args, target):
                 continue
             try:
                 r = subprocess.run(
-                    [LOOP_CHECK, target, branch], capture_output=True, text=True,
+                    [*LOOP_CHECK, target, branch], capture_output=True, text=True,
                     timeout=max(1, deadline - time.monotonic()),
                 )
             except (OSError, subprocess.SubprocessError) as e:
-                return f"Blocked: landing {branch} needs check-loop-landing.sh, which could not run ({e})."
+                return f"Blocked: landing {branch} needs flow-guard check-loop-landing, which could not run ({e})."
             if r.returncode != 0:
                 return (
                     f"Blocked: {branch} is a fix loop, and its records do not cover this landing "
-                    f"(check-loop-landing.sh exit {r.returncode}):\n{r.stdout}{r.stderr}\n"
-                    "Land it with scripts/pipeline-fix.sh land <worktree> once they do."
+                    f"(flow-guard check-loop-landing exit {r.returncode}):\n{r.stdout}{r.stderr}\n"
+                    "Land it with flow-guard pipeline-fix land <worktree> once they do."
                 )
     return None
 
 
 def untasked_push(args, target):
     """The deny reason when the push sends HEAD's commit to a `spectre/` branch origin holds and
-    check-untasked-commits.sh lists an unpushed commit carrying neither trailer, else None."""
+    flow-guard check-untasked-commits lists an unpushed commit carrying neither trailer, else None."""
     if target is None:
         return None
     head = git(target, "rev-parse", "--verify", "-q", "HEAD")
@@ -844,7 +850,7 @@ def untasked_push(args, target):
             continue
         try:
             r = subprocess.run(
-                [UNTASKED_CHECK, target, remote, "--not-remotes"], capture_output=True, text=True, timeout=UNTASKED_CHECK_TIMEOUT
+                [*UNTASKED_CHECK, target, remote, "--not-remotes"], capture_output=True, text=True, timeout=UNTASKED_CHECK_TIMEOUT
             )
         except (OSError, subprocess.SubprocessError):
             return None
@@ -984,7 +990,7 @@ def discards_unstaged(verb, args, target):
         f"Blocked: this `git {verb}` would discard the uncommitted edits on {files} — it reverts the "
         "file to its index state, and an uncommitted fix on it is lost with the flip a mutation "
         "proof made (**Restoring a path with unstaged edits**, skills/flow-contracts/git-boundaries.md). "
-        "Restore a flipped file with `break-and-prove.sh` or `mutate-and-verify.sh`, which restore "
+        "Restore a flipped file with `flow-guard break-and-prove` or `flow-guard mutate-and-verify`, which restore "
         "from a pre-mutation byte snapshot; edits that must go are committed or stashed first."
     )
 

@@ -11,7 +11,7 @@ line itself. It denies the call instead and returns the exact text to add; the m
 re-dispatches with it.
 
 It denies, in a flow run, a dispatch off the **Allowed pairs** table of
-skills/flow-contracts/model-policy.md (KAN-1045): scripts/check-dispatch-pair.sh reads the
+skills/flow-contracts/model-policy.md (KAN-1045): flow-guard check-dispatch-pair reads the
 prompt's `Role: <role id>` line and refuses no Role line, an unknown role, a pair off the
 role's rows, or a marked row (`No-progress escalation`, `Operator-approved high`) whose
 marker is not a line of the prompt -- and a guard that cannot answer (exit 2) denies too. A
@@ -118,7 +118,9 @@ ZCODE_PAIR = ("general-purpose", "glm-5.3-flash")
 
 REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # The checker the hook runs; overridable for the hook's own harness only.
-PAIR_CHECK = os.environ.get("DISPATCH_PAIR_CHECK") or os.path.join(REPO, "scripts", "check-dispatch-pair.sh")
+PAIR_CHECK = [os.environ["DISPATCH_PAIR_CHECK"]] if os.environ.get("DISPATCH_PAIR_CHECK") else [
+    os.path.join(REPO, "scripts", "flow-guard"), "check-dispatch-pair"
+]
 
 
 # A description naming its row: plan tasks by id over the plan's count, any other row by a first
@@ -315,18 +317,18 @@ def dispatch_pair_reason(payload: dict, prompt: str, tool_input: dict) -> "str |
     zcode = "/.zcode/" in __file__
     if zcode:
         # The pair is the harness mapping's; the Go guard still judges the Role line.
-        args = [PAIR_CHECK, REPO, "--role-only"]
+        args = [*PAIR_CHECK, REPO, "--role-only"]
     else:
-        args = [PAIR_CHECK, REPO, str(typ or ""), str(model or "")]
+        args = [*PAIR_CHECK, REPO, str(typ or ""), str(model or "")]
         if typ in PLANNING_AGENT_TYPES:
             args.append(str(tool_input.get("effort") or ""))
     try:
         done = subprocess.run(args, input=prompt, capture_output=True, text=True, timeout=bound(240), check=False)
     except (OSError, subprocess.SubprocessError) as e:
-        return f"Dispatch blocked: check-dispatch-pair.sh could not run ({e})."
+        return f"Dispatch blocked: flow-guard check-dispatch-pair could not run ({e})."
     if done.returncode != 0:
         return (
-            f"Dispatch blocked (check-dispatch-pair.sh exit {done.returncode}):\n{done.stdout}{done.stderr}\n"
+            f"Dispatch blocked (flow-guard check-dispatch-pair exit {done.returncode}):\n{done.stdout}{done.stderr}\n"
             "Re-send this call on a pair its role's rows of Allowed pairs (skills/flow-contracts/model-policy.md) "
             "admit, its prompt carrying the `Role: <role id>` line."
         )

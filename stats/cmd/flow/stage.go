@@ -1289,7 +1289,7 @@ func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
 
 // runStageSessions implements `flow stage sessions`: the number of /flow
 // runs of one stage the store marked for a change -- distinct non-empty
-// session ids, plus one per row carrying none. check-narrative-runs.sh
+// session ids, plus one per row carrying none. flow-guard check-narrative-runs
 // compares it with the narrative's run sections (decision
 // narrative-runs-from-stage-marks).
 func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writer) int {

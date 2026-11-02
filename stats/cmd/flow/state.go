@@ -55,7 +55,7 @@ func resolveDefaultAddr() string {
 //
 // The record family gets its own variable because the two addresses legitimately
 // differ inside an apply worktree: the workspace resolves FLOW_ADDR to the
-// workspace daemon, whose database `scripts/workspace.sh remove` drops at
+// workspace daemon, whose database `flow-guard workspace remove` drops at
 // cleanup, while the run record -- dispatches, findings, and everything else
 // `flow record` writes and `flow self-review bundle` renders -- has to outlive
 // that cleanup, so a deferred self-review bundle is complete regardless of
@@ -1328,7 +1328,7 @@ var mergeBasePattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 // "writes nothing" a property of the control flow rather than a promise.
 // The fallback exists for a store outage; a malformed merge base is a
 // caller mistake, and journalling it would hide the bad value until
-// check-finish-preflight.sh refuses at the finish gate -- KAN-265's
+// flow-guard check-finish-preflight refuses at the finish gate -- KAN-265's
 // failure, which this check exists to stop at the point the value is
 // written.
 //

@@ -798,7 +798,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			}
 		}
 	}
-	// An inline verifier row's later end extends it: run-verify-list.sh
+	// An inline verifier row's later end extends it: flow-guard run-verify-list
 	// ends one row per group under one key, and the test group's end is the
 	// stage's finish (kan-1075 self-review, F4). GREATEST skips a NULL.
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
@@ -2472,7 +2472,7 @@ func scanFlaggedVerdictRow(row dispatchRowScanner, change string) (records.Verdi
 // ListVerdicts reads a project's guard verdicts, newest first. guard == ""
 // means every guard; falsePositiveOnly restricts to rows an operator has
 // flagged. The two filters compose independently, since the guard prompt
-// in check-unfinished-work.sh's advisory line needs exactly "this guard,
+// in flow-guard check-unfinished-work's advisory line needs exactly "this guard,
 // flagged only" while a future per-project view would want "every guard,
 // flagged only".
 func (s *Store) ListVerdicts(ctx context.Context, projectKey, guard string, falsePositiveOnly bool) ([]records.Verdict, error) {
