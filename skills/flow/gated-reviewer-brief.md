@@ -35,6 +35,9 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 > reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts,
 > and reported the tree restored.
 
+> **GO CHANGES:** When a reviewed diff includes a `*.go` file, read and follow the `go-code-review` skill
+> first. A diff with no `.go` file skips this.
+
 > **INDEPENDENT PASSES:** each pass reviews its own task's diff range and the code, never an
 > earlier pass's report or conclusions; a defect that sits in two passes' ranges is raised under
 > each. Write each pass's report file before beginning the next pass.

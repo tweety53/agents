@@ -53,6 +53,10 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
 > — RED-GREEN-REFACTOR for this task. Delete any code written before its test.
 
+> **GO CHANGES:** When this task's files include a `*.go` file, read and follow the `go-coding-standards`
+> and `go-error-handling` skills first — a `*_test.go` file adds `go-test-quality`. A task with no `.go`
+> file skips this.
+
 > **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, read and
 > follow superpowers:systematic-debugging from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`
 > — before writing a fix. An expected RED step needs no such read.
