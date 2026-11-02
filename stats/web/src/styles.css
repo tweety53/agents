@@ -1036,7 +1036,13 @@ td.lb-clip { max-width: 0; width: 100%; }
 .tr-tile { cursor: default; }
 .tr-note { color: var(--text-secondary); font-size: 12px; }
 .tr-chart { position: relative; }
-.tr-chart svg { display: block; width: 100%; height: auto; }
+.tr-chart svg { display: block; max-width: none; }
+/* The chart panel at its fixed 1029 x 300 and By week beside it in one wrapping row,
+   as the approved Trend prototype's .pt-row / .pt-fixed / .pt-byweek draw them
+   (decision trend-chart-beside-by-week). */
+.tr-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
+.tr-chartpanel { flex: none; max-width: 100%; overflow-x: auto; }
+.tr-byweek { flex: 1 1 420px; min-width: 0; }
 .tr-chart .grid line { stroke: var(--border); }
 .tr-chart .axis text { fill: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
 .tr-chart .median { fill: none; stroke: var(--series-1); stroke-width: 2; }
@@ -1063,7 +1069,7 @@ td.lb-clip { max-width: 0; width: 100%; }
    (decision prototype-app-shell-fixed-chart). */
 .wc .up { color: var(--delta-up); }
 .wc .down { color: var(--delta-down); }
-.wc-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.wc-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; min-width: 0; }
 .wc-chartpanel { flex: none; max-width: 100%; overflow-x: auto; }
 .wc-moved { flex: 1 1 380px; }
 .wc-sub { color: var(--text-secondary); }

@@ -1406,6 +1406,14 @@ describe("trend", () => {
     expect(document.querySelectorAll(".tr-chart rect.fc")).toHaveLength(12);
   });
 
+  it("trend chart is drawn at the prototype's fixed 1029 by 300", async () => {
+    await renderTrend();
+    const svg = screen.getByRole("img", { name: "Cost per finished change by week" });
+    expect(svg).toHaveAttribute("viewBox", "0 0 960 280");
+    expect(svg).toHaveAttribute("width", "1029");
+    expect(svg).toHaveAttribute("height", "300");
+  });
+
   it("trend chart hover shows the week's tip", async () => {
     const user = userEvent.setup();
     await renderTrend();
