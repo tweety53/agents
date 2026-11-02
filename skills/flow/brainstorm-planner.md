@@ -150,8 +150,10 @@ silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fire
 
 > - **Dig deeper — quiz me on this design first** *(never recommended, never the default)*
 
-It loads `skills/flow-learn-quiz/SKILL.md` and runs it over the settled design, the operator's
-understanding being what it checks, until that skill ends. It is a round — it counts toward the
+It first dispatches one Explore agent (**Explore and design agents**, above) to collect what the quiz
+needs — the problem and why it exists, the design as settled and why, the code it touches, its edge
+cases and what it impacts — and return it as a briefing. It then loads `skills/flow-learn-quiz/SKILL.md`
+and runs it over that briefing, the operator's understanding being what it checks, until that skill ends. It is a round — it counts toward the
 third-round offer as *Another round* does — and the confirm is then asked again; it never ends the
 stage. Under the `## decisions: recommended` mode the confirm is not asked, so the option never
 shows. Silence still defaults to another round, never to this option.
