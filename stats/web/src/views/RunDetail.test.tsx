@@ -633,7 +633,7 @@ describe("the reworked run view (kan-1048)", () => {
     run(2, "flow.brainstorm", "2026-01-01T00:10:00Z", "2026-01-01T00:40:00Z", { sessionId: "s-a", metrics: { cost_usd: 2, models: { "claude-opus-4-7": {} } } }),
   ];
   const implementation = [
-    run(3, "flow.sdd-tdd", "2026-01-01T01:00:00Z", "2026-01-01T01:30:00Z", { sessionId: "s-b", outcome: "failed", metrics: { cost_usd: 3, effort: "high", models: { "claude-opus-4-7": {} } } }),
+    run(3, "flow.sdd-tdd", "2026-01-01T01:00:00Z", "2026-01-01T01:30:00Z", { sessionId: "s-b", outcome: "failed", metrics: { cost_usd: 3, effort: "high", models: { "claude-opus-4-7": {} }, dispatches: { "agent-2": { description: "task-2-implementer board card wiring", model: "claude-opus-5-5" } } } }),
     run(4, "flow.sdd-tdd", "2026-01-01T02:00:00Z", undefined, {
       sessionId: "s-b",
       metrics: {
@@ -775,7 +775,7 @@ describe("the reworked run view (kan-1048)", () => {
     const agentRows = [...subs.querySelectorAll("tbody tr")];
     expect(agentRows).toHaveLength(2);
     expect(agentRows[0]).toHaveTextContent("Mainneeds youImplementing task 3 (Run view)");
-    expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningImplementing task 2 (Board card)opus 5.5 · high10m");
+    expect(agentRows[1]).toHaveTextContent("⎿ implementerrunningtask-2-implementer board card wiringopus 5.5 · high10m");
     expect(subs.querySelector(".lb-panel-note")).toHaveTextContent("2");
     // The plan is its own Tasks card beside Main, the task being worked on marked ●.
     const tasks = screen.getByRole("region", { name: "Tasks" });

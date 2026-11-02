@@ -17,7 +17,7 @@
 // why that matters. State, last update and session activity come from the
 // change's state board row.
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
-import { StageRunTable, groupSessions, runEnd } from "../components/StageRunTable";
+import { StageRunTable, groupSessions, readDispatchRows, runEnd } from "../components/StageRunTable";
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
 import { formatModel, formatRelative, formatSpan, formatUsd } from "../format";
@@ -89,8 +89,10 @@ function StatusDot({ status, bare }: { status: AgentStatus; bare?: boolean }) {
   );
 }
 
-/** What a dispatch does, in plain words from its key, with its plan task's title when it has one. */
-function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined): string {
+/** What a dispatch does: the stage runs' own words for it ("plan-1 design round") when they carry one, else plain words from its key, with its plan task's title when it has one. */
+function inlineWhat(d: ActiveSubagent, tasks: PlanTask[] | undefined, words?: Map<string, string>): string {
+  const named = d.key ? words?.get(d.key) : undefined;
+  if (named) return named;
   const what = d.key === undefined && d.taskId ? `task ${d.taskId.replace(/\+/g, ", ")}` : describeDispatch(d.key, d.role);
   return `${what}${d.taskId ? taskTitle(tasks, d.taskId) : ""}`;
 }
@@ -737,6 +739,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
           // Subagents are the non-inline dispatches; the main session leads as
           // "main" while a stage is open, on its inline dispatch when it runs one.
           const subagents = (board?.subagents ?? []).filter((d) => !d.inline);
+          const words = new Map<string, string>();
+          for (const r of runs) for (const row of readDispatchRows(r.metrics)) if (row.description) words.set(row.description.split(/\s/)[0], row.description);
           const inline = board?.subagents?.find((d) => d.inline);
           // Between stages the main session still counts while it works or waits on you.
           const lastRun = [...runs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
@@ -1004,8 +1008,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
                             <td>
                               <StatusDot status="running" bare={interactive} />
                             </td>
-                            <td className="lb-clip" title={inlineWhat(d, board?.tasks)}>
-                              {inlineWhat(d, board?.tasks)}
+                            <td className="lb-clip" title={inlineWhat(d, board?.tasks, words)}>
+                              {inlineWhat(d, board?.tasks, words)}
                             </td>
                             <td>
                               {formatModel(d.modelVersion ?? d.model)}

@@ -120,7 +120,7 @@ function tokenTotal(bag: unknown): number | undefined {
  * path as every other cost figure; a dispatch with none reads unavailable,
  * never a fabricated or derived cost.
  */
-function readDispatchRows(bag: unknown): DispatchLine[] {
+export function readDispatchRows(bag: unknown): DispatchLine[] {
   const obj = asObject(bag);
   const dispatches = obj ? asObject(obj.dispatches) : null;
   if (!dispatches) return [];
