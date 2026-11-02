@@ -51,6 +51,10 @@
     - Are deviations justified improvements, or problematic departures? Flag each so the
       implementer can confirm it was intentional. If the plan itself is wrong, say so.
 
+    **README:** when the diff changes user-visible behaviour, a command, a flag, a file format
+    or the pipeline, the project README is updated in the same diff. A missing update is
+    an Important finding at the README.
+
     **Soundness:** review it as a senior engineer would. The bar this project holds that a
     generic review may not: tests exercise real behavior rather than mocks, and a changed
     schema or public interface carries its migration and backward-compatibility story.

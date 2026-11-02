@@ -163,6 +163,10 @@ keeping every stub heading:
     scenario to exercise, and what is observed, beyond each task's own verify step.
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
+**A README update is planned here too.** A change that alters user-visible behaviour, a command,
+a flag, a file format or the pipeline gets a task in `tasks.md` naming `<project>/README.md` in its
+`**Files:**` field, unless an earlier task of the plan already edits it.
+
 **A spec edit is planned here, never written here.** A capability whose requirements the
 change alters gets a task in `tasks.md` naming `<project>/spectre/specs/<capability>.md` in that
 task's `**Files:**` field — the implementer writes and commits it on the change branch, in that
