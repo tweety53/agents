@@ -103,8 +103,22 @@ pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
 and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
 `fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
-planning dispatch's row is ended when its agent hands back, and `flow stage end` of
-`flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e).
+planning dispatch's row is opened before its Agent call and ended when its agent hands back, and
+`flow stage end` of `flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e):
+
+```bash
+flow record dispatch begin -change <change> -role explorer|planner -model <m> -effort <e> -key explore-<n>|design-<n> -session-token <token>
+flow record dispatch end -change <change> -key explore-<n>|design-<n> -session-token <token> -outcome completed
+```
+
+`<m>` and `<e>` are the pair `plan-agent-pair.sh` printed, and `<change>` and `<token>` the change
+and session token the planner's own prompt names. A Plan agent's row records the ledger role
+`planner` under its `design-<n>` key, whatever its `Role:` line says — `plan-designer` is the
+**Allowed pairs** role, which the stats derive from that key, and `flow record` refuses it. A
+recording command's stderr is never hidden — never redirected away or piped through `tail` — and a
+row is never back-filled with instants not read from its agent's transcript (kan-1075 self-review,
+F1: a `begin` refused for a missing `-model`, its error piped through `tail`, left both Explore
+agents unrecorded, and their back-filled rows began before their planner did).
 
 Each Explore or Plan agent's `description` names its row's key, `explore-<n>` or `design-<n>` — the
 word the harvester stamps the launch's agent id onto.

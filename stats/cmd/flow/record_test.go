@@ -3381,10 +3381,11 @@ func TestSkillDocRolesAreAllServed(t *testing.T) {
 			return err
 		}
 		for _, m := range roleLiteralRe.FindAllStringSubmatchIndex(string(data), -1) {
-			role := string(data[m[2]:m[3]])
-			if !slices.Contains(recordRoles, role) {
-				hits = append(hits, fmt.Sprintf("%s:%d: -role %s is not a served dispatch role",
-					path, 1+bytes.Count(data[:m[0]], []byte("\n")), role))
+			for role := range strings.SplitSeq(string(data[m[2]:m[3]]), "|") {
+				if !slices.Contains(recordRoles, role) {
+					hits = append(hits, fmt.Sprintf("%s:%d: -role %s is not a served dispatch role",
+						path, 1+bytes.Count(data[:m[0]], []byte("\n")), role))
+				}
 			}
 		}
 		return nil
@@ -3399,11 +3400,13 @@ func TestSkillDocRolesAreAllServed(t *testing.T) {
 
 // roleLiteralRe matches a literal `-role <word>` token: "-role", whitespace
 // -- newlines included, so a call site wrapped after the flag still matches
-// -- then the lowercase words that would follow it in a dispatch call. The
+// -- then the lowercase words that would follow it in a dispatch call, an
+// alternation such as `-role explorer|planner` captured whole so each of its
+// roles is checked, not only the first (kan-1075 self-review, R1). The
 // prefix class is what keeps prose hyphenations from matching -- "one-role
 // alike" and "one-role dispatch" carry a letter glued to the hyphen, and a
 // flag token never does.
-var roleLiteralRe = regexp.MustCompile(`(?:^|[^A-Za-z])-role\s+([a-z][a-z-]*)`)
+var roleLiteralRe = regexp.MustCompile(`(?:^|[^A-Za-z])-role\s+([a-z][a-z|-]*)`)
 
 // TestRunRecordDispatchBeginRejectsUnknownEffort pins that -effort is
 // checked against the four accepted words before the store is ever
