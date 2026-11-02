@@ -1101,7 +1101,11 @@ the **AskUserQuestion** it states.
 > pre-mutation byte snapshot rather than `git checkout --`, so uncommitted edits on it survive, and
 > asserts the restored run passes. `<test-command>` runs from the repository root, so a runner
 > rooted in a subdirectory names it with its own directory flag — `go -C stats test ./internal/guard` in a <!-- citations-guard:allow -->
-> repository whose `go.mod` sits in `<project>/stats/`. Each mutation alters one mechanism — where a single
+> repository whose `go.mod` sits in `<project>/stats/`. A runner with no such flag runs through a
+> shell that enters its directory first — `-- sh -c 'cd stats/web && exec npx vitest run <file>'` <!-- citations-guard:allow -->
+> for a vitest suite under `<project>/stats/web/`, since a vitest started at the root finds no config, runs
+> outside its jsdom environment and writes its cache into an untracked `<project>/node_modules/` that the
+> post-restore check refuses as drift (kan-1057 self-review, F1). Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
 > mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
 > your turn ends. Where your fix changed a guard script — a check that exists to fail on a defect
