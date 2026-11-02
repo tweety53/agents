@@ -28,10 +28,9 @@ func TestRunVerifyList(t *testing.T) {
 	bashDir := t.TempDir()
 	writeExec(t, filepath.Join(bashDir, "run-verify-list.sh"),
 		string(historicalFile(t, repo, "8c54d6d3", "scripts/run-verify-list.sh")))
-	for _, l := range []string{"lib", "project-get.sh", "check-spec-reach.sh"} {
-		if err := os.Symlink(filepath.Join(repo, "scripts", l), filepath.Join(bashDir, l)); err != nil {
-			t.Fatal(err)
-		}
+	// The bash's two siblings, now run through the bootstrap.
+	for _, l := range []string{"project-get", "check-spec-reach"} {
+		writeExec(t, filepath.Join(bashDir, l+".sh"), "#!/bin/sh\nexec '"+filepath.Join(repo, "scripts/flow-guard")+"' "+l+" \"$@\"\n")
 	}
 	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 	goEnviron := environ

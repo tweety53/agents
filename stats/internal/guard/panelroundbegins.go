@@ -7,6 +7,26 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/panel-round-begins.sh shim (KAN-1058).
+//
+// flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...
+// — records every slot's begin of one review-panel round, each under the
+// literal key panel-<round>-<slot>, in the one Bash call just before the
+// round's launch message (on pass 1, every slot but mutation+failure-modes,
+// which skills/flow/review-panel.md launches after the suite exits) — hooks/enforce-agent-baseline.py denies a launch
+// whose row is not open yet (skills/flow/review-panel.md, "Every slot's
+// dispatch is recorded"). <round> is the number itself, never a substitution.
+//
+// stdout: one `<key>: <flow's answer>` line per slot, in slot order.
+//
+// Exit codes: 0 every begin recorded; 1 a begin failed (its output relayed,
+// the later slots still recorded); 2 usage, or no flow binary on PATH.
+//
+// Go, in flow-guard (stats/internal/guard/panelroundbegins.go). flow-guard
+// is built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
+// derives it, and exits 2 with the cause when it cannot.
+
 // panel-round-begins (scripts/panel-round-begins.sh) records every slot's
 // begin of one review-panel round, each under the literal key
 // panel-<round>-<slot> -- the round's begins block the parent hand-wrote

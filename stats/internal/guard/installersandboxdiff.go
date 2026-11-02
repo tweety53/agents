@@ -15,6 +15,13 @@ import (
 	"syscall"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/installer-sandbox-diff.sh shim (KAN-1058).
+//
+// Usage: flow-guard installer-sandbox-diff <old-tree> <new-tree>
+//
+//   flow-guard installer-sandbox-diff ../agents.main ../agents-worktrees/kan-536-…   # refactored installer vs main
+
 // installer-sandbox-diff runs `setup.sh global` from two trees under two
 // fresh HOME sandboxes and diffs the installed result.
 //

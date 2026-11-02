@@ -12,6 +12,55 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/write-panel-diff.sh shim (KAN-1058).
+//
+// flow-guard write-panel-diff — write one review-panel diff and its touched list
+// (skills/flow/review-panel.md).
+//
+// Usage:
+//   flow-guard write-panel-diff final      <canonical-wt> <wt> <merge-base> [<wt> <merge-base>...]
+//   flow-guard write-panel-diff late-fix   <canonical-wt> <wt> <since-close-sha> [...]
+//   flow-guard write-panel-diff fix-round <N> <canonical-wt> <wt> <fix-base> [...]
+//   flow-guard write-panel-diff slot-delta <round> <slot> <canonical-wt> <wt> <merge-base> <held-sha|-> [...]
+//
+// Writes two files into <canonical-wt>/.superpowers/sdd/, each atomically
+// (a temp file renamed over the target), and prints both paths, one per line:
+//   final-review.diff | late-fix.diff | fix-round-<N>.diff |
+//   slot-delta-<round>-<slot>.diff
+//   <that file>.touched — the [TOUCHED_FILES] list
+// A `final` write also removes any late-fix.diff and its .touched: a full
+// pass 1 makes them stale, and a slot must never read them in its place.
+//
+// Both are sectioned per worktree, in argument order, each section opened by
+//   # worktree: <wt> — merge base <sha>
+// naming the worktree's own second argument (its merge base, since-close sha
+// or fix base). final-review.diff alone opens with the semantics line
+//   # final-review.diff — working tree vs merge-base, unstaged changes included
+// Each diff section is that worktree's `git diff` over the kind's range, and
+// each .touched section `git diff --name-status` over the same range:
+//   final       git diff <merge-base>          (the working tree: staged and unstaged)
+//   late-fix    git diff <since-close-sha>     (the working tree)
+//   fix-round   git diff <fix-base>..HEAD
+//   slot-delta  git diff <held-sha> HEAD; a `-` held sha — a worktree in
+//               which the slot holds no sha — reads git diff <merge-base>
+// Every diff section (never the .touched one) runs with --irreversible-delete,
+// so a deleted file shows as its header alone; its old body is
+// `git show <sha>:<path>`, the sha the section's diff range starts from —
+// for slot-delta with a held sha, the held sha; otherwise the sha its
+// section's `# worktree:` header names.
+//
+// A worktree whose own .flow/project.md declares `## panel diff exclude`
+// has every path one of that fence's globs matches left out of both its
+// sections: each git diff above then ends `-- . ':(glob,exclude)<glob>'...`,
+// one per non-blank fence line (skills/flow-contracts/project-configuration.md).
+//
+// Exit codes:
+//   0  both files written
+//   2  cannot answer — a usage error, a worktree/sha pair that fails
+//      panelValidateWorktree (stats/internal/guard/paneltouchedpaths.go), or a git
+//      failure; nothing is written
+
 // writePanelDiff is scripts/write-panel-diff.sh: that script's header
 // comment is the contract -- one panel diff file and its `.touched` list
 // (the `[TOUCHED_FILES]` list), both sectioned per worktree and written

@@ -13,6 +13,26 @@ import (
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-dispatch-pair.sh shim (KAN-1058).
+//
+// flow-guard check-dispatch-pair <agents-repo> <subagent_type> <model> [<effort>] — admit
+// one flow dispatch, its prompt on stdin, against the **Allowed pairs** table of
+// skills/flow-contracts/model-policy.md, or refuse it
+// (hooks/enforce-agent-baseline.py runs it on every dispatch in a flow run).
+// The role is the prompt's first whole line `Role: <role id>`; <effort> is
+// passed for Explore and Plan, whose subagent_type carries none.
+//
+// Exit 0, DISPATCH-PAIR-OK <role>: an unmarked row of the role lists the pair,
+// or a marked row lists it and the prompt carries its marker as a whole line.
+// Exit 1, one DISPATCH-PAIR-REFUSED line: no `Role:` line, an unknown role, a
+// pair off the role's rows, or a marked row's marker missing.
+// flow-guard check-dispatch-pair <agents-repo> --role-only checks the Role line alone,
+// for a harness whose pair is a fixed mapping (ZCode).
+// Exit 2: cannot answer — usage, or the table unreadable.
+//
+// Go, in flow-guard (stats/internal/guard/modelpolicy.go).
+
 // The **Allowed pairs** table of skills/flow-contracts/model-policy.md as
 // mechanics: policyTable parses it, policyAllows judges one dispatch against
 // it, and check-dispatch-pair.sh wraps both for hooks/enforce-agent-baseline.py.

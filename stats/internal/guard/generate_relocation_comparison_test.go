@@ -317,13 +317,13 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	ok("pin: row cells for eight and nine words and bare locations", r, table, table == "| Passage | Source | Destination | Class |\n| --- | --- | --- | --- |\n"+
 		"| one two three four five six seven eight | `w.md` | — | removed |\n"+
 		"| nine words here one two three four five… | `w.md` | — | removed |\n")
-	// The shim: three arguments, the plan read as <changeRoot>/tasks.md.
+	// The bootstrap: three arguments, the plan read as <changeRoot>/tasks.md.
 	dir, sha = moved("source.md", "## One", "dest.md", "## Two", "Shim-run moved text.", stays)
 	writeFile(t, dir+"/plan/tasks.md", plan("yes", "source.md", "dest.md"))
-	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, grcShim, dir, dir+"/plan", sha)
+	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, psBoot, "generate-relocation-comparison", dir, dir+"/plan", sha)
 	b, _ := os.ReadFile(dir + "/.superpowers/sdd/relocation-comparison.md")
-	want("pin: the shim appends <changeRoot>/tasks.md", r.rc == 0 && in(string(b), "Shim-run moved text."), r, string(b))
-	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, grcShim, dir, dir)
+	want("pin: the bootstrap appends <changeRoot>/tasks.md", r.rc == 0 && in(string(b), "Shim-run moved text."), r, string(b))
+	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, psBoot, "generate-relocation-comparison", dir, dir)
 	want("pin: the usage line", r.rc == 2 && r.err == "usage: flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>\n", r, "")
 
 	for _, c := range checks {
@@ -335,8 +335,6 @@ func TestGenerateRelocationComparison(t *testing.T) {
 		})
 	}
 }
-
-var grcShim = psScripts + "/generate-relocation-comparison.sh"
 
 // TestGenerateRelocationComparisonSkipsSymlinks: a scoped symlink on either
 // side is skipped with a stderr note, never followed, and the rest of the

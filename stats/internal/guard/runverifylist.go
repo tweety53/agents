@@ -121,7 +121,7 @@
 //
 // project-get, check-spec-reach and run-capped run in this same binary
 // (runSibling, selfExe). The test
-// list runs on rgtRun, run-guard-tests' job pool, with one job per command so
+// list runs on rgtRun, a job pool, with one job per command so
 // every one starts at once (decision verify-list-on-rgtrun).
 
 package guard
@@ -133,14 +133,70 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
+
+// The contract below moved here from the header of the deleted
+// scripts/run-verify-list.sh shim (KAN-1058).
+//
+// flow-guard run-verify-list — run one of a project's verify lists the way **Inline
+// verify** (skills/flow/verify-and-handoff.md) prescribes, and print its
+// `## Report` lines.
+//
+// Usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
+//
+// Exit codes:
+//   0  every command exited 0
+//   1  at least one command exited non-zero, or a `visual` list refused a
+//      `regression checkout` holding no worktree on the branch
+//   2  usage (not `<worktree> lint|test|visual` plus none, all five, or all six recording
+//      arguments, no flow binary on PATH for those, or <worktree> is not a
+//      directory), a list line holding a `<word>` placeholder — its stderr
+//      line names it — or flow-guard project-get exit 2 — its stderr line says why
+//   3  the list is not declared (flow-guard project-get exit 1): the caller
+//      auto-detects, as **Inline verify** says
+//   4  the store refused the recording begin (stderr names why): no command ran
+//
+// With the recording arguments the list ends the row it began with one of
+// three outcomes: blocked with cause test-failure when a command failed,
+// skipped when every command of a test list was skipped, and completed
+// otherwise — a lint list always runs flow-guard check-spec-reach, so it never ends
+// skipped. The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
+// verified worktree, never <canonical-worktree>), which flow-guard check-verify-green
+// judges the row by; a <worktree> git cannot resolve a HEAD in records none,
+// and that row is never green (decision verify-row-records-head).
+//
+// A `# suite: <name>` line in the `test` list names the one command below it
+// as that suite: it runs under `flow suite record -C <worktree> -suite <name>
+// --`, so its runtime reaches the store `flow suite list` reads; with no flow
+// on PATH it runs bare.
+//
+// A `test` list ends with the `## visual verification` `verify` row, run once
+// after every other command, when the worktree's diff from its base branch
+// touches a `ui paths` glob and decision.json does not record `visual.verify`
+// `skipped`; a base that does not resolve runs it, and it fails the list like
+// any other command (kan-1047). A declared `specs` row runs first, its paths
+// put in `<specs>`: no path runs no spec, a non-zero exit or an unresolved
+// base fails the list, and the whole suite never runs in its place. With no
+// `specs` row, `<specs>` is emptied and the suite runs whole.
+//
+// A `visual` list runs that `verify` row alone, as a `test` list's tail would,
+// and never the `## lint` or `## test` commands; when the conditions above
+// skip it, it prints `- visual verify — not run: …` and exits 0 (kan-1052
+// self-review, F2).
+//
+// The mechanism, and its full contract — the list, the green sha, the output
+// — is stats/internal/guard/runverifylist.go; its test is
+// stats/internal/guard/run_verify_list_test.go.
 
 // keepResults copies every JUnit result file (`TEST-*.xml`) under wt written
 // since the run started into dir, at its path relative to wt, and returns dir
@@ -611,4 +667,50 @@ func verifyKeyOK(env Env, wt, key string) bool {
 	}
 	out, ok := capture(envGit(env)("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 	return ok && g == "verify-"+filepath.Base(filepath.Dir(out))
+}
+
+// rgtJob is one harness's run: its exit code, its wall time and the file
+// its merged stdout+stderr was captured into.
+type rgtJob struct {
+	rc, elapsed int
+	out         string
+}
+
+// rgtRun runs each argv in dir — `bash
+// -c <command>` for run-verify-list's test list — at most jobs at a time,
+// starting them in list order, stdin /dev/null. Results are indexed by list position,
+// so every later walk is in list order by construction. stdout and stderr
+// share one capture file -- one descriptor, so the harness's own write order
+// is kept -- and a file rather than a pipe, so a background process a
+// harness leaves holding its output never delays the run.
+func rgtRun(ctx context.Context, argvs [][]string, jobs int, tmpDir, dir string, childEnv []string) []rgtJob {
+	results := make([]rgtJob, len(argvs))
+	sem := make(chan struct{}, jobs)
+	var wg sync.WaitGroup
+	for i, argv := range argvs {
+		sem <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer func() { <-sem; wg.Done() }()
+			r := &results[i]
+			r.out = filepath.Join(tmpDir, strconv.Itoa(i)+".out")
+			f, err := os.Create(r.out)
+			if err != nil {
+				r.rc = 126
+				return
+			}
+			defer f.Close()
+			cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+			cmd.Dir, cmd.Env, cmd.Stdout, cmd.Stderr = dir, childEnv, f, f
+			// Per-harness wall time is whole Unix seconds end minus start,
+			// what the script's `$(date +%s)` arithmetic computed -- never
+			// a truncated time.Since, which differs whenever a run
+			// straddles a second boundary.
+			s := time.Now().Unix()
+			r.rc = exitCode(cmd.Run())
+			r.elapsed = int(time.Now().Unix() - s)
+		}()
+	}
+	wg.Wait()
+	return results
 }

@@ -13,6 +13,47 @@ import (
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-loop-dispatch.sh shim (KAN-1058).
+//
+// flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model> — admit
+// one dispatch of a pipeline-fix or self-review fix loop, its prompt on stdin,
+// or refuse it, and record it (hooks/enforce-loop-dispatch.py runs it on every
+// Agent/Task call whose prompt carries a `Key: pipeline-fix-<k>-…` or
+// `Key: self-review-…` line). The key's suffix names its role id of the
+// **Allowed pairs** table in skills/flow-contracts/model-policy.md — the one
+// place the pairs are read from.
+//
+// Refused (exit 1, one LOOP-DISPATCH-REFUSED line):
+//   KEY          the key's suffix is no loop suffix;
+//   NOT-STARTED  a pipeline-fix key with no pipeline-fix-<name>-<k> branch
+//                (flow-guard pipeline-fix start makes it);
+//   PAIR         subagent_type or model off the role's rows, or a marked
+//                row's marker (`No-progress escalation`) not a prompt line;
+//   EFFORT       a review-1 whose loop plan records a first-review-effort
+//                decision naming no effort on its **Chosen:** line;
+//   ESCALATION   the role's marked escalation pair with no recorded escalation
+//                (flow-guard pipeline-fix escalate);
+//   KEY-REUSED   the key already has a row;
+//   OPEN         an earlier row of the loop is not closed
+//                (flow-guard pipeline-fix end);
+//   PLAN         a fix or review with no completed plan row.
+// Admitted (exit 0, LOOP-DISPATCH-OK): the row is opened with `flow record
+// dispatch begin` under the loop's change, its session token the loop's
+// branch name — except a `pass`, which is opened under the change <name>
+// itself in the caller's project, its token self-review-<name>, the parent
+// closing it when the pass hands back. A
+// self-review on the change's own branch (no self-review-<name> branch in
+// <agents-repo>) reads and records in the flowd project of the working
+// directory it runs in — the hook runs it in the payload's cwd.
+// LOOP-DISPATCH-NA, exit 0: the key is no loop key.
+// Exit 2: cannot answer — the table unreadable, flowd unreadable, the begin
+// refused (a loop change no checkout carries: flow-guard pipeline-fix start), usage.
+//
+// Go, in flow-guard (stats/internal/guard/loop.go). flow-guard is built from
+// this checkout, never taken from PATH: scripts/lib/flow-guard.sh derives it,
+// and exits 2 with the cause when it cannot.
+
 // The pipeline-fix and self-review fix loops (skills/flow-contracts/pipeline.md
 // **Pipeline defects found mid-run**, skills/flow-self-review/SKILL.md step 3)
 // as mechanics rather than prose: check-loop-dispatch.sh admits each loop

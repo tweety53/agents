@@ -17,6 +17,51 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-verbatim-moves.sh shim (KAN-1058).
+//
+// flow-guard check-verbatim-moves [<base-ref>] — prove a prompt trim moved or
+// de-duplicated text and never reworded it (KAN-852).
+//
+// Compares the sentences of the run-loaded corpus — skills/**/*.md,
+// commands-claude/*.md, rules/*.md and rules/*.mdc, symlinks skipped — at
+// <base-ref> against the working tree. With no argument the base is the merge
+// base of HEAD with the default branch, resolved offline (origin/HEAD, else
+// origin/main, else main); on the default branch itself that is HEAD, so only
+// uncommitted edits are judged.
+//
+//   FAIL   a sentence left the run-loaded files and is neither still stated in
+//          one (a de-duplication) nor landed verbatim in a -rationale.md —
+//          deleted or reworded.
+//   FAIL   a new run-loaded sentence is neither a load directive ("**Load `…",
+//          "Load `…` only when") nor a citation ("(`skills/….md`)") — a
+//          paraphrase.
+//   REVIEW a sentence moved verbatim into a -rationale.md carries an imperative
+//          marker (never, always, must, only, before, unless, …): a rule a run
+//          can no longer see. Reported, never failing — a human confirms it.
+//
+// A change that rewords or adds a rule on purpose lists each such sentence,
+// exactly as the FAIL line prints it after "::", one per line, in its
+// change's acknowledgement file — <spec-root>/changes/<change>/verbatim-moves.txt
+// on a /flow run, <worktree>/.superpowers/sdd/<change>/verbatim-moves.txt on a
+// /flow-fast or /flow-interactive run, whose guardrail forbids writing <project>/spectre/ — where
+// `#` lines are comments and a leading `\` is dropped. The FAIL line already
+// prints a sentence opening with `#` or `\` behind one `\`, so a heading is
+// listed as `\## …`, exactly as printed.
+// Only in-flight changes count: a live change directory's list is read.
+// A change directory the branch itself removed since the base is read from the commit before its removal (kan-1072 self-review).
+//
+// It cannot judge whether a lazily loaded file's "Load X only when Y"
+// condition is right — review each such directive by hand.
+//
+// Exit codes: 0 clean (REVIEW lines included), 1 at least one FAIL,
+// 2 cannot answer (no git worktree, unresolvable base, empty corpus).
+//
+// Go, in flow-guard (stats/internal/guard/verbatimmoves.go), ported from the
+// prototype verbatim_check.py in docs/prompt-audit-2026-09-29/tools.md.
+// The binary does not live in this checkout, so this shim exports
+// FLOW_GUARD_REPO_ROOT — this script's parent directory — as the root.
+
 // checkVerbatimMoves is scripts/check-verbatim-moves.sh: that script's header
 // comment is the contract. It proves a prompt trim moved or de-duplicated
 // text and never reworded it, comparing the sentences of the run-loaded

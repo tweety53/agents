@@ -80,6 +80,9 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	siblingExe = bin
+	// Every guard a test runs through scripts/flow-guard builds into, and
+	// finds in, the cache above — never the operator's.
+	os.Setenv("FLOW_GUARD_CACHE_DIR", filepath.Dir(filepath.Dir(bin)))
 	code := m.Run()
 	_ = os.RemoveAll(dir)
 	os.Exit(code)
@@ -558,13 +561,13 @@ func guardBinary(t *testing.T) string {
 
 var guardCacheBuilt = sync.OnceValues(func() (string, error) {
 	dir := filepath.Join(execFixtures.dir, "flow-guard-cache")
-	lib, err := filepath.Abs("../../../scripts/lib/flow-guard.sh")
+	boot, err := filepath.Abs("../../../scripts/flow-guard")
 	if err != nil {
 		return "", err
 	}
-	// flow_guard_exec builds under the shim's own key, then execs the
-	// binary; spec-root's verdict is not read.
-	cmd := exec.Command("bash", "-c", `. "$1" && flow_guard_exec spec-root 2 guard-cache:`, "_", lib)
+	// The bootstrap builds under its key, then execs the binary;
+	// spec-root's verdict is not read.
+	cmd := exec.Command(boot, "spec-root")
 	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+dir)
 	out, _ := cmd.CombinedOutput()
 	bins, _ := filepath.Glob(dir + "/*/flow-guard")
@@ -694,4 +697,18 @@ var bashUsageRe = regexp.MustCompile(`usage: ([a-z][a-z0-9-]*)\.sh\b`)
 // it, so a parity test compares everything else byte for byte.
 func bashUsage(s string) string {
 	return bashUsageRe.ReplaceAllString(s, "usage: flow-guard $1")
+}
+
+// guardShim writes an executable that runs `scripts/flow-guard <name>` of
+// this checkout with its arguments, for a test that hands a guard to code
+// expecting one executable path — a sibling override, a PATH entry.
+func guardShim(t *testing.T, name string) string {
+	t.Helper()
+	boot, err := filepath.Abs("../../../scripts/flow-guard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(t.TempDir(), name)
+	writeExec(t, p, "#!/bin/sh\nexec '"+boot+"' "+name+" \"$@\"\n")
+	return p
 }

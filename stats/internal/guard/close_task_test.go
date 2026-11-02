@@ -709,10 +709,6 @@ func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	fx := ctFixture(t, true, "0", "0")
 	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
 	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
@@ -725,7 +721,7 @@ func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
 	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
 	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
 	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	cmd := exec.Command(filepath.Join(repo, "scripts", "close-task.sh"), fx.wt, "demo", fx.base, "1:"+s1)
+	cmd := exec.Command(guardShim(t, "close-task"), fx.wt, "demo", fx.base, "1:"+s1)
 	cmd.Dir = fx.wt
 	cmd.Env = []string{"PATH=" + fx.env.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}
 	out, err := cmd.CombinedOutput()

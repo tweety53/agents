@@ -11,6 +11,70 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/compose-mockup-frames.sh shim (KAN-1058).
+//
+// flow-guard compose-mockup-frames — pair each captured screenshot with the mockup
+// frame it was drawn from, side by side, one composite PNG per pair.
+//
+// Interface: `flow-guard compose-mockup-frames <map file> <mockups root> <out dir>
+// [scale=<n> status=<px> border=<px>]`, resolved capture PNG paths on stdin,
+// one per line (design.md section 4). The fourth argument is the mockups'
+// declared frame geometry — the project's `mockup frame` row — and is
+// optional: without it nothing is cropped, no size check runs, and the
+// composite keeps its two native-size panels.
+//
+// The map file is a `<spec>.mockups` sidecar: one `<screenshot name> <frame
+// id>` pair per line, whitespace-separated; blank lines and `#`-leading lines
+// are ignored (design.md section 3 — canonical for the map's shape and why
+// it is explicit rather than a filename convention). Its first non-comment
+// line may instead be `frame <geometry>` or `frame none`, overriding the
+// fourth argument for this sidecar's frames — `none` composing them at
+// native size, uncropped (kan-1017: desktop admin frames beside a phone
+// project row). A `frame` line anywhere else is a malformed map line.
+//
+// Layout (design.md section 4): captured frame on the left, mockup on the
+// right, both native size, top-aligned, a 16px gutter, plain (40, 40, 40)
+// background, no labels, no scaling. Output file is
+// `<out dir>/<screenshot name without .png>.png`.
+//
+// With the geometry declared the layout is three panels — capture, cropped
+// frame, difference — on the same gutter and background. Each frame is
+// cropped to its content area: the status line and the border come from the
+// declared values, and the bottom comes from the frame itself — at the
+// page-coloured margin above the caption band, or, where the caption band
+// starts directly below the frame, at the frame's own bottom border (both
+// rules in cmfCropBox). It is detected rather than declared because
+// content-hugging frames differ in height from one another. The
+// difference panel is white wherever any channel differs and black
+// elsewhere, so a departure reads as shape rather than as a colour blend.
+// The cropped frame itself is also written as `<out dir>/<screenshot name
+// without .png>.frame.png` — the same size as the capture, so
+// `flow-guard measure-visual-properties <that>.frame.png <capture> --scale 1` needs no
+// region arithmetic to compare the two.
+//
+// Exit codes:
+//   0  every map line composed; one `<composite path> diff=<ratio>` per line
+//      on stdout — the differing-pixel ratio to four decimals, or the literal
+//      `n/a` when no geometry was declared and no difference was computed.
+//      The ratio is information for whoever reads the composite; nothing in
+//      this script or its callers treats it as a threshold.
+//   1  a map line names a screenshot no stdin path matches, a frame file
+//      absent under the mockups root, a malformed map line, or — with the
+//      geometry declared — a capture whose size differs from the cropped
+//      frame, a geometry that leaves the frame no content area, or a frame
+//      with no border — its side border pixel the colour at (0, 0), so the
+//      page cannot be told from the frame (`frame has no border: <frame
+//      path>`). Every finding is printed as `<map>:<line>: <message>` to
+//      stderr; every other, well-formed line is still composed.
+//   2  cannot answer: usage error (including a malformed geometry argument
+//      or a malformed sidecar `frame` line),
+//      the map unreadable or not UTF-8, the mockups root not a directory, the
+//      output directory not creatable, stdin not UTF-8, an unreadable PNG, or
+//      an output PNG not writable.
+//
+// The body is Go: stats/internal/guard/composemockupframes.go.
+
 // composeMockupFrames is scripts/compose-mockup-frames.sh: that script's
 // header comment is the contract -- one composite PNG per map line pairing a
 // captured screenshot with the mockup frame it was drawn from, exit 0/1/2.

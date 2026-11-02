@@ -12,6 +12,14 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/generate-relocation-comparison.sh shim (KAN-1058).
+//
+// Usage: flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>
+//
+// The plan read is `<changeRoot>/tasks.md`; the generator spells that path
+// itself, so no caller has to know the plan-directory convention.
+
 // generate-relocation-comparison: for a plan that declares itself a
 // relocation, generate a before/after passage comparison across every file
 // the plan's own tasks scope, so a review panel can audit a move the same way

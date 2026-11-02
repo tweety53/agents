@@ -49,8 +49,7 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 		t.Fatal(err)
 	}
 	f.environ = append(os.Environ(), "PATH="+f.bin+":"+os.Getenv("PATH"),
-		"FLOW_GUARD_REPO_ROOT="+repo,
-		"FLOW_GUARD_WORKSPACE_ISOLATION="+filepath.Join(repo, "scripts/check-workspace-isolation.sh"))
+		"FLOW_GUARD_REPO_ROOT="+repo)
 	return f
 }
 

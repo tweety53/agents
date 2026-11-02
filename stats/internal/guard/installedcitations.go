@@ -21,6 +21,45 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-installed-citations.sh shim (KAN-1058).
+//
+// flow-guard check-installed-citations — fail when a path citation in an installed
+// file names no root.
+//
+// A file `setup.sh` installs or copies is read by an agent standing in
+// whatever tree the harness placed it — never necessarily this checkout. A
+// bare citation like `README.md` in such a file is read against THAT tree,
+// which is exactly how a bug ships. Which roots count (canonical definition:
+// the kan-239 citation-roots spec — not restated here), how the installed set
+// is derived by running the real setup.sh in a throwaway sandbox, and every
+// classifier exclusion are in stats/internal/guard/installedcitations.go.
+//
+// GUARD CONTRACT:
+//   0  clean — every citation in every installed file names a root, and
+//      every scanned member's coverage is either non-zero or declared.
+//   1  violations found — one or more citations name no root, or a member
+//      reported zero coverage without a declared reason. Fix the named
+//      file:line by prefixing the citation — or, for a line whose backticked
+//      content is a non-path marker or illustration, declare it with the
+//      `citations-guard:allow` line exemption; never silence a real hit.
+//   2  environment — the guard cannot determine anything: the root override
+//      is set but empty or not a directory, the sandboxed installer run
+//      failed, or a file it needed to read could not be read or decoded. A
+//      refusal writes its reason to stderr and NOTHING to stdout, so no
+//      caller can read an absent report as a clean one.
+//
+// Takes no arguments. CHECK_INSTALLED_CITATIONS_ROOT, when set, replaces the
+// scanned root (this checkout) — for tests only, never a normal invocation.
+//
+// Ported to Go (KAN-778), replacing this wrapper and
+// the Python guard it ran: classification and the coverage decision
+// (coverage.go) now run in one process, so the
+// sentinel-prefix hand-off between the two files is gone. The binary does
+// not live in this checkout, so this shim exports FLOW_GUARD_REPO_ROOT —
+// this script's physical parent directory, the root the Python derived from
+// its own resolved location.
+
 // checkInstalledCitations is scripts/check-installed-citations.sh: that
 // script's header comment is the contract -- fail when a path citation in a
 // file setup.sh installs names no root. Exit 0 clean (every citation names a

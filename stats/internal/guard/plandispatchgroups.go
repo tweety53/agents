@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/plan-dispatch-groups.sh shim (KAN-1058).
+//
+// Unlike flow-guard plan-dispatch-bundles, this carries only the one-argument form:
+// the Decide step (skills/flow/brainstorm-planner.md, step 5) always names
+// one explicit tasks.md path, and there is no "every open change" scan to
+// resolve.
+
 // plan-dispatch-groups is the mechanical default for grouping a plan's
 // dispatch bundles (plan-dispatch-bundles, computed in-process) into
 // implementer groups, biased toward fewer, larger groups when bundles aren't

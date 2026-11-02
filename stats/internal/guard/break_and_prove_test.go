@@ -414,7 +414,7 @@ func TestBreakAndProve(t *testing.T) {
 	// reaches it.
 	t.Run("shim", func(t *testing.T) {
 		t.Parallel()
-		shim := tcfScriptsDir(t) + "/break-and-prove.sh"
+		shim := guardShim(t, "break-and-prove")
 		linkDir := t.TempDir()
 		link := linkDir + "/break-and-prove.sh"
 		symlink(t, shim, link)
@@ -444,7 +444,7 @@ func TestBreakAndProve(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		cmd := exec.Command("/bin/bash", append([]string{tcfScriptsDir(t) + "/break-and-prove.sh"}, bpArgs(bpSed,
+		cmd := exec.Command("/bin/bash", append([]string{guardShim(t, "break-and-prove")}, bpArgs(bpSed,
 			[]string{"--", "sh", "-c", `echo ready > "$BP_READY"; read -r _ < "$BP_RELEASE"; exit 1`})...)...)
 		cmd.Dir = repo
 		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "BP_READY="+ready, "BP_RELEASE="+release)

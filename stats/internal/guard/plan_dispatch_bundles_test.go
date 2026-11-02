@@ -82,19 +82,16 @@ func TestPlanDispatchBundles(t *testing.T) {
 	want("case 10: adjacent step checkbox after Files block exits 0", r.rc == 0, r)
 	want("case 10: the step line is not swallowed as a declared path", r.out == "bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1", r)
 
-	// Case 11: with no override and no argument, the shim reached through a
-	// skills/flow/scripts/ symlink scans its REAL root's changes.
+	// Case 11: with no override and no argument, a checkout's own
+	// scripts/flow-guard scans that checkout's changes.
 	sandbox := t.TempDir()
-	psCopy(t, pdbShim, sandbox+"/scripts/plan-dispatch-bundles.sh")
-	psCopy(t, psScripts+"/lib/flow-guard.sh", sandbox+"/scripts/lib/flow-guard.sh")
+	psCopy(t, psBoot, sandbox+"/scripts/flow-guard")
 	psLink(t, filepath.Dir(psScripts)+"/stats", sandbox+"/stats")
-	psLink(t, "../../../scripts/plan-dispatch-bundles.sh", sandbox+"/skills/flow/scripts/plan-dispatch-bundles.sh")
-	psLink(t, "../../../scripts/lib", sandbox+"/skills/flow/scripts/lib")
 	writeFile(t, sandbox+"/spectre/changes/some-change/tasks.md", fieldless)
-	r = psExec(t, []string{"PLAN_DISPATCH_BUNDLES_ROOT=", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, sandbox+"/skills/flow/scripts/plan-dispatch-bundles.sh")
-	want("case 11: no-arg default resolves through a skill-dir symlink to the real repo root", r.rc == 1, r)
+	r = psExec(t, []string{"PLAN_DISPATCH_BUNDLES_ROOT=", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, sandbox+"/scripts/flow-guard", "plan-dispatch-bundles")
+	want("case 11: no-arg default resolves to the bootstrap's checkout root", r.rc == 1, r)
 	want("case 11: names task 1 from the fixture's own spectre/changes/", has(r, "task 1 has no **Files:** field"), r)
-	want("pin: the symlinked shim's violation names the real root's file on stderr", r.stdout == "" &&
+	want("pin: the violation names the checkout root's file on stderr", r.stdout == "" &&
 		strings.HasSuffix(r.err, sandbox+"/spectre/changes/some-change/tasks.md:1: task 1 has no **Files:** field\n") && strings.Count(r.err, "\n") == 1, r)
 
 	_, r = run("- [ ] 1. The only real task\n\n**Files:**\n- Create: `a.txt`\n\n### 2 A heading, not a task\n\nNo Files field here at all.\n")
@@ -151,21 +148,6 @@ func TestPlanDispatchBundles(t *testing.T) {
 	want("case 23: mixed-width after-set exits 0", r.rc == 0, r)
 	want("case 23: the after line sorts numerically, not lexically", r.out == "bundle 1: 1 3\nafter 1: 1 2 10\nbundle 2: 2\nafter 2: 1\nbundle 3: 10\nafter 3: 1 2 3", r)
 
-	// Unlanded archives: a shim copy with no stats/ beside it cannot build
-	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
-	u := t.TempDir()
-	mkdir(t, u+"/root/spectre/changes/some-change")
-	psCopy(t, pdbShim, u+"/scripts/plan-dispatch-bundles.sh")
-	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
-	uenv := []string{"PLAN_DISPATCH_BUNDLES_ROOT=" + u + "/root", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
-	r = psExec(t, uenv, u+"/scripts/plan-dispatch-bundles.sh")
-	want("unlanded archives: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
-	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {
-		t.Fatal(err)
-	}
-	r = psExec(t, uenv, u+"/scripts/plan-dispatch-bundles.sh")
-	want("unlanded archives: a missing lib/flow-guard.sh exits 2", r.rc == 2 && has(r, "cannot load lib/flow-guard.sh beside "+u+"/scripts/plan-dispatch-bundles.sh"), r)
-
 	// Beyond the harness: the outputs it never pinned, as the Python and its
 	// wrapper printed them at bbfe685e.
 	missing := t.TempDir() + "/nope.md"
@@ -215,5 +197,3 @@ func TestPlanDispatchBundles(t *testing.T) {
 		})
 	}
 }
-
-var pdbShim = psScripts + "/plan-dispatch-bundles.sh"

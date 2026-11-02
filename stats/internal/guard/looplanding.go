@@ -8,6 +8,36 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-loop-landing.sh shim (KAN-1058).
+//
+// flow-guard check-loop-landing <repo> <branch> — may a pipeline-fix-* or
+// self-review-* branch land on the default branch?
+//
+// Only once flowd holds, under the loop's change (its branch name), a
+// completed plan dispatch, a completed first fix (`fix` or `fix-g<g>`), at
+// least one review, every row closed, the highest-numbered review closed
+// `clean` — no Critical, no Important — and no `fix-v<v>` after it. A
+// loop branch whose repository's project holds no rows for it — a
+// satellite, the loop's branch in another repository it carried a task into —
+// is read under the project of the agents checkout this script sits in, where
+// a loop run from that checkout files them; a FINISHED loop's rows still
+// admit its satellites, which land after its own branch. A self-review-*
+// branch whose diff from origin/HEAD touches only docs/prompt-tuning/ lands
+// without rows (LOOP-LANDING-OK … (prompt-tuning cases only)): it carries the
+// self-review's prompt-tuning cases and no code, so no review had anything to
+// judge.
+// hooks/protect-main-checkout.py runs it on a landing push typed by hand;
+// flow-guard pipeline-fix land runs the same check before its own push.
+//
+// Exit codes: 0 LOOP-LANDING-OK, or LOOP-LANDING-NA for any other branch;
+// 1 one LOOP-LANDING-REFUSED line per reason; 2 cannot answer (flowd
+// unreadable, not a git checkout, usage).
+//
+// Go, in flow-guard (stats/internal/guard/looplanding.go). flow-guard is
+// built from this checkout, never taken from PATH: scripts/lib/flow-guard.sh
+// derives it, and exits 2 with the cause when it cannot.
+
 // check-loop-landing.sh <repo> <branch>: may a pipeline-fix-* or
 // self-review-* branch land on the default branch? Only once flowd holds,
 // for its loop -- under the pushing repository's project, or, for a loop

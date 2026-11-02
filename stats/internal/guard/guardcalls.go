@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -42,6 +43,12 @@ import (
 //	   shims are gone; a sentence still spelling one names a file that does
 //	   not exist, and an agent running it gets 127. Only registered names
 //	   count: `setup.sh` and a panel reproducer's `repro.sh` are not guards.
+//	C. Every `check-*` guard.Registry entry has its Go test,
+//	   stats/internal/guard/<name, - replaced by _>_test.go (kan-387, moved
+//	   here from the deleted run-guard-tests): a guard with no test is a
+//	   check nothing proves bites, a convention review-panel judgment alone
+//	   never held. The finding names the guard and the missing file. A root
+//	   without stats/internal/guard — a rule A/B test fixture — skips rule C.
 //
 // Then GUARD-CALLS-OK or GUARD-CALLS-INVALID. Exit 0 clean, 1 any finding,
 // 2 cannot answer (a refusal writes its reason to stderr and nothing to
@@ -94,6 +101,9 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	if isDir(filepath.Join(root, "stats", "internal", "guard")) {
+		n += gcCompanions(&out, root, slices.Collect(maps.Keys(Registry)))
+	}
 	fmt.Fprint(stdout, out.String())
 	if n > 0 {
 		fmt.Fprintf(stdout, "GUARD-CALLS-INVALID: %s — %d violation(s)\n", root, n)
@@ -101,6 +111,25 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "GUARD-CALLS-OK: %s — %d file(s) scanned\n", root, len(files))
 	return 0
+}
+
+// gcCompanions is rule C over names: one finding per check-* name with no
+// stats/internal/guard/<name, - as _>_test.go under root. It returns the
+// finding count.
+func gcCompanions(out io.Writer, root string, names []string) int {
+	slices.Sort(names)
+	n := 0
+	for _, name := range names {
+		if !strings.HasPrefix(name, "check-") {
+			continue
+		}
+		test := "stats/internal/guard/" + strings.ReplaceAll(name, "-", "_") + "_test.go"
+		if !isFile(filepath.Join(root, test)) {
+			fmt.Fprintf(out, "%s:0: guard %s has no Go test — add it beside the guard (rule C)\n", test, name)
+			n++
+		}
+	}
+	return n
 }
 
 // gcFiles lists the scanned files, relative to root, in a stable order. A

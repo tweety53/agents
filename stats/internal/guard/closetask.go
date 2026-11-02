@@ -14,6 +14,89 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/close-task.sh shim (KAN-1058).
+//
+// flow-guard close-task — run the task-close sequence of skills/flow/implement.md
+// (**A group boundary is one wake, one Bash call and one launch
+// message.**, step 2) for every task a
+// returning implementer committed.
+//
+// Usage: flow-guard close-task [-end-key <key> -session-token <token> [-end-commit <sha>]]
+//          [-undeclared <task-id>=<path>[,<path>…]]…
+//          <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…
+//
+// In this order:
+//   1. With -end-key: `flow record dispatch end -change <name> -key <key>
+//      -session-token <token> [-commit <sha>] -outcome completed`. A record
+//      never blocks: a failed call prints a warning and the sequence goes on,
+//      and every exit after it prints `close-task: UNRECORDED — the dispatch
+//      end for <key> did not reach the store; run: flow record dispatch end
+//      …` (the full command) as the last stderr line, turning exit 0 into 3.
+//      Then, for every task it closes that the plan's `**Tasks appended:**`
+//      line counts or whose title opens `In-run fix <k> — `,
+//      `flow record dispatches -change <name> -C <canonical>`:
+//      an appended task no row names, or whose naming rows all carry no
+//      commit, is refused at step 4 (exit 1); a store that cannot be read
+//      refuses nothing.
+//   2. Each task's commit first gains one <worktree>=<sha> pair per worktree
+//      of `flow state get -C <canonical> <name>`'s worktrees map the argument
+//      left out whose newest commit since its base carries the task's
+//      Task-Id: trailer — a bare sha is the canonical worktree's pair — each
+//      named on stderr as `close-task: task <id>: joined <worktree>=<sha>`
+//      (kan-1008's self-review: a map omitting the backend repository left
+//      its commits unjudged). Then
+//      flow-guard check-task-commit-fields <canonical> <id> <sha|map> "" <canonical>
+//      <name> for every task, and its commit's — every map pair's — Task-Id:
+//      trailer must name the task or a task its Build: red fold joins (exit 1
+//      otherwise): the trailer is how a task's commit is found again.
+//      A commit — any map pair's — whose diff-tree lists a path named
+//      full-app-suite.zip has that zip rebuilt in its worktree by
+//      flow-guard rebuild-full-app-suite-zip, the zip's directory as <screenshots
+//      root>, and the committed bytes written back — save a zip a later
+//      commit of the same close, in the same worktree, changes again, which
+//      is that commit's to judge (kan-1051): a difference prints
+//      `close-task: task <id>: <path> is not flow-guard rebuild-full-app-suite-zip's
+//      output — rebuild it with that script and re-commit` (exit 1); a
+//      screenshots root git status reports dirty, or a rebuild exit other
+//      than 0, is exit 2 (kan-1016's self-review: a hand-built zip).
+//      When a task it closes is one step 1 counts as appended or in-run,
+//      flow-guard check-plan-shape <the change's tasks.md> runs too, its exit
+//      folded in at step 4 (kan-1046 self-review, 1f: an in-run fix closed
+//      with a **Files:** the plan guard refuses).
+//   3. flow-guard check-task-commit-planning-paths <canonical> <merge-base>, then
+//      flow-guard check-untasked-commits <worktree> refs/remotes/origin/spectre/<name>
+//      once per distinct worktree whose branch origin already holds: the push
+//      at step 7 sends those commits, and one outside every task carries its
+//      `Flow-Key:` trailer before it leaves (kan-941).
+//   4. Any guard exit 2 → exit 2; else any exit 1 → exit 1; else an
+//      appended task step 1 found no row naming → exit 1. Nothing is ticked
+//      or pushed either way, so a refused commit is never pushed.
+//   5. flow-guard check-review-gate <canonical> <id> <sha|map> <canonical> <name>
+//      [<the task's -undeclared paths>…] for every task; its FIRE:/QUIET:
+//      line is printed. A gate exit 2 → exit 2, nothing ticked or pushed.
+//   6. `flow tasks tick -C <canonical> <name> <id>` for every task the gate
+//      left QUIET — and, when a gate fired, for every task once `flow record
+//      decisions -change <name> -C <canonical>` names the newest class micro,
+//      small or regular: no gated reviewer runs there, the whole-branch panel
+//      reviews a fired task. On big the tick waits; on an unreadable class it
+//      waits too and prints `close-task: task <id> tick waits — decision
+//      class unreadable` per fired task.
+//   7. `git -C <worktree> push origin spectre/<name>` once per distinct
+//      worktree: the canonical one for a bare sha, each map pair's otherwise.
+//   A failed tick or push → exit 2; every tick and push is still attempted.
+//
+// The guards run in-process in flow-guard; their own lines are printed as
+// they print them.
+//
+// Exit 0 closed (read each FIRE: line: on big that task's tick waits for its
+// reviewer; elsewhere it is the panel's review focus); 1 a commit guard refused — re-commit, then re-run without the
+// -end-* flags — or an appended task has no dispatch row — record it, then
+// re-run without the -end-* flags; 2 stop: a guard could not judge, a tick or push failed, or
+// a usage error; 3 closed as exit 0 — every tick and push done — but step 1's
+// dispatch end never reached the store: run the command the UNRECORDED line
+// prints.
+
 // closeTask is scripts/close-task.sh: that script's header is the contract.
 // It runs the task-close sequence of skills/flow/implement.md (**A group
 // boundary is one wake, one Bash call and one launch message.**, step 2),

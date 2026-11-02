@@ -60,13 +60,13 @@ case "$1 $2" in
   "state set") cat >>`+fx.log+`; echo >>`+fx.log+` ;;
 esac
 `)
-	scripts := tcfScriptsDir(t)
+	projectGet := guardShim(t, "project-get")
 	fx.env = Env{Dir: tmp, Getenv: func(k string) string {
 		switch k {
 		case "FLOW_GUARD_REPO_ROOT":
 			return fx.repo
 		case "FLOW_GUARD_PROJECT_GET":
-			return scripts + "/project-get.sh"
+			return projectGet
 		}
 		return pathEnv(bin)(k)
 	}}

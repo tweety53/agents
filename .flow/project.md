@@ -14,9 +14,9 @@ halves live in the one repo and are covered below.
 | flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Bash + Python + Go, not Bash-only.** The remaining `scripts/*.py` tools (`cache-misses.py`, `loaded-files.py`) and the `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-symlinks`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `check-mockup-citations`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `check-plan-shape`, `check-task-build-green`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), and their `scripts/<name>.sh` is a `flow_guard_exec` shim over the binary built from this checkout.
+**This repository is Go + Python, with two bash files.** The remaining `scripts/*.py` tools (`cache-misses.py`, `loaded-files.py`) and the `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-calls`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `check-mockup-citations`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `check-plan-shape`, `check-task-build-green`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
 
-**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/`, registered in `guard.Registry`, with Go table tests — and its `scripts/<name>.sh` is only a thin `flow_guard_exec` shim onto it. A guard still in bash is ported to Go, byte-for-byte parity, before it is extended; it is never grown in bash. A new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — `flow-guard run-guard-tests` refuses the suite before anything runs while the companion is missing, a Go test in `stats/internal/guard/<name, - replaced by _>_test.go` standing in for it — `check_dispatch_pair_test.go` for `flow-guard check-dispatch-pair` (kan-903).
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_dispatch_pair_test.go` for `flow-guard check-dispatch-pair` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing (kan-903).
 
 ### artifact tree
 
@@ -61,7 +61,7 @@ single, main-checkout-only fixture instead.
 `flow_<name>_live`, builds `flowd` from the checkout it runs from and starts it on `<port>`
 (default 4175) against the copy, printing the `FLOW_ADDR`/`FLOW_RECORDS_ADDR` exports that point a
 session at it and registers a scratch change named `<name>` in the copy — a STARTED state record and `.superpowers/sdd/<name>/` in that checkout — so `flow record -change <name>` writes there; `scripts/flow-guard live-store-copy down <name>` stops that daemon and drops only that copy.
-It refuses ports 4173 and 4174, and its header carries its exit codes. A design's `## Live check`
+It refuses ports 4173 and 4174, and its Go file's leading comment (`stats/internal/guard/livestorecopy.go`) carries its exit codes. A design's `## Live check`
 names it rather than re-specifying the copy.
 
 **This is the stack `flow.visual-verify` (`skills/flow/visual-verify.md`) starts and stops.**
@@ -77,7 +77,7 @@ forbids any agent action touching it at all.
 
 ```bash
 # suite: guard-tests
-scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) scripts/flow-guard run-guard-tests
+scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -count=1 ./internal/guard/...; }
 # suite: stats-go
 scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && make -s web-dist && GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -count=1 $(go list ./... | grep -v '/internal/guard$'); }
 # suite: stats-spa
@@ -101,23 +101,20 @@ refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens ev
 `## lint` that compiles `internal/web` or needs `stats/web/node_modules`: it runs `make web-build`,
 `npm ci && npm run build` in `stats/web`, only when the build is absent.
 
-Only the SPA line declares `# inputs:` (`skills/flow-contracts/project-configuration.md`): the guard
-harnesses and the Go tests read files across the whole repository — `stats/internal/guard`'s tests
+Only the SPA line declares `# inputs:` (`skills/flow-contracts/project-configuration.md`): the Go
+tests read files across the whole repository — `stats/internal/guard`'s tests
 open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always run.
 
-`scripts/flow-guard run-guard-tests` discovers every `scripts/test-*.sh` by glob and runs them concurrently
-in `flow-guard` (`stats/internal/guard/runguardtests.go`); a new harness added to `scripts/` is picked up automatically, with
-no edit needed here. It points `FLOW_GUARD_CACHE_DIR` at its own temp directory, so a ported
-guard's shim builds `flow-guard` from this tree there rather than in the operator's cache;
-`scripts/test-go-guards.sh` runs the Go guard tests (`stats/internal/guard/`) as one harness; the
-Go line above excludes `internal/guard`, which that harness runs under `-race`, so the package runs
-once per verify (kan-1038). A
-new `check-*.sh` lands with its `test-check-*.sh` companion in the same change — plans declare the
-companion task and review panels look for it, and the runner refuses the suite before anything
-runs while the companion is missing (kan-903).
+The `guard-tests` suite is `go test` over `stats/internal/guard/` — every guard's tests, a new one
+picked up with no edit here; the tests that exec a guard build `flow-guard` once per package run
+into a temp `FLOW_GUARD_CACHE_DIR`, never the operator's cache. The `stats-go` line excludes
+`internal/guard`, which `guard-tests` runs under `-race`, so the package runs once per verify
+(kan-1038). A new `check-*` guard lands with its Go test in the same change — plans declare it and
+review panels look for it, and `flow-guard check-guard-calls`'s rule C fails `## lint` while it is
+missing (kan-903).
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
-canonical suites are `guard-tests` (`scripts/flow-guard run-guard-tests`), `stats-go`
+canonical suites are `guard-tests` (`go test -race -count=1 ./internal/guard/...`), `stats-go`
 (`go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')`) and `stats-spa` (`stats/web` `npm test`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
@@ -280,9 +277,9 @@ scripts/flow-guard check-references
 
 Every new script in this repository is written in Go: its logic goes in the `flow-guard` binary
 (`stats/internal/guard/<name>.go`, registered in `guard.Registry`, with its cases in a Go test
-beside it), and `scripts/<name>.sh` is only the `flow_guard_exec` wrapper onto it. New logic in a
-script that is still bash is a port first, never more bash. The bash still standing is tracked by
-KAN-1058; `setup.sh` and the patches landed changes carried, now readable only in history, stay bash.
+beside it), called as `flow-guard <name>`. `scripts/flow-guard` is the one bash bootstrap that
+builds and runs that binary; it and `setup.sh` stay bash, and the patches landed changes carried
+are readable only in history.
 
 ## standards
 

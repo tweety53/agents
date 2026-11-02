@@ -96,6 +96,8 @@ func (fx *fpFx) mergeOrigin() {
 func fpEnv(dir, root, stub string) Env {
 	lookup := func(k string) (string, bool) {
 		switch {
+		case k == "FLOW_GUARD_WORKTREE_LOCATION" && root == fpRepoRoot:
+			return "", false // unset: check-worktree-location runs in this binary
 		case k == "FLOW_GUARD_WORKTREE_LOCATION":
 			return root + "/scripts/check-worktree-location.sh", true
 		case k == "PATH" && stub != "":
@@ -276,11 +278,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 		// anything", never an implicit pass (KAN-462 panel fix, F2).
 		{setup: merged, prep: func(t *testing.T, fx *fpFx) {
 			fx.root = fx.dir + "/root"
-			b, err := os.ReadFile(fpRepoRoot + "/scripts/check-worktree-location.sh")
-			if err != nil {
-				t.Fatal(err)
-			}
-			writeFile(t, fx.root+"/scripts/check-worktree-location.sh", string(b))
+			writeFile(t, fx.root+"/scripts/check-worktree-location.sh", "#!/bin/sh\n")
 		}, checks: []bmCheck{
 			bmRC("check-worktree-location.sh not executable -> exit 2", 2),
 			noVerdict("check-worktree-location.sh not executable: emits no verdict line", notVerdict...),
@@ -397,7 +395,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 	// (kan-916), so both sides exec this checkout's location guard — the
 	// comparison stays on check-finish-preflight's own logic.
 	writeExec(t, filepath.Join(bashDir, "check-worktree-location.sh"),
-		"#!/usr/bin/env bash\nexec "+fpRepoRoot+"/scripts/check-worktree-location.sh \"$@\"\n")
+		"#!/usr/bin/env bash\nexec "+fpRepoRoot+"/scripts/flow-guard check-worktree-location \"$@\"\n")
 	parity := []struct {
 		label string
 		setup func(fx *fpFx) (dir string, args []string)

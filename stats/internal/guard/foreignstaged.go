@@ -9,6 +9,35 @@ import (
 	"syscall"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-foreign-staged.sh shim (KAN-1058).
+//
+// flow-guard check-foreign-staged — list the foreign staged work a main checkout
+// carries, before a resumed /flow run's preflight reaches it (KAN-546,
+// observed in kan-437's run 2).
+//
+// Usage: flow-guard check-foreign-staged <main-checkout>
+//
+// Prints one FOREIGN-STAGED line per staged or unmerged entry, then ONE
+// verdict line:
+//   FOREIGN-STAGED: <porcelain line>       per staged or unmerged entry
+//   STAGED-CLEAN: <main-checkout>          nothing is staged
+//   STAGED-FOREIGN: <main-checkout> — <n>  <n> staged/unmerged entries
+//
+// Exit 0 on either verdict; exit 2 with NOTHING on stdout when the argument
+// is missing, is not a readable directory, is not a git repository, or
+// `git status` fails there — an inability is never reported as a verdict.
+//
+// THE VERDICT NAMES THE PHYSICAL PATH, resolved with `cd … && pwd -P`, so a
+// caller that passed a symlinked path still sees the real checkout named —
+// the same resolution `git worktree list` applies when it prints paths.
+//
+// HOW TO HAND-VERIFY A STAGED-FOREIGN VERDICT. Run the same read by hand:
+// `git -C <main-checkout> status --porcelain --untracked-files=no` and keep
+// the lines whose first column is not a space, together with any
+// intent-to-add entry's ` A <path>` line — those, and only those, are
+// the entries the FOREIGN-STAGED lines name.
+
 // checkForeignStaged is scripts/check-foreign-staged.sh: that script's header
 // comment is the contract -- one FOREIGN-STAGED line per staged or unmerged
 // entry, then one STAGED-CLEAN/STAGED-FOREIGN verdict line, exit 0 on either;

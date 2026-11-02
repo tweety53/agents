@@ -68,3 +68,23 @@ func TestCheckGuardCallsOldSpelling(t *testing.T) {
 		t.Fatalf("setup.sh, repro.sh, docs/: code %d, out %q", code, out)
 	}
 }
+
+func TestCheckGuardCallsCompanion(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	dir := filepath.Join(root, "stats", "internal", "guard")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if n := gcCompanions(&out, root, []string{"check-foo", "plan-class"}); n != 1 || !strings.Contains(out.String(), "check_foo_test.go") {
+		t.Fatalf("no companion: %d findings, out %q", n, out.String())
+	}
+	if err := os.WriteFile(filepath.Join(dir, "check_foo_test.go"), []byte("package guard\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if n := gcCompanions(&out, root, []string{"check-foo", "plan-class"}); n != 0 {
+		t.Fatalf("with companion: %d findings, out %q", n, out.String())
+	}
+}

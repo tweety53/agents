@@ -38,6 +38,23 @@ import (
 	"time"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/rebuild-full-app-suite-zip.sh shim (KAN-1058).
+//
+// flow-guard rebuild-full-app-suite-zip — rebuild <screenshots root>/full-app-suite.zip
+// from exactly the PNGs full-app-suite.spec.ts produced.
+//
+// Usage: flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>
+//
+// Exit 0 the zip is written; 1 the resolver matched no PNG (nothing written);
+// 2 cannot answer — a usage error, a relative <screenshots root> (it would land
+// under the caller's working directory), a resolved PNG outside <screenshots
+// root> (another checkout's root), the resolver's own exit 2, or a failing zip.
+//
+// The mechanism, and its full contract, is
+// stats/internal/guard/rebuildfullappsuitezip.go; its test is
+// stats/internal/guard/rebuild_full_app_suite_zip_test.go.
+
 func init() { Registry["rebuild-full-app-suite-zip"] = rebuildFullAppSuiteZip }
 
 func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) int {

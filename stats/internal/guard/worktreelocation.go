@@ -9,6 +9,58 @@ import (
 	"syscall"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-worktree-location.sh shim (KAN-1058).
+//
+// flow-guard check-worktree-location — refuse any registered worktree that lives
+// outside <parent>/<project>-worktrees/, the sibling of the main checkout every
+// /flow worktree is created under (kan-916 design.md's sibling-worktrees-layout
+// decision; the strict guard itself is KAN-462 §11). Outside the repository
+// `git check-ignore` exits 128, so Claude Code's LSP filter drops nothing.
+//
+// Usage: flow-guard check-worktree-location <project>
+//
+// Prints one STRAY line per offender, then ONE verdict line:
+//   STRAY: <path> (<branch>|detached)      per worktree outside <project>-worktrees/
+//   FOREIGN: <path> (<branch>|detached)    per harness agent worktree, never counted
+//   LOCATION-OK: <project>                 every worktree is at or under it
+//   LOCATION-STRAY: <project> — <n>        <n> worktree(s) are not
+//
+// Exit 0 on LOCATION-OK, 1 on LOCATION-STRAY, 2 with NOTHING on stdout when
+// <project> is not a readable directory or `git worktree list` fails — an
+// inability is never reported as a verdict.
+//
+// THE FIRST `worktree` ENTRY IS ALWAYS THE MAIN CHECKOUT. `git worktree list
+// --porcelain` prints it first, unconditionally, so this guard skips it by
+// position rather than by comparing it against <project> — comparing paths
+// would need the same physical-form resolution the strays already require,
+// for a fact the porcelain format already guarantees.
+//
+// PATHS ARE COMPARED IN PHYSICAL FORM. The project root is resolved with
+// `cd … && pwd -P` before the comparison, matching what `git worktree list`
+// itself already reports — git resolves a worktree's path (through /tmp's
+// macOS symlink to /private/tmp, for instance) at `add` time, so the entries
+// read from porcelain need no separate resolution of their own.
+//
+// "AT OR UNDER" IS NOT "STARTS WITH". A path matches when it equals
+// <project>-worktrees or begins with it plus a slash — a bare string-prefix
+// test would report <project>-worktrees-old/x as in-tree. <project>/.worktrees/,
+// the retired in-repo layout, is STRAY like any other path.
+//
+// A HARNESS AGENT'S WORKTREE IS NOT FLOW'S (KAN-883). Claude Code creates a
+// subagent's isolated worktree under <project>/.claude/worktrees/ and locks
+// it while that session lives; no flow command creates one there, and a run
+// cannot remove another session's. Each is named on a FOREIGN line, never
+// counted, so it neither stops a kickoff nor reaches check-finish-preflight's
+// STRAY relay. Every other path outside <project>-worktrees/ is STRAY.
+//
+// ANOTHER SESSION'S SCRATCHPAD IS NOT THIS RUN'S EITHER (kan-1057 self-review,
+// F7). A worktree under a Claude Code session scratchpad,
+// …/claude-<uid>/<project slug>/<session id>/scratchpad/…, whose session id
+// is not $CLAUDE_CODE_SESSION_ID is named on a FOREIGN line, never counted:
+// this run cannot remove it. This session's own, or any with the variable
+// unset, stays STRAY.
+
 // checkWorktreeLocation is scripts/check-worktree-location.sh: that script's
 // header comment is the contract -- one STRAY line per registered worktree
 // outside <parent>/<project>-worktrees/ (design.md:

@@ -5,6 +5,25 @@ import (
 	"io"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-task-build-green.sh shim (KAN-1058).
+//
+// All classification logic lives in stats/internal/guard/taskbuildgreen.go,
+// whose header carries the rule's pointer, the parsing model and the exit
+// codes. This file exists only so .flow/project.md's declared lint/test
+// commands and an operator's muscle memory invoking this exact filename keep
+// working.
+//
+//   - no arguments: scan every live change's tasks.md under
+//     spectre/changes/*/tasks.md, aggregating exit codes — non-zero if ANY file has a
+//     violation, printing each file's own violations;
+//   - one argument: treat it as an explicit tasks.md path and scan only
+//     that file.
+//
+// The no-argument scan's root is CHECK_TASK_BUILD_GREEN_ROOT when set (a test
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
+// flow_guard_root (scripts/lib/flow-guard.sh) — so the scan works from any cwd.
+
 // check-task-build-green fails when a tasks.md's tasks carry no **Build:**
 // tag, or a `red` tag whose task has no **Squash-with:** field, an empty one,
 // one naming an absent partner, or one naming a partner that is itself `red`.

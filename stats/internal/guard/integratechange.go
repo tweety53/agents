@@ -15,6 +15,23 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/integrate-change.sh shim (KAN-1058).
+//
+// flow-guard integrate-change — the mechanical half of a bare /flow at IN_PROGRESS:
+// run 1 (integrate) and run 2 (cleanup), sequenced through the existing
+// guards.
+//
+// Usage:
+//   flow-guard integrate-change prepare <main-checkout> <name> [--accept-foreign] [--accept-outstanding]
+//   flow-guard integrate-change commit  <main-checkout> <name> [<worktree>=<impl subject>]... [--outstanding <text>]
+//   flow-guard integrate-change land    <main-checkout> <name> [--route <route>] [--pr-url <worktree>=<url|none>]...
+//   flow-guard integrate-change cleanup <main-checkout> <name> [--proceed <main-checkout>]...
+//
+// Go, in flow-guard: integrateChange's doc comment in
+// stats/internal/guard/integratechange.go is the contract — every
+// subcommand, its flags, the NEXT:/STOP:/JIRA: closing line and exit 0/1/2.
+
 func init() {
 	Registry["integrate-change"] = integrateChange
 }

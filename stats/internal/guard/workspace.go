@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/workspace.sh shim (KAN-1058).
+//
+// Usage:
+//   flow-guard workspace create <id>
+//   flow-guard workspace remove <id> [--force]
+//   flow-guard workspace survivors <id>
+
 // workspace creates, removes and reports this repository's per-workspace
 // database, the `create`/`remove`/`survivors` triple named in
 // .flow/project.md's `## workspace isolation` section per

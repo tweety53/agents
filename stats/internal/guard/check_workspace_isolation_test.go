@@ -230,23 +230,12 @@ func wiRepoAbs(t *testing.T) string {
 func wiSkillTree(t *testing.T) (string, string) {
 	t.Helper()
 	root := t.TempDir()
-	src, err := os.ReadFile(wiRepoRoot + "/scripts/check-workspace-isolation.sh")
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, root+"/scripts/check-workspace-isolation.sh", string(src))
-	// The real lib/, so the shim's lib/flow-guard.sh finds stats/ to build
-	// flow-guard from (it resolves its own directory physically).
-	if err := os.Symlink(wiRepoAbs(t)+"/scripts/lib", root+"/scripts/lib"); err != nil {
-		t.Fatal(err)
-	}
+	// FLOW_GUARD_SELF resolution reads only the path, never the file.
+	writeFile(t, root+"/scripts/check-workspace-isolation.sh", "")
 	mkdir(t, root+"/skills/flow/scripts")
 	link := root + "/skills/flow/scripts/check-workspace-isolation.sh"
-	for l, target := range map[string]string{link: "../../../scripts/check-workspace-isolation.sh",
-		root + "/skills/flow/scripts/lib": "../../../scripts/lib"} {
-		if err := os.Symlink(target, l); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.Symlink("../../../scripts/check-workspace-isolation.sh", link); err != nil {
+		t.Fatal(err)
 	}
 	return root, link
 }
@@ -779,15 +768,6 @@ Prose that is not a second declaration.
 	wiInvalid(t, r, "an accented Resource word is reported")
 	wiReports(t, r, "bücket", "a non-ASCII cell is reported by its real name, not escaped")
 
-	// 15a. The validator itself failing to run. An empty report is what a
-	//      crashed validator and a clean file look like from the outside. The
-	//      bash's validator was an awk program, refused on when it printed no
-	//      summary line; the port's validator is flow-guard, and the shim is
-	//      what refuses when that cannot run. Driven for real: the shim and
-	//      lib/flow-guard.sh copied into a tree with no stats/ to build from,
-	//      run by bash against a well-formed project.
-	wiRefuses(t, wiShimNoStats(t), "a validator that could not run")
-
 	// 16. The no-argument default derives the repository root from the
 	//     script's OWN resolved location, not from a fixed "one level up" —
 	//     which only holds while it lives at <repo>/scripts/. Invoked through
@@ -800,11 +780,6 @@ Prose that is not a second declaration.
 	wiOK(t, r, "case 16: no-arg default resolves through a skill-dir symlink to the real repo root")
 	wiReports(t, r, "resource row(s) and", "case 16: the real .flow/project.md was read and validated")
 	wiNotReported(t, r, "no .flow/project.md", "case 16: did not fall back to the skill directory, which has none")
-	// The same bare run through the real shim, so its own
-	// FLOW_GUARD_SELF="${BASH_SOURCE[0]}" line is what resolves the root.
-	r = wiBash(t, skillLink, "/", append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t)))
-	wiOK(t, r, "port: case 16 through the real shim resolves the skill-dir symlink to the real repo root")
-	wiReports(t, r, "resource row(s) and", "port: case 16 through the real shim read and validated the real .flow/project.md")
 
 	// 17. F1/F11 regression: an explicit project-root argument — the shape
 	//     every real caller uses — must never depend on resolving the
@@ -836,24 +811,6 @@ Prose that is not a second declaration.
 	r = wiRun(t, map[string]string{"FLOW_GUARD_REPO_ROOT": project})
 	wiOK(t, r, "bare through the bootstrap: FLOW_GUARD_REPO_ROOT is the project root checked")
 	wiReports(t, r, "resource row(s) and", "bare through the bootstrap: the root's .flow/project.md was read and validated")
-}
-
-// wiShimNoStats runs scripts/check-workspace-isolation.sh, copied with
-// lib/flow-guard.sh into a tree with no stats/ beside it, on a well-formed
-// project.
-func wiShimNoStats(t *testing.T) wiResult {
-	t.Helper()
-	tree := t.TempDir()
-	for _, rel := range []string{"scripts/check-workspace-isolation.sh", "scripts/lib/flow-guard.sh"} {
-		b, err := os.ReadFile(wiRepoRoot + "/" + rel)
-		if err != nil {
-			t.Fatal(err)
-		}
-		writeFile(t, tree+"/"+rel, string(b))
-	}
-	project := t.TempDir()
-	wiConfig(t, project, wiIsoBody(wiValidRes, wiValidCmd))
-	return wiBash(t, tree+"/scripts/check-workspace-isolation.sh", "/", append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+t.TempDir()), project)
 }
 
 // wiBash runs a bash script with env in dir, its two streams apart.

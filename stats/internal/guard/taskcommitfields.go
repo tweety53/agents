@@ -21,6 +21,126 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-task-commit-fields.sh shim (KAN-1058).
+//
+// flow-guard check-task-commit-fields — thin wrapper.
+//
+// All field-parsing and diff-checking logic lives in the Go port,
+// stats/internal/guard/taskcommitfields.go, its plan grammar in
+// stats/internal/guard/planparse.go, which plan-dispatch-bundles and
+// check-plan-shape read too. This file exists only so an
+// operator's muscle memory invoking this exact filename, and
+// .flow/project.md's declared commands, keep working, while the field
+// grammar underneath gets a real parser.
+//
+// Unlike flow-guard check-task-build-green (which resolves WHICH tasks.md files to
+// scan, zero or more of them, with no per-task identity), this guard checks
+// ONE task's fields against ONE real commit, so its calling convention names
+// the task and commit explicitly rather than scanning:
+//
+//   flow-guard check-task-commit-fields <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name]
+//
+// THE COMMIT MAP (KAN-786). When the task's work spans more than one
+// repository, the third argument is a per-repository commit map instead of
+// one sha:
+//
+//   flow-guard check-task-commit-fields <worktree> <task-id> <worktree>=<sha>[,<worktree>=<sha>…] "" <canonical-worktree> <change-name>
+//
+// one `<worktree>=<sha>` pair per repository carrying any of the task's
+// commits, the fourth argument empty — the map derives each commit's parent
+// in its own repository, so a parent for one commit has no meaning here and
+// is refused. The verdict merges across the listed repositories: the union
+// of changed paths against `Files:`/`Allowed-collateral:`, the concatenated
+// diffs against `Tests:`, the summed `@Test` counts against `Baseline:`,
+// the declared `Commit:` subject on one listed commit exactly and on one
+// commit of every listed repository with its scope free — each repository's
+// commit may name its own module (KAN-972) — and the tree check satisfied by
+// any listed tree. `**Baseline:**`'s one recorded
+// measurement command addresses a single commit's range, so with more than
+// one commit that check skips — never a verdict (the kan-100 rule).
+//
+// EVERY COMMIT CARRYING THE TASK'S TRAILER (KAN-976). Without a fourth
+// argument, every other commit from a listed repository's merge base to its
+// listed commit whose `Task-Id:` trailer names the task joins the verdict as
+// one more commit of that repository — a gated review's on-top fix commit
+// carries its task's trailer, and judged alone it touched none of the task's
+// declared files. The merge base is HEAD's with the branch's recorded
+// `flowBase`, else origin/HEAD, else origin/main, else main; with none of
+// them resolvable the listed commit stands alone. One pair
+// behaves exactly as the single-sha form; a real revision never contains
+// "=", which is what tells the two forms apart.
+//
+// This wrapper's own job is resolving WHICH tasks.md the named task lives
+// in, among the non-archived ones under
+// <worktree>/spectre/changes/*/tasks.md. Zero matches there is not
+// automatically a refusal any more (KAN-363 task 9) — see WHERE A LINK IS
+// FOLLOWED below — and more than one ROOT change is still a refusal: two
+// changes neither of which is the other's sub-change, which nothing here may
+// guess between. The optional sixth argument, <change-name>, skips that
+// ambiguity scan entirely (KAN-367): when given, this wrapper resolves
+// directly against <worktree>/spectre/changes/<change-name> — still honoring
+// its own -fix-N sibling and its own link.md, but never looking at any other
+// directory under spectre/changes/ — and takes priority over the glob in
+// stats/internal/guard/taskcommitfields.go.
+//
+// WHERE A LINK IS FOLLOWED. A satellite change directory (spectre task 1's
+// `link.md`, carrying `## Part of`) has no `tasks.md` of its own by design,
+// so the glob above finds nothing at all under a satellite worktree — the
+// exact shape that used to be an unconditional "no tasks.md found" refusal.
+// When that glob comes back empty, and exactly one LINK-ONLY change
+// directory exists under `<worktree>/<spec-root>/changes/` — one whose own
+// `link.md` exists and whose own `tasks.md` does not — this wrapper resolves
+// that satellite's plan through stats/internal/guard/changeplan.go's rules
+// (task 7),
+// passing the optional fifth argument straight through as its
+// canonical-worktree, before giving up. More than one link-only directory,
+// or a resolution that fails, still ends in the same "no tasks.md found"
+// refusal as before.
+//
+// THE ABSENT-DIR SHAPE (KAN-260). A cross-repo worktree may carry no change
+// directory at all — the plan lives only in the canonical repo. With the
+// change name passed as the sixth argument, the named-change path hands the
+// question to change_plan_path, whose absent-dir branch resolves the
+// same-named plan from the SUPPLIED canonical worktree; with no canonical
+// worktree, or no name, the refusal stands, because nothing here names
+// where the plan lives.
+//
+// A LINK-ONLY DIRECTORY IS NEVER COUNTED TOWARD THE ROOT-CHANGE AMBIGUITY
+// TEST in stats/internal/guard/taskcommitfields.go either, for the same reason a `<name>-fix-N` sibling is not: a
+// satellite carries no `tasks.md`, so the `*/tasks.md` glob that test is
+// built from never sees it — a satellite sitting beside a genuine root
+// change changes nothing about which root that test resolves to.
+//
+// SYMLINKS. The file and directory tests used throughout the Go port, as
+// in stats/internal/guard/changeplan.go, follow symlinks — so a symlink at
+// `<worktree>/<spec-root>/changes/<allowlisted-name>` is followed and its
+// content read as that change's plan. flow-guard check-unfinished-work's own header
+// accepts the identical tradeoff for the identical reason; this is not a
+// hole this change opens.
+//
+// SPECTRE'S LAYOUT GUARANTEES NOTHING LIKE "exactly one active change", and
+// this header used to say it did. That assumption is what broke. A
+// <name>-fix-N sub-change is a FLAT SIBLING of its parent under
+// spectre/changes/ — `spectre new` refuses an id that is not a single flat
+// directory name — so the glob matches the parent AND the sibling the moment
+// a fix round opens one, and a wrapper refusing on "more than one" took this
+// guard out of service on exactly the runs it was added for. A fix sibling is
+// therefore not ambiguity: the highest-numbered one resolves, or the root when
+// there is none. The mechanism, the digit test that keeps a merely
+// similarly-named change out of it, and two caveats on the numbering are in
+// stats/internal/guard/taskcommitfields.go.
+// EXIT CODES. 0 — the commit passes. 1 — a verdict against the commit:
+// violations print on stdout, one per line. 2 — could not judge: a caller or
+// environment mistake (usage, unreadable plan, missing worktree, a
+// git call that cannot evaluate its arguments), never a judgment about the
+// commit. Every exit-2 refusal prints the same unmistakable stderr opening,
+// "COULD NOT JUDGE — not a commit verdict:", so a caller mistake is never
+// read at a glance as the guard refusing the commit — the KAN-170 failure,
+// where a merge base mistyped by one character surfaced git's bare
+// "ambiguous argument" message through this guard's exit and cost a second
+// look to tell a typo from a real defect.
+
 // The port of scripts/check-task-commit-fields.sh at 0747740 -- its wrapper
 // body, and the check-task-commit-fields.py it exec'd with the parts of
 // lib/plan_grammar.py that module imports. The shim's header comment is

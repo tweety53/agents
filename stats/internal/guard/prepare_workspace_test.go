@@ -24,7 +24,6 @@ package guard
 import (
 	"bytes"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -313,27 +312,5 @@ func TestPrepareWorkspace(t *testing.T) {
 				}
 			})
 		}
-	}
-}
-
-// The real shim, linked into a temporary directory not named scripts/ with
-// its sibling and lib/ linked beside it, execs the sibling from beside
-// itself, as the bash's $SCRIPT_DIR did — never from <parent>/scripts.
-func TestPrepareWorkspaceShimSibling(t *testing.T) {
-	t.Parallel()
-	dir := filepath.Join(t.TempDir(), "bin")
-	if err := os.Mkdir(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	for _, n := range []string{"prepare-workspace.sh", "check-workspace-isolation.sh", "lib"} {
-		symlink(t, tcfScriptsDir(t)+"/"+n, dir+"/"+n)
-	}
-	cmd := exec.Command("/bin/bash", dir+"/prepare-workspace.sh", pwRepo(t, "kan-12-shim-sibling", ""))
-	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
-	var out, errb bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &errb
-	_ = cmd.Run()
-	if rc := cmd.ProcessState.ExitCode(); rc != 0 {
-		t.Errorf("shim beside its sibling outside scripts/: rc=%d stdout=%q stderr=%q", rc, out.String(), errb.String())
 	}
 }

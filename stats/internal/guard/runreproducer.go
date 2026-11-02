@@ -15,6 +15,120 @@ import (
 	"time"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/run-reproducer.sh shim (KAN-1058).
+//
+// flow-guard run-reproducer <worktree> <reproducer-command-line> [--pre-fix-verdict <demonstrated|not-demonstrated>] [--reproducer-sha <sha>]
+//
+// Runs one finding's reproducer — the command text that follows
+// `finding-reproducer: F<n> ` in a panel record, already validated
+// lexically by flow-guard check-panel-reproducers — and reports whether it
+// demonstrates the defect it names.
+//
+// WHY THIS SCRIPT EXISTS. Every rule about *running* a reproducer used to be
+// prose in skills/flow/review-panel.md, with no code behind it: the
+// containment of each token, the ban on shell metacharacters, the direct
+// exec, the bound, and the timed-out and surviving-process dispositions.
+// Eight review findings across three panel passes were defects in that
+// prose, because a rule nothing implements can only be re-read rather than
+// tested — most plainly F44, whose fix for an earlier finding cited
+// `ps -o sid=`, a keyword this platform's `ps` does not have:
+//
+//   $ ps -o sid= -p $$
+//   ps: sid: keyword not found
+//
+// This script turns those rules into something with its own tests
+// (stats/internal/guard/runreproducer_test.go), so the constraints are
+// enforced where they were only described.
+//
+// THE COMMAND IS DISPATCHED AS AN ARGUMENT VECTOR, NEVER A STRING THROUGH A
+// SHELL. The path token is resolved to a real file on disk and executed
+// directly, with its arguments passed as an argument vector. The exec itself
+// starts the reproducer in a session and process group of its own (D4,
+// SysProcAttr.Setsid in the Go port — Darwin ships no `setsid` binary, and
+// the bash body needed a python3 shim for it), and the argv vector reaches
+// the kernel untouched: the resolved path and its arguments exactly as
+// given, so nothing in the reproducer's own text is ever handed to a shell
+// for interpretation. That is the guarantee the prose this script replaces
+// claimed and had nothing behind; the shell-metacharacter checks in
+// stats/internal/guard/runreproducer.go still run first, but they are now
+// the second layer of a real argv-exec barrier rather than the only one.
+//
+// CONTAINMENT IS RESOLVED, NOT MERELY LEXICAL. flow-guard check-panel-reproducers
+// checks a panel record's reproducer lines lexically only — no leading `-`
+// on the path token, no absolute token, no `..` path segment, no shell
+// metacharacter, no URL — because that guard's record may be read in a
+// context where the worktree that wrote it does not exist to resolve
+// against. This script always has a real worktree, so it repeats those
+// lexical checks (a record can be edited after the guard last ran) and then
+// goes further: every token is resolved to its physical path — following
+// `..`, `.` and symlinks — and required to stay inside the worktree. A
+// relative path with no `..` segment can still point outside the worktree
+// through a symlink, which is exactly the shape the record-format guard's
+// own header says it deliberately cannot decide; this script is where that
+// shape is decided.
+//
+// THE BOUND IS 20 SECONDS UNLESS THE REPRODUCER DECLARES ITS OWN (KAN-831).
+// A reproducer that builds or runs tests — a Gradle suite outlives 20
+// seconds — carries the exact line `# reproducer-bound: <seconds>`, a
+// positive whole number, within its first 10 lines, and this script then
+// bounds every run of it by that many seconds. A malformed declaration
+// leaves the default. RUN_REPRODUCER_BOUND_SECONDS, when set, still wins
+// over the declaration.
+//
+// THE COMPARISON IS VALID ONLY BETWEEN TWO RUNS OF THE SAME FILE. The
+// verdict a `--pre-fix-verdict` re-run compares against is meaningful only when
+// the file is byte-for-byte what the dispatch-time run read — a re-authored
+// reproducer, its mutation-convention declaration included, is a different
+// reproducer answering in a vocabulary the pre-fix verdict never carried.
+// The runner therefore prints `reproducer sha <hex>` with every verdict, and
+// `--reproducer-sha <sha>` pins the re-run to the dispatch-time file: a
+// mismatch is refused (exit 2, the never-executed shape class) and the
+// reproducer is re-authored instead — re-run it against the defect-present
+// code and carry its fresh verdict and sha (KAN-568 review, F1).
+//
+// Exit codes:
+//   0  defect demonstrated — the command ran to completion inside the
+//      bound, as a direct exec, and exited non-zero (exit 0 under the
+//      mutation-reproducer convention)
+//   1  defect not demonstrated — the command ran to completion inside the
+//      bound and exited 0 (any non-zero exit under the mutation-reproducer
+//      convention); the instruction built on this reproducer cannot
+//      be verified as a fix
+//   2  refused — one of two classes. The shape class failed a lexical or
+//      resolved containment/shape check — or a --reproducer-sha pin, or a
+//      near-miss mutation-reproducer marker line, or a mutation reproducer
+//      with no `set -e` line (kan-1048 self-review, 1-D) — before
+//      execution and was never run at all. The ambiguity class (KAN-524) ran
+//      to a verdict that is
+//      IDENTICAL to the pre-fix verdict the caller passed in
+//      --pre-fix-verdict: a reproducer that answers the same way before and
+//      after the fix demonstrates nothing under either exit-code
+//      convention, and the expected convention is named on stderr. Only
+//      the shape class never executes; the ambiguity class is refused at
+//      its verdict, after a real run.
+//   3  unverifiable — the command was still running at the bound (or a
+//      detached child of it survived the kill sequence) and was killed;
+//      its exit status is read as neither a pass nor a fail. A surviving
+//      child is additionally named on stderr with its pid.
+//   4  cannot answer at all — bad usage, no such worktree, an
+//      environment failure (no writable temporary directory, and similar), or
+//      a plumbing failure in the exec subshell itself (the worktree vanished
+//      before it could be entered, or exec could not run the resolved path), or
+//      a process-table read that failed, which may have missed a detached
+//      child — never the reproducer's own exit status
+//   5  the run left the worktree changed — `git status --porcelain
+//      --untracked-files=normal` differs from the listing taken before the
+//      start; both listings go to stderr, and the exit status is no verdict
+//      (kan-1038). Before the start the runner also snapshots every tracked
+//      path that differs from `HEAD`, and after the run it writes back any the
+//      run changed, naming each on stderr as `run-reproducer: restored <path>`
+//      (kan-1040: a reviewer's `git checkout -q -- skills` reverted an
+//      uncommitted edit); a tracked path clean before the run that the run
+//      changed is put back from `HEAD` and named the same way, whether the run
+//      completed or was killed at the bound (kan-1047: a reproducer's mutant
+//      was left in a clean source file).
+
 // runReproducer is scripts/run-reproducer.sh: that script's header comment
 // is the contract -- arguments, verdict lines, the stdout/stderr split and
 // the exit codes 0 demonstrated, 1 not demonstrated, 2 refused, 3

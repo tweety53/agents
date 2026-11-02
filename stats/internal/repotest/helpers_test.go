@@ -46,13 +46,13 @@ var sharedGuardCache = sync.OnceValues(func() (string, error) {
 		return "", err
 	}
 	guardCacheDir = dir
-	lib, err := filepath.Abs("../../../scripts/lib/flow-guard.sh")
+	boot, err := filepath.Abs("../../../scripts/flow-guard")
 	if err != nil {
 		return "", err
 	}
-	// flow_guard_exec builds under the shim's own key, then execs the
-	// binary; spec-root's verdict is not read.
-	cmd := exec.Command("bash", "-c", `. "$1" && flow_guard_exec spec-root 2 guard-cache:`, "_", lib)
+	// The bootstrap builds under its key, then execs the binary;
+	// spec-root's verdict is not read.
+	cmd := exec.Command(boot, "spec-root")
 	cmd.Env = append(append(os.Environ(), goCacheEnv()...), "FLOW_GUARD_CACHE_DIR="+dir)
 	out, _ := cmd.CombinedOutput()
 	if bins, _ := filepath.Glob(dir + "/*/flow-guard"); len(bins) == 0 {

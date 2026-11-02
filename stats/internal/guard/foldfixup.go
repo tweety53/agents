@@ -6,6 +6,48 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/fold-fixup.sh shim (KAN-1058).
+//
+// flow-guard fold-fixup — fold a fix into the unpushed task commit it targets
+// (skills/flow/review-panel-fix-round.md, "Rewrite-based folding is for
+// unpushed history only").
+//
+// Usage: flow-guard fold-fixup <worktree> <task-sha> <tasks-md> <path>...
+//        flow-guard fold-fixup --finish <worktree> <task-sha> <tasks-md>
+//
+// The fold, in order: `git add -- <path>...`; `flow-guard guard-autosquash targets
+// <worktree> <task-sha>`; `git commit --fixup=<task-sha> -- <path>...`;
+// `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <task-sha>^` (git
+// ignores a non-interactive --autosquash); the empty-fold drop;
+// `flow-guard guard-autosquash after <worktree> <task-sha>^ <tasks-md>`. The rebase's upstream is the task
+// commit's own parent, never the base branch re-resolved: replaying only the
+// branch's own commits after <task-sha>^ keeps commits that landed on the base
+// mid-panel out of the fold. The `after` check's base is that same upstream.
+//
+// THE EMPTY-FOLD DROP. A fixup whose fold empties its target commit is
+// dropped, never kept as a no-op commit: git stops the rebase at that fixup
+// ("would make it empty"), and the guard drops the emptied commit with
+// `git reset --soft HEAD^` and continues — tip or not, the commits after it
+// replay onto its parent.
+//
+// A CONFLICT IS LEFT IN PROGRESS, never resolved here: it is between two of
+// the branch's own commits, resolved by hand keeping both sides, then
+// `git rebase --continue`, then `flow-guard fold-fixup --finish` — which settles any
+// further empty-fold stop and runs the `after` check.
+//
+// Prints one line on stdout:
+//   FOLDED:   <worktree> — HEAD <sha>
+//   DROPPED:  <worktree> — the fold emptied <task-sha>; HEAD <sha>
+//   CONFLICT: <worktree> — unmerged: <paths>; resolve keeping both sides, …
+//
+// Exit codes:
+//   0  folded, or the emptied commit dropped
+//   1  flow-guard guard-autosquash refused (its lines on stderr) — the round stops
+//   2  cannot answer — usage, a git refusal, or a rebase stop that is
+//      neither a conflict nor an empty fold
+//   3  a conflict is left in progress (CONFLICT line)
+
 // foldFixup is scripts/fold-fixup.sh: that script's header comment is the
 // contract -- a fix folded into the unpushed task commit it targets
 // (skills/flow/review-panel-fix-round.md, "Rewrite-based folding is for

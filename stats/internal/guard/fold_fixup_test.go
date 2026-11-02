@@ -51,7 +51,7 @@ func (fx *ffFx) run(t *testing.T, args ...string) (int, string, string) {
 // runAsIs is run without re-dirtying the planning file.
 func (fx *ffFx) runAsIs(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
-	autosquash := tcfScriptsDir(t) + "/guard-autosquash.sh"
+	autosquash := guardShim(t, "guard-autosquash")
 	if fx.autosquash != "" {
 		autosquash = fx.autosquash
 	}
@@ -122,7 +122,7 @@ func TestFoldFixupAfterVerdict(t *testing.T) {
 			t.Parallel()
 			fx := ffNewFx(t)
 			fx.autosquash = t.TempDir() + "/guard-autosquash"
-			script := fmt.Sprintf("#!/bin/sh\n[ \"$1\" = after ] && exit %d\nexec %q \"$@\"\n", c.rc, tcfScriptsDir(t)+"/guard-autosquash.sh")
+			script := fmt.Sprintf("#!/bin/sh\n[ \"$1\" = after ] && exit %d\nexec %q \"$@\"\n", c.rc, guardShim(t, "guard-autosquash"))
 			if err := os.WriteFile(fx.autosquash, []byte(script), 0o755); err != nil {
 				t.Fatal(err)
 			}

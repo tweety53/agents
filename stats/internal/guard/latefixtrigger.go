@@ -12,6 +12,65 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-late-fix-trigger.sh shim (KAN-1058).
+//
+// flow-guard check-late-fix-trigger — decide whether a fix run's pass 1 takes the
+// late-fix reduction (skills/flow/review-panel-late-fix.md).
+//
+// Usage: flow-guard check-late-fix-trigger <change> <tasks.md> <worktree> <since-close-sha|-> <base-verdict> \
+//          [<worktree> <since-close-sha|-> <base-verdict>...]
+//
+// One triple per worktree in the resolved set, the canonical worktree's
+// first. <since-close-sha> is the sha the stage's last clean close reviewed
+// in that worktree, `-` where there was no earlier clean close;
+// <base-verdict> is that worktree's flow-guard check-base-moved line this round.
+//
+// Every condition must hold to reduce:
+//   1  already clean, already verified — flow-guard check-panel-findings-closed
+//      <canonical-worktree> <change> exits 0 (run in process), and every
+//      worktree names a since-close sha;
+//   2  the base has not moved since that close — every base verdict is CLEAR;
+//   3  the delta is small — `git diff --numstat <since-close-sha>` per
+//      worktree, insertions and deletions summed across the set, is at most
+//      40 changed lines; a binary entry (`-`) cannot be counted and fails;
+//   4  no scope growth — <tasks.md> carries no task line
+//      (`^- \[[ xX]\] [0-9]+\.`) whose task number is absent from
+//      <canonical-worktree>/.superpowers/sdd/<change>/tasks-at-close.md, the
+//      copy of the plan the review panel's close step writes at each clean
+//      close (the plan is gitignored, so no commit holds it); a missing copy
+//      fails, naming it on stderr;
+//   5  the panel's own machinery is untouched — no path in
+//      `git diff --name-only <since-close-sha>` matches
+//      skills/flow/review-panel*.md, scripts/check-panel-*.sh,
+//      skills/flow/*-reviewer-prompt.md or skills/flow/engineering-principles.md.
+//
+// Prints on stdout:
+//   exit 0  late-fix reduction: <n> changed lines since <canonical since-close-sha>
+//   exit 1  full path: condition <k> — <reason>   (one line per failed condition)
+//   exit 3  append scope: <n> changed lines since <canonical since-close sha>
+//   exit 4  small append: <n> changed lines since <canonical since-close sha>
+//
+// Exit codes:
+//   0  reduce
+//   1  full path
+//   2  cannot answer — usage, a change name outside the allowlist, a
+//      worktree/sha pair that fails panel_validate_worktree, a git failure,
+//      an unreadable <tasks.md>, or check-panel-findings-closed
+//      exit 2 (its stderr passed through); the caller reads it as full path
+//   3  append scope — conditions 1, 2 and 5 hold and only 3 and/or 4 failed,
+//      and the delta is over 250 counted lines or has a binary entry:
+//      pass 1 runs the decided roster on the since-close delta
+//      (skills/flow/review-panel-late-fix.md, The append scope)
+//   4  small append — as 3, but no binary entry and the summed delta is at
+//      most 250 changed lines: pass 1 runs `primary` alone on the since-close
+//      delta (skills/flow/review-panel-late-fix.md, The small append)
+//
+// WHY 250. Appended fix work is reviewed at the size it lands at, and most
+// lands well under this: KAN-930 ran the full roster on 185- and 222-line
+// appends that came back clean or Minor-only, while its 350- and 537-line
+// late-task appends — real new scope — stay on the decided roster.
+
 // checkLateFixTrigger is scripts/check-late-fix-trigger.sh: that script's
 // header comment is the contract -- the five conditions of the late-fix
 // reduction (skills/flow/review-panel-late-fix.md), exit 0 reduce (the

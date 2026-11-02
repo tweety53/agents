@@ -15,6 +15,85 @@ import (
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-panel-findings-closed.sh shim (KAN-1058).
+//
+// flow-guard check-panel-findings-closed <worktree> <change-name>
+//
+// THE CHANGE NAME IS A SECOND ARGUMENT for the same reason it is one on
+// flow-guard check-panel-reproducers: a change's findings are rows in the store,
+// keyed by change name, not a file at a fixed path. `flow record findings
+// -change <name> -C <worktree>` answers with the decoded JSON array of that
+// change's findings, and the guard reads that array plus the change's
+// dispatch rows the same way (`flow record dispatches -change <name> -C
+// <worktree>`), the second read answering only the fixed-without-clean-rerun
+// class below.
+//
+// This is the gate design.md's `gate-is-a-guard` decision chose: nothing
+// checked, before this guard existed, that a review panel actually closed
+// every finding it verified — `flow-guard check-unfinished-work` only ever caught
+// the omission at /flow's integrate gate, after the work was done. This
+// guard runs at the panel's own close, immediately before
+// `flow stage end -command '/flow' -stage flow.review-panel`.
+//
+// THE OPEN-FINDING PREDICATE IS DUPLICATED, on purpose, from
+// flow-guard check-unfinished-work's own copy — design.md's `duplicate-the-predicate`
+// decision, following that guard's own precedent for why a one-line
+// predicate gains nothing from being centralized and loses the property that
+// both harnesses assert the same shape.
+//
+// A BARE `withdrawn` IS OPEN, not closed (KAN-791): the word with no reason
+// after it is the silent drop the finding-status contract forbids — a
+// finding leaves the board only into `fixed` or `withdrawn <reason>` — so
+// both copies of the predicate require the reason, and a reasonless
+// withdrawal reports exit 1 like any other open finding.
+//
+// THE GUARD NEVER CONSULTS THE JOURNAL — design.md's `no-journal-excuse`
+// decision. `flow record status` never blocks, so a store outage journals a
+// close instead of landing it, and a finding whose close only reached the
+// journal still reads `open` here and reports exit 1. That is the honest
+// verdict; the existing handback is where the operator resolves it.
+//
+// A GATED PER-TASK REVIEWER'S ROW (slot `gated-reviewer`) IS NO PANEL
+// FINDING, and every check here skips it: a clean task re-review closes it,
+// not a panel re-run (records.GatedReviewerSlot).
+//
+// Exit codes:
+//   0  no finding is open or deferred, and every Critical or Important
+//      recorded `fixed` has a clean re-run dispatch of its slot in a later
+//      round whose panel-report-<round>-<id>.md is written — for a row whose
+//      `supersedes` names a row of the same round (review-panel.md's
+//      cross-role fold), the named row's slot covers it
+//   1  a finding is open or `deferred`, or a Critical or Important is
+//      recorded `fixed` with no clean re-run dispatch of its slot in any
+//      later round — the ordering review-panel.md's **Recording findings**
+//      requires, violated, the store's only witness of that re-run being
+//      the slot's own dispatch row (KAN-770); each still-open ref and each
+//      unverified ref with its slot is named on stderr; or a slot's
+//      panel-report-<round>-<id>.md counts on its Critical: <n> and
+//      Important: <n> lines more findings than the store holds for that
+//      round and slot; or a re-run answered without writing its
+//      panel-report-<round>-<id>.md (absent, empty or the parent's
+//      `no verbatim report captured` placeholder), named on stderr (KAN-915);
+//      or a completed reviewer dispatch left a role's
+//      panel-report-<round>-<id>.md absent or empty (the placeholder
+//      accepted); or a `fixed` finding's runnable reproducer resolves in no
+//      worktree of the change (kan-1034); or a `fixed` Critical or Important
+//      has no `regression-test:` line in any panel-fix-report-*.md, or names
+//      a path untracked in every worktree of the change or under
+//      .superpowers/ (kan-1019); or a round holding a `fixed` Critical or
+//      Important finding has no `flow record mutations` row of that round or
+//      the next — check-unfinished-work's predicate (kan-1039)
+//   2  cannot answer at all — no worktree, no change name, a change name
+//      outside the allowlist, a worktree that is not a directory, the store
+//      unreachable, its answer unreadable (empty output included), or an
+//      unreadable panel report, or the state record unreadable when a
+//      `fixed` finding's reproducer token is absent from the worktree or its
+//      regression test untracked there, or an unreadable panel-fix report,
+//      or the fix-mutation rows unreadable
+// Ported to Go: the body's reasoning for every branch is in
+// stats/internal/guard/panelfindingsclosed.go.
+
 // checkPanelFindingsClosed is scripts/check-panel-findings-closed.sh: that
 // script's header comment is the contract -- exit 0 FINDINGS-CLOSED, 1 a
 // violation (each named on stderr), 2 cannot answer. The findings read is

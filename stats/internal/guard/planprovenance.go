@@ -15,6 +15,41 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-plan-provenance.sh shim (KAN-1058).
+//
+// flow-guard check-plan-provenance — thin wrapper.
+//
+// All classification logic now lives in stats/internal/guard/planprovenance.go,
+// the Go port (KAN-778) of the Python 3 guard this file used to exec. This file exists only so that
+// .flow/project.md's declared lint command, the flow harness
+// (TestCheckPlanProvenance), and any operator's muscle memory
+// invoking this exact filename keep working unchanged — the CLI contract
+// (exit codes, CHECK_PLAN_PROVENANCE_ROOT, argv, stdout/stderr shape) is
+// byte-identical to what this script implemented directly before the
+// reshape.
+//
+// WHY THE REWRITE: this guard's fence classifier was originally ~150 lines
+// of Bash ERE matching, in the style of this repository's other guards.
+// Five review panel passes and seven fix waves later it had shipped and
+// then fixed every defect class enumerated in the module docstring
+// planprovenance.go carries — three of them found by
+// pass 5 alone, on a settled tree, after four of seven reviewers had
+// already called it clean (full history and the canonical enumeration:
+// that module docstring, and the kan-14
+// plan-provenance design's "Post-review reshape" section — this comment does
+// not restate the count, since a copied number is exactly what let an
+// earlier, wrong count survive six review passes). The operator's call:
+// stop patching an ERE allowlist and replace it with a real
+// block-structure parser — a
+// container stack recorded at fence-open time, and a language with O(1)
+// indexing rather than bash 3.2's O(N) sequential array access. Python's
+// standard library was chosen over a Markdown/CommonMark library because
+// none is installed anywhere on this machine and this repository has no
+// dependency management; the block parser is hand-written for the same
+// reason the original Bash version was, just in a language that can build
+// real structure instead of an allowlist of recognised prefixes.
+
 // checkPlanProvenance is scripts/check-plan-provenance.sh. It was a bash
 // wrapper around check-plan-provenance.py; KAN-778 ported that Python guard
 // here and deleted it. Its CLI contract is unchanged: argv is ignored,

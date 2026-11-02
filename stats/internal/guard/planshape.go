@@ -17,6 +17,24 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-plan-shape.sh shim (KAN-1058).
+//
+// This file exists so .flow/project.md's declared lint/test commands and an
+// operator's muscle memory invoking this exact filename keep working. Scope
+// is one file per call:
+//
+//   - no arguments: scan every live change's tasks.md under
+//     <spec-root>/changes/*/tasks.md, aggregating exit codes — non-zero if ANY file has a violation,
+//     printing each file's own violations;
+//   - one argument: treat it as an explicit tasks.md path and scan only
+//     that file.
+//
+// The no-argument scan's root is CHECK_PLAN_SHAPE_ROOT when set (a test
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
+// flow_guard_root (scripts/lib/flow-guard.sh) — as the checkout whose changes are
+// scanned.
+
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
 // judges its commits (check-task-commit-fields) can actually read it. Twenty-four
 // findings, F1-F24 (F1-F6's canonical definitions, decisions and rationale:

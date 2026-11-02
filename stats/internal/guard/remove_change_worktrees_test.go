@@ -319,7 +319,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		if fx.g.err != nil {
 			t.Fatal(fx.g.err)
 		}
-		cmd := exec.Command(tcfScriptsDir(t)+"/remove-change-worktrees.sh", fx.repo, "demo", "-")
+		cmd := exec.Command(guardShim(t, "remove-change-worktrees"), fx.repo, "demo", "-")
 		cmd.Dir = fx.dir
 		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 		out, err := cmd.Output()

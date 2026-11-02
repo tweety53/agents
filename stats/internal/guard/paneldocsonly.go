@@ -7,6 +7,35 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-panel-docs-only.sh shim (KAN-1058).
+//
+// flow-guard check-panel-docs-only — decide whether this change's own paths are
+// entirely documentation, in a guard instead of prose.
+//
+// Usage: flow-guard check-panel-docs-only <worktree> <merge-base>
+//
+// Exit codes:
+//   0  every touched path ends .md or .mdc, or is a change's
+//      verbatim-moves.txt under <spec-root>/changes/ — the acknowledgement
+//      list flow-guard check-verbatim-moves reads, documentation though not Markdown
+//   1  at least one touched path is neither — that first path is printed to
+//      stdout — including an empty touched-path set
+//   2  cannot answer: a missing argument, <worktree> not a directory or not
+//      a git worktree, <merge-base> not resolving, or a git invocation
+//      failed
+//
+// THE CHANGE'S OWN PATHS are the union of committed-since-merge-base,
+// staged and unstaged paths, exactly as flow-guard check-panel-citation-trigger
+// collects them.
+//
+// WHY THIS GUARD EXISTS (KAN-312): a docs-only branch has no code seam for a
+// second slot to find; the implementer's self-review and the prose guards
+// cover it.
+//
+// The logic is the Go port in stats/internal/guard/paneldocsonly.go; the
+// touched-path collection is stats/internal/guard/paneltouchedpaths.go's.
+
 // checkPanelDocsOnly is scripts/check-panel-docs-only.sh: that script's
 // header comment is the contract -- exit 0 when every path this change
 // touched ends .md or .mdc or is a change's verbatim-moves.txt under

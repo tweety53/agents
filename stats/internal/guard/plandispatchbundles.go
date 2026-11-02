@@ -7,6 +7,26 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/plan-dispatch-bundles.sh shim (KAN-1058).
+//
+// This file exists so an operator's muscle memory invoking this exact
+// filename, and skills/flow/implement.md's own call site, keep working.
+// Scope is one file per call:
+//
+//   - no arguments: scan every live change's tasks.md under
+//     <spec-root>/changes/*/tasks.md (never the archive/ entry: run 1
+//     drops a change's directory, so nothing in flight sits there),
+//     aggregating exit codes — non-zero if ANY file reports a violation or
+//     cannot be read, printing each file's own bundles or violations;
+//   - one argument: treat it as an explicit tasks.md path and scan only
+//     that file.
+//
+// The no-argument scan's root is PLAN_DISPATCH_BUNDLES_ROOT when set (a test
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — derived by
+// flow_guard_root (scripts/lib/flow-guard.sh) — as the checkout whose changes are
+// scanned.
+
 // plan-dispatch-bundles groups a tasks.md's unchecked tasks into dispatch
 // bundles by the overlap of their declared **Files:** paths.
 //

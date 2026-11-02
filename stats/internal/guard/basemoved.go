@@ -7,6 +7,66 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-base-moved.sh shim (KAN-1058).
+//
+// flow-guard check-base-moved — report how far the base branch has moved under a
+// change, and whether the movement overlaps the change's own touched paths.
+//
+// Usage: flow-guard check-base-moved <worktree> <base-ref> <recorded-merge-base|->
+//
+// Prints ONE verdict line to stdout:
+//   CLEAR:  <worktree> — <ref> has not moved since the recorded merge base
+//   CLEAR:  <worktree> — the <n> commits <ref> gained since the recorded
+//           merge base are all already carried by this branch — nothing to
+//           rebase; merge base now <sha>
+//   MOVED:  <worktree> — <n> commits on <ref> since the recorded merge base;
+//           no overlap with this change's paths
+//   MOVED:  <worktree> — <n> commits on <ref> since the recorded merge base;
+//           overlaps: <paths>
+//   REFUSE: <reason>
+//
+// Exit 0 whenever a verdict was reached; exit 2 when the tree cannot be read.
+// The VERDICT carries the answer, not the exit status — see
+// flow-guard check-finish-preflight's header for why this repository separates them
+// (design.md: verdict-protocol-matches-siblings). This guard performs no
+// fetch of its own: flow-guard resolve-base-branch fetched the worktree when the
+// caller resolved the base ref.
+//
+// Base-ref resolution is shared with flow-guard check-finish-preflight via
+// stats/internal/guard/resolveremotebase.go (design.md: base-moved-is-a-guard), so
+// the two guards can never disagree about which ref answers a question about
+// the base.
+//
+// THE CHANGE'S OWN PATHS INCLUDE THE INDEX AND THE WORKING TREE (design.md:
+// touched-paths-include-index-and-worktree). Run 1 — the only run this guard
+// serves — is reached with work staged and uncommitted by design, so a
+// comparison limited to committed history would report "no overlap" for a
+// change that does conflict.
+//
+// Every git invocation whose failure would otherwise be read as an answer is
+// captured into a variable and checked on its own line, never piped straight
+// into `sort`/`comm`/`wc` — the reasoning flow-guard check-finish-preflight's signal
+// (d) comment recorded at d71a2327 (now stats/internal/guard/finishpreflight.go's (d)),
+// cited rather than restated here. A failing
+// invocation is exit 2 with a named message, never a CLEAR.
+//
+// HOW TO HAND-VERIFY A MOVED VERDICT (KAN-446). Recount the commits yourself
+// with `git rev-list <recorded-merge-base>..<ref>`, `<ref>` being the one the
+// verdict line names (EFFECTIVE_REF — not always the bare argument), and
+// intersect the verdict's `overlaps:` paths with the change's own touched
+// paths — which include the index and the working tree, exactly as this guard
+// counts them. A stale recorded merge base — one recorded before a rebase
+// this pipeline performed — is the known structural cause of a movement that
+// is not real. A CLEAR naming carried movement recounts instead with
+// `git rev-list <recorded-merge-base>..<ref> ^HEAD` — zero means every commit
+// the base gained is already reachable from the branch, the benign cause
+// KAN-535 records. That CLEAR also means the recorded merge base is stale —
+// most often a rebase an earlier, stopped run made (KAN-924) — so it names
+// `git merge-base HEAD <ref>`, the branch's actual fork point, as
+// `merge base now <sha>`: the caller's `<rebased-merge-base>` for that
+// worktree for the rest of the run.
+
 // checkBaseMoved is scripts/check-base-moved.sh: that script's header comment
 // is the contract -- one CLEAR/MOVED/REFUSE verdict line on stdout, exit 0
 // whenever a verdict was reached, exit 2 when the tree cannot be read. The

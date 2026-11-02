@@ -65,7 +65,7 @@ func TestPlanDispatchGroups(t *testing.T) {
 	_, r = run("- [x] 1. Done task\n\n**Files:**\n- Modify: `shared.txt`\n\n  - [x] **Step 1: do it**\n")
 	want("case 6: zero unchecked tasks prints nothing, exits 0", r.rc == 0 && r.out == "", r)
 
-	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, pdgShim)
+	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, psBoot, "plan-dispatch-groups")
 	want("case 7: no arguments exits 2", r.rc == 2, r)
 	want("pin: the usage line", r.err == "usage: flow-guard plan-dispatch-groups <path-to-tasks.md>\n", r)
 
@@ -92,5 +92,3 @@ func TestPlanDispatchGroups(t *testing.T) {
 		})
 	}
 }
-
-var pdgShim = psScripts + "/plan-dispatch-groups.sh"

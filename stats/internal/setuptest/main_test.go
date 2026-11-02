@@ -259,16 +259,14 @@ func makeFixtureRepo(d string, badRule bool) error {
 	if err != nil {
 		return fmt.Errorf("cannot copy setup.sh into the fixture repo: %w", err)
 	}
-	// setup.sh resolves {{lint-commands}} through scripts/project-get.sh, a flow-guard
-	// shim that loads scripts/lib/flow-guard.sh and builds from the stats/ tree beside
-	// it — resolved relative to the fixture's own layout, so the fixture carries the
-	// shim and its lib verbatim and links stats/ to the real tree.
+	// setup.sh resolves {{lint-commands}} through `scripts/flow-guard project-get`, the
+	// bootstrap that builds from the stats/ tree beside it — resolved relative to the
+	// fixture's own layout, so the fixture carries the bootstrap verbatim and links
+	// stats/ to the real tree.
 	for _, c := range []struct {
 		rel  string
 		mode os.FileMode
 	}{
-		{"scripts/project-get.sh", 0o755},
-		{"scripts/lib/flow-guard.sh", 0o644},
 		{"scripts/flow-guard", 0o755},
 	} {
 		b, err := os.ReadFile(filepath.Join(repoRoot, c.rel))

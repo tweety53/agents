@@ -31,7 +31,7 @@ any project.
 | `agents/` | Subagent definitions (`flow-low`, `flow-medium`, `flow-high`) |
 | `mods/` | Claude Code plugins. `flow-task-list` draws a band above the prompt in the task-list look: first a `⎿ <model-effort> <marker> main: <label> — <state>` line for the main agent (`in progress` while its turn runs, `waiting` between turns while a subagent runs), labelled with the top-level unit it is on — the latest open unit of its own `rules/be-brief.mdc` status lines naming a task of the running `/flow` change's plan, else the stage of the run's latest `flow stage begin`, else the latest open unit of its own status lines; then, nested under it as `  ⎿ <model-effort> <marker> Task <x>/<n> (<desc>) — <state> · <elapsed>`, one line per running subagent (`<desc>` alone, unnumbered, unless its description's `Task <x>/<n>` prefix names tasks of the running `/flow` change's plan; a group reads `Task 1+2+3/<n>`), its state `in progress`, `review`, `fix` or `re-review` read from its description; then one `◻ Task <x>/<n> (<title>) — pending` line per task of that plan neither ticked nor landed and named by no running line nor the `main` line, read from `<project>-worktrees/<change>/spectre/changes/<change>/tasks.md` beside the main checkout; a failed subagent's `✘ … — blocked` line among the running ones until the next main turn starts; and, only when no task is pending, the last two done subagent lines of the marked `/flow` change — with none marked, of the current main turn — above the running ones, in the room they leave (`✔` done and struck through, a group as its highest task, `Task 3/<n>`). Status lines are never lines of their own. Five lines at most under `main`. It adds the tracker key, `/flow` phase and the plan's done-over-total task count (`19/25`; a task is done when ticked or its `Task-Id:` commit is on the change branch since its base, `branch.<current>.flowBase` else `origin/HEAD`), then ` │ ` and a tally of the subagent rows, to the hint line under it |
 | `hooks/` | `enforce-agent-baseline.py` (denies a dispatch missing the baseline pointer, a pinned verify role on the wrong agent type or model, or a `flow-high` dispatch that is neither a no-progress escalation nor an operator-approved panel dispatch), `enforce-loop-dispatch.py` (admits a fix-loop dispatch only off its pairs row, and records it), `protect-main-checkout.py` (denies edits on a main checkout's default branch), `flow-active-change.py` (turns a plain problem report into a fix run, or reminds an unfinished `/flow-interactive` session that a plain message is its next request or its stop), `flow-stop-guard.py` (refuses a `/flow` turn end mid-phase) |
-| `scripts/` | The guards `/flow` runs, each with its `test-*.sh` harness |
+| `scripts/` | `flow-guard`, the bootstrap that builds and runs every guard as `flow-guard <name>` (each guard is Go in `stats/internal/guard/`, tested beside it) |
 | `stats/` | `flowd` — the PostgreSQL-backed service holding pipeline state and per-stage telemetry, with a web UI. See `stats/README.md` |
 | `spectre/` | This repository's own specs and changes |
 | `CLAUDE.md`, `AGENTS.md` | This repository's project instructions |
@@ -185,8 +185,8 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 ## Guardrails
 
 The pipeline does not rely on an agent saying it behaved. Checks at each step are scripts that
-return a verdict. Each one has a `test-*.sh` harness in `scripts/`, and
-`scripts/flow-guard run-guard-tests` runs every harness.
+return a verdict. Each one is Go in `stats/internal/guard/` with its Go test beside it, and
+`go test ./internal/guard/...` from `stats/` runs every one.
 
 **Always on, in every session (hooks)**
 - `enforce-agent-baseline.py`: blocks any subagent dispatch whose prompt lacks the

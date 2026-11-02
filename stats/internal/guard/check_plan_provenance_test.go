@@ -96,11 +96,11 @@ func ppSymlink(t *testing.T, target, link string) {
 	}
 }
 
-// ppShim runs scripts/check-plan-provenance.sh itself through real bash
+// ppShim runs `scripts/flow-guard check-plan-provenance` through real bash
 // with env as its whole environment.
 func ppShim(t *testing.T, env ...string) tcfRes {
 	t.Helper()
-	return ppShimAt(t, tcfScriptsDir(t)+"/check-plan-provenance.sh", "", env...)
+	return ppShimAt(t, guardShim(t, "check-plan-provenance"), "", env...)
 }
 
 // ppShimAt runs the shim at script from working directory dir ("" is the
@@ -2003,7 +2003,7 @@ func ppCasesScopeToEnd() []ppCase {
 // ppCasesShim is the shim's own contract past the harness: with
 // CHECK_PLAN_PROVENANCE_ROOT unset it scans the checkout it sits in, from
 // any working directory — the default the Python guard took from its own
-// file's location. A copy of the shim and lib/flow-guard.sh in a temporary
+// file's location. A copy of scripts/flow-guard in a temporary
 // tree, with stats/ linked to this checkout's, is a checkout whose planning
 // artifacts the case controls.
 func ppCasesShim() []ppCase {
@@ -2011,22 +2011,22 @@ func ppCasesShim() []ppCase {
 		{"shim default root", func(t *testing.T) {
 			tree := t.TempDir()
 			scripts := tcfScriptsDir(t)
-			for _, rel := range []string{"check-plan-provenance.sh", "lib/flow-guard.sh"} {
-				body, err := os.ReadFile(filepath.Join(scripts, rel))
-				if err != nil {
-					t.Fatal(err)
-				}
-				ppWrite(t, tree, "scripts/"+rel, string(body))
+			body, err := os.ReadFile(filepath.Join(scripts, "flow-guard"))
+			if err != nil {
+				t.Fatal(err)
 			}
+			writeExec(t, filepath.Join(tree, "scripts/flow-guard"), string(body))
+			run := filepath.Join(t.TempDir(), "run")
+			writeFile(t, run, "exec '"+filepath.Join(tree, "scripts/flow-guard")+"' check-plan-provenance\n")
 			stats, err := filepath.Abs("../..")
 			if err != nil {
 				t.Fatal(err)
 			}
 			ppSymlink(t, stats, filepath.Join(tree, "stats"))
 			ppWrite(t, tree, ppDemo+"tasks.md", "Baseline: 197 tests\n")
-			r := ppShimAt(t, filepath.Join(tree, "scripts/check-plan-provenance.sh"), t.TempDir(),
+			r := ppShimAt(t, run, t.TempDir(),
 				"PATH="+os.Getenv("PATH"), "HOME="+os.Getenv("HOME"), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
-			ok(t, "unset CHECK_PLAN_PROVENANCE_ROOT: the shim scans its own checkout, from any working directory",
+			ok(t, "unset CHECK_PLAN_PROVENANCE_ROOT: the bootstrap scans its own checkout, from any working directory",
 				r.rc == 1 && has(r.out, "spectre/changes/demo-change/tasks.md:1: "+ppNoProv), r)
 		}},
 		{"root override unset or empty", func(t *testing.T) {

@@ -12,6 +12,104 @@ import (
 	"time"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/remove-change-worktrees.sh shim (KAN-1058).
+//
+// flow-guard remove-change-worktrees — run /flow run 2's Worktree cleanup
+// (skills/flow-contracts/finish-contract-run2.md) for one repository: every
+// check on every worktree before anything is removed, then the removals, the
+// local branch and the remote branch.
+//
+// Usage: flow-guard remove-change-worktrees <repo> <name> <merge-base|-> [--proceed]
+//
+// The worktrees are the ones `git -C <repo> worktree list --porcelain` lists on
+// refs/heads/spectre/<name>, plus every detached wave-group copy of one
+// (`<worktree>-wave-group-<g>`). A listed worktree whose directory is gone is
+// already removed: success, its registration pruned. <merge-base> scopes the
+// wave-group copies' disclosed log; `-` discloses their status alone.
+//
+// First the save gate: an apply worktree holding a file `flow change save`
+// keeps — the plan, spectre/changes/<name>/tasks.md or
+// .superpowers/sdd/<name>/tasks.md, or .superpowers/sdd/<name>/self-review-context.md,
+// each gitignored and so the only copy — is refused, exit 1, with
+// "flow change save <name> has not run" when flowd holds no saved copy of that
+// file for that worktree's project (`flow change file`); flowd unreachable is
+// exit 2. With the gate passed, check 4 counts spectre/changes/ and
+// .superpowers/ as regeneratable.
+//
+// In order, never removing anything before every check has passed:
+//   checks 1-4 on each apply worktree — no uncommitted tracked change; no
+//     untracked, unignored file; no commit that exists only here (the base
+//     resolved fresh for THIS worktree, in-process as flow-guard resolve-base-branch
+//     does); and the ignored files `--force` will destroy, split by path into
+//     regeneratable (counted) and unclassified (listed). Regeneratable takes
+//     in a `.DS_Store` anywhere and, in a worktree whose root holds a
+//     `playwright.config.*`, a `.png` at that root — a screenshot spec's
+//     output; a `.png` in any subdirectory stays unclassified.
+//     An unclassified entry at the worktree root that is a regular file
+//     with a distinct regular file at the same path in the repository's
+//     main checkout (the first entry of its worktree list) is preserved —
+//     a per-worktree copy of a main-checkout local config, identical or
+//     not — and so is a symlink there resolving to that regular file
+//     (a link the project's dev tooling made; removal drops the link
+//     alone); an entry with no such counterpart, or below the root,
+//     stays unpreserved.
+//   the disclosure stop — without --proceed, an unpreserved unclassified
+//     entry or any wave-group copy stops here, before check 5 runs anything;
+//     preserved entries alone are shown and the removal proceeds.
+//   checks 5-6 on each copy, then each apply worktree — the fenced command
+//     lines of <repo>/.flow/project.md's `## stop` body (the key's shape is
+//     project-configuration.md's), run as one script with the
+//     worktree as its directory under `bash -o pipefail -c`, bounded at 60
+//     seconds (own process group, SIGTERM, a 2-second grace, SIGKILL); a file,
+//     key or fence that is absent means no command is declared, the check is
+//     skipped, and nothing outside the fence is ever run. Then the sibling
+//     flow-guard check-worktree-processes.
+//   `worktree remove --force` for each copy, then each apply worktree;
+//   `worktree prune`; `branch -d spectre/<name>` (never -D) when it exists,
+//     its upstream first set to origin/<base> (the base check 3's
+//     resolve-base-branch printed; with every worktree already gone, the
+//     base recorded as branch.spectre/<name>.flowBase, else origin/HEAD's)
+//     so -d judges against where the change landed, not a pruned
+//     origin/spectre/<name> or the not-yet-refreshed main checkout; a
+//     refused -d puts the branch's previous upstream back, or unsets it
+//     when it had none;
+//   and `push origin --delete spectre/<name>`, not gated on the local steps —
+//   a "remote ref does not exist" refusal is already gone, and prunes the
+//   stale tracking ref with `fetch --prune`.
+//
+// Prints to stdout, one line each:
+//   REFUSED: <worktree> — check <n>: <reason>   a check failed (gate)
+//   HELD: <worktree> — <pid> <cwd>[; ...]        check 6 found a live process
+//   UNCLASSIFIED: <worktree> — <path>            check 4, one per entry
+//   UNCLASSIFIED: <worktree> — <path> — preserved: identical in <main-checkout>
+//   UNCLASSIFIED: <worktree> — <path> — preserved: differs from <main-checkout>
+//   UNCLASSIFIED: <worktree> — <path> — preserved: linked to <main-checkout>
+//   REGENERATABLE: <worktree> — <count>          check 4
+//   SKIPPED: check 5 — ## stop declares no fenced command   a declared `## stop`
+//     whose body carries no fence; check 5 is skipped, never silently
+//   DISCLOSE: <copy> — status: <line> / commit: <line>, and a final
+//   DISCLOSE: stopped before removal — …          the disclosure stop
+//   REMOVED: <worktree> | <worktree> — already gone | spectre/<name>
+//   REFUSED: <worktree> — git worktree remove: <git's message>
+//   REFUSED: spectre/<name> — git branch -d: <git's message>
+//   REMOTE-DELETED: origin/spectre/<name>
+//   REMOTE-GONE: origin/spectre/<name>
+//   REMOTE-REFUSED: origin/spectre/<name> — <git's message>
+//
+// Exit 0 every check passed and every removal succeeded (whatever the REMOTE-*
+// line says — it is reported, and flow-guard check-cleanup-complete verifies it);
+// 1 the save gate or a check failed — nothing removed — or a removal failed — its entry stays
+// in the state file's `worktrees`; 2 cannot answer, with NOTHING on stdout: a
+// usage error, a name that is not a plain change name, a <repo> that is not a
+// git repository, its worktree list unreadable, or flowd unreachable at the
+// save gate; 3 the disclosure stop —
+// nothing removed, nothing run: relay, judge each unpreserved entry, ask the
+// one ask, then call again with --proceed.
+//
+// Run it from outside every worktree it removes: check 6 counts the caller's
+// own shell.
+
 // removeChangeWorktrees is scripts/remove-change-worktrees.sh: that script's
 // header is the contract. It runs Worktree cleanup
 // (skills/flow-contracts/finish-contract-run2.md) for one repository: the

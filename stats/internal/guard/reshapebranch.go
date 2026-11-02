@@ -7,6 +7,37 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/reshape-branch.sh shim (KAN-1058).
+//
+// flow-guard reshape-branch — integrate's reshape: fold every commit a change branch
+// made since <merge-base> — task, fixup and planning commits alike — back
+// into the index with `git reset --soft <merge-base>`, for flow-guard commit-split to
+// commit on top as the implementation commit and the one planning commit.
+//
+// Usage: flow-guard reshape-branch <worktree> <name> <merge-base>
+//
+// skills/flow-contracts/finish-contract-run1.md is canonical for the reshape;
+// this script is what runs it. Only HEAD moves: the index and working tree
+// keep everything they held, operator edits at the human gate included.
+//
+// A reset rewrites the change's branch, so it runs the in-process
+// change-worktree location check first and stops on its verdict, printing
+// its own lines.
+//
+// A merge that brought in commits <merge-base> does not reach stops the
+// reshape before HEAD moves (kan-941: a develop merge folded develop's
+// commits into the change commit): the pipeline never merges into a change
+// branch, so every commit of <merge-base>..HEAD off the first-parent chain
+// is another branch's. Prints `RESHAPE-FOREIGN-MERGE: <worktree> — <n>
+// commit(s) …`, one `  <sha12> <subject>` line per such commit and the
+// remedy line, and exits 1.
+//
+// Prints `RESHAPED: <worktree> — reset to <short sha>` and exits 0. Exits 2
+// with a reason on stderr on bad arguments or a base that does not resolve,
+// the guard's own code on a guard refusal, and git's own code on a git
+// failure.
+
 // reshapeBranch is scripts/reshape-branch.sh: that script's header is the
 // contract — `reset --soft <merge-base>` behind
 // checkChangeWorktreeLocation (in-process). Every git step's stderr passes
