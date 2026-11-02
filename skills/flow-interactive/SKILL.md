@@ -195,7 +195,7 @@ flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request
 flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed [-reason '<the defect, one line>'] <name>
 ```
 
-**8. End.** One of:
+**8. End.** Steps 1–7 are not optional and never reported as left undone: a request whose reinstall, UI check or record is outstanding is not ended — run them first, and a report never carries a "Not done" for a step this section requires. One of:
 
 ```bash
 flow record request end -change <name> -n <n> -outcome landed -commit <last landed sha> -base <base sha>
