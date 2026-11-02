@@ -252,7 +252,9 @@ export function WeeklyCosts(_props: ViewProps) {
   const modelState = useStatsView<WeeklyModelEffortPoint[]>("weekly-model-effort-costs", params, byModel);
   const ok = (s: StatsViewState<unknown>) => s.status === "ready" && s.data.recorded && !s.data.unmeasured;
   const pending: StatsViewState<unknown> | null = !ok(state) ? state : byModel && !ok(modelState) ? modelState : null;
-  const projects = state.status === "ready" ? (state.data.projects ?? []) : [];
+  const listed = state.status === "ready" ? (state.data.projects ?? []).map((p) => p.projectKey) : [];
+  // The selected project keeps its chip in a window where it had no spend.
+  const projects = f.project && !listed.includes(f.project) ? [...listed, f.project] : listed;
   const title = `Spend per week by ${f.split.toLowerCase()}`;
 
   const weeks = f.weeks;
@@ -300,7 +302,7 @@ export function WeeklyCosts(_props: ViewProps) {
           <Chip on={f.project === null} onClick={() => setF({ ...f, project: null })}>
             All
           </Chip>
-          {projects.map(({ projectKey }) => (
+          {projects.map((projectKey) => (
             <Chip key={projectKey} on={f.project === projectKey} onClick={() => setF({ ...f, project: projectKey })} title={projectKey}>
               {projectLabel(projectKey)}
             </Chip>

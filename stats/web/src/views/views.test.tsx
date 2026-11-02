@@ -1324,6 +1324,93 @@ describe("weekly costs", () => {
     expect(await screen.findByTestId("not-recorded")).toBeInTheDocument();
     expect(screen.queryAllByTestId("wc-segment")).toHaveLength(0);
   });
+
+  // Serve `rows` / `modelRows` instead of the shared weekly fixtures.
+  const serveWeekly = (rows: unknown[], modelRows: unknown[] = WEEKLY_MODEL_ROWS, projects: unknown[] = WEEKLY_PROJECTS) =>
+    fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) =>
+      Promise.resolve(
+        view === "weekly-costs"
+          ? { ...envelope("weekly-costs", rows), projects }
+          : view === "weekly-model-effort-costs"
+            ? envelope("weekly-model-effort-costs", modelRows)
+            : fixtures[view],
+      ),
+    );
+
+  it("weekly costs Model · effort keeps the six costliest pairs whatever the row order and sums only the rest into Other models", async () => {
+    // The cheapest pair comes first in row order; the sixth costliest (opus-5 · medium, $6) must be drawn once.
+    serveWeekly(WEEKLY_ROWS, [
+      me("2026-06-10", "claude-sonnet-5", "low", 1),
+      me("2026-06-10", "claude-opus-5-5", "session", 30),
+      me("2026-06-10", "claude-opus-5-5", "high", 20),
+      me("2026-06-10", "claude-opus-5-5", "medium", 15),
+      me("2026-06-10", "claude-sonnet-5-5", "medium", 12),
+      me("2026-06-10", "claude-opus-5-5", "low", 10),
+      me("2026-06-10", "claude-opus-5", "medium", 6),
+      me("2026-06-10", "claude-sonnet-5", "high", 2),
+    ]);
+    const user = userEvent.setup();
+    await renderWeekly();
+    await user.click(chip("Split by", "Model · effort"));
+    await screen.findByText("Spend per week by model · effort");
+    const names = ["opus-5-5 · session", "opus-5-5 · high", "opus-5-5 · medium", "sonnet-5-5 · medium", "opus-5-5 · low", "opus-5 · medium", "Other models"];
+    expect(legend()).toEqual(names);
+    const week = segments("2026-06-10");
+    expect(week.map((s) => s.getAttribute("data-series"))).toEqual(names);
+    expect(week.at(-1)).toHaveAccessibleName("Other models, week of 2026-06-10: $3.00");
+    expect(screen.getAllByTestId("wc-total").map((t) => t.textContent)).toEqual(["$96.00"]);
+    // Series colours run --series-1.. in split order.
+    expect(week.map((s) => s.getAttribute("fill"))).toEqual(names.map((_, i) => `var(--series-${i + 1})`));
+    // The Y axis keeps headroom above the tallest week: its top tick is at least 1.08 times that week's total.
+    const ticks = [...document.querySelectorAll(".wc-plot .grid text")].map((t) => Number(t.textContent!.replace(/[$,]/g, "")));
+    expect(ticks.at(-1)!).toBeGreaterThanOrEqual(96 * 1.08);
+  });
+
+  it("weekly costs Biggest mover names nothing when every series cost the same in both compared weeks", async () => {
+    const same = { planningUsd: 10, implementationUsd: 40, reviewUsd: 20, otherUsd: 5 };
+    serveWeekly([
+      { ...noPhase, week: "2026-06-03", overallUsd: 75, ...same },
+      { ...noPhase, week: "2026-06-10", overallUsd: 75, ...same },
+    ]);
+    await renderWeekly();
+    const mover = tileOf("Biggest mover");
+    expect(mover.getByText("—")).toHaveClass("lb-val");
+    expect(mover.queryByText("Planning")).toBeNull();
+  });
+
+  it("weekly costs reads a sub-cent float difference as no change", async () => {
+    serveWeekly([
+      { ...noPhase, week: "2026-06-03", overallUsd: 0.3, planningUsd: 0.3 },
+      { ...noPhase, week: "2026-06-10", overallUsd: 0.1 + 0.2, planningUsd: 0.1 + 0.2 },
+    ]);
+    await renderWeekly();
+    const row = within(screen.getByRole("table")).getAllByRole("row")[1];
+    expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["Planning", "$0.30", "$0.30", "—", "100%"]);
+  });
+
+  it("weekly costs tooltip opens leftwards over the last two weeks and rightwards before them", async () => {
+    const user = userEvent.setup();
+    await renderWeekly();
+    const tipLeft = () => parseFloat(screen.getByRole("tooltip").style.left);
+    const x = (s: HTMLElement) => parseFloat(s.getAttribute("x")!);
+    await user.hover(segments("2026-06-03")[0]);
+    expect(tipLeft()).toBeGreaterThan(x(segments("2026-06-03")[0]));
+    await user.hover(segments("2026-06-10")[0]);
+    expect(tipLeft()).toBeLessThan(x(segments("2026-06-10")[0]));
+  });
+
+  it("weekly costs keeps the selected project's chip after a Period change to a window where it had no spend", async () => {
+    const user = userEvent.setup();
+    await renderWeekly();
+    await user.click(chip("Project", "gymie"));
+    await waitFor(() => expect(wcCalls("weekly-costs").at(-1)!.project).toBe("gymie-89abcdef"));
+    serveWeekly(WEEKLY_ROWS, WEEKLY_MODEL_ROWS, [{ projectKey: "agents-0123abcd", totalCostUsd: 80 }]);
+    await user.click(chip("Period", "26w"));
+    await waitFor(() => expect(wcCalls("weekly-costs").at(-1)!.from).toEqual(new Date("2025-12-24T00:00:00Z")));
+    await waitFor(() => expect(group("Project").getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "agents", "gymie"]));
+    expect(pressedIn("Project")).toEqual(["gymie"]);
+    expect(wcCalls("weekly-costs").at(-1)!.project).toBe("gymie-89abcdef");
+  });
 });
 
 describe("trend", () => {
