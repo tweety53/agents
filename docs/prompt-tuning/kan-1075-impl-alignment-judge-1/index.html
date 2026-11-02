@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1075-impl-alignment-judge-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1075-impl-alignment-judge-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A test blocks on a child process, a pipe, a channel or a lock with no deadline of its own, so a regression makes it hang until the runner&#39;s global timeout instead of failing at the wait that broke.</p>
+<h2>Finding</h2>
+<pre>**Severity:** Minor
+**Slot:** mutation (round 2)
+**Location:** cmd/flow-eval/main_test.go:480
+
+dropping cancel() is caught only by a hang: the test has no read deadline and would fail at go test&#39;s 10m timeout
+</pre>
+<pre><code>diff --git a/cmd/flow-eval/main_test.go b/cmd/flow-eval/main_test.go
+index 289645a..df0f541 100644
+--- a/cmd/flow-eval/main_test.go
+&#43;&#43;&#43; b/cmd/flow-eval/main_test.go
+@@ -1,6 &#43;1,7 @@
+ package main
+ 
+ import (
+&#43;	&#34;bufio&#34;
+ 	&#34;bytes&#34;
+ 	json &#34;encoding/json/v2&#34;
+ 	&#34;errors&#34;
+@@ -467,6 &#43;468,54 @@ func TestSIGTERMCancelsARun(t *testing.T) {
+ 	}
+ }
+ 
+&#43;// A second stop signal kills a run whose first one is still being honoured — a run judging its held
+&#43;// cases can take minutes to wind down, and an operator who presses Ctrl&#43;C again means it.
+&#43;func TestSecondInterruptKillsARun(t *testing.T) {
+&#43;	if os.Getenv(&#34;FLOW_EVAL_SIGNAL_CHILD&#34;) == &#34;1&#34; {
+&#43;		ctx, stop := stopContext()
+&#43;		defer stop()
+&#43;		fmt.Println(&#34;ready&#34;)
+&#43;		&lt;-ctx.Done()
+&#43;		fmt.Println(&#34;cancelled&#34;)
+&#43;		select {}
+&#43;	}
+&#43;	cmd := exec.Command(os.Args[0], &#34;-test.run=^TestSecondInterruptKillsARun$&#34;)
+&#43;	cmd.Env = append(os.Environ(), &#34;FLOW_EVAL_SIGNAL_CHILD=1&#34;)
+&#43;	out, err := cmd.StdoutPipe()
+&#43;	if err != nil {
+&#43;		t.Fatal(err)
+&#43;	}
+&#43;	if err := cmd.Start(); err != nil {
+&#43;		t.Fatal(err)
+&#43;	}
+&#43;	t.Cleanup(func() { _ = cmd.Process.Kill() })
+&#43;	lines := bufio.NewScanner(out)
+&#43;	expect := func(want string) {
+&#43;		t.Helper()
+&#43;		if !lines.Scan() || lines.Text() != want {
+&#43;			t.Fatalf(&#34;child printed %q (err %v), want %q&#34;, lines.Text(), lines.Err(), want)
+&#43;		}
+&#43;	}
+&#43;	expect(&#34;ready&#34;)
+&#43;	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+&#43;		t.Fatal(err)
+&#43;	}
+&#43;	expect(&#34;cancelled&#34;)
+&#43;	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+&#43;		t.Fatal(err)
+&#43;	}
+&#43;	done := make(chan error, 1)
+&#43;	go func() { done &lt;- cmd.Wait() }()
+&#43;	select {
+&#43;	case &lt;-done:
+&#43;	case &lt;-time.After(5 * time.Second):
+&#43;		t.Fatal(&#34;second SIGTERM did not kill the child&#34;)
+&#43;	}
+&#43;	if st := cmd.ProcessState; st.Success() || !st.Sys().(syscall.WaitStatus).Signaled() {
+&#43;		t.Errorf(&#34;child exited %v; want killed by signal&#34;, st)
+&#43;	}
+&#43;}
+&#43;
+ // regrade exits 2, naming why, before any judge call: without a run id, without the judge&#39;s
+ // credential, and on a run that does not exist.
+ func TestRegradeExitCodes(t *testing.T) {
+</code></pre>
+<h2>Fix</h2>
+<pre><code>diff --git a/cmd/flow-eval/main_test.go b/cmd/flow-eval/main_test.go
+index df0f541..bf08ae6 100644
+--- a/cmd/flow-eval/main_test.go
+&#43;&#43;&#43; b/cmd/flow-eval/main_test.go
+@@ -3,12 &#43;3,12 @@ package main
+ import (
+ 	&#34;bufio&#34;
+ 	&#34;bytes&#34;
+&#43;	&#34;context&#34;
+ 	json &#34;encoding/json/v2&#34;
+ 	&#34;errors&#34;
+ 	&#34;fmt&#34;
+ 	&#34;os&#34;
+ 	&#34;os/exec&#34;
+-	&#34;os/signal&#34;
+ 	&#34;path/filepath&#34;
+ 	&#34;regexp&#34;
+ 	&#34;slices&#34;
+@@ -456,7 &#43;456,7 @@ func TestBaselineSetWarnsOnAFailedRepaint(t *testing.T) {
+ // A SIGTERM — a CI cancel, `timeout`, `kill` — cancels a run like Ctrl&#43;C does, so its deferred
+ // teardown removes the trials&#39; containers instead of the process dying with them running.
+ func TestSIGTERMCancelsARun(t *testing.T) {
+-	ctx, stop := signal.NotifyContext(t.Context(), stopSignals...)
+&#43;	ctx, stop := stopContext()
+ 	defer stop()
+ 	if err := syscall.Kill(os.Getpid(), syscall.SIGTERM); err != nil {
+ 		t.Fatal(err)
+@@ -479,7 &#43;479,9 @@ func TestSecondInterruptKillsARun(t *testing.T) {
+ 		fmt.Println(&#34;cancelled&#34;)
+ 		select {}
+ 	}
+-	cmd := exec.Command(os.Args[0], &#34;-test.run=^TestSecondInterruptKillsARun$&#34;)
+&#43;	killCtx, killCancel := context.WithTimeout(t.Context(), 30*time.Second)
+&#43;	defer killCancel()
+&#43;	cmd := exec.CommandContext(killCtx, os.Args[0], &#34;-test.run=^TestSecondInterruptKillsARun$&#34;)
+ 	cmd.Env = append(os.Environ(), &#34;FLOW_EVAL_SIGNAL_CHILD=1&#34;)
+ 	out, err := cmd.StdoutPipe()
+ 	if err != nil {
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a test&#39;s blocking wait (reading a child&#39;s output, receiving from a channel, waiting on a process or lock) carries no deadline of its own, so a regression turns the test into a hang that only the runner&#39;s global timeout ends, minutes later and with no message naming the wait. 2. The Testing principles list names a sleep used for synchronisation and order- or clock-dependent results, and the robustness principle names an external call with no timeout, but nothing names a test&#39;s own unbounded wait; the quoted before paragraph is the whole violation list for tests. 3. It generalises to every test of concurrency, signals, subprocesses, servers, queues and streams in any language (Go&#39;s go test 10m default, JUnit with no timeout, Jest overrides), and here the mutation reviewer had to find it because the implementer bounded the final Wait with 5s but left the two output reads unbounded. 4. It states a principle (every blocking wait in a test is bounded, so a failure fails), not a special case of signal tests.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>383506b48e777f7e5e4d7a1569b57456fac69f36</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>**Violation looks like:** a test asserting that a mock was called rather than what
+changed, a sleep used for synchronisation, a test whose result depends on execution order
+or the wall clock, an assertion weakened rather than a bug fixed, a test deleted or
+`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion
+on a measured or reported bound (Compose&#39;s semantics bounds, coerced to the parent&#39;s) where
+the property under test is what is drawn — an overflow is visible only in the rendered
+pixels, so the assertion passes on the unfixed code.</pre></div>
+<div><h3>After</h3><pre>**Violation looks like:** a test asserting that a mock was called rather than what
+changed, a sleep used for synchronisation, a test whose result depends on execution order
+or the wall clock, an assertion weakened rather than a bug fixed, a test deleted or
+`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion
+on a measured or reported bound (Compose&#39;s semantics bounds, coerced to the parent&#39;s) where
+the property under test is what is drawn — an overflow is visible only in the rendered
+pixels, so the assertion passes on the unfixed code.
+A test that waits on a child process, a pipe, a channel or a lock bounds every such wait with
+a deadline of its own, so a regression fails at the wait that broke instead of hanging until
+the runner&#39;s global timeout.</pre></div>
+</div>
+</body>
+</html>

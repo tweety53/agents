@@ -1,0 +1,22 @@
+{
+  "id": "kan-1075-impl-alignment-judge-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "flow-eval",
+    "change": "kan-1075-impl-alignment-judge",
+    "jira": "KAN-1075",
+    "repo": "flow-eval",
+    "fix_sha": "1d81e16",
+    "finding_ref": "F11",
+    "round": 2,
+    "slot": "mutation",
+    "severity": "Minor"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "383506b48e777f7e5e4d7a1569b57456fac69f36",
+  "defect_class": "A test blocks on a child process, a pipe, a channel or a lock with no deadline of its own, so a regression makes it hang until the runner's global timeout instead of failing at the wait that broke.",
+  "why_picked": "1. Defect class: a test's blocking wait (reading a child's output, receiving from a channel, waiting on a process or lock) carries no deadline of its own, so a regression turns the test into a hang that only the runner's global timeout ends, minutes later and with no message naming the wait. 2. The Testing principles list names a sleep used for synchronisation and order- or clock-dependent results, and the robustness principle names an external call with no timeout, but nothing names a test's own unbounded wait; the quoted before paragraph is the whole violation list for tests. 3. It generalises to every test of concurrency, signals, subprocesses, servers, queues and streams in any language (Go's go test 10m default, JUnit with no timeout, Jest overrides), and here the mutation reviewer had to find it because the implementer bounded the final Wait with 5s but left the two output reads unbounded. 4. It states a principle (every blocking wait in a test is bounded, so a failure fails), not a special case of signal tests.",
+  "before": "**Violation looks like:** a test asserting that a mock was called rather than what\nchanged, a sleep used for synchronisation, a test whose result depends on execution order\nor the wall clock, an assertion weakened rather than a bug fixed, a test deleted or\n`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion\non a measured or reported bound (Compose's semantics bounds, coerced to the parent's) where\nthe property under test is what is drawn — an overflow is visible only in the rendered\npixels, so the assertion passes on the unfixed code.",
+  "after": "**Violation looks like:** a test asserting that a mock was called rather than what\nchanged, a sleep used for synchronisation, a test whose result depends on execution order\nor the wall clock, an assertion weakened rather than a bug fixed, a test deleted or\n`@Ignore`d in the same diff that changed the behavior it covered, or a geometry assertion\non a measured or reported bound (Compose's semantics bounds, coerced to the parent's) where\nthe property under test is what is drawn — an overflow is visible only in the rendered\npixels, so the assertion passes on the unfixed code.\nA test that waits on a child process, a pipe, a channel or a lock bounds every such wait with\na deadline of its own, so a regression fails at the wait that broke instead of hanging until\nthe runner's global timeout."
+}
