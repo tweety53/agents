@@ -342,6 +342,11 @@ run-detail views, per `stats/web/tests/visual/baseline.spec.ts`, against the dis
 stack on `http://127.0.0.1:4174` — `## run`'s "This is the stack `flow.visual-verify` … starts and
 stops" paragraph is the answer to where that stage gets its stack from, and is not restated here. `ui paths` also names `skills/flow-contracts/model-policy.md`, which `stats/Makefile`'s `policy-copy` embeds into flowd for the Experiments view (kan-1052 self-review, F1).
 
+**The `--app` argument is `<worktree>:stats/web=http://127.0.0.1:4174`.** `flow-guard
+visual-verify-pass prepare` and `flow-guard check-visual-preflight` take the app root
+`stats/web`, never `stats`: Go sources under `stats/` name the `flowd` default
+`http://127.0.0.1:4173`, so check 2 fails on `stats` by construction (kan-1053 self-review, F3).
+
 **No `regression checkout` row** — this repository commits its own baselines to the change's own
 branch, per `design.md`'s `agents-has-no-regression-checkout` decision. **No `push to default
 branch` row** either, so nothing declared here can push anywhere.

@@ -275,6 +275,8 @@ runs and its closing lines. `<key>` is the stage's first dispatch key — `visua
 this run's resolved set, the same set **Verify** above resolved. `--merge-base` passes each worktree's
 own merge base from this run's working notes. `--app` passes each app the stage may probe, the
 `<app-root>=<resolved-url>` argument `flow-guard check-visual-preflight` takes, prefixed with its worktree.
+A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<resolved-url>"`
+— zsh reads `$W:s…` as a history modifier (kan-1053 self-review, F3).
 
 1. **Resolve the section — with the guard, not by eye.** `prepare` pipes each worktree's diff into
    `flow-guard check-visual-trigger <worktree>`; exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr
