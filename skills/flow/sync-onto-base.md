@@ -62,7 +62,10 @@ and `flow-guard check-base-moved` performs no fetch of its own.
   stale baseline on the base: re-baselined per **the sweep**
   (`skills/flow-contracts/known-bugs.md`), never asked.
 
-  **Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary
+  A modify/delete conflict on a file this change deleted and carries a replacement for is resolved
+  without asking: the upstream edit's intent is carried into the replacement, or shown to need
+  nothing there, the file stays deleted, and the handoff names it (kan-1058 self-review, F3).
+  **Stop and ask** only where no honest resolution exists: any other modify/delete conflict, a binary
   file no `RECAPTURE:` line names, or an upstream commit that removed something this change
   depends on. In that case leave
   the worktree mid-rebase exactly as `git rebase` left it, report the file(s) and why, and hand off
