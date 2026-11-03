@@ -368,6 +368,9 @@ func (fakeStore) StageLeaderboard(context.Context, store.Period, *string, *strin
 	return nil, nil
 }
 
+func (fakeStore) ReviewerProjects(context.Context, store.Period) ([]store.ProjectDispatches, error) {
+	return nil, nil
+}
 func (fakeStore) StageLeaderboardProjects(context.Context, store.Period) ([]store.ProjectSpend, error) {
 	return nil, nil
 }

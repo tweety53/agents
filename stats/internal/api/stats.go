@@ -67,6 +67,8 @@ type StatsStore interface {
 	// reviewers", task 16): one row per review-panel slot's dispatch and
 	// finding record within period.
 	Reviewers(ctx context.Context, period store.Period, project, model *string) ([]store.ReviewerRow, error)
+	// ReviewerProjects backs the reviewers response's projects (decision reviewers-projects-dispatch-count).
+	ReviewerProjects(ctx context.Context, period store.Period) ([]store.ProjectDispatches, error)
 	// Decisions backs the "decisions" view (design.md's "Stats views ›
 	// decisions", task 17): one row per recorded planner decision joined to
 	// its own run's totals. It takes no model filter -- a decision spans
@@ -166,7 +168,8 @@ func acceptedViewNames() string {
 var statsQueryParams = map[string]bool{
 	"from": true, "to": true, "project": true, "change": true, "model": true, "class": true,
 	// "projects=1" asks stage-leaderboard or weekly-costs for its
-	// per-project spend; each view sends it on its current-window call only.
+	// per-project spend, and reviewers for its per-project dispatch count;
+	// each view sends it on its current-window call only.
 	"projects": true,
 }
 
@@ -219,6 +222,14 @@ type statsResponse struct {
 	ExcludedNoModel    *int     `json:"excludedNoModel,omitempty"`
 	Rows               any      `json:"rows"`
 	Projects           any      `json:"projects,omitempty"`
+}
+
+// projectDispatchesDTO is one entry of the reviewers response's projects:
+// a project's reviewer dispatch count in the window, whatever project the
+// rows narrow to.
+type projectDispatchesDTO struct {
+	ProjectKey string `json:"projectKey"`
+	Dispatches int    `json:"dispatches"`
 }
 
 // projectSpendDTO is one entry of the stage-leaderboard or weekly-costs
@@ -542,6 +553,19 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		projects := make([]projectSpendDTO, len(spends))
 		for i, p := range spends {
 			projects[i] = projectSpendDTO{ProjectKey: p.ProjectKey, TotalCostUSD: p.TotalCostUSD}
+		}
+		resp.Projects = projects
+	}
+	if name == viewReviewers && firstValue(values, "projects") == "1" {
+		counts, err := h.store.ReviewerProjects(r.Context(), period)
+		if err != nil {
+			status, msg := mapStoreError(h.logger, "reviewer projects", err)
+			writeError(w, status, msg)
+			return
+		}
+		projects := make([]projectDispatchesDTO, len(counts))
+		for i, p := range counts {
+			projects[i] = projectDispatchesDTO{ProjectKey: p.ProjectKey, Dispatches: p.Dispatches}
 		}
 		resp.Projects = projects
 	}
@@ -1137,6 +1161,10 @@ type reviewerRowDTO struct {
 	Critical   int `json:"critical"`
 	Important  int `json:"important"`
 	Minor      int `json:"minor"`
+
+	CostUSD          float64 `json:"costUsd"`
+	PricedDispatches int     `json:"pricedDispatches"`
+	Withdrawn        int     `json:"withdrawn"`
 }
 
 func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
@@ -1146,6 +1174,7 @@ func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
 			Slot: r.Slot, Experimental: r.Experimental, Description: r.Description,
 			Dispatches: r.Dispatches, Changes: r.Changes,
 			Critical: r.Critical, Important: r.Important, Minor: r.Minor,
+			CostUSD: r.CostUSD, PricedDispatches: r.PricedDispatches, Withdrawn: r.Withdrawn,
 		}
 	}
 	return out
