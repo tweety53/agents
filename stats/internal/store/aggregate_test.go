@@ -1638,12 +1638,54 @@ func TestReviewersPricesFromStageRunBuckets(t *testing.T) {
 	}
 }
 
+func TestReviewersPricesSharedAgentIDOnce(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rv-shared-agent-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	recordReviewerRoster(t, st, projectKey, "kan-1", "primary", "principles")
+	started := time.Date(2031, 4, 10, 9, 0, 0, 0, time.UTC)
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.review-panel")
+	in.StartedAt = started
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{"dispatches":{"ag-1":{"cost_usd":0.6},"ag-2":{"cost_usd":0.4}}}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	// ag-1 is recorded under two dispatch rows; ag-2 is one bundled dispatch.
+	for _, d := range []struct{ slot, agent string }{
+		{"primary", "ag-1"}, {"principles", "ag-1"}, {"primary+principles", "ag-2"},
+	} {
+		disp := baseDispatch("reviewer", "sonnet")
+		disp.Slot, disp.AgentID, disp.StartedAt = d.slot, d.agent, started
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", disp); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", d.slot, err)
+		}
+	}
+	rows, err := st.Reviewers(ctx, store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %+v, want primary and principles", rows)
+	}
+	for _, r := range rows {
+		if math.Abs(r.CostUSD-0.5) > 1e-9 || r.PricedDispatches != 2 {
+			t.Errorf("%s cost = %v priced = %d, want 0.5 (0.3 of ag-1 + 0.2 of ag-2) over 2", r.Slot, r.CostUSD, r.PricedDispatches)
+		}
+	}
+}
+
 func TestReviewerProjectsCountsScopedDispatches(t *testing.T) {
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()
-	projA := fmt.Sprintf("proj-rvp-a-%d", suffix)
-	projB := fmt.Sprintf("proj-rvp-b-%d", suffix)
+	// projA has the higher count but the later key, so only a count-first
+	// order puts it first.
+	projA := fmt.Sprintf("proj-rvp-z-%d", suffix)
+	projB := fmt.Sprintf("proj-rvp-a-%d", suffix)
 	seedChange(t, st, projA, "kan-1")
 	seedChange(t, st, projB, "kan-1")
 	recordReviewerRoster(t, st, projA, "kan-1", "primary", "principles")

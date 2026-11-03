@@ -966,40 +966,23 @@ type ProjectDispatches struct {
 // so a project's dispatch count covers exactly the dispatches the rows count:
 // $1/$2 the period, $3 the project and $4 the model (NULL for all).
 //
-// scoped_dispatches unnests a bundle once per role and prices each dispatch
-// by summing stage_runs.metrics.dispatches.<agent_id>.cost_usd over every
-// stage run of the dispatch's own change carrying that key -- the harvester
-// may split one agent across the stage runs it spanned -- divided evenly
-// among the bundle's roles. A dispatch with no such bucket has a NULL cost
-// and is unpriced.
+// scoped_dispatches unnests a bundle once per role. It carries no cost:
+// pricing is reviewerPricingSQL's, appended by Reviewers alone, so
+// ReviewerProjects never reads stage_runs.
 //
 // finding_agg folds severities through canonical_severity() (migration
 // 0049); a finding whose status begins "withdrawn" (case-insensitive)
 // counts under withdrawn only.
 const reviewerScopeSQL = `
 		WITH scoped_dispatches AS (
-			SELECT d.id, d.change_id, c.project_key, s.slot,
-				p.cost / cardinality(string_to_array(d.slot, '+')) AS cost
+			SELECT d.id, d.change_id, d.agent_id, c.project_key, s.slot
 			FROM dispatches d
 			JOIN changes c ON c.id = d.change_id
 			CROSS JOIN LATERAL unnest(string_to_array(d.slot, '+')) AS s(slot)
-			CROSS JOIN LATERAL (
-				SELECT SUM((sr.metrics->'dispatches'->d.agent_id->>'cost_usd')::numeric) AS cost
-				FROM stage_runs sr
-				WHERE sr.change_id = d.change_id
-				  AND jsonb_typeof(sr.metrics->'dispatches') = 'object'
-				  AND sr.metrics->'dispatches'->d.agent_id ? 'cost_usd'
-			) p
 			WHERE d.started_at >= $1 AND d.started_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)
 			  AND ($4::text IS NULL OR d.model = $4)
 			  AND d.slot IS NOT NULL
-		),
-		dispatch_agg AS (
-			SELECT slot, COUNT(*) AS dispatches, COUNT(DISTINCT change_id) AS changes,
-				COALESCE(SUM(cost), 0)::float8 AS cost_usd, COUNT(cost) AS priced
-			FROM scoped_dispatches
-			GROUP BY slot
 		),
 		scoped_findings AS (
 			SELECT DISTINCT f.change_id, f.slot, f.ref, f.severity, f.status
@@ -1029,6 +1012,35 @@ const reviewerScopeSQL = `
 			UNION
 			SELECT jsonb_path_query(decision, '$.extra_dispatch_mutation.slots[*]') #>> '{}'
 			FROM decisions
+		)
+`
+
+// reviewerPricingSQL continues reviewerScopeSQL for Reviewers: it prices
+// each scoped row by summing stage_runs.metrics.dispatches.<agent_id>.cost_usd
+// over every stage run of the row's own change carrying that key -- the
+// harvester may split one agent across the stage runs it spanned -- divided
+// evenly among the scoped rows sharing that (change, agent id), so a bundle's
+// roles, and several dispatch rows recorded under one agent, split the one
+// bucket instead of each claiming all of it. A row with no such bucket has a
+// NULL cost and is unpriced.
+const reviewerPricingSQL = `,
+		priced_dispatches AS (
+			SELECT sd.slot, sd.change_id,
+				p.cost / COUNT(*) OVER (PARTITION BY sd.change_id, sd.agent_id) AS cost
+			FROM scoped_dispatches sd
+			CROSS JOIN LATERAL (
+				SELECT SUM((sr.metrics->'dispatches'->sd.agent_id->>'cost_usd')::numeric) AS cost
+				FROM stage_runs sr
+				WHERE sr.change_id = sd.change_id
+				  AND jsonb_typeof(sr.metrics->'dispatches') = 'object'
+				  AND sr.metrics->'dispatches'->sd.agent_id ? 'cost_usd'
+			) p
+		),
+		dispatch_agg AS (
+			SELECT slot, COUNT(*) AS dispatches, COUNT(DISTINCT change_id) AS changes,
+				COALESCE(SUM(cost), 0)::float8 AS cost_usd, COUNT(cost) AS priced
+			FROM priced_dispatches
+			GROUP BY slot
 		)
 `
 
@@ -1088,7 +1100,7 @@ func (s *Store) ReviewerProjects(ctx context.Context, period Period) ([]ProjectD
 // canonical_severity() (migration 0049), so every spelling a caller wrote
 // ("major", "blocking", "low", any casing) lands in one of the three counts,
 // and a finding whose status begins "withdrawn" counts under Withdrawn only.
-// Cost and pricing are reviewerScopeSQL's.
+// Cost and pricing are reviewerPricingSQL's.
 //
 // Description is read from the newest decisions row whose
 // decision->'panel'->'roster' carries an entry naming this slot -- one
@@ -1108,7 +1120,7 @@ func (s *Store) ReviewerProjects(ctx context.Context, period Period) ([]ProjectD
 // members too; those records carry no description, so theirs comes from
 // extraDispatchDescriptions.
 func (s *Store) Reviewers(ctx context.Context, period Period, project, model *string) ([]ReviewerRow, error) {
-	rows, err := s.pool.Query(ctx, reviewerScopeSQL+`
+	rows, err := s.pool.Query(ctx, reviewerScopeSQL+reviewerPricingSQL+`
 		SELECT
 			da.slot,
 			da.slot LIKE 'exp-%' AS experimental,
