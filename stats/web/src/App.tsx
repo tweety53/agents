@@ -242,13 +242,15 @@ export function App() {
             chip-filters-period-split-project); the live state board carries its own chip filters and an opened run none
             (decision hide-dashboard-bar); the stage leaderboard carries its own Period, Project
             and Command chips (decision leaderboard-chip-filters); the trend view carries its own
-            Period, Command and Project chips (decision trend-drops-daily-views); Experiments spans
-            each experiment's own window. */}
+            Period, Command and Project chips (decision trend-drops-daily-views); Reviewers carries its
+            own Period, Project and Rank by chips (decision reviewers-chip-filters-period-project);
+            Experiments spans each experiment's own window. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
           route.view !== "state-board" &&
           route.view !== "stage-leaderboard" &&
           route.view !== "trend" &&
+          route.view !== "reviewers" &&
           route.view !== "experiments" && (
           <DashboardBar
             period={period}

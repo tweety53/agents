@@ -11,6 +11,11 @@ export function formatUsd(value: number): string {
   }).format(value);
 }
 
+/** Whole dollars with grouping from $100, cents below: the chip views' spend format. */
+export function formatUsdCompact(v: number): string {
+  return v >= 100 ? "$" + Math.round(v).toLocaleString("en-US") : "$" + v.toFixed(2);
+}
+
 export function formatInt(value: number): string {
   return new Intl.NumberFormat("en-US").format(Math.round(value));
 }

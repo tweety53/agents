@@ -28,7 +28,7 @@ import { useState } from "react";
 import type { StageLeaderboardRow } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
-import { DAY_MS } from "../format";
+import { DAY_MS, formatUsdCompact } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
 import { stageLabel } from "../lib/stageLabel";
@@ -58,7 +58,6 @@ interface Ranked {
   prev: number | null;
 }
 
-const usd = (v: number) => (v >= 100 ? "$" + Math.round(v).toLocaleString("en-US") : "$" + v.toFixed(2));
 const pct = (part: number, whole: number) => `${Math.round((part / whole) * 100)}%`;
 const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
 const key = (r: StageLeaderboardRow) => `${r.command}\u0000${r.stage}`;
@@ -70,7 +69,7 @@ function growth(cur: number, prev: number | null): { cls: string; text: string; 
   const p = Math.abs((d / prev) * 100);
   const sign = d > 0 ? "+" : "−";
   const percent = sign + (p >= 1000 ? `${Math.round(p / 100) / 10}k` : `${Math.round(p)}`) + "%";
-  return { cls: d > 0 ? "up" : "down", text: `${sign}${usd(Math.abs(d))} (${percent})`, percent };
+  return { cls: d > 0 ? "up" : "down", text: `${sign}${formatUsdCompact(Math.abs(d))} (${percent})`, percent };
 }
 
 function Delta({ cur, prev }: { cur: number; prev: number | null }) {
@@ -133,7 +132,7 @@ export function StageLeaderboard(_props: ViewProps) {
       <span className="lb-costbar">
         <span style={{ width: `${((t / max) * 100).toFixed(1)}%` }} />
       </span>
-      <span className="sl-amt">{usd(t)}</span>
+      <span className="sl-amt">{formatUsdCompact(t)}</span>
     </span>
   );
 
@@ -158,7 +157,7 @@ export function StageLeaderboard(_props: ViewProps) {
           {projects.map((p) => (
             <Chip key={p.projectKey} on={f.project === p.projectKey} onClick={() => setF({ ...f, project: p.projectKey })} title={p.projectKey}>
               {projectLabel(p.projectKey)}
-              <span className="lb-c">{usd(p.totalCostUsd)}</span>
+              <span className="lb-c">{formatUsdCompact(p.totalCostUsd)}</span>
             </Chip>
           ))}
         </ChipGroup>
@@ -171,7 +170,7 @@ export function StageLeaderboard(_props: ViewProps) {
             .map(([c, t]) => (
               <Chip key={c} on={f.command === c} onClick={() => setF({ ...f, command: c })}>
                 {c}
-                <span className="lb-c">{usd(t)}</span>
+                <span className="lb-c">{formatUsdCompact(t)}</span>
               </Chip>
             ))}
         </ChipGroup>
@@ -185,7 +184,7 @@ export function StageLeaderboard(_props: ViewProps) {
         <div className="sl-tiles">
           <div className="lb-tile sl-t-spend">
             <span className="lb-lbl">Spend</span>
-            <span className="lb-val">{usd(total)}</span>
+            <span className="lb-val">{formatUsdCompact(total)}</span>
             <span className="sl-note">
               <Delta cur={total} prev={prevTotal} /> vs the previous {f.period}
             </span>
@@ -201,7 +200,7 @@ export function StageLeaderboard(_props: ViewProps) {
                   <div>
                     <StageCell stage={r.row.stage} command={cmdNote(r.row)} />
                   </div>
-                  <span className="sl-num">{usd(r.row.totalCostUsd)}</span>
+                  <span className="sl-num">{formatUsdCompact(r.row.totalCostUsd)}</span>
                   <span className="sl-num lb-muted">{pct(r.row.totalCostUsd, total)}</span>
                 </li>
               ))}
@@ -209,14 +208,14 @@ export function StageLeaderboard(_props: ViewProps) {
           </div>
           <div className="lb-tile sl-t-riser">
             <span className="lb-lbl">Biggest riser</span>
-            <span className={grew ? "lb-val up" : "lb-val"}>{grew ? "+" + usd(grew.d) : "—"}</span>
+            <span className={grew ? "lb-val up" : "lb-val"}>{grew ? "+" + formatUsdCompact(grew.d) : "—"}</span>
             {grew ? (
               <div className="sl-riser">
                 <div>
                   <StageCell stage={grew.row.stage} command={cmdNote(grew.row)} />
                 </div>
                 <span className="sl-note">
-                  {`${usd(grew.prev)} → ${usd(grew.row.totalCostUsd)} vs the previous ${f.period} (${growth(grew.row.totalCostUsd, grew.prev)?.percent ?? "new"})`}
+                  {`${formatUsdCompact(grew.prev)} → ${formatUsdCompact(grew.row.totalCostUsd)} vs the previous ${f.period} (${growth(grew.row.totalCostUsd, grew.prev)?.percent ?? "new"})`}
                 </span>
               </div>
             ) : (
@@ -268,8 +267,8 @@ export function StageLeaderboard(_props: ViewProps) {
                       <Delta cur={r.totalCostUsd} prev={p} />
                     </td>
                     <td className="r">{r.runCount.toLocaleString("en-US")}</td>
-                    <td className="r">{usd(r.medianCostUsd)}</td>
-                    <td className="r">{usd(r.p90CostUsd)}</td>
+                    <td className="r">{formatUsdCompact(r.medianCostUsd)}</td>
+                    <td className="r">{formatUsdCompact(r.p90CostUsd)}</td>
                     <td className="r">{r.mainSharePct == null ? "—" : `${Math.round(r.mainSharePct)}%`}</td>
                   </tr>
                 ))}

@@ -6,16 +6,20 @@
 // hook rather than duplicating its effect in eight components is what
 // keeps that guarantee in one place (DRY, engineering-principles.md).
 import { useEffect, useState } from "react";
-import { fetchStatsView, type StatsResponse, type StatsViewParams, type StatsViewSlug } from "../api";
+import { fetchStatsView, type ProjectSpend, type StatsResponse, type StatsViewParams, type StatsViewSlug } from "../api";
 
-export type StatsViewState<Row> =
+export type StatsViewState<Row, Project = ProjectSpend> =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; data: StatsResponse<Row> };
+  | { status: "ready"; data: StatsResponse<Row, Project> };
 
 /** `enabled` false holds the fetch -- the state stays loading -- until a caller needs the view. */
-export function useStatsView<Row>(view: StatsViewSlug, params: StatsViewParams, enabled = true): StatsViewState<Row> {
-  const [state, setState] = useState<StatsViewState<Row>>({ status: "loading" });
+export function useStatsView<Row, Project = ProjectSpend>(
+  view: StatsViewSlug,
+  params: StatsViewParams,
+  enabled = true,
+): StatsViewState<Row, Project> {
+  const [state, setState] = useState<StatsViewState<Row, Project>>({ status: "loading" });
 
   const fromMs = params.from.getTime();
   const toMs = params.to.getTime();
@@ -24,7 +28,7 @@ export function useStatsView<Row>(view: StatsViewSlug, params: StatsViewParams, 
     if (!enabled) return;
     let cancelled = false;
     setState({ status: "loading" });
-    fetchStatsView<Row>(view, params)
+    fetchStatsView<Row, Project>(view, params)
       .then((data) => {
         if (!cancelled) setState({ status: "ready", data });
       })
