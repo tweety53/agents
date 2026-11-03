@@ -2886,3 +2886,33 @@ func TestLiveStateBoardCountsFindingsBySeverity(t *testing.T) {
 		t.Errorf("self-review C/I/M = %d/%d/%d, want 0/1/1", r.SelfReviewCritical, r.SelfReviewImportant, r.SelfReviewMinor)
 	}
 }
+
+// A decision recorded with only its class — the UI-test seed's history rows —
+// carries no execution or implementer; Decisions reads them as empty rather
+// than failing the whole period's scan.
+func TestDecisionsReadsClassOnlyDecision(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-decisions-class-only-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-class-only")
+
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-class-only", records.Decision{
+		SessionToken: "mf-decisions-class-only",
+		Decision:     json.RawMessage(`{"class": "big"}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+
+	period := store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}
+	rows, err := st.Decisions(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("Decisions: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("Decisions returned %d rows, want 1", len(rows))
+	}
+	if rows[0].Class != "big" || rows[0].Execution != "" || rows[0].ImplementerModel != "" {
+		t.Errorf("row = class %q execution %q implementer %q, want big, empty, empty",
+			rows[0].Class, rows[0].Execution, rows[0].ImplementerModel)
+	}
+}

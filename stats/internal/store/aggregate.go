@@ -1345,10 +1345,10 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			sd.project_key, sd.change_name, sd.recorded_at,
 			COALESCE(sd.decision->>'class', ''),
 			(sd.decision->>'override') IS NOT NULL,
-			sd.decision->>'execution',
-			CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'string'
+			COALESCE(sd.decision->>'execution', ''),
+			COALESCE(CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'string'
 			     THEN sd.decision->>'implementer'
-			     ELSE sd.decision->'implementer'->>'model' END,
+			     ELSE sd.decision->'implementer'->>'model' END, ''),
 			CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'object'
 			     THEN COALESCE(sd.decision->'implementer'->>'effort', '')
 			     ELSE '' END,
