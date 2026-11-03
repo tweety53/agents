@@ -235,7 +235,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 			}
 		}
 		if usable == 0 {
-			v.addv(f.line, "`ui paths` is `"+f.val+"` — splitting on commas and stripping each element's backticks and whitespace yields no usable glob, so check-visual-trigger.sh cannot use it either")
+			v.addv(f.line, "`ui paths` is `"+f.val+"` — splitting on commas and stripping each element's backticks and whitespace yields no usable glob, so flow-guard check-visual-trigger cannot use it either")
 		}
 	}
 

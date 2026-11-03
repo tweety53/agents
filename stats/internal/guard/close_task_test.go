@@ -558,7 +558,7 @@ func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
 	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
 	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-	if r.rc != 1 || !strings.Contains(r.out, "close-task: task 1: shots/full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output") {
+	if r.rc != 1 || !strings.Contains(r.out, "close-task: task 1: shots/full-app-suite.zip is not flow-guard rebuild-full-app-suite-zip's output") {
 		t.Fatalf("hand-built zip: exit %d, want 1\n%s", r.rc, r.out)
 	}
 	if got, _ := os.ReadFile(zipPath); !bytes.Equal(got, buf.Bytes()) {
@@ -695,7 +695,7 @@ func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
 	gitRun(t, fx.wt, "add", "-f", "b.txt", "shots")
 	gitRun(t, fx.wt, "commit", "-q", "-m", "two", "-m", "Task-Id: 2")
 	s2 = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 1 || !strings.Contains(r.out, "close-task: task 2: shots/full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output") {
+	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 1 || !strings.Contains(r.out, "close-task: task 2: shots/full-app-suite.zip is not flow-guard rebuild-full-app-suite-zip's output") {
 		t.Fatalf("hand-built last zip: exit %d, want 1\n%s", r.rc, r.out)
 	}
 }
@@ -725,7 +725,7 @@ func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
 	cmd.Dir = fx.wt
 	cmd.Env = []string{"PATH=" + fx.env.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}
 	out, err := cmd.CombinedOutput()
-	if code := exitCode(err); code != 1 || !strings.Contains(string(out), "is not rebuild-full-app-suite-zip.sh's output") {
+	if code := exitCode(err); code != 1 || !strings.Contains(string(out), "is not flow-guard rebuild-full-app-suite-zip's output") {
 		t.Fatalf("close-task.sh on a hand-built zip: exit %d, want 1 (the rebuild ran and differed)\n%s", code, out)
 	}
 }

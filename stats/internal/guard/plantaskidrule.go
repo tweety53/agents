@@ -59,7 +59,7 @@ func planTaskIDRuleCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	found := 0
 	tcfUnfenced(lines, func(i int, line string) bool {
 		if ptirRE.MatchString(line) {
-			fmt.Fprintf(stdout, "%s:%d: a /flow plan states task commits carry no `Task-Id:` trailer — close-task.sh refuses a /flow task commit without one; that rule is a fix loop's alone\n",
+			fmt.Fprintf(stdout, "%s:%d: a /flow plan states task commits carry no `Task-Id:` trailer — flow-guard close-task refuses a /flow task commit without one; that rule is a fix loop's alone\n",
 				args[0], i+1)
 			found++
 		}

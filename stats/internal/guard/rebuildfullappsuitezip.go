@@ -63,7 +63,7 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 		return 2
 	}
 	if !filepath.IsAbs(args[1]) {
-		fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way resolve-visual-screenshots.sh resolves it\n", args[1])
+		fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way flow-guard resolve-visual-screenshots resolves it\n", args[1])
 		return 2
 	}
 	abs := func(p string) string {
@@ -89,7 +89,7 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	if rc == 0 {
 		for _, png := range strings.Split(list, "\n") {
 			if !strings.HasPrefix(abs(png), filepath.Clean(args[1])+"/") {
-				fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: %s lies outside <screenshots root> %s — pass `screenshots` resolved the way resolve-visual-screenshots.sh resolves it\n", png, args[1])
+				fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: %s lies outside <screenshots root> %s — pass `screenshots` resolved the way flow-guard resolve-visual-screenshots resolves it\n", png, args[1])
 				return 2
 			}
 		}

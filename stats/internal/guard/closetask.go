@@ -591,7 +591,7 @@ func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string, o
 				fmt.Fprintf(stderr, "close-task: task %s: rebuild-full-app-suite-zip exited %d — cannot judge %s\n", id, rc, path)
 				worst = max(worst, 2)
 			case !bytes.Equal(rebuilt, committed):
-				fmt.Fprintf(stderr, "close-task: task %s: %s is not rebuild-full-app-suite-zip.sh's output — rebuild it with that script and re-commit\n", id, path)
+				fmt.Fprintf(stderr, "close-task: task %s: %s is not flow-guard rebuild-full-app-suite-zip's output — rebuild it with that script and re-commit\n", id, path)
 				worst = max(worst, 1)
 			}
 		}

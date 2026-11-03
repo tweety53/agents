@@ -84,7 +84,7 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	worktree, baseRef, recorded := arg(0), arg(1), arg(2)
 	if worktree == "" || baseRef == "" || recorded == "" {
-		fmt.Fprint(stderr, baseRefUsage("check-base-moved.sh"))
+		fmt.Fprint(stderr, baseRefUsage("flow-guard check-base-moved"))
 		return 2
 	}
 	v := baseMoved(env, worktree, baseRef, recorded, stderr)

@@ -194,7 +194,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 		{args: func(*fpFx) []string { return nil }, checks: []bmCheck{
 			{"missing arguments: stdout is empty", func(r guardResult, _ *bmFx) bool { return r.stdout == "" }},
 			{"missing arguments: stderr is exactly the usage message", func(r guardResult, _ *bmFx) bool {
-				return r.err == baseRefUsageWant("check-finish-preflight.sh")
+				return r.err == baseRefUsageWant("flow-guard check-finish-preflight")
 			}}}},
 		// 10: merged into origin/main, local main left behind; handed the
 		// bare name — the KAN-88 regression.
@@ -303,12 +303,12 @@ func TestCheckFinishPreflight(t *testing.T) {
 		{setup: merged, prep: fpLocation("echo out; echo err >&2; exit 3"), checks: []bmCheck{
 			{"port: any other exit is named, its output dropped", func(r guardResult, fx *bmFx) bool {
 				return r.rc == 2 && r.stdout == "" && strings.HasPrefix(r.err,
-					"check-finish-preflight: check-worktree-location.sh exited 3 against ") &&
+					"check-finish-preflight: flow-guard check-worktree-location exited 3 against ") &&
 					strings.HasSuffix(r.err, " — cannot determine anything\n")
 			}}}},
 		{setup: merged, prep: fpLocation("kill -TERM $$"), checks: []bmCheck{
 			{"port: a location check killed by a signal is named by bash's 128+n", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 2 && strings.HasPrefix(r.err, "check-finish-preflight: check-worktree-location.sh exited 143 against ")
+				return r.rc == 2 && strings.HasPrefix(r.err, "check-finish-preflight: flow-guard check-worktree-location exited 143 against ")
 			}}}},
 		// Without the override, the sibling runs in this same binary.
 		{setup: merged, run: func(fx *fpFx) (guardResult, error) {

@@ -88,7 +88,7 @@ func installerSandboxDiff(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 	if len(args) != 2 {
-		return die("Usage: installer-sandbox-diff.sh <old-tree> <new-tree>")
+		return die("Usage: flow-guard installer-sandbox-diff <old-tree> <new-tree>")
 	}
 	var trees [2]string
 	for i, arg := range args {

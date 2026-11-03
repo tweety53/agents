@@ -204,7 +204,7 @@ func TestPrepareWorkspace(t *testing.T) {
 		}, []check{
 			{"5: a non-executable guard exits 2", func(r pwResult) bool { return r.rc == 2 }},
 			{"5: a clear message names the problem", func(r pwResult) bool {
-				return strings.Contains(r.err, "cannot find a runnable check-workspace-isolation.sh")
+				return strings.Contains(r.err, "cannot find a runnable check-workspace-isolation")
 			}},
 		}},
 		{"6", func(t *testing.T) pwResult {
@@ -225,7 +225,7 @@ func TestPrepareWorkspace(t *testing.T) {
 		// The refusals the harness never reached, one case each.
 		{"usage", func(t *testing.T) pwResult { return pwRun(t, pwRealSibling(t)) }, []check{
 			{"no worktree argument is exit 2 with the usage line", func(r pwResult) bool {
-				return r.rc == 2 && r.err == "Usage: prepare-workspace.sh <worktree>\n" && r.out == ""
+				return r.rc == 2 && r.err == "Usage: flow-guard prepare-workspace <worktree>\n" && r.out == ""
 			}},
 		}},
 		{"notdir", func(t *testing.T) pwResult {
@@ -247,7 +247,7 @@ func TestPrepareWorkspace(t *testing.T) {
 		}},
 		{"missing", func(t *testing.T) pwResult { return pwRun(t, t.TempDir(), pwRepo(t, "kan-9-missing", "")) }, []check{
 			{"a missing sibling guard is exit 2 naming the directory", func(r pwResult) bool {
-				return r.rc == 2 && strings.HasPrefix(r.err, "prepare-workspace: cannot find a runnable check-workspace-isolation.sh in ") &&
+				return r.rc == 2 && strings.HasPrefix(r.err, "prepare-workspace: cannot find a runnable check-workspace-isolation in ") &&
 					strings.HasSuffix(r.err, "/scripts\n")
 			}},
 		}},

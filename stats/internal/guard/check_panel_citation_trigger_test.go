@@ -294,8 +294,8 @@ func TestCheckPanelCitationTrigger(t *testing.T) {
 				args []string
 				want string
 			}{
-				{nil, p + "usage: check-panel-citation-trigger.sh <worktree> <merge-base>\n"},
-				{[]string{fx.repo}, p + "usage: check-panel-citation-trigger.sh <worktree> <merge-base>\n"},
+				{nil, p + "usage: flow-guard check-panel-citation-trigger <worktree> <merge-base>\n"},
+				{[]string{fx.repo}, p + "usage: flow-guard check-panel-citation-trigger <worktree> <merge-base>\n"},
 				{[]string{"/nonexist", "deadbeef"}, p + "/nonexist is not a directory — cannot determine anything\n"},
 				{[]string{"plain", "deadbeef"}, p + "plain is not a git worktree — cannot determine anything\n"},
 				{[]string{"repo", "--evil"}, p + "merge base '--evil' does not resolve in repo\n"},

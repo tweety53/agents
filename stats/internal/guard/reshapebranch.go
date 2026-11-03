@@ -57,7 +57,7 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	cmd := git("-C", wt, "rev-parse", "--verify", "--quiet", base+"^{commit}")
 	cmd.Stdout, cmd.Stderr = &b, stderr
 	if exitCode(cmd.Run()) != 0 {
-		fmt.Fprintf(stderr, "reshape-branch.sh: base does not resolve to a commit: %s\n", base)
+		fmt.Fprintf(stderr, "reshape-branch: base does not resolve to a commit: %s\n", base)
 		return 2
 	}
 	baseSHA := strings.TrimRight(b.String(), "\n")
@@ -70,7 +70,7 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	all, ok1 := capture(git("-C", wt, "rev-list", baseSHA+"..HEAD"))
 	own, ok2 := capture(git("-C", wt, "rev-list", "--first-parent", baseSHA+"..HEAD"))
 	if !ok1 || !ok2 {
-		fmt.Fprintf(stderr, "reshape-branch.sh: git cannot list %s..HEAD in %s\n", baseSHA[:12], wt)
+		fmt.Fprintf(stderr, "reshape-branch: git cannot list %s..HEAD in %s\n", baseSHA[:12], wt)
 		return 2
 	}
 	mine := map[string]bool{}

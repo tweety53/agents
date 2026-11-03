@@ -479,7 +479,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 			violations = append(violations, ref+"'s reproducer read 'defect not demonstrated' on the tree under review — an open finding's reproducer must read demonstrated here under whichever exit-code convention it declares: a generic one demonstrates with a non-zero exit, a declared mutation-reproducer with exit 0 (the build succeeds with the mutation landed) — this inverted reading is the exit-code class this guard exists for (KAN-554)")
 			said()
 		case 2:
-			violations = append(violations, ref+"'s reproducer was refused by run-reproducer.sh as unusable — its claim cannot hold on any tree")
+			violations = append(violations, ref+"'s reproducer was refused by flow-guard run-reproducer as unusable — its claim cannot hold on any tree")
 			said()
 		case 3:
 			cannot(ref + "'s reproducer could not be verdicted — the runner reported a timeout or a surviving process, which is no verdict at all")

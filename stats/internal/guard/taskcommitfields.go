@@ -319,7 +319,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		return 0
 	}
 
-	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-task-commit-fields.sh", worktree, name, canonical)
+	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-task-commit-fields", worktree, name, canonical)
 	switch {
 	case tasksMD != "":
 		return judge(tasksMD)

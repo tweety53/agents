@@ -360,7 +360,10 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			assertParity(t, got, bashLibAt(t, nil, []string{"panel-touched-paths.sh"}, "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit))
+			want := bashLibAt(t, nil, []string{"panel-touched-paths.sh"}, "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit)
+			// The usage line names the guard as it runs now, not the deleted shim.
+			want.stderr = strings.Replace(want.stderr, "usage: prog.sh ", "usage: flow-guard prog ", 1)
+			assertParity(t, got, want)
 		})
 	}
 

@@ -143,7 +143,7 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("%v", err)
 	}
 	if unmerged != nil {
-		fmt.Fprintf(stdout, "CONFLICT: %s — unmerged: %s; resolve keeping both sides, `git rebase --continue`, then fold-fixup.sh --finish %s %s %s\n",
+		fmt.Fprintf(stdout, "CONFLICT: %s — unmerged: %s; resolve keeping both sides, `git rebase --continue`, then flow-guard fold-fixup --finish %s %s %s\n",
 			wt, strings.Join(unmerged, ", "), wt, task, tasksMD)
 		return 3
 	}

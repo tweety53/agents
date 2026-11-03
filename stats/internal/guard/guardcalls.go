@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"go/scanner"
+	"go/token"
 	"io"
 	"io/fs"
 	"maps"
@@ -42,6 +44,10 @@ import (
 //	   shims are gone; a sentence still spelling one names a file that does
 //	   not exist, and an agent running it gets 127. Only registered names
 //	   count: `setup.sh` and a panel reproducer's `repro.sh` are not guards.
+//	   The same rule reads every string literal of stats/**/*.go outside
+//	   *_test.go: a guard's printed NEXT line, usage line or remedy that
+//	   spells a deleted shim tells its caller to run a file that does not
+//	   exist. Comments are not scanned — a literal is what reaches a caller.
 //	C. Every `check-*` guard.Registry entry has its Go test,
 //	   stats/internal/guard/<name, - replaced by _>_test.go (kan-387, moved
 //	   here from the deleted run-guard-tests): a guard with no test is a
@@ -107,6 +113,12 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	gn, err := gcGoLiterals(&out, root)
+	if err != nil {
+		fmt.Fprintf(stderr, "check-guard-calls: %v\n", err)
+		return 2
+	}
+	n += gn
 	if isDir(filepath.Join(root, "stats", "internal", "guard")) {
 		n += gcCompanions(&out, root, slices.Collect(maps.Keys(Registry)))
 	}
@@ -117,6 +129,52 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "GUARD-CALLS-OK: %s — %d file(s) scanned\n", root, len(files))
 	return 0
+}
+
+// gcGoLiterals is rule B over the string literals of every non-test .go file
+// under root/stats. It returns the finding count.
+func gcGoLiterals(out io.Writer, root string) (int, error) {
+	stats := filepath.Join(root, "stats")
+	if !isDir(stats) {
+		return 0, nil
+	}
+	n := 0
+	err := filepath.WalkDir(stats, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() && (d.Name() == "node_modules" || d.Name() == "testdata") {
+			return filepath.SkipDir
+		}
+		if d.IsDir() || !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
+			return nil
+		}
+		src, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(root, p)
+		fset := token.NewFileSet()
+		file := fset.AddFile(rel, -1, len(src))
+		var sc scanner.Scanner
+		sc.Init(file, src, nil, 0)
+		for {
+			pos, tok, lit := sc.Scan()
+			if tok == token.EOF {
+				return nil
+			}
+			if tok != token.STRING {
+				continue
+			}
+			for _, m := range gcShell.FindAllStringSubmatch(lit, -1) {
+				if Registry[m[1]] != nil {
+					fmt.Fprintf(out, "%s:%d: %s.sh is the deleted shim spelling — write flow-guard %s (rule B)\n", rel, fset.Position(pos).Line, m[1], m[1])
+					n++
+				}
+			}
+		}
+	})
+	return n, err
 }
 
 // gcCompanions is rule C over names: one finding per check-* name with no

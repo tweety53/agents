@@ -159,7 +159,7 @@ func TestReshapeBranch(t *testing.T) {
 		fx := rbNew(t)
 		rc, out := fx.reshape(t, fx.wt, fx.wt, "demo", "no-such-ref")
 		check(t, rc == 2, "unresolvable base exits 2", "rc=%d out=%s", rc, out)
-		check(t, strings.HasSuffix(out, "\nreshape-branch.sh: base does not resolve to a commit: no-such-ref"), "named reason", "out=%q", out)
+		check(t, strings.HasSuffix(out, "\nreshape-branch: base does not resolve to a commit: no-such-ref"), "named reason", "out=%q", out)
 	})
 
 	t.Run("usage: not three arguments cannot answer", func(t *testing.T) {

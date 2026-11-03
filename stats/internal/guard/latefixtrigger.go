@@ -150,7 +150,7 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 	switch checkPanelFindingsClosed([]string{canon, change}, env, &closedOut, &closedErr) {
 	case 0:
 	case 1:
-		reason := "the change's findings are not all closed (check-panel-findings-closed.sh exited 1)"
+		reason := "the change's findings are not all closed (flow-guard check-panel-findings-closed exited 1)"
 		var lines []string
 		for _, l := range strings.Split(closedErr.String(), "\n") {
 			if l = strings.TrimSpace(l); l != "" {

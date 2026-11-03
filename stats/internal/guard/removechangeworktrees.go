@@ -306,7 +306,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			failed = true
 			_, _ = io.WriteString(stdout, v)
 		default:
-			fail(wt, 6, "check-worktree-processes.sh could not answer")
+			fail(wt, 6, "flow-guard check-worktree-processes could not answer")
 		}
 	}
 	if failed {

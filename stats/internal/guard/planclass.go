@@ -287,7 +287,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		override, args = args[1], args[2:]
 		if !slices.Contains(pcClasses, override) {
-			fmt.Fprintf(stderr, "plan-class.sh: unknown class: %s\n", override)
+			fmt.Fprintf(stderr, "plan-class: unknown class: %s\n", override)
 			return 2
 		}
 	}
@@ -297,16 +297,16 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	tasksFile, repos := args[0], args[1]
 	if !isFile(smcAbs(env, tasksFile)) {
-		fmt.Fprintf(stderr, "plan-class.sh: no such file: %s\n", tasksFile)
+		fmt.Fprintf(stderr, "plan-class: no such file: %s\n", tasksFile)
 		return 2
 	}
 	if repos == "" || strings.Trim(repos, "0123456789") != "" {
-		fmt.Fprintf(stderr, "plan-class.sh: <repos> must be a non-negative integer, got: %s\n", repos)
+		fmt.Fprintf(stderr, "plan-class: <repos> must be a non-negative integer, got: %s\n", repos)
 		return 2
 	}
 	b, err := os.ReadFile(smcAbs(env, tasksFile))
 	if err != nil {
-		fmt.Fprintf(stderr, "plan-class.sh: cannot read %s: %v\n", tasksFile, err)
+		fmt.Fprintf(stderr, "plan-class: cannot read %s: %v\n", tasksFile, err)
 		return 2
 	}
 
@@ -421,25 +421,25 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	if override != "" {
 		step := slices.Index(pcClasses, override) - slices.Index(pcClasses, class)
 		if step != 0 && step != 1 {
-			fmt.Fprintf(stderr, "plan-class.sh: -class %s must be %s or one step above it\n", override, class)
+			fmt.Fprintf(stderr, "plan-class: -class %s must be %s or one step above it\n", override, class)
 			return 2
 		}
 		effective = override
 	}
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
-		fmt.Fprint(stderr, "plan-class.sh: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-class, which sets it\n")
+		fmt.Fprint(stderr, "plan-class: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-class, which sets it\n")
 		return 2
 	}
 	cands, err := pcCandidates(root)
 	if err != nil {
-		fmt.Fprintf(stderr, "plan-class.sh: %v\n", err)
+		fmt.Fprintf(stderr, "plan-class: %v\n", err)
 		return 2
 	}
 	policy, err := policyTable(env, root)
 	for _, role := range []string{"panel-sanity-efficiency", "panel-mutation-failure"} {
 		if err != nil || len(policy[role]) == 0 {
-			fmt.Fprintf(stderr, "plan-class.sh: the allowed-pairs table names no %s row (%v)\n", role, err)
+			fmt.Fprintf(stderr, "plan-class: the allowed-pairs table names no %s row (%v)\n", role, err)
 			return 2
 		}
 	}

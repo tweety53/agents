@@ -40,7 +40,7 @@ func panelGit(env Env, gitBin, worktree string, args ...string) *exec.Cmd {
 func panelValidateWorktree(env Env, prog, worktree, mergebase, gitBin string, stderr io.Writer) bool {
 	switch {
 	case worktree == "" || mergebase == "":
-		fmt.Fprintf(stderr, "%s: usage: %s.sh <worktree> <merge-base>\n", prog, prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard %s <worktree> <merge-base>\n", prog, prog)
 	case !isDir(smcAbs(env, worktree)):
 		fmt.Fprintf(stderr, "%s: %s is not a directory — cannot determine anything\n", prog, worktree)
 	case panelGit(env, gitBin, worktree, "rev-parse", "--git-dir").Run() != nil:

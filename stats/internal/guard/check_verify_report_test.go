@@ -283,7 +283,7 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 // the verifier no longer runs `verify`, so the guard takes no scoped-spec count
 // and step 7 is no required step — an item still naming it is ignored.
 func TestCheckVerifyReportTakesNoScopedSpecs(t *testing.T) {
-	const usage = "check-verify-report.sh <report file> <motions named> [--design <design.md>]"
+	const usage = "flow-guard check-verify-report <report file> <motions named> [--design <design.md>]"
 	path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
 	r := runGuard("check-verify-report", []string{path, "0", "2"}, Env{Getenv: os.Getenv})
 	if r.rc != 2 || !strings.Contains(r.out, usage) {

@@ -90,7 +90,7 @@ func (c *ic) prepare() {
 		}
 	}
 	if !run1 {
-		c.say("NEXT: run 2 — integrate-change.sh cleanup " + c.main + " " + c.name + " " + c.flags())
+		c.say("NEXT: run 2 — flow-guard integrate-change cleanup " + c.main + " " + c.name + " " + c.flags())
 		panic(icExit(0))
 	}
 
@@ -250,7 +250,7 @@ func (c *ic) prepare() {
 		}
 	}
 	c.markBegin("flow.preserve-sessions")
-	c.say("NEXT: append this run's narrative to " + live + "/narrative.md, then integrate-change.sh commit " + c.main + " " + c.name + subjects + " " + c.flags())
+	c.say("NEXT: append this run's narrative to " + live + "/narrative.md, then flow-guard integrate-change commit " + c.main + " " + c.name + subjects + " " + c.flags())
 }
 
 // defaultRoute is project-get.sh's `default landing route`, or nothing.

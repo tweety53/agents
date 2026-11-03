@@ -19,6 +19,8 @@ func TestAwaitSubAgents(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "agent-aaa.meta.json"), `{"agentType":"Plan","finished":true}`+"\n")
 	writeFile(t, filepath.Join(dir, "agent-bbb.meta.json"), `{"agentType":"Plan"}`+"\n")
 	writeFile(t, filepath.Join(dir, "agent-ccc.meta.json"), `{"agentType":"Plan"}`+"\n")
+	// A meta.json outside a subagents/ directory is not an agent's record.
+	writeFile(t, filepath.Join(tmp, "proj", "sess", "agent-ddd.meta.json"), `{"agentType":"Plan","finished":true}`+"\n")
 	envCap := func(capS string) Env {
 		return Env{Getenv: func(k string) string {
 			switch k {
@@ -64,7 +66,10 @@ func TestAwaitSubAgents(t *testing.T) {
 		if r, _ := timed("2", "zzz"); r.rc != 2 || !strings.Contains(r.err, "no meta.json for agent zzz under "+tmp) {
 			t.Fatalf("unknown: rc=%d stderr=%q", r.rc, r.err)
 		}
-		if r, _ := timed("2"); r.rc != 2 || r.err != "usage: await-sub-agents.sh <agent id>...\n" {
+		if r, _ := timed("2", "ddd"); r.rc != 2 || !strings.Contains(r.err, "no meta.json for agent ddd") {
+			t.Fatalf("outside subagents/: rc=%d stderr=%q", r.rc, r.err)
+		}
+		if r, _ := timed("2"); r.rc != 2 || r.err != "usage: flow-guard await-sub-agents <agent id>...\n" {
 			t.Fatalf("no arg: rc=%d stderr=%q", r.rc, r.err)
 		}
 	})

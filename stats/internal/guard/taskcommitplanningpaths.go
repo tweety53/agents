@@ -68,7 +68,7 @@ func init() {
 }
 
 func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writer) int {
-	const p = "check-task-commit-planning-paths.sh: "
+	const p = "check-task-commit-planning-paths: "
 	refuse := func(msg string) int {
 		fmt.Fprintln(stderr, p+msg)
 		return 2

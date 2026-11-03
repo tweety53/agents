@@ -951,7 +951,7 @@ func (c *ic) rebaseLint(w, prefix string) {
 	out, rc := c.capture(c.sibling("prepare-workspace", w))
 	if rc != 0 {
 		fmt.Fprintln(c.stdout, out)
-		c.stop("rebase-lint", prefix+"prepare-workspace.sh failed on "+w+" after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS")
+		c.stop("rebase-lint", prefix+"flow-guard prepare-workspace failed on "+w+" after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS")
 	}
 	cmd := c.sibling("run-verify-list", w, "lint")
 	cmd.Env = append([]string{}, c.childEnv...)

@@ -139,7 +139,7 @@ func TestInstallerSandboxDiff(t *testing.T) {
 		{"case 9: one-argument invocation exits 2", func(t *testing.T, root string, isd func(string, ...string) guardResult) {
 			r := isd(t.TempDir(), isdTree(t, root, "base"))
 			expect(t, r, 2)
-			if r.err != "ERROR: Usage: installer-sandbox-diff.sh <old-tree> <new-tree>\n" {
+			if r.err != "ERROR: Usage: flow-guard installer-sandbox-diff <old-tree> <new-tree>\n" {
 				t.Fatalf("stderr %q", r.err)
 			}
 		}},

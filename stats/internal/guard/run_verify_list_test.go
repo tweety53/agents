@@ -109,7 +109,7 @@ func TestRunVerifyList(t *testing.T) {
 			brc = ee.ExitCode()
 		}
 		// The port spells its usage and the spec-reach row as flow-guard calls.
-		respell := strings.NewReplacer("usage: run-verify-list.sh", "usage: flow-guard run-verify-list", "`check-spec-reach.sh ", "`flow-guard check-spec-reach ")
+		respell := strings.NewReplacer("usage: run-verify-list.sh", "usage: flow-guard run-verify-list", "run-verify-list.sh: ", "run-verify-list: ", "`check-spec-reach.sh ", "`flow-guard check-spec-reach ")
 		if b := (res{brc, respell.Replace(norm(br, bo.String(), be.String()))}); g != b {
 			t.Errorf("port rc=%d out=%q\nbash rc=%d out=%q", g.rc, g.out, b.rc, b.out)
 		}

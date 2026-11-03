@@ -187,7 +187,7 @@ var (
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
-	const usage = "check-verify-report.sh <report file> <motions named> [--design <design.md>]"
+	const usage = "flow-guard check-verify-report <report file> <motions named> [--design <design.md>]"
 	design := ""
 	if i := slices.Index(args, "--design"); i >= 0 {
 		if i+1 == len(args) {

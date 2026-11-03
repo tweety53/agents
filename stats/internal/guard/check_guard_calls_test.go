@@ -75,6 +75,25 @@ func TestCheckGuardCallsOldSpelling(t *testing.T) {
 	}
 }
 
+// TestCheckGuardCallsGoLiterals: rule B reads the string literals of
+// non-test Go sources under stats/, never their comments or *_test.go.
+func TestCheckGuardCallsGoLiterals(t *testing.T) {
+	t.Parallel()
+	out, code := gcTree(t, map[string]string{
+		"stats/x/a.go": "package x\n\n// plan-class.sh in a comment\nvar s = \"run plan-class.sh now\"\n",
+	})
+	if code != 1 || !strings.Contains(out, "stats/x/a.go:4: plan-class.sh") || strings.Contains(out, "a.go:3:") {
+		t.Fatalf("go literal: code %d, out %q", code, out)
+	}
+	out, code = gcTree(t, map[string]string{
+		"stats/x/a.go":      "package x\n\nvar s = `./setup.sh global`\n",
+		"stats/x/a_test.go": "package x\n\nvar t = \"plan-class.sh\"\n",
+	})
+	if code != 0 {
+		t.Fatalf("setup.sh and _test.go: code %d, out %q", code, out)
+	}
+}
+
 func TestCheckGuardCallsCompanion(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

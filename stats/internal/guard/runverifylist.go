@@ -443,7 +443,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	for _, c := range cmds {
 		if rvlTemplate.MatchString(c) {
-			fmt.Fprintf(stderr, "run-verify-list.sh: %s line is a template, not a command — move it out of the fence: %s\n", list, c)
+			fmt.Fprintf(stderr, "run-verify-list: %s line is a template, not a command — move it out of the fence: %s\n", list, c)
 			return 2
 		}
 	}

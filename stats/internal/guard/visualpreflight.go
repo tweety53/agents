@@ -85,7 +85,7 @@ import (
 // searched as text.
 func init() { Registry["check-visual-preflight"] = checkVisualPreflight }
 
-const vpUsage = "Usage: check-visual-preflight.sh <worktree> <app-root>=<resolved-url> [...] < KEY=value lines\n"
+const vpUsage = "Usage: flow-guard check-visual-preflight <worktree> <app-root>=<resolved-url> [...] < KEY=value lines\n"
 
 // vpProbeTimeout bounds each liveness probe of a held port.
 const vpProbeTimeout = 5 * time.Second
@@ -164,7 +164,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 			}
 			k, v, ok := strings.Cut(line, "=")
 			if !ok || !wiVariable.MatchString(k) {
-				return refuse("stdin line %q is not KEY=value — pipe prepare-workspace.sh's output in", line)
+				return refuse("stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
 			}
 			exported[k] = v
 		}
@@ -391,11 +391,11 @@ func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, strin
 		return nil, ""
 	}
 	if count > 1 {
-		return nil, cfg + " declares more than one `## workspace isolation` section — run check-workspace-isolation.sh"
+		return nil, cfg + " declares more than one `## workspace isolation` section — run flow-guard check-workspace-isolation"
 	}
 	p := wiValidate(cfg, recs, wiSpace(false), false, true)
 	if len(p.viol) > 0 {
-		return nil, cfg + "'s `## workspace isolation` section is invalid — run check-workspace-isolation.sh"
+		return nil, cfg + "'s `## workspace isolation` section is invalid — run flow-guard check-workspace-isolation"
 	}
 	var rows []vpRow
 	for _, l := range p.rows {
@@ -406,7 +406,7 @@ func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, strin
 		}
 		v, ok := exported[r.variable]
 		if !ok {
-			return nil, "no exported value for " + r.variable + " on stdin — pipe prepare-workspace.sh <worktree> into this guard"
+			return nil, "no exported value for " + r.variable + " on stdin — pipe flow-guard prepare-workspace <worktree> into this guard"
 		}
 		r.value = v
 		rows = append(rows, r)

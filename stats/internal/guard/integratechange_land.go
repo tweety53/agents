@@ -129,7 +129,7 @@ func (c *ic) land() {
 	switch c.route {
 	case "pull request", "merge and push", "manual":
 	default:
-		c.stop("landing-route", "no route — ask the landing question, then integrate-change.sh land "+c.main+" "+c.name+" --route <route> "+c.flags())
+		c.stop("landing-route", "no route — ask the landing question, then flow-guard integrate-change land "+c.main+" "+c.name+" --route <route> "+c.flags())
 	}
 	c.markBegin("flow.landing-routes")
 	pr, pushed := "", ""
@@ -154,7 +154,7 @@ func (c *ic) land() {
 			// An own-branch self-review loop lands only once its rows admit it (NA passes).
 			c.run("check-loop-landing", c.canon, "spectre/"+c.name)
 			if c.rc != 0 {
-				c.stop("loop-landing", fmt.Sprintf("check-loop-landing.sh exit %d — finish the self-review loop its LOOP-LANDING-REFUSED lines name, then re-run land; nothing landed from %s", c.rc, w))
+				c.stop("loop-landing", fmt.Sprintf("flow-guard check-loop-landing exit %d — finish the self-review loop its LOOP-LANDING-REFUSED lines name, then re-run land; nothing landed from %s", c.rc, w))
 			}
 			if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
 				c.say("PUSH-REJECTED: " + w + " — re-syncing onto origin/" + c.base + " once")

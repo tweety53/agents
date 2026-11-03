@@ -148,7 +148,7 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 				continue
 			case err != nil || !strings.HasPrefix(v, "CLEAR:"):
 				failed = true
-				fmt.Fprintf(stdout, "FAILED: %s — check-worktree-processes.sh could not answer\n", wt)
+				fmt.Fprintf(stdout, "FAILED: %s — flow-guard check-worktree-processes could not answer\n", wt)
 				continue
 			}
 			dest := r.sibRoot + "/" + strings.TrimPrefix(wt, r.oldRoot+"/")

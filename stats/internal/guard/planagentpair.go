@@ -47,16 +47,16 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	role := args[2]
 	if role != "explorer" && role != "plan-designer" {
-		fmt.Fprintf(stderr, "plan-agent-pair.sh: <role> must be explorer or plan-designer, got %q\n", role)
+		fmt.Fprintf(stderr, "plan-agent-pair: <role> must be explorer or plan-designer, got %q\n", role)
 		return 2
 	}
 	if n, err := strconv.Atoi(args[1]); err != nil || n < 1 {
-		fmt.Fprintf(stderr, "plan-agent-pair.sh: <n> must be a positive integer, got %q\n", args[1])
+		fmt.Fprintf(stderr, "plan-agent-pair: <n> must be a positive integer, got %q\n", args[1])
 		return 2
 	}
 	rows, err := policyTable(env, env.Getenv("FLOW_GUARD_REPO_ROOT"))
 	if err != nil {
-		fmt.Fprintf(stderr, "plan-agent-pair.sh: %v\n", err)
+		fmt.Fprintf(stderr, "plan-agent-pair: %v\n", err)
 		return 2
 	}
 	var m []string
@@ -64,7 +64,7 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 		m = papPair.FindStringSubmatch(rs[0].Pairs[0])
 	}
 	if m == nil {
-		fmt.Fprintf(stderr, "plan-agent-pair.sh: %s names no `<model>/<agent>@<effort>` %s pair\n", mpFile, role)
+		fmt.Fprintf(stderr, "plan-agent-pair: %s names no `<model>/<agent>@<effort>` %s pair\n", mpFile, role)
 		return 2
 	}
 	fmt.Fprintln(stdout, m[1]+" "+m[2])

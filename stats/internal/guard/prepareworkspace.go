@@ -99,7 +99,7 @@ type pwRow struct{ res, variable, def, cell, value string }
 // codes — is the script's header; the reasoning behind each step is here.
 func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprint(stderr, "Usage: prepare-workspace.sh <worktree>\n")
+		fmt.Fprint(stderr, "Usage: flow-guard prepare-workspace <worktree>\n")
 		return 2
 	}
 	worktree := args[0]
@@ -123,7 +123,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// neither case leaves this guard able to validate anything.
 	if guard := env.Getenv("FLOW_GUARD_WORKSPACE_ISOLATION"); guard != "" {
 		if st, err := os.Stat(guard); err != nil || !st.Mode().IsRegular() || syscall.Access(guard, 1) != nil {
-			fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation.sh in %s\n", filepath.Dir(guard))
+			fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation in %s\n", filepath.Dir(guard))
 			return 2
 		}
 	}

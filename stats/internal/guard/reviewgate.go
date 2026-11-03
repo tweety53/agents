@@ -74,7 +74,7 @@ func checkReviewGate(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-review-gate.sh", worktree, name, canonical)
+	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-review-gate", worktree, name, canonical)
 	if tasksMD == "" {
 		if detail == "" {
 			return 2

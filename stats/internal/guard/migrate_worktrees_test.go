@@ -378,7 +378,7 @@ func TestMigrateWorktrees(t *testing.T) {
 		}
 		fx.processes = fx.dir + "/self/check-worktree-processes.sh"
 		code, out, _ := fx.run(t, fx.path())
-		if code != 1 || len(rcwLines(out, "FAILED: "+fx.free+" — check-worktree-processes.sh could not answer")) != 1 {
+		if code != 1 || len(rcwLines(out, "FAILED: "+fx.free+" — flow-guard check-worktree-processes could not answer")) != 1 {
 			t.Fatalf("exit %d, stdout %q; want 1 and a FAILED line for %s", code, out, fx.free)
 		}
 		if !rcwExists(fx.free) || !rcwExists(fx.held) || len(fx.sets(t)) != 0 {

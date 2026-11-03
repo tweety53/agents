@@ -46,7 +46,7 @@ func init() { Registry["check-identical-baselines"] = checkIdenticalBaselines }
 func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-identical-baselines"
 	if len(args) != 0 {
-		fmt.Fprintf(stderr, "%s: usage: flow-guard resolve-visual-screenshots … | check-identical-baselines.sh\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard resolve-visual-screenshots … | flow-guard check-identical-baselines\n", prog)
 		return 2
 	}
 	in := env.Stdin

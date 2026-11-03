@@ -86,7 +86,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	worktree, baseRef, recorded := arg(0), arg(1), arg(2)
 	if worktree == "" || baseRef == "" || recorded == "" {
-		fmt.Fprint(stderr, baseRefUsage("check-finish-preflight.sh"))
+		fmt.Fprint(stderr, baseRefUsage("flow-guard check-finish-preflight"))
 		return 2
 	}
 	if !isDir(smcAbs(env, worktree)) {
@@ -226,7 +226,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 		return 2
 	case rc != 0:
-		fmt.Fprintf(stderr, "check-finish-preflight: check-worktree-location.sh exited %d against %s — cannot determine anything\n", rc, mainCheckout)
+		fmt.Fprintf(stderr, "check-finish-preflight: flow-guard check-worktree-location exited %d against %s — cannot determine anything\n", rc, mainCheckout)
 		return 2
 	}
 
