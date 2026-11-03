@@ -111,11 +111,23 @@ func nbShebang(path string) (bool, error) {
 	interp := filepath.Base(fields[0])
 	if interp == "env" {
 		// env's options (`-S`, `-i`) and NAME=value assignments come
-		// before the command it runs.
+		// before the command it runs; -u, -C and -P take the next field as
+		// their argument, and -S's attached form (`-Sbash`) carries the
+		// command itself.
 		interp = ""
-		for _, f := range fields[1:] {
-			if !strings.HasPrefix(f, "-") && !strings.Contains(f, "=") {
+		for i := 1; i < len(fields); i++ {
+			f := fields[i]
+			switch {
+			case f == "-u" || f == "-C" || f == "-P" || f == "--unset" || f == "--chdir":
+				i++
+			case strings.HasPrefix(f, "-S") && len(f) > 2:
+				interp = f[2:]
+			case !strings.HasPrefix(f, "-") && !strings.Contains(f, "="):
 				interp = f
+			default:
+				continue
+			}
+			if interp != "" {
 				break
 			}
 		}
