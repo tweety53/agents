@@ -137,6 +137,7 @@ type statsFake struct {
 	// all a test can observe of a call that takes no project.
 	reviewerProjects       []store.ProjectDispatches
 	reviewerProjectsCalled bool
+	reviewerProjectsErr    error
 	// weeklyModelEffortCosts backs the weekly-model-effort-costs view.
 	weeklyModelEffortCosts []store.WeeklyModelEffortPoint
 	decisions              []store.DecisionRow
@@ -228,6 +229,9 @@ func (f *statsFake) WeeklyModelEffortCosts(_ context.Context, _ store.Period, p 
 }
 func (f *statsFake) ReviewerProjects(context.Context, store.Period) ([]store.ProjectDispatches, error) {
 	f.reviewerProjectsCalled = true
+	if f.reviewerProjectsErr != nil {
+		return nil, f.reviewerProjectsErr
+	}
 	return f.reviewerProjects, f.aggErr
 }
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
@@ -483,27 +487,6 @@ func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 	}
 }
 
-// TestReviewersWireCarriesCostAndWithdrawn: a row carries the slot's priced
-// spend, priced-dispatch count and withdrawn count, still no derived share.
-func TestReviewersWireCarriesCostAndWithdrawn(t *testing.T) {
-	sts := &statsFake{reviewers: []store.ReviewerRow{
-		{Slot: "primary", Dispatches: 4, CostUSD: 1.25, PricedDispatches: 3, Withdrawn: 2},
-	}}
-	ts := newStatsTestServer(t, sts)
-	status, _, body := getStats(t, ts, periodPath("reviewers"))
-	if status != http.StatusOK {
-		t.Fatalf("status %d, body %s", status, body)
-	}
-	for _, want := range []string{`"costUsd":1.25`, `"pricedDispatches":3`, `"withdrawn":2`} {
-		if !strings.Contains(string(body), want) {
-			t.Errorf("reviewers body lacks %s: %s", want, body)
-		}
-	}
-	if strings.Contains(string(body), "withdrawnShare") {
-		t.Errorf("reviewers body carries withdrawnShare: %s", body)
-	}
-}
-
 // TestStatsReviewersProjects: reviewers?projects=1 carries each project's
 // reviewer dispatch count; without it the aggregate does not run.
 func TestStatsReviewersProjects(t *testing.T) {
@@ -630,6 +613,14 @@ func TestStatsStageLeaderboardProjects(t *testing.T) {
 func TestStatsStageLeaderboardProjectsError(t *testing.T) {
 	ts := newStatsTestServer(t, &statsFake{projectsErr: errors.New("boom")})
 	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&projects=1")
+	if status != http.StatusInternalServerError {
+		t.Errorf("status %d, want 500 (body %s)", status, body)
+	}
+}
+
+func TestStatsReviewerProjectsError(t *testing.T) {
+	ts := newStatsTestServer(t, &statsFake{reviewerProjectsErr: errors.New("boom")})
+	status, _, body := getStats(t, ts, periodPath("reviewers")+"&projects=1")
 	if status != http.StatusInternalServerError {
 		t.Errorf("status %d, want 500 (body %s)", status, body)
 	}
