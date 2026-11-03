@@ -22,7 +22,7 @@ import { flushSync } from "react-dom";
 import type { TrendChange } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
-import { formatUsdCompact } from "../format";
+import { formatUsdCompact, sum } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
 import { weekWindow } from "../lib/weekWindow";
@@ -47,7 +47,6 @@ function windowFor(period: PeriodChip): Pick<Filters, "period" | "from" | "to" |
 
 const defaults = (): Filters => ({ ...windowFor("12w"), command: "/flow", project: null });
 
-const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
 function median(xs: number[]): number | null {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);

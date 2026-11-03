@@ -26,13 +26,11 @@ import { useState } from "react";
 import type { ReviewerProject, ReviewerRow } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
-import { DAY_MS, formatUsdCompact } from "../format";
+import { PERIOD_DAYS, type PeriodChip, formatUsdCompact, sum, windowFor } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
 import type { ViewProps } from "../viewTypes";
 
-const PERIOD_DAYS = { "7d": 7, "30d": 30, "90d": 90 } as const;
-type PeriodChip = keyof typeof PERIOD_DAYS;
 const RANKS = { value: "Value", severity: "Severity", alarms: "False alarms" } as const;
 type Rank = keyof typeof RANKS;
 const TITLE: Record<Rank, string> = {
@@ -48,12 +46,6 @@ interface Filters {
   to: Date;
 }
 
-// The window ending now for a Period chip, computed only when one is chosen.
-function windowFor(period: PeriodChip): { period: PeriodChip; from: Date; to: Date } {
-  const to = Date.now();
-  return { period, from: new Date(to - PERIOD_DAYS[period] * DAY_MS), to: new Date(to) };
-}
-
 const defaults = (): Filters => ({ ...windowFor("30d"), project: null });
 
 interface Slot {
@@ -67,7 +59,6 @@ interface Slot {
 }
 
 const weightedOf = (r: { critical: number; important: number; minor: number }) => 10 * r.critical + 4 * r.important + r.minor;
-const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const int = (v: number) => v.toLocaleString("en-US");
 
