@@ -885,7 +885,9 @@ func TestCloseTaskResolvesABareTaskID(t *testing.T) {
 	t.Run("the newest trailer commit is judged and ticked", func(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0", "0")
-		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		// The older commit touches an undeclared path the fields guard
+		// refuses, so judging it instead of the newest fails the test.
+		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n", "e.txt", "e\n")
 		fx.commit(t, fx.wt, "one", "1", "a.txt", "a2\n")
 		r := fx.run(fx.wt, "demo", fx.base, "1")
 		if r.rc != 0 {
