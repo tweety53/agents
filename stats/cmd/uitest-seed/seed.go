@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,6 +23,16 @@ var fixtureNow = time.Date(2026, 8, 15, 9, 0, 0, 0, time.UTC)
 // weeklyFixtureAt is Thursday 2026-07-23, in the Wednesday week of 2026-07-22.
 var weeklyFixtureAt = time.Date(2026, 7, 23, 9, 0, 0, 0, time.UTC)
 
+// reviewersFixtureAt is when kan-104's Reviewers panel dispatches start:
+// inside the default 30d Reviewers window ending at fixtureNow, before
+// every other spec's pinned period (KAN-1053).
+var reviewersFixtureAt = time.Date(2026, 7, 20, 9, 0, 0, 0, time.UTC)
+
+// kan104At is when kan-104 finished and its one stage run started: before
+// every view's window, so the Trend view's finished changes and every
+// experiment's windows leave it out.
+var kan104At = time.Date(2024, 6, 3, 9, 0, 0, 0, time.UTC)
+
 // stageFixture is one stage run to write against a change, expressed at
 // the level seedFixture's callers think in: which model recorded which
 // token usage, and what it cost. cost_usd is written directly, alongside
@@ -41,6 +52,8 @@ type stageFixture struct {
 
 	StartedAt time.Time
 	Outcome   string
+	// EndedAt is when the run ended; zero means five minutes after StartedAt.
+	EndedAt time.Time
 
 	// ToolErrors is the run's main-session tool-error signal -- what the
 	// live state board's Errors column sums. Zero writes no signal.
@@ -118,6 +131,8 @@ type findingFixture struct {
 	Ref      string
 	Severity string
 	Note     string
+	// Status is the finding's status; empty records "fixed".
+	Status string
 }
 
 // guardFireFixture is one guard run that fired -- Flow health's
@@ -189,6 +204,107 @@ func fixtureData() []projectFixture {
 							}},
 						{Command: "/flow", Stage: "flow.visual-verify", Model: "claude-opus-5", InputTokens: 30000, OutputTokens: 5000, CostUSD: 0.4, StartedAt: weeklyFixtureAt.Add(3 * time.Hour), Outcome: "completed"},
 						{Command: "/flow", Stage: "flow.verify", Model: "claude-opus-5", InputTokens: 20000, OutputTokens: 3000, CostUSD: 0.2, StartedAt: weeklyFixtureAt.Add(4 * time.Hour), Outcome: "completed"},
+					},
+				},
+				{
+					Name:      "kan-104-reviewers-fixture",
+					State:     store.StateFinished,
+					UpdatedAt: kan104At,
+					Stage: []stageFixture{
+						{Command: "/flow", Stage: "flow.review-panel", Model: "claude-opus-5", InputTokens: 50000, OutputTokens: 8000, CostUSD: 0.6, StartedAt: kan104At, Outcome: "completed", SessionToken: "uitest-kan-104",
+							EndedAt: reviewersFixtureAt.Add(24 * time.Hour),
+							Dispatches: map[string]pricedDispatch{
+								"agent-rv-a": {Model: "claude-opus-5", Effort: "low", CostUSD: 0.25},
+								"agent-rv-b": {Model: "claude-opus-5", Effort: "low", CostUSD: 0.3},
+							}},
+					},
+					// The Reviewers view's prototype rows (KAN-1053): panel
+					// dispatches on 2026-07-20, inside the default 30d
+					// Reviewers window and before every other spec's pinned
+					// period, priced from the agent-rv-a/agent-rv-b buckets
+					// above -- each bucket split evenly between the two
+					// dispatches carrying it. That run starts in 2024, before
+					// every view's window and every experiment's (an
+					// experiment counts a change in the window of its first
+					// stage run), so neither the change nor its cost moves
+					// another view's figure; it ends after the dispatches
+					// start, so recording them opens no automatic stage run
+					// inside the windows (openAutoStageRun). The decision, recorded before the window, names the slots:
+					// exp-test-sanity's roster entry carries its description,
+					// and the extra-dispatch slots read theirs from the
+					// store's extraDispatchDescriptions. exp-test-sanity
+					// raises nothing ("found nothing"); the withdrawn
+					// findings give the False alarms rank a different head
+					// from the Severity rank, and the six further roster slots run the
+					// list past a 1024px viewport.
+					SessionToken: "uitest-kan-104",
+					DecisionAt:   weeklyFixtureAt.Add(-7*24*time.Hour - time.Hour),
+					Decision: `{
+						"class": "regular", "execution": "sdd",
+						"implementer": {"model": "opus", "effort": "medium"},
+						"panel": {
+							"compact": false, "rerun": "delta",
+							"roster": [
+								{"slot": "exp-test-sanity", "experimental": true,
+								 "description": "Whether each test the diff adds or changes would fail if the behaviour it names broke"},
+								{"slot": "security", "description": "Security — secrets, injection, auth and redirect checks"},
+								{"slot": "data-integrity", "description": "Data-integrity — partial writes, constraints and migrations"},
+								{"slot": "api-contract", "description": "API-contract — wire shapes, error bodies and versioning"},
+								{"slot": "concurrency", "description": "Concurrency — races, locks and re-entry"},
+								{"slot": "performance", "description": "Performance — hot loops, re-renders and allocations"},
+								{"slot": "docs", "description": "Docs — comments, READMEs and usage lines the diff leaves stale"}
+							]
+						},
+						"extra_dispatch": {"slots": ["test-sanity", "call-efficiency", "failure-modes"]},
+						"extra_dispatch_mutation": {"slots": ["mutation"]}
+					}`,
+					Dispatches: []dispatchFixture{
+						{Slot: "mutation", Model: "opus", AgentID: "agent-rv-a", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F1", Severity: "Important", Note: "flipping the retry guard leaves every test green"},
+							{Ref: "F2", Severity: "Important", Note: "the cap check survives an off-by-one"},
+							{Ref: "F3", Severity: "Important", Note: "the empty-input branch has no killing test"},
+							{Ref: "F4", Severity: "Minor", Note: "a mutant in the log line survives"},
+							{Ref: "F5", Severity: "Minor", Note: "a mutant in the label format survives"},
+							{Ref: "F6", Severity: "Minor", Note: "the sort-order mutant is equivalent", Status: "withdrawn equivalent mutant"},
+						}},
+						{Slot: "exp-test-sanity", Model: "opus", AgentID: "agent-rv-a", StartedAt: reviewersFixtureAt},
+						{Slot: "call-efficiency", Model: "opus", AgentID: "agent-rv-b", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F7", Severity: "Critical", Note: "one query per row in the list endpoint"},
+							{Ref: "F8", Severity: "Minor", Note: "the cache is read twice per request", Status: "withdrawn the second read is a different key"},
+							{Ref: "F9", Severity: "Minor", Note: "the second caller re-reads the config", Status: "withdrawn the config is read once at startup"},
+						}},
+						{Slot: "failure-modes", Model: "opus", AgentID: "agent-rv-b", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F10", Severity: "Important", Note: "a partial write is left behind on timeout"},
+							{Ref: "F11", Severity: "Minor", Note: "the retry re-enters while the first call runs", Status: "withdrawn the call holds a lock"},
+						}},
+						{Slot: "test-sanity", Model: "opus", AgentID: "agent-ts-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F12", Severity: "Critical", Note: "the new test asserts on its own mock"},
+							{Ref: "F13", Severity: "Minor", Note: "two tests duplicate the same case"},
+							{Ref: "F14", Severity: "Minor", Note: "a ceremony test asserts nothing"},
+						}},
+						{Slot: "security", Model: "opus", AgentID: "agent-security-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F15", Severity: "Important", Note: "the token is logged at debug level"},
+							{Ref: "F16", Severity: "Important", Note: "the redirect target is not checked"},
+						}},
+						{Slot: "data-integrity", Model: "opus", AgentID: "agent-data-integrity-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F17", Severity: "Important", Note: "a failed import leaves half its rows"},
+							{Ref: "F18", Severity: "Minor", Note: "the unique index allows two empty keys"},
+						}},
+						{Slot: "api-contract", Model: "opus", AgentID: "agent-api-contract-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F19", Severity: "Minor", Note: "the error body drops its code"},
+							{Ref: "F20", Severity: "Minor", Note: "a field is renamed without a version"},
+							{Ref: "F21", Severity: "Minor", Note: "the list omits its total"},
+						}},
+						{Slot: "concurrency", Model: "opus", AgentID: "agent-concurrency-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F22", Severity: "Important", Note: "two writers race on the counter"},
+						}},
+						{Slot: "performance", Model: "opus", AgentID: "agent-performance-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F23", Severity: "Minor", Note: "the list re-sorts on every render"},
+						}},
+						{Slot: "docs", Model: "opus", AgentID: "agent-docs-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+							{Ref: "F24", Severity: "Minor", Note: "the README names the old flag"},
+							{Ref: "F25", Severity: "Minor", Note: "a usage line misses the new option"},
+						}},
 					},
 				},
 				{
@@ -436,7 +552,7 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 					return fmt.Errorf("uitest-seed: merge metrics for %s/%s %s: %w", project.Key, change.Name, stage.Stage, err)
 				}
 
-				endedAt := stage.StartedAt.Add(5 * time.Minute)
+				endedAt := cmp.Or(stage.EndedAt, stage.StartedAt.Add(5*time.Minute))
 				if err := st.EndStage(ctx, run.ID, endedAt, stage.Outcome); err != nil {
 					return fmt.Errorf("uitest-seed: end stage for %s/%s %s: %w", project.Key, change.Name, stage.Stage, err)
 				}
@@ -514,7 +630,7 @@ func seedRunRecords(ctx context.Context, st *store.Store, projectKey string, cha
 				Slot:        d.Slot,
 				Severity:    f.Severity,
 				Note:        f.Note,
-				Status:      "fixed",
+				Status:      cmp.Or(f.Status, "fixed"),
 			}); err != nil {
 				return fmt.Errorf("uitest-seed: upsert finding %s for %s/%s: %w", f.Ref, projectKey, change.Name, err)
 			}
