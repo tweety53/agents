@@ -92,6 +92,12 @@ func TestCheckGuardCallsGoLiterals(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("setup.sh and _test.go: code %d, out %q", code, out)
 	}
+	out, code = gcTree(t, map[string]string{
+		"stats/x/testdata/a.go": "package x\n\nvar s = \"run plan-class.sh now\"\n",
+	})
+	if code != 0 {
+		t.Fatalf("testdata is skipped: code %d, out %q", code, out)
+	}
 }
 
 func TestCheckGuardCallsCompanion(t *testing.T) {
