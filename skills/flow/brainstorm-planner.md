@@ -479,6 +479,12 @@ prescribed course, never accepting the plan while it stands.
 > page or viewport, never an element or a clipped region, and each captures a state no sibling
 > capture shows — steps 8 and 9 of `skills/flow/visual-verify-verifier.md` refuse a clip and a
 > byte-identical pair (kan-1061 self-review).
+> The task that builds the view seeds, in its capture fixture, the data for every element and
+> state the frame or prototype draws — per-row variants, empty and zero cells, badges, an
+> overflow-length list — on data outside the windows other views' captures read; only content
+> drawn with different values is an expected leftover, never a missing element (**A departure
+> caused by missing account data is fixed by adding the data, never explained away.**,
+> `skills/flow/visual-verify.md`; kan-1053 self-review, F11).
 > The one exception is a region an approved prototype draws alone, captured as an element beside
 > the view's own full-page capture, per step 8 of `skills/flow/visual-verify-verifier.md`.
 
