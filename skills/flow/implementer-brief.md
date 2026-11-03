@@ -197,12 +197,14 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > `flow-guard close-task` refusal's lines, a wave member's commits to re-apply, or a failing suite block —
 > at its root cause, under every other paragraph of this brief save the commit subject and trailer
 > FLOW — COMMIT-PER-TASK names, which this paragraph's take the place of. A finding's fix is one
-> commit per task at the branch tip, carrying that task's `Task-Id:` trailer,
-> `-m "Flow-Key: <your key>"` and a `fix(<module>): …` subject; a re-commit rewrites only the
+> commit per task at the branch tip,
+> `git -C <abs-worktree> commit -m "fix(<module>): <subject>" --trailer "Task-Id: <n>" --trailer "Flow-Key: <your key>" -- <this task's files>`,
+> `<n>` that task's id — both trailers as `--trailer` flags, never a `-m` paragraph each, since git
+> reads trailers from the last paragraph alone (kan-1053 self-review, F2); a re-commit rewrites only the
 > refused, unpushed task commit, without the paths the refusal names, keeping its declared
 > `**Commit:**` subject and `Task-Id:` trailer; a pick re-applies the member's commits onto the
 > branch tip in order, each keeping its subject and trailer; a full-suite fix commits with
-> `-m "Flow-Key: full-suite-fix-<n>"` and no `Task-Id:`. When the line names MUTATION PROOF, follow
+> `--trailer "Flow-Key: full-suite-fix-<n>"` and no `Task-Id:`. When the line names MUTATION PROOF, follow
 > that paragraph (`skills/flow/review-panel.md`) in its exact words before you end your turn.
 > Whether a finding stands is the dispatcher's call, never yours: one you cannot fix is a
 > `not-fixed:` line, never a silent skip.
