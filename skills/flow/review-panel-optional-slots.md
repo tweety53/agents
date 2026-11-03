@@ -42,7 +42,7 @@ Dispatch each slot present in this round's roster **once**, its prompt listing e
 that slot as the repository paths to mutate and test in, in place of `<worktree>`.
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
 (including after the wall-clock re-dispatch), or the run stopped — with
-`flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, which first copies
+`flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, run as its own Bash call with literal absolute paths, never chained into a compound command (kan-1053 self-review, F4), which first copies
 each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md` and
 `<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
 
