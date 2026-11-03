@@ -181,6 +181,18 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	}
 
 	// A record never blocks: a failed dispatch end is reported, never a stop.
+	// Its UNRECORDED line is printed last on every exit from here, in key
+	// order, and exit 3 where it would be 0 (design.md:
+	// close-task-unrecorded-exit-3).
+	var unrecorded []string
+	defer func() {
+		for _, line := range unrecorded {
+			fmt.Fprintln(stderr, line)
+		}
+		if len(unrecorded) > 0 && exit == 0 {
+			exit = 3
+		}
+	}()
 	for i, key := range endKeys {
 		rec := []string{"record", "dispatch", "end", "-change", name, "-C", canonical, "-key", key, "-session-token", *token}
 		if len(endCommits) > 0 {
@@ -195,14 +207,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		rec = append(rec, "-outcome", "completed")
 		if ctFlow(env, stdout, stderr, rec...) != 0 {
 			fmt.Fprintf(stderr, "close-task: the dispatch end for %s did not reach the store — continuing; a record never blocks\n", key)
-			// Printed last on every exit from here, and exit 3 where it
-			// would be 0 (design.md: close-task-unrecorded-exit-3).
-			defer func() {
-				fmt.Fprintf(stderr, "close-task: UNRECORDED — the dispatch end for %s did not reach the store; run: flow %s\n", key, strings.Join(rec, " "))
-				if exit == 0 {
-					exit = 3
-				}
-			}()
+			unrecorded = append(unrecorded, fmt.Sprintf("close-task: UNRECORDED — the dispatch end for %s did not reach the store; run: flow %s", key, strings.Join(rec, " ")))
 		}
 	}
 

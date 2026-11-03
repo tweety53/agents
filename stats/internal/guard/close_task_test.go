@@ -483,6 +483,27 @@ func TestCloseTaskSurfacesAFailedDispatchEnd(t *testing.T) {
 	}
 }
 
+// kan-1058 self-review, R4: several failed ends print their UNRECORDED lines
+// last, in key order.
+func TestCloseTaskPrintsUnrecordedLinesInKeyOrder(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "1")
+	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+	r := runGuard("close-task", []string{"-session-token", "mf-t", "-end-key", "k1", "-end-key", "k2", fx.wt, "demo", fx.base, "1:" + s1}, fx.env)
+	if r.rc != 3 {
+		t.Fatalf("exit %d, want 3\n%s", r.rc, r.out)
+	}
+	lines := strings.Split(strings.TrimRight(r.err, "\n"), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("stderr %q", r.err)
+	}
+	for i, key := range []string{"k1", "k2"} {
+		if want := "close-task: UNRECORDED — the dispatch end for " + key + " "; !strings.HasPrefix(lines[len(lines)-2+i], want) {
+			t.Errorf("stderr line %d from the end = %q, want prefix %q", 2-i, lines[len(lines)-2+i], want)
+		}
+	}
+}
+
 // kan-1008's self-review: a recorded worktree the commit map leaves out
 // joins the verdict through its newest commit carrying the task's trailer,
 // so a commit there touching an undeclared path is refused; a worktree with
