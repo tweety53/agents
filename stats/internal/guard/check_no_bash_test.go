@@ -32,6 +32,7 @@ func TestCheckNoBash(t *testing.T) {
 		{"an env -S bash script fails", "tool", "#!/usr/bin/env -S bash -e\necho\n", 1},
 		{"an env -u FOO bash script fails", "tool", "#!/usr/bin/env -u FOO bash\necho\n", 1},
 		{"an env -C dir -P path bash script fails", "tool", "#!/usr/bin/env -C /tmp -P /bin bash\necho\n", 1},
+		{"an env FOO=1 bash script fails", "tool", "#!/usr/bin/env FOO=1 bash\necho\n", 1},
 		{"an env -Sbash script fails", "tool", "#!/usr/bin/env -Sbash -e\necho\n", 1},
 		{"an env -S python3 script passes", "tool", "#!/usr/bin/env -S python3 -u\nprint()\n", 0},
 		{"an env-python3 script passes", "tool", "#!/usr/bin/env python3\nprint()\n", 0},

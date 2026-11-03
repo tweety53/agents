@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -150,6 +151,57 @@ func TestCwdCheckoutGuardSet(t *testing.T) {
 	for _, name := range want {
 		if _, ok := CwdCheckout(cwdEnv(main, wt), name); !ok {
 			t.Errorf("%s is self-judging but did not re-exec", name)
+		}
+	}
+}
+
+// TestBootstrapCannotAnswerMatches pins scripts/flow-guard's cannot-answer
+// case block to CannotAnswer: the bootstrap must answer before a binary
+// exists, so it keeps its own copy, and this is what stops the two drifting.
+func TestBootstrapCannotAnswerMatches(t *testing.T) {
+	t.Parallel()
+	b, err := os.ReadFile("../../../scripts/flow-guard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(b)
+	start := strings.Index(src, "case \"$name\" in\n")
+	if start < 0 {
+		t.Fatal("scripts/flow-guard has no `case \"$name\" in` block")
+	}
+	block := src[start:]
+	block = block[:strings.Index(block, "esac")]
+	codes := map[string]int{}
+	def := -1
+	for _, line := range strings.Split(block, "\n")[1:] {
+		pats, rest, ok := strings.Cut(strings.TrimSpace(line), ") code=")
+		if !ok {
+			continue
+		}
+		code, err := strconv.Atoi(strings.TrimSuffix(rest, " ;;"))
+		if err != nil {
+			t.Fatalf("bootstrap line %q: %v", line, err)
+		}
+		for _, p := range strings.Split(pats, "|") {
+			if p = strings.TrimSpace(p); p == "*" {
+				def = code
+			} else {
+				codes[p] = code
+			}
+		}
+	}
+	for name := range Registry {
+		want, ok := codes[name]
+		if !ok {
+			want = def
+		}
+		if got := CannotAnswer(name); got != want {
+			t.Errorf("%s: CannotAnswer %d, scripts/flow-guard %d", name, got, want)
+		}
+	}
+	for name := range codes {
+		if Registry[name] == nil {
+			t.Errorf("scripts/flow-guard names unregistered guard %s", name)
 		}
 	}
 }
