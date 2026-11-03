@@ -104,8 +104,11 @@ type changeFixture struct {
 // dispatchFixture is one review-panel slot's dispatch and the findings it
 // raised -- what the Reviewers view and Flow health's C/I/Mi tile count.
 type dispatchFixture struct {
-	Slot      string
-	Model     string
+	Slot  string
+	Model string
+	// AgentID is the harness id a stage run's metrics.dispatches bucket
+	// keys, linking the dispatch to its priced spend; empty for none.
+	AgentID   string
 	StartedAt time.Time
 	Findings  []findingFixture
 }
@@ -242,9 +245,13 @@ func fixtureData() []projectFixture {
 						}
 					}`,
 					Dispatches: []dispatchFixture{
+						// agent-panel-a and agent-panel-b are the flow.review-panel
+						// run's two priced buckets above, so Reviewers prices
+						// these dispatches at $0.15 and $0.10.
 						{
 							Slot:      "primary",
 							Model:     "opus",
+							AgentID:   "agent-panel-a",
 							StartedAt: fixtureNow.Add(-90 * time.Minute),
 							Findings: []findingFixture{
 								{Ref: "F1", Severity: "Critical", Note: "the fix drops the retry on a closed connection"},
@@ -254,6 +261,7 @@ func fixtureData() []projectFixture {
 						{
 							Slot:      "principles",
 							Model:     "opus",
+							AgentID:   "agent-panel-b",
 							StartedAt: fixtureNow.Add(-90 * time.Minute),
 							Findings: []findingFixture{
 								{Ref: "F3", Severity: "Important", Note: "two callers now duplicate the same parse"},
@@ -489,6 +497,7 @@ func seedRunRecords(ctx context.Context, st *store.Store, projectKey string, cha
 			Role:         "panel",
 			Slot:         d.Slot,
 			Model:        d.Model,
+			AgentID:      d.AgentID,
 			Outcome:      "completed",
 			SessionToken: change.SessionToken,
 			StartedAt:    d.StartedAt,
