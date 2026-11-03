@@ -13,8 +13,7 @@ import (
 // TestCheckTaskRecords ports scripts/test-check-task-records.sh at
 // bbfe685e: one subtest per ok: label, the guard run in-process against real
 // git fixtures copied from one base repository (trBase). The harness's two
-// wrapper cases -- a flow-guard that cannot be built, a missing
-// lib/flow-guard.sh -- exec a copy of the real shim.
+// wrapper cases tested the deleted bash shim and have no counterpart.
 func TestCheckTaskRecords(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }

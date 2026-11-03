@@ -28,8 +28,8 @@ import (
 // wrote to equal the Python's pixel for pixel -- a three-panel composite's
 // difference panel against an any-channel mask of its own capture and frame
 // panels instead (any-channel-diff-mask). Case 11 (Pillow absent) has no
-// counterpart; case 12 runs a lone copy of the shim, the sibling it needs now
-// being lib/flow-guard.sh. The rows after the harness's pin the any-channel
+// counterpart, and neither has case 12, which ran the deleted bash shim. The
+// rows after the harness's pin the any-channel
 // mask, Python's text input (python-io-semantics) and the physical absolute
 // path printed from a cwd reached through a symlink.
 
