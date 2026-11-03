@@ -610,6 +610,19 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
 		t.Errorf("a test list after a lint list re-run green: exit %d, calls:\n%s", rc, calls)
 	}
+	// Both groups run at once under one key, so either may end first: a
+	// blocked test group is never masked by the lint group ending green later
+	// (kan-1058 self-review, R2).
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\nexit 1\n```\n")
+	gitIn(t, wt, "add", "-A")
+	gitIn(t, wt, "commit", "-q", "-m", "seven")
+	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+		t.Errorf("a failing test list: exit %d, calls:\n%s", rc, calls)
+	}
+	list = "lint"
+	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+		t.Errorf("a green lint list after a blocked test: exit %d, calls:\n%s", rc, calls)
+	}
 }
 
 // TestRunVerifyListKeepsResultFiles pins kan-1017's self-review: a failing

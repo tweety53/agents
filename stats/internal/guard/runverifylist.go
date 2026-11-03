@@ -628,25 +628,33 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		self, _ := selfExe()
 		run("flow-guard check-spec-reach "+wt, `"`+self+`" check-spec-reach "`+wt+`"`, "spec-reach")
 	}
-	// Lint and test share one dispatch key, and the later group's end
-	// overwrites the row (skills/flow/verify-and-handoff.md, Recording): a
-	// blocked lint group is carried into the test group's end, never masked.
-	lintBlocked := false
+	// Lint and test share one dispatch key, run at once, and the later
+	// group's end overwrites the row (skills/flow/verify-and-handoff.md,
+	// Recording): each group marks its own failure, clears its own mark when
+	// green, and ends blocked while any group's mark stands. The ends run
+	// under one lock, held through the record, so whichever group ends last
+	// sees the other's mark — a blocked group is never masked.
+	anyBlocked := false
 	if blockedMark != "" {
 		if mark, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", blockedMark); ok {
-			switch {
-			case list != "lint":
-				_, err := os.Stat(mark)
-				lintBlocked = err == nil
-			case failed != 0:
-				os.WriteFile(mark, nil, 0o666)
-			default:
-				os.Remove(mark)
+			if lock, err := os.OpenFile(mark+".lock", os.O_CREATE|os.O_RDWR, 0o666); err == nil {
+				defer lock.Close()
+				syscall.Flock(int(lock.Fd()), syscall.LOCK_EX)
+			}
+			if failed != 0 {
+				os.WriteFile(mark+"-"+list, nil, 0o666)
+			} else {
+				os.Remove(mark + "-" + list)
+			}
+			for _, l := range []string{"lint", "test", "visual"} {
+				if _, err := os.Stat(mark + "-" + l); err == nil {
+					anyBlocked = true
+				}
 			}
 		}
 	}
 	switch {
-	case failed != 0 || lintBlocked:
+	case failed != 0 || anyBlocked:
 		record("end", "-outcome", "blocked", "-cause", "test-failure")
 	case list != "lint" && !visualRan && len(cmds) > 0 && !slices.Contains(skip, false):
 		// A lint list always ran check-spec-reach.sh, so it never ends skipped.
