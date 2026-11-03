@@ -1,0 +1,25 @@
+diff --git a/stats/internal/guard/livestorecopy.go b/stats/internal/guard/livestorecopy.go
+new file mode 100644
+--- /dev/null
++++ b/stats/internal/guard/livestorecopy.go
+@@ -0,0 +1,20 @@ (the copyStore hunk of the file task 4 added, commit 1a24dfd7)
++// copyStore is `pg pg_dump … flow | pg psql … -d <db> >/dev/null` under
++// pipefail: true only when both ends succeed.
++func (l *lsc) copyStore() bool {
++	dump := l.pg("pg_dump", "-U", "flow", "--no-owner", "--no-acl", "flow")
++	restore := l.pg("psql", "-q", "-v", "ON_ERROR_STOP=1", "-U", "flow", "-d", l.db)
++	pipe, err := dump.StdoutPipe()
++	if err != nil {
++		return false
++	}
++	// Both ends write the one stderr, as the bash pipeline's shared fd did;
++	// a writer that is not a file is copied into by a goroutine per end.
++	shared := &lscLockedWriter{w: l.stderr}
++	dump.Stderr, restore.Stdin, restore.Stderr = shared, pipe, shared
++	if err := dump.Start(); err != nil {
++		return false
++	}
++	restoreErr := restore.Run()
++	dumpErr := dump.Wait()
++	return restoreErr == nil && dumpErr == nil
++}

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1058-port-remaining-sh-to-go-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1058-port-remaining-sh-to-go-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A port of existing code into another language, library or process model keeps the original&#39;s happy path but loses a failure behaviour the original had, because the port&#39;s tests were copied from the original&#39;s harness, which never exercised that failure.</p>
+<h2>Finding</h2>
+<pre>**Severity:** Important
+**Slot:** gated per-task reviewer (task 4)
+**Location:** stats/internal/guard/livestorecopy.go:811
+
+`stats/internal/guard/livestorecopy.go:811-828` (`copyStore`) — when `psql` exits before `pg_dump` has written everything (its `ON_ERROR_STOP=1` on the first failing statement, a refused connection, any early exit), `live-store-copy up` hangs forever instead of failing with exit 1. `dump.StdoutPipe()` leaves the read end of the pipe open in the guard process for as long as `dump.Wait()` has not run; once `restore` has exited nothing reads that pipe, so `pg_dump` (the `docker exec` client) blocks on a full pipe buffer and never gets the SIGPIPE the bash pipeline gave it, and `dump.Wait()` waits on it for ever. The bash it replaces exits 1 with &#34;copy into flow_&lt;name&gt;_live failed&#34; in the same situation. Any real `flow` dump is far larger than the 64 KB pipe buffer.
+</pre>
+<pre><code>diff --git a/stats/internal/guard/livestorecopy.go b/stats/internal/guard/livestorecopy.go
+new file mode 100644
+--- /dev/null
+&#43;&#43;&#43; b/stats/internal/guard/livestorecopy.go
+@@ -0,0 &#43;1,20 @@ (the copyStore hunk of the file task 4 added, commit 1a24dfd7)
+&#43;// copyStore is `pg pg_dump … flow | pg psql … -d &lt;db&gt; &gt;/dev/null` under
+&#43;// pipefail: true only when both ends succeed.
+&#43;func (l *lsc) copyStore() bool {
+&#43;	dump := l.pg(&#34;pg_dump&#34;, &#34;-U&#34;, &#34;flow&#34;, &#34;--no-owner&#34;, &#34;--no-acl&#34;, &#34;flow&#34;)
+&#43;	restore := l.pg(&#34;psql&#34;, &#34;-q&#34;, &#34;-v&#34;, &#34;ON_ERROR_STOP=1&#34;, &#34;-U&#34;, &#34;flow&#34;, &#34;-d&#34;, l.db)
+&#43;	pipe, err := dump.StdoutPipe()
+&#43;	if err != nil {
+&#43;		return false
+&#43;	}
+&#43;	// Both ends write the one stderr, as the bash pipeline&#39;s shared fd did;
+&#43;	// a writer that is not a file is copied into by a goroutine per end.
+&#43;	shared := &amp;lscLockedWriter{w: l.stderr}
+&#43;	dump.Stderr, restore.Stdin, restore.Stderr = shared, pipe, shared
+&#43;	if err := dump.Start(); err != nil {
+&#43;		return false
+&#43;	}
+&#43;	restoreErr := restore.Run()
+&#43;	dumpErr := dump.Wait()
+&#43;	return restoreErr == nil &amp;&amp; dumpErr == nil
+&#43;}
+</code></pre>
+<h2>Fix</h2>
+<pre><code>diff --git a/stats/internal/guard/live_store_copy_test.go b/stats/internal/guard/live_store_copy_test.go
+index 6827b807..7741ba43 100644
+--- a/stats/internal/guard/live_store_copy_test.go
+&#43;&#43;&#43; b/stats/internal/guard/live_store_copy_test.go
+@@ -10,6 &#43;10,7 @@ import (
+ 	&#34;strings&#34;
+ 	&#34;syscall&#34;
+ 	&#34;testing&#34;
+&#43;	&#34;time&#34;
+ )
+ 
+ // TestLiveStoreCopy ports scripts/test-live-store-copy.sh: live-store-copy
+@@ -134,6 &#43;135,28 @@ chmod &#43;x &#34;$out&#34;
+ 		nothingRan(t, lsc(nil, &#34;restart&#34;, name))
+ 	})
+ 
+&#43;	t.Run(&#34;up fails, never hangs, when psql exits before pg_dump is done&#34;, func(t *testing.T) {
+&#43;		early := t.TempDir()
+&#43;		// pg_dump writes far past a pipe buffer; psql reads nothing and fails.
+&#43;		writeExec(t, early&#43;&#34;/docker&#34;, `#!/usr/bin/env bash
+&#43;case &#34;$*&#34; in
+&#43;*pg_dump*) head -c 4194304 /dev/zero ;;
+&#43;*psql\ -q*) exit 1 ;;
+&#43;esac
+&#43;`)
+&#43;		done := make(chan int, 1)
+&#43;		go func() { done &lt;- lsc(map[string]string{&#34;PATH&#34;: early &#43; &#34;:&#34; &#43; vars[&#34;PATH&#34;]}, &#34;up&#34;, name, port) }()
+&#43;		select {
+&#43;		case rc := &lt;-done:
+&#43;			if rc != 1 || !strings.Contains(out, &#34;copy into &#34;&#43;db&#43;&#34; failed&#34;) {
+&#43;				t.Errorf(&#34;exit %d, want 1 with copy failure: %s&#34;, rc, out)
+&#43;			}
+&#43;		case &lt;-time.After(10 * time.Second):
+&#43;			t.Fatal(&#34;up still running after 10 s with psql gone&#34;)
+&#43;		}
+&#43;		_, _ = os.RemoveAll(dir), os.RemoveAll(sdd)
+&#43;	})
+&#43;
+ 	var pid int
+ 	t.Run(&#34;up copies into the scratch database and starts its flowd on the copy&#34;, func(t *testing.T) {
+ 		resetLog()
+diff --git a/stats/internal/guard/livestorecopy.go b/stats/internal/guard/livestorecopy.go
+index df5dfe50..75cdd9b6 100644
+--- a/stats/internal/guard/livestorecopy.go
+&#43;&#43;&#43; b/stats/internal/guard/livestorecopy.go
+@@ -1,6 &#43;1,7 @@
+ package guard
+ 
+ import (
+&#43;	&#34;errors&#34;
+ 	&#34;fmt&#34;
+ 	&#34;io&#34;
+ 	&#34;os&#34;
+@@ -234,22 &#43;235,32 @@ func (l *lsc) step(cmd *exec.Cmd) {
+ func (l *lsc) copyStore() bool {
+ 	dump := l.pg(&#34;pg_dump&#34;, &#34;-U&#34;, &#34;flow&#34;, &#34;--no-owner&#34;, &#34;--no-acl&#34;, &#34;flow&#34;)
+ 	restore := l.pg(&#34;psql&#34;, &#34;-q&#34;, &#34;-v&#34;, &#34;ON_ERROR_STOP=1&#34;, &#34;-U&#34;, &#34;flow&#34;, &#34;-d&#34;, l.db)
+-	pipe, err := dump.StdoutPipe()
+&#43;	// An os.Pipe the parent closes once both ends have started, never
+&#43;	// StdoutPipe: that keeps a read end open in the guard until dump.Wait, so
+&#43;	// a psql that exits early leaves pg_dump blocked on a full pipe forever
+&#43;	// instead of dying of SIGPIPE as the bash pipeline&#39;s did.
+&#43;	r, w, err := os.Pipe()
+ 	if err != nil {
+ 		return false
+ 	}
+ 	// Both ends write the one stderr, as the bash pipeline&#39;s shared fd did;
+ 	// a writer that is not a file is copied into by a goroutine per end.
+ 	shared := &amp;lscLockedWriter{w: l.stderr}
+-	dump.Stderr, restore.Stdin, restore.Stderr = shared, pipe, shared
+-	if err := dump.Start(); err != nil {
+-		return false
+&#43;	dump.Stdout, dump.Stderr, restore.Stdin, restore.Stderr = w, shared, r, shared
+&#43;	dumpStarted, restoreStarted := dump.Start() == nil, restore.Start() == nil
+&#43;	_, _ = r.Close(), w.Close()
+&#43;	var dumpErr, restoreErr error = errLscNotStarted, errLscNotStarted
+&#43;	if dumpStarted {
+&#43;		dumpErr = dump.Wait()
+&#43;	}
+&#43;	if restoreStarted {
+&#43;		restoreErr = restore.Wait()
+ 	}
+-	restoreErr := restore.Run()
+-	dumpErr := dump.Wait()
+ 	return restoreErr == nil &amp;&amp; dumpErr == nil
+ }
+ 
+&#43;var errLscNotStarted = errors.New(&#34;not started&#34;)
+&#43;
+ // lscLockedWriter serialises the writes of the processes that share it.
+ type lscLockedWriter struct {
+ 	mu sync.Mutex
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a port reproduces what the original does when everything works, but not what it does when a step fails (an exit code, a peer dying early, a timeout, a signal), because the port&#39;s tests are copied from the original&#39;s harness, which never drove that failure. 2. The Testing principles cover tests written first, asserting behaviour, determinism and error-path fixes driven by their real trigger (the quoted before paragraph), and the Robustness section covers swallowed errors and unbounded external calls. No rule says that rewriting existing code must preserve, and test, each way the original fails. Here the task said to port every case of scripts/test-live-store-copy.sh, which had no early-psql case, so the Go copyStore hung forever where the bash pipeline exited 1. 3. It generalises to every rewrite of working code: shell to Go (this repository has ported dozens of guards this way and ported three more scripts in this run), one HTTP or DB client library for another, a pipeline into spawned processes, a sync call into an async one. In each, the old suite pins only the failures someone once wrote a test for. 4. It states a principle (behaviour parity includes the failure paths, read from the original&#39;s code rather than from its old tests), not a rule about pipes or SIGPIPE.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>6dd0585de38f6681c4d341b143a37f27301148fb</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>**An error-path fix is tested against its real trigger.** A test that hands the fixed handler a
+payload the real backend never sends on that path — a bare `403` where every real one carries an
+error code — proves nothing about reachability: a global interceptor, a client-wide handler for
+that status or code, can take the real response first and leave the local handler dead while its
+test stays green (KAN-691). Before the test is written, trace the real response through every
+interceptor to the handler, and drive the test or reproducer with that real response, end to end.</pre></div>
+<div><h3>After</h3><pre>**An error-path fix is tested against its real trigger.** A test that hands the fixed handler a
+payload the real backend never sends on that path — a bare `403` where every real one carries an
+error code — proves nothing about reachability: a global interceptor, a client-wide handler for
+that status or code, can take the real response first and leave the local handler dead while its
+test stays green. Before the test is written, trace the real response through every
+interceptor to the handler, and drive the test or reproducer with that real response, end to end.
+
+**A port keeps every way its original fails.** Code rewritten into another language, library or
+process model keeps not only the original&#39;s result on the happy path but each failure it had — its
+exit code when a step fails, a peer that dies early, a timeout, a signal. Before the port is
+written, list how the original fails from its code, not only from its old tests: a harness ported
+case for case inherits its gaps. The port&#39;s tests drive each of those failures and assert the
+original&#39;s outcome, bounded so a hang fails.</pre></div>
+</div>
+</body>
+</html>

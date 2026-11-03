@@ -1,0 +1,92 @@
+diff --git a/stats/internal/guard/live_store_copy_test.go b/stats/internal/guard/live_store_copy_test.go
+index 6827b807..7741ba43 100644
+--- a/stats/internal/guard/live_store_copy_test.go
++++ b/stats/internal/guard/live_store_copy_test.go
+@@ -10,6 +10,7 @@ import (
+ 	"strings"
+ 	"syscall"
+ 	"testing"
++	"time"
+ )
+ 
+ // TestLiveStoreCopy ports scripts/test-live-store-copy.sh: live-store-copy
+@@ -134,6 +135,28 @@ chmod +x "$out"
+ 		nothingRan(t, lsc(nil, "restart", name))
+ 	})
+ 
++	t.Run("up fails, never hangs, when psql exits before pg_dump is done", func(t *testing.T) {
++		early := t.TempDir()
++		// pg_dump writes far past a pipe buffer; psql reads nothing and fails.
++		writeExec(t, early+"/docker", `#!/usr/bin/env bash
++case "$*" in
++*pg_dump*) head -c 4194304 /dev/zero ;;
++*psql\ -q*) exit 1 ;;
++esac
++`)
++		done := make(chan int, 1)
++		go func() { done <- lsc(map[string]string{"PATH": early + ":" + vars["PATH"]}, "up", name, port) }()
++		select {
++		case rc := <-done:
++			if rc != 1 || !strings.Contains(out, "copy into "+db+" failed") {
++				t.Errorf("exit %d, want 1 with copy failure: %s", rc, out)
++			}
++		case <-time.After(10 * time.Second):
++			t.Fatal("up still running after 10 s with psql gone")
++		}
++		_, _ = os.RemoveAll(dir), os.RemoveAll(sdd)
++	})
++
+ 	var pid int
+ 	t.Run("up copies into the scratch database and starts its flowd on the copy", func(t *testing.T) {
+ 		resetLog()
+diff --git a/stats/internal/guard/livestorecopy.go b/stats/internal/guard/livestorecopy.go
+index df5dfe50..75cdd9b6 100644
+--- a/stats/internal/guard/livestorecopy.go
++++ b/stats/internal/guard/livestorecopy.go
+@@ -1,6 +1,7 @@
+ package guard
+ 
+ import (
++	"errors"
+ 	"fmt"
+ 	"io"
+ 	"os"
+@@ -234,22 +235,32 @@ func (l *lsc) step(cmd *exec.Cmd) {
+ func (l *lsc) copyStore() bool {
+ 	dump := l.pg("pg_dump", "-U", "flow", "--no-owner", "--no-acl", "flow")
+ 	restore := l.pg("psql", "-q", "-v", "ON_ERROR_STOP=1", "-U", "flow", "-d", l.db)
+-	pipe, err := dump.StdoutPipe()
++	// An os.Pipe the parent closes once both ends have started, never
++	// StdoutPipe: that keeps a read end open in the guard until dump.Wait, so
++	// a psql that exits early leaves pg_dump blocked on a full pipe forever
++	// instead of dying of SIGPIPE as the bash pipeline's did.
++	r, w, err := os.Pipe()
+ 	if err != nil {
+ 		return false
+ 	}
+ 	// Both ends write the one stderr, as the bash pipeline's shared fd did;
+ 	// a writer that is not a file is copied into by a goroutine per end.
+ 	shared := &lscLockedWriter{w: l.stderr}
+-	dump.Stderr, restore.Stdin, restore.Stderr = shared, pipe, shared
+-	if err := dump.Start(); err != nil {
+-		return false
++	dump.Stdout, dump.Stderr, restore.Stdin, restore.Stderr = w, shared, r, shared
++	dumpStarted, restoreStarted := dump.Start() == nil, restore.Start() == nil
++	_, _ = r.Close(), w.Close()
++	var dumpErr, restoreErr error = errLscNotStarted, errLscNotStarted
++	if dumpStarted {
++		dumpErr = dump.Wait()
++	}
++	if restoreStarted {
++		restoreErr = restore.Wait()
+ 	}
+-	restoreErr := restore.Run()
+-	dumpErr := dump.Wait()
+ 	return restoreErr == nil && dumpErr == nil
+ }
+ 
++var errLscNotStarted = errors.New("not started")
++
+ // lscLockedWriter serialises the writes of the processes that share it.
+ type lscLockedWriter struct {
+ 	mu sync.Mutex

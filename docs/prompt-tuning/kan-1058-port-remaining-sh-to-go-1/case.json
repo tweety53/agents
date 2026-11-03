@@ -1,0 +1,22 @@
+{
+  "id": "kan-1058-port-remaining-sh-to-go-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1058-port-remaining-sh-to-go",
+    "jira": "KAN-1058",
+    "repo": "agents",
+    "fix_sha": "caf64433d1a191e3a986405e6c0475ed1143e2a1",
+    "finding_ref": "F4",
+    "round": 0,
+    "slot": "task-reviewer",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "6dd0585de38f6681c4d341b143a37f27301148fb",
+  "defect_class": "A port of existing code into another language, library or process model keeps the original's happy path but loses a failure behaviour the original had, because the port's tests were copied from the original's harness, which never exercised that failure.",
+  "why_picked": "1. Defect class: a port reproduces what the original does when everything works, but not what it does when a step fails (an exit code, a peer dying early, a timeout, a signal), because the port's tests are copied from the original's harness, which never drove that failure. 2. The Testing principles cover tests written first, asserting behaviour, determinism and error-path fixes driven by their real trigger (the quoted before paragraph), and the Robustness section covers swallowed errors and unbounded external calls. No rule says that rewriting existing code must preserve, and test, each way the original fails. Here the task said to port every case of scripts/test-live-store-copy.sh, which had no early-psql case, so the Go copyStore hung forever where the bash pipeline exited 1. 3. It generalises to every rewrite of working code: shell to Go (this repository has ported dozens of guards this way and ported three more scripts in this run), one HTTP or DB client library for another, a pipeline into spawned processes, a sync call into an async one. In each, the old suite pins only the failures someone once wrote a test for. 4. It states a principle (behaviour parity includes the failure paths, read from the original's code rather than from its old tests), not a rule about pipes or SIGPIPE.",
+  "before": "**An error-path fix is tested against its real trigger.** A test that hands the fixed handler a\npayload the real backend never sends on that path — a bare `403` where every real one carries an\nerror code — proves nothing about reachability: a global interceptor, a client-wide handler for\nthat status or code, can take the real response first and leave the local handler dead while its\ntest stays green (KAN-691). Before the test is written, trace the real response through every\ninterceptor to the handler, and drive the test or reproducer with that real response, end to end.",
+  "after": "**An error-path fix is tested against its real trigger.** A test that hands the fixed handler a\npayload the real backend never sends on that path — a bare `403` where every real one carries an\nerror code — proves nothing about reachability: a global interceptor, a client-wide handler for\nthat status or code, can take the real response first and leave the local handler dead while its\ntest stays green. Before the test is written, trace the real response through every\ninterceptor to the handler, and drive the test or reproducer with that real response, end to end.\n\n**A port keeps every way its original fails.** Code rewritten into another language, library or\nprocess model keeps not only the original's result on the happy path but each failure it had — its\nexit code when a step fails, a peer that dies early, a timeout, a signal. Before the port is\nwritten, list how the original fails from its code, not only from its old tests: a harness ported\ncase for case inherits its gaps. The port's tests drive each of those failures and assert the\noriginal's outcome, bounded so a hang fails."
+}
