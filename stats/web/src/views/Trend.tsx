@@ -22,6 +22,7 @@ import { flushSync } from "react-dom";
 import type { TrendChange } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
+import { formatUsdCompact, sum } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
 import { weekWindow } from "../lib/weekWindow";
@@ -46,8 +47,6 @@ function windowFor(period: PeriodChip): Pick<Filters, "period" | "from" | "to" |
 
 const defaults = (): Filters => ({ ...windowFor("12w"), command: "/flow", project: null });
 
-const usd = (v: number) => (v >= 100 ? "$" + Math.round(v).toLocaleString("en-US") : "$" + v.toFixed(2));
-const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
 function median(xs: number[]): number | null {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -62,7 +61,7 @@ function Delta({ cur, prev }: { cur: number | null; prev: number | null }) {
   const d = cur - prev;
   const p = Math.round(Math.abs(d / prev) * 100);
   const s = d > 0 ? "+" : "−";
-  return <span className={d > 0 ? "up" : "down"}>{`${s}${usd(Math.abs(d))} (${s}${p}%)`}</span>;
+  return <span className={d > 0 ? "up" : "down"}>{`${s}${formatUsdCompact(Math.abs(d))} (${s}${p}%)`}</span>;
 }
 
 interface Point {
@@ -179,7 +178,7 @@ function Chart({ pts }: { pts: Point[] }) {
         {hp && (
           <>
             <b>Week of {wkLabel(hp.w)}</b>
-            {hp.n ? `${hp.n} ${hp.n === 1 ? "change" : "changes"} · median ${usd(hp.med!)} · mean ${usd(hp.mean!)}` : "no finished changes"}
+            {hp.n ? `${hp.n} ${hp.n === 1 ? "change" : "changes"} · median ${formatUsdCompact(hp.med!)} · mean ${formatUsdCompact(hp.mean!)}` : "no finished changes"}
             <br />
             {hp.fc} flow changes landed
           </>
@@ -261,7 +260,7 @@ export function Trend(_props: ViewProps) {
           <div className="tr-tiles">
             <div className="lb-tile static tr-tile">
               <span className="lb-lbl">Median per change</span>
-              <span className="lb-val">{lastMed == null ? "—" : usd(lastMed)}</span>
+              <span className="lb-val">{lastMed == null ? "—" : formatUsdCompact(lastMed)}</span>
               <span className="tr-note">
                 last {half} weeks · <Delta cur={lastMed} prev={firstMed} /> vs the {half} weeks before
               </span>
@@ -269,7 +268,7 @@ export function Trend(_props: ViewProps) {
             <div className="lb-tile static tr-tile">
               <span className="lb-lbl">Changes finished</span>
               <span className="lb-val">{rows.length.toLocaleString("en-US")}</span>
-              <span className="tr-note">{usd(sum(rows.map((r) => r.costUsd)))} spent on them</span>
+              <span className="tr-note">{formatUsdCompact(sum(rows.map((r) => r.costUsd)))} spent on them</span>
             </div>
             <div className="lb-tile static tr-tile">
               <span className="lb-lbl">Flow changes landed</span>
@@ -333,12 +332,12 @@ export function Trend(_props: ViewProps) {
                               )}
                             </td>
                             <td className="r">{p.n}</td>
-                            <td className="r">{p.med == null ? "—" : usd(p.med)}</td>
+                            <td className="r">{p.med == null ? "—" : formatUsdCompact(p.med)}</td>
                             <td className="r">
                               <Delta cur={p.med} prev={i > 0 ? pts[i - 1].med : null} />
                             </td>
-                            <td className="r">{p.mean == null ? "—" : usd(p.mean)}</td>
-                            <td className="r">{p.n ? usd(p.total) : "—"}</td>
+                            <td className="r">{p.mean == null ? "—" : formatUsdCompact(p.mean)}</td>
+                            <td className="r">{p.n ? formatUsdCompact(p.total) : "—"}</td>
                             <td className="r">{p.fc}</td>
                           </tr>
                         ))

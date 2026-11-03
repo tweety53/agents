@@ -123,7 +123,7 @@ export interface StatsViewParams {
    * (the stats-views requirement "A model restriction on the live
    * state board"). */
   model?: string;
-  /** Ask stage-leaderboard or weekly-costs for its per-project spend (`projects=1`). */
+  /** Ask stage-leaderboard or weekly-costs for its per-project spend, or reviewers for its per-project dispatch count (`projects=1`). */
   projects?: boolean;
   /**
    * The command and stage naming the exact cost-per-change *row* to break
@@ -143,7 +143,7 @@ export interface StatsViewParams {
 }
 
 /** The envelope every statistics view answers with. */
-export interface StatsResponse<Row = unknown> {
+export interface StatsResponse<Row = unknown, Project = ProjectSpend> {
   view: StatsViewSlug;
   /** RFC 3339, the period actually applied -- echoed back, not merely the request's raw string. */
   from: string;
@@ -184,8 +184,10 @@ export interface StatsResponse<Row = unknown> {
    * Present on `stage-leaderboard` and `weekly-costs` only: each project with costed stage runs
    * in the window and its spend, ordered by spend, computed ignoring the
    * `project` parameter (decision leaderboard-project-chips-with-spend).
+   * On `reviewers`, each project with reviewer dispatches in the window and
+   * its dispatch count (`ReviewerProject`, decision reviewers-projects-dispatch-count).
    */
-  projects?: ProjectSpend[];
+  projects?: Project[];
   rows: Row;
 }
 
@@ -516,6 +518,17 @@ export interface ReviewerRow {
   critical: number;
   important: number;
   minor: number;
+  /** Summed priced spend of the slot's dispatches; a bundle's cost split evenly across its roles. */
+  costUsd: number;
+  pricedDispatches: number;
+  /** Findings whose status starts `withdrawn`, excluded from critical/important/minor. */
+  withdrawn: number;
+}
+
+/** Mirrors projectDispatchesDTO: one project's reviewer dispatch count in the window. */
+export interface ReviewerProject {
+  projectKey: string;
+  dispatches: number;
 }
 
 /** Mirrors decisionRowDTO. */
@@ -674,13 +687,13 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= */
-export async function fetchStatsView<Row = unknown>(
+export async function fetchStatsView<Row = unknown, Project = ProjectSpend>(
   view: StatsViewSlug,
   params: StatsViewParams,
   init?: RequestInit,
-): Promise<StatsResponse<Row>> {
+): Promise<StatsResponse<Row, Project>> {
   const qs = buildStatsViewQuery(params);
-  return getJSON<StatsResponse<Row>>(`/api/v1/stats/${view}?${qs.toString()}`, init);
+  return getJSON<StatsResponse<Row, Project>>(`/api/v1/stats/${view}?${qs.toString()}`, init);
 }
 
 /** GET /api/v1/projects -- every registered project key, in key order. */

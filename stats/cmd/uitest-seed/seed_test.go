@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
+	"math"
 	"os"
 	"regexp"
 	"testing"
@@ -382,5 +383,124 @@ func TestSeedTrendFinishedChanges(t *testing.T) {
 	}
 	if !agents || !others {
 		t.Errorf("agents project seen %v, another project seen %v; want both", agents, others)
+	}
+}
+
+// TestSeedPricesReviewerDispatches: kan-102's primary and principles panel
+// dispatches carry the agent ids its flow.review-panel run's priced buckets
+// key, so Reviewers reads their spend (decision reviewers-seed-agent-ids).
+func TestSeedPricesReviewerDispatches(t *testing.T) {
+	dsn := newUitestDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		t.Fatalf("seedFixture: %v", err)
+	}
+
+	period := store.Period{
+		From: time.Date(2026, 7, 16, 9, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 8, 15, 9, 0, 0, 0, time.UTC),
+	}
+	project := "uitest-alpha"
+	rows, err := st.Reviewers(ctx, period, &project, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	bySlot := map[string]store.ReviewerRow{}
+	for _, r := range rows {
+		bySlot[r.Slot] = r
+	}
+	const eps = 1e-9
+	for slot, cost := range map[string]float64{"primary": 0.15, "principles": 0.1} {
+		got, ok := bySlot[slot]
+		if !ok {
+			t.Fatalf("no Reviewers row for %q (rows %+v)", slot, rows)
+		}
+		if got.PricedDispatches != 1 || math.Abs(got.CostUSD-cost) > eps {
+			t.Errorf("%s = priced %d cost %v, want priced 1 cost %v", slot, got.PricedDispatches, got.CostUSD, cost)
+		}
+	}
+}
+
+// TestSeedDrawsReviewerStates: the default 30d Reviewers window over
+// uitest-alpha holds every state the approved prototype draws -- a roster
+// description on the experimental slot, an experimental slot priced with no findings ("found
+// nothing"), a non-zero withdrawn share, different heads for the Severity
+// and False alarms ranks, and enough rows to run past a 1024px viewport.
+func TestSeedDrawsReviewerStates(t *testing.T) {
+	dsn := newUitestDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		t.Fatalf("seedFixture: %v", err)
+	}
+
+	period := store.Period{From: fixtureNow.Add(-30 * 24 * time.Hour), To: fixtureNow}
+	project := "uitest-alpha"
+	rows, err := st.Reviewers(ctx, period, &project, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	if len(rows) < 13 {
+		t.Errorf("rows = %d, want at least 13", len(rows))
+	}
+	var described, found, withdrawn bool
+	var severest, alarmiest store.ReviewerRow
+	wpd := func(r store.ReviewerRow) float64 {
+		return float64(10*r.Critical+4*r.Important+r.Minor) / float64(r.Dispatches)
+	}
+	share := func(r store.ReviewerRow) float64 {
+		n := r.Critical + r.Important + r.Minor + r.Withdrawn
+		if n == 0 {
+			return -1
+		}
+		return float64(r.Withdrawn) / float64(n)
+	}
+	for _, r := range rows {
+		if r.Experimental && r.Description != "" {
+			described = true
+		}
+		if severest.Slot == "" || wpd(r) > wpd(severest) {
+			severest = r
+		}
+		if alarmiest.Slot == "" || share(r) > share(alarmiest) {
+			alarmiest = r
+		}
+		if r.Experimental && r.PricedDispatches > 0 && r.Critical+r.Important+r.Minor == 0 {
+			found = true
+		}
+		if r.Withdrawn > 0 {
+			withdrawn = true
+		}
+	}
+	if !described {
+		t.Error("no experimental slot carries its roster description")
+	}
+	if severest.Slot == alarmiest.Slot {
+		t.Errorf("%s heads both the Severity and the False alarms rank; want them to differ", severest.Slot)
+	}
+	if !found {
+		t.Error("no priced experimental slot that found nothing")
+	}
+	if !withdrawn {
+		t.Error("no slot with a withdrawn finding")
 	}
 }

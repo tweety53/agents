@@ -278,7 +278,7 @@ return a verdict. Each one is Go in `stats/internal/guard/` with its Go test bes
 - stage leaderboard
 - cost and token trend
 - planner decisions
-- reviewer yield (how often each review slot ran and what it found)
+- reviewers (what each review slot costs, the real defects it finds and how often its findings are withdrawn)
 
 ```bash
 cd stats && docker compose up -d   # PostgreSQL

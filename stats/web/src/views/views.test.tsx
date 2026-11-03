@@ -211,9 +211,37 @@ const WEEKLY_MODEL_ROWS = [
   me("2026-06-03", "claude-sonnet-5", "low", 1),
 ];
 
+// The Reviewers fixture, listed in an order no rank uses; beta and able tie on
+// weighted per dispatch (2.50), which critical count and name break differently.
+const rv = (slot: string, dispatches: number, pricedDispatches: number, costUsd: number, critical: number, important: number, minor: number, withdrawn: number) => ({
+  slot,
+  experimental: false,
+  description: "",
+  dispatches,
+  changes: 1,
+  critical,
+  important,
+  minor,
+  costUsd,
+  pricedDispatches,
+  withdrawn,
+});
+const REVIEWER_ROWS = [
+  rv("gamma", 5, 5, 2, 0, 0, 2, 1),
+  { ...rv("exp-delta", 2, 2, 0.6, 0, 0, 0, 0), experimental: true, description: "D desc" },
+  rv("alpha", 10, 10, 5, 0, 5, 0, 5),
+  rv("eps", 3, 0, 0, 0, 1, 0, 0),
+  rv("able", 2, 2, 1, 0, 0, 5, 0),
+  rv("beta", 4, 2, 0.4, 1, 0, 0, 0),
+];
+const REVIEWER_PROJECTS = [
+  { projectKey: "gymie-7c1f238a", dispatches: 20 },
+  { projectKey: "agents-a740d89c", dispatches: 6 },
+];
+
 const fixtures: Record<
   Exclude<ViewName, "flow-health" | "experiments"> | HealthViewSlug | WeeklyModelEffortViewSlug,
-  StatsResponse<unknown>
+  StatsResponse<unknown, unknown>
 > = {
   "state-board": envelope("state-board", [
     {
@@ -343,28 +371,7 @@ const fixtures: Record<
   trend: envelope("trend", TREND_ROWS),
   "weekly-costs": { ...envelope("weekly-costs", WEEKLY_ROWS), projects: WEEKLY_PROJECTS },
   "weekly-model-effort-costs": envelope("weekly-model-effort-costs", WEEKLY_MODEL_ROWS),
-  reviewers: envelope("reviewers", [
-    {
-      slot: "primary",
-      experimental: false,
-      description: "",
-      dispatches: 2,
-      changes: 1,
-      critical: 1,
-      important: 1,
-      minor: 1,
-    },
-    {
-      slot: "exp-failure-modes",
-      experimental: true,
-      description: "What the diff does under error, timeout and partial write",
-      dispatches: 1,
-      changes: 1,
-      critical: 1,
-      important: 0,
-      minor: 1,
-    },
-  ]),
+  reviewers: { ...envelope("reviewers", REVIEWER_ROWS), projects: REVIEWER_PROJECTS },
   decisions: envelope("decisions", [
     {
       project: "kan",
@@ -930,38 +937,121 @@ describe("views render their fixture response's actual values", () => {
     expect(await screen.findByText("No costed stage runs in this period.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
-  it("reviewers shows severity counts and badges an exp- slot with its description", async () => {
+  it("reviewers ranks by value, severity and false alarms", async () => {
+    const user = userEvent.setup();
     render(<Reviewers period={period} project={undefined} />);
-    expect(await screen.findByRole("cell", { name: /primary/ })).toBeInTheDocument();
-    // primary's own severity counts, one dispatch/change/finding count per
-    // column -- distinct values so a swap or a dropped field cannot hide.
-    const primaryRow = screen.getByRole("cell", { name: /primary/ }).closest("tr")!;
-    expect(within(primaryRow).getByText("2")).toBeInTheDocument(); // dispatches
+    await screen.findByRole("table");
+    const slots = () => [...document.querySelectorAll("tbody .rv-slot")].map((e) => e.firstChild?.textContent);
+    const sorted = () => screen.getAllByRole("columnheader").filter((th) => th.hasAttribute("aria-sort"));
+    const rank = (name: string) => user.click(within(screen.getByRole("group", { name: "Rank by" })).getByRole("button", { name }));
 
-    const expRow = screen.getByRole("cell", { name: /exp-failure-modes/ }).closest("tr")!;
-    const badge = within(expRow).getByRole("img", { name: "experimental reviewer" });
-    expect(badge).toHaveAttribute("title", "What the diff does under error, timeout and partial write");
-    expect(screen.queryByRole("columnheader", { name: /Findings\/dispatch/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Withdrawn/ })).not.toBeInTheDocument();
+    expect(slots()).toEqual(["beta", "able", "alpha", "gamma", "eps", "exp-delta"]);
+    screen.getByText("Every slot, best value first");
+    expect(sorted()).toHaveLength(1);
+    expect(sorted()[0]).toHaveTextContent("$ per weighted finding");
+    expect(sorted()[0]).toHaveAttribute("aria-sort", "ascending");
 
-    within(screen.getByRole("region", { name: "Slots" })).getByText("2");
-    within(screen.getByRole("region", { name: "Total dispatches" })).getByText("3");
+    await rank("Severity");
+    expect(slots()).toEqual(["beta", "able", "alpha", "eps", "gamma", "exp-delta"]);
+    screen.getByText("Every slot, most severe first");
+    expect(sorted()).toHaveLength(1);
+    expect(sorted()[0]).toHaveTextContent("Weighted per dispatch");
+    expect(sorted()[0]).toHaveAttribute("aria-sort", "descending");
+
+    await rank("False alarms");
+    expect(slots()).toEqual(["alpha", "gamma", "able", "beta", "eps", "exp-delta"]);
+    screen.getByText("Every slot, most false alarms first");
+    expect(sorted()).toHaveLength(1);
+    expect(sorted()[0]).toHaveTextContent("Withdrawn");
+    expect(sorted()[0]).toHaveAttribute("aria-sort", "descending");
+
+    const row = (slot: string) => within(screen.getByText(slot, { selector: ".rv-slot > :first-child" }).closest("tr")!);
+    expect(row("exp-delta").getByRole("img", { name: "experimental reviewer" })).toHaveAttribute("title", "D desc");
+    const eps = row("eps").getAllByRole("cell");
+    expect(eps[3]).toHaveTextContent(/^—$/);
+    expect(eps[4]).toHaveTextContent(/^—$/);
+    expect(row("exp-delta").getAllByRole("cell")[4]).toHaveTextContent("found nothing");
+    expect(row("gamma").getAllByRole("cell")[9]).toHaveTextContent("1 33%");
+    expect(row("beta").getAllByRole("cell")[4]).toHaveClass("rv-best");
+    expect(row("gamma").getAllByRole("cell")[4]).toHaveClass("rv-worst");
   });
 
-  it("reviewers efficiency weighs critical 10, important 4, minor 1 per dispatch", async () => {
-    const row = { experimental: false, description: "", changes: 1 };
-    fetchStatsViewMock.mockResolvedValueOnce(
-      envelope("reviewers", [
-        { ...row, slot: "primary", dispatches: 166, critical: 4, important: 36, minor: 70 },
-        { ...row, slot: "idle", dispatches: 0, critical: 0, important: 0, minor: 0 },
-      ]),
-    );
+  it("reviewers names every slot tied on most critical, each", async () => {
+    fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", [rv("one", 2, 2, 1, 2, 0, 0, 0), rv("two", 2, 2, 1, 2, 0, 0, 0)]), projects: [] });
     render(<Reviewers period={period} project={undefined} />);
-    expect(await screen.findByRole("columnheader", { name: /Efficiency/ })).toBeInTheDocument();
-    const primaryRow = screen.getByRole("cell", { name: "primary" }).closest("tr")!;
-    expect(within(primaryRow).getByRole("cell", { name: "1.53" })).toBeInTheDocument();
-    const idleRow = screen.getByRole("cell", { name: "idle" }).closest("tr")!;
-    expect(within(idleRow).getByRole("cell", { name: "—" })).toBeInTheDocument();
+    await screen.findByRole("table");
+    expect(document.querySelectorAll(".rv-tiles .lb-tile")[1]).toHaveTextContent("most critical: one, two (2 each)");
+  });
+
+  it("reviewers shows no tiles when the rows are not recorded or unmeasured", async () => {
+    for (const [recorded, unmeasured] of [[false, false], [true, true]]) {
+      fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", REVIEWER_ROWS, recorded, unmeasured), projects: [] });
+      const { unmount } = render(<Reviewers period={period} project={undefined} />);
+      await waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
+      await screen.findByRole("toolbar");
+      await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+      expect(document.querySelector(".rv-tiles")).toBeNull();
+      unmount();
+      fetchStatsViewMock.mockClear();
+    }
+  });
+
+  it("reviewers tiles and footer derive from the rows", async () => {
+    render(<Reviewers period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const [cost, severity, alarms] = [...document.querySelectorAll<HTMLElement>(".rv-tiles .lb-tile")];
+    expect(cost).toHaveTextContent("Cost · best value$0.08beta per weighted findingleast: gamma $1.00found nothing: exp-delta ($0.60)");
+    expect(cost.querySelector(".lb-val")).toHaveClass("rv-best");
+    expect(severity).toHaveTextContent("Severity · most found2.50beta weighted per dispatchmost critical: beta (1)");
+    expect(alarms).toHaveTextContent("False alarms · most withdrawn50%alpha 5 of 10 findingsfewest: eps 0%");
+    expect(alarms.querySelector(".lb-val")).toHaveClass("rv-worst");
+    const foot = [...document.querySelectorAll("tfoot td")].map((td) => td.textContent);
+    expect(foot).toEqual(["All slots", "26", "$9.00 21 of 26 priced", "$0.27", "1", "6", "7", "1.58", "6 30%"]);
+  });
+
+  it("reviewers chips request the window and project, and Clear keeps the rank", async () => {
+    const user = userEvent.setup();
+    const reqs = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "reviewers").map((c) => c[1] as { from: Date; to: Date; project?: string; projects?: boolean });
+    const day = 24 * 60 * 60 * 1000;
+    const now = BOARD_NOW.getTime();
+    const { unmount } = render(<Reviewers period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(reqs()).toHaveLength(1);
+    expect(reqs()[0]).toMatchObject({ projects: true, project: undefined });
+    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 30 * day, now]);
+    expect(screen.queryByLabelText("Period start")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+
+    const group = (name: string) => within(screen.getByRole("group", { name }));
+    const pressed = (g: string, name: string | RegExp) => expect(group(g).getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+    await user.click(group("Rank by").getByRole("button", { name: "Severity" }));
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    await user.click(group("Period").getByRole("button", { name: "7d" }));
+    await waitFor(() => expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 7 * day, now]));
+    await screen.findByRole("table");
+    pressed("Rank by", "Severity");
+    await user.click(group("Project").getByRole("button", { name: /^gymie/ }));
+    await waitFor(() => expect(reqs().at(-1)).toMatchObject({ project: "gymie-7c1f238a", projects: true }));
+    await screen.findByRole("table");
+    pressed("Rank by", "Severity");
+    pressed("Period", "7d");
+    expect(group("Project").getByRole("button", { name: /^gymie/ })).toHaveAttribute("title", "gymie-7c1f238a");
+    expect(group("Project").getByRole("button", { name: /^gymie/ })).toHaveTextContent("gymie20");
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    pressed("Period", "30d");
+    pressed("Project", "All");
+    pressed("Rank by", "Severity");
+    await waitFor(() => expect(reqs().at(-1)).toMatchObject({ project: undefined }));
+    expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 30 * day, now]);
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    unmount();
+
+    fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", []), projects: [] });
+    render(<Reviewers period={period} project={undefined} />);
+    expect(await screen.findByText("No reviewer dispatches in this period.")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(document.querySelector(".rv-tiles")).toBeNull();
   });
 
   it("renders self-review fixes", async () => {

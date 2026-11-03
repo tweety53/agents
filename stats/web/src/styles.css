@@ -1096,3 +1096,15 @@ td.lb-clip { max-width: 0; width: 100%; }
 .wc-sharebar { display: inline-block; width: 60px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
   vertical-align: middle; margin-left: 6px; }
 .wc-sharebar > span { display: block; height: 100%; background: var(--series-1); }
+
+/* Reviewers (KAN-1053): the approved prototype's rv-* and lb-table group, aria-sort and tfoot rules, verbatim. */
+.rv-tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.rv-slot { font-weight: 600; }
+.rv-desc { font-size: 11px; color: var(--text-muted); line-height: 1.3; white-space: normal; max-width: 340px; }
+.rv-best { color: var(--delta-down); }
+.rv-worst { color: var(--delta-up); }
+.lb-table th.rv-g, .lb-table td.rv-g { border-left: 1px solid var(--border); }
+.lb-table tr.rv-grp th { text-align: center; border-bottom: 1px solid var(--border); }
+.lb-table th[aria-sort] { color: var(--text); }
+.lb-table th[aria-sort]::after { content: " ▾"; }
+.lb-table tfoot td { font-weight: 600; border-top: 1px solid var(--border-strong); border-bottom: none; }

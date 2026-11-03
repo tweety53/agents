@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -1493,8 +1494,275 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	if exp.Changes != 1 {
 		t.Errorf("exp-failure-modes Changes = %d, want 1", exp.Changes)
 	}
-	if exp.Critical != 1 || exp.Important != 0 || exp.Minor != 1 {
-		t.Errorf("exp-failure-modes severity counts = %+v, want Critical=1 Important=0 Minor=1", exp)
+	if exp.Critical != 0 || exp.Important != 0 || exp.Minor != 1 || exp.Withdrawn != 1 {
+		t.Errorf("exp-failure-modes severity counts = %+v, want Critical=0 Important=0 Minor=1 Withdrawn=1 (F4 is withdrawn)", exp)
+	}
+	if primary.Withdrawn != 0 {
+		t.Errorf("primary Withdrawn = %d, want 0", primary.Withdrawn)
+	}
+}
+
+// recordReviewerRoster records a decision whose panel roster names every
+// slot in slots, so Reviewers' roster_slots admits them.
+func recordReviewerRoster(t *testing.T, st *store.Store, projectKey, change string, slots ...string) {
+	t.Helper()
+	roster := make([]map[string]any, 0, len(slots))
+	for _, s := range slots {
+		roster = append(roster, map[string]any{"slot": s, "experimental": false})
+	}
+	body, err := json.Marshal(map[string]any{"panel": map[string]any{"roster": roster}})
+	if err != nil {
+		t.Fatalf("marshal roster: %v", err)
+	}
+	if _, _, err := st.RecordDecision(context.Background(), projectKey, change, records.Decision{
+		SessionToken: "mf-roster-" + change,
+		Decision:     body,
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+}
+
+func TestReviewersFoldsSeverityAndCountsWithdrawn(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rv-fold-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	recordReviewerRoster(t, st, projectKey, "kan-1", "primary")
+
+	started := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
+	d := baseDispatch("reviewer", "sonnet")
+	d.Slot = "primary"
+	d.StartedAt = started
+	disp, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	for _, f := range []struct{ ref, severity, status string }{
+		{"F1", "major", "fixed"},
+		{"F2", "blocking", "fixed"},
+		{"F3", "low", "fixed"},
+		{"F4", "Important", "withdrawn not a defect"},
+		{"F5", "minor", "withdrawn duplicate"},
+	} {
+		in := baseFinding(f.ref, 1)
+		in.Slot = "primary"
+		in.Severity = f.severity
+		in.Status = f.status
+		in.DispatchSeq = &disp.Seq
+		if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("UpsertFinding %s: %v", f.ref, err)
+		}
+	}
+
+	period := store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}
+	rows, err := st.Reviewers(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("Reviewers returned %d rows, want 1", len(rows))
+	}
+	got := rows[0]
+	if got.Critical != 1 || got.Important != 1 || got.Minor != 1 || got.Withdrawn != 2 {
+		t.Errorf("counts = %+v, want Critical=1 Important=1 Minor=1 Withdrawn=2", got)
+	}
+}
+
+func TestReviewersPricesFromStageRunBuckets(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rv-cost-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+	recordReviewerRoster(t, st, projectKey, "kan-1", "primary", "principles")
+
+	started := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
+	stageRun := func(change, stage, metrics string) {
+		t.Helper()
+		in := baseBeginInput(projectKey, change, "/flow", stage)
+		in.StartedAt = started
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage %s %s: %v", change, stage, err)
+		}
+		if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(metrics)); err != nil {
+			t.Fatalf("MergeMetrics: %v", err)
+		}
+	}
+	stageRun("kan-1", "flow.review-panel", `{"dispatches":{"ag-1":{"cost_usd":0.3},"ag-3":{"cost_usd":0.6}}}`)
+	stageRun("kan-1", "flow.sdd-tdd", `{"dispatches":{"ag-1":{"cost_usd":0.2}}}`)
+	stageRun("kan-2", "flow.review-panel", `{"dispatches":{"ag-1":{"cost_usd":9}}}`)
+
+	for _, d := range []struct{ slot, agent string }{
+		{"primary", "ag-1"},
+		{"primary", "ag-2"},
+		{"primary+principles", "ag-3"},
+	} {
+		in := baseDispatch("reviewer", "sonnet")
+		in.Slot = d.slot
+		in.AgentID = d.agent
+		in.StartedAt = started
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", d.agent, err)
+		}
+	}
+
+	period := store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}
+	rows, err := st.Reviewers(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	bySlot := map[string]store.ReviewerRow{}
+	for _, r := range rows {
+		bySlot[r.Slot] = r
+	}
+	const eps = 1e-9
+	for _, want := range []struct {
+		slot               string
+		dispatches, priced int
+		cost               float64
+	}{
+		// ag-1's two kan-1 buckets summed (0.5), plus half the bundle's 0.6;
+		// kan-2's ag-1 bucket belongs to another change and is not counted.
+		{"primary", 3, 2, 0.8},
+		{"principles", 1, 1, 0.3},
+	} {
+		got, ok := bySlot[want.slot]
+		if !ok {
+			t.Fatalf("no row for slot %q", want.slot)
+		}
+		if got.Dispatches != want.dispatches || got.PricedDispatches != want.priced || math.Abs(got.CostUSD-want.cost) > eps {
+			t.Errorf("%s = dispatches %d priced %d cost %v, want %d %d %v",
+				want.slot, got.Dispatches, got.PricedDispatches, got.CostUSD, want.dispatches, want.priced, want.cost)
+		}
+	}
+}
+
+func TestReviewersPricesSharedAgentIDOnce(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rv-shared-agent-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	recordReviewerRoster(t, st, projectKey, "kan-1", "primary", "principles")
+	started := time.Date(2031, 4, 10, 9, 0, 0, 0, time.UTC)
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "flow.review-panel")
+	in.StartedAt = started
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{"dispatches":{"ag-1":{"cost_usd":0.6},"ag-2":{"cost_usd":0.4}}}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	// ag-1 is recorded under two dispatch rows; ag-2 is one bundled dispatch.
+	for _, d := range []struct{ slot, agent string }{
+		{"primary", "ag-1"}, {"principles", "ag-1"}, {"primary+principles", "ag-2"},
+	} {
+		disp := baseDispatch("reviewer", "sonnet")
+		disp.Slot, disp.AgentID, disp.StartedAt = d.slot, d.agent, started
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", disp); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", d.slot, err)
+		}
+	}
+	rows, err := st.Reviewers(ctx, store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %+v, want primary and principles", rows)
+	}
+	for _, r := range rows {
+		if math.Abs(r.CostUSD-0.5) > 1e-9 || r.PricedDispatches != 2 {
+			t.Errorf("%s cost = %v priced = %d, want 0.5 (0.3 of ag-1 + 0.2 of ag-2) over 2", r.Slot, r.CostUSD, r.PricedDispatches)
+		}
+	}
+}
+
+func TestReviewerProjectsCountsScopedDispatches(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	suffix := time.Now().UnixNano()
+	// projA has the higher count but the later key, so only a count-first
+	// order puts it first.
+	projA := fmt.Sprintf("proj-rvp-z-%d", suffix)
+	projB := fmt.Sprintf("proj-rvp-a-%d", suffix)
+	seedChange(t, st, projA, "kan-1")
+	seedChange(t, st, projB, "kan-1")
+	recordReviewerRoster(t, st, projA, "kan-1", "primary", "principles")
+
+	started := time.Date(2031, 3, 10, 9, 0, 0, 0, time.UTC)
+	for _, d := range []struct{ project, slot string }{
+		{projA, "primary"},
+		{projA, "primary+principles"},
+		{projB, "principles"},
+		{projB, "panel-fix"},
+	} {
+		in := baseDispatch("reviewer", "sonnet")
+		in.Slot = d.slot
+		in.StartedAt = started
+		if _, err := st.RecordDispatch(ctx, d.project, "kan-1", in); err != nil {
+			t.Fatalf("RecordDispatch %s %s: %v", d.project, d.slot, err)
+		}
+	}
+
+	period := store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}
+	got, err := st.ReviewerProjects(ctx, period)
+	if err != nil {
+		t.Fatalf("ReviewerProjects: %v", err)
+	}
+	want := []store.ProjectDispatches{{ProjectKey: projA, Dispatches: 3}, {ProjectKey: projB, Dispatches: 1}}
+	if !slices.Equal(got, want) {
+		t.Errorf("ReviewerProjects = %+v, want %+v", got, want)
+	}
+}
+
+func TestDecisionsFoldsCanonicalSeverity(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-decisions-fold-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "mf-decisions-fold"
+	d := baseDispatch("implementer", "sonnet")
+	d.SessionToken = token
+	d.StartedAt = time.Now()
+	disp, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	for _, f := range []struct{ ref, severity string }{{"F1", "major"}, {"F2", "blocking"}, {"F3", "low"}} {
+		in := baseFinding(f.ref, 1)
+		in.DispatchSeq = &disp.Seq
+		in.Severity = f.severity
+		in.Status = "fixed"
+		if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("UpsertFinding %s: %v", f.ref, err)
+		}
+	}
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
+		SessionToken: token,
+		Decision: json.RawMessage(`{
+			"class": "regular", "classMechanical": "small", "execution": "inline",
+			"implementer": "skipped — inline",
+			"fixer": {"model": "sonnet", "effort": "low", "reason": "r"},
+			"panel": {"compact": false, "rerun": "full",
+				"rerun_dispatch": {"model": "sonnet", "effort": "low", "reason": "r"},
+				"roster": [{"slot": "primary", "experimental": false}]}
+		}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+
+	period := store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}
+	rows, err := st.Decisions(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("Decisions: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("Decisions returned %d rows, want 1", len(rows))
+	}
+	if got := rows[0]; got.Critical != 1 || got.Important != 1 || got.Minor != 1 {
+		t.Errorf("severity counts = %+v, want Critical=1 Important=1 Minor=1", got)
 	}
 }
 
@@ -2658,5 +2926,35 @@ func TestLiveStateBoardCountsFindingsBySeverity(t *testing.T) {
 	}
 	if r.SelfReviewCritical != 0 || r.SelfReviewImportant != 1 || r.SelfReviewMinor != 1 {
 		t.Errorf("self-review C/I/M = %d/%d/%d, want 0/1/1", r.SelfReviewCritical, r.SelfReviewImportant, r.SelfReviewMinor)
+	}
+}
+
+// A decision recorded with only its class — the UI-test seed's history rows —
+// carries no execution or implementer; Decisions reads them as empty rather
+// than failing the whole period's scan.
+func TestDecisionsReadsClassOnlyDecision(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-decisions-class-only-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-class-only")
+
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-class-only", records.Decision{
+		SessionToken: "mf-decisions-class-only",
+		Decision:     json.RawMessage(`{"class": "big"}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+
+	period := store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}
+	rows, err := st.Decisions(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("Decisions: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("Decisions returned %d rows, want 1", len(rows))
+	}
+	if rows[0].Class != "big" || rows[0].Execution != "" || rows[0].ImplementerModel != "" {
+		t.Errorf("row = class %q execution %q implementer %q, want big, empty, empty",
+			rows[0].Class, rows[0].Execution, rows[0].ImplementerModel)
 	}
 }

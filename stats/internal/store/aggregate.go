@@ -947,6 +947,132 @@ type ReviewerRow struct {
 	Critical   int
 	Important  int
 	Minor      int
+
+	// CostUSD is the slot's priced spend, PricedDispatches how many of its
+	// dispatches carried a price, and Withdrawn how many of its findings
+	// were withdrawn; Critical, Important and Minor exclude withdrawn ones.
+	CostUSD          float64
+	PricedDispatches int
+	Withdrawn        int
+}
+
+// ProjectDispatches is one project's reviewer dispatch count.
+type ProjectDispatches struct {
+	ProjectKey string
+	Dispatches int
+}
+
+// reviewerScopeSQL is the CTE chain Reviewers and ReviewerProjects share,
+// so a project's dispatch count covers exactly the dispatches the rows count:
+// $1/$2 the period, $3 the project and $4 the model (NULL for all).
+//
+// scoped_dispatches unnests a bundle once per role. It carries no cost:
+// pricing is reviewerPricingSQL's, appended by Reviewers alone, so
+// ReviewerProjects never reads stage_runs.
+//
+// finding_agg folds severities through canonical_severity() (migration
+// 0049); a finding whose status begins "withdrawn" (case-insensitive)
+// counts under withdrawn only.
+const reviewerScopeSQL = `
+		WITH scoped_dispatches AS (
+			SELECT d.id, d.change_id, d.agent_id, c.project_key, s.slot
+			FROM dispatches d
+			JOIN changes c ON c.id = d.change_id
+			CROSS JOIN LATERAL unnest(string_to_array(d.slot, '+')) AS s(slot)
+			WHERE d.started_at >= $1 AND d.started_at < $2
+			  AND ($3::text IS NULL OR c.project_key = $3)
+			  AND ($4::text IS NULL OR d.model = $4)
+			  AND d.slot IS NOT NULL
+		),
+		scoped_findings AS (
+			SELECT DISTINCT f.change_id, f.slot, f.ref, f.severity, f.status
+			FROM findings f
+			JOIN scoped_dispatches sd ON sd.id = f.dispatch_id AND sd.slot = f.slot
+		),
+		finding_agg AS (
+			SELECT slot,
+				COUNT(*) FILTER (WHERE COALESCE(status, '') ILIKE 'withdrawn%') AS withdrawn,
+				COUNT(*) FILTER (WHERE COALESCE(status, '') NOT ILIKE 'withdrawn%' AND canonical_severity(severity) = 'critical') AS critical,
+				COUNT(*) FILTER (WHERE COALESCE(status, '') NOT ILIKE 'withdrawn%' AND canonical_severity(severity) = 'important') AS important,
+				COUNT(*) FILTER (WHERE COALESCE(status, '') NOT ILIKE 'withdrawn%' AND canonical_severity(severity) = 'minor') AS minor
+			FROM scoped_findings
+			GROUP BY slot
+		),
+		slot_desc AS (
+			SELECT DISTINCT ON (r->>'slot') r->>'slot' AS slot, r->>'description' AS description
+			FROM decisions d, jsonb_path_query(d.decision, '$.panel.roster[*]') r
+			WHERE r->>'slot' IS NOT NULL
+			ORDER BY r->>'slot', d.recorded_at DESC
+		),
+		roster_slots AS (
+			SELECT slot FROM slot_desc
+			UNION
+			SELECT jsonb_path_query(decision, '$.extra_dispatch.slots[*]') #>> '{}'
+			FROM decisions
+			UNION
+			SELECT jsonb_path_query(decision, '$.extra_dispatch_mutation.slots[*]') #>> '{}'
+			FROM decisions
+		)
+`
+
+// reviewerPricingSQL continues reviewerScopeSQL for Reviewers: it prices
+// each scoped row by summing stage_runs.metrics.dispatches.<agent_id>.cost_usd
+// over every stage run of the row's own change carrying that key -- the
+// harvester may split one agent across the stage runs it spanned -- divided
+// evenly among the scoped rows sharing that (change, agent id), so a bundle's
+// roles, and several dispatch rows recorded under one agent, split the one
+// bucket instead of each claiming all of it. A row with no such bucket has a
+// NULL cost and is unpriced.
+const reviewerPricingSQL = `,
+		priced_dispatches AS (
+			SELECT sd.slot, sd.change_id,
+				p.cost / COUNT(*) OVER (PARTITION BY sd.change_id, sd.agent_id) AS cost
+			FROM scoped_dispatches sd
+			CROSS JOIN LATERAL (
+				SELECT SUM((sr.metrics->'dispatches'->sd.agent_id->>'cost_usd')::numeric) AS cost
+				FROM stage_runs sr
+				WHERE sr.change_id = sd.change_id
+				  AND jsonb_typeof(sr.metrics->'dispatches') = 'object'
+				  AND sr.metrics->'dispatches'->sd.agent_id ? 'cost_usd'
+			) p
+		),
+		dispatch_agg AS (
+			SELECT slot, COUNT(*) AS dispatches, COUNT(DISTINCT change_id) AS changes,
+				COALESCE(SUM(cost), 0)::float8 AS cost_usd, COUNT(cost) AS priced
+			FROM priced_dispatches
+			GROUP BY slot
+		)
+`
+
+// ReviewerProjects counts each project's reviewer dispatches within period
+// over reviewerScopeSQL's scope with no project or model filter -- bundles
+// once per role, roster members only -- so a project's count equals the
+// Reviewers rows' dispatch total under it. Count descending, then key.
+func (s *Store) ReviewerProjects(ctx context.Context, period Period) ([]ProjectDispatches, error) {
+	rows, err := s.pool.Query(ctx, reviewerScopeSQL+`
+		SELECT sd.project_key, COUNT(*)
+		FROM scoped_dispatches sd
+		JOIN roster_slots rs ON rs.slot = sd.slot
+		GROUP BY sd.project_key
+		ORDER BY 2 DESC, 1
+	`, period.From, period.To, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("store: reviewer projects: %w", err)
+	}
+	defer rows.Close()
+
+	var out []ProjectDispatches
+	for rows.Next() {
+		var p ProjectDispatches
+		if err := rows.Scan(&p.ProjectKey, &p.Dispatches); err != nil {
+			return nil, fmt.Errorf("store: reviewer projects: scan: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: reviewer projects: %w", err)
+	}
+	return out, nil
 }
 
 // Reviewers reports one row per role -- design.md's "Stats views ›
@@ -970,12 +1096,11 @@ type ReviewerRow struct {
 // findings ever enter the query, so a slot dispatched more than once in the
 // same change cannot fan a finding out into being counted twice --
 // scoped_findings then joins findings to that same scope and DISTINCTs on
-// the finding's own identity for the same reason. Severity and status are
-// matched case-insensitively: this store
-// treats them as free text written by whichever caller recorded the
-// finding (records_test.go's own fixtures use both "important" and "Important"),
-// and a reviewer's catch-rate should not depend on which casing a given
-// dispatch happened to write.
+// the finding's own identity for the same reason. Severities fold through
+// canonical_severity() (migration 0049), so every spelling a caller wrote
+// ("major", "blocking", "low", any casing) lands in one of the three counts,
+// and a finding whose status begins "withdrawn" counts under Withdrawn only.
+// Cost and pricing are reviewerPricingSQL's.
 //
 // Description is read from the newest decisions row whose
 // decision->'panel'->'roster' carries an entry naming this slot -- one
@@ -995,49 +1120,7 @@ type ReviewerRow struct {
 // members too; those records carry no description, so theirs comes from
 // extraDispatchDescriptions.
 func (s *Store) Reviewers(ctx context.Context, period Period, project, model *string) ([]ReviewerRow, error) {
-	rows, err := s.pool.Query(ctx, `
-		WITH scoped_dispatches AS (
-			SELECT d.id, d.change_id, unnest(string_to_array(d.slot, '+')) AS slot
-			FROM dispatches d
-			JOIN changes c ON c.id = d.change_id
-			WHERE d.started_at >= $1 AND d.started_at < $2
-			  AND ($3::text IS NULL OR c.project_key = $3)
-			  AND ($4::text IS NULL OR d.model = $4)
-			  AND d.slot IS NOT NULL
-		),
-		dispatch_agg AS (
-			SELECT slot, COUNT(*) AS dispatches, COUNT(DISTINCT change_id) AS changes
-			FROM scoped_dispatches
-			GROUP BY slot
-		),
-		scoped_findings AS (
-			SELECT DISTINCT f.change_id, f.slot, f.ref, f.severity, f.status
-			FROM findings f
-			JOIN scoped_dispatches sd ON sd.id = f.dispatch_id AND sd.slot = f.slot
-		),
-		finding_agg AS (
-			SELECT slot,
-				COUNT(*) FILTER (WHERE severity ILIKE 'critical') AS critical,
-				COUNT(*) FILTER (WHERE severity ILIKE 'important') AS important,
-				COUNT(*) FILTER (WHERE severity ILIKE 'minor') AS minor
-			FROM scoped_findings
-			GROUP BY slot
-		),
-		slot_desc AS (
-			SELECT DISTINCT ON (r->>'slot') r->>'slot' AS slot, r->>'description' AS description
-			FROM decisions d, jsonb_path_query(d.decision, '$.panel.roster[*]') r
-			WHERE r->>'slot' IS NOT NULL
-			ORDER BY r->>'slot', d.recorded_at DESC
-		),
-		roster_slots AS (
-			SELECT slot FROM slot_desc
-			UNION
-			SELECT jsonb_path_query(decision, '$.extra_dispatch.slots[*]') #>> '{}'
-			FROM decisions
-			UNION
-			SELECT jsonb_path_query(decision, '$.extra_dispatch_mutation.slots[*]') #>> '{}'
-			FROM decisions
-		)
+	rows, err := s.pool.Query(ctx, reviewerScopeSQL+reviewerPricingSQL+`
 		SELECT
 			da.slot,
 			da.slot LIKE 'exp-%' AS experimental,
@@ -1046,7 +1129,10 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			da.changes,
 			COALESCE(fa.critical, 0),
 			COALESCE(fa.important, 0),
-			COALESCE(fa.minor, 0)
+			COALESCE(fa.minor, 0),
+			da.cost_usd,
+			da.priced,
+			COALESCE(fa.withdrawn, 0)
 		FROM dispatch_agg da
 		JOIN roster_slots rs ON rs.slot = da.slot
 		LEFT JOIN slot_desc sd ON sd.slot = da.slot
@@ -1064,6 +1150,7 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 		if err := rows.Scan(
 			&row.Slot, &row.Experimental, &row.Description,
 			&row.Dispatches, &row.Changes, &row.Critical, &row.Important, &row.Minor,
+			&row.CostUSD, &row.PricedDispatches, &row.Withdrawn,
 		); err != nil {
 			return nil, fmt.Errorf("store: reviewers: scan: %w", err)
 		}
@@ -1250,9 +1337,9 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 		),
 		finding_agg AS (
 			SELECT rd.change_id, rd.session_token,
-				COUNT(*) FILTER (WHERE f.severity ILIKE 'critical') AS critical,
-				COUNT(*) FILTER (WHERE f.severity ILIKE 'important') AS important,
-				COUNT(*) FILTER (WHERE f.severity ILIKE 'minor') AS minor,
+				COUNT(*) FILTER (WHERE canonical_severity(f.severity) = 'critical') AS critical,
+				COUNT(*) FILTER (WHERE canonical_severity(f.severity) = 'important') AS important,
+				COUNT(*) FILTER (WHERE canonical_severity(f.severity) = 'minor') AS minor,
 				MAX(f.round) AS fix_rounds
 			FROM run_dispatches rd
 			JOIN findings f ON f.dispatch_id = rd.id
@@ -1270,10 +1357,10 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			sd.project_key, sd.change_name, sd.recorded_at,
 			COALESCE(sd.decision->>'class', ''),
 			(sd.decision->>'override') IS NOT NULL,
-			sd.decision->>'execution',
-			CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'string'
+			COALESCE(sd.decision->>'execution', ''),
+			COALESCE(CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'string'
 			     THEN sd.decision->>'implementer'
-			     ELSE sd.decision->'implementer'->>'model' END,
+			     ELSE sd.decision->'implementer'->>'model' END, ''),
 			CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'object'
 			     THEN COALESCE(sd.decision->'implementer'->>'effort', '')
 			     ELSE '' END,

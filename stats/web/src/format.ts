@@ -11,6 +11,11 @@ export function formatUsd(value: number): string {
   }).format(value);
 }
 
+/** Whole dollars with grouping from $100, cents below: the chip views' spend format. */
+export function formatUsdCompact(v: number): string {
+  return v >= 100 ? "$" + Math.round(v).toLocaleString("en-US") : "$" + v.toFixed(2);
+}
+
 export function formatInt(value: number): string {
   return new Intl.NumberFormat("en-US").format(Math.round(value));
 }
@@ -78,4 +83,16 @@ export function formatModel(id: string): string {
 /** `HH:MM` of an instant, in UTC as the prototype draws it. */
 export function formatClock(ms: number): string {
   return new Date(ms).toISOString().slice(11, 16);
+}
+
+export const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
+
+// The Period chips the dashboard views share, in days.
+export const PERIOD_DAYS = { "7d": 7, "30d": 30, "90d": 90 } as const;
+export type PeriodChip = keyof typeof PERIOD_DAYS;
+
+// The window ending now for a Period chip, computed only when one is chosen.
+export function windowFor(period: PeriodChip): { period: PeriodChip; from: Date; to: Date } {
+  const to = Date.now();
+  return { period, from: new Date(to - PERIOD_DAYS[period] * DAY_MS), to: new Date(to) };
 }

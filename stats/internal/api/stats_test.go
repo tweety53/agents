@@ -60,6 +60,9 @@ func (f *fakeStore) WeeklyCosts(_ context.Context, _ store.Period, project, _ *s
 func (f *fakeStore) WeeklyModelEffortCosts(_ context.Context, _ store.Period, _ *string) ([]store.WeeklyModelEffortPoint, error) {
 	return nil, nil
 }
+func (f *fakeStore) ReviewerProjects(context.Context, store.Period) ([]store.ProjectDispatches, error) {
+	return nil, nil
+}
 func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *string) ([]store.ReviewerRow, error) {
 	f.lastStatsProject = project
 	return f.reviewers, f.reviewersErr
@@ -130,6 +133,11 @@ type statsFake struct {
 	stageLeaderboardProjects []store.ProjectSpend
 	projectsCalled           bool
 	projectsErr              error
+	// reviewerProjects backs ReviewerProjects; reviewerProjectsCalled is
+	// all a test can observe of a call that takes no project.
+	reviewerProjects       []store.ProjectDispatches
+	reviewerProjectsCalled bool
+	reviewerProjectsErr    error
 	// weeklyModelEffortCosts backs the weekly-model-effort-costs view.
 	weeklyModelEffortCosts []store.WeeklyModelEffortPoint
 	decisions              []store.DecisionRow
@@ -218,6 +226,13 @@ func (f *statsFake) WeeklyCosts(_ context.Context, _ store.Period, p, m *string)
 func (f *statsFake) WeeklyModelEffortCosts(_ context.Context, _ store.Period, p *string) ([]store.WeeklyModelEffortPoint, error) {
 	f.lastProject = p
 	return f.weeklyModelEffortCosts, f.aggErr
+}
+func (f *statsFake) ReviewerProjects(context.Context, store.Period) ([]store.ProjectDispatches, error) {
+	f.reviewerProjectsCalled = true
+	if f.reviewerProjectsErr != nil {
+		return nil, f.reviewerProjectsErr
+	}
+	return f.reviewerProjects, f.aggErr
 }
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
 	f.lastProject, f.lastModel = p, m
@@ -472,6 +487,38 @@ func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 	}
 }
 
+// TestStatsReviewersProjects: reviewers?projects=1 carries each project's
+// reviewer dispatch count; without it the aggregate does not run.
+func TestStatsReviewersProjects(t *testing.T) {
+	sts := &statsFake{reviewerProjects: []store.ProjectDispatches{{ProjectKey: "p", Dispatches: 4}}}
+	ts := newStatsTestServer(t, sts)
+
+	status, _, body := getStats(t, ts, periodPath("reviewers")+"&project=p&projects=1")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var got struct {
+		Projects json.RawMessage `json:"projects"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if string(got.Projects) != `[{"projectKey":"p","dispatches":4}]` {
+		t.Errorf("projects = %s, want [{\"projectKey\":\"p\",\"dispatches\":4}]", got.Projects)
+	}
+
+	for _, q := range []string{"", "&projects=0"} {
+		sts.reviewerProjectsCalled = false
+		status, _, body = getStats(t, ts, periodPath("reviewers")+q)
+		if status != http.StatusOK {
+			t.Fatalf("status %d, body %s", status, body)
+		}
+		if sts.reviewerProjectsCalled {
+			t.Errorf("ReviewerProjects ran with query %q", q)
+		}
+	}
+}
+
 // TestStageLeaderboardMainFields: the route's rows carry mainCostUsd and
 // mainSharePct, null when absent (decision leaderboard-main-columns).
 func TestStageLeaderboardMainFields(t *testing.T) {
@@ -566,6 +613,14 @@ func TestStatsStageLeaderboardProjects(t *testing.T) {
 func TestStatsStageLeaderboardProjectsError(t *testing.T) {
 	ts := newStatsTestServer(t, &statsFake{projectsErr: errors.New("boom")})
 	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&projects=1")
+	if status != http.StatusInternalServerError {
+		t.Errorf("status %d, want 500 (body %s)", status, body)
+	}
+}
+
+func TestStatsReviewerProjectsError(t *testing.T) {
+	ts := newStatsTestServer(t, &statsFake{reviewerProjectsErr: errors.New("boom")})
+	status, _, body := getStats(t, ts, periodPath("reviewers")+"&projects=1")
 	if status != http.StatusInternalServerError {
 		t.Errorf("status %d, want 500 (body %s)", status, body)
 	}
@@ -678,7 +733,8 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 	t.Run("reviewers", func(t *testing.T) {
 		sts := &statsFake{reviewers: []store.ReviewerRow{
 			{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
-				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5},
+				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
+				CostUSD: 0.5, PricedDispatches: 2, Withdrawn: 1},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("reviewers"))
@@ -686,14 +742,17 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			t.Fatalf("status %d, body %s", status, body)
 		}
 		var rows []struct {
-			Slot         string `json:"slot"`
-			Experimental bool   `json:"experimental"`
-			Description  string `json:"description"`
-			Dispatches   int    `json:"dispatches"`
-			Changes      int    `json:"changes"`
-			Critical     int    `json:"critical"`
-			Important    int    `json:"important"`
-			Minor        int    `json:"minor"`
+			Slot         string  `json:"slot"`
+			Experimental bool    `json:"experimental"`
+			Description  string  `json:"description"`
+			Dispatches   int     `json:"dispatches"`
+			Changes      int     `json:"changes"`
+			Critical     int     `json:"critical"`
+			Important    int     `json:"important"`
+			Minor        int     `json:"minor"`
+			CostUSD      float64 `json:"costUsd"`
+			Priced       int     `json:"pricedDispatches"`
+			Withdrawn    int     `json:"withdrawn"`
 		}
 		mustDecodeRows(t, env, body, &rows)
 		if len(rows) != 1 {
@@ -702,7 +761,8 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		got := rows[0]
 		if got.Slot != "exp-failure-modes" || !got.Experimental ||
 			got.Description != "What the diff does under error, timeout and partial write" ||
-			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 {
+			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 ||
+			got.CostUSD != 0.5 || got.Priced != 2 || got.Withdrawn != 1 {
 			t.Errorf("got %+v, want the seeded exp-failure-modes row unchanged", got)
 		}
 	})

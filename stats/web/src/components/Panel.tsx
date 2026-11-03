@@ -26,17 +26,17 @@
 // it, which is exactly the "config switch with one implementation" KISS
 // violation until a second heading level actually exists.
 import type { ReactNode } from "react";
-import type { StatsResponse } from "../api";
+import type { ProjectSpend, StatsResponse } from "../api";
 import type { StatsViewState } from "../hooks/useStatsView";
 
-export interface PanelProps<Row> {
+export interface PanelProps<Row, Project = ProjectSpend> {
   title: string;
   description?: string;
-  state: StatsViewState<Row>;
-  children: (data: StatsResponse<Row>) => ReactNode;
+  state: StatsViewState<Row, Project>;
+  children: (data: StatsResponse<Row, Project>) => ReactNode;
 }
 
-export function Panel<Row>({ title, description, state, children }: PanelProps<Row>) {
+export function Panel<Row, Project = ProjectSpend>({ title, description, state, children }: PanelProps<Row, Project>) {
   return (
     <section className="panel" aria-label={title}>
       <h3 className="panel-title">{title}</h3>
