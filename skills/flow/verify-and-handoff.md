@@ -161,12 +161,16 @@ row `-outcome completed`, and a command that failed twice for a missing build pr
 `-outcome blocked -cause environment` by the parent.
 
 ```bash
-flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
-flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]
+flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>] & l=$!
+flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]; t=$?
+wait "$l"; echo "lint: $? test: $t"
 # … only after a group exited non-zero and its re-run is decided:
 flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<repository name>] \
   -session-token mf-<literal-token> -outcome completed|blocked [-cause <cause>]
 ```
+
+Both groups go out in one Bash call under one key, as the block above writes them — never two calls in
+turn, never a second key (kan-1058 self-review, F9).
 
 `<canonical worktree>` is the worktree holding `<project>/spectre/changes/<name>`; pass it when verifying any other worktree of a multi-repo change.
 
@@ -485,7 +489,7 @@ run knows how its own dispatches ended. List them from the canonical worktree:
 
 ```bash
 flow record dispatches -change <name> -C <canonical-worktree> \
-  | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken)"'
+  | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken) \(.agentId // "inline")"'
 ```
 
 and close each printed row under its own key and token, `-outcome completed` when its report was
@@ -493,12 +497,15 @@ read, `-outcome aborted` otherwise — an earlier run's row included:
 
 ```bash
 flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted> \
-  -ended-at <when its work ended> [-commit <its task commit>]
+  [-ended-at <when its work ended>] [-commit <its task commit>]
 ```
 
-`-ended-at` is the instant the row's work ended — its task commit's committer date
-(`git log -1 --format=%cI <sha>`), else its report file's mtime — never the moment it is closed,
-and an implementer row carries `-commit` with its task commit's full sha.
+On claude-code a row whose agent id is not `inline` passes no `-ended-at`: the daemon closes it at its agent
+transcript's last write, as each panel `end` does (`skills/flow/review-panel.md`). Every other row passes
+`-ended-at` as the instant the row's work ended — its task commit's author date
+(`git log -1 --format=%aI <sha>`), never the committer date a cherry-pick restamps, else its report
+file's mtime — never the moment it is closed (kan-1058 self-review, F2). An implementer row carries
+`-commit` with its task commit's full sha.
 
 **Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`), since the guard below finds a change with no recorded summary unfinished.
 
