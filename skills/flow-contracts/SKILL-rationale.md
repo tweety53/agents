@@ -60,5 +60,5 @@ appendices, so it never appears in the table above or anywhere in this directory
 
 This file is the entry point to the contracts, so a stale entry here misdirects every command that
 starts from it. When a contract file gains or loses a section, update the row above in the same
-change — `<agents repo>/scripts/check-references.sh` catches a **named** section that no longer exists, but it
+change — `<agents repo>/scripts/flow-guard check-references` catches a **named** section that no longer exists, but it
 cannot catch a description that is merely out of date.

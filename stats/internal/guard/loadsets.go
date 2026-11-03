@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/load-sets.sh shim (KAN-1058).
+//
+// <repo> defaults to this script's repository, passed on as FLOW_GUARD_REPO_ROOT.
+
 // load-sets [<repo>] [<rendered-global-CLAUDE.md>] — the static instruction bytes each /flow
 // session loads from this repository (KAN-852). A report, never a verdict: it always exits 0.
 //
@@ -15,7 +20,7 @@ import (
 // files cited at the point of use and the conditional loads. Tokens are approximated as
 // bytes/4. It excludes the superpowers skills, MEMORY.md and the project's own code.
 //
-// <repo> defaults to FLOW_GUARD_REPO_ROOT, the checkout scripts/load-sets.sh lives in. The
+// <repo> defaults to FLOW_GUARD_REPO_ROOT, the checkout scripts/flow-guard exports. The
 // second argument defaults to ~/.claude/CLAUDE.md, the always-on block setup.sh installs;
 // render a sandboxed one with
 //

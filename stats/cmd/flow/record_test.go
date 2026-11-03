@@ -1413,7 +1413,7 @@ func TestRecordRenderPanelWithNoFindingsStillWritesTheRecord(t *testing.T) {
 
 // TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard is the
 // load-bearing case of this rule, and the reason the test above is not
-// enough on its own. It runs the REAL scripts/check-unfinished-work.sh
+// enough on its own. It runs the REAL `scripts/flow-guard check-unfinished-work`
 // against the file the command actually rendered, beside a plan with every
 // box ticked, so the only thing the verdict can turn on is the panel
 // record.
@@ -1523,7 +1523,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	sep := string(os.PathListSeparator)
 	t.Setenv("PATH", buildDir+sep+stubDir+sep+os.Getenv("PATH"))
 
-	out, err := exec.Command("bash", guard, repo, "demo").CombinedOutput()
+	out, err := exec.Command("bash", guard, "check-unfinished-work", repo, "demo").CombinedOutput()
 	if err != nil {
 		t.Fatalf("check-unfinished-work.sh exited non-zero (%v):\n%s", err, out)
 	}
@@ -1538,7 +1538,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 // than a re-implementation of its parsing.
 func unfinishedWorkGuard(t *testing.T) string {
 	t.Helper()
-	abs, err := filepath.Abs(filepath.Join("..", "..", "..", "scripts", "check-unfinished-work.sh"))
+	abs, err := filepath.Abs(filepath.Join("..", "..", "..", "scripts", "flow-guard"))
 	if err != nil {
 		t.Fatalf("resolve guard path: %v", err)
 	}
@@ -6379,8 +6379,8 @@ func TestRecordDispatchBeginRefusesAPanelRoundOverAnUntickedTask(t *testing.T) {
 
 	write("- [x] 1. a\n- [ ] 8. b\n")
 	code, stderr, contacted := begin("panel-4-primary", "-slot", "primary")
-	if code != 2 || !strings.Contains(stderr, "8") || !strings.Contains(stderr, "close-task.sh") {
-		t.Fatalf("a panel begin over unticked task 8: exit %d, want 2 naming 8 and close-task.sh; stderr:\n%s", code, stderr)
+	if code != 2 || !strings.Contains(stderr, "8") || !strings.Contains(stderr, "flow-guard close-task") {
+		t.Fatalf("a panel begin over unticked task 8: exit %d, want 2 naming 8 and flow-guard close-task; stderr:\n%s", code, stderr)
 	}
 	if contacted {
 		t.Error("a refused panel begin was sent to the daemon")

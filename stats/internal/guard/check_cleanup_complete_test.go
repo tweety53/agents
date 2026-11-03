@@ -858,15 +858,15 @@ func ccRegistryCoupling(t *testing.T) {
 		}
 		rows = append(rows, name)
 	}
-	guard, err := os.ReadFile(ccRepoRoot + "/scripts/check-cleanup-complete.sh")
+	guard, err := os.ReadFile(ccRepoRoot + "/stats/internal/guard/cleanupcomplete.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var declared []string
 	for _, l := range strings.Split(string(guard), "\n") {
-		if s, ok := strings.CutPrefix(l, "# registry-row-checked: "); ok {
+		if s, ok := strings.CutPrefix(l, "// registry-row-checked: "); ok {
 			declared = append(declared, s)
-		} else if s, ok := strings.CutPrefix(l, "# registry-row-not-checked: "); ok {
+		} else if s, ok := strings.CutPrefix(l, "// registry-row-not-checked: "); ok {
 			s, _, _ = strings.Cut(s, " — ")
 			declared = append(declared, s)
 		}

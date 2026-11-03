@@ -1,1 +1,0 @@
-../../../scripts/check-live-verification.sh

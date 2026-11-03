@@ -18,7 +18,7 @@ state file, and no workspace isolation beyond the worktree.
 **No flags.** The only argument is empty, a first request, a Jira key, or the exact name of an open
 interactive change; report anything else rather than ignoring it. The base is the branch
 `origin/HEAD` names; from the worktree's creation on, `<base>` is what
-`resolve-base-branch.sh <worktree>` prints.
+`flow-guard resolve-base-branch <worktree>` prints.
 
 **Every mark is a literal call.** `<harness>` is this harness's name, `fi-<literal-token>` is one
 token generated once per invocation, shaped as **Stage marks** (`skills/flow-contracts/pipeline.md`)
@@ -67,10 +67,10 @@ one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
 flow stage mark  -command '/flow-interactive' -stages flow.kickoff -harness <harness> -session-token fi-<literal-token> <name>
 ```
 
-**Landing route.** `project-get.sh <project> "default landing route" --enum "pull request" "merge
+**Landing route.** `flow-guard project-get <project> "default landing route" --enum "pull request" "merge
 and push" manual` must resolve `merge and push`. Absent (exit 1), malformed (exit 3) or any other
 value ends the run with one line naming `## default landing route` as the section to declare, and
-so does `project-get.sh <project> handoff --enum required none` resolving `required` — that
+so does `flow-guard project-get <project> handoff --enum required none` resolving `required` — that
 project asks to test before anything lands.
 
 **Worktree.** One per session, `<project>-worktrees/<name>` on branch `<name>`, created as section
@@ -88,7 +88,7 @@ staged, committed or written.
 nothing about it, and continue.
 
 Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## visual verification` and `## run`
-once, with `project-get.sh <project> <key>`. The project's instruction file is already in this
+once, with `flow-guard project-get <project> <key>`. The project's instruction file is already in this
 session's context; never read it here.
 
 ## One request
@@ -148,8 +148,8 @@ flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -
 flow stage end   -command '/flow-interactive' -stage flow.sdd-tdd -outcome completed <name>
 ```
 
-**4. Verify.** `<agents repo>/scripts/run-verify-list.sh <worktree> lint`, the `## test` commands
-scoped to the packages and files the request touched, `<agents repo>/scripts/run-verify-list.sh <worktree> visual`, and `check-fast-route-record.sh <worktree>
+**4. Verify.** `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
+scoped to the packages and files the request touched, `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual`, and `flow-guard check-fast-route-record <worktree>
 <base>` — as section 5 of `/flow-fast` states them. The request never lands red.
 
 ```bash
@@ -182,7 +182,7 @@ flow stage begin -command '/flow-interactive' -stage flow.refresh-main-checkout 
 flow stage end   -command '/flow-interactive' -stage flow.refresh-main-checkout -outcome completed <name>
 ```
 
-**7. UI check**, when `check-visual-trigger.sh <worktree>` matches the request's diff (`git diff
+**7. UI check**, when `flow-guard check-visual-trigger <worktree>` matches the request's diff (`git diff
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 `location.reload()`, screenshot, and read the screenshot against the ask. A pass ends the stage

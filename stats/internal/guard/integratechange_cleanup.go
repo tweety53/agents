@@ -15,7 +15,7 @@ var (
 // workspaceCommand: the Runs cell of <verb>'s row in <main>'s
 // `## workspace isolation` command table, or nothing.
 func (c *ic) workspaceCommand(m, verb string) string {
-	get := c.cmd("/", c.sibling("project-get"), m, "workspace isolation")
+	get := c.sibling("project-get", m, "workspace isolation")
 	get.Stderr = nil
 	out, _ := c.capture(get)
 	for _, l := range icLines(out) {
@@ -91,7 +91,7 @@ func (c *ic) cleanup() {
 		switch c.rc {
 		case 0:
 		case 3:
-			c.stop("disclose", "relay "+m+"'s UNCLASSIFIED and DISCLOSE lines, ask only what they ask, then re-run integrate-change.sh cleanup "+c.main+" "+c.name+" adding --proceed "+m+" to every --proceed already given "+c.flags())
+			c.stop("disclose", "relay "+m+"'s UNCLASSIFIED and DISCLOSE lines, ask only what they ask, then re-run flow-guard integrate-change cleanup "+c.main+" "+c.name+" adding --proceed "+m+" to every --proceed already given "+c.flags())
 		default:
 			c.stop("worktree-cleanup", fmt.Sprintf("remove-change-worktrees exit %d for %s — report its lines; every worktree it refused is left alone", c.rc, m))
 		}

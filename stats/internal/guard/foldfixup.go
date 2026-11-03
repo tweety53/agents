@@ -3,12 +3,52 @@ package guard
 import (
 	"fmt"
 	"io"
-	"os/exec"
 	"strings"
 )
 
-// foldFixup is scripts/fold-fixup.sh: that script's header comment is the
-// contract -- a fix folded into the unpushed task commit it targets
+// The contract below moved here from the header of the deleted
+// scripts/fold-fixup.sh shim (KAN-1058).
+//
+// flow-guard fold-fixup — fold a fix into the unpushed task commit it targets
+// (skills/flow/review-panel-fix-round.md, "Rewrite-based folding is for
+// unpushed history only").
+//
+// Usage: flow-guard fold-fixup <worktree> <task-sha> <tasks-md> <path>...
+//        flow-guard fold-fixup --finish <worktree> <task-sha> <tasks-md>
+//
+// The fold, in order: `git add -- <path>...`; `flow-guard guard-autosquash targets
+// <worktree> <task-sha>`; `git commit --fixup=<task-sha> -- <path>...`;
+// `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <task-sha>^` (git
+// ignores a non-interactive --autosquash); the empty-fold drop;
+// `flow-guard guard-autosquash after <worktree> <task-sha>^ <tasks-md>`. The rebase's upstream is the task
+// commit's own parent, never the base branch re-resolved: replaying only the
+// branch's own commits after <task-sha>^ keeps commits that landed on the base
+// mid-panel out of the fold. The `after` check's base is that same upstream.
+//
+// THE EMPTY-FOLD DROP. A fixup whose fold empties its target commit is
+// dropped, never kept as a no-op commit: git stops the rebase at that fixup
+// ("would make it empty"), and the guard drops the emptied commit with
+// `git reset --soft HEAD^` and continues — tip or not, the commits after it
+// replay onto its parent.
+//
+// A CONFLICT IS LEFT IN PROGRESS, never resolved here: it is between two of
+// the branch's own commits, resolved by hand keeping both sides, then
+// `git rebase --continue`, then `flow-guard fold-fixup --finish` — which settles any
+// further empty-fold stop and runs the `after` check.
+//
+// Prints one line on stdout:
+//   FOLDED:   <worktree> — HEAD <sha>
+//   DROPPED:  <worktree> — the fold emptied <task-sha>; HEAD <sha>
+//   CONFLICT: <worktree> — unmerged: <paths>; resolve keeping both sides, …
+//
+// Exit codes:
+//   0  folded, or the emptied commit dropped
+//   1  flow-guard guard-autosquash refused (its lines on stderr) — the round stops
+//   2  cannot answer — usage, a git refusal, or a rebase stop that is
+//      neither a conflict nor an empty fold
+//   3  a conflict is left in progress (CONFLICT line)
+
+// foldFixup is `flow-guard fold-fixup`: the comment above is the contract -- a fix folded into the unpushed task commit it targets
 // (skills/flow/review-panel-fix-round.md, "Rewrite-based folding is for
 // unpushed history only"), bracketed by guard-autosquash.sh; exit 0 folded
 // (FOLDED) or dropped (DROPPED), 1 a guard-autosquash refusal, 2 cannot
@@ -18,8 +58,8 @@ func init() {
 	Registry["fold-fixup"] = foldFixup
 }
 
-const ffUsage = "usage: fold-fixup.sh <worktree> <task-sha> <tasks-md> <path>...\n" +
-	"       fold-fixup.sh --finish <worktree> <task-sha> <tasks-md>\n"
+const ffUsage = "usage: flow-guard fold-fixup <worktree> <task-sha> <tasks-md> <path>...\n" +
+	"       flow-guard fold-fixup --finish <worktree> <task-sha> <tasks-md>\n"
 
 func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 	refuse := func(format string, a ...any) int {
@@ -41,17 +81,12 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	// guard-autosquash is exec'd through its own shim beside this one,
-	// which exports its $SCRIPT_DIR/guard-autosquash.sh spelling.
-	autosquash := env.Getenv("FLOW_GUARD_AUTOSQUASH")
-	if autosquash == "" {
-		return refuse("FLOW_GUARD_AUTOSQUASH is unset — run scripts/fold-fixup.sh, which sets it")
-	}
+	// guard-autosquash runs in this same binary (runSibling), or as the
+	// executable FLOW_GUARD_AUTOSQUASH names.
 	// guard runs one guard-autosquash check, its lines on stderr; the exit
 	// code is the caller's: 0 passed, 1 refused, 2 cannot answer.
 	guard := func(a ...string) int {
-		cmd := exec.Command(autosquash, a...)
-		cmd.Dir = env.Dir
+		cmd := siblingCmd(env, "FLOW_GUARD_AUTOSQUASH", "guard-autosquash", a...)
 		cmd.Stdout, cmd.Stderr = stderr, stderr
 		switch rc := exitCode(cmd.Run()); rc {
 		case 0, 1:
@@ -108,7 +143,7 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("%v", err)
 	}
 	if unmerged != nil {
-		fmt.Fprintf(stdout, "CONFLICT: %s — unmerged: %s; resolve keeping both sides, `git rebase --continue`, then fold-fixup.sh --finish %s %s %s\n",
+		fmt.Fprintf(stdout, "CONFLICT: %s — unmerged: %s; resolve keeping both sides, `git rebase --continue`, then flow-guard fold-fixup --finish %s %s %s\n",
 			wt, strings.Join(unmerged, ", "), wt, task, tasksMD)
 		return 3
 	}

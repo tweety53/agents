@@ -11,8 +11,192 @@ import (
 	"syscall"
 )
 
-// checkVisualVerifyDispatched is scripts/check-visual-verify-dispatched.sh:
-// that script's header comment is the contract -- one verdict line on
+// The contract below moved here from the header of the deleted
+// scripts/check-visual-verify-dispatched.sh shim (KAN-1058).
+//
+// flow-guard check-visual-verify-dispatched — report whether a change whose diff
+// touched a declared `## visual verification` UI path actually dispatched
+// `flow.visual-verify`'s own verifier, for /flow's run-1 finish gate.
+//
+// Usage: flow-guard check-visual-verify-dispatched <worktree> <change-name> <merge-base> [<canonical-worktree>]
+//
+// WHY THIS GUARD EXISTS. `flow.visual-verify` (skills/flow/visual-verify.md)
+// is the one stage built to catch a defect that is obvious the moment a page
+// is opened but invisible to a diff, a review panel and both test suites —
+// see that file's own **Blocking** paragraph. Nothing stopped an agent from
+// writing `flow stage begin`/`flow stage end -outcome completed` around
+// `flow.visual-verify` with NOTHING inside — no verifier dispatched, no screenshot
+// read, no mockup composed — and reaching this handoff anyway. kan-30's own
+// fix round 4 did exactly that: the stage's marks were written, the operator
+// was told "no open finding", and a five-minute manual pass immediately
+// after found the shipped screens badly wrong. A stage mark is not evidence
+// the stage ran; only a recorded dispatch is. A row recorded `-agent-id
+// inline` is the parent's own, not a verifier's, and never counts
+// (kan-1038). This guard makes the gap loud rather than silent, the same
+// way flow-guard check-panel-fix-single-dispatch did for a different flavour of
+// "the mark says one thing, the dispatches say another."
+//
+// Prints ONE verdict line to stdout:
+//   VISUAL-VERIFY-OK: <reason>          nothing outstanding
+//   VISUAL-VERIFY-MISSING: <reason> — HEAD <sha>
+//                                       UI paths touched, no verifier dispatch found,
+//                                       and the plan did not skip visual verification;
+//                                       <sha> is the HEAD it judged, the one an
+//                                       operator's false-positive flag must name
+//
+// A found verifier row counts only with the verifier's record —
+// `<spec root>/changes/<name>/visual-verification.md` in the worktree the
+// store is read under — the change root
+// skills/flow/visual-verify-verifier.md step 11 writes; absent, the verdict is
+// VISUAL-VERIFY-MISSING naming that path (kan-970 self-review).
+//
+// The newest qualifying verifier row must carry no round base: one begun with
+// `-round-base <sha>` is a scoped re-run, and the verdict is
+//   VISUAL-VERIFY-MISSING: the newest verifier row '<key>' ran scoped to round
+//   base <sha> — the loop's closing unscoped run is not recorded
+//   (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD <sha>
+//
+// Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
+// UI paths were touched and no qualifying verifier dispatch is recorded;
+// the verdict line carries the answer — and exit 2 when it cannot answer at
+// all — a non-directory worktree, a change name outside the allowlist, an
+// empty merge-base, dispatch or decision rows that are not one readable JSON
+// array (or a newest decision row that is not an object), a MISSING verdict
+// for a worktree whose HEAD git cannot name, or a store call
+// that failed outright (never
+// read as "no dispatches", exactly as flow-guard check-panel-fix-single-dispatch's
+// own header explains for the identical hazard: an outage that read as zero
+// rows would pass every round it was blind to).
+//
+// THE TRIGGER QUESTION IS ASKED IN-PROCESS, NOT RE-IMPLEMENTED. Whether
+// this change's diff touched a declared `ui paths` glob is exactly
+// flow-guard check-visual-trigger's own job (flow.visual-verify step 2's own guard);
+// the Go guard hands the same `git diff --name-only <merge-base>..HEAD` to
+// that guard's Go function (stats/internal/guard/visualtrigger.go) and reads
+// its three exit codes as-is:
+//   2  the project declares no `## visual verification` section at all —
+//      VISUAL-VERIFY-OK: not configured. Nothing here to require.
+//   1  the section is declared but this diff touched none of its `ui
+//      paths` — VISUAL-VERIFY-OK: no UI paths touched.
+//   0  at least one touched path matched — continue to the dispatch check
+//      below. The trigger reads `.flow/project.md` from the
+//      worktree itself, matching flow.visual-verify's own per-worktree
+//      resolution; this guard is called once per worktree in the run's
+//      resolved set, exactly as that stage is. Given a canonical worktree
+//      other than <worktree>, a diff the worktree's own answer does not
+//      match is also matched against the canonical worktree's `ui paths`,
+//      each path prefixed with the worktree's repository name — its main
+//      checkout's basename, as flow-guard check-visual-trigger --repo prefixes it —
+//      and the better answer stands, 0 over 1 over 2; every store call is
+//      then made under the canonical worktree, whose project the run's rows
+//      were recorded in. A canonical worktree that is not a directory, or a
+//      repository git cannot name, is exit 2.
+//   Paths under the worktree's `<spec root>/changes/` — the change's own
+//   records, the drop of its `link.md` included — are dropped from
+//   the diff first, for this question and the freshness check below alike
+//   (kan-970 self-review).
+//
+// THE DISPATCH CHECK READS THE STORE, NOT A RENDERED FILE — the same
+// posture flow-guard check-panel-fix-single-dispatch and flow-guard check-panel-reproducers
+// already take for the identical reason: `flow record dispatches -change
+// <name> -C <canonical worktree when given>` answers with the decoded JSON array of every
+// dispatch row this change has ever recorded, across every run. A row
+// counts when its `role` is `verifier`, its `key` starts with
+// `visual-verify` (`visual-verify`, `visual-verify-<repository-name>`,
+// `visual-verify-2`, `visual-verify-retry`, and combinations — this guard
+// does not validate the key's exact shape, only that the stage's own
+// canonical prefix was used; a malformed key is a different guard's job,
+// the same division flow-guard check-panel-fix-single-dispatch draws between "did
+// it happen" here and "did it happen the right number of times" there),
+// and it carries ONE OF TWO EVIDENCE SHAPES. The first is the ordinary
+// close: its `outcome` is exactly `completed`. The second is the
+// session-continuation signature (KAN-809): the row carries `endedAt` and
+// no `outcome` at all — the verifier demonstrably ran to an end, but the
+// closing `flow record dispatch end -outcome completed` call never landed
+// because the session exhausted its context before it could, so the
+// stage's completion is store-recoverable from the row's own end instant.
+// A row explicitly closed `aborted`, `fallback` or `blocked` is not
+// evidence in either shape — the end instant makes it no more evidence
+// than case 4's aborted row, because those outcomes say the verifier
+// never delivered a report that was read — and a still-open row (no
+// `endedAt`) is not evidence either: the guard cannot tell a running
+// verifier from a dead one. See **The return** (skills/flow/implement.md)
+// for why only `completed` closes a dispatch's own story.
+//
+// A VERIFIER COUNTS ONLY FOR THE HEAD IT VERIFIED (kan-939 self-review: a
+// completed row answered OK however many UI commits landed after it). Such a
+// row is evidence only when its `diffBase` — the HEAD the verifier was
+// dispatched against, `-diff-base` on its `dispatch begin`
+// (skills/flow/visual-verify.md, **Recording**) — is a commit sha this
+// worktree resolves, and no path of this change's own `<merge-base>..HEAD`
+// diff that changed between that sha and HEAD matches the `ui paths`, asked
+// as the trigger above is, the canonical worktree's included. A `diffBase`
+// naming several shas, comma-joined — a canonical verifier that also covered
+// a sibling worktree's HEAD (kan-983 self-review) — is read one sha at a time,
+// each judged as a row of its own. A row with no
+// `diffBase`, a ref name such as HEAD in place of a sha, or a sha this
+// worktree cannot resolve verified nothing here. With qualifying rows and
+// none fresh, the verdict is
+//   VISUAL-VERIFY-MISSING: a verifier dispatch is recorded for '<name>' but
+//   none verified a HEAD after this change's last UI-path commit — … — paths
+//   changed since verified HEAD <verified sha>: <p1>, <p2> — HEAD <sha>
+// naming the newest row's sha that resolves and its own paths changed since.
+// and a git diff that fails against a row's sha is exit 2.
+//
+// A SKIP DECIDED AT PLANNING IS NOT A SILENT SKIP. With no qualifying
+// verifier row, the guard reads `flow record decisions -change <name> -C
+// <canonical worktree when given>` (newest row first) and answers
+//   VISUAL-VERIFY-OK: skipped at Decide — <reason>
+// when that newest row's decision records `visual.verify` exactly `skipped`
+// with a non-empty `reason` (whitespace folded to single spaces, so the
+// verdict stays one line). That row is the one the Decide step printed in
+// the `## Decision` block the operator approved at the plan gate
+// (skills/flow/brainstorm-planner.md), so a skip there is visible and
+// operator-gated — kan-30's failure was a skip nobody saw. Every other
+// readable answer — no rows (a change decided before the field existed),
+// no `visual`, `required`, `not configured`, a malformed value — falls
+// through to MISSING exactly as before; a decisions read that fails or is
+// unreadable is exit 2, never a skip. A recorded verifier answers OK first,
+// so the decisions read only happens when no verifier is found.
+//
+// THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY — the
+// habit stats/internal/guard/unfinishedwork.go already carries, mirrored
+// in stats/internal/guard/visualverifydispatched.go. Once the dispatch
+// check has reached one of its three
+// store-evidence verdicts (either OK above, or the MISSING below), the guard
+// records the line verbatim — `flow record verdict -change <name> -guard
+// check-visual-verify-dispatched -worktree <worktree> -verdict "<line>"
+// -C <canonical worktree when given>` — with the write's stdout, stderr and exit code all
+// discarded: a store outage can neither move the verdict nor change the
+// exit code, and a store that refuses the row leaves the gate exactly as
+// it printed it. The recorded rows are what make an operator's
+// hand-verified override land at all: `flow record verdict false-positive
+// -guard check-visual-verify-dispatched` refuses a (change, guard) pair
+// the store holds no verdict row for (KAN-809's second break — the
+// override path the gate's refusal names refused the very verdict the
+// operator had just hand-verified), and on MISSING the guard reads those
+// prior false positives back (`flow record verdicts -guard ...
+// -false-positive`) and prints the same advisory stderr hint
+// unfinished-work prints — skipped on any failure or an empty array,
+// never moving the verdict — so the next run reads the override where it
+// was written. The two trigger-side verdicts (`not configured`, `no UI
+// paths touched`) fire before the store read in the guard's own code
+// order, record nothing, and stay store-free.
+//
+// NO PROJECT NEEDS A ROW PER WORKTREE. A cross-repo change resolves more
+// than one worktree, and flow.visual-verify dispatches once per worktree in
+// its own resolved set (**Visual verification**, verify-and-handoff.md, steps 1–2) —
+// so this guard is called once per worktree too, by its own caller, exactly
+// as flow-guard check-base-moved and flow-guard check-unfinished-work already are; it never
+// tries to resolve the whole set itself.
+//
+// THE CHANGE-NAME CONTAINMENT CASE IS DUPLICATED, on purpose, from
+// flow-guard check-panel-fix-single-dispatch's own copy — see that guard's header
+// for why: the name arrives from a pull-request-editable state file and is
+// passed to `flow record dispatches -change`, so `../../../planted` and a
+// glob metacharacter are hazards here exactly as they are there.
+
+// checkVisualVerifyDispatched is `flow-guard check-visual-verify-dispatched`: the comment above is the contract -- one verdict line on
 // stdout, VISUAL-VERIFY-OK (exit 0) or VISUAL-VERIFY-MISSING (exit 1), or
 // exit 2 when it cannot answer. The trigger question is visualTrigger
 // (visualtrigger.go), evaluated in-process; the dispatch read
@@ -48,7 +232,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintf(stderr, "%susage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base> [<canonical-worktree>]\n", vvdPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-visual-verify-dispatched <worktree> <change-name> <merge-base> [<canonical-worktree>]\n", vvdPrefix)
 		return 2
 	}
 	if base == "" {

@@ -1,1 +1,0 @@
-../../../scripts/sync-panel-base.sh

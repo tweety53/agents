@@ -503,7 +503,7 @@ func TestMutateAndVerify(t *testing.T) {
 		// and exits the cannot-answer code, 4 — shaped as check-task-commit-
 		// fields' case 56.
 		{"shim without go", func(t *testing.T) {
-			cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/mutate-and-verify.sh", "p", "h")
+			cmd := exec.Command("/bin/bash", guardShim(t, "mutate-and-verify"), "p", "h")
 			cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 			out, err := cmd.CombinedOutput()
 			if cmd.ProcessState == nil {
@@ -649,7 +649,7 @@ func mvSignalCase(t *testing.T, fx mvFixtures, sig syscall.Signal, ignore bool) 
 	writeExec(t, h, "#!/usr/bin/env bash\necho 'ok: case-1'\n"+
 		"if grep -q '"+mvMutationMark+"' guard.sh; then echo ready > \"$MV_READY\"; read -r _ < \"$MV_RELEASE\"; fi\n")
 	c.snap()
-	shim := tcfScriptsDir(t) + "/mutate-and-verify.sh"
+	shim := guardShim(t, "mutate-and-verify")
 	cmd := exec.Command("/bin/bash", shim, c.patch, h)
 	if ignore {
 		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf(`trap '' %d; exec /bin/bash "$0" "$@"`, int(sig)), shim, c.patch, h)
@@ -736,7 +736,7 @@ func mvSIGPIPECase(t *testing.T, fx mvFixtures) {
   exec <&-
   echo "$r" > "$MV_GONE"
 }
-exit "${PIPESTATUS[0]}"`, tcfScriptsDir(t)+"/mutate-and-verify.sh", c.patch, h, h2)
+exit "${PIPESTATUS[0]}"`, guardShim(t, "mutate-and-verify"), c.patch, h, h2)
 	cmd.Dir = c.repo
 	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t),
 		"MV_RELEASE="+release, "MV_SECOND="+second, "MV_GONE="+gone)
@@ -802,7 +802,7 @@ func mvApplyEPIPECase(t *testing.T, fx mvFixtures) {
 		"if [ \"$1\" = apply ] && [ \"$2\" = --whitespace=nowarn ]; then yes applying | head -n 100000; fi\n"+
 		"exec "+fixtureGit+" \"$@\"\n")
 	c.snap()
-	cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/mutate-and-verify.sh", c.patch, c.harness)
+	cmd := exec.Command("/bin/bash", guardShim(t, "mutate-and-verify"), c.patch, c.harness)
 	cmd.Dir = c.repo
 	cmd.Env = append(os.Environ(), "PATH="+stub+":"+os.Getenv("PATH"), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 	cmd.Stderr = mvCreate(t, dir+"/stderr")
@@ -925,5 +925,5 @@ var mvPins = map[string]string{
 	"TestMutateAndVerify/silent_harness_on_the_baseline_pass": "mutate-and-verify: patch <patch> touches:\n  guard.sh\n\nmutate-and-verify: baseline pass (before mutation)\n--- stderr\nmutate-and-verify: cannot answer — harness silent.sh produced no ok:/FAIL: line on the baseline pass\n--- exit 4\n",
 	"TestMutateAndVerify/silent_harness_on_the_mutated_pass":  "mutate-and-verify: patch <patch> touches:\n  guard.sh\n\nmutate-and-verify: baseline pass (before mutation)\n  silent.sh: baseline ok=1 fail=0\n\nmutate-and-verify: mutated pass (after mutation)\n--- stderr\nmutate-and-verify: cannot answer — harness silent.sh produced no ok:/FAIL: line on the mutated pass\n--- exit 4\n",
 	"TestMutateAndVerify/unreadable_patch":                    "--- stderr\nmutate-and-verify: cannot answer — cannot read patch file: no-such.patch\n--- exit 4\n",
-	"TestMutateAndVerify/usage":                               "--- stderr\nmutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]\n--- exit 4\n",
+	"TestMutateAndVerify/usage":                               "--- stderr\nmutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]\n--- exit 4\n",
 }

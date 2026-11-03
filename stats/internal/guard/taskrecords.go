@@ -13,9 +13,28 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-task-records.sh shim (KAN-1058).
+//
+// flow-guard check-task-records — thin wrapper.
+//
+// All parsing and checking logic lives in `flow-guard check-task-records`
+// (stats/internal/guard/taskrecords.go), which reads the shared plan grammar
+// (stats/internal/guard/planparse.go) that check-task-commit-fields and
+// check-plan-shape read. taskrecords.go's header is canonical for the three
+// checks (tick state vs commit existence, declared Files vs the commit's real
+// files in both directions, Build tag format) and the exit-code contract.
+//
+//   flow-guard check-task-records [repo-root] [base-ref]
+//
+// With no arguments the repo root is the CWD and the base ref is the branch
+// refs/remotes/origin/HEAD points at; zero plans in flight under
+// spectre/changes/ exits 0, which is what makes the guard a legitimate
+// bare-tree lint step.
+
 // check-task-records — lint one repository's in-flight task records against
 // the commits on its branch (KAN-410). Ported from check-task-records.py at
-// bbfe685e; scripts/check-task-records.sh is its shim.
+// bbfe685e.
 //
 // The per-commit guard, check-task-commit-fields, checks ONE task's fields
 // against ONE real commit at the moment that commit is made. Its findings in
@@ -125,7 +144,7 @@ type trPeer struct {
 
 func checkTaskRecords(args []string, env Env, stdout, stderr io.Writer) (rc int) {
 	if len(args) > 2 {
-		fmt.Fprintln(stderr, "usage: check-task-records.sh [repo-root] [base-ref]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-task-records [repo-root] [base-ref]")
 		return 2
 	}
 	defer func() {

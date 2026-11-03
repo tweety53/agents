@@ -101,7 +101,7 @@ func (r ExecRunner) Output(repo string, args ...string) ([]byte, error) {
 }
 
 // baseRef is the remote-tracking ref a branch lands on: origin/<the base
-// recorded as branch.<branch>.flowBase>, as resolve-base-branch.sh reads
+// recorded as branch.<branch>.flowBase>, as flow-guard resolve-base-branch reads
 // it, else what origin/HEAD points at; "" when neither resolves.
 func baseRef(g Runner, repo, branch string) string {
 	if rec := trimmedOutput(g.Output(repo, "config", "--get", "branch."+branch+".flowBase")); rec != "" {
@@ -139,7 +139,7 @@ func firstReadableRepo(g Runner, repos []string) string {
 // remote default branch — the git-log source for a change with no change
 // directory: a /flow-fast change's implementation commits live on the branch
 // named after the change. The base is the one recorded on the branch
-// (branch.<change>.flowBase, as resolve-base-branch.sh reads it), else what
+// (branch.<change>.flowBase, as flow-guard resolve-base-branch reads it), else what
 // origin/HEAD points at, the same notion the flow-fast run's own Branch log
 // printed; a repository whose
 // origin/HEAD is unset, and a branch that resolves nothing — landed and

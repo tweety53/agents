@@ -80,8 +80,8 @@ the loop's own change, off each prompt's `Key:` line: the parent never begins or
 own change.
 
 **Everything else in those six sections is the parent's own Bash and Read work, never
-delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,
-`prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,
+delegated** — every `flow-guard check-*`, `flow-guard run-reproducer`, `flow-guard gather-dispatch-context`,
+`flow-guard prepare-workspace`, `## lint` and `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
 "re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any
 other name. The findings merger's read of a round's reports (**The findings merger**,
@@ -193,7 +193,7 @@ these substitutions:
 
 - **No implementer, no panel-fix dispatch.** The parent does each bundle's TDD work in the
   canonical worktree, commits per task with the same `Task-Id:` trailer and declared `**Commit:**`
-  subject, and runs `close-task.sh` exactly as section **4** states, its `-end-*` flags closing
+  subject, and runs `flow-guard close-task` exactly as section **4** states, its `-end-*` flags closing
   the bundle's own `implementer` row.
   Waves are not parallel inline: bundles run in plan order, one at a time, never launched into a
   throwaway worktree.
@@ -245,7 +245,7 @@ these substitutions:
 flow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 spectre validate "<name>"
 spectre list --json
-check-plan-shape.sh "<changeRoot>/tasks.md"
+flow-guard check-plan-shape "<changeRoot>/tasks.md"
 ```
 
 Exit `0` from `validate` is the only exit that proceeds. Exit `1` names findings in this change's
@@ -253,7 +253,7 @@ own artifacts — most often a step checkbox left at column 0 — and each is re
 code is touched. Exit `2` is a usage or IO error, and `no such change "<name>"` is the one worth
 naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`.
 
-Exit `0` from `check-plan-shape.sh` proceeds. Exit `1` names a shape defect in this plan's own
+Exit `0` from `flow-guard check-plan-shape` proceeds. Exit `1` names a shape defect in this plan's own
 `**Files:**`, `**Tests:**` or other declared fields — repaired here, before any task is dispatched
 and before any code is touched, exactly as an exit-1 from `spectre validate` already is. Exit `2`
 stops the run.
@@ -267,7 +267,7 @@ stops the run.
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
 
 **Every recorded base is compared with the branch it tracks before task 1 runs.** Run
-`check-base-behind.sh <worktree>...` over the run's resolved worktree set; its header is canonical
+`flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
 for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block, run its two command
 lines in order as **Verify** (`skills/flow/verify-and-handoff.md`) runs them, and run the check
 again. Exit 2 → name its stderr in the handoff and continue (kan-1015: feature/templates sat 21
@@ -280,12 +280,12 @@ base and every capability spec the proposal names as `<spec-path>` — the spec'
 `<project>/spectre/specs/<capability>.md`, relative to `<project>`:
 
 ```bash
-refresh-plan-base.sh <worktree> <merge-base> <changeRoot>/tasks.md <spec-path>…
+flow-guard refresh-plan-base <worktree> <merge-base> <changeRoot>/tasks.md <spec-path>…
 ```
 
 Exit 0 prints `UNMOVED:` — record that one line — or `MOVED:` followed by the `CHANGED:` paths
 the plan's `**Files:**` declares and each spec's text at the moved base (`SPEC-ABSENT:` when it is
-gone there); exit 2 stops the run. The script's header (`<agents repo>/scripts/refresh-plan-base.sh`)
+gone there); exit 2 stops the run. The script's header (`<agents repo>/scripts/flow-guard refresh-plan-base`)
 is canonical for its output. On `MOVED:`, **name every route or requirement the plan adds that the
 moved base now already carries**. A collision is reconciled before task 1 runs, under **A pivot
 reconciles the three artifacts together** (section 4 below) — never discovered mid-task.
@@ -297,10 +297,10 @@ after every task). It runs before the collision reconciliation above. Then, once
 merge base:
 
 ```bash
-sync-panel-base.sh --rebase <worktree> <merge-base>
+flow-guard sync-panel-base --rebase <worktree> <merge-base>
 ```
 
-The script's header (`<agents repo>/scripts/sync-panel-base.sh`) is canonical for its lines. Exit 0
+The script's header (`<agents repo>/scripts/flow-guard sync-panel-base`) is canonical for its lines. Exit 0
 is settled. After a `REBASED:` line, that worktree's working-notes merge base becomes the sha the
 last `REBASED:` line names, and the run records it and pushes the rewritten branch:
 
@@ -378,7 +378,7 @@ construction on every ordinary run.
 stage that finds it needs a worktree in a repository the set does not hold — a fix round's task,
 `flow.visual-verify`'s commit destination, a stack that must serve from a checkout of its own —
 runs that entry's recipe of
-`skills/flow/cross-repo-worktrees.md` (the `kickoff-worktree.sh --from` call, the regression
+`skills/flow/cross-repo-worktrees.md` (the `flow-guard kickoff-worktree --from` call, the regression
 checkout's toolchain, the merge-order extension), never a bare `git worktree add`. A worktree
 that will carry no commit is no exception: the recipe records it in the state record's
 `worktrees` map with its HEAD as its merge base, so run 2's per-worktree checks and its removal
@@ -453,9 +453,9 @@ flow record dispatch end -change <name> -key task-<ids>-implementer \
 
 **An implementer that reports back while another is still running is ended at once.** When
 several implementers run in parallel, the one that finishes first has its `flow record dispatch
-end` run as soon as it reports, not deferred to its `close-task.sh` at the group boundary — an
+end` run as soon as it reports, not deferred to its `flow-guard close-task` at the group boundary — an
 unended row reads as a running agent on the stats dashboard for as long as the boundary waits.
-Its later `close-task.sh` then runs without the `-end-*` flags.
+Its later `flow-guard close-task` then runs without the `-end-*` flags.
 
 Both calls are required. `begin` is recorded immediately before the dispatch — when several
 launches go out together in one message, in the one Bash call immediately before that message, one
@@ -510,10 +510,10 @@ those exact commands, and an explicit **stop and report** instruction — a repe
 never self-recovered. A generic warning ("be careful with git") is not a carry. The child's own claim that nothing went wrong
 never closes an incident.
 
-Run `plan-dispatch-bundles.sh <changeRoot>/tasks.md` for this plan's bundles:
+Run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md` for this plan's bundles:
 
 ```bash
-plan-dispatch-bundles.sh <changeRoot>/tasks.md
+flow-guard plan-dispatch-bundles <changeRoot>/tasks.md
 ```
 
 Exit 0 proceeds. A non-zero exit is a plan defect: exit 1 names a task missing its `**Files:**`
@@ -539,14 +539,14 @@ inside this worktree — or inside `<canonical-worktree>` when this worktree hol
 `<canonical-worktree>` — the seventh argument, passed on every call — is
 the member of this run's resolved worktree set whose own change directory holds `tasks.md`, the
 same argument
-`check-unfinished-work.sh` takes at the integrate gate; on a single-repo change that member is
+`flow-guard check-unfinished-work` takes at the integrate gate; on a single-repo change that member is
 this worktree and the argument is inert, while on a satellite worktree's group it carries the
 canonical plan under labeled sections while keeping this worktree's own project commands,
-incidents and HEAD (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for
+incidents and HEAD (`<agents repo>/scripts/flow-guard gather-dispatch-context`'s header is canonical for
 the resolution).
 
 **A guard you could not run is hand-substituted only on the record.** When a guard this
-file calls — the gather above, `check-task-commit-fields.sh` at task close — exits non-zero,
+file calls — the gather above, `flow-guard check-task-commit-fields` at task close — exits non-zero,
 cannot resolve this change's topology, or is absent, and you go on by composing its facts,
 checking its contract, or running its step by hand, record the substitution at the moment you
 make it, never in the handoff prose alone:
@@ -590,9 +590,9 @@ The parent compares that line against the group's recorded model (or the run's s
 and applies **The handshake** stated above, unchanged.
 
 **The parent runs the full suite — never an implementer.** Once the plan-last group — the group
-holding the last `bundle <k>` line `plan-dispatch-bundles.sh` printed — has passed the guard, by
+holding the last `bundle <k>` line `flow-guard plan-dispatch-bundles` printed — has passed the guard, by
 direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
-once on the canonical worktree, in the foreground, as `run-verify-list.sh <canonical-worktree> test`
+once on the canonical worktree, in the foreground, as `flow-guard run-verify-list <canonical-worktree> test`
 — by hand, in the order the context bundle carries it, only where that exits 3 — its output
 through `tail`; the green sha that run records is what lets **Inline verify**
 (`skills/flow/verify-and-handoff.md`) skip what no later commit touched. Every failure, wherever it lies, is fixed at its root
@@ -607,7 +607,7 @@ The commit carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every 
 Before the parent pushes it, the untasked-commit check of **Commits outside every task** (`skills/flow-contracts/git-boundaries.md`) runs.
 The pair's `end` carries `-commit` with the sha `git -C <worktree> rev-parse HEAD` prints once that commit is made, never a task's commit.
 A fix for a failure that does not recur on every run is a determinism fix, held to the PROOF RUNS paragraph (`skills/flow/implementer-brief.md`): the failure is shown returning with the fix reverted before the fix is committed; one that never returns is handled as **The loop** (`skills/flow/verify-fix-loop.md`) states for an observed failure that does not reproduce.
-`run-verify-list.sh`'s `test` list ends with that section's `verify` run on the specs its `specs`
+`flow-guard run-verify-list`'s `test` list ends with that section's `verify` run on the specs its `specs`
 row maps for the diff — none when it maps nothing, the list failing when it exits non-zero, and
 the whole suite, `<specs>` empty, only when no `specs` row is declared or the operator asks for it
 — when its own worktree's diff from its base branch touches a `ui paths` glob and
@@ -617,7 +617,7 @@ capture a shared-component change moved fails here rather than at `flow.verify`.
 for another worktree of the resolved set, its merge base from this run's working notes, the parent
 runs that `verify` itself after the list, against the canonical worktree's stack, under the stack
 rules of **One stack for the verification tasks** below.
-Before the list, on a change whose diff touches a `ui paths` glob, `check-dev-stack-fresh.sh <canonical-worktree>` exit 1 restarts the stack by
+Before the list, on a change whose diff touches a `ui paths` glob, `flow-guard check-dev-stack-fresh <canonical-worktree>` exit 1 restarts the stack by
 that section's start rule, and a failed restart is reported and stops the step; exit 0 or 2
 proceeds.
 The section's `setup` row runs before the list when the toolchain is missing. A failure a product defect caused
@@ -637,31 +637,31 @@ The mutation slot is not read-only: it runs the tests once per mutant on the sam
 while the slots are reading the tree.
 
 **A group boundary is one wake, one Bash call and one launch message.** The unit is the group — the decision's `groups`
-entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
+entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each boundary, in this order:
 
 1. **Group N+1's implementer commits**, writes its report and ends; its completion notification
    wakes the parent with its summary head (`skills/flow/implementer-brief.md`). Each `correction:`
    and `undeclared:` line the parent judges legitimate is transcribed first (**The record carries
    its own corrections**, below) — the one edit a boundary may add before the call below.
 2. **One Bash call closes group N+1 and readies group N+2**, every verdict echoed: the markers
-   verify, then `close-task.sh`, then — only on its exit 0 or 3 — the rest.
+   verify, then `flow-guard close-task`, then — only on its exit 0 or 3 — the rest.
 
    ```bash
-   check-tree-markers.sh verify <worktree> <markers-file> <snapshot-file>; m=$?; echo "markers: $m"
-   [ "$m" -eq 0 ] && { close-task.sh -end-key <key> -session-token mf-<literal-token> -end-commit <sha> \
+   flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file>; m=$?; echo "markers: $m"
+   [ "$m" -eq 0 ] && { flow-guard close-task -end-key <key> -session-token mf-<literal-token> -end-commit <sha> \
      [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>:<task-sha> …
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then
      # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
      # group N+2's gather (skills/flow/sdd-dispatch.md), then its marker snapshot:
-     check-tree-markers.sh snapshot <worktree> <markers-file> <group N+2's snapshot-file>
+     flow-guard check-tree-markers snapshot <worktree> <markers-file> <group N+2's snapshot-file>
      # group N+2's `flow record dispatch begin` (above); on `big`, when a gate fired in group N+1,
      # that bundle's diffs, snapshots and begin (The gated per-task reviewer, below)
    fi
    ```
 
-   `close-task.sh` runs the implementer's `record dispatch end`, the guard on every commit
-   whose sha is new and `check-task-commit-planning-paths.sh <canonical-worktree> <merge-base>`
+   `flow-guard close-task` runs the implementer's `record dispatch end`, the guard on every commit
+   whose sha is new and `flow-guard check-task-commit-planning-paths <canonical-worktree> <merge-base>`
    over every commit since the merge base recorded in this run's working notes; only when both
    pass, the **review gate** on every
    task, `flow tasks tick` per **The guard's pass ticks an ungated task.** (below), and
@@ -672,13 +672,13 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    above, `<name>` this run's resolved name. **On a change whose resolved worktree set spans more
    than one repository, a task's sha is the per-repository commit map instead** —
    `<task-id>:<worktree>=<sha>[,<worktree>=<sha>…]`, one pair per repository carrying any of the
-   task's commits; the guard's own header (`<agents repo>/scripts/check-task-commit-fields.sh`,
+   task's commits; the guard's own header (`<agents repo>/scripts/flow-guard check-task-commit-fields`,
    THE COMMIT MAP) is canonical for the form. A task that landed in one repository passes that repository's
    pair alone, which is the single-sha form; skipping the guard on a cross-repo change and
    checking fields by hand is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
    `-undeclared` carries the paths a fields refusal named for that task (**The record carries
-   its own corrections**, below). The script's header (`<agents repo>/scripts/close-task.sh`) is
+   its own corrections**, below). The script's header (`<agents repo>/scripts/flow-guard close-task`) is
    canonical for its arguments and its order.
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
@@ -688,10 +688,10 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    a task commit carrying no `Task-Id:` trailer naming the task —
    is a re-commit, with nothing ticked or pushed — under `sdd` the re-commit row of **Every fix is a
    fresh one-shot** (below), under `inline` the parent's own, without the swept paths and carrying
-   `Task-Id: <n>` — and `close-task.sh` re-runs without the `-end-*` flags before anything below; **exit 1 with `close-task: RECORD —`** is an appended task no dispatch row
+   `Task-Id: <n>` — and `flow-guard close-task` re-runs without the `-end-*` flags before anything below; **exit 1 with `close-task: RECORD —`** is an appended task no dispatch row
    names — record its implementer dispatch (`flow record dispatch backfill … -task <n>`, the
    back-fill above), then re-run
-   `close-task.sh` without the `-end-*` flags; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
+   `flow-guard close-task` without the `-end-*` flags; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
    the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line. **Exit 3 with `close-task: UNRECORDED —`** closed every task — ticked and
@@ -714,26 +714,26 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 
-**The review gate.** After the guard passes a task's commit, `close-task.sh` judges that commit's
-gate through `check-review-gate.sh`, with every path the guard's refusal named for that task —
+**The review gate.** After the guard passes a task's commit, `flow-guard close-task` judges that commit's
+gate through `flow-guard check-review-gate`, with every path the guard's refusal named for that task —
 the paths its `-undeclared` flag carries:
 
 ```bash
-check-review-gate.sh <worktree> <task-id> <task-sha|map> <canonical-worktree> <name> [<refused-path>…]
+flow-guard check-review-gate <worktree> <task-id> <task-sha|map> <canonical-worktree> <name> [<refused-path>…]
 ```
 
 **The gate fires when the commit changes more than 40 lines, or touches any path outside
 the task's declared set** — its `**Files:**` plus its `**Allowed-collateral:**` globs; the
-script's header (`<agents repo>/scripts/check-review-gate.sh`) is canonical for how both are
+script's header (`<agents repo>/scripts/flow-guard check-review-gate`) is canonical for how both are
 counted. It prints `FIRE: task <id> — …` or `QUIET: task <id> — …` and exits 0; **exit 2 — it
 could not judge — stops the run**, as the guard's own exit 2 does.
 
 **The guard's pass ticks an ungated task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
-once `check-task-commit-fields.sh` exits 0 on its commit and the gate does not fire — no reviewer
+once `flow-guard check-task-commit-fields` exits 0 on its commit and the gate does not fire — no reviewer
 runs on that task; the whole-branch panel (`skills/flow/review-panel.md`) is still this branch's
 review. **On `big`, a gated task's tick defers until its reviewer closes clean**; on `micro`,
 `small` and `regular` it ticks at the guard's pass too, with the panel as its review (**The gated
-per-task reviewer**, below). A fired task `close-task.sh` reports as `close-task: task <id> tick
+per-task reviewer**, below). A fired task `flow-guard close-task` reports as `close-task: task <id> tick
 waits — decision class unreadable` is ticked by the parent with `flow tasks tick` once `flow record
 decisions` reads a class other than `big`. A step's checkbox tracks
 the step and gates nothing. A red task's checkbox is ticked together with its partner's, on their
@@ -748,7 +748,7 @@ disagree silently with what the run did. The implementer never edits `<project>/
 (FLOW — COMMIT-PER-TASK, `skills/flow/implementer-brief.md`): it discloses each correction as a
 `correction:` line of its summary head, the exact field and its corrected value, and the parent transcribes it into the record before the guard runs
 on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is the
-one correction whose disclosure has a mechanical record: `check-task-commit-fields.sh` runs
+one correction whose disclosure has a mechanical record: `flow-guard check-task-commit-fields` runs
 against the record as it stood, refuses the commit, and names every undeclared path; the parent
 judges the deviation legitimate or not on exactly that refusal, and only a legitimate one is
 transcribed and the guard re-run green. The parent transcribes a widening with
@@ -766,7 +766,7 @@ that task's entry in `tasks.md`, at the task-close boundary where the task's oth
 are transcribed (before the guard runs on the commit), stating what the plan declared, what
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
 reports the deviation, the parent transcribes it; inline, the session is both halves. A `Correction:` paragraph is plan prose the plan-provenance guard reads.
-Run `check-plan-provenance.sh` when transcribing it, and give each numeric claim its `measured:` comment or word it without a count
+Run `flow-guard check-plan-provenance` when transcribing it, and give each numeric claim its `measured:` comment or word it without a count
 (kan-1020: a bare count in a Correction was refused only at verify). Once a `Correction:`
 paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which
 records the plan's correction count beside its task count — the plan-corrections metric
@@ -787,7 +787,7 @@ decision the pivot displaces is superseded by ID per **Decisions**
 <new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a
 fresh entry appended, nothing deleted or rewritten — so the record carries the
 superseded decision beside its replacement. The amended plan is
-re-validated — `spectre validate` and `check-plan-shape.sh` — before the next task dispatches.
+re-validated — `spectre validate` and `flow-guard check-plan-shape` — before the next task dispatches.
 
 **A task added after the decision row is re-decided before it runs.** Whenever `tasks.md` gains a
 task once the run's decision is recorded — a pivot, an operator's mid-run request, any append
@@ -828,7 +828,7 @@ The reviewer writes every finding its passes raise to the bundle's findings file
 <that file>`, which gives each line the change's next free ref, so the run's Findings count holds
 what the gate caught; the panel's guards and its rendered record skip `gated-reviewer` rows.
 **A returning bundle is one Bash call**, its verdicts read from its final message — one line per
-pass — never its report bodies: `check-plan-unchanged.sh verify` and `check-tree-markers.sh
+pass — never its report bodies: `flow-guard check-plan-unchanged verify` and `flow-guard check-tree-markers
 verify` first (**The plan tree survives every reviewer dispatch**, below), then, on both exit 0,
 the findings call above, the record's end and `flow tasks tick` for every clean task — riding the
 boundary call above when the next group's implementer returns in the same wake.
@@ -888,8 +888,8 @@ bundle's lines.
 **The plan tree survives every reviewer dispatch — asserted by git, never by the reviewer's
 prose.** Before a gated reviewer bundle's Agent call goes out — original, fix re-review, or
 handshake retry alike — the parent runs
-`check-plan-unchanged.sh snapshot <worktree> <name> <snapshot-file>`. Once the bundle's completion
-notification arrives, the parent runs `check-plan-unchanged.sh verify <worktree> <name>
+`flow-guard check-plan-unchanged snapshot <worktree> <name> <snapshot-file>`. Once the bundle's completion
+notification arrives, the parent runs `flow-guard check-plan-unchanged verify <worktree> <name>
 <snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit
 1 ends the turn with `## Question` carrying the guard's lines verbatim; exit 2, the same stop.
 
@@ -900,9 +900,9 @@ whose child can write to the worktree — an implementer group, a per-task revie
 the panel-fix subagent — the parent writes the dispatch's marker list beside the run's other
 dispatch records: one `<path><TAB><ERE>` line per artifact the dispatch must not damage, each ERE
 a string that artifact is known to contain (a decision ID, a task title, a section heading), then
-runs `check-tree-markers.sh snapshot <worktree> <markers-file> <snapshot-file>`. The marker list
+runs `flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file>`. The marker list
 is written once, before the stage's first dispatch, and every later dispatch reuses it with a
-snapshot of its own. Once the dispatch's completion notification arrives, the parent runs `check-tree-markers.sh verify <worktree>
+snapshot of its own. Once the dispatch's completion notification arrives, the parent runs `flow-guard check-tree-markers verify <worktree>
 <markers-file> <snapshot-file>` before the report is read or acted on. Exit 1 is the dispatch
 having mutated the tree, whatever its report claims — the same `## Question` stop as the
 plan-tree guard's, with the guard's lines verbatim; exit 2, the same stop. The markers sit beside
@@ -998,7 +998,7 @@ takes it, and only a question with none pauses the run.
 **Before closing the stage**, the parent runs this guard:
 
 ```bash
-check-task-reviewer-single-dispatch.sh <worktree> <change> <session-token>
+flow-guard check-task-reviewer-single-dispatch <worktree> <change> <session-token>
 ```
 
 — the token this run stamped on its own dispatches, `<worktree>` the canonical one. Exit 0
@@ -1008,7 +1008,7 @@ retry with no original, a key outside the canonical shape, two gate-fired tasks 
 implementer group split across separate reviewer bundles, or (on `micro`/`small`/`regular`) any
 gated reviewer row at all — and is a prompt, resolved on its recommended **Continue** per
 **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`), the same shape
-`skills/flow/review-panel.md`'s own `check-panel-fix-single-dispatch.sh` handback carries:
+`skills/flow/review-panel.md`'s own `flow-guard check-panel-fix-single-dispatch` handback carries:
 
 > **The gated per-task reviewer broke the bundled-dispatch shape:** <the guard's violation lines>
 > - **Continue — the violation stays recorded in this run's output** *(default, recommended)* —
@@ -1035,7 +1035,7 @@ FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
 | Fix | Key | Pair | When |
 |---|---|---|---|
 | every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the decision's `fixer` | at the stage's end, one per group of at most twenty findings, in series (`skills/flow/gated-review-fix.md`) |
-| a `close-task.sh` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches |
+| a `flow-guard close-task` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches |
 | a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the group's own pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
 | a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the full suite**, above) |
 
@@ -1064,7 +1064,7 @@ baselines goes out** — dispatched under `sdd`, or started by the parent on an 
 parent starts the canonical worktree's stack once, by the start rule of **Resolve the run
 instructions** (`skills/flow/verify-and-handoff.md`) — its failure, refused-start and
 protected-service handling included — then runs any build the plan's Global Constraints name
-for those tasks, then `check-dev-stack-fresh.sh <canonical-worktree>`: exit 1 is a failed start,
+for those tasks, then `flow-guard check-dev-stack-fresh <canonical-worktree>`: exit 1 is a failed start,
 and exit 2 puts `Freshness: unverified — <the guard's reason>` in every such task's prompt.
 Every such task, and every wave copy it runs in, runs against that stack's worktree-resolved
 URLs, which its prompt names, and starts, stops and rebuilds nothing. The stack stays up for

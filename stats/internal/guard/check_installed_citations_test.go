@@ -242,7 +242,7 @@ func TestCheckInstalledCitations(t *testing.T) {
 		t.Parallel()
 		var out, errOut bytes.Buffer
 		rc := checkInstalledCitations(nil, crEnv(t.TempDir(), nil), &out, &errOut)
-		refused(t, cicResult{rc, out.String(), errOut.String()}, cicName+": FLOW_GUARD_REPO_ROOT is unset — run scripts/check-installed-citations.sh, which sets it")
+		refused(t, cicResult{rc, out.String(), errOut.String()}, cicName+": FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-installed-citations, which sets it")
 	})
 	t.Run("root is not a directory: exit 2, stdout empty", func(t *testing.T) {
 		t.Parallel()

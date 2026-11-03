@@ -1,1 +1,0 @@
-../../../scripts/check-base-moved.sh

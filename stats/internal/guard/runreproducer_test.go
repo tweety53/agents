@@ -338,11 +338,11 @@ else:
 		// verdict.
 		wt := rrWorktree(t)
 		rrFixture(t, wt, "scripts/ok.sh", "exit 0")
-		shim, err := filepath.Abs("../../../scripts/run-reproducer.sh")
+		boot, err := filepath.Abs("../../../scripts/flow-guard")
 		if err != nil {
 			t.Fatal(err)
 		}
-		cmd := exec.Command(shim, wt, "scripts/ok.sh")
+		cmd := exec.Command(boot, "run-reproducer", wt, "scripts/ok.sh")
 		cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_TELEMETRY=off", "TMPDIR=" + t.TempDir(), "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 		out, err := cmd.CombinedOutput()
 		var ee *exec.ExitError

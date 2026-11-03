@@ -1,1 +1,0 @@
-../../../scripts/render-slot-prompt.sh

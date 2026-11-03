@@ -7,6 +7,21 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-fast-route-record.sh shim (KAN-1058).
+//
+// flow-guard check-fast-route-record — the /flow-fast record guard (KAN-838).
+//
+// A fast route writes no plan, so the change branch's commit series is its
+// whole record and this guard is what reads it back before the route lands
+// anything — skills/flow-fast/SKILL.md's verify stage calls it with the
+// worktree and the base flow-guard resolve-base-branch printed. The contract — what
+// each commit since the merge base must carry, the finding lines, the exit
+// codes — is the Go file's own header comment, canonical for itself:
+// stats/internal/guard/fastrouterecord.go.
+//
+//   flow-guard check-fast-route-record <worktree> <base>
+
 // check-fast-route-record reads a /flow-fast branch's commit series as its
 // record (KAN-838): the fast route writes no plan, so the series is the
 // whole record and this guard is what reads it back before the route lands
@@ -52,7 +67,7 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 	if len(args) != 2 {
-		fmt.Fprintln(stderr, "usage: check-fast-route-record.sh <worktree> <base>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-fast-route-record <worktree> <base>")
 		return 2
 	}
 	wt := pcAbs(env, args[0])

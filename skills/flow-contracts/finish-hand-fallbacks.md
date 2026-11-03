@@ -5,7 +5,7 @@ check named one of their scripts missing, or a call finds the script absent. Eac
 by-hand procedure for one script, moved verbatim from the contract that calls it; the script's
 verdicts and exit contract stay there.
 
-## `check-finish-preflight.sh` — Finish contract
+## `flow-guard check-finish-preflight` — Finish contract
 
 1. **`HEAD` against the merge base recorded in the state file's `worktrees` map.** No recorded
    value, or one that does not resolve → `REFUSE`; an honest unknown is never inferred. Equal to
@@ -33,7 +33,7 @@ for the host, as in run 2
 (`skills/flow-contracts/finish-contract-run2.md`) — that option belongs to the human doing this by hand, never to the
 script — but signals 1 and 3 still run, and still run in this order.
 
-## `check-foreign-staged.sh` and `check-main-checkout-drift.sh` — Surface foreign staged work before the preflight
+## `flow-guard check-foreign-staged` and `flow-guard check-main-checkout-drift` — Surface foreign staged work before the preflight
 
 **When the script is absent** — a repository that
 does not carry it — read each main checkout by hand with
@@ -51,13 +51,13 @@ script. A checkout whose only finding is its branch is switched back by hand wit
 `git -C <main-checkout> switch <default>` under the same four exclusions, per **Surface foreign
 staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 
-## `check-base-moved.sh` — Run 1 — the branch is not merged
+## `flow-guard check-base-moved` — Run 1 — the branch is not merged
 
 **When the script is absent** — a harness whose repository does not carry it — reach the same three
 verdicts by hand, in the same order, and say in the handoff that the check was run manually. The
 check is never skipped for want of the script.
 
-## `resolve-base-branch.sh` — Run 1 — the branch is not merged
+## `flow-guard resolve-base-branch` — Run 1 — the branch is not merged
 
 **When the script is absent** — a harness whose repository does not carry it — resolve the base
 branch by hand, in the same order, and say in the handoff that the resolution was done manually. The
@@ -72,7 +72,7 @@ of `[A-Za-z0-9._]` — so a leading `-` a downstream git call would read as an o
 so is a leading `/` — and every character in the name, start to end, is one of `[A-Za-z0-9._/-]`,
 which is what rules out control characters and anything else outside that set.
 
-## `check-cleanup-complete.sh` — Run 2, step 4
+## `flow-guard check-cleanup-complete` — Run 2, step 4
 
 **When the script is absent** — a repository that does not carry it — check the same registry rows
 by hand, in the same order, and say in the handoff that the verification was done manually. The
@@ -80,7 +80,7 @@ check is never skipped for want of the script, and "not verified" is never repor
 
 **Load `skills/flow-contracts/project-configuration-isolation.md`** only when the script is absent.
 
-## `remove-change-worktrees.sh` — Worktree cleanup
+## `flow-guard remove-change-worktrees` — Worktree cleanup
 
 For each worktree, run **every** check below before removing anything:
 
@@ -97,7 +97,7 @@ git -C "$WT" ls-files --others --exclude-standard
 #    another worktree in the set. A multi-repo change has one `origin` and one default branch per
 #    repository, so a name resolved against one worktree's `origin` can be the wrong ref, or absent
 #    entirely, in another repository. Resolve it here, before this worktree's own removal below.
-BASE="$(resolve-base-branch.sh "$WT")" || { echo "cannot resolve the base branch for $WT — stop and ask"; false; }
+BASE="$(flow-guard resolve-base-branch "$WT")" || { echo "cannot resolve the base branch for $WT — stop and ask"; false; }
 #    `@{upstream}` ERRORS when no upstream is configured, and an empty capture would read as
 #    "nothing unpushed" — so resolve it explicitly and never let a failed lookup pass as success.
 if git -C "$WT" merge-base --is-ancestor HEAD "origin/$BASE" 2>/dev/null; then
@@ -122,7 +122,7 @@ git -C "$WT" ls-files --others --ignored --exclude-standard
 #    and whatever that command exited: a project that declares no stop command can still have a
 #    stack running from its worktree, and a stop command that exits 0 is not evidence that it
 #    worked. Verifying that is the whole of what this check adds.
-check-worktree-processes.sh "$WT"
+flow-guard check-worktree-processes "$WT"
 ```
 
 Split what it found into two buckets by path, never by guessing intent:
@@ -172,7 +172,7 @@ OUT="$(git -C "$REPO" push origin --delete "spectre/<name>" 2>&1)"; RC=$?
 if [ "$RC" -eq 0 ]; then
   echo "remote branch deleted: origin/spectre/<name>"
 elif printf '%s' "$OUT" | grep -q 'remote ref does not exist'; then
-  # The forge deleted it on merge. Prune the ref it left behind: check-cleanup-complete.sh reads a
+  # The forge deleted it on merge. Prune the ref it left behind: flow-guard check-cleanup-complete reads a
   # surviving refs/remotes/origin/spectre/<name> as a leftover, and it would be a real one.
   git -C "$REPO" fetch --prune --quiet origin
   echo "remote branch already gone — the forge deleted it on merge"

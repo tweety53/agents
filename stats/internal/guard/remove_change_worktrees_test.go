@@ -62,20 +62,14 @@ func (fx *rcwFx) stop(t *testing.T, body string) {
 	writeFile(t, fx.repo+"/.flow/project.md", "# project\n\n## stop\n\n"+body+"\n\n## run\n\nnothing\n")
 }
 
-// run runs remove-change-worktrees in-process with the real
-// check-worktree-processes.sh beside it, as the shim exports FLOW_GUARD_SELF.
+// run runs remove-change-worktrees in-process, its check-worktree-processes
+// sibling the real one in this binary.
 func (fx *rcwFx) run(t *testing.T, tweak func(*Env), args ...string) (int, string, string) {
 	t.Helper()
 	if fx.g.err != nil {
 		t.Fatal(fx.g.err)
 	}
-	self := tcfScriptsDir(t) + "/remove-change-worktrees.sh"
-	env := Env{Dir: fx.dir, Getenv: func(k string) string {
-		if k == "FLOW_GUARD_SELF" {
-			return self
-		}
-		return os.Getenv(k)
-	}}
+	env := Env{Dir: fx.dir, Getenv: os.Getenv}
 	if tweak != nil {
 		tweak(&env)
 	}
@@ -310,12 +304,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		fx := rcwNewFx(t)
 		for _, args := range [][]string{{fx.repo, "demo"}, {fx.repo, "../demo", "-"}, {fx.dir, "demo", "-"}, {fx.repo, "demo", "-", "--force"}} {
 			var out, errb bytes.Buffer
-			env := Env{Dir: fx.dir, Getenv: func(k string) string {
-				if k == "FLOW_GUARD_SELF" {
-					return tcfScriptsDir(t) + "/remove-change-worktrees.sh"
-				}
-				return os.Getenv(k)
-			}}
+			env := Env{Dir: fx.dir, Getenv: os.Getenv}
 			if code := removeChangeWorktrees(args, env, &out, &errb); code != 2 || out.String() != "" {
 				t.Errorf("%q: exit %d, stdout %q; want 2 and nothing on stdout", args, code, out.String())
 			}
@@ -323,14 +312,14 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		fx.assertUntouched(t)
 	})
 
-	// The real shim: it exports FLOW_GUARD_SELF and asserts the sibling.
+	// The real shim: it asserts the sibling.
 	t.Run("through the shim", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
 		if fx.g.err != nil {
 			t.Fatal(fx.g.err)
 		}
-		cmd := exec.Command(tcfScriptsDir(t)+"/remove-change-worktrees.sh", fx.repo, "demo", "-")
+		cmd := exec.Command(guardShim(t, "remove-change-worktrees"), fx.repo, "demo", "-")
 		cmd.Dir = fx.dir
 		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 		out, err := cmd.Output()
@@ -550,13 +539,7 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 		fx := rcwNewFx(t)
 		fx.g.write(fx.wt+"/.env", "SECRET=1")
 		var out, errb bytes.Buffer
-		self := tcfScriptsDir(t) + "/remove-change-worktrees.sh"
-		env := Env{Dir: fx.dir, Getenv: func(k string) string {
-			if k == "FLOW_GUARD_SELF" {
-				return self
-			}
-			return os.Getenv(k)
-		}}
+		env := Env{Dir: fx.dir, Getenv: os.Getenv}
 		code := removeChangeWorktrees([]string{"--proceed", fx.repo, "demo", fx.mergeBase}, env, &out, &errb)
 		if code != 0 || rcwExists(fx.wt) {
 			t.Fatalf("leading --proceed: exit %d\nstdout:\n%s\nstderr:\n%s", code, out.String(), errb.String())

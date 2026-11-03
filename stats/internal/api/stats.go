@@ -170,7 +170,7 @@ var statsQueryParams = map[string]bool{
 	"projects": true,
 }
 
-// planClasses are the values the "class" parameter accepts: plan-class.sh's
+// planClasses are the values the "class" parameter accepts: flow-guard plan-class's
 // classes, smallest first.
 var planClasses = map[string]bool{"micro": true, "small": true, "regular": true, "big": true}
 

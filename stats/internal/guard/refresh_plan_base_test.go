@@ -69,7 +69,7 @@ func TestRefreshPlanBase(t *testing.T) {
 				"SPEC-ABSENT: spectre/specs/gone.md — not at origin/main\n"},
 		{label: "too few arguments is usage, exit 2", code: 2,
 			args: func(fx *bmFx) []string { return []string{fx.repo, fx.recorded} },
-			err:  "usage: refresh-plan-base.sh <worktree> <merge-base> <tasks.md> [<spec-path>…]"},
+			err:  "usage: flow-guard refresh-plan-base <worktree> <merge-base> <tasks.md> [<spec-path>…]"},
 		{label: "an unresolvable merge base is exit 2", code: 2,
 			args: func(fx *bmFx) []string { return []string{fx.repo, "no-such-ref", fx.dir + "/tasks.md"} },
 			err:  "no-such-ref is not a commit"},

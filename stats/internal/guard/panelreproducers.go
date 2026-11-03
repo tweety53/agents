@@ -13,8 +13,55 @@ import (
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
-// checkPanelReproducers is scripts/check-panel-reproducers.sh: that script's
-// header comment is the contract -- exit 0 every finding the store returned
+// The contract below moved here from the header of the deleted
+// scripts/check-panel-reproducers.sh shim (KAN-1058).
+//
+// flow-guard check-panel-reproducers <worktree> <change-name>
+//
+// THE CHANGE NAME IS A SECOND ARGUMENT because a change's findings are rows
+// in the store, keyed by change name, not a file at a fixed path. `flow
+// record findings -change <name> -C <worktree>` answers with the JSON array
+// of that change's findings — one object per finding, carrying at least
+// `ref`, `status` and `reproducer` — and this guard reads that array, never
+// a rendered Markdown file.
+//
+// Every finding in the store must declare how it was reproduced, so that
+// /flow's implement phase can run that command and require it to FAIL before dispatching a
+// fix instruction built on it. A finding with no runnable check declares the
+// exemption form `none — <reason>` instead — but the exemption form is
+// available to MINOR findings only: a finding recorded at Important severity
+// must carry a runnable command, and this guard rejects the exemption at
+// Important (KAN-503). The exemption stays legal at Minor and at Critical,
+// which already goes to the fix unconditionally.
+//
+// A runnable reproducer path under .superpowers/sdd/reproducers/ that
+// findings of two different rounds record is refused, naming both refs, for
+// every status: the later round's script replaced the earlier one's. Findings
+// of one round sharing a path (a joined slot's re-record) pass.
+//
+// Reads ONLY the decoded JSON array `flow record findings` prints. It
+// never parses a findings table, a Markdown file, or a marker block — for
+// the same reason flow-guard check-unfinished-work does not: a hand-rolled parser
+// has repeatedly hidden an open finding behind a shape it was not written to
+// recognise, while a store-decoded field has no cells to split, no escaping
+// rule and no table boundary to track.
+//
+// Exit codes:
+//   0  every finding the store returned has exactly one well-formed
+//      reproducer (a runnable command, or the `none — <reason>` exemption
+//      on a finding whose severity is not Important)
+//   1  violations found; each is reported on stderr
+//   2  cannot answer at all — no worktree, no change name, a change name
+//      outside the allowlist, the change's state record absent or
+//      unreadable (a cross-repo change's guards answer only through its
+//      canonical worktree, so a peer tree's store read is a cannot-answer
+//      and never a clean verdict — KAN-658), or the store unreachable
+//
+// Ported to Go (KAN-778): the banned-character set is compiled in, from
+// stats/internal/guard/metachars.go. The body's
+// reasoning for every branch is in stats/internal/guard/panelreproducers.go.
+
+// checkPanelReproducers is `flow-guard check-panel-reproducers`: the comment above is the contract -- exit 0 every finding the store returned
 // has exactly one well-formed reproducer, 1 violations (each on stderr), 2
 // cannot answer. The findings read is Env.Findings when set, else `flow
 // record findings`. The reasoning for each branch, moved here from the bash
@@ -53,7 +100,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintln(stderr, "usage: check-panel-reproducers.sh <worktree> <change-name>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-panel-reproducers <worktree> <change-name>")
 		return 2
 	}
 

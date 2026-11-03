@@ -169,7 +169,7 @@ func TestCheckPanelReproducers(t *testing.T) {
 	t.Run("case 21: a missing change name is rejected", func(t *testing.T) {
 		t.Parallel()
 		got, out := cprRun(t, okBin, wt, "", []byte("[]"))
-		cprExpect(t, got, out, 2, "usage: check-panel-reproducers.sh <worktree> <change-name>")
+		cprExpect(t, got, out, 2, "usage: flow-guard check-panel-reproducers <worktree> <change-name>")
 	})
 
 	// Env.Findings nil: the guard execs the stub's `record findings`, which

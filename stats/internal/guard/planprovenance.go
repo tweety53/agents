@@ -15,7 +15,42 @@ import (
 	"unicode/utf8"
 )
 
-// checkPlanProvenance is scripts/check-plan-provenance.sh. It was a bash
+// The contract below moved here from the header of the deleted
+// scripts/check-plan-provenance.sh shim (KAN-1058).
+//
+// flow-guard check-plan-provenance — thin wrapper.
+//
+// All classification logic now lives in stats/internal/guard/planprovenance.go,
+// the Go port (KAN-778) of the Python 3 guard this file used to exec. This file exists only so that
+// .flow/project.md's declared lint command, the flow harness
+// (TestCheckPlanProvenance), and any operator's muscle memory
+// invoking this exact filename keep working unchanged — the CLI contract
+// (exit codes, CHECK_PLAN_PROVENANCE_ROOT, argv, stdout/stderr shape) is
+// byte-identical to what this script implemented directly before the
+// reshape.
+//
+// WHY THE REWRITE: this guard's fence classifier was originally ~150 lines
+// of Bash ERE matching, in the style of this repository's other guards.
+// Five review panel passes and seven fix waves later it had shipped and
+// then fixed every defect class enumerated in the module docstring
+// planprovenance.go carries — three of them found by
+// pass 5 alone, on a settled tree, after four of seven reviewers had
+// already called it clean (full history and the canonical enumeration:
+// that module docstring, and the kan-14
+// plan-provenance design's "Post-review reshape" section — this comment does
+// not restate the count, since a copied number is exactly what let an
+// earlier, wrong count survive six review passes). The operator's call:
+// stop patching an ERE allowlist and replace it with a real
+// block-structure parser — a
+// container stack recorded at fence-open time, and a language with O(1)
+// indexing rather than bash 3.2's O(N) sequential array access. Python's
+// standard library was chosen over a Markdown/CommonMark library because
+// none is installed anywhere on this machine and this repository has no
+// dependency management; the block parser is hand-written for the same
+// reason the original Bash version was, just in a language that can build
+// real structure instead of an allowlist of recognised prefixes.
+
+// checkPlanProvenance is `flow-guard check-plan-provenance`. It was a bash
 // wrapper around check-plan-provenance.py; KAN-778 ported that Python guard
 // here and deleted it. Its CLI contract is unchanged: argv is ignored,
 // CHECK_PLAN_PROVENANCE_ROOT names the tree, every verdict line, the
@@ -36,14 +71,13 @@ import (
 //
 //   - The default root. The Python guard resolved it from its own file's
 //     location. A flow-guard binary lives in a build cache, not in the
-//     checkout, so scripts/check-plan-provenance.sh resolves the root from
-//     its own location and passes it in CHECK_PLAN_PROVENANCE_ROOT when that
-//     is unset. This guard therefore sees the variable unset only when
-//     flow-guard is run without its shim, and refuses it (exit 2) with a
-//     line naming the shim, apart from the set-but-empty refusal.
+//     checkout, so CHECK_PLAN_PROVENANCE_ROOT, when unset, defaults to
+//     FLOW_GUARD_REPO_ROOT, the checkout root scripts/flow-guard exports; a
+//     set value, even empty, is honoured. With neither set, this guard
+//     refuses (exit 2) with a line naming flow-guard, apart from the
+//     set-but-empty refusal.
 //   - The interpreter gates (python3 absent, or present and unable to run)
-//     went with the interpreter. The shim's build of flow-guard is the gate
-//     now, and every failure of it exits 2 (scripts/lib/flow-guard.sh).
+//     went with the interpreter. scripts/flow-guard's build of the binary is the gate now.
 //   - The quadratics the history below names were regex-engine and bash-array
 //     shapes. The hand-written matchers keep every scan bounded per position
 //     for the same reasons; cases 37, 40 and 46 time them.
@@ -3295,17 +3329,19 @@ func ppResolveExitCode(containmentErrors []string, failures int, abortMessages, 
 // sandboxed fixture tree under TMPDIR without touching this repo; never
 // set it for a normal invocation.
 //
-// Go: the default half of that is the shim's now — see this file's header.
-// The harness is TestCheckPlanProvenance, which sets the override on Env;
-// the shim sets the variable itself only to carry that default, and never
-// over a value the caller set.
+// Go: the default half of that is FLOW_GUARD_REPO_ROOT's now — see this
+// file's header. The harness is TestCheckPlanProvenance, which sets the
+// override on Env.
 // stdout needs no line buffering: every write here reaches its stream
 // immediately, so a caller merging both streams sees them in order.
 func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 	repoRoot, set := env.LookupEnv("CHECK_PLAN_PROVENANCE_ROOT")
 	if !set {
-		fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT is unset — run scripts/check-plan-provenance.sh, which sets it")
-		return 2
+		repoRoot = env.Getenv("FLOW_GUARD_REPO_ROOT")
+		if repoRoot == "" {
+			fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT and FLOW_GUARD_REPO_ROOT are unset — run flow-guard check-plan-provenance, which sets the latter")
+			return 2
+		}
 	}
 	if repoRoot == "" {
 		fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT is set but empty")

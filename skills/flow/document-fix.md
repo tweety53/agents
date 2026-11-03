@@ -72,7 +72,7 @@ replaced `signal.NotifyContext` in `run` alone, and the panel found `regrade` an
 **The appended task's verification tags are evidence-checked like a seeded note's.** An appended
 task carries a `verified:`/`measured:` tag only when its evidence is in hand; an unverifiable one
 is written `unverified:`/`predicted:` instead, never appended as a verification tag. The append
-is where a fix round is most tempted to assert a check nobody made: `check-task-commit-fields.sh`
+is where a fix round is most tempted to assert a check nobody made: `flow-guard check-task-commit-fields`
 refuses the close of a task whose record carries the evidence-free shape, per **Plan
 provenance**'s evidence rule (`skills/flow-contracts/plan-provenance.md`).
 
@@ -101,7 +101,7 @@ reads as a description of the reported bug is a signal to pause on, not reassura
 **Fix instructions that dispute a visual judgement this session already made — a spacing, size
 or alignment an earlier round eyeballed as fine — open with the measurement, never with another
 look.** Before the planning pass answers "it matches" or plans a fix, run
-`measure-visual-properties.sh` on the disputed region of the current capture and the mockup
+`flow-guard measure-visual-properties` on the disputed region of the current capture and the mockup
 (**10** in `skills/flow/visual-verify-verifier.md`) and put the numbers in the plan or the
 `## Question`; a spacing dispute is measured on every side the complaint names. The complaint's own wording names which
 property that is — "too big", "oversized" is a size (`box` and `ink`); "cramped", "uneven",
@@ -123,7 +123,7 @@ flow tasks count -C <worktree> <name>
 ```
 
 **The appended plan passes the plan guards before it is snapshotted.** Run
-`check-plan-shape.sh <changeRoot>/tasks.md`, a shipped guard among this skill's scripts, and the
+`flow-guard check-plan-shape <changeRoot>/tasks.md`, a shipped guard among this skill's scripts, and the
 project's configured plan-provenance guard, at the path the project's `<project>/.flow/project.md` `## lint`
 section names — the project's own script, never one under this skill's scripts — and handle each
 exit as **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) handles it,
@@ -131,7 +131,7 @@ before the plan snapshot below.
 
 Then take a plan snapshot of the appended plan (**Plan snapshots**, `skills/flow/brainstorm.md`),
 after the plan guards pass and before any implementer is dispatched; the change directory is still
-on disk, since cleanup runs only after the merge. **Every appended task is written unticked**: the task is ticked only once its commit passes `check-task-commit-fields.sh` (kan-1010: a fix
+on disk, since cleanup runs only after the merge. **Every appended task is written unticked**: the task is ticked only once its commit passes `flow-guard check-task-commit-fields` (kan-1010: a fix
 run appended Task 3 ticked and skipped implement, panel and handoff).
 
 ```bash
@@ -142,7 +142,7 @@ flow stage end -command '/flow' -stage flow.document-fix -outcome completed <nam
 class, and the run executes by the newest decision row, so on every fix run — **Re-plan** and
 **Append anyway** alike — the decision follows the plan here. Read **Decide**
 (`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from
-`plan-class.sh` on over the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry
+`flow-guard plan-class` on over the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry
 in the state file's `worktrees` map. The rolls are name-derived, so they come out identical to the
 first row's; everything else Decide outputs is recomputed — `class`, `execution`, the implementer
 and fixer pairs, `groups`, the panel roster (a class move can add or drop slots, and `micro` makes it

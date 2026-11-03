@@ -2092,12 +2092,12 @@ func TestCheckTaskCommitFields(t *testing.T) {
 		}},
 		// Case 56 pinned the bash wrapper's own missing-sibling exit. The Go
 		// port compiles its grammar in, so the one missing piece a shipped
-		// guard can still meet is the toolchain the shim builds flow-guard
+		// guard can still meet is the toolchain the bootstrap builds flow-guard
 		// with (Decision: guard-binary-built-from-checkout): exit 2 under the
-		// header's COULD NOT JUDGE opening, run through real bash, with an
+		// bootstrap's `<name>:` opening, run through real bash, with an
 		// empty build cache so nothing is already built.
 		{"case 56", func(t *testing.T) {
-			cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/check-task-commit-fields.sh", "wt", "1", "sha")
+			cmd := exec.Command("/bin/bash", guardShim(t, "check-task-commit-fields"), "wt", "1", "sha")
 			cmd.Env = []string{"PATH=/usr/bin:/bin", "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
 			out, err := cmd.CombinedOutput()
 			if cmd.ProcessState == nil {
@@ -2105,8 +2105,8 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			}
 			res := tcfRes{cmd.ProcessState.ExitCode(), string(out)}
 			ok(t, "case 56: a shim that cannot build flow-guard exits 2", res.rc == 2, res)
-			ok(t, "case 56: the refusal carries the COULD NOT JUDGE opening and names the missing go",
-				has(res.out, tcfNotAVerdict+" cannot build flow-guard from", "no go on PATH"), res)
+			ok(t, "case 56: the refusal opens with the guard's name and names the missing go",
+				has(res.out, "check-task-commit-fields: cannot build flow-guard from", "no go on PATH"), res)
 		}},
 		{"case 57", func(t *testing.T) {
 			r := fx.repo(t, "change-a")

@@ -12,12 +12,158 @@ import (
 	"unicode/utf8"
 )
 
-// checkStageMarkCalls is scripts/check-stage-mark-calls.sh: that script's
-// header comment is the contract -- every `flow stage begin` carries a
+// The contract below moved here from the header of the deleted
+// scripts/check-stage-mark-calls.sh shim (KAN-1058).
+//
+// flow-guard check-stage-mark-calls — every `flow stage begin` in a skill must carry
+// a session token and a harness, the session token must be a literal, and the harness must
+// NOT be — the two required flags are wrong in opposite directions, and this
+// script rejects both. Every `flow record dispatch` must carry a literal
+// session token too, for the same reason and by the same two checks.
+// An `flow-guard integrate-change` call, which makes /flow's integrate and cleanup
+// marks with the --session-token and --harness it is passed, is held to
+// `stage begin`'s token and harness rules.
+// A `flow-guard visual-verify-pass prepare` call, which begins flow.visual-verify and
+// each verifier row with the --session-token and --harness it is passed, is
+// held to `flow-guard integrate-change`'s rules; a `flow-guard visual-verify-pass close`
+// call, which ends them, to `flow record dispatch`'s token rules alone (it
+// takes no harness). A `flow-guard visual-verify-pass measure` call marks nothing and
+// is not scanned.
+//
+// Usage: flow-guard check-stage-mark-calls [path ...]          # dirs or files
+//
+// With no arguments it scans `skills/`, resolved relative to the repo root —
+// the one tree the marking skills live under. A caller may pass explicit
+// paths instead (its Go tests do, against t.TempDir() fixtures).
+//
+// WHAT THIS CATCHES. KAN-172 task 1 gave `flow stage begin` two required
+// flags: `-session-token`, a literal token the daemon later finds in the calling
+// session's own transcript to bind that stage run's session_id, and
+// `-harness`, the harness recording the mark. Neither is enforced by prose:
+// four skills carried a `flow stage begin` invocation with neither flag for
+// the whole of KAN-16's life before this guard existed (tasks.md, "This guard
+// is the deliverable of the task, not the edits"). This script makes that
+// defect loud rather than silent, forever.
+//
+// It also enforces design.md's second decision, "the session token is a literal,
+// never a shell substitution": `-session-token "mf-$(date +%s)-$$"` is recorded by
+// the transcript *before* the shell expands it, so every session would record
+// the identical string and it would identify nothing. A `-session-token` value
+// containing `$(`, a backtick, or `$` immediately followed by a shell
+// variable-name character is rejected here, in the skill source, before a
+// reader ever has the chance to run it — the same three shapes
+// `stats/cmd/flow/stage.go`'s `validateSessionToken` rejects at the CLI, and
+// `internal/api/stages.go`'s `validateSessionTokenShape` rejects again at the store,
+// as defence in depth.
+//
+// `flow record dispatch` IS SCANNED FOR THE SESSION-TOKEN RULES TOO
+// (KAN-258). The record verb takes `-session-token` for precisely the reason
+// `stage begin` does: the daemon finds that literal token in the calling
+// session's own transcript and binds the dispatch row to the session that
+// wrote it. A substituted value there lands in every transcript as the same
+// unexpanded string and so discriminates between no two sessions — the whole
+// mechanism, silently gone. A guard that enforced the literal on one verb and
+// not the other would be a guard with a hole, and the record verb's call
+// sites are numerous (four in `skills/flow/review-panel.md` alone). So both
+// session-token rules — the flag is present, and its value is a literal —
+// are applied to `flow stage begin` and `flow record dispatch` alike.
+//
+// The other rules stay with the verb that owns them. `-harness` is a `stage
+// begin` flag and `record dispatch` has none (a dispatch row inherits its
+// harness from the stage run it belongs to), so requiring one on a record
+// call would demand a flag the CLI would reject. The guessed-change-name
+// rule likewise stays on `stage begin`, whose begin handler is the one that
+// bootstraps a change row from a name it has never seen.
+//
+// Only `flow record dispatch` is scanned: `record finding`, `record
+// status`, `record render` and `record journal-count` take no session token
+// at all, so there is nothing on them for these rules to say.
+//
+// `-harness` FAILS THE OPPOSITE WAY: a value that IS a literal is the defect.
+// These skill files are one source installed into `~/.claude/skills/` and
+// `~/.zcode/skills/` alike (CLAUDE.md's "installed alongside the skills in
+// every harness"), so a hardcoded `-harness claude-code` in the shared source
+// mislabels every ZCode run as Claude Code — masking the very thing the
+// harness field exists to record: which harness ran the stage. The skill source must instead carry a
+// placeholder the agent fills in at call time, exactly as `-session-token`'s literal
+// token is filled in at call time — this guard requires the `-harness` value
+// to be written as a bracketed placeholder (`<harness>`) and rejects any bare
+// value, the same way it rejects a substituted session token.
+//
+// `flow stage end` is deliberately NOT checked: pipeline.md's "Stage marks"
+// section states plainly that `stage end` carries no harness of its own (the
+// harness is recorded once at `begin` and is immutable), and it takes no
+// `-session-token` either — attribution happens once, at `begin`. Only lines that
+// invoke `stage begin` are examined.
+//
+// `/flow-status` marks nothing, per README.md's Level 1 section
+// so a `flow stage begin` appearing in its SKILL.md would itself be
+// a defect this guard would (correctly) catch — there is no exemption for it.
+//
+// It also enforces that a `stage begin`'s change argument is never a guess.
+// The guard cannot know whether `<name>` is resolved at a given call site,
+// but it can know that a bracketed placeholder whose own text says "guess"
+// is not — `<name-or-best-guess>` and any restatement of it. KAN-182: on
+// 2026-08-15 `/flow-fast`'s state gate marked its stage with
+// `<name-or-best-guess>` before its change name was resolved; the daemon's
+// begin handler bootstraps a change row for any name it has never seen
+// (`ApplyBeginStageMark`, `stats/internal/api/stages.go`), so the guess got
+// a row of its own — `kan-175` and `kan-175-more-ui-ux-fixes` appeared as
+// two open changes, 29 seconds apart. A mark writes, so a guessed name
+// bootstraps a change row that outlives the run.
+//
+// The check does not try to identify "the change argument" at all. Finding
+// the last token on a shell command line requires parsing shell syntax, and
+// this guard kept getting that parsing wrong: KAN-182 round 1 added
+// quote-awareness to a naive last-token extraction so a quoted or
+// commented-out placeholder would still be caught, and that parsing
+// introduced three more bypasses (round 2) — a quoted value with an internal
+// space that a space-only split truncated before the placeholder, an escaped
+// quote inside a session token that desynced the quote-tracker so a later
+// `#` was read as an unquoted comment and discarded the rest of the line,
+// and a tab before the change argument that a space-only split never saw as
+// a token boundary. Extraction is deleted rather than patched a fourth time.
+// Instead the check searches the WHOLE assembled command text for a
+// bracketed placeholder whose own text says "guess" (`<...guess...>`,
+// case-insensitive) — strictly stronger than extracting a token, and immune
+// to quoting, spacing and comments because it never tries to reason about
+// any of them. One behaviour is worth stating plainly: a guessed placeholder
+// written inside a trailing comment is reported too — a `stage begin` line
+// that mentions `<name-or-best-guess>` anywhere is a call site to fix.
+//
+// MULTI-LINE INVOCATIONS. A real call is frequently wrapped across several
+// lines with a trailing `\` continuation, exactly as an ordinary shell
+// command would be. This guard joins a `stage begin` line with every
+// following line while the previous physical line ends in `\`, then checks
+// the assembled logical command as one string — a check against the raw
+// physical lines alone would miss `-session-token`/`-harness` written on a
+// continuation line, which is precisely how these calls are written today.
+//
+// STAGE KEYS ARE SERVED, NOT TRANSCRIBED. A `stage begin`'s `-stage <key>`
+// names a key of the documented stage vocabulary, which this guard does not
+// keep a copy of: the key set is served by `go run ./cmd/flow stage keys`
+// from $REPO_ROOT's own stats module (internal/stages' table), so a key the
+// checked-out tree serves is exactly a key the tree's Go side accepts --
+// one source, no third transcription that could drift from it (KAN-533).
+// A key the served vocabulary does not list -- a typo, a rename that missed
+// a call site -- is a violation here rather than a caller-mistake exit at
+// run time, when the mark silently prints one line and the stage goes
+// unrecorded. A serve that fails or yields no key at all is a guard that
+// cannot answer (exit 2).
+//
+// Exit codes: 0 every scanned call is compliant; 1 at least one
+// violation was found; 2 the guard cannot answer at all (a bad path, a
+// rejected coverage record, or no stage key served by flow stage keys — never
+// read as "no findings").
+//
+// Ported to Go (KAN-841): the body's reasoning for every step is in
+// stats/internal/guard/stagemarkcalls.go. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root whose skills/ is scanned by default and whose stats module serves the keys.
+
+// checkStageMarkCalls is `flow-guard check-stage-mark-calls`: the comment above is the contract -- every `flow stage begin` carries a
 // literal -session-token, a placeholder -harness, a served -stage key and no
 // guessed change name; every `flow record dispatch` a literal
-// -session-token; an `integrate-change.sh` or `visual-verify-pass.sh prepare`
-// call the begin token and harness rules, a `visual-verify-pass.sh close`
+// -session-token; a `flow-guard integrate-change` or `flow-guard visual-verify-pass prepare`
+// call the begin token and harness rules, a `flow-guard visual-verify-pass close`
 // call the token rules alone; exit 0 compliant, 1 violations (coverage included), 2
 // cannot answer. The reasoning for each step, moved here from the bash body
 // it replaced (d71a2327), sits beside the code it explains.
@@ -38,7 +184,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 	{"skills/flow-contracts/SKILL.md", "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"},
 	{"skills/flow-self-review/SKILL.md", "a standalone command with no per-change state, no implementation or verification stage to mark, and no `flow record dispatch` call — its one-shot dispatches are recorded by none"},
 	{"skills/flow-prompt-tuning/SKILL.md", "a standalone command with no per-change state, no pipeline stage to mark, and no `flow record dispatch` call — its replay dispatches are recorded by none"},
-	{"skills/flow-settings/SKILL.md", "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"},
+	{"skills/flow-settings/SKILL.md", "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks declared it expected-zero"},
 	{"skills/spectre-planning/SKILL.md", "the generic planning prompts spectre vendors and flow loads — shared prose with no change of its own, so the stage marks and dispatch records stay in flow's brainstorm-planner.md"},
 	{"skills/flow-experiment-close/SKILL.md", "a standalone closing skill, not a pipeline stage: it only calls the flow CLI and hands a positive verdict to a new /flow run, so it has no stage to mark and no subagent to dispatch"},
 	{"skills/flow-learn-quiz/SKILL.md", "a standalone teaching skill run only on request, not a pipeline stage: it has no stage to mark and no subagent to dispatch"},
@@ -80,7 +226,7 @@ var smcExpectedZero = []struct{ file, reason string }{
 // restating its marks, the planner holds the only flow.design-approval,
 // flow.create-artifacts and flow.writing-plans `stage begin` lines.
 // KAN-1060 added skills/flow/visual-verify.md, whose one call is
-// `visual-verify-pass.sh close`.
+// `flow-guard visual-verify-pass close`.
 var smcCandidates = map[string]bool{
 	"SKILL.md": true, "pipeline.md": true, "brainstorm.md": true, "brainstorm-planner.md": true, "implement.md": true, "document-fix.md": true,
 	"review-panel.md": true, "verify-and-handoff.md": true, "integrate.md": true,
@@ -91,17 +237,17 @@ const (
 	smcBegin    = "flow stage begin"
 	smcMark     = "flow stage mark"
 	smcDispatch = "flow record dispatch"
-	// integrate-change.sh makes /flow's integrate and cleanup marks itself,
+	// flow-guard integrate-change makes /flow's integrate and cleanup marks itself,
 	// with the --session-token and --harness its caller passes: the literal
 	// a skill writes there is the one the daemon binds, so its call is held
 	// to the same token and harness rules (its stage keys are the script's).
-	smcIntegrate = "integrate-change.sh"
-	// visual-verify-pass.sh prepare begins flow.visual-verify and each
+	smcIntegrate = "flow-guard integrate-change"
+	// flow-guard visual-verify-pass prepare begins flow.visual-verify and each
 	// verifier row with the --session-token and --harness it is passed, so it
-	// takes integrate-change.sh's rules; close ends them and records with the
+	// takes flow-guard integrate-change's rules; close ends them and records with the
 	// token alone, so it takes `record dispatch`'s. measure marks nothing.
-	smcVVPrepare = "visual-verify-pass.sh prepare"
-	smcVVClose   = "visual-verify-pass.sh close"
+	smcVVPrepare = "flow-guard visual-verify-pass prepare"
+	smcVVClose   = "flow-guard visual-verify-pass close"
 )
 
 // The ERE patterns the bash ran through grep/awk. The value extractions are
@@ -112,9 +258,9 @@ var (
 	smcBeginLine     = regexp.MustCompile(`^[[:space:]]*flow stage begin([[:space:]]|\\|$)`)
 	smcMarkLine      = regexp.MustCompile(`^[[:space:]]*flow stage mark([[:space:]]|\\|$)`)
 	smcDispatchLine  = regexp.MustCompile(`^[[:space:]]*flow record dispatch([[:space:]]|\\|$)`)
-	smcIntegrateLine = regexp.MustCompile(`^[[:space:]]*integrate-change\.sh([[:space:]]|\\|$)`)
-	smcVVPrepareLine = regexp.MustCompile(`^[[:space:]]*visual-verify-pass\.sh prepare([[:space:]]|\\|$)`)
-	smcVVCloseLine   = regexp.MustCompile(`^[[:space:]]*visual-verify-pass\.sh close([[:space:]]|\\|$)`)
+	smcIntegrateLine = regexp.MustCompile(`^[[:space:]]*flow-guard integrate-change([[:space:]]|\\|$)`)
+	smcVVPrepareLine = regexp.MustCompile(`^[[:space:]]*flow-guard visual-verify-pass prepare([[:space:]]|\\|$)`)
+	smcVVCloseLine   = regexp.MustCompile(`^[[:space:]]*flow-guard visual-verify-pass close([[:space:]]|\\|$)`)
 	smcContinued     = regexp.MustCompile(`\\[[:space:]]*$`)
 	smcHasToken      = regexp.MustCompile(`(^|[[:space:]])-session-token([[:space:]]|=)`)
 	smcHasHarness    = regexp.MustCompile(`(^|[[:space:]])-harness([[:space:]]|=)`)
@@ -258,11 +404,10 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	// REPO_ROOT is the guard script's own checkout. The bash derived it from
-	// BASH_SOURCE; this binary lives in a cache, so its shim exports
-	// FLOW_GUARD_REPO_ROOT, derived the same way.
+	// BASH_SOURCE; scripts/flow-guard exports FLOW_GUARD_REPO_ROOT, derived the same way.
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
-		return die("FLOW_GUARD_REPO_ROOT is unset — run scripts/check-stage-mark-calls.sh, which sets it")
+		return die("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-stage-mark-calls, which sets it")
 	}
 	targets := args
 	if len(targets) == 0 {
@@ -355,7 +500,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// COVERAGE — a file whose coverage is zero and is not declared above is
 	// folded into the ordinary violation count, exactly as
-	// check-references.sh and check-guard-symlinks.sh do it — never a
+	// check-references and check-guard-calls do it — never a
 	// separate exit status: "<member>: <text>" becomes "<member>:0: <text>".
 	for _, line := range cov.verdict() {
 		member, _, _ := strings.Cut(line, ":")

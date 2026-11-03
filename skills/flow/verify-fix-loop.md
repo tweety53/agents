@@ -57,7 +57,7 @@ One round runs these steps in order:
    this stage's round in this run. On a `flow.visual-verify` round the task rewrites, beside the
    fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
    CHECK (`skills/flow/implement.md`) requires (kan-1038); the record is never in its `**Files:**`
-   — it is written on disk only, the change directory gitignored, and stage-task-files.sh refuses
+   — it is written on disk only, the change directory gitignored, and flow-guard stage-task-files refuses
    an ignored path — and `close-task` runs the plan guard on
    the task before ticking it (kan-1046 self-review, 1f). The round's evidence directory,
    `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` or
@@ -71,10 +71,10 @@ One round runs these steps in order:
    (kan-1003: rounds 6–13 transcribed two verifier reports, one task per defect). Before the append, the stage's failing row is closed with `flow record dispatch
    end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this
    round's rows open. A failing `flow.visual-verify` also has its stage mark closed beside that row, `flow stage end -command '/flow' -stage flow.visual-verify -outcome stopped <name>`, and a run that re-enters this loop while `flow.write-in-progress` is open closes that mark the same way first, so the round's next `flow stage begin` supersedes no open run (kan-1016: `flow.visual-verify` attempts 1–9 and 11 closed `superseded`).
-   On `NEXT: loop`, `visual-verify-pass.sh close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).
+   On `NEXT: loop`, `flow-guard visual-verify-pass close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
-   task exactly as a plan-time task: the decision's implementer pair, `close-task.sh` with its
-   guard and its review gate. The task closes through `close-task.sh` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close). The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
+   task exactly as a plan-time task: the decision's implementer pair, `flow-guard close-task` with its
+   guard and its review gate. The task closes through `flow-guard close-task` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close). The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
    and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`) by pointer (`skills/flow/implement.md`), and the round closes only when every reported
    `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
    what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
@@ -93,15 +93,15 @@ One round runs these steps in order:
    capture spec with its `<spec>.mockups` sidecar, the resolved `mockups` root and `mockup frame`
    value, and the project's `capture` command, and tells it: on every view its fix touched,
    recapture against the stack rebuilt from its fix, as step 4's confirming re-run rebuilds it, and
-   run step 9's `visual-verify-pass.sh measure` on each under the key `implementer-<k>`, reading its
+   run step 9's `flow-guard visual-verify-pass measure` on each under the key `implementer-<k>`, reading its
    manifest's flagged bands, seams and `over` rows — fixing until they come back clean or each leftover is
    named with its cause, and report every view's measured numbers (KAN-1000: rounds 2–5 each found
    a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round). It measures each
-   pair on the 2× capture and the 2× mockup frame themselves, never on a `compose-mockup-frames.sh`
+   pair on the 2× capture and the 2× mockup frame themselves, never on a `flow-guard compose-mockup-frames`
    composite (kan-1015 self-review). A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small (kan-1007: a fix round called a first-try 1dp offset clean).
    **A task fixing a visual departure runs its capture spec before it closes.** Its verify step
    runs the project's `capture` command with the round's capture spec for `<spec>`, against the
-   stack rebuilt from its fix, and the task closes through `close-task.sh` only on that run's exit
+   stack rebuilt from its fix, and the task closes through `flow-guard close-task` only on that run's exit
    0 — a red capture is fixed in the same task and folded into its one commit (kan-1015: Tasks 21–24
    closed on desktop geometry tests, and each departure surfaced only at the next verifier).
    **A departure observed on a running clock closes on repeated running-clock passes.** When the
@@ -109,19 +109,19 @@ One round runs these steps in order:
    capture spec's pinned clock (`skills/flow/visual-verify-verifier.md`, step 8) does not
    reproduce — the task first adds a capture test that runs under the observer's conditions (clock
    running, same viewport and data) and fails without the fix, and closes only once that test
-   passes five times over in one run under `run-capped.sh` with one worker (Playwright
+   passes five times over in one run under `flow-guard run-capped` with one worker (Playwright
    `--repeat-each 5 --workers 1`), beside the capture spec's own exit 0 (kan-1044 self-review A8-a:
    Tasks 7 and 8 closed green on the pinned-clock capture, and Task 9 on one running-clock pass
    against a four-in-five failure rate, three extra visual-verify rounds following).
    **Every recapture the round runs rebuilds the full app suite's zip after it** —
-   `rebuild-full-app-suite-zip.sh <worktree> <screenshots root>` in the checkout the recapture
+   `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>` in the checkout the recapture
    wrote to, the rebuilt `full-app-suite.zip` committed with the task's PNGs — so the zip never
    trails the baselines it archives (kan-1003: two rounds left it stale).
    **An observed failure is never closed as "not reproduced".** This rule is canonical for every
    fixer of a test failure a run saw — this loop's, a full-suite fix's, a self-review loop's. The
-   fixer traces it from the code and the failing run's saved artifacts (a load reproduction is allowed only under run-capped.sh with a bounded worker count —
+   fixer traces it from the code and the failing run's saved artifacts (a load reproduction is allowed only under flow-guard run-capped with a bounded worker count —
    PROOF RUNS, `skills/flow/implementer-brief.md`), and keeps every
-   failing run's result files (the `result files:` and `full output:` paths `run-verify-list.sh`
+   failing run's result files (the `result files:` and `full output:` paths `flow-guard run-verify-list`
    prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them. A
    failure that reproduces gets its determinism fix, held to the PROOF RUNS paragraph
    (`skills/flow/implementer-brief.md`). A forced cause also shows the test failing with the mechanism
@@ -132,7 +132,7 @@ One round runs these steps in order:
    injected, failing the test without the fix and passing with it) where the candidate can be forced. The task's one commit carries
    those fixes and its body states each forced reproduction, or that the fix
    went straight to code; a fixer that names no candidate has not finished the trace, and is sent back to it.
-   The task ticks through `close-task.sh <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>`
+   The task ticks through `flow-guard close-task <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>`
    as any task.
 3. **Re-review the delta.** Open `flow.review-panel` again and run `primary` beside **The always-on
    extra dispatches** (`skills/flow/review-panel.md`), reading `late-fix.diff` over the range since
@@ -146,7 +146,7 @@ One round runs these steps in order:
    apply as written — a clean or Minor-only read leaves every slot it did not dispatch current.
    Once any round's read raises a Critical or Important, the reduction is void for the rest of the
    run: every later round's step 3 opens the decided full roster, never `primary` alone.
-   `check-late-fix-trigger.sh` is not run: its scope-growth condition denies every appended task the late-fix reduction,
+   `flow-guard check-late-fix-trigger` is not run: its scope-growth condition denies every appended task the late-fix reduction,
    and this task's premise is a defect a verifier measured, not an operator's unverified flag.
    The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
@@ -162,7 +162,7 @@ One round runs these steps in order:
    base>..HEAD` adds, changes or removes, plus every motion this round's defects name. Its
    `prepare` is passed each such worktree's `--round-base`, which the verifier row records. A worktree
    whose round diff is empty is not dispatched. A worktree with no round base — no verifier of
-   this run has verified it, or the parent no longer holds the sha — runs the stage unscoped. **A round whose diff touches only the mockups root composes instead of verifying.** When `git diff <round base>..HEAD` matches no `ui paths` entry in any worktree and touches nothing outside the mockups root, `prepare` prints `NEXT: compose-only` and no `visual-verify` verifier is dispatched: for each capture spec whose `<spec>.mockups` sidecar has a line naming a changed `<frame id>.png`, the parent runs step 9's `visual-verify-pass.sh measure` (`skills/flow/visual-verify-verifier.md`) under the round's key and reads each manifest's flagged bands, seams and `over` rows; a leftover is a defect that opens the next round, and clean composites close the round with no `-full` run, the last verifier's report standing for every path outside the mockups root; either way the parent ends the stage with the `end` mark of **Steps 3–13** (`skills/flow/visual-verify.md`) — `completed` when clean, `stopped` when a leftover opens the next round (kan-1007: a mockups-only round re-ran the whole suite, 18m28s).
+   this run has verified it, or the parent no longer holds the sha — runs the stage unscoped. **A round whose diff touches only the mockups root composes instead of verifying.** When `git diff <round base>..HEAD` matches no `ui paths` entry in any worktree and touches nothing outside the mockups root, `prepare` prints `NEXT: compose-only` and no `visual-verify` verifier is dispatched: for each capture spec whose `<spec>.mockups` sidecar has a line naming a changed `<frame id>.png`, the parent runs step 9's `flow-guard visual-verify-pass measure` (`skills/flow/visual-verify-verifier.md`) under the round's key and reads each manifest's flagged bands, seams and `over` rows; a leftover is a defect that opens the next round, and clean composites close the round with no `-full` run, the last verifier's report standing for every path outside the mockups root; either way the parent ends the stage with the `end` mark of **Steps 3–13** (`skills/flow/visual-verify.md`) — `completed` when clean, `stopped` when a leftover opens the next round (kan-1007: a mockups-only round re-ran the whole suite, 18m28s).
    The confirming re-run
    verifies a fresh build, never a stale stack: before this round's re-run reports the fix
    confirmed live, rebuild the stack from the branch HEAD — current source through the project's
@@ -181,7 +181,7 @@ name>` suffix. A fixable defect it reports opens the next round, whose step-4 re
 like any round's, its round base the HEAD this full run verified: a `-full` run follows only a
 clean scoped re-run, never another round's fix (KAN-1000: three rounds in a row re-ran unscoped).
 A scoped re-run's verifier row is begun with `-round-base <sha>`, the round base its `prepare` was
-passed, and `check-visual-verify-dispatched.sh` refuses a worktree whose newest completed verifier
+passed, and `flow-guard check-visual-verify-dispatched` refuses a worktree whose newest completed verifier
 row carries one — the closing unscoped run is not recorded.
 After an `In-run fix <k>` task is ticked, and until a `-fix-<k>-full` verifier row has completed,
 `flow record dispatch begin` refuses a `visual-verify` key that does not carry `-fix-<k>`, and one

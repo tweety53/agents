@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard"
 )
 
 // telemetry.go records every guard this binary dispatches into flowd's
@@ -28,10 +30,10 @@ import (
 // second failure mode for every guard.
 //
 // It uses only the standard library, not internal/client or
-// internal/fallback: scripts/lib/flow-guard.sh keys the cached binary on
-// the sources of this package and internal/guard alone, so importing
-// another package of this module would let the cache serve a binary built
-// from stale copies of it.
+// internal/fallback: scripts/flow-guard keys the cached binary on the
+// sources of this package and the internal packages internal/guard imports
+// alone, so importing another package of this module would let the cache
+// serve a binary built from stale copies of it.
 
 // telemetryTimeout bounds the whole recording -- the git call resolving the
 // project and the POST -- so a guard never waits on its own telemetry for
@@ -59,7 +61,7 @@ func outcomeFor(name string, code int) string {
 	switch code {
 	case 0:
 		return "clear"
-	case cannotAnswer(name):
+	case guard.CannotAnswer(name):
 		return "cannot-answer"
 	default:
 		return "fired"

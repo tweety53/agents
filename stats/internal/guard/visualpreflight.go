@@ -19,10 +19,65 @@ import (
 	"time"
 )
 
-// checkVisualPreflight is scripts/check-visual-preflight.sh: the five
+// The contract below moved here from the header of the deleted
+// scripts/check-visual-preflight.sh shim (KAN-1058).
+//
+// flow-guard check-visual-preflight — the five workspace checks `flow.visual-verify`
+// step 3 runs before any verifier is dispatched (skills/flow/visual-verify.md).
+//
+// Usage: flow-guard prepare-workspace <worktree> \
+//          | flow-guard check-visual-preflight <worktree> <app-root>=<resolved-url> [...]
+//
+// stdin is flow-guard prepare-workspace's `KEY=value` lines; one argument per app
+// `ui paths` matched — its package root, relative to <worktree>, and its
+// worktree-resolved URL. An app root inside a different git repository than
+// <worktree> is checked as its own worktree: checks 2–4 run against that
+// repository's worktree root, its own `.flow/project.md` rows and `start`
+// command, and with that repository's apps only; check 1 is unchanged. The
+// checks:
+//   1. ports    — every `port` row's exported value and every app URL's port:
+//                 a listener `lsof -nP -iTCP:<port> -sTCP:LISTEN` reports fails
+//                 only when its probe goes unanswered (an HTTP GET of the app
+//                 URL the port came through, any response within 5 s; else a
+//                 TCP connect to 127.0.0.1 or ::1).
+//   2. base-url — for each `## workspace isolation` row whose exported value
+//                 differs from its Default, a non-Markdown text file under an
+//                 app root naming the Default (a `port` row: `:<default>` not
+//                 followed by a digit) on a line not naming the row's Variable
+//                 fails, unless the `## visual verification` `start` command
+//                 names the Variable or the resolved value, or the Default
+//                 appears only inside `${VAR:fallback}` references whose VAR
+//                 the `start` command names or stdin exports.
+//   3. origins  — a configuration-shaped file (`.env*`, `*.json`, `*.y*ml`,
+//                 `*.toml`, `*.ini`, `*.properties`, `*.conf`, `*.config.*`;
+//                 never a production `*.prod.*` file)
+//                 whose `allowed[_-]?origins` line or bracketed list names a
+//                 URL must name every app's origin, unless the line holds a
+//                 `${VAR:fallback}` reference whose VAR the `start` command
+//                 names or stdin exports.
+//   4. playwright — `@playwright/test` resolved by `node` from each app root
+//                 must sit inside <worktree>; unresolvable or no `node` is an
+//                 INFO line and passes (setup installs it).
+//   5. siblings — when <worktree>'s branch `spectre/<name>` records
+//                 `branch.<branch>.flowBase`, every `## apps` Repo root other
+//                 than <worktree>'s own repository must hold
+//                 `<root>-worktrees/<name>`; a root absent from this machine
+//                 is skipped.
+// Skipped by checks 2–3: .git node_modules dist build coverage test-results
+// playwright-report testdata vendor .superpowers, a nested checkout, binaries,
+// files over 1 MiB. design-verify.md § VV-18 records why.
+//
+// Prints any INFO: and FAIL: lines, then one verdict line:
+//   PREFLIGHT-OK:     <worktree> — ports, base URL, origins and Playwright all pass
+//   PREFLIGHT-FAILED: <worktree> — <n> failing check line(s)
+// Exit 0 every check passed; 1 at least one FAIL: line; 2 cannot answer
+// (usage, a missing directory, lsof absent or failing, a malformed stdin
+// line, a declared row with no exported value, an invalid or duplicated
+// section) — the cause on stderr.
+
+// checkVisualPreflight is `flow-guard check-visual-preflight`: the five
 // workspace checks `flow.visual-verify` step 3 runs before any verifier is
-// dispatched (skills/flow/visual-verify.md). The shim's header carries the
-// contract; design-verify.md § VV-18 records why checks 2 and 3 are the
+// dispatched (skills/flow/visual-verify.md). The comment above carries the contract; design-verify.md § VV-18 records why checks 2 and 3 are the
 // mechanical rules below.
 //
 // Nothing read from the tree is executed: `lsof` and `node` are this guard's
@@ -30,7 +85,7 @@ import (
 // searched as text.
 func init() { Registry["check-visual-preflight"] = checkVisualPreflight }
 
-const vpUsage = "Usage: check-visual-preflight.sh <worktree> <app-root>=<resolved-url> [...] < KEY=value lines\n"
+const vpUsage = "Usage: flow-guard check-visual-preflight <worktree> <app-root>=<resolved-url> [...] < KEY=value lines\n"
 
 // vpProbeTimeout bounds each liveness probe of a held port.
 const vpProbeTimeout = 5 * time.Second
@@ -109,7 +164,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 			}
 			k, v, ok := strings.Cut(line, "=")
 			if !ok || !wiVariable.MatchString(k) {
-				return refuse("stdin line %q is not KEY=value — pipe prepare-workspace.sh's output in", line)
+				return refuse("stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
 			}
 			exported[k] = v
 		}
@@ -336,11 +391,11 @@ func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, strin
 		return nil, ""
 	}
 	if count > 1 {
-		return nil, cfg + " declares more than one `## workspace isolation` section — run check-workspace-isolation.sh"
+		return nil, cfg + " declares more than one `## workspace isolation` section — run flow-guard check-workspace-isolation"
 	}
 	p := wiValidate(cfg, recs, wiSpace(false), false, true)
 	if len(p.viol) > 0 {
-		return nil, cfg + "'s `## workspace isolation` section is invalid — run check-workspace-isolation.sh"
+		return nil, cfg + "'s `## workspace isolation` section is invalid — run flow-guard check-workspace-isolation"
 	}
 	var rows []vpRow
 	for _, l := range p.rows {
@@ -351,7 +406,7 @@ func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, strin
 		}
 		v, ok := exported[r.variable]
 		if !ok {
-			return nil, "no exported value for " + r.variable + " on stdin — pipe prepare-workspace.sh <worktree> into this guard"
+			return nil, "no exported value for " + r.variable + " on stdin — pipe flow-guard prepare-workspace <worktree> into this guard"
 		}
 		r.value = v
 		rows = append(rows, r)

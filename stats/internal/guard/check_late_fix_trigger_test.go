@@ -107,7 +107,7 @@ func TestCheckLateFixTrigger(t *testing.T) {
 				fx.g.write(fx.wt+"/skills/flow/review-panel-extra.md", "x")
 				fx.g.git(fx.wt, "add", "skills")
 			}},
-		{label: "cannot answer — usage", code: 2, out: "usage: check-late-fix-trigger.sh",
+		{label: "cannot answer — usage", code: 2, out: "usage: flow-guard check-late-fix-trigger",
 			args: func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, fx.since} }},
 		{label: "cannot answer — a sha that does not resolve", code: 2, out: "does not resolve",
 			args: func(fx, _ *lftFx) []string { return []string{"demo", fx.tasks, fx.wt, "deadbeef", "CLEAR:"} }},

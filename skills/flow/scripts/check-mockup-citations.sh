@@ -1,1 +1,0 @@
-../../../scripts/check-mockup-citations.sh

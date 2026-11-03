@@ -9,8 +9,51 @@ import (
 	"strings"
 )
 
-// checkVerifyGreen is scripts/check-verify-green.sh: that script's header
-// comment is the contract. The dispatch read is Env.Dispatches when set,
+// The contract below moved here from the header of the deleted
+// scripts/check-verify-green.sh shim (KAN-1058).
+//
+// flow-guard check-verify-green — whether this run's inline verify is green, run by
+// `flow.visual-verify` step 3 before any verifier is dispatched
+// (skills/flow/visual-verify.md): visual verification starts only after
+// **Verify** (skills/flow/verify-and-handoff.md) has closed green, never
+// beside a verify still running or blocked.
+//
+// Usage: flow-guard check-verify-green <worktree> <change-name> <session-token> [<worktree>...]
+//
+// <worktree> is the change's canonical worktree, the one its rows are
+// recorded from; each further <worktree> is another worktree of the set.
+//
+// Reads `flow record dispatches -change <change-name> -C <worktree>` and
+// judges this session token's inline verify rows — role `verifier`, key
+// `verify` or `verify-<repository name>`; the visual verifier's
+// `visual-verify…` rows never count. Only the latest such row per worktree is
+// judged: rows group by key with a `-fix-<k>` suffix removed
+// (skills/flow/verify-fix-loop.md step 4), and the last row of each group in
+// record order stands.
+//
+// The HEAD rule (decisions verify-row-records-head and
+// green-verify-spans-planning-commits): flow-guard run-verify-list's begin records
+// the verified worktree's HEAD as the row's `diffBase`. A judged row is green
+// only when its outcome is `completed` or `skipped`, its `diffBase` is
+// non-empty, that sha resolves as a commit in one of the <worktree>
+// arguments, and every commit since it there touches only
+// `<spec root>/changes/` (`git log <sha>..HEAD -- . ':(exclude)<leaf>/changes/'`
+// prints nothing) — a planning commit never voids a green verify, a code
+// commit always does. Prints one verdict line:
+//   VERIFY-GREEN:     <change> — <n> inline verify row(s) green: <key>@<short sha>[, …]
+//   VERIFY-NOT-GREEN: <change> — this run recorded no inline verify
+//   VERIFY-NOT-GREEN: <change> — <key> (<why>)[, …]
+// where <why> is `running`, the row's outcome, `no HEAD recorded`,
+// `HEAD resolves in no worktree`, or `<commit>[, …] since <short sha>`.
+// Exit 0 every judged row is green and at least one exists — flow-guard run-verify-list records `skipped` when every test
+// command's `# inputs:` (and `.flow/project.md`) are unchanged since the
+// list's last green run on a clean tree;
+// 1 VERIFY-NOT-GREEN; 2 cannot answer (usage, a missing worktree, a change
+// name that is not plain, a failed or malformed store read, a read that
+// returns no row of the change at all — <worktree> is not the canonical
+// worktree its rows are recorded from) — the cause on stderr.
+
+// checkVerifyGreen is `flow-guard check-verify-green`: the comment above is the contract. The dispatch read is Env.Dispatches when set,
 // else `flow record dispatches`.
 func init() { Registry["check-verify-green"] = checkVerifyGreen }
 
@@ -25,7 +68,7 @@ var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+(-|$)`)
 
 func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || args[1] == "" || args[2] == "" {
-		fmt.Fprintf(stderr, "%susage: check-verify-green.sh <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-verify-green <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
 		return 2
 	}
 	wt, name, token := args[0], args[1], args[2]

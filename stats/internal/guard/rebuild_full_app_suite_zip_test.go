@@ -30,12 +30,9 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 	bashDir := t.TempDir()
 	writeExec(t, filepath.Join(bashDir, "rebuild-full-app-suite-zip.sh"),
 		string(historicalFile(t, repo, "8c54d6d3", "scripts/rebuild-full-app-suite-zip.sh")))
-	for _, l := range []string{"lib", "resolve-visual-screenshots.sh"} {
-		if err := os.Symlink(filepath.Join(repo, "scripts", l), filepath.Join(bashDir, l)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_SCRIPT_DIR="+filepath.Join(repo, "scripts"))
+	// The bash's sibling, now run through the bootstrap.
+	writeExec(t, filepath.Join(bashDir, "resolve-visual-screenshots.sh"), "#!/bin/sh\nexec '"+filepath.Join(repo, "scripts/flow-guard")+"' resolve-visual-screenshots \"$@\"\n")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -76,7 +73,9 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 			}
 			rc = ee.ExitCode()
 		}
-		return res{rc, strings.ReplaceAll(o.String(), p, "<P>"), strings.ReplaceAll(e.String(), p, "<P>")}
+		// The port spells its usage as a flow-guard call.
+		errOut := strings.ReplaceAll(e.String(), "usage: rebuild-full-app-suite-zip.sh", "usage: flow-guard rebuild-full-app-suite-zip")
+		return res{rc, strings.ReplaceAll(o.String(), p, "<P>"), strings.ReplaceAll(errOut, p, "<P>")}
 	}
 	// rebuild runs one step on both twins: the Go result, after asserting parity.
 	rebuild := func(t *testing.T, g, b twin, args func(p string) []string) res {

@@ -56,7 +56,7 @@ func TestCheckBaseBehind(t *testing.T) {
 	if r.rc != 1 || len(lines) != 3 ||
 		lines[0] != "BASE-BEHIND: "+wt+" — origin/feature/x lacks 1 commits of origin/main; sync the base, never merge main into the change branch (kan-1007):" ||
 		!strings.HasPrefix(lines[1], "  T=$(git -C "+wt+" merge-tree --write-tree origin/feature/x origin/main)") ||
-		lines[2] != "  git -C "+wt+" fetch -q origin && sync-onto-base.sh "+wt+" origin/feature/x "+mb {
+		lines[2] != "  git -C "+wt+" fetch -q origin && flow-guard sync-onto-base "+wt+" origin/feature/x "+mb {
 		t.Fatalf("(e) base behind: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
 	}
 	sync := exec.Command("bash", "-c", strings.TrimPrefix(lines[1], "  "))

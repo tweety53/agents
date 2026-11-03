@@ -35,7 +35,7 @@ procedure for them is there.
    |---------|------|
    | `create` | The command that creates this workspace's resources when they are absent. Whatever starts the project's applications calls it. |
    | `remove` | The command that removes them. `/flow`'s cleanup run calls it, and nothing else does. |
-   | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/check-cleanup-complete.sh` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
+   | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/flow-guard check-cleanup-complete` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
    | `orphans` | Optional. The command that prints, one per line, the id of every workspace on the machine that no live worktree derives. Run 2 calls it from the main checkout after its own `remove`, runs `remove` for each id printed with that id substituted, and reports `WORKSPACE-ORPHAN-REMOVED: <id>` or `WORKSPACE-ORPHAN-REMOVE-FAILED: <id> — exit <rc>`, and `WORKSPACE-ORPHANS-FAILED: <repo> — exit <rc>` when `orphans` itself fails; no failure of either stops run 2. |
 
    Why a third verb rather than two — why "ran `remove`" is not "verified gone", and why a guard in the
@@ -49,7 +49,7 @@ procedure for them is there.
    - **`survivors` runs from the main checkout**, and that is not a convention invented here. See
      **Working directory for `survivors`, `remove`, and `create`**
      (`skills/flow-contracts/project-configuration-rationale.md`) for how
-     `<agents repo>/scripts/check-cleanup-complete.sh` invokes it.
+     `<agents repo>/scripts/flow-guard check-cleanup-complete` invokes it.
    - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
      step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`). See
      **Working directory for `survivors`, `remove`, and `create`**
@@ -73,7 +73,7 @@ procedure for them is there.
 3. **Remove the proposal artifact source** from the state directory, per its row in
    **Temporary artifacts registry** (`artifacts-registry.md`); a change that published none has
    nothing to remove, and says so.
-4. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
+4. **Verify the cleanup.** Run `flow-guard check-cleanup-complete <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
    behind. `<state-dir>` is the path `flow state dir` prints for this repository — the same
    resolution serving step 3's removal; a run that has not recently resolved it guesses, and
@@ -89,7 +89,7 @@ procedure for them is there.
    `SKIPPED:` note there says a registry row was *not* verified — reached, for instance, as
    `COMPLETE: <repo> — … — SKIPPED: the workspace survivor verification — '<cmd>' exited 7, so the
    service could not be reached`. **A skip
-   is never a pass**: `<agents repo>/scripts/check-cleanup-complete.sh`'s own header is canonical for why, and it
+   is never a pass**: `<agents repo>/scripts/flow-guard check-cleanup-complete`'s own header is canonical for why, and it
    is the reason the clause is quoted rather than summarised — the row it leaves unverified and the
    reason it could not be verified are both inside it. The relay does **not** block step 5; why an
    unreachable service must not strand an already-merged change is stated once under
@@ -114,10 +114,10 @@ procedure for them is there.
    forward. This step is reached only on `COMPLETE:`.
 6. **Bring the main checkout forward** — after `FINISHED` is written, once per repository, with
    `<base>` the branch `refs/remotes/origin/HEAD` names, its `origin/` prefix stripped — the
-   worktree `resolve-base-branch.sh` reads is gone by now:
+   worktree `flow-guard resolve-base-branch` reads is gone by now:
 
    ```bash
-   refresh-main-checkout.sh <main-checkout> <base>
+   flow-guard refresh-main-checkout <main-checkout> <base>
    ```
 
    A main checkout that has a `--base` change's `<base>` (`skills/flow/SKILL.md`) checked out is
@@ -139,7 +139,7 @@ Once per repository, from outside every worktree in the set, with `<merge-base>`
 file's `worktrees` map records for it (`-` when none):
 
 ```bash
-remove-change-worktrees.sh <repo> <name> <merge-base|->   # --proceed on the second call only
+flow-guard remove-change-worktrees <repo> <name> <merge-base|->   # --proceed on the second call only
 ```
 
 Exit 0: every check passed; each `REMOVED:` entry is one step 5 clears, and each `REMOTE-*` line is

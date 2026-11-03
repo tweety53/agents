@@ -22,11 +22,11 @@ import (
 // hand-written, so there is one source and no second copy to disagree
 // with it.
 //
-// RenderPanel is the load-bearing one. scripts/check-unfinished-work.sh
+// RenderPanel is the load-bearing one. flow-guard check-unfinished-work
 // is unchanged by the move into the store, so the marker contract it
 // enforces -- the single `findings-total:` line, the unbroken
 // `finding-status:` span, and the SEPARATE `reproducers-total:` /
-// `finding-reproducer:` block that check-panel-reproducers.sh reads --
+// `finding-reproducer:` block that flow-guard check-panel-reproducers reads --
 // is now this file's obligation rather than an agent's discipline.
 
 // markerLabels are the marker labels the two panel guards read, plus the
@@ -70,7 +70,7 @@ const markerColonSubstitute = "꞉"
 // WHY IT IS NEEDED. A finding's note and location are operator text. A
 // validly-formatted marker written inside prose is byte-for-byte
 // indistinguishable from a real one: quoted in a table cell it makes
-// check-unfinished-work.sh report a line naming `finding-status:` that is
+// flow-guard check-unfinished-work report a line naming `finding-status:` that is
 // not a marker, and reaching the start of a line it would add a finding
 // that does not exist. The record's own format rule -- do not quote the
 // marker format inside the record -- is exactly this hazard, and the
@@ -152,7 +152,7 @@ func RenderGatedFindings(r Run) (string, bool) {
 // is load-bearing:
 //
 //   - the findings table, one row per finding, each beginning `| F<n> |`
-//     so that check-unfinished-work.sh's anchored row pattern names the
+//     so that flow-guard check-unfinished-work's anchored row pattern names the
 //     same identifiers the marker block does;
 //   - one `findings-total: <n>` line, appearing exactly once;
 //   - the `finding-status:` markers on CONSECUTIVE lines, one unbroken
@@ -169,7 +169,7 @@ func RenderGatedFindings(r Run) (string, bool) {
 // sorted lists, so the order is for the reader alone.
 //
 // A finding with no recorded reproducer renders the exemption form
-// check-panel-reproducers.sh defines, `none — <reason>`, rather than no
+// flow-guard check-panel-reproducers defines, `none — <reason>`, rather than no
 // line at all: that guard requires exactly one reproducer line per
 // finding, and an omitted line would be reported as a missing one.
 //
@@ -718,7 +718,7 @@ type Rendered struct {
 // with no total line to count as outstanding whatever else it contains,
 // and says a panel that raised no finding says so with `findings-total: 0`
 // -- "which is a declaration and clears, where silence is not". Reporting
-// MISSING for a clean panel writes no record, so check-unfinished-work.sh
+// MISSING for a clean panel writes no record, so flow-guard check-unfinished-work
 // finds none and reports OUTSTANDING for a change that is genuinely clean:
 // the render would manufacture the very state the panel proved absent.
 // RenderPanel already emits the zero form correctly -- the total line, no

@@ -26,14 +26,14 @@ import (
 // `sut` call, `check` verdict and `halt`.
 const icDriver = `set -u
 SCRIPT_DIR="$IC_SCRIPTS"
-SUT="$SCRIPT_DIR/integrate-change.sh"
+SUT="$SCRIPT_DIR/flow-guard"
 OUT=""; RC=0
 check() { if eval "$2"; then printf '\n__IC_PASS__ %s\n' "$1"; else printf '\n__IC_FAIL__ %s\n' "$1"; fi; }
 halt() { printf '%s\n%s\n' "$OUT" "$(cat "$WORK/stderr")" >&2; printf '\n__IC_HALT__ %s\n' "$1"; exit 1; }
 sut() {
   PATH="$WORK/bin:$PATH" GIT_AUTHOR_NAME=Test GIT_AUTHOR_EMAIL=test@example.invalid \
     GIT_COMMITTER_NAME=Test GIT_COMMITTER_EMAIL=test@example.invalid \
-    FLOW_GUARD_SCRIPT_DIR="$(dirname "$SUT")" env -0 >"$IC_TMP/sut.env"
+    FLOW_GUARD_REPO_ROOT="$(dirname "$(dirname "$SUT")")" env -0 >"$IC_TMP/sut.env"
   printf '%s\0' "$@" --harness test --session-token mf-test >"$IC_TMP/sut.args"
   printf '\n__IC_SUT__\n'
   read -r _ <"$IC_TMP/sut.ack"
@@ -290,7 +290,7 @@ check "the NEXT line names the template and its never-omitted lines" 'printf "%s
 	})
 }
 
-// The shim's own `cd /`: run outside sut, from inside the canonical
+// The bootstrap run outside sut, from inside the canonical
 // worktree, with a relative main checkout.
 func TestIntegrateChangeShim(t *testing.T) {
 	icRunCases(t, []icCaseDef{
@@ -300,7 +300,7 @@ for r in a b; do
   g -C "$WORK/$r-worktrees/demo" push -q origin HEAD:main
   g -C "$WORK/$r" fetch -q origin
 done
-OUT="$(cd "$WORK/a-worktrees/demo" && PATH="$WORK/bin:$PATH" exec "$SUT" cleanup ../../a demo --harness test --session-token mf-test 2>"$WORK/stderr")"; RC=$?
+OUT="$(cd "$WORK/a-worktrees/demo" && PATH="$WORK/bin:$PATH" exec "$SUT" integrate-change cleanup ../../a demo --harness test --session-token mf-test 2>"$WORK/stderr")"; RC=$?
 check "shim_caller_cwd: cleanup run from inside a worktree is not HELD by its own cwd" '! printf "%s\n" "$OUT" | grep -q "^HELD:"'
 check "shim_caller_cwd: a relative main checkout resolves against the caller's directory" \
   '[ "$RC" -eq 0 ] && [ ! -d "$WORK/a-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},

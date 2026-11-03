@@ -158,7 +158,7 @@ func parseTokenReport(value string) (*records.TokenReport, error) {
 
 // recordShapes is the closed set `-shape` accepts on `flow record
 // substitution`: the pipeline's own topology vocabulary for a change --
-// the same words gather-dispatch-context.sh's eighth argument validates and
+// the same words flow-guard gather-dispatch-context's eighth argument validates and
 // Hazard.Applies composes with. `all` is deliberately absent: it is a
 // bundle-composition wildcard, never a shape a change has. Checked before
 // the store is ever contacted, the recordEfforts precedent -- an
@@ -453,7 +453,7 @@ seq order, every role and session token -- for a guard to filter and count
 itself instead of deriving the same facts from prose. A change the store
 has never heard of prints exactly "[]" and exits 0, and a store it cannot
 reach is reported to stderr and exits non-zero, never a silent empty
-array: check-panel-fix-single-dispatch.sh counts rows from this verb, and
+array: flow-guard check-panel-fix-single-dispatch counts rows from this verb, and
 an outage that read as zero rows would pass every round it was blind to.
 
 finding-patterns and finding-pattern query the finding-pattern registry
@@ -1142,7 +1142,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		if p, err := planPath(f.dir, f.change); err == nil {
 			if plan, err := os.ReadFile(p); err == nil {
 				if ids := untickedTasks(plan); len(ids) > 0 {
-					fmt.Fprintf(stderr, "flow: -key %q opens a review-panel round while tasks.md holds unticked task(s) %s — close every task with close-task.sh before the panel reads it (skills/flow/verify-fix-loop.md)\n", *key, strings.Join(ids, ","))
+					fmt.Fprintf(stderr, "flow: -key %q opens a review-panel round while tasks.md holds unticked task(s) %s — close every task with flow-guard close-task before the panel reads it (skills/flow/verify-fix-loop.md)\n", *key, strings.Join(ids, ","))
 					return 2
 				}
 			}
@@ -2900,7 +2900,7 @@ func runRecordFindingPattern(ctx context.Context, args []string, stdout, stderr 
 
 // runRecordDispatches implements `flow record dispatches`: the findings
 // verb's read contract over dispatch rows, so
-// check-panel-fix-single-dispatch.sh can count one run's panel-fix
+// flow-guard check-panel-fix-single-dispatch can count one run's panel-fix
 // dispatches per round instead of trusting prose. Like `findings`, it
 // marshals Run.Dispatches ALONE -- a guard consuming this verb needs
 // key/role/sessionToken, not findings it has no use for -- and it shares
@@ -3852,7 +3852,7 @@ func changeCheckouts(dir, change string) (main string, carrying []string, err er
 }
 
 // inlineDirtyPaths is every tracked path of dir's worktree modified, staged
-// or not, save the change's own tasks.md -- close-task.sh's ticks stay
+// or not, save the change's own tasks.md -- flow-guard close-task's ticks stay
 // uncommitted between tasks. An inline row begun over any other records work
 // already under way (kan-920 self-review: task 5's row began after its
 // design.md edit and recorded 7 seconds). Its caller passes the change's

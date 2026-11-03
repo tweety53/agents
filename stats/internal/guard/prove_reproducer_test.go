@@ -264,7 +264,7 @@ func TestProveReproducer(t *testing.T) {
 		{"usage and door refusals print the bash's lines", func(t *testing.T) {
 			repo, pre := prRepo(t, "repo")
 			writeFile(t, filepath.Join(repo, "noexec.sh"), "#!/bin/sh\n")
-			usage := "usage: prove-reproducer.sh <worktree> <pre-fix-ref> <reproducer-path>\n" +
+			usage := "usage: flow-guard prove-reproducer <worktree> <pre-fix-ref> <reproducer-path>\n" +
 				"       <reproducer-path> is relative to <worktree>; the pre-fix leg runs\n" +
 				"       it in a detached scratch worktree at <pre-fix-ref>, the post-fix\n" +
 				"       leg against <worktree> itself\n"
@@ -484,7 +484,7 @@ func TestProveReproducerExecBitCheck(t *testing.T) {
 		return cmd.ProcessState.ExitCode(), out.String(), prTempName.ReplaceAllString(norm.Replace(errb.String()), "prove-reproducer.X")
 	}
 	wantRC, wantOut, wantErr := run(bashDir + "/prove-reproducer.sh")
-	rc, out, errs := run(tcfScriptsDir(t) + "/prove-reproducer.sh")
+	rc, out, errs := run(guardShim(t, "prove-reproducer"))
 	if !strings.Contains(wantErr, "lost its executable bit") {
 		t.Fatalf("fixture did not reach the check: bash exit %d\n%s", wantRC, wantErr)
 	}
@@ -502,7 +502,7 @@ func TestProveReproducerSIGPIPE(t *testing.T) {
 	prReproducer(t, repo, prRel, "exec sh -c '! grep -q old-behaviour check.txt'")
 	git0 := prGitState(t, repo)
 	tmp := t.TempDir()
-	cmd := exec.Command("/bin/bash", tcfScriptsDir(t)+"/prove-reproducer.sh", repo, pre, prRel)
+	cmd := exec.Command("/bin/bash", guardShim(t, "prove-reproducer"), repo, pre, prRel)
 	cmd.Env = append(os.Environ(), "TMPDIR="+tmp, "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -554,7 +554,7 @@ func TestProveReproducerSignals(t *testing.T) {
 			prReproducer(t, repo, prRel, "case $PWD in */scratch) echo ready > "+ready+"; read -r _ < "+release+";; esac; exit 0")
 			git0 := prGitState(t, repo)
 			tmp := t.TempDir()
-			shim := tcfScriptsDir(t) + "/prove-reproducer.sh"
+			shim := guardShim(t, "prove-reproducer")
 			cmd := exec.Command("/bin/bash", shim, repo, pre, prRel)
 			if c.ignore {
 				cmd = exec.Command("/bin/bash", "-c", `trap "" HUP; exec /bin/bash "$0" "$@"`, shim, repo, pre, prRel)

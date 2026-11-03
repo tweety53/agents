@@ -1,0 +1,33 @@
+---
+description: No script is written in bash; new scripts and new logic go in the project's own language
+alwaysApply: true
+---
+
+# No scripts in bash
+
+<!-- core -->
+**No script is written in bash.** A new script, and any new logic added to an existing one, is
+written in the project's own language — in the `agents` repository, Go in `flow-guard`
+(`<agents repo>/stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, run as
+`flow-guard <name>`). A bash script still standing is ported before it is extended, never grown.
+A command typed into a shell is not a script; a file committed to be run is.
+
+The only exceptions are the ones a project declares. In `agents` they are `<agents repo>/setup.sh` and the
+`<agents repo>/scripts/flow-guard` bootstrap, and `flow-guard check-no-bash` fails on any other tracked `.sh`
+file or file whose first line runs bash.
+<!-- /core -->
+
+## Why
+
+A bash script grows a second copy of logic the project's own language already carries, is tested
+by a harness of its own instead of the project's test runner, and fails on the quoting, word
+splitting and exit-status edges that language never has. The `agents` repository ported every
+script but those two to Go under KAN-1058; this rule keeps the next one from being written in bash.
+
+## What it does not cover
+
+- **A one-off command line** — a shell command an agent or operator runs, a fenced command block in
+  a skill, a `make` recipe. None of them is a file committed to be run.
+- **A panel reproducer** — written under the gitignored `<project>/.superpowers/sdd/reproducers/` for one
+  run and never committed; `flow-guard run-reproducer` runs it.
+- **Files under `<agents repo>/spectre/changes/archive/`** — history, kept as the landed change carried it.

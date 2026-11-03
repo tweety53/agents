@@ -48,7 +48,7 @@ push or pull request — two landings per change, and a window in which the code
 change still open.
 
 The merge-and-push route pushes `spectre/<name>` before `<base>`, so `origin/spectre/<name>` never
-stays at its pre-reshape tip. Run 2's `git branch -d` does not depend on it: `remove-change-worktrees.sh`
+stays at its pre-reshape tip. Run 2's `git branch -d` does not depend on it: `flow-guard remove-change-worktrees`
 points the branch's upstream at `origin/<base>` first, because `-d` refuses a branch not merged into
 its upstream — else into the main checkout's `HEAD`, which run 2 refreshes only after cleanup — and a
 forge merge deletes `origin/spectre/<name>`; judged against either, a merged branch would end the
@@ -61,7 +61,7 @@ re-sync would rebase onto it and be refused again.
 During kan-922's integrate run, `prepare` stopped at `STOP: foreign-staged` on a main checkout
 that was clean but left on another session's `fix/base-missing-on-satellite` branch. The <!-- citations-guard:allow -->
 operator's instruction: "resolve it yourself, update flow to resolve such things automatically".
-So `integrate-change.sh prepare` now switches such a checkout back to its default branch.
+So `flow-guard integrate-change prepare` now switches such a checkout back to its default branch.
 
 Only the clean shape switches — `STAGED-CLEAN` and a lone `DRIFT-BRANCH` — because then nothing
 tracked can be lost: no staged, modified or unmerged entry rides along or blocks the switch. A
@@ -72,7 +72,7 @@ moving it to the default branch would undo what run 2 relies on. The switch is a
 `git switch`, never `checkout -B` or a reset, so the branch left behind keeps every commit it
 carried.
 
-The switch lives in `integrate-change.sh`, not in the drift guard nor a new Go subcommand, for the
+The switch lives in `flow-guard integrate-change`, not in the drift guard nor a new Go subcommand, for the
 reasons decision `prepare-switch-clean-drift`'s Considered line records.
 
 ## finish-contract-run1.md — Run the self-review pass
@@ -88,7 +88,7 @@ rule.
 Moved verbatim (KAN-859), where it followed "never the bare local name on its own.":
 
 A bare local branch is
-wrong here because the ancestor test resolves whatever ref it is handed, and `resolve-base-branch.sh`'s
+wrong here because the ancestor test resolves whatever ref it is handed, and `flow-guard resolve-base-branch`'s
 fetch refreshes only remote-tracking refs, never local branches; a stale local branch of the same
 name would then silently feed the RUN1/RUN2/REFUSE decision, the gate in front of this command's most
 destructive step.
@@ -106,7 +106,7 @@ it to them before the run reaches the refusal it would otherwise improvise aroun
 
 Moved verbatim (KAN-859); the run-loaded copy keeps the sentence up to "counts tracked entries", without the KAN-647 provenance clause:
 
-`check-main-checkout-drift.sh` runs once per
+`flow-guard check-main-checkout-drift` runs once per
 distinct main checkout, and its header is canonical for the verdict grammar it prints: a
 `DRIFT-BRANCH` line names a checkout on any other branch than the one `refs/remotes/origin/HEAD`
 points at, a `DRIFT-DIRTY` line counts tracked entries — the shapes KAN-647's reverse-image
@@ -120,7 +120,7 @@ Without it, a
 satellite worktree's call falls back to resolving the link's peer name through `peers`, which cannot
 resolve from inside a worktree.
 
-### finish-contract-run1.md — Run 1, `check-visual-verify-dispatched.sh` (KAN-859)
+### finish-contract-run1.md — Run 1, `flow-guard check-visual-verify-dispatched` (KAN-859)
 
 Moved verbatim (KAN-859), where it followed "not a second prompt.":
 
@@ -146,7 +146,7 @@ bare `/flow` runs inside the apply worktree, where
 `HEAD` *is* `spectre/<name>` — so that fallback resolves to the change's **own** upstream, making
 the merge check `spectre/<name>` vs `origin/spectre/<name>`, which is true the moment the branch
 is pushed. That silently reports an unmerged change as merged, and run 2 then deletes its
-worktree. `resolve-base-branch.sh` is where this rule is enforced: it never
+worktree. `flow-guard resolve-base-branch` is where this rule is enforced: it never
 consults `HEAD@{upstream}`, and its assertion that `BASE` differs from the current branch is
 unconditional, which is what makes that class of misresolution impossible rather than merely
 unlikely.
@@ -175,7 +175,7 @@ field reference truncates any path containing a space at the first one: fed
 `worktree /tmp/my worktree` it yields `/tmp/my`, and the run then `--force`-removes a path that is
 not the worktree, or fails having named the wrong one. `10` is one past the length of the literal
 `worktree ` prefix. The branch on the next line is a ref name and cannot contain a space, so `$2` is
-right for it. `<agents repo>/scripts/check-cleanup-complete.sh` parses the same stream the same way
+right for it. `<agents repo>/scripts/flow-guard check-cleanup-complete` parses the same stream the same way
 (`<agents repo>/stats/internal/guard/cleanupcomplete.go`, row one: the rest of the `worktree ` line, the
 branch's first field) — the guard
 and the snippet it verifies must not disagree, or the wrong one gets copied next.
@@ -240,7 +240,7 @@ Moved verbatim (KAN-859) out of check 3's shell block, where it followed the `@{
 
 Moved verbatim (KAN-859), where it followed "before it runs.":
 
-`check-worktree-processes.sh`'s own header treats a process whose working
+`flow-guard check-worktree-processes`'s own header treats a process whose working
 directory is at or under the worktree as held, and a shell that is itself `cd`'d into `$WT` (or into
 another worktree in the same set) is exactly such a process — it would report `HELD:` against
 itself, not against the stack this check exists to catch.

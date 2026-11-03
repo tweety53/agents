@@ -148,7 +148,7 @@ func TestCheckPanelDiffSize(t *testing.T) {
 
 	// 7. The refusals the harness never reached, byte for byte.
 	r = pdsRun()
-	want("case 7a: no arguments prints the usage line", r.rc == 2 && r.err == "check-panel-diff-size: usage: check-panel-diff-size.sh <worktree> <merge-base> [cap]\n", r)
+	want("case 7a: no arguments prints the usage line", r.rc == 2 && r.err == "check-panel-diff-size: usage: flow-guard check-panel-diff-size <worktree> <merge-base> [cap]\n", r)
 	r = pdsRun(notRepo + "/absent")
 	want("case 7b: a missing worktree exits 2", r.rc == 2 && r.err == "check-panel-diff-size: "+notRepo+"/absent is not a directory\n", r)
 	r = pdsRun(repo)

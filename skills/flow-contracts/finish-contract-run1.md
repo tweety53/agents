@@ -16,12 +16,12 @@ change's branch has already reached the base branch. No field records "integrati
 branch's merge status is the only source of truth, and a field could disagree with it.
 
 **The merge status is decided by three signals, in this order, and by a script — not by prose.**
-`check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
+`flow-guard check-finish-preflight <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
 line and exits 0 whenever it reached a verdict. It exits 2 with no verdict when it cannot read the
 worktree at all — an unreadable tree is never a licence to proceed.
 
 **`<base-ref>` is composed as `origin/$BASE`** — the remote-tracking ref, `$BASE` being the bare
-name `resolve-base-branch.sh` printed — never the bare local name on its own.
+name `flow-guard resolve-base-branch` printed — never the bare local name on its own.
 
 | Verdict | Meaning |
 |---------|---------|
@@ -37,12 +37,12 @@ run exactly as **Resolving a change's worktrees** requires, never a vacuous `RUN
 
 ### Surface foreign staged work before the preflight
 
-Before `check-finish-preflight.sh` runs for any worktree, the run surfaces the foreign staged work
+Before `flow-guard check-finish-preflight` runs for any worktree, the run surfaces the foreign staged work
 the affected main checkouts carry.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
 `git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated — the same
-resolution the preflight's own stray-worktree assertion performs. `check-foreign-staged.sh` runs
+resolution the preflight's own stray-worktree assertion performs. `flow-guard check-foreign-staged` runs
 once per distinct main checkout, and its header is canonical for the verdict grammar it prints. On
 `STAGED-CLEAN` from every repository the run continues into the preflight with nothing more said.
 On any `STAGED-FOREIGN`, every repository's listing is shown together and the run stops to ask,
@@ -60,16 +60,16 @@ verdict** (`skills/flow-contracts/pipeline.md`).
 
 In the same pre-run position, over the same distinct main checkouts, the run also surfaces each
 checkout's drift from its expected post-merge state — on the repository's default branch with
-nothing tracked modified, staged or unmerged. `check-main-checkout-drift.sh` runs once per
+nothing tracked modified, staged or unmerged. `flow-guard check-main-checkout-drift` runs once per
 distinct main checkout, and its header is canonical for the verdict grammar it prints: a
 `DRIFT-BRANCH` line names a checkout on any other branch than the one `refs/remotes/origin/HEAD`
 points at, a `DRIFT-DIRTY` line counts tracked entries. On `DRIFT-CLEAN` from every
 repository the run continues with nothing more said. **A clean checkout on another branch is
 switched back, never asked about.** When a repository's only finding is `DRIFT-BRANCH` — both
-guards exited 0, `check-foreign-staged.sh` printed `STAGED-CLEAN` and no `DRIFT-DIRTY` printed —
-`integrate-change.sh prepare` runs `git -C <main-checkout> switch <default>`, prints one
+guards exited 0, `flow-guard check-foreign-staged` printed `STAGED-CLEAN` and no `DRIFT-DIRTY` printed —
+`flow-guard integrate-change prepare` runs `git -C <main-checkout> switch <default>`, prints one
 `DRIFT-SWITCHED: <main-checkout> — <branch> -> <default>, <branch> kept at <sha> (<n> commits
-ahead of <default>)` line, and re-runs `check-main-checkout-drift.sh`, continuing only on
+ahead of <default>)` line, and re-runs `flow-guard check-main-checkout-drift`, continuing only on
 `DRIFT-CLEAN`. The switch moves no commit: `<branch>` keeps every commit it carried, and a live
 session that had the checkout on it finds its HEAD moved, which the printed line names. Four
 shapes are never switched, and stop and ask as below: a detached HEAD, whose commits sit on no
@@ -79,7 +79,7 @@ another worktree, an untracked file it would overwrite, no default branch to swi
 index — which leaves the checkout as it was and adds a `DRIFT-SWITCH-REFUSED` line to the
 listing; and a re-run that does not print `DRIFT-CLEAN`. Each repository is judged on its own: one
 repository's switch never waits on another's question. On any other `DRIFT-BRANCH` line, or any
-`DRIFT-DIRTY` line, every repository's findings — this guard's and `check-foreign-staged.sh`'s alike — are
+`DRIFT-DIRTY` line, every repository's findings — this guard's and `flow-guard check-foreign-staged`'s alike — are
 shown together and the run stops to ask the question below exactly once; **an exit 2 with no
 verdict** — a checkout whose branch, default branch or status cannot be read — stops and asks the
 same way, an inability never reading as `DRIFT-CLEAN`. A checkout clean but behind its default
@@ -92,7 +92,7 @@ bringing it forward.
 
 ### Migrate retired-layout worktrees before the preflight
 
-Before `check-finish-preflight.sh` runs for any worktree — on run 1 and run 2 alike — move any
+Before `flow-guard check-finish-preflight` runs for any worktree — on run 1 and run 2 alike — move any
 worktree an older kickoff created under `<project>/.worktrees/` to the sibling layout, so the strict
 location guard never reads it there: the preflight's stray-worktree assertion refuses such a
 worktree, and no later step would ever move it. One call names every distinct main checkout,
@@ -100,7 +100,7 @@ resolved from the worktree set as **Surface foreign staged work before the prefl
 resolves them, so a cross-repo change's record is rewritten for every repository it names:
 
 ```bash
-migrate-worktrees.sh <main-checkout> [<main-checkout>...]
+flow-guard migrate-worktrees <main-checkout> [<main-checkout>...]
 ```
 
 Exit 0: every worktree was moved (`MIGRATED:`) or left in place because a process holds it
@@ -113,7 +113,7 @@ worktree of this change is named at its new path from then on — the script rew
 ### Run 1 — the branch is not merged
 
 **Check for unfinished work first — before the landing question and before any git action.**
-`check-unfinished-work.sh <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...` prints one verdict line and
+`flow-guard check-unfinished-work <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...` prints one verdict line and
 exits 0 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the
 worktree. Run it once per worktree in the set found by **Resolving a change's worktrees** below —
 never a raw read of the state file's `worktrees` map, for the same reason the preflight verdict
@@ -122,7 +122,7 @@ the resolved set whose own change directory (**A change's directory**,
 `skills/flow-contracts/pipeline.md`) holds `tasks.md`.
 Pass every worktree of the resolved set as `<worktree>=<merge-base>`, its merge base `git -C <worktree> merge-base HEAD origin/<base>`, on every call.
 A call passing none gets its own worktree's range derived the same way, from the base
-`resolve-base-branch.sh` names; the guard's header (`<agents repo>/scripts/check-unfinished-work.sh`)
+`flow-guard resolve-base-branch` names; the guard's header (`<agents repo>/scripts/flow-guard check-unfinished-work`)
 is canonical for the visual-verify and inline-verify signals it folds in.
 
 | Verdict | Meaning |
@@ -134,7 +134,7 @@ A missing verdict line is not a verdict. Treat it exactly as the preflight scrip
 above: stop and ask the operator. The exit code is checked as well as the line, because a caller
 that greps for `CLEAR` in empty output finds nothing.
 
-**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> $(git -C <worktree> merge-base HEAD origin/$BASE) <canonical-worktree>`**,
+**Then run `flow-guard check-visual-verify-dispatched <worktree> <change-name> $(git -C <worktree> merge-base HEAD origin/$BASE) <canonical-worktree>`**,
 once per worktree in the same resolved set — the fork point itself, because this runs before the
 base-moved check below can name a rebased one, and the state-file value is stale after an earlier
 rebase. The canonical worktree makes a satellite's diff match the canonical `ui paths` as well as
@@ -142,30 +142,30 @@ its own, as **Visual verification** (`skills/flow/verify-and-handoff.md`) step 2
 breakdown in; a `VISUAL-VERIFY-MISSING` line is a hard stop, never an `OUTSTANDING` item — **Finish it — never a prompt**
 (`skills/flow/unfinished-work-gate.md`) never passes it, and its handling is
 `skills/flow/integrate.md`'s `STOP: visual-verify`. Exit 2 (cannot answer) is stop-and-ask,
-the same as a missing `check-unfinished-work.sh` verdict line above.
+the same as a missing `flow-guard check-unfinished-work` verdict line above.
 
 **Then the live-check record.** When the change's `design.md` carries a `## Live check` section
 naming something to exercise (**Live check**, `skills/flow/verify-and-handoff.md`),
-`live-verification.md` beside it exists and passes `check-live-verification.sh`; otherwise
+`live-verification.md` beside it exists and passes `flow-guard check-live-verification`; otherwise
 `prepare` stops at `STOP: live-check`, handled in `skills/flow/integrate.md`, and
 `--accept-outstanding` never passes it.
 
-**Then run `check-untasked-commits.sh <worktree> <base>`**, once per worktree in the same
+**Then run `flow-guard check-untasked-commits <worktree> <base>`**, once per worktree in the same
 resolved set, `<base>` the same fork point. An `UNTASKED-OK` line joins `CLEAR`; an `UNTASKED` line and
 the commits it lists are treated exactly as `OUTSTANDING`, and exit 2 is stop-and-ask, the same as
-a missing `check-unfinished-work.sh` verdict line. The guard's header
-(`<agents repo>/scripts/check-untasked-commits.sh`) is canonical for what it exempts.
+a missing `flow-guard check-unfinished-work` verdict line. The guard's header
+(`<agents repo>/scripts/flow-guard check-untasked-commits`) is canonical for what it exempts.
 
 **Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` or
 `UNTASKED` — finishing the work is there.
 
 **Check whether the base branch has moved — after the unfinished-work gate, before the landing
-question.** `check-base-moved.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
+question.** `flow-guard check-base-moved <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
 line and exits 0 whenever it reached a verdict; it exits 2 with no verdict line when it cannot read
 the worktree. `<base-ref>` is composed as `origin/$BASE`, exactly as the preflight's own is above,
 and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map for that
 worktree. The three verdicts — `CLEAR`, `MOVED` and `REFUSE` — and the exit contract are the
-script's own; see `<agents repo>/scripts/check-base-moved.sh`'s header rather than a copy of them
+script's own; see `<agents repo>/scripts/flow-guard check-base-moved`'s header rather than a copy of them
 here. A `MOVED` verdict is relayed with the guard's hand-verification procedure alongside it, per
 **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`).
 
@@ -188,11 +188,11 @@ not a link created it. A change with no `link.md` has one repository and one tri
 route, so nothing about the single-repository path changes.
 
 **Before any route commits, reshape the branch.** Run
-`reshape-branch.sh <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the
+`flow-guard reshape-branch <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
 `<rebased-merge-base>`, for a worktree **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) rebased
-or whose `check-base-moved.sh` `CLEAR` named `merge base now <sha>`**. It
+or whose `flow-guard check-base-moved` `CLEAR` named `merge base now <sha>`**. It
 runs the change-worktree location check first and stops on its verdict, then `git reset --soft`
 to that merge base: every commit the run made on the branch — task and fixup commits alike — folds
 back into the index, uncommitted. **A merge of another
@@ -202,7 +202,7 @@ another branch's, and the reset would fold it under the change's subject (kan-94
 and `main`'s commits that way). The script then prints `RESHAPE-FOREIGN-MERGE`, names each such
 commit, and exits 1 before HEAD moves; the run stops and relays its remedy — merge that branch
 into the change's base first, or rebase the change branch onto a base that holds them. Before that reset,
-`integrate-change.sh commit` pins the worktree's HEAD as `refs/flow/pre-reshape/<name>` — kept when it
+`flow-guard integrate-change commit` pins the worktree's HEAD as `refs/flow/pre-reshape/<name>` — kept when it
 already reaches HEAD, otherwise advanced to a merge of the old pin and HEAD, pushed plain beside the branch push and never deleted by run 2 — so a
 task's own commit stays findable afterwards as the one carrying its `Task-Id: <n>` trailer
 between the recorded merge base and `refs/flow/pre-reshape/<name>`, grouped implementer tasks included. **When the script
@@ -230,7 +230,7 @@ artifact source stays in the state directory until run 2 removes it; run 1 copie
 
 The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the
 symlink case — is the chain **The guarded commit chain** (`git-boundaries-commit-chain.md`) gives;
-`<agents repo>/scripts/commit-split.sh` is what runs it, at both this
+`<agents repo>/scripts/flow-guard commit-split` is what runs it, at both this
 call site and the implement phase's PR-exception path.
 
 **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
@@ -279,7 +279,7 @@ Every route runs from the apply worktree; none touches the main checkout or any 
 | Route | Then |
 |-------|------|
 | **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code and self-review fix commits. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
-| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `resolve-base-branch.sh`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the self-review fixes, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
+| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `flow-guard resolve-base-branch`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the self-review fixes, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
 Run 1 ends at `IN_PROGRESS`, and its handoff ends on `/flow <name>`
@@ -288,7 +288,7 @@ again.
 **Resolve the base branch; never assume it, and never derive it from the current branch.**
 
 ```bash
-BASE="$(resolve-base-branch.sh "<abs-worktree>")"
+BASE="$(flow-guard resolve-base-branch "<abs-worktree>")"
 ```
 
 `<abs-worktree>` is **the apply worktree** — the same one **Reshape the branch** above just
@@ -304,16 +304,14 @@ no `origin` remote at all.
 If no base branch resolves, **stop and ask**.
 
 **A repository with no remote at all cannot be integrated by this command.** Every route needs a
-push, and base resolution needs `origin` — `resolve-base-branch.sh` is where that check lives,
+push, and base resolution needs `origin` — `flow-guard resolve-base-branch` is where that check lives,
 and its exit `3` is how a caller recognises this case. Say exactly that — *"this repository has no
 remote, so there is nothing to push to or merge into"* — rather than reporting a base-branch
 failure, which sends the operator debugging the wrong thing. Offer to leave the change at
 `IN_PROGRESS` with the work staged; there is nothing to lose, because nothing was pushed.
 
-**No verification gate runs before integration.** No tests, no linters, no spec-coverage check. Three exceptions exist, all under **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`): a rebase
-that needed conflict resolution runs the whole `## lint` and `## test` lists, a clean rebase
-that changed a file this change also touches runs the scoped re-verification that file is
-canonical for, and every clean rebase runs the whole `## lint` list.
+**No verification gate runs before integration.** No tests, no linters, no spec-coverage check. Two exceptions exist, all under **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`): a rebase
+that needed conflict resolution runs the whole `## lint` and `## test` lists, and every clean rebase runs the whole `## lint` list.
 
 ### Resolving a change's worktrees
 

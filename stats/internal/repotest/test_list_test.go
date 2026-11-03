@@ -8,41 +8,33 @@ import (
 )
 
 // TestTestListRunsTheGuardPackageOnce pins kan-1038's f9-guard-once: the
-// guard package runs once per verify, in scripts/test-go-guards.sh under
-// -race, and the `## test` Go line of .flow/project.md filters it out of the
-// module's package list rather than running the bare ./... pattern.
+// guard package runs once per verify, in the `guard-tests` suite's go test
+// under -race (KAN-1058), and the `stats-go` line of .flow/project.md filters
+// it out of the module's package list rather than running the bare ./...
+// pattern.
 func TestTestListRunsTheGuardPackageOnce(t *testing.T) {
-	root := repoRoot(t)
-	read := func(rel string) string {
-		b, err := os.ReadFile(filepath.Join(root, rel))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(b)
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), ".flow/project.md"))
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	var harnessLine string
-	for _, l := range strings.Split(read("scripts/test-go-guards.sh"), "\n") {
-		if strings.Contains(l, "go test ./internal/guard/") {
-			harnessLine = l
-		}
-	}
-	if !strings.Contains(harnessLine, "-race") {
-		t.Errorf("scripts/test-go-guards.sh's go test line %q does not carry -race", harnessLine)
-	}
-
-	md := read(".flow/project.md")
-	_, section, ok := strings.Cut(md, "\n## test\n")
+	_, section, ok := strings.Cut(string(b), "\n## test\n")
 	if !ok {
 		t.Fatal(".flow/project.md has no ## test section")
 	}
 	section, _, _ = strings.Cut(section, "\n```\n")
-	var goLine string
+	suites := map[string]string{}
+	var suite string
 	for _, l := range strings.Split(section, "\n") {
-		if strings.Contains(l, "go test") {
-			goLine = l
+		if name, ok := strings.CutPrefix(l, "# suite: "); ok {
+			suite = name
+		} else if suite != "" && strings.Contains(l, "go test") {
+			suites[suite] = l
 		}
 	}
+	if g := suites["guard-tests"]; !strings.Contains(g, "go test -race -count=1 ./internal/guard/...") {
+		t.Errorf("## test guard-tests line %q does not run go test -race over ./internal/guard/...", g)
+	}
+	goLine := suites["stats-go"]
 	if !strings.Contains(goLine, "$(go list ./... | grep -v '/internal/guard$')") || strings.Contains(goLine, "go test ./...") {
 		t.Errorf("## test Go line %q does not draw its packages from go list with /internal/guard filtered out", goLine)
 	}

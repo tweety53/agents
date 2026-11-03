@@ -21,8 +21,8 @@
 // under the caller's working directory), a resolved PNG outside <screenshots
 // root> (another checkout's root), the resolver's own exit 2, or a failing zip.
 //
-// The resolver is exec'd from FLOW_GUARD_SCRIPT_DIR, the directory the shim
-// exports as its own. The archive is still Info-ZIP's `zip -q -X -j -@`, never
+// The resolver, resolve-visual-screenshots, runs in this same binary
+// (runSibling). The archive is still Info-ZIP's `zip -q -X -j -@`, never
 // archive/zip, whose headers differ: the first rebuild after the port would
 // otherwise commit a different zip over unchanged images (decision zip-via-exec).
 
@@ -38,20 +38,32 @@ import (
 	"time"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/rebuild-full-app-suite-zip.sh shim (KAN-1058).
+//
+// flow-guard rebuild-full-app-suite-zip — rebuild <screenshots root>/full-app-suite.zip
+// from exactly the PNGs full-app-suite.spec.ts produced.
+//
+// Usage: flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>
+//
+// Exit 0 the zip is written; 1 the resolver matched no PNG (nothing written);
+// 2 cannot answer — a usage error, a relative <screenshots root> (it would land
+// under the caller's working directory), a resolved PNG outside <screenshots
+// root> (another checkout's root), the resolver's own exit 2, or a failing zip.
+//
+// The mechanism, and its full contract, is
+// stats/internal/guard/rebuildfullappsuitezip.go; its test is
+// stats/internal/guard/rebuild_full_app_suite_zip_test.go.
+
 func init() { Registry["rebuild-full-app-suite-zip"] = rebuildFullAppSuiteZip }
 
 func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
-		fmt.Fprintln(stderr, "usage: rebuild-full-app-suite-zip.sh <worktree> <screenshots root>")
+		fmt.Fprintln(stderr, "usage: flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>")
 		return 2
 	}
 	if !filepath.IsAbs(args[1]) {
-		fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way resolve-visual-screenshots.sh resolves it\n", args[1])
-		return 2
-	}
-	scriptDir := env.Getenv("FLOW_GUARD_SCRIPT_DIR")
-	if scriptDir == "" {
-		fmt.Fprintln(stderr, "rebuild-full-app-suite-zip: FLOW_GUARD_SCRIPT_DIR is unset — run scripts/rebuild-full-app-suite-zip.sh, which sets it")
+		fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way flow-guard resolve-visual-screenshots resolves it\n", args[1])
 		return 2
 	}
 	abs := func(p string) string {
@@ -62,8 +74,8 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	}
 	zipPath := args[1] + "/full-app-suite.zip"
 
-	resolve := exec.Command(filepath.Join(scriptDir, "resolve-visual-screenshots.sh"), args[0], "full-app-suite.spec.ts")
-	resolve.Dir, resolve.Env = env.Dir, icChildEnv(env)
+	resolve := runSibling(env, "resolve-visual-screenshots", args[0], "full-app-suite.spec.ts")
+	resolve.Env = icChildEnv(env)
 	resolve.Stderr = stderr
 	out, err := resolve.Output()
 	list, rc := strings.TrimRight(string(out), "\n"), exitCode(err)
@@ -77,7 +89,7 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	if rc == 0 {
 		for _, png := range strings.Split(list, "\n") {
 			if !strings.HasPrefix(abs(png), filepath.Clean(args[1])+"/") {
-				fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: %s lies outside <screenshots root> %s — pass `screenshots` resolved the way resolve-visual-screenshots.sh resolves it\n", png, args[1])
+				fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: %s lies outside <screenshots root> %s — pass `screenshots` resolved the way flow-guard resolve-visual-screenshots resolves it\n", png, args[1])
 				return 2
 			}
 		}

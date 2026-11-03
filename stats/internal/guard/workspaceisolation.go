@@ -12,6 +12,116 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-workspace-isolation.sh shim (KAN-1058).
+//
+// flow-guard check-workspace-isolation — validate a project's `## workspace isolation`
+// declaration against the contract that defines it.
+//
+// Usage: flow-guard check-workspace-isolation [<project root> ...]
+//
+// With no arguments it checks FLOW_GUARD_REPO_ROOT, the repository scripts/flow-guard exports. Each argument
+// is a PROJECT ROOT — the directory holding `.flow/project.md` — never the
+// configuration file itself, because that is the path every caller already has.
+//
+// WHO RUNS IT, AND WHY THAT IS TWO CALLERS RATHER THAN ONE. `/flow`'s implement
+// phase runs it against each apply worktree before it resolves or exports a
+// single row — skills/flow/implement.md — and that is the call that reaches
+// every project flow is installed into, because the read happens in the
+// project rather than here. This repository ALSO lists it in its own `## lint`,
+// which is a self-check on this repository's own `## workspace isolation`
+// section and nothing more: a green lint run says nothing about any other
+// project. Reading the lint entry as the enforcement was exactly the shape of
+// false pass every branch below is written against, one level up.
+//
+// Prints one violation line per finding, then ONE verdict line per project:
+//   ISOLATION-OK:      <path> — <what was checked>
+//   ISOLATION-INVALID: <path> — <n> violation(s)
+//
+// Exit 0 when every project checked is well formed, 1 when any violation was
+// found, 2 when it cannot answer at all — a project root that is not a
+// directory, a `.flow/project.md` that is not a regular file (a directory, a
+// fifo, a dangling symlink) or cannot be read, or a scan of it that failed
+// rather than found nothing. The violations
+// are on stdout and the refusals on stderr, so a caller reading stdout is
+// reading findings and never an excuse for their absence.
+//
+// WHY THE VERDICT WORDS DIFFER FROM flow-guard check-cleanup-complete's. That guard says
+// COMPLETE/LEFTOVER about the same section of the same file, and the two
+// vocabularies are deliberately not shared. It asks whether the removal
+// HAPPENED; this one asks whether the declaration is WELL FORMED. A reader who
+// carried COMPLETE across to OK would be carrying an answer about resources into
+// an answer about text.
+//
+// NEVER FAIL OPEN — the rule every branch below is written to. A project that
+// declares no section passes SILENTLY, and that is the overwhelmingly common
+// case, so every OTHER way of ending up with nothing to check has to be told
+// apart from it: an unreadable configuration refuses, a duplicated heading is a
+// violation, a table whose header this guard does not recognise is a violation,
+// and a row whose column count does not match its header is a violation. Reading
+// "declares nothing" out of any of those would report every malformed project
+// valid, which is the failure this guard exists to prevent.
+//
+// A COMMAND'S FAILURE IS NEVER READ AS ITS NEGATIVE ANSWER, which is the same
+// invariant one level down. `-r` is true of a directory and `grep -q` then fails
+// with the same exit status it uses for "no match", so a `.flow/project.md`
+// that is a directory once answered "declares no section" and exited 0. Every
+// test below therefore says which question it is answering: the file type is
+// tested before its readability, and each `grep` exit status is read as three
+// outcomes — matched, did not match, could not look — rather than as two.
+//
+// WHAT IS CANONICAL, AND WHAT THIS FILE IS. Every rule enforced here is stated
+// by **Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`), which wins on
+// any disagreement — under its "How a `## workspace isolation` section is
+// written" paragraph and the two bullets that follow "An isolation row resolves
+// under the same rules this file applies to everything else it consumes". This
+// file restates none of the reasoning behind a rule; it cites the paragraph and
+// enforces the rule. Which rules are mechanical and which remain the agent's to
+// apply is recorded in that same file, under "Which of these rules a script
+// checks, and which are left to the agent", so the contract does not imply that
+// all of them are checked.
+//
+// THE PARAGRAPH NAMES ABOVE ARE PROSE, NOT CITATIONS, AND THAT IS DELIBERATE.
+// flow-guard check-references resolves a bold token against the REAL HEADINGS of the
+// file it names, and project-configuration.md is structured almost entirely as
+// bold lead-in paragraphs rather than headings. A bold token naming one of those
+// would be a stale reference the moment anything checked it. The paragraph names
+// here are unbolded for that reason, and the only bold tokens are ones that
+// resolve to a heading of that file. No COUNT of its headings is written here:
+// one was — "exactly one, its title" — and it went stale the first time a
+// heading was added to that file.
+//
+// THE INPUT IS ATTACKER-INFLUENCED. `.flow/project.md` is tracked in the
+// repository and editable in any pull request. NOTHING read here is executed:
+// this guard never runs a project's `create`, `remove` or `survivors` command,
+// never resolves a path out of the file, and never interpolates a cell into a
+// shell. The whole of the parsing happens inside one function (wiValidate in
+// stats/internal/guard/workspaceisolation.go) whose only input is the file's
+// text — which is also why its cell splitter is a character walk rather than a
+// field split.
+//
+// THE PARSER IS THE CLEANUP GUARD'S, WIDENED FROM TWO COLUMNS TO FOUR. Its
+// hazards are the same because its input is: a `|` inside a cell, written `\|`,
+// must not split the row; a row may omit its trailing `|`; a file may arrive
+// with CRLF line endings; and a row may be indented. THE PARSER ITSELF stays a
+// copy of its own (wiParse.splitCells, not the cleanup guard's ccWorkspaceRow);
+// the heading rule, the token shape and the display escaping are the cleanup
+// guard's own Go values (ccHeading, ccUnknownToken in
+// stats/internal/guard/cleanupcomplete.go, ccSanitize in
+// stats/internal/guard/text.go), in the one flow-guard binary both
+// guards run in.
+//
+// A FENCED EXAMPLE INSIDE THE SECTION IS PARSED AS A REAL TABLE, and that is a
+// known limitation rather than an oversight. This guard carries no fence
+// tracker, exactly as the cleanup guard's parser carries none, so a project that
+// writes a specimen table inside the section will have it validated. The failure
+// direction is the safe one — a specimen is reported rather than silently
+// skipped — and the remedy is to put the example outside the section, where
+// nothing reads it.
+//
+// Ported to Go (KAN-842): the body's reasoning for every step is in
+// stats/internal/guard/workspaceisolation.go, beside the code.
+
 func init() { Registry["check-workspace-isolation"] = checkWorkspaceIsolation }
 
 const (
@@ -27,8 +137,7 @@ var (
 	wiDelim    = regexp.MustCompile(`^:?-+:?$`)
 )
 
-// checkWorkspaceIsolation is scripts/check-workspace-isolation.sh: that
-// script's header comment carries the contract.
+// checkWorkspaceIsolation is `flow-guard check-workspace-isolation`: the comment above carries the contract.
 //
 // Divergences from the bash, each on input the bash read by accident of its
 // tools rather than by its contract:
@@ -64,33 +173,15 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 	// prepare-workspace.sh reads the `#ROW` lines.
 	printRows := env.Getenv("CHECK_WORKSPACE_ISOLATION_PRINT_ROWS") == "1"
 
-	// The self-resolution is deferred to exactly here, inside the branch that
-	// is the only reader of its answer. Every OTHER caller passes an explicit
-	// project root — `/flow`'s implement phase against each apply worktree,
-	// and this repository's own `## lint` entry — and resolving
-	// unconditionally meant a failure to resolve this script's own location
-	// could abort a run that never needed the answer at all (F11).
-	//
-	// "One level above the script's directory" is NOT enough to derive the
-	// repository root, because the script is reachable from more than one
-	// directory — its real home at <repo>/scripts/, and a skills/<name>/scripts/
-	// symlink a command skill carries it under. Going up one level from the
-	// SECOND of those lands on the skill directory, which exists, so a
-	// fixed-depth guard would proceed against it and return a confident wrong
-	// answer (silently "declares nothing") rather than an error. The shim
-	// therefore exports the path it was invoked by as FLOW_GUARD_SELF, and
-	// resolveFile follows its symlinks first, so the root comes from the
-	// script's real physical location whichever path invoked it.
+	// With no argument the root is FLOW_GUARD_REPO_ROOT, the physical
+	// checkout root scripts/flow-guard exports. Every other caller passes an
+	// explicit project root and never reads it (F11).
 	if len(args) == 0 {
-		self := env.Getenv("FLOW_GUARD_SELF")
-		if self == "" {
-			return refuse("FLOW_GUARD_SELF is unset — run scripts/check-workspace-isolation.sh, which sets it")
+		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
+		if root == "" {
+			return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-workspace-isolation, which sets it")
 		}
-		real, ok := resolveFile(wiAbs(env, self))
-		if !ok {
-			return refuse("cannot resolve this script's own location")
-		}
-		args = []string{gdcDirname(gdcDirname(real))}
+		args = []string{root}
 	}
 
 	utf8Locale := smcUTF8(env)
@@ -182,8 +273,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// per project. The bash ran its validator as an awk program and
 		// refused when that printed no `#SUMMARY` sentinel (no awk on the
 		// machine, a syntax error, a signal); this validator is in-process
-		// code with no such way to stop short, and the shim is what refuses
-		// when flow-guard itself cannot run.
+		// code with no such way to stop short, and scripts/flow-guard is what refuses when flow-guard itself cannot run.
 		p := wiValidate(cfg, recs, wiSpace(utf8Locale), utf8Locale, printRows)
 		if len(p.viol) > 0 {
 			// Sanitized at the ONE point they reach stdout, rather than at each

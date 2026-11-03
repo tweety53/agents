@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/plan-dispatch-bundles.sh shim (KAN-1058).
+//
+// This file exists so an operator's muscle memory invoking this exact
+// filename, and skills/flow/implement.md's own call site, keep working.
+// Scope is one file per call:
+//
+//   - no arguments: scan every live change's tasks.md under
+//     <spec-root>/changes/*/tasks.md (never the archive/ entry: run 1
+//     drops a change's directory, so nothing in flight sits there),
+//     aggregating exit codes — non-zero if ANY file reports a violation or
+//     cannot be read, printing each file's own bundles or violations;
+//   - one argument: treat it as an explicit tasks.md path and scan only
+//     that file.
+//
+// The no-argument scan's root is PLAN_DISPATCH_BUNDLES_ROOT when set (a test
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — exported by scripts/flow-guard — as the checkout whose changes are
+// scanned.
+
 // plan-dispatch-bundles groups a tasks.md's unchecked tasks into dispatch
 // bundles by the overlap of their declared **Files:** paths.
 //
@@ -24,12 +43,7 @@ import (
 // change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md,
 // aggregating exit codes -- 2 beats 1 beats 0 -- and printing
 // each file's own bundles or violations. <root> is PLAN_DISPATCH_BUNDLES_ROOT
-// when set (a test's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT,
-// which scripts/plan-dispatch-bundles.sh exports as its own REAL parent's
-// parent: the shim is reachable from <repo>/scripts/ and from a
-// skills/<name>/scripts/ symlink, and going up from the second lands on the
-// skill directory, which exists -- a scan of it would return a confident
-// empty answer rather than an error.
+// when set (a test's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports from its own real location.
 //
 // Exit codes:
 //
@@ -70,13 +84,13 @@ func planDispatchBundles(args []string, env Env, stdout, stderr io.Writer) int {
 		return pdbCheckFile(args[0], env, stdout, stderr)
 	case 0:
 	default:
-		fmt.Fprintln(stderr, "usage: plan-dispatch-bundles.sh [path-to-tasks.md]")
+		fmt.Fprintln(stderr, "usage: flow-guard plan-dispatch-bundles [path-to-tasks.md]")
 		return 2
 	}
 	root := env.Getenv("PLAN_DISPATCH_BUNDLES_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintln(stderr, "plan-dispatch-bundles: FLOW_GUARD_REPO_ROOT is unset — run scripts/plan-dispatch-bundles.sh, which sets it")
+			fmt.Fprintln(stderr, "plan-dispatch-bundles: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-dispatch-bundles, which sets it")
 			return 2
 		}
 	}

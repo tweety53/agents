@@ -327,7 +327,7 @@ func TestVisualVerifyPassCloseUsage(t *testing.T) {
 		{f.wt, "demo", "visual-verify", "0"},
 		{f.wt, "demo", "visual-verify", "0", "--session-token", "mf-tok", "--harness", "claude"},
 	} {
-		if rc, out, calls := f.run("close", args...); rc != 2 || !strings.Contains(out, "usage: visual-verify-pass.sh") || calls != "" {
+		if rc, out, calls := f.run("close", args...); rc != 2 || !strings.Contains(out, "usage: flow-guard visual-verify-pass") || calls != "" {
 			t.Errorf("%q: exit %d, calls %q\n%s", args, rc, calls, out)
 		}
 	}

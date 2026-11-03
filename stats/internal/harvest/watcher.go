@@ -1194,7 +1194,7 @@ func (w *Watcher) settleClosedRows(ctx context.Context, path string, records []R
 	for _, c := range cands {
 		rowID, endedAt, agentID, found, err := w.deps.DispatchEndedAt(ctx, c.SessionToken, c.Key)
 		// An end before this begin is an earlier run's under the same key
-		// (kan-1040's verify row: a second run-verify-list.sh run read the
+		// (kan-1040's verify row: a second flow-guard run-verify-list run read the
 		// first run's end and settled a zero patch), so the row waits for
 		// its own end.
 		if err != nil || !found || endedAt.IsZero() || endedAt.After(newest) || endedAt.Before(c.StartedAt) {
@@ -1266,20 +1266,34 @@ func inlineBeginFromInvocation(invocation string, vars map[string]string) (dispa
 	return dispatchBeginEvent{SessionToken: token, Key: key}, true
 }
 
+// guardArgs returns the arguments after the first call of guard name in
+// fields — `flow-guard <name>`, bare or as `…/scripts/flow-guard`, or the
+// `<name>.sh` spelling older transcripts still carry — and whether one was
+// found.
+func guardArgs(fields []string, name string) ([]string, bool) {
+	for i, f := range fields {
+		if f == name+".sh" || strings.HasSuffix(f, "/"+name+".sh") {
+			return fields[i+1:], true
+		}
+		if (f == "flow-guard" || strings.HasSuffix(f, "/flow-guard")) && i+1 < len(fields) && fields[i+1] == name {
+			return fields[i+2:], true
+		}
+	}
+	return nil, false
+}
+
 // runVerifyListBeginFromInvocation reads one invocation as a
-// `run-verify-list.sh <worktree> lint|test <change> <key> <session-token>
+// `flow-guard run-verify-list <worktree> lint|test <change> <key> <session-token>
 // <model> <effort> [<canonical-worktree>]` call: the script begins its row
 // `-agent-id inline` itself, so the begin never appears in the transcript
 // and only this call names the row (kan-1038). A `$NAME` argument resolves
 // against vars as resolvedFlagValue does; a `$` or backtick left in the
 // token or key refuses the invocation, as inlineBeginFromInvocation does.
 func runVerifyListBeginFromInvocation(invocation string, vars map[string]string) (dispatchBeginEvent, bool) {
-	fields := strings.Fields(invocation)
-	i := slices.IndexFunc(fields, func(f string) bool { return strings.HasSuffix(f, "run-verify-list.sh") })
-	if i < 0 {
+	args, ok := guardArgs(strings.Fields(invocation), "run-verify-list")
+	if !ok {
 		return dispatchBeginEvent{}, false
 	}
-	args := fields[i+1:]
 	// A shell operator ends the call: `> /tmp/v.txt 2>&1`, `2>&1|grep …`.
 	if j := slices.IndexFunc(args, func(f string) bool { return strings.ContainsAny(f, "|<>&;") }); j >= 0 {
 		args = args[:j]
@@ -1435,7 +1449,7 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 	return out
 }
 
-// panelRoundBeginsFromInvocation reads one `panel-round-begins.sh
+// panelRoundBeginsFromInvocation reads one `flow-guard panel-round-begins
 // <worktree> <change> <round> <session-token> <slot>:<model>:<effort>...`
 // invocation as the begins it records -- one per slot, under the key
 // panel-<round>-<slot> -- because the script runs them inside flow-guard,
@@ -1443,12 +1457,7 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 // (kan-1026's self-review). A round or token that is not a literal names
 // no row and yields nothing.
 func panelRoundBeginsFromInvocation(invocation string) []dispatchBeginEvent {
-	f := strings.Fields(invocation)
-	i := 0
-	for i < len(f) && !strings.HasSuffix(f[i], "/panel-round-begins.sh") && f[i] != "panel-round-begins.sh" {
-		i++
-	}
-	args := f[min(i+1, len(f)):]
+	args, _ := guardArgs(strings.Fields(invocation), "panel-round-begins")
 	if len(args) < 5 {
 		return nil
 	}

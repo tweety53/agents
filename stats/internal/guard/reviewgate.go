@@ -9,8 +9,38 @@ import (
 	"strings"
 )
 
-// checkReviewGate is scripts/check-review-gate.sh: that script's header is
-// the contract. It judges the per-task review gate of skills/flow/implement.md
+// The contract below moved here from the header of the deleted
+// scripts/check-review-gate.sh shim (KAN-1058).
+//
+// flow-guard check-review-gate — judge the per-task review gate of skills/flow/implement.md
+// (**The review gate.**) for one task commit flow-guard check-task-commit-fields passed.
+//
+// Usage: flow-guard check-review-gate <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]>
+//          <canonical-worktree> <change-name> [refused-path…]
+//
+// The first five arguments are flow-guard check-task-commit-fields's, less its empty
+// parent placeholder, and the plan resolves the same way (one shared helper,
+// so the two cannot drift). The commit map sums changed lines and unions paths
+// across its repositories. Each trailing refused path is one the fields guard
+// named undeclared before a Files: widening was transcribed: it stays
+// undeclared, so the widening cannot disarm the gate.
+//
+// The gate fires when the commit changes more than 40 lines (inserted plus
+// deleted, `git diff --no-renames --numstat`, a binary file's `-` counted as
+// 0) or touches any path outside the task's declared set — its Files: plus
+// its Allowed-collateral: globs, widened by a squash fold. The 40 lives in
+// stats/internal/guard/reviewgate.go, the one site to re-tune it.
+//
+// Prints ONE verdict line to stdout:
+//   FIRE: task <id> — <n> changed lines (more than 40)[; undeclared paths: <p>, …]
+//   FIRE: task <id> — undeclared paths: <p>, …
+//   QUIET: task <id> — <n> changed lines, every path declared
+//
+// Exit 0 a verdict was reached; exit 2 it could not judge (an unreadable
+// plan, a task it cannot find, a commit git cannot resolve, a usage error),
+// with "check-review-gate: COULD NOT JUDGE —" on stderr and nothing on stdout.
+
+// checkReviewGate is `flow-guard check-review-gate`: the comment above is the contract. It judges the per-task review gate of skills/flow/implement.md
 // (**The review gate.**) for one task commit the fields guard passed.
 func init() { Registry["check-review-gate"] = checkReviewGate }
 
@@ -25,7 +55,7 @@ func checkReviewGate(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) < 5 {
-		return refuse(fmt.Sprintf("usage: check-review-gate.sh <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> <canonical-worktree> <change-name> [refused-path…] — got %d argument(s)", len(args)))
+		return refuse(fmt.Sprintf("usage: flow-guard check-review-gate <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> <canonical-worktree> <change-name> [refused-path…] — got %d argument(s)", len(args)))
 	}
 	worktree, taskID, commit, canonical, name, refused := args[0], args[1], args[2], args[3], args[4], args[5:]
 	if !isDir(worktree) {
@@ -44,7 +74,7 @@ func checkReviewGate(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-review-gate.sh", worktree, name, canonical)
+	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-review-gate", worktree, name, canonical)
 	if tasksMD == "" {
 		if detail == "" {
 			return 2

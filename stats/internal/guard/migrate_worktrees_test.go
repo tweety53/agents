@@ -19,7 +19,7 @@ import (
 // each `state set` body -- the real CLI is never run against the real store.
 type mwFx struct {
 	dir, repo, free, held, sibling, fake, mergeBase string
-	self                                            string // FLOW_GUARD_SELF; "" is the real scripts/ dir
+	processes                                       string // FLOW_GUARD_CHECK_WORKTREE_PROCESSES; "" runs the sibling in this binary
 	g                                               fxGit
 }
 
@@ -114,19 +114,15 @@ func (fx *mwFx) hold(t *testing.T, wt string) *exec.Cmd {
 	return held
 }
 
-// run runs migrate-worktrees in-process with the real
-// check-worktree-processes.sh beside it, as the shim exports FLOW_GUARD_SELF,
-// and the fake flow first on PATH.
+// run runs migrate-worktrees in-process, its check-worktree-processes
+// sibling the real one unless fx.processes names a stub, and the fake flow
+// first on PATH.
 func (fx *mwFx) run(t *testing.T, path string, args ...string) (int, string, string) {
 	t.Helper()
-	self := tcfScriptsDir(t) + "/migrate-worktrees.sh"
-	if fx.self != "" {
-		self = fx.self
-	}
 	env := Env{Dir: fx.dir, Getenv: func(k string) string {
 		switch k {
-		case "FLOW_GUARD_SELF":
-			return self
+		case "FLOW_GUARD_CHECK_WORKTREE_PROCESSES":
+			return fx.processes
 		case "PATH":
 			return path
 		}
@@ -274,41 +270,6 @@ func TestMigrateWorktrees(t *testing.T) {
 		}
 	})
 
-	t.Run("the guard's own scripts directory moves with the worktree it sits in", func(t *testing.T) {
-		t.Parallel()
-		fx := mwNewFx(t)
-		// The shim's SCRIPT_DIR inside a migrated worktree, reached through a
-		// symlink as a logical cwd would be; a second repository's worktree,
-		// named after it, is checked once that worktree has moved.
-		mkdir(t, fx.free+"/scripts")
-		writeFile(t, fx.free+"/scripts/check-worktree-processes.sh", "#!/bin/sh\necho \"CLEAR: $1\"\n")
-		if err := os.Chmod(fx.free+"/scripts/check-worktree-processes.sh", 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Symlink(fx.free, fx.dir+"/link"); err != nil {
-			t.Fatal(err)
-		}
-		fx.self = fx.dir + "/link/scripts/migrate-worktrees.sh"
-		b, bwt := fx.dir+"/b", fx.dir+"/b/.worktrees/x"
-		fx.g.git("", "init", "-q", "-b", "main", b)
-		fx.g.git(b, "commit", "-q", "--allow-empty", "-m", "base")
-		fx.g.git(b, "worktree", "add", "-q", bwt, "-b", "spectre/x")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
-		}
-		mkdir(t, fx.fake+"/by/b/records")
-		writeFile(t, fx.fake+"/by/b/list.json", `{"source":"store","complete":true,"records":[]}`+"\n")
-		code, out, errb := fx.run(t, fx.path(), fx.repo, b)
-		if code != 0 || strings.Contains(out, "FAILED: ") {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		for _, want := range []string{fx.free + " -> " + fx.sibling + "/free", fx.held + " -> " + fx.sibling + "/held", bwt + " -> " + fx.dir + "/b-worktrees/x"} {
-			if len(rcwLines(out, "MIGRATED: "+want)) != 1 {
-				t.Errorf("no MIGRATED: %s\n%s", want, out)
-			}
-		}
-	})
-
 	t.Run("nothing to move", func(t *testing.T) {
 		t.Parallel()
 		fx := mwNewFx(t)
@@ -415,9 +376,9 @@ func TestMigrateWorktrees(t *testing.T) {
 		if err := os.WriteFile(fx.dir+"/self/check-worktree-processes.sh", []byte("#!/bin/sh\nexit 2\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		fx.self = fx.dir + "/self/migrate-worktrees.sh"
+		fx.processes = fx.dir + "/self/check-worktree-processes.sh"
 		code, out, _ := fx.run(t, fx.path())
-		if code != 1 || len(rcwLines(out, "FAILED: "+fx.free+" — check-worktree-processes.sh could not answer")) != 1 {
+		if code != 1 || len(rcwLines(out, "FAILED: "+fx.free+" — flow-guard check-worktree-processes could not answer")) != 1 {
 			t.Fatalf("exit %d, stdout %q; want 1 and a FAILED line for %s", code, out, fx.free)
 		}
 		if !rcwExists(fx.free) || !rcwExists(fx.held) || len(fx.sets(t)) != 0 {
@@ -504,7 +465,7 @@ func TestMigrateWorktrees(t *testing.T) {
 			args []string
 			want string
 		}{
-			"usage":      {fx.path(), []string{}, "usage: migrate-worktrees.sh <main-checkout> [<main-checkout>...]"},
+			"usage":      {fx.path(), []string{}, "usage: flow-guard migrate-worktrees <main-checkout> [<main-checkout>...]"},
 			"not a repo": {fx.path(), []string{fx.fake}, "is not a git repository"},
 			"no flow":    {noFlow, nil, "no flow binary on PATH"},
 		} {

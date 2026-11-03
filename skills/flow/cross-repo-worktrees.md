@@ -6,13 +6,13 @@ repository holding no worktree for this change, `## visual verification` names a
 `regression checkout`, or the resolved worktree set spans more than one repository.
 
 **Every worktree this stage creates for a linked peer runs its
-repository's `## worktree setup` before anything else touches it**: before its `spectre link` and any task. Run `project-get.sh <that worktree> "worktree setup"` and
+repository's `## worktree setup` before anything else touches it**: before its `spectre link` and any task. Run `flow-guard project-get <that worktree> "worktree setup"` and
 handle it exactly as step 3 of **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) does for the kickoff worktree — only the fenced command lines, from
 that worktree's root, in order, in the foreground; exit 1 says the key is absent and continues;
 exit 2 stops the run; a command's non-zero exit ends the turn naming the command and its output. A
 worktree this stage resumes rather than creates runs nothing here. An `## apps` entry's worktree
-below gets its setup from `kickoff-worktree.sh`.
+below gets its setup from `flow-guard kickoff-worktree`.
 
 **After creating each additional worktree, run
 `spectre link --root <abs-worktree>/spectre <canonical-peer>:<name>` with the working directory at
@@ -27,7 +27,7 @@ nothing here.
 entry whose repository already holds one, and creates nothing for it; for each remaining entry:
 
 Every other entry gets one call,
-`<agents repo>/scripts/kickoff-worktree.sh --from <this change's worktree> <that repo> <name>`,
+`<agents repo>/scripts/flow-guard kickoff-worktree --from <this change's worktree> <that repo> <name>`,
 whose header is canonical for the steps: the location guard; resuming `origin/spectre/<name>`, or
 cutting from `origin/<base>` when this change's worktree records a flowBase, else
 `origin/<default-branch>`; the flowBase recorded in that repository; the merge base persisted into
@@ -59,7 +59,7 @@ validate` accepts there — never the `## apps` row's label; a resolved reposito
 declare is a hard failure of this stage, reported and stopping the run like a refused link, until the
 project declares it. The write lands on disk in the
 worktree holding the file, and what it wrote is recorded
-in the working notes beside the merge bases. `kickoff-worktree.sh --from <canonical worktree>` makes
+in the working notes beside the merge bases. `flow-guard kickoff-worktree --from <canonical worktree>` makes
 this record itself once that worktree holds `<changeRoot>` — writing the `link.md` in the shape
 below, or appending its repository's peers name — with no commit by its caller. A change with one repository runs nothing here.
 

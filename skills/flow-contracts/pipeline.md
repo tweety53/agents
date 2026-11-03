@@ -230,11 +230,11 @@ behaviour. For this section alone `<agents repo>` is a repository the run was gi
 
 **Predict the class before any work, from the blast radius — never from a plan.** Count the
 files the fix must touch: the defective file, its test, and every file `grep -rl` finds in
-`<agents repo>` citing the name or section the fix changes. The fix is `big` — `plan-class.sh`'s
+`<agents repo>` citing the name or section the fix changes. The fix is `big` — `flow-guard plan-class`'s
 own `files>=60` threshold — when that count is 60 or more. A `big` fix is
 deferred to self-review, and so is one found `big` once under way, which stops there. **Nothing
 else is ever deferred** — not "after the loop", not to the self-review, not to the operator: a
-non-`big` fix lands before the run's final report, and `integrate-change.sh commit` stops on a
+non-`big` fix lands before the run's final report, and `flow-guard integrate-change commit` stops on a
 `deferred` line under 60 files.
 
 **A fix that reaches outside `<agents repo>` is never `big` for that alone** — a fix to the
@@ -260,14 +260,14 @@ the paragraphs every prompt carries, the no-progress escalation, and each item t
 cite. One loop carries one defect, `<k>` one more than the highest `<n>` of any
 `pipeline-fix-*-<n>` change record in flowd, worktree name, ref, or `flow.loop-k-used` mark —
 whatever change it was for — so `<k>` is unique across
-`<agents repo>` and no two loops, concurrent or later, share a key (`pipeline-fix.sh start`
+`<agents repo>` and no two loops, concurrent or later, share a key (`flow-guard pipeline-fix start`
 refuses any other `<k>`); its name
 `pipeline-fix-<name>-<k>`, `<name>` the running change, stands for `self-review-<name>` there —
 the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-base>` for
 `<fix-base>`; the parent is that file's "this session".
 
 1. **Plan, then fix** — the parent creates the fix's own worktree with
-   `<agents repo>/scripts/pipeline-fix.sh start <name> <k>` — never the main checkout, never the
+   `<agents repo>/scripts/flow-guard pipeline-fix start <name> <k>` — never the main checkout, never the
    change's own worktree. It dispatches `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast
    radius, then `pipeline-fix-<k>-fix`, `-fix-g<g>` when the planner recorded more than one group,
    each as item 1 there states. Each prompt carries its `Key: pipeline-fix-<k>-<suffix>` as a line
@@ -278,15 +278,15 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.
 3. **Fix the findings** — a fresh `pipeline-fix-<k>-fix-<r>`, as item 3 there states, under
    **Fewest operator actions** above. A defect whose commit the review drops is re-planned: the
-   parent runs `<agents repo>/scripts/pipeline-fix.sh drop <worktree>`, landing nothing, and opens
+   parent runs `<agents repo>/scripts/flow-guard pipeline-fix drop <worktree>`, landing nothing, and opens
    a fresh loop on it, its planner carrying the review's objection.
 4. **Land** — once the parent has ticked the plan and run the lint lines and tests, as
    item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
    `<agents repo>`'s `## default landing route`
-   (`project-get.sh <agents repo> 'default landing route'`), without asking. Merge and push is
-   `<agents repo>/scripts/pipeline-fix.sh land <worktree>`, run with a Bash `timeout: 600000` —
+   (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is
+   `<agents repo>/scripts/flow-guard pipeline-fix land <worktree>`, run with a Bash `timeout: 600000` —
    a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
-   On that route the loop runs no separate `pipeline-fix.sh verify`: land runs it on the rebased HEAD,
+   On that route the loop runs no separate `flow-guard pipeline-fix verify`: land runs it on the rebased HEAD,
    and its `red:` lines feed `pipeline-fix-<k>-fix-v<v>` as a verify's do.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
@@ -380,7 +380,7 @@ with its dispatch description's unit and its round (`Task 30/31 review-1 — run
 
 **The progress view is a view, never a record.** No command, guard or contract reads it back as
 evidence of what was done. `tasks.md` remains the single source of truth for a
-plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file.
+plan's completion state, and `<agents repo>/scripts/flow-guard check-unfinished-work` reads that file.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
 count comes from no persisted record at all — the board's rows are session state, never written
@@ -395,7 +395,7 @@ the implementation branch, a finish run's steps on the integrate/cleanup branch.
 ## Quiet progress
 
 **Opt-in, off by default.** A `/flow` run resolves the project's `## progress` key once, at its
-start, with `project-get.sh <main-checkout> progress --enum quiet` (**Project configuration**,
+start, with `flow-guard project-get <main-checkout> progress --enum quiet` (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`): exit 0 turns the mode on for the whole run; exit
 1 leaves it off; exit 3 is reported by name and leaves it off.
 
@@ -620,29 +620,20 @@ Paths are absolute, resolved from `git worktree list`. Never emit a relative pat
 
 ## Guard resolution
 
-**A named guard resolves to `<skill-dir>/scripts/<name>`.**
-Skills and contracts name a guard by **basename**, never by a path relative to a repository root.
-
-`skills/flow-contracts/` is never a running command and carries no
-`skills/flow-contracts/scripts/` directory. See **Guard resolution**
-(`skills/flow-contracts/pipeline-rationale.md`) for what resolving against the running command's
-own skill directory buys.
+**A named guard runs as `flow-guard <name>`.** `flow-guard` resolves on `PATH` to the shim
+`<agents repo>/setup.sh global` installs, which execs `<agents repo>/scripts/flow-guard` — the binary built
+from that checkout, never a `flow-guard` installed anywhere else. Skills and contracts name a guard
+by that command, never by a path relative to a repository root.
 
 ## Guard presence check
 
-`/flow` checks, once at the start of its run, that every guard it can invoke —
-per **Guard resolution** above — is present in `<skill-dir>/scripts/`. A complete
-set prints nothing. Any absence prints exactly one block, naming every missing guard, the
-directory searched, and the install command, then the run continues:
+`/flow` checks, once at the start of its run, that `flow-guard` resolves on `PATH`. A resolving
+command prints nothing. Otherwise it prints exactly one block, then the run continues:
 
 ```text
-⚠ GUARDS MISSING — 3 of 6 not found at
-  <skill-dir>/scripts/
-    check-finish-preflight.sh
-    check-unfinished-work.sh
-    check-cleanup-complete.sh
+⚠ GUARDS MISSING — flow-guard not found on PATH
 These checks will be performed BY HAND.
-Re-run ./setup.sh global to install them.
+Re-run ./setup.sh global to install it.
 ```
 
 **This is a report, never a gate.** Each contract's existing hand-run fallback still governs the
@@ -650,17 +641,6 @@ call site a missing guard would have covered, and the handoff says those checks 
 A guard is never skipped for want of the script — this changes only when its absence is noticed,
 not what happens next. The block is printed once, at the start of the run; a later call site for
 one of the guards it already named performs the check by hand without printing the block again.
-
-**The check covers a named guard's own sibling dependencies too, not only the guard itself.** See
-**Guard presence check** (`skills/flow-contracts/pipeline-rationale.md`) for the mechanism and
-examples. Derive a
-guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` and `$(dirname -- "${BASH_SOURCE[0]}")/<name>`, the spelling most `flow-guard` shims load `<agents repo>/scripts/lib/flow-guard.sh` by — rather than trusting a
-hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
-here would drift from that guard's own dependencies the moment they change.
-
-The guards a command can invoke are derived, never listed: every `<name>.sh` the command's own
-skill files and the contracts they load name — the set `<agents repo>/scripts/check-guard-symlinks.sh`'s
-rule 2 derives at lint time. Each command cites this section for the block shape.
 
 ## Hand-verifying a guard verdict
 

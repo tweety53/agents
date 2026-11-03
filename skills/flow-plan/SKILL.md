@@ -30,7 +30,7 @@ get there is scripted. You're a thinking partner helping the user explore.
 `/flow-plan` runs entirely in the current session, on its own model, with any argument shape —
 a Jira key, an existing change's name, a bare topic, or nothing at all. The session may dispatch
 the fresh Explore and Plan agents **Explore and design agents** (`skills/flow/brainstorm-planner.md`)
-allows — its pair from `plan-agent-pair.sh <session-token> <n> <role>`, seeded with this session's
+allows — its pair from `flow-guard plan-agent-pair <session-token> <n> <role>`, seeded with this session's
 token — never a `fork`; the session itself
 does the thinking: it reads the tree, runs the investigate-then-ask rounds and the convergence check
 below, and creates the change or offers the `design.md` capture directly. Every "you" elsewhere
@@ -189,7 +189,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    same session. `tasks.md` starts as one task per breakdown item.
 4. **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) — the
    enrichment, its guards and `flow tasks count`, as written.
-5. **Decide** (`skills/flow/brainstorm-planner.md`) — `plan-class.sh` on `<changeRoot>/tasks.md`
+5. **Decide** (`skills/flow/brainstorm-planner.md`) — `flow-guard plan-class` on `<changeRoot>/tasks.md`
    with `<repos>` the number of distinct repository roots the plan's `**Files:**` fall under
    (the project's `## apps` table; `1` when every path is in this one);
    `REVIEWERS` per **Model resolution** (`skills/flow/SKILL.md`); the JSON at
@@ -205,12 +205,11 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    Mandatory: **No** revises and re-decides per that section, recording each re-decision through
    the call above, and the snapshot below is taken only on **Yes**.
 
-Every guard those sections invoke resolves per **Guard resolution**
-(`skills/flow-contracts/pipeline.md`) against this skill's own scripts directory, which carries
-each one those sections run: `kickoff-worktree.sh <project> <name>` with its siblings
-`check-worktree-location.sh <project>` and `project-get.sh <project> <key>` (kickoff), `check-plan-shape.sh <tasks.md>` (D and the gate),
-`plan-class.sh <tasks.md> <repos>`, `plan-dispatch-bundles.sh <tasks.md>` and
-`plan-dispatch-groups.sh <tasks.md>` (Decide).
+Every guard those sections invoke runs per **Guard resolution**
+(`skills/flow-contracts/pipeline.md`): `flow-guard kickoff-worktree <project> <name>` with its siblings
+`flow-guard check-worktree-location <project>` and `flow-guard project-get <project> <key>` (kickoff), `flow-guard check-plan-shape <tasks.md>` (D and the gate),
+`flow-guard plan-class <tasks.md> <repos>`, `flow-guard plan-dispatch-bundles <tasks.md>` and
+`flow-guard plan-dispatch-groups <tasks.md>` (Decide).
 
 **On Yes, take the plan snapshot** (**Plan snapshots**, `skills/flow/brainstorm.md`) — nothing is
 staged, committed or pushed: a capture leaves the change on disk at `STARTED` in its worktree,

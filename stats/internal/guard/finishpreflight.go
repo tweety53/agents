@@ -5,14 +5,71 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 )
 
-// checkFinishPreflight is scripts/check-finish-preflight.sh: that script's
-// header comment is the contract -- one RUN1/RUN2/REFUSE verdict line on
+// The contract below moved here from the header of the deleted
+// scripts/check-finish-preflight.sh shim (KAN-1058).
+//
+// flow-guard check-finish-preflight — decide whether /flow should integrate
+// (run 1) or clean up (run 2), or refuse because it cannot tell.
+//
+// Usage: flow-guard check-finish-preflight <worktree> <base-ref> <recorded-merge-base|->
+//
+// Prints ONE verdict line to stdout:
+//   RUN1: <reason>    integrate — the branch has not reached the base branch
+//   RUN2: <reason>    clean up  — the branch is merged and nothing is outstanding
+//   REFUSE: <reason>  stop and ask the operator
+//
+// Exit 0 whenever a verdict was reached; exit 2 when the tree cannot be read.
+// The VERDICT carries the answer, not the exit status: an exit-code-only
+// protocol makes "cannot determine" indistinguishable from "violation", which
+// is the exact confusion this script exists to remove. Exit 2 keeps the
+// meaning this repository's other guards give it.
+//
+// THE STRAY-WORKTREE ASSERTION. A would-be RUN2 verdict is REFUSEd instead
+// — `REFUSE: stray worktree(s): …` — when `flow-guard check-worktree-location
+// <main-checkout>` exits 1, relaying its STRAY lines; the main checkout is
+// resolved from <worktree> via `git rev-parse --git-common-dir`, never taken
+// as an argument. This check runs last, immediately before the RUN2 line it
+// can still turn into a REFUSE — it never affects a RUN1 or an earlier
+// REFUSE. The main checkout's own branch and tracked state are not asserted:
+// run 2 only fast-forwards it, flow-guard refresh-main-checkout refuses by name what
+// it cannot fast-forward, and that refusal never blocks FINISHED.
+//
+// WHY SIGNAL ORDER IS THE WHOLE FIX. A branch with no commits of its own is an
+// ancestor of EVERY branch, so `merge-base --is-ancestor` answers "merged" on a
+// branch whose work is staged and never committed — the normal IN_PROGRESS
+// state, since /flow's implement phase may not commit before a PR exists. Run 2 would then
+// archive the change and `git worktree remove --force` the worktree holding all
+// of it. Comparing HEAD with the merge base RECORDED IN THE STATE FILE catches
+// it; counting commits ahead of the base branch does NOT, because a genuinely
+// merged branch is also zero ahead once its commit joins the base branch.
+//
+// Base-branch resolution is owned by flow-guard resolve-base-branch, not by this
+// script — the caller resolves it and passes it in. That guard already
+// carries a hard-won assertion against HEAD@{upstream}; a second copy here
+// could drift from it.
+//
+// What THIS script owns (KAN-88, design.md:
+// preflight-resolves-remote-tracking): the base ref it was HANDED may name a
+// local branch that has fallen behind its remote-tracking counterpart — the
+// caller composes `origin/$BASE`, but a caller that regresses to a bare name
+// must not silently feed a stale local branch into the RUN1/RUN2 decision.
+// EFFECTIVE_REF (resolveRemoteBase in stats/internal/guard/resolveremotebase.go)
+// substitutes `refs/remotes/origin/<base-ref>` for BASE_REF when it resolves
+// (design.md: remote-lookup-is-a-preference-not-a-rewrite — a preference, not
+// a rewrite: `origin/main` looks up `origin/origin/main`, finds nothing, and
+// passes through unchanged); every verdict line names EFFECTIVE_REF rather
+// than the raw argument, so each names the ref the test actually ran against.
+//
+// HOW TO HAND-VERIFY A REFUSE VERDICT (KAN-446). Re-derive the refused signal
+// by hand: which of the branch states, the worktree's uncommitted entries, or
+// stray worktrees fired — fix the cause, never the verdict.
+
+// checkFinishPreflight is `flow-guard check-finish-preflight`: the comment above is the contract -- one RUN1/RUN2/REFUSE verdict line on
 // stdout, exit 0 whenever a verdict was reached, exit 2 when the tree cannot
 // be read. The reasoning for each step, moved here from the bash body it
 // replaced (d71a2327), sits beside the code it explains.
@@ -29,7 +86,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	worktree, baseRef, recorded := arg(0), arg(1), arg(2)
 	if worktree == "" || baseRef == "" || recorded == "" {
-		fmt.Fprint(stderr, baseRefUsage("check-finish-preflight.sh"))
+		fmt.Fprint(stderr, baseRefUsage("flow-guard check-finish-preflight"))
 		return 2
 	}
 	if !isDir(smcAbs(env, worktree)) {
@@ -114,7 +171,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 
 	// (e) The stray-worktree assertion — see "THE STRAY-WORKTREE ASSERTION"
-	//     in the shim's header for the REFUSE grammar below. The main
+	//     in the comment above for the REFUSE grammar below. The main
 	//     checkout's branch and tracked state are not asserted: run 2 only
 	//     fast-forwards it, and refresh-main-checkout.sh refuses by name
 	//     whatever it cannot fast-forward.
@@ -136,22 +193,14 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	}
 
-	// check-worktree-location is exec'd as a sibling script, from beside the
-	// shim with the shim's argv. The shim exports its path as
-	// $SCRIPT_DIR/check-worktree-location.sh — the spelling check-guard-symlinks
-	// rule 2 reads to require the sibling wherever the shim is carried.
-	location := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION")
-	if location == "" {
-		fmt.Fprintln(stderr, "check-finish-preflight: FLOW_GUARD_WORKTREE_LOCATION is unset — run scripts/check-finish-preflight.sh, which sets it")
-		return 2
-	}
-	if syscall.Access(location, 1) != nil { // `[ -x ]`
+	// check-worktree-location runs in this same binary (runSibling), or as
+	// the executable FLOW_GUARD_WORKTREE_LOCATION names.
+	if location := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"); location != "" && syscall.Access(location, 1) != nil { // `[ -x ]`
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is missing or not executable — cannot determine anything\n", location)
 		return 2
 	}
 	var locOut, locErr bytes.Buffer
-	cmd := exec.Command(location, mainCheckout)
-	cmd.Dir = env.Dir
+	cmd := siblingCmd(env, "FLOW_GUARD_WORKTREE_LOCATION", "check-worktree-location", mainCheckout)
 	cmd.Stdout, cmd.Stderr = &locOut, &locErr
 	rc := exitCode(cmd.Run())
 	switch {
@@ -177,7 +226,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 		return 2
 	case rc != 0:
-		fmt.Fprintf(stderr, "check-finish-preflight: check-worktree-location.sh exited %d against %s — cannot determine anything\n", rc, mainCheckout)
+		fmt.Fprintf(stderr, "check-finish-preflight: flow-guard check-worktree-location exited %d against %s — cannot determine anything\n", rc, mainCheckout)
 		return 2
 	}
 

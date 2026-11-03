@@ -1032,7 +1032,7 @@ project_standards_entries() {
 # project_lint_commands_block <project-dir> <rule-name>
 #
 # The project's declared lint commands, one per line, read from `.flow/project.md`'s
-# ## lint section through scripts/project-get.sh — the same reader every /flow phase
+# ## lint section through `scripts/flow-guard project-get` — the same reader every /flow phase
 # uses, so the rendered block and the commands the pipeline runs can never drift apart.
 # The rule supplies its own fence around the placeholder, so the commands land inside a
 # ```bash block the rule file's own markdown shape already carries. Dies when the
@@ -1042,15 +1042,15 @@ project_standards_entries() {
 project_lint_commands_block() {
   local project_dir="$1" rule_name="$2" body rc commands
   rc=0
-  body="$("$SCRIPT_DIR/scripts/project-get.sh" "$project_dir" lint)" || rc=$?
+  body="$("$SCRIPT_DIR/scripts/flow-guard" project-get "$project_dir" lint)" || rc=$?
   if (( rc == 1 )); then
     die "the project's resolved .flow/project.md carries no ## lint section for the placeholder
-  in $rule_name to render from. project-get.sh resolves HEAD's copy when the project
+  in $rule_name to render from. flow-guard project-get resolves HEAD's copy when the project
   sits in a git work tree, so a section that exists only uncommitted does not count:
   commit the ## lint section, or drop the rule from ## standards, then re-run."
   fi
   if (( rc != 0 )); then
-    die "cannot read the project's ## lint section (project-get.sh exit $rc): the placeholder
+    die "cannot read the project's ## lint section (flow-guard project-get exit $rc): the placeholder
   in $rule_name has nothing safe to render from."
   fi
   commands="$(awk '
@@ -1169,16 +1169,16 @@ install_project_standards() {
 }
 
 # install_script_shims <bin-dir>
-# Writes one exec shim per flow script into <bin-dir> (~/.local/bin), so the bare script names
-# the skills cite (`project-get.sh <root> <key>`) resolve on PATH (kan-998). ~/.local/bin because
-# it is already on PATH and already holds `flow`. A shim, not a symlink: the scripts load their
-# siblings through BASH_SOURCE (`$(dirname "${BASH_SOURCE[0]}")/lib/...`), which a symlink would
-# point at the bin dir; exec keeps $0/BASH_SOURCE at the real path. A shim carries the marker line
-# and only marked files are ever removed or rewritten — a user's own file of the same name is
-# SKIPPED with a warning, never touched. test-*.sh scripts get no shim.
+# Writes one exec shim, flow-guard, into <bin-dir> (~/.local/bin), so the `flow-guard <name>` the
+# skills cite resolves on PATH onto scripts/flow-guard, the bootstrap every guard runs through
+# (kan-998, KAN-1058). ~/.local/bin because it is already on PATH and already holds `flow`. A
+# shim, not a symlink: exec keeps the bootstrap's own path, which it derives its checkout from.
+# A shim carries the marker line and only marked files are ever removed or rewritten — so every
+# per-name .sh shim an earlier install wrote is removed here — and a user's own file of the same
+# name is SKIPPED with a warning, never touched.
 SHIM_MARKER='# flow script shim — written by setup.sh global; do not edit'
 install_script_shims() {
-  local bin="$1" f src name
+  local bin="$1" f src="$SCRIPT_DIR/scripts/flow-guard" name=flow-guard
   # ponytail: the exec target is single-quoted, so a checkout path holding ' is refused
   # rather than escaped; escape it if such a checkout ever matters.
   [[ "$SCRIPT_DIR" != *"'"* ]] || die "SCRIPT_DIR contains a single quote ($SCRIPT_DIR) — cannot write script shims"
@@ -1186,17 +1186,13 @@ install_script_shims() {
   for f in "$bin"/*; do
     [[ -f "$f" && ! -L "$f" ]] && grep -qxF "$SHIM_MARKER" "$f" && rm -f "$f"
   done
-  for src in "$SCRIPT_DIR"/scripts/*.sh; do
-    name="$(basename "$src")"
-    [[ "$name" == test-* || ! -x "$src" ]] && continue
-    if [[ -e "$bin/$name" || -L "$bin/$name" ]]; then
-      warn "$bin/$name already exists and is not a flow shim — SKIPPED, no shim written"
-      SKIPPED=$((SKIPPED + 1))
-      continue
-    fi
-    printf "#!/bin/sh\n%s\nexec '%s' \"\$@\"\n" "$SHIM_MARKER" "$src" > "$bin/$name"
-    chmod 0755 "$bin/$name"
-  done
+  if [[ -e "$bin/$name" || -L "$bin/$name" ]]; then
+    warn "$bin/$name already exists and is not a flow shim — SKIPPED, no shim written"
+    SKIPPED=$((SKIPPED + 1))
+    return
+  fi
+  printf "#!/bin/sh\n%s\nexec '%s' \"\$@\"\n" "$SHIM_MARKER" "$src" > "$bin/$name"
+  chmod 0755 "$bin/$name"
 }
 
 install_global() {

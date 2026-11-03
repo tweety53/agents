@@ -1,7 +1,7 @@
 ---
 name: flow-prompt-tuning
 description: Apply the generic implementer and reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay on each case's repro data proves them; record every case in docs/prompt-tuning/LEDGER.md, remove its folder and land the result. Standalone, not a pipeline stage. Use for /flow-prompt-tuning.
-allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/check-prompt-tuning-cases.sh:*), Bash(scripts/project-get.sh:*)
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/flow-guard check-prompt-tuning-cases:*), Bash(scripts/flow-guard project-get:*)
 license: MIT
 compatibility: Runs from the agents repository's main checkout, which stays read-only; needs the flow CLI and the Agent tool.
 ---
@@ -46,7 +46,7 @@ in a repository.
 ### 1. Walk
 
 List `<worktree>/docs/prompt-tuning/*/`. None: print `none pending`, remove the worktree and stop.
-Run `check-prompt-tuning-cases.sh <agents repo>-worktrees/prompt-tuning-<date>/docs/prompt-tuning`; a case it names in a red line is reported
+Run `flow-guard check-prompt-tuning-cases <agents repo>-worktrees/prompt-tuning-<date>/docs/prompt-tuning`; a case it names in a red line is reported
 by its folder and left untouched — never replayed, applied, recorded or deleted.
 
 ### 2. Group
@@ -60,7 +60,7 @@ case in it.
 If a group's `before` no longer occurs in the target at `<worktree>`'s HEAD, re-locate it. If the
 gap is gone, the group is rejected as `already covered`, with the line now covering it quoted.
 Otherwise the update is rewritten against the current text and re-checked by the genericity
-rules of `check-prompt-tuning-cases.sh`: the `after` names no source change, no Jira key, no
+rules of `flow-guard check-prompt-tuning-cases`: the `after` names no source change, no Jira key, no
 `kan-<digits>` key and no path or basename from the case's `bad.diff`/`good.diff` headers.
 
 ### 4. Replay (A/B)
@@ -114,12 +114,12 @@ A non-zero exit is reported with its stderr and the step continues: the store is
 
 For an applied case, `<sha>` is the commit that applied it. The ledger entries and the folder
 removals go in one commit, `docs(prompt-tuning): ledger <date>`, after the update commits.
-Before it is committed, `check-prompt-tuning-cases.sh` over the same root prints no line for `LEDGER.md` and none for a folder this run replayed; a line for a red case step 1 left untouched is expected and stays.
+Before it is committed, `flow-guard check-prompt-tuning-cases` over the same root prints no line for `LEDGER.md` and none for a folder this run replayed; a line for a red case step 1 left untouched is expected and stays.
 
 ### 7. Land
 
 Land the branch by `<agents repo>`'s `## default landing route`
-(`project-get.sh <agents repo> 'default landing route'`), without asking.
+(`flow-guard project-get <agents repo> 'default landing route'`), without asking.
 Then remove the worktree.
 
 ## Report

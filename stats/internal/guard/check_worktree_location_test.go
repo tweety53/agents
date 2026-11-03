@@ -139,9 +139,9 @@ func TestCheckWorktreeLocation(t *testing.T) {
 		wantErr func(args []string) string
 	}{
 		{"no argument", func(*testing.T) []string { return nil },
-			func([]string) string { return self + "usage: check-worktree-location.sh <project>\n" }},
+			func([]string) string { return self + "usage: flow-guard check-worktree-location <project>\n" }},
 		{"two arguments", func(*testing.T) []string { return []string{"a", "b"} },
-			func([]string) string { return self + "usage: check-worktree-location.sh <project>\n" }},
+			func([]string) string { return self + "usage: flow-guard check-worktree-location <project>\n" }},
 		// bash's `cd ""` refuses an empty operand rather than staying put.
 		{"empty argument", func(*testing.T) []string { return []string{""} },
 			func([]string) string { return self + " is not a directory\n" }},

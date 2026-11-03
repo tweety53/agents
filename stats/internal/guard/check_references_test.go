@@ -109,7 +109,7 @@ func TestCheckReferences(t *testing.T) {
 		// names the missing variable rather than scanning an empty root.
 		{label: "no override and FLOW_GUARD_REPO_ROOT unset exits 2 naming it",
 			env: func(t *testing.T, root string) Env { return crEnv(root, nil) }, rc: 2,
-			has: []string{"check-references: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-references.sh, which sets it"}},
+			has: []string{"check-references: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-references, which sets it"}},
 		{label: "in-code ** does not desync a live reference", files: map[string]string{ntp: "## State file\n\nbody\n",
 			demo: "See **State file** and code `x**y` in `rules/never-touch-production.mdc`.\n"}},
 		{label: "in-code ** does not mask a genuinely stale reference", files: map[string]string{ntp: "## Something else\n\nbody\n",

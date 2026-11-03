@@ -1,1 +1,0 @@
-../../../scripts/check-task-reviewer-single-dispatch.sh

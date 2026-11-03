@@ -98,8 +98,8 @@ func bpParity(t *testing.T, base, bashDir string, prep func(t *testing.T, repo s
 			cmd.Stdout, cmd.Stderr = &out, &errb
 			_ = cmd.Run()
 			r = mvRes{cmd.ProcessState.ExitCode(),
-				bpBashDiag.ReplaceAllString(out.String(), "break-and-prove: "),
-				bpBashDiag.ReplaceAllString(errb.String(), "break-and-prove: ")}
+				bashUsage(bpBashDiag.ReplaceAllString(out.String(), "break-and-prove: ")),
+				bashUsage(bpBashDiag.ReplaceAllString(errb.String(), "break-and-prove: "))}
 		} else {
 			r = bpProve(repo, args...)
 		}
@@ -414,7 +414,7 @@ func TestBreakAndProve(t *testing.T) {
 	// reaches it.
 	t.Run("shim", func(t *testing.T) {
 		t.Parallel()
-		shim := tcfScriptsDir(t) + "/break-and-prove.sh"
+		shim := guardShim(t, "break-and-prove")
 		linkDir := t.TempDir()
 		link := linkDir + "/break-and-prove.sh"
 		symlink(t, shim, link)
@@ -444,7 +444,7 @@ func TestBreakAndProve(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		cmd := exec.Command("/bin/bash", append([]string{tcfScriptsDir(t) + "/break-and-prove.sh"}, bpArgs(bpSed,
+		cmd := exec.Command("/bin/bash", append([]string{guardShim(t, "break-and-prove")}, bpArgs(bpSed,
 			[]string{"--", "sh", "-c", `echo ready > "$BP_READY"; read -r _ < "$BP_RELEASE"; exit 1`})...)...)
 		cmd.Dir = repo
 		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "BP_READY="+ready, "BP_RELEASE="+release)
@@ -475,7 +475,7 @@ func TestBreakAndProve(t *testing.T) {
 }
 
 // bpUsage is the usage line break-and-prove.sh printed at 9cd35da8.
-const bpUsage = "break-and-prove: usage: break-and-prove.sh [--clean <command>] <file> " +
+const bpUsage = "break-and-prove: usage: flow-guard break-and-prove [--clean <command>] <file> " +
 	"(--sed <expr> | --patch <patchfile>) -- <test-command> [<args>...]"
 
 // A test command found through a relative PATH entry ran at base; Go's

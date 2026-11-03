@@ -21,8 +21,43 @@ import (
 	"unicode/utf8"
 )
 
-// checkInstalledCitations is scripts/check-installed-citations.sh: that
-// script's header comment is the contract -- fail when a path citation in a
+// The contract below moved here from the header of the deleted
+// scripts/check-installed-citations.sh shim (KAN-1058).
+//
+// flow-guard check-installed-citations — fail when a path citation in an installed
+// file names no root.
+//
+// A file `setup.sh` installs or copies is read by an agent standing in
+// whatever tree the harness placed it — never necessarily this checkout. A
+// bare citation like `README.md` in such a file is read against THAT tree,
+// which is exactly how a bug ships. Which roots count (canonical definition:
+// the kan-239 citation-roots spec — not restated here), how the installed set
+// is derived by running the real setup.sh in a throwaway sandbox, and every
+// classifier exclusion are in stats/internal/guard/installedcitations.go.
+//
+// GUARD CONTRACT:
+//   0  clean — every citation in every installed file names a root, and
+//      every scanned member's coverage is either non-zero or declared.
+//   1  violations found — one or more citations name no root, or a member
+//      reported zero coverage without a declared reason. Fix the named
+//      file:line by prefixing the citation — or, for a line whose backticked
+//      content is a non-path marker or illustration, declare it with the
+//      `citations-guard:allow` line exemption; never silence a real hit.
+//   2  environment — the guard cannot determine anything: the root override
+//      is set but empty or not a directory, the sandboxed installer run
+//      failed, or a file it needed to read could not be read or decoded. A
+//      refusal writes its reason to stderr and NOTHING to stdout, so no
+//      caller can read an absent report as a clean one.
+//
+// Takes no arguments. CHECK_INSTALLED_CITATIONS_ROOT, when set, replaces the
+// scanned root (this checkout) — for tests only, never a normal invocation.
+//
+// Ported to Go (KAN-778), replacing this wrapper and
+// the Python guard it ran: classification and the coverage decision
+// (coverage.go) now run in one process, so the
+// sentinel-prefix hand-off between the two files is gone. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root the Python derived from its own resolved location.
+
+// checkInstalledCitations is `flow-guard check-installed-citations`: the comment above is the contract -- fail when a path citation in a
 // file setup.sh installs names no root. Exit 0 clean (every citation names a
 // root, every scanned member's coverage non-zero or declared), 1 violations
 // (an unrooted citation, or an undeclared zero), 2 cannot answer (the root
@@ -96,9 +131,9 @@ var cicExpectedZero = [][2]string{
 	{"rules/dependency-versions.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/fix-determinism-at-the-source.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
 	{"rules/never-touch-production.mdc", "always-on rule body — cites no .md/.mdc path at all, backticked or bare"},
-	{"skills/flow/primary-reviewer-prompt.md", "reviewer template — every path it cited sat in its Placeholders list, which render-slot-prompt.sh now fills from review-panel.md's table"},
-	{"skills/flow/principles-reviewer-prompt.md", "reviewer template — every path it cited sat in its Placeholders list, which render-slot-prompt.sh now fills from review-panel.md's table"},
-	{"skills/flow/failure-modes-reviewer-prompt.md", "reviewer template — every path it cited sat in its Placeholders list, which render-slot-prompt.sh now fills from review-panel.md's table"},
+	{"skills/flow/primary-reviewer-prompt.md", "reviewer template — every path it cited sat in its Placeholders list, which flow-guard render-slot-prompt now fills from review-panel.md's table"},
+	{"skills/flow/principles-reviewer-prompt.md", "reviewer template — every path it cited sat in its Placeholders list, which flow-guard render-slot-prompt now fills from review-panel.md's table"},
+	{"skills/flow/failure-modes-reviewer-prompt.md", "reviewer template — every path it cited sat in its Placeholders list, which flow-guard render-slot-prompt now fills from review-panel.md's table"},
 	{"skills/flow/engineering-principles.md", "reviewer-prompt file, deliberately self-contained — cites principles-reviewer-prompt.md only via a Markdown link, a shape this guard's classifier does not scan"},
 	{"commands-claude/flow.md", "command-dispatch stub — delegates to the flow skill by name, not by path; cites no .md/.mdc path at all"},
 	{"commands-claude/flow-plan.md", "command-dispatch stub — delegates to the flow-plan skill by name, not by path; cites no .md/.mdc path at all"},
@@ -119,8 +154,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 	// The root is this guard's own checkout by default — the physical
 	// parent of scripts/, which has exactly one home, never symlinked into
 	// a skill's own directory (the farm distributes skills/, not scripts/),
-	// so it never answers a skill directory by accident. The binary lives
-	// in a cache, so its shim exports it as FLOW_GUARD_REPO_ROOT.
+	// so it never answers a skill directory by accident. It is FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports.
 	// CHECK_INSTALLED_CITATIONS_ROOT is an explicit, opt-in override honoured
 	// only when set, solely so the tests can point this guard at a sandboxed
 	// fixture tree without touching this repository — never set it for a
@@ -132,7 +166,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-installed-citations.sh, which sets it\n", cicName)
+			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-installed-citations, which sets it\n", cicName)
 			return 2
 		}
 	}

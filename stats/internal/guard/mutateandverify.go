@@ -17,8 +17,61 @@ import (
 	"time"
 )
 
-// mutateAndVerify is scripts/mutate-and-verify.sh: that script's header
-// comment is the contract — apply a mutation, run each harness before and
+// The contract below moved here from the header of the deleted
+// scripts/mutate-and-verify.sh shim (KAN-1058).
+//
+// flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]
+//
+// After `--`, one project test command as an argv vector (never a shell
+// string) — e.g. `-- ./gradlew :app:testDebugUnitTest --tests '<class>'`
+// — runs before and after the mutation with the file harnesses, its
+// verdict read from its exit code (on a clean baseline: mutated
+// non-zero is caught, mutated 0 is a surviving mutant; a command that
+// fails on both passes produces no new failure). File harnesses may be
+// omitted when a command is given. Every run is bounded by
+// MUTATE_AND_VERIFY_TIMEOUT_SECONDS (all digits, else 300): the run's
+// whole process group gets SIGTERM, then SIGKILL after 2s. A mutated
+// run that times out counts as killed (caught); a baseline run that
+// times out is cannot-answer (exit 4), there being no baseline to
+// diff against.
+//
+// Mechanizes the review panel's fix-round mutation-proof loop
+// (skills/flow/review-panel.md, "The fix round mutation-proves what it
+// changed"): apply a mutation, run one or more scripts/test-*.sh-shaped
+// harnesses before and after, report the new-failure set per harness,
+// flag a suspiciously broad blast radius rather than reporting it as a
+// strong pass, then unconditionally restore and verify the touched files
+// are clean. WHICH mechanism to mutate and whether a survivor is real or
+// equivalent stay the caller's own judgment calls — this script only does
+// the mechanics. Commit the fix before the first flip: a touched file
+// carrying uncommitted changes is refused outright (exit 2, nothing
+// mutated), and the unconditional restore is `git checkout --`, which
+// reverts the file to its index state — commit-first is what makes that
+// restore well-defined. A harness's after-run is proof only once the
+// mutation is asserted landed, the mutated bytes read back from disk the
+// ones the patch wrote.
+//
+// Exit codes (mirrors flow-guard run-reproducer's own philosophy: the code reports
+// this script's own mechanics, never a verdict on the mutation):
+//   0  ran clean — the patch applied, every harness ran before and after,
+//      the mutation was reverted, and the touched files were verified clean
+//      afterward. The per-harness verdict (surviving mutant / caught /
+//      suspicious blast radius) is in the report body, never the exit code.
+//   2  refused before mutating anything — the patch does not apply cleanly,
+//      a file it touches already has uncommitted changes, or a named
+//      harness does not exist or is not executable — OR post-restore
+//      drift: the touched files restored clean but the tree no longer
+//      matches its pre-mutation snapshot (a new stash entry or an
+//      unexpected status line, each named in the report).
+//   3  could not fully restore — after `git checkout --` the touched files
+//      are still not clean; the residual `git status --porcelain` output is
+//      printed and the files may still be mutated. Takes precedence over
+//      exit 2 when both drift kinds fire.
+//   4  cannot answer — bad usage, not inside a git worktree, a harness
+//      produced no readable `ok:`/`FAIL:` line at all on either run, or
+//      a run timed out on the baseline pass.
+
+// mutateAndVerify is `flow-guard mutate-and-verify`: the comment above is the contract — apply a mutation, run each harness before and
 // after, report the new-failure set per harness, then unconditionally restore
 // and verify the touched files are clean; exit 0 ran clean, 2 refused before
 // mutating anything or post-restore drift, 3 could not fully restore, 4
@@ -45,12 +98,12 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	if i := slices.Index(args, "--"); i >= 0 {
 		rest, cmdArgv = args[:i], args[i+1:]
 		if len(cmdArgv) == 0 {
-			fmt.Fprintln(stderr, "mutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]")
+			fmt.Fprintln(stderr, "mutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]")
 			return 4
 		}
 	}
 	if len(rest) < 1 || (len(rest) < 2 && len(cmdArgv) == 0) {
-		fmt.Fprintln(stderr, "mutate-and-verify: usage: mutate-and-verify.sh <patch-file> <harness>... [-- <command> <args>...]")
+		fmt.Fprintln(stderr, "mutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]")
 		return 4
 	}
 	args = rest

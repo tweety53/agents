@@ -108,7 +108,7 @@ func TestCheckReviewGate(t *testing.T) {
 			sha := rgCommit(t, wt, "a.txt", rgLines(1))
 			return []string{wt, "9", sha, wt, "demo"}
 		}, 2, "check-review-gate: COULD NOT JUDGE — task 9 not found"},
-		{"usage", func(t *testing.T) []string { return []string{"x"} }, 2, "check-review-gate: COULD NOT JUDGE — usage: check-review-gate.sh"},
+		{"usage", func(t *testing.T) []string { return []string{"x"} }, 2, "check-review-gate: COULD NOT JUDGE — usage: flow-guard check-review-gate"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

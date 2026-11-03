@@ -125,7 +125,7 @@ func (fx kwFx) started(t *testing.T) {
 // ones production runs.
 func (fx kwFx) run(t *testing.T, args ...string) guardResult {
 	t.Helper()
-	cmd := exec.Command("bash", append([]string{tcfScriptsDir(t) + "/kickoff-worktree.sh"}, args...)...)
+	cmd := exec.Command("bash", append([]string{guardShim(t, "kickoff-worktree")}, args...)...)
 	cmd.Env = fx.env
 	var o, e bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &o, &e
@@ -393,7 +393,7 @@ func TestKickoffWorktree(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "", true)
 		r := fx.run(t, fx.project)
-		if r.rc != 2 || r.err != "usage: kickoff-worktree.sh [--from <worktree>] <project> <name> [<base>]\n" {
+		if r.rc != 2 || r.err != "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
 		}
 	})

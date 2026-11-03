@@ -424,7 +424,7 @@ func (v *vvp) relayContract() string {
 	root := v.env.Getenv("FLOW_GUARD_REPO_ROOT")
 	b, err := os.ReadFile(filepath.Join(root, "skills", "flow", "visual-verify.md"))
 	if root == "" || err != nil {
-		v.die("cannot read skills/flow/visual-verify.md under FLOW_GUARD_REPO_ROOT '%s' — run scripts/visual-verify-pass.sh, which sets it", root)
+		v.die("cannot read skills/flow/visual-verify.md under FLOW_GUARD_REPO_ROOT '%s' — run flow-guard visual-verify-pass, which sets it", root)
 	}
 	var para []string
 	for _, l := range strings.Split(string(b), "\n") {

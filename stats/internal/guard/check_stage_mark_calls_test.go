@@ -207,12 +207,12 @@ func TestCheckStageMarkCalls(t *testing.T) {
 				{"case 29: the breakdown counts the `record dispatch` call site", func(_ int, out, dir string) bool {
 					return strings.Contains(out, smcFile(dir)+" 1")
 				}}}},
-		{files: map[string]string{"integrate.md": block(`integrate-change.sh prepare <main-checkout> <name> --harness <harness> --session-token "mf-$(date +%s)"` + "\n")},
-			checks: []smcCheck{smcRC("a substituted session token on an integrate-change.sh call is caught", 1),
-				smcHas("the integrate-change.sh finding names the substitution shape", "command substitution")}},
-		{files: map[string]string{"cleanup.md": block("integrate-change.sh cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>\n")},
-			checks: []smcCheck{smcRC("a literal session token on an integrate-change.sh call passes", 0),
-				{"the breakdown counts the integrate-change.sh call site", func(_ int, out, dir string) bool {
+		{files: map[string]string{"integrate.md": block(`flow-guard integrate-change prepare <main-checkout> <name> --harness <harness> --session-token "mf-$(date +%s)"` + "\n")},
+			checks: []smcCheck{smcRC("a substituted session token on an flow-guard integrate-change call is caught", 1),
+				smcHas("the flow-guard integrate-change finding names the substitution shape", "command substitution")}},
+		{files: map[string]string{"cleanup.md": block("flow-guard integrate-change cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>\n")},
+			checks: []smcCheck{smcRC("a literal session token on an flow-guard integrate-change call passes", 0),
+				{"the breakdown counts the flow-guard integrate-change call site", func(_ int, out, dir string) bool {
 					return strings.Contains(out, dir+"/cleanup.md 1")
 				}}}},
 		{files: map[string]string{"SKILL.md": block("flow record dispatch -change <name> -role reviewer -slot Primary -model sonnet \\\n",
@@ -442,16 +442,16 @@ func TestStageMarkCallsChecksStageMark(t *testing.T) {
 	}
 }
 
-// TestCheckStageMarkCallsVisualVerifyPass pins that a `visual-verify-pass.sh
+// TestCheckStageMarkCallsVisualVerifyPass pins that a `flow-guard visual-verify-pass
 // prepare` line, which begins the visual-verify stage and its verifier rows,
-// takes integrate-change.sh's token and harness rules; a `close` line, which
+// takes flow-guard integrate-change's token and harness rules; a `close` line, which
 // ends them, the token rules alone, as `flow record dispatch`'s; and a
 // `measure` line, which marks nothing, is not a call.
 func TestCheckStageMarkCallsVisualVerifyPass(t *testing.T) {
 	t.Parallel()
 	const (
-		prep = "visual-verify-pass.sh prepare <canonical-worktree> <name> <key> "
-		cls  = "visual-verify-pass.sh close <canonical-worktree> <name> <key> <motions named> "
+		prep = "flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> "
+		cls  = "flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> "
 	)
 	cases := []struct {
 		name, line string
@@ -460,15 +460,15 @@ func TestCheckStageMarkCallsVisualVerifyPass(t *testing.T) {
 	}{
 		{"prepare compliant", prep + "--harness <harness> --session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
 		{"prepare continued", prep + "\\\n  --harness <harness> --session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
-		{"prepare no token", prep + "--harness <harness>", 1, "`visual-verify-pass.sh prepare` carries no -session-token"},
+		{"prepare no token", prep + "--harness <harness>", 1, "`flow-guard visual-verify-pass prepare` carries no -session-token"},
 		{"prepare substituted token", prep + `--harness <harness> --session-token "mf-$(date +%s)"`, 1, "contains a command substitution"},
-		{"prepare no harness", prep + "--session-token mf-abc123", 1, "`visual-verify-pass.sh prepare` carries no -harness"},
+		{"prepare no harness", prep + "--session-token mf-abc123", 1, "`flow-guard visual-verify-pass prepare` carries no -harness"},
 		{"prepare literal harness", prep + "--harness claude-code --session-token mf-abc123", 1, "-harness claude-code is a hardcoded literal"},
 		{"close compliant", cls + "--session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
-		{"close no token", cls, 1, "`visual-verify-pass.sh close` carries no -session-token"},
+		{"close no token", cls, 1, "`flow-guard visual-verify-pass close` carries no -session-token"},
 		{"close substituted token", cls + `--session-token "mf-$(date +%s)"`, 1, "contains a command substitution"},
 		// A measure line beside one close: only the close is counted.
-		{"measure is no call", "visual-verify-pass.sh measure <canonical-worktree> <name>\n" + cls + "--session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
+		{"measure is no call", "flow-guard visual-verify-pass measure <canonical-worktree> <name>\n" + cls + "--session-token mf-abc123", 0, "clean (1 call site(s) checked)"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

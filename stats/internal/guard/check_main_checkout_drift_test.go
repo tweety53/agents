@@ -36,7 +36,7 @@ func newDriftRepo(t *testing.T) string {
 func TestCheckMainCheckoutDrift(t *testing.T) {
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
-	const usage = "usage: check-main-checkout-drift.sh <main-checkout>\n"
+	const usage = "usage: flow-guard check-main-checkout-drift <main-checkout>\n"
 
 	refusals := []struct {
 		name    string

@@ -15,12 +15,92 @@ import (
 	"strings"
 )
 
-// kickoffWorktree is scripts/kickoff-worktree.sh: `/flow`'s kickoff steps
+// The contract below moved here from the header of the deleted
+// scripts/kickoff-worktree.sh shim (KAN-1058).
+//
+// flow-guard kickoff-worktree — /flow's kickoff steps 1–4 (skills/flow/brainstorm.md
+// **A**), run in order in one call so no session re-types them.
+//
+// Usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]
+//
+// <base>, when given, names the branch the change is cut from and lands on
+// instead of origin/HEAD's: an origin/<base> this repository's origin lacks is
+// first pushed from its origin default branch (one stderr line), so every
+// repository of the change records the same base; a fresh branch is created
+// from it, and either form records
+// it as `git config branch.spectre/<name>.flowBase <base>`, which
+// flow-guard resolve-base-branch reads ahead of origin/HEAD. A name failing
+// resolve-base-branch's validation is exit 2.
+//
+// --from <worktree> names one of this change's existing worktrees, for every
+// worktree a change adds after kickoff. With no <base>, the base is that
+// worktree's `branch.spectre/<name>.flowBase` — none recorded, the default
+// branch, exactly as without --from, and no flowBase is written. An explicit
+// <base> wins over the recorded one. The new worktree is persisted into the
+// change's state record through `flow state add-worktree -C <worktree>`, so
+// the record is found under the change's own project. An empty or missing
+// <worktree> is exit 2.
+//
+// With --from and `<worktree>/spectre/changes/<name>/` present, the merge-order
+// record is written there too (kan-1017: a hand-written one failed `spectre
+// validate` twice): this repository's name is its entry in
+// `<worktree>/spectre/peers` — one `<name> <path>` line per peer, the path
+// relative to <worktree>'s main checkout — resolved before step 1, a
+// repository the file does not declare (or an unreadable file) exit 2 with
+// nothing added. After step 4, `link.md` there names every repository the
+// change's state record holds (`flow state get -C <worktree> <name>`), each
+// worktree resolved to its `spectre/peers` name through its main checkout,
+// <worktree>'s own repository and a worktree no peer names skipped, in
+// `spectre/peers` order: a new file is written as `## Merge order` then the
+// entries `.` and the first name, numbered, each name in backticks; an
+// existing one whose `## Merge order` lacks a name gets it as the next
+// numbered entry, nothing reordered; one already naming it, or holding no
+// such section, is left as it is. The file is never
+// committed.
+//
+//   0. `flow` must be on PATH, checked first: a worktree step 2 could not
+//      persist is never created.
+//   1. flow-guard check-worktree-location <project> — its exit 1 or 2 stops the run
+//      with its own lines, as this script's exit 1 or 2.
+//   2. `git fetch origin`; when origin/spectre/<name> exists, `git worktree
+//      add <project>-worktrees/<name> spectre/<name>`, a local branch
+//      tracking it, otherwise `-b spectre/<name> origin/<default-branch>`,
+//      the default branch read from refs/remotes/origin/HEAD, never HEAD —
+//      or origin/<base> when <base> is given.
+//      The merge base is `git -C <worktree> rev-parse HEAD` right after the
+//      add, persisted before anything else runs by `flow state add-worktree
+//      -C <project> <name> <worktree> <merge-base>` (`-C <worktree>` of
+//      --from when given). <project>-worktrees/ is
+//      the sibling of <project>'s physical path, outside the repository, so
+//      nothing needs ignoring (design.md: sibling-worktrees-layout).
+//   3. flow-guard project-get <worktree> "worktree setup": exit 0 runs every line
+//      inside the body's ``` fences, in order, from the worktree root, in the
+//      foreground — never the fence markers or the prose around them; exit 1
+//      (no such section) is one stderr line and the run continues; exit 2
+//      stops the run.
+//   4. `git -C <worktree> push -u origin spectre/<name>`.
+//
+// On success stdout carries exactly:
+//   worktree: <project>-worktrees/<name>
+//   merge-base: <sha>
+// then `merge-order: <link.md>` when the record above was written.
+//
+// Exit codes: 0 all four steps done; 1 a step stopped the run — the location
+// guard's refusal, a failed git call (creating a missing origin/<base>
+// among them), `flow state add-worktree` refusing (no
+// STARTED record), a setup command's non-zero exit (named, with its output)
+// or a failed push — its lines relayed on stderr, and the worktree already
+// persisted when step 2 got that far; 2 usage, `flow` absent from PATH, no
+// resolvable default branch, the location guard's or project-get's own
+// cannot-answer exit, a project path that no longer resolves after it, or a sibling unset.
+//
+// Go, in flow-guard (stats/internal/guard/kickoffworktree.go).
+
+// kickoffWorktree is `flow-guard kickoff-worktree`: `/flow`'s kickoff steps
 // 1–4 (skills/flow/brainstorm.md **A**) in order — the location guard, the
 // worktree add at the sibling <project>-worktrees/ root (design.md:
 // sibling-worktrees-layout) persisted through `flow state add-worktree`, the
-// project's `## worktree setup` commands, the branch push. The shim's header
-// is the contract: 0 all four done (`worktree:` and `merge-base:` on
+// project's `## worktree setup` commands, the branch push. The comment above is the contract: 0 all four done (`worktree:` and `merge-base:` on
 // stdout), 1 a step stopped the run (its lines relayed; the worktree is
 // already persisted when step 2 got that far), 2 usage or it cannot answer.
 func init() {
@@ -35,6 +115,11 @@ func kwRun(env Env, dir, name string, args ...string) (int, string) {
 	if dir != "" {
 		cmd.Dir = dir
 	}
+	return kwCombined(cmd)
+}
+
+// kwCombined runs cmd, returning its exit code and combined output.
+func kwCombined(cmd *exec.Cmd) (int, string) {
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
 	return exitCode(cmd.Run()), out.String()
@@ -59,7 +144,7 @@ func kwFenced(body string) []string {
 
 func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "kickoff-worktree"
-	const usage = "usage: kickoff-worktree.sh [--from <worktree>] <project> <name> [<base>]\n"
+	const usage = "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n"
 	// --from names this change's existing worktree: the base defaults to the
 	// flowBase it records, and the state record is found through it.
 	from := ""
@@ -125,11 +210,6 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	location, projectGet := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"), env.Getenv("FLOW_GUARD_PROJECT_GET")
-	if location == "" || projectGet == "" {
-		fmt.Fprintf(stderr, "%s: FLOW_GUARD_WORKTREE_LOCATION or FLOW_GUARD_PROJECT_GET is unset — run scripts/kickoff-worktree.sh, which sets them\n", self)
-		return 2
-	}
 	// Before step 1: a worktree step 2 could not persist is never created.
 	flow, ok := lookPath(env, "flow")
 	if !ok {
@@ -142,7 +222,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// 1. The location guard: its exit 1 or 2 stops the run with its lines.
-	if rc, out := kwRun(env, "", location, project); rc != 0 {
+	if rc, out := kwCombined(siblingCmd(env, "FLOW_GUARD_WORKTREE_LOCATION", "check-worktree-location", project)); rc != 0 {
 		if rc != 1 {
 			rc = 2
 		}
@@ -233,7 +313,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	// 3. The project's worktree setup, fenced lines only, in order.
-	if rc := kwSetup(env, projectGet, wt, self, stderr); rc != 0 {
+	if rc := kwSetup(env, wt, self, stderr); rc != 0 {
 		return rc
 	}
 
@@ -403,9 +483,8 @@ func kwMergeOrder(link, peer string) (bool, error) {
 // 0 done or none declared, 1 a command failed (named, its output relayed),
 // 2 project-get cannot answer. stdout alone is the section body; a warning
 // project-get prints on stderr is relayed, never parsed as a command.
-func kwSetup(env Env, projectGet, wt, self string, stderr io.Writer) int {
-	get := exec.Command(projectGet, wt, "worktree setup")
-	get.Dir = env.Dir
+func kwSetup(env Env, wt, self string, stderr io.Writer) int {
+	get := siblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "worktree setup")
 	var body, getErr bytes.Buffer
 	get.Stdout, get.Stderr = &body, &getErr
 	switch rc := exitCode(get.Run()); rc {

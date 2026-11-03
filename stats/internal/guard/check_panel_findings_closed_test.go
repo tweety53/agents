@@ -336,7 +336,7 @@ exit 0
 	t.Run("case 8b: a missing change name exits 2", func(t *testing.T) {
 		t.Parallel()
 		rc, _, errs := cfcRun(t, cfcBin(t, "[]", "", 0), wt)
-		if rc != 2 || errs != "usage: check-panel-findings-closed.sh <worktree> <change-name>\n" {
+		if rc != 2 || errs != "usage: flow-guard check-panel-findings-closed <worktree> <change-name>\n" {
 			t.Fatalf("got exit %d, stderr %q", rc, errs)
 		}
 	})

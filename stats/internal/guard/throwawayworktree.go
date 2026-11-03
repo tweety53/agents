@@ -11,8 +11,34 @@ import (
 	"strings"
 )
 
-// throwawayWorktree is scripts/throwaway-worktree.sh: that script's header
-// comment is the contract. It ports, step for step, the create fence the
+// The contract below moved here from the header of the deleted
+// scripts/throwaway-worktree.sh shim (KAN-1058).
+//
+// flow-guard throwaway-worktree — create or remove the detached throwaway copy of a
+// worktree that a wave group's implementer (skills/flow/sdd-dispatch.md) or a
+// review-panel slot (skills/flow/review-panel-optional-slots.md) works in.
+//
+// Usage: flow-guard throwaway-worktree create <worktree> <copy> [--sdd]
+//        flow-guard throwaway-worktree remove <worktree> <copy> [--fold-back]
+//
+// create: `git worktree add --detach <copy> HEAD`, then the worktree's
+//   uncommitted diff against HEAD (`diff HEAD --binary`) applied in the copy,
+//   then every untracked (`??`) entry of `status --porcelain -z` copied with
+//   `cp -a`. --sdd also copies `<worktree>/.superpowers/sdd`, when present,
+//   to the same path in the copy.
+// remove: `git worktree remove --force <copy>`. --fold-back first copies each
+//   non-empty `.superpowers/sdd/panel-report-*.md` and
+//   `.superpowers/sdd/reproducers/*.sh` from the copy back into the worktree,
+//   unless the worktree already holds a non-empty file the copy's is not
+//   newer than.
+//
+// Prints nothing on success.
+// Exit 0 done; exit 2 usage, or a step failed — one stderr line names it, and
+// no later step ran.
+//
+// The logic lives in stats/internal/guard/throwawayworktree.go.
+
+// throwawayWorktree is `flow-guard throwaway-worktree`: the comment above is the contract. It ports, step for step, the create fence the
 // wave-group copy and the slot copy shared and the slot copy's fold-back and
 // remove fence (skills/flow/sdd-dispatch.md and
 // skills/flow/review-panel-optional-slots.md at ae805186). One deliberate
@@ -23,8 +49,8 @@ func init() {
 	Registry["throwaway-worktree"] = throwawayWorktree
 }
 
-const twUsage = "usage: throwaway-worktree.sh create <worktree> <copy> [--sdd]\n" +
-	"       throwaway-worktree.sh remove <worktree> <copy> [--fold-back]\n"
+const twUsage = "usage: flow-guard throwaway-worktree create <worktree> <copy> [--sdd]\n" +
+	"       flow-guard throwaway-worktree remove <worktree> <copy> [--fold-back]\n"
 
 func throwawayWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || len(args) > 4 {

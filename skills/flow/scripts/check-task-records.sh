@@ -1,1 +1,0 @@
-../../../scripts/check-task-records.sh

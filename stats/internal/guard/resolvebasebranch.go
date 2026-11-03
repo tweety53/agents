@@ -7,8 +7,63 @@ import (
 	"strings"
 )
 
-// resolveBaseBranch is scripts/resolve-base-branch.sh: that script's header
-// comment is the contract -- the bare branch name alone on stdout at exit 0;
+// The contract below moved here from the header of the deleted
+// scripts/resolve-base-branch.sh shim (KAN-1058).
+//
+// flow-guard resolve-base-branch — the single owner of base-branch resolution.
+//
+// Usage: flow-guard resolve-base-branch <dir>
+//
+// stdout carries the bare branch name and NOTHING ELSE on success, so a
+// caller composes it directly: BASE="$(flow-guard resolve-base-branch "$WT")". Every
+// refusal writes its reason to stderr and leaves stdout empty — an empty
+// stdout must never be readable as a resolved base.
+//
+//   Exit 0   Resolved; the name is on stdout.
+//   Exit 1   A named refusal — detached HEAD, no base resolved, base equal
+//            to the current branch, a base name that fails validation, or a
+//            recorded base origin no longer carries.
+//            Validation requires the first character to be one of
+//            [A-Za-z0-9._] (so a leading '-' or a leading '/' is refused)
+//            and every character in the name to be one of [A-Za-z0-9._/-].
+//   Exit 2   Cannot answer — the argument is missing, <dir> is absent,
+//            unreadable, or not a git worktree, or HEAD's own ref cannot be
+//            read (corrupt or permission-denied).
+//   Exit 3   The repository has no 'origin' remote at all.
+//
+// A RECORDED BASE WINS. When `git config branch.<current>.flowBase` is set —
+// flow-guard kickoff-worktree writes it when a change is created with `--base
+// <branch>` — that name is the base, ahead of origin/HEAD, and faces the same
+// equal-to-current and name-validation refusals. A recorded base origin no
+// longer carries — merged and deleted — is refused by name (`ls-remote
+// --exit-code` status 2); an unreachable remote never refuses.
+//
+// WHY THE FETCH IS WRAPPED. `git remote show origin` against an unreachable
+// host blocks for roughly 75s on the default TCP timeout, which would turn a
+// correct refusal into a two-minute hang. `-c core.askpass=true` stops it
+// prompting for credentials, `2>/dev/null` swallows the chatter, and `|| true`
+// means a failed fetch is not this script's failure — a stale origin/HEAD is
+// still resolved, just possibly out of date, which the fetch on the next
+// invocation corrects.
+//
+// WHY HEAD@{upstream} IS NEVER CONSULTED. Inside an apply worktree, HEAD *is*
+// the change's own branch, spectre/<name>, by construction. Its upstream is
+// origin/spectre/<name>, so HEAD@{upstream} would compare the branch with
+// itself the moment it is pushed — always "true", never useful. The base
+// branch is resolved from origin/HEAD (or the `git remote show origin`
+// fallback), never from HEAD's own upstream.
+//
+// WHY EXIT 3 IS SEPARATE FROM EXIT 2. The finish contract requires a distinct
+// no-remote message. A caller that could only tell the two apart by matching
+// stderr text would stop being able to the first time the wording changes.
+//
+// The unreachable-remote hang is deliberately NOT covered by this script's
+// tests (TestResolveBaseBranch): a wall-clock assertion on a TCP timeout is flaky by
+// construction. The wrapping above is carried forward verbatim from the
+// fenced block this script replaces, and this comment is where its reasoning
+// now lives.
+
+// resolveBaseBranch is `flow-guard resolve-base-branch`: the comment above is the contract -- the bare branch name alone on stdout at exit 0;
 // 1 a named refusal, 2 cannot answer, 3 no `origin` remote, each with its
 // reason on stderr and stdout empty. The reasoning for each branch, moved
 // here from the bash body it replaced (c5379c0a), sits beside the code it
@@ -32,7 +87,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		dir = args[0]
 	}
 	if dir == "" {
-		fmt.Fprintln(stderr, "usage: resolve-base-branch.sh <dir>")
+		fmt.Fprintln(stderr, "usage: flow-guard resolve-base-branch <dir>")
 		return 2
 	}
 	if !isDir(pcAbs(env, dir)) {

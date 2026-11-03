@@ -329,7 +329,7 @@ type ChangeSummary struct {
 }
 
 // Verdict is one recorded outcome a guard reached against one worktree, at
-// one point in time -- the record `check-unfinished-work.sh` and any guard
+// one point in time -- the record `flow-guard check-unfinished-work` and any guard
 // like it leaves behind so that "this guard tripped here before" stops
 // being a fact only memory or chat holds.
 //
@@ -375,7 +375,7 @@ type VerdictFlag struct {
 // cross-repo fix, which before this row lived only in the handoff prose.
 //
 // Shape is the pipeline's own topology vocabulary for a change --
-// "single-repo" or "cross-repo", the same words gather-dispatch-context.sh's
+// "single-repo" or "cross-repo", the same words flow-guard gather-dispatch-context's
 // eighth argument validates and Hazard.Applies composes with -- constrained
 // at the store rather than free text: "three-repo" is a kind of cross-repo,
 // and Substitution is where the specifics belong.

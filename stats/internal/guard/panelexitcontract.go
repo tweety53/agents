@@ -14,9 +14,148 @@ import (
 	"syscall"
 )
 
-// checkPanelReproducerExitContract is
-// scripts/check-panel-reproducer-exit-contract.sh: that script's header
-// comment is the contract -- exit 0 every open finding's runnable reproducer
+// The contract below moved here from the header of the deleted
+// scripts/check-panel-reproducer-exit-contract.sh shim (KAN-1058).
+//
+// flow-guard check-panel-reproducer-exit-contract <worktree> <change-name>
+//
+// THE MECHANICAL EXIT-CODE CONTRACT CHECK FOR PANEL REPRODUCERS (KAN-554).
+// kan-468's review panel supplied a reproducer for its Important finding
+// whose exit-code condition was inverted: it read "defect not demonstrated"
+// on the actually-buggy code, and the inversion was caught only by a
+// human-grade deferred self-review pass — after the panel record had been
+// rendered and relied on. Until this guard existed, nothing between the
+// finding being recorded and the fix being dispatched executed the
+// reproducer and compared its answer to the claim the finding makes. The
+// lexical sibling, flow-guard check-panel-reproducers, validates the recorded
+// command's SHAPE and never runs it; the prose in skills/flow/review-panel.md
+// reads exit codes only at fix-dispatch time, as a bounce loop handled by
+// attention. This guard is the check that runs instead of attention:
+// before the panel relies on a reproducer, the reproducer must demonstrate.
+//
+// THE CLAIM, AND THE CONTRACT. An OPEN finding claims its defect is present
+// in the tree under review, and its reproducer's claim is the same claim:
+// run against this worktree, the command must produce the runner's "defect
+// demonstrated" verdict under whichever exit-code convention it declares —
+// a generic one demonstrates with a non-zero exit, a declared
+// mutation-reproducer with exit 0 (the build succeeds with the mutation
+// landed, KAN-568). A reproducer whose verdict here is "defect not
+// demonstrated" contradicts the claim it is recorded under, whichever way
+// its author meant the condition: that inverted reading is the defect class
+// this guard exists to name, mechanically, before anything downstream is
+// built on the reproducer. Findings whose status is not exactly `open` —
+// fixed, deferred, withdrawn — claim nothing about the current tree, so
+// their reproducers are skipped: a fixed finding's reproducer is SUPPOSED
+// to read "not demonstrated" now, and demanding the opposite verdict of it
+// would invert this guard into nonsense. The `none — <reason>` exemption
+// and a bare `none` claim nothing runnable and are skipped too: the
+// exemption's own rules (legal everywhere but Important) and the bare-none
+// violation are flow-guard check-panel-reproducers's subjects, and that guard runs
+// first in the pipeline that calls this one.
+//
+// THE RUNNER IS THE VERDICT, NEVER A RE-IMPLEMENTATION. Each runnable
+// reproducer is executed by run-reproducer's own implementation (the Go
+// port calls runReproducer in-process — the same code flow-guard run-reproducer
+// execs, which the per-finding dispatch decisions run) — because the
+// exit-code vocabulary (demonstrated / not demonstrated / refused /
+// unverifiable / cannot answer), the argv-exec barrier, the resolved
+// containment and the process-group kill all live there, tested by their
+// own tests (stats/internal/guard/runreproducer_test.go). This
+// guard adds exactly one thing: the comparison of the runner's verdict to
+// the claim, as a gate with its own exit code. The runner is invoked BARE —
+// worktree and command line, no --pre-fix-verdict — because at dispatch time
+// the expected pre-fix verdict is always "demonstrated": passing the flag
+// would turn every first verdict into the ambiguity refusal and make the
+// gate unanswerable.
+//
+// THE INSTRUMENT AUDIT (KAN-606). The exit-code contract above reads only
+// the verdict, and a verdict is only as good as the instrument behind it:
+// kan-552's deferred self-review caught a reproducer whose greps had
+// captured mismatched text and cited the wrong test's assertion — the
+// script flipped green exactly as recorded, but what it demonstrated was
+// not the defect — and only the round-1 re-run reviewers had audited the
+// instrument at all. So before this guard invokes the runner, every
+// runnable reproducer's own text must declare what it demonstrates and
+// where: one `# demonstrates: <path>:<line>:<content>` line per cited
+// location, in the grep-output shape the author pastes straight off the
+// defect-present tree, inside the same first-10-lines window the
+// mutation-reproducer convention (KAN-568) reads its own declaration from.
+// Each citation is resolved against the finding's own tree — the tree the
+// per-finding resolution in stats/internal/guard/panelexitcontract.go
+// names, never unconditionally the guard's
+// worktree argument: the declared
+// path must be relative and stay inside that worktree — lexically (the
+// sibling lexical guard's own shape classes) and then physically, realpath-
+// resolved and required to remain under that worktree exactly as
+// flow-guard run-reproducer resolves the reproducer's own path token —, the file
+// must exist, the line must exist, and
+// the declared content must appear on that line. Any citation that does not
+// resolve is a violation and the reproducer is NOT run — the runner's
+// verdict would answer a question this audit has already settled, and a
+// "demonstrated" spent on an unresolvable instrument is exactly the green
+// flip this guard exists to deny. Since KAN-795 the declaration's first field
+// may name a tree by basename instead of a path — the cross-repo prefix form
+// the panel's WORKTREES prompt has reviewers write on any multi-worktree
+// change (`gymie-frontend:src/Foo.tsx:42`, skills/flow/review-panel.md) — and
+// such a citation resolves against the worktree its basename names: the
+// canonical tree or an entry of the state record's `worktrees` map, whichever
+// (exactly one) carries that basename, every check of the audit applied
+// against THAT tree while the reproducer itself keeps the finding's own. A
+// basename nothing answers to is no prefixed citation at all — the
+// declaration reads unprefixed and bounces as malformed if it cannot — and a
+// basename several trees answer to is ambiguous, cannot-answer (exit 2), the
+// citation's tree unknowable and no verdict possible. Each tree also
+// answers to its repository's name — its main checkout's basename — since a
+// cross-repo change's worktrees all share the change name as their leaf, so
+// only the repository name (the panel record's Location prefix) tells them
+// apart. The premise audit
+// (KAN-839) rides the same
+// machinery: every `# premise: <path>:<line>:<content>` declaration in the
+// same first-10-lines window is resolved the same way, tolerantly — a
+// reproducer carrying no premise line violates nothing, so records predating
+// the premise rule are never re-bounced — while a declared-but-unresolvable
+// premise joins exit 1's violation classes exactly as a demonstrates miss
+// does. The audit also requires the reference marker (KAN-904): every
+// declared premise's path must appear in the script outside its own
+// `# premise:` declaration lines, the guard-visible half of the authoring
+// rule's body assertion — a declared-but-unreferenced premise is the vacuous
+// instrument class KAN-904 denies. A mutation-declared reproducer is exempt
+// from the audit: the content it demonstrates is the mutated tree it builds
+// at run time, not a location on this tree, and its instrument is audited
+// by the KAN-568 sha-pin machinery — demanding resolution here would invert
+// the audit into nonsense for exactly the convention KAN-568 added.
+//
+// Exit codes:
+//   0  every open finding with a runnable reproducer demonstrated the
+//      defect; findings claiming nothing about the current tree are skipped
+//   1  violations found: at least one open finding's reproducer read "defect
+//      not demonstrated" on this tree — the inverted class —, was refused
+//      by the runner as unusable (a shape the lexical guard's earlier pass
+//      did not see: the record changed after it ran, or the command resolves
+//      outside the worktree through a symlink), or failed the instrument
+//      audit — no `# demonstrates:` declaration within the first 10 lines,
+//      a malformed one, a citation outside the tree it resolves against —
+//      the finding's own, or the worktree its basename prefix names
+//      (KAN-795) —, a file, line or
+//      content the tree does not carry, a declared-but-unresolvable or
+//      declared-but-unreferenced `# premise:` declaration (KAN-839, KAN-904),
+//      or a script that cannot be read to
+//      audit at all; each named on stderr
+//   2  cannot answer at all — usage, a worktree or change name that fails
+//      containment, the store unreachable, the change's state record absent
+//      or unreadable (a cross-repo change's guards answer only through its
+//      canonical worktree, so a peer tree's store read is a cannot-answer
+//      and never a clean verdict — KAN-658), jq failing, an open finding
+//      carrying no reproducer field at all, a reproducer path token
+//      resolving in several of the change's recorded worktrees or a
+//      citation's basename prefix answering to several (KAN-795), or any
+//      reproducer the runner could not verdict (timeout, surviving process,
+//      plumbing failure).
+//      Cannot-answer outranks exit 1: a read that could not be completed is
+//      never reported as a verdict, the same precedence its sibling guard
+//      gives a null reproducer over a clean answer.
+
+// checkPanelReproducerExitContract is `flow-guard check-panel-reproducer-exit-contract`: the comment above is the contract -- exit 0 every open finding's runnable reproducer
 // demonstrated, 1 violations, 2 cannot answer (outranking 1). The runner is
 // runReproducer called in-process, never a second implementation of it; the
 // findings read is Env.Findings when set, else `flow record findings`. The
@@ -75,7 +214,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintln(stderr, "usage: check-panel-reproducer-exit-contract.sh <worktree> <change-name>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-panel-reproducer-exit-contract <worktree> <change-name>")
 		return 2
 	}
 	// CONTAINMENT, the same allowlist check-panel-reproducers and
@@ -340,7 +479,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 			violations = append(violations, ref+"'s reproducer read 'defect not demonstrated' on the tree under review — an open finding's reproducer must read demonstrated here under whichever exit-code convention it declares: a generic one demonstrates with a non-zero exit, a declared mutation-reproducer with exit 0 (the build succeeds with the mutation landed) — this inverted reading is the exit-code class this guard exists for (KAN-554)")
 			said()
 		case 2:
-			violations = append(violations, ref+"'s reproducer was refused by run-reproducer.sh as unusable — its claim cannot hold on any tree")
+			violations = append(violations, ref+"'s reproducer was refused by flow-guard run-reproducer as unusable — its claim cannot hold on any tree")
 			said()
 		case 3:
 			cannot(ref + "'s reproducer could not be verdicted — the runner reported a timeout or a surviving process, which is no verdict at all")

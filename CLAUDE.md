@@ -18,11 +18,22 @@ section — named here so this file states them rather than leaving a placeholde
 ```bash
 cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
                                                           # this repository has an auto-fix command
-scripts/check-references.sh                               # plus every other scripts/check-*.sh guard
+scripts/flow-guard check-references                               # plus every other scripts/flow-guard check-* guard
                                                           # named in <project>/.flow/project.md's `## lint`
 cd stats && make -s web-dist && go vet ./... && gofmt -l .  # must exit clean before claiming Go work done
 cd stats && make -s web-dist && cd web && npx tsc -b      # must exit clean before claiming SPA work done
 ```
+
+---
+
+### No scripts in bash
+
+Every new script, and any new logic added to an existing one, is Go in `flow-guard`:
+`stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as
+`flow-guard <name>`. `setup.sh` and `scripts/flow-guard` are the only bash files in this
+repository and stay that way; `flow-guard check-no-bash`, in `<project>/.flow/project.md`'s
+`## lint`, fails on any other tracked `.sh` file or file whose first line runs bash. The full rule
+is `rules/no-bash-scripts.mdc`.
 
 ---
 
@@ -36,7 +47,7 @@ and not to make a later step succeed. Bringing them back up does not repair a ru
 through to the on-disk journal.
 
 **Only those.** A worktree's own derived `flow_<id>` database and bucket are per-change artifacts,
-and `<project>/scripts/workspace.sh remove <id>` drops them during the cleanup run as it should.
+and `<project>/scripts/flow-guard workspace remove <id>` drops them during the cleanup run as it should.
 
 The reasoning, that boundary, and why `/flow`'s worktree-cleanup check 5 therefore has nothing to
 run, are the `## stop` section of `<project>/.flow/project.md` — canonical for it, and not
@@ -47,7 +58,7 @@ restated here. Stopping the dev stack is an operator action; the commands live i
 
 Once a change to this repository has fully landed — on `/flow`, after run 2's cleanup; on
 `/flow-fast`, after its cleanup; on `/flow-interactive`, after each request lands; on a
-pipeline-fix or self-review loop, after `pipeline-fix.sh land` — run, from the main checkout:
+pipeline-fix or self-review loop, after `flow-guard pipeline-fix land` — run, from the main checkout:
 
 ```bash
 ./setup.sh global

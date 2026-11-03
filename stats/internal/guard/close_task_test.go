@@ -526,16 +526,10 @@ func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	fx := ctFixture(t, true, "0", "0")
 	base := fx.env.Getenv
 	fx.env.Getenv = func(k string) string {
 		switch k {
-		case "FLOW_GUARD_SCRIPT_DIR":
-			return filepath.Join(repo, "scripts")
 		case "FLOW_GUARD_CACHE_DIR":
 			return guardCache(t)
 		}
@@ -564,7 +558,7 @@ func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
 	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
 	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-	if r.rc != 1 || !strings.Contains(r.out, "close-task: task 1: shots/full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output") {
+	if r.rc != 1 || !strings.Contains(r.out, "close-task: task 1: shots/full-app-suite.zip is not flow-guard rebuild-full-app-suite-zip's output") {
 		t.Fatalf("hand-built zip: exit %d, want 1\n%s", r.rc, r.out)
 	}
 	if got, _ := os.ReadFile(zipPath); !bytes.Equal(got, buf.Bytes()) {
@@ -593,20 +587,15 @@ func TestCloseTaskRebuildsASuiteZipInTheRegressionCheckout(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	fx := ctFixture(t, true, "0", "0")
 	// The resolver answers with git's real paths; the temp dir sits under a symlink on macOS.
+	var err error
 	if fx.peer, err = filepath.EvalSymlinks(fx.peer); err != nil {
 		t.Fatal(err)
 	}
 	base := fx.env.Getenv
 	fx.env.Getenv = func(k string) string {
 		switch k {
-		case "FLOW_GUARD_SCRIPT_DIR":
-			return filepath.Join(repo, "scripts")
 		case "FLOW_GUARD_CACHE_DIR":
 			return guardCache(t)
 		}
@@ -659,16 +648,10 @@ func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
 	fx := ctFixture(t, true, "0", "0")
 	base := fx.env.Getenv
 	fx.env.Getenv = func(k string) string {
 		switch k {
-		case "FLOW_GUARD_SCRIPT_DIR":
-			return filepath.Join(repo, "scripts")
 		case "FLOW_GUARD_CACHE_DIR":
 			return guardCache(t)
 		}
@@ -712,23 +695,19 @@ func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
 	gitRun(t, fx.wt, "add", "-f", "b.txt", "shots")
 	gitRun(t, fx.wt, "commit", "-q", "-m", "two", "-m", "Task-Id: 2")
 	s2 = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 1 || !strings.Contains(r.out, "close-task: task 2: shots/full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output") {
+	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 1 || !strings.Contains(r.out, "close-task: task 2: shots/full-app-suite.zip is not flow-guard rebuild-full-app-suite-zip's output") {
 		t.Fatalf("hand-built last zip: exit %d, want 1\n%s", r.rc, r.out)
 	}
 }
 
 // scripts/close-task.sh is close-task's only caller, and it runs the zip
-// rebuild in-process: the shim exports FLOW_GUARD_SCRIPT_DIR, which the
-// rebuild needs to find resolve-visual-screenshots.sh (kan-1024 Task 14:
-// unset, close-task stopped on exit 2 for every committed zip).
-func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
+// rebuild in-process, whose resolve-visual-screenshots runs in the same
+// binary (kan-1024 Task 14: unable to reach it, close-task stopped on exit 2
+// for every committed zip).
+func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
 	t.Parallel()
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
-	}
-	repo, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
 	}
 	fx := ctFixture(t, true, "0", "0")
 	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
@@ -742,11 +721,11 @@ func TestCloseTaskShimExportsTheRebuildsScriptDir(t *testing.T) {
 	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
 	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
 	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	cmd := exec.Command(filepath.Join(repo, "scripts", "close-task.sh"), fx.wt, "demo", fx.base, "1:"+s1)
+	cmd := exec.Command(guardShim(t, "close-task"), fx.wt, "demo", fx.base, "1:"+s1)
 	cmd.Dir = fx.wt
 	cmd.Env = []string{"PATH=" + fx.env.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}
 	out, err := cmd.CombinedOutput()
-	if code := exitCode(err); code != 1 || !strings.Contains(string(out), "is not rebuild-full-app-suite-zip.sh's output") {
+	if code := exitCode(err); code != 1 || !strings.Contains(string(out), "is not flow-guard rebuild-full-app-suite-zip's output") {
 		t.Fatalf("close-task.sh on a hand-built zip: exit %d, want 1 (the rebuild ran and differed)\n%s", code, out)
 	}
 }

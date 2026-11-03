@@ -3,8 +3,6 @@ package guard
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -353,10 +351,10 @@ func TestPlanClass(t *testing.T) {
 				args []string
 				want string
 			}{
-				{[]string{"a"}, "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
-				{[]string{"/nonexistent/tasks.md", "1"}, "plan-class.sh: no such file: /nonexistent/tasks.md\n"},
-				{[]string{docs, "0x1"}, "plan-class.sh: <repos> must be a non-negative integer, got: 0x1\n"},
-				{[]string{docs, "", repo, mb}, "plan-class.sh: <repos> must be a non-negative integer, got: \n"},
+				{[]string{"a"}, "usage: flow-guard plan-class [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+				{[]string{"/nonexistent/tasks.md", "1"}, "plan-class: no such file: /nonexistent/tasks.md\n"},
+				{[]string{docs, "0x1"}, "plan-class: <repos> must be a non-negative integer, got: 0x1\n"},
+				{[]string{docs, "", repo, mb}, "plan-class: <repos> must be a non-negative integer, got: \n"},
 				{[]string{docs, "1", repo, "deadbeef"}, "plan-class: merge base 'deadbeef' does not resolve in " + repo + "\n"},
 			} {
 				r := run(c.args...)
@@ -538,7 +536,7 @@ func TestPlanClassTree(t *testing.T) {
 		t.Parallel()
 		root := expDir(t, map[string]string{"a.md": "# no description\n"})
 		r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", pin), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + root}))
-		want := "plan-class.sh: " + root + "/skills/flow/experimental/a.md: line 1 is not a description: line\n"
+		want := "plan-class: " + root + "/skills/flow/experimental/a.md: line 1 is not a description: line\n"
 		if r.rc != 2 || r.stdout != "" || r.err != want {
 			t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 		}
@@ -546,7 +544,7 @@ func TestPlanClassTree(t *testing.T) {
 	t.Run("FLOW_GUARD_REPO_ROOT unset exits 2", func(t *testing.T) {
 		t.Parallel()
 		r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", pin), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT="}))
-		want := "plan-class.sh: FLOW_GUARD_REPO_ROOT is unset — run scripts/plan-class.sh, which sets it\n"
+		want := "plan-class: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-class, which sets it\n"
 		if r.rc != 2 || r.stdout != "" || r.err != want {
 			t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 		}
@@ -579,12 +577,12 @@ func TestPlanClassOverrideFlag(t *testing.T) {
 		{[]string{"-class", "regular", small, "1"}, 0, "small", "regular", ""},
 		{[]string{"-class", "small", micro, "1", tmpl, mb}, 0, "micro", "small", ""},
 		{[]string{"-class", "micro", micro, "1", tmpl, mb}, 0, "micro", "micro", ""},
-		{[]string{"-class", "big", small, "1"}, 2, "", "", "plan-class.sh: -class big must be small or one step above it\n"},
-		{[]string{"-class", "micro", small, "1"}, 2, "", "", "plan-class.sh: -class micro must be small or one step above it\n"},
-		{[]string{"-class", "regular", micro, "1", tmpl, mb}, 2, "", "", "plan-class.sh: -class regular must be micro or one step above it\n"},
-		{[]string{"-class", "huge", small, "1"}, 2, "", "", "plan-class.sh: unknown class: huge\n"},
-		{[]string{"-class"}, 2, "", "", "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
-		{[]string{"-class", "small", small}, 2, "", "", "usage: plan-class.sh [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+		{[]string{"-class", "big", small, "1"}, 2, "", "", "plan-class: -class big must be small or one step above it\n"},
+		{[]string{"-class", "micro", small, "1"}, 2, "", "", "plan-class: -class micro must be small or one step above it\n"},
+		{[]string{"-class", "regular", micro, "1", tmpl, mb}, 2, "", "", "plan-class: -class regular must be micro or one step above it\n"},
+		{[]string{"-class", "huge", small, "1"}, 2, "", "", "plan-class: unknown class: huge\n"},
+		{[]string{"-class"}, 2, "", "", "usage: flow-guard plan-class [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
+		{[]string{"-class", "small", small}, 2, "", "", "usage: flow-guard plan-class [-class <class>] <tasks.md> <repos> [<worktree> <merge-base>]\n"},
 	} {
 		r := runGuard("plan-class", c.args, env)
 		if r.rc != c.rc {
@@ -600,25 +598,6 @@ func TestPlanClassOverrideFlag(t *testing.T) {
 		if !strings.Contains(r.stdout, "\nclass: "+c.class+"\n") || !strings.Contains(r.stdout, "\ntree: class "+c.tree+" · ") {
 			t.Errorf("%q: stdout=%q", c.args, r.stdout)
 		}
-	}
-}
-
-// TestFlowGuardRootThroughSkillSymlink pins flow_guard_root (KAN-860 F10),
-// the one derivation plan-class.sh and sync-onto-base.sh export as
-// FLOW_GUARD_REPO_ROOT: sourced through a skill's scripts/lib symlink, it
-// still answers the repository, never the skill directory.
-func TestFlowGuardRootThroughSkillSymlink(t *testing.T) {
-	t.Parallel()
-	repo, err := filepath.EvalSymlinks(filepath.Dir(tcfScriptsDir(t)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := exec.Command("bash", "-c", `. "$1/skills/flow/scripts/lib/flow-guard.sh" && flow_guard_root`, "_", repo).Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.TrimSpace(string(out)); got != repo {
-		t.Errorf("flow_guard_root through skills/flow/scripts/lib = %q, want the repository %q", got, repo)
 	}
 }
 

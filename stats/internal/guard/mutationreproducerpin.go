@@ -12,10 +12,81 @@ import (
 	"syscall"
 )
 
-// checkMutationReproducerPin is scripts/check-mutation-reproducer-pin.sh's
-// guard. The shim's header states the contract — the two canonical
+// The contract below moved here from the header of the deleted
+// scripts/check-mutation-reproducer-pin.sh shim (KAN-1058).
+//
+// flow-guard check-mutation-reproducer-pin — pin the mutation-reproducer marker
+// literal and its line window mechanically across the two files that state
+// them (KAN-624, panel F5 of kan-568's deferred self-review).
+//
+// Why this exists: the exact literal `# mutation-reproducer` and the
+// 10-line window are each stated in skills/flow/review-panel.md (the
+// reproducer-convention paragraph and the mutation-testing brief) and the
+// runner's Go source stats/internal/guard/runreproducer.go (its leading
+// comment and its declaration), with no mechanical pin
+// keeping them together — flow-guard check-dispatch-paragraphs covers the required
+// dispatch paragraphs but not this pair, so the two statements could drift
+// silently, one prose edit or one code edit at a time. This guard is the
+// pin.
+//
+// The source of truth is the runner's own canonical declaration — the code
+// that decides the convention at run time. Since KAN-760 the runner is Go
+// (flow-guard run-reproducer), so the
+// declaration is two lines of stats/internal/guard/runreproducer.go: the
+// marker constant `rrMarker = "<MARKER>"` and declaresMutation's
+// `range headLines(path, <N>)`. The guard extracts the marker and the
+// window from those lines and then requires the stated sites to agree, two
+// ways:
+//
+//   - PRESENCE — skills/flow/review-panel.md carries the marker backticked
+//     and the window stated as "first <N> lines";
+//     stats/internal/guard/runreproducer.go's leading comment carries the
+//     marker backticked and the same window statement. scripts/flow-guard,
+//     the bootstrap every run-reproducer call goes through, is a pinned
+//     site too: a missing, symlinked or unreadable one cannot answer.
+//   - NEAR-MISS ABSENCE — presence alone cannot see a single site drift
+//     while another copy of the same fact still reads correctly, which is
+//     the one-edit-at-a-time drift this guard exists to catch (KAN-624
+//     F1). So every "first <M> lines" statement and every backticked
+//     `# mutation-...` span in any of the three files must carry exactly the
+//     canonical value, on a single line or wrapped across two adjacent
+//     lines (the mutation-testing brief's own window statement is
+//     wrapped), and each offending occurrence is reported at its own
+//     line.
+//
+// A change to any one site without the others is a drift: exit 1, named
+// per file and line, until all sites move together. Reshaping a canonical
+// declaration line itself — so that no line of that shape can be found, or
+// more than one can, or its marker or window is not extractable from it —
+// is not a drift this guard interprets: it cannot tell what the new
+// reading would be, so it exits 2 and the pin waits to be re-pointed
+// deliberately, the same not-a-verdict course flow-guard check-plan-shape's exit 2
+// takes.
+//
+// Argument-free and self-scoped exactly like flow-guard check-dispatch-paragraphs:
+// the scan root is this repository's own root, FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,
+// opt-in override honored only when set (mirrors
+// CHECK_DISPATCH_PARAGRAPHS_ROOT), so the Go test
+// (stats/internal/guard/check_mutation_reproducer_pin_test.go) can point this
+// guard at a sandboxed fixture tree without touching this repository — never
+// set it for a normal invocation. The mechanism is
+// stats/internal/guard/mutationreproducerpin.go.
+//
+// Exit codes:
+//   0  clean — the marker and the window agree across all three files
+//   1  drift — a stated site disagrees with the canonical declaration
+//   2  cannot answer — a pinned file missing, a symlink, not a regular
+//      file or unreadable; a canonical declaration line absent or
+//      ambiguous; the marker or window not extractable; or
+//      CHECK_MUTATION_REPRODUCER_PIN_ROOT set but empty
+
+// checkMutationReproducerPin is `flow-guard check-mutation-reproducer-pin`. The comment above states the contract — the two canonical
 // declaration lines, the presence and near-miss checks, and the exit codes;
-// this file is the mechanism.
+// this file is the mechanism. The pinned sites are the Go source run-reproducer
+// runs (stats/internal/guard/runreproducer.go: the declaration, and its
+// leading comment's statement of the convention), scripts/flow-guard (the
+// bootstrap every run-reproducer call goes through) and
+// skills/flow/review-panel.md.
 func init() {
 	Registry["check-mutation-reproducer-pin"] = checkMutationReproducerPin
 }
@@ -39,8 +110,7 @@ type mrpExit2 struct{ path, msg string }
 func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) int {
 	// The root is this repository's own root by default -- the parent of
 	// scripts/, derived as the bash guard derived it from its own location;
-	// the binary lives in a cache, so the shim exports it as
-	// FLOW_GUARD_REPO_ROOT. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,
+	// scripts/flow-guard exports it as FLOW_GUARD_REPO_ROOT. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,
 	// opt-in override honoured only when set, so the tests can point this
 	// guard at a sandboxed fixture tree -- never set it for a normal
 	// invocation. Set but empty is a refusal, not the default.
@@ -51,7 +121,7 @@ func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) i
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-mutation-reproducer-pin.sh, which sets it\n", mrpName)
+			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-mutation-reproducer-pin, which sets it\n", mrpName)
 			return 2
 		}
 	}
@@ -67,7 +137,7 @@ func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) i
 		fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-INVALID: %s — %d violation(s)\n", root, len(violations))
 		return 1
 	}
-	fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-OK: %s — marker '%s' window %s pinned across stats/internal/guard/runreproducer.go, scripts/run-reproducer.sh and skills/flow/review-panel.md\n", root, marker, window)
+	fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-OK: %s — marker '%s' window %s pinned across stats/internal/guard/runreproducer.go, scripts/flow-guard and skills/flow/review-panel.md\n", root, marker, window)
 	return 0
 }
 
@@ -78,12 +148,12 @@ func mrpScan(env Env, root string) (violations []string, marker, window string, 
 	if !isDir(smcAbs(env, root)) {
 		return nil, "", "", &mrpExit2{root, "is not a directory — cannot scan"}
 	}
-	runner := root + "/scripts/run-reproducer.sh"
+	bootstrap := root + "/scripts/flow-guard"
 	panel := root + "/skills/flow/review-panel.md"
 	source := root + "/stats/internal/guard/runreproducer.go"
 
 	text := map[string]string{}
-	for _, pinned := range []string{source, runner, panel} {
+	for _, pinned := range []string{source, bootstrap, panel} {
 		p := smcAbs(env, pinned)
 		if lp, err := os.Lstat(p); err == nil && lp.Mode()&fs.ModeSymlink != 0 {
 			return nil, "", "", &mrpExit2{pinned, "is a symlink — a pinned site must be a real file, never a symlink"}
@@ -164,10 +234,10 @@ func mrpScan(env Env, root string) (violations []string, marker, window string, 
 	windowMsg := fmt.Sprintf(`no longer states the window as "first %s lines" — %s (window: %s); move every site together`, window, drift, window)
 	contains(panel, "`"+marker+"`", markerMsg, mrpMarkerAnchr)
 	contains(panel, "first "+window+" lines", windowMsg, mrpWindowStmt)
-	contains(runner, "`"+marker+"`", "its header comment "+markerMsg, mrpMarkerAnchr)
-	contains(runner, "first "+window+" lines", "its header comment "+windowMsg, mrpWindowStmt)
+	contains(source, "`"+marker+"`", "its leading comment "+markerMsg, mrpMarkerAnchr)
+	contains(source, "first "+window+" lines", "its leading comment "+windowMsg, mrpWindowStmt)
 
-	for _, pinned := range []string{source, runner, panel} {
+	for _, pinned := range []string{source, bootstrap, panel} {
 		violations = append(violations, mrpNearMiss(pinned, text[pinned], window, marker)...)
 	}
 	return violations, marker, window, nil

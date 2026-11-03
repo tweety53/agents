@@ -47,7 +47,7 @@ type trsdCase struct {
 	realFlow   bool   // Dispatches nil: the stub flow on PATH answers it
 	decisions  string // non-empty: a stub flow on PATH answers `record decisions`
 	plan       *string
-	siblings   map[string]string // non-nil: FLOW_GUARD_SELF sits in a temp root's scripts/ beside these
+	siblings   map[string]string // non-nil: each sibling's FLOW_GUARD_<NAME> override names this stub
 	args       func(wt string) []string
 }
 
@@ -88,19 +88,20 @@ func trsdRun(t *testing.T, c trsdCase) (int, string, string, string, string) {
 		writeFile(t, bin+"/dispatches.json", string(c.dispatches))
 		writeFile(t, bin+"/decisions.json", c.decisions)
 	}
-	root := fpRepoRoot
+	overrides := map[string]string{}
 	if c.siblings != nil {
-		root = t.TempDir()
+		root := t.TempDir()
 		for name, body := range c.siblings {
-			writeExec(t, root+"/scripts/"+name, body)
+			writeExec(t, root+"/"+name, body)
+			overrides["FLOW_GUARD_"+strings.ToUpper(strings.ReplaceAll(name, "-", "_"))] = root + "/" + name
 		}
 	}
 	env := Env{Dir: t.TempDir(), Getenv: func(k string) string {
-		switch k {
-		case "PATH":
+		if k == "PATH" {
 			return bin // no real `flow` is ever reachable from a test
-		case "FLOW_GUARD_SELF":
-			return root + "/scripts/check-task-reviewer-single-dispatch.sh"
+		}
+		if v, ok := overrides[k]; ok {
+			return v
 		}
 		return os.Getenv(k)
 	}}
@@ -186,7 +187,7 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 		{"missing change name is a usage error, exits 2",
 			trsdCase{args: func(wt string) []string { return []string{wt} }}, 2, "",
 			func(string) string {
-				return p + "usage: check-task-reviewer-single-dispatch.sh <worktree> <change-name> <session-token>\n"
+				return p + "usage: flow-guard check-task-reviewer-single-dispatch <worktree> <change-name> <session-token>\n"
 			}},
 		{"change name outside the allowlist exits 2",
 			trsdCase{args: func(wt string) []string { return []string{wt, "../x", "mf-tok"} }}, 2, "",
@@ -239,28 +240,28 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 			}},
 		{"a plan with no tasks exits 0",
 			trsdCase{dispatches: d("task-1-reviewer", r, tok, "task-3-reviewer", r, tok), plan: &noTasks}, 0, trsdOK, nil},
-		{"plan-dispatch-bundles.sh failing exits 2 with its combined output",
+		{"plan-dispatch-bundles failing exits 2 with its combined output",
 			trsdCase{dispatches: []byte("[]"), siblings: map[string]string{
-				"plan-dispatch-bundles.sh": "#!/usr/bin/env bash\necho 'bundles broke' >&2\necho 'bundle 1: 1'\nexit 3\n",
-				"plan-dispatch-groups.sh":  "#!/usr/bin/env bash\necho 'group 1: 1'\n"}}, 2, "",
+				"plan-dispatch-bundles": "#!/usr/bin/env bash\necho 'bundles broke' >&2\necho 'bundle 1: 1'\nexit 3\n",
+				"plan-dispatch-groups":  "#!/usr/bin/env bash\necho 'group 1: 1'\n"}}, 2, "",
 			func(wt string) string {
-				return p + "plan-dispatch-bundles.sh failed on " + wt + "/spectre/changes/demo/tasks.md -- cannot answer\nbundles broke\nbundle 1: 1\n"
+				return p + "plan-dispatch-bundles failed on " + wt + "/spectre/changes/demo/tasks.md -- cannot answer\nbundles broke\nbundle 1: 1\n"
 			}},
-		{"plan-dispatch-groups.sh failing silently exits 2 with an empty line",
+		{"plan-dispatch-groups failing silently exits 2 with an empty line",
 			trsdCase{dispatches: []byte("[]"), siblings: map[string]string{
-				"plan-dispatch-bundles.sh": "#!/usr/bin/env bash\necho 'bundle 1: 1'\n",
-				"plan-dispatch-groups.sh":  "#!/usr/bin/env bash\nexit 4\n"}}, 2, "",
+				"plan-dispatch-bundles": "#!/usr/bin/env bash\necho 'bundle 1: 1'\n",
+				"plan-dispatch-groups":  "#!/usr/bin/env bash\nexit 4\n"}}, 2, "",
 			func(wt string) string {
-				return p + "plan-dispatch-groups.sh failed on " + wt + "/spectre/changes/demo/tasks.md -- cannot answer\n\n"
+				return p + "plan-dispatch-groups failed on " + wt + "/spectre/changes/demo/tasks.md -- cannot answer\n\n"
 			}},
 		// The bash exported LC_ALL=C, so both siblings ran under it whatever
 		// the caller's locale.
 		{"plan-dispatch siblings run under LC_ALL=C",
 			trsdCase{dispatches: []byte("[]"), siblings: map[string]string{
-				"plan-dispatch-bundles.sh": "#!/usr/bin/env bash\necho \"LC_ALL=${LC_ALL:-unset}\"\nexit 1\n",
-				"plan-dispatch-groups.sh":  "#!/usr/bin/env bash\necho 'group 1: 1'\n"}}, 2, "",
+				"plan-dispatch-bundles": "#!/usr/bin/env bash\necho \"LC_ALL=${LC_ALL:-unset}\"\nexit 1\n",
+				"plan-dispatch-groups":  "#!/usr/bin/env bash\necho 'group 1: 1'\n"}}, 2, "",
 			func(wt string) string {
-				return p + "plan-dispatch-bundles.sh failed on " + wt + "/spectre/changes/demo/tasks.md -- cannot answer\nLC_ALL=C\n"
+				return p + "plan-dispatch-bundles failed on " + wt + "/spectre/changes/demo/tasks.md -- cannot answer\nLC_ALL=C\n"
 			}},
 		{"real flow: the store is read with -change and the canonical worktree",
 			trsdCase{realFlow: true, dispatches: d("task-1-reviewer", r, tok, "task-3-reviewer", r, tok)}, 1, "",

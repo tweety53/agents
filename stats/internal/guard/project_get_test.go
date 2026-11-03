@@ -42,7 +42,7 @@ func pgBash(t *testing.T, dir string, args ...string) pgRes {
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	_ = cmd.Run()
-	return pgRes{cmd.ProcessState.ExitCode(), out.String(), errb.String()}
+	return pgRes{cmd.ProcessState.ExitCode(), out.String(), bashUsage(errb.String())}
 }
 
 const pgCfg = "# project\n\n## lint\n\n```bash\nmake lint\n```\n\n## default landing route\n\n`open PR`\n\n## empty\n\n## last\nline one\n### sub\nline two\n"
@@ -177,9 +177,9 @@ func TestProjectGetEnum(t *testing.T) {
 		{"duplicate heading is still exit 2", "## default landing route\nmanual\n## default landing route\nmanual\n", route, 2, "",
 			"project-get: <root>/.flow/project.md declares 2 '## default landing route' sections — a second declaration is ambiguous, so neither was read\n"},
 		{"usage: --enum with no literal", "## default landing route\nmanual\n", []string{"--enum"}, 2, "",
-			"usage: project-get.sh <project-root> <key>\n"},
+			"usage: flow-guard project-get <project-root> <key>\n"},
 		{"usage: a third argument that is not --enum", "## default landing route\nmanual\n", []string{"manual"}, 2, "",
-			"usage: project-get.sh <project-root> <key>\n"},
+			"usage: flow-guard project-get <project-root> <key>\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

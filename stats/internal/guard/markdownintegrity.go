@@ -15,8 +15,43 @@ import (
 	"unicode/utf8"
 )
 
-// checkMarkdownIntegrity is scripts/check-markdown-integrity.sh's guard. The
-// shim's header states the contract — the seven signals, the scope and the
+// The contract below moved here from the header of the deleted
+// scripts/check-markdown-integrity.sh shim (KAN-1058).
+//
+// flow-guard check-markdown-integrity — fail when this repository's own skill and
+// rule Markdown carries structural damage a rendering-agnostic reader would
+// mis-read: a code span broken by a misunderstood backslash escape, a
+// blockquote whose first line lost its `>` marker, a paragraph torn apart
+// mid-sentence, a paragraph that promises content with a trailing colon
+// and then supplies none, a file that does not end in a newline, two blank
+// lines in a row outside a fence, or a handoff template whose next command
+// is not alone in its own fence.
+//
+// Usage: flow-guard check-markdown-integrity [project-root]
+//
+// Exit codes:
+//   0  clean — every scanned file is structurally sound.
+//   1  violations found — one or more of the seven signals fired. Each is
+//      reported on stdout as `file:line: <signal>: <message>`. Fix the named
+//      line; there is no suppression marker and no mechanism for one.
+//   2  cannot answer — the project root does not exist, an argument this
+//      guard does not accept was given, or a file or the rules/ directory
+//      inside the scanned scope exists but cannot be read (permission
+//      denied, not valid UTF-8).
+//
+// Scope: `skills/**/*.md` and `rules/*.mdc` under the given project root
+// (default: the repository this script lives in) — the files every `/flow*`
+// run loads, and where torn text changes an agent's behaviour rather than
+// merely reading badly. Nothing else is scanned: not `docs/`, not the
+// repository root's own Markdown.
+//
+// The block model, the seven signals and why signal 4 is structural rather
+// than phrase-based are the mechanism's doc comment,
+// stats/internal/guard/markdownintegrity.go; its table test
+// (stats/internal/guard/check_markdown_integrity_test.go) stands in the
+// test-check-*.sh companion's place.
+
+// checkMarkdownIntegrity is `flow-guard check-markdown-integrity`. The comment above states the contract — the seven signals, the scope and the
 // exit codes; this comment is the mechanism.
 //
 // # The block model
@@ -132,8 +167,7 @@ import (
 // whose failure is reported in Python's own words, os.walk's view of
 // symlinks (a symlinked file is scanned, a symlinked directory is not
 // entered), and paths printed as the root argument spelled them. Two
-// departures: with no argument the root is FLOW_GUARD_REPO_ROOT, which the
-// shim exports (the .py derived it from its own location), and an unreadable
+// departures: with no argument the root is FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports (the .py derived it from its own location), and an unreadable
 // rules/ directory is the cannot-read refusal (exit 2) where the .py died
 // with a traceback (exit 1).
 func init() { Registry["check-markdown-integrity"] = checkMarkdownIntegrity }
@@ -757,7 +791,7 @@ func checkMarkdownIntegrity(args []string, env Env, stdout, stderr io.Writer) in
 		root = args[0]
 	default:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprint(stderr, mdiName+": FLOW_GUARD_REPO_ROOT is unset — run scripts/check-markdown-integrity.sh, which sets it\n")
+			fmt.Fprint(stderr, mdiName+": FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-markdown-integrity, which sets it\n")
 			return 2
 		}
 	}

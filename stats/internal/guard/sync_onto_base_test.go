@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// sobEnv runs the guard with root as the agents repository its shim exports,
+// sobEnv runs the guard with root as FLOW_GUARD_REPO_ROOT,
 // and stub's directory first on PATH when stub is not "".
 func sobEnv(dir, root, stub string) Env {
 	get := os.Getenv
@@ -80,7 +80,6 @@ exec "$REAL" "$@"
 func TestSyncOntoBase(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	writeExec(t, root+"/scripts/test-multi.sh", "#!/usr/bin/env bash\n")
 	type sobCase struct {
 		label  string
 		fx     func(t *testing.T) *bmFx
@@ -94,10 +93,10 @@ func TestSyncOntoBase(t *testing.T) {
 	cases := []sobCase{
 		{label: "CLEAR is CLEAN", fx: rbNewFx, code: 0,
 			out: "CLEAR: $WT — main has not moved since the recorded merge base\nCLEAN: $WT — nothing to rebase\n"},
-		{label: "MOVED is REBASED with a guard-test line per overlap path", fx: sobOverlapFx, code: 0,
+		{label: "MOVED is REBASED", fx: sobOverlapFx, code: 0,
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: multi.txt, plain.txt\n" +
 				"CLEAR: $WT — main has not moved since the recorded merge base\n" +
-				"GUARD-TEST: multi.txt — $ROOT/scripts/test-multi.sh\nNO-GUARD-TEST: plain.txt\nREBASED: $WT — onto $TIP\n",
+				"REBASED: $WT — onto $TIP\n",
 			verify: func(t *testing.T, fx *bmFx) {
 				if got := rbRead(fx.repo + "/multi.txt"); got != "base\n2\n3\n4\nchange\n" {
 					t.Errorf("multi.txt %q: want both sides kept", got)
@@ -107,7 +106,7 @@ func TestSyncOntoBase(t *testing.T) {
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: multi.txt, plain.txt\n" +
 				"MOVED: $WT — 1 commits on main since the recorded merge base; no overlap with this change's paths\n" +
 				"CLEAR: $WT — main has not moved since the recorded merge base\n" +
-				"GUARD-TEST: multi.txt — $ROOT/scripts/test-multi.sh\nNO-GUARD-TEST: plain.txt\nREBASED: $WT — onto $TIP\n"},
+				"REBASED: $WT — onto $TIP\n"},
 		{label: "the re-check loop is capped at 3 rebases", fx: sobOverlapFx, stub: "always", code: 2, moves: 3,
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: multi.txt, plain.txt\n" +
 				strings.Repeat("MOVED: $WT — 1 commits on main since the recorded merge base; no overlap with this change's paths\n", 3)},
@@ -188,7 +187,6 @@ func TestSyncOntoBase(t *testing.T) {
 func TestSyncOntoBaseResume(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	writeExec(t, root+"/scripts/test-later.sh", "#!/usr/bin/env bash\n")
 	// conflicted is a sync stopped on a conflict over shared.txt; it returns the tip the sync rebased onto.
 	conflicted := func(t *testing.T) (*bmFx, string) {
 		t.Helper()
@@ -206,15 +204,14 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		return fx, fx.g.git(fx.repo, "rev-parse", "main")
 	}
 
-	t.Run("resolved: re-checks, with no guard-test lines, the plan edit untouched", func(t *testing.T) {
+	t.Run("resolved: re-checks, the plan edit untouched", func(t *testing.T) {
 		t.Parallel()
 		fx, onto := conflicted(t)
 		fx.g.write(fx.repo+"/shared.txt", "resolved")
 		fx.g.git(fx.repo, "add", "shared.txt")
 		fx.g.git(fx.repo, "-c", "core.editor=true", "rebase", "--continue")
 		// The base moves again over a path this change also carries, so the
-		// resumed re-check rebases once more with an overlap that has a
-		// guard test -- and still prints no guard-test line.
+		// resumed re-check rebases once more.
 		fx.g.write(fx.repo+"/later.txt", "moved")
 		fx.g.git(fx.repo, "add", "later.txt")
 		fx.g.git(fx.repo, "commit", "-qm", "change adds later.txt")

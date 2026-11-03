@@ -1,1 +1,0 @@
-../../../scripts/check-panel-fix-single-dispatch.sh

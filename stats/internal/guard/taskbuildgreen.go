@@ -5,6 +5,24 @@ import (
 	"io"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-task-build-green.sh shim (KAN-1058).
+//
+// All classification logic lives in stats/internal/guard/taskbuildgreen.go,
+// whose header carries the rule's pointer, the parsing model and the exit
+// codes. This file exists only so .flow/project.md's declared lint/test
+// commands and an operator's muscle memory invoking this exact filename keep
+// working.
+//
+//   - no arguments: scan every live change's tasks.md under
+//     spectre/changes/*/tasks.md, aggregating exit codes — non-zero if ANY file has a
+//     violation, printing each file's own violations;
+//   - one argument: treat it as an explicit tasks.md path and scan only
+//     that file.
+//
+// The no-argument scan's root is CHECK_TASK_BUILD_GREEN_ROOT when set (a test
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — exported by scripts/flow-guard — so the scan works from any cwd.
+
 // check-task-build-green fails when a tasks.md's tasks carry no **Build:**
 // tag, or a `red` tag whose task has no **Squash-with:** field, an empty one,
 // one naming an absent partner, or one naming a partner that is itself `red`.
@@ -17,9 +35,7 @@ import (
 // change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md,
 // aggregating exit codes — 2 beats 1 beats 0 — and printing each
 // file's own violations. <root> is CHECK_TASK_BUILD_GREEN_ROOT when set (a
-// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT, which
-// scripts/check-task-build-green.sh exports as its own real parent's parent
-// so the scan works from any cwd and through a skill directory's symlink.
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, so the scan works from any cwd.
 //
 // Exit codes:
 //
@@ -91,13 +107,13 @@ func checkTaskBuildGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		return tbgCheckFile(args[0], env, stdout, stderr)
 	case 0:
 	default:
-		fmt.Fprintln(stderr, "usage: check-task-build-green.sh [path-to-tasks.md]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-task-build-green [path-to-tasks.md]")
 		return 2
 	}
 	root := env.Getenv("CHECK_TASK_BUILD_GREEN_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintln(stderr, "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-task-build-green.sh, which sets it")
+			fmt.Fprintln(stderr, "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-task-build-green, which sets it")
 			return 2
 		}
 	}

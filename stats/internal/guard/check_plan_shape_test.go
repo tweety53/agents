@@ -171,28 +171,6 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(t.TempDir() + "/does-not-exist.md")
 	want("case 16: a nonexistent file exits 2", r.rc == 2, r)
 
-	// Case 17: the shim's own sibling missing exits 2 naming it — the
-	// sibling is lib/flow-guard.sh now that no Python module is loaded.
-	clean := psFixture(t, "- [ ] 1. Clean task\n\n**Files:** `a.py`\n\n**Tests:** `test-a.sh`\n")
-	stripped := t.TempDir()
-	psCopy(t, psShim, stripped+"/check-plan-shape.sh")
-	r = psExec(t, nil, stripped+"/check-plan-shape.sh", clean)
-	want("case 17: a shim copy with no lib/flow-guard.sh sibling exits 2", r.rc == 2, r)
-	want("case 17: the message names the missing module", has(r, "lib/flow-guard.sh"), r)
-
-	// Case 18: run through a skills/flow/scripts/ symlink, the no-argument
-	// scan resolves the root to the sandbox, not to skills/flow.
-	sandbox := t.TempDir()
-	psCopy(t, psShim, sandbox+"/scripts/check-plan-shape.sh")
-	psCopy(t, psScripts+"/lib/flow-guard.sh", sandbox+"/scripts/lib/flow-guard.sh")
-	psLink(t, filepath.Dir(psScripts)+"/stats", sandbox+"/stats")
-	psLink(t, "../../../scripts/check-plan-shape.sh", sandbox+"/skills/flow/scripts/check-plan-shape.sh")
-	psLink(t, "../../../scripts/lib", sandbox+"/skills/flow/scripts/lib")
-	writeFile(t, sandbox+"/spectre/changes/dirty-change/tasks.md", "- [ ] 1. Dirty\n\n**Tests:** `test-a.sh`\n")
-	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, sandbox+"/skills/flow/scripts/check-plan-shape.sh")
-	want("case 18: the symlinked invocation resolves REPO_ROOT to the sandbox root and finds the dirty fixture", r.rc == 1, r)
-	want("case 18: names the dirty fixture", has(r, "dirty-change/tasks.md:") && has(r, "has no **Files:** line"), r)
-
 	// Case 19 (F4/F6): `none` opening on a continuation line.
 	r = one(psFixture(t, "- [ ] 1. Continuation-line none, test-shaped file\n\n**Files:** `scripts/test-check-foo.sh`\n\n**Tests:**\nnone added — nothing to verify\n"))
 	want("case 19 (F4): a continuation-line none over a test-shaped Files entry fails", r.rc == 1, r)
@@ -454,21 +432,6 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(md)
 	want("case 43 (F18): a file an earlier task owns is not reported", r.rc == 0, r)
 
-	// The shim: a copy with no stats/ beside it cannot build
-	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
-	u := t.TempDir()
-	mkdir(t, u+"/root/spectre/changes/some-change")
-	psCopy(t, psShim, u+"/scripts/check-plan-shape.sh")
-	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
-	uenv := []string{"CHECK_PLAN_SHAPE_ROOT=" + u + "/root", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
-	r = psExec(t, uenv, u+"/scripts/check-plan-shape.sh")
-	want("shim: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
-	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {
-		t.Fatal(err)
-	}
-	r = psExec(t, uenv, u+"/scripts/check-plan-shape.sh")
-	want("shim: a missing lib/flow-guard.sh exits 2", r.rc == 2 && has(r, "cannot load lib/flow-guard.sh beside "+u+"/scripts/check-plan-shape.sh"), r)
-
 	// Beyond the harness: the outputs it never pinned, as the wrapper
 	// printed them at bbfe685e.
 	missing := t.TempDir() + "/nope.md"
@@ -482,7 +445,7 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(psFixture(t, "- [ ] 1. \xff\n"))
 	want("pin: a plan that is not UTF-8 exits 2", r.rc == 2 && has(r, "cannot read file: UnicodeDecodeError"), r)
 	r = runGuard("check-plan-shape", []string{"a", "b"}, env)
-	want("pin: the usage line", r.err == "usage: check-plan-shape.sh [path-to-tasks.md]\n", r)
+	want("pin: the usage line", r.err == "usage: flow-guard check-plan-shape [path-to-tasks.md]\n", r)
 	r = one(psFixture(t, psTasks("a", "a")))
 	want("pin: violations go to stdout, one per line", r.err == "" && strings.HasSuffix(r.stdout, "explicit\n"), r)
 	root = t.TempDir()
@@ -491,7 +454,7 @@ func TestCheckPlanShape(t *testing.T) {
 	want("pin: with no override the root is FLOW_GUARD_REPO_ROOT", r.rc == 1 && has(r, root+"/spectre/changes/dirty-change/tasks.md:1: task 1 has no **Files:** line"), r)
 	r = runGuard("check-plan-shape", nil, Env{Getenv: psGetenv(nil)})
 	want("pin: with no override and no FLOW_GUARD_REPO_ROOT it exits 2", r.rc == 2 &&
-		r.err == "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-plan-shape.sh, which sets it\n", r)
+		r.err == "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-plan-shape, which sets it\n", r)
 	r = one(psFixture(t, "- [ ] 1. Unread\n\n**Files:** `a.py`\n**Tests:** `x`\n\n  - [ ] **Step 1:** run `./gradlew test`\n"))
 	want("pin: the sub-guards' findings follow this guard's in one run", r.rc == 1 && has(r, "runs the suite"), r)
 
@@ -510,7 +473,7 @@ func TestCheckPlanShape(t *testing.T) {
 
 var (
 	psScripts, _ = filepath.Abs("../../../scripts")
-	psShim       = psScripts + "/check-plan-shape.sh"
+	psBoot       = psScripts + "/flow-guard"
 )
 
 // psMutant runs the one-file check with the finding tagged off disabled.
@@ -573,7 +536,7 @@ func psLink(t *testing.T, target, link string) {
 	}
 }
 
-// psExec runs a shim with bash from a directory outside any repository.
+// psExec runs a script with bash from a directory outside any repository.
 func psExec(t *testing.T, extra []string, args ...string) guardResult {
 	t.Helper()
 	cmd := exec.Command("bash", args...)

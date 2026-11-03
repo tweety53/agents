@@ -1,7 +1,7 @@
 # flow project configuration — agents — rationale
 
 This file is the reasoning behind `.flow/project.md`.
-**A `/flow*` run never loads it — appendices are for whoever edits a contract.** `project-get.sh`
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.** `flow-guard project-get`
 reads only `project.md`.
 
 ## .flow/project.md — apps
@@ -35,13 +35,13 @@ make it lazily instead.
 
 ## .flow/project.md — lint
 
-**`check-plan-shape.sh` sits beside `check-plan-provenance.sh` and `check-task-build-green.sh` in
+**`flow-guard check-plan-shape` sits beside `flow-guard check-plan-provenance` and `flow-guard check-task-build-green` in
 this list but is not one of them.** Those two are project-configured — resolved through a project's
-own `.flow/project.md` and run only where a project declares them — while `check-plan-shape.sh` is
-**shipped**, symlinked into `skills/flow/scripts/` and cited by basename per **Guard resolution**
+own `.flow/project.md` and run only where a project declares them — while `flow-guard check-plan-shape` is
+**shipped**, run as `flow-guard check-plan-shape` per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`), because the guard it protects
-(`check-task-commit-fields.sh`) is itself shipped and runs in every project `/flow` touches. It
-answers a bare-tree question exactly like `check-plan-provenance.sh` and `check-task-build-green.sh`
+(`flow-guard check-task-commit-fields`) is itself shipped and runs in every project `/flow` touches. It
+answers a bare-tree question exactly like `flow-guard check-plan-provenance` and `flow-guard check-task-build-green`
 do — no arguments scans every live `<spec-root>/changes/*/tasks.md`, and every archived one the base does not carry yet — which is why it
 belongs in this list at all, for the same reason those two do.
 
@@ -55,21 +55,21 @@ so a declaration is validated where it is read, in whichever repository holds it
 stays because this repository's own configuration is one more configuration worth checking, and
 because it keeps the guard runnable from a bare tree.
 
-**`check-foreign-staged.sh`, `check-finish-preflight.sh`, `check-unfinished-work.sh`,
-`check-cleanup-complete.sh` and `check-worktree-processes.sh` are deliberately not lint steps.**
+**`flow-guard check-foreign-staged`, `flow-guard check-finish-preflight`, `flow-guard check-unfinished-work`,
+`flow-guard check-cleanup-complete` and `flow-guard check-worktree-processes` are deliberately not lint steps.**
 All five are `/flow` integrate/cleanup helpers that need a change in flight and a real worktree, a
 main checkout, a repository or a state directory passed in as arguments; they answer a question
 about one change, not about the state of the repository's text. A lint step that cannot run against
 a bare tree would fail on every unrelated invocation, so
 the omission is a decision, not an oversight. They are covered instead by their harnesses under
 `## test`.
-`check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh`,
-`check-panel-reproducer-exit-contract.sh` and
-`run-reproducer.sh` are excluded for the same reason: they are `/flow` implementation helpers that
+`flow-guard check-panel-diff-size`, `flow-guard plan-dispatch-bundles`, `flow-guard check-panel-reproducers`,
+`flow-guard check-panel-reproducer-exit-contract` and
+`flow-guard run-reproducer` are excluded for the same reason: they are `/flow` implementation helpers that
 likewise need a change in flight and a worktree passed in, so they are covered by their own
 harnesses under `## test` instead.
 
-**`check-installed-citations.sh` belongs in the list for the opposite reason those are excluded.**
+**`flow-guard check-installed-citations` belongs in the list for the opposite reason those are excluded.**
 It takes no change-in-flight state — it derives the installed set by running a sandboxed `setup.sh`
 itself, twice per invocation, rather than being handed one — so it scans the same bare tree every
 other guard above does and exits identically regardless of what change, if any, is in flight. It is
@@ -77,9 +77,9 @@ the only guard in this list that shells out to the installer rather than only re
 on disk, which costs it real time; see the runtime note under `## test`, next to the entry its
 harness added there.
 
-**`check-dispatch-paragraphs.sh` keeps a required dispatch paragraph from silently
-disappearing.** It is argument-free and self-scoped exactly like `check-guard-symlinks.sh`: the
-scan root is this repository's own root, resolved from the script's own location. It checks a table
+**`flow-guard check-dispatch-paragraphs` keeps a required dispatch paragraph from silently
+disappearing.** It is argument-free and self-scoped exactly like `flow-guard check-guard-calls`: the
+scan root is this repository's own root. It checks a table
 of required paragraphs — REPRODUCE, DON'T READ at `skills/flow/review-panel.md` and
 `skills/flow/implement.md`, and VERBATIM REPORT — THE FACT at `skills/flow/review-panel.md` — for
 each paragraph's label and a handful of load-bearing phrases per variant, held as short literals
@@ -96,5 +96,5 @@ commit-scope rule spent a day with a dangling pointer.
 
 ## .flow/project.md — workspace isolation
 
-`after `scripts/workspace.sh remove` has dropped the `database` row's resource` — the exact loss
+`after `scripts/flow-guard workspace remove` has dropped the `database` row's resource` — the exact loss
 gymie kan-468's incomplete bundle reported.

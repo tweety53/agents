@@ -19,7 +19,7 @@ rows below is reported and its row dropped, never silently ignored.
 |---------|----------|---------|
 | `ui paths` | yes | Comma-separated globs, relative to each app root in `## apps`. A run whose diff matches none of them skips the `flow.visual-verify` stage. |
 | `screenshots` | yes | The root beneath which `verify` and `capture` write PNGs, **searched recursively rather than joined with a filename** — relative to the regression checkout when one is declared, otherwise to the project root. A per-change `capture` spec lands its PNGs in its own nested snapshot directory, a different one for every spec, so no single leaf path is correct for both the baseline suite and an arbitrary capture; naming the root instead is. |
-| `regression checkout` | no | Absolute path to the repository the per-change spec and its PNGs are committed to. **Absent means they are committed to the change's own branch instead.** When this same repository is also declared in `## apps`, its root follows that table's own rule — **Roots in `## apps` are main checkouts** above — resolving to the change's apply worktree there rather than the main checkout; a `regression checkout` with no matching `## apps` row resolves the same way — to a worktree of that repository on the change's branch when one exists, otherwise the main checkout. Also the root `<agents repo>/scripts/check-spec-reach.sh` enumerates `*.spec.ts` under and diffs against what the checkout's `package.json` scripts list — its header is canonical for that gate and its exit codes. |
+| `regression checkout` | no | Absolute path to the repository the per-change spec and its PNGs are committed to. **Absent means they are committed to the change's own branch instead.** When this same repository is also declared in `## apps`, its root follows that table's own rule — **Roots in `## apps` are main checkouts** above — resolving to the change's apply worktree there rather than the main checkout; a `regression checkout` with no matching `## apps` row resolves the same way — to a worktree of that repository on the change's branch when one exists, otherwise the main checkout. Also the root `<agents repo>/scripts/flow-guard check-spec-reach` enumerates `*.spec.ts` under and diffs against what the checkout's `package.json` scripts list — its header is canonical for that gate and its exit codes. |
 | `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** The visual-verify step pushes nothing; integrate's push carries a worktree commit, see below. |
 | `mockups` | no | Directory holding one `<frame id>.png` per drawn frame, relative to the project root. Declared, it enables the compose step of `flow.visual-verify` for any capture spec carrying a `<spec>.mockups` sidecar; absent, the stage composes nothing and reports `mockups: not declared`. |
 | `mockup frame` | no | `scale=<int> status=<px> border=<px>`: the mockup PNGs' scale factor, the status-line height and the border width, the last two in logical px. Declared, the compose step crops each frame to its content area — the sides and the top from these values, the bottom found per frame as the first row below the status line every one of whose pixels between the borders equals the page colour at (0, 0) — and reports a capture whose size differs from the cropped frame as a finding rather than composing it. Absent, frames compose at native size, uncropped, with no size check. A `<spec>.mockups` sidecar whose first non-comment line is `frame <geometry>` or `frame none` overrides this value for its own frames, `none` composing them at native size, uncropped. |
@@ -55,8 +55,8 @@ mockup on the right, both at native size, and its ratio field carries this liter
 diff=n/a
 ```
  `<agents
-repo>/scripts/compose-mockup-frames.sh`'s own header is canonical for its exit codes, the way this
-section already cites `check-visual-verification.sh` for its shape.
+repo>/scripts/flow-guard compose-mockup-frames`'s own header is canonical for its exit codes, the way this
+section already cites `flow-guard check-visual-verification` for its shape.
 
 **The full app suite.** One spec, `full-app-suite.spec.ts`, capturing every screen the app has —
 the whole-app regression suite, beside the per-change specs and reached by `verify` like them.
@@ -74,5 +74,5 @@ be, and a mismatch against its real `origin` is reported — but that is an iden
 authorisation, because `<project>/.flow/project.md` is tracked and editable in any pull request, and
 a file inside a repository cannot authorise a push to another repository.
 
-**Mechanically enforced** by `<agents repo>/scripts/check-visual-verification.sh`, canonical for the
+**Mechanically enforced** by `<agents repo>/scripts/flow-guard check-visual-verification`, canonical for the
 section's exact shape and every violation it reports.

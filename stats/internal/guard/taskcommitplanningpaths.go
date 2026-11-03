@@ -7,8 +7,59 @@ import (
 	"unicode"
 )
 
-// checkTaskCommitPlanningPaths is scripts/check-task-commit-planning-paths.sh:
-// that script's header comment is the contract -- fail any task commit in
+// The contract below moved here from the header of the deleted
+// scripts/check-task-commit-planning-paths.sh shim (KAN-1058).
+//
+// flow-guard check-task-commit-planning-paths — fail any task commit that swept the
+// planning paths (KAN-553, observed twice on kan-468: staged planning
+// artifacts reached the task commit through the implementer's own `git
+// commit`, and the second `git reset --hard` recovery destroyed uncommitted
+// planning work alongside them).
+//
+// Usage:
+//
+//   flow-guard check-task-commit-planning-paths <worktree> <base>
+//
+// A "task commit" is a commit in `<base>..HEAD` carrying the pipeline's
+// `Task-Id:` trailer — the commit an implementer makes for a plan task.
+// The planning paths are the spec tree's changes directory — the leaf
+// resolved per project through spec-root.sh's Go twin
+// (stats/internal/guard/specroot.go), `spectre` or `openspec`, never
+// hardcoded — and `docs/superpowers/`. Anything else
+// under the spec tree is implementation: a capability spec under
+// `<leaf>/specs/` is exactly what a task commit SHOULD carry, and
+// `docs/superpowers/` is named in full rather than as `docs/` for the same
+// reason. Everything at or before <base> stays outside this contract. A merge task commit is
+// judged by its combined diff (`-c`): a planning path its result carries
+// that no parent had is what the merge itself introduces and sweeps; content
+// carried over unchanged from a parent stays that parent commit's, judged
+// by its own walk entry.
+//
+// Verdict lines, on stdout:
+//
+//   TASK-COMMIT-SWEEP: <short sha> <task id> <path>   per planning path a
+//                                                     task commit touched
+//   PLANNING-PATHS-CLEAN: <worktree> — <n> task commit(s) checked
+//   PLANNING-PATHS-SWEPT: <worktree> — <n> task commit(s)
+//
+// Exit 0 on the clean verdict; exit 1 on the swept verdict; exit 2 with
+// NOTHING on stdout when the arguments are missing, the worktree is not a
+// readable git repository, HEAD or <base> does not resolve, or git refuses
+// the walk — an inability is never reported as a verdict.
+//
+// Like the other guards that need a change in flight and a real worktree
+// passed in (flow-guard check-foreign-staged and its siblings), this one answers a
+// question about one change, not about the state of the repository's text,
+// and is deliberately not a `## lint` step; its tests in
+// stats/internal/guard/check_task_commit_planning_paths_test.go are what
+// `## test` runs.
+//
+// Bash 3.2 is the floor: indexed arrays only, no associative arrays.
+//
+// The guard runs as the Go port in
+// stats/internal/guard/taskcommitplanningpaths.go.
+
+// checkTaskCommitPlanningPaths is `flow-guard check-task-commit-planning-paths`: the comment above is the contract -- fail any task commit in
 // <base>..HEAD that swept the planning paths (the spec tree's changes
 // directory, leaf resolved through specroot.go, and docs/superpowers/).
 // Exit 0 clean, 1 swept, 2 with nothing on stdout when it cannot answer.
@@ -17,13 +68,13 @@ func init() {
 }
 
 func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writer) int {
-	const p = "check-task-commit-planning-paths.sh: "
+	const p = "check-task-commit-planning-paths: "
 	refuse := func(msg string) int {
 		fmt.Fprintln(stderr, p+msg)
 		return 2
 	}
 	if len(args) != 2 {
-		fmt.Fprintln(stderr, "usage: check-task-commit-planning-paths.sh <worktree> <base>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-task-commit-planning-paths <worktree> <base>")
 		return 2
 	}
 	wt, base := args[0], args[1]

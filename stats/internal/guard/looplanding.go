@@ -8,6 +8,34 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-loop-landing.sh shim (KAN-1058).
+//
+// flow-guard check-loop-landing <repo> <branch> — may a pipeline-fix-* or
+// self-review-* branch land on the default branch?
+//
+// Only once flowd holds, under the loop's change (its branch name), a
+// completed plan dispatch, a completed first fix (`fix` or `fix-g<g>`), at
+// least one review, every row closed, the highest-numbered review closed
+// `clean` — no Critical, no Important — and no `fix-v<v>` after it. A
+// loop branch whose repository's project holds no rows for it — a
+// satellite, the loop's branch in another repository it carried a task into —
+// is read under the project of the agents checkout this script sits in, where
+// a loop run from that checkout files them; a FINISHED loop's rows still
+// admit its satellites, which land after its own branch. A self-review-*
+// branch whose diff from origin/HEAD touches only docs/prompt-tuning/ lands
+// without rows (LOOP-LANDING-OK … (prompt-tuning cases only)): it carries the
+// self-review's prompt-tuning cases and no code, so no review had anything to
+// judge.
+// hooks/protect-main-checkout.py runs it on a landing push typed by hand;
+// flow-guard pipeline-fix land runs the same check before its own push.
+//
+// Exit codes: 0 LOOP-LANDING-OK, or LOOP-LANDING-NA for any other branch;
+// 1 one LOOP-LANDING-REFUSED line per reason; 2 cannot answer (flowd
+// unreadable, not a git checkout, usage).
+//
+// Go, in flow-guard (stats/internal/guard/looplanding.go).
+
 // check-loop-landing.sh <repo> <branch>: may a pipeline-fix-* or
 // self-review-* branch land on the default branch? Only once flowd holds,
 // for its loop -- under the pushing repository's project, or, for a loop
@@ -15,7 +43,7 @@ import (
 // guard is installed from -- a completed plan, a completed first fix and a
 // review, every row closed, the highest review `clean` -- no Critical or Important -- and
 // no red-line fix (`fix-v<v>`) after it. protect-main-checkout.py runs it on
-// a landing push typed by hand; pipeline-fix.sh land runs it before its own.
+// a landing push typed by hand; flow-guard pipeline-fix land runs it before its own.
 // One admission skips the rows: a self-review-* branch whose diff from
 // origin/HEAD touches only docs/prompt-tuning/ carries prompt-tuning cases and
 // no code, so no loop review had anything to judge (kan-1032 design.md §4).
@@ -87,7 +115,7 @@ func lpLandingRefusals(lp lpLoop, rows []lpDispatch) []string {
 		out = append(out, fmt.Sprintf("FIX — no completed %sfix dispatch", lp.prefix))
 	}
 	for _, k := range open {
-		out = append(out, fmt.Sprintf("OPEN — %s has not been closed: scripts/pipeline-fix.sh end %s <outcome>", k, k))
+		out = append(out, fmt.Sprintf("OPEN — %s has not been closed: flow-guard pipeline-fix end %s <outcome>", k, k))
 	}
 	for _, k := range bad {
 		out = append(out, fmt.Sprintf("REVIEW — %s carries no numeric round: a review key is %sreview-<r>", k, lp.prefix))
@@ -126,7 +154,7 @@ func lpPromptTuningOnly(env Env, git, repo, branch string) bool {
 func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-landing"
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		fmt.Fprint(stderr, "usage: check-loop-landing.sh <repo> <branch>\n")
+		fmt.Fprint(stderr, "usage: flow-guard check-loop-landing <repo> <branch>\n")
 		return 2
 	}
 	lp, ok := lpFromBranch(args[1])

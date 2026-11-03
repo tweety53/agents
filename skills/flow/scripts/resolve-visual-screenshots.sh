@@ -1,1 +1,0 @@
-../../../scripts/resolve-visual-screenshots.sh

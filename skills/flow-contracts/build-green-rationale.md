@@ -23,7 +23,7 @@ Verbatim passages KAN-856 moved out of the planning session's run-loaded files; 
 
 Indenting the fields along with the steps is the
 natural reading of "the body sits beneath its task", and it is wrong in a way only
-`check-plan-shape.sh` catches kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
+`flow-guard check-plan-shape` catches kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
 task line to spectre than a step is, while this file's own guard reports
 `task <id> has no **Build:** tag` — naming the consequence and hiding the cause, since the tag is
 there, one column short of where its regex looks. Measured on a one-task plan written both ways.

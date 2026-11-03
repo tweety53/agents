@@ -45,8 +45,8 @@ func TestAwaitOwnAgentsHook(t *testing.T) {
 	meta("run1", "planner", false)
 	meta("run2", "planner", false)
 	out, rc := run("planner", false)
-	if rc != 0 || !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "await-sub-agents.sh run1 run2") {
-		t.Errorf("running children: rc %d, out %q; want a block naming await-sub-agents.sh run1 run2", rc, out)
+	if rc != 0 || !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "flow-guard await-sub-agents run1 run2") {
+		t.Errorf("running children: rc %d, out %q; want a block naming flow-guard await-sub-agents run1 run2", rc, out)
 	}
 	// stop_hook_active still blocks: the wait is the point, and the script returns within two minutes.
 	if out, _ := run("planner", true); !strings.Contains(out, `"decision": "block"`) {

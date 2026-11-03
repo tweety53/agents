@@ -1,1 +1,0 @@
-../../../scripts/check-frame-list.sh

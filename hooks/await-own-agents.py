@@ -6,7 +6,7 @@ agents woke on their hand-back 13 minutes later and rewrote its whole 206k-token
 (kan-1061). This hook reads the `subagents/` folder beside the stopping agent's transcript,
 finds every `agent-<id>.meta.json` whose `parentAgentId` is the stopping agent and whose
 `finished` is not true, and answers {"decision":"block","reason":...} telling it to run
-`<agents repo>/scripts/await-sub-agents.sh` on those ids -- each call returns within two
+`flow-guard await-sub-agents` on those ids -- each call returns within two
 minutes, inside the cache window.
 
 A child whose transcript has not been written for 30 minutes is taken as dead and never
@@ -23,7 +23,7 @@ import sys
 import time
 
 STALE_SECONDS = 30 * 60
-SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "await-sub-agents.sh")
+SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "flow-guard") + " await-sub-agents"
 
 
 def running_children(agent_id: str, folder: str) -> "list[str]":

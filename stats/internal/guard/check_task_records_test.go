@@ -13,8 +13,7 @@ import (
 // TestCheckTaskRecords ports scripts/test-check-task-records.sh at
 // bbfe685e: one subtest per ok: label, the guard run in-process against real
 // git fixtures copied from one base repository (trBase). The harness's two
-// wrapper cases -- a flow-guard that cannot be built, a missing
-// lib/flow-guard.sh -- exec a copy of the real shim.
+// wrapper cases tested the deleted bash shim and have no counterpart.
 func TestCheckTaskRecords(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }
@@ -192,21 +191,6 @@ func TestCheckTaskRecords(t *testing.T) {
 	}, fx.root)
 	want("case 20 peer state read follows FLOW_RECORDS_ADDR", r.rc == 0 && r.out == "", r)
 
-	// The shim: a copy with no stats/ beside it cannot build
-	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
-	u := t.TempDir()
-	mkdir(t, u+"/root/spectre/changes/some-change")
-	psCopy(t, trShim, u+"/scripts/check-task-records.sh")
-	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
-	uenv := []string{"FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
-	r = psExec(t, uenv, u+"/scripts/check-task-records.sh", u+"/root")
-	want("shim: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "check-task-records: cannot build flow-guard"), r)
-	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {
-		t.Fatal(err)
-	}
-	r = psExec(t, uenv, u+"/scripts/check-task-records.sh", u+"/root")
-	want("shim: a missing lib/flow-guard.sh exits 2", r.rc == 2 && r.err == "check-task-records: cannot load lib/flow-guard.sh beside "+u+"/scripts/check-task-records.sh\n", r)
-
 	// Beyond the harness: the outputs it never pinned, as the wrapper and
 	// check-task-records.py printed them at bbfe685e.
 	fx = trRepo(t)
@@ -232,7 +216,7 @@ func TestCheckTaskRecords(t *testing.T) {
 		rel+": task 4: subject 'feat(a): partial' is carried by 2 commits in origin/main..HEAD; expected one\n"+
 		rel+": task 4: declared file src/f4.go is not touched by its commit "+fx.head(t)[:12]+"\n", r)
 	r = run(Env{}, "a", "b", "c")
-	want("pin: the usage line", r.rc == 2 && r.stdout == "" && r.err == "usage: check-task-records.sh [repo-root] [base-ref]\n", r)
+	want("pin: the usage line", r.rc == 2 && r.stdout == "" && r.err == "usage: flow-guard check-task-records [repo-root] [base-ref]\n", r)
 	missing := t.TempDir() + "/nope"
 	r = run(Env{}, missing)
 	want("pin: a missing root exits 2", r.rc == 2 && r.err == "check-task-records: COULD NOT JUDGE — not a record verdict: repo root not found: "+trResolve(missing)+"\n", r)
@@ -253,13 +237,8 @@ func TestCheckTaskRecords(t *testing.T) {
 		strings.HasPrefix(r.err, "check-task-records: COULD NOT JUDGE — not a record verdict: cannot read "+trResolve(fx.tasks)+": 'utf-8' codec can't decode byte 0xff"), r)
 	fx = trRepo(t)
 	fx.task(1, "x", "feat(a): missing", "green")
-	sandbox := t.TempDir()
-	psCopy(t, trShim, sandbox+"/scripts/check-task-records.sh")
-	psLink(t, psScripts+"/lib", sandbox+"/scripts/lib")
-	psLink(t, "../../../scripts/lib", sandbox+"/skills/flow/scripts/lib")
-	psLink(t, "../../../scripts/check-task-records.sh", sandbox+"/skills/flow/scripts/check-task-records.sh")
-	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, sandbox+"/skills/flow/scripts/check-task-records.sh", fx.root)
-	want("pin: the symlinked shim judges the root it is given", r.rc == 1 &&
+	r = psExec(t, []string{"FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, psBoot, "check-task-records", fx.root)
+	want("pin: the bootstrap judges the root it is given", r.rc == 1 &&
 		r.stdout == rel+": task 1 ticked but no commit with subject 'feat(a): missing' reachable from HEAD\n", r)
 
 	for _, c := range checks {
@@ -271,8 +250,6 @@ func TestCheckTaskRecords(t *testing.T) {
 		})
 	}
 }
-
-var trShim = psScripts + "/check-task-records.sh"
 
 // trFx is one fixture repository: a copy of trBase with its plan at tasks.
 type trFx struct {

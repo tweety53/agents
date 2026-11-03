@@ -1,1 +1,0 @@
-../../../scripts/run-verify-list.sh

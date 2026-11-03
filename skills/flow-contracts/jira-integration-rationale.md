@@ -290,7 +290,7 @@ whole join, and report an unmarked "no write" line, **downgrading** the `⚠` th
 correctly emitted.
 
 **That window closes at the merge, and the `⚠` does not cross it.** At `/flow`'s integrate run,
-`<agents repo>/scripts/check-finish-preflight.sh` routes there only while the branch
+`<agents repo>/scripts/flow-guard check-finish-preflight` routes there only while the branch
 is unmerged; once it returns `RUN2` no command reaches this code again, so a join still partial when
 the branch merged stays partial. Nothing carries the warning across: no state-file field records a
 join outcome and this contract adds none, and run 2's only Jira write is the **Done** transition

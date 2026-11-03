@@ -26,10 +26,10 @@ run, or fix instructions at `IN_PROGRESS`; report anything else rather than igno
 
 **One exception: `--base <branch>` on a creating run** names the branch the change is cut from and
 lands on, in place of the one `origin/HEAD` points at. Kickoff records it on the change's branch in
-every repository (`kickoff-worktree.sh <project> <name> <base>`, and
-`kickoff-worktree.sh --from <this change's worktree>` for every worktree added after kickoff), first creating it from that repository's default branch where its origin lacks it, and `resolve-base-branch.sh` reads
+every repository (`flow-guard kickoff-worktree <project> <name> <base>`, and
+`flow-guard kickoff-worktree --from <this change's worktree>` for every worktree added after kickoff), first creating it from that repository's default branch where its origin lacks it, and `flow-guard resolve-base-branch` reads
 it back for every later phase, so it is never passed again.
-A recorded base gone from origin — merged and deleted — is refused by name by `resolve-base-branch.sh` (`<agents repo>/scripts/resolve-base-branch.sh`): re-point every worktree of the change at the branch that absorbed it with the three commands integrate's `STOP: base-mismatch` answer names (`skills/flow/integrate.md`), then re-run.
+A recorded base gone from origin — merged and deleted — is refused by name by `flow-guard resolve-base-branch` (`<agents repo>/scripts/flow-guard resolve-base-branch`): re-point every worktree of the change at the branch that absorbed it with the three commands integrate's `STOP: base-mismatch` answer names (`skills/flow/integrate.md`), then re-run.
 
 ## Model resolution
 
@@ -133,15 +133,7 @@ as the fix instructions — nothing else about the fix run changes.
 and a Jira key named in prose without the slash.
 
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
-confirm every guard `/flow` can invoke — every `<name>.sh` a fenced command line or the prose of
-`skills/flow/*.md` and the contract files it loads names, the set
-`<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 derives — is present in `<skill-dir>/scripts/`.
-
-Every `flow-guard` shim — every guard whose source loads `<agents repo>/scripts/lib/flow-guard.sh`,
-by `$SCRIPT_DIR/lib/…` or by `$(dirname -- "${BASH_SOURCE[0]}")/lib/…` — also requires that file as
-a `<agents repo>/scripts/lib/` sibling — the same
-sibling-dependency rule `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already applies to
-every other guard above.
+confirm `flow-guard` resolves on `PATH`.
 
 **The `<change>` argument to every mark below is always a resolved change name.** On a creating run
 the name does not exist until **A. Resolve the change and write `STARTED`**

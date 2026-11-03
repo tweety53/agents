@@ -13,6 +13,77 @@ import (
 	"syscall"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/prepare-workspace.sh shim (KAN-1058).
+//
+// flow-guard prepare-workspace — validate a worktree's `## workspace isolation`
+// declaration and export the workspace variables it derives.
+//
+// Usage: flow-guard prepare-workspace <worktree>
+//
+// This is exactly what `/flow`'s implement phase used to do by hand, in prose:
+// run flow-guard check-workspace-isolation against the worktree first — fail loudly
+// and stop if it fails — then derive and export the workspace variables the
+// project's `## workspace isolation` section declares, resolved against the
+// workspace id. Every rule this script applies is stated once, and canonical,
+// elsewhere: the id derivation and what it derives under **The workspace id**
+// and **What the id derives** (skills/flow-contracts/workspace-isolation.md),
+// and the `## workspace isolation` row shapes — the four `In a workspace`
+// forms, the `<id>`, `<id_underscored>` and `<value:VARIABLE>` tokens — under
+// **Project configuration — workspace isolation** (skills/flow-contracts/project-configuration-isolation.md).
+// This script re-derives none of that reasoning; it applies the rule.
+//
+// Prints one `KEY=value` line per exported variable to stdout, one per
+// declared row that carries a value (see the cache-index exception below), so
+// a caller reads exactly what was exported without re-deriving anything
+// itself.
+//
+// THE WORKSPACE ID NEEDS THE CHANGE NAME, AND THIS SCRIPT TAKES ONLY A
+// WORKTREE. The id is derived from the change name and from nothing else, per
+// **The workspace id**, so this script reads the name from the worktree's own
+// branch: every apply worktree is created on `spectre/<name>`, per
+// skills/flow/implement.md, and that branch is the one place the name is
+// already recorded where a script can read it without being handed it
+// separately. A self-review or pipeline-fix loop worktree is its own change,
+// named after its whole branch — `self-review-<name>`, `pipeline-fix-<name>-<k>`
+// — by flow-guard pipeline-fix, so that whole branch is its name (KAN-997). A
+// worktree on none of these — detached HEAD, or checked out on something else —
+// cannot be resolved, and this script refuses rather than guessing at a name.
+//
+// THE CACHE INDEX IS THE ONE ROW THIS SCRIPT DOES NOT EXPORT. Per **The cache
+// index** (skills/flow-contracts/workspace-isolation.md), a `cache index`
+// row is claimed by probing the project's own cache, not derived from the id —
+// and the registry in skills/flow-contracts/artifacts-registry.md names `/flow`,
+// by probing, as what claims it "when it exports the workspace's variables".
+// Probing means holding a client for whatever cache technology the project
+// actually runs, which is exactly the kind of project-specific knowledge a
+// script shipped into every project alike cannot carry. So a declared
+// `cache index` row is reported by name on stderr — never silently dropped —
+// and exports nothing; claiming it stays the operator's or the agent's own
+// step, done against the real service, same as it was before this script
+// existed.
+//
+// Exit 0 when the section is absent (no-op: nothing exported, nothing
+// printed) or when isolation resolved and exported cleanly. When
+// flow-guard check-workspace-isolation itself fails, this script's exit code is the
+// guard's own — 1 (a dropped row) or 2 (the guard could not answer at all) —
+// and the guard's stdout is relayed verbatim before exiting; its stderr is
+// inherited, not captured, so it is already in front of the operator by the
+// time this script's own exit code lands. Exit 2 additionally covers a
+// worktree this script cannot derive a change name from, and one whose
+// flow-guard check-workspace-isolation cannot be found.
+//
+// A project declaring no `## workspace isolation` section is the ordinary
+// case for a repository with no runnable application, and is never reported
+// as a misconfiguration, per **The empty id**
+// (skills/flow-contracts/workspace-isolation.md).
+//
+// Ported to Go (KAN-873): the body's reasoning for every step is in
+// stats/internal/guard/prepareworkspace.go, beside the code. The guard still
+// execs flow-guard check-workspace-isolation from beside this script, as the bash
+// did: FLOW_GUARD_WORKSPACE_ISOLATION is exported as its path, so a missing or
+// non-executable sibling keeps its exit 2.
+
 func init() { Registry["prepare-workspace"] = prepareWorkspace }
 
 // pwHeading is the bash's `grep -qiE '^##[[:space:]]+workspace
@@ -23,12 +94,12 @@ var pwHeading = regexp.MustCompile(`^##[ \t\n\v\f\r]+workspace isolation[ \t\n\v
 // guard's `#ROW` line reported it, plus the value this guard derives for it.
 type pwRow struct{ res, variable, def, cell, value string }
 
-// prepareWorkspace is scripts/prepare-workspace.sh's body. Its contract —
+// prepareWorkspace is `flow-guard prepare-workspace`. Its contract —
 // arguments, the KEY=value lines, the cache-index exception and the exit
 // codes — is the script's header; the reasoning behind each step is here.
 func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprint(stderr, "Usage: prepare-workspace.sh <worktree>\n")
+		fmt.Fprint(stderr, "Usage: flow-guard prepare-workspace <worktree>\n")
 		return 2
 	}
 	worktree := args[0]
@@ -42,24 +113,19 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// The sibling guard sits beside the shim: the bash took it from its own
-	// $SCRIPT_DIR, and the shim exports that path as
-	// FLOW_GUARD_WORKSPACE_ISOLATION, whatever the directory is named.
-	guard := env.Getenv("FLOW_GUARD_WORKSPACE_ISOLATION")
-	if guard == "" {
-		fmt.Fprint(stderr, "prepare-workspace: FLOW_GUARD_WORKSPACE_ISOLATION is unset — run scripts/prepare-workspace.sh, which sets it\n")
-		return 2
-	}
-	scriptDir := filepath.Dir(guard)
-	// Executable as well as a regular file: a present-but-non-executable
-	// guard is not runnable either, and letting the exec below hit it
-	// directly would fail with a raw exit 126 ("Permission denied") — outside
-	// this guard's own 0/1/2 exit contract and undocumented as such. Treated
-	// the same as "cannot find it at all", since neither case leaves this
-	// guard able to validate anything.
-	if st, err := os.Stat(guard); err != nil || !st.Mode().IsRegular() || syscall.Access(guard, 1) != nil {
-		fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation.sh in %s\n", scriptDir)
-		return 2
+	// The sibling guard, check-workspace-isolation, runs in this same binary
+	// (runSibling); FLOW_GUARD_WORKSPACE_ISOLATION, when set, names an
+	// executable to run instead. Executable as well as a regular file: a
+	// present-but-non-executable override is not runnable either, and letting
+	// the exec below hit it directly would fail with a raw exit 126
+	// ("Permission denied") — outside this guard's own 0/1/2 exit contract and
+	// undocumented as such. Treated the same as "cannot find it at all", since
+	// neither case leaves this guard able to validate anything.
+	if guard := env.Getenv("FLOW_GUARD_WORKSPACE_ISOLATION"); guard != "" {
+		if st, err := os.Stat(guard); err != nil || !st.Mode().IsRegular() || syscall.Access(guard, 1) != nil {
+			fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation in %s\n", filepath.Dir(guard))
+			return 2
+		}
 	}
 
 	// Validate first, with the guard, not by eye — and before resolving a
@@ -74,8 +140,8 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// this guard needs: the guard already walked the file's cells to validate
 	// them, and the rows below are extracted from that same walk rather than
 	// a second one this guard would otherwise have to run itself.
-	cmd := exec.Command(guard, worktree)
-	cmd.Dir, cmd.Stderr = env.Dir, stderr
+	cmd := siblingCmd(env, "FLOW_GUARD_WORKSPACE_ISOLATION", "check-workspace-isolation", worktree)
+	cmd.Stderr = stderr
 	cmd.Env = append(os.Environ(), "CHECK_WORKSPACE_ISOLATION_PRINT_ROWS=1")
 	raw, err := cmd.Output()
 	// $(...) strips every trailing newline; the relay below adds one back.
@@ -113,7 +179,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// worktree is created on `spectre/<name>` per skills/flow/implement.md; a
 	// self-review or pipeline-fix loop worktree is its own change, named after
 	// its whole branch — `self-review-<name>`, `pipeline-fix-<name>-<k>` — by
-	// scripts/pipeline-fix.sh (KAN-997). The id is derived from the change name
+	// flow-guard pipeline-fix (KAN-997). The id is derived from the change name
 	// and nothing else, per **The workspace id**
 	// (skills/flow-contracts/workspace-isolation.md).
 	branch, _ := gitExec(env.Dir, nil, io.Discard, "-C", worktree, "symbolic-ref", "--quiet", "--short", "HEAD")

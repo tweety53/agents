@@ -10,8 +10,63 @@ import (
 	"strings"
 )
 
-// checkFrameList is scripts/check-frame-list.sh: that script's header comment
-// is the contract. It derives the frames design.md declares from the mockups
+// The contract below moved here from the header of the deleted
+// scripts/check-frame-list.sh shim (KAN-1058).
+//
+// flow-guard check-frame-list — reconcile the mockup frames design.md declares against
+// the capture specs' `.mockups` sidecars and a flow.visual-verify verifier's
+// report, so a declared frame no capture reached is named rather than lost
+// (KAN-549: design.md declared 22 frames, two rounds reported 15/17 composed,
+// and nothing compared the two).
+//
+// Usage: flow-guard check-frame-list <design.md> <mockups dir> <report file>
+//
+// <design.md> is the change's <changeRoot>/design.md; <mockups dir> the
+// resolved `mockups` root (skills/flow-contracts/project-configuration-visual.md);
+// <report file> the verifier's
+// <abs-worktree>/.superpowers/sdd/verify-report-<key>.md
+// (skills/flow/visual-verify.md).
+//
+// THE DECLARED LIST is derived, never written down twice: every
+// `<frame id>.png` directly inside <mockups dir> whose <frame id> design.md
+// names as a whole token — bounded on each side by the start or end of a line
+// or by a character that is not a letter, digit, `_` or `-`. A range
+// `<prefix><a> … <prefix><b>` (joined by `…`, `–` or `...`, each end optionally
+// a path ending in `/`, a `.png` suffix and backticks) names every
+// `<prefix><n>` from <a> to <b>; ends with different prefixes name only
+// themselves. A design line opening with `**Considered:**` names no frame:
+// its alternatives were rejected.
+//
+// Every report line below is read from the report's `## Report` heading to
+// the next `## ` heading alone: a `## Verdict` departure line never stands in
+// for a per-frame line (decision verdict-only-handback).
+//
+// THE SIDECARS are `<spec>.mockups` beside every spec the report's
+// `- spec: <path>` lines name; a missing sidecar contributes no frame. A
+// sidecar line is `<screenshot name> <frame id>`, `#` comments and blank lines
+// ignored.
+//
+// A GAP is, for a declared frame:
+//   no sidecar line: <frame id>   no read sidecar maps a screenshot to it
+//   no report line: <frame id>    no `- <frame id>:` or `- <frame id> <…>:`
+//                                 line — the id may follow other ids joined
+//                                 by ` / `, `- <id> / <frame id> <…>:` — and
+//                                 the `- frames:` line does not name it
+// and, for the report:
+//   no frames line                the report carries no `- frames: <n>/<m>`
+//                                 line while design.md declares a frame
+//   frames <n>/<m> below <k> declared   <m> is smaller than the declared count
+//
+// Prints ONE verdict line to stdout:
+//   FRAME-LIST-COMPLETE: <report file> — <k> declared
+//   FRAME-LIST-GAP: <report file> — <each gap, `; `-separated>
+//
+// Exit 0 no gap, 1 at least one gap, 2 cannot answer (a usage error, an
+// unreadable design.md or report, a mockups dir that is not a directory).
+//
+// Go, in flow-guard (stats/internal/guard/framelist.go).
+
+// checkFrameList is `flow-guard check-frame-list`: the comment above is the contract. It derives the frames design.md declares from the mockups
 // directory and reconciles them against the capture specs' sidecars and the
 // verifier report's per-frame and `- frames:` lines.
 func init() { Registry["check-frame-list"] = checkFrameList }
@@ -34,7 +89,7 @@ func flToken(id string) *regexp.Regexp {
 func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-frame-list"
 	if len(args) != 3 {
-		fmt.Fprintf(stderr, "%s: usage: check-frame-list.sh <design.md> <mockups dir> <report file>\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file>\n", prog)
 		return 2
 	}
 	design, err := os.ReadFile(args[0])

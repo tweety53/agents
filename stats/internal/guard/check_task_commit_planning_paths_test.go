@@ -68,8 +68,8 @@ func tcppMerge(t *testing.T, repo, sideTid, sidePath string) {
 
 func TestCheckTaskCommitPlanningPaths(t *testing.T) {
 	t.Parallel()
-	const p = "check-task-commit-planning-paths.sh: "
-	const usage = "usage: check-task-commit-planning-paths.sh <worktree> <base>\n"
+	const p = "check-task-commit-planning-paths: "
+	const usage = "usage: flow-guard check-task-commit-planning-paths <worktree> <base>\n"
 	clean := func(repo, n string) string {
 		return "PLANNING-PATHS-CLEAN: " + repo + " — " + n + " task commit(s) checked\n"
 	}

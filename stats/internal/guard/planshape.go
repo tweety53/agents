@@ -17,6 +17,23 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-plan-shape.sh shim (KAN-1058).
+//
+// This file exists so .flow/project.md's declared lint/test commands and an
+// operator's muscle memory invoking this exact filename keep working. Scope
+// is one file per call:
+//
+//   - no arguments: scan every live change's tasks.md under
+//     <spec-root>/changes/*/tasks.md, aggregating exit codes — non-zero if ANY file has a violation,
+//     printing each file's own violations;
+//   - one argument: treat it as an explicit tasks.md path and scan only
+//     that file.
+//
+// The no-argument scan's root is CHECK_PLAN_SHAPE_ROOT when set (a test
+// harness's sandboxed fixture tree), else FLOW_GUARD_REPO_ROOT — exported by scripts/flow-guard — as the checkout whose changes are
+// scanned.
+
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
 // judges its commits (check-task-commit-fields) can actually read it. Twenty-four
 // findings, F1-F24 (F1-F6's canonical definitions, decisions and rationale:
@@ -33,9 +50,7 @@ import (
 // never the archive/ entry, since run 1 drops a change's directory rather
 // than moving it. The root
 // is CHECK_PLAN_SHAPE_ROOT when set (a harness's sandboxed fixture tree),
-// else FLOW_GUARD_REPO_ROOT, which scripts/check-plan-shape.sh exports from
-// its own real location -- so a run through the shipped
-// skills/flow/scripts/ symlink judges the repository, never skills/flow.
+// else FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports from its own real location.
 //
 // Per file, the F1-F18 checks run, then plan-suite-steps
 // (plansuitesteps.go: a task step running a module or repository suite),
@@ -208,13 +223,13 @@ func checkPlanShape(args []string, env Env, stdout, stderr io.Writer) int {
 		return psCheckOne(args[0], env, "", stdout, stderr)
 	case 0:
 	default:
-		fmt.Fprintln(stderr, "usage: check-plan-shape.sh [path-to-tasks.md]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-plan-shape [path-to-tasks.md]")
 		return 2
 	}
 	root := env.Getenv("CHECK_PLAN_SHAPE_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
-			fmt.Fprintln(stderr, "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-plan-shape.sh, which sets it")
+			fmt.Fprintln(stderr, "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-plan-shape, which sets it")
 			return 2
 		}
 	}

@@ -3,7 +3,6 @@ package guard
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -88,7 +87,7 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	want("case 12: exactly one violation line for the duplicated partner", strings.Count(r.out, "task 1 merges with Task 2, which is itself red") == 1, r)
 
 	// Case 13: the shim's no-argument scan of this repository's own changes.
-	r = psExec(t, []string{"CHECK_TASK_BUILD_GREEN_ROOT=", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, tbgShim)
+	r = psExec(t, []string{"CHECK_TASK_BUILD_GREEN_ROOT=", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, psBoot, "check-task-build-green")
 	want("case 13: no-arg scan of the real repo tree passes", r.rc == 0, r)
 
 	// Case 14: the no-argument scan over CHECK_TASK_BUILD_GREEN_ROOT; the
@@ -124,15 +123,6 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	_, r = run("- [ ] 1. Red task whose first Squash-with line does not gate\n\n**Build:** red\n\n**Squash-with:** Task 2 (see note below)\n**Squash-with:** Task 2\n\n- [ ] 2. Green partner named by the gating line\n\n**Build:** green\n")
 	want("case 19: the gating line is the field, so the partner resolves", r.rc == 0, r)
 	clean("19", r)
-
-	// Case 20: the shim's own sibling missing exits 2 naming it — the
-	// sibling is lib/flow-guard.sh now that no Python module is loaded.
-	md, _ := run("- [ ] 1. Clean task\n\n**Build:** green\n")
-	stripped := t.TempDir()
-	psCopy(t, tbgShim, stripped+"/check-task-build-green.sh")
-	r = psExec(t, nil, stripped+"/check-task-build-green.sh", md)
-	want("case 20: a guard copy with no lib/ sibling exits 2", r.rc == 2, r)
-	want("case 20: the message names the missing module path", has(r, "cannot load lib/flow-guard.sh beside "+stripped+"/check-task-build-green.sh"), r)
 
 	_, r = run("- [ ] 1. Red task carrying two Build lines\n\n**Build:** red\n**Build:** green\n\n**Squash-with:** Task 9\n")
 	want("case 21: the first Build line is the tag, so the task is red", r.rc == 1, r)
@@ -216,34 +206,6 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	want("case 36: malformed tag fails", r.rc == 1, r)
 	want("case 36: no duplicate no-tag violation", !has(r, "has no **Build:** tag"), r)
 
-	// Unlanded archives: a shim copy with no stats/ beside it cannot build
-	// flow-guard; the same copy with no lib/flow-guard.sh cannot load it.
-	u := t.TempDir()
-	mkdir(t, u+"/root/spectre/changes/some-change")
-	psCopy(t, tbgShim, u+"/scripts/check-task-build-green.sh")
-	psCopy(t, psScripts+"/lib/flow-guard.sh", u+"/scripts/lib/flow-guard.sh")
-	uenv := []string{"CHECK_TASK_BUILD_GREEN_ROOT=" + u + "/root", "FLOW_GUARD_CACHE_DIR=" + t.TempDir()}
-	r = psExec(t, uenv, u+"/scripts/check-task-build-green.sh")
-	want("unlanded archives: flow-guard that cannot be built exits 2", r.rc == 2 && has(r, "cannot build flow-guard"), r)
-	if err := os.Remove(u + "/scripts/lib/flow-guard.sh"); err != nil {
-		t.Fatal(err)
-	}
-	r = psExec(t, uenv, u+"/scripts/check-task-build-green.sh")
-	want("unlanded archives: a missing lib/flow-guard.sh exits 2", r.rc == 2 && has(r, "cannot load lib/flow-guard.sh beside "+u+"/scripts/check-task-build-green.sh"), r)
-
-	// Beyond the harness: the outputs it never pinned, as the wrapper
-	// printed them at bbfe685e.
-	sandbox := t.TempDir()
-	psCopy(t, tbgShim, sandbox+"/scripts/check-task-build-green.sh")
-	psCopy(t, psScripts+"/lib/flow-guard.sh", sandbox+"/scripts/lib/flow-guard.sh")
-	psLink(t, filepath.Dir(psScripts)+"/stats", sandbox+"/stats")
-	psLink(t, "../../../scripts/check-task-build-green.sh", sandbox+"/skills/flow/scripts/check-task-build-green.sh")
-	psLink(t, "../../../scripts/lib", sandbox+"/skills/flow/scripts/lib")
-	writeFile(t, sandbox+"/spectre/changes/dirty-change/tasks.md", "- [ ] 1. Dirty\n")
-	r = psExec(t, []string{"CHECK_TASK_BUILD_GREEN_ROOT=", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}, sandbox+"/skills/flow/scripts/check-task-build-green.sh")
-	want("pin: the symlinked shim scans the real root, not skills/flow", r.rc == 1 &&
-		strings.HasSuffix(r.stdout, sandbox+"/spectre/changes/dirty-change/tasks.md:1: task 1 has no **Build:** tag\n") &&
-		strings.Count(r.stdout, "\n") == 1, r)
 	missing := t.TempDir() + "/nope.md"
 	r = one(missing)
 	want("pin: a missing file exits 2 with the OSError on stderr", r.rc == 2 && r.stdout == "" &&
@@ -255,8 +217,8 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	_, r = run("- [ ] 1. \xff\n")
 	want("pin: a plan that is not UTF-8 exits 2", r.rc == 2 && has(r, "cannot read file: UnicodeDecodeError"), r)
 	r = runGuard("check-task-build-green", []string{"a", "b"}, env)
-	want("pin: the usage line", r.rc == 2 && r.err == "usage: check-task-build-green.sh [path-to-tasks.md]\n", r)
-	md, r = run("- [ ] 1. A\n\n- [ ] 2. B\n\n**Build:** red\n\n- [ ] 3. C\n\n**Build:** red\n\n**Squash-with:** Task 2, 9\n\n- [ ] 1. A again\n")
+	want("pin: the usage line", r.rc == 2 && r.err == "usage: flow-guard check-task-build-green [path-to-tasks.md]\n", r)
+	md, r := run("- [ ] 1. A\n\n- [ ] 2. B\n\n**Build:** red\n\n- [ ] 3. C\n\n**Build:** red\n\n**Squash-with:** Task 2, 9\n\n- [ ] 1. A again\n")
 	want("pin: violations go to stdout in order, duplicates first", r.rc == 1 && r.err == "" && r.stdout == md+":13: task 1 is defined more than once (first at line 1)\n"+
 		md+":1: task 1 has no **Build:** tag\n"+
 		md+":5: task 2 is red with no **Squash-with:** field\n"+
@@ -269,7 +231,7 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 	want("pin: with no override the root is FLOW_GUARD_REPO_ROOT", r.rc == 1 && r.out == root+"/spectre/changes/dirty-change/tasks.md:1: task 1 has no **Build:** tag", r)
 	r = runGuard("check-task-build-green", nil, Env{Getenv: psGetenv(nil)})
 	want("pin: with no override and no FLOW_GUARD_REPO_ROOT it exits 2", r.rc == 2 &&
-		r.err == "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-task-build-green.sh, which sets it\n", r)
+		r.err == "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-task-build-green, which sets it\n", r)
 	r = scan(t.TempDir())
 	want("pin: a root with no changes directory passes silently", r.rc == 0 && r.out == "", r)
 	root = t.TempDir()
@@ -287,5 +249,3 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 		})
 	}
 }
-
-var tbgShim = psScripts + "/check-task-build-green.sh"

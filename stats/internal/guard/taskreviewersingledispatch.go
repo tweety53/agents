@@ -14,9 +14,115 @@ import (
 	"syscall"
 )
 
-// checkTaskReviewerSingleDispatch is
-// scripts/check-task-reviewer-single-dispatch.sh: that script's header
-// comment is the contract -- exit 0 every gated-per-task reviewer row of the
+// The contract below moved here from the header of the deleted
+// scripts/check-task-reviewer-single-dispatch.sh shim (KAN-1058).
+//
+// flow-guard check-task-reviewer-single-dispatch <worktree> <change-name> <session-token>
+//
+// THE CHANGE NAME IS A SECOND ARGUMENT and the session token a third, for
+// the same reason the name is one on flow-guard check-panel-fix-single-dispatch: a
+// change's dispatches are rows in the store, keyed by change name, not a
+// file at a fixed path, and the token scopes the count to THIS run --
+// `flow record dispatches -change <name> -C <worktree>` answers with the
+// decoded JSON array of that change's dispatch rows, and this guard reads
+// only that array plus <worktree>/spectre/changes/<name>/tasks.md (the
+// canonical worktree's copy -- the only one that exists on a cross-repo
+// change, per skills/flow-contracts/worktree-resolution.md).
+//
+// This is the gate KAN-527 asked for, the gated-per-task-reviewer sibling
+// of flow-guard check-panel-fix-single-dispatch: on that run the conductor launched
+// nine one-task reviewer dispatches against nine gate-fired tasks that
+// belonged to three implementer groups, before the operator stopped the
+// run and implement.md's "The gated per-task reviewer" paragraph was
+// rewritten to require ONE bundled dispatch per implementer group whose
+// gate fired (on `big`; KAN-934 later dropped the gated reviewer on
+// `micro`/`small`/`regular`). Prose
+// alone already failed once for the panel's own fix step (KAN-482); this
+// guard exists so the same failure mode is caught here too, at the stage's
+// own close, immediately before `flow stage end -command '/flow' -stage
+// flow.sdd-tdd`, the same position flow-guard check-panel-fix-single-dispatch holds
+// at `flow.review-panel`'s close.
+//
+// THE COUNT IS SCOPED to the session token named on the command line --
+// a change's rows span every run that ever touched it, and only this run's
+// dispatches are this run's business. Within that token, every row whose
+// role is `reviewer` and whose key matches the gated-per-task-reviewer
+// family (`^task-[0-9]+(\+[0-9]+)*-reviewer(-fix-[0-9]+)?(-retry)?$`) must
+// satisfy:
+//
+//   - its key is in that canonical shape -- a key naming one task
+//     (`task-5-reviewer`) or several `+`-joined in plan order
+//     (`task-13+14+15-reviewer`), optionally a fix round
+//     (`task-13+14-reviewer-fix-1`) and optionally the handshake's one
+//     retry (`task-13+14-reviewer-fix-1-retry`); a conductor that invents
+//     one key per task (`task-5-reviewer`, `task-6-reviewer`, ... for tasks
+//     that share an implementer group) is exactly the KAN-527 shape;
+//   - its base (the key with a trailing `-retry` stripped) carries at most
+//     one non-retry dispatch, at most two rows total, and two only when
+//     exactly one of them is the `-retry` variant -- the handshake's one
+//     allowed second dispatch, per implement.md's **The handshake**;
+//   - a `-retry` row never stands alone: a retry with no original has no
+//     bundle it could be a retry of.
+//
+// BEYOND the per-key shape (which is everything check-panel-fix-single-
+// dispatch.sh's own key family checks), this guard also checks the
+// BUNDLING ITSELF, since a KAN-527-shaped run can produce well-formed keys
+// that are still one-per-task: no two ORIGINAL (non-fix, non-retry) keys
+// may name tasks belonging to the same implementer group. Group membership
+// is read from `<worktree>/spectre/changes/<name>/tasks.md` via
+// `flow-guard plan-dispatch-bundles` (task -> bundle) composed with
+// `flow-guard plan-dispatch-groups` (bundle -> group) -- the same source of truth
+// `skills/flow/brainstorm-planner.md`'s Decide step and implement.md's own
+// wave-grouping already use, never re-derived by this guard from the raw
+// markdown. On the decision's `class` `micro`, `small` or `regular` (read via `flow
+// record decisions -change <name> -C <worktree>`, the newest entry's -- the verb lists newest first --
+// `.decision.class`; a failed read, output that is not JSON, or no class
+// is treated as `big`, and JSON that is not an array of decision rows is a
+// cannot-answer, exit 2 -- `big` tolerates gated reviewer rows, so reading
+// it as `big` would loosen the check),
+// implement.md dispatches no gated reviewer at all: every gate-fired task is
+// the whole-branch panel's review focus instead (KAN-934) -- so on those
+// classes, any gated-reviewer row of this token is itself a violation.
+//
+// Rows of other roles and rows of other session tokens never count. A task
+// id that never appears in any `reviewer`-role key of this token was never
+// gated, or its gate hasn't fired yet, or its bundle is still in flight --
+// this guard says nothing about coverage, only about the shape of what was
+// already dispatched.
+//
+// THE GUARD NEVER READS THE JOURNAL and never consults anything but the
+// store's answer for dispatch rows, matching check-panel-fix-single-
+// dispatch.sh: a read that failed is a question this guard cannot answer,
+// not a clean verdict. The tasks.md read is a plain file read, not a store
+// read; a missing or unparsable tasks.md is likewise "cannot answer" (exit
+// 2), never a clean verdict, since without it group membership cannot be
+// established at all.
+//
+// THE CHANGE-NAME CONTAINMENT CASE IS DUPLICATED, on purpose, from
+// flow-guard check-panel-fix-single-dispatch's own copy at d71a2327 (now the
+// CONTAINMENT check in stats/internal/guard/panelfixsingledispatch.go; itself duplicated from
+// flow-guard check-panel-findings-closed) -- the change name arrives from a
+// pull-request-editable state file and is passed to `flow record
+// dispatches -change`, so `../../../planted` and a glob metacharacter are
+// hazards here exactly as they are there. The worktree is canonicalised
+// before it is ever passed to `flow` as `-C`, and refused rather than
+// proceeded with if it vanished between the `-d` check and here, for the
+// same reasons that guard's header names.
+//
+// Exit codes:
+//   0  every gated-per-task reviewer row of this session token is
+//      shape-clean, retry-clean, and bundled per implementer group (and,
+//      on `micro`/`small`/`regular`, there is no such row)
+//   1  at least one violation -- each offending key or group named on
+//      stderr
+//   2  cannot answer at all -- missing arguments, a non-directory
+//      worktree, a change name outside the allowlist, the store
+//      unreachable, tasks.md missing or unreadable, flow-guard plan-dispatch-bundles
+//      or flow-guard plan-dispatch-groups failing, dispatch rows that are not
+//      readable JSON, or decision output that is JSON but not an array of
+//      decision rows
+
+// checkTaskReviewerSingleDispatch is `flow-guard check-task-reviewer-single-dispatch`: the comment above is the contract -- exit 0 every gated-per-task reviewer row of the
 // session token is shape-clean, retry-clean and bundled per implementer
 // group, 1 violations (each on stderr), 2 cannot answer. The dispatch read is
 // Env.Dispatches when set, else `flow record dispatches`; the decisions read
@@ -69,7 +175,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintf(stderr, "%susage: check-task-reviewer-single-dispatch.sh <worktree> <change-name> <session-token>\n", trsdPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-task-reviewer-single-dispatch <worktree> <change-name> <session-token>\n", trsdPrefix)
 		return 2
 	}
 	if token == "" {
@@ -93,12 +199,6 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		return 2
 	}
 
-	// The two siblings are exec'd from beside the shim, as the bash exec'd
-	// them from $SCRIPT_DIR.
-	scriptDir, ok := guardSelfDir(env, stderr, trsdPrefix, "check-task-reviewer-single-dispatch")
-	if !ok {
-		return 2
-	}
 	tasksMD := ChangeDir(worktree+"/spectre/changes", name) + "/tasks.md"
 	if fi, err := os.Stat(tasksMD); err != nil || !fi.Mode().IsRegular() {
 		fmt.Fprintf(stderr, "%sno tasks.md at %s -- cannot answer\n", trsdPrefix, tasksMD)
@@ -123,11 +223,11 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 
 	// Group membership: task id -> group number, from this run's own plan --
 	// never re-derived from the raw markdown by this guard.
-	bundleLines, ok := trsdSibling(env, scriptDir, "plan-dispatch-bundles.sh", tasksMD, stderr)
+	bundleLines, ok := trsdSibling(env, "FLOW_GUARD_PLAN_DISPATCH_BUNDLES", "plan-dispatch-bundles", tasksMD, stderr)
 	if !ok {
 		return 2
 	}
-	groupLines, ok := trsdSibling(env, scriptDir, "plan-dispatch-groups.sh", tasksMD, stderr)
+	groupLines, ok := trsdSibling(env, "FLOW_GUARD_PLAN_DISPATCH_GROUPS", "plan-dispatch-groups", tasksMD, stderr)
 	if !ok {
 		return 2
 	}
@@ -291,9 +391,8 @@ func trsdReviewerKeys(raw []byte, token string) ([]string, bool) {
 // output as `$(...)` did, run under LC_ALL=C as the bash exported it. On failure it prints the bash's cannot-answer line
 // and then the output (an empty line when there was none, as `echo ""`
 // printed); a sibling that could not be started prints its error instead.
-func trsdSibling(env Env, dir, script, tasksMD string, stderr io.Writer) (string, bool) {
-	cmd := exec.Command(dir+"/"+script, tasksMD)
-	cmd.Dir = env.Dir
+func trsdSibling(env Env, override, script, tasksMD string, stderr io.Writer) (string, bool) {
+	cmd := siblingCmd(env, override, script, tasksMD)
 	cmd.Env = append(os.Environ(), "LC_ALL=C") // the bash exported LC_ALL=C
 	var b bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &b, &b
@@ -393,21 +492,4 @@ func trsdNewestClass(raw []byte) (string, bool) {
 		}
 	}
 	return strings.TrimRight(strings.ReplaceAll(out.String(), "\x00", ""), "\n"), true
-}
-
-// guardSelfDir is the directory of the shim a guard was invoked through: the
-// shim exports the path it was invoked by as FLOW_GUARD_SELF, relative to the
-// caller's directory when not absolute, and the guard execs its siblings from
-// beside it. Unset is a cannot-answer, printed under the guard's prefix and
-// naming the guard's own script.
-func guardSelfDir(env Env, stderr io.Writer, prefix, name string) (string, bool) {
-	self := env.Getenv("FLOW_GUARD_SELF")
-	if self == "" {
-		fmt.Fprintf(stderr, "%sFLOW_GUARD_SELF is unset — run scripts/%s.sh, which sets it\n", prefix, name)
-		return "", false
-	}
-	if !filepath.IsAbs(self) {
-		self = filepath.Join(env.Dir, self)
-	}
-	return filepath.Dir(self), true
 }

@@ -14,7 +14,7 @@ convergence-and-approval confirm of **Convergence** runs as written (`skills/flo
 **The note is the research, never the plan's form.** The seeded plan is still written through C
 and D like any other, and what the note abbreviates the plan spells out: every `**Files:**` field
 carries full repo-relative paths — the note's shorthand (commonMain/… and its like) is expanded,
-never copied, because `check-task-commit-fields.sh` matches a declared path against the commit's
+never copied, because `flow-guard check-task-commit-fields` matches a declared path against the commit's
 diff literally — and `tasks.md`'s H1 stays the exact `# <change-id>` literal `spectre validate`
 requires, never a title the note supplies.
 

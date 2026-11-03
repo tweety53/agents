@@ -1,1 +1,0 @@
-../../../scripts/check-verify-green.sh

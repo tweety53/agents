@@ -12,6 +12,14 @@ import (
 	"unicode/utf8"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/generate-relocation-comparison.sh shim (KAN-1058).
+//
+// Usage: flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>
+//
+// The plan read is `<changeRoot>/tasks.md`; the generator spells that path
+// itself, so no caller has to know the plan-directory convention.
+
 // generate-relocation-comparison: for a plan that declares itself a
 // relocation, generate a before/after passage comparison across every file
 // the plan's own tasks scope, so a review panel can audit a move the same way
@@ -28,8 +36,7 @@ import (
 // caller's working directory, as every git call here runs `git -C
 // <worktree>` from it.
 //
-// Every diagnostic opens `generate-relocation-comparison:`, the shim's own
-// name; the Python printed its deleted file's name, `…comparison.py:`.
+// Every diagnostic opens `generate-relocation-comparison:`, the guard's own name; the Python printed its deleted file's name, `…comparison.py:`.
 //
 // Exit codes:
 //
@@ -109,7 +116,7 @@ var (
 
 func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: generate-relocation-comparison.sh <worktree> <changeRoot> <merge-base>")
+		fmt.Fprintln(stderr, "usage: flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>")
 		return 2
 	}
 	worktree, base, tasksPath := args[0], args[2], args[1]+"/tasks.md"

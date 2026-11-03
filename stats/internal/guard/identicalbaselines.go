@@ -11,15 +11,42 @@ import (
 	"strings"
 )
 
-// checkIdenticalBaselines is scripts/check-identical-baselines.sh: that
-// script's header comment is the contract. PNGs of one directory with the
+// The contract below moved here from the header of the deleted
+// scripts/check-identical-baselines.sh shim (KAN-1058).
+//
+// flow-guard check-identical-baselines — name the PNGs of one directory that are
+// byte-identical, so the visual-verify verifier explains each group
+// (kan-998: the pad-up and pad-down baselines were one image, and only a
+// reviewer saw it).
+//
+// Usage: flow-guard resolve-visual-screenshots … | flow-guard check-identical-baselines
+//
+// Takes no argument. Its input is flow-guard resolve-visual-screenshots's output on
+// stdin: absolute PNG paths, one per line; blank lines are skipped. Paths are
+// grouped by directory, then by the SHA-256 of their bytes — a capture and
+// its own baseline in different directories never group.
+//
+// Prints to stdout:
+//   IDENTICAL-NONE: <n> PNGs                          exit 0
+//   identical: <dir>: <name> <name> …                 exit 1, one line per
+//                                                     group, names sorted,
+//                                                     lines sorted by
+//                                                     directory then first name
+//
+// Exit 0 no group, 1 at least one group, 2 cannot answer (an argument given,
+// no path on stdin, a path that cannot be read) — stdout empty, the cause on
+// stderr.
+//
+// Go, in flow-guard (stats/internal/guard/identicalbaselines.go).
+
+// checkIdenticalBaselines is `flow-guard check-identical-baselines`: the comment above is the contract. PNGs of one directory with the
 // same bytes are named, one group per line.
 func init() { Registry["check-identical-baselines"] = checkIdenticalBaselines }
 
 func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-identical-baselines"
 	if len(args) != 0 {
-		fmt.Fprintf(stderr, "%s: usage: resolve-visual-screenshots.sh … | check-identical-baselines.sh\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard resolve-visual-screenshots … | flow-guard check-identical-baselines\n", prog)
 		return 2
 	}
 	in := env.Stdin

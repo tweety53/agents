@@ -23,9 +23,9 @@ Follow both contracts:
 ### 1. List open changes
 
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
-confirm the one guard this command invokes — `resolve-base-branch.sh` — is present in
-`skills/flow-status/scripts/`. A complete set prints nothing; an absence prints that section's
-block once, and the run continues under the guard's own hand-run fallback.
+confirm `flow-guard` resolves on `PATH` for the one guard this command invokes —
+`flow-guard resolve-base-branch`. A resolving command prints nothing; otherwise that section's
+block prints once, and the run continues under the guard's own hand-run fallback.
 
 Enumerate the candidate set exactly as **Change name resolution (all `/flow*` commands)**
 (`skills/flow-contracts/pipeline.md`) defines it — through `flow state resolve [-C dir]`, never a
@@ -98,7 +98,7 @@ row. Each worktree in the resolved set is answered in **three steps, in this ord
    **inconclusive**. Do not infer one, and do not run either test below.
 2. **`HEAD` against that resolved merge base.** Equal → the branch has **no commits of its own**,
    so it is **not merged**, and no ancestor test is run.
-3. otherwise resolve `<base>`, **in the same worktree**, by invoking `resolve-base-branch.sh`
+3. otherwise resolve `<base>`, **in the same worktree**, by invoking `flow-guard resolve-base-branch`
    exactly as **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) does — never a
    hand-derived name, and never `HEAD@{upstream}`, for the reason stated in `skills/flow-contracts/finish-contract-rationale.md`; running it in this
    worktree is also what satisfies its unconditional assertion that the base differs from the

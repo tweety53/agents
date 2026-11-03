@@ -27,12 +27,12 @@ func TestWorkspace(t *testing.T) {
 		{"create refuses a missing id", []string{"create"}, "ERROR: a workspace id is required"},
 		{"remove refuses an empty id", []string{"remove", ""}, "ERROR: a workspace id is required"},
 		{"remove refuses a missing id", []string{"remove"}, "ERROR: a workspace id is required"},
-		{"no command prints usage", nil, "usage: workspace.sh {create|remove|survivors} <id> [--force]\n       --force is accepted only by remove"},
+		{"no command prints usage", nil, "usage: flow-guard workspace {create|remove|survivors} <id> [--force]\n       --force is accepted only by remove"},
 		{"an id outside [a-z0-9-] is refused", []string{"create", "Bad"}, "ERROR: workspace id 'Bad' is not [a-z0-9-]; refusing to build a database name from it"},
-		{"an unknown flag is refused", []string{"remove", "x", "--nope"}, "ERROR: unrecognized argument '--nope'\nusage: workspace.sh"},
+		{"an unknown flag is refused", []string{"remove", "x", "--nope"}, "ERROR: unrecognized argument '--nope'\nusage: flow-guard workspace"},
 		{"--force on create is refused", []string{"create", "x", "--force"}, "ERROR: unrecognized argument '--force'"},
 		{"remove --force refuses a database not ending in _uitest", []string{"remove", "x", "--force"}, "ERROR: --force refused: database 'flow_x' does not end in _uitest"},
-		{"an unknown command prints usage", []string{"frob", "x"}, "usage: workspace.sh"},
+		{"an unknown command prints usage", []string{"frob", "x"}, "usage: flow-guard workspace"},
 	} {
 		t.Run(c.label, func(t *testing.T) {
 			r := ws(c.args...)

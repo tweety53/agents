@@ -1,1 +1,0 @@
-../../../scripts/check-visual-verify-dispatched.sh

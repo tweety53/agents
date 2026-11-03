@@ -434,7 +434,7 @@ func offPolicyPayload(t *testing.T, prompt, typ, model, effort string) []byte {
 }
 
 // TestEnforceAgentBaselineHookRefusesOffPolicyDispatch pins KAN-1045: in a flow run every dispatch
-// is checked against the Allowed pairs table through scripts/check-dispatch-pair.sh.
+// is checked against the Allowed pairs table through flow-guard check-dispatch-pair.
 func TestEnforceAgentBaselineHookRefusesOffPolicyDispatch(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {

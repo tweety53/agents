@@ -10,8 +10,57 @@ import (
 	"strings"
 )
 
-// checkHandNotesInStep is scripts/check-hand-notes-in-step.sh: that script's
-// header comment is the contract — fail when the hand-maintained content of
+// The contract below moved here from the header of the deleted
+// scripts/check-hand-notes-in-step.sh shim (KAN-1058).
+//
+// flow-guard check-hand-notes-in-step — fail when the hand-maintained sections of the
+// installed harness files have drifted apart.
+//
+// Why this exists. KAN-808: a flake-bisection pointer was appended by hand to
+// BOTH `~/.claude/CLAUDE.md` and `~/.zcode/AGENTS.md` as identical appends
+// outside their generated managed blocks. The managed block in each file is
+// re-rendered from one source on every install, so it cannot drift; the hand
+// appends around it are written twice, once per harness file, and nothing
+// asserted the copies stayed identical. Every such append is a fresh
+// opportunity for a one-sided edit to diverge silently — the same drift class
+// kan-630's panel caught (three stale copies of one lint command across
+// instruction files). This guard is that assertion.
+//
+// Argument-free and self-scoped, like flow-guard check-installed-rules: the file set
+// is this checkout's own setup.sh `local managed_files=(...)` declaration —
+// parsed live (kan-585), by the same parser and with the same refusals — and
+// the install root is the invoking user's `$HOME`.
+// CHECK_HAND_NOTES_HOME and CHECK_HAND_NOTES_SETUP_SH are explicit, opt-in
+// overrides honored only when set, so the Go tests
+// (stats/internal/guard/check_hand_notes_test.go) can point the guard at
+// sandboxed fixtures — never set them for a normal invocation.
+//
+// NOT INSTALLED IS NOT STALE, and NEITHER IS A SOLO INSTALL. A checkout with
+// no global install — CI, a fresh clone, a container — has nothing to be out
+// of step with: HAND-NOTES-NONE, exit 0. Exactly one harness file present has
+// no pair to compare: HAND-NOTES-SINGLE, exit 0 — absent is not stale, the
+// same course check-installed-rules takes for a harness file that does not
+// exist.
+//
+// COMPARISON. Everything outside the managed block of each existing file —
+// the block and its delimiters stripped — must be byte-identical across all
+// of them, final newline included. The installer rewrites `~/.claude/`
+// pointers to `~/.zcode/` ones inside the block, which is why block content
+// is never read as drift. A file ending inside an unterminated managed block
+// is a violation of its own. Verdicts:
+//
+//   HAND-NOTES-NONE:    <home> — no global install found, nothing to check
+//   HAND-NOTES-SINGLE:  <home> — one harness file present, no pair to compare
+//   HAND-NOTES-OK:      <home> — N harness file(s), hand-maintained sections in step
+//   HAND-NOTES-DRIFT:   <home> — N violation(s); make every harness file's hand-maintained sections identical
+//
+// The remedy for every violation is the same, which is why the verdict names
+// it once: mirror the diverging hand section across the files it belongs to.
+//
+// The guard runs as the Go port in stats/internal/guard/handnotes.go. The
+// FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the checkout whose setup.sh is read.
+
+// checkHandNotesInStep is `flow-guard check-hand-notes-in-step`: the comment above is the contract — fail when the hand-maintained content of
 // the installed harness files (everything outside their `<!-- flow:begin -->
 // … <!-- flow:end -->` managed block) has drifted apart. The managed block is
 // re-rendered from one source on every install, so it cannot drift; the hand
@@ -48,7 +97,7 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 	if setupSh == "" {
 		repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if repoRoot == "" {
-			return refuse("FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run scripts/check-hand-notes-in-step.sh, which sets it")
+			return refuse("FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run flow-guard check-hand-notes-in-step, which sets it")
 		}
 		setupSh = repoRoot + "/setup.sh"
 	}

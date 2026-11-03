@@ -14,8 +14,118 @@ import (
 	"syscall"
 )
 
-// checkPanelFixSingleDispatch is scripts/check-panel-fix-single-dispatch.sh:
-// that script's header comment is the contract -- exit 0 every panel-fix row
+// The contract below moved here from the header of the deleted
+// scripts/check-panel-fix-single-dispatch.sh shim (KAN-1058).
+//
+// flow-guard check-panel-fix-single-dispatch <worktree> <change-name> <session-token>
+//
+// THE CHANGE NAME IS A SECOND ARGUMENT and the session token a third, for
+// the same reason the name is one on flow-guard check-panel-findings-closed: a
+// change's dispatches are rows in the store, keyed by change name, not a
+// file at a fixed path, and the token scopes the count to THIS run --
+// `flow record dispatches -change <name> -C <worktree>` answers with the
+// decoded JSON array of that change's dispatch rows (every role, every
+// session token, seq order), and this guard reads only that array.
+//
+// This is the gate KAN-482 asked for: on the kan-449 run the conductor
+// launched four background fix subagents, one per reviewer's findings,
+// against the contract review-panel.md already stated -- give the surviving
+// findings to ONE fix subagent as the combined list. Prose alone failed
+// once, so the obligation is checked here, at the panel's own close,
+// immediately before `flow stage end -command '/flow' -stage
+// flow.review-panel`, beside flow-guard check-panel-findings-closed. Dispatch rows
+// only exist once dispatches have happened, so a pre-dispatch check has
+// nothing to read; the close gate is the last point where the run can still
+// be stopped before handoff.
+//
+// THE COUNT IS SCOPED to the session token named on the command line --
+// a change's rows span every run that ever touched it, and only this run's
+// dispatches are this round's business. Within that token, every row whose
+// role is `panel-fix` must satisfy:
+//
+//   - its key matches `^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)?$` -- the canonical
+//     shape review-panel.md's fix step declares since kan-499: the bare
+//     `panel-fix-<round>` (`<round>` counts fix rounds from 1: the fix after
+//     panel-0 is panel-fix-1, kan-1040) carries the round's first chunk, `panel-fix-<round>-<n>`
+//     continues it for each further chunk of at most 10 findings, and `-retry`
+//     is the handshake's one allowed second dispatch of that same key; a
+//     conductor that invents keys (panel-fix-f1, one per finding) would
+//     otherwise read as four clean single-dispatch rounds, which is exactly
+//     the KAN-482 shape;
+//   - its base (the key with a trailing `-retry` stripped) carries at most
+//     one non-retry dispatch, at most two rows total, and two only when
+//     exactly one of them is the `-retry` variant -- the handshake's one
+//     allowed second dispatch, per implement.md's **The handshake**. The rule
+//     holds per chunk key, not merely per round;
+//   - a `-retry` row never stands alone: a retry with no original has no
+//     round it could be a retry of.
+//
+// and each ROUND that carries chunked dispatches must also satisfy (kan-499):
+//
+//   - the round's own bare key `panel-fix-<round>` carries at least one
+//     original dispatch -- chunk numbering starts there, at `-2` for the
+//     second chunk;
+//   - its chunks are contiguous -- `-2`, `-3`, `-4`, ... with no gap: a gap
+//     means the "numbering" is decoration, not a chunking of a finding list;
+//   - its chunk count is at most `ceil(findings raised in earlier rounds /
+//     10)`, counted from `flow record findings` -- a BOUND, not a target. A
+//     well-formed per-finding key sequence (`panel-fix-1-2` through
+//     `panel-fix-1-25` against 24 findings) must stay caught: the KAN-482
+//     abuse in this contract's own clothing. The guard reads only the
+//     store's answer, never a rendered document; a findings read that fails
+//     is "cannot answer" (exit 2), never a clean verdict, matching the
+//     dispatches read below.
+//
+// and each panel-fix row whose end recorded a -commit must name a commit
+// whose subject is some task's **Commit:** subject in the change's tasks.md
+// (the fold route) or which carries a `Flow-Key: <the row's key>` trailer,
+// -retry stripped, or its round's key `panel-fix-<r>` for a chunk row
+// `panel-fix-<r>-<n>` (the pushed route's fix commit, keyed to its round as
+// review-panel-fix-round.md states) -- review-panel.md's
+// -commit contract (kan-952 self-review: panel-fix-0 recorded the plan
+// commit while its fix landed as its own commit). The commit is looked up
+// in the worktree, then in each peer the spec root's peers file names; a
+// commit none of them holds, or one that is not hex, is a violation, and a
+// tasks.md that cannot be read while such a row exists is exit 2. A row
+// that recorded no commit is not judged.
+//
+// A FIX ROUND RESUMED UNDER A FRESH SESSION TOKEN keeps its original
+// (KAN-890): an original another session token of the change recorded under
+// a key answers whether that key's original exists -- for a `-retry`, for a
+// chunked round's bare key and for its chunk contiguity, and so toward the
+// chunk count the bound judges, which counts the round's chunks under every
+// token of the change. The per-key dispatch counts stay this token's.
+//
+// Rows of other roles never count, rows of other session tokens never count
+// toward a per-key dispatch count, nor do
+// `full-suite-fix-<n>` rows recorded with agent id `inline`: implement.md
+// records the parent's own full-suite fix rounds under role `panel-fix`, and
+// they are no panel fix round. A subagent's row under that key still counts.
+// A gated reviewer's fix round records under role implementer (gated-review-fix.md), so its
+// task-<n+n>-implementer-fix-<k> rows never reach this check.
+//
+// THE GUARD NEVER READS THE JOURNAL and never consults anything but the
+// store's answer, matching flow-guard check-panel-findings-closed: a read that
+// failed is a question this guard cannot answer, not a clean verdict.
+//
+// THE CHANGE-NAME CONTAINMENT CASE IS DUPLICATED, on purpose, from
+// flow-guard check-panel-findings-closed's own copy -- the change name arrives from
+// a pull-request-editable state file and is passed to `flow record
+// dispatches -change`, so `../../../planted` and a glob metacharacter are
+// hazards here exactly as they are there. The worktree is canonicalised
+// before it is ever passed to `flow` as `-C`, and refused rather than
+// proceeded with if it vanished between the `-d` check and here, for the
+// same reasons that guard's header names.
+//
+// Exit codes:
+//   0  every panel-fix row of this session token is shape- and count-clean
+//   1  at least one violation -- each offending round or key named on stderr
+//   2  cannot answer at all -- missing arguments, a non-directory worktree,
+//      a change name outside the allowlist, the store unreachable (the flow
+//      call exits non-zero), rows that are not readable JSON, or a tasks.md
+//      that cannot be read while a row recorded a commit
+
+// checkPanelFixSingleDispatch is `flow-guard check-panel-fix-single-dispatch`: the comment above is the contract -- exit 0 every panel-fix row
 // of the session token is shape- and count-clean, 1 violations (each on
 // stderr), 2 cannot answer. The dispatch and findings reads are
 // Env.Dispatches and Env.Findings when set, else `flow record dispatches` and
@@ -72,7 +182,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 	if name == "" {
-		fmt.Fprintf(stderr, "%susage: check-panel-fix-single-dispatch.sh <worktree> <change-name> <session-token>\n", pfdPrefix)
+		fmt.Fprintf(stderr, "%susage: flow-guard check-panel-fix-single-dispatch <worktree> <change-name> <session-token>\n", pfdPrefix)
 		return 2
 	}
 	if token == "" {

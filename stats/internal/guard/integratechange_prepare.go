@@ -90,7 +90,7 @@ func (c *ic) prepare() {
 		}
 	}
 	if !run1 {
-		c.say("NEXT: run 2 — integrate-change.sh cleanup " + c.main + " " + c.name + " " + c.flags())
+		c.say("NEXT: run 2 — flow-guard integrate-change cleanup " + c.main + " " + c.name + " " + c.flags())
 		panic(icExit(0))
 	}
 
@@ -204,7 +204,7 @@ func (c *ic) prepare() {
 		switch c.rc {
 		case 0:
 		case 1:
-			c.stop("sync-conflict", "load skills/flow/sync-onto-base.md and resolve in place, run '"+c.sibling("sync-onto-base")+"' --resume, the whole ## lint and ## test lists, then re-run prepare")
+			c.stop("sync-conflict", "load skills/flow/sync-onto-base.md and resolve in place, run 'flow-guard sync-onto-base --resume', the whole ## lint and ## test lists, then re-run prepare")
 		default:
 			c.stop("sync", fmt.Sprintf("sync-onto-base exit %d — report its output and ask the operator", c.rc))
 		}
@@ -213,7 +213,6 @@ func (c *ic) prepare() {
 			vline = vline[k+len("onto "):]
 		}
 		c.rb[i] = vline
-		c.guardTests()
 		c.rebaseLint(c.wt[i], "")
 		// The rebase made a HEAD no verifier saw: the gate again.
 		if !c.visualOK(c.wt[i], c.bases[i]) {
@@ -251,12 +250,12 @@ func (c *ic) prepare() {
 		}
 	}
 	c.markBegin("flow.preserve-sessions")
-	c.say("NEXT: append this run's narrative to " + live + "/narrative.md, then integrate-change.sh commit " + c.main + " " + c.name + subjects + " " + c.flags())
+	c.say("NEXT: append this run's narrative to " + live + "/narrative.md, then flow-guard integrate-change commit " + c.main + " " + c.name + subjects + " " + c.flags())
 }
 
 // defaultRoute is project-get.sh's `default landing route`, or nothing.
 func (c *ic) defaultRoute() string {
-	r, rc := c.capture(c.cmd("/", c.sibling("project-get"), c.main, "default landing route", "--enum", "pull request", "merge and push", "manual"))
+	r, rc := c.capture(c.sibling("project-get", c.main, "default landing route", "--enum", "pull request", "merge and push", "manual"))
 	if rc != 0 {
 		return ""
 	}

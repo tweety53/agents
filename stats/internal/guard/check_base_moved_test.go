@@ -387,7 +387,7 @@ func TestCheckBaseMoved(t *testing.T) {
 		{fresh: true, args: func(*bmFx) []string { return nil }, checks: []bmCheck{
 			{"missing arguments: stdout is empty", func(r guardResult, _ *bmFx) bool { return r.stdout == "" }},
 			{"missing arguments: stderr is exactly the usage message", func(r guardResult, _ *bmFx) bool {
-				return r.err == baseRefUsageWant("check-base-moved.sh")
+				return r.err == baseRefUsageWant("flow-guard check-base-moved")
 			}}}},
 		{fresh: true, args: func(fx *bmFx) []string { return []string{fx.dir, "main", "deadbeef"} }, checks: []bmCheck{
 			bmRC("non-repository -> exit 2", 2),

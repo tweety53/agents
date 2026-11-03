@@ -30,6 +30,22 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-narrative-runs.sh shim (KAN-1058).
+//
+// flow-guard check-narrative-runs <worktree> <change> <narrative.md>
+//
+// Compares a change's narrative with the runs the flow store marked for it.
+//
+// Exit 0: NARRATIVE-RUNS-OK — every marked run has its section.
+// Exit 1: NARRATIVE-RUNS-MISSING — a fix or integrate run lacks its section.
+// Exit 2: usage error, a store read that did not print one integer, or a
+//         narrative that exists and cannot be read.
+//
+// The mechanism, and its full contract, is
+// stats/internal/guard/narrativeruns.go; its test is
+// stats/internal/guard/check_narrative_runs_test.go.
+
 func init() { Registry["check-narrative-runs"] = checkNarrativeRuns }
 
 var (
@@ -40,7 +56,7 @@ var (
 
 func checkNarrativeRuns(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: check-narrative-runs.sh <worktree> <change> <narrative.md>")
+		fmt.Fprintln(stderr, "usage: flow-guard check-narrative-runs <worktree> <change> <narrative.md>")
 		return 2
 	}
 	wt, change, nf := args[0], args[1], args[2]

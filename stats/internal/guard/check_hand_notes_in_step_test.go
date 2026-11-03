@@ -262,7 +262,7 @@ func TestCheckHandNotesInStep(t *testing.T) {
 		if code != 1 || stdout != "" {
 			t.Fatalf("code = %d, stdout = %q; want 1, \"\"", code, stdout)
 		}
-		want := p + "FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run scripts/check-hand-notes-in-step.sh, which sets it\n"
+		want := p + "FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run flow-guard check-hand-notes-in-step, which sets it\n"
 		if stderr != want {
 			t.Fatalf("stderr = %q, want %q", stderr, want)
 		}

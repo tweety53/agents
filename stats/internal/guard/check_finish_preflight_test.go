@@ -96,6 +96,8 @@ func (fx *fpFx) mergeOrigin() {
 func fpEnv(dir, root, stub string) Env {
 	lookup := func(k string) (string, bool) {
 		switch {
+		case k == "FLOW_GUARD_WORKTREE_LOCATION" && root == fpRepoRoot:
+			return "", false // unset: check-worktree-location runs in this binary
 		case k == "FLOW_GUARD_WORKTREE_LOCATION":
 			return root + "/scripts/check-worktree-location.sh", true
 		case k == "PATH" && stub != "":
@@ -192,7 +194,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 		{args: func(*fpFx) []string { return nil }, checks: []bmCheck{
 			{"missing arguments: stdout is empty", func(r guardResult, _ *bmFx) bool { return r.stdout == "" }},
 			{"missing arguments: stderr is exactly the usage message", func(r guardResult, _ *bmFx) bool {
-				return r.err == baseRefUsageWant("check-finish-preflight.sh")
+				return r.err == baseRefUsageWant("flow-guard check-finish-preflight")
 			}}}},
 		// 10: merged into origin/main, local main left behind; handed the
 		// bare name — the KAN-88 regression.
@@ -276,11 +278,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 		// anything", never an implicit pass (KAN-462 panel fix, F2).
 		{setup: merged, prep: func(t *testing.T, fx *fpFx) {
 			fx.root = fx.dir + "/root"
-			b, err := os.ReadFile(fpRepoRoot + "/scripts/check-worktree-location.sh")
-			if err != nil {
-				t.Fatal(err)
-			}
-			writeFile(t, fx.root+"/scripts/check-worktree-location.sh", string(b))
+			writeFile(t, fx.root+"/scripts/check-worktree-location.sh", "#!/bin/sh\n")
 		}, checks: []bmCheck{
 			bmRC("check-worktree-location.sh not executable -> exit 2", 2),
 			noVerdict("check-worktree-location.sh not executable: emits no verdict line", notVerdict...),
@@ -305,15 +303,14 @@ func TestCheckFinishPreflight(t *testing.T) {
 		{setup: merged, prep: fpLocation("echo out; echo err >&2; exit 3"), checks: []bmCheck{
 			{"port: any other exit is named, its output dropped", func(r guardResult, fx *bmFx) bool {
 				return r.rc == 2 && r.stdout == "" && strings.HasPrefix(r.err,
-					"check-finish-preflight: check-worktree-location.sh exited 3 against ") &&
+					"check-finish-preflight: flow-guard check-worktree-location exited 3 against ") &&
 					strings.HasSuffix(r.err, " — cannot determine anything\n")
 			}}}},
 		{setup: merged, prep: fpLocation("kill -TERM $$"), checks: []bmCheck{
 			{"port: a location check killed by a signal is named by bash's 128+n", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 2 && strings.HasPrefix(r.err, "check-finish-preflight: check-worktree-location.sh exited 143 against ")
+				return r.rc == 2 && strings.HasPrefix(r.err, "check-finish-preflight: flow-guard check-worktree-location exited 143 against ")
 			}}}},
-		// Run without the shim, the sibling's location is unknown: refused by
-		// name, never looked up at a path the guard made up.
+		// Without the override, the sibling runs in this same binary.
 		{setup: merged, run: func(fx *fpFx) (guardResult, error) {
 			lookup := func(k string) (string, bool) {
 				if k == "FLOW_GUARD_WORKTREE_LOCATION" {
@@ -324,9 +321,8 @@ func TestCheckFinishPreflight(t *testing.T) {
 			env := Env{Dir: fx.dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
 			return runGuard("check-finish-preflight", []string{fx.repo, "main", fx.recorded}, env), nil
 		}, checks: []bmCheck{
-			{"port: an unset FLOW_GUARD_WORKTREE_LOCATION is refused by name", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 2 && r.stdout == "" &&
-					r.err == "check-finish-preflight: FLOW_GUARD_WORKTREE_LOCATION is unset — run scripts/check-finish-preflight.sh, which sets it\n"
+			{"port: an unset FLOW_GUARD_WORKTREE_LOCATION runs check-worktree-location in this binary", func(r guardResult, _ *bmFx) bool {
+				return r.rc == 0 && strings.HasPrefix(r.stdout, "RUN2: ")
 			}}}},
 		// A relative worktree argument resolves against the working directory.
 		{setup: merged, args: func(fx *fpFx) []string { return []string{"main-worktrees/demo", "main", fx.recorded} },
@@ -399,7 +395,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 	// (kan-916), so both sides exec this checkout's location guard — the
 	// comparison stays on check-finish-preflight's own logic.
 	writeExec(t, filepath.Join(bashDir, "check-worktree-location.sh"),
-		"#!/usr/bin/env bash\nexec "+fpRepoRoot+"/scripts/check-worktree-location.sh \"$@\"\n")
+		"#!/usr/bin/env bash\nexec "+fpRepoRoot+"/scripts/flow-guard check-worktree-location \"$@\"\n")
 	parity := []struct {
 		label string
 		setup func(fx *fpFx) (dir string, args []string)

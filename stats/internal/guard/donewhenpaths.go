@@ -9,8 +9,53 @@ import (
 	"strings"
 )
 
-// checkDoneWhenPaths is scripts/check-done-when-paths.sh: that script's
-// header comment is the contract — one DONE-WHEN-PATH line per path a
+// The contract below moved here from the header of the deleted
+// scripts/check-done-when-paths.sh shim (KAN-1058).
+//
+// Usage: flow-guard check-done-when-paths <worktree>
+//
+// Scans every tracked `.md` file's `## Done when` sections (heading variants
+// `Done when`, `Done-When`, any level, optional trailing colon; fenced code
+// blocks are invisible to the scanner — a fence line neither opens nor closes
+// a section nor is judged) and extracts path-like tokens — backticked, bare,
+// markdown-link targets and autolinks, each carrying a `/` whose last segment
+// names a file: not empty and not purely numeric, so a ticket's
+// `Snapshots 27/28/29` never reads as a path while a dotless `src/Makefile`
+// is judged like any other name. A URL, a glob (`*?[`), a directory (no final
+// segment) and a
+// peer-qualified name (`peer:shots/27.png`) are judged as named — the last
+// fails unless that exact path is tracked in THIS index.
+//
+// A named path counts as tracked when it is in the index read relative to the
+// repository root, to the naming file's own directory, or to any directory
+// between the two — so `notes/step-1.md` named by
+// `docs/design/offline/tickets/step-1.md` resolves to the tracked
+// `docs/design/offline/notes/step-1.md`. A leading `./` is folded away and
+// leading `../` segments are kept, even inside wrapping punctuation
+// (`(../x.md)`, `<../x.md>`); each reading is cleaned (`path.Join`), and one
+// that climbs above the root is never tracked, nor is a root-absolute `/…` name.
+// A token naming a local or remote-tracking branch of the worktree's
+// repository (`feature/x`, `origin/feature/x`) is a branch, not a path, and is
+// never judged.
+// A token whose last segment carries no dot, which neither starts with `/`
+// nor climbs with `../`, and whose first segment — read relative to the
+// naming file's directory or any directory between it and the root — names
+// no tracked directory is a branch too, whether or not a ref of that name
+// exists: a merged-and-deleted `feature/cardio` (kan-1003's self-review). A
+// dotless file under a tracked directory (`src/Makefile`) is still judged.
+//
+// Prints one DONE-WHEN-PATH line per missing path with the file that named
+// it, then ONE verdict line:
+//   DONE-WHEN-OK: <worktree>                 every named path is tracked
+//   DONE-WHEN-VIOLATION: <worktree> — <n>    <n> named path(s) missing
+//
+// Exit 0 on DONE-WHEN-OK (a tree with no `## Done when` section included), 1
+// on DONE-WHEN-VIOLATION, 2 with NOTHING on stdout when <worktree> is not a
+// readable directory, is not a git worktree, the index or its branch list
+// cannot be read, or a tracked `.md` file is missing from the worktree — an
+// inability to answer is never reported as a verdict.
+
+// checkDoneWhenPaths is `flow-guard check-done-when-paths`: the comment above is the contract — one DONE-WHEN-PATH line per path a
 // `## Done when` section names that the index does not track (read relative
 // to the root, the naming document's directory or any directory between —
 // dwResolves), then one DONE-WHEN-OK/DONE-WHEN-VIOLATION verdict line, a
@@ -42,7 +87,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if len(args) != 1 {
-		return die("usage: check-done-when-paths.sh <worktree>")
+		return die("usage: flow-guard check-done-when-paths <worktree>")
 	}
 	root, ok := cdPhysical(env, args[0])
 	if !ok {

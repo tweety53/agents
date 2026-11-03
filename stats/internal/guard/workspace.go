@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/workspace.sh shim (KAN-1058).
+//
+// Usage:
+//   flow-guard workspace create <id>
+//   flow-guard workspace remove <id> [--force]
+//   flow-guard workspace survivors <id>
+
 // workspace creates, removes and reports this repository's per-workspace
 // database, the `create`/`remove`/`survivors` triple named in
 // .flow/project.md's `## workspace isolation` section per
@@ -17,9 +25,9 @@ import (
 //
 // Usage:
 //
-//	scripts/workspace.sh create <id>
-//	scripts/workspace.sh remove <id> [--force]
-//	scripts/workspace.sh survivors <id>
+//	flow-guard workspace create <id>
+//	flow-guard workspace remove <id> [--force]
+//	flow-guard workspace survivors <id>
 //
 // `remove`'s `--force` is opt-in and additive: omitted, `remove` runs exactly
 // as it always has (`dropdb --if-exists`, no --force). Passed, it adds
@@ -76,7 +84,7 @@ func init() { Registry["workspace"] = workspace }
 const (
 	wsContainer = "flow-postgres"
 	wsSuperuser = "flow"
-	wsUsage     = "usage: workspace.sh {create|remove|survivors} <id> [--force]\n" +
+	wsUsage     = "usage: flow-guard workspace {create|remove|survivors} <id> [--force]\n" +
 		"       --force is accepted only by remove\n"
 )
 

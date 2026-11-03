@@ -171,7 +171,7 @@ func TestCheckMarkdownIntegrity(t *testing.T) {
 	t.Run("no argument and FLOW_GUARD_REPO_ROOT unset — exit 2", func(t *testing.T) {
 		t.Parallel()
 		rc, _, errOut := mdiRun(t, crEnv(t.TempDir(), nil))
-		if rc != 2 || errOut != "check-markdown-integrity: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-markdown-integrity.sh, which sets it\n" {
+		if rc != 2 || errOut != "check-markdown-integrity: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-markdown-integrity, which sets it\n" {
 			t.Errorf("rc=%d err=%q", rc, errOut)
 		}
 	})

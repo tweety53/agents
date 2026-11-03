@@ -13,6 +13,25 @@ import (
 	"github.com/tweety53/agents/stats/internal/prompttuning"
 )
 
+// The contract below moved here from the header of the deleted
+// scripts/check-prompt-tuning-cases.sh shim (KAN-1058).
+//
+// flow-guard check-prompt-tuning-cases [dir] — is every prompt-tuning case folder
+// under docs/prompt-tuning/ (or dir) complete and generic?
+//
+// Per case folder: every file present (case.json, finding.md, bad.diff,
+// good.diff, task.md, index.html); case.json parses with every field set;
+// type, reviewer_kind, scope and the target the scope maps to valid; before
+// verbatim in the target at target_sha (or empty, for a scoped case creating
+// its rule file); after naming no source change, Jira key, kan-<n> key or
+// diff path; index.html byte-equal to `flow prompt-tuning render`. LEDGER.md,
+// when present, holds only well-shaped entries. An absent root is clean.
+//
+// Exit codes: 0 clean, silent; 1 one `<path>: <reason>` line per violation;
+// 2 cannot answer (no git, root outside a git checkout, usage).
+//
+// Go, in flow-guard (stats/internal/guard/prompttuningcases.go).
+
 // check-prompt-tuning-cases.sh [dir]: is every prompt-tuning case folder
 // complete and generic? Root is dir, else <FLOW_GUARD_REPO_ROOT>/docs/prompt-tuning;
 // an absent root is clean. Per subdirectory (design.md §3 of
@@ -56,7 +75,7 @@ func ptTarget(scope string) (exact string, prefix string) {
 func checkPromptTuningCases(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-prompt-tuning-cases"
 	if len(args) > 1 {
-		fmt.Fprint(stderr, "usage: check-prompt-tuning-cases.sh [dir]\n")
+		fmt.Fprint(stderr, "usage: flow-guard check-prompt-tuning-cases [dir]\n")
 		return 2
 	}
 	root := filepath.Join(env.Getenv("FLOW_GUARD_REPO_ROOT"), "docs", "prompt-tuning")

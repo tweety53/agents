@@ -9,8 +9,66 @@ import (
 	"strings"
 )
 
-// renderSlotPrompt is scripts/render-slot-prompt.sh: that script's header
-// comment is the contract -- one panel dispatch's brief rendered from
+// The contract below moved here from the header of the deleted
+// scripts/render-slot-prompt.sh shim (KAN-1058).
+//
+// flow-guard render-slot-prompt — render one review-panel dispatch's brief
+// (skills/flow/review-panel.md, **Bundled dispatch**).
+//
+// Usage: flow-guard render-slot-prompt <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \
+//          -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>...] \
+//          [-fix-report <path>...] -- <worktree>...
+//
+// <skill-dir> is the directory review-panel.md was read from; <worktree>...
+// is the change's resolved set, the canonical worktree first. Every path is
+// absolute: the subagent resolves what it is given from its own directory.
+//
+// Writes <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slot>[+<slot>...].md,
+// atomically, and prints its path. In order:
+//   1. the shared blocks, each extracted verbatim by its `> **<LABEL>:**`
+//      blockquote from <skill-dir>/review-panel.md (the first one — the
+//      slot's): TOOLS, FOREGROUND BUILDS, NO DELEGATION, REPRODUCE, DON'T
+//      READ and WORKTREES (the resolved set filled in); CITATION CHECK once
+//      per worktree whose .superpowers/sdd/citation-check.md exists; ENTRY
+//      CONTEXT followed by the diff's .touched list (flow-guard write-panel-diff) —
+//      each pass's own on a delta bundle; INDEPENDENT PASSES when more than
+//      one slot; FIX-ROUND SCOPE from review-panel-fix-round.md, naming the
+//      -fix-report path(s), only when -fix-report is given; on any -diff
+//      but final, every `final-review.diff` in WORKTREES, ENTRY CONTEXT and
+//      INDEPENDENT PASSES reads `the **Diff file:** each PASS section names`;
+//   2. one `## PASS <id>` section per slot, in the order given: the fenced
+//      body of <skill-dir>/<id>-reviewer-prompt.md — an exp-<name> slot's
+//      <skill-dir>/experimental/<name>.md (review-panel-experimental-slot.md)
+//      — dedented, every placeholder filled per review-panel.md's
+//      placeholder table (**The roster**), then that slot's REPORT FILE block.
+//
+// The diff each pass reads, in <canonical-wt>/.superpowers/sdd/:
+//   final      final-review.diff
+//   late-fix   late-fix.diff
+//   fix-round  fix-round-<round>.diff
+//   delta      slot-delta-<round>-<id>.diff
+// -no-bundle is the CONTEXT BUNDLE FAILURE continue path: [CONTEXT_BUNDLE_PATHS]
+// becomes `none — the bundle was not built`, [GLOBAL_CONSTRAINTS] the plan's
+// design.md (or `none`). -standard paths are [STANDARDS_PATHS]; empty when
+// none are given.
+//
+// `mutation` has no template: its `## PASS mutation` section is the body of
+// review-panel.md's `### The mutation-testing brief`, one line naming its
+// throwaway copies — `<worktree>-mutation-<round>` per worktree given — and
+// its REPORT FILE block. It reads no diff file, so a mutation-alone render
+// carries no ENTRY CONTEXT and no touched list; review-panel.md carrying no
+// brief is exit 2. MUTATION ENTRY CONTEXT and its tests, MODEL HANDSHAKE,
+// CONTEXT BUNDLE, the relocation-comparison pointer and the reproducer rule
+// stay typed in the Agent call.
+//
+// Exit codes:
+//   0  written; its path on stdout
+//   1  a placeholder is left unfilled — each named on stderr; nothing written
+//   2  cannot answer — usage, a relative path, an unknown slot, a
+//      missing template, block, touched list, standards, principles or
+//      calibration file
+
+// renderSlotPrompt is `flow-guard render-slot-prompt`: the comment above is the contract -- one panel dispatch's brief rendered from
 // review-panel.md's shared blocks and each slot's template, written to
 // <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slots>.md and its
 // path printed; exit 0 written, 1 a placeholder left unfilled (named, and
@@ -19,7 +77,7 @@ func init() {
 	Registry["render-slot-prompt"] = renderSlotPrompt
 }
 
-const rspUsage = "usage: render-slot-prompt.sh <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \\\n" +
+const rspUsage = "usage: flow-guard render-slot-prompt <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \\\n" +
 	"         -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>...] [-fix-report <path>...] \\\n" +
 	"         -- <worktree>...\n"
 

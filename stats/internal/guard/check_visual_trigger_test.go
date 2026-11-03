@@ -33,7 +33,7 @@ const (
 	vtAbsent = vtNoRoot + "`ui paths` is absent or empty in $ROOT/.flow/project.md — cannot resolve what to match against\n" + vtCannot + "`ui paths` is absent or empty\n"
 	vtNotCfg = "VISUAL-TRIGGER-NOT-CONFIGURED: $ROOT — no visual verification section\n"
 	vtCannot = "VISUAL-TRIGGER-CANNOT-ANSWER: $ROOT — "
-	vtUsage  = vtNoRoot + "usage: check-visual-trigger.sh [--repo <name>] <project root> (changed paths on stdin)\nVISUAL-TRIGGER-CANNOT-ANSWER: (no root) — usage\n"
+	vtUsage  = vtNoRoot + "usage: flow-guard check-visual-trigger [--repo <name>] <project root> (changed paths on stdin)\nVISUAL-TRIGGER-CANNOT-ANSWER: (no root) — usage\n"
 )
 
 // vtSection is the harness's section with cell as the `ui paths` value cell.

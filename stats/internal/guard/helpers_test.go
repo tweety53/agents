@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +41,14 @@ var execFixtures struct {
 }
 
 func TestMain(m *testing.M) {
+	// runSibling execs this very executable with a guard's name first: in a
+	// test binary that is the test binary, so it dispatches like flow-guard.
+	if len(os.Args) > 1 {
+		if fn, ok := Registry[os.Args[1]]; ok {
+			cwd, _ := os.Getwd()
+			os.Exit(fn(os.Args[2:], Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin}, os.Stdout, os.Stderr))
+		}
+	}
 	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
 	// Every allowed-pairs reader runs `flow experiment overrides`
 	// (policyTable). A real `flow` on PATH would read the dev store's open
@@ -63,9 +72,50 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	execFixtures.dir, execFixtures.masters = dir, map[string]string{}
+	// Every sibling a guard under test runs is the flow-guard these sources
+	// build, as in production; TestRunSiblingSelfExec covers the default.
+	bin, err := guardCacheBuilt()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	siblingExe = bin
+	// Every guard a test runs through scripts/flow-guard builds into, and
+	// finds in, the cache above — never the operator's.
+	os.Setenv("FLOW_GUARD_CACHE_DIR", filepath.Dir(filepath.Dir(bin)))
+	repo, _ := filepath.Abs("../../..")
+	before, watched := treeStatus(repo)
 	code := m.Run()
 	_ = os.RemoveAll(dir)
+	if watched {
+		if leak := treeLeak(repo, before); leak != "" {
+			fmt.Fprint(os.Stderr, leak)
+			code = 1
+		}
+	}
 	os.Exit(code)
+}
+
+// treeStatus is the repository's `git status --porcelain`; false when it
+// cannot be read (no git work tree), which skips the tree gate.
+func treeStatus(repo string) (string, bool) {
+	out, err := exec.Command("git", "-C", repo, "status", "--porcelain", "--untracked-files=normal").Output()
+	return string(out), err == nil
+}
+
+// treeLeak is the tree gate of the deleted run-guard-tests (kan-584,
+// kan-1051 F5): a suite that leaves the repository's status lines changed --
+// a test or a reproducer writing into the checkout -- fails, so the leak is
+// caught by the run that made it, never by the next guard reading the tree.
+// It compares status lines, not content: an edit restored inside the run, or
+// one to a file already modified or untracked, is not caught. It returns the
+// failure message, or "" when the status is unchanged.
+func treeLeak(repo, before string) string {
+	after, ok := treeStatus(repo)
+	if !ok || after == before {
+		return ""
+	}
+	return fmt.Sprintf("guard tests changed the tree of %s:\nbefore:\n%safter:\n%s", repo, before, after)
 }
 
 // The rows below pin the helpers' own outputs: sha256.go (known SHA-256
@@ -541,13 +591,13 @@ func guardBinary(t *testing.T) string {
 
 var guardCacheBuilt = sync.OnceValues(func() (string, error) {
 	dir := filepath.Join(execFixtures.dir, "flow-guard-cache")
-	lib, err := filepath.Abs("../../../scripts/lib/flow-guard.sh")
+	boot, err := filepath.Abs("../../../scripts/flow-guard")
 	if err != nil {
 		return "", err
 	}
-	// flow_guard_exec builds under the shim's own key, then execs the
-	// binary; spec-root's verdict is not read.
-	cmd := exec.Command("bash", "-c", `. "$1" && flow_guard_exec spec-root 2 guard-cache:`, "_", lib)
+	// The bootstrap builds under its key, then execs the binary;
+	// spec-root's verdict is not read.
+	cmd := exec.Command(boot, "spec-root")
 	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+dir)
 	out, _ := cmd.CombinedOutput()
 	bins, _ := filepath.Glob(dir + "/*/flow-guard")
@@ -667,5 +717,49 @@ func TestChangeDirIsLiveOnly(t *testing.T) {
 	}
 	if got, want := ChangeDir(changes, "kan-1"), changes+"/kan-1"; got != want {
 		t.Fatalf("ChangeDir = %s; want %s", got, want)
+	}
+}
+
+// bashUsageRe matches a shim-era usage line's script name.
+var bashUsageRe = regexp.MustCompile(`usage: ([a-z][a-z0-9-]*)\.sh\b`)
+
+// bashUsage respells a bash-at-base usage line the way the guard now spells
+// it, so a parity test compares everything else byte for byte.
+func bashUsage(s string) string {
+	return bashUsageRe.ReplaceAllString(s, "usage: flow-guard $1")
+}
+
+// guardShim writes an executable that runs `scripts/flow-guard <name>` of
+// this checkout with its arguments, for a test that hands a guard to code
+// expecting one executable path — a sibling override, a PATH entry.
+func guardShim(t *testing.T, name string) string {
+	t.Helper()
+	boot, err := filepath.Abs("../../../scripts/flow-guard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(t.TempDir(), name)
+	writeExec(t, p, "#!/bin/sh\nexec '"+boot+"' "+name+" \"$@\"\n")
+	return p
+}
+
+func TestTreeLeak(t *testing.T) {
+	t.Parallel()
+	repo := t.TempDir()
+	if out, err := exec.Command("git", "-C", repo, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	before, ok := treeStatus(repo)
+	if !ok {
+		t.Fatal("cannot read a fresh repository's status")
+	}
+	if leak := treeLeak(repo, before); leak != "" {
+		t.Fatalf("an unchanged tree reported: %s", leak)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "leaked_test.go"), []byte("package x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if leak := treeLeak(repo, before); !strings.Contains(leak, "?? leaked_test.go") {
+		t.Fatalf("a leaked file not reported: %q", leak)
 	}
 }

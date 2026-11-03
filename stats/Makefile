@@ -25,7 +25,7 @@ test: web-build policy-copy check-uitest-overrides
 	go test ./... -race -count=1
 
 check-uitest-overrides:
-	../scripts/check-uitest-overrides.sh
+	../scripts/flow-guard check-uitest-overrides
 
 # Runs the SPA's own test suite (vitest).
 web-test:
@@ -55,7 +55,7 @@ policy-copy:
 	@dst=internal/modelpolicy/embedded/model-policy.md; \
 	cp ../skills/flow-contracts/model-policy.md "$$dst.tmp.$$$$" && mv -f "$$dst.tmp.$$$$" "$$dst"
 
-# The `## test` list's commands run concurrently (scripts/run-verify-list.sh),
+# The `## test` list's commands run concurrently (scripts/flow-guard run-verify-list),
 # and each opens with `make -s web-dist`, so the build takes a lock in the
 # git dir -- outside the tree, where the suites watch for changes -- and a
 # second caller waits for the first build instead of running `npm ci` over it.
@@ -93,8 +93,8 @@ internal/web/dist/index.html:
 #
 # bin/flow-guard is the Go ports of the guard scripts (cmd/flow-guard),
 # built here so `make build` compiles every binary; stats/internal/repotest/make_build_test.go
-# asserts its line too. No shim runs this copy: a ported scripts/<name>.sh
-# builds its own from the checkout (scripts/lib/flow-guard.sh).
+# asserts its line too. Nothing runs this copy: scripts/flow-guard
+# builds its own from the checkout.
 build: web-build policy-copy
 	go build ./...
 	go build -o bin/flowd ./cmd/flowd
@@ -255,13 +255,13 @@ restart: build
 #
 # - `override UITEST_ID` protects ui-test-up's force-drop and ui-test-down's
 #   drop, both of which are driven by $(UITEST_ID) via
-#   `../scripts/workspace.sh remove $(UITEST_ID) [--force]` (workspace.sh
+#   `../scripts/flow-guard workspace remove $(UITEST_ID) [--force]` (flow-guard workspace
 #   derives the database name from the id itself). Confirmed with
 #   `make ui-test-up UITEST_ID=kan-999-fake -n`: without `override` here the
-#   dry run prints `../scripts/workspace.sh remove kan-999-fake --force`,
+#   dry run prints `../scripts/flow-guard workspace remove kan-999-fake --force`,
 #   which would force-drop a real `flow_kan_999_fake` workspace database --
 #   possibly one belonging to an active `/flow` worktree -- since
-#   workspace.sh's own `flow_` prefix check only ever protects the shared
+#   flow-guard workspace's own `flow_` prefix check only ever protects the shared
 #   "flow" database, not other workspace databases.
 #
 # - `override UITEST_DB` protects UITEST_DSN below, which FLOWD_DSN points
@@ -287,11 +287,11 @@ restart: build
 # fixing the exposed variable one at a time is what let this recur across
 # three prior review rounds (UITEST_DB, then UITEST_ID, then UITEST_DSN /
 # UITEST_TRANSCRIPTS_DIR / UITEST_STATE_DIR / UITEST_LOG / UITEST_BIN /
-# UITEST_PIDFILE) -- `scripts/check-uitest-overrides.sh` (invoked by
+# UITEST_PIDFILE) -- `scripts/flow-guard check-uitest-overrides` (invoked by
 # `make check-uitest-overrides`, and by `make test`) enforces the rule
 # itself so it cannot recur a fourth time.
 override UITEST_DB := flow_uitest
-# The workspace id scripts/workspace.sh derives flow_uitest from (its
+# The workspace id scripts/flow-guard workspace derives flow_uitest from (its
 # `flow_<id_underscored>` rule, id "uitest" has no "-" to replace) --
 # kept alongside UITEST_DB, not computed from it, so the two Makefile
 # callers below name the id directly rather than reversing the DSN back
@@ -342,7 +342,7 @@ override UITEST_LOG := /tmp/flow-uitest.log
 # `make -n ui-test-down 'UITEST_SAFE_RMRF=@echo INJECTED $(1)'`, which
 # without `override` prints the injected text in place of the safety
 # `case` block. `override` on a `define` is valid GNU Make and is the
-# only thing that stops that substitution; `scripts/check-uitest-overrides.sh`
+# only thing that stops that substitution; `scripts/flow-guard check-uitest-overrides`
 # checks `define`-declared UITEST_* names for it the same way it checks
 # `:=` assignments.
 override define UITEST_SAFE_RMRF
@@ -424,15 +424,15 @@ ui-test-up: web-build policy-copy check-uitest-overrides
 	fi
 	rm -f $(UITEST_PIDFILE)
 	@echo "ui-test-up: dropping and recreating $(UITEST_DB)"
-	# Both halves reuse scripts/workspace.sh: `remove --force` for the
+	# Both halves reuse scripts/flow-guard workspace: `remove --force` for the
 	# drop (--force is the whole point here, see the comment above this
 	# target -- it is an opt-in flag on the shared script, not an inline
 	# duplicate of it) and `create` for the recreate. Same container, same
 	# superuser, one place each fact lives, and by the time create runs
 	# the database has just been dropped, so its own "no-op if it already
 	# exists" idempotency never engages -- it behaves as a plain createdb.
-	../scripts/workspace.sh remove $(UITEST_ID) --force
-	../scripts/workspace.sh create $(UITEST_ID)
+	../scripts/flow-guard workspace remove $(UITEST_ID) --force
+	../scripts/flow-guard workspace create $(UITEST_ID)
 	@$(call UITEST_SAFE_RMRF,$(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR))
 	mkdir -p $(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR)
 	go build -o $(UITEST_BIN) ./cmd/flowd
@@ -463,7 +463,7 @@ ui-test-up: web-build policy-copy check-uitest-overrides
 # idempotently: a second `make ui-test-down` exits 0 rather than erroring
 # on an absent pidfile or an already-dropped database.
 #
-# The drop reuses `../scripts/workspace.sh remove` rather than an inline
+# The drop reuses `../scripts/flow-guard workspace remove` rather than an inline
 # dropdb: unlike ui-test-up's drop, this one carries no --force -- it
 # relies on the daemon actually being gone by the time it runs, which is
 # why the SIGTERM below is followed by the same bounded wait ui-test-up's
@@ -477,7 +477,7 @@ ui-test-up: web-build policy-copy check-uitest-overrides
 # `cat`, for the reason spelled out above ui-test-up: the file's second line
 # is the recorded executable, and reading it too yields something `kill`
 # rejects, so this target would skip the SIGTERM and the wait behind it and
-# hand its unforced `workspace.sh remove` a still-live daemon to race.
+# hand its unforced `flow-guard workspace remove` a still-live daemon to race.
 ui-test-down: check-uitest-overrides
 	@if [ -f $(UITEST_PIDFILE) ]; then \
 		pid="$$(head -n1 $(UITEST_PIDFILE))"; \
@@ -493,5 +493,5 @@ ui-test-down: check-uitest-overrides
 		fi; \
 		rm -f $(UITEST_PIDFILE); \
 	fi
-	../scripts/workspace.sh remove $(UITEST_ID)
+	../scripts/flow-guard workspace remove $(UITEST_ID)
 	@$(call UITEST_SAFE_RMRF,$(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR) $(UITEST_LOG) $(UITEST_BIN))

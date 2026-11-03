@@ -12,7 +12,7 @@
 //
 // It is its own package, not part of internal/modelpolicy, because
 // internal/guard imports internal/modelpolicy and cmd/flow-guard is built by
-// a plain `go build` (scripts/lib/flow-guard.sh) that never runs make.
+// a plain `go build` (scripts/flow-guard) that never runs make.
 package embedded
 
 import _ "embed"

@@ -28,8 +28,8 @@ import (
 // wrote to equal the Python's pixel for pixel -- a three-panel composite's
 // difference panel against an any-channel mask of its own capture and frame
 // panels instead (any-channel-diff-mask). Case 11 (Pillow absent) has no
-// counterpart; case 12 runs a lone copy of the shim, the sibling it needs now
-// being lib/flow-guard.sh. The rows after the harness's pin the any-channel
+// counterpart, and neither has case 12, which ran the deleted bash shim. The
+// rows after the harness's pin the any-channel
 // mask, Python's text input (python-io-semantics) and the physical absolute
 // path printed from a cwd reached through a symlink.
 
@@ -43,7 +43,6 @@ type cmfInv struct {
 	args             []string
 	stdout           string // overrides the golden stdout when set
 	viaSymlink       bool   // run from a symlinked copy, out dir relative
-	shim             bool   // run a lone copy of scripts/compose-mockup-frames.sh
 }
 
 var cmfInvs = map[string]cmfInv{
@@ -57,7 +56,6 @@ var cmfInvs = map[string]cmfInv{
 	"case-08":  {stdin: "caps/bad.png\n"},
 	"case-09":  {args: []string{"a", "b"}},
 	"case-10":  {args: []string{"map.mockups", "root/not-a-dir", "<out>"}},
-	"case-12":  {shim: true},
 	"case-13":  {stdin: "caps/bad-frame.png\n"},
 	"case-14":  {stdin: "caps/a-darwin.png\n"},
 	"case-15":  {stdin: "caps/a-darwin.png\n"},
@@ -125,10 +123,8 @@ var cmfCases = []cmfCase{
 	{"case 7: stderr names both paths", "case-07", []cmfCheck{cmfErr(`a-darwin\.png.*a-linux\.png|a-linux\.png.*a-darwin\.png`)}},
 	{"case 8: unreadable PNG on stdin exits 2", "case-08", []cmfCheck{cmfRC(2)}},
 	{"case 9: wrong argument count exits 2", "case-09", []cmfCheck{cmfRC(2)}},
-	{"case 9: stderr carries the usage line", "case-09", []cmfCheck{cmfErr(`usage: compose-mockup-frames\.sh`)}},
+	{"case 9: stderr carries the usage line", "case-09", []cmfCheck{cmfErr(`usage: flow-guard compose-mockup-frames `)}},
 	{"case 10: mockups root not a directory exits 2", "case-10", []cmfCheck{cmfRC(2)}},
-	{"case 12: a shim copy with no lib/flow-guard.sh sibling exits 2", "case-12", []cmfCheck{cmfRC(2)}},
-	{"case 12: the message names the missing module", "case-12", []cmfCheck{cmfErr(`lib/flow-guard\.sh`)}},
 	{"case 13: unreadable mockup frame exits 2", "case-13", []cmfCheck{cmfRC(2)}},
 	{"case 13: stderr names the unreadable frame", "case-13", []cmfCheck{cmfErr(`unreadable PNG.*X\.png`)}},
 	{"case 14: duplicate screenshot name in map exits 1", "case-14", []cmfCheck{cmfRC(1)}},
@@ -261,25 +257,6 @@ func cmfRun(base, name string, inv cmfInv) cmfResult {
 		return fail(err)
 	}
 	var r cmfResult
-	if inv.shim {
-		// The harness's case 12: a lone copy of the guard, its sibling absent.
-		dir := base + "/" + name
-		body, err := os.ReadFile("../../../scripts/compose-mockup-frames.sh")
-		if err != nil {
-			return fail(err)
-		}
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fail(err)
-		}
-		if err := os.WriteFile(dir+"/compose-mockup-frames.sh", body, 0o755); err != nil {
-			return fail(err)
-		}
-		var stdout, stderr bytes.Buffer
-		cmd := exec.Command("bash", dir+"/compose-mockup-frames.sh", "a", "b", "c")
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		_ = cmd.Run()
-		return cmfResult{rc: cmd.ProcessState.ExitCode(), stdout: stdout.String(), stderr: stderr.String()}
-	}
 	dir, out, outArg := fix, base+"/"+name, base+"/"+name
 	if inv.viaSymlink {
 		real := base + "/" + name + "/real"

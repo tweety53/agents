@@ -239,7 +239,7 @@ func TestCheckTreeMarkers(t *testing.T) {
 		tmExact("case 11f: a failed verify prints nothing on stdout", r.stdout, ""))
 	r = fx.run()
 	add(tmExact("case 11g: the usage line is the bash's", r.err,
-		"check-tree-markers: usage: check-tree-markers.sh snapshot|verify <worktree> <markers-file> <snapshot-file>\n"))
+		"check-tree-markers: usage: flow-guard check-tree-markers snapshot|verify <worktree> <markers-file> <snapshot-file>\n"))
 
 	// Case 12: the ERE dialect, and a blank markers-file line skipped.
 	// `uncommit+ed` and `the-decision|nothing` match only as EREs; a BRE grep

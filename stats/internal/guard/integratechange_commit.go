@@ -105,10 +105,10 @@ func (c *ic) commit() {
 		c.pushPin(c.wt[o])
 	}
 	if done, _ := c.selfReviewCompleted(); done {
-		c.say("NEXT: flow.self-review has already completed — skip the pass; integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
+		c.say("NEXT: flow.self-review has already completed — skip the pass; flow-guard integrate-change land " + c.main + " " + c.name + " " + c.flags())
 	} else {
 		c.markBegin("flow.self-review")
-		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and end flow.self-review completed, then integrate-change.sh land " + c.main + " " + c.name + " " + c.flags())
+		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and end flow.self-review completed, then flow-guard integrate-change land " + c.main + " " + c.name + " " + c.flags())
 	}
 }
 
@@ -141,7 +141,7 @@ func (c *ic) checkNarrative(nf string) {
 	}
 	c.requireFixLines(named, nf)
 	// stderr too: its exit-2 message is the stop's cause.
-	runs := c.cmd("/", c.sibling("check-narrative-runs"), c.canon, c.name, nf)
+	runs := c.sibling("check-narrative-runs", c.canon, c.name, nf)
 	var b bytes.Buffer
 	runs.Stdout, runs.Stderr = &b, &b
 	c.rc = rcOf(runs.Run())

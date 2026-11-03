@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -201,99 +200,6 @@ func TestGlobalInstallPopulatesSkillDirs(t *testing.T) {
 	commitScope := filepath.Join(home, ".claude/rules/commit-scope-is-the-module.md")
 	g.assertExists("the commit-scope rule's full text is installed", commitScope)
 	g.assertSymlink("the installed commit-scope rule is a symlink into the repo", commitScope)
-}
-
-// TestGuardsReachInstallAndRunFromIt is two bash groups in one test: the second runs the guard
-// out of the first's HOME.
-//
-// KAN-73's task 5 guard (check-guard-symlinks.sh) checks the REPOSITORY: that every
-// skills/*/scripts/ entry is a symlink that resolves. This checks the INSTALL — the only
-// assertion that would have caught the original bug, because the symlinks could be perfect in
-// the repo and still not reach ~/.claude/skills/ or ~/.zcode/skills/ if install_skills() ever
-// stopped carrying them.
-//
-// The expected guard list is read from the repository tree itself (skills/<skill>/scripts/*)
-// rather than hardcoded here — a hardcoded copy goes stale the moment a guard is added or
-// removed.
-func TestGuardsReachInstallAndRunFromIt(t *testing.T) {
-	g := newGroup(t)
-	home := g.newHome()
-	g.runSetup(repoRoot, home, "global", "")
-	g.assertRCZero("the global install for the guard-reachability check succeeds", g.rc, g.log)
-
-	// Derived, not hardcoded: every skill that actually carries a scripts/ directory. A
-	// hardcoded list goes stale the moment a skill gains or loses one — as it did when
-	// flow-status's directory was dropped for invoking no guard.
-	var guardSkills []string
-	for _, skill := range visibleEntries(filepath.Join(repoRoot, "skills")) {
-		if fi, err := os.Stat(filepath.Join(repoRoot, "skills", skill, "scripts")); err == nil && fi.IsDir() {
-			guardSkills = append(guardSkills, skill)
-		}
-	}
-	if len(guardSkills) == 0 {
-		g.fail("at least one skill carries a scripts/ directory", "none found under "+repoRoot+"/skills/*/scripts")
-	}
-	for _, skill := range guardSkills {
-		skillScripts := filepath.Join(repoRoot, "skills", skill, "scripts")
-		for _, name := range visibleEntries(skillScripts) {
-			entry := filepath.Join(skillScripts, name)
-			// A guard's own executable bit is read from its real source, not assumed: a sourced
-			// companion is never executed directly and need not be marked executable in the
-			// repository either.
-			fi, err := os.Stat(entry)
-			wantExec := err == nil && fi.Mode().IsRegular() && executable(entry)
-			for _, harness := range []string{".claude", ".zcode"} {
-				rel := harness + "/skills/" + skill + "/scripts/" + name
-				installed := filepath.Join(home, rel)
-				g.assertExists(rel+" is present at the installed path", installed)
-				if wantExec {
-					g.assertExecutable(rel+" is executable at the installed path", installed)
-				}
-			}
-		}
-	}
-
-	// check-panel-reproducers.sh runs through the installed path and finds its dependencies.
-	//
-	// A flow-guard shim: it sources lib/flow-guard.sh from its own directory and execs the
-	// flow-guard binary built from the stats/ tree beside it. Presence is not reachability —
-	// this actually RUNS it through the installed symlink chain and inspects what it printed,
-	// not just that the file exists.
-	guardPath := filepath.Join(home, ".claude/skills/flow/scripts/check-panel-reproducers.sh")
-	g.assertExists("the installed check-panel-reproducers.sh exists to invoke", guardPath)
-	guardLog := filepath.Join(g.dir, "check-panel-reproducers-installed.log")
-	// One argument (a real directory, standing in for the worktree) and no change name: the
-	// guard checks the worktree argument before the change name, so a true zero-argument call
-	// would exit on the worktree check first. Supplying just the worktree still exercises the
-	// dependencies this is about — the shim loads lib/flow-guard.sh and runs the built binary
-	// before either argument is validated — while reaching the guard's own usage line.
-	var out bytes.Buffer
-	cmd := exec.Command(guardPath, g.dir)
-	// The shim builds flow-guard into this cache; unset, it would build into the operator's
-	// ~/.cache, outside the sandbox.
-	guardCache := filepath.Join(g.dir, "flow-guard-cache")
-	cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache)
-	cmd.Stdout, cmd.Stderr = &out, &out
-	guardRC := 0
-	if err := cmd.Run(); err != nil {
-		guardRC = -1
-		if ee, ok := err.(*exec.ExitError); ok {
-			guardRC = ee.ExitCode()
-		}
-	}
-	if err := os.WriteFile(guardLog, out.Bytes(), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// No change name: the guard's own documented behaviour is to print a usage line and exit 2.
-	// That is expected here and is NOT a failure — the failure this proves the absence of is
-	// the shim reporting that it could not load lib/flow-guard.sh or build flow-guard.
-	g.assertRCNonzero("check-panel-reproducers.sh with no change name exits non-zero (expected — not a failure)", guardRC)
-	g.assertContains("check-panel-reproducers.sh reaches its own usage message (proves lib/flow-guard.sh loaded and the flow-guard binary ran, not just that the file exists)",
-		guardLog, "usage: check-panel-reproducers.sh")
-	g.assertNotContains("check-panel-reproducers.sh through the installed path does not report a missing lib/flow-guard.sh",
-		guardLog, "cannot load lib/flow-guard.sh")
-	built, _ := filepath.Glob(filepath.Join(guardCache, "*", "flow-guard"))
-	g.assertEq("the installed guard built flow-guard inside the sandbox, not in the operator's cache", 1, len(built))
 }
 
 func TestPreexistingSkillDirMovedOut(t *testing.T) {

@@ -52,7 +52,7 @@ type dpCase struct {
 const dpCleanPlanning = `1. **Plan, then fix**
 
    > **PLANNING DELEGATION:** You may dispatch fresh ` + "`Explore` and `Plan`" + ` subagents, never a
-   > ` + "`fork`" + `, and never an agent that edits files; pairs from plan-agent-pair.sh.
+   > ` + "`fork`" + `, and never an agent that edits files; pairs from flow-guard plan-agent-pair.
 `
 
 // dpFixture is new_root plus the case's files: every root carries a
@@ -208,7 +208,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
-				return "check-dispatch-paragraphs: FLOW_GUARD_REPO_ROOT is unset — run scripts/check-dispatch-paragraphs.sh, which sets it\n"
+				return "check-dispatch-paragraphs: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-dispatch-paragraphs, which sets it\n"
 			}},
 		{label: "a root that is not a directory exits 2", files: clean,
 			env: func(root string) Env {
@@ -1177,7 +1177,7 @@ var dpCases = []dpCase{
 	},
 		checks: []dpCheck{
 			dpRC("case 105: a PROOF RUNS block sizing load-reproduction repeats exits 1", 1),
-			dpHas("case 105: names the dropped phrase", "missing the required phrase: \"run-capped.sh\""),
+			dpHas("case 105: names the dropped phrase", "missing the required phrase: \"flow-guard run-capped\""),
 		}},
 	{files: map[string]string{
 		"review-panel.md":      dpCleanReviewPanel,
@@ -1185,7 +1185,7 @@ var dpCases = []dpCase{
 	},
 		checks: []dpCheck{
 			dpRC("case 106: loop 41's uncapped PROOF RUNS block exits 1", 1),
-			dpHas("case 106: names the missing cap", "missing the required phrase: \"run-capped.sh\""),
+			dpHas("case 106: names the missing cap", "missing the required phrase: \"flow-guard run-capped\""),
 		}},
 }
 
@@ -1763,10 +1763,10 @@ const (
 		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
 		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
 	dpProofRunsBlock = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
-		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> `<agents repo>/scripts/flow-guard run-capped --`, which kills it past the project's `## resource cap`\n" +
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
-		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
+		"> flow-guard run-capped with an explicit bounded worker count sized under the cap: Gradle\n" +
 		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
@@ -1782,7 +1782,7 @@ const (
 		"> code-reading evidence and the commit body says so. Your report states the forced condition and the\n" +
 		"> run count. This never replaces the proof `~/.claude/rules/fix-determinism-at-the-source.md`\n" +
 		"> requires: a determinism fix still shows the check failing with the mechanism removed."
-	dpNoLoadRepro             = "A load reproduction is allowed only under run-capped.sh with a bounded worker count."
+	dpNoLoadRepro             = "A load reproduction is allowed only under flow-guard run-capped with a bounded worker count."
 	dpProofRunsBlockLoadRepro = "> **PROOF RUNS:** When a check has to be run repeatedly to prove a flake reproduced or fixed, size\n" +
 		"> the run count to the flake rate you measured, 10–15 runs by default, never a fixed count per\n" +
 		"> step. Your report states the measured rate and the run count. Sizing the runs never replaces\n" +
@@ -1795,10 +1795,10 @@ const (
 		"> follow superpowers:systematic-debugging from its file — on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`\n" +
 		"> — before writing a fix. An expected RED step needs no such read."
 	dpProofRunsBlockNoSingleWorker = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
-		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> `<agents repo>/scripts/flow-guard run-capped --`, which kills it past the project's `## resource cap`\n" +
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
-		"> run-capped.sh with an explicit worker count sized under the cap: Gradle\n" +
+		"> flow-guard run-capped with an explicit worker count sized under the cap: Gradle\n" +
 		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
@@ -1806,10 +1806,10 @@ const (
 		"> fix that was reproduced still shows the check failing with the mechanism removed\n" +
 		"> (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed straight to code waives it, stated."
 	dpProofRunsBlockNoFixedCount = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
-		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> `<agents repo>/scripts/flow-guard run-capped --`, which kills it past the project's `## resource cap`\n" +
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
-		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
+		"> flow-guard run-capped with an explicit bounded worker count sized under the cap: Gradle\n" +
 		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go directly to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
@@ -1817,10 +1817,10 @@ const (
 		"> fix that was reproduced still shows the check failing with the mechanism removed\n" +
 		"> (`~/.claude/rules/fix-determinism-at-the-source.md`); only one fixed directly to code waives it, stated."
 	dpProofRunsBlockNoMechanismRemoved = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
-		"> `<agents repo>/scripts/run-capped.sh --`, which kills it past the project's `## resource cap`\n" +
+		"> `<agents repo>/scripts/flow-guard run-capped --`, which kills it past the project's `## resource cap`\n" +
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
-		"> run-capped.sh with an explicit bounded worker count sized under the cap: Gradle\n" +
+		"> flow-guard run-capped with an explicit bounded worker count sized under the cap: Gradle\n" +
 		"> `--max-workers`/`maxParallelForks` and `-Xmx`, Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs. If the\n" +
 		"> flake does not reproduce within the cap, go straight to code: no further reproduction loops; fix it\n" +
 		"> on deeper analysis of the code and the failing run's saved artifacts, and the commit body says so.\n" +
@@ -1866,7 +1866,7 @@ var dpCleanFixRound = dpDoc(dpFixRoundScopeBlock)
 // dpEntries is caught: a self-review block missing one fails naming it.
 func TestCheckDispatchParagraphsPlanningPhrases(t *testing.T) {
 	t.Parallel()
-	for _, phrase := range []string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "plan-agent-pair.sh"} {
+	for _, phrase := range []string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "flow-guard plan-agent-pair"} {
 		t.Run(phrase, func(t *testing.T) {
 			t.Parallel()
 			root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement})
@@ -1899,16 +1899,16 @@ func TestCheckDispatchParagraphsFixRoundNamesIntroducedDefects(t *testing.T) {
 }
 
 // TestCheckDispatchParagraphsCappedRepro pins "is allowed only under
-// run-capped.sh" and "bounded worker count" in the rule and the verify fix
+// flow-guard run-capped" and "bounded worker count" in the rule and the verify fix
 // loop: either file without either fails, and the negated "never under
-// run-capped.sh" no longer passes (kan-1044).
+// flow-guard run-capped" no longer passes (kan-1044).
 func TestCheckDispatchParagraphsCappedRepro(t *testing.T) {
 	t.Parallel()
 	for _, rel := range []string{"rules/fix-determinism-at-the-source.mdc", "skills/flow/verify-fix-loop.md"} {
 		root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement})
 		for _, tc := range []struct{ body, want string }{
-			{"Reproduce it never under run-capped.sh, under parallel load.\n", "is allowed only under run-capped.sh"},
-			{"A load reproduction is allowed only under run-capped.sh.\n", "bounded worker count"},
+			{"Reproduce it never under flow-guard run-capped, under parallel load.\n", "is allowed only under flow-guard run-capped"},
+			{"A load reproduction is allowed only under flow-guard run-capped.\n", "bounded worker count"},
 		} {
 			writeFile(t, filepath.Join(root, rel), tc.body)
 			rc, out, _, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
