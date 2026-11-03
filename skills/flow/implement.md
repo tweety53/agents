@@ -648,7 +648,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
 
    ```bash
    flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file>; m=$?; echo "markers: $m"
-   [ "$m" -eq 0 ] && { flow-guard close-task -end-key <key> -session-token mf-<literal-token> -end-commit <sha> \
+   [ "$m" -eq 0 ] && { flow-guard close-task -session-token mf-<literal-token> -end-key <key> -end-commit <sha> [-end-key <key> -end-commit <sha>]… \
      [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>:<task-sha> …
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then

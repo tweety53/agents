@@ -22,17 +22,21 @@ import (
 // message.**, step 2) for every task a
 // returning implementer committed.
 //
-// Usage: flow-guard close-task [-end-key <key> -session-token <token> [-end-commit <sha>]]
+// Usage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…]
 //          [-undeclared <task-id>=<path>[,<path>…]]…
 //          <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…
 //
 // In this order:
-//   1. With -end-key: `flow record dispatch end -change <name> -key <key>
-//      -session-token <token> [-commit <sha>] -outcome completed`. A record
+//   1. With -end-key: one `flow record dispatch end -change <name> -key <key>
+//      -session-token <token> [-commit <sha>] -outcome completed` per
+//      -end-key/-end-commit pair, paired by position, in order — -end-commit
+//      given for every key or for none, any other count a usage error (kan-1058
+//      self-review, F1: a group's close kept only its last key). A record
 //      never blocks: a failed call prints a warning and the sequence goes on,
 //      and every exit after it prints `close-task: UNRECORDED — the dispatch
 //      end for <key> did not reach the store; run: flow record dispatch end
-//      …` (the full command) as the last stderr line, turning exit 0 into 3.
+//      …` (the full command) as a closing stderr line, one per failed record,
+//      turning exit 0 into 3.
 //      Then, for every task it closes that the plan's `**Tasks appended:**`
 //      line counts or whose title opens `In-run fix <k> — `,
 //      `flow record dispatches -change <name> -C <canonical>`:
@@ -106,14 +110,21 @@ func init() { Registry["close-task"] = closeTask }
 
 func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	usage := func(msg string) int {
-		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-end-key <key> -session-token <token> [-end-commit <sha>]] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…\n", msg)
+		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…\n", msg)
 		return 2
 	}
 	fset := flag.NewFlagSet("close-task", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	endKey := fset.String("end-key", "", "the implementer dispatch's key, to close its record")
+	var endKeys, endCommits []string
+	fset.Func("end-key", "an implementer dispatch's key, to close its record; repeatable", func(v string) error {
+		endKeys = append(endKeys, v)
+		return nil
+	})
 	token := fset.String("session-token", "", "the run's literal session token, for the dispatch end")
-	endCommit := fset.String("end-commit", "", "the commit the implementer produced, for the dispatch end")
+	fset.Func("end-commit", "the commit the -end-key in the same position produced, for its dispatch end", func(v string) error {
+		endCommits = append(endCommits, v)
+		return nil
+	})
 	undeclared := map[string][]string{}
 	fset.Func("undeclared", "<task-id>=<path>[,<path>…]: paths the fields guard's refusal named for that task", func(v string) error {
 		id, paths, ok := strings.Cut(v, "=")
@@ -125,6 +136,9 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	})
 	if fset.Parse(args) != nil {
 		return 2
+	}
+	if len(endCommits) != 0 && len(endCommits) != len(endKeys) {
+		return usage(fmt.Sprintf("%d -end-commit for %d -end-key: give one per key, in order, or none", len(endCommits), len(endKeys)))
 	}
 	pos := fset.Args()
 	if len(pos) < 4 {
@@ -158,12 +172,12 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	}
 
 	// A record never blocks: a failed dispatch end is reported, never a stop.
-	if *endKey != "" {
-		rec := []string{"record", "dispatch", "end", "-change", name, "-C", canonical, "-key", *endKey, "-session-token", *token}
-		if *endCommit != "" {
+	for i, key := range endKeys {
+		rec := []string{"record", "dispatch", "end", "-change", name, "-C", canonical, "-key", key, "-session-token", *token}
+		if len(endCommits) > 0 {
 			// The store takes a full sha only; expand an abbreviated one,
 			// passing it unchanged where it does not resolve.
-			sha := *endCommit
+			sha := endCommits[i]
 			if full, ok := capture(envGit(env)("-C", canonical, "rev-parse", "--verify", "--quiet", sha+"^{commit}")); ok && full != "" {
 				sha = full
 			}
@@ -171,11 +185,11 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		}
 		rec = append(rec, "-outcome", "completed")
 		if ctFlow(env, stdout, stderr, rec...) != 0 {
-			fmt.Fprintln(stderr, "close-task: the dispatch end did not reach the store — continuing; a record never blocks")
+			fmt.Fprintf(stderr, "close-task: the dispatch end for %s did not reach the store — continuing; a record never blocks\n", key)
 			// Printed last on every exit from here, and exit 3 where it
 			// would be 0 (design.md: close-task-unrecorded-exit-3).
 			defer func() {
-				fmt.Fprintf(stderr, "close-task: UNRECORDED — the dispatch end for %s did not reach the store; run: flow %s\n", *endKey, strings.Join(rec, " "))
+				fmt.Fprintf(stderr, "close-task: UNRECORDED — the dispatch end for %s did not reach the store; run: flow %s\n", key, strings.Join(rec, " "))
 				if exit == 0 {
 					exit = 3
 				}

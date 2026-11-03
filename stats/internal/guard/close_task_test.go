@@ -836,3 +836,42 @@ func TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit(t *testing.T) {
 		})
 	}
 }
+
+// kan-1058 self-review, F1: one close-task call closing a group carries one
+// -end-key/-end-commit pair per member, and every pair reaches the store in
+// order — a single-value flag kept only the last.
+func TestCloseTaskClosesEveryEndKeyPair(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+	s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
+	r := fx.run("-session-token", "mf-t", "-end-key", "task-1-implementer", "-end-commit", s1,
+		"-end-key", "task-2-implementer", "-end-commit", s2, fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2)
+	if r.rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	}
+	calls := fx.calls(t)
+	want := []string{
+		"flow record dispatch end -change demo -C " + fx.wt + " -key task-1-implementer -session-token mf-t -commit " + s1 + " -outcome completed",
+		"flow record dispatch end -change demo -C " + fx.wt + " -key task-2-implementer -session-token mf-t -commit " + s2 + " -outcome completed",
+	}
+	if len(calls) < 2 {
+		t.Fatalf("calls %q, want the two dispatch ends first", calls)
+	}
+	ctEqual(t, calls[:2], want)
+}
+
+// An -end-commit count that is neither 0 nor the -end-key count cannot be
+// paired by position: a usage error, nothing recorded.
+func TestCloseTaskRefusesUnpairedEndCommits(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+	s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
+	r := fx.run("-session-token", "mf-t", "-end-key", "task-1-implementer", "-end-commit", s1,
+		"-end-key", "task-2-implementer", fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2)
+	if r.rc != 2 || !strings.Contains(r.err, "close-task:") || !strings.Contains(r.err, "usage:") {
+		t.Fatalf("exit %d, want 2 and close-task usage on stderr\n%s", r.rc, r.out)
+	}
+	ctEqual(t, fx.calls(t), nil)
+}

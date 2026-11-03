@@ -31,7 +31,8 @@ nothing is dispatched into that copy.
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its wave is picked. The same
 `flow-guard close-task` call the task-close step (`skills/flow/implement.md`) runs covers each picked
-commit, its `-end-commit` recording the picked sha. A pick conflict or a
+commit, with one `-end-key <key> -end-commit <picked sha>` pair per picked member in pick order, so each
+member's row closes when it is picked, never at the handoff (kan-1058 self-review, F1). A pick conflict or a
 guard failure goes to a fresh fixer (**Every fix is a fresh one-shot**, `skills/flow/implement.md`)
 — a conflict aborted first, `git -C <canonical-worktree> cherry-pick --abort`, then the pick row
 dispatched into the canonical worktree, its `FIX INPUT:` naming the member's commits; a guard
