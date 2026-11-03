@@ -972,6 +972,28 @@ describe("views render their fixture response's actual values", () => {
     expect(eps[4]).toHaveTextContent(/^—$/);
     expect(row("exp-delta").getAllByRole("cell")[4]).toHaveTextContent("found nothing");
     expect(row("gamma").getAllByRole("cell")[9]).toHaveTextContent("1 33%");
+    expect(row("beta").getAllByRole("cell")[4]).toHaveClass("rv-best");
+    expect(row("gamma").getAllByRole("cell")[4]).toHaveClass("rv-worst");
+  });
+
+  it("reviewers names every slot tied on most critical, each", async () => {
+    fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", [rv("one", 2, 2, 1, 2, 0, 0, 0), rv("two", 2, 2, 1, 2, 0, 0, 0)]), projects: [] });
+    render(<Reviewers period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(document.querySelectorAll(".rv-tiles .lb-tile")[1]).toHaveTextContent("most critical: one, two (2 each)");
+  });
+
+  it("reviewers shows no tiles when the rows are not recorded or unmeasured", async () => {
+    for (const [recorded, unmeasured] of [[false, false], [true, true]]) {
+      fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", REVIEWER_ROWS, recorded, unmeasured), projects: [] });
+      const { unmount } = render(<Reviewers period={period} project={undefined} />);
+      await waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
+      await screen.findByRole("toolbar");
+      await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
+      expect(document.querySelector(".rv-tiles")).toBeNull();
+      unmount();
+      fetchStatsViewMock.mockClear();
+    }
   });
 
   it("reviewers tiles and footer derive from the rows", async () => {
