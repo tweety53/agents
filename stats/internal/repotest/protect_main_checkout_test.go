@@ -499,6 +499,15 @@ func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) 
 	f.bash("4 message from a file", "allow", "{ROOT}", `git -C {SWT} commit -F msg.txt`)
 	f.bash("5 amend", "allow", "{ROOT}", `git -C {SWT} commit --amend --no-edit`)
 	f.bash("6 another branch", "allow", "{ROOT}", `git -C {FWT} commit -m "fix(x): y"`)
+	// The implementer brief's FIX DISPATCH form (kan-1053 self-review, F2).
+	f.bash("7 --trailer flags", "allow", "{ROOT}", `git -C {SWT} commit -m "fix(x): y" --trailer "Task-Id: 3" --trailer "Flow-Key: k" -- f.txt`)
+	f.bash("8 --trailer= form", "allow", "{ROOT}", `git -C {SWT} commit -m "fix(x): y" --trailer=Flow-Key:k`)
+	f.check("9 a --trailer naming another key", func(t *testing.T) {
+		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {SWT} commit -m "fix(x): y" --trailer "Signed-off-by: a"`)})
+		if decision(out) != "deny" {
+			t.Errorf("out=%s", out)
+		}
+	})
 }
 
 // TestProtectMainCheckoutSkipsAMessageItCannotRead pins kan-1032's

@@ -902,14 +902,14 @@ def commit_message_unread(args):
 
 def commit_lacks_trailer(args, target):
     """True when `git commit <args>` states its message with -m/--message, that message carries
-    neither a `Task-Id:` nor a `Flow-Key:` trailer, its subject is no `chore`, and its pathspec
-    is not limited to `<spec-root>/changes/`. A message the command text does not state — none
+    neither a `Task-Id:` nor a `Flow-Key:` trailer — in a -m paragraph or a `--trailer` flag (kan-1053
+    self-review, F2) — its subject is no `chore`, and its pathspec is not limited to `<spec-root>/changes/`. A message the command text does not state — none
     given, -F, -C, --amend, a shell expansion left in it, or a raw word opening with a quote that
     tokenize's unbalanced-quote fallback split (kan-1032's self-review: an apostrophe in a heredoc
     body kept the quote on `"chore(...):`) — is never judged."""
     if commit_message_unread(args):
         return False
-    msgs, paths, i = [], [], 0
+    msgs, trailers, paths, i = [], [], [], 0
     while i < len(args):
         a = args[i]
         if a == "--":
@@ -919,7 +919,13 @@ def commit_lacks_trailer(args, target):
             msgs.append(args[i + 1])
             i += 2
             continue
-        if a.startswith("--message="):
+        if a == "--trailer" and i + 1 < len(args):
+            trailers.append(args[i + 1])
+            i += 2
+            continue
+        if a.startswith("--trailer="):
+            trailers.append(a.partition("=")[2])
+        elif a.startswith("--message="):
             msgs.append(a.partition("=")[2])
         elif a.startswith("-") and not a.startswith("--") and "m" in a[1:]:
             rest = a[a.index("m", 1) + 1 :]
@@ -933,7 +939,7 @@ def commit_lacks_trailer(args, target):
             # no `--`: the words left after the message values are the pathspec
             paths.append(a)
         i += 1
-    if TRAILER_RE.search("\n".join(msgs)) or CHORE_SUBJECT_RE.match(msgs[0]):
+    if TRAILER_RE.search("\n".join(msgs + trailers)) or CHORE_SUBJECT_RE.match(msgs[0]):
         return False
     planning = ("/spectre/changes/", "/openspec/changes/")
     return not (paths and all(any(s in resolve(p, target) + "/" for s in planning) for p in paths))
