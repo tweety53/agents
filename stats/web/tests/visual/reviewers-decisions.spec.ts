@@ -10,7 +10,7 @@ import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW, PINNED_QUERY } from "./sup
 // GET /api/v1/stats/reviewers?from=2026-07-16T09:00:00Z&to=2026-08-15T09:00:00Z&projects=1
 // (the default 30d window ending at FIXTURE_NOW) returns thirteen rows, one
 // dispatch each -- kan-102's primary ($0.15, critical 1, minor 1) and
-// principles ($0.1, important 1), and kan-103's mutation ($0.125, important 3,
+// principles ($0.1, important 1), and kan-104's mutation ($0.125, important 3,
 // minor 2, withdrawn 1), exp-test-sanity ($0.125, no findings: the
 // experimental badge and "found nothing"), call-efficiency ($0.15, critical 1,
 // withdrawn 2), failure-modes ($0.15, important 1, withdrawn 1) and
