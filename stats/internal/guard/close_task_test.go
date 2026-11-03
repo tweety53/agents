@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -294,8 +295,8 @@ func TestCloseTaskExitContract(t *testing.T) {
 				return []string{"flow record dispatch end -change demo -C " + fx.wt + " -key k -session-token mf-t -outcome completed",
 					"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"}
 			}},
-		{"task argument without a sha", true, "0", "0",
-			func(fx *ctFx, s1 string) []string { return []string{fx.wt, "demo", fx.base, "1"} },
+		{"task argument with an empty sha", true, "0", "0",
+			func(fx *ctFx, s1 string) []string { return []string{fx.wt, "demo", fx.base, "1:"} },
 			2, func(*ctFx) []string { return nil }},
 	}
 	for _, c := range cases {
@@ -874,4 +875,53 @@ func TestCloseTaskRefusesUnpairedEndCommits(t *testing.T) {
 		t.Fatalf("exit %d, want 2 and close-task usage on stderr\n%s", r.rc, r.out)
 	}
 	ctEqual(t, fx.calls(t), nil)
+}
+
+// kan-1058 self-review, F8: a bare <task-id> resolves to the newest commit
+// since the merge base whose Task-Id: trailer names it; a bare id no commit
+// names is a usage error naming the task.
+func TestCloseTaskResolvesABareTaskID(t *testing.T) {
+	t.Parallel()
+	t.Run("the newest trailer commit is judged and ticked", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		fx.commit(t, fx.wt, "one", "1", "a.txt", "a2\n")
+		r := fx.run(fx.wt, "demo", fx.base, "1")
+		if r.rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		}
+		if !slices.Contains(fx.calls(t), "flow tasks tick -C "+fx.wt+" demo 1") {
+			t.Errorf("no tick of task 1:\n%s", strings.Join(fx.calls(t), "\n"))
+		}
+		if strings.Contains(r.out, "RE-COMMIT") || strings.Contains(r.out, "STOP") {
+			t.Errorf("a refusal:\n%s", r.out)
+		}
+	})
+	t.Run("a bare id no commit names is a usage error", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		r := fx.run(fx.wt, "demo", fx.base, "9")
+		if r.rc != 2 || !strings.Contains(r.err, "task 9") {
+			t.Fatalf("exit %d, want 2 and stderr naming task 9\n%s", r.rc, r.out)
+		}
+		ctEqual(t, fx.calls(t), nil)
+	})
+}
+
+// kan-1058 self-review, F8: a fields refusal naming undeclared paths ends on
+// the ready `flow tasks files … add` line for them.
+func TestCloseTaskPrintsAFilesAddLine(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n", "e.txt", "e\n", "f.txt", "f\n")
+	r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
+	if r.rc != 1 {
+		t.Fatalf("exit %d, want 1\n%s", r.rc, r.out)
+	}
+	want := "flow tasks files -C " + fx.wt + " demo 1 add e.txt f.txt"
+	if !slices.Contains(strings.Split(r.stdout, "\n"), want) {
+		t.Errorf("stdout lacks the line %q:\n%s", want, r.stdout)
+	}
 }

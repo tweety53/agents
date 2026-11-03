@@ -24,7 +24,11 @@ import (
 //
 // Usage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…]
 //          [-undeclared <task-id>=<path>[,<path>…]]…
-//          <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…
+//          <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…
+//
+// A bare <task-id> resolves to the newest commit since <merge-base> in the
+// canonical worktree whose Task-Id: trailer names it, none a usage error
+// (kan-1058 self-review, F8).
 //
 // In this order:
 //   1. With -end-key: one `flow record dispatch end -change <name> -key <key>
@@ -110,7 +114,7 @@ func init() { Registry["close-task"] = closeTask }
 
 func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	usage := func(msg string) int {
-		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>:<sha|worktree=sha[,worktree=sha…]>…\n", msg)
+		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…\n", msg)
 		return 2
 	}
 	fset := flag.NewFlagSet("close-task", flag.ContinueOnError)
@@ -151,8 +155,13 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	recorded := ctRecordedWorktrees(env, canonical, name)
 	for _, a := range pos[3:] {
 		id, commit, ok := strings.Cut(a, ":")
-		if !ok || id == "" || commit == "" {
-			return usage("task argument is not <task-id>:<sha|map>: " + a)
+		if id == "" || (ok && commit == "") {
+			return usage("task argument is not <task-id>[:<sha|map>]: " + a)
+		}
+		if !ok {
+			if commit = ctTrailerCommit(envGit(env), canonical, mergeBase, id); commit == "" {
+				return usage(fmt.Sprintf("task %s: no commit since %s carries Task-Id: %s", id, mergeBase, id))
+			}
 		}
 		commit = ctJoinRecorded(env, stderr, canonical, id, commit, recorded)
 		tasks = append(tasks, task{id, commit})
@@ -354,24 +363,32 @@ func ctJoinRecorded(env Env, stderr io.Writer, canonical, id, commit string, rec
 		if !ok {
 			continue
 		}
-		out, ok := capture(git("-C", wt, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD"))
-		if !ok {
-			continue
-		}
-		for _, line := range strings.Split(out, "\n") {
-			sha, ids, _ := strings.Cut(strings.TrimSpace(line), " ")
-			if sha != "" && slices.Contains(ctTaskNumberRE.FindAllString(ids, -1), id) {
-				fmt.Fprintf(stderr, "close-task: task %s: joined %s=%s — a recorded worktree the commit map left out\n", id, wt, sha)
-				pairs = append(pairs, wt+"="+sha)
-				added = true
-				break
-			}
+		if sha := ctTrailerCommit(git, wt, base, id); sha != "" {
+			fmt.Fprintf(stderr, "close-task: task %s: joined %s=%s — a recorded worktree the commit map left out\n", id, wt, sha)
+			pairs = append(pairs, wt+"="+sha)
+			added = true
 		}
 	}
 	if !added {
 		return commit
 	}
 	return strings.Join(pairs, ",")
+}
+
+// ctTrailerCommit is the newest commit in wt's base..HEAD whose Task-Id:
+// trailer names id, "" when none does or git cannot read the range.
+func ctTrailerCommit(git func(...string) *exec.Cmd, wt, base, id string) string {
+	out, ok := capture(git("-C", wt, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD"))
+	if !ok {
+		return ""
+	}
+	for _, line := range strings.Split(out, "\n") {
+		sha, ids, _ := strings.Cut(strings.TrimSpace(line), " ")
+		if sha != "" && slices.Contains(ctTaskNumberRE.FindAllString(ids, -1), id) {
+			return sha
+		}
+	}
+	return ""
 }
 
 // ctNewestClass is the change's newest decision class, "" when it cannot be

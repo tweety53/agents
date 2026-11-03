@@ -649,7 +649,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    ```bash
    flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file>; m=$?; echo "markers: $m"
    [ "$m" -eq 0 ] && { flow-guard close-task -session-token mf-<literal-token> -end-key <key> -end-commit <sha> [-end-key <key> -end-commit <sha>]… \
-     [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>:<task-sha> …
+     [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>[:<task-sha>] …
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then
      # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
@@ -677,6 +677,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    pair alone, which is the single-sha form; skipping the guard on a cross-repo change and
    checking fields by hand is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
+   A bare `<task-id>` resolves to the newest commit since `<merge-base>` in the canonical worktree whose `Task-Id:` trailer names it (kan-1058 self-review, F8).
    `-undeclared` carries the paths a fields refusal named for that task (**The record carries
    its own corrections**, below). The script's header (`<agents repo>/scripts/flow-guard close-task`) is
    canonical for its arguments and its order.
@@ -749,7 +750,7 @@ disagree silently with what the run did. The implementer never edits `<project>/
 `correction:` line of its summary head, the exact field and its corrected value, and the parent transcribes it into the record before the guard runs
 on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is the
 one correction whose disclosure has a mechanical record: `flow-guard check-task-commit-fields` runs
-against the record as it stood, refuses the commit, and names every undeclared path; the parent
+against the record as it stood, refuses the commit, and names every undeclared path, ending on one ready `flow tasks files … add` line per task (kan-1058 self-review, F8); the parent
 judges the deviation legitimate or not on exactly that refusal, and only a legitimate one is
 transcribed and the guard re-run green. The parent transcribes a widening with
 `flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing — a declared path

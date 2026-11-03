@@ -131,7 +131,10 @@ import (
 // similarly-named change out of it, and two caveats on the numbering are in
 // stats/internal/guard/taskcommitfields.go.
 // EXIT CODES. 0 — the commit passes. 1 — a verdict against the commit:
-// violations print on stdout, one per line. 2 — could not judge: a caller or
+// violations print on stdout, one per line; with a <change-name>, the
+// undeclared-path ones are followed by one ready `flow tasks files -C
+// <canonical, else worktree> <name> <id> add <path>…` line per task, in
+// first-seen order (kan-1058 self-review, F8). 2 — could not judge: a caller or
 // environment mistake (usage, unreadable plan, missing worktree, a
 // git call that cannot evaluate its arguments), never a judgment about the
 // commit. Every exit-2 refusal prints the same unmistakable stderr opening,
@@ -140,6 +143,10 @@ import (
 // where a merge base mistyped by one character surfaced git's bare
 // "ambiguous argument" message through this guard's exit and cost a second
 // look to tell a typo from a real defect.
+
+// tcfUndeclaredRE matches the undeclared-path violation, capturing the task
+// id and the path, for the ready `flow tasks files … add` line.
+var tcfUndeclaredRE = regexp.MustCompile(`^task (\S+): file (.+) is not declared in Files: and not covered by Allowed-collateral:$`)
 
 // The port of scripts/check-task-commit-fields.sh at 0747740 -- its wrapper
 // body, and the check-task-commit-fields.py it exec'd with the parts of
@@ -312,6 +319,22 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		}
 		for _, v := range violations {
 			fmt.Fprintln(stdout, v)
+		}
+		if name != "" {
+			// The ready widening line per task (kan-1058 self-review, F8).
+			var ids []string
+			undeclared := map[string][]string{}
+			for _, v := range violations {
+				if m := tcfUndeclaredRE.FindStringSubmatch(v); m != nil {
+					if undeclared[m[1]] == nil {
+						ids = append(ids, m[1])
+					}
+					undeclared[m[1]] = append(undeclared[m[1]], m[2])
+				}
+			}
+			for _, id := range ids {
+				fmt.Fprintf(stdout, "flow tasks files -C %s %s %s add %s\n", projectDir, name, id, strings.Join(undeclared[id], " "))
+			}
 		}
 		if len(violations) > 0 {
 			return 1
