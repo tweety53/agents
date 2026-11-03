@@ -367,7 +367,10 @@ reused stack pays the restart. It then requires `skills/flow-contracts/model-pol
 `/tmp/flow-uitest-flowd`, the binary `make ui-test-up` built and runs (`UITEST_BIN` in
 `stats/Makefile`): `//go:embed` stores the file verbatim, and no `index.html` byte changes when
 that file does, so without it a reused stack would render the Experiments view from the old
-policy (kan-1052 self-review, R2).
+policy (kan-1052 self-review, R2). It last compares `make go-sources-hash` with the hash `make
+ui-test-up` recorded in `/tmp/flow-uitest-go.sha256`, since neither `index.html` nor the policy
+changes when a Go source or the seed does, so a stack built before a Go-side fix reads stale
+(kan-1053 self-review, F1).
 
 **`capture` and `verify` check the stack first.** Each opens on `flow-guard check-dev-stack-fresh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure (kan-1038); `make ui-test-up` touches only that stack, never the `flowd` on 4173.
 
@@ -387,7 +390,7 @@ reach Playwright, and on its exit 0 runs `flow-guard rebuild-full-app-suite-zip`
 | `setup` | `cd stats/web && npm install && npx playwright install chromium` |
 | `verify` | `cd stats/web && { ../../scripts/flow-guard check-dev-stack-fresh ../.. \|\| make -C .. ui-test-up; } && npm run test:visual` |
 | `capture` | `cd stats/web && { ../../scripts/flow-guard check-dev-stack-fresh ../.. \|\| make -C .. ui-test-up; } && capture() { npx playwright test "$@" && ../../scripts/flow-guard rebuild-full-app-suite-zip "$(cd ../.. && pwd)" "$PWD/tests/visual"; } && capture <spec> --update-snapshots` |
-| `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html && python3 -c 'import sys; sys.exit(open(sys.argv[1], "rb").read() not in open(sys.argv[2], "rb").read())' ../../skills/flow-contracts/model-policy.md /tmp/flow-uitest-flowd` |
+| `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html && python3 -c 'import sys; sys.exit(open(sys.argv[1], "rb").read() not in open(sys.argv[2], "rb").read())' ../../skills/flow-contracts/model-policy.md /tmp/flow-uitest-flowd && make -s --no-print-directory -C .. go-sources-hash \| cmp -s - /tmp/flow-uitest-go.sha256` |
 
 ## progress
 

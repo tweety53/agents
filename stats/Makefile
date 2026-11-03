@@ -1,4 +1,4 @@
-.PHONY: test web-test web-build web-dist policy-copy build up down restart ui-test-up ui-test-down check-uitest-overrides
+.PHONY: test web-test web-build web-dist policy-copy build up down restart ui-test-up ui-test-down check-uitest-overrides go-sources-hash
 
 # Runs the Go test suite. Tests that need the compose stack's PostgreSQL
 # skip themselves with a clear message when it is not running.
@@ -313,6 +313,10 @@ override UITEST_BIN := /tmp/flow-uitest-flowd
 override UITEST_TRANSCRIPTS_DIR := /tmp/flow-uitest-transcripts
 override UITEST_STATE_DIR := /tmp/flow-uitest-state
 override UITEST_LOG := /tmp/flow-uitest.log
+# The go-sources-hash value of the Go sources the running stack was built and
+# seeded from: ui-test-up writes it, .flow/project.md's `fingerprint` row
+# recomputes and compares it (kan-1053 self-review, F1).
+override UITEST_GO_HASH := /tmp/flow-uitest-go.sha256
 
 # Defence in depth for the `rm -rf` sites below: `override` (above) is what
 # actually stops an operator-controlled value from reaching them, but an
@@ -353,6 +357,16 @@ for p in $(1); do \
 	esac; \
 done
 endef
+
+# go-sources-hash prints one hash over every tracked and untracked,
+# non-ignored *.go file plus go.mod and go.sum under stats/ -- uncommitted
+# edits included, because an implementer captures before it commits. Its two
+# callers: ui-test-up records it in $(UITEST_GO_HASH), and .flow/project.md's
+# `fingerprint` row recomputes it and compares, so a stack built before a Go
+# or seed edit reads stale; neither index.html nor the embedded policy changes
+# when a Go source does (kan-1053 self-review, F1).
+go-sources-hash:
+	@git ls-files -co --exclude-standard -- '*.go' go.mod go.sum | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256
 
 # ui-test-up resets the UI-test stack: drop and recreate flow_uitest in
 # the running flow-postgres container, start flowd against it on its
@@ -423,6 +437,10 @@ ui-test-up: web-build policy-copy check-uitest-overrides
 		fi; \
 	fi
 	rm -f $(UITEST_PIDFILE)
+	# The Go-sources record is computed before the build, so it describes what
+	# was built, and published only once the seed succeeded (mv below).
+	rm -f $(UITEST_GO_HASH)
+	$(MAKE) -s --no-print-directory go-sources-hash > $(UITEST_GO_HASH).new
 	@echo "ui-test-up: dropping and recreating $(UITEST_DB)"
 	# Both halves reuse scripts/flow-guard workspace: `remove --force` for the
 	# drop (--force is the whole point here, see the comment above this
@@ -457,6 +475,7 @@ ui-test-up: web-build policy-copy check-uitest-overrides
 	echo "ui-test-up: flowd did not answer on :$(UITEST_PORT) within 60s -- see $(UITEST_LOG)" >&2; \
 	exit 1
 	FLOWD_DSN="$(UITEST_DSN)" go run ./cmd/uitest-seed
+	mv -f $(UITEST_GO_HASH).new $(UITEST_GO_HASH)
 	@echo "ui-test-up: ready -- export FLOW_ADDR=http://127.0.0.1:$(UITEST_PORT) to point a session at it"
 
 # ui-test-down stops the daemon and drops flow_uitest, both
@@ -493,5 +512,6 @@ ui-test-down: check-uitest-overrides
 		fi; \
 		rm -f $(UITEST_PIDFILE); \
 	fi
+	rm -f $(UITEST_GO_HASH) $(UITEST_GO_HASH).new
 	../scripts/flow-guard workspace remove $(UITEST_ID)
 	@$(call UITEST_SAFE_RMRF,$(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR) $(UITEST_LOG) $(UITEST_BIN))
