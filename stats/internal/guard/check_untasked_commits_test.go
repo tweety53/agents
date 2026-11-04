@@ -29,6 +29,10 @@ func TestCheckUntaskedCommits(t *testing.T) {
 			{"src/b.kt", "test(update): drop checks", ""},
 		}, 1, []string{"UNTASKED: 1 commit(s) carry no Task-Id: or Flow-Key: trailer", "test(update): drop checks"}, []string{"feat(app): a"}},
 		{"planning plus code is listed", []commit{{"spectre/changes/demo/tasks.md\nsrc/c.kt", "docs(spectre): note", ""}}, 1, []string{"docs(spectre): note"}, nil},
+		{"implementer key without Task-Id is listed", []commit{{"stats/a.go", "fix(guard): inline", "Flow-Key: task-1+2-implementer"}}, 1,
+			[]string{"UNTASKED: 1 commit(s)", "fix(guard): inline — Flow-Key: task-1+2-implementer with no Task-Id:"}, nil},
+		{"implementer key with Task-Id passes", []commit{{"src/a.kt", "feat(app): a", "Task-Id: 1\nFlow-Key: task-1-implementer"}}, 0, []string{"UNTASKED-OK"}, nil},
+		{"implementer fix key passes", []commit{{"src/a.kt", "fix(app): a", "Flow-Key: task-1-implementer-fix-1"}}, 0, []string{"UNTASKED-OK"}, nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

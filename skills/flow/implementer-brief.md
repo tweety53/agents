@@ -214,3 +214,10 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > name — is reported, never decided in code. Where the plan can proceed, implement it as written
 > and carry the question in your REPORT FILE; where it cannot proceed without the answer, report
 > BLOCKED. A decision you make silently is a decision nobody recorded.
+
+> **A FLOW TOOLING DEFECT IS REPORTED, NEVER FIXED HERE:** a guard, hook, script, skill or contract
+> of the `agents` repository that wrongly blocks your task is named in your REPORT FILE — the
+> command, its output and the defect — for the parent's in-run pipeline-fix loop (**Pipeline
+> defects found mid-run**, `skills/flow-contracts/pipeline.md`), and never edited in this worktree
+> unless your task's own `**Files:**` names that file. `flow-guard check-untasked-commits` lists a
+> commit carrying your `Flow-Key:` and no `Task-Id:` (kan-1079 self-review, F2).

@@ -40,6 +40,14 @@ import (
 // nothing refused it). Its line reads `<sha12> <subject> — Flow-Key:
 // pipeline-fix-… on a change branch`.
 //
+// An implementer's own key, `Flow-Key: task-<ids>-implementer`, on a commit
+// with no `Task-Id:` is listed too: an implementer's commits are task
+// commits, so one without the trailer is an inline fix outside every task —
+// a flow tooling defect is reported for the in-run pipeline-fix loop, never
+// fixed in the change (kan-1079 self-review, F2: 07081426 passed here and
+// run 1's reshape squashed it unrecorded). Its line reads `<sha12>
+// <subject> — Flow-Key: <key> with no Task-Id:`.
+//
 // Prints one verdict line to stdout:
 //   UNTASKED-OK: <n> commit(s) checked                      nothing listed — exit 0
 //   UNTASKED: <k> commit(s) carry no Task-Id: or Flow-Key: trailer
@@ -106,6 +114,10 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 			listed = append(listed, fmt.Sprintf("  %s %s — Flow-Key: pipeline-fix-… on a change branch", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n")))
 			continue
 		}
+		if key := ucImplementerKey(f[3]); key != "" && strings.TrimSpace(f[2]) == "" {
+			listed = append(listed, fmt.Sprintf("  %s %s — Flow-Key: %s with no Task-Id:", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n"), key))
+			continue
+		}
 		if strings.TrimSpace(f[2]) != "" || strings.TrimSpace(f[3]) != "" || ucChoreRE.MatchString(subject) {
 			continue
 		}
@@ -152,4 +164,19 @@ func ucHasPipelineFixKey(keys string) bool {
 		}
 	}
 	return false
+}
+
+// ucImplementerKeyRE is an implementer dispatch's own key — never a fix,
+// pick or recommit key derived from it.
+var ucImplementerKeyRE = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer$`)
+
+// ucImplementerKey is the first Flow-Key value that is an implementer's own
+// dispatch key, "" when none is.
+func ucImplementerKey(keys string) string {
+	for _, k := range strings.Split(keys, ",") {
+		if k = strings.TrimSpace(k); ucImplementerKeyRE.MatchString(k) {
+			return k
+		}
+	}
+	return ""
 }
