@@ -58,14 +58,14 @@ import (
 // 2 cannot answer (no git worktree, unresolvable base, empty corpus).
 //
 // Go, in flow-guard (stats/internal/guard/verbatimmoves.go), ported from the
-// prototype verbatim_check.py in docs/prompt-audit-2026-09-29/tools.md.
+// prototype verbatim_check.py.
 // FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root.
 
 // checkVerbatimMoves is `flow-guard check-verbatim-moves`: the comment above is the contract. It proves a prompt trim moved or de-duplicated
 // text and never reworded it, comparing the sentences of the run-loaded
 // corpus at a base ref against the working tree; exit 0 clean (REVIEW lines
 // included), 1 a violation, 2 cannot answer. It is the Go port of the
-// prototype verbatim_check.py in docs/prompt-audit-2026-09-29/tools.md
+// prototype verbatim_check.py
 // (KAN-852), and its splitting and verdict rules are that prototype's.
 func init() {
 	Registry["check-verbatim-moves"] = checkVerbatimMoves
