@@ -3,8 +3,8 @@
 Portable, project-agnostic agent configuration: the **flow** pipeline (spectre + Superpowers), its
 skills and slash commands, always-on rules, hooks, and the stats service that records every run.
 
-**This repository is the source of truth.** Edit files here, then run `./setup.sh global`. Nothing
-is ever synced *into* this repo from a project checkout.
+**This repository is the source of truth — edit here, run `./setup.sh global`.** Nothing is ever
+synced *into* this repo from a project checkout.
 
 ---
 
@@ -13,48 +13,85 @@ is ever synced *into* this repo from a project checkout.
 ```bash
 ./setup.sh global                                          # install into every harness
 go install github.com/tweety53/spectre/cmd/spectre@latest  # needed by every skill but /flow-plan
+cd stats && docker compose up -d && make build              # flowd + flow CLI (see Stats app)
 ```
 
-Then, in Claude Code, install Superpowers (`/plugin install prime-radiant-inc/superpowers`),
-register the hooks the installer prints into `~/.claude/settings.json`, and type `/flow <name>` in
-any project.
+- In Claude Code, install Superpowers: `/plugin install prime-radiant-inc/superpowers`.
+- Register the hooks the installer prints into `~/.claude/settings.json`, then type `/flow <name>`
+  in any project.
 
 ---
 
-## What's in here
+## Architecture
 
-| Path | What it is |
-|------|------------|
-| `rules/` | Rules. Whether one is always-on is declared by `alwaysApply` in its own frontmatter; opt-in rules (e.g. the Kotlin backend standard) reach only projects that name them. `agent-baseline.md` is not a rule — it is the file every dispatched subagent is told to read |
-| `skills/` | The `/flow*` skills; `skills/flow-contracts/` holds the on-demand contracts, with `pipeline.md` canonical for the state machine. Command map: `skills/README.md` |
-| `commands-claude/` | Thin slash-command wrappers for Claude Code and ZCode |
-| `agents/` | Subagent definitions (`flow-low`, `flow-medium`, `flow-high`) |
-| `mods/` | Claude Code plugins. `flow-task-list` draws a band above the prompt in the task-list look: first a `⎿ <model-effort> <marker> main: <label> — <state>` line for the main agent (`in progress` while its turn runs, `waiting` between turns while a subagent runs), labelled with the top-level unit it is on — the latest open unit of its own `rules/be-brief.mdc` status lines naming a task of the running `/flow` change's plan, else the stage of the run's latest `flow stage begin`, else the latest open unit of its own status lines; then, nested under it as `  ⎿ <model-effort> <marker> Task <x>/<n> (<desc>) — <state> · <elapsed>`, one line per running subagent (`<desc>` alone, unnumbered, unless its description's `Task <x>/<n>` prefix names tasks of the running `/flow` change's plan; a group reads `Task 1+2+3/<n>`), its state `in progress`, `review`, `fix` or `re-review` read from its description; then one `◻ Task <x>/<n> (<title>) — pending` line per task of that plan neither ticked nor landed and named by no running line nor the `main` line, read from `<project>-worktrees/<change>/spectre/changes/<change>/tasks.md` beside the main checkout; a failed subagent's `✘ … — blocked` line among the running ones until the next main turn starts; and, only when no task is pending, the last two done subagent lines of the marked `/flow` change — with none marked, of the current main turn — above the running ones, in the room they leave (`✔` done and struck through, a group as its highest task, `Task 3/<n>`). Status lines are never lines of their own. Five lines at most under `main`. It adds the tracker key, `/flow` phase and the plan's done-over-total task count (`19/25`; a task is done when ticked or its `Task-Id:` commit is on the change branch since its base, `branch.<current>.flowBase` else `origin/HEAD`), then ` │ ` and a tally of the subagent rows, to the hint line under it |
-| `hooks/` | `enforce-agent-baseline.py` (denies a dispatch missing the baseline pointer, a pinned verify role on the wrong agent type or model, or a `flow-high` dispatch that is neither a no-progress escalation nor an operator-approved panel dispatch), `enforce-loop-dispatch.py` (admits a fix-loop dispatch only off its pairs row, and records it), `protect-main-checkout.py` (denies edits on a main checkout's default branch), `flow-active-change.py` (turns a plain problem report into a fix run, or reminds an unfinished `/flow-interactive` session that a plain message is its next request or its stop), `flow-stop-guard.py` (refuses a `/flow` turn end mid-phase) |
-| `scripts/` | `flow-guard`, the bootstrap that builds and runs every guard as `flow-guard <name>` (each guard is Go in `stats/internal/guard/`, tested beside it) |
-| `stats/` | `flowd` — the PostgreSQL-backed service holding pipeline state and per-stage telemetry, with a web UI. See `stats/README.md` |
-| `spectre/` | This repository's own specs and changes |
-| `CLAUDE.md`, `AGENTS.md` | This repository's project instructions |
-| `templates/` | The `CLAUDE.md` and `AGENTS.md` that `setup.sh` copies into a project that lacks one |
-| `setup.sh` | The installer |
+**`setup.sh` installs; the harness reads; every check and record goes through `flowd`.**
+
+```mermaid
+flowchart LR
+    subgraph H ["Harness"]
+        cc["Claude Code"]
+        zc["ZCode"]
+        mu["Muse"]
+    end
+    setup["setup.sh"] --> inst["rules · skills · commands<br/>agents · hooks · mods"]
+    H -- reads --> inst
+    inst -- calls --> cli["flow CLI"]
+    inst -- calls --> fg["flow-guard"]
+    cli --> flowd["flowd<br/>127.0.0.1:4173"]
+    fg --> flowd
+    flowd --> pg[("PostgreSQL<br/>flow-postgres :5433")]
+    flowd --> ui["web UI"]
+```
+
+---
+
+## Repository layout
+
+```text
+.
+├── .flow/            this repository's own flow config (project.md: lint, test, run, stop)
+├── agents/           subagent definitions: flow-{low,medium,high,xhigh}, flow-planner-{low,medium,high,xhigh}
+├── commands-claude/  thin slash-command wrappers for Claude Code and ZCode
+├── docs/             briefs/ (lessons) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
+├── hooks/            the Python hooks (see Guardrails)
+├── mods/             Claude Code plugins: flow-task-list (the task band above the prompt)
+├── rules/            rules (alwaysApply in each frontmatter) + agent-baseline.md, the subagent baseline
+├── scripts/          flow-guard, the bootstrap that builds and runs every guard
+├── skills/           the /flow* skills; flow-contracts/ holds the on-demand contracts (map: skills/README.md)
+├── spectre/          peers (cross-repo links); changes/ is gitignored, per change
+├── stats/            flowd, the flow CLI, every guard (internal/guard/) and the web UI (web/)
+├── templates/        CLAUDE.md and AGENTS.md copied into a project that lacks one
+├── setup.sh          the installer
+├── CLAUDE.md         this repository's instructions (Claude Code)
+└── AGENTS.md         the same, for ZCode and Muse
+```
+
+- **`rules/`:** whether a rule is always-on is its own `alwaysApply`; opt-in rules (e.g. the Kotlin
+  backend standard) reach only projects that name them.
+- **`skills/flow-contracts/pipeline.md`** is canonical for the state machine.
+- **`mods/flow-task-list`** shows the main agent's unit, each running subagent as `Task <x>/<n>`,
+  and the plan's pending tasks; its hint line adds the tracker key, phase and done/total count.
 
 ---
 
 ## Commands
 
-`<name>` is optional everywhere: with one open change it is picked automatically, otherwise you are
-asked. No command takes a flag.
+**`<name>` is optional everywhere** — with one open change it is picked, otherwise you are asked.
+No command takes a flag.
 
 | Command | What it does |
 |---------|--------------|
 | `/flow <name>` | The whole pipeline, one command, re-entrant — see below |
-| `/flow-fast <name>` | Lighter variant: worktree, class-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
-| `/flow-interactive [key or name]` | Conversational session: each request the operator types is implemented inline, verified, landed by merge and push and, for UI, checked on the live page; an explicit stop self-reviews, cleans up and finishes. No spectre artifacts or state file |
+| `/flow-fast <name>` | Lighter: worktree, class-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
+| `/flow-interactive [key or name]` | Conversational session: each request is implemented inline, verified, landed by merge and push; an explicit stop self-reviews, cleans up and finishes |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-settings` | Global reviewer slots |
 | `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
-| `/flow-prompt-tuning` | Applies the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after an A/B replay proves each; records each case in docs/prompt-tuning/LEDGER.md and removes its folder. Standalone, not a pipeline stage |
+| `/flow-prompt-tuning` | Applies saved implementer/reviewer prompt updates after an A/B replay proves each; logs to `docs/prompt-tuning/LEDGER.md` |
+| `/flow-experiment-close` | Closes an allowed-pairs experiment from its stored stats with a verdict; a positive one starts the `/flow` change that makes it permanent |
+| `/flow-learn-quiz` | Teacher mode: has you restate a change and quizzes you until you understand it |
+| `/call-efficiency-audit` | Measures a running dev stack's repeated reads, repeated queries and per-item queries |
 
 ## How the pipeline works
 
@@ -97,46 +134,40 @@ flowchart TD
 - **The gate is the state.** No command exists just to record that you reviewed something.
 - **A fix never moves the state.** Re-run `/flow` with instructions, or describe the problem in the
   same session.
-- **Merge status alone decides** whether a bare `/flow` integrates or cleans up, so a PR merged on
-  the forge and one `/flow` merged itself look the same.
-- **Run 2 runs no tests or linters** and commits nothing: it saves the change's `tasks.md` and
-  self-review bundle to flowd, then removes the worktrees.
+- **Merge status alone decides** whether a bare `/flow` integrates or cleans up.
+- **Run 2 runs no tests or linters** and commits nothing: it saves `tasks.md` and the self-review
+  bundle to flowd, then removes the worktrees.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.
 
 ### Deciding how to implement (`flow.decide`)
 
-Once `tasks.md` is written, the planner sizes the change and decides how much ceremony it gets,
-then prints a `## Decision` table and takes **Proceed to implementation?** as **Yes** without asking.
+**The class and rolls decide execution, effort and panel; nothing in a project configures them.**
+The planner prints a `## Decision` table and proceeds without asking.
 
-1. **Classify.** `scripts/flow-guard plan-class` counts tasks, touched files and repositories, and flags
-   migrations, spec edits, tasks that leave the build red, and `unverified:` plan claims. It prints
-   a class — `micro`, `small`, `regular` or `big`. The planner may raise the class one step with
-   a recorded reason, never lower it.
-2. **Roll.** The same script prints four rolls, plus each always-on extra dispatch's own roll, hashed from the change name so they repeat on
-   every run of that change: `compact` (a smaller review roster), `experimental` (add one
-   reviewer prompt from `skills/flow/experimental/`), `bundle` (fixed or free reviewer grouping)
-   and `effort` (below 80, every implementer, fixer and reviewer dispatch runs at `medium`, a
-   reviewer on a hard seam alone at `high`; otherwise the planner picks each effort freely — never
-   `high` for an implementer or fixer).
-3. **Decide.** The class and rolls always decide all three. Nothing in a project configures them:
+- **Classify.** `scripts/flow-guard plan-class` counts tasks, files and repositories, flags
+  migrations, spec edits, red tasks and `unverified:` claims, and prints `micro`, `small`, `regular`
+  or `big`. The planner may raise it one step with a reason, never lower it.
+- **Roll.** Hashed from the change name, so they repeat: `compact` (smaller roster), `experimental`
+  (one prompt from `skills/flow/experimental/`), `bundle` (reviewer grouping), `effort` (below 80,
+  every dispatch at `medium`, a hard-seam reviewer at `high`), plus each always-on extra dispatch's.
+- **Decide.** Per the table; saved to `.superpowers/sdd/decision.json` and `flowd`, with every
+  dispatch's model.
 
-   | Class | Execution | Implementer effort | Review panel |
-   |-------|-----------|--------------------|--------------|
-   | `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
-   | `small` | inline | — | `primary`+`principles`, delta re-runs |
-   | `regular` | inline | — | `primary`+`principles`, delta re-runs |
-   | `big` | `sdd`: subagent implementers, one per task group | `medium` on an `effort` roll below 80, else `low`/`medium` per group, from how hard its tasks are; a verification-only group (end-to-end specs, fidelity captures) always `low` | same roster as `regular`, full re-runs |
+| Class | Execution | Implementer effort | Review panel |
+|-------|-----------|--------------------|--------------|
+| `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
+| `small` | inline | — | `primary`+`principles`, delta re-runs |
+| `regular` | inline | — | `primary`+`principles`, delta re-runs |
+| `big` | `sdd`: subagent implementers, one per task group | `medium` on an `effort` roll below 80, else `low`/`medium` per group, from how hard its tasks are; a verification-only group (end-to-end specs, fidelity captures) always `low` | same roster as `regular`, full re-runs |
 
-   A `compact` roll shrinks any roster except `micro`'s to `primary`+`principles`. A round runs at
-   most two review dispatches, with up to three roles each, beside the always-on
-   `test-sanity+call-efficiency` and `mutation+failure-modes` dispatches every panel runs, `micro` included. A `micro` change (at most two tasks,
-   documentation only, at most 20 changed lines) makes no choices. It still gets the decision
-   record, the verify stage and self-review.
+- **Rosters.** `compact` shrinks any roster but `micro`'s to `primary`+`principles`; a round runs at
+  most two review dispatches of up to three roles, beside the always-on
+  `test-sanity+call-efficiency` and `mutation+failure-modes` dispatches.
+- **`micro`** (at most two tasks, docs only, at most 20 changed lines) makes no choices but still
+  gets the decision record, verify and self-review.
 
-The choice is saved to `.superpowers/sdd/decision.json` in the worktree and recorded in `flowd`.
-The Decide step also picks every dispatch's model.
 Canonical: **Decide** and **Model and effort** (`skills/flow/brainstorm-planner.md`).
 
 ### Level 1 — the stages of each command
@@ -184,114 +215,79 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 ## Guardrails
 
-The pipeline does not rely on an agent saying it behaved. Checks at each step are scripts that
-return a verdict. Each one is Go in `stats/internal/guard/` with its Go test beside it, and
-`go test ./internal/guard/...` from `stats/` runs every one.
+**The pipeline never relies on an agent saying it behaved.** Each check is Go in
+`stats/internal/guard/` with its test beside it; `go test ./internal/guard/...` from `stats/` runs
+them all. `.flow/project.md` `## lint` lists this repository's own.
 
-**Always on, in every session (hooks)**
-- `enforce-agent-baseline.py`: blocks any subagent dispatch whose prompt lacks the
-  `agent-baseline.md` pointer, so the rules reach every subagent, however deep, and any
-  visual-verify verifier or tooling-analyst dispatch — a prompt opening with its `Role:` marker
-  line — on another agent type or model than its contract fixes, and any `flow-high` dispatch
-  but a no-progress escalation (an opening `No-progress escalation` line, or a self-review or
-  pipeline-fix loop key) and a panel dispatch opening `Operator-approved high`
+**Hooks, always on:**
+- `enforce-agent-baseline.py` — denies a dispatch missing the `agent-baseline.md` pointer, a pinned
+  verify role on the wrong agent type or model, or an unapproved `flow-high` dispatch
   (`stats/internal/repotest/enforce_agent_baseline_hook_test.go`).
-- `enforce-loop-dispatch.py`: blocks a pipeline-fix or self-review loop dispatch off its pairs
-  row, a fix with no completed plan, or one while an earlier dispatch is open, and records the
-  admitted one in flowd (`scripts/flow-guard check-loop-dispatch`).
-- `protect-main-checkout.py`: blocks edits, staging, commits, stashes and resets on a main
-  checkout's default branch. Work happens in a worktree. It also blocks a landing push of a
-  `pipeline-fix-*` or `self-review-*` branch that flowd's records do not cover
+- `enforce-loop-dispatch.py` — admits a pipeline-fix or self-review loop dispatch only off its pairs
+  row, and records it (`scripts/flow-guard check-loop-dispatch`).
+- `protect-main-checkout.py` — denies edits, staging, commits, stashes and resets on a main
+  checkout's default branch, and an unrecorded loop-branch landing push
   (`scripts/flow-guard check-loop-landing`).
-- `flow-active-change.py`: routes a plain problem report to the session's open change as a fix run;
-  in an unfinished `/flow-interactive` session it names the session instead, so a plain message is
-  read as its next request or its stop.
-- `flow-stop-guard.py`: refuses a `/flow` turn end mid-phase — an open stage, or every task ticked at `STARTED` — and names the next stage.
+- `flow-active-change.py` — routes a plain problem report to the open change as a fix run, or to an
+  unfinished `/flow-interactive` session as its next request or stop.
+- `flow-stop-guard.py` — refuses a `/flow` turn end mid-phase and names the next stage.
+- `await-own-agents.py` — blocks a subagent's stop while an agent it launched still runs, so it
+  waits inside its prompt-cache window.
+- `flow-session-activity.py` — reports each session's working/waiting state to `flowd` for the
+  state board.
 
-**Plan**
-- `flow-guard check-plan-shape`: `tasks.md` must be readable by the commit guards that check it later. No task step runs a module or repository test suite.
-- `flow-guard check-plan-provenance`: every code block and number in the plan carries `verified:` or
-  `unverified:`.
-- `flow-guard check-task-build-green`: every task declares whether it leaves the build green. A red task
-  must name the task it gets squashed into.
+**Plan:** `check-plan-shape` (tasks readable by the commit guards), `check-plan-provenance` (every
+code block and number `verified:`/`unverified:`), `check-task-build-green` (a red task names its
+squash partner).
 
-**Implement**
-- `flow-guard check-task-commit-fields`: each task commit touches exactly the files and tests its task
-  declared.
-- `flow-guard check-task-commit-planning-paths`: task commits never include planning files.
-- `flow-guard check-task-records`: no box ticked in `tasks.md` without a commit behind it.
-- `flow-guard check-plan-unchanged` and `flow-guard check-tree-markers`: snapshot the worktree before a subagent
-  runs and compare it after, instead of trusting the subagent's report that the tree is clean.
-- `flow-guard check-dispatch-paragraphs`: required instruction paragraphs stay in the dispatch templates.
-- `flow-guard check-workspace-isolation`: every worktree gets its own database, cache, bucket and ports.
+**Implement:** `check-task-commit-fields` (commit touches exactly its declared files),
+`check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
+`check-plan-unchanged` + `check-tree-markers` (snapshot around each subagent),
+`check-dispatch-paragraphs`, `check-workspace-isolation` (own database, cache, bucket, ports).
 
-**Review panel**
-- `flow-guard run-reproducer` and `flow-guard prove-reproducer`: every finding needs a reproducer that shows the
-  defect before the fix and passes after it.
-- `flow-guard check-panel-reproducers`, `flow-guard check-panel-reproducer-exit-contract`: every finding has a
-  reproducer, and each one uses the exit codes correctly.
-- `flow-guard check-panel-findings-closed`: no handoff while any finding is open or deferred, whatever its
-  severity.
-- `flow-guard mutate-and-verify` and `flow-guard break-and-prove`: break the code on purpose and show a test
-  fails. The `mutation` reviewer uses them.
+**Review panel:** `run-reproducer` + `prove-reproducer` (each finding red before, green after),
+`check-panel-reproducers`, `check-panel-reproducer-exit-contract`, `check-panel-findings-closed`
+(no handoff with any finding open), `mutate-and-verify` + `break-and-prove` (the `mutation` role).
 
-**Land and clean up**
-- `flow-guard integrate-change`: runs every mechanical step of the integrate and cleanup runs — the guards
-  below among them — in four calls, stopping only where a verdict needs a decision.
-- `flow-guard check-finish-preflight`: decides between integrate and cleanup from the merge state, or
-  refuses and asks.
-- `flow-guard check-unfinished-work`: reports unticked tasks or open findings before you are asked how to
-  land.
-- `flow-guard commit-split`: makes the implementation commit; the change directory is gitignored, so nothing
-  is left for a planning commit.
-- `flow-guard check-cleanup-complete`: `FINISHED` is written only once every temporary artifact is gone.
+**Land and clean up:** `integrate-change` (every mechanical step, in four calls),
+`check-finish-preflight` (integrate vs cleanup from merge state), `check-unfinished-work`,
+`commit-split` (the implementation commit), `check-cleanup-complete` (`FINISHED` only when every
+temporary artifact is gone).
 
-**This repository's own lint.** It runs in `/flow`'s verify stage here:
-- `flow-guard check-references`: every ``**Section** (`file`)`` citation must point at a heading that exists.
-- `flow-guard check-stage-mark-calls`: skills may mark only stage keys `flowd` knows.
-- `flow-guard check-installed-rules`: the rules installed on this machine must match `rules/`.
-
-`.flow/project.md` `## lint` lists them all.
+**This repository's lint** adds `check-references` (every ``**Section** (`file`)`` citation
+resolves), `check-stage-mark-calls` (only keys `flowd` knows) and `check-installed-rules`.
 
 ---
 
 ## Stats app (`stats/`)
 
-`flowd` is a Go daemon on `127.0.0.1:4173` with PostgreSQL behind it (`flow-postgres` on port
-5433). It is the store every `/flow*` command writes to through the `flow` CLI.
+**`flowd` on `127.0.0.1:4173`, PostgreSQL behind it (`flow-postgres`, port 5433), is the store
+every `/flow*` command writes through the `flow` CLI.**
 
-- **State.** Each change's pipeline state, worktrees and PR (`flow state`). This replaced the
-  per-machine JSON state file. When the daemon is down, writes go to an on-disk journal and are
-  replayed later (`flow journal`).
-- **Stages and cost.** `flow stage begin/end` marks every Level 1 stage. Every 5 s, `flowd` reads
-  new lines from the Claude Code transcripts, assigns each turn's tokens to the stage that was
-  running, and prices them at the published per-model rates. A model with no published rate is
-  shown as *unavailable*, never estimated.
-- **Records.** Review findings with their reproducers, verdicts, subagent dispatches, planner
-  decisions and incidents (`flow record`). The guards above read these, not Markdown.
-- **Settings.** The default reviewer slots, set by `/flow-settings` (`flow settings`).
-- **Jira.** Forward-only status changes (To Do → In Progress → In Review → Done), with retries
-  (`flow jira transition`). Off until the three `FLOWD_JIRA_*` variables are set.
+- **State** — each change's state, worktrees and PR (`flow state`); when the daemon is down, writes
+  go to an on-disk journal and replay later (`flow journal`).
+- **Stages and cost** — `flow stage begin/end` marks every Level 1 stage; every 5 s `flowd` assigns
+  transcript tokens to the running stage at published per-model rates (no rate: *unavailable*,
+  never estimated).
+- **Records** — findings with reproducers, verdicts, dispatches, decisions, incidents
+  (`flow record`); the guards read these, not Markdown.
+- **Settings** — default reviewer slots (`flow settings`, `/flow-settings`).
+- **Jira** — forward-only transitions with retries (`flow jira transition`); off until the three
+  `FLOWD_JIRA_*` variables are set.
 
-**Web UI** at http://127.0.0.1:4173, filterable by project, period and model:
-- live state board
-- stage leaderboard
-- cost and token trend
-- planner decisions
-- reviewers (what each review slot costs, the real defects it finds and how often its findings are withdrawn)
+**Web UI** at http://127.0.0.1:4173, filterable by project, period and model (`stats/web/src/views/`):
+- state board, stage leaderboard, cost and token trend, weekly costs
+- planner decisions, reviewers, review dynamics, experiments
+- self-review, flow health, run detail
 
 ```bash
 cd stats && docker compose up -d   # PostgreSQL
 make build                          # flowd + flow CLI (builds the SPA first)
 ```
 
-`stats/README.md` covers:
-- the launchd agent that runs `flowd` at login
-- the throwaway UI-test stack on port 4174
-- Jira credentials
-- checking by hand that token usage is being assigned to stages
-
-Never stop the live daemon or drop the `flow` database: every project's runs write to it.
+- `stats/README.md` covers the launchd agent, the UI-test stack on port 4174, Jira credentials and
+  checking token attribution by hand.
+- **Never stop the live daemon or drop the `flow` database:** every project's runs write to it.
 
 ---
 
@@ -303,26 +299,20 @@ Never stop the live daemon or drop the `flow` database: every project's runs wri
 ./setup.sh global
 ```
 
-Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/` and `~/.zcode/`, and
-each `mods/<name>/` into `~/.claude/skills/`, from which Claude Code auto-loads it as a plugin, and
-writes a managed block of always-on rules into `~/.claude/CLAUDE.md` and `~/.zcode/AGENTS.md`. It
-also exports `Z_COMPACT_WINDOW` from `~/.zshrc` (and `~/.bashrc` when present) for the `zcode`
-wrapper. There is no Muse layer here:
-Muse discovers the Claude Code skills and rules above natively, and its own rules are
-project-scope only (see **Muse** below).
+Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/` and `~/.zcode/`,
+each `mods/<name>/` into `~/.claude/skills/` (auto-loaded as a plugin), writes the always-on rules'
+managed block into `~/.claude/CLAUDE.md` and `~/.zcode/AGENTS.md`, and exports `Z_COMPACT_WINDOW`
+from `~/.zshrc` (and `~/.bashrc`) for the `zcode` wrapper. No Muse layer — see **Muse** below.
 
-- **Edits to existing skills, commands and hooks are live** — they are symlinks. Re-run only when
-  a file is added or removed.
-- **Edits to an always-on rule need a re-run.** The managed blocks carry rendered text (each rule's
-  `<!-- core -->` section plus a `Full rule:` pointer), not a link. Only the text between
-  `<!-- flow:begin -->` / `<!-- flow:end -->` is rewritten; your own notes around it survive.
+- **Edits to existing skills, commands and hooks are live** (symlinks); re-run only when a file is
+  added or removed.
+- **Edits to an always-on rule need a re-run.** The managed block carries rendered text (`<!-- core
+  -->` plus a `Full rule:` pointer); only the text between `<!-- flow:begin -->` / `<!-- flow:end
+  -->` is rewritten.
 - **Hooks are installed, never registered.** The installer prints the `settings.json` (or ZCode
-  `~/.zcode/cli/config.json`) snippet and leaves the paste to you.
-- **Whether a subagent reads `CLAUDE.md` depends on the harness and the agent type** — Claude
-  Code passes it to some subagent types and not others, and ZCode's and Muse's behaviour is
-  unverified — so
-  every dispatch still points at `~/.claude/rules/agent-baseline.md`, the one channel that reaches
-  every subagent; `enforce-agent-baseline.py` denies one that does not, where the hook is registered.
+  `~/.zcode/cli/config.json`) snippet; the paste is yours.
+- **Every dispatch points at `~/.claude/rules/agent-baseline.md`** — whether a subagent reads
+  `CLAUDE.md` varies by harness and agent type; `enforce-agent-baseline.py` denies one that does not.
 
 ### Per project
 
@@ -331,42 +321,37 @@ cd /path/to/project
 /path/to/agents/setup.sh <claude-code|zcode|muse>
 ```
 
-Links skills and commands into the project's `.claude/` or `.zcode/`, or skills into its
-`.agents/` on `muse` — that harness has no commands directory, no project agent definitions and
-no hooks, so skills and `AGENTS.md` are the whole install. It is
-also the **only** way an opt-in rule reaches a project: it reads the `## standards` section of
-`<project>/.flow/project.md`, keeps bare `*.mdc` names from `rules/` that are not already
-always-on, and renders them into a managed block in both `<project>/CLAUDE.md` and `AGENTS.md`.
-Re-run it in each adopting project after editing an opt-in rule.
+- Links skills and commands into `.claude/` or `.zcode/`, or skills into `.agents/` on `muse` (no
+  commands, agents or hooks there).
+- **The only way an opt-in rule reaches a project:** reads `## standards` in
+  `<project>/.flow/project.md` and renders those `rules/*.mdc` into a managed block in
+  `<project>/CLAUDE.md` and `AGENTS.md`. Re-run after editing an opt-in rule.
 
 ### Claude Code
 
-Install Superpowers with `/plugin install prime-radiant-inc/superpowers`. Without the command
-wrappers in `commands-claude/`, typing `/flow` fails with "Unknown command" — Claude Code finds
-skills by name, not by slash alias.
+- Install Superpowers: `/plugin install prime-radiant-inc/superpowers`.
+- **The `commands-claude/` wrappers are required** — without them `/flow` fails with "Unknown
+  command"; Claude Code finds skills by name, not by slash alias.
 
 ### ZCode
 
-ZCode has no Superpowers plugin channel; copy the skills once:
+No Superpowers plugin channel; copy the skills once:
 
 ```bash
 cp -R ~/.claude/plugins/cache/claude-plugins-official/superpowers/<version>/skills/* ~/.zcode/skills/
 ```
 
-Everything ZCode uses lives under `~/.zcode/`, with rule pointers rewritten from `~/.claude/`. It
-picks the model per session, not per command: switch to a stronger one before a creating `/flow`
-run.
+- Everything lives under `~/.zcode/`, rule pointers rewritten from `~/.claude/`.
+- **The model is per session**, not per command: switch to a stronger one before a creating `/flow`
+  run.
 
 ### Muse
 
-Muse reads project skills from `<project>/.agents/skills/` and project rules from
-`<project>/AGENTS.md` — `./setup.sh muse` installs both — and discovers the global flow
-skills and always-on rules through the Claude Code layer (`~/.claude/skills/`,
-`~/.claude/CLAUDE.md`), so `setup.sh global` covers it with no Muse-native layer. It has
-no commands directory, no hooks and no per-dispatch model: every dispatch inherits the
-session's own model and effort (**Harness mapping**, `skills/flow-contracts/model-policy.md`),
-so switch to a stronger model before a creating `/flow` run, as on ZCode. Without the
-`flow-active-change` hook, a plain problem report becomes a fix run from the session's own
-context alone. Superpowers, like ZCode, has no plugin channel here — install its skills
-with `muse skills install <path>` per skill, or copy them into the project's
-`.agents/skills/`.
+- Reads project skills from `<project>/.agents/skills/` and rules from `<project>/AGENTS.md`
+  (`./setup.sh muse`); global skills and rules come through the Claude Code layer, so
+  `setup.sh global` covers it.
+- **No commands, no hooks, no per-dispatch model:** every dispatch inherits the session's model and
+  effort (**Harness mapping**, `skills/flow-contracts/model-policy.md`) — switch up before a
+  creating `/flow` run. Without `flow-active-change`, a problem report becomes a fix run from
+  context alone.
+- Superpowers: `muse skills install <path>` per skill, or copy into `.agents/skills/`.
