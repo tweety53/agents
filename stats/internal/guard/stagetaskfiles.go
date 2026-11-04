@@ -75,13 +75,19 @@ func stageTaskFiles(args []string, env Env, stdout, stderr io.Writer) int {
 	add := []string{"add", "--"}
 	// A path whose deletion is already staged is neither on disk nor in the
 	// index, and git add refuses it as an unmatched pathspec; it needs no add.
+	// Nor does one untracked by git rm --cached and now gitignored, still on
+	// disk: git add refuses an ignored path (kan-1079).
 	for _, f := range files {
 		if stfIsPlanning(f) {
 			continue
 		}
+		out, _ := panelGit(env, gitBin, wt, "ls-files", "--", f).Output()
+		tracked := len(out) > 0
 		if _, err := os.Lstat(filepath.Join(smcAbs(env, wt), f)); err == nil {
-			add = append(add, f)
-		} else if out, _ := panelGit(env, gitBin, wt, "ls-files", "--", f).Output(); len(out) > 0 {
+			if tracked || panelGit(env, gitBin, wt, "check-ignore", "-q", "--", f).Run() != nil {
+				add = append(add, f)
+			}
+		} else if tracked {
 			add = append(add, f)
 		}
 	}

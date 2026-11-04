@@ -143,3 +143,31 @@ func TestStageTaskFilesStagesWhenTheChangeDirectoryIsIgnored(t *testing.T) {
 		t.Errorf("staged:\n%s\nwant:\n%s", staged, strings.Join(files, "\n"))
 	}
 }
+
+// A path untracked with git rm --cached and now gitignored stays on disk:
+// its staged deletion needs no add, and git add refuses an ignored path
+// (kan-1079 task 1: .idea/ untracked, then ignored whole).
+func TestStageTaskFilesSkipsAnUntrackedIgnoredPath(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	wt := dir + "/wt"
+	var g fxGit
+	g.git("", "init", "-q", "-b", "work", wt)
+	mkdir(t, wt+"/.idea")
+	g.write(wt+"/.idea/vcs.xml", "base")
+	g.write(wt+"/.gitignore", "base\n")
+	g.git(wt, "add", ".")
+	g.git(wt, "commit", "-qm", "base")
+	g.git(wt, "rm", "-q", "--cached", ".idea/vcs.xml")
+	g.write(wt+"/.gitignore", ".idea/\n")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	r := runGuard("stage-task-files", []string{wt, ".gitignore", ".idea/vcs.xml"}, Env{Dir: dir, Getenv: os.Getenv})
+	if r.rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	}
+	if got, want := g.git(wt, "diff", "--cached", "--name-status"), "M\t.gitignore\nD\t.idea/vcs.xml"; got != want {
+		t.Errorf("staged:\n%s\nwant:\n%s", got, want)
+	}
+}
