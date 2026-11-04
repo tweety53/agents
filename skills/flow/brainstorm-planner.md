@@ -334,6 +334,18 @@ records the result in the task as a `measured:` comment per **Plan provenance**
 disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
 stays tagged `unverified:<what-to-check>` for the implementer.
 
+**An action a decision gives the parent is a tracked line, never prose alone** (kan-1079
+self-review, F1: a chore commit and a clutter deletion two decisions assigned outside every task
+were never done). When a `## Decisions` entry's `**Chosen:**` has the parent do something outside
+every task — a commit before the first task, a run action at a stage — the entry carries, beneath
+its `**Chosen:**`, a column-0 line `- [ ] Parent: <the action, and the stage it runs at>`. The
+parent performs it and ticks it (**4. Execute (SDD + TDD)**, `skills/flow/implement.md`);
+`flow-guard check-unfinished-work` holds run 1 while one stays unticked, and
+`flow-guard check-plan-shape` F25 refuses an entry whose `**Chosen:**` names the parent as actor
+and a run moment — `before the first task`, `at flow.<stage>` — and carries no such line; one
+naming no run moment designs the parent's role and needs none. The line sits in `design.md`, never `tasks.md`, where `spectre validate`
+refuses a checkbox line that is not a numbered task.
+
 **Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
 with `**Build:**` per **The build-green tag**
 (`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family

@@ -1433,3 +1433,31 @@ func TestUnfinishedWorkIgnoresGatedRowsForFixRoundProof(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckUnfinishedWorkParentAction pins decision parent-actions-in-design:
+// an unticked `- [ ] Parent:` line in the plan's design.md holds run 1; a
+// ticked one, or any other design checkbox, does not.
+func TestCheckUnfinishedWorkParentAction(t *testing.T) {
+	for _, tc := range []struct{ name, design, want string }{
+		{"unticked", "### A\n\n- [ ] Parent: delete the dead entries\n", "1 unticked parent action(s)"},
+		{"ticked", "### A\n\n- [x] Parent: delete the dead entries\n", "CLEAR:"},
+		{"other checkbox", "## Verification\n\n- [ ] the suite is green\n", "CLEAR:"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newUW(t)
+			writeFile(t, f.wt+"/spectre/changes/demo/design.md", tc.design)
+			if r := f.run(t, f.wt, "demo"); r.rc != 0 || !strings.Contains(r.out, tc.want) {
+				t.Errorf("rc=%d out=%q err=%q, want %q", r.rc, r.out, r.err, tc.want)
+			}
+		})
+	}
+	t.Run("unreadable", func(t *testing.T) {
+		f := newUW(t)
+		if err := os.MkdirAll(f.wt+"/spectre/changes/demo/design.md", 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if r := f.run(t, f.wt, "demo"); r.rc != 2 || r.out != "" {
+			t.Errorf("a design.md that cannot be read: rc=%d out=%q err=%q, want exit 2 and no verdict", r.rc, r.out, r.err)
+		}
+	})
+}

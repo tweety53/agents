@@ -416,6 +416,12 @@ description sync and plan growth, and a first run marks nothing there.
 flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**The parent performs every `- [ ] Parent:` line in `design.md`** (**An action a decision gives the
+parent is a tracked line, never prose alone**, in **D. Basic Workflow #3 — Writing plans**,
+`skills/flow/brainstorm-planner.md`) at the stage the line names — before the first task dispatch when it names none — and ticks it `- [x]` in place once
+done. `flow-guard check-unfinished-work` reports each one left unticked at run 1 as
+`<n> unticked parent action(s)`.
+
 **At most one mutator — any Edit/Write-capable dispatch: an implementer, a panel-fix, a fix-round
 agent of any name — may be in flight against a given worktree at any moment** — a reviewer is not
 one: it reads an immutable commit range, and any number of them may run beside the one mutator.

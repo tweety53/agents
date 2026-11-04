@@ -35,10 +35,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-four
-// findings, F1-F24 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-five
+// findings, F1-F25 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F24's are the rows below).
+// design.md -- not restated here; F7-F25's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -211,6 +211,16 @@ import (
 //	    reported -- it may predate the field -- but its opener still counts
 //	    against a later task's. Reported at the task's title line -- for a
 //	    shared opener, the second task's.
+//	F25 A sibling design.md decision whose **Chosen:** text, wrapped lines
+//	    joined, names the parent as actor (psParentActorRE; a possessive is
+//	    not) and a run moment (psRunMomentRE: before the first task, at
+//	    flow.<stage> -- without one it designs the parent's role; self-review
+//	    review-1, R1) and whose entry carries no column-0 `- [ ] Parent:` or
+//	    `- [x] Parent:` line: an action outside every task is tracked, so
+//	    check-unfinished-work holds run 1 until it is ticked (decisions
+//	    parent-actions-in-design, parent-action-detection; kan-1079
+//	    self-review, F1). Reported at the decision's **ID:** line in
+//	    design.md. An absent or unreadable design.md is not checked.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -421,6 +431,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.sweepScope()...)
 	v = append(v, p.prototypeCapture()...)
 	v = append(v, p.inRunOpeners(ids)...)
+	v = append(v, p.parentActions()...)
 	return append(v, p.designSections()...)
 }
 
@@ -542,6 +553,57 @@ func (p *psPlan) inRunOpeners(ids []string) []string {
 			v = append(v, p.at(found.taskLine, "task "+id+"'s **Opener:** "+opener+" is task "+first+"'s too — one report opens one round, and two tasks never transcribe one report (skills/flow/verify-fix-loop.md step 1) (F24)"))
 		}
 	}
+	return v
+}
+
+var (
+	// psDecisionIDRE, psParentActorRE, psRunMomentRE and psParentLineRE are
+	// F25's reads of design.md: a decision's id, the parent named as actor
+	// (not as a possessive), the run moment that makes it an action, and the
+	// tracked line.
+	psDecisionIDRE  = regexp.MustCompile("^\\*\\*ID:\\*\\*[ \\t]*`?([^`\\s]+)")
+	psParentActorRE = regexp.MustCompile(`(?i)\bthe parent(?:[^'’\w]|$)`)
+	psRunMomentRE   = regexp.MustCompile("(?i)\\bbefore the first task\\b|\\bat `?flow\\.[a-z]")
+	psParentLineRE  = regexp.MustCompile(`^- \[[ xX]\] Parent:`)
+)
+
+// parentActions is F25: a decision giving the parent an action outside every
+// task carries the `- [ ] Parent:` line check-unfinished-work counts.
+func (p *psPlan) parentActions() []string {
+	if !p.on("F25") {
+		return nil
+	}
+	design := filepath.Join(filepath.Dir(p.path), "design.md")
+	raw, err := os.ReadFile(psAbs(p.env, design))
+	if err != nil {
+		return nil
+	}
+	var v []string
+	id, idLine, chosen, inChosen, tracked := "", 0, "", false, false
+	flush := func() {
+		if id != "" && !tracked && psParentActorRE.MatchString(chosen) && psRunMomentRE.MatchString(chosen) {
+			v = append(v, fmt.Sprintf("%s:%d: decision %s's **Chosen:** gives the parent an action, but the entry carries no `- [ ] Parent: <action>` line — add one beneath its **Chosen:**, so check-unfinished-work holds run 1 until it is ticked (skills/flow/brainstorm-planner.md) (F25)", design, idLine, id))
+		}
+	}
+	for i, l := range strings.Split(string(raw), "\n") {
+		switch {
+		case strings.HasPrefix(l, "#"):
+			flush()
+			id, chosen, inChosen, tracked = "", "", false, false
+		case psDecisionIDRE.MatchString(l):
+			flush()
+			id, idLine, chosen, inChosen, tracked = psDecisionIDRE.FindStringSubmatch(l)[1], i+1, "", false, false
+		case strings.HasPrefix(l, "**Chosen:**"):
+			chosen, inChosen = l, true
+		case psParentLineRE.MatchString(l):
+			tracked, inChosen = true, false
+		case strings.HasPrefix(l, "**") || strings.TrimSpace(l) == "":
+			inChosen = false
+		case inChosen:
+			chosen += " " + l
+		}
+	}
+	flush()
 	return v
 }
 

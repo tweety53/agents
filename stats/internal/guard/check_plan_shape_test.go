@@ -804,3 +804,53 @@ func TestCheckPlanShapeF24(t *testing.T) {
 		t.Errorf("the mutation disabling F24 still refused: rc=%d out=%s", r.rc, r.out)
 	}
 }
+
+// TestCheckPlanShapeF25 pins F25 (decision parent-action-detection): a
+// design.md decision whose **Chosen:** gives the parent an action carries a
+// `- [ ] Parent:` line.
+func TestCheckPlanShapeF25(t *testing.T) {
+	t.Parallel()
+	entry := func(chosen, line string) string {
+		return "## Decisions\n\n### A\n\n**ID:** demo-action\n**Status:** active\n**Chosen:** " + chosen + "\n" + line + "**Considered:** none.\n"
+	}
+	check := func(t *testing.T, design string) (string, guardResult) {
+		t.Helper()
+		p := psFixture(t, psTasks("a"))
+		writeFile(t, filepath.Dir(p)+"/design.md", design)
+		return p, psMutant(p, "")
+	}
+	wrapped := "the dead entries are deleted once, by the\nparent at `flow.verify`."
+	p, r := check(t, entry(wrapped, ""))
+	if r.rc != 1 || strings.Count(r.out, "(F25)") != 1 || !strings.Contains(r.out, "demo-action") || !strings.Contains(r.out, "design.md:5:") {
+		t.Errorf("an untracked action, wrapped across lines: rc=%d out=%q", r.rc, r.out)
+	}
+	for _, chosen := range []string{
+		"the parent commits the chore before the first task.",
+		"the parent deletes them at flow.verify.",
+	} {
+		if _, r := check(t, entry(chosen, "")); r.rc != 1 || strings.Count(r.out, "(F25)") != 1 {
+			t.Errorf("an untracked action %q: rc=%d out=%q", chosen, r.rc, r.out)
+		}
+	}
+	if m := psMutant(p, "F25"); m.rc != 0 {
+		t.Errorf("the mutation disabling F25 still refused: rc=%d out=%q", m.rc, m.out)
+	}
+	for name, design := range map[string]string{
+		"unticked line": entry(wrapped, "- [ ] Parent: delete the dead entries\n"),
+		"ticked line":   entry(wrapped, "- [x] Parent: delete the dead entries\n"),
+		"possessive":    entry("the parent's full-suite run covers it.", ""),
+		"no such actor": entry("a task deletes them.", ""),
+		// The parent's role, no run moment (self-review review-1, R1).
+		"role, every wave": entry("the parent, in every wave shape — the full suite runs once.", ""),
+		"role, fixes":      entry("the parent fixes it inline — no fix dispatch.", ""),
+		"role, session":    entry("planning runs in the parent session — no planner dispatch.", ""),
+		// Not the actor at all (R3).
+		"parent directory": entry("the worktree sits in the parent directory of the checkout.", ""),
+		"parent commit":    entry("the fixup targets the parent commit.", ""),
+		"parent branch":    entry("the change branches from the parent branch.", ""),
+	} {
+		if _, r := check(t, design); r.rc != 0 {
+			t.Errorf("%s refused: rc=%d out=%q", name, r.rc, r.out)
+		}
+	}
+}

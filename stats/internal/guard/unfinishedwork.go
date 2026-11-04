@@ -382,7 +382,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%sthe state record resolves '%s' to more than one project's plan — cannot determine anything\n", uwPrefix, name)
 		return 2
 	}
-	planOpen := 0
+	planOpen, parentOpen := 0, 0
 	var primary, sweepDir, sweepID string
 	if planRC == 0 {
 		primary = planDir + "/tasks.md"
@@ -391,6 +391,10 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			return unreadable(primary)
 		}
 		planOpen += n
+		design := planDir + "/design.md"
+		if parentOpen, ok = uwCountParentActions(design); !ok {
+			return unreadable(design)
+		}
 		sweepDir, sweepID = gdcDirname(planDir), uwBasename(planDir)
 	} else {
 		link := changes + "/" + name + "/link.md"
@@ -457,6 +461,9 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if planOpen > 0 {
 		reasons = append(reasons, strconv.Itoa(planOpen)+" unchecked plan item(s)")
+	}
+	if parentOpen > 0 {
+		reasons = append(reasons, strconv.Itoa(parentOpen)+" unticked parent action(s) in "+planDir+"/design.md")
 	}
 
 	// Signal two — findings whose recorded status is not closed.
@@ -1142,6 +1149,22 @@ func uwCountUnticked(path string) (int, bool) {
 		}
 	}
 	return n, true
+}
+
+// uwCountParentActions counts design.md's column-0 `- [ ] Parent:` lines: the
+// actions a decision gives the orchestrating session outside every task
+// (check-plan-shape F25), each held open until ticked. A missing design.md
+// counts none — a plan predating the line has no such action to hold — and
+// false is an existing file that cannot be read.
+func uwCountParentActions(path string) (int, bool) {
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return 0, true
+	}
+	if err != nil {
+		return 0, false
+	}
+	return bytes.Count(append([]byte("\n"), b...), []byte("\n- [ ] Parent:")), true
 }
 
 // uwHasLine is `grep -qxF <line> <file>`: false for an unreadable file.
