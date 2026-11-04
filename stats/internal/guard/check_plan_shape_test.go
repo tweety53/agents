@@ -854,3 +854,34 @@ func TestCheckPlanShapeF25(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckPlanShapeF26 pins F26 (decision npx-yes-refused): no plan line,
+// fenced or not, runs npx with its yes flag.
+func TestCheckPlanShapeF26(t *testing.T) {
+	t.Parallel()
+	step := func(cmd string) string {
+		return psFixture(t, psTasks("a")+"\n```bash\n"+cmd+" mmdc -i a.mmd -o a.svg\n```\n")
+	}
+	// A bare npx fetches too: without a TTY npm assumes --yes (self-review
+	// review-1, R2).
+	for _, flag := range []string{"-y", "--yes", "", "-p @mermaid-js/mermaid-cli"} {
+		p := step(strings.TrimSpace("npx " + flag))
+		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, "(F26)") != 1 {
+			t.Errorf("npx %s refused nothing: rc=%d out=%q", flag, r.rc, r.out)
+		}
+		if m := psMutant(p, "F26"); m.rc != 0 {
+			t.Errorf("the mutation disabling F26 still refused npx %s: rc=%d out=%q", flag, m.rc, m.out)
+		}
+	}
+	for _, cmd := range []string{"npx --no-install", "npx --no", "npx --no -p x"} {
+		if r := psMutant(step(cmd), ""); r.rc != 0 {
+			t.Errorf("%s refused: rc=%d out=%q", cmd, r.rc, r.out)
+		}
+	}
+	if r := psMutant(psFixture(t, psTasks("a")+"\nNever npx with its yes flag; run `npx --no-install mmdc`.\n"), ""); r.rc != 0 {
+		t.Errorf("prose naming npx refused: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := psMutant(psFixture(t, psTasks("a")+"\nRender with `npx mmdc -i a.mmd`.\n"), ""); r.rc != 1 || strings.Count(r.out, "(F26)") != 1 {
+		t.Errorf("a bare npx in a code span refused nothing: rc=%d out=%q", r.rc, r.out)
+	}
+}

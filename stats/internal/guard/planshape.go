@@ -35,10 +35,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-five
-// findings, F1-F25 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-six
+// findings, F1-F26 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F25's are the rows below).
+// design.md -- not restated here; F7-F26's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -221,6 +221,16 @@ import (
 //	    parent-actions-in-design, parent-action-detection; kan-1079
 //	    self-review, F1). Reported at the decision's **ID:** line in
 //	    design.md. An absent or unreadable design.md is not checked.
+//	F26 A line, fenced or not -- a step's command sits in a fence --
+//	    running npx with its yes flag (psNpxYesRE), or npx in a command's
+//	    position -- a line's or code span's start, after ; | & ( or $
+//	    (psNpxRE), so prose naming npx is not one -- without --no-install or
+//	    --no (psNpxNoRE): with no TTY npm assumes --yes, so a bare npx
+//	    fetches and runs a package the machine lacks just as -y does: the
+//	    external code auto mode
+//	    denies (decision npx-yes-refused; kan-1079 self-review, F3; its
+//	    review-1, R2). A step runs a tool installed or declared in
+//	    .flow/project.md. Reported at the line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -432,6 +442,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.prototypeCapture()...)
 	v = append(v, p.inRunOpeners(ids)...)
 	v = append(v, p.parentActions()...)
+	v = append(v, p.npxFetch()...)
 	return append(v, p.designSections()...)
 }
 
@@ -604,6 +615,29 @@ func (p *psPlan) parentActions() []string {
 		}
 	}
 	flush()
+	return v
+}
+
+// psNpxYesRE is F26's npx told to fetch without asking, psNpxRE npx run as a
+// command, and psNpxNoRE the flag after it that keeps npx from fetching.
+var (
+	psNpxYesRE = regexp.MustCompile(`\bnpx[ \t]+(?:-y|--yes)\b`)
+	psNpxRE    = regexp.MustCompile("(?:^[ \\t]*|[`;|&($][ \\t]*)npx[ \\t]+[^\\s\"']")
+	psNpxNoRE  = regexp.MustCompile(`(?:^|\s)--no(?:-install)?(?:\s|$)`)
+)
+
+// npxFetch is F26: a plan step runs only what is installed.
+func (p *psPlan) npxFetch() []string {
+	if !p.on("F26") {
+		return nil
+	}
+	var v []string
+	for i, l := range p.lines {
+		loc := psNpxRE.FindStringIndex(l)
+		if psNpxYesRE.MatchString(l) || loc != nil && !psNpxNoRE.MatchString(l[loc[1]-1:]) {
+			v = append(v, p.at(i+1, "this line runs npx without --no-install, which fetches and runs a package not installed here — run a tool already installed or declared in .flow/project.md, a cached package as `npx --no-install <bin>` (skills/flow/brainstorm-planner.md) (F26)"))
+		}
+	}
 	return v
 }
 

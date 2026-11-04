@@ -206,6 +206,14 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > lint`, because the prose guards that list carries are too many to hand-pick and the one a subset
 > leaves out fails only at `flow.verify` (kan-1067 self-review, 1-F).
 
+> **Run only what is installed.** A step's command runs a tool already on the machine or declared
+> in `<project>/.flow/project.md` — never npx without `--no-install` or `--no`: with its yes flag,
+> or bare in an agent's shell, where no TTY makes npm assume it, npx fetches and runs a package
+> the machine lacks: the external code auto mode denies (kan-1079 self-review, F3: a diagram render
+> step was denied and the diagrams shipped unrendered). A package in npx's cache runs as
+> `npx --no-install <bin>`; one nowhere on the machine is a dependency a task adds
+> (`rules/dependency-versions.mdc`). `flow-guard check-plan-shape` F26 refuses any other npx.
+
 > **Plan the record a feature needs as its own task.** A field, a column, an endpoint, a stage or a
 > recorded event the feature reads and the system does not keep yet is a task of the plan, never a
 > question for the operator — **Add the missing record, never infer around it**
