@@ -31,7 +31,7 @@ import (
 // it — and counted as zero bytes, so a stale list shows up in the report rather than aborting
 // it.
 //
-// Ported from the prototype loadsets.sh in docs/prompt-audit-2026-09-29/tools.md.
+// Ported from the prototype loadsets.sh.
 func init() { Registry["load-sets"] = loadSets }
 
 func loadSets(args []string, env Env, stdout, stderr io.Writer) int {

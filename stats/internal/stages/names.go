@@ -99,7 +99,7 @@ var Table = []Stage{
 	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.refresh-main-checkout", Name: "Bring the main checkout forward (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	// /flow-plan -- one stage: the whole research session, recorded so its
-	// cost joins the change it seeds (docs/superpowers/specs/2026-09-12-run-stats-design.md).
+	// cost joins the change it seeds.
 	{Key: "plan.session", Name: "Plan session — the whole `/flow-plan` invocation", Commands: []Command{FlowPlan}},
 }
 
