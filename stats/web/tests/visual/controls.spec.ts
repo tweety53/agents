@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { EMPTY_QUERY, FIXTURE_NOW, PINNED_FROM_INPUT, PINNED_QUERY, PINNED_TO_INPUT } from "./support";
+import { EMPTY_QUERY, FIXTURE_NOW, PINNED_FROM_INPUT, PINNED_QUERY } from "./support";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -55,52 +55,49 @@ async function expectOnlyPressed(page: Page, pressedName: string) {
 // header comment and stage-leaderboard.spec.ts's and trend.spec.ts's for the endpoints queried), not
 // assumed.
 //
-// The Decisions view's table is the shared target for the dashboard bar's
-// controls, and Self-review fixes' for DataTable's: the stage leaderboard,
-// the live state board and Reviewers carry their own chip filters instead
-// (kan-1052, kan-1048 -- the latter exercised under "Live state board chips"
-// below -- kan-1053), and Decisions' DataTables set no sortable or
-// filterable column, so FilterBar and the sort buttons run on Self-review
-// fixes, the one bar-carrying view whose DataTable has both (decision
-// reviewers-tests-retarget). PINNED_QUERY/EMPTY_QUERY give a deterministic
-// "populated" and "empty" starting point; All time is the one PeriodPicker
-// preset safe to assert fixture rows against, since it always spans the
-// fixture's fixed 2026-08-15 data.
+// Self-review fixes' table is the shared target for the dashboard bar's
+// controls and for DataTable's: the stage leaderboard, the live state board,
+// Reviewers and Decisions carry their own chip filters instead (kan-1052,
+// kan-1048 -- the latter exercised under "Live state board chips" below --
+// kan-1053, kan-1055), and Self-review fixes is the one bar-carrying view
+// whose DataTable has a search box, a filterable column and sortable headers
+// (decisions-bar-tests-retarget-self-review). EMPTY_QUERY gives a
+// deterministic empty starting point; PINNED_QUERY a fixed window for the
+// specs that read no rows.
 //
-// Decisions rows in PINNED_QUERY's window, read from
-// GET /api/v1/stats/decisions on the UI-test stack: uitest-alpha
-// "regular / sdd" (implementer sonnet) and uitest-beta "big / sdd" (opus).
-// Self-review fixes under All time, from GET /api/v1/stats/self-review:
-// three uitest-alpha rows, kan-120-main-before (correctness, principles) and
-// kan-121-main-after (correctness). The Model select's options come from
-// GET /api/v1/models for the same window.
-const DECISIONS = 'section.panel[aria-label="By class and execution"]';
+// Self-review fixes' findings are recorded when the stack is seeded, so they
+// sit after PINNED_QUERY's window: All time, or a typed window from
+// PINNED_FROM_INPUT onward, reaches them. Read from
+// GET /api/v1/stats/self-review: three uitest-alpha rows,
+// kan-120-main-before (correctness, principles) and kan-121-main-after
+// (correctness). The Model select's options come from GET /api/v1/models for
+// PINNED_QUERY's window.
 const SELF_REVIEW = 'section.panel[aria-label="Every finding"]';
 
 test.describe("PeriodPicker", () => {
   test("the All time preset broadens the table from empty to the fixture's own rows", async ({ page }) => {
-    await page.goto(`/#/decisions?${EMPTY_QUERY}`);
-    const tablePanel = page.locator(DECISIONS);
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
+    const tablePanel = page.locator(SELF_REVIEW);
     await expect(tablePanel.getByTestId("not-recorded")).toBeVisible();
 
     const allTime = page.getByRole("button", { name: "All time" });
     await allTime.click();
     await expect(allTime).toHaveAttribute("aria-pressed", "true");
 
-    await expect(tablePanel.getByRole("cell", { name: "big / sdd", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "regular / sdd", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "kan-120-main-before", exact: true }).first()).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "kan-121-main-after", exact: true })).toBeVisible();
   });
 
   test("typing explicit From/To values reloads the table to that window", async ({ page }) => {
-    await page.goto(`/#/decisions?${EMPTY_QUERY}`);
-    const tablePanel = page.locator(DECISIONS);
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
+    const tablePanel = page.locator(SELF_REVIEW);
     await expect(tablePanel.getByTestId("not-recorded")).toBeVisible();
 
     await page.getByLabel("Period start").fill(PINNED_FROM_INPUT);
-    await page.getByLabel("Period end").fill(PINNED_TO_INPUT);
+    await page.getByLabel("Period end").fill("2099-01-01T00:00");
 
-    await expect(tablePanel.getByRole("cell", { name: "big / sdd", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "regular / sdd", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "kan-120-main-before", exact: true }).first()).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "kan-121-main-after", exact: true })).toBeVisible();
   });
 
   // The remaining four presets, plus the conditional Reset button --
@@ -112,7 +109,7 @@ test.describe("PeriodPicker", () => {
   // include -- the same reason this file's own header comment gives for
   // why `All time` is the one preset safe to assert fixture rows against.
   test("Today sets the range to midnight through now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/decisions?${EMPTY_QUERY}`);
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "Today", exact: true }).click();
     await expectOnlyPressed(page, "Today");
 
@@ -124,28 +121,28 @@ test.describe("PeriodPicker", () => {
   });
 
   test("7 days sets a seven-day range ending now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/decisions?${EMPTY_QUERY}`);
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "7 days", exact: true }).click();
     await expectOnlyPressed(page, "7 days");
     await expectRangeSpan(page, 7 * DAY_MS);
   });
 
   test("30 days sets the default thirty-day range, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/decisions?${EMPTY_QUERY}`);
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "30 days", exact: true }).click();
     await expectOnlyPressed(page, "30 days");
     await expectRangeSpan(page, 30 * DAY_MS);
   });
 
   test("90 days sets a ninety-day range ending now, and presses only itself", async ({ page }) => {
-    await page.goto(`/#/decisions?${EMPTY_QUERY}`);
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
     await page.getByRole("button", { name: "90 days", exact: true }).click();
     await expectOnlyPressed(page, "90 days");
     await expectRangeSpan(page, 90 * DAY_MS);
   });
 
   test("Reset to default only renders when the period differs from default, and resets it", async ({ page }) => {
-    await page.goto(`/#/decisions?${EMPTY_QUERY}`);
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
     const reset = page.getByRole("button", { name: "Reset to default" });
     // EMPTY_QUERY (2020) is nowhere near the last 30 days, so the button
     // PeriodPicker.tsx only renders when `!sameRange(period,
@@ -164,27 +161,29 @@ test.describe("PeriodPicker", () => {
 
 test.describe("SearchBox", () => {
   test("typing a term narrows the table to matching rows only", async ({ page }) => {
-    await page.goto(`/#/decisions?${PINNED_QUERY}`);
-    const tablePanel = page.locator(DECISIONS);
-    await expect(tablePanel.getByRole("cell", { name: "regular / sdd", exact: true })).toBeVisible();
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
+    await page.getByRole("button", { name: "All time" }).click();
+    const tablePanel = page.locator(SELF_REVIEW);
+    await expect(tablePanel.getByRole("cell", { name: "kan-120-main-before", exact: true }).first()).toBeVisible();
 
-    await tablePanel.getByLabel("Search").fill("big");
+    await tablePanel.getByLabel("Search").fill("main-after");
 
-    await expect(tablePanel.getByRole("cell", { name: "big / sdd", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "regular / sdd", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "kan-121-main-after", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "kan-120-main-before", exact: true })).toHaveCount(0);
   });
 });
 
 test.describe("ProjectFilter", () => {
   test("typing a project scopes the dashboard bar's own project variable", async ({ page }) => {
-    await page.goto(`/#/decisions?${PINNED_QUERY}`);
-    const tablePanel = page.locator(DECISIONS);
-    await expect(tablePanel.getByRole("cell", { name: "regular / sdd", exact: true })).toBeVisible();
+    await page.goto(`/#/self-review?${EMPTY_QUERY}`);
+    await page.getByRole("button", { name: "All time" }).click();
+    const tablePanel = page.locator(SELF_REVIEW);
+    await expect(tablePanel.getByRole("cell", { name: "kan-120-main-before", exact: true }).first()).toBeVisible();
 
     await page.getByLabel("Project filter").fill("uitest-beta");
 
-    await expect(tablePanel.getByRole("cell", { name: "big / sdd", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "regular / sdd", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByText("No self-review findings in this period.")).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "kan-120-main-before", exact: true })).toHaveCount(0);
   });
 });
 
@@ -224,7 +223,7 @@ test.describe("DataTable sort buttons", () => {
 
 test.describe("ChangeVariable", () => {
   test("selecting a change navigates to that change's own run-detail page", async ({ page }) => {
-    await page.goto(`/#/decisions?${PINNED_QUERY}`);
+    await page.goto(`/#/self-review?${PINNED_QUERY}`);
 
     await page.getByLabel("Go to change").selectOption({ label: "uitest-beta/kan-201-refactor-thing" });
 
@@ -246,8 +245,8 @@ test.describe("ModelVariable", () => {
     await expect(label.locator(".dashboard-variable-hint")).toBeVisible();
   });
 
-  test("is enabled with real models on decisions", async ({ page }) => {
-    await page.goto(`/#/decisions?${PINNED_QUERY}`);
+  test("is enabled with real models on self-review", async ({ page }) => {
+    await page.goto(`/#/self-review?${PINNED_QUERY}`);
     const model = page.getByLabel("Model", { exact: true });
     await expect(model).toBeEnabled();
     await expect(model.locator("option")).toHaveText(["All models", "claude-opus-5", "claude-opus-5-5", "claude-sonnet-5"]);
