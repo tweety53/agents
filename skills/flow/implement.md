@@ -777,7 +777,9 @@ Run `flow-guard check-plan-provenance` when transcribing it, and give each numer
 (kan-1020: a bare count in a Correction was refused only at verify). Once a `Correction:`
 paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which
 records the plan's correction count beside its task count — the plan-corrections metric
-experiments compare (KAN-1067).
+experiments compare (KAN-1067). A `design.md` statement the plan or a task's commit is found to
+contradict is corrected in place in the same transcription, never recorded as left (kan-1055
+self-review, F2).
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already
