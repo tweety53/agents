@@ -1204,6 +1204,8 @@ var extraDispatchDescriptions = map[string]string{
 // false, "", "") stand in for "default" rather than an error, since a
 // default-panel run recorded no per-slot detail to report. Grouping is
 // "panel.grouping" when panel is an object, else the literal "default".
+// Critical, Important and Minor exclude findings whose status begins
+// "withdrawn" (case-insensitive).
 // Dispatches renders "panel.dispatches" -- one to two {slots, model,
 // effort} objects -- as each entry's slot ids '+'-joined and the entries
 // themselves ' · '-joined, in roster order; empty when panel carries no
@@ -1337,9 +1339,9 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 		),
 		finding_agg AS (
 			SELECT rd.change_id, rd.session_token,
-				COUNT(*) FILTER (WHERE canonical_severity(f.severity) = 'critical') AS critical,
-				COUNT(*) FILTER (WHERE canonical_severity(f.severity) = 'important') AS important,
-				COUNT(*) FILTER (WHERE canonical_severity(f.severity) = 'minor') AS minor,
+				COUNT(*) FILTER (WHERE COALESCE(f.status, '') NOT ILIKE 'withdrawn%' AND canonical_severity(f.severity) = 'critical') AS critical,
+				COUNT(*) FILTER (WHERE COALESCE(f.status, '') NOT ILIKE 'withdrawn%' AND canonical_severity(f.severity) = 'important') AS important,
+				COUNT(*) FILTER (WHERE COALESCE(f.status, '') NOT ILIKE 'withdrawn%' AND canonical_severity(f.severity) = 'minor') AS minor,
 				MAX(f.round) AS fix_rounds
 			FROM run_dispatches rd
 			JOIN findings f ON f.dispatch_id = rd.id

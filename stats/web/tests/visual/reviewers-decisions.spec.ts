@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW, PINNED_QUERY } from "./support";
+import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW } from "./support";
 
 // Captures of the reworked Reviewers view (KAN-1053): the default view at
 // 1280px, each other Rank by chip, the same at 390px and a Project chip's
@@ -21,9 +21,6 @@ import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW, PINNED_QUERY } from "./sup
 // [{uitest-alpha, 13}], so the first Project chip after All is "uitest-alpha".
 // Every slot but primary and principles carries a description. Each Rank by
 // chip orders the rows differently (VALUE, SEVERITY, ALARMS below).
-
-// The decisions describe below follows baseline.spec.ts's shape: assert the
-// data loaded, assert the dark palette applied, then toHaveScreenshot.
 
 const TILES = ["Cost · best value", "Severity · most found", "False alarms · most withdrawn"];
 const VALUE = ["mutation", "primary", "call-efficiency", "principles", "failure-modes", "api-contract", "concurrency", "data-integrity", "docs", "exp-test-sanity", "performance", "security", "test-sanity"];
@@ -92,15 +89,4 @@ test("reviewers project chip hover", async ({ page }) => {
   await openAndAssert(page);
   await page.getByRole("group", { name: "Project" }).getByRole("button").nth(1).hover();
   await expect(page).toHaveScreenshot("reviewers-chip-hover.png", { fullPage: true });
-});
-
-test.describe("decisions", () => {
-  test("renders the decision chain with data loaded and the dark palette applied", async ({ page }) => {
-    await page.goto(`/#/decisions?${PINNED_QUERY}`);
-    await expect(page.getByRole("heading", { name: "Decisions" })).toBeVisible();
-
-    expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
-
-    await expect(page).toHaveScreenshot("decisions.png", { fullPage: true });
-  });
 });

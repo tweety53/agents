@@ -1766,6 +1766,65 @@ func TestDecisionsFoldsCanonicalSeverity(t *testing.T) {
 	}
 }
 
+// TestDecisionsExcludesWithdrawnFindings pins decision
+// decisions-weighted-findings-withdrawn-excluded: Critical, Important and
+// Minor skip a finding whose status begins "withdrawn" (case-insensitive),
+// as the Reviewers query does, while FixRounds still spans every finding.
+func TestDecisionsExcludesWithdrawnFindings(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-decisions-withdrawn-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "mf-decisions-withdrawn"
+	d := baseDispatch("implementer", "sonnet")
+	d.SessionToken = token
+	d.StartedAt = time.Now()
+	disp, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	for _, f := range []struct {
+		ref, severity, status string
+		round                 int
+	}{
+		{"F1", "critical", "fixed", 1},
+		{"F2", "important", "withdrawn equivalent mutant", 1},
+		{"F3", "minor", "Withdrawn as duplicate", 1},
+		{"F4", "minor", "fixed", 1},
+		{"F5", "important", "withdrawn superseded", 3},
+		{"F6", "minor", "not withdrawn", 1},
+	} {
+		in := baseFinding(f.ref, f.round)
+		in.DispatchSeq = &disp.Seq
+		in.Severity = f.severity
+		in.Status = f.status
+		if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("UpsertFinding %s: %v", f.ref, err)
+		}
+	}
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
+		SessionToken: token,
+		Decision:     json.RawMessage(`{"class": "regular", "execution": "inline", "implementer": "inline", "panel": "default"}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+
+	period := store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}
+	rows, err := st.Decisions(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("Decisions: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("Decisions returned %d rows, want 1", len(rows))
+	}
+	got := rows[0]
+	if got.Critical != 1 || got.Important != 0 || got.Minor != 2 || got.FixRounds != 3 {
+		t.Errorf("Critical=%d Important=%d Minor=%d FixRounds=%d, want 1 0 2 3",
+			got.Critical, got.Important, got.Minor, got.FixRounds)
+	}
+}
+
 // TestReviewersSplitsBundledSlots pins design.md's
 // "compound-slot-one-row-per-bundle": a bundle is one dispatches row whose
 // slot is its roles "+"-joined, and Reviewers must split it into one row
