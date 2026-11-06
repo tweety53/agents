@@ -579,6 +579,9 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 	if err := seedTrend(ctx, st); err != nil {
 		return err
 	}
+	if err := seedDecisions(ctx, st); err != nil {
+		return err
+	}
 
 	for _, g := range guardFires() {
 		if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
@@ -1124,6 +1127,136 @@ func seedTrend(ctx context.Context, st *store.Store) error {
 			if err := st.EndStage(ctx, run.ID, trendRunsAt.Add(10*time.Minute), "completed"); err != nil {
 				return fmt.Errorf("uitest-seed: end stage for %s: %w", name, err)
 			}
+		}
+	}
+	return nil
+}
+
+// decisionsRunsAt is when every Decisions fixture run's change was last
+// updated, its stage run started and its dispatches ran -- June 2024, before
+// every view's window and every experiment's. decisionsAt is when the first
+// of its decisions was recorded; the rest follow eight hours apart, all
+// inside the default 30d window at fixtureNow, before every spec's pinned
+// period and outside the 7d window (decision decisions-seed-isolated).
+var (
+	decisionsRunsAt = time.Date(2024, 6, 10, 9, 0, 0, 0, time.UTC)
+	decisionsAt     = time.Date(2026, 7, 17, 9, 0, 0, 0, time.UTC)
+)
+
+type decisionsFinding struct {
+	severity, status string
+	round            int
+}
+
+type decisionsRun struct {
+	project, class, execution string
+	// implementer is a bare string for the inline spellings, else
+	// "<model>·<effort>".
+	implementer, grouping string
+	cost                  float64
+	minutes               int
+	findings              []decisionsFinding
+	fallback              bool
+}
+
+// seedDecisions writes the Decisions view's fixture runs (KAN-1055): one
+// change per run, each with one stage run, one decision under its session
+// token and one panel dispatch with its findings, drawing every state the
+// view's prototype shows -- the inline spellings, few-runs rows, best and
+// worst marks, a fallback, withdrawn findings and a class-less decision.
+func seedDecisions(ctx context.Context, st *store.Store) error {
+	const a, b = "uitest-alpha", "uitest-beta"
+	f := func(severity string, round int) decisionsFinding { return decisionsFinding{severity, "", round} }
+	runs := []decisionsRun{
+		{a, "big", "sdd", "opus·medium", "free", 11.20, 41, []decisionsFinding{f("important", 1), f("minor", 1), f("minor", 1)}, false},
+		{a, "big", "sdd", "opus·medium", "free", 9.80, 38, []decisionsFinding{f("important", 2), f("important", 1), f("minor", 1)}, false},
+		{b, "big", "sdd", "opus·medium", "free", 14.60, 55, []decisionsFinding{f("critical", 1)}, false},
+		{a, "big", "sdd", "opus·medium", "free", 12.10, 47, []decisionsFinding{f("important", 0), {"important", "withdrawn not a defect", 0}}, false},
+		{a, "big", "sdd", "opus·low", "static", 10.40, 64, []decisionsFinding{f("important", 1), f("important", 1), f("minor", 1), f("minor", 1), f("minor", 1)}, false},
+		{b, "big", "sdd", "opus·low", "static", 8.90, 58, []decisionsFinding{f("important", 1), f("minor", 1)}, false},
+		{a, "big", "sdd", "opus·low", "static", 13.00, 70, []decisionsFinding{f("important", 2), f("important", 1), f("important", 1)}, false},
+		{a, "big", "sdd", "sonnet·medium", "free", 6.00, 23, []decisionsFinding{f("critical", 1), f("critical", 1), f("important", 1)}, true},
+		{a, "regular", "inline", "skipped — inline", "free", 4.10, 16, []decisionsFinding{f("important", 0), f("minor", 0)}, false},
+		{a, "regular", "inline", "skipped - inline", "free", 3.60, 12, []decisionsFinding{f("minor", 1), f("minor", 1)}, false},
+		{b, "regular", "inline", "inline", "free", 5.20, 21, []decisionsFinding{f("important", 0), {"minor", "withdrawn duplicate", 0}}, false},
+		{a, "regular", "sdd", "opus·low", "static", 9.00, 53, []decisionsFinding{f("important", 1), f("minor", 1), f("minor", 1)}, false},
+		{a, "regular", "sdd", "opus·low", "static", 7.50, 49, []decisionsFinding{f("critical", 0), f("minor", 0)}, false},
+		{b, "regular", "sdd", "opus·low", "static", 10.20, 60, []decisionsFinding{f("important", 2), f("important", 1)}, false},
+		{a, "small", "inline", "skipped — inline", "free", 2.40, 22, []decisionsFinding{f("minor", 0)}, false},
+		{b, "small", "inline", "skipped — inline", "free", 2.10, 18, nil, false},
+		{a, "small", "sdd", "opus·low", "static", 8.20, 133, []decisionsFinding{f("important", 1), f("minor", 1), f("minor", 1)}, false},
+		{a, "", "inline", "skipped — inline", "static", 0.52, 38, []decisionsFinding{f("minor", 0)}, false},
+	}
+	for i, r := range runs {
+		if err := seedDecisionsRun(ctx, st, i+1, r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func seedDecisionsRun(ctx context.Context, st *store.Store, i int, r decisionsRun) error {
+	name := fmt.Sprintf("kan-6%02d-decisions", i)
+	token := "uitest-" + name
+	if err := st.PutChange(ctx, store.Change{ProjectKey: r.project, MainCheckoutPath: "/tmp/" + r.project,
+		Name: name, State: store.StateFinished, UpdatedAt: decisionsRunsAt.Add(time.Hour), UpdatedBy: "uitest-seed"}); err != nil {
+		return fmt.Errorf("uitest-seed: put change %s: %w", name, err)
+	}
+	run, err := st.BeginStage(ctx, store.BeginStageInput{ProjectKey: r.project, ChangeName: name, Harness: "claude-code",
+		SessionID: strPtr(token), SessionToken: strPtr(token), Command: "/flow", Stage: "flow.sdd-tdd", StartedAt: decisionsRunsAt})
+	if err != nil {
+		return fmt.Errorf("uitest-seed: begin stage for %s: %w", name, err)
+	}
+	if err := mergeJSON(ctx, st, run.ID, fmt.Sprintf(`{"cost_usd": %g, "models": {"claude-opus-5": {"cost_usd": %g}}}`, r.cost, r.cost)); err != nil {
+		return err
+	}
+	if err := st.EndStage(ctx, run.ID, decisionsRunsAt.Add(time.Duration(r.minutes)*time.Minute), "completed"); err != nil {
+		return fmt.Errorf("uitest-seed: end stage for %s: %w", name, err)
+	}
+
+	decision := map[string]any{"execution": r.execution}
+	if r.class != "" {
+		decision["class"] = r.class
+	}
+	if model, effort, ok := strings.Cut(r.implementer, "·"); ok {
+		decision["implementer"] = map[string]string{"model": model, "effort": effort}
+	} else {
+		decision["implementer"] = r.implementer
+	}
+	if r.grouping == "default" {
+		decision["panel"] = "default"
+	} else {
+		decision["panel"] = map[string]any{"grouping": r.grouping, "compact": false, "rerun": "delta",
+			"roster": []map[string]any{{"slot": "primary", "experimental": false}}}
+	}
+	raw, err := json.Marshal(decision)
+	if err != nil {
+		return fmt.Errorf("uitest-seed: marshal decision for %s: %w", name, err)
+	}
+	if _, _, err := st.RecordDecision(ctx, r.project, name, records.Decision{
+		SessionToken: token,
+		RecordedAt:   decisionsAt.Add(time.Duration(i-1) * 8 * time.Hour),
+		Decision:     raw,
+	}); err != nil {
+		return fmt.Errorf("uitest-seed: record decision for %s: %w", name, err)
+	}
+
+	start := decisionsRunsAt.Add(time.Minute)
+	out, err := st.RecordDispatch(ctx, r.project, name, records.Dispatch{
+		Key: "panel-primary", Role: "panel", Slot: "primary", Model: "opus",
+		Outcome:      map[bool]string{true: "fallback", false: "completed"}[r.fallback],
+		SessionToken: token, StartedAt: start, EndedAt: timePtr(start.Add(4 * time.Minute)),
+	})
+	if err != nil {
+		return fmt.Errorf("uitest-seed: record dispatch for %s: %w", name, err)
+	}
+	for j, fd := range r.findings {
+		ref := fmt.Sprintf("F%d", j+1)
+		if _, _, err := st.UpsertFinding(ctx, r.project, name, records.Finding{
+			Ref: ref, DispatchSeq: &out.Seq, Round: fd.round, Slot: "primary",
+			Severity: fd.severity, Note: "seeded decisions finding", Status: cmp.Or(fd.status, "fixed"),
+		}); err != nil {
+			return fmt.Errorf("uitest-seed: upsert finding %s for %s: %w", ref, name, err)
 		}
 	}
 	return nil

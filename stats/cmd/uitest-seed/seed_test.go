@@ -142,6 +142,12 @@ func TestSeedPopulatesFixture(t *testing.T) {
 		if project.Key == "uitest-alpha" {
 			wantChanges += 4 // seedInteractive's two sessions and seedMainExperiment's two changes, seeded beside fixtureData
 		}
+		switch project.Key { // seedDecisions' runs, seeded beside fixtureData
+		case "uitest-alpha":
+			wantChanges += 13
+		case "uitest-beta":
+			wantChanges += 5
+		}
 		if len(changes) != wantChanges {
 			t.Fatalf("project %s: got %d changes, want %d", project.Key, len(changes), wantChanges)
 		}
@@ -502,5 +508,98 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 	}
 	if !withdrawn {
 		t.Error("no slot with a withdrawn finding")
+	}
+}
+
+// TestSeedDecisionsDrawsEveryState pins decision decisions-seed-isolated:
+// the eighteen decisions runs sit inside the default 30d window at
+// fixtureNow, draw every state the Decisions prototype shows, and stay out
+// of PINNED_QUERY's window.
+func TestSeedDecisionsDrawsEveryState(t *testing.T) {
+	dsn := newUitestDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		t.Fatalf("seedFixture: %v", err)
+	}
+
+	seeded := regexp.MustCompile(`^kan-6\d\d-decisions$`)
+	rows, err := st.Decisions(ctx, store.Period{From: fixtureNow.Add(-30 * 24 * time.Hour), To: fixtureNow}, nil)
+	if err != nil {
+		t.Fatalf("Decisions: %v", err)
+	}
+	var n int
+	projects, models, classes := map[string]bool{}, map[string]bool{}, map[string]bool{}
+	bigGroupings := map[string]bool{}
+	fallback, twoRounds, twoCritical := false, false, false
+	for _, r := range rows {
+		if !seeded.MatchString(r.Change) {
+			continue
+		}
+		n++
+		projects[r.Project] = true
+		models[r.ImplementerModel] = true
+		classes[r.Class] = true
+		if r.Class == "big" {
+			bigGroupings[r.Grouping] = true
+		}
+		fallback = fallback || r.Fallbacks == 1
+		twoRounds = twoRounds || r.FixRounds == 2
+		twoCritical = twoCritical || r.Critical == 2
+		switch r.Change {
+		case "kan-604-decisions":
+			if r.Important != 1 {
+				t.Errorf("run 4 Important = %d, want 1 (withdrawn excluded)", r.Important)
+			}
+		case "kan-611-decisions":
+			if r.Minor != 0 {
+				t.Errorf("run 11 Minor = %d, want 0 (withdrawn excluded)", r.Minor)
+			}
+		}
+	}
+	if n != 18 {
+		t.Fatalf("seeded decisions rows = %d, want 18", n)
+	}
+	for _, p := range []string{"uitest-alpha", "uitest-beta"} {
+		if !projects[p] {
+			t.Errorf("no seeded row in project %s", p)
+		}
+	}
+	for _, m := range []string{"skipped — inline", "skipped - inline", "inline"} {
+		if !models[m] {
+			t.Errorf("no seeded row with implementer %q", m)
+		}
+	}
+	for _, c := range []string{"big", "regular", "small", ""} {
+		if !classes[c] {
+			t.Errorf("no seeded row with class %q", c)
+		}
+	}
+	if !fallback || !twoRounds || !twoCritical {
+		t.Errorf("fallback=%v fixRounds2=%v critical2=%v, want all true", fallback, twoRounds, twoCritical)
+	}
+	if !bigGroupings["free"] || !bigGroupings["static"] {
+		t.Errorf("big groupings = %v, want free and static", bigGroupings)
+	}
+
+	pinned, err := st.Decisions(ctx, store.Period{
+		From: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC),
+	}, nil)
+	if err != nil {
+		t.Fatalf("Decisions over the pinned window: %v", err)
+	}
+	for _, r := range pinned {
+		if seeded.MatchString(r.Change) {
+			t.Errorf("seeded row %s is inside the pinned window", r.Change)
+		}
 	}
 }
