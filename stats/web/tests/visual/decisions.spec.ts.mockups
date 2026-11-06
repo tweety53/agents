@@ -1,0 +1,13 @@
+# Each capture of decisions.spec.ts beside its frame of the approved
+# prototype .superpowers/sdd/2026-11-06-kan-1055-decisions-dashboard-rework-prototype.html:
+# <frame id>.png in .superpowers/sdd/decisions-frames/ is that file rendered
+# by render.cjs at the capture's 1280px viewport, dark, in the same state --
+# at rest, the first Project chip after All hovered, Class big and Review
+# grouping static pressed, the big opus · medium free row expanded with the
+# small group collapsed, and the regular inline free row hovered. The
+# prototype draws no width cap at 1280px, so no CSS is injected.
+decisions.png decisions-prototype-rest
+decisions-chip-hover.png decisions-prototype-chip-hover
+decisions-big-static.png decisions-prototype-big-static
+decisions-row-expanded.png decisions-prototype-row-expanded
+decisions-row-hover.png decisions-prototype-row-hover
