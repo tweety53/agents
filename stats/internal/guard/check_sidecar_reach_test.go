@@ -118,3 +118,29 @@ func TestCheckSidecarReach(t *testing.T) {
 		})
 	}
 }
+
+// A sidecar given alone is the only one judged: the capture folder's other
+// sidecars point at other frames folders (kan-1055 self-review, F1).
+func TestCheckSidecarReachSingleFile(t *testing.T) {
+	root, mockups := t.TempDir(), t.TempDir()
+	for rel, body := range map[string]string{
+		"a.spec.ts":         "'a-1.png'",
+		"a.spec.ts.mockups": "a-1.png A-1\n",
+		"b.spec.ts":         "'b-1.png'",
+		"b.spec.ts.mockups": "b-1.png B-1\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, rel), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(mockups, "A-1.png"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := runGuard("check-sidecar-reach", []string{filepath.Join(root, "a.spec.ts.mockups"), mockups}, Env{})
+	if want := "SIDECAR-REACH-OK: 1 lines in 1 sidecars\n"; r.rc != 0 || r.stdout != want {
+		t.Fatalf("sidecar alone: rc=%d stdout=%q, want rc=0 stdout=%q", r.rc, r.stdout, want)
+	}
+	if r := runGuard("check-sidecar-reach", []string{root, mockups}, Env{}); r.rc != 1 {
+		t.Fatalf("capture root: rc=%d stdout=%q, want rc=1", r.rc, r.stdout)
+	}
+}

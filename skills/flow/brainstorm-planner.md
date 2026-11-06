@@ -495,8 +495,11 @@ prescribed course, never accepting the plan while it stands.
 > round, applied at plan time (kan-1007: a plan-time capture was judged by eye). The same
 > compose-and-measure steps apply when the view's specification is an approved prototype, rendered
 > as each capture's frame per step 10 of `skills/flow/visual-verify-verifier.md`, with no declared
-> `mockups` root (kan-1046 self-review, 8c). Every screenshot such a task's spec takes is the full
-> page or viewport, never an element or a clipped region, and each captures a state no sibling
+> `mockups` root (kan-1046 self-review, 8c). Such a task pre-flights its own sidecar alone,
+> `flow-guard check-sidecar-reach <spec>.mockups <frames folder>`, never the capture folder, whose
+> other sidecars point at other frames folders (kan-1055 self-review, F1). Every screenshot such a
+> task's spec takes is the full page or viewport, never an element or a clipped region, and each
+> captures a state no sibling
 > capture shows — steps 8 and 9 of `skills/flow/visual-verify-verifier.md` refuse a clip and a
 > byte-identical pair (kan-1061 self-review).
 > The task that builds the view seeds, in its capture fixture, the data for every element and

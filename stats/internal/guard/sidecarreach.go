@@ -18,12 +18,13 @@ import (
 // the capture spec beside it, before the capture runs (kan-998: stale sidecar
 // lines surfaced only at flow-guard compose-mockup-frames, after a 13-minute capture).
 //
-// Usage: flow-guard check-sidecar-reach <capture root> [<mockups root>]
+// Usage: flow-guard check-sidecar-reach <capture root | sidecar> [<mockups root>]
 //
 // Walks <capture root>, never descending into `node_modules`, `.git` or
 // `.worktrees`. A SIDECAR is a file ending `.mockups`; its spec is that path
 // without the suffix. A sidecar line is `<screenshot name> <frame id>`; blank
-// and `#` lines are skipped.
+// and `#` lines are skipped. A sidecar given in place of <capture root> is
+// the only one judged, every printed path relative to its directory.
 //
 // A name is REACHED when it equals a string literal of the spec ('…', "…" or
 // `…`), or fully matches a backtick template literal containing `${`, each
@@ -37,7 +38,7 @@ import (
 // also name a frame that exists: <mockups root>/<frame id>.png (kan-1007). A
 // line with one field is not judged on its frame.
 //
-// Prints to stdout, paths relative to <capture root>, sorted by sidecar then
+// Prints to stdout, paths relative to <capture root> (or the sidecar's directory), sorted by sidecar then
 // line:
 //   SIDECAR-REACH-OK: <n> lines in <m> sidecars                      exit 0
 //   <sidecar>:<line>: <name> — taken by no screenshot in <spec>      exit 1
@@ -46,7 +47,8 @@ import (
 // (<mockups root> printed as given).
 //
 // Exit 0 every line reached, 1 at least one not, 2 cannot answer (a usage
-// error, a capture or mockups root that is not a directory, an unreadable
+// error, a capture root that is neither a directory nor a sidecar, a mockups
+// root that is not a directory, an unreadable
 // sidecar) — stdout
 // empty, the cause on stderr.
 //
@@ -97,11 +99,17 @@ func srReached(name string, spec []byte) bool {
 func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-sidecar-reach"
 	if len(args) != 1 && len(args) != 2 {
-		fmt.Fprintf(stderr, "%s: usage: flow-guard check-sidecar-reach <capture root> [<mockups root>]\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-sidecar-reach <capture root | sidecar> [<mockups root>]\n", prog)
 		return 2
 	}
-	for _, dir := range args {
-		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
+	base := args[0]
+	for i, dir := range args {
+		st, err := os.Stat(dir)
+		if i == 0 && err == nil && st.Mode().IsRegular() && strings.HasSuffix(dir, ".mockups") {
+			base = filepath.Dir(dir)
+			continue
+		}
+		if err != nil || !st.IsDir() {
 			fmt.Fprintf(stderr, "%s: not a directory: %s\n", prog, dir)
 			return 2
 		}
@@ -129,8 +137,8 @@ func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 			return nil
 		}
 		sidecars++
-		rel, _ := filepath.Rel(root, path)
-		relSpec, _ := filepath.Rel(root, specPath)
+		rel, _ := filepath.Rel(base, path)
+		relSpec, _ := filepath.Rel(base, specPath)
 		spec, specErr := os.ReadFile(specPath)
 		f, err := os.Open(path)
 		if err != nil {
