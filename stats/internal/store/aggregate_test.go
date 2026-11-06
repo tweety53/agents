@@ -1793,6 +1793,7 @@ func TestDecisionsExcludesWithdrawnFindings(t *testing.T) {
 		{"F3", "minor", "Withdrawn as duplicate", 1},
 		{"F4", "minor", "fixed", 1},
 		{"F5", "important", "withdrawn superseded", 3},
+		{"F6", "minor", "not withdrawn", 1},
 	} {
 		in := baseFinding(f.ref, f.round)
 		in.DispatchSeq = &disp.Seq
@@ -1818,8 +1819,8 @@ func TestDecisionsExcludesWithdrawnFindings(t *testing.T) {
 		t.Fatalf("Decisions returned %d rows, want 1", len(rows))
 	}
 	got := rows[0]
-	if got.Critical != 1 || got.Important != 0 || got.Minor != 1 || got.FixRounds != 3 {
-		t.Errorf("Critical=%d Important=%d Minor=%d FixRounds=%d, want 1 0 1 3",
+	if got.Critical != 1 || got.Important != 0 || got.Minor != 2 || got.FixRounds != 3 {
+		t.Errorf("Critical=%d Important=%d Minor=%d FixRounds=%d, want 1 0 2 3",
 			got.Critical, got.Important, got.Minor, got.FixRounds)
 	}
 }

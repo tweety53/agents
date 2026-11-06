@@ -227,7 +227,13 @@ function Table({ gs }: { gs: ClassGroup[] }) {
                   const t = (key: Measure) => `r ${tone(g.choices, c, key)}`.trim();
                   return (
                     <Fragment key={id}>
-                      <tr className="lb-row expandable" aria-expanded={isOpen} onClick={() => setOpen((s) => flip(s, id))}>
+                      <tr
+                        className="lb-row expandable"
+                        tabIndex={0}
+                        aria-expanded={isOpen}
+                        onClick={() => setOpen((s) => flip(s, id))}
+                        onKeyDown={(e) => e.key === "Enter" && setOpen((s) => flip(s, id))}
+                      >
                         <td>
                           <span className="lb-caret" style={{ transform: isOpen ? "none" : "rotate(-90deg)" }}>
                             ▾
