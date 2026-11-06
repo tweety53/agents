@@ -1082,45 +1082,170 @@ describe("views render their fixture response's actual values", () => {
     expect(await screen.findByText("No self-review findings in this period.")).toBeInTheDocument();
   });
 
-  // Also covers kan-472 task 23's grouping/dispatches/implementer-groups columns, asserted below.
-  it("decisions shows a class × execution summary and no per-decision table", async () => {
+  // A decisions row: the sdd fixture with no findings, fix rounds or fallbacks, then the overrides.
+  const dr = (o: Partial<DecisionRow>): DecisionRow => ({
+    ...(fixtures.decisions.rows as DecisionRow[])[1],
+    critical: 0,
+    important: 0,
+    minor: 0,
+    fixRounds: 0,
+    fallbacks: 0,
+    ...o,
+  });
+  const renderDecisions = async (rows: DecisionRow[]) => {
+    fetchStatsViewMock.mockResolvedValueOnce(envelope("decisions", rows));
     render(<Decisions period={period} project={undefined} />);
+    await screen.findByRole("table");
+  };
+  // The choice rows under a class's group row, up to the next group row.
+  const classRows = (cls: string) => {
+    const out: HTMLElement[] = [];
+    let inside = false;
+    for (const tr of Array.from(document.querySelectorAll<HTMLElement>("tbody tr"))) {
+      if (tr.classList.contains("lb-group")) inside = text(tr).startsWith(cls);
+      else if (inside && tr.classList.contains("lb-row")) out.push(tr);
+    }
+    return out;
+  };
+  const cells = (tr: HTMLElement) => Array.from(tr.querySelectorAll("td"));
+  // A cell's text without its caret.
+  const text = (el: Element) => el.textContent!.replace("▾", "");
+  const choiceRow = (cls: string, name: string) => classRows(cls).find((tr) => text(cells(tr)[0]).startsWith(name))!;
 
-    // The class × execution summary groups the two runs into their own
-    // rows -- "regular / inline" and "regular / sdd" -- each with its own
-    // mean cost.
-    const summaryRegion = await screen.findByRole("region", { name: "By class and execution" });
-    expect(await within(summaryRegion).findByText("regular / inline")).toBeInTheDocument();
-    expect(within(summaryRegion).getByText("regular / sdd")).toBeInTheDocument();
-    expect(within(summaryRegion).getByText("$1.25")).toBeInTheDocument();
-    expect(within(summaryRegion).getByText("$3.75")).toBeInTheDocument();
-
-    // design.md's decisions-by-implementer-model: the per-decision table
-    // and the Runs tile are gone.
-    expect(screen.queryByRole("region", { name: "Every decision" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Runs" })).not.toBeInTheDocument();
+  it("decisions folds every inline spelling into one implementer choice", async () => {
+    const reg = (execution: string, implementerModel: string, implementerEffort = "") => dr({ class: "regular", grouping: "static", execution, implementerModel, implementerEffort });
+    await renderDecisions([
+      reg("inline", "skipped — inline"),
+      reg("inline", "skipped - inline"),
+      reg("inline", "inline"),
+      reg("sdd", "skipped — inline"),
+      reg("sdd", "opus"),
+      reg("sdd", "default"),
+      dr({ class: "", execution: "sdd", implementerModel: "sonnet", implementerEffort: "medium" }),
+      reg("", ""),
+    ]);
+    const regular = classRows("regular").map((tr) => text(cells(tr)[0]));
+    expect(regular).toEqual(["inline", "—few runs", "defaultfew runs", "opusfew runs"]);
+    expect(cells(choiceRow("regular", "inline"))[2]).toHaveTextContent("4");
+    expect(classRows("unclassified").map((tr) => text(cells(tr)[0]))).toEqual(["sonnet · mediumfew runs"]);
   });
 
-  it("decisions groups runs by implementer model", async () => {
-    const [inline, sdd] = fixtures.decisions.rows as DecisionRow[];
-    fetchStatsViewMock.mockResolvedValueOnce(
-      envelope("decisions", [inline, sdd, { ...sdd, change: "kan-3", costUsd: 1.25, wallClockSeconds: 600 }]),
-    );
-    render(<Decisions period={period} project={undefined} />);
-
-    const region = await screen.findByRole("region", { name: "By implementer model" });
-    const rows = (await within(region).findAllByRole("row")).slice(1);
+  it("decisions pairs implementer choice with review grouping and takes medians", async () => {
+    const big = (o: Partial<DecisionRow>) => dr({ class: "big", implementerModel: "opus", implementerEffort: "medium", grouping: "free", ...o });
+    await renderDecisions([
+      big({ change: "a", costUsd: 20, wallClockSeconds: 600, critical: 1, fixRounds: 2 }),
+      big({ change: "b", costUsd: 1, wallClockSeconds: 3600, important: 2, fixRounds: 0 }),
+      big({ change: "c", costUsd: 9, wallClockSeconds: 1200, minor: 3, fixRounds: 1 }),
+      big({ change: "d", grouping: "static", costUsd: 5 }),
+    ]);
+    const rows = classRows("big");
     expect(rows).toHaveLength(2);
-    // opus first: two runs, mean cost (3.75 + 1.25) / 2, mean wall-clock
-    // (1200 s + 600 s) / 2, mean findings 3, mean fix rounds 1.
-    within(rows[0]).getByRole("cell", { name: "opus" });
-    within(rows[0]).getByRole("cell", { name: "2" });
-    within(rows[0]).getByRole("cell", { name: "$2.50" });
-    within(rows[0]).getByRole("cell", { name: "15.0 min" });
-    within(rows[0]).getByRole("cell", { name: "3.00" });
-    within(rows[0]).getByRole("cell", { name: "1.00" });
-    within(rows[1]).getByRole("cell", { name: "skipped — inline" });
-    within(rows[1]).getByRole("cell", { name: "1" });
+    expect(cells(rows[0]).map(text)).toEqual(["opus · medium", "free", "3", "$9.00", "20m", "7.0", "1.00", "0"]);
+    expect(cells(rows[1])[0]).toHaveTextContent("opus · mediumfew runs");
+    expect(cells(rows[1])[1]).toHaveTextContent("static");
+    const foot = cells(document.querySelector<HTMLElement>("tfoot tr")!);
+    expect(foot[0]).toHaveTextContent("All runs");
+    expect(foot[2]).toHaveTextContent("4");
+  });
+
+  // A: opus · medium free ×3, B: opus · low static ×3, C: sonnet · medium free ×1 -- the cheapest and fastest.
+  const markingRows = () => {
+    const big = (o: Partial<DecisionRow>) => dr({ class: "big", ...o });
+    const a = (i: number) => big({ change: `a${i}`, implementerModel: "opus", implementerEffort: "medium", grouping: "free", costUsd: 10, wallClockSeconds: 1200, important: 1 });
+    const b = (i: number) => big({ change: `b${i}`, implementerModel: "opus", implementerEffort: "low", grouping: "static", costUsd: 12, wallClockSeconds: 600, minor: 1 });
+    const reg = (i: number, effort: string, cost: number) => dr({ change: `r${i}`, class: "regular", implementerModel: "opus", implementerEffort: effort, costUsd: cost });
+    return [
+      a(1), a(2), a(3), b(1), b(2), b(3),
+      big({ change: "c", implementerModel: "sonnet", implementerEffort: "medium", grouping: "free", costUsd: 2, wallClockSeconds: 60 }),
+      reg(1, "high", 3), reg(2, "high", 3), reg(3, "high", 3), reg(4, "low", 1),
+    ];
+  };
+
+  it("decisions marks best and worst only among rows of three or more runs", async () => {
+    await renderDecisions(markingRows());
+    expect(cells(choiceRow("big", "opus · medium"))[3]).toHaveClass("rv-best");
+    expect(cells(choiceRow("big", "opus · low"))[3]).toHaveClass("rv-worst");
+    const c = choiceRow("big", "sonnet · medium");
+    expect(cells(c)[3]).not.toHaveClass("rv-best");
+    expect(cells(c)[3]).not.toHaveClass("rv-worst");
+    expect(cells(c)[0]).toHaveTextContent("few runs");
+    for (const tr of classRows("regular")) for (const td of cells(tr)) expect(td.className).not.toMatch(/rv-(best|worst)/);
+  });
+
+  it("decisions tiles name each class's picks or say no choice has 3 runs yet", async () => {
+    const small = (i: number) => dr({ change: `s${i}`, class: "small" });
+    await renderDecisions([...markingRows(), small(1), small(2), dr({ change: "m", class: "micro" })]);
+    const tile = (cls: string) => Array.from(document.querySelectorAll<HTMLElement>(".lb-tile")).find((t) => t.textContent!.startsWith(`${cls} · cheapest`))!;
+    const big = tile("big");
+    expect(big.querySelector(".lb-val")).toHaveTextContent("$10.00");
+    const notes = Array.from(big.querySelectorAll(".sl-note")).map((n) => n.textContent);
+    expect(notes).toEqual(["opus · medium · free median per run", "fastest: opus · low · static 10m", "fewest findings: opus · low · static 1.0 / run"]);
+    expect(tile("small")).toHaveTextContent("no choice has 3 runs yet · 2 runs");
+    expect(tile("micro")).toHaveTextContent(/no choice has 3 runs yet · 1 run$/);
+  });
+
+  it("decisions chips narrow by project, class and review grouping", async () => {
+    const user = userEvent.setup();
+    const reqs = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "decisions").map((c) => c[1] as { from: Date; to: Date; project?: string });
+    const day = 24 * 60 * 60 * 1000;
+    const now = BOARD_NOW.getTime();
+    const zeta = "zeta-0a1b2c3d";
+    const alpha = "alpha-4e5f6a7b";
+    const rows = [
+      ...[1, 2, 3].map((i) => dr({ change: `z${i}`, project: zeta, class: "big", grouping: "free" })),
+      dr({ change: "z4", project: zeta, class: "regular", grouping: "static" }),
+      ...[1, 2].map((i) => dr({ change: `a${i}`, project: alpha, class: "regular", grouping: "free" })),
+    ];
+    fetchStatsViewMock.mockResolvedValueOnce(envelope("decisions", rows)).mockResolvedValueOnce(envelope("decisions", rows));
+    render(<Decisions period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(reqs()).toHaveLength(1);
+    expect(reqs()[0]).not.toHaveProperty("project");
+    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 30 * day, now]);
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+
+    const group = (name: string) => within(screen.getByRole("group", { name }));
+    const chips = (name: string) => group(name).getAllByRole("button").map((b) => b.textContent);
+    const pressed = (g: string, name: string | RegExp) => expect(group(g).getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+    expect(chips("Project")).toEqual(["All", "zeta4", "alpha2"]);
+    expect(group("Project").getByRole("button", { name: /^zeta/ })).toHaveAttribute("title", zeta);
+
+    await user.click(group("Project").getByRole("button", { name: /^zeta/ }));
+    expect(chips("Class")).toEqual(["All", "regular1", "big3"]);
+    await user.click(group("Class").getByRole("button", { name: /^regular/ }));
+    pressed("Project", /^zeta/);
+    expect(document.querySelectorAll("tbody tr.lb-group")).toHaveLength(1);
+    expect(classRows("regular")).toHaveLength(1);
+    expect(chips("Review grouping")).toEqual(["All", "static1"]);
+
+    await user.click(group("Period").getByRole("button", { name: "7d" }));
+    await waitFor(() => expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 7 * day, now]));
+    await screen.findByRole("table");
+    pressed("Project", /^zeta/);
+    pressed("Class", /^regular/);
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    pressed("Period", "30d");
+    for (const g of ["Project", "Class", "Review grouping"]) pressed(g, "All");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+  });
+
+  it("decisions expands a row to its runs and collapses a class", async () => {
+    const user = userEvent.setup();
+    await renderDecisions([
+      dr({ project: "agents-a740d89c", change: "kan-7-x", class: "big", recordedAt: "2026-01-10T23:30:00Z", costUsd: 4.5, wallClockSeconds: 5400, critical: 1, important: 1, minor: 2, fixRounds: 3 }),
+    ]);
+    const row = choiceRow("big", "opus · high");
+    expect(row).toHaveAttribute("aria-expanded", "false");
+    await user.click(row);
+    expect(row).toHaveAttribute("aria-expanded", "true");
+    const run = document.querySelector<HTMLElement>("tr.dc-run")!;
+    expect(within(run).getByRole("link", { name: "kan-7-x" })).toHaveAttribute("href", "#/run/agents-a740d89c/kan-7-x");
+    expect(cells(run).map((c) => c.textContent)).toEqual(["kan-7-x agents · 2026-01-10", "", "", "$4.50", "1h 30m", "16 1 · 1 · 2", "3", ""]);
+
+    await user.click(document.querySelector<HTMLElement>("tbody tr.lb-group")!);
+    expect(classRows("big")).toHaveLength(0);
+    expect(document.querySelector("tr.dc-run")).toBeNull();
   });
 
 });

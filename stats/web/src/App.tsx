@@ -244,13 +244,15 @@ export function App() {
             and Command chips (decision leaderboard-chip-filters); the trend view carries its own
             Period, Command and Project chips (decision trend-drops-daily-views); Reviewers carries its
             own Period, Project and Rank by chips (decision reviewers-chip-filters-period-project);
-            Experiments spans each experiment's own window. */}
+            Decisions carries its own Period, Project, Class and Review grouping chips (decision
+            decisions-chip-filters); Experiments spans each experiment's own window. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
           route.view !== "state-board" &&
           route.view !== "stage-leaderboard" &&
           route.view !== "trend" &&
           route.view !== "reviewers" &&
+          route.view !== "decisions" &&
           route.view !== "experiments" && (
           <DashboardBar
             period={period}

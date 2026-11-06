@@ -80,8 +80,8 @@ describe("route resolution ignores the query string (task 1)", () => {
 });
 
 // These read the URL period through the first request, so they run on
-// Decisions, which keeps the dashboard bar: Trend and Reviewers send their own
-// chip window (decisions app-period-tests-on-reviewers, reviewers-tests-retarget).
+// Self-review fixes, which keeps the dashboard bar: Trend, Reviewers and
+// Decisions send their own chip window (decisions-bar-tests-retarget-self-review).
 describe("the period is read from the URL, falling back to the default (task 2)", () => {
   // A fixed clock, not a second `new Date()` at assertion time -- the
   // latter is flaky by construction (the two calls can straddle a
@@ -107,20 +107,20 @@ describe("the period is read from the URL, falling back to the default (task 2)"
   }
 
   it("only `from` is present: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/decisions?from=2026-01-01T00:00:00Z");
+    const { from, to } = await renderAndReadPeriod("#/self-review?from=2026-01-01T00:00:00Z");
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("only `to` is present: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/decisions?to=2026-01-01T00:00:00Z");
+    const { from, to } = await renderAndReadPeriod("#/self-review?to=2026-01-01T00:00:00Z");
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("an unparsable bound: falls back to the default period", async () => {
     const { from, to } = await renderAndReadPeriod(
-      "#/decisions?from=not-a-date&to=2026-01-01T00:00:00Z",
+      "#/self-review?from=not-a-date&to=2026-01-01T00:00:00Z",
     );
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
@@ -128,21 +128,21 @@ describe("the period is read from the URL, falling back to the default (task 2)"
 
   it("`to` earlier than `from`: falls back to the default period", async () => {
     const { from, to } = await renderAndReadPeriod(
-      "#/decisions?from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z",
+      "#/self-review?from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z",
     );
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("no query at all: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/decisions");
+    const { from, to } = await renderAndReadPeriod("#/self-review");
     expect(from).toEqual(DEFAULT_FROM);
     expect(to).toEqual(NOW);
   });
 
   it("a valid pair is applied as given", async () => {
     const { from, to } = await renderAndReadPeriod(
-      "#/decisions?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z",
+      "#/self-review?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z",
     );
     expect(from).toEqual(new Date("2026-01-05T00:00:00Z"));
     expect(to).toEqual(new Date("2026-01-10T00:00:00Z"));
@@ -152,7 +152,7 @@ describe("the period is read from the URL, falling back to the default (task 2)"
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
     const pushStateSpy = vi.spyOn(window.history, "pushState");
 
-    window.location.hash = "#/decisions";
+    window.location.hash = "#/self-review";
     render(<App />);
     await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
 
@@ -171,12 +171,12 @@ describe("the period is read from the URL, falling back to the default (task 2)"
   // initialiser runs) must not be clobbered by the stale in-memory period.
   // The URL is authoritative on arrival, same as it is on first load.
   it("a hashchange carrying an explicit period wins over the stale in-memory one", async () => {
-    window.location.hash = "#/decisions";
+    window.location.hash = "#/self-review";
     render(<App />);
     await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
     fetchStatsViewMock.mockClear();
 
-    window.location.hash = "#/decisions?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z";
+    window.location.hash = "#/self-review?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z";
     window.dispatchEvent(new HashChangeEvent("hashchange"));
 
     await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
@@ -191,7 +191,7 @@ describe("the period is read from the URL, falling back to the default (task 2)"
   // second `new Date()` at assertion time, which would be flaky by
   // construction.
   it("the default period is the preceding 30 days ending now", async () => {
-    const { from, to } = await renderAndReadPeriod("#/decisions");
+    const { from, to } = await renderAndReadPeriod("#/self-review");
     expect(to).toEqual(NOW);
     expect(from).toEqual(DEFAULT_FROM);
     expect(to.getTime() - from.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
@@ -209,7 +209,7 @@ describe("the filter bar (KAN-1038)", () => {
       expect(screen.queryByLabelText(label)).toBeNull();
     }
     unmount();
-    window.location.hash = "#/decisions";
+    window.location.hash = "#/self-review";
     render(<App />);
     expect(await screen.findByRole("toolbar", { name: "Dashboard controls" })).toBeInTheDocument();
     expect(screen.getByLabelText("Period start")).toBeInTheDocument();
@@ -230,6 +230,14 @@ it("reviewers carries no dashboard bar", async () => {
   window.location.hash = "#/reviewers";
   render(<App />);
   expect(await screen.findByRole("heading", { name: "Reviewers" })).toBeInTheDocument();
+  expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
+  window.location.hash = "";
+});
+
+it("decisions carries no dashboard bar", async () => {
+  window.location.hash = "#/decisions";
+  render(<App />);
+  expect(await screen.findByRole("heading", { name: "Decisions" })).toBeInTheDocument();
   expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
   window.location.hash = "";
 });

@@ -277,7 +277,7 @@ every `/flow*` command writes through the `flow` CLI.**
 
 **Web UI** at http://127.0.0.1:4173, filterable by project, period and model (`stats/web/src/views/`):
 - state board, stage leaderboard, cost and token trend, weekly costs
-- planner decisions, reviewers, review dynamics, experiments
+- planner decisions (implementer choice and review grouping per class), reviewers, review dynamics, experiments
 - self-review, flow health, run detail
 
 ```bash
