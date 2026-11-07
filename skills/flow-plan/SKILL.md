@@ -104,8 +104,7 @@ than in inference, and confirm a pattern's use elsewhere before generalising fro
 
 ## Asking
 
-Ask every pending question whose wording does not depend on another pending answer in one
-**AskUserQuestion** call, up to four per call; a dependent question waits for the next turn. Don't
+Ask every ambiguity, batched, per **The checklist** (`skills/spectre-planning/SKILL.md`). Don't
 funnel the user through a fixed line of questioning — surface the interesting directions and let
 them follow what resonates. An unanswered call just ends its turn — nothing is selected, and the
 pending questions stay pending for the operator's next reply (**Unanswered mid-run asks**,
@@ -252,8 +251,8 @@ minimum:
    `## Verification` — on a new change's design.
 
 **A captured design carries no open items.** Everything the session surfaced is decided before
-the artifacts are written — decided by the user through the convergence round's questions, or by
-you where the call is routine, and recorded as a decision in its thread's section with the
+the artifacts are written — decided by the user through the convergence round's questions, and
+recorded as a decision in its thread's section with the
 rejected alternative named, and under `## Decisions` with its `**ID:**`. There is no **Open /
 undesigned** section, and `## Open questions` is present and empty: an item still open when the
 convergence check closes is one more **AskUserQuestion** round, never a bullet deferred to

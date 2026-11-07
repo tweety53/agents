@@ -22,13 +22,18 @@ unchanged, the plan review gate included.
 
 ### The checklist
 
-Invoke the **brainstorming** skill in full: checklist items 1–8, ending with the user approving
-the design.
+Invoke the **brainstorming** skill in full, ending with the user approving the design.
 
-- **Display-only formatting is decided, never asked.** A choice that changes only how a value is
-  shown — numeric precision, an empty-cell placeholder, and the like — and that the request, ticket
-  or mockup leaves open is chosen by you and recorded under `## Decisions`; no question is asked
-  for it. A mockup or ticket that states it still governs.
+- **Every ambiguity is asked, however small — never settled by you.** An ambiguity is any
+  requirement, scenario, name, format, state, edge case, ordering, error behaviour or scope
+  boundary of the change that the request, the ticket, a mockup and the code leave open — any
+  point two competent implementers could read differently. Each one is a question to the user,
+  with a recommended option where one honestly exists, asked until the user's own answer closes
+  it — an explicit deferral of theirs included (**Convergence**, below); none is settled as your
+  own call, assumed away, or left for the plan or the implementer to settle. Silence answers
+  nothing: the question stays held and is asked again in the next round. This is a scoped
+  override of every call `brainstorming` makes for the user — its **Minor** pile, settled without
+  asking, among them — and of the single round of questions its builder check allows.
 - **A reported defect is checked against history before its fix is designed.** For each entry of a
   bug list, a findings file or a ticket naming symptoms, run `git log --since=<the report's date>`
   over the paths it names on the base and run its cheap reproducer. An entry
@@ -44,11 +49,15 @@ the design.
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
   is a scoped override of `brainstorming`'s hard design-approval gate.
-- Ask every pending question whose wording does not depend on another pending answer in one
-  **AskUserQuestion** call, up to four questions per call; a question that only makes sense once
-  another is answered waits for the next call; the convergence confirm and the third-round offer
-  may be the last question in such a call. This is a scoped override of
-  `brainstorming`'s "Only one question per message".
+- Ask every pending question whose wording does not depend on another pending answer at once,
+  four to an **AskUserQuestion** call and in as many calls as they need — every one you hold up
+  front in the first round, and each new one in the round it appears: from an answer, an agent's
+  findings or the builder check, or, once the design is approved, from writing the artifacts or
+  the plan, then asked before the plan review gate and its answer revising the design. A
+  question that only makes sense once another is answered waits for the next call; the
+  convergence confirm and the third-round offer may be the last question in such a call. No count
+  of questions or rounds ends the asking. This is a scoped override of `brainstorming`'s one
+  question per message.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.

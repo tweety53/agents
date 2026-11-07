@@ -130,12 +130,13 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    updating the prototype file a visible change needs and never publishing it, and writes
    `round-<r>.md`: the prototype file's absolute path when the round wrote or changed it, the design draft, the
    settled prose the convergence confirm shows, then `## Questions` — each question with two to
-   four options, one marked recommended, the convergence confirm last when nothing else is open.
+   four options, one marked recommended where one honestly is, the convergence confirm last when
+   nothing else is open.
    It asks the operator nothing.
 2. **Relay.** The parent first publishes the prototype
    (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's settled prose, with the
-   prototype's Artifact URL in it whenever a prototype exists, asks its questions verbatim in one
-   **AskUserQuestion** call — the URL appended to the text of the question that depends on the
+   prototype's Artifact URL in it whenever a prototype exists, asks its questions verbatim, four to
+   an **AskUserQuestion** call — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the
@@ -151,7 +152,12 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    `spectre validate`, `flow-guard check-plan-shape`, the configured guards and `flow tasks count`. It
    returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a
    fresh one with that output until `PLAN-WRITTEN`; a redispatch skips section **C** and the
-   `flow.writing-plans` begin, both already made, and resumes at the guard that failed.
+   `flow.writing-plans` begin, both already made, and resumes at the guard that failed. It returns
+   `QUESTIONS` instead the moment writing the artifacts or the plan surfaces an ambiguity (**The
+   checklist**, `skills/spectre-planning/SKILL.md`), the next `round-<r>.md` holding it: the parent
+   relays that round as step 2 does, and a fresh final dispatch — never a design round — takes its
+   answers, skipping each mark already made and revising the design, the artifacts and the plan
+   they change.
 
 The parent then closes `flow.writing-plans` and runs **Decide**, the record sequence and the gate,
 as the rest of this file states.

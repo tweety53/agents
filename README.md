@@ -103,7 +103,7 @@ flowchart TD
     kick(["/flow #lt;name#gt;"]) --> plan
 
     subgraph S1 ["STARTED"]
-        plan["<b>Plan</b><br/>brainstorm → you approve the design<br/>→ spectre artifacts → tasks.md → you approve the plan"]
+        plan["<b>Plan</b><br/>brainstorm → you answer every ambiguity → you approve the design<br/>→ spectre artifacts → tasks.md"]
         g1{{"you: /clear, then /flow #lt;name#gt;"}}
         plan --> g1
     end
