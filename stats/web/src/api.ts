@@ -404,7 +404,7 @@ export interface GuardHealthRow {
   lastFiredAt: string | null;
 }
 
-/** Mirrors guardProjectDTO: one project's guard-run count in the window. */
+/** Mirrors projectGuardRunsDTO: one project's guard-run count in the window. */
 export interface GuardProject {
   projectKey: string;
   runs: number;

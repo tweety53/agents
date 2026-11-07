@@ -60,13 +60,12 @@ const defaults = (): Filters => ({ ...windowFor("30d"), project: null });
 const int = (v: number) => v.toLocaleString("en-US");
 const pct = (v: number) => (v === 0 ? "0%" : v < 0.001 ? "<0.1%" : v < 0.1 ? `${(v * 100).toFixed(1)}%` : `${Math.round(v * 100)}%`);
 const dur = (ms: number) => {
-  const s = ms / 1000;
-  if (s < 1) return `${Math.round(ms)} ms`;
-  if (s < 60) return `${s.toFixed(1)} s`;
-  const m = s / 60;
-  if (m < 60) return `${Math.round(m)} min`;
-  const h = Math.floor(m / 60);
-  return `${h} h ${Math.round(m - h * 60)} min`;
+  if (Math.round(ms) < 1000) return `${Math.round(ms)} ms`;
+  const tenths = Math.round(ms / 100);
+  if (tenths < 600) return `${(tenths / 10).toFixed(1)} s`;
+  const m = Math.round(ms / 60000);
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
 };
 const total = (rows: GuardHealthRow[]) => rows.reduce((s, r) => s + r.totalMs, 0);
 

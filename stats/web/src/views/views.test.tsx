@@ -2065,6 +2065,9 @@ describe("flow health", () => {
     expect(group("Rank by").getByRole("button", { name: "Run time" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
     expect(names()).toHaveLength(8);
+
+    await user.click(tileButton(/^Cannot answer ·/));
+    expect(names().sort()).toEqual(["ca-tiny", "ca-worst", "fire-big"]);
   });
 
   it("flow health chips request the window and project, and Clear keeps the rank", async () => {
@@ -2128,6 +2131,15 @@ describe("flow health", () => {
     expect(text("f-five").slice(2)).toEqual(["100", "5", "5.0%", "3.0%", "1.5 s", "1 h 10 min", "87%", "2026-08-15"]);
     expect(text("f-quarter").slice(2, 5)).toEqual(["100", "25", "25%"]);
     unmount();
+
+    // Rounding carries into the next unit rather than showing 60 of the smaller one.
+    answerGuards([gh("c-s", 1, 0, 0, 999.6, 59960, null), gh("c-m", 1, 0, 0, 1, 3599000, null), gh("c-h", 1, 0, 0, 1, 7170000, null)]);
+    const second = render(<FlowHealth period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(text("c-s").slice(6, 8)).toEqual(["1.0 s", "1 min"]);
+    expect(text("c-m")[7]).toBe("1 h 0 min");
+    expect(text("c-h")[7]).toBe("2 h 0 min");
+    second.unmount();
 
     answerGuards([gh("solo", 10, 1, 0, 450, 1500, "2026-08-14T23:30:00Z")]);
     render(<FlowHealth period={period} project={undefined} />);

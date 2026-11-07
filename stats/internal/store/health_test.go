@@ -137,3 +137,35 @@ func TestGuardHealthProjectsCountsGuardRuns(t *testing.T) {
 		t.Errorf("GuardHealthProjects = %+v, want %+v", got, want)
 	}
 }
+
+// TestGuardHealthWindowBounds pins the half-open window both queries share:
+// a run exactly at From counts, a run exactly at To does not.
+func TestGuardHealthWindowBounds(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	proj := fmt.Sprintf("proj-gh-bounds-%d", time.Now().UnixNano())
+	seedChange(t, st, proj, "kan-1")
+	from := time.Date(2033, 6, 10, 0, 0, 0, 0, time.UTC)
+	to := from.Add(24 * time.Hour)
+	recordGuardRuns(t, st, proj,
+		guardRun("check-edge", "fired", 1, 1, from),
+		guardRun("check-edge", "fired", 1, 1, to),
+	)
+	period := store.Period{From: from, To: to}
+
+	got, err := st.GuardHealth(ctx, period, &proj)
+	if err != nil {
+		t.Fatalf("GuardHealth: %v", err)
+	}
+	if len(got) != 1 || got[0].Runs != 1 {
+		t.Errorf("GuardHealth = %+v, want check-edge with Runs 1 (From in, To out)", got)
+	}
+	projects, err := st.GuardHealthProjects(ctx, period)
+	if err != nil {
+		t.Fatalf("GuardHealthProjects: %v", err)
+	}
+	want := []store.ProjectGuardRuns{{ProjectKey: proj, Runs: 1}}
+	if !slices.Equal(projects, want) {
+		t.Errorf("GuardHealthProjects = %+v, want %+v (From in, To out)", projects, want)
+	}
+}
