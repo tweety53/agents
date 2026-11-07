@@ -847,6 +847,9 @@ func isDefinitiveRecordOutcome(err error) bool {
 		return true
 	case errors.Is(err, store.ErrFindingNotFound):
 		return true
+	case errors.Is(err, store.ErrRequestEnded):
+		// A changing write to an ended request is refused on the stored row, which no replay changes.
+		return true
 	case errors.Is(err, store.ErrDeferredNotMinor):
 		// A deferral the store refused because the row's severity is not
 		// Minor is the store having been reached and having answered

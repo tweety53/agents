@@ -37,6 +37,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/modelpolicy/embedded"
 	"github.com/tweety53/agents/stats/internal/pidfile"
 	"github.com/tweety53/agents/stats/internal/reconcile"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 	"github.com/tweety53/agents/stats/internal/sweep"
 	"github.com/tweety53/agents/stats/internal/web"
@@ -134,6 +135,22 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "reoutcome-dispatch" {
 		if err := reoutcomeDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd reoutcome-dispatch failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "put-request" {
+		if err := putRequest(os.Args[2:]); err != nil {
+			logger.Error("flowd put-request failed", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "set-stage-request" {
+		if err := setStageRequest(os.Args[2:]); err != nil {
+			logger.Error("flowd set-stage-request failed", "error", err)
 			os.Exit(1)
 		}
 		return
@@ -1063,6 +1080,71 @@ func reoutcomeDispatch(args []string) error {
 	}
 	defer st.Close()
 	return st.SetDispatchOutcome(ctx, id, outcome, cause)
+}
+
+// putRequest implements `flowd put-request <project> <change> <n> <outcome>
+// <received-at> <ended-at> <title> [<commit> <base>]` (store.Store.PutRequest,
+// instants RFC 3339): the repair for request rows a second session
+// overwrote (kan-1070 self-review, F2).
+func putRequest(args []string) error {
+	if len(args) != 7 && len(args) != 9 {
+		return fmt.Errorf("usage: flowd put-request <project> <change> <n> <outcome> <received-at> <ended-at> <title> [<commit> <base>]")
+	}
+	n, err := strconv.Atoi(args[2])
+	if err != nil {
+		return fmt.Errorf("request n %q: %w", args[2], err)
+	}
+	received, err := time.Parse(time.RFC3339Nano, args[4])
+	if err != nil {
+		return fmt.Errorf("received-at %q: %w", args[4], err)
+	}
+	ended, err := time.Parse(time.RFC3339Nano, args[5])
+	if err != nil {
+		return fmt.Errorf("ended-at %q: %w", args[5], err)
+	}
+	r := records.Request{N: n, Outcome: args[3], ReceivedAt: received, EndedAt: &ended, Title: args[6]}
+	if len(args) == 9 {
+		r.CommitSHA, r.BaseSHA = args[7], args[8]
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.PutRequest(ctx, args[0], args[1], r)
+}
+
+// setStageRequest implements `flowd set-stage-request <stage-run-id> <n>`
+// (store.Store.SetStageRunRequest): the repair for a stage run recorded
+// under the wrong request, or none (kan-1070 self-review, F2 and F3).
+func setStageRequest(args []string) error {
+	if len(args) != 2 {
+		return fmt.Errorf("usage: flowd set-stage-request <stage-run-id> <n>")
+	}
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("stage run id %q: %w", args[0], err)
+	}
+	n, err := strconv.Atoi(args[1])
+	if err != nil {
+		return fmt.Errorf("request n %q: %w", args[1], err)
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.SetStageRunRequest(ctx, id, n)
 }
 
 // reslotDispatch implements `flowd reslot-dispatch <dispatch-id> <slot>`

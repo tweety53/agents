@@ -49,7 +49,7 @@ stop's stages carry no `-request`.
 
 **Argument.** A key or name matching an open `/flow-interactive` change resumes it (**Resume**,
 below); one matching a finished change ends the run with one line saying so. Anything else starts
-a new session, a non-empty argument being its first request.
+a new session, save as **Name.** below states, a non-empty argument being its first request.
 
 **Main-agent experiment.** An open main-agent experiment is checked, never enforced, as **Model resolution** (`skills/flow/SKILL.md`) states for `/flow`: run its `flow experiment main-check` line once at session start.
 
@@ -61,7 +61,9 @@ issue ("no jira"). Move it to **In Progress** per **Transitions** there. Every J
 one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
 
 **Name.** `<lowercased key>-<slug>` per **Change naming**; with no issue,
-`interactive-<YYYYMMDD-HHMM>` (UTC).
+`interactive-<YYYYMMDD-HHMM>` (UTC). A name so resolved that matches an open `/flow-interactive`
+change — the reused `Interactive session` issue's included — resumes it (**Resume**, below), never
+a new session numbering from 1 (kan-1070 self-review, F2).
 
 ```bash
 flow stage mark  -command '/flow-interactive' -stages flow.kickoff -harness <harness> -session-token fi-<literal-token> <name>

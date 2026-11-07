@@ -183,3 +183,141 @@ func TestListRequestsDerivesState(t *testing.T) {
 		}
 	}
 }
+
+// TestRequestWritesRefuseChangingAnEndedRequest pins sr2-ended-request-conflict
+// (kan-1070 self-review, F2): once a request has an outcome, a begin with a
+// different title and an end with a different outcome, commit or base are
+// refused with ErrRequestEnded and change nothing, while an identical replay
+// of either is accepted; an open request is still amended.
+func TestRequestWritesRefuseChangingAnEndedRequest(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-requests-ended-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1070")
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 1, Title: "a"}); err != nil {
+		t.Fatalf("BeginRequest: %v", err)
+	}
+	ended, err := st.EndRequest(ctx, projectKey, "kan-1070", records.RequestEnd{N: 1, Outcome: "landed", CommitSHA: "c1", BaseSHA: "b1"})
+	if err != nil {
+		t.Fatalf("EndRequest: %v", err)
+	}
+
+	readBack := func() records.Request {
+		t.Helper()
+		list, err := st.ListRequests(ctx, projectKey, "kan-1070")
+		if err != nil || len(list) == 0 || list[0].N != 1 {
+			t.Fatalf("ListRequests = %+v, %v", list, err)
+		}
+		return list[0]
+	}
+	unchanged := func(what string) {
+		t.Helper()
+		got := readBack()
+		if got.Title != "a" || got.Outcome != "landed" || got.CommitSHA != "c1" || got.BaseSHA != "b1" ||
+			got.EndedAt == nil || !got.EndedAt.Equal(*ended.EndedAt) {
+			t.Errorf("%s: row = %+v, want it unchanged", what, got)
+		}
+	}
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 1, Title: "b"}); !errors.Is(err, store.ErrRequestEnded) {
+		t.Errorf("begin with a new title: err = %v, want ErrRequestEnded", err)
+	}
+	unchanged("begin with a new title")
+	for _, in := range []records.RequestEnd{
+		{N: 1, Outcome: "answered"},
+		{N: 1, Outcome: "landed", CommitSHA: "c2", BaseSHA: "b1"},
+	} {
+		if _, err := st.EndRequest(ctx, projectKey, "kan-1070", in); !errors.Is(err, store.ErrRequestEnded) {
+			t.Errorf("end %+v: err = %v, want ErrRequestEnded", in, err)
+		}
+		unchanged(fmt.Sprintf("end %+v", in))
+	}
+
+	for _, title := range []string{"a", ""} {
+		if _, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 1, Title: title}); err != nil {
+			t.Errorf("identical begin title %q: %v", title, err)
+		}
+		unchanged(fmt.Sprintf("identical begin title %q", title))
+	}
+	if _, err := st.EndRequest(ctx, projectKey, "kan-1070", records.RequestEnd{N: 1, Outcome: "landed", CommitSHA: "c1", BaseSHA: "b1"}); err != nil {
+		t.Errorf("identical end: %v", err)
+	}
+	unchanged("identical end")
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 2, Title: "x"}); err != nil {
+		t.Fatalf("BeginRequest n 2: %v", err)
+	}
+	if got, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 2, Title: "y"}); err != nil || got.Title != "y" {
+		t.Errorf("amend open n 2: got %+v, %v, want title y", got, err)
+	}
+	if got, err := st.EndRequest(ctx, projectKey, "kan-1070", records.RequestEnd{N: 2, Outcome: "answered"}); err != nil || got.Outcome != "answered" {
+		t.Errorf("end open n 2: got %+v, %v, want answered", got, err)
+	}
+}
+
+// TestRequestRepairWrites pins sr2-repair-commands: PutRequest overwrites an
+// ended row whole and inserts a new n, refusing a malformed outcome and an
+// unknown change; SetStageRunRequest moves a stage run's request, refusing
+// n 0 and an unknown id.
+func TestRequestRepairWrites(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-requests-repair-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1070")
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 1, Title: "wrong"}); err != nil {
+		t.Fatalf("BeginRequest: %v", err)
+	}
+	if _, err := st.EndRequest(ctx, projectKey, "kan-1070", records.RequestEnd{N: 1, Outcome: "landed", CommitSHA: "c9", BaseSHA: "b9"}); err != nil {
+		t.Fatalf("EndRequest: %v", err)
+	}
+
+	received := time.Date(2026, 10, 31, 10, 27, 31, 0, time.UTC)
+	endedAt := time.Date(2026, 10, 31, 10, 28, 5, 0, time.UTC)
+	if err := st.PutRequest(ctx, projectKey, "kan-1070", records.Request{N: 1, Title: "right", ReceivedAt: received, EndedAt: &endedAt, Outcome: "answered"}); err != nil {
+		t.Fatalf("PutRequest overwrite: %v", err)
+	}
+	if err := st.PutRequest(ctx, projectKey, "kan-1070", records.Request{N: 31, Title: "moved", ReceivedAt: received, EndedAt: &endedAt, Outcome: "landed", CommitSHA: "c9", BaseSHA: "b9"}); err != nil {
+		t.Fatalf("PutRequest insert: %v", err)
+	}
+	list, err := st.ListRequests(ctx, projectKey, "kan-1070")
+	if err != nil || len(list) != 2 {
+		t.Fatalf("ListRequests = %+v, %v, want 2 rows", list, err)
+	}
+	if r := list[0]; r.N != 1 || r.Title != "right" || r.Outcome != "answered" || r.CommitSHA != "" || r.BaseSHA != "" ||
+		!r.ReceivedAt.Equal(received) || r.EndedAt == nil || !r.EndedAt.Equal(endedAt) {
+		t.Errorf("row 1 = %+v, want it overwritten whole", r)
+	}
+	if r := list[1]; r.N != 31 || r.Title != "moved" || r.Outcome != "landed" || r.CommitSHA != "c9" || r.BaseSHA != "b9" {
+		t.Errorf("row 31 = %+v, want the inserted row", r)
+	}
+
+	if err := st.PutRequest(ctx, projectKey, "kan-1070", records.Request{N: 2, Title: "t", ReceivedAt: received, EndedAt: &endedAt, Outcome: "landed"}); !errors.Is(err, store.ErrInvalidRequest) {
+		t.Errorf("PutRequest landed with no commit: err = %v, want ErrInvalidRequest", err)
+	}
+	if err := st.PutRequest(ctx, projectKey, "no-such-change", records.Request{N: 1, Title: "t", ReceivedAt: received, EndedAt: &endedAt, Outcome: "answered"}); !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("PutRequest unknown change: err = %v, want ErrChangeNotFound", err)
+	}
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 7, Title: "queued"}); err != nil {
+		t.Fatalf("BeginRequest n 7: %v", err)
+	}
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1070", "/flow-interactive", "flow.sdd-tdd"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.SetStageRunRequest(ctx, run.ID, 7); err != nil {
+		t.Fatalf("SetStageRunRequest: %v", err)
+	}
+	list, err = st.ListRequests(ctx, projectKey, "kan-1070")
+	if err != nil || len(list) != 3 || list[1].N != 7 || list[1].State != "in progress" {
+		t.Errorf("ListRequests after SetStageRunRequest = %+v, %v, want n 7 in progress", list, err)
+	}
+	if err := st.SetStageRunRequest(ctx, run.ID, 0); !errors.Is(err, store.ErrInvalidRequest) {
+		t.Errorf("SetStageRunRequest n 0: err = %v, want ErrInvalidRequest", err)
+	}
+	if err := st.SetStageRunRequest(ctx, -1, 7); err == nil {
+		t.Errorf("SetStageRunRequest unknown id: err = nil, want an error")
+	}
+}
