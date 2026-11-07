@@ -107,6 +107,7 @@ roles table by them.
 |---|---|---|---|
 | `implementer` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — | Writes the code for a group of tasks, tests first. |
 | `panel-fix` | `opus/flow-low`, `opus/flow-medium`, `sonnet/flow-low`, `sonnet/flow-medium` | — | Fixes what the review panel found. |
+| `operator-asked` | `opus/flow-medium`, `opus/flow-high`, `sonnet/flow-medium` | — | Runs a task the operator asked a subagent for, in their own words, inside a /flow-interactive request. |
 | `implementer` | `opus/flow-high` | `No-progress escalation` | — |
 | `panel-fix` | `opus/flow-high` | `No-progress escalation` | — |
 

@@ -101,6 +101,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"13n a /flow slot's second ceiling-breach re-dispatch", hook, described("panel-3-primary-retry-2 correctness review", reviewer+" review the diff", "flow-low", "opus", flowT), nil},
 		{"13l a /flow panel-fix chunk", hook, described("panel-fix-2-3 chunk three", "Role: panel-fix\n"+baseline+" fix", "flow-low", "opus", flowT), nil},
 		{"13m a /flow tooling analyst opening with its repository-suffixed key", hook, described("tooling-analysis-1-gymie-frontend sweeps", "Role: tooling-analyst\n"+baseline+" sweep", "flow-medium", "opus", flowT), nil},
+		{"13p a /flow-interactive operator-asked dispatch opening with its operator-<n> key", hook, described("operator-58 research run", "Role: operator-asked\n"+baseline+" run the research", "flow-high", "opus", flowT), nil},
 		{"13h a loop key line with trailing words does not exempt", hook, described("Round-11 primary review", "Key: self-review-x more words\n"+baseline+" plan", "flow-medium", "opus", flowT), []string{"opens with the row it records"}},
 	}
 	for _, c := range cases {

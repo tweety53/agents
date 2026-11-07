@@ -26,8 +26,9 @@ states, and typed the same at every `stage begin` and `stage mark` — never a s
 per the CLI's own usage text. `<n>` is the request's number in the session.
 
 **Guardrails, the whole list.** Never dispatch a subagent, save the self-review pass's own
-dispatches (`skills/flow-self-review/SKILL.md`) and the in-run fix loop of **Pipeline defects found
-mid-run** (`skills/flow-contracts/pipeline.md`). Never write `<project>/spectre/`, save those
+dispatches (`skills/flow-self-review/SKILL.md`), the in-run fix loop of **Pipeline defects found
+mid-run** (`skills/flow-contracts/pipeline.md`), and a subagent the operator asks for in their
+own words (**Operator-asked subagents**, below). Never write `<project>/spectre/`, save those
 passes' own `self-review-<name>` and `pipeline-fix-<name>-<k>` changes, or a state file. Never push
 to a branch other than `<name>` and `<name>:<base>`. Never set up workspace isolation.
 
@@ -213,6 +214,29 @@ A resumed request whose base was never noted passes the parent of its earliest c
 
 A **mid-turn message** is recorded as the next request at once and worked, in the same turn,
 after the in-flight one ends — never a stop. A turn ends when the queue is empty.
+
+## Operator-asked subagents
+
+When the operator asks for a subagent in their own words ("run it with an opus xhigh subagent"),
+the request dispatches it and counts it under this run: inside the request's open `flow.sdd-tdd`
+stage, record the row (store role `implementer`, key `operator-<n>`, which flowd serves as the
+`operator-asked` role), dispatch, and end the row when the agent reports — never a fork.
+
+```bash
+flow record dispatch begin -change <name> -role implementer -model <model> -effort <level> -key operator-<n> -session-token fi-<literal-token>
+```
+
+The Agent call's `description` opens with `operator-<n>`, its prompt carries `Role:
+operator-asked` and the baseline pointer, and its `subagent_type` / `model` is a pair the
+`operator-asked` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`) admits; an effort
+the operator names above the agent type's own (xhigh, max) rides on the Agent call's `effort`, on
+`flow-high`. The agent works in the session's
+worktree, commits on `<name>` and never pushes; the request lands its commits through steps 4–8
+as any other. Its report is relayed, not re-told.
+
+```bash
+flow record dispatch end -change <name> -key operator-<n> -session-token fi-<literal-token> -outcome <outcome>
+```
 
 ## Request-end guard
 

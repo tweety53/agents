@@ -1448,6 +1448,8 @@ func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
 			roleID = "visual-verifier"
 		case role == "planner" && strings.HasPrefix(key, "tooling-analysis-"):
 			roleID = "tooling-analyst"
+		case role == "implementer" && strings.HasPrefix(key, "operator-"):
+			roleID = "operator-asked"
 		}
 	}
 	if roleID != "" {
