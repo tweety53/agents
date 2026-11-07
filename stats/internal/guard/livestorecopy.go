@@ -55,7 +55,9 @@ import (
 // 2 usage or a refusal.
 //
 // "This checkout" is FLOW_GUARD_REPO_ROOT, the checkout scripts/flow-guard
-// runs from. docker, make, go, curl, git and flow are found over the
+// runs from; `up` and `restart` exit 2 when the caller's git toplevel is
+// another checkout, so a live check never runs code the change did not touch
+// (kan-1050 self-review, F1). docker, make, go, curl, git and flow are found over the
 // caller's PATH; a failing docker, make or go step exits with that step's
 // own status, as the bash's `set -e` did.
 func init() { Registry["live-store-copy"] = liveStoreCopy }
@@ -99,6 +101,13 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if repo == "" {
 		l.die(2, "FLOW_GUARD_REPO_ROOT is unset — run flow-guard live-store-copy, which sets it")
+	}
+	if cmd == "up" || cmd == "restart" {
+		if out, err := l.cmd("git", "-C", env.Dir, "rev-parse", "--show-toplevel").Output(); err == nil {
+			if top := strings.TrimRight(string(out), "\n"); !lscSameFile(top, repo) {
+				l.die(2, "live-store-copy runs from %s, but you are in %s — run %s/scripts/flow-guard live-store-copy", repo, top, top)
+			}
+		}
 	}
 	sdd := repo + "/.superpowers/sdd/" + name
 	switch cmd {

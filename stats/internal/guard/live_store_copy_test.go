@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -283,6 +284,42 @@ esac
 			t.Errorf("down after up with transcripts: exit %d", rc)
 		}
 	})
+}
+
+// TestLiveStoreCopyRefusesAnotherCheckout: up and restart run from a checkout
+// other than FLOW_GUARD_REPO_ROOT exit 2 before any side effect, naming that
+// checkout's own scripts/flow-guard (kan-1050 self-review, F1). docker, make,
+// go, curl and flow are failing stubs on PATH, so a missing refusal never
+// reaches the dev stack.
+func TestLiveStoreCopyRefusesAnotherCheckout(t *testing.T) {
+	a, b := t.TempDir(), t.TempDir()
+	var g fxGit
+	for _, r := range []string{a, b} {
+		g.git("", "init", "-q", "-b", "main", r)
+		g.git(r, "commit", "-q", "--allow-empty", "-m", "base")
+	}
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	stub := t.TempDir()
+	for _, tool := range []string{"docker", "make", "go", "curl", "flow"} {
+		writeExec(t, stub+"/"+tool, "#!/usr/bin/env bash\nexit 1\n")
+	}
+	name := fmt.Sprintf("lsc-foreign%d", os.Getpid())
+	dir := "/tmp/flow-live-" + strings.ReplaceAll(name, "-", "_")
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	vars := map[string]string{"FLOW_GUARD_REPO_ROOT": a, "PATH": stub + ":" + os.Getenv("PATH")}
+	env := Env{Dir: b, Getenv: func(k string) string { return vars[k] }}
+	for _, args := range [][]string{{"up", name, strconv.Itoa(20000 + os.Getpid()%20000)}, {"restart", name}} {
+		var out, errb bytes.Buffer
+		rc := liveStoreCopy(args, env, &out, &errb)
+		if rc != 2 || !strings.Contains(errb.String(), "/scripts/flow-guard live-store-copy") || !strings.Contains(errb.String(), filepath.Base(b)) {
+			t.Errorf("%s from another checkout: exit %d, want 2 naming %s/scripts/flow-guard: %s", args[0], rc, b, errb.String())
+		}
+		if lscExists(dir) {
+			t.Errorf("%s from another checkout: created %s", args[0], dir)
+		}
+	}
 }
 
 // lscPid is the pid on the first line of a flowd pidfile.

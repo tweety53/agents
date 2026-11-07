@@ -253,8 +253,9 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > write to the change's own integrate state is written as the stand-in that runs in its place — a
 > scratch fixture, a workspace's own service, a scratch copy of the record — named in the section
 > (kan-1019: a check deferred to integrate was never run). When `<project>/.flow/project.md` names
-> a tool for the check's stand-in — this repository's `<agents repo>/scripts/flow-guard live-store-copy` — the section
-> invokes that tool by name and never re-specifies what it does (kan-1046 self-review, 4a). The
+> a tool for the check's stand-in — this repository's `<project>/scripts/flow-guard
+> live-store-copy`, run from the change's own worktree — the section invokes that tool by name and
+> never re-specifies what it does (kan-1046 self-review, 4a). The
 > no-runtime line opens with `None`.
 >
 > **The check's own inputs are checked at plan time.** Every case or fixture id the section names
