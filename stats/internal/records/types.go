@@ -646,6 +646,59 @@ type GuardRun struct {
 // set 0032_guard_runs.sql's CHECK constraint enforces.
 var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}
 
+// GuardHelpers names the flow-guard commands that are helpers, not guards.
+// Their non-zero exits are recorded in guard_runs as fires, but they refuse
+// nothing, so the flow-health guard-health view leaves them out at read
+// time. TestGuardHelpersAreRegistryKeys pins every entry to guard.Registry.
+// The set lives here because the store and flow-guard both import records,
+// where importing guard into flowd would pull every guard's init into the
+// daemon (decision guard-helpers-in-records).
+var GuardHelpers = []string{
+	"await-sub-agents",
+	"close-task",
+	"commit-split",
+	"compose-mockup-frames",
+	"fold-fixup",
+	"gather-dispatch-context",
+	"generate-relocation-comparison",
+	"guard-autosquash",
+	"installer-sandbox-diff",
+	"integrate-change",
+	"kickoff-worktree",
+	"live-store-copy",
+	"load-sets",
+	"measure-visual-properties",
+	"migrate-worktrees",
+	"panel-round-begins",
+	"pipeline-fix",
+	"plan-agent-pair",
+	"plan-class",
+	"plan-dispatch-bundles",
+	"plan-dispatch-groups",
+	"prepare-workspace",
+	"project-get",
+	"rebuild-full-app-suite-zip",
+	"recover-guard-incident",
+	"refresh-main-checkout",
+	"refresh-plan-base",
+	"remove-change-worktrees",
+	"render-slot-prompt",
+	"reshape-branch",
+	"resolve-base-branch",
+	"resolve-visual-screenshots",
+	"run-capped",
+	"run-reproducer",
+	"run-verify-list",
+	"stage-task-files",
+	"sync-onto-base",
+	"sync-panel-base",
+	"throwaway-worktree",
+	"unchanged",
+	"visual-verify-pass",
+	"workspace",
+	"write-panel-diff",
+}
+
 // RequestBegin is the opening half of one /flow-interactive request's
 // record (KAN-1061): `flow record request begin`. It is an upsert by the
 // change and N -- an empty Title or BrainstormReason leaves the stored

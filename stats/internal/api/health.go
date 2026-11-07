@@ -1,5 +1,5 @@
-// health.go serves the flow-health dashboard: the flow-summary view over
-// store/health.go, and POST
+// health.go serves the flow-health dashboard: the guard-health view over
+// store/health.go -- one row per guard, helpers excluded -- and POST
 // /api/v1/guard-runs/{project}, the write the flow-guard binary makes for
 // every guard it runs.
 package api
@@ -10,22 +10,21 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-// isHealthView reports whether name is the flow-summary view or the
+// isHealthView reports whether name is the guard-health view or the
 // self-review view: neither counts a token measurement nor carries a model.
 func isHealthView(name viewName) bool {
-	return name == viewFlowSummary || name == viewSelfReview
+	return name == viewGuardHealth || name == viewSelfReview
 }
 
-// healthRows answers the flow-summary view and the self-review view. Neither
-// takes a model restriction: a guard run and a self-review finding carry no
-// model, and a change's cost, lead time and panel rounds are counted across
-// every model that ran them, so a model filter is refused rather than
-// silently ignored.
+// healthRows answers the guard-health view and the self-review view.
+// Neither takes a model restriction: a guard run and a self-review finding
+// carry no model, so a model filter is refused rather than silently ignored.
 func (h *statsHandler) healthRows(ctx context.Context, name viewName, period store.Period, project, model *string) (rows any, status int, msg string) {
 	if model != nil {
 		return nil, http.StatusBadRequest, fmt.Sprintf("view %q counts across every model, so a model restriction cannot apply here", name)
@@ -38,29 +37,41 @@ func (h *statsHandler) healthRows(ctx context.Context, name viewName, period sto
 			return nil, s, m
 		}
 		return toSelfReviewDTOs(got, h.commitBase), 0, ""
-	default: // viewFlowSummary
-		got, err := h.store.FlowSummary(ctx, period, project)
+	default: // viewGuardHealth
+		got, err := h.store.GuardHealth(ctx, period, project)
 		if err != nil {
-			s, m := mapStoreError(h.logger, "flow summary", err)
+			s, m := mapStoreError(h.logger, "guard health", err)
 			return nil, s, m
 		}
-		return flowSummaryDTO(got), 0, ""
+		return toGuardHealthDTOs(got), 0, ""
 	}
 }
 
-// flowSummaryDTO is the flow-summary view's one row -- an object, not a
-// list: the view is a set of period totals (store.FlowSummaryRow).
-type flowSummaryDTO struct {
-	ChangesStarted      int      `json:"changesStarted"`
-	ChangesFinished     int      `json:"changesFinished"`
-	TotalCostUsd        *float64 `json:"totalCostUsd"`
-	MeanCostPerFinished *float64 `json:"meanCostPerFinished"`
-	MedianLeadTimeMs    *int64   `json:"medianLeadTimeMs"`
-	MeanPanelRounds     *float64 `json:"meanPanelRounds"`
-	Critical            int      `json:"critical"`
-	Important           int      `json:"important"`
-	Minor               int      `json:"minor"`
-	GuardFires          int      `json:"guardFires"`
+// guardHealthDTO is one guard-health row (store.GuardHealthRow). LastFiredAt
+// is RFC 3339 in UTC, or null when the guard never fired in the window.
+type guardHealthDTO struct {
+	Guard        string  `json:"guard"`
+	Runs         int     `json:"runs"`
+	Fired        int     `json:"fired"`
+	CannotAnswer int     `json:"cannotAnswer"`
+	MedianMs     int64   `json:"medianMs"`
+	TotalMs      int64   `json:"totalMs"`
+	LastFiredAt  *string `json:"lastFiredAt"`
+}
+
+// toGuardHealthDTOs maps rows to their DTOs -- a non-nil slice, so a window
+// with no guard runs answers [] rather than null.
+func toGuardHealthDTOs(rows []store.GuardHealthRow) []guardHealthDTO {
+	out := make([]guardHealthDTO, len(rows))
+	for i, r := range rows {
+		out[i] = guardHealthDTO{Guard: r.Guard, Runs: r.Runs, Fired: r.Fired, CannotAnswer: r.CannotAnswer,
+			MedianMs: r.MedianMs, TotalMs: r.TotalMs}
+		if r.LastFiredAt != nil {
+			at := r.LastFiredAt.UTC().Format(time.RFC3339)
+			out[i].LastFiredAt = &at
+		}
+	}
+	return out
 }
 
 // GuardRunStore is the store dependency POST /api/v1/guard-runs/{project}

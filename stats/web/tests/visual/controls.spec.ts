@@ -233,14 +233,14 @@ test.describe("ChangeVariable", () => {
 });
 
 test.describe("ModelVariable", () => {
-  test("is disabled on flow health, with its reason stated", async ({ page }) => {
-    await page.goto(`/#/flow-health?${PINNED_QUERY}`);
+  test("is disabled on review dynamics, with its reason stated", async ({ page }) => {
+    await page.goto(`/#/review-dynamics?${PINNED_QUERY}`);
     const model = page.getByLabel("Model", { exact: true });
     await expect(model).toBeDisabled();
     const label = page.locator("label.model-variable");
     await expect(label).toHaveAttribute(
       "title",
-      "Flow health totals changes, panel rounds and guard fires across every model, so a model restriction cannot apply here.",
+      "Review dynamics compares models itself, so a model restriction cannot apply here.",
     );
     await expect(label.locator(".dashboard-variable-hint")).toBeVisible();
   });

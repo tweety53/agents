@@ -891,8 +891,12 @@ func (stubStageStore) ReviewDynamics(context.Context, store.Period, *string, *st
 }
 func (stubStageStore) UpsertPromptChange(context.Context, store.PromptChange) error { return nil }
 
-func (stubStageStore) FlowSummary(context.Context, store.Period, *string) (store.FlowSummaryRow, error) {
-	return store.FlowSummaryRow{}, errStageStoreNotImplemented
+func (stubStageStore) GuardHealth(context.Context, store.Period, *string) ([]store.GuardHealthRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) GuardHealthProjects(context.Context, store.Period) ([]store.ProjectGuardRuns, error) {
+	return nil, errStageStoreNotImplemented
 }
 
 func (stubStageStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {

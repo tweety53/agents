@@ -650,7 +650,7 @@ type TrendChange struct {
 // the view computes every filter and aggregate client-side from one
 // request. Everything derives from existing rows (decision
 // trend-derived-no-column): a finished change is state FINISHED and not
-// withdrawn, finishing at updated_at as FlowSummary defines it; its cost is
+// withdrawn, finishing at updated_at; its cost is
 // the sum of stageRunCostExpr over its stage runs, and a change with no
 // costed run is absent, never $0; its week is WeeklyCosts' Wednesday
 // bucket; its command is that of its first stage run by started_at.

@@ -252,7 +252,7 @@ const projectKeyExpr = "COALESCE(c.project_key, sr.project_key)"
 
 // stageRunCostExpr is a stage run's cost: its metrics' cost_usd when that is
 // a JSON number, else NULL -- never a cast error on a malformed bag. Every
-// whole-life and period cost total (LiveStateBoard, FlowSummary) reads it.
+// whole-life and period cost total (LiveStateBoard) reads it.
 const stageRunCostExpr = "CASE WHEN jsonb_typeof(sr.metrics->'cost_usd') = 'number' THEN (sr.metrics->>'cost_usd')::float8 END"
 
 // changeFieldColumns is the allowlist for every field a caller may filter

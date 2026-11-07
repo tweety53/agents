@@ -135,13 +135,17 @@ type findingFixture struct {
 	Status string
 }
 
-// guardFireFixture is one guard run that fired -- Flow health's
-// "Guard fires" tile.
-type guardFireFixture struct {
-	ProjectKey string
-	Guard      string
-	Worktree   string
-	RecordedAt time.Time
+// guardRunsFixture is one guard's runs in one project: Runs runs, the
+// newest at Newest and each next one 50 minutes earlier; the first Fired
+// runs fired, the next CannotAnswer could not answer, the rest were clear.
+type guardRunsFixture struct {
+	ProjectKey   string
+	Guard        string
+	Runs         int
+	Fired        int
+	CannotAnswer int
+	DurationMS   int
+	Newest       time.Time
 }
 
 // projectFixture is one project and the changes recorded under it.
@@ -434,15 +438,32 @@ func fixtureData() []projectFixture {
 	}
 }
 
-// guardFires is the fixture's fired guard runs.
-func guardFires() []guardFireFixture {
-	return []guardFireFixture{
-		{
-			ProjectKey: "uitest-beta",
-			Guard:      "check-references",
-			Worktree:   "/tmp/uitest-beta",
-			RecordedAt: fixtureNow.Add(-3 * time.Hour),
-		},
+// guardRuns is the fixture's guard runs (decision seed-guard-runs). The
+// table draws every state of the flow-health prototype: catching and
+// never-fired guards, cannot-answer runs, more than three never-fired guards
+// and speed-up candidates, durations in every unit, two helper commands that
+// would otherwise top Fires and Run time, and runs outside 7d and 30d. No
+// other view reads guard_runs, so no other capture moves.
+func guardRuns() []guardRunsFixture {
+	recent := fixtureNow.Add(-time.Hour)
+	return []guardRunsFixture{
+		{"uitest-alpha", "check-plan-shape", 40, 12, 0, 900, recent},
+		{"uitest-alpha", "check-references", 30, 3, 0, 1500, recent},
+		{"uitest-alpha", "check-task-commit-fields", 25, 0, 6, 2000, recent},
+		{"uitest-alpha", "run-guard-tests", 7, 1, 0, 600000, recent},
+		{"uitest-alpha", "check-verbatim-moves", 16, 2, 0, 240000, recent},
+		{"uitest-alpha", "break-and-prove", 10, 0, 1, 300000, recent},
+		{"uitest-alpha", "check-installed-citations", 40, 0, 0, 60000, recent},
+		{"uitest-alpha", "check-stage-mark-calls", 15, 0, 0, 120000, recent},
+		{"uitest-alpha", "check-no-bash", 12, 0, 0, 300, recent},
+		{"uitest-alpha", "check-markdown-integrity", 10, 0, 0, 50, recent},
+		{"uitest-alpha", "project-get", 50, 30, 0, 20, recent},        // helper: left out by guard-health
+		{"uitest-alpha", "run-verify-list", 4, 1, 0, 7200000, recent}, // helper: left out by guard-health
+		{"uitest-beta", "check-guard-calls", 8, 0, 2, 2000, recent},
+		{"uitest-beta", "check-dispatch-paragraphs", 5, 1, 0, 150, recent},
+		{"uitest-beta", "check-references", 1, 1, 0, 120, fixtureNow.Add(-3 * time.Hour)},         // the fire the old fixture recorded
+		{"uitest-beta", "check-spec-reach", 4, 0, 0, 10000, fixtureNow.Add(-20 * 24 * time.Hour)}, // outside 7d
+		{"uitest-beta", "check-ask-silence", 3, 1, 0, 400, fixtureNow.Add(-60 * 24 * time.Hour)},  // outside 30d
 	}
 }
 
@@ -583,16 +604,25 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 		return err
 	}
 
-	for _, g := range guardFires() {
-		if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
-			Guard:      g.Guard,
-			Worktree:   g.Worktree,
-			ExitCode:   1,
-			Outcome:    "fired",
-			DurationMS: 120,
-			RecordedAt: g.RecordedAt,
-		}); err != nil {
-			return fmt.Errorf("uitest-seed: record guard run %s for %s: %w", g.Guard, g.ProjectKey, err)
+	for _, g := range guardRuns() {
+		for i := range g.Runs {
+			outcome, exit := "clear", 0
+			switch {
+			case i < g.Fired:
+				outcome, exit = "fired", 1
+			case i < g.Fired+g.CannotAnswer:
+				outcome, exit = "cannot-answer", 2
+			}
+			if _, err := st.RecordGuardRun(ctx, g.ProjectKey, records.GuardRun{
+				Guard:      g.Guard,
+				Worktree:   "/tmp/" + g.ProjectKey,
+				ExitCode:   exit,
+				Outcome:    outcome,
+				DurationMS: g.DurationMS,
+				RecordedAt: g.Newest.Add(-time.Duration(i) * 50 * time.Minute),
+			}); err != nil {
+				return fmt.Errorf("uitest-seed: record guard run %s for %s: %w", g.Guard, g.ProjectKey, err)
+			}
 		}
 	}
 	return nil

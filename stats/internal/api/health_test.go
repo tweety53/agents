@@ -17,40 +17,84 @@ import (
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-func TestFlowSummaryCarriesItsNumbersThrough(t *testing.T) {
-	total, meanCost, rounds := 6.5, 3.5, 2.0
-	lead := int64(1_126_800_000)
-	sts := &statsFake{flowSummary: store.FlowSummaryRow{
-		ChangesStarted: 2, ChangesFinished: 3, TotalCostUsd: &total, MeanCostPerFinished: &meanCost,
-		MedianLeadTimeMs: &lead, MeanPanelRounds: &rounds, Critical: 1, Important: 2, Minor: 4, GuardFires: 7,
+func TestGuardHealthCarriesItsRowsThrough(t *testing.T) {
+	fired := time.Date(2026, 8, 3, 14, 5, 0, 0, time.FixedZone("x", 3600))
+	sts := &statsFake{guardHealth: []store.GuardHealthRow{
+		{Guard: "check-a", Runs: 9, Fired: 2, CannotAnswer: 1, MedianMs: 120, TotalMs: 4000, LastFiredAt: &fired},
+		{Guard: "check-b", Runs: 3, MedianMs: 5, TotalMs: 15},
 	}}
 	ts := newStatsTestServer(t, sts)
-	status, env, body := getStats(t, ts, periodPath("flow-summary"))
+	status, env, body := getStats(t, ts, periodPath("guard-health")+"&project=p")
 	if status != http.StatusOK {
 		t.Fatalf("status %d, body %s", status, body)
 	}
-	var row map[string]any
-	mustDecodeRows(t, env, body, &row)
+	if sts.lastProject == nil || *sts.lastProject != "p" {
+		t.Errorf("project reaching the store = %v, want p", sts.lastProject)
+	}
+	var rows []map[string]any
+	mustDecodeRows(t, env, body, &rows)
+	if len(rows) != 2 {
+		t.Fatalf("rows = %v, want 2", rows)
+	}
 	want := map[string]any{
-		"changesStarted": 2.0, "changesFinished": 3.0, "totalCostUsd": 6.5, "meanCostPerFinished": 3.5,
-		"medianLeadTimeMs": 1126800000.0, "meanPanelRounds": 2.0,
-		"critical": 1.0, "important": 2.0, "minor": 4.0, "guardFires": 7.0,
+		"guard": "check-a", "runs": 9.0, "fired": 2.0, "cannotAnswer": 1.0,
+		"medianMs": 120.0, "totalMs": 4000.0, "lastFiredAt": "2026-08-03T13:05:00Z",
 	}
 	for k, v := range want {
-		if row[k] != v {
-			t.Errorf("row[%q] = %v, want %v", k, row[k], v)
+		if rows[0][k] != v {
+			t.Errorf("rows[0][%q] = %v, want %v", k, rows[0][k], v)
 		}
 	}
+	if v, ok := rows[1]["lastFiredAt"]; !ok || v != nil {
+		t.Errorf("rows[1].lastFiredAt = %v (present %v), want an explicit null", v, ok)
+	}
 
-	// Nothing finished: the means are explicit nulls, never a zero.
+	// No guard ran: an empty list, never null.
 	ts = newStatsTestServer(t, &statsFake{})
-	_, env, body = getStats(t, ts, periodPath("flow-summary"))
-	row = nil
-	mustDecodeRows(t, env, body, &row)
-	for _, k := range []string{"totalCostUsd", "meanCostPerFinished", "medianLeadTimeMs", "meanPanelRounds"} {
-		if v, ok := row[k]; !ok || v != nil {
-			t.Errorf("empty row[%q] = %v (present %v), want an explicit null", k, v, ok)
-		}
+	_, _, body = getStats(t, ts, periodPath("guard-health"))
+	var raw struct {
+		Rows json.RawMessage `json:"rows"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if string(raw.Rows) != "[]" {
+		t.Errorf("rows = %s, want []", raw.Rows)
+	}
+}
+
+// TestGuardHealthAnswersProjects: guard-health?projects=1 carries each
+// project's guard-run count in the store's order; without it the count
+// does not run (decision guard-health-projects-param).
+func TestGuardHealthAnswersProjects(t *testing.T) {
+	sts := &statsFake{guardHealthProjects: []store.ProjectGuardRuns{{ProjectKey: "z", Runs: 5}, {ProjectKey: "a", Runs: 2}}}
+	ts := newStatsTestServer(t, sts)
+
+	status, _, body := getStats(t, ts, periodPath("guard-health")+"&project=a&projects=1")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var got struct {
+		Projects json.RawMessage `json:"projects"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if want := `[{"projectKey":"z","runs":5},{"projectKey":"a","runs":2}]`; string(got.Projects) != want {
+		t.Errorf("projects = %s, want %s", got.Projects, want)
+	}
+
+	sts.guardHealthProjectsCalled = false
+	_, _, body = getStats(t, ts, periodPath("guard-health"))
+	var absent map[string]json.RawMessage
+	if err := json.Unmarshal(body, &absent); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if _, ok := absent["projects"]; ok {
+		t.Errorf("projects present without projects=1: %s", body)
+	}
+	if sts.guardHealthProjectsCalled {
+		t.Error("GuardHealthProjects ran without projects=1")
 	}
 }
 
@@ -58,7 +102,7 @@ func TestFlowSummaryCarriesItsNumbersThrough(t *testing.T) {
 // measurement" says nothing about changes, guard runs or panel rounds, and
 // the SPA hides a panel's rows when it is set.
 func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
-	for _, view := range []string{"flow-summary", "self-review"} {
+	for _, view := range []string{"guard-health", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{
 				allRecordedRunsUnmeasured: true,
@@ -76,7 +120,7 @@ func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
 }
 
 func TestHealthViewsRefuseAModelRestriction(t *testing.T) {
-	for _, view := range []string{"flow-summary", "self-review"} {
+	for _, view := range []string{"guard-health", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{})
 			status, _, body := getStats(t, ts, periodPath(view)+"&model=opus")

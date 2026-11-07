@@ -1,0 +1,14 @@
+# Each capture of flow-health.spec.ts beside its frame of the approved
+# prototype .superpowers/sdd/flow-health-prototype.html:
+# <frame id>.png in .superpowers/sdd/flow-health-frames/ is that file rendered
+# by render.cjs at the capture's 1280px viewport, dark, in the same state --
+# at rest, the Never fired tile hovered, the Catching tile focused, the Never
+# fired tile pressed, Rank by Run time with the Speed-up candidates tile
+# pressed, and the first Project chip after All pressed. The prototype draws
+# no width cap at 1280px, so no CSS is injected.
+flow-health.png flow-health-prototype-rest
+flow-health-tile-hover.png flow-health-prototype-tile-hover
+flow-health-tile-focus.png flow-health-prototype-tile-focus
+flow-health-never-fired.png flow-health-prototype-never-fired
+flow-health-speed-up.png flow-health-prototype-speed-up
+flow-health-project.png flow-health-prototype-project

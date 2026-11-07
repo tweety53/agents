@@ -183,8 +183,6 @@ function routePath(route: Route): string {
  * view whose rows a model restriction cannot apply to.
  */
 const MODEL_DISABLED_REASONS: Partial<Record<ViewName, string>> = {
-  "flow-health":
-    "Flow health totals changes, panel rounds and guard fires across every model, so a model restriction cannot apply here.",
   "review-dynamics": "Review dynamics compares models itself, so a model restriction cannot apply here.",
 };
 
@@ -217,9 +215,8 @@ export function App() {
   }, [route, period]);
 
   const ActiveView = route.kind === "view" ? VIEW_COMPONENTS[route.view] : null;
-  // Flow health counts across models and review dynamics compares them --
-  // every other static view aggregates stage runs and accepts the
-  // restriction.
+  // Review dynamics compares models itself -- every other static view
+  // aggregates stage runs and accepts the restriction.
   const modelDisabledReason = route.kind === "view" ? MODEL_DISABLED_REASONS[route.view] : undefined;
   const modelDisabled = modelDisabledReason !== undefined;
 
@@ -245,7 +242,8 @@ export function App() {
             Period, Command and Project chips (decision trend-drops-daily-views); Reviewers carries its
             own Period, Project and Rank by chips (decision reviewers-chip-filters-period-project);
             Decisions carries its own Period, Project, Class and Review grouping chips (decision
-            decisions-chip-filters); Experiments spans each experiment's own window. */}
+            decisions-chip-filters); Flow health carries its own Period, Project and Rank by chips
+            (decision chip-filters-period-project-rank); Experiments spans each experiment's own window. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
           route.view !== "state-board" &&
@@ -253,6 +251,7 @@ export function App() {
           route.view !== "trend" &&
           route.view !== "reviewers" &&
           route.view !== "decisions" &&
+          route.view !== "flow-health" &&
           route.view !== "experiments" && (
           <DashboardBar
             period={period}

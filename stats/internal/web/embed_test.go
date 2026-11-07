@@ -401,8 +401,12 @@ func (fakeStore) ReviewDynamics(context.Context, store.Period, *string, *string)
 }
 func (fakeStore) UpsertPromptChange(context.Context, store.PromptChange) error { return nil }
 
-func (fakeStore) FlowSummary(context.Context, store.Period, *string) (store.FlowSummaryRow, error) {
-	return store.FlowSummaryRow{}, nil
+func (fakeStore) GuardHealth(context.Context, store.Period, *string) ([]store.GuardHealthRow, error) {
+	return nil, nil
+}
+
+func (fakeStore) GuardHealthProjects(context.Context, store.Period) ([]store.ProjectGuardRuns, error) {
+	return nil, nil
 }
 
 func (fakeStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {

@@ -20,7 +20,7 @@ import { App } from "../App";
 import { DynamicsChart } from "../components/DynamicsChart";
 import { Decisions } from "./Decisions";
 import { Experiments } from "./Experiments";
-import { FlowHealth } from "./FlowHealth";
+import { FlowHealth, speedUpCandidates } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
 import { SelfReview } from "./SelfReview";
@@ -63,6 +63,17 @@ function envelope<Row>(view: StatsViewSlug, rows: Row, recorded = true, unmeasur
   };
 }
 
+// One guard-health row: runs, fired, cannot-answer, median and summed run time, last fired instant.
+const gh = (guard: string, runs: number, fired: number, cannotAnswer: number, medianMs: number, totalMs: number, lastFiredAt: string | null) => ({
+  guard,
+  runs,
+  fired,
+  cannotAnswer,
+  medianMs,
+  totalMs,
+  lastFiredAt,
+});
+
 // A weekly-costs row with every category null; fixtures spread it and set
 // the categories they carry.
 const noPhase = {
@@ -75,7 +86,7 @@ const noPhase = {
 };
 
 // Every slug a view fetches: the navigable views, less "flow-health", which
-// fetches the three health slugs instead of one of its own.
+// fetches its health slug, "guard-health", instead of one of its own name.
 function reviewDynamicsRows() {
   const pt = (bucket: string, metric: string, series: string, value: number, basis: number) => ({ bucket, metric, series, value, basis });
   const weeks = ["2026-01-05", "2026-01-12"];
@@ -434,18 +445,11 @@ const fixtures: Record<
       timedOut: 0,
     },
   ]),
-  "flow-summary": envelope("flow-summary", {
-    changesStarted: 4,
-    changesFinished: 3,
-    totalCostUsd: 42.5,
-    meanCostPerFinished: 9.25,
-    medianLeadTimeMs: 2 * 86400000 + 43200000,
-    meanPanelRounds: 2.5,
-    critical: 1,
-    important: 2,
-    minor: 4,
-    guardFires: 10,
-  }),
+  "guard-health": envelope("guard-health", [
+    gh("check-plan-shape", 6794, 3403, 37, 102, 3798824, "2026-11-04T10:00:00Z"),
+    gh("check-references", 2246, 110, 0, 618, 2056971, "2026-11-04T09:00:00Z"),
+    gh("check-no-bash", 35, 0, 0, 95, 3421, null),
+  ]),
   "self-review": envelope("self-review", [
     { recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, commitUrl: "https://github.com/o/r/commit/abc1234" },
     { recordedAt: "2026-01-11T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-cost", note: "cheaper reviewer", disposition: "fixed", ref: "def5678", blastRadius: null, commitUrl: "https://github.com/o/r/commit/def5678" },
@@ -1948,32 +1952,213 @@ describe("routing", () => {
 });
 
 describe("flow health", () => {
-  it("flow health shows eight totals tiles", async () => {
-    render(<FlowHealth period={period} project={undefined} />);
-    const tile = (name: string) => within(screen.getByRole("region", { name }));
-    expect(await screen.findByRole("region", { name: "Changes started" })).toBeInTheDocument();
-    await tile("Changes started").findByText("4");
-    tile("Changes finished").getByText("3");
-    tile("Total cost").getByText("$42.50");
-    tile("Mean cost per finished change").getByText("$9.25");
-    tile("Median lead time").getByText("2.5 d");
-    tile("Mean panel rounds").getByText("2.50");
-    tile("Findings (C/I/Mi)").getByText("1/2/4");
-    tile("Guard fires").getByText("10");
-    expect(document.querySelectorAll(".stat-panel")).toHaveLength(8);
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  const answerGuards = (rows: ReturnType<typeof gh>[], projects: { projectKey: string; runs: number }[] = []) =>
+    fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("guard-health", rows), projects });
+  const names = () => [...document.querySelectorAll("tbody tr")].map((tr) => tr.querySelector(".rv-slot")!.textContent);
+  const pills = () =>
+    [...document.querySelectorAll("tbody tr")].filter((tr) => tr.querySelector(".lb-pill.fh-speed")).map((tr) => tr.querySelector(".rv-slot")!.textContent);
+  const title = () => document.querySelector(".lb-panel-h span")!.textContent;
+  const foot = () => [...document.querySelectorAll("tfoot td")].map((td) => td.textContent);
+  const cells = (guard: string) => {
+    const tr = [...document.querySelectorAll("tbody tr")].find((r) => r.querySelector(".rv-slot")!.textContent === guard)!;
+    return [...tr.querySelectorAll("td")];
+  };
+  const group = (name: string) => within(screen.getByRole("group", { name }));
+  const tileButton = (name: RegExp) => screen.getByRole("button", { name });
+
+  it("speed-up candidates are the fewest guards reaching 80% of run time", () => {
+    const six = [
+      gh("zeta", 1, 0, 0, 300, 15000, null),
+      gh("a", 1, 0, 0, 100, 40000, null),
+      gh("f", 1, 0, 0, 600, 2000, null),
+      gh("alpha", 1, 0, 0, 300, 15000, null),
+      gh("b", 1, 0, 0, 200, 25000, null),
+      gh("e", 1, 0, 0, 500, 3000, null),
+    ];
+    expect(speedUpCandidates(six)).toEqual(new Set(["a", "b", "alpha"]));
+    expect(speedUpCandidates(six.map((g) => ({ ...g, totalMs: 0 })))).toEqual(new Set());
   });
 
-  it("flow health reads an unfinished period's means as unavailable", async () => {
-    fetchStatsViewMock.mockResolvedValueOnce(
-      envelope("flow-summary", {
-        changesStarted: 1, changesFinished: 0, totalCostUsd: 0, meanCostPerFinished: null,
-        medianLeadTimeMs: null, meanPanelRounds: null, critical: 0, important: 0, minor: 0, guardFires: 0,
-      }),
-    );
+  it("flow health ranks by fires, fire rate, never fired and run time", async () => {
+    const user = userEvent.setup();
+    answerGuards([
+      // alpha and bravo tie on fires (bravo more runs) and on run time (name order alpha first);
+      // alpha and charlie tie on fire rate (charlie more fires); delta and echo never fired (echo more runs).
+      gh("alpha", 100, 10, 0, 500, 50000, "2026-01-10T00:00:00Z"),
+      gh("bravo", 200, 10, 0, 250, 50000, "2026-01-11T00:00:00Z"),
+      gh("charlie", 400, 40, 0, 2, 1000, "2026-01-12T00:00:00Z"),
+      gh("delta", 50, 0, 0, 40, 2000, null),
+      gh("echo", 300, 0, 0, 1666, 500000, null),
+    ]);
     render(<FlowHealth period={period} project={undefined} />);
-    const lead = await screen.findByRole("region", { name: "Median lead time" });
-    expect(await within(lead).findByTestId("unavailable")).toBeInTheDocument();
+    await screen.findByRole("table");
+    const sorted = () => [...document.querySelectorAll("th[aria-sort]")].map((th) => [th.textContent, th.getAttribute("aria-sort")]);
+    const expectRank = (order: string[], heading: string, header: string) => {
+      expect(names()).toEqual(order);
+      expect([...document.querySelectorAll("tbody tr")].map((tr) => tr.querySelector("td")!.textContent)).toEqual(["1", "2", "3", "4", "5"]);
+      expect(title()).toBe(heading);
+      expect(sorted()).toEqual([[header, "descending"]]);
+      expect(pills()).toEqual(["echo"]);
+      const muted = [...document.querySelectorAll("tbody tr.lb-muted")].map((tr) => tr.querySelector(".rv-slot")!.textContent).sort();
+      expect(muted).toEqual(["delta", "echo"]);
+    };
+    expectRank(["charlie", "bravo", "alpha", "echo", "delta"], "Every guard, most fires first", "Fired");
+    await user.click(group("Rank by").getByRole("button", { name: "Fire rate" }));
+    expectRank(["charlie", "alpha", "bravo", "delta", "echo"], "Every guard, highest fire rate first", "Fire rate");
+    await user.click(group("Rank by").getByRole("button", { name: "Never fired" }));
+    expectRank(["echo", "delta", "charlie", "bravo", "alpha"], "Every guard, never-fired first, most runs first", "Last fired");
+    await user.click(group("Rank by").getByRole("button", { name: "Run time" }));
+    expectRank(["echo", "alpha", "bravo", "delta", "charlie"], "Every guard, most run time first", "Run time");
+  });
+
+  it("flow health tiles name each set and toggle the table to it", async () => {
+    const user = userEvent.setup();
+    answerGuards([
+      gh("fire-big", 1000, 50, 10, 100, 100000, "2026-01-10T00:00:00Z"),
+      gh("fire-small", 100, 5, 0, 900, 90000, "2026-01-11T00:00:00Z"),
+      // Under the 20-run floor: a higher cannot-answer share than ca-worst, never named worst.
+      gh("ca-tiny", 10, 0, 5, 8000, 80000, null),
+      gh("ca-worst", 100, 2, 20, 700, 70000, "2026-01-12T00:00:00Z"),
+      gh("quiet-1", 500, 0, 0, 120, 60000, null),
+      gh("quiet-2", 400, 0, 0, 2, 1000, null),
+      gh("quiet-3", 300, 0, 0, 3, 1000, null),
+      gh("quiet-4", 200, 0, 0, 5, 1000, null),
+    ]);
+    render(<FlowHealth period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const tileTexts = [
+      "Catching · fired at least once3 of 8most: fire-big 50 fires",
+      "Never fired · ran, caught nothing5quiet-1 (500 runs), quiet-2 (400 runs), quiet-3 (300 runs), +2 more",
+      "Cannot answer · share of runs1.3%worst: ca-worst 20%",
+      "Speed-up candidates · 80% of run time4 of 7 min totalfire-big 25%, fire-small 22%, ca-tiny 20%, +1 more",
+    ];
+    const tiles = () => [...document.querySelectorAll<HTMLElement>(".rv-tiles .lb-tile")];
+    const expectTiles = () => tiles().forEach((t, i) => expect(t).toHaveTextContent(tileTexts[i]));
+    expect(tiles()).toHaveLength(4);
+    expectTiles();
+    expect(tiles()[1].querySelector(".lb-val")).toHaveClass("rv-worst");
+    expect(tiles().map((t) => t.getAttribute("aria-pressed"))).toEqual(["false", "false", "false", "false"]);
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+
+    await user.click(tileButton(/^Never fired ·/));
+    expect(tileButton(/^Never fired ·/)).toHaveAttribute("aria-pressed", "true");
+    expect(names()).toEqual(["quiet-1", "quiet-2", "quiet-3", "quiet-4", "ca-tiny"]);
+    expect(title()).toBe("Never-fired guards, most fires first");
+    expect(foot()[1]).toBe("5 guards");
+    expect(foot()[8]).toBe("35%");
+    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+    expectTiles();
+
+    await user.click(tileButton(/^Speed-up candidates ·/));
+    expect(tileButton(/^Speed-up candidates ·/)).toHaveAttribute("aria-pressed", "true");
+    expect(tileButton(/^Never fired ·/)).toHaveAttribute("aria-pressed", "false");
+    expect(names()).toEqual(pills());
+    expect(names().sort()).toEqual(["ca-tiny", "ca-worst", "fire-big", "fire-small"]);
+    await user.click(tileButton(/^Speed-up candidates ·/));
+    expect(names()).toHaveLength(8);
+
+    await user.click(group("Rank by").getByRole("button", { name: "Run time" }));
+    await user.click(tileButton(/^Catching ·/));
+    expect(names()).toEqual(["fire-big", "fire-small", "ca-worst"]);
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(tileButton(/^Catching ·/)).toHaveAttribute("aria-pressed", "false");
+    expect(group("Rank by").getByRole("button", { name: "Run time" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    expect(names()).toHaveLength(8);
+
+    await user.click(tileButton(/^Cannot answer ·/));
+    expect(names().sort()).toEqual(["ca-tiny", "ca-worst", "fire-big"]);
+  });
+
+  it("flow health chips request the window and project, and Clear keeps the rank", async () => {
+    const user = userEvent.setup();
+    const rows = fixtures["guard-health"].rows;
+    // Response order, not alphabetical: zeta before alpha.
+    const projects = [
+      { projectKey: "zeta-1234abcd", runs: 9000 },
+      { projectKey: "alpha-0000aaaa", runs: 12 },
+    ];
+    fetchStatsViewMock.mockImplementation(() => Promise.resolve({ ...envelope("guard-health", rows), projects }));
+    const reqs = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "guard-health").map((c) => c[1] as { from: Date; to: Date; project?: string; projects?: boolean });
+    const day = 24 * 60 * 60 * 1000;
+    const now = BOARD_NOW.getTime();
+    const pressed = (g: string, name: string | RegExp) => expect(group(g).getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+    render(<FlowHealth period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(reqs()).toHaveLength(1);
+    expect(reqs()[0]).toMatchObject({ projects: true, project: undefined });
+    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 30 * day, now]);
+    expect(group("Project").getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "zeta9,000", "alpha12"]);
+    expect(group("Project").getByRole("button", { name: /^zeta/ }).querySelector(".lb-c")).toHaveTextContent("9,000");
+    pressed("Rank by", "Fires");
+
+    await user.click(group("Rank by").getByRole("button", { name: "Run time" }));
+    await user.click(group("Project").getByRole("button", { name: /^alpha/ }));
+    await waitFor(() => expect(reqs().at(-1)).toMatchObject({ project: "alpha-0000aaaa", projects: true }));
+    await screen.findByRole("table");
+    pressed("Rank by", "Run time");
+    expect(group("Project").getByRole("button", { name: /^alpha/ })).toHaveAttribute("title", "alpha-0000aaaa");
+
+    await user.click(group("Period").getByRole("button", { name: "7d" }));
+    await waitFor(() => expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 7 * day, now]));
+    await screen.findByRole("table");
+    expect(reqs().at(-1)).toMatchObject({ project: "alpha-0000aaaa" });
+    pressed("Project", /^alpha/);
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    pressed("Period", "30d");
+    pressed("Project", "All");
+    pressed("Rank by", "Run time");
+    await waitFor(() => expect(reqs().at(-1)).toMatchObject({ project: undefined }));
+    expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 30 * day, now]);
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+  });
+
+  it("flow health formats counts, rates and run times", async () => {
+    answerGuards([
+      gh("f-zero", 12345, 0, 0, 450, 1500, null),
+      gh("f-tiny", 2000, 1, 0, 1500, 600000, "2026-08-14T23:30:00Z"),
+      gh("f-five", 100, 5, 3, 1500, 4200000, "2026-08-15T00:00:00Z"),
+      gh("f-quarter", 100, 25, 0, 1500, 1000, "2026-08-16T00:00:00Z"),
+    ]);
+    const { unmount } = render(<FlowHealth period={period} project={undefined} />);
+    await screen.findByRole("table");
+    const text = (guard: string) => cells(guard).map((td) => td.textContent);
+    // Columns: #, Guard, Runs, Fired, Fire rate, Cannot answer, Median run, Run time, Share, Last fired.
+    expect(text("f-zero").slice(2)).toEqual(["12,345", "—", "0%", "—", "450 ms", "1.5 s", "<0.1%", "never"]);
+    expect(cells("f-zero")[9].querySelector(".lb-muted")).toHaveTextContent("never");
+    expect(text("f-tiny").slice(2)).toEqual(["2,000", "1", "<0.1%", "—", "1.5 s", "10 min", "12%", "2026-08-14"]);
+    expect(text("f-five").slice(2)).toEqual(["100", "5", "5.0%", "3.0%", "1.5 s", "1 h 10 min", "87%", "2026-08-15"]);
+    expect(text("f-quarter").slice(2, 5)).toEqual(["100", "25", "25%"]);
+    unmount();
+
+    // Rounding carries into the next unit rather than showing 60 of the smaller one.
+    answerGuards([gh("c-s", 1, 0, 0, 999.6, 59960, null), gh("c-m", 1, 0, 0, 1, 3599000, null), gh("c-h", 1, 0, 0, 1, 7170000, null)]);
+    const second = render(<FlowHealth period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(text("c-s").slice(6, 8)).toEqual(["1.0 s", "1 min"]);
+    expect(text("c-m")[7]).toBe("1 h 0 min");
+    expect(text("c-h")[7]).toBe("2 h 0 min");
+    second.unmount();
+
+    answerGuards([gh("solo", 10, 1, 0, 450, 1500, "2026-08-14T23:30:00Z")]);
+    render(<FlowHealth period={period} project={undefined} />);
+    await screen.findByRole("table");
+    expect(foot()[1]).toBe("1 guard");
+    expect(foot()[8]).toBe("100%");
+  });
+
+  it("flow health shows no tiles and the empty message with no guard runs", async () => {
+    answerGuards([]);
+    const { unmount } = render(<FlowHealth period={period} project={undefined} />);
+    expect(await screen.findByText("No guard runs in this period.")).toBeInTheDocument();
+    expect(document.querySelector(".lb-tile")).toBeNull();
+    unmount();
+
+    fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("guard-health", fixtures["guard-health"].rows, false), projects: [] });
+    render(<FlowHealth period={period} project={undefined} />);
+    expect(await screen.findByTestId("not-recorded")).toBeInTheDocument();
+    expect(document.querySelector(".lb-tile")).toBeNull();
   });
 });
 
