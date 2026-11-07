@@ -6733,6 +6733,8 @@ func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
 		{"subagent full-suite fixer", sdd, row("none", "implementer", "full-suite-fix-1"), 0, ""},
 		{"subagent recommit fixer", sdd, row("none", "implementer", "task-2-implementer-recommit-1"), 0, ""},
 		{"subagent pick fixer", sdd, row("none", "implementer", "task-5+6-implementer-pick-1"), 0, ""},
+		{"subagent operator-asked", sdd, row("none", "implementer", "operator-58"), 0, ""},
+		{"malformed operator key", sdd, row("none", "implementer", "operator-x"), 2, "is not task-<ids>-implementer"},
 		{"malformed full-suite key", sdd, row("none", "implementer", "full-suite-fixes"), 2, "is not task-<ids>-implementer"},
 	}
 	for _, tc := range cases {

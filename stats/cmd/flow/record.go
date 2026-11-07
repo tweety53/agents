@@ -1154,8 +1154,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stderr, "flow: -key %q is a visual-verify verifier row: pass -diff-base <the HEAD it verifies> (skills/flow/visual-verify.md)\n", *key)
 		return 2
 	}
-	if *role == "implementer" && !implementerKey.MatchString(*key) && !fixerKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
-		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry], task-<ids>-implementer-recommit-<k>, task-<ids>-implementer-pick-<k> or full-suite-fix-<n>: ids are +-joined\n", *key)
+	if *role == "implementer" && !implementerKey.MatchString(*key) && !fixerKey.MatchString(*key) && !operatorKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
+		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry], task-<ids>-implementer-recommit-<k>, task-<ids>-implementer-pick-<k>, full-suite-fix-<n> or operator-<n>: ids are +-joined\n", *key)
 		return 2
 	}
 	if !slices.Contains(recordEfforts, *effort) {
@@ -1480,6 +1480,9 @@ func highestRecordedRound(run records.Run) int {
 
 // implementerKey is an implementer dispatch key: task-<ids>-implementer[-fix-<k>][-retry],
 // ids +-joined (skills/flow/implement.md's dispatch table).
+// operatorKey is a /flow-interactive request's operator-asked subagent (skills/flow-interactive/SKILL.md, Operator-asked subagents).
+var operatorKey = regexp.MustCompile(`^operator-[0-9]+$`)
+
 var implementerKey = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?(-retry)?$`)
 
 // fixerKey is an sdd fixer's implementer key that is not a task's own work:
