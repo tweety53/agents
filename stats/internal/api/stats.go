@@ -75,9 +75,12 @@ type StatsStore interface {
 	// models (store.DecisionRow's own doc comment).
 	Decisions(ctx context.Context, period store.Period, project *string) ([]store.DecisionRow, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
-	// FlowSummary backs the flow-health dashboard's period totals
-	// (store/health.go).
-	FlowSummary(ctx context.Context, period store.Period, project *string) (store.FlowSummaryRow, error)
+	// GuardHealth backs the flow-health view's "guard-health" rows: one
+	// per guard that ran in the window and project (store/health.go).
+	GuardHealth(ctx context.Context, period store.Period, project *string) ([]store.GuardHealthRow, error)
+	// GuardHealthProjects backs the guard-health response's projects: the
+	// flow-health view's Project chips (decision guard-health-projects-param).
+	GuardHealthProjects(ctx context.Context, period store.Period) ([]store.ProjectGuardRuns, error)
 	// SelfReviewFindingsInPeriod backs the "self-review" view: every
 	// self-review finding recorded in the period, newest first.
 	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
@@ -136,7 +139,7 @@ const (
 	viewWeeklyModelEffort viewName = "weekly-model-effort-costs"
 	viewReviewers         viewName = "reviewers"
 	viewDecisions         viewName = "decisions"
-	viewFlowSummary       viewName = "flow-summary"
+	viewGuardHealth       viewName = "guard-health"
 	viewSelfReview        viewName = "self-review"
 	viewReviewDynamics    viewName = "review-dynamics"
 )
@@ -148,7 +151,7 @@ const (
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend, viewWeeklyCosts,
 	viewWeeklyModelEffort, viewReviewers, viewDecisions,
-	viewFlowSummary, viewSelfReview, viewReviewDynamics,
+	viewGuardHealth, viewSelfReview, viewReviewDynamics,
 }
 
 func acceptedViewNames() string {
@@ -168,7 +171,8 @@ func acceptedViewNames() string {
 var statsQueryParams = map[string]bool{
 	"from": true, "to": true, "project": true, "change": true, "model": true, "class": true,
 	// "projects=1" asks stage-leaderboard or weekly-costs for its
-	// per-project spend, and reviewers for its per-project dispatch count;
+	// per-project spend, reviewers for its per-project dispatch count, and
+	// guard-health for its per-project guard-run count;
 	// each view sends it on its current-window call only.
 	"projects": true,
 }
@@ -230,6 +234,14 @@ type statsResponse struct {
 type projectDispatchesDTO struct {
 	ProjectKey string `json:"projectKey"`
 	Dispatches int    `json:"dispatches"`
+}
+
+// projectGuardRunsDTO is one entry of the guard-health response's projects:
+// a project's guard-run count in the window, helpers excluded, whatever
+// project the rows narrow to.
+type projectGuardRunsDTO struct {
+	ProjectKey string `json:"projectKey"`
+	Runs       int    `json:"runs"`
 }
 
 // projectSpendDTO is one entry of the stage-leaderboard or weekly-costs
@@ -496,10 +508,9 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// already fully reported by Recorded=false, so asking "did none of its
 	// runs carry a measurement" would be a wasted query answering a
 	// question that period does not raise.
-	// The flow-health view counts changes, guard runs and panel rounds,
-	// and its two cost totals state their own absence (nil) -- so "no run
-	// carried a measurement" says nothing it does not already say, and
-	// would hide real rows.
+	// The flow-health view counts guard runs, which carry no token
+	// measurement -- so "no run carried a measurement" says nothing about
+	// them, and would hide real rows.
 	var unmeasured bool
 	if recorded && !isHealthView(name) {
 		unmeasured, err = h.store.AllRecordedRunsUnmeasured(r.Context(), period, project)
@@ -566,6 +577,19 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		projects := make([]projectDispatchesDTO, len(counts))
 		for i, p := range counts {
 			projects[i] = projectDispatchesDTO{ProjectKey: p.ProjectKey, Dispatches: p.Dispatches}
+		}
+		resp.Projects = projects
+	}
+	if name == viewGuardHealth && firstValue(values, "projects") == "1" {
+		counts, err := h.store.GuardHealthProjects(r.Context(), period)
+		if err != nil {
+			status, msg := mapStoreError(h.logger, "guard health projects", err)
+			writeError(w, status, msg)
+			return
+		}
+		projects := make([]projectGuardRunsDTO, len(counts))
+		for i, p := range counts {
+			projects[i] = projectGuardRunsDTO{ProjectKey: p.ProjectKey, Runs: p.Runs}
 		}
 		resp.Projects = projects
 	}
@@ -659,7 +683,7 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toDecisionDTOs(decisions), 0, ""
 
-	case viewFlowSummary, viewSelfReview:
+	case viewGuardHealth, viewSelfReview:
 		return h.healthRows(ctx, name, period, project, model)
 
 	case viewReviewDynamics:

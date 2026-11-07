@@ -77,8 +77,11 @@ func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string
 // satisfying api.StatsStore at call sites that never exercise a stats route
 // at all (this section's own header comment) -- no test here needs any of
 // them to return anything but a harmless zero value.
-func (f *fakeStore) FlowSummary(_ context.Context, _ store.Period, _ *string) (store.FlowSummaryRow, error) {
-	return store.FlowSummaryRow{}, nil
+func (f *fakeStore) GuardHealth(_ context.Context, _ store.Period, _ *string) ([]store.GuardHealthRow, error) {
+	return nil, nil
+}
+func (f *fakeStore) GuardHealthProjects(_ context.Context, _ store.Period) ([]store.ProjectGuardRuns, error) {
+	return nil, nil
 }
 func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
@@ -141,11 +144,15 @@ type statsFake struct {
 	// weeklyModelEffortCosts backs the weekly-model-effort-costs view.
 	weeklyModelEffortCosts []store.WeeklyModelEffortPoint
 	decisions              []store.DecisionRow
-	flowSummary            store.FlowSummaryRow
-	selfReview             []store.SelfReviewFindingRow
-	reviewDynamics         store.ReviewDynamics
-	promptChanges          []store.PromptChange
-	aggErr                 error
+	// guardHealth backs GuardHealth; guardHealthProjects backs
+	// GuardHealthProjects, and guardHealthProjectsCalled is set when it ran.
+	guardHealth               []store.GuardHealthRow
+	guardHealthProjects       []store.ProjectGuardRuns
+	guardHealthProjectsCalled bool
+	selfReview                []store.SelfReviewFindingRow
+	reviewDynamics            store.ReviewDynamics
+	promptChanges             []store.PromptChange
+	aggErr                    error
 
 	countRunsWithoutModel    int
 	countRunsWithoutModelErr error
@@ -254,9 +261,13 @@ func (f *statsFake) UpsertPromptChange(_ context.Context, c store.PromptChange) 
 	f.promptChanges = append(f.promptChanges, c)
 	return f.aggErr
 }
-func (f *statsFake) FlowSummary(_ context.Context, _ store.Period, p *string) (store.FlowSummaryRow, error) {
+func (f *statsFake) GuardHealth(_ context.Context, _ store.Period, p *string) ([]store.GuardHealthRow, error) {
 	f.lastProject = p
-	return f.flowSummary, f.aggErr
+	return f.guardHealth, f.aggErr
+}
+func (f *statsFake) GuardHealthProjects(_ context.Context, _ store.Period) ([]store.ProjectGuardRuns, error) {
+	f.guardHealthProjectsCalled = true
+	return f.guardHealthProjects, f.aggErr
 }
 func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *string) (int, error) {
 	f.lastProject = p
