@@ -278,7 +278,7 @@ every `/flow*` command writes through the `flow` CLI.**
 **Web UI** at http://127.0.0.1:4173, filterable by project, period and model (`stats/web/src/views/`):
 - state board, stage leaderboard, cost and token trend, weekly costs
 - planner decisions (implementer choice and review grouping per class), reviewers, review dynamics, experiments
-- self-review, flow health, run detail
+- self-review, flow health (which guards fire, which never fire, and what they cost in run time), run detail
 
 ```bash
 cd stats && docker compose up -d   # PostgreSQL

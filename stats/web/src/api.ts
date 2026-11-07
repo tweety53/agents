@@ -69,9 +69,10 @@ export const VIEW_NAMES: readonly ViewName[] = [
  * aggregate, so `fetchStatsView` keeps accepting it alongside `ViewName`. */
 type CostPerChangeViewSlug = "cost-per-change";
 
-/** The statistics endpoint the "flow-health" dashboard reads
- * (internal/api/health.go) -- not a navigable view of its own. */
-export type HealthViewSlug = "flow-summary";
+/** The statistics endpoint the "flow-health" view reads -- one row per
+ * guard in the window (internal/api/health.go's guard-health) -- not a
+ * navigable view of its own. */
+export type HealthViewSlug = "guard-health";
 
 /** The statistics endpoint the Weekly costs view's model·effort chart reads
  * (decision model-effort-view) -- not a navigable view of its own. */
@@ -123,7 +124,7 @@ export interface StatsViewParams {
    * (the stats-views requirement "A model restriction on the live
    * state board"). */
   model?: string;
-  /** Ask stage-leaderboard or weekly-costs for its per-project spend, or reviewers for its per-project dispatch count (`projects=1`). */
+  /** Ask stage-leaderboard or weekly-costs for its per-project spend, reviewers for its per-project dispatch count, or guard-health for its per-project guard-run count (`projects=1`). */
   projects?: boolean;
   /**
    * The command and stage naming the exact cost-per-change *row* to break
@@ -186,6 +187,8 @@ export interface StatsResponse<Row = unknown, Project = ProjectSpend> {
    * `project` parameter (decision leaderboard-project-chips-with-spend).
    * On `reviewers`, each project with reviewer dispatches in the window and
    * its dispatch count (`ReviewerProject`, decision reviewers-projects-dispatch-count).
+   * On `guard-health`, each project with guard runs in the window and its
+   * run count, helpers excluded (`GuardProject`, decision guard-health-projects-param).
    */
   projects?: Project[];
   rows: Row;
@@ -388,20 +391,23 @@ export interface StageLeaderboardRow {
   mainSharePct: number | null;
 }
 
-/** Mirrors flowSummaryDTO (internal/api/health.go): the flow-summary
- * view's one object of period totals. The cost and mean figures are null
- * when nothing in the period was measured -- absence, never a zero. */
-export interface FlowSummary {
-  changesStarted: number;
-  changesFinished: number;
-  totalCostUsd: number | null;
-  meanCostPerFinished: number | null;
-  medianLeadTimeMs: number | null;
-  meanPanelRounds: number | null;
-  critical: number;
-  important: number;
-  minor: number;
-  guardFires: number;
+/** Mirrors guardHealthDTO (internal/api/health.go): one guard's runs in the
+ * window and project, flow-guard's helper commands left out. `lastFiredAt`
+ * is the last fired run's instant, null when the guard never fired. */
+export interface GuardHealthRow {
+  guard: string;
+  runs: number;
+  fired: number;
+  cannotAnswer: number;
+  medianMs: number;
+  totalMs: number;
+  lastFiredAt: string | null;
+}
+
+/** Mirrors guardProjectDTO: one project's guard-run count in the window. */
+export interface GuardProject {
+  projectKey: string;
+  runs: number;
 }
 
 /** Mirrors selfReviewRowDTO. `commitUrl` is "" unless the finding is
