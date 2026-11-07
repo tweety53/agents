@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -601,5 +602,95 @@ func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 		if seeded.MatchString(r.Change) {
 			t.Errorf("seeded row %s is inside the pinned window", r.Change)
 		}
+	}
+}
+
+// TestSeedGuardRunsDrawEveryState pins the guard-runs fixture that draws
+// every flow-health state (decision seed-guard-runs): thirteen guards in
+// 30d, eight never fired, helpers left out, cannot-answer runs, a run-time
+// leader, and runs outside 7d and outside 30d.
+func TestSeedGuardRunsDrawEveryState(t *testing.T) {
+	dsn := newUitestDatabase(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		t.Fatalf("seedFixture: %v", err)
+	}
+
+	window := func(days int) store.Period {
+		return store.Period{From: fixtureNow.Add(-time.Duration(days) * 24 * time.Hour), To: fixtureNow}
+	}
+	rows, err := st.GuardHealth(ctx, window(30), nil)
+	if err != nil {
+		t.Fatalf("GuardHealth: %v", err)
+	}
+	byGuard := map[string]store.GuardHealthRow{}
+	var neverFired int
+	var top store.GuardHealthRow
+	for _, r := range rows {
+		byGuard[r.Guard] = r
+		if r.Fired == 0 {
+			neverFired++
+		}
+		if r.TotalMs > top.TotalMs {
+			top = r
+		}
+	}
+	if len(rows) != 13 {
+		t.Errorf("30d guards = %d, want 13: %+v", len(rows), rows)
+	}
+	for _, helper := range []string{"project-get", "run-verify-list"} {
+		if _, ok := byGuard[helper]; ok {
+			t.Errorf("30d rows carry the helper %s", helper)
+		}
+	}
+	if neverFired != 8 {
+		t.Errorf("never-fired guards = %d, want 8", neverFired)
+	}
+	if r := byGuard["check-references"]; r.Runs != 31 || r.Fired != 4 {
+		t.Errorf("check-references = %+v, want Runs 31 Fired 4", r)
+	}
+	if r := byGuard["check-task-commit-fields"]; r.Runs != 25 || r.CannotAnswer != 6 {
+		t.Errorf("check-task-commit-fields = %+v, want Runs 25 CannotAnswer 6", r)
+	}
+	if r := byGuard["check-guard-calls"]; r.Runs != 8 || r.CannotAnswer != 2 {
+		t.Errorf("check-guard-calls = %+v, want Runs 8 CannotAnswer 2", r)
+	}
+	if top.Guard != "run-guard-tests" || top.TotalMs != 4200000 {
+		t.Errorf("largest TotalMs = %+v, want run-guard-tests 4200000", top)
+	}
+
+	week, err := st.GuardHealth(ctx, window(7), nil)
+	if err != nil {
+		t.Fatalf("GuardHealth 7d: %v", err)
+	}
+	for _, r := range week {
+		if r.Guard == "check-spec-reach" {
+			t.Errorf("7d window carries check-spec-reach: %+v", r)
+		}
+	}
+	quarter, err := st.GuardHealth(ctx, window(90), nil)
+	if err != nil {
+		t.Fatalf("GuardHealth 90d: %v", err)
+	}
+	if !slices.ContainsFunc(quarter, func(r store.GuardHealthRow) bool { return r.Guard == "check-ask-silence" }) {
+		t.Error("90d window has no check-ask-silence row")
+	}
+
+	projects, err := st.GuardHealthProjects(ctx, window(30))
+	if err != nil {
+		t.Fatalf("GuardHealthProjects: %v", err)
+	}
+	want := []store.ProjectGuardRuns{{ProjectKey: "uitest-alpha", Runs: 205}, {ProjectKey: "uitest-beta", Runs: 18}}
+	if !slices.Equal(projects, want) {
+		t.Errorf("GuardHealthProjects = %+v, want %+v", projects, want)
 	}
 }
