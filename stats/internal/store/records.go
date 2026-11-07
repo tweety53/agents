@@ -541,7 +541,9 @@ func autoStageFor(key string) string {
 // unknown (insertDispatch reports that), or the begin replays a row already
 // recorded. The run takes the command, harness and repo root of the
 // change's latest run (/flow when there is none), and the dispatch's own
-// session token and id so harvesting attributes it as a marked stage.
+// session token and id so harvesting attributes it as a marked stage. A
+// /flow-interactive run carries the change's request when exactly one is
+// open, and none otherwise (kan-1070 self-review, F3).
 // EndDispatch closes it once its last open dispatch ends; an explicit stage
 // begin on the change supersedes it (insertStageRunAndSupersede). A
 // dispatch begun at an instant some recorded stage run already covers to its
@@ -579,7 +581,7 @@ func openAutoStageRun(ctx context.Context, tx pgx.Tx, projectKey, change string,
 			SELECT COALESCE((SELECT command FROM latest), '/flow') AS command
 		)
 		INSERT INTO stage_runs (
-			change_id, repo_root, harness, session_id, session_token, command, stage, attempt, started_at, metrics, auto_opened
+			change_id, repo_root, harness, session_id, session_token, command, stage, attempt, started_at, metrics, auto_opened, request_n
 		)
 		SELECT $1, (SELECT repo_root FROM latest),
 			COALESCE(
@@ -588,7 +590,10 @@ func openAutoStageRun(ctx context.Context, tx pgx.Tx, projectKey, change string,
 			COALESCE($2, (SELECT session_id FROM stage_runs WHERE session_token = $3 AND session_id IS NOT NULL LIMIT 1)),
 			$3, cmd.command, $4::text,
 			COALESCE((SELECT MAX(attempt) FROM stage_runs WHERE change_id = $1 AND command = cmd.command AND stage = $4::text), 0) + 1,
-			$5, '{}'::jsonb, true
+			$5, '{}'::jsonb, true,
+			CASE WHEN cmd.command = '/flow-interactive' THEN
+				(SELECT MIN(n) FROM requests WHERE change_id = $1 AND outcome IS NULL HAVING COUNT(*) = 1)
+			END
 		FROM cmd
 		RETURNING id`,
 		changeID, nullIfEmpty(in.SessionID), nullIfEmpty(in.SessionToken), autoStageFor(in.Key), in.StartedAt).Scan(&id)

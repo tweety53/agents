@@ -189,3 +189,72 @@ func TestBeginStageClosesDanglingAutoStageRun(t *testing.T) {
 		t.Errorf("auto runs %+v, want one closed at the explicit begin %s", runs, begin.StartedAt)
 	}
 }
+
+// TestAutoStageRunCarriesTheOpenInteractiveRequest pins sr3-auto-run-request
+// (kan-1070 self-review, F3): a run auto-opened on a /flow-interactive change
+// carries the change's one open request; with that request ended, two open,
+// or a /flow change, it carries none.
+func TestAutoStageRunCarriesTheOpenInteractiveRequest(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	day := func(h, m int) time.Time { return time.Date(2026, 10, 31, h, m, 0, 0, time.UTC) }
+	for _, tc := range []struct {
+		name, command string
+		setup         func(projectKey string)
+		want          *int
+	}{
+		{"interactive, one open", "/flow-interactive", func(pk string) {
+			mustBegin(t, st, pk, 6)
+		}, ptr(6)},
+		{"interactive, request ended", "/flow-interactive", func(pk string) {
+			mustBegin(t, st, pk, 6)
+			if _, err := st.EndRequest(ctx, pk, "kan-1", records.RequestEnd{N: 6, Outcome: "answered"}); err != nil {
+				t.Fatalf("EndRequest: %v", err)
+			}
+		}, nil},
+		{"interactive, two open", "/flow-interactive", func(pk string) {
+			mustBegin(t, st, pk, 6)
+			mustBegin(t, st, pk, 7)
+		}, nil},
+		{"flow, one open", "/flow", func(pk string) {
+			mustBegin(t, st, pk, 6)
+		}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			projectKey := fmt.Sprintf("proj-auto-request-%d", time.Now().UnixNano())
+			seedChange(t, st, projectKey, "kan-1")
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics, auto_opened)
+				SELECT id, 'claude-code', $2, 'flow.load-context', 1, $3, $4, '{}'::jsonb, false
+				FROM changes WHERE project_key = $1 AND name = 'kan-1'`, projectKey, tc.command, day(12, 58), day(12, 59)); err != nil {
+				t.Fatalf("seed stage run: %v", err)
+			}
+			tc.setup(projectKey)
+			if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("fi-auto-1", "r6-draft", day(13, 0))); err != nil {
+				t.Fatalf("RecordDispatch: %v", err)
+			}
+			runs := autoRuns(t, st, projectKey)
+			if len(runs) != 1 {
+				t.Fatalf("%d auto runs, want 1", len(runs))
+			}
+			got := runs[0].RequestN
+			if (got == nil) != (tc.want == nil) || (got != nil && *got != *tc.want) {
+				t.Errorf("auto run request_n = %v, want %v", deref(got), deref(tc.want))
+			}
+		})
+	}
+}
+
+func mustBegin(t *testing.T, st *store.Store, projectKey string, n int) {
+	t.Helper()
+	if _, err := st.BeginRequest(context.Background(), projectKey, "kan-1", records.RequestBegin{N: n, Title: fmt.Sprintf("r%d", n)}); err != nil {
+		t.Fatalf("BeginRequest %d: %v", n, err)
+	}
+}
+
+func deref(p *int) any {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
