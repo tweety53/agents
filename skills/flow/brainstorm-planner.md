@@ -25,6 +25,26 @@ states.
   lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived
   narratives for it.
 
+- **Every ambiguity is asked, however small — never settled by you — in `/flow`'s planning up to
+  its plan gate and in a `/flow-plan` session, and nowhere else.** An ambiguity is any
+  requirement, scenario, name, format, state, edge case, ordering, error behaviour or scope
+  boundary of the change that the request, the ticket, a mockup and the code leave open — any
+  point two competent implementers could read differently. Each one is a question to the user,
+  with a recommended option where one honestly exists, asked until the user's own answer closes
+  it (**Convergence**, `skills/spectre-planning/SKILL.md`); none is settled as your own call,
+  assumed away, or left for the plan or the implementer to settle. Silence answers nothing: the
+  question stays held and is asked again in the next round. Ask every pending question whose
+  wording does not depend on another pending answer at once, four to an **AskUserQuestion** call
+  and in as many calls as they need — every one you hold up front in the first round, and each
+  new one in the round it appears: from an answer, an agent's findings or the builder check, or,
+  once the design is approved, from writing the artifacts or the plan, then asked before the plan
+  review gate and its answer revising the design. This is a scoped override of every call
+  `brainstorming` makes for the user — its **Minor** pile, settled without asking, among them —
+  of the single round of questions its builder check allows, and of **The checklist**'s
+  display-only-formatting bullet and one-call batching (`skills/spectre-planning/SKILL.md`). The
+  self-review and in-run fix planners never apply it: they take the recommendation
+  (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
   path is gitignored: never stage or commit it, even where the brainstorming skill says to, and
@@ -142,10 +162,6 @@ Under the `## decisions: recommended` mode (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended
 **approve the design and move on** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires.
 
-Under the mode the offer is not asked either: **Yes — run another round** is taken, and the
-silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`).
-
 **A fourth option, `/flow`-only.** The convergence confirm (**Convergence**, `skills/spectre-planning/SKILL.md`) carries one more named option, listed right after **Nothing unclear — approve the design and move on**:
 
 > - **Dig deeper — quiz me on this design first** *(never recommended, never the default)*
@@ -153,9 +169,8 @@ silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fire
 Only once the operator picks it — never before, never in anticipation of the confirm — it first dispatches one Explore agent (**Explore and design agents**, above) to collect what the quiz
 needs — the problem and why it exists, the design as settled and why, the code it touches, its edge
 cases and what it impacts — and return it as a briefing. It then loads `skills/flow-learn-quiz/SKILL.md`
-and runs it over that briefing, the operator's understanding being what it checks, until that skill ends. It is a round — it counts toward the
-third-round offer as *Another round* does — and the confirm is then asked again; it never ends the
-stage. Under the `## decisions: recommended` mode the confirm is not asked, so the option never
+and runs it over that briefing, the operator's understanding being what it checks, until that skill ends. It is a round, and the confirm is
+then asked again; it never ends the stage. Under the `## decisions: recommended` mode the confirm is not asked, so the option never
 shows. Silence still defaults to another round, never to this option.
 
 The explicit **approve the design and move on** answer is at once the convergence exit that closes
@@ -179,6 +194,8 @@ spectre new "<name>"   # working directory: the worktree flow.kickoff created
 `STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
 `STARTED` handoff prints at the end of the run, so its `Open questions` line shows what this section holds
 (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
+`flow-guard check-plan-shape` F27 refuses a plan whose `design.md` records a question still open
+(**Open questions**, `skills/spectre-planning/SKILL.md`).
 
 ```bash
 flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>

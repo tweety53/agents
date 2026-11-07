@@ -35,10 +35,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-six
-// findings, F1-F26 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-seven
+// findings, F1-F27 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F26's are the rows below).
+// design.md -- not restated here; F7-F27's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -231,6 +231,14 @@ import (
 //	    denies (decision npx-yes-refused; kan-1079 self-review, F3; its
 //	    review-1, R2). A step runs a tool installed or declared in
 //	    .flow/project.md. Reported at the line.
+//	F27 A sibling design.md whose `## Open questions` section, fences
+//	    excluded, holds an entry (a `###` heading) whose **Status:** does
+//	    not open with `answered by`, a missing **Status:** included, or a
+//	    list item: planning leaves nothing open, and a question the
+//	    operator cannot answer is asked again, narrowed, never recorded
+//	    open (skills/spectre-planning/SKILL.md, Convergence). Reported at
+//	    the entry's heading or the item's line. An absent or unreadable
+//	    design.md is not checked.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -443,6 +451,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.inRunOpeners(ids)...)
 	v = append(v, p.parentActions()...)
 	v = append(v, p.npxFetch()...)
+	v = append(v, p.openQuestions()...)
 	return append(v, p.designSections()...)
 }
 
@@ -1237,5 +1246,58 @@ func (p *psPlan) baseDeclared(ids []string) []string {
 			v = append(v, p.at(psFieldLine(found.lines, found.taskLine, "Tests"), "task "+id+"'s **Tests:** names `"+spec.label+"`, which the base already declares outside its **Files:** — "+strings.Join(where, "; ")+"; the task's commit cannot add it, so check-task-commit-fields refuses the commit — name the test this task adds, or list the file in **Files:**"))
 		}
 	}
+	return v
+}
+
+// psStatusRE is an entry's **Status:** line; psListItemRE a list item;
+// psSectionRE a heading that ends a `##` section.
+var (
+	psStatusRE   = regexp.MustCompile(`^\*\*Status:\*\*[` + tcfWS + `]*(.*)$`)
+	psListItemRE = regexp.MustCompile(`^[` + tcfWS + `]*(?:[-*+]|[0-9]+\.)[` + tcfWS + `]+\S`)
+	psSectionRE  = regexp.MustCompile(`^#{1,2}[` + tcfWS + `]`)
+)
+
+// openQuestions is F27: the sibling design.md records no question left open.
+func (p *psPlan) openQuestions() []string {
+	if !p.on("F27") {
+		return nil
+	}
+	design := filepath.Join(filepath.Dir(p.path), "design.md")
+	raw, err := os.ReadFile(psAbs(p.env, design))
+	if err != nil {
+		return nil
+	}
+	const fix = "planning leaves nothing open — ask it again, narrowed, and record the answer under ## Decisions (skills/spectre-planning/SKILL.md) (F27)"
+	var v []string
+	in, fenced, title, line, answered := false, false, "", 0, false
+	flush := func() {
+		if title != "" && !answered {
+			v = append(v, fmt.Sprintf("%s:%d: open question %q is not answered by a decision — %s", design, line, title, fix))
+		}
+		title = ""
+	}
+	for i, l := range strings.Split(string(raw), "\n") {
+		if tcfFenceRE.MatchString(l) {
+			fenced = !fenced
+			continue
+		}
+		switch {
+		case fenced:
+		case psSectionRE.MatchString(l):
+			flush()
+			in = strings.TrimSpace(l) == "## Open questions"
+		case !in:
+		case strings.HasPrefix(l, "### "):
+			flush()
+			title, line, answered = strings.TrimSpace(l[4:]), i+1, false
+		case title != "":
+			if m := psStatusRE.FindStringSubmatch(l); m != nil {
+				answered = strings.HasPrefix(m[1], "answered by")
+			}
+		case psListItemRE.MatchString(l):
+			v = append(v, fmt.Sprintf("%s:%d: open question %q is recorded as a list item — %s", design, i+1, strings.TrimSpace(l), fix))
+		}
+	}
+	flush()
 	return v
 }

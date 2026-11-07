@@ -154,7 +154,7 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    fresh one with that output until `PLAN-WRITTEN`; a redispatch skips section **C** and the
    `flow.writing-plans` begin, both already made, and resumes at the guard that failed. It returns
    `QUESTIONS` instead the moment writing the artifacts or the plan surfaces an ambiguity (**The
-   checklist**, `skills/spectre-planning/SKILL.md`), the next `round-<r>.md` holding it: the parent
+   checklist**, `skills/flow/brainstorm-planner.md`), the next `round-<r>.md` holding it: the parent
    relays that round as step 2 does, and a fresh final dispatch — never a design round — takes its
    answers, skipping each mark already made and revising the design, the artifacts and the plan
    they change.

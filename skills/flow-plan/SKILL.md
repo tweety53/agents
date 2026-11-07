@@ -104,7 +104,7 @@ than in inference, and confirm a pattern's use elsewhere before generalising fro
 
 ## Asking
 
-Ask every ambiguity, batched, per **The checklist** (`skills/spectre-planning/SKILL.md`). Don't
+Ask every ambiguity, batched, per **The checklist** (`skills/flow/brainstorm-planner.md`). Don't
 funnel the user through a fixed line of questioning — surface the interesting directions and let
 them follow what resonates. An unanswered call just ends its turn — nothing is selected, and the
 pending questions stay pending for the operator's next reply (**Unanswered mid-run asks**,

@@ -22,18 +22,13 @@ unchanged, the plan review gate included.
 
 ### The checklist
 
-Invoke the **brainstorming** skill in full, ending with the user approving the design.
+Invoke the **brainstorming** skill in full: checklist items 1–8, ending with the user approving
+the design.
 
-- **Every ambiguity is asked, however small — never settled by you.** An ambiguity is any
-  requirement, scenario, name, format, state, edge case, ordering, error behaviour or scope
-  boundary of the change that the request, the ticket, a mockup and the code leave open — any
-  point two competent implementers could read differently. Each one is a question to the user,
-  with a recommended option where one honestly exists, asked until the user's own answer closes
-  it — an explicit deferral of theirs included (**Convergence**, below); none is settled as your
-  own call, assumed away, or left for the plan or the implementer to settle. Silence answers
-  nothing: the question stays held and is asked again in the next round. This is a scoped
-  override of every call `brainstorming` makes for the user — its **Minor** pile, settled without
-  asking, among them — and of the single round of questions its builder check allows.
+- **Display-only formatting is decided, never asked.** A choice that changes only how a value is
+  shown — numeric precision, an empty-cell placeholder, and the like — and that the request, ticket
+  or mockup leaves open is chosen by you and recorded under `## Decisions`; no question is asked
+  for it. A mockup or ticket that states it still governs.
 - **A reported defect is checked against history before its fix is designed.** For each entry of a
   bug list, a findings file or a ticket naming symptoms, run `git log --since=<the report's date>`
   over the paths it names on the base and run its cheap reproducer. An entry
@@ -49,15 +44,10 @@ Invoke the **brainstorming** skill in full, ending with the user approving the d
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
   is a scoped override of `brainstorming`'s hard design-approval gate.
-- Ask every pending question whose wording does not depend on another pending answer at once,
-  four to an **AskUserQuestion** call and in as many calls as they need — every one you hold up
-  front in the first round, and each new one in the round it appears: from an answer, an agent's
-  findings or the builder check, or, once the design is approved, from writing the artifacts or
-  the plan, then asked before the plan review gate and its answer revising the design. A
-  question that only makes sense once another is answered waits for the next call; the
-  convergence confirm and the third-round offer may be the last question in such a call. No count
-  of questions or rounds ends the asking. This is a scoped override of `brainstorming`'s one
-  question per message.
+- Ask every pending question whose wording does not depend on another pending answer in one
+  **AskUserQuestion** call, up to four questions per call; a question that only makes sense once
+  another is answered waits for the next call; the convergence confirm may be the last question in
+  such a call. This is a scoped override of `brainstorming`'s "Only one question per message".
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
@@ -85,26 +75,23 @@ why under `## Recommended approach`.
 Within a single run, a stage that loops — most concretely the brainstorm
 stage, whose convergence test reopens after every planning-stage exchange that leaves a question the
 command's inputs do not answer — never closes on the command's own judgment. It closes only on an
-explicit operator answer: at a confirm, or by declining an offer, recording what is still open
-rather than assuming it away. The one bounded exception is a session that cannot ask at all: it
-records the confirm itself as an open question and ends the stage there, since no operator answer
-could ever arrive through it. An operator who is present but silent is not that exception and still
-gets another round. The same explicit answer may both close the checklist and grant the design
-approval, as **Convergence** (`skills/spectre-planning/SKILL.md`) defines.
+explicit operator answer at the confirm, and never with a question still held: nothing is recorded
+as open, and nothing is assumed away. A session that cannot ask at all does not close it either,
+and an operator who is present but silent gets another round. The same explicit answer may both
+close the checklist and grant the design approval, as **Convergence**
+(`skills/spectre-planning/SKILL.md`) defines.
 
 ### Convergence
 
-**Recording a question never satisfies the test when the command records it pre-emptively** — to
-dodge asking a question the operator has not seen; a question recorded that way is still held. **A
-question the operator has explicitly deferred is different**: once recorded under `## Open
-questions` by the operator's own choice — an "I cannot answer this" response at any round, or
-declining the round-3 offer — it stops counting as held. Record it immediately, right where it is
-given, rather than at the round's end. The rest of that round's questions, if any, are still asked;
-only the unanswerable one is deferred.
+**Recording a question never satisfies the test** — a question is held until the operator's
+answer closes it, and nothing is recorded under `## Open questions` in its place. **A question the
+operator cannot answer is asked again, narrowed**: concrete options, the recommended default
+offered as one of them, and the consequence of each option stated beside it — narrowed again on
+each further "I cannot answer this", until an answer closes it. The rest of that round's
+questions, if any, are still asked.
 
 **When the test comes back empty, do not silently proceed.** State what you believe settled — the
-answers and the decisions this stage now rests on — **and every question still recorded under `##
-Open questions`**, including one deferred as far back as round one. Then ask, with named options:
+answers and the decisions this stage now rests on. Then ask, with named options:
 
 > **That is everything I have settled. Anything still unclear before I move on?**
 > - **Nothing unclear — approve the design and move on** *(recommended)*
@@ -117,32 +104,20 @@ names something opens another round. **Here the safe default and the recommended
 present is not "approve the design and move on," and defaults to another round rather than to the
 recommended choice. Print `⚠ another round — no explicit answer` when this default fires.
 
-*Revise* is a round — it counts toward the third-round offer below exactly as *Another round*
-does — and differs only in what happens next: the changed design section(s),
-re-presented before the next confirm, in place of new questions.
+*Revise* is a round, as *Another round* is, and differs only in what happens next: the changed
+design section(s), re-presented before the next confirm, in place of new questions.
 
 **A batched confirm.** When the confirm rides along with a round's questions as the last block of
 the turn, **approve the design and move on** folds that turn's answers into the design and ends the
-stage; an answer to an accompanying question that names something new opens another round
-regardless of the confirm's choice. The silence default above and its `⚠ another round — no
+stage; an answer to an accompanying question that names something new, or that does not answer
+it, opens another round regardless of the confirm's choice. The silence default above and its `⚠ another round — no
 explicit answer` marker are unchanged.
 
-When no answer is possible at all — no channel to ask through — record the confirm itself under `##
-Open questions` and end the stage, printing `⚠ open question recorded — no answer was possible`.
+When no answer is possible at all — no channel to ask through — the stage does not end: it stops
+with its questions held, records none of them, and prints `⛔ planning stopped — no answer was
+possible`.
 
-**From the third round onward, do not open a round silently.** Show two lists — the full still-open
-backlog and, separately, what round `<n>` itself would ask — and offer the round as a named choice:
-
-> **Still open: `<full still-open backlog>`. Round `<n>` would ask about `<this round's slice>`.
-> Open it?**
-> - **Yes — run another round** *(default, recommended)*
-> - **No — record everything still open and move on**
-
-A decline records the **full still-open backlog** shown above. Silence, a stalled prompt, or any
-answer that is not one of the two options above defaults to **Yes**. Print `⚠ another round — no
-explicit answer` when this default fires.
-
-Rounds one and two open without asking. **There is no hard cap.** No round count ends the stage —
+Every round opens without asking. **There is no hard cap.** No round count ends the stage —
 see **Stage exit — never the command's own judgment** (`skills/spectre-planning/SKILL.md`).
 
 ## C. Create the change and its artifacts
@@ -216,15 +191,17 @@ supersession makes to it.
 
 ### Open questions
 
-`## Open questions` sits beside `## Decisions` and is shaped like it — the record the convergence
-offer above names. **A stage that left nothing open records none.** Empty, not absent.
+`## Open questions` sits beside `## Decisions`, present and empty: planning leaves nothing open
+(**Convergence**, above). Empty, not absent. An entry an earlier design recorded there is shaped
+like a decision, and a plan is never written over one that still reads `**Status:** open` — that
+question is asked, narrowed, first.
 
 ```markdown
 ### <the question>
 
 **ID:** <kebab-case-slug>
 **Status:** open
-**Why it is open:** <deferred by the operator, blocked on something external, …>
+**Why it is open:** <why it was left open>
 **What it affects:** <what would change depending on the answer>
 ```
 

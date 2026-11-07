@@ -885,3 +885,49 @@ func TestCheckPlanShapeF26(t *testing.T) {
 		t.Errorf("a bare npx in a code span refused nothing: rc=%d out=%q", r.rc, r.out)
 	}
 }
+
+// TestCheckPlanShapeF27 pins F27: a plan is refused while its sibling
+// design.md's `## Open questions` holds an entry or item still open --
+// planning leaves nothing open (skills/spectre-planning/SKILL.md).
+func TestCheckPlanShapeF27(t *testing.T) {
+	t.Parallel()
+	check := func(t *testing.T, design string) (string, guardResult) {
+		t.Helper()
+		p := psFixture(t, psTasks("a"))
+		writeFile(t, filepath.Dir(p)+"/design.md", design)
+		return p, psMutant(p, "")
+	}
+	entry := func(status string) string {
+		return "### Should X be Y?\n\n**ID:** x-or-y\n" + status + "**What it affects:** the parser.\n"
+	}
+	doc := func(open string) string {
+		return "# Design\n\n## Decisions\n\n### A\n\n**ID:** a\n**Status:** active\n\n## Open questions\n\n" + open + "\n## Verification\n\n- run it\n"
+	}
+	p, r := check(t, doc(entry("**Status:** open\n")))
+	if r.rc != 1 || strings.Count(r.out, "(F27)") != 1 || !strings.Contains(r.out, "Should X be Y?") || !strings.Contains(r.out, "design.md:12:") {
+		t.Errorf("an open entry: rc=%d out=%q", r.rc, r.out)
+	}
+	if m := psMutant(p, "F27"); m.rc != 0 {
+		t.Errorf("the mutation disabling F27 still refused: rc=%d out=%q", m.rc, m.out)
+	}
+	for name, open := range map[string]string{
+		"no status line": entry(""),
+		"list item":      "- Should X be Y? (deferred by the operator)\n",
+	} {
+		if _, r := check(t, doc(open)); r.rc != 1 || strings.Count(r.out, "(F27)") != 1 {
+			t.Errorf("%s: rc=%d out=%q", name, r.rc, r.out)
+		}
+	}
+	for name, design := range map[string]string{
+		"empty section":           doc(""),
+		"answered entry":          doc(entry("**Status:** answered by x-is-y\n")),
+		"prose only":              doc("None.\n"),
+		"no section":              "# Design\n\n## Decisions\n\n- a list item outside the section\n",
+		"fenced example":          doc("```markdown\n" + entry("**Status:** open\n") + "```\n"),
+		"list in a later section": doc("") + "\n## Notes\n\n- an item\n",
+	} {
+		if _, r := check(t, design); r.rc != 0 {
+			t.Errorf("%s refused: rc=%d out=%q", name, r.rc, r.out)
+		}
+	}
+}
