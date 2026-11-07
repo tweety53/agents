@@ -604,6 +604,9 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gatePanelMergerRan(ctx, f, *outcome, stderr); code != 0 {
 		return code
 	}
+	if code := gateSelfReviewPassRan(ctx, f, *outcome, stderr); code != 0 {
+		return code
+	}
 	if code := gateVisualVerifyTrailers(ctx, f, *outcome, stderr); code != 0 {
 		return code
 	}
@@ -831,6 +834,38 @@ func gatePanelMergerRan(ctx context.Context, f stageIdentityFlags, outcome strin
 		return 0
 	}
 	fmt.Fprintf(stderr, "flow: stage end refused: %s\n", mergerMissingMsg(top))
+	return 1
+}
+
+// gateSelfReviewPassRan refuses a completed /flow, /flow-fast or
+// /flow-interactive flow.self-review end while the change holds no
+// self-review-<name>-pass dispatch row ended completed: an explicit stop
+// marked the stage completed without running the pass (kan-1070
+// self-review, F1). Any other outcome passes; a failed record read refuses
+// nothing.
+func gateSelfReviewPassRan(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
+	if (f.command != "/flow" && f.command != "/flow-fast" && f.command != "/flow-interactive") ||
+		f.stage != "flow.self-review" || outcome != "completed" {
+		return 0
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		return 0
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.name)
+	})
+	if err != nil {
+		return 0
+	}
+	key := "self-review-" + f.name + "-pass"
+	for _, d := range run.Dispatches {
+		if d.Key == key && d.Outcome == "completed" {
+			return 0
+		}
+	}
+	fmt.Fprintf(stderr, "flow: stage end refused: flow.self-review ends completed with no completed %s dispatch row -- "+
+		"run the self-review pass (step 2 of skills/flow-self-review/SKILL.md) before ending the stage\n", key)
 	return 1
 }
 

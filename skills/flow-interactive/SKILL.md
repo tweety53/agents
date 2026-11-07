@@ -247,6 +247,8 @@ as a request and the session stays open, saying so in one line. Stop:
    (`skills/flow-fast/SKILL.md`) as written, with `-command '/flow-interactive'` and the `fi-`
    token. `flow self-review bundle -change <name>` renders the session's requests in number order
    as its git-log source. Its fix commits land on `<name>`; no report is written.
+   The pass runs on every stop, a stop that landed no new commit included: it reviews the whole
+   session's requests, never the stop invocation's diff (kan-1070 self-review, F1).
 
    ```bash
    flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> -session-token fi-<literal-token> <name>

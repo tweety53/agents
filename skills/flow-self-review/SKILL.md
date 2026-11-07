@@ -59,7 +59,8 @@ Beside those contents it hands back its per-angle counts, the non-`big` finding 
 store rows. The pass's dispatch row is opened under `<name>` by the hook that admits it;
 when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
 self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end`
-refuses a `flow.self-review` end while it is open.
+refuses a `flow.self-review` end while it is open, and a completed one when the change holds no
+completed pass row (kan-1070 self-review, F1).
 
 **Every suspected defect is traced to a verdict before the pass returns it.** Reproduced, it is
 fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it in its line. "Not

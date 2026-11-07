@@ -2170,7 +2170,7 @@ func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
 		code         int
 	}{
 		{"open pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 1},
-		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 0},
+		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -2208,7 +2208,7 @@ func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
 		code         int
 	}{
 		{"open pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 1},
-		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 0},
+		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -2233,6 +2233,67 @@ func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
 				t.Errorf("stderr = %q, want the end call that closes the pass row", stderr.String())
 			}
 		})
+	}
+}
+
+// TestStageEndRefusesSelfReviewWithNoPassRow pins sr1-pass-row-gate: a
+// completed flow.self-review end, through `stage end` or `stage mark`, is
+// refused for /flow, /flow-fast and /flow-interactive unless the change holds
+// a completed self-review-<name>-pass row; a stopped end, or a record read
+// that fails, refuses nothing (kan-1070 self-review, F1).
+func TestStageEndRefusesSelfReviewWithNoPassRow(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	const (
+		none      = `{"change":"kan-16","dispatches":[],"findings":[],"passes":[],"mutations":[]}`
+		aborted   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"aborted"}],"findings":[],"passes":[],"mutations":[]}`
+		completed = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`
+	)
+	for _, command := range []string{"/flow", "/flow-fast", "/flow-interactive"} {
+		for _, verb := range []string{"end", "mark"} {
+			for _, tc := range []struct {
+				name, record, outcome string
+				recordStatus          int
+				code                  int
+			}{
+				{"no dispatches", none, "completed", http.StatusOK, 1},
+				{"aborted pass", aborted, "completed", http.StatusOK, 1},
+				{"completed pass", completed, "completed", http.StatusOK, 0},
+				{"stopped", none, "stopped", http.StatusOK, 0},
+				{"record read fails", none, "completed", http.StatusInternalServerError, 0},
+			} {
+				if verb == "mark" && tc.outcome != "completed" {
+					continue // stage mark always ends completed
+				}
+				t.Run(command+"/"+verb+"/"+tc.name, func(t *testing.T) {
+					srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+						if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
+							w.WriteHeader(tc.recordStatus)
+							_, _ = w.Write([]byte(tc.record))
+							return
+						}
+						w.WriteHeader(http.StatusOK)
+						_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
+					}))
+					defer srv.Close()
+					args := []string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+						"-command", command, "-stage", "flow.self-review", "-outcome", tc.outcome, "kan-16"}
+					if verb == "mark" {
+						args = []string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+							"-command", command, "-stages", "flow.self-review",
+							"-session-token", "sr-gate-token-20261107T000000Z", "kan-16"}
+					}
+					var stdout, stderr bytes.Buffer
+					code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+					if code != tc.code {
+						t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
+					}
+					if tc.code == 1 && !strings.Contains(stderr.String(), "self-review-kan-16-pass") {
+						t.Errorf("stderr = %q, want it to name self-review-kan-16-pass", stderr.String())
+					}
+				})
+			}
+		}
 	}
 }
 
