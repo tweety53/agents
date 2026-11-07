@@ -260,7 +260,7 @@ has the bundle report it skipped) — it is never committed.
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`
 (`skills/flow-self-review/SKILL.md`), canonical for the eight angles, the fix loop and its
-dispatch pairs, where the fixes land, the filing-and-rating prompt, the store rows and step 5's
+dispatch pairs, where the fixes land, the filing prompt, the store rows and step 5's
 mining of the chosen flow-eval candidates — on every route, before cleanup removes the worktrees.
 No report is written: the findings live in flowd. The session then ends the stage with
 `flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `land` checks that row

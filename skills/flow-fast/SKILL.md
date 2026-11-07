@@ -326,7 +326,7 @@ lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
 
 Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
 canonical for the eight angles, the fix loop, where the fixes land — on `<name>` itself
-when `<worktree>` is `<agents repo>`'s — the filing-and-rating prompt and the store rows. No report is written: the findings live in flowd.
+when `<worktree>` is `<agents repo>`'s — the filing prompt and the store rows. No report is written: the findings live in flowd.
 
 The fixes land with the change on every route. **7. Land**'s landing push carries the fix
 commits' shas per item 5 of step 3 of `/flow-self-review`, in whichever invocation makes it.

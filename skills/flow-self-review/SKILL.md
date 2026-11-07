@@ -1,6 +1,6 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store, rate. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*)
 license: MIT
 compatibility: Standalone, requires the change's default branch, or its `--base` branch, to be checked out and a context bundle saved in flowd.
@@ -11,7 +11,7 @@ Run a change's self-review reasoning pass — the only one the pipeline has — 
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
 (`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
 bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the eight angles, what is fixed, what may be filed and what may be mined, the
-filing-and-rating prompt and the store record. **Neither the pass nor its fixes run
+filing prompt and the store record. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 plans, fixes and reviews, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
 
@@ -55,7 +55,7 @@ evidence, its severity and its classification — `noted` or fixable, in or out 
 counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every angle-7 candidate in step 4's explanation layout.
 It hands back the full content of `<sr-dir>/report-draft.md`, step 6's input, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
 It hands back every case file under `<sr-dir>/cases/<case-id>/` and every file for `<state-dir>/flow-eval/<name>/` the same way, each under its target path, and writes no file itself.
-Beside those contents it hands back its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. Before step 2a, this session writes each returned file to its target path, byte for byte. This session keeps the filing-and-rating prompt, the
+Beside those contents it hands back its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. Before step 2a, this session writes each returned file to its target path, byte for byte. This session keeps the filing prompt, the
 store rows. The pass's dispatch row is opened under `<name>` by the hook that admits it;
 when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
 self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end`
@@ -198,7 +198,7 @@ config, guards — and nothing else.** A finding about the project's own product
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
 here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`). A landing HEAD
 whose UI no visual verifier saw is such a finding, never a risk line. The draft carries no
-section beyond the eight angles and the rating. The filing prompt is never waived: a pass with
+section beyond the eight angles. The filing prompt is never waived: a pass with
 no operator to answer it files and mines nothing and records every offered finding `declined`.
 
 **One combined pass** — never eight separate reads. The pass covers what the bundle holds and
@@ -446,7 +446,7 @@ explanation arriving afterward describes something the operator did not agree to
 This session first fills each `fixed: <F-id>` placeholder of `<sr-dir>/report-draft.md` with the sha `git log --format='%h %s'` shows for its task's commit subject, rewriting one whose finding step 3 left unfixed as `offered: <F-id>`.
 It then prints that body from `<sr-dir>/findings.md`'s `## Offered` section and the draft's `fixed:` lines, never composing either.
 
-When an angle-7 candidate is offered, the ask is two calls: the filing questions and the rating
+When an angle-7 candidate is offered, the ask is two calls: the filing questions
 in one call that follows the explanation in the same turn, and the mining questions in their own
 call in a later turn, after a turn that ends on the candidates' template; the
 operator may instead answer the mining ask in chat directly. Why: a harness focus mode shows
@@ -457,15 +457,14 @@ every ask across two turns was rejected by the operator the same day: the split 
 candidates alone. An unanswered call of this shape follows **Unanswered mid-run asks**
 (`skills/flow-contracts/pipeline.md`).
 
-With no candidate offered, the filing ask and the rating are **one `AskUserQuestion` call**
+With no candidate offered, the filing ask is **one `AskUserQuestion` call**
 that follows the explanation in the same turn. Every call has the shape per **Operator prompts**
 (`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
 three offered items each — findings to file or angle-7 candidates to mine, never both in one
 question — every option prefixed with its angle's label, plus **None — file nothing** or
-**None — mine nothing** as the default; the rating last, `5 — excellent` / `4 — good` / `3 — fine` / `2 — rough`, a `1`
-typed through the tool's free-text "Other". More than nine offered items roll the overflow into one
-further call of the same shape, without the rating. With nothing to offer, no call
-is made: the rating is asked only beside a filing or mining ask. A candidate is mined only when the operator selects it: silence, a
+**None — mine nothing** as the default. More than nine offered items roll the overflow into one
+further call of the same shape. With nothing to offer, no call
+is made. A candidate is mined only when the operator selects it: silence, a
 stalled prompt and **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
 mine nothing. An angle-7 candidate's explanation in the message body is its template.
 
@@ -563,7 +562,7 @@ listing holds every row and item 5 of step 3 recorded its `fixed` rows.
 
 ### 8. Report
 
-End naming the rating, the shas landed, the Jira keys filed and the flow-eval cases mined, by branch and sha, each prompt-tuning case written in step 2a by the absolute path of its `index.html` in `<agents repo>`'s main checkout once landed (`<agents repo>/docs/prompt-tuning/<case-id>/index.html`) (each `none` when empty), each chosen candidate left unmined with its `case add` command, and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+End naming the shas landed, the Jira keys filed and the flow-eval cases mined, by branch and sha, each prompt-tuning case written in step 2a by the absolute path of its `index.html` in `<agents repo>`'s main checkout once landed (`<agents repo>/docs/prompt-tuning/<case-id>/index.html`) (each `none` when empty), each chosen candidate left unmined with its `case add` command, and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 
 ## Guardrails
 
