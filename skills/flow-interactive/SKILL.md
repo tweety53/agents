@@ -220,18 +220,18 @@ after the in-flight one ends — never a stop. A turn ends when the queue is emp
 
 When the operator asks for a subagent in their own words ("run it with an opus xhigh subagent"),
 the request dispatches it and counts it under this run: inside the request's open `flow.sdd-tdd`
-stage, record the row (store role `implementer`, key `operator-<n>`, which flowd serves as the
+stage, record the row (store role `implementer`, key `operator-<k>`, which flowd serves as the
 `operator-asked` role), dispatch, and end the row when the agent reports — never a fork.
-Each agent gets its own row: `<n>` is one past the highest `operator-` key the change records, so
+Each agent gets its own row: `<k>` is one past the highest `operator-` key the change records, so
 two agents of one request never share a key. A dispatch the hook refuses ends its row `aborted` at
 once. `flow stage end` of the request's `flow.sdd-tdd` refuses while an `operator-` row of the
 change is open (kan-1080 self-review, F4).
 
 ```bash
-flow record dispatch begin -change <name> -role implementer -model <model> -effort <level> -key operator-<n> -session-token fi-<literal-token>
+flow record dispatch begin -change <name> -role implementer -model <model> -effort <level> -key operator-<k> -request <n> -session-token fi-<literal-token>
 ```
 
-The Agent call's `description` opens with `operator-<n>`, its prompt carries `Role:
+The Agent call's `description` opens with `operator-<k>`, its prompt carries `Role:
 operator-asked` and the baseline pointer, and its `subagent_type` / `model` is a pair the
 `operator-asked` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`) admits; an effort
 the operator names above the agent type's own (xhigh, max) rides on the Agent call's `effort`, on
@@ -240,7 +240,7 @@ worktree, commits on `<name>` and never pushes; the request lands its commits th
 as any other. Its report is relayed, not re-told.
 
 ```bash
-flow record dispatch end -change <name> -key operator-<n> -session-token fi-<literal-token> -outcome <outcome>
+flow record dispatch end -change <name> -key operator-<k> -session-token fi-<literal-token> -outcome <outcome>
 ```
 
 ## Request-end guard

@@ -285,7 +285,7 @@ func validateFindingRef(flagName, ref string) error {
 }
 
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
-                             -change name [-task id] -role role [-slot name]
+                             -change name [-task id] [-request n] -role role [-slot name]
                              -model model -effort level [-agent-id id|none]
                              [-diff-base sha[,sha...]] [-round-base sha] [-started-at instant]
                              -key key -session-token token
@@ -1065,6 +1065,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	var f recordIdentityFlags
 	registerRecordIdentityFlags(fset, &f)
 	task := fset.String("task", "", "the task id from the tasks.md heading, where the role runs against a task")
+	request := fset.Int("request", 0, "the /flow-interactive request this dispatch ran for, a positive integer (optional)")
 	role := fset.String("role", "", "one of: "+strings.Join(recordRoles, ", ")+" (required)")
 	slot := fset.String("slot", "", "the review-panel slot, where the role is a panel slot")
 	model := fset.String("model", "", "the model this dispatch ran on, as recorded intent -- the literal \"unknown (agent-defined)\" where it cannot be read, never a guess (required)")
@@ -1078,6 +1079,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
+	}
+	if *request < 0 {
+		fmt.Fprintf(stderr, "flow: -request %d is not a request number: pass the positive /flow-interactive request id, or omit it\n", *request)
+		return 2
 	}
 	if !requireChangeCheckout(ctx, f.addr, f.timeout, f.dir, f.change, stderr) {
 		return 2
@@ -1386,6 +1391,9 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		SessionToken: *sessionToken,
 		SessionID:    sessionID,
 		StartedAt:    started,
+	}
+	if *request > 0 {
+		in.Request = request
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.RecordDispatch(ctx, projectKey, f.change, in)
@@ -1703,7 +1711,7 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	registerRecordIdentityFlags(fset, &f)
-	beginOnly := []string{"task", "role", "slot", "model", "effort", "agent-id", "diff-base", "round-base", "started-at"}
+	beginOnly := []string{"task", "request", "role", "slot", "model", "effort", "agent-id", "diff-base", "round-base", "started-at"}
 	endOnly := []string{"commit", "outcome", "cause", "tokens", "ended-at"}
 	v := map[string]*string{}
 	for _, n := range append(append([]string{"key", "session-token"}, beginOnly...), endOnly...) {

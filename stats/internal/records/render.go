@@ -596,6 +596,9 @@ func taskOf(d Dispatch) string {
 	if m := keyTask.FindStringSubmatch(d.Key); m != nil {
 		return m[1]
 	}
+	if d.Request != nil {
+		return fmt.Sprintf("request %d", *d.Request)
+	}
 	return ""
 }
 

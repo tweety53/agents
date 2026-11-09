@@ -108,7 +108,10 @@ type Dispatch struct {
 	DiffBase   string `json:"diffBase,omitempty"`
 	// RoundBase is the fix round's base sha a scoped visual-verify re-run
 	// was begun with (-round-base); empty on every unscoped dispatch.
-	RoundBase    string          `json:"roundBase,omitempty"`
+	RoundBase string `json:"roundBase,omitempty"`
+	// Request is the /flow-interactive request an operator-asked dispatch
+	// ran for (-request); nil on every other row (kan-1081 self-review, F5).
+	Request      *int            `json:"request,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
 	Cause        string          `json:"cause,omitempty"`
 	SessionToken string          `json:"sessionToken,omitempty"`

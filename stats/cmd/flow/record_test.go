@@ -7993,3 +7993,36 @@ func TestRecordNextRoundSkipsGatedRows(t *testing.T) {
 		t.Fatalf("exit %d stdout %q, want 0 and 0; stderr:\n%s", code, stdout.String(), stderr.String())
 	}
 }
+
+// TestRecordDispatchBeginRequestFlag pins -request (kan-1081 self-review,
+// F5): a positive value reaches the body, a negative one is refused before
+// any write, and an absent one sends no request at all.
+func TestRecordDispatchBeginRequestFlag(t *testing.T) {
+	if sent := dispatchBeginBody(t, "-request", "12"); sent["request"] != float64(12) {
+		t.Errorf("request = %v, want 12", sent["request"])
+	}
+	if sent := dispatchBeginBody(t); sent["request"] != nil {
+		t.Errorf("no -request: body carries request %v, want none", sent["request"])
+	}
+
+	repo := recordRepo(t, "kan-327")
+	isolatedStateRoot(t)
+	posted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posted = true
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-327", "-role", "implementer", "-model", "opus", "-key", "operator-1", "-request", "-1",
+		"-session-token", "fi-request-flag"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 2 {
+		t.Errorf("-request -1: exit %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if posted {
+		t.Error("-request -1 reached the daemon, want no write")
+	}
+}

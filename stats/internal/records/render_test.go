@@ -1206,3 +1206,30 @@ func TestRenderPanelOmitsGatedRows(t *testing.T) {
 		t.Fatalf("gated row rendered:\n%s", out)
 	}
 }
+
+// TestRenderLedgerNamesTheRequest pins F5 of kan-1081's self-review: an
+// operator-asked row names the /flow-interactive request it ran for, read
+// from the row's own Request, never derived from its key.
+func TestRenderLedgerNamesTheRequest(t *testing.T) {
+	twelve := 12
+	cases := []struct {
+		name, task string
+		request    *int
+		want       string
+	}{
+		{"request", "", &twelve, "- Task: request 12\n"},
+		{"task wins", "3", &twelve, "- Task: 3\n"},
+		{"neither", "", nil, "- Task: no task\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out := records.RenderLedger(records.Run{
+				Change:     "c",
+				Dispatches: []records.Dispatch{{Seq: 1, Role: "implementer", Key: "operator-7", TaskID: c.task, Request: c.request}},
+			})
+			if !strings.Contains(out, c.want) {
+				t.Errorf("want %q in:\n%s", c.want, out)
+			}
+		})
+	}
+}

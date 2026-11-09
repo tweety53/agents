@@ -5701,3 +5701,80 @@ func TestEndDispatchLaterVerifyGroupExtendsInlineVerifierRow(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordDispatchKeepsRequest pins the request column (kan-1081
+// self-review, F5): an operator-asked row records the /flow-interactive
+// request it ran for, and a re-begin that names none keeps the stored one
+// and leaves an ended row ended.
+func TestRecordDispatchKeepsRequest(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-request-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "fi-dispatch-request"
+	twelve, thirteen := 12, 13
+	begin := func(req *int) records.Dispatch {
+		t.Helper()
+		d := baseDispatch("implementer", "opus")
+		d.SessionToken = token
+		d.Key = "operator-1"
+		d.Request = req
+		out, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+		if err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		return out
+	}
+
+	if got := begin(&twelve); got.Request == nil || *got.Request != 12 {
+		t.Fatalf("begin with request 12: Request = %v, want 12", got.Request)
+	}
+	ended, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: token,
+		Key:          "operator-1",
+		Outcome:      "completed",
+		EndedAt:      time.Date(2026, 8, 22, 9, 5, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+
+	got := begin(nil)
+	if got.Request == nil || *got.Request != 12 {
+		t.Errorf("re-begin with no request: Request = %v, want the stored 12", got.Request)
+	}
+	if got.Outcome != "completed" {
+		t.Errorf("re-begin with no request: Outcome = %q, want completed", got.Outcome)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(*ended.EndedAt) {
+		t.Errorf("re-begin with no request: EndedAt = %v, want %v unchanged", got.EndedAt, ended.EndedAt)
+	}
+
+	if got := begin(&thirteen); got.Request == nil || *got.Request != 13 {
+		t.Errorf("re-begin with request 13: Request = %v, want 13", got.Request)
+	}
+
+	none := baseDispatch("reviewer", "opus")
+	none.SessionToken = token
+	none.Key = "operator-2"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", none); err != nil {
+		t.Fatalf("RecordDispatch with no request: %v", err)
+	}
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	for _, d := range rec.Dispatches {
+		switch d.Key {
+		case "operator-1":
+			if d.Request == nil || *d.Request != 13 {
+				t.Errorf("stored operator-1: Request = %v, want 13", d.Request)
+			}
+		case "operator-2":
+			if d.Request != nil {
+				t.Errorf("stored operator-2: Request = %d, want nil", *d.Request)
+			}
+		}
+	}
+}
