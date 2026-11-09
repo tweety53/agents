@@ -125,7 +125,8 @@ PAIR_CHECK = [os.environ["DISPATCH_PAIR_CHECK"]] if os.environ.get("DISPATCH_PAI
 
 # A description naming its row: plan tasks by id over the plan's count, any other row by a first
 # word of a Key shape the closed list names (**Dispatch sites -- the parent's closed list**,
-# skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`, `full-suite-fix-2`, a planner's `plan-2`, a /flow-interactive request's operator-asked `operator-58`. A lowercase word off
+# skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`, `full-suite-fix-2`, a planner's `plan-2`, a /flow-interactive request's operator-asked `operator-58`, the `operator-<n>` shape admitted in a
+# /flow-interactive session only (OPERATOR_KEY). A lowercase word off
 # the list -- `verify-fix-1`, `verify` -- names no row (kan-1029: both launched with no row).
 ROW_KEY = (
     r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
@@ -139,6 +140,7 @@ ROW_KEY = (
     r"|operator-\d+(?:-[a-z0-9][a-z0-9-]*)?"
 )
 ROW_DESCRIPTION = re.compile(r"(?:Tasks? \d+(?:\+\d+)*/\d+|" + ROW_KEY + r")(?:\s|$)")
+OPERATOR_KEY = re.compile(r"operator-\d+(?:-[a-z0-9][a-z0-9-]*)?(?:\s|$)")
 # The loop key line exactly as the harvester reads it (loopKeyPattern, stats/internal/harvest/transcript.go).
 LOOP_KEY_LINE = re.compile(r"^[ \t]*Key:[ \t]*(?:pipeline-fix|self-review)-\S+[ \t]*$", re.M)
 
@@ -149,6 +151,13 @@ DESCRIPTION_REASON = (
     "the launch onto the row that word names; a description like \"Round-11 primary review\" "
     "leaves the row to time pairing, which mis-stamps.\n\n"
     "Re-send this call with `description` opening with its row's key, nothing else changed."
+)
+
+OPERATOR_KEY_REASON = (
+    "Dispatch blocked: an `operator-<k>` key names an operator-asked dispatch of /flow-interactive "
+    "(skills/flow-interactive/SKILL.md), and this session's transcript records no /flow-interactive. "
+    "A step a /flow contract gives the parent's own calls -- the Live check among them "
+    "(skills/flow/verify-and-handoff.md) -- runs in the parent, never as a dispatch."
 )
 
 
@@ -186,6 +195,8 @@ def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | N
         return None
     description = tool_input.get("description")
     if isinstance(description, str) and ROW_DESCRIPTION.match(description):
+        if OPERATOR_KEY.match(description) and in_flow_run(payload) and not in_interactive_session(payload):
+            return OPERATOR_KEY_REASON
         return None
     return DESCRIPTION_REASON if in_flow_run(payload) else None
 
@@ -307,6 +318,19 @@ def in_flow_session(payload: dict) -> bool:
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             return any(is_flow_command(line) for line in f)
+    except OSError:
+        return False
+
+
+def in_interactive_session(payload: dict) -> bool:
+    path = payload.get("transcript_path")
+    if not isinstance(path, str):
+        return False
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return any(
+                is_flow_command(line) and "<command-name>/flow-interactive</command-name>" in line for line in f
+            )
     except OSError:
         return False
 
