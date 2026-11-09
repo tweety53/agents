@@ -53,6 +53,9 @@ func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 	g.git("", "clone", "-q", fx.origin, seed)
 	g.git(seed, "config", "user.name", "test")
 	g.git(seed, "config", "user.email", "test@example.com")
+	// Every project ignores .superpowers/, so kickoff adds no commit; one
+	// that does not is TestKickoffWorktreeIgnoresScratch's.
+	writeFile(t, seed+"/.gitignore", ".superpowers/\n")
 	if projectMD != "" {
 		writeFile(t, seed+"/.flow/project.md", projectMD)
 	} else {
@@ -561,5 +564,35 @@ func TestKwPeerNameNamesWhichReadFailed(t *testing.T) {
 	}
 	if _, msg := kwPeerName(env, "git", from, "/p"); !strings.HasPrefix(msg, "cannot resolve ") {
 		t.Errorf("no main checkout: %q", msg)
+	}
+}
+
+// TestKickoffWorktreeIgnoresScratch pins kickoff's ignore-scratch call
+// (kan-1081 self-review, F2): in a project that does not ignore
+// .superpowers/, the new branch's first commit ignores it, pushed with the
+// branch, while the merge base stays the commit the add checked out.
+func TestKickoffWorktreeIgnoresScratch(t *testing.T) {
+	t.Parallel()
+	fx := kwNew(t, "", true)
+	other := t.TempDir() + "/other"
+	fx.git(t, "", "clone", "-q", fx.origin, other)
+	fx.git(t, other, "rm", "-q", ".gitignore")
+	fx.git(t, other, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "drop ignore")
+	fx.git(t, other, "push", "-q", "origin", "HEAD:main")
+	fx.started(t)
+	r := fx.run(t, fx.project, kwName)
+	wt := fx.project + "-worktrees/" + kwName
+	if r.rc != 0 {
+		t.Fatalf("rc=%d out=%s", r.rc, r.out)
+	}
+	if s := fx.git(t, wt, "log", "-1", "--format=%s"); s != "chore: ignore .superpowers/ scratch" {
+		t.Errorf("HEAD subject = %q", s)
+	}
+	head := fx.git(t, wt, "rev-parse", "HEAD")
+	if tip := fx.git(t, wt, "rev-parse", "origin/spectre/"+kwName); tip != head {
+		t.Errorf("origin/spectre/%s = %s, want HEAD %s", kwName, tip, head)
+	}
+	if want := "worktree: " + wt + "\nmerge-base: " + fx.git(t, wt, "rev-parse", "HEAD^") + "\n"; r.stdout != want {
+		t.Errorf("stdout = %q, want %q", r.stdout, want)
 	}
 }

@@ -87,6 +87,8 @@ flow-guard kickoff-worktree <project> <name> [<base>]
 `<base>` is the creating run's `--base <branch>` (`skills/flow/SKILL.md`), omitted when none was
 given: the new branch is then cut from `origin/<base>` instead of `origin/<default-branch>`, and the
 base is recorded on it for `flow-guard resolve-base-branch`; `origin/<base>` missing is exit 1.
+Right after the add, the script runs `flow-guard ignore-scratch` on the new worktree (kan-1081
+self-review, F2).
 
 Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. **Persist the worktree into the
 state record before this step returns** — the script does, through `flow state add-worktree` right

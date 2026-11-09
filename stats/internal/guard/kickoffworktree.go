@@ -73,6 +73,11 @@ import (
 //      --from when given). <project>-worktrees/ is
 //      the sibling of <project>'s physical path, outside the repository, so
 //      nothing needs ignoring (design.md: sibling-worktrees-layout).
+//      Last in this step, `flow-guard ignore-scratch <worktree>` commits
+//      `.superpowers/` ignored and untracked on the branch when the
+//      worktree does not ignore it — the merge base stays the add's HEAD,
+//      its line goes to stderr, and its exit 1 stops the run (kan-1081
+//      self-review, F2).
 //   3. flow-guard project-get <worktree> "worktree setup": exit 0 runs every line
 //      inside the body's ``` fences, in order, from the worktree root, in the
 //      foreground — never the fence markers or the prose around them; exit 1
@@ -310,6 +315,11 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		if rc, out := kwRun(env, "", git, "-C", wt, "config", "branch."+branch+".flowBase", base); rc != 0 {
 			return relay(1, out)
 		}
+	}
+	// The session's scratch never rides along in a commit (kan-1081
+	// self-review, F2); its line goes to stderr, so stdout keeps its two.
+	if ignoreScratch([]string{wt}, env, stderr, stderr) != 0 {
+		return 1
 	}
 
 	// 3. The project's worktree setup, fenced lines only, in order.

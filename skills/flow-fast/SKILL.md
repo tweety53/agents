@@ -145,6 +145,7 @@ points at:
 git fetch origin
 git worktree add <project>-worktrees/<name> -b <name> origin/<base>
 git -C <project>-worktrees/<name> config branch.<name>.flowBase <base>   # --base only
+flow-guard ignore-scratch <project>-worktrees/<name>
 git -C <project>-worktrees/<name> push -u origin <name>
 ```
 

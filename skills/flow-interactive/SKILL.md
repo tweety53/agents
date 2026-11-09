@@ -80,12 +80,7 @@ project asks to test before anything lands.
 of `/flow-fast` creates it (`skills/flow-fast/SKILL.md`), its `## worktree setup` run once — with no
 `--base`. Then `mkdir -p <changeRoot>`, where `<changeRoot>` is
 `<project>-worktrees/<name>/.superpowers/sdd/<name>/`: the record verbs find the change's checkout
-by that directory, and it holds the session's edit scripts. When `git -C <project>-worktrees/<name>
-check-ignore -q --no-index .superpowers/` fails, the session's first commit on `<name>`, before any
-request's work, ignores `<project>-worktrees/<name>/.superpowers/` in
-`<project>-worktrees/<name>/.gitignore` and untracks every path under it (`git rm -r -q --cached
---ignore-unmatch .superpowers`), the files kept on disk; it lands with the first request (kan-1080
-self-review, F3). The main checkout is never checked out, staged, committed or written.
+by that directory, and it holds the session's edit scripts. The main checkout is never checked out, staged, committed or written.
 
 **Hook registrations.** Grep the harness's hook config for every identifier `<agents repo>/setup.sh`'s
 `warn_unregistered_hook` checks for that harness (on Claude Code: `enforce-agent-baseline`,
@@ -322,8 +317,8 @@ as a request and the session stays open, saying so in one line. Stop:
 ## Resume
 
 `/flow-interactive <key or name>` on an open session reuses its worktree — recreated from the
-remote branch, else `origin/<base>`, when gone, with `mkdir -p <changeRoot>` run in it since
-`<project>/.superpowers/` is gitignored — marks `flow.kickoff` under a new token, continues
+remote branch, else `origin/<base>`, when gone, with `flow-guard ignore-scratch <worktree>` and
+`mkdir -p <changeRoot>` run in it — marks `flow.kickoff` under a new token, continues
 numbering after the highest recorded request,
 and takes an open request from the dead session as the current one: its stages re-run as new
 attempts under the same number.
