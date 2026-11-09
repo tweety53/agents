@@ -101,7 +101,10 @@ func newRequestFixture(t *testing.T) requestFixture {
 	run(root, "init", "-q", "-b", "main", peer)
 	fx := requestFixture{peer: peer, name: name, git: func(args ...string) string { return run(peer, args...) }}
 	fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n")
-	fx.git("add", ".flow")
+	if err := os.WriteFile(filepath.Join(peer, ".gitignore"), []byte(".superpowers/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fx.git("add", ".flow", ".gitignore")
 	fx.git("commit", "-q", "-m", "base")
 	fx.git("remote", "add", "origin", origin)
 	fx.git("push", "-q", "origin", "main")
@@ -464,4 +467,58 @@ func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
 	if code, stderr := end("2026-10-30T10:02:11Z"); code != 0 || d.count("POST") != 1 {
 		t.Errorf("an 11 s UI check: exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
 	}
+}
+
+// TestRecordRequestEndRefusesSuperpowers pins the Request-end guard's
+// .superpowers/ check (kan-1080 self-review, F3): a landed end is refused
+// while the session checkout does not ignore .superpowers/, or while -commit
+// tracks a path under it, before the store is written.
+func TestRecordRequestEndRefusesSuperpowers(t *testing.T) {
+	d := &requestDaemon{runs: `[{"stageRunId":99,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T09:00:00Z","outcome":"completed"}]`}
+	srv := httptest.NewServer(d.handler(t))
+	defer srv.Close()
+	end := func(fx requestFixture, commit, base string) (int, string) {
+		t.Helper()
+		d.reset()
+		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", base)
+		if code == 1 && d.count("POST") != 0 {
+			t.Errorf("a refused end reached the daemon")
+		}
+		return code, stderr
+	}
+
+	t.Run("not ignored", func(t *testing.T) {
+		fx := newRequestFixture(t)
+		base := fx.git("rev-parse", "HEAD")
+		fx.git("rm", "-q", ".gitignore")
+		fx.git("commit", "-q", "-m", "chore: drop ignore")
+		commit := fx.commit(t, "docs/a.md", true)
+		if code, stderr := end(fx, commit, base); code != 1 || !strings.Contains(stderr, ".superpowers/ is not gitignored") {
+			t.Errorf("exit=%d stderr=%q, want 1 naming the missing ignore", code, stderr)
+		}
+	})
+	t.Run("tracked at commit", func(t *testing.T) {
+		fx := newRequestFixture(t)
+		base := fx.git("rev-parse", "HEAD")
+		path := ".superpowers/sdd/" + fx.name + "/edit.py"
+		if err := os.WriteFile(filepath.Join(fx.peer, path), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		fx.git("add", "-f", path)
+		fx.git("commit", "-q", "-m", "feat: edit script")
+		fx.git("push", "-q", "origin", fx.name+":main")
+		fx.git("fetch", "-q", "origin")
+		commit := fx.git("rev-parse", "HEAD")
+		if code, stderr := end(fx, commit, base); code != 1 || !strings.Contains(stderr, "tracks .superpowers/sdd/"+fx.name+"/edit.py") {
+			t.Errorf("exit=%d stderr=%q, want 1 naming the tracked path", code, stderr)
+		}
+	})
+	t.Run("ignored and untracked", func(t *testing.T) {
+		fx := newRequestFixture(t)
+		base := fx.git("rev-parse", "HEAD")
+		commit := fx.commit(t, "docs/a.md", true)
+		if code, stderr := end(fx, commit, base); code != 0 {
+			t.Errorf("exit=%d stderr=%q, want 0", code, stderr)
+		}
+	})
 }

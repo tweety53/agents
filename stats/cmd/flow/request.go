@@ -158,7 +158,8 @@ func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.W
 // the write and before the store is contacted for anything else: the
 // change's checkout (the first linked worktree carrying .superpowers/sdd/<change>/,
 // else the main checkout when it carries it), commit an ancestor of
-// origin/<base> and base an ancestor of commit, the request's latest
+// origin/<base> and base an ancestor of commit, .superpowers/ gitignored in
+// that checkout and tracked at commit by no path, the request's latest
 // /flow-interactive flow.verify run ended completed, and -- when
 // check-visual-trigger matches base..commit's files -- its latest
 // flow.visual-verify run ended completed, at least one second after it
@@ -200,6 +201,19 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 	}
 	if exec.Command("git", "-C", wt, "merge-base", "--is-ancestor", base, commit).Run() != nil {
 		return refuse("-base %s is not an ancestor of -commit %s", base, commit)
+	}
+	// The session's edit scripts live under .superpowers/sdd/<change>/ in
+	// this checkout: a project that does not ignore the directory lands them
+	// on its default branch with the first request (kan-1080 self-review, F3).
+	if exec.Command("git", "-C", wt, "check-ignore", "-q", "--no-index", ".superpowers/").Run() != nil {
+		return refuse(".superpowers/ is not gitignored in %s — add it to the project's root .gitignore, untrack it (git rm -r --cached .superpowers), land that, and end again", wt)
+	}
+	tracked, err := exec.Command("git", "-C", wt, "ls-tree", "-r", "--name-only", commit, "--", ".superpowers").Output()
+	if err != nil {
+		return refuse("git ls-tree %s -- .superpowers failed in %s: %v", commit, wt, err)
+	}
+	if first, _, _ := strings.Cut(strings.TrimSpace(string(tracked)), "\n"); first != "" {
+		return refuse("-commit %s tracks %s — untrack .superpowers/ (git rm -r --cached .superpowers), land that, and end again", commit, first)
 	}
 	files, err := exec.Command("git", "-C", wt, "diff", "--name-only", base+".."+commit).Output()
 	if err != nil {

@@ -76,12 +76,16 @@ value ends the run with one line naming `## default landing route` as the sectio
 so does `flow-guard project-get <project> handoff --enum required none` resolving `required` — that
 project asks to test before anything lands.
 
-**Worktree.** One per session, `<project>-worktrees/<name>` on branch `<name>`, created as section
-1 of `/flow-fast` creates it (`skills/flow-fast/SKILL.md`), its `## worktree setup` run once — with
-no `--base`. Then `mkdir -p <changeRoot>`, where `<changeRoot>` is
-`<project>-worktrees/<name>/.superpowers/sdd/<name>/`: the record verbs find the change's checkout by that
-directory, and it holds the session's edit scripts. The main checkout is never checked out,
-staged, committed or written.
+**Worktree.** One per session, `<project>-worktrees/<name>` on branch `<name>`, created as section 1
+of `/flow-fast` creates it (`skills/flow-fast/SKILL.md`), its `## worktree setup` run once — with no
+`--base`. Then `mkdir -p <changeRoot>`, where `<changeRoot>` is
+`<project>-worktrees/<name>/.superpowers/sdd/<name>/`: the record verbs find the change's checkout
+by that directory, and it holds the session's edit scripts. When `git -C <project>-worktrees/<name>
+check-ignore -q --no-index .superpowers/` fails, the session's first commit on `<name>`, before any
+request's work, ignores `<project>-worktrees/<name>/.superpowers/` in
+`<project>-worktrees/<name>/.gitignore` and untracks every path under it (`git rm -r -q --cached
+--ignore-unmatch .superpowers`), the files kept on disk; it lands with the first request (kan-1080
+self-review, F3). The main checkout is never checked out, staged, committed or written.
 
 **Hook registrations.** Grep the harness's hook config for every identifier `<agents repo>/setup.sh`'s
 `warn_unregistered_hook` checks for that harness (on Claude Code: `enforce-agent-baseline`,
@@ -243,8 +247,9 @@ flow record dispatch end -change <name> -key operator-<n> -session-token fi-<lit
 `flow record request end -outcome landed` checks, in-process and before the write:
 
 1. The worktree is the checkout carrying `<changeRoot>` — its first carrying linked worktree, else
-   the main checkout when it carries it; none is refused. `<base>` is what the
-   `resolve-base-branch` guard prints for it.
+   the main checkout when it carries it; none is refused. `<base>` is what the `resolve-base-branch`
+   guard prints for it. `<project>-worktrees/<name>/.superpowers/` must be gitignored there, and
+   `-commit` must track no path under it.
 2. `-commit` must be an ancestor of `origin/<base>` — the local ref a successful push updates — and
    `-base` an ancestor of `-commit`. The request's latest `/flow-interactive` `flow.verify` stage
    run carrying `-request <n>`, by start, must have ended `completed`, whatever the diff touches.
