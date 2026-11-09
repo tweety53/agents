@@ -98,7 +98,7 @@ roles table by them.
 | Role | Allowed pairs | Requires marker | Does |
 |---|---|---|---|
 | `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — | Reads the codebase to answer a planner's question. |
-| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium`, `opus/Plan@high`, `opus/Plan@xhigh`, `fable/Plan@medium`, `fable/Plan@high`, `fable/Plan@xhigh` | — | Proposes a design or plan for the planner to choose from. |
+| `plan-designer` | `fable/Plan@xhigh`, `fable/Plan@high`, `fable/Plan@medium`, `opus/Plan@xhigh`, `opus/Plan@high`, `opus/Plan@medium`, `opus/Plan@low` | — | Proposes a design or plan for the planner to choose from. |
 | `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low`, `opus/flow-planner-high`, `opus/flow-planner-xhigh`, `fable/flow-planner-medium`, `fable/flow-planner-high`, `fable/flow-planner-xhigh` | — | Writes the design and the task plan. |
 
 ### Implementation
@@ -117,7 +117,7 @@ roles table by them.
 |---|---|---|---|
 | `gated-reviewer` | `opus/flow-medium` | — | Reviews risky tasks as they land, on big changes only. |
 | `gated-re-reviewer` | `opus/flow-low` | — | Re-checks a gated review's findings after their fix. |
-| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium`, `fable/flow-medium` | — | Reviews the whole branch, first pass: the primary + principles bundle. |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium`, `fable/flow-low`, `fable/flow-medium` | — | Reviews the whole branch, first pass: the primary + principles bundle. |
 | `panel-reviewer` | `opus/flow-high` | `Operator-approved high` | — |
 | `panel-sanity-efficiency` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: checks each new test would fail if its behaviour broke, and spots wasted calls. |
 | `panel-mutation-failure` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: breaks the code on purpose to prove the tests notice, and checks error, timeout and partial-write paths. |

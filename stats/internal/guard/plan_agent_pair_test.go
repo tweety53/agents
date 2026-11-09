@@ -16,11 +16,11 @@ func TestPlanAgentPair(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + root})
-	t.Run("always opus low", func(t *testing.T) {
+	t.Run("every seed gets the row's first pair", func(t *testing.T) {
 		for i := range 100 {
-			for _, role := range []string{"explorer", "plan-designer"} {
-				if r := runGuard("plan-agent-pair", []string{fmt.Sprintf("s%d", i), "1", role}, env); r.rc != 0 || r.stdout != "opus low\n" {
-					t.Fatalf("s%d 1 %s: rc=%d out=%q, want opus low", i, role, r.rc, r.out)
+			for role, want := range map[string]string{"explorer": "opus low\n", "plan-designer": "fable xhigh\n"} {
+				if r := runGuard("plan-agent-pair", []string{fmt.Sprintf("s%d", i), "1", role}, env); r.rc != 0 || r.stdout != want {
+					t.Fatalf("s%d 1 %s: rc=%d out=%q, want %q", i, role, r.rc, r.out, want)
 				}
 			}
 		}
@@ -42,7 +42,7 @@ func TestPlanAgentPairFollowsPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := t.TempDir()
-	table := strings.Replace(string(b), "| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium`,", "| `plan-designer` | `opus/Plan@medium`, `opus/Plan@low`,", 1)
+	table := strings.Replace(string(b), "| `plan-designer` | `fable/Plan@xhigh`,", "| `plan-designer` | `opus/Plan@medium`, `fable/Plan@xhigh`,", 1)
 	if table == string(b) {
 		t.Fatal("the real table carries no plan-designer row to rewrite")
 	}
