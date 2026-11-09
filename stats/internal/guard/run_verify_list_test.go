@@ -1063,3 +1063,82 @@ func TestProjectTestListRunsGoSuitesOnACoreShare(t *testing.T) {
 		}
 	}
 }
+
+// TestRunVerifyListStampsLintGreen pins the kan-1081 self-review fix (F1): a
+// `lint` list that exits 0 on a tree clean before and after it writes HEAD to
+// the worktree's `flow-lint-green`, the evidence a landed request end reads;
+// a failing or dirty run writes nothing.
+func TestRunVerifyListStampsLintGreen(t *testing.T) {
+	head := func(t *testing.T, d string) string {
+		out, err := exec.Command("git", "-C", d, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	setup := func(t *testing.T, cmd string) (string, string) {
+		wt, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\n"+cmd+"\n```\n")
+		gitRun(t, wt, "init", "-q")
+		gitRun(t, wt, "add", "-A")
+		gitRun(t, wt, "commit", "-qm", "a")
+		out, err := exec.Command("git", "-C", wt, "rev-parse", "--path-format=absolute", "--git-path", "flow-lint-green").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return wt, strings.TrimSpace(string(out))
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	lint := func(wt string) (int, string) {
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{wt, "lint"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		return rc, o.String() + e.String()
+	}
+	stamp := func(f string) (string, bool) {
+		b, err := os.ReadFile(f)
+		return string(b), err == nil
+	}
+	t.Run("green", func(t *testing.T) {
+		wt, f := setup(t, "true")
+		rc, out := lint(wt)
+		if got, ok := stamp(f); rc != 0 || !ok || got != head(t, wt)+"\n" {
+			t.Fatalf("exit %d, stamp %q (%v), want %s\n%s", rc, got, ok, head(t, wt), out)
+		}
+	})
+	t.Run("failing", func(t *testing.T) {
+		wt, f := setup(t, "false")
+		rc, _ := lint(wt)
+		if _, ok := stamp(f); rc != 1 || ok {
+			t.Fatalf("exit %d, stamp written %v; want exit 1, no stamp", rc, ok)
+		}
+	})
+	t.Run("dirty", func(t *testing.T) {
+		wt, f := setup(t, "true")
+		writeFile(t, filepath.Join(wt, "untracked"), "x")
+		rc, out := lint(wt)
+		if _, ok := stamp(f); rc != 0 || ok {
+			t.Fatalf("exit %d, stamp written %v; want exit 0, no stamp\n%s", rc, ok, out)
+		}
+	})
+	t.Run("stale", func(t *testing.T) {
+		wt, f := setup(t, "true")
+		old := head(t, wt)
+		writeFile(t, f, old+"\n")
+		gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "b")
+		rc, out := lint(wt)
+		if got, _ := stamp(f); rc != 0 || got != head(t, wt)+"\n" || got == old+"\n" {
+			t.Fatalf("exit %d, stamp %q, want the newer %s\n%s", rc, got, head(t, wt), out)
+		}
+	})
+}

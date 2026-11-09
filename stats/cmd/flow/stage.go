@@ -44,7 +44,7 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
                           -command cmd -stage key -session-token token (<change> | -change name | -jira-key KEY)
        flow stage end [-addr url] [-timeout dur] [-C dir]
                         -command cmd -stage key -outcome outcome
-                        [-fix-rounds n] [-panel-rounds n] [-findings json] (<change> | -change name | -jira-key KEY)
+                        [-fix-rounds n] [-panel-rounds n] [-findings json] [-reason line] [-screenshot path] (<change> | -change name | -jira-key KEY)
        flow stage wrap [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
                         -command cmd -stage key -session-token token (<change> | -change name | -jira-key KEY)
                         -- <work command and args...>
@@ -556,6 +556,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	panelRounds := fset.Int("panel-rounds", -1, "metrics.panel_rounds, if this stage ran a review panel")
 	findings := fset.String("findings", "", "metrics.findings_by_severity, as a JSON object")
 	reason := fset.String("reason", "", "metrics.reason, why the stage ended as it did -- one line, for a failed outcome")
+	screenshot := fset.String("screenshot", "", "metrics.screenshot, the screenshot a UI check read -- an existing file, recorded as its absolute path")
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -582,7 +583,26 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		return 2
 	}
 
-	metrics, err := buildEndMetrics(*fixRounds, *panelRounds, *findings, *reason)
+	if *screenshot != "" {
+		shot := *screenshot
+		if !filepath.IsAbs(shot) {
+			shot = filepath.Join(f.dir, shot) // relative to -C, as every other path here
+		}
+		abs, err := filepath.Abs(shot)
+		if err == nil {
+			var fi os.FileInfo
+			if fi, err = os.Stat(abs); err == nil && !fi.Mode().IsRegular() {
+				err = errors.New("not a regular file")
+			}
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: -screenshot %s: %v\n", *screenshot, err)
+			return 2
+		}
+		*screenshot = abs
+	}
+
+	metrics, err := buildEndMetrics(*fixRounds, *panelRounds, *findings, *reason, *screenshot)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -965,7 +985,7 @@ func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome
 // `flow stage end --change ... --outcome completed` example never
 // passes -harness at all, so a claude-code run ended without it would
 // have been marked unavailable despite being genuinely measured.
-func buildEndMetrics(fixRounds, panelRounds int, findings, reason string) (json.RawMessage, error) {
+func buildEndMetrics(fixRounds, panelRounds int, findings, reason, screenshot string) (json.RawMessage, error) {
 	patch := map[string]json.RawMessage{}
 	if fixRounds >= 0 {
 		patch["fix_rounds"] = json.RawMessage(fmt.Sprintf("%d", fixRounds))
@@ -985,6 +1005,13 @@ func buildEndMetrics(fixRounds, panelRounds int, findings, reason string) (json.
 			return nil, fmt.Errorf("encode reason: %w", err)
 		}
 		patch["reason"] = r
+	}
+	if screenshot != "" {
+		r, err := json.Marshal(screenshot)
+		if err != nil {
+			return nil, fmt.Errorf("encode screenshot: %w", err)
+		}
+		patch["screenshot"] = r
 	}
 	if len(patch) == 0 {
 		return nil, nil

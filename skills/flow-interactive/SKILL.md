@@ -157,7 +157,10 @@ flow stage end   -command '/flow-interactive' -stage flow.sdd-tdd -outcome compl
 
 **4. Verify.** `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
 scoped to the packages and files the request touched, `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual`, and `flow-guard check-fast-route-record <worktree>
-<base>` — as section 5 of `/flow-fast` states them. The request never lands red.
+<base>` — as section 5 of `/flow-fast` states them. The request never lands red. The `lint` list,
+exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
+--git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
+request's last commit (kan-1081 self-review, F1).
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
@@ -193,13 +196,14 @@ flow stage end   -command '/flow-interactive' -stage flow.refresh-main-checkout 
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 `location.reload()`, screenshot, and read the screenshot against the ask. A pass ends the stage
-run `-outcome completed`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7
+run `-outcome completed`. That end carries `-screenshot <path>`, the screenshot just read, saved
+under `<changeRoot>`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7
 again inside the same request. The stage's end is its own call, made after the screenshot is read —
 never chained to its begin.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
-flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed [-reason '<the defect, one line>'] <name>
+flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
 **8. End.** Steps 1–7 are not optional and never reported as left undone: a request whose reinstall, UI check or record is outstanding is not ended — run them first, and a report never carries a "Not done" for a step this section requires. One of:
@@ -257,12 +261,13 @@ flow record dispatch end -change <name> -key operator-<n> -session-token fi-<lit
 2. `-commit` must be an ancestor of `origin/<base>` — the local ref a successful push updates — and
    `-base` an ancestor of `-commit`. The request's latest `/flow-interactive` `flow.verify` stage
    run carrying `-request <n>`, by start, must have ended `completed`, whatever the diff touches.
+   `-commit` must be the sha the worktree's `flow-lint-green` holds (step 4).
 3. `git diff --name-only <base>..<commit>` is fed to the `check-visual-trigger` guard against the
    worktree's checkout of `<project>/.flow/project.md`. A `ui paths` match (exit 0) requires the request's latest
    `/flow-interactive` `flow.visual-verify` stage run, by start, to have ended `completed`. Exit 1,
    or exit 2 with `VISUAL-TRIGGER-NOT-CONFIGURED`, requires nothing. Exit 2 with
-   `VISUAL-TRIGGER-CANNOT-ANSWER` refuses, quoting its cause. A `completed` UI check that ended
-   less than one second after it began is a chained mark (step 7) and is refused.
+   `VISUAL-TRIGGER-CANNOT-ANSWER` refuses, quoting its cause. That run's `-screenshot` must name a
+   file whose modification time falls between its begin and its end (step 7).
 4. With the store unreachable, checks 1–3's git work still runs; the stage-run reads are skipped
    with one `⚠` line, and the write is journalled like every record verb.
 

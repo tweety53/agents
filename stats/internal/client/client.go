@@ -619,6 +619,9 @@ type StageRunRow struct {
 	StartedAt string `json:"startedAt"`
 	// EndedAt lets the request-end guard refuse a chained UI check.
 	EndedAt *string `json:"endedAt,omitempty"`
+	// Metrics carries the UI check's screenshot the request-end guard reads
+	// (kan-1081 self-review, F1).
+	Metrics json.RawMessage `json:"metrics,omitempty"`
 }
 
 // ListStageRuns reads a change's stage runs of one command and stage

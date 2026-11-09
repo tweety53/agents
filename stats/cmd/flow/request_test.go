@@ -10,9 +10,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
 )
@@ -77,7 +79,7 @@ func (d *requestDaemon) count(prefix string) int {
 
 // requestFixture is a peer checkout on branch <name> carrying
 // .superpowers/sdd/<name>/, with a bare origin whose origin/HEAD is main and
-// a .flow/project.md declaring `ui paths` `web/**`.
+// a .flow/project.md declaring a `## lint` list and `ui paths` `web/**`.
 type requestFixture struct {
 	peer, name string
 	git        func(args ...string) string
@@ -100,7 +102,7 @@ func newRequestFixture(t *testing.T) requestFixture {
 	run(root, "init", "-q", "--bare", "-b", "main", origin)
 	run(root, "init", "-q", "-b", "main", peer)
 	fx := requestFixture{peer: peer, name: name, git: func(args ...string) string { return run(peer, args...) }}
-	fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n")
+	fx.writeProject(t, fixtureProject)
 	if err := os.WriteFile(filepath.Join(peer, ".gitignore"), []byte(".superpowers/\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -114,6 +116,17 @@ func newRequestFixture(t *testing.T) requestFixture {
 		t.Fatal(err)
 	}
 	return fx
+}
+
+// fixtureProject is the fixture's .flow/project.md body.
+const fixtureProject = "## lint\n\n```bash\ntrue\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n"
+
+// stamp writes sha as the peer's flow-lint-green, as a green lint list does.
+func (fx requestFixture) stamp(t *testing.T, sha string) {
+	t.Helper()
+	if err := os.WriteFile(fx.git("rev-parse", "--path-format=absolute", "--git-path", "flow-lint-green"), []byte(sha+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (fx requestFixture) writeProject(t *testing.T, body string) {
@@ -235,6 +248,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 	end := func(commit, from string) (int, string) {
 		t.Helper()
 		d.reset()
+		fx.stamp(t, commit)
 		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", from)
 		return code, stderr
 	}
@@ -286,7 +300,8 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 		refused(t, code, stderr, "UI check")
 	})
 	t.Run("a ui range whose latest run completed", func(t *testing.T) {
-		d.runs = runs(row(1, 3, "2026-10-30T10:00:00Z", "failed"), row(2, 3, "2026-10-30T10:05:00Z", "completed"))
+		shot := shotMetrics(shotAt(t, time.Date(2026, 10, 30, 10, 30, 0, 0, time.UTC)))
+		d.runs = runs(row(1, 3, "2026-10-30T10:00:00Z", "failed"), strings.TrimSuffix(row(2, 3, "2026-10-30T10:05:00Z", "completed"), "}")+shot+"}")
 		if code, stderr := end(ui, docs); code != 0 {
 			t.Fatalf("exit=%d stderr=%q, want 0", code, stderr)
 		}
@@ -301,6 +316,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 	})
 	t.Run("the store down", func(t *testing.T) {
 		dead := deadPortAddr(t)
+		fx.stamp(t, ui)
 		code, _, stderr := runRequest(dead, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", unpushed, "-base", docs)
 		if code != 1 || !strings.Contains(stderr, "origin/main") {
 			t.Errorf("an unpushed commit on a dead store: exit=%d stderr=%q, want 1", code, stderr)
@@ -333,6 +349,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 			}
 		}))
 		defer flaky.Close()
+		fx.stamp(t, ui)
 		code, _, stderr := runRequest(flaky.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 		if code != 0 || !strings.Contains(stderr, "skipped request 3's UI check read") {
 			t.Errorf("exit=%d stderr=%q, want 0 with the ⚠ skip line", code, stderr)
@@ -352,6 +369,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 				writes++
 				_, _ = w.Write([]byte(`{"n":3}`))
 			}))
+			fx.stamp(t, ui)
 			code, _, stderr := runRequest(bad.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 			bad.Close()
 			if code != 1 || !strings.Contains(stderr, "verify runs") || writes != 0 {
@@ -361,7 +379,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 	})
 	t.Run("no visual verification section", func(t *testing.T) {
 		fx.writeProject(t, "## lint\n")
-		defer fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n")
+		defer fx.writeProject(t, fixtureProject)
 		d.runs = runs()
 		if code, stderr := end(ui, docs); code != 0 {
 			t.Errorf("exit=%d stderr=%q, want 0", code, stderr)
@@ -369,7 +387,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 	})
 	t.Run("an empty ui paths", func(t *testing.T) {
 		fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | |\n")
-		defer fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n")
+		defer fx.writeProject(t, fixtureProject)
 		code, stderr := end(ui, docs)
 		refused(t, code, stderr, "`ui paths` is absent or empty")
 	})
@@ -379,6 +397,22 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 		refused(t, code, stderr, ".superpowers/sdd/interactive-other")
 	})
 }
+
+// shotAt writes a screenshot file whose modification time is at.
+func shotAt(t *testing.T, at time.Time) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "shot.png")
+	if err := os.WriteFile(p, []byte("png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(p, at, at); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// shotMetrics is a stage-run row's metrics member naming screenshot p.
+func shotMetrics(p string) string { return `,"metrics":{"screenshot":` + strconv.Quote(p) + `}` }
 
 func mustProjectKey(t *testing.T, dir string) string {
 	t.Helper()
@@ -404,6 +438,7 @@ func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 	end := func(commit, from string) (int, string) {
 		t.Helper()
 		d.reset()
+		fx.stamp(t, commit)
 		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", from)
 		return code, stderr
 	}
@@ -429,7 +464,8 @@ func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 		refused(t, "["+verify("completed")+","+row("flow.verify", 2, "2026-10-30T10:05:00Z", "2026-10-30T10:06:00Z", "failed")+"]")
 	})
 	t.Run("a completed verify", func(t *testing.T) {
-		vv := row("flow.visual-verify", 3, "2026-10-30T10:02:00Z", "2026-10-30T10:02:30Z", "completed")
+		shot := shotMetrics(shotAt(t, time.Date(2026, 10, 30, 10, 2, 10, 0, time.UTC)))
+		vv := strings.TrimSuffix(row("flow.visual-verify", 3, "2026-10-30T10:02:00Z", "2026-10-30T10:02:30Z", "completed"), "}") + shot + "}"
 		d.runs = "[" + verify("completed") + "," + vv + "]"
 		for _, from := range [][2]string{{docs, base}, {ui, docs}} {
 			if code, stderr := end(from[0], from[1]); code != 0 {
@@ -442,31 +478,103 @@ func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 	})
 }
 
-// TestRecordRequestEndRefusesChainedUICheck pins the chained-mark half of
-// the Request-end guard: a completed UI check that ended under one second
-// after it began is refused.
+// TestRecordRequestEndRefusesChainedUICheck pins the evidence half of the
+// Request-end guard (kan-1081 self-review, F1): a completed UI check counts
+// only with a -screenshot naming a file modified inside its run — an 11 s
+// run carrying none, the sleep-padded mark, is refused.
 func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
 	fx := newRequestFixture(t)
 	docs := fx.commit(t, "docs/a.md", true)
 	ui := fx.commit(t, "web/x.ts", true)
+	fx.stamp(t, ui)
 
 	d := &requestDaemon{}
 	srv := httptest.NewServer(d.handler(t))
 	defer srv.Close()
+	started := time.Date(2026, 10, 30, 10, 2, 0, 0, time.UTC)
+	ended := started.Add(11 * time.Second)
 	const verify = `{"stageRunId":1,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T10:00:00Z","endedAt":"2026-10-30T10:01:00Z","outcome":"completed"}`
-	end := func(ended string) (int, string) {
+	end := func(metrics string) (int, string) {
 		t.Helper()
 		d.reset()
-		d.runs = "[" + verify + `,{"stageRunId":2,"command":"/flow-interactive","stage":"flow.visual-verify","request":3,"startedAt":"2026-10-30T10:02:00Z","endedAt":"` + ended + `","outcome":"completed"}]`
+		d.runs = "[" + verify + `,{"stageRunId":2,"command":"/flow-interactive","stage":"flow.visual-verify","request":3,"startedAt":"` + started.Format(time.RFC3339Nano) + `","endedAt":"` + ended.Format(time.RFC3339Nano) + `","outcome":"completed"` + metrics + `}]`
 		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 		return code, stderr
 	}
-	if code, stderr := end("2026-10-30T10:02:00.031Z"); code != 1 || !strings.Contains(stderr, "chained mark") || d.count("POST") != 0 {
-		t.Errorf("a 31 ms UI check: exit=%d writes=%d stderr=%q, want 1 naming the chained mark", code, d.count("POST"), stderr)
+	refused := func(t *testing.T, code int, stderr, want string) {
+		t.Helper()
+		if code != 1 || !strings.Contains(stderr, want) || d.count("POST") != 0 {
+			t.Errorf("exit=%d writes=%d stderr=%q, want 1 naming %q", code, d.count("POST"), stderr, want)
+		}
 	}
-	if code, stderr := end("2026-10-30T10:02:11Z"); code != 0 || d.count("POST") != 1 {
-		t.Errorf("an 11 s UI check: exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
+	t.Run("no screenshot", func(t *testing.T) {
+		code, stderr := end("")
+		refused(t, code, stderr, "-screenshot")
+	})
+	t.Run("missing file", func(t *testing.T) {
+		code, stderr := end(shotMetrics(filepath.Join(t.TempDir(), "gone.png")))
+		refused(t, code, stderr, "gone.png")
+	})
+	t.Run("stale screenshot", func(t *testing.T) {
+		code, stderr := end(shotMetrics(shotAt(t, started.Add(-time.Minute))))
+		refused(t, code, stderr, "outside its run")
+	})
+	t.Run("inside the run", func(t *testing.T) {
+		if code, stderr := end(shotMetrics(shotAt(t, started.Add(5*time.Second)))); code != 0 || d.count("POST") != 1 {
+			t.Errorf("exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
+		}
+	})
+}
+
+// TestRecordRequestEndNeedsLintGreen pins the lint half of the Request-end
+// guard (kan-1081 self-review, F1): a landed end needs -commit to be the sha
+// a green lint list stamped in flow-lint-green, unless the project declares
+// no lint list.
+func TestRecordRequestEndNeedsLintGreen(t *testing.T) {
+	fx := newRequestFixture(t)
+	base := fx.git("rev-parse", "HEAD")
+	docs := fx.commit(t, "docs/a.md", true)
+
+	d := &requestDaemon{runs: `[{"stageRunId":99,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T09:00:00Z","outcome":"completed"}]`}
+	srv := httptest.NewServer(d.handler(t))
+	defer srv.Close()
+	end := func() (int, string) {
+		t.Helper()
+		d.reset()
+		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", docs, "-base", base)
+		return code, stderr
 	}
+	t.Run("no stamp", func(t *testing.T) {
+		if code, stderr := end(); code != 1 || !strings.Contains(stderr, "flow-lint-green") || d.count("POST") != 0 {
+			t.Errorf("exit=%d writes=%d stderr=%q, want 1 naming flow-lint-green", code, d.count("POST"), stderr)
+		}
+	})
+	t.Run("another sha", func(t *testing.T) {
+		fx.stamp(t, base)
+		if code, stderr := end(); code != 1 || d.count("POST") != 0 {
+			t.Errorf("exit=%d writes=%d stderr=%q, want 1", code, d.count("POST"), stderr)
+		}
+	})
+	t.Run("the commit", func(t *testing.T) {
+		fx.stamp(t, docs)
+		if code, stderr := end(); code != 0 || d.count("POST") != 1 {
+			t.Errorf("exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
+		}
+	})
+	t.Run("undeclared lint", func(t *testing.T) {
+		// project-get reads HEAD's .flow/project.md, so the lint-less
+		// project is committed and landed before the request's commit.
+		fx := newRequestFixture(t)
+		fx.writeProject(t, "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/**` |\n")
+		fx.git("commit", "-q", "-am", "chore: no lint list")
+		base := fx.git("rev-parse", "HEAD")
+		docs := fx.commit(t, "docs/a.md", true)
+		d.reset()
+		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", docs, "-base", base)
+		if code != 0 || d.count("POST") != 1 {
+			t.Errorf("exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
+		}
+	})
 }
 
 // TestRecordRequestEndRefusesSuperpowers pins the Request-end guard's
@@ -480,6 +588,7 @@ func TestRecordRequestEndRefusesSuperpowers(t *testing.T) {
 	end := func(fx requestFixture, commit, base string) (int, string) {
 		t.Helper()
 		d.reset()
+		fx.stamp(t, commit)
 		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", base)
 		if code == 1 && d.count("POST") != 0 {
 			t.Errorf("a refused end reached the daemon")

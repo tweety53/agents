@@ -594,6 +594,59 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 	}
 }
 
+// TestStageEndRecordsScreenshot pins `stage end -screenshot` (kan-1081
+// self-review, F1): an existing file is posted as metrics.screenshot, made
+// absolute; a missing one is a usage error before any write.
+func TestStageEndRecordsScreenshot(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "shot.png"), []byte("png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir) // a cwd other than -C: a relative -screenshot must resolve against -C
+
+	var bodies [][]byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		b, err := readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+	end := func(path string) (int, string) {
+		bodies = nil
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "-screenshot", path, "kan-16"},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+
+	code, stderr := end("shot.png")
+	if code != 0 || len(bodies) != 1 {
+		t.Fatalf("exit=%d posts=%d stderr=%q, want 0 and one post", code, len(bodies), stderr)
+	}
+	var got struct {
+		Metrics map[string]any `json:"metrics"`
+	}
+	if err := json.Unmarshal(bodies[0], &got); err != nil {
+		t.Fatalf("decode %s: %v", bodies[0], err)
+	}
+	if want := filepath.Join(repo, "shot.png"); got.Metrics["screenshot"] != want {
+		t.Errorf("metrics.screenshot = %v, want %s", got.Metrics["screenshot"], want)
+	}
+	if code, stderr := end("missing.png"); code != 2 || len(bodies) != 0 || !strings.Contains(stderr, "-screenshot missing.png") {
+		t.Errorf("a missing file: exit=%d posts=%d stderr=%q, want 2 and no post", code, len(bodies), stderr)
+	}
+}
+
 // TestStageEndOmitsMetricsWhenNoFlagsGiven pins that `stage end` sends no
 // metrics field at all when none of -fix-rounds, -panel-rounds or
 // -findings were given -- MergeMetrics requires a non-nil patch

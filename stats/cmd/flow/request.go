@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -159,11 +160,14 @@ func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.W
 // change's checkout (the first linked worktree carrying .superpowers/sdd/<change>/,
 // else the main checkout when it carries it), commit an ancestor of
 // origin/<base> and base an ancestor of commit, .superpowers/ gitignored in
-// that checkout and tracked at commit by no path, the request's latest
-// /flow-interactive flow.verify run ended completed, and -- when
+// that checkout and tracked at commit by no path, commit the sha the
+// checkout's flow-lint-green holds when it declares a `## lint` list (a
+// green lint list stamped it — kan-1081 self-review, F1), the request's
+// latest /flow-interactive flow.verify run ended completed, and -- when
 // check-visual-trigger matches base..commit's files -- its latest
-// flow.visual-verify run ended completed, at least one second after it
-// began. A store that cannot be reached
+// flow.visual-verify run ended completed carrying a metrics.screenshot that
+// names a file modified between the run's begin and end; no duration is
+// evidence. A store that cannot be reached
 // skips both stage-run reads, with one ⚠ line. 0 passes; 1
 // refuses with one line naming the failed check.
 func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey string, n int, commit, base string, stderr io.Writer) int {
@@ -214,6 +218,11 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 	}
 	if first, _, _ := strings.Cut(strings.TrimSpace(string(tracked)), "\n"); first != "" {
 		return refuse("-commit %s tracks %s — untrack .superpowers/ (git rm -r --cached .superpowers), land that, and end again", commit, first)
+	}
+	if lintDeclared(wt) {
+		if green := lintGreenAt(wt); green != commit {
+			return refuse("-commit %s is not the commit a green lint list stamped (flow-lint-green holds %q) — run flow-guard run-verify-list %s lint on it (step 4) and end again", commit, green, wt)
+		}
 	}
 	files, err := exec.Command("git", "-C", wt, "diff", "--name-only", base+".."+commit).Output()
 	if err != nil {
@@ -270,10 +279,43 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("request %d's latest UI check (flow.visual-verify) carries an unreadable endedAt %q", n, ended)
 	}
 	startAt, _ := time.Parse(time.RFC3339Nano, latest.StartedAt) // parsed by latestRequestRun
-	if took := endAt.Sub(startAt); took < time.Second {
-		return refuse("request %d's latest UI check (flow.visual-verify) ended %s after its begin — a chained mark (step 7); end it after the screenshot is read", n, took)
+	var metrics struct {
+		Screenshot string `json:"screenshot"`
+	}
+	if len(latest.Metrics) > 0 {
+		_ = json.Unmarshal(latest.Metrics, &metrics) // an unreadable object reads as no screenshot
+	}
+	if metrics.Screenshot == "" {
+		return refuse("request %d's latest UI check (flow.visual-verify) carries no -screenshot — end it with -screenshot <the screenshot read> (step 7)", n)
+	}
+	fi, err := os.Stat(metrics.Screenshot)
+	if err != nil {
+		return refuse("request %d's UI check screenshot %s: %v", n, metrics.Screenshot, err)
+	}
+	if at := fi.ModTime(); at.Before(startAt) || at.After(endAt) {
+		return refuse("request %d's UI check screenshot %s was taken at %s, outside its run %s–%s", n, metrics.Screenshot, at.UTC().Format(time.RFC3339Nano), latest.StartedAt, ended)
 	}
 	return 0
+}
+
+// lintGreenAt is the sha wt's `flow-lint-green` holds — the HEAD a green
+// lint list stamped (run-verify-list's THE LINT STAMP) — "" when absent.
+func lintGreenAt(wt string) string {
+	p, err := exec.Command("git", "-C", wt, "rev-parse", "--path-format=absolute", "--git-path", "flow-lint-green").Output()
+	if err != nil {
+		return ""
+	}
+	b, err := os.ReadFile(strings.TrimSpace(string(p)))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// lintDeclared reports whether wt's .flow/project.md declares a `## lint`
+// list: with none, no list could stamp flow-lint-green.
+func lintDeclared(wt string) bool {
+	return guard.Registry["project-get"]([]string{wt, "lint"}, guard.Env{Getenv: os.Getenv, Dir: wt}, io.Discard, io.Discard) == 0
 }
 
 // latestRequestRun reads the change's /flow-interactive runs of stage and

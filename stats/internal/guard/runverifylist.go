@@ -84,6 +84,15 @@
 // ponytail: the sha ignores the exported KEY=value lines; a run under other
 // isolation values reuses the green, so key the file by them if they ever vary.
 //
+// THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
+// evidence its lint list ran green). A `lint` run — the appended
+// check-spec-reach included — that exits 0 on a tree clean before and after
+// it writes HEAD plus a newline to the worktree's own git dir (`git rev-parse
+// --git-path flow-lint-green`), never into the tree; a failing or dirty run
+// leaves an earlier stamp as it was. Nothing is skipped on it: `flow record
+// request end -outcome landed` and `flow interactive land` read it, refusing
+// a commit the stamp does not hold.
+//
 // OUTPUT, one block per command in list order, stdout and stderr together:
 //   - `<command>` — exit <n>
 //     <each output line, indented two spaces; past 20 lines,
@@ -466,6 +475,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	lintSHA, lintFile := "", ""
+	if list == "lint" {
+		if h, ok := gitOut("rev-parse", "-q", "--verify", "HEAD"); ok && clean() {
+			if g, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-lint-green"); ok {
+				lintSHA, lintFile = h, g
+			}
+		}
+	}
 	// unchanged reports whether a recorded green sha covers a command.
 	unchanged := func(in string) bool {
 		if since == "" {
@@ -627,6 +644,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if list == "lint" {
 		self, _ := selfExe()
 		run("flow-guard check-spec-reach "+wt, `"`+self+`" check-spec-reach "`+wt+`"`, "spec-reach")
+		if lintSHA != "" && failed == 0 && clean() {
+			os.WriteFile(lintFile, []byte(lintSHA+"\n"), 0o666)
+		}
 	}
 	// Lint and test share one dispatch key, run at once, and the later
 	// group's end overwrites the row (skills/flow/verify-and-handoff.md,
