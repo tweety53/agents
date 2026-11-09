@@ -42,7 +42,7 @@ func TestPlanAgentPairFollowsPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := t.TempDir()
-	table := strings.Replace(string(b), "| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium` |", "| `plan-designer` | `opus/Plan@medium`, `opus/Plan@low` |", 1)
+	table := strings.Replace(string(b), "| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium`,", "| `plan-designer` | `opus/Plan@medium`, `opus/Plan@low`,", 1)
 	if table == string(b) {
 		t.Fatal("the real table carries no plan-designer row to rewrite")
 	}
