@@ -46,6 +46,12 @@ func TestPolicyAllowsMarkedRowOnlyWithMarker(t *testing.T) {
 	if err := policyAllows(rows, "planner", "flow-planner-xhigh", "opus", "", ""); err != nil {
 		t.Errorf("planner on opus/flow-planner-xhigh refused: %v", err)
 	}
+	if err := policyAllows(rows, "explorer", "Explore", "sonnet", "low", ""); err != nil {
+		t.Errorf("explorer on sonnet/Explore@low refused: %v", err)
+	}
+	if err := policyAllows(rows, "explorer", "Explore", "sonnet", "medium", ""); err == nil {
+		t.Error("explorer on sonnet/Explore@medium admitted")
+	}
 	if err := policyAllows(rows, "explorer", "Explore", "fable", "medium", ""); err == nil {
 		t.Error("explorer on fable/Explore@medium admitted")
 	}

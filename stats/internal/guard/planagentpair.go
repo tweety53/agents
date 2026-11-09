@@ -14,11 +14,13 @@ import (
 // flow-guard plan-agent-pair — the model and effort of a planning session's Explore or
 // Plan dispatch.
 //
-// Usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer> [core]
+// Usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [core]
 //
 // With the optional fourth argument `core` (a CORE change, whose Jira issue's
-// `Agents (CORE)` section names fable for planning), it prints the first
-// `fable/` pair of the row instead; exit 2 when the row carries none.
+// `Agents (CORE)` section names fable for planning), it prints the row's first
+// CORE pair instead -- `sonnet/` for explorer, `fable/` for plan-designer and
+// planner; exit 2 when the row carries none. The planner row's pairs are
+// `<model>/flow-planner-<effort>`, printed as `<model> <effort>`.
 //
 // Prints one line, `<model> <effort>` — the first pair of the <role> row,
 // `explorer` for an Explore dispatch and `plan-designer` for a Plan one, of
@@ -43,16 +45,19 @@ func init() {
 	Registry["plan-agent-pair"] = planAgentPair
 }
 
-var papPair = regexp.MustCompile(`^([a-z0-9.-]+)/[A-Za-z]+@([a-z]+)$`)
+var papPair = regexp.MustCompile(`^([a-z0-9.-]+)/(?:[A-Za-z]+@|flow-planner-)([a-z]+)$`)
+
+// papCoreModel is the model a CORE change's pair names, per role.
+var papCoreModel = map[string]string{"explorer": "sonnet", "plan-designer": "fable", "planner": "fable"}
 
 func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 && !(len(args) == 4 && args[3] == "core") {
-		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer> [core]")
+		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [core]")
 		return 2
 	}
 	role := args[2]
-	if role != "explorer" && role != "plan-designer" {
-		fmt.Fprintf(stderr, "plan-agent-pair: <role> must be explorer or plan-designer, got %q\n", role)
+	if papCoreModel[role] == "" {
+		fmt.Fprintf(stderr, "plan-agent-pair: <role> must be explorer, plan-designer or planner, got %q\n", role)
 		return 2
 	}
 	if n, err := strconv.Atoi(args[1]); err != nil || n < 1 {
@@ -67,7 +72,7 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	var m []string
 	if rs := rows[role]; len(rs) > 0 {
 		for _, p := range rs[0].Pairs {
-			if len(args) == 4 && !strings.HasPrefix(p, "fable/") {
+			if len(args) == 4 && !strings.HasPrefix(p, papCoreModel[role]+"/") {
 				continue
 			}
 			m = papPair.FindStringSubmatch(p)

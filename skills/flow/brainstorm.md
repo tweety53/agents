@@ -110,7 +110,8 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 `planner-role`, KAN-1067). Every planner dispatch is fresh and one-shot, on `subagent_type:
 flow-planner-<effort>` with `model` and effort from the **Allowed pairs** row `planner`
 (`skills/flow-contracts/model-policy.md`) — its first pair unless an open experiment overrides
-it. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
+it; a CORE change (its Jira issue carries an `**Agents (CORE):**` section) takes `flow-guard plan-agent-pair
+<name> <n> planner core` instead, `fable xhigh`, and its prompt carries the line `CORE change`. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
 report-tersely line, the PLANNING DELEGATION paragraph (`skills/flow-self-review/SKILL.md`) — its
 auto-resolution sentence replaced by "every choice is written as a question of the round file" —
 the change name, the absolute worktree, the session token and `REVIEWERS` (**Model resolution**,

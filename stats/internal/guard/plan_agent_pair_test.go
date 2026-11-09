@@ -29,14 +29,19 @@ func TestPlanAgentPair(t *testing.T) {
 		if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "core"}, env); r.rc != 0 || r.stdout != "fable xhigh\n" {
 			t.Fatalf("rc=%d out=%q, want fable xhigh", r.rc, r.out)
 		}
-		if r := runGuard("plan-agent-pair", []string{"demo", "1", "explorer", "core"}, env); r.rc != 2 {
-			t.Fatalf("explorer core: rc=%d out=%q, want 2 (no fable pair)", r.rc, r.out)
+		for role, want := range map[string]string{"explorer": "sonnet low\n", "planner": "fable xhigh\n"} {
+			if r := runGuard("plan-agent-pair", []string{"demo", "1", role, "core"}, env); r.rc != 0 || r.stdout != want {
+				t.Fatalf("%s core: rc=%d out=%q, want %q", role, r.rc, r.out, want)
+			}
+		}
+		if r := runGuard("plan-agent-pair", []string{"demo", "1", "planner"}, env); r.rc != 0 || r.stdout != "opus medium\n" {
+			t.Fatalf("planner: rc=%d out=%q, want opus medium", r.rc, r.out)
 		}
 		if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "x"}, env); r.rc != 2 {
 			t.Fatalf("bad fourth arg: rc=%d, want 2", r.rc)
 		}
 	})
-	for _, args := range [][]string{{"demo", "0", "explorer"}, {"demo", "x", "explorer"}, {"demo", "1"}, {"demo", "1", "planner"}, {"demo"}} {
+	for _, args := range [][]string{{"demo", "0", "explorer"}, {"demo", "x", "explorer"}, {"demo", "1"}, {"demo"}} {
 		t.Run(fmt.Sprintf("refuses %v", args), func(t *testing.T) {
 			if r := runGuard("plan-agent-pair", args, env); r.rc != 2 || r.stdout != "" {
 				t.Errorf("rc=%d out=%q, want 2 and no stdout", r.rc, r.out)
