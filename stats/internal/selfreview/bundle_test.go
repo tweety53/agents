@@ -773,6 +773,44 @@ func TestBundleRendersRequests(t *testing.T) {
 	}
 }
 
+// TestRequestsLogPrintsEachCommitOnce pins requestsLog's de-duplication
+// (kan-1081 self-review, F6): two requests whose landed ranges share commits
+// print each commit's --stat block once, under the first request, and the
+// second names it as landed with that request; an empty title renders
+// (untitled).
+func TestRequestsLogPrintsEachCommitOnce(t *testing.T) {
+	repo := gitRepo(t)
+	base := commitAll(t, repo, "base.go", "package main\n", "chore: base")
+	c1 := commitAll(t, repo, "a.go", "package main\n", "feat(a): one")
+	c2 := commitAll(t, repo, "b.go", "package main\n", "feat(b): two")
+	c3 := commitAll(t, repo, "c.go", "package main\n", "feat(c): three")
+
+	log := requestsLog(ExecRunner{}, repo, []records.Request{
+		{N: 1, Title: "First", Outcome: "landed", State: "landed", BaseSHA: base, CommitSHA: c2},
+		{N: 2, Title: "Second", Outcome: "landed", State: "landed", BaseSHA: base, CommitSHA: c2},
+		{N: 3, Title: "", Outcome: "landed", State: "landed", BaseSHA: c2, CommitSHA: c3},
+	})
+	two := strings.Index(log, "### Request 2: Second — landed")
+	three := strings.Index(log, "### Request 3: (untitled) — landed")
+	if !strings.HasPrefix(log, "### Request 1: First — landed") || two < 0 || three < two {
+		t.Fatalf("headings missing or out of order:\n%s", log)
+	}
+	for _, sha := range []string{c1, c2} {
+		if n := strings.Count(log, "commit "+sha); n != 1 {
+			t.Errorf("commit %s printed %d times, want once:\n%s", sha, n, log)
+		}
+		if !strings.Contains(log[:two], "commit "+sha) {
+			t.Errorf("commit %s not under request 1:\n%s", sha, log)
+		}
+		if want := "commit " + sha[:12] + " — landed with Request 1"; !strings.Contains(log[two:three], want) {
+			t.Errorf("request 2 lacks %q:\n%s", want, log)
+		}
+	}
+	if !strings.Contains(log[three:], "commit "+c3) {
+		t.Errorf("request 3 lacks its own commit %s:\n%s", c3, log)
+	}
+}
+
 func TestBundleServesGatedReviewerFindings(t *testing.T) {
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 	run := records.Run{Change: "demo", Findings: []records.Finding{

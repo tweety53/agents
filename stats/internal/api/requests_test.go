@@ -31,6 +31,9 @@ func (f *fakeStore) BeginRequest(_ context.Context, projectKey, change string, i
 		f.requests[key] = map[int]records.Request{}
 	}
 	r := f.requests[key][in.N]
+	if r.Title == "" && in.Title == "" {
+		return records.Request{}, fmt.Errorf("%w: title is required", store.ErrInvalidRequest)
+	}
 	r.N = in.N
 	if in.Title != "" {
 		r.Title = in.Title
@@ -62,7 +65,10 @@ func (f *fakeStore) EndRequest(_ context.Context, projectKey, change string, in 
 	if f.requests[key] == nil {
 		f.requests[key] = map[int]records.Request{}
 	}
-	r := f.requests[key][in.N]
+	r, ok := f.requests[key][in.N]
+	if !ok {
+		return records.Request{}, fmt.Errorf("%w: request %d was never begun", store.ErrInvalidRequest, in.N)
+	}
 	r.N, r.Outcome, r.CommitSHA, r.BaseSHA, r.EndedAt, r.State = in.N, in.Outcome, in.CommitSHA, in.BaseSHA, in.EndedAt, in.Outcome
 	f.requests[key][in.N] = r
 	return r, nil
@@ -134,6 +140,8 @@ func TestRequestRoutes(t *testing.T) {
 	}{
 		"begin n 0":       {base, map[string]any{"n": 0, "title": "t"}, http.StatusBadRequest},
 		"end bad outcome": {base + "/end", map[string]any{"n": 1, "outcome": "merged"}, http.StatusBadRequest},
+		"begin untitled":  {base, map[string]any{"n": 7}, http.StatusBadRequest},
+		"end never begun": {base + "/end", map[string]any{"n": 9, "outcome": "answered"}, http.StatusBadRequest},
 		"unknown change":  {ts.URL + recordsPath("proj", "nope") + "/requests", map[string]any{"n": 1, "title": "t"}, http.StatusNotFound},
 		"end unknown":     {ts.URL + recordsPath("proj", "nope") + "/requests/end", map[string]any{"n": 1, "outcome": "answered"}, http.StatusNotFound},
 	} {

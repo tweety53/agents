@@ -80,7 +80,8 @@ func TestRequestBeginUpserts(t *testing.T) {
 
 // TestRequestEndRecordsOutcome pins EndRequest: landed carries both shas,
 // answered and dropped carry neither, any other shape is refused, and an
-// end for a request never begun inserts it.
+// end for a request never begun is ErrInvalidRequest and writes no row
+// (kan-1081 self-review, F6: such ends made untitled requests 18 and 86).
 func TestRequestEndRecordsOutcome(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
@@ -108,6 +109,9 @@ func TestRequestEndRecordsOutcome(t *testing.T) {
 	}
 
 	for n, outcome := range map[int]string{2: "answered", 3: "dropped"} {
+		if _, err := st.BeginRequest(ctx, projectKey, "kan-1061", records.RequestBegin{N: n, Title: outcome}); err != nil {
+			t.Fatalf("BeginRequest %d: %v", n, err)
+		}
 		got, err := st.EndRequest(ctx, projectKey, "kan-1061", records.RequestEnd{N: n, Outcome: outcome})
 		if err != nil {
 			t.Fatalf("EndRequest %s: %v", outcome, err)
@@ -124,6 +128,8 @@ func TestRequestEndRecordsOutcome(t *testing.T) {
 		{N: 4, Outcome: "dropped", BaseSHA: "b"},
 		{N: 4, Outcome: "shipped"},
 		{N: 0, Outcome: "answered"},
+		{N: 4, Outcome: "answered"},
+		{N: 5, Outcome: "landed", CommitSHA: "c5", BaseSHA: "b5"},
 	}
 	for _, in := range bad {
 		if _, err := st.EndRequest(ctx, projectKey, "kan-1061", in); !errors.Is(err, store.ErrInvalidRequest) {
@@ -139,7 +145,71 @@ func TestRequestEndRecordsOutcome(t *testing.T) {
 		t.Fatalf("ListRequests: %v", err)
 	}
 	if len(list) != 3 {
-		t.Fatalf("ListRequests returned %d rows, want 3 -- an end for a request never begun inserts it, a refused one does not", len(list))
+		t.Fatalf("ListRequests returned %d rows, want 3 -- an end for a request never begun writes no row", len(list))
+	}
+}
+
+// TestRequestBeginRefusesUntitledFirst pins request-title-required
+// (kan-1081 self-review, F6): a request's first begin needs a title -- one
+// carrying only a brainstorm reason is ErrInvalidRequest and writes no row
+// -- while a later begin may carry only a reason and keeps the title.
+func TestRequestBeginRefusesUntitledFirst(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-requests-untitled-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1081")
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1081", records.RequestBegin{N: 1, BrainstormReason: "r"}); !errors.Is(err, store.ErrInvalidRequest) {
+		t.Errorf("untitled first begin: err = %v, want ErrInvalidRequest", err)
+	}
+	if list, err := st.ListRequests(ctx, projectKey, "kan-1081"); err != nil || len(list) != 0 {
+		t.Fatalf("ListRequests = %+v, %v, want no row", list, err)
+	}
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1081", records.RequestBegin{N: 2, Title: "t"}); err != nil {
+		t.Fatalf("titled begin: %v", err)
+	}
+	got, err := st.BeginRequest(ctx, projectKey, "kan-1081", records.RequestBegin{N: 2, BrainstormReason: "r"})
+	if err != nil {
+		t.Fatalf("reason-only begin of a begun request: %v", err)
+	}
+	if got.Title != "t" || got.BrainstormReason != "r" {
+		t.Errorf("row = %+v, want title t kept and reason r", got)
+	}
+}
+
+// TestRequestBeginFillsEmptyTitle pins the repair of an ended, untitled
+// request (kan-1081 self-review, F6): a begin naming a title fills the
+// empty one and leaves the outcome; a stored title is never changed after.
+func TestRequestBeginFillsEmptyTitle(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-requests-filltitle-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1081")
+
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1081", records.RequestBegin{N: 18, Title: "x"}); err != nil {
+		t.Fatalf("BeginRequest: %v", err)
+	}
+	if _, err := st.EndRequest(ctx, projectKey, "kan-1081", records.RequestEnd{N: 18, Outcome: "landed", CommitSHA: "c", BaseSHA: "b"}); err != nil {
+		t.Fatalf("EndRequest: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE requests SET title = '' WHERE n = 18`); err != nil {
+		t.Fatalf("blank the title: %v", err)
+	}
+
+	got, err := st.BeginRequest(ctx, projectKey, "kan-1081", records.RequestBegin{N: 18, Title: "t"})
+	if err != nil {
+		t.Fatalf("fill the empty title: %v", err)
+	}
+	if got.Title != "t" || got.Outcome != "landed" || got.CommitSHA != "c" || got.BaseSHA != "b" {
+		t.Errorf("row = %+v, want title t, outcome landed c/b unchanged", got)
+	}
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1081", records.RequestBegin{N: 18, Title: "u"}); !errors.Is(err, store.ErrRequestEnded) {
+		t.Errorf("change a stored title: err = %v, want ErrRequestEnded", err)
+	}
+	list, err := st.ListRequests(ctx, projectKey, "kan-1081")
+	if err != nil || len(list) != 1 || list[0].Title != "t" {
+		t.Errorf("ListRequests = %+v, %v, want title t", list, err)
 	}
 }
 

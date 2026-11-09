@@ -156,17 +156,33 @@ func changeBranchLog(g Runner, repo, change string) string {
 // requestsLog renders a /flow-interactive session's requests in n order --
 // the git-log source for a change with requests (design.md's Explicit stop
 // step 2), whose session branch's own log is empty by stop time: each
-// request's `### Request <n>: <title> — <state>` heading, then for a landed
-// one its base..commit range's `git log --stat`. A range git cannot read
-// contributes its heading alone.
+// request's `### Request <n>: <title> — <state>` heading (an empty title
+// reads `(untitled)`), then for a landed one each commit of its base..commit
+// range: its `git log -1 --stat` the first time any request lists it, and
+// `commit <sha12> — landed with Request <m>` after, so ranges that share
+// commits print each once (kan-1081 self-review, F6). A range git cannot
+// read contributes its heading alone.
 func requestsLog(g Runner, repo string, requests []records.Request) string {
 	sorted := slices.Clone(requests)
 	slices.SortFunc(sorted, func(a, b records.Request) int { return a.N - b.N })
+	printedUnder := map[string]int{}
 	var b strings.Builder
 	for _, r := range sorted {
-		fmt.Fprintf(&b, "### Request %d: %s — %s\n\n", r.N, r.Title, r.State)
-		if r.Outcome == "landed" && r.BaseSHA != "" && r.CommitSHA != "" {
-			if log := dropPNGStatLines(trimmedOutput(g.Output(repo, "log", "--stat", r.BaseSHA+".."+r.CommitSHA))); log != "" {
+		title := r.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		fmt.Fprintf(&b, "### Request %d: %s — %s\n\n", r.N, title, r.State)
+		if r.Outcome != "landed" || r.BaseSHA == "" || r.CommitSHA == "" {
+			continue
+		}
+		for _, sha := range strings.Fields(trimmedOutput(g.Output(repo, "log", "--format=%H", r.BaseSHA+".."+r.CommitSHA))) {
+			if m, ok := printedUnder[sha]; ok {
+				fmt.Fprintf(&b, "commit %s — landed with Request %d\n\n", sha[:min(12, len(sha))], m)
+				continue
+			}
+			printedUnder[sha] = r.N
+			if log := dropPNGStatLines(trimmedOutput(g.Output(repo, "log", "-1", "--stat", sha))); log != "" {
 				b.WriteString(log + "\n\n")
 			}
 		}

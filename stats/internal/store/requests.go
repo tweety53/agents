@@ -1,9 +1,11 @@
 package store
 
 // requests.go — the requests table (0056_requests.sql): one row per request
-// a /flow-interactive session works (KAN-1061). Both writes are upserts by
-// (change, n), so a journalled replay lands on the row the first attempt
-// wrote, and neither changes a row already ended (ErrRequestEnded); a request's state is never stored, only derived by requestState.
+// a /flow-interactive session works (KAN-1061). A begin is an upsert by
+// (change, n) and an end updates the begun row, so a journalled replay lands
+// on the row the first attempt wrote; neither changes a row already ended
+// (ErrRequestEnded), save a begin filling an ended row's empty title; a
+// request's state is never stored, only derived by requestState.
 
 import (
 	"context"
@@ -16,8 +18,9 @@ import (
 )
 
 // ErrInvalidRequest is a caller mistake: a non-positive n, an outcome
-// outside landed/answered/dropped, or shas that do not match the outcome
-// (landed carries both, answered and dropped neither). Refused here, before
+// outside landed/answered/dropped, shas that do not match the outcome
+// (landed carries both, answered and dropped neither), a first begin with no
+// title, or an end of a request never begun (kan-1081 self-review, F6). Refused here, before
 // the store is touched, so the route answers 400 rather than 500.
 var ErrInvalidRequest = errors.New("store: invalid request record")
 
@@ -68,14 +71,14 @@ func requestState(outcome string, started bool) string {
 	}
 }
 
-// endedRequest reads request n of the change when it has an outcome, locking
-// the row for the rest of tx; ok is false when the row is absent or open.
-func endedRequest(ctx context.Context, tx pgx.Tx, projectKey, change string, n int) (r records.Request, ok bool, err error) {
+// lockedRequest reads request n of the change, locking the row for the rest
+// of tx; ok is false when the row is absent.
+func lockedRequest(ctx context.Context, tx pgx.Tx, projectKey, change string, n int) (r records.Request, ok bool, err error) {
 	r, err = scanRequest(tx.QueryRow(ctx, `
 		SELECT `+requestColumns+`
 		FROM requests
 		JOIN changes c ON c.id = requests.change_id
-		WHERE c.project_key = $1 AND c.name = $2 AND requests.n = $3 AND requests.outcome IS NOT NULL
+		WHERE c.project_key = $1 AND c.name = $2 AND requests.n = $3
 		FOR UPDATE OF requests
 	`, projectKey, change, n))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -94,7 +97,11 @@ func endedRequest(ctx context.Context, tx pgx.Tx, projectKey, change string, n i
 // board's period. A nil ReceivedAt is stamped now(). An unknown
 // (projectKey, change) pair is ErrChangeNotFound. On an ended request a
 // non-empty title or reason that differs from the stored one is
-// ErrRequestEnded; any other begin returns the stored row unchanged.
+// ErrRequestEnded -- save an ended request whose stored title is empty,
+// which takes the begin's title (the repair of rows a never-begun end made);
+// any other begin returns the stored row unchanged. A begin that would insert
+// a row with no title is ErrInvalidRequest: a request's first begin needs a
+// title (kan-1081 self-review, F6).
 func (s *Store) BeginRequest(ctx context.Context, projectKey, change string, in records.RequestBegin) (records.Request, error) {
 	if in.N <= 0 {
 		return records.Request{}, fmt.Errorf("%w: n must be positive, got %d", ErrInvalidRequest, in.N)
@@ -105,13 +112,37 @@ func (s *Store) BeginRequest(ctx context.Context, projectKey, change string, in 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if stored, ok, err := endedRequest(ctx, tx, projectKey, change, in.N); err != nil {
+	if _, err := s.changeID(ctx, projectKey, change); err != nil {
 		return records.Request{}, err
-	} else if ok {
-		if (in.Title != "" && in.Title != stored.Title) || (in.BrainstormReason != "" && in.BrainstormReason != stored.BrainstormReason) {
+	}
+	stored, ok, err := lockedRequest(ctx, tx, projectKey, change, in.N)
+	if err != nil {
+		return records.Request{}, err
+	}
+	if !ok && in.Title == "" {
+		return records.Request{}, fmt.Errorf("%w: a request's first begin needs a title — flow record request begin -n %d -title '<one line>'", ErrInvalidRequest, in.N)
+	}
+	if ok && stored.Outcome != "" {
+		fill := stored.Title == "" && in.Title != ""
+		if (in.Title != "" && in.Title != stored.Title && !fill) || (in.BrainstormReason != "" && in.BrainstormReason != stored.BrainstormReason) {
 			return records.Request{}, fmt.Errorf("%w: %s/%s request %d ended %s; a begin may not change its title or reason", ErrRequestEnded, projectKey, change, in.N, stored.Outcome)
 		}
-		return stored, nil
+		if !fill {
+			return stored, nil
+		}
+		out, err := scanRequest(tx.QueryRow(ctx, `
+			UPDATE requests SET title = $4
+			FROM changes c
+			WHERE c.id = requests.change_id AND c.project_key = $1 AND c.name = $2 AND requests.n = $3
+			RETURNING `+requestColumns,
+			projectKey, change, in.N, in.Title))
+		if err != nil {
+			return records.Request{}, requestWriteErr("begin", projectKey, change, err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return records.Request{}, fmt.Errorf("store: begin request for %s/%s: commit: %w", projectKey, change, err)
+		}
+		return out, nil
 	}
 
 	out, err := scanRequest(tx.QueryRow(ctx, `
@@ -141,8 +172,9 @@ func (s *Store) BeginRequest(ctx context.Context, projectKey, change string, in 
 }
 
 // EndRequest records a request's end: its outcome and, for landed, the
-// landed range's commit and base. An end for a request never begun inserts
-// it, receipt stamped at the end's instant. A nil EndedAt is stamped now().
+// landed range's commit and base. An end for a request never begun is
+// ErrInvalidRequest and writes nothing (kan-1081 self-review, F6: such ends
+// made untitled rows). A nil EndedAt is stamped now().
 // An unknown (projectKey, change) pair is ErrChangeNotFound. On an ended
 // request a different outcome, commit or base is ErrRequestEnded; the
 // identical end returns the stored row unchanged.
@@ -156,9 +188,17 @@ func (s *Store) EndRequest(ctx context.Context, projectKey, change string, in re
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if stored, ok, err := endedRequest(ctx, tx, projectKey, change, in.N); err != nil {
+	if _, err := s.changeID(ctx, projectKey, change); err != nil {
 		return records.Request{}, err
-	} else if ok {
+	}
+	stored, ok, err := lockedRequest(ctx, tx, projectKey, change, in.N)
+	if err != nil {
+		return records.Request{}, err
+	}
+	if !ok {
+		return records.Request{}, fmt.Errorf("%w: request %d was never begun — flow record request begin -n %d -title '<one line>' first", ErrInvalidRequest, in.N, in.N)
+	}
+	if stored.Outcome != "" {
 		if in.Outcome != stored.Outcome || in.CommitSHA != stored.CommitSHA || in.BaseSHA != stored.BaseSHA {
 			return records.Request{}, fmt.Errorf("%w: %s/%s request %d ended %s; an end may not change its outcome, commit or base", ErrRequestEnded, projectKey, change, in.N, stored.Outcome)
 		}
@@ -166,15 +206,13 @@ func (s *Store) EndRequest(ctx context.Context, projectKey, change string, in re
 	}
 
 	out, err := scanRequest(tx.QueryRow(ctx, `
-		INSERT INTO requests (change_id, n, received_at, ended_at, outcome, commit_sha, base_sha)
-		SELECT c.id, $3, COALESCE($4, now()), COALESCE($4, now()), $5, NULLIF($6, ''), NULLIF($7, '')
+		UPDATE requests SET
+			ended_at = COALESCE($4, now()),
+			outcome = $5,
+			commit_sha = NULLIF($6, ''),
+			base_sha = NULLIF($7, '')
 		FROM changes c
-		WHERE c.project_key = $1 AND c.name = $2
-		ON CONFLICT (change_id, n) DO UPDATE SET
-			ended_at = EXCLUDED.ended_at,
-			outcome = EXCLUDED.outcome,
-			commit_sha = EXCLUDED.commit_sha,
-			base_sha = EXCLUDED.base_sha
+		WHERE c.id = requests.change_id AND c.project_key = $1 AND c.name = $2 AND requests.n = $3
 		RETURNING `+requestColumns,
 		projectKey, change, in.N, in.EndedAt, in.Outcome, in.CommitSHA, in.BaseSHA))
 	if err != nil {
