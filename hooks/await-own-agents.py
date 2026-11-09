@@ -13,12 +13,22 @@ A child whose transcript has not been written for 30 minutes is taken as dead an
 blocks, so a crashed agent cannot trap its parent. stop_hook_active does not lift the block:
 the wait is the point, and every script call ends a bounded tool call.
 
+A subagent may not stop while a Bash command it moved to the background still runs either: the
+tool_result of one of its own Bash tool_use calls that opens with "Command running in background
+with ID: <id>", or has a line opening with "Command [did not complete within its Ns timeout and ]was
+moved to the background (ID: <id>)" -- partial output may precede it --, launches <id>, and a `<task-id><id></task-id>` task-notification anywhere in
+its transcript ends it. Pairing by tool_use_id and anchoring the sentence keep a launch the agent
+merely read -- a Read of a transcript, a diff of a test, a grep of a JSONL line -- from trapping it. A child that ended with such a command out
+woke again after its parent had moved on -- kan-1085's fixer left a build running in the background
+and its parent waited 44 minutes on it.
+
 Fails open: any error -- bad input, unreadable folder -- exits 0 with no output.
 """
 
 import glob
 import json
 import os
+import re
 import sys
 import time
 
@@ -44,6 +54,48 @@ def running_children(agent_id: str, folder: str) -> "list[str]":
     return out
 
 
+RUN_IN_BACKGROUND = re.compile(r"Command running in background with ID: ([A-Za-z0-9]+)")
+MOVED_TO_BACKGROUND = re.compile(
+    r"^Command (?:did not complete within its \d+s timeout and )?was moved to the background \(ID: ([A-Za-z0-9]+)\)",
+    re.MULTILINE,
+)
+TASK_ID = re.compile(r"<task-id>([A-Za-z0-9]+)</task-id>")
+
+
+def running_background(transcript: str) -> "list[str]":
+    launched, done, bash_calls = [], set(), set()
+    with open(transcript, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            done.update(TASK_ID.findall(line))
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            # A writer may escape `<` as \u003c; the decoded entry carries the tag either way.
+            done.update(TASK_ID.findall(json.dumps(entry, ensure_ascii=False)))
+            kind = entry.get("type") if isinstance(entry, dict) else None
+            message = entry.get("message") if kind in ("user", "assistant") else None
+            content = message.get("content") if isinstance(message, dict) else None
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if kind == "assistant" and block.get("type") == "tool_use" and block.get("name") == "Bash":
+                    bash_calls.add(block.get("id"))
+                if kind != "user" or block.get("type") != "tool_result" or block.get("tool_use_id") not in bash_calls:
+                    continue
+                text = block.get("content")
+                if isinstance(text, list):
+                    text = " ".join(b.get("text", "") for b in text if isinstance(b, dict))
+                if not isinstance(text, str):
+                    continue
+                started = RUN_IN_BACKGROUND.match(text) or MOVED_TO_BACKGROUND.search(text)
+                if started and started.group(1) not in launched:
+                    launched.append(started.group(1))
+    return [i for i in launched if i not in done]
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -51,8 +103,21 @@ def main() -> None:
         transcript = payload.get("agent_transcript_path") or ""
         if not agent_id or not transcript:
             return
-        children = running_children(agent_id, os.path.dirname(os.path.expanduser(transcript)))
+        transcript = os.path.expanduser(transcript)
+        children = running_children(agent_id, os.path.dirname(transcript))
+        background = running_background(transcript) if os.path.exists(transcript) else []
     except Exception:  # fail open: a bug here must never trap a subagent
+        return
+    if background:
+        print(json.dumps({
+            "decision": "block",
+            "reason": (
+                f"Background commands you launched are still running ({' '.join(background)}). "
+                "FOREGROUND BUILDS: wait for each one's task-notification, or stop it with TaskStop, "
+                "before you end your turn -- a child that ends with work still out wakes again after "
+                "its parent has moved on."
+            ),
+        }))
         return
     if not children:
         return
