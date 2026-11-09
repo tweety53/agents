@@ -489,6 +489,13 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "feat: reshaped\n\nFlow-Key: flow.commit-two")
 	}),
 		uwVerdict("run 1's reshaped flow.commit-two commit after the verify row is CLEAR", "CLEAR:"))
+	each(demo(func(t *testing.T, f *uwFix) {
+		verified("src/a.go", after)(t, f)
+		writeFile(t, f.wt+"/src/c.png", "png\n")
+		gitRun(t, f.wt, "add", "src/c.png")
+		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "test: record the visual-verify-fix-3-full-gymie visual verification\n\nFlow-Key: flow.visual-verify")
+	}),
+		uwVerdict("the pipeline's flow.visual-verify record commit after the verify row is CLEAR", "CLEAR:"))
 	each(demo(verified("spectre/changes/demo/tasks.md", before)),
 		uwVerdict("planning-only commits after the verify row are CLEAR", "CLEAR:"))
 	uiCommit := func(t *testing.T, f *uwFix) {

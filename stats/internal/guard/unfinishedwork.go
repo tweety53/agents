@@ -131,7 +131,11 @@ import (
 // of the `verifier` rows with outcome `completed` and key `verify` or
 // `verify-…` — or with no such row at all — names its short sha in the
 // breakdown. A re-run after run 1's drop is judged from the newest drop
-// commit on, so only a fix run's own code asks for a newer row. Like signal three, only
+// commit on, so only a fix run's own code asks for a newer row. Two commits
+// are excepted: run 1's reshaped `Flow-Key: flow.commit-two` commit, which
+// reshapes verified code, and the pipeline's `Flow-Key: flow.visual-verify`
+// record commit, which carries a capture's records and screenshots, never
+// code. Like signal three, only
 // the worktree holding the plan reads it.
 //
 // SIGNAL EIGHT: A CODE COMMIT WITH NO REVIEW-PANEL PASS IS UNFINISHED (kan-970
@@ -678,7 +682,8 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// (decision uw-verify-row-after-code): the newest commit outside
 		// `<spec root>/changes/` in any range, authored after the newest
 		// completed `verify`/`verify-…` verifier row, or with none at all —
-		// run 1's reshaped `Flow-Key: flow.commit-two` commit excepted. The
+		// run 1's reshaped `Flow-Key: flow.commit-two` commit and the
+		// pipeline's `Flow-Key: flow.visual-verify` record commit excepted. The
 		// range runs from the merge base. A `skipped` row counts as completed: it only ends a test
 		// group whose every command was unchanged since a green clean run
 		// (decision f1-skipped-is-verified, kan-1037).
@@ -701,8 +706,10 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					sha, rest, _ := strings.Cut(l, " ")
 					at, flowKey, _ := strings.Cut(rest, " ")
 					// Run 1's reshaped implementation commit carries a fresh author
-					// date; it reshapes verified code and is not new code.
-					if strings.Contains(flowKey, "flow.commit-two") {
+					// date; it reshapes verified code and is not new code. The
+					// pipeline's visual-verify record commit carries a capture's
+					// records and screenshots, never code.
+					if strings.Contains(flowKey, "flow.commit-two") || strings.Contains(flowKey, "flow.visual-verify") {
 						continue
 					}
 					if n, err := strconv.ParseInt(at, 10, 64); err == nil && n > newestAt {
