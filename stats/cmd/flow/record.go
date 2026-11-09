@@ -4203,23 +4203,29 @@ func tickedInRunFixes(plan []byte) []string {
 }
 
 // inRunFixRefusal names why a visual-verify key may not begin after the
-// ticked in-run fixes ks, or returns "". A fix whose -fix-<k>-full verifier
-// row completed is closed; only the highest unclosed k is checked, since a
-// scoped re-run that finds a defect opens the next fix without closing its own.
+// ticked in-run fixes ks, or returns "". A -fix-<k>-full key begun with a
+// round base is refused, since the full run is unscoped. A completed
+// -fix-<j>-full verifier row closes every fix up to j; only the highest
+// unclosed k is checked, since a scoped re-run that finds a defect opens the
+// next fix without closing its own.
 func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string {
+	if roundBase != "" && fullRunKey.MatchString(key) {
+		return "is a -full run, which is unscoped: begin it with no -round-base"
+	}
 	completed := func(d records.Dispatch) bool {
 		return d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify") && d.Outcome == "completed"
 	}
-	k, top := "", -1
-	for _, c := range ks {
-		full := regexp.MustCompile(`-fix-` + c + `-full(-|$)`)
-		closed := false
-		for _, d := range run.Dispatches {
-			if completed(d) && full.MatchString(d.Key) {
-				closed = true
+	maxFull := -1
+	for _, d := range run.Dispatches {
+		if m := fullRunKey.FindStringSubmatch(d.Key); completed(d) && m != nil {
+			if j, _ := strconv.Atoi(m[1]); j > maxFull {
+				maxFull = j
 			}
 		}
-		if n, _ := strconv.Atoi(c); !closed && n > top {
+	}
+	k, top := "", -1
+	for _, c := range ks {
+		if n, _ := strconv.Atoi(c); n > maxFull && n > top {
 			k, top = c, n
 		}
 	}
@@ -4246,6 +4252,9 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 	}
 	return ""
 }
+
+// fullRunKey matches a visual-verify -fix-<j>-full key, capturing j.
+var fullRunKey = regexp.MustCompile(`-fix-([0-9]+)-full(-|$)`)
 
 // panelFixKeyRE is a well-formed panel-fix key: the round counts fix rounds
 // from 1, so the fix after panel-0 is panel-fix-1 (kan-1040's self-review);

@@ -6945,6 +6945,8 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 		{"an unscoped run once the full run completed", ticked, done + "," + full, "visual-verify-4-gymie", nil, 0},
 		{"a scoped run of the highest of two open fixes", ticked + "- [x] 4. In-run fix 3 — flow.visual-verify: the label\n", done, "visual-verify-fix-3-gymie", []string{"-round-base", "abc1234"}, 0},
 		{"a scoped run of the lower of two open fixes", ticked + "- [x] 4. In-run fix 3 — flow.visual-verify: the label\n", done, "visual-verify-fix-2-gymie", []string{"-round-base", "abc1234"}, 2},
+		{"a lower fix closed by a higher full run", ticked + "- [x] 4. In-run fix 3 — flow.visual-verify: the label\n", done + "," + `{"key":"visual-verify-fix-3-full-gymie","role":"verifier","outcome":"completed","endedAt":"2026-10-26T12:00:00Z"}`, "visual-verify-5-gymie", nil, 0},
+		{"a full run begun with a round base", ticked, done, "visual-verify-fix-2-full-gymie", []string{"-round-base", "abc1234"}, 2},
 		{"no ticked in-run fix", "# plan\n\n- [x] 1. a task\n- [ ] 3. In-run fix 2 — flow.visual-verify: x\n", done, "visual-verify-2-gymie", nil, 0},
 		{"a ticked in-run fix inside a fence", "# plan\n\n```\n- [x] 3. In-run fix 2 — flow.visual-verify: x\n```\n", done, "visual-verify-2-gymie", nil, 0},
 	}

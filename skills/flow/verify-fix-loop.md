@@ -187,6 +187,8 @@ After an `In-run fix <k>` task is ticked, and until a `-fix-<k>-full` verifier r
 `flow record dispatch begin` refuses a `visual-verify` key that does not carry `-fix-<k>`, and one
 that is not the `-full` run, carries no `-round-base` and shares its repository suffix with a
 completed verifier row.
+A completed `-fix-<j>-full` verifier row closes every In-run fix up to `<j>`, and a `-fix-<k>-full`
+key begun with `-round-base` is refused, since the full run is unscoped.
 Its clean report is the one the handoff reports.
 
 ## No cap
