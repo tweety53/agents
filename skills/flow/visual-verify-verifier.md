@@ -343,7 +343,9 @@ never an exit code the command did not return.
       until its text has been read. Transcribe every number, unit and label the capture shows and
       state, per run, that it is a display value at the precision the frame shows — a raw float,
       a `NaN`, `null`, `undefined`, an empty string where the frame draws a value, a placeholder
-      is a defect whatever the frame's own numbers are.
+      is a defect whatever the frame's own numbers are. A box or a blank where display text
+      should draw a character — a glyph the app's font cannot draw, an emoji or a symbol — is a
+      defect too.
    6. **The elements of capture and frame, listed top to bottom, and every element inside its
       own container.** Write both lists — heading, chart, chips, list, link — and compare their
       order: a control present in both but in a different position relative to its siblings is a
