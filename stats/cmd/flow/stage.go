@@ -739,13 +739,18 @@ func verifyKeyRepository(key string) string {
 // opening plan-, explore- or design- -- has no end: decide follows the
 // planners, so a row still open there was left open past its planner's
 // hand-back and would be closed hours late (kan-1057 self-review, F4: plan-3
-// and plan-4 ended at the next session's sweep). A failed record read
-// refuses nothing.
+// and plan-4 ended at the next session's sweep). It refuses a
+// /flow-interactive flow.sdd-tdd end, of any outcome, while an operator-
+// dispatch row has no end: the request that dispatched an operator-asked
+// subagent closes its row when the agent reports, and a request ended over
+// it left the row open for good (kan-1080 self-review, F4: 8 of 9 rows). A
+// failed record read refuses nothing.
 func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
 	brainstorm := f.command == "/flow" && f.stage == "flow.brainstorm"
 	selfReview := (f.command == "/flow" || f.command == "/flow-fast" || f.command == "/flow-interactive") && f.stage == "flow.self-review"
 	decide := f.command == "/flow" && f.stage == "flow.decide"
-	if !brainstorm && !selfReview && !decide {
+	request := f.command == "/flow-interactive" && f.stage == "flow.sdd-tdd"
+	if !brainstorm && !selfReview && !decide && !request {
 		return 0
 	}
 	projectKey, _, err := fallback.ProjectKey(f.dir)
@@ -761,7 +766,7 @@ func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, s
 	var open []string
 	for _, d := range run.Dispatches {
 		planning := strings.HasPrefix(d.Key, "plan-") || strings.HasPrefix(d.Key, "explore-") || strings.HasPrefix(d.Key, "design-")
-		if d.EndedAt == nil && (!decide || planning) {
+		if d.EndedAt == nil && (!decide || planning) && (!request || strings.HasPrefix(d.Key, "operator-")) {
 			open = append(open, fmt.Sprintf("%s (session %s: `flow record dispatch end -key %s -session-token %s -outcome completed|aborted`)", d.Key, d.SessionToken, d.Key, d.SessionToken))
 		}
 	}

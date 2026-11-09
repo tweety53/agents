@@ -225,6 +225,10 @@ When the operator asks for a subagent in their own words ("run it with an opus x
 the request dispatches it and counts it under this run: inside the request's open `flow.sdd-tdd`
 stage, record the row (store role `implementer`, key `operator-<n>`, which flowd serves as the
 `operator-asked` role), dispatch, and end the row when the agent reports — never a fork.
+Each agent gets its own row: `<n>` is one past the highest `operator-` key the change records, so
+two agents of one request never share a key. A dispatch the hook refuses ends its row `aborted` at
+once. `flow stage end` of the request's `flow.sdd-tdd` refuses while an `operator-` row of the
+change is open (kan-1080 self-review, F4).
 
 ```bash
 flow record dispatch begin -change <name> -role implementer -model <model> -effort <level> -key operator-<n> -session-token fi-<literal-token>
