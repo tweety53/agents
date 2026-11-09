@@ -49,6 +49,12 @@ func TestPolicyAllowsMarkedRowOnlyWithMarker(t *testing.T) {
 	if err := policyAllows(rows, "explorer", "Explore", "fable", "medium", ""); err == nil {
 		t.Error("explorer on fable/Explore@medium admitted")
 	}
+	if err := policyAllows(rows, "panel-reviewer", "flow-medium", "fable", "", ""); err != nil {
+		t.Errorf("panel-reviewer on fable/flow-medium refused: %v", err)
+	}
+	if err := policyAllows(rows, "panel-reviewer", "flow-low", "fable", "", ""); err == nil {
+		t.Error("panel-reviewer on fable/flow-low admitted")
+	}
 	if err := policyAllows(rows, "implementer", "flow-medium", "fable", "", ""); err == nil {
 		t.Error("implementer on fable/flow-medium admitted")
 	}
@@ -65,7 +71,8 @@ func TestPolicyTableNamesNoBannedPair(t *testing.T) {
 			for _, p := range r.Pairs {
 				// fable (medium..xhigh) is admitted for the two planning roles only (operator, 2026-11-09).
 				planning := role == "planner" || role == "plan-designer"
-				if strings.Contains(p, "haiku") || (strings.Contains(p, "fable") && !planning) ||
+				reviewer := role == "panel-reviewer" && p == "fable/flow-medium" // fable medium only, operator 2026-11-09
+				if strings.Contains(p, "haiku") || (strings.Contains(p, "fable") && !planning && !reviewer) ||
 					(strings.Contains(p, "xhigh") && !planning) ||
 					(strings.Contains(p, "fable") && strings.HasSuffix(p, "low")) {
 					t.Errorf("role %s names banned pair %s", role, p)

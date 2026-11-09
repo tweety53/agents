@@ -117,7 +117,7 @@ roles table by them.
 |---|---|---|---|
 | `gated-reviewer` | `opus/flow-medium` | — | Reviews risky tasks as they land, on big changes only. |
 | `gated-re-reviewer` | `opus/flow-low` | — | Re-checks a gated review's findings after their fix. |
-| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium` | — | Reviews the whole branch, first pass: the primary + principles bundle. |
+| `panel-reviewer` | `opus/flow-low`, `opus/flow-medium`, `fable/flow-medium` | — | Reviews the whole branch, first pass: the primary + principles bundle. |
 | `panel-reviewer` | `opus/flow-high` | `Operator-approved high` | — |
 | `panel-sanity-efficiency` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: checks each new test would fail if its behaviour broke, and spots wasted calls. |
 | `panel-mutation-failure` | `opus/flow-low`, `sonnet/flow-low` | — | Always-on extra bundle: breaks the code on purpose to prove the tests notice, and checks error, timeout and partial-write paths. |
