@@ -111,6 +111,29 @@ func TestSeedPricingRatesCarryFable(t *testing.T) {
 	}
 }
 
+// TestSeedPricingRatesCarryFable52 pins the claude-fable-5-2 row, read from
+// the published table on 2026-11-09 -- fast mode included, which that model
+// (unlike fable-5-1) has.
+func TestSeedPricingRatesCarryFable52(t *testing.T) {
+	var f *store.PricingRate
+	for _, rate := range store.SeedPricingRates() {
+		if rate.Model == "claude-fable-5-2" {
+			rate := rate
+			f = &rate
+		}
+	}
+	if f == nil {
+		t.Fatal("no seeded rate for claude-fable-5-2")
+	}
+	if f.InputPerMTok != 8 || f.OutputPerMTok != 40 || f.CacheWrite5mPerMTok != 10 ||
+		f.CacheWrite1hPerMTok == nil || *f.CacheWrite1hPerMTok != 16 || f.CacheReadPerMTok != 0.20 {
+		t.Errorf("rates = %+v, want 8/40, cache 10/16, read 0.20", f)
+	}
+	if f.FastInputPerMTok == nil || *f.FastInputPerMTok != 16 || f.FastOutputPerMTok == nil || *f.FastOutputPerMTok != 80 {
+		t.Error("fast rate not 16/80")
+	}
+}
+
 // TestSeedPricingRatesOmitFastForModelsWithNone pins the table's own
 // documented gap: claude-sonnet-5 and claude-haiku-4-5 have no published
 // fast-mode rate (the source table's "—" cells), and this seed must not

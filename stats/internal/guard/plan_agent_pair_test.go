@@ -58,7 +58,7 @@ func TestPlanAgentPairFollowsPolicy(t *testing.T) {
 // experimentOneFlow is open experiment 1, plan-designer-xhigh-explorer-low:
 // each planning role overridden to its own pair.
 const experimentOneFlow = `[ "$1 $2" = "experiment overrides" ] || exit 9
-printf '%s\n' '{"plan-designer":["opus/Plan@xhigh"],"explorer":["sonnet/Explore@low"]}'
+printf '%s\n' '{"plan-designer":["opus/Plan@max"],"explorer":["sonnet/Explore@low"]}'
 `
 
 // TestPlanAgentPairReadsOverride: an open override of the named role's row
@@ -70,7 +70,7 @@ func TestPlanAgentPairReadsOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := fakeFlowEnv(t, experimentOneFlow, "FLOW_GUARD_REPO_ROOT="+root)
-	for role, want := range map[string]string{"plan-designer": "opus xhigh\n", "explorer": "sonnet low\n"} {
+	for role, want := range map[string]string{"plan-designer": "opus max\n", "explorer": "sonnet low\n"} {
 		if r := runGuard("plan-agent-pair", []string{"demo", "1", role}, env); r.rc != 0 || r.stdout != want {
 			t.Fatalf("%s: rc=%d out=%q, want %q", role, r.rc, r.out, want)
 		}

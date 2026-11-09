@@ -98,8 +98,8 @@ roles table by them.
 | Role | Allowed pairs | Requires marker | Does |
 |---|---|---|---|
 | `explorer` | `opus/Explore@low`, `opus/Explore@medium` | — | Reads the codebase to answer a planner's question. |
-| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium`, `fable/Plan@medium`, `fable/Plan@high`, `fable/Plan@xhigh` | — | Proposes a design or plan for the planner to choose from. |
-| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low`, `fable/flow-planner-medium`, `fable/flow-planner-high`, `fable/flow-planner-xhigh` | — | Writes the design and the task plan. |
+| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium`, `opus/Plan@high`, `opus/Plan@xhigh`, `fable/Plan@medium`, `fable/Plan@high`, `fable/Plan@xhigh` | — | Proposes a design or plan for the planner to choose from. |
+| `planner` | `opus/flow-planner-medium`, `opus/flow-planner-low`, `opus/flow-planner-high`, `opus/flow-planner-xhigh`, `fable/flow-planner-medium`, `fable/flow-planner-high`, `fable/flow-planner-xhigh` | — | Writes the design and the task plan. |
 
 ### Implementation
 

@@ -26,8 +26,8 @@ func fastRate(v float64) *float64 { return &v }
 // with the claude-fable-5-1 row read from the same page on 2026-09-02, and
 // the claude-opus-5-5, claude-fable-5 and claude-haiku-4-5-20251001 rows
 // read from it on 2026-09-23 -- the dated Haiku id is the one the harness
-// serves, at the Haiku 4.5 row's own rates -- and the claude-sonnet-5-5 row
-// read from it on 2026-10-29. The
+// serves, at the Haiku 4.5 row's own rates -- the claude-sonnet-5-5 row
+// read from it on 2026-10-29, and the claude-fable-5-2 row read from it on 2026-11-09. The
 // GLM-5.3-Flash row (kan-479, keyed to the canonical lowercase form of
 // the model id -- design decision model-id-canonical-lowercase) was read from
 // https://docs.z.ai/guides/overview/pricing on 2026-09-09: the launch-
@@ -60,6 +60,17 @@ func SeedPricingRates() []PricingRate {
 			CacheReadPerMTok:    0.015,
 			// No fast-mode rate is published for this model -- left nil
 			// deliberately.
+		},
+		{
+			Model:               "claude-fable-5-2",
+			EffectiveFrom:       pricingSeedEffectiveFrom,
+			InputPerMTok:        8,
+			OutputPerMTok:       40,
+			CacheWrite5mPerMTok: 10,
+			CacheWrite1hPerMTok: fastRate(16),
+			CacheReadPerMTok:    0.20, // 0.025x input on this model, per the source table's footnote.
+			FastInputPerMTok:    fastRate(16),
+			FastOutputPerMTok:   fastRate(80),
 		},
 		{
 			Model:               "claude-fable-5-1",

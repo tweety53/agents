@@ -40,6 +40,12 @@ func TestPolicyAllowsMarkedRowOnlyWithMarker(t *testing.T) {
 	if err := policyAllows(rows, "planner", "flow-planner-high", "fable", "", ""); err != nil {
 		t.Errorf("planner on fable/flow-planner-high refused: %v", err)
 	}
+	if err := policyAllows(rows, "plan-designer", "Plan", "opus", "xhigh", ""); err != nil {
+		t.Errorf("plan-designer on opus/Plan@xhigh refused: %v", err)
+	}
+	if err := policyAllows(rows, "planner", "flow-planner-xhigh", "opus", "", ""); err != nil {
+		t.Errorf("planner on opus/flow-planner-xhigh refused: %v", err)
+	}
 	if err := policyAllows(rows, "explorer", "Explore", "fable", "medium", ""); err == nil {
 		t.Error("explorer on fable/Explore@medium admitted")
 	}
@@ -60,7 +66,7 @@ func TestPolicyTableNamesNoBannedPair(t *testing.T) {
 				// fable (medium..xhigh) is admitted for the two planning roles only (operator, 2026-11-09).
 				planning := role == "planner" || role == "plan-designer"
 				if strings.Contains(p, "haiku") || (strings.Contains(p, "fable") && !planning) ||
-					(strings.Contains(p, "xhigh") && !(planning && strings.HasPrefix(p, "fable/"))) ||
+					(strings.Contains(p, "xhigh") && !planning) ||
 					(strings.Contains(p, "fable") && strings.HasSuffix(p, "low")) {
 					t.Errorf("role %s names banned pair %s", role, p)
 				}
@@ -149,7 +155,7 @@ func fakeFlowEnv(t *testing.T, script string, over ...string) Env {
 }
 
 const overridesFlow = `[ "$1 $2" = "experiment overrides" ] || exit 9
-printf '%s\n' '{"plan-designer":["opus/Plan@xhigh"],"main":["opus@medium"],"nobody":["opus/flow-low"]}'
+printf '%s\n' '{"plan-designer":["opus/Plan@max"],"main":["opus@medium"],"nobody":["opus/flow-low"]}'
 `
 
 // TestPolicyTableOverlaysOpenOverrides: an open experiment's cell replaces
@@ -170,7 +176,7 @@ func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 	for role, rs := range alone {
 		want[role] = slices.Clone(rs)
 	}
-	want["plan-designer"][0].Pairs = []string{"opus/Plan@xhigh"}
+	want["plan-designer"][0].Pairs = []string{"opus/Plan@max"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("overlaid table differs beyond plan-designer's unmarked row:\n got %v\nwant %v", got, want)
 	}
@@ -188,7 +194,7 @@ func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 	}
 
 	for name, env := range map[string]Env{
-		"exit 1":   fakeFlowEnv(t, "echo '{\"plan-designer\":[\"opus/Plan@xhigh\"]}'; exit 1"),
+		"exit 1":   fakeFlowEnv(t, "echo '{\"plan-designer\":[\"opus/Plan@max\"]}'; exit 1"),
 		"not json": fakeFlowEnv(t, "echo 'not json'"),
 		"no flow":  noFlowEnv(t),
 	} {
@@ -206,7 +212,7 @@ func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 // without it the table refuses it.
 func TestCheckDispatchPairAdmitsOverride(t *testing.T) {
 	t.Parallel()
-	args := []string{mpRepo, "Plan", "opus", "xhigh"}
+	args := []string{mpRepo, "Plan", "opus", "max"}
 	e := fakeFlowEnv(t, overridesFlow)
 	e.Stdin = strings.NewReader("Role: plan-designer\n")
 	if r := runGuard("check-dispatch-pair", args, e); r.rc != 0 || r.stdout != "DISPATCH-PAIR-OK plan-designer\n" {
@@ -220,7 +226,7 @@ func TestCheckDispatchPairAdmitsOverride(t *testing.T) {
 }
 
 // TestCheckDispatchPairAdmitsPlanner: the real table's `planner` row admits
-// opus on flow-planner-medium and -low, nothing else (KAN-1067). No `flow` on
+// opus and fable on flow-planner-medium to -xhigh (opus also -low), nothing else (KAN-1067). No `flow` on
 // PATH, so an open experiment in the dev store cannot change the answer.
 func TestCheckDispatchPairAdmitsPlanner(t *testing.T) {
 	t.Parallel()
@@ -230,7 +236,11 @@ func TestCheckDispatchPairAdmitsPlanner(t *testing.T) {
 	}{
 		{"flow-planner-medium", "opus", 0},
 		{"flow-planner-low", "opus", 0},
-		{"flow-planner-high", "opus", 1},
+		{"flow-planner-high", "opus", 0},
+		{"flow-planner-xhigh", "opus", 0},
+		{"flow-planner-xhigh", "fable", 0},
+		{"flow-planner-low", "fable", 1},
+		{"flow-planner-max", "opus", 1},
 		{"flow-planner-medium", "sonnet", 1},
 	} {
 		e := noFlowEnv(t)
