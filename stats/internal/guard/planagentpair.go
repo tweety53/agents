@@ -18,7 +18,7 @@ import (
 //
 // With the optional fourth argument `core` (a CORE change, whose Jira issue's
 // `Agents (CORE)` section names fable for planning), it prints the row's first
-// CORE pair instead -- `sonnet/` for explorer, `fable/` for plan-designer and
+// CORE pair instead -- `opus/` for explorer, `fable/` for plan-designer and
 // planner; exit 2 when the row carries none. The planner row's pairs are
 // `<model>/flow-planner-<effort>`, printed as `<model> <effort>`.
 //
@@ -48,7 +48,7 @@ func init() {
 var papPair = regexp.MustCompile(`^([a-z0-9.-]+)/(?:[A-Za-z]+@|flow-planner-)([a-z]+)$`)
 
 // papCoreModel is the model a CORE change's pair names, per role.
-var papCoreModel = map[string]string{"explorer": "sonnet", "plan-designer": "fable", "planner": "fable"}
+var papCoreModel = map[string]string{"explorer": "opus", "plan-designer": "fable", "planner": "fable"}
 
 func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 && !(len(args) == 4 && args[3] == "core") {

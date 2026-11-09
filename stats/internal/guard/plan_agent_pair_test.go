@@ -29,7 +29,7 @@ func TestPlanAgentPair(t *testing.T) {
 		if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "core"}, env); r.rc != 0 || r.stdout != "fable xhigh\n" {
 			t.Fatalf("rc=%d out=%q, want fable xhigh", r.rc, r.out)
 		}
-		for role, want := range map[string]string{"explorer": "sonnet low\n", "planner": "fable xhigh\n"} {
+		for role, want := range map[string]string{"explorer": "opus low\n", "planner": "fable xhigh\n"} {
 			if r := runGuard("plan-agent-pair", []string{"demo", "1", role, "core"}, env); r.rc != 0 || r.stdout != want {
 				t.Fatalf("%s core: rc=%d out=%q, want %q", role, r.rc, r.out, want)
 			}
