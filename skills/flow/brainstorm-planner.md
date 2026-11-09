@@ -117,7 +117,10 @@ criterion nothing satisfies — enforced by `flow-guard check-done-when-paths`.
 change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
 planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1, `<role>` the
 dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on — passing the
-printed model as the Agent tool's `model` and the effort as its `effort`. Its prompt carries the
+printed model as the Agent tool's `model` and the effort as its `effort`. **A CORE change** — its Jira
+issue carries an `**Agents (CORE):**` section whose `planner` line names `fable` — passes `core` as a
+fourth argument for a `plan-designer` dispatch (`flow-guard plan-agent-pair <seed> <n> plan-designer core`),
+which prints the row's first `fable/` pair; every other change omits it and gets opus. Its prompt carries the
 line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
@@ -652,7 +655,11 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
   effort `medium` or `low`, never `high`;
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
-- **every other pass-1 panel dispatch** — `opus`, always;
+- **every other pass-1 panel dispatch** — `opus`, always; except a CORE change whose Jira `**Agents (CORE):**`
+  section's `reviewers` line names `fable 5.2 · medium` (or `low`), whose primary and principles dispatches
+  record `fable` at that effort — `flow record decision` admits `fable` on `panel.dispatches[]` pairs and
+  nowhere else, and the `panel-reviewer` row of **Allowed pairs** admits `fable/flow-low` and
+  `fable/flow-medium` (operator, 2026-11-09);
 - **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
 - **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.

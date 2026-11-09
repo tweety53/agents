@@ -18,11 +18,22 @@ func TestPlanAgentPair(t *testing.T) {
 	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + root})
 	t.Run("every seed gets the row's first pair", func(t *testing.T) {
 		for i := range 100 {
-			for role, want := range map[string]string{"explorer": "opus low\n", "plan-designer": "fable xhigh\n"} {
+			for role, want := range map[string]string{"explorer": "opus low\n", "plan-designer": "opus low\n"} {
 				if r := runGuard("plan-agent-pair", []string{fmt.Sprintf("s%d", i), "1", role}, env); r.rc != 0 || r.stdout != want {
 					t.Fatalf("s%d 1 %s: rc=%d out=%q, want %q", i, role, r.rc, r.out, want)
 				}
 			}
+		}
+	})
+	t.Run("core prints the row's first fable pair", func(t *testing.T) {
+		if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "core"}, env); r.rc != 0 || r.stdout != "fable xhigh\n" {
+			t.Fatalf("rc=%d out=%q, want fable xhigh", r.rc, r.out)
+		}
+		if r := runGuard("plan-agent-pair", []string{"demo", "1", "explorer", "core"}, env); r.rc != 2 {
+			t.Fatalf("explorer core: rc=%d out=%q, want 2 (no fable pair)", r.rc, r.out)
+		}
+		if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "x"}, env); r.rc != 2 {
+			t.Fatalf("bad fourth arg: rc=%d, want 2", r.rc)
 		}
 	})
 	for _, args := range [][]string{{"demo", "0", "explorer"}, {"demo", "x", "explorer"}, {"demo", "1"}, {"demo", "1", "planner"}, {"demo"}} {
@@ -42,7 +53,7 @@ func TestPlanAgentPairFollowsPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	repo := t.TempDir()
-	table := strings.Replace(string(b), "| `plan-designer` | `fable/Plan@xhigh`,", "| `plan-designer` | `opus/Plan@medium`, `fable/Plan@xhigh`,", 1)
+	table := strings.Replace(string(b), "| `plan-designer` | `opus/Plan@low`, `opus/Plan@medium`,", "| `plan-designer` | `opus/Plan@medium`, `opus/Plan@low`,", 1)
 	if table == string(b) {
 		t.Fatal("the real table carries no plan-designer row to rewrite")
 	}

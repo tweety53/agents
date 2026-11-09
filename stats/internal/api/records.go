@@ -317,16 +317,16 @@ func checkDecisionModels(body json.RawMessage) error {
 	if err := json.Unmarshal(body, &d); err != nil {
 		return fmt.Errorf("%w: decision is not a JSON object: %v", ErrInvalidRecord, err)
 	}
-	if err := checkPairModel("implementer", d["implementer"], true); err != nil {
+	if err := checkPairModel("implementer", d["implementer"], true, false); err != nil {
 		return err
 	}
-	if err := checkPairModel("fixer", d["fixer"], true); err != nil {
+	if err := checkPairModel("fixer", d["fixer"], true, false); err != nil {
 		return err
 	}
-	if err := checkPairModel("extra_dispatch", d["extra_dispatch"], false); err != nil {
+	if err := checkPairModel("extra_dispatch", d["extra_dispatch"], false, false); err != nil {
 		return err
 	}
-	if err := checkPairModel("extra_dispatch_mutation", d["extra_dispatch_mutation"], false); err != nil {
+	if err := checkPairModel("extra_dispatch_mutation", d["extra_dispatch_mutation"], false, false); err != nil {
 		return err
 	}
 	if isObject(d["panel"]) {
@@ -340,12 +340,12 @@ func checkDecisionModels(body json.RawMessage) error {
 				return fmt.Errorf("%w: panel.dispatches: %v", ErrInvalidRecord, err)
 			}
 			for i, p := range dispatches {
-				if err := checkPairModel(fmt.Sprintf("panel.dispatches[%d]", i), p, false); err != nil {
+				if err := checkPairModel(fmt.Sprintf("panel.dispatches[%d]", i), p, false, true); err != nil {
 					return err
 				}
 			}
 		}
-		if err := checkPairModel("panel.rerun_dispatch", panel["rerun_dispatch"], false); err != nil {
+		if err := checkPairModel("panel.rerun_dispatch", panel["rerun_dispatch"], false, false); err != nil {
 			return err
 		}
 	}
@@ -355,7 +355,7 @@ func checkDecisionModels(body json.RawMessage) error {
 			return fmt.Errorf("%w: groups: %v", ErrInvalidRecord, err)
 		}
 		for i, g := range groups {
-			if err := checkPairModel(fmt.Sprintf("groups[%d]", i), g, true); err != nil {
+			if err := checkPairModel(fmt.Sprintf("groups[%d]", i), g, true, false); err != nil {
 				return err
 			}
 		}
@@ -365,8 +365,10 @@ func checkDecisionModels(body json.RawMessage) error {
 
 // checkPairModel checks one recorded pair: absent, null or a JSON string
 // passes; an object's model must be a store.ValidModels member, and its
-// effort must not be "high" when noHigh is set.
-func checkPairModel(path string, raw json.RawMessage, noHigh bool) error {
+// effort must not be "high" when noHigh is set. allowFable additionally
+// admits "fable", for a panel.dispatches[] pair only: a CORE change's
+// first-pass reviewers (operator, 2026-11-09).
+func checkPairModel(path string, raw json.RawMessage, noHigh, allowFable bool) error {
 	if !isObject(raw) {
 		return nil
 	}
@@ -380,7 +382,7 @@ func checkPairModel(path string, raw json.RawMessage, noHigh bool) error {
 			return fmt.Errorf("%w: %s.model: %v", ErrInvalidRecord, path, err)
 		}
 	}
-	if !store.ValidModels[model] {
+	if !store.ValidModels[model] && !(allowFable && model == "fable") {
 		return fmt.Errorf("%w: %s.model %q is not one of %s", ErrInvalidRecord, path, model,
 			strings.Join(slices.Sorted(maps.Keys(store.ValidModels)), ", "))
 	}

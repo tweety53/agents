@@ -5,6 +5,7 @@ import (
 	"io"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // The contract below moved here from the header of the deleted
@@ -13,7 +14,11 @@ import (
 // flow-guard plan-agent-pair — the model and effort of a planning session's Explore or
 // Plan dispatch.
 //
-// Usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer>
+// Usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer> [core]
+//
+// With the optional fourth argument `core` (a CORE change, whose Jira issue's
+// `Agents (CORE)` section names fable for planning), it prints the first
+// `fable/` pair of the row instead; exit 2 when the row carries none.
 //
 // Prints one line, `<model> <effort>` — the first pair of the <role> row,
 // `explorer` for an Explore dispatch and `plan-designer` for a Plan one, of
@@ -41,8 +46,8 @@ func init() {
 var papPair = regexp.MustCompile(`^([a-z0-9.-]+)/[A-Za-z]+@([a-z]+)$`)
 
 func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer>")
+	if len(args) != 3 && !(len(args) == 4 && args[3] == "core") {
+		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer> [core]")
 		return 2
 	}
 	role := args[2]
@@ -61,7 +66,13 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	var m []string
 	if rs := rows[role]; len(rs) > 0 {
-		m = papPair.FindStringSubmatch(rs[0].Pairs[0])
+		for _, p := range rs[0].Pairs {
+			if len(args) == 4 && !strings.HasPrefix(p, "fable/") {
+				continue
+			}
+			m = papPair.FindStringSubmatch(p)
+			break
+		}
 	}
 	if m == nil {
 		fmt.Fprintf(stderr, "plan-agent-pair: %s names no `<model>/<agent>@<effort>` %s pair\n", mpFile, role)

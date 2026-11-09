@@ -1768,6 +1768,8 @@ func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
 		{"panel.rerun_dispatch.model", decisionWithModels("opus", "opus", "opus", "haiku", "sonnet"), "haiku"},
 		{"groups[1].model", decisionWithModels("opus", "opus", "opus", "sonnet", "haiku"), "haiku"},
 		{"groups[1].model", decisionWithModels("opus", "opus", "opus", "sonnet", "fable"), "fable"},
+		{"panel.rerun_dispatch.model", decisionWithModels("opus", "opus", "opus", "fable", "sonnet"), "fable"},
+		{"implementer.model", decisionWithModels("fable", "opus", "opus", "sonnet", "sonnet"), "fable"},
 		{"implementer.model", decisionWithModels("", "opus", "opus", "sonnet", "sonnet"), ""},
 	}
 	for _, tt := range tests {
@@ -1785,6 +1787,17 @@ func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
 				t.Errorf("the store was reached for an off-policy %s", tt.path)
 			}
 		})
+	}
+}
+
+// TestRecordDecisionAcceptsFableReviewer pins that a panel.dispatches[]
+// pair, and only that, may name fable (a CORE change's reviewers).
+func TestRecordDecisionAcceptsFableReviewer(t *testing.T) {
+	_, fs := recordTestServer(t, "proj", "kan-1")
+	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
+		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(decisionWithModels("opus", "opus", "fable", "sonnet", "sonnet"))})
+	if err != nil {
+		t.Fatalf("fable on panel.dispatches[0] refused: %v", err)
 	}
 }
 
