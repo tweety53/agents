@@ -212,11 +212,11 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 	if exec.Command("git", "-C", wt, "check-ignore", "-q", "--no-index", ".superpowers/").Run() != nil {
 		return refuse(".superpowers/ is not gitignored in %s — add it to the project's root .gitignore, untrack it (git rm -r --cached .superpowers), land that, and end again", wt)
 	}
-	tracked, err := exec.Command("git", "-C", wt, "ls-tree", "-r", "--name-only", commit, "--", ".superpowers").Output()
+	first, err := scratchTracked(wt, commit)
 	if err != nil {
-		return refuse("git ls-tree %s -- .superpowers failed in %s: %v", commit, wt, err)
+		return refuse("%v", err)
 	}
-	if first, _, _ := strings.Cut(strings.TrimSpace(string(tracked)), "\n"); first != "" {
+	if first != "" {
 		return refuse("-commit %s tracks %s — untrack .superpowers/ (git rm -r --cached .superpowers), land that, and end again", commit, first)
 	}
 	if lintDeclared(wt) {
@@ -296,6 +296,17 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("request %d's UI check screenshot %s was taken at %s, outside its run %s–%s", n, metrics.Screenshot, at.UTC().Format(time.RFC3339Nano), latest.StartedAt, ended)
 	}
 	return 0
+}
+
+// scratchTracked is the first path under .superpowers/ that commit tracks
+// in wt, "" for none (kan-1080 self-review, F3).
+func scratchTracked(wt, commit string) (string, error) {
+	tracked, err := exec.Command("git", "-C", wt, "ls-tree", "-r", "--name-only", commit, "--", ".superpowers").Output()
+	if err != nil {
+		return "", fmt.Errorf("git ls-tree %s -- .superpowers failed in %s: %v", commit, wt, err)
+	}
+	first, _, _ := strings.Cut(strings.TrimSpace(string(tracked)), "\n")
+	return first, nil
 }
 
 // lintGreenAt is the sha wt's `flow-lint-green` holds — the HEAD a green

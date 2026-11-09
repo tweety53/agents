@@ -43,6 +43,7 @@ commands:
   record handoff-lines  print the handoff's Records and Costs lines
   record decision     record one run's dynamic decision, or replace it
   record decisions    print a change's recorded decisions as a JSON array
+  interactive land     land a /flow-interactive request: rebase, check, push (see: flow interactive)
   decision render     print the ## Decision block for a decision.json (see: flow decision)
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
@@ -129,6 +130,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runWorkspaceID(ctx, args[1:], stdout, stderr)
 	case "prompt-tuning":
 		return runPromptTuning(ctx, args[1:], stdout, stderr)
+	case "interactive":
+		return runInteractive(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown command %q\n", args[0])
 		fmt.Fprint(stderr, usage)

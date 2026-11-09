@@ -162,19 +162,17 @@ flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -h
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
 ```
 
-**5. Land.** Fetch and rebase — a conflict per the **Conflict** bullet of **Sync the branch onto
-the base** (`skills/flow/sync-onto-base.md`); a rebase that moved the branch re-runs step 4. On
-the request's first landing, note `git -C <worktree> rev-parse origin/<base>` right after this
-rebase: it is the request's **base**, the parent of its first landed commit. Push with `git -C
-<worktree> push origin <name>:<base>` as its own git-only call. A non-fast-forward rejection
-fetches, rebases, re-runs step 4 and pushes again; any other rejection leaves the request open and
-the session says why (⛔ blocked). Then fetch, and `git -C <worktree> merge-base --is-ancestor HEAD
-origin/<base>` must pass before anything else runs.
+**5. Land.** One call lands the request and marks `flow.landing-routes` around its push:
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.landing-routes -request <n> -harness <harness> -session-token fi-<literal-token> <name>
-flow stage end   -command '/flow-interactive' -stage flow.landing-routes -outcome completed <name>
+flow interactive land -C <worktree> -change <name> -n <n> -harness <harness> -session-token fi-<literal-token>
 ```
+
+Exit 0 prints `commit: <sha>` and `base: <sha>`; on the request's first landing that `base:` is the
+request's **base**, the parent of its first landed commit. A rebase conflict is resolved per the
+**Conflict** bullet of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and the
+call made again. A refusal naming `flow-lint-green` re-runs step 4 on the rebased `HEAD`, then the
+call; a rejected push leaves the request open and the session says why (⛔ blocked).
 
 **6. Reinstall.** `git -C <project> pull --ff-only` when the main checkout is on `<base>` and
 clean, then the reinstall the project's instruction file requires after a landing, each command

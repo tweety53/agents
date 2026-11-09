@@ -83,7 +83,7 @@ No command takes a flag.
 |---------|--------------|
 | `/flow <name>` | The whole pipeline, one command, re-entrant — see below |
 | `/flow-fast <name>` | Lighter: worktree, class-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
-| `/flow-interactive [key or name]` | Conversational session: each request is implemented inline, verified, landed by merge and push; an explicit stop self-reviews, cleans up and finishes |
+| `/flow-interactive [key or name]` | Conversational session: each request is implemented inline, verified, landed by merge and push (`flow interactive land`); an explicit stop self-reviews, cleans up and finishes |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-settings` | Global reviewer slots |
