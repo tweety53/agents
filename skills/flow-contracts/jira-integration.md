@@ -52,7 +52,7 @@ discarded too.
   issue and ended its turn). A failed create is one `⚠ Jira: skipped — <reason>` line and resolves
   as no hit.
 - **A `/flow-interactive` session start with no key in its arguments** first looks for an existing
-  issue: one in the `## jira` project, assigned to the operator, in **In Progress** and whose
+  issue: one in the `## jira` project, in **In Progress** (whoever it is assigned to, or none) and whose
   summary begins `Interactive session` (`searchJiraIssuesUsingJql`, on the `twg` route `twg jira
   workitem query`) — the most recently updated is the user-supplied key, unasked, and no
   In Progress transition is needed. With none, it files one the same way, unasked, its summary
