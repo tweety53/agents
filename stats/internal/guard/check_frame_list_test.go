@@ -158,6 +158,40 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 	}
 }
 
+// TestCheckFrameListSkipsAnsweredQuestionLabels pins decision
+// answered-ids-are-labels: an id design.md writes in answer position, `Q1=A`,
+// is a question label, so a mockup of that name is never declared — not even
+// where the design names the id elsewhere as a bare token (kan-1085).
+func TestCheckFrameListSkipsAnsweredQuestionLabels(t *testing.T) {
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"AXF1.png", "AX1.png", "Q1.png", "Q2.png", "R2.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	design := "Frames AXF1 and AX1 (Q2, Q13, W1).\n**Chosen:** one table — Q1=A, Q2=A.\n### Admin capture (R2)\n**Chosen:** a new project (R2=A).\n"
+	if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(r, []byte("## Report\n\n- frames: 0/0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+	if res.rc != 1 || !strings.Contains(res.out, "below 2 declared") || !strings.Contains(res.out, "no sidecar line: AX1") || !strings.Contains(res.out, "no sidecar line: AXF1") {
+		t.Errorf("rc=%d out=%q; want 1 with 2 declared, AX1 and AXF1 named", res.rc, res.out)
+	}
+	for _, id := range []string{"Q1", "Q2", "R2"} {
+		if strings.Contains(res.out, id) {
+			t.Errorf("out=%q names question label %s", res.out, id)
+		}
+	}
+}
+
 // TestCheckFrameListReadsReportAlone pins decision verdict-only-handback: a
 // `## Verdict` departure line `- <frame id>: …` does not stand in for that
 // frame's missing per-frame line under `## Report`.

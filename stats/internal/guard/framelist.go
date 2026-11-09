@@ -37,6 +37,10 @@ import (
 // themselves. A design line opening with `**Considered:**` names no frame:
 // its alternatives were rejected.
 //
+// An id design.md writes in answer position — directly followed by `=` and a
+// letter or digit, `Q1=A` — is a question label, and the design declares no
+// frame by that id anywhere.
+//
 // Every report line below is read from the report's `## Report` heading to
 // the next `## ` heading alone: a `## Verdict` departure line never stands in
 // for a per-frame line (decision verdict-only-handback).
@@ -76,6 +80,8 @@ var (
 	flFramesLine = regexp.MustCompile(`^\s*- frames:\s*(\d+)/(\d+)(.*)$`)
 	// flConsidered is a decision's rejected-alternatives line: its frames are not declared.
 	flConsidered = regexp.MustCompile(`(?m)^\s*\*\*Considered:\*\*.*$`)
+	// flAnswered is an id in answer position, `Q1=A`: a question label, never a frame.
+	flAnswered = regexp.MustCompile(`(?m)(^|[^A-Za-z0-9_-])([A-Za-z0-9_-]+)=[A-Za-z0-9]`)
 	// flRange is `<prefix><a> … <prefix><b>`, each end optionally a path ending in `/`, `.png` and backticks.
 	flRange = regexp.MustCompile("`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?\\s*(?:…|–|\\.\\.\\.)\\s*`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?")
 )
@@ -108,6 +114,10 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	answered := map[string]bool{}
+	for _, m := range flAnswered.FindAllSubmatch(design, -1) {
+		answered[string(m[2])] = true
+	}
 	design = flConsidered.ReplaceAll(design, nil)
 	frames := map[string]bool{}
 	for _, e := range entries {
@@ -137,7 +147,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	var declared []string
 	for id := range frames {
-		if inRange(id) || flToken(id).Match(design) {
+		if !answered[id] && (inRange(id) || flToken(id).Match(design)) {
 			declared = append(declared, id)
 		}
 	}
