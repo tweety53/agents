@@ -1776,7 +1776,7 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 		fmt.Fprintf(stderr, "flow: -started-at %s is later than -ended-at %s\n", *v["started-at"], *v["ended-at"])
 		return 2
 	}
-	if !panelFixKeyedARoundLow(ctx, f, projectKey, *v["role"], *v["key"], ended, stderr) {
+	if !commitPushed(ctx, f, projectKey, *v["commit"]) && !panelFixKeyedARoundLow(ctx, f, projectKey, *v["role"], *v["key"], ended, stderr) {
 		return 2
 	}
 	if _, ok := checkDispatchEndFields(*v["outcome"], *v["cause"], *v["tokens"], stderr); !ok {
@@ -4153,6 +4153,22 @@ func mutationRoots(ctx context.Context, f recordIdentityFlags, projectKey string
 	}
 	peers := slices.Sorted(maps.Keys(state.Worktrees))
 	return append(roots, peers...)
+}
+
+// commitPushed reports whether sha is reachable from a remote ref in any of
+// the change's worktrees: a pushed commit keeps the Flow-Key trailer it
+// carries, so a back-fill under that key cannot be asked to rename it.
+func commitPushed(ctx context.Context, f recordIdentityFlags, projectKey, sha string) bool {
+	if len(sha) != 40 {
+		return false
+	}
+	for _, root := range mutationRoots(ctx, f, projectKey) {
+		out, err := exec.Command("git", "-C", root, "branch", "-r", "--contains", sha).Output()
+		if err == nil && strings.TrimSpace(string(out)) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // mutationPathExists reports whether path, absolute as given or relative

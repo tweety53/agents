@@ -7149,6 +7149,15 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 			t.Errorf("%s: posts %d, stderr %q; want none and a message naming panel-fix-6", tc.name, posts, stderr.String())
 		}
 	}
+	// A pushed commit keeps its trailer: the back-fill under that key passes.
+	recordFails = false
+	if out, err := exec.Command("git", "-C", repo, "update-ref", "refs/remotes/origin/x", sha).CombinedOutput(); err != nil {
+		t.Fatalf("update-ref: %v\n%s", err, out)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), backfill("panel-fix-5", "-agent-id", "inline", "-commit", sha), strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Errorf("a pushed commit's back-fill: exit %d, want 0; stderr:\n%s", code, stderr.String())
+	}
 }
 
 // TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows pins the
