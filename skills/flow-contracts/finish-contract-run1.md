@@ -257,6 +257,7 @@ and its `git log --stat` lines leave out every `*.png` path. A source that is ab
 The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printing it, and appends `## Session narrative` there (one paragraph it writes for run 1 itself; the
 change's `narrative.md` is already a bundle section, and a change predating the narrative rule
 has the bundle report it skipped) — it is never committed.
+`flow-guard check-loop-dispatch` refuses a pass dispatched from the change branch whose prompt names no bundle carrying a `## Session narrative` heading (kan-1102 self-review, F21).
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`
 (`skills/flow-self-review/SKILL.md`), canonical for the eight angles, the fix loop and its

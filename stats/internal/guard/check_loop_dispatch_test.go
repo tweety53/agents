@@ -402,3 +402,52 @@ func TestCheckLoopDispatchPassRunsOnce(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckLoopDispatchPassNeedsNarrative pins decision f21-narrative-in-run-only
+// (kan-1102 self-review, F21): a pass dispatched from the change branch
+// (spectre/<name> or <name>) is refused, NARRATIVE, unless the first
+// …/bundle.md its prompt names carries a `## Session narrative` line; a pass
+// from any other branch is not checked.
+func TestCheckLoopDispatchPassNeedsNarrative(t *testing.T) {
+	t.Parallel()
+	const key = "self-review-kan-1-demo-pass"
+	const bare = "# bundle\n\n## change summary\n\nx\n"
+	const told = bare + "\n## Session narrative\n\nThe run planned, built and landed.\n"
+	for _, tc := range []struct {
+		name, branch, bundle string
+		noPath               bool // the prompt names no …/bundle.md path
+		rc                   int
+		out                  string
+	}{
+		{name: "an in-run bundle with no narrative", branch: "spectre/kan-1-demo", bundle: bare, rc: 1, out: "LOOP-DISPATCH-REFUSED: NARRATIVE — " + key},
+		{name: "an in-run prompt naming no bundle", branch: "spectre/kan-1-demo", bundle: told, noPath: true, rc: 1, out: "LOOP-DISPATCH-REFUSED: NARRATIVE — " + key},
+		{name: "an in-run bundle that cannot be read", branch: "spectre/kan-1-demo", rc: 1, out: "/sr/bundle.md carries none"},
+		{name: "an in-run bundle with its narrative", branch: "spectre/kan-1-demo", bundle: told, out: "LOOP-DISPATCH-OK"},
+		{name: "a standalone pass on the landing branch", branch: "main", bundle: bare, out: "LOOP-DISPATCH-OK"},
+		{name: "a /flow-fast pass with its narrative", branch: "kan-1-demo", bundle: told, out: "LOOP-DISPATCH-OK"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := lpNew(t, `[]`)
+			dir := filepath.Dir(fx.repo) + "/caller"
+			gitRun(t, "", "init", "-q", "-b", tc.branch, dir)
+			gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", "init")
+			fx.env.Dir = dir
+			bundle := filepath.Dir(fx.repo) + "/sr/bundle.md"
+			if tc.bundle != "" {
+				writeFile(t, bundle, tc.bundle)
+			}
+			fx.prompt = "Key: " + key + "\nRead the bundle at `" + bundle + "` first.\n"
+			if tc.noPath {
+				fx.prompt = "Key: " + key + "\nRead the bundle first.\n"
+			}
+			rc, out := fx.run(t, key, "flow-medium", "opus")
+			if rc != tc.rc || !strings.Contains(out, tc.out) {
+				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
+			}
+			if begun := strings.Contains(fx.calls(t), "dispatch begin"); begun != (tc.rc == 0) {
+				t.Fatalf("begin recorded %v, want %v:\n%s", begun, tc.rc == 0, fx.calls(t))
+			}
+		})
+	}
+}

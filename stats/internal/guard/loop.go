@@ -39,7 +39,11 @@ import (
 //                (flow-guard pipeline-fix end);
 //   PLAN         a fix or review with no completed plan row;
 //   PASS-DONE    a pass whose key already holds a completed row while its
-//                loop branch self-review-<name> exists (kan-1102 self-review, F20).
+//                loop branch self-review-<name> exists (kan-1102 self-review, F20);
+//   NARRATIVE    a pass dispatched from the change branch (spectre/<name> or
+//                <name>) whose prompt's first absolute …/bundle.md path is
+//                missing, unreadable, or has no line `## Session narrative`
+//                (kan-1102 self-review, F21).
 // Admitted (exit 0, LOOP-DISPATCH-OK): the row is opened with `flow record
 // dispatch begin` under the loop's change, its session token the loop's
 // branch name — except a `pass`, which is opened under the change <name>
@@ -73,6 +77,7 @@ func init() {
 var (
 	lpPipelineKey = regexp.MustCompile(`^pipeline-fix-([0-9]+)-(.+)$`)
 	lpDigits      = regexp.MustCompile(`^[0-9]+$`)
+	lpBundlePath  = regexp.MustCompile("(?:^|[\\s`(])(/[^\\s`]*/bundle\\.md)")
 	lpSuffix      = regexp.MustCompile(`^(?:pass|plan(?:-[0-9]+)?|fix(?:-[0-9]+|-g[0-9]+|-v[0-9]+)?|review-[0-9]+)$`)
 )
 
@@ -411,6 +416,9 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 				return refuse(fmt.Sprintf("PASS-DONE — %s already completed and its loop branch %s exists: resume the loop at step 3 from <sr-dir>/findings.md (skills/flow-self-review/SKILL.md step 2)", key, lp.token))
 			}
 		}
+		if msg := lpNarrative(env, git, key, change, string(prompt)); msg != "" {
+			return refuse(msg)
+		}
 		if out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", change,
 			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token); rc != 0 {
 			fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
@@ -456,4 +464,27 @@ func lpPassTarget(env Env, git string, lp lpLoop) (change, main string) {
 		main = m
 	}
 	return change, main
+}
+
+// lpNarrative is the NARRATIVE refusal of an in-run pass, "" when it is
+// admitted: only a pass dispatched from the change branch -- spectre/<change>
+// (/flow) or <change> (/flow-fast), skills/flow-self-review/SKILL.md step 1 --
+// carries a run session to narrate, so only it is checked (decision
+// f21-narrative-in-run-only, kan-1102 self-review, F21).
+func lpNarrative(env Env, git, key, change, prompt string) string {
+	if env.Dir == "" {
+		return ""
+	}
+	rc, out := kwRun(env, "", git, "-C", env.Dir, "branch", "--show-current")
+	if b := strings.TrimSpace(out); rc != 0 || (b != "spectre/"+change && b != change) {
+		return ""
+	}
+	path := "no bundle path"
+	if m := lpBundlePath.FindStringSubmatch(prompt); m != nil {
+		path = m[1]
+		if body, err := os.ReadFile(path); err == nil && slices.Contains(strings.Split(string(body), "\n"), "## Session narrative") {
+			return ""
+		}
+	}
+	return fmt.Sprintf("NARRATIVE — %s: an in-run pass's bundle must carry a ## Session narrative heading (skills/flow-contracts/finish-contract-run1.md, Run the self-review pass); %s carries none", key, path)
 }
