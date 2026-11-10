@@ -222,7 +222,7 @@ import (
 //      and not measured; every other pair still is.
 //   4. the manifest <worktree>/.superpowers/sdd/visual-manifest-<key>.json:
 //      `captures`, `identical` (the group lines), `steps` (resolve, identical
-//      and compose, each {exit, stderr}) and `pairs[]` of {frame, capture,
+//      and compose, each {exit, stderr}) and `pairs[]` of {spec, frame, capture,
 //      mockup, composite, diff, exits{resolve, identical, compose, bands,
 //      matrix}, stderr, bands_file, matrix_file, bands, seams, over} —
 //      `bands` and `seams` the entries flagged by mvpOverLength and
@@ -230,7 +230,12 @@ import (
 //      the matrix's summary.over, each row carrying `figures`, `{<key>: {a,
 //      b}}` per over key other than `unresolved`, read from the matrix row it
 //      indexes (kan-1057 self-review, F20); an exit is null for a step not
-//      run. Prints
+//      run. `spec` is the resolved spec path the pair was measured from. A
+//      call merges into an existing manifest of its key, replacing only its
+//      own spec's pairs (and any pair of a frame it measured): `captures` and
+//      `identical` are unioned, existing lines first, and `steps` are this
+//      call's; an absent or unparsable manifest is written fresh (kan-1102
+//      self-review, F2). Prints
 //        MANIFEST: <path>
 //   Exit 0 when every step exited 0, 1 when any did not, 2 on a usage error
 //   or an output directory or file it cannot write.

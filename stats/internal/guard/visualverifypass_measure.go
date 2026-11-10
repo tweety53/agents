@@ -25,6 +25,7 @@ type vvmExits struct {
 }
 
 type vvmPair struct {
+	Spec       string            `json:"spec"`
 	Frame      string            `json:"frame"`
 	Capture    string            `json:"capture"`
 	Mockup     string            `json:"mockup"`
@@ -120,7 +121,7 @@ func (v *vvp) measure(args []string) {
 		mockups = cellPath(w, c)
 	}
 	if _, err := os.Stat(sidecar); err != nil && !prototype || mockups == "" {
-		v.writeManifest(sdd, key, m, failed)
+		v.writeManifest(sdd, key, spec, m, failed)
 	}
 
 	// Each map line is one pair; a stale cropped frame from an earlier run
@@ -164,7 +165,7 @@ func (v *vvp) measure(args []string) {
 
 	for _, l := range lines {
 		stem := strings.TrimSuffix(l.name, ".png")
-		p := vvmPair{Frame: l.frame, Mockup: filepath.Join(mockups, l.frame+".png"),
+		p := vvmPair{Spec: spec, Frame: l.frame, Mockup: filepath.Join(mockups, l.frame+".png"),
 			Stderr: map[string]string{}, Bands: []any{}, Seams: []any{}, Over: []any{}}
 		p.Exits.Resolve, p.Exits.Identical = resolveExit, identicalExit
 		if c := cmfMatchCapture(l.name, m.Captures); len(c) == 1 {
@@ -211,7 +212,7 @@ func (v *vvp) measure(args []string) {
 		}
 		m.Pairs = append(m.Pairs, p)
 	}
-	v.writeManifest(sdd, key, m, failed)
+	v.writeManifest(sdd, key, spec, m, failed)
 }
 
 func (v *vvp) writeOut(path, body string) {
@@ -224,17 +225,48 @@ func (v *vvp) writeOut(path, body string) {
 	}
 }
 
-// writeManifest writes the manifest, prints its path and exits 1 when any
-// step failed, else 0.
-func (v *vvp) writeManifest(sdd, key string, m vvmManifestOut, failed bool) {
-	b, _ := json.MarshalIndent(m, "", "  ")
+// writeManifest merges m into the key's manifest, prints its path and exits 1
+// when any step failed, else 0. An existing manifest that parses keeps its
+// pairs of other specs whose frame m does not carry, and its captures and
+// identical lines ahead of m's; steps are m's alone (kan-1102 self-review, F2).
+func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool) {
 	path := filepath.Join(sdd, "visual-manifest-"+key+".json")
+	var old vvmManifestOut
+	if b, err := os.ReadFile(path); err == nil && json.Unmarshal(b, &old) == nil {
+		mine := map[string]bool{}
+		for _, p := range m.Pairs {
+			mine[p.Frame] = true
+		}
+		var pairs []vvmPair
+		for _, p := range old.Pairs {
+			if p.Spec != spec && !mine[p.Frame] {
+				pairs = append(pairs, p)
+			}
+		}
+		m.Pairs = append(pairs, m.Pairs...)
+		m.Captures = vvmUnion(old.Captures, m.Captures)
+		m.Identical = vvmUnion(old.Identical, m.Identical)
+	}
+	b, _ := json.MarshalIndent(m, "", "  ")
 	v.writeOut(path, string(b)+"\n")
 	v.say("MANIFEST: %s", path)
 	if failed {
 		panic(vvpExit(1))
 	}
 	panic(vvpExit(0))
+}
+
+// vvmUnion is a then b, each line once.
+func vvmUnion(a, b []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, l := range append(append([]string{}, a...), b...) {
+		if !seen[l] {
+			seen[l] = true
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 func vvmLines(s string) []string {

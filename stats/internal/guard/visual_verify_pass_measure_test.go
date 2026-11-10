@@ -321,3 +321,73 @@ func TestVvpWriteOutCreatesAFrameIdsDirectory(t *testing.T) {
 		t.Fatalf("bands file not written: %q %v", b, err)
 	}
 }
+
+// TestVisualVerifyPassMeasureMergesSpecs pins decision f2-merge-by-spec
+// (kan-1102 self-review, F2): a second spec's measure under the same key merges
+// into the manifest rather than overwriting the first spec's pairs, and a
+// re-measured spec replaces its own pairs rather than duplicating them.
+func TestVisualVerifyPassMeasureMergesSpecs(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
+	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts.mockups"), "frame none\nb.png frame-b\n")
+	vvmPNG(t, filepath.Join(f.wt, "tests/visual/other.spec.ts-snapshots/b-darwin.png"), 30)
+	specA, specB := filepath.Join(f.wt, "tests/visual/app.spec.ts"), filepath.Join(f.wt, "tests/visual/other.spec.ts")
+	var captures []string
+	read := func() map[string][]string {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-k.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m struct {
+			Pairs    []struct{ Frame, Spec string }
+			Captures []string
+		}
+		if err := json.Unmarshal(b, &m); err != nil {
+			t.Fatal(err)
+		}
+		captures = m.Captures
+		got := map[string][]string{}
+		for _, p := range m.Pairs {
+			got[p.Frame] = append(got[p.Frame], p.Spec)
+		}
+		return got
+	}
+	// Spec A's capture line stays in captures after spec B's call, once, ahead of B's.
+	capturesKept := func(when string) {
+		t.Helper()
+		at := func(sub string) int {
+			i, n := -1, 0
+			for j, c := range captures {
+				if strings.Contains(c, sub) {
+					i, n = j, n+1
+				}
+			}
+			if n != 1 {
+				t.Fatalf("%s: captures %v carry %s %d times, want once", when, captures, sub, n)
+			}
+			return i
+		}
+		if a, b := at("app.spec.ts-snapshots/a-darwin.png"), at("other.spec.ts-snapshots/b-darwin.png"); a > b {
+			t.Fatalf("%s: captures %v, want spec A's line ahead of spec B's", when, captures)
+		}
+	}
+	for _, spec := range []string{"tests/visual/app.spec.ts", "tests/visual/other.spec.ts"} {
+		if rc, stdout, stderr := f.run(t, f.wt, "demo", "k", spec); rc != 0 {
+			t.Fatalf("%s: exit %d, stdout %q, stderr %q", spec, rc, stdout, stderr)
+		}
+	}
+	got := read()
+	if len(got["frame-a"]) != 1 || got["frame-a"][0] != specA || len(got["frame-b"]) != 1 || got["frame-b"][0] != specB {
+		t.Fatalf("pairs by frame %v; want frame-a from %s and frame-b from %s", got, specA, specB)
+	}
+	capturesKept("after spec B")
+	if rc, _, stderr := f.run(t, f.wt, "demo", "k", "tests/visual/app.spec.ts"); rc != 0 {
+		t.Fatalf("re-measure: exit %d, stderr %q", rc, stderr)
+	}
+	if got := read(); len(got["frame-a"]) != 1 || len(got["frame-b"]) != 1 {
+		t.Fatalf("after re-measuring spec A: pairs by frame %v; want each frame once", got)
+	}
+	capturesKept("after re-measuring spec A")
+}
