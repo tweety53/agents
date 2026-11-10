@@ -954,7 +954,7 @@ func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome
 			fmt.Fprintf(stderr, "flow: stage end refused: no merge base with origin/%s in %s\n", strings.TrimSpace(base.String()), wt)
 			return 1
 		}
-		if code := guard.Registry["check-untasked-commits"]([]string{wt, strings.TrimSpace(string(mb))}, env, stderr, stderr); code != 0 {
+		if code := guard.Registry["check-untasked-commits"]([]string{wt, strings.TrimSpace(string(mb)), "--not-remotes"}, env, stderr, stderr); code != 0 {
 			fmt.Fprintf(stderr, "flow: stage end refused: commits outside every task lack their Flow-Key: trailer in %s — amend each with -m \"Flow-Key: flow.visual-verify\" before anything is pushed\n", wt)
 			return 1
 		}

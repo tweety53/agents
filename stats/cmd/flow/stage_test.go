@@ -2137,6 +2137,13 @@ func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
 		t.Fatalf("the amended commit: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
 	}
 
+	// A trailerless commit already on the remote cannot be amended, so it is not refused.
+	git(peer, "commit", "-q", "--allow-empty", "-m", "test: already pushed")
+	git(peer, "push", "-q", "origin", "spectre/kan-1")
+	if code, stderr, reached := end("completed"); code != 0 || !reached {
+		t.Fatalf("a pushed trailerless commit: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+
 	// A state map that cannot be read is a guard that cannot answer.
 	mapStatus = http.StatusInternalServerError
 	if code, stderr, reached := end("completed"); code != 1 || reached || !strings.Contains(stderr, "worktree map") {
