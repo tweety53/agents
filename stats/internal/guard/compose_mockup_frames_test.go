@@ -477,7 +477,74 @@ func TestComposeMockupFramesSidecarFrameLine(t *testing.T) {
 	t.Run("a malformed frame line exits 2", func(t *testing.T) {
 		check(t, run(t, "frame bogus\ng1-dash.png G1\n", cmfGeom), cmfRC(2), cmfErr(`frame`))
 	})
-	t.Run("a frame line after a map line is a finding", func(t *testing.T) {
-		check(t, run(t, "g1-dash.png G1\nframe none\n", cmfGeom), cmfRC(1), cmfErr(`map\.mockups:2: .*frame`))
-	})
+}
+
+// TestComposeMockupFramesCropsABareRender: a bare device render — border and
+// status line with no page around them — is cropped by its declared `bare`
+// geometry, and each sidecar `frame` line sets the geometry for the pairs
+// below it (kan-1083 self-review, F19).
+func TestComposeMockupFramesCropsABareRender(t *testing.T) {
+	t.Parallel()
+	fill := func(w, h int, px func(x, y int) [3]byte) *rgbImage {
+		im := &rgbImage{W: w, H: h, Pix: make([]byte, 3*w*h)}
+		for y := 0; y < h; y++ {
+			for x := 0; x < w; x++ {
+				c := px(x, y)
+				copy(im.Pix[3*(y*w+x):], c[:])
+			}
+		}
+		return im
+	}
+	run := func(t *testing.T, sidecar string) cmfResult {
+		t.Helper()
+		dir := t.TempDir()
+		for _, d := range []string{"root", "caps"} {
+			if err := os.MkdirAll(dir+"/"+d, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// 1 px border and 2 px status at scale 2, nothing around them: content x 2–21, y 6–37
+		phone := fill(24, 40, func(x, y int) [3]byte {
+			if x >= 2 && x <= 21 && y >= 6 && y <= 37 {
+				return [3]byte{0x20, 0x20, 0x20}
+			}
+			return [3]byte{}
+		})
+		grey := func(int, int) [3]byte { return [3]byte{0x20, 0x20, 0x20} }
+		for path, im := range map[string]*rgbImage{
+			"root/phone.png": phone, "caps/phone.png": fill(20, 32, grey),
+			"root/wide.png": fill(30, 30, grey), "caps/wide.png": fill(30, 30, grey),
+		} {
+			if err := encodeRGB(dir+"/"+path, im); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.WriteFile(dir+"/map.mockups", []byte(sidecar), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var stdout, stderr bytes.Buffer
+		rc := Registry["compose-mockup-frames"]([]string{"map.mockups", "root", "out"},
+			Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader("caps/phone.png\ncaps/wide.png\n")}, &stdout, &stderr)
+		return cmfResult{rc: rc, stdout: stdout.String(), stderr: stderr.String(), out: dir + "/out"}
+	}
+	for _, c := range []struct {
+		name, sidecar string
+		checks        []cmfCheck
+	}{
+		{"a bare section under its own frame line", "frame none\nwide.png wide\nframe scale=2 status=2 border=1 bare\nphone.png phone\n",
+			[]cmfCheck{cmfRC(0), cmfSize("phone.frame.png", 20, 32), cmfSize("wide.png", 30+16+30, 30), cmfExists("wide.frame.png", false)}},
+		{"the same render without bare has no border", "frame scale=2 status=2 border=1\nphone.png phone\n",
+			[]cmfCheck{cmfRC(1), cmfErr(`frame has no border`)}},
+		{"an unknown word is malformed", "frame scale=2 status=2 border=1 flat\nphone.png phone\n",
+			[]cmfCheck{cmfRC(2), cmfErr(`malformed`)}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := run(t, c.sidecar)
+			for _, check := range c.checks {
+				if msg := check(r); msg != "" {
+					t.Errorf("%s\nstdout:\n%s\nstderr:\n%s", msg, r.stdout, r.stderr)
+				}
+			}
+		})
+	}
 }

@@ -132,7 +132,7 @@ never an exit code the command did not return.
 10. **Compose captured frames against their mockups, if `mockups` is declared.** With a
    `<spec>.mockups` sidecar beside the capture spec, step 9's `measure` composed every pair it maps
    through `flow-guard compose-mockup-frames`, with this project's resolved `mockup frame` value as its fourth
-   argument — a sidecar's own first `frame` line overrides it — and its manifest lists one
+   argument — a sidecar's `frame` lines override it, each applying to the pairs below it — and its manifest lists one
    `<composite path> diff=<ratio>` per pair: **read every one** and state,
    per pair, what the difference panel's white regions are, the ratio, and where the capture
    departs from the frame. The ratio is information, never a threshold: a pair blocks on a

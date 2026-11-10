@@ -18,7 +18,7 @@ import (
 // frame it was drawn from, side by side, one composite PNG per pair.
 //
 // Interface: `flow-guard compose-mockup-frames <map file> <mockups root> <out dir>
-// [scale=<n> status=<px> border=<px>]`, resolved capture PNG paths on stdin,
+// [scale=<n> status=<px> border=<px> [bare]]`, resolved capture PNG paths on stdin,
 // one per line (design.md section 4). The fourth argument is the mockups'
 // declared frame geometry — the project's `mockup frame` row — and is
 // optional: without it nothing is cropped, no size check runs, and the
@@ -27,11 +27,12 @@ import (
 // The map file is a `<spec>.mockups` sidecar: one `<screenshot name> <frame
 // id>` pair per line, whitespace-separated; blank lines and `#`-leading lines
 // are ignored (design.md section 3 — canonical for the map's shape and why
-// it is explicit rather than a filename convention). Its first non-comment
-// line may instead be `frame <geometry>` or `frame none`, overriding the
-// fourth argument for this sidecar's frames — `none` composing them at
+// it is explicit rather than a filename convention). A line may instead be
+// `frame <geometry>` or `frame none`, overriding the fourth argument for the
+// pairs below it until the next `frame` line — `none` composing them at
 // native size, uncropped (kan-1017: desktop admin frames beside a phone
-// project row). A `frame` line anywhere else is a malformed map line.
+// project row; kan-1083 self-review, F19: one sidecar holding desktop
+// sections and bare device renders, each under its own `frame` line).
 //
 // Layout (design.md section 4): captured frame on the left, mockup on the
 // right, both native size, top-aligned, a 16px gutter, plain (40, 40, 40)
@@ -41,7 +42,9 @@ import (
 // With the geometry declared the layout is three panels — capture, cropped
 // frame, difference — on the same gutter and background. Each frame is
 // cropped to its content area: the status line and the border come from the
-// declared values, and the bottom comes from the frame itself — at the
+// declared values, and — save under `bare`, where the frame is the device
+// render alone and the bottom is its declared border too — the bottom comes
+// from the frame itself — at the
 // page-coloured margin above the caption band, or, where the caption band
 // starts directly below the frame, at the frame's own bottom border (both
 // rules in cmfCropBox). It is detected rather than declared because
@@ -65,7 +68,8 @@ import (
 //      frame, a geometry that leaves the frame no content area, or a frame
 //      with no border — its side border pixel the colour at (0, 0), so the
 //      page cannot be told from the frame (`frame has no border: <frame
-//      path>`). Every finding is printed as `<map>:<line>: <message>` to
+//      path>`; a bare device render, whose border is at (0, 0), declares
+//      `bare` instead). Every finding is printed as `<map>:<line>: <message>` to
 //      stderr; every other, well-formed line is still composed.
 //   2  cannot answer: usage error (including a malformed geometry argument
 //      or a malformed sidecar `frame` line),
@@ -111,7 +115,12 @@ var cmfBackground = [3]byte{40, 40, 40}
 // `add-participant-finished-excluded-added-darwin.png` -- a real collision, not hypothetical).
 var cmfPlatformSuffixes = []string{"aix", "android", "darwin", "freebsd", "linux", "openbsd", "sunos", "win32"}
 
-type cmfGeometry struct{ scale, status, border int }
+// cmfGeometry is a declared frame geometry; bare marks a device render with no
+// page around it, cropped by the declared values alone.
+type cmfGeometry struct {
+	scale, status, border int
+	bare                  bool
+}
 
 type cmfOutput struct {
 	path  string
@@ -153,28 +162,28 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	// \r ends a line as \n and \r\n do.
 	mapLines := strings.Split(strings.ReplaceAll(strings.ReplaceAll(string(data), "\r\n", "\n"), "\r", "\n"), "\n")
 
-	// sr8 (kan-1017): the sidecar's first non-comment line may be
-	// `frame <geometry>` or `frame none`, overriding the fourth argument for
-	// this sidecar's frames; a `frame` line anywhere else is a finding below.
-	frameLine := -1
+	// sr8 (kan-1017): a `frame <geometry>` or `frame none` line overrides the
+	// fourth argument for the pairs below it, until the next `frame` line
+	// (kan-1083 self-review, F19: a sidecar mixing bare device renders with
+	// desktop sections). Every one is parsed here, so a malformed one stops the
+	// run before anything is composed; the walk below applies them in order.
+	frames := map[int]*cmfGeometry{}
 	for i, raw := range mapLines {
 		line := pyStrip(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		if f := pySplit(line); f[0] == "frame" {
-			frameLine = i
 			rest := strings.Join(f[1:], " ")
 			if rest == "none" {
-				geometry = nil
+				frames[i] = nil
 			} else if g, ok := cmfParseGeometry(rest); ok {
-				geometry = &g
+				frames[i] = &g
 			} else {
-				fmt.Fprintf(stderr, cmfPrefix+"%s:%d: malformed `frame` line: want `frame scale=<int> status=<px> border=<px>` or `frame none`\n", mapPath, i+1)
+				fmt.Fprintf(stderr, cmfPrefix+"%s:%d: malformed `frame` line: want `frame scale=<int> status=<px> border=<px> [bare]` or `frame none`\n", mapPath, i+1)
 				return 2
 			}
 		}
-		break
 	}
 
 	if fi, err := os.Stat(at(mockupsRoot)); err != nil || !fi.IsDir() {
@@ -238,11 +247,8 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		fields := pySplit(line)
-		if i == frameLine {
-			continue
-		}
-		if fields[0] == "frame" {
-			finding(lineno, "a `frame` line must be the sidecar's first non-comment line")
+		if g, ok := frames[i]; ok {
+			geometry = g
 			continue
 		}
 		if len(fields) != 2 {
@@ -353,9 +359,10 @@ func cmfSave(stderr io.Writer, at func(string) string, path string, im *rgbImage
 	return 0
 }
 
-// cmfParseGeometry reads `scale=<int> status=<int> border=<int>`.
+// cmfParseGeometry reads `scale=<int> status=<int> border=<int> [bare]`.
 //
-// Every key required exactly once, in any order; every value a non-negative
+// Every key required exactly once, in any order, and the word `bare` at most
+// once; every value a non-negative
 // integer and `scale` at least 1. Anything else is a usage error rather than
 // a silently-ignored argument: a geometry the caller meant to declare and
 // mistyped must not compose uncropped as though none had been given.
@@ -364,7 +371,12 @@ func cmfSave(stderr io.Writer, at func(string) string, path string, im *rgbImage
 // every comparison cmfCropBox makes answers as Python's unbounded int did.
 func cmfParseGeometry(arg string) (cmfGeometry, bool) {
 	values := map[string]int{}
+	bare := false
 	for _, field := range pySplit(arg) {
+		if field == "bare" && !bare {
+			bare = true
+			continue
+		}
 		key, raw, sep := strings.Cut(field, "=")
 		if _, dup := values[key]; !sep || dup || (key != "scale" && key != "status" && key != "border") {
 			return cmfGeometry{}, false
@@ -384,7 +396,7 @@ func cmfParseGeometry(arg string) (cmfGeometry, bool) {
 	if len(values) != 3 || values["scale"] < 1 {
 		return cmfGeometry{}, false
 	}
-	return cmfGeometry{values["scale"], values["status"], values["border"]}, true
+	return cmfGeometry{values["scale"], values["status"], values["border"], bare}, true
 }
 
 // cmfMatchCapture returns the stdin path(s) whose basename is name or
@@ -450,12 +462,24 @@ var (
 //     copy-session C1/C4/C7 frames), never the bottom border.
 //
 // Neither rule finding a row means the frame runs to the last row.
+//
+// A `bare` geometry skips both rules and the border probe: the frame is the
+// device render alone, so the bottom is the declared border above the last row.
 func cmfCropBox(frame *rgbImage, g cmfGeometry) ([4]int, error) {
 	s := g.scale
 	left := g.border * s
 	top := (g.border + g.status) * s
 	right := frame.W - g.border*s
 	if right <= left || top >= frame.H {
+		return [4]int{}, errCmfNoContent
+	}
+	// A bare render is the device alone: its border on every side, the status
+	// line on top, no page to probe and no bottom to find (kan-1083
+	// self-review, F19).
+	if g.bare {
+		if bottom := frame.H - g.border*s; bottom > top {
+			return [4]int{left, top, right, bottom}, nil
+		}
 		return [4]int{}, errCmfNoContent
 	}
 
