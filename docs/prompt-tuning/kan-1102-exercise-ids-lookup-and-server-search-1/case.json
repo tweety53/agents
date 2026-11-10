@@ -1,0 +1,22 @@
+{
+  "id": "kan-1102-exercise-ids-lookup-and-server-search-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1102-exercise-ids-lookup-and-server-search",
+    "jira": "KAN-1102",
+    "repo": "gymie-frontend",
+    "fix_sha": "607a7a447d21e567f4b0eb0e03a19aa1b7cab8c7",
+    "finding_ref": "F24",
+    "round": 1,
+    "slot": "primary",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "5fe141e03e2ade584c604a166c8186d40427b0c4",
+  "defect_class": "A job that restarts whenever some state changes writes that state itself before its work completes, so its own write restarts it and cancels the work in flight.",
+  "why_picked": "1. Defect class: a job restarted on a change of some state (a keyed effect, a latest-only collector, a switch-to-latest stream) writes that state before its work completes, so its own write cancels the work in flight and the result never lands. 2. No rule covers it: engineering-principles.md's Robustness section, the one section on failure behaviour, lists swallowed exceptions, missing timeouts and silent fallbacks as violations, nothing on work that cancels itself; no implementer instruction file (implementer-brief.md, implement.md, sdd-dispatch.md, engineering-principles.md) mentions cancellation or restart triggers. 3. It generalises: every Compose LaunchedEffect or produceState with keys, every snapshotFlow/collectLatest, Kotlin flatMapLatest/mapLatest, RxJS switchMap and a React effect whose cleanup aborts its request restart on their trigger; a bookkeeping write (an 'asked', 'loading' or 'inFlight' flag) folded into the trigger cancels each of them the same way, and it passes every test whose fake answers instantly, as here, where only a 300 ms delayed answer exposed it. 4. Not patch accretion: the update states one principle (work keyed on some state never changes that state until it has finished, or runs outside the keyed scope) rather than naming LaunchedEffect or this screen.",
+  "before": "**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,\nan external call with no timeout or bounded retry, a fallback that silently returns empty\ndata, an error message that omits the identifier needed to investigate it, or an invariant\nthe schema could enforce — an ordered pair, a non-negative amount — held in application code\nalone, with no check constraint to refuse a bad insert where it happens — a test's own setup\nincluded — rather than let it surface later as a wrong read or an intermittent failure.",
+  "after": "**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,\nan external call with no timeout or bounded retry, a fallback that silently returns empty\ndata, an error message that omits the identifier needed to investigate it, or an invariant\nthe schema could enforce — an ordered pair, a non-negative amount — held in application code\nalone, with no check constraint to refuse a bad insert where it happens — a test's own setup\nincluded — rather than let it surface later as a wrong read or an intermittent failure; or\nwork that restarts whenever some state changes — a keyed effect, a latest-only collector — writing\nthat state before it has finished, so its own write restarts it and cancels the work in flight:\nrecord progress only once the work completes, or run the work outside the keyed scope."
+}

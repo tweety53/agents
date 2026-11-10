@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1102-exercise-ids-lookup-and-server-search-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1102-exercise-ids-lookup-and-server-search-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A job that restarts whenever some state changes writes that state itself before its work completes, so its own write restarts it and cancels the work in flight.</p>
+<h2>Finding</h2>
+<pre># F24 — Important — primary — round 1
+
+**Location:** gymie-frontend:shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt:1858
+
+`onAsked(ids)` runs before the lookup suspends, so on the next recomposition `missing` turns false, re-keys LaunchedEffect(ids, missing) and cancels the request in flight; after a stale edit an exercise added elsewhere still shows Unknown exercise on any real network
+</pre>
+<pre><code>commit d4f4c274f82d844453c082d03927a43889dded43
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Tue Nov 10 03:25:19 2026 &#43;0200
+
+    fix(shared): ask each exercise id once, keep cancellation, skip switched lookups
+    
+    One failed editor lookup is one request and one notice, and an id the server omits is not asked again on the same open. keepExercises no longer swallows CancellationException. A switched floor prefetch keeps no exercise entries. Tests: drop a redundant SyncNotices assertion, retag the bootstrap lookup test.
+    
+    Flow-Key: panel-fix-1
+
+diff --git a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt
+index 16ef7b2b..18507d16 100644
+--- a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt
+&#43;&#43;&#43; b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt
+@@ -191,6 &#43;191,8 @@ fun WorkoutEditorScreen(
+     val ownNotifications = remember { NotificationState() }
+     val notices = notifications ?: ownNotifications
+     var catalog by remember { mutableStateOf&lt;Map&lt;Uuid, CatalogExercise&gt;?&gt;(null) }
+&#43;    // Every id a lookup has asked for: one the server omits (deleted) or a failed lookup is not asked again.
+&#43;    var asked by remember { mutableStateOf(emptySet&lt;Uuid&gt;()) }
+     var editorState by remember { mutableStateOf&lt;WorkoutEditorState?&gt;(null) }
+     // OFF-L4-4: a stale edit heard before the load has assigned its editor, applied once it has.
+     var staleWhileLoading by remember { mutableStateOf&lt;SyncEvent.StaleEdit?&gt;(null) }
+@@ -224,6 &#43;226,7 @@ fun WorkoutEditorScreen(
+                 ?.value
+                 ?.exerciseIds
+                 .orEmpty()
+&#43;        asked = ids.toSet()
+         catalog =
+             if (ids.isEmpty()) {
+                 emptyMap()
+@@ -245,7 &#43;248,7 @@ fun WorkoutEditorScreen(
+ 
+     val state = editorState
+     val loadedCatalog = catalog
+-    LookUpDraftExercises(api, notices, state?.draft, loadedCatalog) { found -&gt; catalog = catalog.orEmpty() &#43; found }
+&#43;    LookUpDraftExercises(api, notices, state?.draft, loadedCatalog, asked, { asked = asked &#43; it }) { catalog = catalog.orEmpty() &#43; it }
+     LaunchedEffect(state, pickers) {
+         state?.let { ready -&gt;
+             onGuardReady {
+@@ -1831,8 &#43;1834,9 @@ internal fun RowScope.PrescriptionFields(
+ /**
+  * A draft swapped onto the server&#39;s version (a stale edit, during the load or after it) can hold
+  * exercises added elsewhere: once the first lookup has answered ([catalog] non-null), the shown
+- * draft&#39;s ids are looked up whenever any is missing, and [onFound] merges them — else they draw
+- * &#34;Unknown exercise&#34;.
+&#43; * draft&#39;s ids are looked up whenever any is missing and not yet [asked], and [onFound] merges them —
+&#43; * else they draw &#34;Unknown exercise&#34;. An id already asked is not asked again: a failed lookup is one
+&#43; * request and one notice, and a deleted exercise the server omits costs no lookup per open.
+  */
+ @OptIn(ExperimentalUuidApi::class)
+ @Composable
+@@ -1841,6 &#43;1845,8 @@ private fun LookUpDraftExercises(
+     notices: NotificationState,
+     draft: WorkoutDraft?,
+     catalog: Map&lt;Uuid, CatalogExercise&gt;?,
+&#43;    asked: Set&lt;Uuid&gt;,
+&#43;    onAsked: (Set&lt;Uuid&gt;) -&gt; Unit,
+     onFound: (Map&lt;Uuid, CatalogExercise&gt;) -&gt; Unit,
+ ) {
+     val ids =
+@@ -1849,9 &#43;1855,10 @@ private fun LookUpDraftExercises(
+             .orEmpty()
+             .flatMap { block -&gt; block.exercises.map { it.exerciseId } }
+             .toSet()
+-    val missing = catalog != null &amp;&amp; !catalog.keys.containsAll(ids)
+&#43;    val missing = catalog != null &amp;&amp; (ids - catalog.keys - asked).isNotEmpty()
+     LaunchedEffect(ids, missing) {
+         if (!missing) return@LaunchedEffect
+&#43;        onAsked(ids)
+         runCatching { api.exercisesByIds(ids) }
+             .onSuccess { found -&gt; onFound(found.associateBy { it.id }) }
+             .onFailureNotCancelled { notices.failure(it.message ?: FailureMessages.COULD_NOT_LOAD_EXERCISE_CATALOG) }
+</code></pre>
+<h2>Fix</h2>
+<pre><code>commit 607a7a447d21e567f4b0eb0e03a19aa1b7cab8c7
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Tue Nov 10 04:00:10 2026 &#43;0200
+
+    fix(shared): keep the stale-edit exercise lookup alive across its re-key, pin the switched floor prefetch
+    
+    The lookup now runs in the composable&#39;s scope: onAsked flips the effect&#39;s key, which cancelled a request started inside the effect. The plan offline test answers /api/exercises after 300 ms so it pins that; a floor UI test pins the switched flag reaching the prefetch.
+    
+    Flow-Key: panel-fix-2
+
+diff --git a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt
+index 18507d16..963abab4 100644
+--- a/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt
+&#43;&#43;&#43; b/shared/src/commonMain/kotlin/com/gymie/shared/ui/workout/WorkoutEditorScreen.kt
+@@ -1856,11 &#43;1856,16 @@ private fun LookUpDraftExercises(
+             .flatMap { block -&gt; block.exercises.map { it.exerciseId } }
+             .toSet()
+     val missing = catalog != null &amp;&amp; (ids - catalog.keys - asked).isNotEmpty()
+&#43;    // The request runs in the composable&#39;s scope: onAsked flips `missing`, which re-keys this effect,
+&#43;    // and a lookup started inside the effect would be cancelled by that re-key.
+&#43;    val scope = rememberCoroutineScope()
+     LaunchedEffect(ids, missing) {
+         if (!missing) return@LaunchedEffect
+         onAsked(ids)
+-        runCatching { api.exercisesByIds(ids) }
+-            .onSuccess { found -&gt; onFound(found.associateBy { it.id }) }
+-            .onFailureNotCancelled { notices.failure(it.message ?: FailureMessages.COULD_NOT_LOAD_EXERCISE_CATALOG) }
+&#43;        scope.launch {
+&#43;            runCatching { api.exercisesByIds(ids) }
+&#43;                .onSuccess { found -&gt; onFound(found.associateBy { it.id }) }
+&#43;                .onFailureNotCancelled { notices.failure(it.message ?: FailureMessages.COULD_NOT_LOAD_EXERCISE_CATALOG) }
+&#43;        }
+     }
+ }
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a job restarted on a change of some state (a keyed effect, a latest-only collector, a switch-to-latest stream) writes that state before its work completes, so its own write cancels the work in flight and the result never lands. 2. No rule covers it: engineering-principles.md&#39;s Robustness section, the one section on failure behaviour, lists swallowed exceptions, missing timeouts and silent fallbacks as violations, nothing on work that cancels itself; no implementer instruction file (implementer-brief.md, implement.md, sdd-dispatch.md, engineering-principles.md) mentions cancellation or restart triggers. 3. It generalises: every Compose LaunchedEffect or produceState with keys, every snapshotFlow/collectLatest, Kotlin flatMapLatest/mapLatest, RxJS switchMap and a React effect whose cleanup aborts its request restart on their trigger; a bookkeeping write (an &#39;asked&#39;, &#39;loading&#39; or &#39;inFlight&#39; flag) folded into the trigger cancels each of them the same way, and it passes every test whose fake answers instantly, as here, where only a 300 ms delayed answer exposed it. 4. Not patch accretion: the update states one principle (work keyed on some state never changes that state until it has finished, or runs outside the keyed scope) rather than naming LaunchedEffect or this screen.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>5fe141e03e2ade584c604a166c8186d40427b0c4</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,
+an external call with no timeout or bounded retry, a fallback that silently returns empty
+data, an error message that omits the identifier needed to investigate it, or an invariant
+the schema could enforce — an ordered pair, a non-negative amount — held in application code
+alone, with no check constraint to refuse a bad insert where it happens — a test&#39;s own setup
+included — rather than let it surface later as a wrong read or an intermittent failure.</pre></div>
+<div><h3>After</h3><pre>**Violation looks like:** an empty `catch` block, a swallowed exception logged at debug,
+an external call with no timeout or bounded retry, a fallback that silently returns empty
+data, an error message that omits the identifier needed to investigate it, or an invariant
+the schema could enforce — an ordered pair, a non-negative amount — held in application code
+alone, with no check constraint to refuse a bad insert where it happens — a test&#39;s own setup
+included — rather than let it surface later as a wrong read or an intermittent failure; or
+work that restarts whenever some state changes — a keyed effect, a latest-only collector — writing
+that state before it has finished, so its own write restarts it and cancels the work in flight:
+record progress only once the work completes, or run the work outside the keyed scope.</pre></div>
+</div>
+</body>
+</html>
