@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -777,5 +778,46 @@ func TestMeasureVisualPropertiesMatrixOver(t *testing.T) {
 	}
 	if s := strings.Join(got, "|"); strings.Contains(s, `"row": 1`) || !strings.Contains(s, `"row": 2`) || !strings.Contains(s, `"keys": "unresolved"`) || !strings.Contains(s, `"row": 3`) || !strings.Contains(s, `"keys": "colour"`) {
 		t.Fatalf("synthetic rows: %s", s)
+	}
+}
+
+// TestMeasureVisualPropertiesBandsReadADarkPageByItsPerimeter: a page's
+// background is its perimeter's colour, so a card larger than the black page
+// around it is ink, not background (kan-1083 self-review, F18: the dk-SL1
+// capture read as one band from top 0 on a #262629 background).
+func TestMeasureVisualPropertiesBandsReadADarkPageByItsPerimeter(t *testing.T) {
+	t.Parallel()
+	dark := mvpPNG(t, 40, 60, func(x, y int) color.RGBA {
+		switch {
+		case x >= 4 && x <= 35 && y >= 5 && y <= 44:
+			return color.RGBA{0x26, 0x26, 0x29, 0xff} // card, more pixels than the page around it
+		case y >= 50 && y <= 55:
+			return color.RGBA{0x1a, 0x1a, 0x1d, 0xff} // full-width strip
+		}
+		return color.RGBA{0, 0, 0, 0xff}
+	})
+	d := mvpJSON(t, "", dark, "--props", "bands")
+	bands := mvpList(mvpDig(d, "a", "bands"))
+	var tops []string
+	strip := ""
+	for _, b := range bands {
+		tops = append(tops, mvpSp(mvpDig(b, "top")))
+		if mvpDig(b, "top") == float64(50) {
+			strip = mvpSp(mvpDig(b, "height"), mvpDig(b, "colour"))
+		}
+	}
+	if got := mvpDig(d, "a", "background"); got != "#000000" || !slices.Contains(tops, "5") || strip != "6 #1a1a1d" {
+		t.Fatalf("dark page: background %v, band tops %v, strip %q; want #000000, a band at 5, \"6 #1a1a1d\"", got, tops, strip)
+	}
+
+	light := mvpPNG(t, 40, 60, func(x, y int) color.RGBA {
+		if x >= 10 && x < 30 && y >= 10 && y < 14 {
+			return color.RGBA{0, 0, 0, 0xff}
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	})
+	d = mvpJSON(t, "", light, "--props", "bands")
+	if got := mvpSp(mvpDig(d, "a", "background"), len(mvpList(mvpDig(d, "a", "bands"))), mvpDig(d, "a", "bands", 0, "top")); got != "#ffffff 1 10" {
+		t.Fatalf("light page: background/bands/top %q, want %q", got, "#ffffff 1 10")
 	}
 }

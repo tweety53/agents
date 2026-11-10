@@ -130,8 +130,10 @@ import (
 //            least 2% of the band's ink — its text, not a wider border's grey;
 //            kan-1017 read a modal colour that flipped between the two) and
 //            `share` (the two most frequent ink colours' share of the band's
-//            ink, to 3 places). Background is the region's modal colour, not its corner,
-//            and no corner needs to be background: the region is the whole
+//            ink, to 3 places). Background is the most frequent colour of the
+//            region's outermost rows and columns, not its corner, so a card
+//            larger than the page around it is ink, not background (kan-1083
+//            self-review, F18); no corner needs to be background: the region is the whole
 //            capture and the whole cropped frame. Unlike every other
 //            property, `bands` has a structural `delta`: the two lists are
 //            paired in order by the gap since the last pair, and every band
@@ -197,7 +199,9 @@ import (
 //            surface's modal colour (distance over 30), each run's box, modal
 //            colour, kind and gap above; paired in order across two images
 //            like `bands`. Not in the default set. A flat scrim reaching the
-//            top-left corner is cropped to its sheet before `bands` and `seams`.
+//            top-left corner is cropped to its sheet before `bands` and `seams`;
+//            a corner colour covering 5% or more of the sheet's bounding box is
+//            a dark page, never a scrim.
 //   matrix — opt-in, alone, two whole images (no `--region-*`): `elements`
 //            on both, paired in order, then each paired element measured on
 //            its own region (its box plus a 4px margin, clipped to the image)
@@ -634,7 +638,7 @@ func (r *mvpRegion) checkCorners() error {
 
 // mvpOpen is Region.__init__: the image read as convert("RGB") yields it, the
 // region checked against it, and the background taken — the region's modal
-// colour in page mode, else its top-left pixel, every other corner required
+// colour of its outermost rows and columns in page mode, else its top-left pixel, every other corner required
 // to match it within the noise — save a corner on a clipped side, and with
 // each other corner colour tried when the top-left pixel fails.
 func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegion, error) {
@@ -664,10 +668,14 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 	}
 	r.clipped = r.clamped
 	if page {
+		// The perimeter, not the whole region: a card larger than the page
+		// around it is ink (kan-1083 self-review, F18).
 		var c mvpCounter
 		for y := 0; y < r.h; y++ {
 			for x := 0; x < r.w; x++ {
-				c.add(r.at(x, y))
+				if y == 0 || y == r.h-1 || x == 0 || x == r.w-1 {
+					c.add(r.at(x, y))
+				}
 			}
 		}
 		r.bg, _ = c.top()
@@ -715,9 +723,13 @@ func (r *mvpRegion) at(x, y int) [3]byte { return r.im.at(r.x0+x, r.y0+y) }
 // the top-left colour and the largest colour unlike it each cover 20% of the
 // region and the corner is the darker, the corner is the scrim, and the region
 // shrinks to the bounding box of the pixels unlike it, its background
-// recounted there (kan-1044 self-review, F1-e).
-// ponytail: a flat scrim reaching the corner only; a gradient scrim, or a dark
-// page under a light card, needs a layer detector.
+// recounted there (kan-1044 self-review, F1-e). A scrim surrounds its sheet,
+// so when the corner's colour covers 5% or more of that bounding box the
+// corner is a dark page between cards, not a scrim, and nothing is cropped
+// (kan-1083 self-review, F18: the dk-SL1 capture's black page was cropped as
+// a scrim and its card read as the background).
+// ponytail: a flat scrim reaching the corner only; a gradient scrim, or a
+// sheet showing much of the scrim's colour inside it, needs a layer detector.
 func (r *mvpRegion) cropScrim() {
 	var c mvpCounter
 	for y := 0; y < r.h; y++ {
@@ -745,6 +757,17 @@ func (r *mvpRegion) cropScrim() {
 				x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
 			}
 		}
+	}
+	inside := 0
+	for y := y0; y <= y1; y++ {
+		for x := x0; x <= x1; x++ {
+			if mvpDist(r.at(x, y), scrim) <= r.noise {
+				inside++
+			}
+		}
+	}
+	if inside*20 >= (x1-x0+1)*(y1-y0+1) {
+		return
 	}
 	r.x0, r.y0, r.w, r.h = r.x0+x0, r.y0+y0, x1-x0+1, y1-y0+1
 	var in mvpCounter
