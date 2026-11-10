@@ -215,6 +215,10 @@ func (v *vvp) measure(args []string) {
 }
 
 func (v *vvp) writeOut(path, body string) {
+	// A frame id carries a directory (`kan-1083/SE1`), so its output file sits below the key's directory.
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		v.die("cannot write %s: %v", path, err)
+	}
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		v.die("cannot write %s: %v", path, err)
 	}

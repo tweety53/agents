@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -309,5 +310,14 @@ func TestVisualVerifyPassMeasureOverFigures(t *testing.T) {
 	}
 	if keyed == 0 {
 		t.Fatalf("no paired over row with keys: %+v", m.Pairs[0].Over)
+	}
+}
+
+// A frame id with a directory (`kan-1083/SE1`) writes its bands file below the key's directory.
+func TestVvpWriteOutCreatesAFrameIdsDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "visual-measure-k", "kan-1083", "SE1.json")
+	(&vvp{stderr: io.Discard}).writeOut(path, "{}")
+	if b, err := os.ReadFile(path); err != nil || string(b) != "{}" {
+		t.Fatalf("bands file not written: %q %v", b, err)
 	}
 }
