@@ -131,11 +131,16 @@ import (
 // of the `verifier` rows with outcome `completed` and key `verify` or
 // `verify-…` — or with no such row at all — names its short sha in the
 // breakdown. A re-run after run 1's drop is judged from the newest drop
-// commit on, so only a fix run's own code asks for a newer row. Two commits
+// commit on, so only a fix run's own code asks for a newer row. Three commits
 // are excepted: run 1's reshaped `Flow-Key: flow.commit-two` commit, which
-// reshapes verified code, and the pipeline's `Flow-Key: flow.visual-verify`
+// reshapes verified code, the pipeline's `Flow-Key: flow.visual-verify`
 // record commit, which carries a capture's records and screenshots, never
-// code. Like signal three, only
+// code, and a commit whose `Flow-Key:` is the key of a `verifier` dispatch
+// row keyed `visual-verify…` — a visual verifier's capture commit
+// (skills/flow-contracts/git-boundaries.md, **Commits outside every task**;
+// kan-1102 self-review, F5). A `visual-verify-fix-…` key belongs to an
+// implementer or panel-fix row, so a fix round's code is still asked for a
+// fresh verify row. Like signal three, only
 // the worktree holding the plan reads it.
 //
 // SIGNAL EIGHT: A CODE COMMIT WITH NO REVIEW-PANEL PASS IS UNFINISHED (kan-970
@@ -683,7 +688,9 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// `<spec root>/changes/` in any range, authored after the newest
 		// completed `verify`/`verify-…` verifier row, or with none at all —
 		// run 1's reshaped `Flow-Key: flow.commit-two` commit and the
-		// pipeline's `Flow-Key: flow.visual-verify` record commit excepted. The
+		// pipeline's `Flow-Key: flow.visual-verify` record commit excepted, and
+		// so is a visual verifier's capture commit, its Flow-Key a `verifier`
+		// row's `visual-verify…` key (kan-1102 self-review, F5). The
 		// range runs from the merge base. A `skipped` row counts as completed: it only ends a test
 		// group whose every command was unchanged since a green clean run
 		// (decision f1-skipped-is-verified, kan-1037).
@@ -692,6 +699,12 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			for _, d := range dispatches {
 				if d.Role == "verifier" && (d.Outcome == "completed" || d.Outcome == "skipped") && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
 					lastVerify = max(lastVerify, d.StartedAt.Unix())
+				}
+			}
+			verifierKeys := map[string]bool{}
+			for _, d := range dispatches {
+				if d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify") {
+					verifierKeys[d.Key] = true
 				}
 			}
 			newest, newestAt := "", int64(-1)
@@ -709,7 +722,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					// date; it reshapes verified code and is not new code. The
 					// pipeline's visual-verify record commit carries a capture's
 					// records and screenshots, never code.
-					if strings.Contains(flowKey, "flow.commit-two") || strings.Contains(flowKey, "flow.visual-verify") {
+					if strings.Contains(flowKey, "flow.commit-two") || strings.Contains(flowKey, "flow.visual-verify") || verifierKeys[strings.TrimSpace(flowKey)] {
 						continue
 					}
 					if n, err := strconv.ParseInt(at, 10, 64); err == nil && n > newestAt {

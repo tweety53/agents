@@ -1468,3 +1468,32 @@ func TestCheckUnfinishedWorkParentAction(t *testing.T) {
 		}
 	})
 }
+
+// TestUnfinishedWorkSkipsVisualVerifierCommit pins decision
+// f5-verifier-key-excepted (kan-1102 self-review, F5): a capture commit whose
+// Flow-Key is a `visual-verify…` verifier row's key carries screenshots and a
+// capture spec, never code, so signal seven asks no fresh verify row for it;
+// a `visual-verify-fix-…` implementer's commit still does.
+func TestUnfinishedWorkSkipsVisualVerifierCommit(t *testing.T) {
+	run := func(t *testing.T, key, role string) uwResult {
+		f := newUW(t)
+		gitRun(t, "", "init", "-q", f.wt)
+		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+		writeFile(t, f.wt+"/src/a.go", "x\n")
+		gitRun(t, f.wt, "add", "src/a.go")
+		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
+		f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-01T12:00:00Z"},`+
+			`{"seq":10,"key":"`+key+`","role":"`+role+`","outcome":"completed","startedAt":"2026-01-01T12:30:00Z"}]`+"\n")
+		writeFile(t, f.wt+"/fidelity/x.spec.ts", "// capture\n")
+		gitRun(t, f.wt, "add", "fidelity/x.spec.ts")
+		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "test: capture\n\nFlow-Key: "+key)
+		return f.run(t, f.wt, "demo", "", f.wt+"="+base)
+	}
+	if r := run(t, "visual-verify-gymie", "verifier"); !strings.HasPrefix(r.out, "CLEAR:") {
+		t.Errorf("verifier capture commit: rc=%d out=%q err=%q; want CLEAR:", r.rc, r.out, r.err)
+	}
+	if r := run(t, "visual-verify-fix-3-gymie", "implementer"); !strings.HasPrefix(r.out, "OUTSTANDING:") || !strings.Contains(r.out, "no completed inline verify row since") {
+		t.Errorf("visual-verify fix commit: rc=%d out=%q err=%q; want OUTSTANDING: naming no completed inline verify row since", r.rc, r.out, r.err)
+	}
+}
