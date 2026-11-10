@@ -11,7 +11,9 @@ landing as staged changes. This hook denies the tools that create such residue:
   * Edit / Write / MultiEdit / NotebookEdit on a path inside such a checkout;
   * Bash commands that run a mutating git verb there (`git commit`, `git -C <main> add`,
     `cd <main> && git reset ...`), or write into it with `sed -i`, `tee`, a `>`/`>>`
-    redirect, `cp` destinations, or `mv`/`rm` sources and destinations. A heredoc body is
+    redirect, `cp` destinations, `mv`/`rm` sources and destinations, or `trash` of a path git
+    tracks there. A `cd` inside `( … )` or `$( … )` ends at its close, as bash scopes it
+    (kan-1083 self-review, F2). A heredoc body is
     scanned like any other line, except where the whole command is one plain data write —
     `cat > ABS <<EOF`, `cat >> ABS <<EOF` or `tee [-a] ABS <<EOF` to a literal absolute path,
     its body and closing line, nothing after — where only ABS is judged — and except the body of
@@ -252,7 +254,9 @@ def tokenize(command):
     try:
         lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
         lexer.whitespace_split = True
-        words = list(lexer)
+        # A run of punctuation is one shlex token: split each paren off it, so `)>` and `;)`
+        # still close their group.
+        words = [p for w in lexer for p in (re.split(r"([()])", w) if re.fullmatch(r"[();&|<>]+", w) else [w]) if p]
     except ValueError:
         # Unbalanced quotes: raw words, a redirect glued to its target split off it, so `>f`
         # and `2>>f` read as shlex would have split them; a quoted word keeps its quote and
@@ -262,8 +266,9 @@ def tokenize(command):
     # scanned again as a command of its own, after the line's words.
     spans = [sp for w in words for sp in SUBST_SPAN_RE.findall(w) if sp.startswith("$(")]
     spans += [sp for sp in SUBST_SPAN_RE.findall(command.replace("\\`", "")) if sp.startswith("`")]
+    # Each is wrapped in `( … )`: a `cd` inside a substitution ends at its close.
     for span in spans:
-        words += [";", *tokenize(span[1:-1] if span.startswith("`") else span[2:-1]), ";"]
+        words += [";", "(", *tokenize(span[1:-1] if span.startswith("`") else span[2:-1]), ")", ";"]
     return words
 
 
@@ -1032,6 +1037,7 @@ def bash_hits(command, cwd, landings=None):
     hits = []
     commits = []
     cur = cwd
+    saved = []  # the `cur` each open `(` will restore at its `)`
     env = {}
     for line in logical_lines(strip_data_heredocs(command)):
         raw_tokens = tokenize(line)
@@ -1049,6 +1055,10 @@ def bash_hits(command, cwd, landings=None):
         n = len(tokens)
         while i < n:
             tok = tokens[i]
+            if tok == "(":
+                saved.append(cur)
+            elif tok == ")" and saved:
+                cur = saved.pop()  # a `)` with nothing open is a `case` pattern's
             if tok == "cd" and i + 1 < n:
                 cur = resolve(tokens[i + 1], cur)
                 i += 2
@@ -1158,6 +1168,16 @@ def bash_hits(command, cwd, landings=None):
                     hits.extend(LinkItself(r) for r in (resolve(a, cur) for a in args) if r)
                 elif args:
                     hits.append(resolve(args[-1], cur))
+                i += 1
+                continue
+            if tok == "trash":
+                # a move to the Trash is recoverable, so only a path git tracks is a write
+                for t in tokens[i + 1 :]:
+                    if t in SEPARATORS or t == ")":
+                        break
+                    path = None if t.startswith("-") else resolve(t, cur)
+                    if path and git(os.path.dirname(path) or "/", "ls-files", "--error-unmatch", os.path.basename(path)) is not None:
+                        hits.append(path)
                 i += 1
                 continue
             i += 1

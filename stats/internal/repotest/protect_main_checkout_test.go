@@ -119,15 +119,17 @@ func (f *pmFixture) readLog(path string) string {
 	return strings.ReplaceAll(string(b), "\n", " ")
 }
 
-func TestProtectMainCheckout(t *testing.T) {
-	t.Parallel()
+// newPMFixture builds one bare origin with a clone {MAIN} on `main` (origin/HEAD set,
+// f.txt tracked) and a linked worktree {WT} of it on `change`.
+func newPMFixture(t *testing.T) (f *pmFixture, root, main, wt string) {
+	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
-	main := root + "/main"
-	wt := main + "/.worktrees/change"
+	f = &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main = root + "/main"
+	wt = main + "/.worktrees/change"
 	f.vars["MAIN"], f.vars["WT"] = main, wt
 
 	// origin + main checkout on main
@@ -140,6 +142,34 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.git("-C", main, "push", "-q", "-u", "origin", "main")
 	f.git("-C", main, "remote", "set-head", "origin", "main")
 	f.git("-C", main, "worktree", "add", wt, "-b", "change")
+	return f, root, main, wt
+}
+
+// TestProtectMainCheckoutScopesACdToItsGroup: a `cd` inside `( … )` or `$( … )` ends at its
+// close, so a redirect after the group lands in the cwd before it; and `trash` of a file git
+// tracks in a main checkout is a write, of an untracked one is not (kan-1083 self-review, F2).
+func TestProtectMainCheckoutScopesACdToItsGroup(t *testing.T) {
+	t.Parallel()
+	f, _, main, _ := newPMFixture(t)
+	f.write(main+"/scratch.out", "x\n")
+	f.bash("redirect after a cd group lands in main", "deny", "{MAIN}", `(cd {WT} && true) > c56.out 2> c56.out.fix`)
+	f.bash("redirect after a cd command substitution lands in main", "deny", "{MAIN}", `x=$(cd {WT} && pwd) && echo "$x" > f.txt`)
+	f.bash("a cd in a quoted substitution ends at its close", "deny", "{MAIN}", "echo \"$(cd {WT}; pwd)\"\necho x > f.txt")
+	f.bash("redirect inside the cd group lands in the worktree", "allow", "{MAIN}", `(cd {WT} && echo x > f.txt)`)
+	f.bash("redirect glued to a group's close lands in main", "deny", "{MAIN}", `(cd {WT} && true)>c.out`)
+	f.bash("append glued to a group's close lands in main", "deny", "{MAIN}", `(cd {WT} && true)>>c.out`)
+	f.bash("&> glued to a group's close lands in main", "deny", "{MAIN}", `(cd {WT} && true)&>c.out`)
+	f.bash("&& glued to a group's close ends the cd", "deny", "{MAIN}", `(cd {WT} && true)&& echo > c.out`)
+	f.bash("| glued to a group's close ends the cd", "deny", "{MAIN}", `(cd {WT} && true)| tee c.out`)
+	f.bash(";) closes the group", "deny", "{MAIN}", `(cd {WT}; true;) > c.out`)
+	f.bash("a cd before a group still holds after it", "allow", "{ROOT}", `cd {WT} && (true) > f.txt`)
+	f.bash("trash of a tracked file in main", "deny", "{ROOT}", `trash {MAIN}/f.txt`)
+	f.bash("trash of an untracked file in main", "allow", "{ROOT}", `trash {MAIN}/scratch.out`)
+}
+
+func TestProtectMainCheckout(t *testing.T) {
+	t.Parallel()
+	f, root, main, wt := newPMFixture(t)
 	// repo with no origin, on develop
 	f.git("init", "-q", "-b", "develop", root+"/noorigin")
 	f.write(root+"/noorigin/f.txt", "a\n")
