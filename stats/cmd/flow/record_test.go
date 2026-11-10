@@ -7713,15 +7713,22 @@ func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.
 	for _, tc := range []struct {
 		name, at, trailer string
 		extra             []string
+		pushed            bool
 		want              int
 	}{
-		{"a trailer a round low", "2026-10-28T02:50:00Z", "panel-fix-4", nil, 2},
-		{"the fix round's trailer", "2026-10-28T02:50:00Z", "panel-fix-5", nil, 0},
-		{"a back-fill", "2026-10-28T02:50:00Z", "panel-fix-4", []string{"-started-at", "2026-10-28T02:55:00Z"}, 0},
-		{"a commit authored before the round", "2026-10-28T02:40:00Z", "panel-fix-4", nil, 0},
+		{"a pushed trailer a round low (not amendable)", "2026-10-28T02:50:00Z", "panel-fix-4", nil, true, 0},
+		{"a trailer a round low", "2026-10-28T02:50:00Z", "panel-fix-4", nil, false, 2},
+		{"the fix round's trailer", "2026-10-28T02:50:00Z", "panel-fix-5", nil, false, 0},
+		{"a back-fill", "2026-10-28T02:50:00Z", "panel-fix-4", []string{"-started-at", "2026-10-28T02:55:00Z"}, false, 0},
+		{"a commit authored before the round", "2026-10-28T02:40:00Z", "panel-fix-4", nil, false, 0},
 	} {
 		peer = gitRepo(t)
 		trailerCommit(t, peer, tc.at, tc.trailer)
+		if tc.pushed {
+			if out, err := exec.Command("git", "-C", peer, "update-ref", "refs/remotes/origin/x", "HEAD").CombinedOutput(); err != nil {
+				t.Fatalf("update-ref: %v\n%s", err, out)
+			}
+		}
 		posts = 0
 		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",

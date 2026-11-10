@@ -4039,7 +4039,7 @@ func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey stri
 	want := "panel-fix-" + strconv.Itoa(r)
 	for _, root := range mutationRoots(ctx, f, projectKey) {
 		out, err := exec.Command("git", "-C", root, "log", "--since="+since.Format(time.RFC3339),
-			"--format=%H %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", "HEAD").Output()
+			"--format=%H %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", "HEAD", "--not", "--remotes").Output()
 		if err != nil {
 			continue
 		}
