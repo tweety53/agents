@@ -766,7 +766,7 @@ var (
 	cicSpectreRef = regexp.MustCompile(`^spectre/<[^/<>]+>$`)
 	cicChoreRef   = regexp.MustCompile(`^chore/(?:archive|self-review)-<[^/<>]+>$`)
 	cicFraction   = regexp.MustCompile(`^(?:[0-9]+/[0-9]+|<[a-z]>/<[a-z]>)$`)
-	cicModelPair  = regexp.MustCompile(`^(?:opus|sonnet)/[A-Za-z]+(?:-[a-z]+)*(?:@[a-z]+)?$`)
+	cicModelPair  = regexp.MustCompile(`^(?:opus|sonnet|fable)/[A-Za-z]+(?:-[a-z]+)*(?:@[a-z]+)?$`)
 )
 
 // cicIsCitation is classify_token: true when token is a citation at all —
