@@ -47,6 +47,20 @@ function tablePairs(roles: RoleEntry[], role: string): string {
   return roles.find((r) => r.role === role && r.marker === "")?.pairs.join(", ") ?? "";
 }
 
+// A pairs list wraps between its pairs, never inside one at a pair's hyphen.
+function PairList({ pairs, className }: { pairs: string[]; className?: string }) {
+  return (
+    <code className={className}>
+      {pairs.map((p, i) => (
+        <Fragment key={p}>
+          {i > 0 && ", "}
+          <span className="pair">{p}</span>
+        </Fragment>
+      ))}
+    </code>
+  );
+}
+
 function RolesTable({ roles, onSelect }: { roles: RoleEntry[]; onSelect: (id: number) => void }) {
   // One row per role, groups and roles in order of first appearance; a
   // role's marked rows fold into its pairs cell.
@@ -75,7 +89,7 @@ function RolesTable({ roles, onSelect }: { roles: RoleEntry[]; onSelect: (id: nu
             </tr>
             {g.roles.map((rows) => {
               const r = rows.find((x) => x.marker === "") ?? rows[0];
-              const pairs = r.role === "main" ? MAIN_PAIR : r.pairs.join(", ");
+              const pairs = r.role === "main" ? [MAIN_PAIR] : r.pairs;
               return (
                 <tr className="role" key={r.role}>
                   <td className="role">
@@ -86,9 +100,9 @@ function RolesTable({ roles, onSelect }: { roles: RoleEntry[]; onSelect: (id: nu
                     {r.override ? (
                       <>
                         <s>
-                          <code>{pairs}</code>
+                          <PairList pairs={pairs} />
                         </s>{" "}
-                        <code className="exp">{r.override.pairs.join(", ")}</code>
+                        <PairList pairs={r.override.pairs} className="exp" />
                         <a
                           href="#"
                           onClick={(ev) => {
@@ -100,13 +114,13 @@ function RolesTable({ roles, onSelect }: { roles: RoleEntry[]; onSelect: (id: nu
                         </a>
                       </>
                     ) : (
-                      <code>{pairs}</code>
+                      <PairList pairs={pairs} />
                     )}
                     {rows
                       .filter((x) => x.marker !== "")
                       .map((x) => (
                         <span className="esc" key={x.marker}>
-                          <code>{x.pairs.join(", ")}</code> with <code>{x.marker}</code>
+                          <PairList pairs={x.pairs} /> with <code>{x.marker}</code>
                         </span>
                       ))}
                   </td>

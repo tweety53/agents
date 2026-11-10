@@ -899,16 +899,22 @@ td.lb-clip { max-width: 0; width: 100%; }
 .experiments .roles tbody tr.role:hover td {
   background: var(--surface-tip);
 }
-.experiments .roles td.role,
-.experiments .roles td.pairs {
+.experiments .roles td.role {
   white-space: nowrap;
   width: 1%;
 }
+/* A pairs list wraps between pairs, never inside one: a long list (a planning row's
+   base pairs struck beside an override's) would otherwise overflow the panel and
+   squeeze the Does column to a word a line (kan-1102 self-review, F19). */
 .experiments .roles td.does {
   color: var(--text-secondary);
+  width: 160px;
 }
 .experiments .roles code {
   font-size: 11.5px;
+}
+.experiments .roles .pair {
+  white-space: nowrap;
 }
 .experiments .roles .esc {
   display: block;

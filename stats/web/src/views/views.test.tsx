@@ -2430,7 +2430,9 @@ describe("Experiments", () => {
     for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "3");
     const designer = rows[5];
     expect(designer.querySelector("s")).toHaveTextContent("opus/Plan@low, opus/Plan@medium");
-    expect(within(designer).getByText("opus/Plan@xhigh")).toHaveClass("exp");
+    expect(within(designer).getByText("opus/Plan@xhigh").closest("code")).toHaveClass("exp");
+    // Each pair is its own unbreakable span, so a long list wraps between pairs, never at a hyphen (kan-1102 self-review, F19).
+    expect([...designer.querySelectorAll("s .pair")].map((p) => p.textContent)).toEqual(["opus/Plan@low", "opus/Plan@medium"]);
     expect(within(designer).getByRole("link", { name: "#3" })).toBeInTheDocument();
     expect(within(designer).getByText("Proposes a design or plan for the planner to choose from.")).toBeInTheDocument();
     const implementer = rows[7];
