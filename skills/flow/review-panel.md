@@ -757,6 +757,8 @@ pass.
 while round `<r-1>` holds no completed `panel-<r-1>-merger` row (kan-1045 self-review, F-C).
 A completed `flow stage end` of `flow.review-panel` is refused the same way while the highest round
 holding a reviewer row has no completed `panel-<r>-merger` row (kan-1075 self-review, F14).
+`flow record dispatch begin` refuses a `panel-<r>-merger` row while a reviewer row of round `<r>`
+has no end recorded (kan-1102 self-review, F12).
 Once every dispatch of the round has ended — its `end` recorded, every role's report file
 confirmed under **Recording findings**, the plan-tree and content-marker `verify` passed, and on a
 re-run every `flow-guard check-rerun-citations` settled — the parent dispatches one merger: a one-shot that

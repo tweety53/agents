@@ -1263,6 +1263,25 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 			return 2
 		}
 	}
+	// A findings merger folds its round's reviewer reports, so a live
+	// panel-<r>-merger begins only once every reviewer row of round <r> has
+	// an end recorded (decision f12-merger-after-open-reviewers, kan-1102
+	// self-review F12). A back-fill and a failed read refuse nothing.
+	if m := mergerKeyRE.FindStringSubmatch(*key); m != nil && *role == "merger" && *startedAt == "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err != nil {
+			run = records.Run{}
+		}
+		r, _ := strconv.Atoi(m[1])
+		for _, d := range run.Dispatches {
+			if n, ok := records.PanelDispatchRound(d); ok && n == r && d.EndedAt == nil {
+				fmt.Fprintf(stderr, "flow: -key %q: reviewer row %s of round %d has no end recorded -- the findings merger folds a round's reports only once every reviewer of the round has ended (skills/flow/review-panel.md, The findings merger)\n", *key, d.Key, r)
+				return 2
+			}
+		}
+	}
 	// A panel-fix fixes review round <r>-1 (skills/flow/review-panel-fix-round.md),
 	// so it begins only once that round holds a Critical or Important row,
 	// and never under a key another session of the change already used
@@ -4296,6 +4315,9 @@ var panelFixKeyRE = regexp.MustCompile(`^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)
 
 // panelFixRoundRE captures a panel-fix key's round.
 var panelFixRoundRE = regexp.MustCompile(`^panel-fix-([0-9]+)`)
+
+// mergerKeyRE is a findings merger's key, panel-<r>-merger[-<suffix>].
+var mergerKeyRE = regexp.MustCompile(`^panel-(\d+)-merger(-.+)?$`)
 
 // mergerMissing reports whether run holds no panel-<round>-merger dispatch
 // of role merger that ended completed (decision merger-enforced-at-begin).

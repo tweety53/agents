@@ -8097,3 +8097,65 @@ func TestRecordDispatchBeginRequestFlag(t *testing.T) {
 		t.Error("-request -1 reached the daemon, want no write")
 	}
 }
+
+// TestRecordDispatchBeginRefusesMergerBesideOpenReviewer pins decision
+// f12-merger-after-open-reviewers (kan-1102 self-review, F12): a live
+// panel-<r>-merger begin is refused while a reviewer row of round <r> has no
+// end recorded; an ended row, another round's open row, a back-fill and a
+// failed read refuse nothing.
+func TestRecordDispatchBeginRefusesMergerBesideOpenReviewer(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	var rec string
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(rec))
+			return
+		}
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"merger","model":"sonnet"}`))
+	}))
+	t.Cleanup(srv.Close)
+	reviewer := func(round, tail string) string {
+		return `{"key":"panel-` + round + `-primary+mutation","role":"reviewer","slot":"primary+mutation","startedAt":"2026-11-10T02:03:47Z"` + tail + `}`
+	}
+	record := func(dispatches ...string) string {
+		return `{"change":"kan-258","dispatches":[` + strings.Join(dispatches, ",") + `]}`
+	}
+	ended := `,"endedAt":"2026-11-10T02:08:03Z","outcome":"completed"`
+	backfill := []string{"-started-at", "2026-11-10T02:06:17Z"}
+	for _, tc := range []struct {
+		name, key, record string
+		extra             []string
+		want              int
+	}{
+		{"an open reviewer row of its round", "panel-2-merger", record(reviewer("2", "")), nil, 2},
+		{"a suffixed merger beside an open reviewer row", "panel-2-merger-b", record(reviewer("2", "")), nil, 2},
+		{"the reviewer row ended", "panel-2-merger", record(reviewer("2", ended)), nil, 0},
+		{"an open reviewer row of round 1 only", "panel-2-merger", record(reviewer("1", "")), nil, 0},
+		{"a back-fill beside the open row", "panel-2-merger", record(reviewer("2", "")), backfill, 0},
+		{"a failed record read", "panel-2-merger", `not json`, nil, 0},
+	} {
+		rec = tc.record
+		posts = 0
+		var stdout, stderr bytes.Buffer
+		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "merger", "-model", "sonnet", "-effort", "low", "-key", tc.key,
+			"-session-token", "mf-record-merger-open"}, tc.extra...)
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want {
+			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
+		}
+		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr.String(), "panel-2-primary+mutation")) {
+			t.Errorf("%s: posts %d, stderr %q; want none and a message naming panel-2-primary+mutation", tc.name, posts, stderr.String())
+		}
+		if tc.want == 0 && posts == 0 {
+			t.Errorf("%s: begin was never recorded; stderr %q", tc.name, stderr.String())
+		}
+	}
+}
