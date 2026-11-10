@@ -37,7 +37,9 @@ import (
 //   KEY-REUSED   the key already has a row;
 //   OPEN         an earlier row of the loop is not closed
 //                (flow-guard pipeline-fix end);
-//   PLAN         a fix or review with no completed plan row.
+//   PLAN         a fix or review with no completed plan row;
+//   PASS-DONE    a pass whose key already holds a completed row while its
+//                loop branch self-review-<name> exists (kan-1102 self-review, F20).
 // Admitted (exit 0, LOOP-DISPATCH-OK): the row is opened with `flow record
 // dispatch begin` under the loop's change, its session token the loop's
 // branch name — except a `pass`, which is opened under the change <name>
@@ -396,6 +398,19 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		// self-review-<name> change exists, so it is recorded under <name> in
 		// the caller's project -- the row the run view reads it from.
 		change, main := lpPassTarget(env, git, lp)
+		// A pass already run is never run again while the loop its findings started is
+		// open: a re-run would empty <sr-dir> and lose the findings the loop fixes
+		// (kan-1102 self-review, F20).
+		if lpBranchExists(env, git, lp.main, lp.token) {
+			done, ok := lpRows(env, main, lpLoop{change: change, token: lp.token, prefix: lp.prefix})
+			if !ok {
+				fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer (is flowd up?)\n", self, change)
+				return 2
+			}
+			if slices.ContainsFunc(done, func(d lpDispatch) bool { return d.Key == key && d.Outcome == "completed" }) {
+				return refuse(fmt.Sprintf("PASS-DONE — %s already completed and its loop branch %s exists: resume the loop at step 3 from <sr-dir>/findings.md (skills/flow-self-review/SKILL.md step 2)", key, lp.token))
+			}
+		}
 		if out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", change,
 			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token); rc != 0 {
 			fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)

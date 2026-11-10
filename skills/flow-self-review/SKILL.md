@@ -45,7 +45,7 @@ is a file in `<sr-dir>`, `<state-dir>/self-review/<name>/`, `<state-dir>` being 
 state dir` prints — outside every checkout, never committed. The one exception is the pass's own output: the harness refuses a subagent's Write under `<sr-dir>`, so the pass hands back its files' full contents and this session writes them (kan-1051 self-review, F6). This session reads each dispatch's
 hand-back, never the files it names, save where a step below says it reads one; every judgement —
 `big`, filing, landing, and when a step runs again — stays this session's.
-Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases.
+Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases. A pass already run is never run again: while the change holds a completed `self-review-<name>-pass` row (`flow record dispatches -change <name>`) and the loop branch `self-review-<name>` exists in `<agents repo>`, this session keeps `<sr-dir>` whole, dispatches no pass and resumes at step 3 from `<sr-dir>/findings.md`, and `flow-guard check-loop-dispatch` refuses a second pass row (kan-1102 self-review, F20).
 
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`

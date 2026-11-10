@@ -270,7 +270,8 @@ shas per item 5 of step 3 of `/flow-self-review`, and the run's final report nam
 cases, branch and shas.
 
 A completed `flow.self-review` stage skips the pass on a re-run, so no finding is recorded or
-offered twice. A pass covers what the bundle holds and nothing beyond it.
+offered twice. So does a completed `self-review-<name>-pass` row while the loop branch `self-review-<name>` exists, the re-run resuming the loop from `<sr-dir>/findings.md` (step 2 of `/flow-self-review`, kan-1102 self-review, F20).
+A pass covers what the bundle holds and nothing beyond it.
 
 ### The routes
 

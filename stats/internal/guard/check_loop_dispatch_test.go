@@ -365,3 +365,40 @@ func TestCheckLoopDispatchSelfReviewFixPairs(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckLoopDispatchPassRunsOnce pins decision f20-pass-runs-once (kan-1102
+// self-review, F20): a pass whose key holds a completed row while its loop
+// branch exists is refused, PASS-DONE, and never begun again; an aborted pass
+// row, no rows, or no loop branch admit it as before.
+func TestCheckLoopDispatchPassRunsOnce(t *testing.T) {
+	t.Parallel()
+	const (
+		key    = "self-review-kan-1-demo-pass"
+		branch = "self-review-kan-1-demo"
+		done   = `[{"seq":1,"key":"` + key + `","outcome":"completed","sessionToken":"` + branch + `","endedAt":"2026-11-10T02:00:00Z"}]`
+	)
+	for _, tc := range []struct {
+		name, rows string
+		branches   []string
+		rc         int
+		out        string
+	}{
+		{name: "a completed pass beside its loop branch", rows: done, branches: []string{branch}, rc: 1, out: "LOOP-DISPATCH-REFUSED: PASS-DONE — " + key + " already completed and its loop branch " + branch + " exists"},
+		{name: "a completed pass with no loop branch", rows: done, out: "LOOP-DISPATCH-OK"},
+		{name: "an aborted pass beside its loop branch", rows: strings.Replace(done, "completed", "aborted", 1), branches: []string{branch}, out: "LOOP-DISPATCH-OK"},
+		{name: "no rows beside the loop branch", rows: `[]`, branches: []string{branch}, out: "LOOP-DISPATCH-OK"},
+		{name: "flowd unreadable beside the loop branch", rows: "", branches: []string{branch}, rc: 2, out: "cannot answer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := lpNew(t, tc.rows, tc.branches...)
+			rc, out := fx.run(t, key, "flow-medium", "opus")
+			if rc != tc.rc || !strings.Contains(out, tc.out) {
+				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
+			}
+			if begun := strings.Contains(fx.calls(t), "dispatch begin"); begun != (tc.rc == 0) {
+				t.Fatalf("begin recorded %v, want %v:\n%s", begun, tc.rc == 0, fx.calls(t))
+			}
+		})
+	}
+}
