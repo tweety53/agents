@@ -67,6 +67,9 @@ const ucPrefix = "check-untasked-commits:"
 // planning and link commits.
 var ucChoreRE = regexp.MustCompile(`^chore(\([^)]*\))?!?:`)
 
+// ucBodyTaskIDRE finds a Task-Id: line anywhere in a commit message.
+var ucBodyTaskIDRE = regexp.MustCompile(`(?m)^Task-Id:[ \t]*(\S+)`)
+
 // ucPipelineFixBranchRE is the branch a pipeline-fix Flow-Key belongs on.
 var ucPipelineFixBranchRE = regexp.MustCompile(`^pipeline-fix-.+-[0-9]+$`)
 
@@ -91,7 +94,7 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 	// --first-parent: a merged-in branch's commits are that branch's own,
 	// never this change's -- reshape-branch refuses such a merge outright.
 	out, ok := capture(git(append([]string{"-C", worktree, "log", "--no-merges", "--first-parent",
-		"--format=%H%x00%s%x00%(trailers:key=Task-Id,valueonly,separator=%x2C)%x00%(trailers:key=Flow-Key,valueonly,separator=%x2C)%x1e"},
+		"--format=%H%x00%s%x00%(trailers:key=Task-Id,valueonly,separator=%x2C)%x00%(trailers:key=Flow-Key,valueonly,separator=%x2C)%x00%B%x1e"},
 		rng...)...))
 	if !ok {
 		fmt.Fprintf(stderr, "%s git cannot read %s..HEAD in %s\n", ucPrefix, base, worktree)
@@ -105,11 +108,18 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 	checked := 0
 	for _, rec := range strings.Split(out, "\x1e") {
 		f := strings.Split(strings.Trim(rec, "\n"), "\x00")
-		if len(f) != 4 {
+		if len(f) != 5 {
 			continue
 		}
 		checked++
 		sha, subject := f[0], f[1]
+		// A Task-Id: line in an earlier paragraph is not a git trailer, yet it
+		// names the task all the same; a pushed commit cannot be re-worded.
+		if strings.TrimSpace(f[2]) == "" {
+			if m := ucBodyTaskIDRE.FindStringSubmatch(f[4]); m != nil {
+				f[2] = m[1]
+			}
+		}
 		if !pipelineFixBranch && ucHasPipelineFixKey(f[3]) {
 			listed = append(listed, fmt.Sprintf("  %s %s — Flow-Key: pipeline-fix-… on a change branch", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n")))
 			continue

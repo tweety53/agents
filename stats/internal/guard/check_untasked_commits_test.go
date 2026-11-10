@@ -32,6 +32,7 @@ func TestCheckUntaskedCommits(t *testing.T) {
 		{"implementer key without Task-Id is listed", []commit{{"stats/a.go", "fix(guard): inline", "Flow-Key: task-1+2-implementer"}}, 1,
 			[]string{"UNTASKED: 1 commit(s)", "fix(guard): inline — Flow-Key: task-1+2-implementer with no Task-Id:"}, nil},
 		{"implementer key with Task-Id passes", []commit{{"src/a.kt", "feat(app): a", "Task-Id: 1\nFlow-Key: task-1-implementer"}}, 0, []string{"UNTASKED-OK"}, nil},
+		{"implementer key with Task-Id in an earlier paragraph passes", []commit{{"src/a.kt", "test(app): a", "Task-Id: 57\n\nFlow-Key: task-57-implementer"}}, 0, []string{"UNTASKED-OK"}, nil},
 		{"implementer fix key passes", []commit{{"src/a.kt", "fix(app): a", "Flow-Key: task-1-implementer-fix-1"}}, 0, []string{"UNTASKED-OK"}, nil},
 	}
 	for _, tc := range cases {
