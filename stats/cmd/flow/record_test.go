@@ -2778,6 +2778,59 @@ func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
 	}
 }
 
+// TestRecordStatusRefusesAGreenWithdrawalWithNoRun: a withdrawal whose reason
+// claims a test passes names the run -- its command and exit -- or is refused
+// before the store is contacted (kan-1083 self-review, F5: F27 and F28 were
+// withdrawn "already green at HEAD" with no run behind the claim).
+func TestRecordStatusRefusesAGreenWithdrawalWithNoRun(t *testing.T) {
+	for _, c := range []struct {
+		status string
+		want   int
+	}{
+		{"withdrawn already green at HEAD after the task-27 fix; no change needed", 2},
+		{"withdrawn the test passes at HEAD", 2},
+		{"withdrawn duplicate of F1", 0},
+		{"withdrawn a proof that needs an environment the run does not have", 0},
+		{"withdrawn already green at HEAD: go test ./internal/guard -run TestX -count=1, exit 0", 0},
+		{"withdrawn already green: go test ./internal/guard -run TestX, exit 1", 2},
+		{"withdrawn already green: go test ./internal/guard -run TestX, Exit 0", 0},
+	} {
+		t.Run(c.status, func(t *testing.T) {
+			repo := recordRepo(t, "kan-258")
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-ref", "F1", "-status", c.status},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != c.want {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, c.want, stderr.String())
+			}
+			if c.want != 2 {
+				return
+			}
+			if contacted {
+				t.Error("the store was contacted for a green withdrawal with no run -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), "exit") {
+				t.Errorf("stderr does not ask for the run's exit:\n%s", stderr.String())
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Error("a refused green withdrawal wrote a record journal")
+			}
+		})
+	}
+}
+
 // --- findings (read verb) ---
 
 // TestRecordFindingsPrintsJSONArray pins the success shape: the store's

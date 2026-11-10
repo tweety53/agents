@@ -488,8 +488,10 @@ at a time, and does not ask:
   operator actions** (`skills/flow-contracts/pipeline.md`).
 - **A finding no change to the tree can resolve is withdrawn** — a verification-only ask, a proof
   that needs an environment the run does not have, a defect something already covers — recorded
-  `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. That reason stands
-  where the operator's would.
+  `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. A "something already covers" reason that claims a
+  test passes names the run — its command and exit — else the finding is carried to the next
+  fixer, and `flow record status` refuses a green withdrawal with no exit (kan-1083 self-review,
+  F5). That reason stands where the operator's would.
 - **Only a genuine inability reaches the operator:** a finding the run cannot judge either way, or
   a fix that needs an irreversible or outward-facing action. **The round asks once.** It never
   fires an operator ask where a handback is discovered: the walk that produced it — the reproducer

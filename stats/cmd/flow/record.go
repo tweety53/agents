@@ -167,6 +167,12 @@ func parseTokenReport(value string) (*records.TokenReport, error) {
 // be refused for a second time.
 var recordShapes = []string{"single-repo", "cross-repo"}
 
+// greenClaimRe and runExitRe judge a withdrawal's reason: see validateFindingStatus.
+var (
+	greenClaimRe = regexp.MustCompile(`(?i)\b(green|pass(es|ed|ing)?)\b`)
+	runExitRe    = regexp.MustCompile(`(?i)\bexit 0\b`)
+)
+
 // validateFindingStatus judges a finding's status the way validateRole
 // judges -role, before the store is ever contacted: "open" and "fixed" are
 // the two terminal words, and "withdrawn" and "deferred" are each legal
@@ -176,6 +182,14 @@ var recordShapes = []string{"single-repo", "cross-repo"}
 // `deferred <reason>` section: the CLI accepts the shape exactly as it
 // accepts "withdrawn <reason>", and it is the store's SetFindingStatus,
 // not this validator, that refuses it on any severity but Minor.
+//
+// A "withdrawn <reason>" claiming a test passes or the finding is already
+// green names the run -- its command and its exit 0 -- or is refused: F27 and
+// F28 of kan-1083 were withdrawn "already green at HEAD" with no run behind
+// the claim (kan-1083 self-review, F5).
+// ponytail: the claim is matched by word (green, pass, passes, passed,
+// passing), so a reason using one of those words for anything else must
+// still name an exit; a parser of the claim is the upgrade if that bites.
 func validateFindingStatus(status string) error {
 	if status == "open" || status == "fixed" {
 		return nil
@@ -187,6 +201,9 @@ func validateFindingStatus(status string) error {
 		}
 		first, _ := utf8.DecodeRuneInString(rest)
 		if unicode.IsSpace(first) && strings.TrimSpace(rest) != "" {
+			if prefix == "withdrawn" && greenClaimRe.MatchString(rest) && !runExitRe.MatchString(rest) {
+				return fmt.Errorf("-status %q claims a test passes but names no run: a withdrawal claiming a test passes names the command and its exit (\"…: <command>, exit 0\")", status)
+			}
 			return nil
 		}
 	}

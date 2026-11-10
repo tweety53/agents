@@ -23,7 +23,9 @@ carries its own corrections" (`skills/flow/implement.md`) states — the push, `
 task's pass was `fix`, that task's `task-<n>-fix-<k>.diff` of its fix commit's own range,
 `git diff <fix-commit>^..<fix-commit>`, the snapshots and
 the re-review bundle's `begin`. A `not-fixed:` line is the parent's to judge: withdrawn with its
-one clause, or carried to the next fixer.
+one clause, or carried to the next fixer. A clause claiming a test passes or the finding is already
+green names the run — its command and exit — else the line is carried to the next fixer, and
+`flow record status` refuses a green withdrawal with no exit (kan-1083 self-review, F5).
 
 **One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix`, under
 `task-<n+n>-reviewer-fix-<k>`, the same convention as the fixer's key, each pass on its own fix
