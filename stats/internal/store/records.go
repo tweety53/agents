@@ -140,10 +140,13 @@ var harvestedHarnesses = []string{"claude-code", "zcode"}
 // to the work it measured.
 var ErrInlineCommitMissing = errors.New("store: inline task dispatch closed with no commit")
 
-// ErrInlineBegunAfterCommit is returned by EndDispatch when an inline row's
-// end carries a commit time before the row's begin: the begin was recorded
-// after the work it opens (kan-1003: rows opened after their commits read
-// 3–53 s), so the harvester's window misses the work entirely.
+// ErrInlineBegunAfterCommit is returned by EndDispatch when a row's end
+// carries a commit time before the row's begin: the begin was recorded after
+// the work it opens (kan-1003: rows opened after their commits read 3–53 s),
+// so the harvester's window misses the work entirely. It covers every row,
+// inline or not (kan-1083 self-review, F13: row 9825 was not inline at its
+// end), and keeps its name for its HTTP and reconcile mappings; its message's
+// remedy is flow record dispatch backfill with the real instants.
 var ErrInlineBegunAfterCommit = errors.New("store: inline dispatch begun after its commit")
 
 // minInlineWindow is the shortest window an inline row may close with.
@@ -779,6 +782,12 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		}
 		in.EndedAt = startedAt
 	}
+	// A commit older than the begin, on any row, inline or not: the begin was
+	// recorded after the work it opens (kan-1083 self-review, F13: row 9825
+	// was not inline at its end, and nothing refused it).
+	if readErr == nil && in.CommitAt != nil && in.CommitAt.Before(startedAt.Truncate(time.Second)) {
+		return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, its commit made %s -- record begin when the work starts, or record it with flow record dispatch backfill and the real instants", ErrInlineBegunAfterCommit, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339), in.CommitAt.UTC().Format(time.RFC3339))
+	}
 	if in.Outcome == "completed" {
 		err := readErr
 		if err == nil && !inline && in.Tokens == nil && in.EndedAt.Sub(startedAt) < minInlineWindow {
@@ -798,9 +807,6 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 			}
 			if strings.HasPrefix(in.Key, "task-") && strings.Contains(in.Key, "-implementer") && in.CommitSHA == "" {
 				return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q -- pass -commit <the task's commit>, or record it with flow record dispatch backfill and the real instants", ErrInlineCommitMissing, projectKey, change, in.Key)
-			}
-			if in.CommitAt != nil && in.CommitAt.Before(startedAt.Truncate(time.Second)) {
-				return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, its commit made %s -- record begin when the work starts, or record it with flow record dispatch backfill and the real instants", ErrInlineBegunAfterCommit, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339), in.CommitAt.UTC().Format(time.RFC3339))
 			}
 		}
 	}

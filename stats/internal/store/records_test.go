@@ -4435,7 +4435,8 @@ func TestEndDispatchRefusesAnInlineTaskRowWithNoCommit(t *testing.T) {
 
 // TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit pins kan-1003's
 // second refusal: an inline row whose commit predates its begin was opened
-// after the work. A dispatched row is never judged on its commit time.
+// after the work. A row that is not inline is pinned by
+// TestEndDispatchRefusesAnyRowBegunAfterItsCommit.
 func TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit(t *testing.T) {
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
@@ -4472,16 +4473,45 @@ func TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit(t *testing.T) {
 	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: s.SessionToken, Key: s.Key, CommitSHA: "abc1234", Outcome: "completed", EndedAt: s.StartedAt.Add(time.Minute), CommitAt: &sameSecond}); err != nil {
 		t.Fatalf("EndDispatch with a commit in the begin's second: %v", err)
 	}
-	d := baseDispatch("implementer", "opus")
-	d.Key = "task-2-implementer"
-	d.SessionToken = b.SessionToken
-	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
-		t.Fatalf("RecordDispatch dispatched: %v", err)
+}
+
+// TestEndDispatchRefusesAnyRowBegunAfterItsCommit: the commit-before-begin
+// refusal holds for a row that is not inline at its end too -- row 9825 of
+// kan-1083 was begun with no -agent-id and ended with a commit 1m36s older
+// than its begin, and nothing refused it (kan-1083 self-review, F13).
+func TestEndDispatchRefusesAnyRowBegunAfterItsCommit(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-end-anyaftercommit-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	b := baseDispatch("implementer", "opus")
+	b.Key = "task-1-implementer"
+	b.SessionToken = "mf-end-anyaftercommit"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", b); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
 	}
-	end.Key = d.Key
-	end.CommitAt = &before
+	before := b.StartedAt.Add(-time.Minute)
+	after := b.StartedAt.Add(time.Minute)
+	end := records.DispatchEnd{SessionToken: b.SessionToken, Key: b.Key, CommitSHA: "abc1234", Outcome: "completed", EndedAt: b.StartedAt.Add(2 * time.Minute), CommitAt: &before}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); !errors.Is(err, store.ErrInlineBegunAfterCommit) {
+		t.Fatalf("EndDispatch a row with no agent id and a commit before its begin: err = %v, want store.ErrInlineBegunAfterCommit", err)
+	}
+	end.CommitAt = &after
 	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", end); err != nil {
-		t.Fatalf("EndDispatch a dispatched row with a commit before its begin: %v", err)
+		t.Fatalf("EndDispatch with a commit after the begin: %v", err)
+	}
+	// %cI has whole seconds: a commit in a sub-second begin's own second is not before it
+	s := baseDispatch("implementer", "opus")
+	s.Key = "task-2-implementer"
+	s.SessionToken = b.SessionToken
+	s.StartedAt = s.StartedAt.Add(300 * time.Millisecond)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", s); err != nil {
+		t.Fatalf("RecordDispatch sub-second: %v", err)
+	}
+	sameSecond := s.StartedAt.Add(500 * time.Millisecond).Truncate(time.Second)
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: s.SessionToken, Key: s.Key, CommitSHA: "abc1234", Outcome: "completed", EndedAt: s.StartedAt.Add(time.Minute), CommitAt: &sameSecond}); err != nil {
+		t.Fatalf("EndDispatch with a commit in the begin's second: %v", err)
 	}
 }
 
