@@ -500,3 +500,22 @@ func TestVisualVerifyPassPrepareSpecsNameTheSibling(t *testing.T) {
 		t.Fatalf("no sibling: exit %d, specs %q\n%s", rc, got, out)
 	}
 }
+
+// TestVisualVerifyPassPrepareContinueNamesSurvivorWithoutApp pins decision
+// f3-continue-usage-error (kan-1102 self-review, F3): under --continue a
+// survivor no --app pair names is a usage error naming it, never a
+// `NEXT: start-stack` for a stack nothing can probe.
+func TestVisualVerifyPassPrepareContinueNamesSurvivorWithoutApp(t *testing.T) {
+	g := vvpFixture(t, "")
+	w, mb := g.sibling("gymie-frontend")
+	if rc, out, _ := g.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+g.app.URL); rc != 0 {
+		t.Fatalf("exit %d\n%s", rc, out)
+	}
+	var out, errb bytes.Buffer
+	env := Env{Getenv: g.getenv, Environ: func() []string { return g.environ }, Dir: g.wt}
+	writeFile(t, filepath.Join(filepath.Dir(g.log), "rows.json"), g.rows)
+	rc := Registry["visual-verify-pass"]([]string{"prepare", g.wt, "demo", "visual-verify-2", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", w + ":.=" + g.app.URL}, env, &out, &errb)
+	if rc != 2 || !strings.Contains(errb.String(), "no --app passed for "+g.wt) || strings.Contains(out.String(), "NEXT: start-stack") {
+		t.Fatalf("exit %d\nstdout %s\nstderr %s", rc, out.String(), errb.String())
+	}
+}

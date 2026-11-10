@@ -301,6 +301,11 @@ func (v *vvp) continueSet() []string {
 func (v *vvp) probe(survivors []string) string {
 	client := http.Client{Timeout: 3 * time.Second}
 	for _, w := range survivors {
+		// A survivor with no app to probe is the caller's omission, never a
+		// stack to start (kan-1102 self-review, F3).
+		if len(v.apps[w]) == 0 {
+			v.usage("no --app passed for " + w)
+		}
 		answered := false
 		var urls []string
 		for _, a := range v.apps[w] {

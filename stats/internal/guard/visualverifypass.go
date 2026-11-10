@@ -141,7 +141,9 @@ import (
 // step 1–3 check: it reads the survivors, their merge bases and siblings and
 // the set's size from the stage file, and its own --app and --round-base
 // flags, then runs steps 8–11. A key ending in a survivor's
-// `-<repository name>` runs that worktree alone, its key unchanged.
+// `-<repository name>` runs that worktree alone, its key unchanged. A
+// survivor no --app pair names is a usage error, exit 2, `no --app passed
+// for <worktree>` (kan-1102 self-review, F3).
 //
 // close reads the report <worktree>/.superpowers/sdd/verify-report-<key>.md,
 // <worktree> the one the stage file's `row <key>` line names (a key with no
