@@ -452,3 +452,51 @@ func TestVisualVerifyPassPrepareContinue(t *testing.T) {
 		t.Fatalf("one worktree's key: exit %d\n%s\n%s", rc, out, calls)
 	}
 }
+
+// TestVisualVerifyPassPrepareSpecsNameTheSibling: when the canonical worktree
+// survives because a sibling's diff matched its `ui paths` under `--repo`, the
+// bundle's `specs` row names that sibling and its merge base, the frontend the
+// specs command reads (kan-1083 self-review, F3).
+func TestVisualVerifyPassPrepareSpecsNameTheSibling(t *testing.T) {
+	section := strings.NewReplacer("`src/ui/**`", "`src/ui/**, gymie-frontend/**`",
+		"`<frontend-root>/specs-since <merge-base>`", "`node specs.mjs <frontend-root> <merge-base>`").Replace(vvpSection)
+	newFix := func() *vvpFix {
+		f := vvpFixture(t, "")
+		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section)
+		gitRun(t, f.wt, "commit", "-qam", "cfg")
+		f.green()
+		return f
+	}
+	// bundle is the one dispatched bundle's text; with a sibling in the set its key is
+	// visual-verify-demo, so it is read from the DISPATCH line.
+	bundle := func(out string) string {
+		d := vvpLines(out, "DISPATCH: ")
+		if len(d) != 1 {
+			return ""
+		}
+		b, _ := os.ReadFile(strings.Fields(d[0])[2])
+		return string(b)
+	}
+
+	f := newFix()
+	w, mb := f.sibling("gymie-frontend")
+	writeFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
+	gitRun(t, w, "commit", "-qam", "no visual verification")
+	rc, out, _ := f.prepare("--worktree", w, "--merge-base", w+"="+mb)
+	got := vvpLines(bundle(out), "specs: ")
+	if rc != 0 || len(got) != 1 || got[0] != "specs: node specs.mjs "+w+" "+mb ||
+		strings.Contains(got[0], f.wt+" ") || strings.Contains(got[0], f.mb) {
+		t.Fatalf("sibling: exit %d, specs %q\n%s", rc, got, out)
+	}
+	// A --continue re-dispatch reads the sibling and its merge base back from the stage file.
+	rc, out, _ = f.run("prepare", f.wt, "demo", "visual-verify-2-demo", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt+":.="+f.app.URL)
+	if got := vvpLines(bundle(out), "specs: "); rc != 0 || len(got) != 1 || got[0] != "specs: node specs.mjs "+w+" "+mb {
+		t.Fatalf("continue: exit %d, specs %q\n%s", rc, got, out)
+	}
+
+	g := newFix()
+	rc, out, _ = g.prepare()
+	if got := vvpLines(bundle(out), "specs: "); rc != 0 || len(got) != 1 || got[0] != "specs: node specs.mjs "+g.wt+" "+g.mb {
+		t.Fatalf("no sibling: exit %d, specs %q\n%s", rc, got, out)
+	}
+}

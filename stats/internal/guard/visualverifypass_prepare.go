@@ -279,7 +279,13 @@ func (v *vvp) continueSet() []string {
 			survivors = append(survivors, f[0])
 			v.mergeBase[f[0]] = f[2]
 			if len(f) > 4 {
-				v.siblings[f[0]] = strings.Split(f[4], ",")
+				for _, pair := range strings.Split(f[4], ",") {
+					sib, mb, _ := strings.Cut(pair, "=")
+					v.siblings[f[0]] = append(v.siblings[f[0]], sib)
+					if mb != "" && v.mergeBase[sib] == "" {
+						v.mergeBase[sib] = mb
+					}
+				}
 			}
 		}
 	}
@@ -495,7 +501,13 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	for _, c := range []string{"setup", "capture"} {
 		line("%s: %s", c, vvpOr(cells[c]))
 	}
-	specs := strings.NewReplacer("<frontend-root>", w, "<merge-base>", v.mergeBase[w]).Replace(cells["specs"])
+	// The frontend the specs command reads is the sibling whose diff made w survive, when one did.
+	root, base := w, v.mergeBase[w]
+	if len(v.siblings[w]) > 0 {
+		root = v.siblings[w][0]
+		base = v.mergeBase[root]
+	}
+	specs := strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(cells["specs"])
 	line("specs: %s", vvpOr(specs))
 	line("screenshots: %s", vvpOr(cellPath(v.captureRoot(w), cells["screenshots"])))
 	if m := cells["mockups"]; m != "" {

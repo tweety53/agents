@@ -103,7 +103,9 @@ import (
 //      worktree; `changeRoot:`; the path of skills/flow/visual-verify-verifier.md
 //      under FLOW_GUARD_REPO_ROOT; the `KEY=value` lines flow-guard prepare-workspace
 //      prints; the resolved `setup`, `capture` and `specs` commands
-//      (`<frontend-root>` the worktree, `<merge-base>` its merge base) and
+//      (`<frontend-root>` the worktree — or, when a sibling's diff made it
+//      survive, that sibling — and `<merge-base>` its merge base; kan-1083
+//      self-review, F3) and
 //      `screenshots` root (under the regression checkout's worktree when one
 //      is declared); `mockups:` and `mockup frame:` when declared; one `app:`
 //      line per --app URL; the `## run` commands; `stack:` (`found running` or
@@ -239,7 +241,7 @@ import (
 //   token <session token>
 //   begin <RFC 3339 instant>
 //   set <worktrees in the resolved set>
-//   worktree <path> <repository name> <merge base> <round base or ->[ <sibling>,…]
+//   worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
 //   row <key> <worktree>
 //   verdict <key> <guard verdict line>       close, on a remainder
 //   blocked <key>                            close, on a report with a non-zero exit
@@ -487,7 +489,7 @@ func (v *vvp) repoName(w string) string {
 //	token <session token>
 //	begin <RFC 3339 instant>
 //	set <worktrees in the resolved set>
-//	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>,…]
+//	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
 //	row <key> <worktree>
 //	verdict <key> <guard verdict line>
 //	blocked <key>
@@ -506,7 +508,12 @@ func (v *vvp) writeStage(survivors []string) {
 		}
 		fmt.Fprintf(&b, "worktree %s %s %s %s", w, v.repoName(w), v.mergeBase[w], rb)
 		if sib := v.siblings[w]; len(sib) > 0 {
-			fmt.Fprintf(&b, " %s", strings.Join(sib, ","))
+			// each sibling with its merge base, which a --continue bundle's specs row needs
+			pairs := make([]string, len(sib))
+			for i, s := range sib {
+				pairs[i] = s + "=" + v.mergeBase[s]
+			}
+			fmt.Fprintf(&b, " %s", strings.Join(pairs, ","))
 		}
 		b.WriteString("\n")
 	}
