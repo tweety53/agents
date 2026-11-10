@@ -223,3 +223,41 @@ func TestCheckFrameListReadsReportAlone(t *testing.T) {
 		t.Fatalf("rc=%d out=%q; want exit 1 naming no report line: Q2", r.rc, r.out)
 	}
 }
+
+// TestCheckFrameListSkipsCitedQuestionLabels pins decision f1-citation-position
+// (kan-1102 self-review, F1): an id design.md writes in decision-citation position,
+// `round 1, Q1` or `question Q4`, is a question label and declares no frame; the
+// same id written as a plain token still declares one.
+func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"Q1.png", "Q4.png", "hero.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	if err := os.WriteFile(spec+".mockups", []byte("shot hero\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	if err := os.WriteFile(r, []byte("## Report\n- spec: "+spec+"\n- hero: x\n- frames: 1/1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	check := func(design string) guardResult {
+		t.Helper()
+		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+	}
+	if res := check("- Chosen: x — round 1, Q1.\nsee question Q4\nthe hero frame\n"); res.rc != 0 || !strings.Contains(res.out, "FRAME-LIST-COMPLETE") || !strings.Contains(res.out, "1 declared") {
+		t.Errorf("cited: rc=%d out=%q; want 0, FRAME-LIST-COMPLETE with 1 declared", res.rc, res.out)
+	}
+	if res := check("the Q1 frame\nthe hero frame\n"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: Q1") {
+		t.Errorf("plain token: rc=%d out=%q; want 1 naming no sidecar line: Q1", res.rc, res.out)
+	}
+}
