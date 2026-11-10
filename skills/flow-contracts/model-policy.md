@@ -157,7 +157,9 @@ roles table by them.
 **An open experiment overrides whole cells of the table above.** `flow experiment open -name <n>
 -cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the table
 (check-dispatch-pair, check-loop-dispatch, plan-agent-pair, plan-class, pipeline-fix) admits the
-experiment's pairs in place of that role's unmarked row, and a marked row is never overridden. One
+experiment's pairs in place of that role's unmarked row, and a marked row is never overridden. For
+a planning role (explorer, plan-designer, planner) the replaced pairs stay admitted for a prompt
+carrying the line `CORE change` (kan-1102 self-review, F4). One
 experiment may carry several roles; a role is in at most one open experiment. Role `main` names
 the parent session's `<model>@<effort>`: `/flow` warns on a mismatch (**Model resolution**,
 `skills/flow/SKILL.md`) and only matching runs count in its after figures. flowd unreachable → the

@@ -17,9 +17,11 @@ import (
 // Usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [core]
 //
 // With the optional fourth argument `core` (a CORE change, whose Jira issue's
-// `Agents (CORE)` section names fable for planning), it prints the row's first
+// `Agents (CORE)` section names fable for planning), it prints the role's first
 // CORE pair instead -- `opus/` for explorer, `fable/` for plan-designer and
-// planner; exit 2 when the row carries none. The planner row's pairs are
+// planner -- searching every row of the role in order, so the `CORE change`
+// row an open experiment's override leaves (policyTable) still answers
+// (kan-1102 self-review, F4); exit 2 when no row carries one. The planner row's pairs are
 // `<model>/flow-planner-<effort>`, printed as `<model> <effort>`.
 //
 // Prints one line, `<model> <effort>` — the first pair of the <role> row,
@@ -70,14 +72,20 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	var m []string
-	if rs := rows[role]; len(rs) > 0 {
-		for _, p := range rs[0].Pairs {
-			if len(args) == 4 && !strings.HasPrefix(p, papCoreModel[role]+"/") {
-				continue
+	if rs := rows[role]; len(args) == 4 {
+		// Every row in order: an open override leaves the CORE pairs on the
+		// appended `CORE change` row (policyTable).
+	core:
+		for _, r := range rs {
+			for _, p := range r.Pairs {
+				if strings.HasPrefix(p, papCoreModel[role]+"/") {
+					m = papPair.FindStringSubmatch(p)
+					break core
+				}
 			}
-			m = papPair.FindStringSubmatch(p)
-			break
 		}
+	} else if len(rs) > 0 && len(rs[0].Pairs) > 0 {
+		m = papPair.FindStringSubmatch(rs[0].Pairs[0])
 	}
 	if m == nil {
 		fmt.Fprintf(stderr, "plan-agent-pair: %s names no `<model>/<agent>@<effort>` %s pair\n", mpFile, role)

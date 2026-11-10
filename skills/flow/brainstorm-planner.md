@@ -120,8 +120,10 @@ dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook a
 printed model as the Agent tool's `model` and the effort as its `effort`. **A CORE change** — its Jira issue carries an `**Agents (CORE):**` section — has its parent's planner prompt
 carry the line `CORE change`; the planner then passes `core` as a fourth argument on every Explore and Plan
 dispatch (`flow-guard plan-agent-pair <seed> <n> explorer|plan-designer core`), which prints the row's first
-CORE pair: `opus low` for an explorer, `fable xhigh` for a plan-designer. Every other change omits it and
-gets the row's first pair. Its prompt carries the
+CORE pair: `opus low` for an explorer, `fable xhigh` for a plan-designer. On a CORE change every Explore
+and Plan dispatch prompt carries the line `CORE change` as well, the marker an open experiment's override
+leaves the row's own pairs admitted under (`skills/flow-contracts/model-policy.md`). Every other change
+omits it and gets the row's first pair. Its prompt carries the
 line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)

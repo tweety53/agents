@@ -47,12 +47,20 @@ const mpFile = modelpolicy.File
 
 var mpRole = regexp.MustCompile(`(?m)^Role: (\S+)$`)
 
+// mpCoreMarker is the line a CORE change's planning prompt carries: it admits
+// the planning row's own pairs an open experiment's override replaced.
+const mpCoreMarker = "CORE change"
+
 // policyTable parses <repo>/mpFile (modelpolicy.Parse) and overlays every
 // open allowed-pairs experiment (KAN-1067): `flow experiment overrides`'
 // {role: [pairs]} replaces the pairs of each named role's first unmarked
 // row. Marked rows, roles the table lacks and `main` -- the parent agent,
 // never a dispatch -- are left alone, and a failed or unparsable read
-// leaves the table alone (decision overrides-via-flow-cli).
+// leaves the table alone (decision overrides-via-flow-cli). For a planning
+// role (explorer, plan-designer, planner -- papCoreModel's) the replaced
+// pairs are appended as a row marked `CORE change`, so a CORE change's
+// planning dispatch, its prompt carrying that line, keeps the row's own
+// pairs while the experiment is open (kan-1102 self-review, F4).
 func policyTable(env Env, repo string) (map[string][]modelpolicy.Row, error) {
 	b, err := os.ReadFile(filepath.Join(repo, mpFile))
 	if err != nil {
@@ -74,6 +82,9 @@ func policyTable(env Env, repo string) (map[string][]modelpolicy.Row, error) {
 		for i, r := range rows[role] {
 			if r.Marker == "" {
 				rows[role][i].Pairs = pairs
+				if papCoreModel[role] != "" {
+					rows[role] = append(rows[role], modelpolicy.Row{Pairs: r.Pairs, Marker: mpCoreMarker})
+				}
 				break
 			}
 		}
