@@ -62,6 +62,9 @@ func (c *ic) commit() {
 				continue
 			}
 			rb := icReadTrimmed(f)
+			if c.wt[o] == c.canon && isFile(live+"/design.md") {
+				c.writeDesignRecord(live + "/design.md")
+			}
 			subj := ""
 			for _, s := range c.subjects {
 				k, v, _ := strings.Cut(s, "=")
@@ -224,4 +227,28 @@ func (c *ic) requireFixLines(named []string, nf string) {
 func icReadTrimmed(f string) string {
 	b, _ := os.ReadFile(f)
 	return strings.TrimRight(string(b), "\n")
+}
+
+// writeDesignRecord writes the change's design.md to docs/designs/<name>.md in
+// the canonical worktree, under a fixed two-line header, for the
+// implementation commit to carry (The design record,
+// skills/flow-contracts/finish-contract-run1.md). commit-split stages it.
+func (c *ic) writeDesignRecord(design string) {
+	body, err := os.ReadFile(design)
+	if err != nil {
+		c.stop("design-record", "cannot read "+design+": "+err.Error())
+	}
+	key := ""
+	if c.jiraKey != "" {
+		key = " (" + c.jiraKey + ")"
+	}
+	head := "# " + c.name + "\n> Design record of change " + c.name + key +
+		", written at landing. Each decision's own **Status:** line is the status.\n\n"
+	out := c.canon + "/docs/designs/" + c.name + ".md"
+	if err := os.MkdirAll(c.canon+"/docs/designs", 0o755); err != nil {
+		c.stop("design-record", "cannot create the directory of "+out+": "+err.Error())
+	}
+	if err := os.WriteFile(out, append([]byte(head), body...), 0o644); err != nil {
+		c.stop("design-record", "cannot write "+out+": "+err.Error())
+	}
 }

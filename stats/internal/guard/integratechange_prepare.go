@@ -245,7 +245,7 @@ func (c *ic) prepare() {
 		for _, l := range icLines(others) {
 			c.say(" new: " + l)
 		}
-		if len(c.implPaths(c.wt[i], rb)) > 0 && !c.linkOnly(i, rb) {
+		if (len(c.implPaths(c.wt[i], rb)) > 0 && !c.linkOnly(i, rb)) || (c.wt[i] == c.canon && isFile(live+"/design.md")) {
 			subjects += " " + c.wt[i] + "=<impl subject>"
 		}
 	}

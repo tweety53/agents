@@ -114,7 +114,9 @@ type ic struct {
 //	(`git rev-parse --git-path flow-reshape-base`) for `commit`. Its
 //	NEXT names `<worktree>=<impl subject>` only for a worktree whose
 //	implementation commit would not be empty (impl_paths below) and
-//	is not the canonical worktree's link.md alone (link_only below).
+//	is not the canonical worktree's link.md alone (link_only below),
+//	and always for the canonical worktree when its change directory
+//	holds a design.md, whose design record commit writes.
 //	--accept-foreign / --accept-outstanding: the operator chose
 //	Continue at that stop; its lines still print. A
 //	VISUAL-VERIFY-MISSING is STOP: visual-verify, which
@@ -131,7 +133,9 @@ type ic struct {
 //	after a stop keeps the first, else advanced to a merge of the
 //	old pin and HEAD; fetched from origin when absent locally; run 2
 //	never deletes it), reshape-branch per
-//	worktree, the ledger render, commit-split per
+//	worktree, the ledger render, the design record (the canonical
+//	change directory's design.md written to docs/designs/<name>.md
+//	under a two-line header, else STOP: design-record), commit-split per
 //	worktree in `## Merge order`, then the push of each reshaped
 //	branch. A
 //	worktree with nothing on the implementation side takes no
