@@ -284,7 +284,7 @@ func TestPipelineFixLand(t *testing.T) {
 				gitRun(t, fx.other, "commit", "-q", "-m", "docs: other")
 				gitRun(t, fx.other, "push", "-q", "origin", "HEAD:main")
 			}
-			rc, out := fx.pf(t, "land", wt)
+			rc, out := fx.pf(t, "land", wt, "important")
 			if rc != tc.rc {
 				t.Fatalf("rc %d, want %d: %s", rc, tc.rc, out)
 			}
@@ -314,6 +314,64 @@ func TestPipelineFixLand(t *testing.T) {
 	}
 }
 
+// TestPipelineFixLandRecordsTheFixedRow pins that land of a pipeline-fix
+// loop records the change's flow-fix `fixed` row itself, from the directory
+// it runs in, and refuses a missing or misplaced grade before anything is
+// pushed (kan-1104 self-review, F2: the row was left to the parent and went
+// unrecorded).
+func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
+	pfIdentity(t)
+	for _, tc := range []struct {
+		name, start, branch string
+		grade               []string
+		rc                  int
+	}{
+		{name: "records", start: "6", branch: lpBranch, grade: []string{"important"}},
+		{name: "no grade", start: "6", branch: lpBranch, rc: 2},
+		{name: "grade on a self-review branch", branch: "self-review-kan-1-demo", grade: []string{"minor"}, rc: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prefix := "pipeline-fix-6-"
+			if tc.start == "" {
+				prefix = tc.branch + "-"
+			}
+			fx := pfNew(t, lpRowsJSON(prefix, tc.branch, "plan completed", "fix completed", "review-1 clean"))
+			start := []string{"start", "kan-1-demo"}
+			if tc.start != "" {
+				start = append(start, tc.start)
+			}
+			if rc, out := fx.pf(t, start...); rc != 0 {
+				t.Fatal(out)
+			}
+			wt := fx.wt(tc.branch)
+			writeFile(t, wt+"/docs/fix.md", "fix\n")
+			gitRun(t, wt, "add", "docs/fix.md")
+			gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
+			_, first := kwRun(fx.env, "", fixtureGit, "-C", wt, "rev-parse", "HEAD")
+			writeFile(t, wt+"/docs/more.md", "more\n")
+			gitRun(t, wt, "add", "docs/more.md")
+			gitRun(t, wt, "commit", "-q", "-m", "docs: more")
+			var o, e bytes.Buffer
+			rc := pipelineFix(append([]string{"land", wt}, tc.grade...), fx.env, &o, &e)
+			_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+			if rc != tc.rc {
+				t.Fatalf("rc %d, want %d: %s%s", rc, tc.rc, o.String(), e.String())
+			}
+			if tc.rc != 0 {
+				if strings.Contains(log, "docs: fix") || !strings.Contains(e.String(), "important|minor") {
+					t.Fatalf("a refused grade pushed or named no grade: %s%s\n%s", o.String(), e.String(), log)
+				}
+				return
+			}
+			want := "self-review finding -C " + fx.env.Dir + " -change kan-1-demo -angle flow-fix -disposition fixed -ref " +
+				strings.TrimSpace(first) + " -blast-radius 2 -severity important -note docs: fix\n"
+			if !strings.Contains(log, "docs: fix") || strings.Count(fx.calls(t), "self-review finding") != 1 || !strings.Contains(fx.calls(t), want) {
+				t.Fatalf("no fixed row %q: %s\n%s", want, o.String(), fx.calls(t))
+			}
+		})
+	}
+}
+
 // TestPipelineFixLandFromItsOwnWorktree pins that land run from inside the
 // loop worktree it removes -- the documented `cd <loop worktree> &&
 // scripts/pipeline-fix.sh land <wt>` -- still deletes the branch and prints
@@ -330,7 +388,7 @@ func TestPipelineFixLandFromItsOwnWorktree(t *testing.T) {
 	gitRun(t, wt, "add", "docs/fix.md")
 	gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
 	fx.env.Dir = wt
-	rc, out := fx.pf(t, "land", wt)
+	rc, out := fx.pf(t, "land", wt, "important")
 	if rc != 0 || !strings.Contains(out, "landed: ") {
 		t.Fatalf("rc %d, want 0 and landed: %s", rc, out)
 	}
@@ -497,7 +555,7 @@ func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
 			gitRun(t, wt, "add", "-A")
 			gitRun(t, wt, "commit", "-q", "-m", "fix: "+tc.paths[0])
 			gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
-			rc, out := fx.pf(t, "land", wt)
+			rc, out := fx.pf(t, "land", wt, "important")
 			if rc != 0 {
 				t.Fatalf("rc %d: %s", rc, out)
 			}
@@ -542,7 +600,7 @@ func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
 		t.Fatalf("(c) rc %d: %s", rc, out)
 	}
 	gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
-	rc, out := fx.pf(t, "land", wt)
+	rc, out := fx.pf(t, "land", wt, "important")
 	_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 	if rc != 1 || !strings.Contains(out, "red: "+vis) || strings.Contains(log, "fix: ui") {
 		t.Fatalf("(d) rc %d: %s\n%s", rc, out, log)

@@ -66,12 +66,17 @@ import (
 //       section's `verify` row runs last, resolved as flow-guard run-verify-list
 //       resolves it (from a declared `regression checkout`'s worktree, a
 //       `specs` row's paths in `<specs>`); a red one makes `land` refuse.
-//   flow-guard pipeline-fix land <worktree>
+//   flow-guard pipeline-fix land <worktree> [important|minor]
 //       the merge-and-push route: refuses any other `## default landing
 //       route`; git fetch origin; a branch whose base moved is rebased onto
 //       origin/<default> (a stopped rebase is aborted); verify, always, before
 //       anything is pushed; check-loop-landing's refusals; `git push
-//       origin <branch>:<default>`; the loop's FINISHED state record; `git
+//       origin <branch>:<default>`; on a pipeline-fix-<name>-<k> branch,
+//       which requires the grade (and any other branch refuses one), the
+//       change's flow-fix `fixed` row for <name> (`flow self-review finding`,
+//       in the flowd project of the directory land runs from) -- its first
+//       commit, the loop diff's file count, that commit's subject -- a failed
+//       record named on stderr, landing on, exit 1; the loop's FINISHED state record; `git
 //       pull --ff-only` in the main checkout; removes the worktree and the
 //       branch. stdout: `landed: <sha>`. When that pull succeeded and moved
 //       a stats/ path (with stats/Makefile and stats/cmd/flowd present), `make -C <main>/stats
@@ -99,7 +104,7 @@ const pfUsage = `usage: flow-guard pipeline-fix start <name> [<k>]
        flow-guard pipeline-fix end <review-key> <report-file>|aborted
        flow-guard pipeline-fix escalate <key>
        flow-guard pipeline-fix verify <worktree>
-       flow-guard pipeline-fix land <worktree>
+       flow-guard pipeline-fix land <worktree> [important|minor]
        flow-guard pipeline-fix drop <worktree>
 `
 
@@ -139,8 +144,12 @@ func pipelineFix(args []string, env Env, stdout, stderr io.Writer) int {
 		return pfEscalate(env, pe, rest[0], stdout, stderr)
 	case sub == "verify" && len(rest) == 1:
 		return pfVerify(env, pe, smcAbs(env, rest[0]), stdout, stderr)
-	case sub == "land" && len(rest) == 1:
-		return pfLand(env, pe, smcAbs(env, rest[0]), stdout, stderr)
+	case sub == "land" && (len(rest) == 1 || len(rest) == 2):
+		grade := ""
+		if len(rest) == 2 {
+			grade = rest[1]
+		}
+		return pfLand(env, pe, smcAbs(env, rest[0]), grade, stdout, stderr)
 	case sub == "drop" && len(rest) == 1:
 		return pfDrop(env, pe, smcAbs(env, rest[0]), stdout, stderr)
 	}
@@ -591,13 +600,21 @@ func pfRemove(env Env, pe pfEnv, wt, branch string, force bool, stderr io.Writer
 	return 0
 }
 
-func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
+func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
+	// The fixed row is recorded in the flowd project of the directory land
+	// was invoked from, the running change's own.
+	caller := env.Dir
 	// wt may be the cwd, and pfRemove deletes it: every command runs from
 	// the main checkout, so none after the removal fails to chdir (F13).
 	env.Dir = pe.main
 	const self = "pipeline-fix land"
 	branch, lp, ok := pfLoopWorktree(env, pe, wt, self, stderr)
 	if !ok {
+		return 2
+	}
+	pipeline := lpPipelineBranch.FindStringSubmatch(branch)
+	if (pipeline != nil && grade != "important" && grade != "minor") || (pipeline == nil && grade != "") {
+		fmt.Fprint(stderr, pfUsage)
 		return 2
 	}
 	get := siblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "default landing route")
@@ -640,6 +657,11 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		}
 		return 1
 	}
+	// The fixed row's fields, read before the push moves base.
+	_, revs := kwRun(env, "", pe.git, "-C", wt, "rev-list", "--reverse", base+"..HEAD")
+	firstSHA, _, _ := strings.Cut(strings.TrimSpace(revs), "\n")
+	_, subject := kwRun(env, "", pe.git, "-C", wt, "log", "-1", "--format=%s", firstSHA)
+	touched, _ := pfTouched(env, pe, wt, base)
 	target := strings.TrimPrefix(base, "origin/")
 	if rc, out := kwRun(env, "", pe.git, "-C", wt, "push", "origin", branch+":"+target); rc != 0 {
 		fmt.Fprint(stderr, out)
@@ -648,6 +670,16 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	_, sha := kwRun(env, "", pe.git, "-C", wt, "rev-parse", "HEAD")
 	if rc, out := pfState(env, pe.main, lp.change, pfRecord("FINISHED", branch, map[string]string{})); rc != 0 {
 		fmt.Fprintf(stderr, "%s: pushed, but the loop's state was not written:\n%s", self, out)
+	}
+	recorded := true
+	if pipeline != nil {
+		out, _, rc := pcFlow(env, true, "self-review", "finding", "-C", caller, "-change", pipeline[1],
+			"-angle", "flow-fix", "-disposition", "fixed", "-ref", firstSHA,
+			"-blast-radius", strconv.Itoa(len(touched)), "-severity", grade, "-note", strings.TrimSpace(subject))
+		if rc != 0 {
+			recorded = false
+			fmt.Fprintf(stderr, "%s: pushed, but the fixed row was not recorded:\n%s", self, out)
+		}
 	}
 	_, old := kwRun(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
 	pulled := true
@@ -664,6 +696,9 @@ func pfLand(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		if restartFlowdIfStatsMoved(env, pe.main, strings.TrimSpace(old), strings.TrimSpace(now), stdout, stderr) != 0 {
 			return 1
 		}
+	}
+	if !recorded {
+		return 1
 	}
 	return 0
 }

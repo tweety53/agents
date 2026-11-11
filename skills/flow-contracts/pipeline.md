@@ -289,7 +289,7 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
    `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is
-   `<agents repo>/scripts/flow-guard pipeline-fix land <worktree>`, run with a Bash `timeout: 600000` —
+   `<agents repo>/scripts/flow-guard pipeline-fix land <worktree> <important|minor>`, the last argument the defect's grade as **Record each one** below defines it, run with a Bash `timeout: 600000` —
    a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
    On that route the loop runs no separate `flow-guard pipeline-fix verify`: land runs it on the rebased HEAD,
    and its `red:` lines feed `pipeline-fix-<k>-fix-v<v>` as a verify's do.
@@ -316,6 +316,8 @@ flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref 
 ```
 
 `-severity` grades the defect: `important` when it blocked a step of the run, `minor` otherwise.
+
+On the merge-and-push route `flow-guard pipeline-fix land` records that row itself once its push succeeds — `<name>` read off the branch `pipeline-fix-<name>-<k>`, `-ref` the loop's first commit, `-blast-radius` the number of files the loop's diff touches, `-note` that commit's subject — in the flowd project of the directory it runs from, so the parent runs it from the running change's own working directory; on any other route the parent records the row with the command above.
 
 A deferred fix records no row here; the self-review pass records it once it decides it.
 
