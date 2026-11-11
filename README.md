@@ -52,7 +52,7 @@ flowchart LR
 ├── .flow/            this repository's own flow config (project.md: lint, test, run, stop)
 ├── agents/           subagent definitions: flow-{low,medium,high,xhigh}, flow-planner-{low,medium,high,xhigh}
 ├── commands-claude/  thin slash-command wrappers for Claude Code and ZCode
-├── docs/             briefs/ (lessons) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
+├── docs/             briefs/ (lessons), designs/ (the design record run 1 writes per /flow change) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
 ├── hooks/            the Python hooks (see Guardrails)
 ├── mods/             Claude Code plugins: flow-task-list (the task band above the prompt)
 ├── rules/            rules (alwaysApply in each frontmatter) + agent-baseline.md, the subagent baseline
@@ -137,6 +137,13 @@ flowchart TD
 - **Merge status alone decides** whether a bare `/flow` integrates or cleans up.
 - **Run 2 runs no tests or linters** and commits nothing: it saves `tasks.md` and the self-review
   bundle to flowd, then removes the worktrees.
+- **The plan is read cold before it is implemented.** On a change that is not trivial, a fresh
+  reviewer reads the finished `proposal.md`, `design.md` and `tasks.md` — and nothing of the
+  conversation — in the stage `flow.plan-review`, before `flow.decide`. The planner fixes, contests
+  or escalates each finding; the lenses are `skills/flow/plan-review-rubric.md`.
+- **The design outlives the change.** Run 1 commits the change's `design.md` as
+  `docs/designs/<name>.md` inside the implementation commit, a point-in-time record nothing keeps
+  current.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.
