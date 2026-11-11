@@ -39,7 +39,7 @@ func pfNew(t *testing.T, rows string) pfFx {
 	gitRun(t, "", "clone", "-q", fx.origin, fx.repo)
 	writeFile(t, fx.repo+"/"+mpFile, string(table))
 	writeFile(t, fx.repo+"/.flow/project.md", pfProject)
-	writeFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\n")
+	writeFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\nspectre/changes/\n")
 	writeExec(t, fx.repo+"/scripts/foo.sh", "#!/usr/bin/env bash\necho foo\n")
 	writeExec(t, fx.repo+"/scripts/test-foo.sh", "#!/usr/bin/env bash\nscripts/foo.sh | grep -q foo\n")
 	gitRun(t, fx.repo, "add", "-A")
@@ -367,6 +367,58 @@ func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
 				strings.TrimSpace(first) + " -blast-radius 2 -severity important -note docs: fix\n"
 			if !strings.Contains(log, "docs: fix") || strings.Count(fx.calls(t), "self-review finding") != 1 || !strings.Contains(fx.calls(t), want) {
 				t.Fatalf("no fixed row %q: %s\n%s", want, o.String(), fx.calls(t))
+			}
+		})
+	}
+}
+
+// TestPipelineFixLandRefusesAnUnfoldedFix pins that once a fix round ran,
+// land refuses a commit whose subject is no task's **Commit:** subject of
+// the loop's tasks.md (kan-1104 self-review, F6: a post-review fix landed as
+// a separate commit no task declared).
+func TestPipelineFixLandRefusesAnUnfoldedFix(t *testing.T) {
+	pfIdentity(t)
+	for _, tc := range []struct {
+		name         string
+		folded, plan bool
+		rc           int
+	}{
+		{name: "unfolded", plan: true, rc: 1},
+		{name: "folded", folded: true, plan: true},
+		{name: "no plan", rc: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 fix", "fix-1 completed", "review-2 clean"))
+			if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+				t.Fatal(out)
+			}
+			wt := fx.wt(lpBranch)
+			if tc.plan {
+				writeFile(t, wt+"/spectre/changes/"+lpBranch+"/tasks.md", "# "+lpBranch+"\n\n- [x] 1. Fix\n**Files:** `docs/fix.md`\n**Commit:** docs: fix\n")
+			}
+			writeFile(t, wt+"/docs/fix.md", "fix\n")
+			gitRun(t, wt, "add", "docs/fix.md")
+			gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
+			writeFile(t, wt+"/docs/fix.md", "fix, reviewed\n")
+			if tc.folded {
+				gitRun(t, wt, "commit", "-q", "--amend", "--no-edit", "-a")
+			} else {
+				gitRun(t, wt, "commit", "-q", "-am", "docs: follow-up")
+			}
+			rc, out := fx.pf(t, "land", wt, "important")
+			_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+			if rc != tc.rc {
+				t.Fatalf("rc %d, want %d: %s", rc, tc.rc, out)
+			}
+			if tc.rc != 0 {
+				if strings.Contains(log, "docs: fix") || (tc.rc == 1 && !strings.Contains(out, "LOOP-LANDING-REFUSED: UNFOLDED")) ||
+					(tc.rc == 1 && !strings.Contains(out, "docs: follow-up")) {
+					t.Fatalf("an unfolded fix pushed or was not named: %s\n%s", out, log)
+				}
+				return
+			}
+			if !strings.Contains(out, "landed: ") || !strings.Contains(log, "docs: fix") {
+				t.Fatalf("a folded fix did not land: %s\n%s", out, log)
 			}
 		})
 	}

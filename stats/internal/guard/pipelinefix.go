@@ -70,7 +70,10 @@ import (
 //       the merge-and-push route: refuses any other `## default landing
 //       route`; git fetch origin; a branch whose base moved is rebased onto
 //       origin/<default> (a stopped rebase is aborted); verify, always, before
-//       anything is pushed; check-loop-landing's refusals; `git push
+//       anything is pushed; check-loop-landing's refusals and, once a
+//       fix-<r> or fix-v<v> round ran, `LOOP-LANDING-REFUSED: UNFOLDED` for
+//       each commit whose subject is no **Commit:** subject of the loop's
+//       tasks.md (a tasks.md that does not read, exit 2); `git push
 //       origin <branch>:<default>`; on a pipeline-fix-<name>-<k> branch,
 //       which requires the grade (and any other branch refuses one), the
 //       change's flow-fix `fixed` row for <name> (`flow self-review finding`,
@@ -657,6 +660,9 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 		}
 		return 1
 	}
+	if rc := pfUnfolded(env, pe, lp, rows, wt, base, stdout, stderr); rc != 0 {
+		return rc
+	}
 	// The fixed row's fields, read before the push moves base.
 	_, revs := kwRun(env, "", pe.git, "-C", wt, "rev-list", "--reverse", base+"..HEAD")
 	firstSHA, _, _ := strings.Cut(strings.TrimSpace(revs), "\n")
@@ -701,6 +707,43 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+var pfFixRound = regexp.MustCompile(`^fix-([0-9]+|v[0-9]+)$`)
+
+// pfUnfolded refuses, once a fix-<r> or fix-v<v> round ran, every commit of
+// base..HEAD whose subject is no **Commit:** subject of the loop's tasks.md:
+// a post-review fix is folded into the task commit it fixes (kan-1104
+// self-review, F6). 0 none, 1 refused, 2 the plan cannot be read.
+func pfUnfolded(env Env, pe pfEnv, lp lpLoop, rows []lpDispatch, wt, base string, stdout, stderr io.Writer) int {
+	if !slices.ContainsFunc(rows, func(d lpDispatch) bool { return pfFixRound.MatchString(strings.TrimPrefix(d.Key, lp.prefix)) }) {
+		return 0
+	}
+	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "pipeline-fix land", wt, lp.change, wt)
+	raw, err := os.ReadFile(tasksMD)
+	var plan []string
+	if err == nil {
+		plan, err = tcfPlanLines(raw)
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "pipeline-fix land: cannot read tasks.md for %s -- cannot answer\n", lp.change)
+		return 2
+	}
+	subjects := map[string]bool{}
+	for _, id := range tcfTaskIDs(plan) {
+		if t, ok := tcfParseTask(plan, id); ok && t.commit != nil {
+			subjects[*t.commit] = true
+		}
+	}
+	_, log := kwRun(env, "", pe.git, "-C", wt, "log", "--format=%h %s", base+"..HEAD")
+	rc := 0
+	for _, line := range strings.Split(strings.TrimSpace(log), "\n") {
+		if _, subject, _ := strings.Cut(line, " "); line != "" && !subjects[subject] {
+			fmt.Fprintf(stdout, "LOOP-LANDING-REFUSED: UNFOLDED %s — fold it into the commit of the task it fixes (git commit --fixup <that commit>, git rebase --autosquash %s)\n", line, base)
+			rc = 1
+		}
+	}
+	return rc
 }
 
 // restartFlowdIfStatsMoved restarts the live flowd -- `make -C <main>/stats
