@@ -61,7 +61,7 @@ otherwise, including a session that just stops.
 **`plan.session` spans the research, a capture's key, `STARTED` and kickoff, and ends there.**
 The store attaches the open plan session to the change the moment the capture's own `STARTED`
 write creates it. A capture's planning then marks `flow.brainstorm`, `flow.design-approval`,
-`flow.create-artifacts`, `flow.writing-plans` and `flow.decide` under `-command '/flow-plan'`, the
+`flow.create-artifacts`, `flow.writing-plans`, `flow.plan-review` when the plan is reviewed, and `flow.decide` under `-command '/flow-plan'`, the
 rows the Level 1 table admits for `/flow-plan`; `flow.kickoff` is not marked. **No
 `flow record dispatch` call before capture** — no change exists to record a planning dispatch
 against (decision `flow-plan-records-nothing`, kan-1033). After it, every `plan-<n>`,
