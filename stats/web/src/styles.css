@@ -875,6 +875,37 @@ td.lb-clip { max-width: 0; width: 100%; }
 .experiments .roles table {
   font-size: 12px;
   line-height: 1.35;
+  table-layout: fixed;
+  min-width: 1000px;
+}
+.experiments .roles th:nth-child(1) {
+  width: 250px;
+}
+.experiments .roles th:nth-child(2) {
+  width: 110px;
+}
+.experiments .roles th:nth-child(5) {
+  width: 70px;
+}
+.experiments .roles td.role {
+  width: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.experiments .roles td.role code {
+  margin-left: 6px;
+  color: var(--text-muted);
+}
+.experiments .roles td.agent code {
+  color: var(--text-muted);
+}
+.experiments .roles td.pairs .ms {
+  display: block;
+  width: auto;
+  margin: 0;
+}
+.experiments .roles .trig {
+  height: 28px;
 }
 .experiments .roles th,
 .experiments .roles td {

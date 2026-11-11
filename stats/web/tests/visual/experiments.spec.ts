@@ -79,9 +79,9 @@ test.describe("experiments", () => {
     const roles = page.getByRole("region", { name: "Current roles" });
     const save = roles.getByRole("button", { name: "Save implementer" });
     const row = roles;
-    await expect(save).toBeDisabled();
-    await row.getByRole("button", { name: "Choose opt-in pairs for implementer" }).click();
-    const input = row.getByRole("searchbox", { name: "Add opt-in pair to implementer" });
+    await expect(save).toHaveCount(0);
+    await row.getByRole("button", { name: "Choose explicit allow pairs for implementer" }).click();
+    const input = row.getByRole("searchbox", { name: "Add explicit allow pair to implementer" });
     await input.fill("not a pair");
     await expect(row.getByText(/^Add “/)).toHaveCount(0);
     await expect(page).toHaveScreenshot("experiments-edit-invalid.png", { fullPage: true });
@@ -90,28 +90,28 @@ test.describe("experiments", () => {
     await expect(row.getByRole("checkbox", { name: "opus/flow-high@xhigh" })).toBeChecked();
     await page.keyboard.press("Escape");
     await expect(row.getByRole("searchbox")).toHaveCount(0);
-    await row.getByRole("button", { name: "Choose base pairs for implementer" }).click();
+    await row.getByRole("button", { name: "Choose main pairs for implementer" }).click();
     await row.getByRole("checkbox", { name: "opus/flow-low" }).first().click();
     await page.keyboard.press("Escape");
-    await expect(save).toBeEnabled();
+    await expect(save).toBeVisible();
     await page.mouse.move(0, 0);
     await expect(page).toHaveScreenshot("experiments-edit-dirty.png", { fullPage: true });
   });
 
-  test("experiments roles panel, row hover and link focus", async ({ page }) => {
+  test("experiments roles panel, row hover and field focus", async ({ page }) => {
     await open(page);
     const roles = page.getByRole("region", { name: "Current roles" });
     // The prototype's measures: a 12px table, 2px 8px cells.
     await expect(roles.getByRole("table")).toHaveCSS("font-size", "12px");
     await expect(roles.getByRole("cell").first()).toHaveCSS("padding", "2px 8px");
     await expect(roles).toHaveScreenshot("experiments-roles.png");
-    const designer = roles.getByRole("row", { name: /^plan-designer/ });
+    const designer = roles.getByRole("row", { name: /plan-designer/ });
     await designer.hover();
     await expect(roles).toHaveScreenshot("experiments-roles-hover.png");
     await page.mouse.move(0, 0);
-    const link = designer.getByRole("link", { name: /^#\d+$/ });
-    await link.focus();
-    await expect(link).toBeFocused();
+    const field = designer.getByRole("button", { name: "Choose main pairs for plan-designer" });
+    await field.focus();
+    await expect(field).toBeFocused();
     await expect(roles).toHaveScreenshot("experiments-roles-focus.png");
   });
 });

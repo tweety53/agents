@@ -2427,46 +2427,37 @@ describe("Experiments", () => {
     );
   });
 
-  it("Experiments groups the roles, one row per role, folding escalations and linking overrides", async () => {
+  it("Experiments groups the roles, one row per role, on Main and Explicit allow columns", async () => {
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    expect(within(table).getAllByRole("columnheader").slice(0, 3).map((h) => h.textContent)).toEqual(["Role", "Does", "Allowed pairs"]);
+    expect(within(table).getAllByRole("columnheader").slice(0, 4).map((h) => h.textContent)).toEqual(["Role", "Agent", "Main", "Explicit allow"]);
     const rows = within(table).getAllByRole("row");
     expect(rows.map((r) => r.querySelector("th, td")?.textContent)).toEqual([
-      "Role", "Session", "main", "Planning", "explorer", "plan-designer", "Implementation", "implementer",
+      "Role", "Session", "Runs the pipelinemain", "Planning", "Reads the codebaseexplorer", "Proposes a planplan-designer", "Implementation", "Writes the codeimplementer",
     ]);
-    for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "3");
+    for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "5");
     const designer = rows[5];
-    expect([...designer.querySelectorAll("s .chip .pair")].map((p) => p.textContent)).toEqual(["opus/Plan@low", "opus/Plan@medium"]);
-    expect(designer.querySelector("code.exp")).toHaveTextContent("opus/Plan@xhigh");
-    // Each pair is its own unbreakable span, so a long list wraps between pairs, never at a hyphen (kan-1102 self-review, F19).
-    expect(within(designer).getByRole("link", { name: "#3" })).toBeInTheDocument();
-    expect(designer).not.toHaveTextContent("#3opt-in:");
-    expect(designer.querySelector("td.does")).toHaveAttribute("title", "Proposes a design or plan for the planner to choose from.");
-    expect(designer.querySelector("td.does")).toHaveTextContent("Proposes a plan");
-    const implementer = rows[7];
-    expect(implementer.querySelector(".chip .pair")).toHaveTextContent("opus/flow-low");
-    expect(implementer.querySelector(".esc")).toHaveTextContent("opus/flow-high with No-progress escalation");
-    expect(rows[2].querySelector("s")).toHaveTextContent("session's own pair");
-    expect(within(rows[4]).queryByRole("link")).toBeNull();
-    expect(rows[4].querySelector("s")).toBeNull();
-    expect(within(table).queryByText("Requires marker")).toBeNull();
-    expect(within(table).queryByText("Experiment")).toBeNull();
-    expect(table).not.toHaveTextContent("From skills/flow-contracts/model-policy.md");
-
-    await userEvent.click(within(rows[2]).getByRole("link", { name: "#2" }));
-    expect(screen.getByRole("button", { name: /main agent opus@medium/ })).toHaveClass("on");
+    expect(designer.querySelector("td.role")).toHaveAttribute("title", "Proposes a design or plan for the planner to choose from.");
+    expect(designer.querySelector("td.agent")).toHaveTextContent("Plan");
+    expect([...designer.querySelectorAll("td.pairs")[0].querySelectorAll(".chip .pair")].map((p) => p.textContent)).toEqual(["opus/Plan@low", "opus/Plan@medium"]);
+    expect([...designer.querySelectorAll("td.pairs")[1].querySelectorAll(".chip .pair")].map((p) => p.textContent)).toEqual(["fable/Plan@xhigh"]);
+    // The experiment override is no longer drawn in the table.
+    expect(designer.querySelector("code.exp")).toBeNull();
+    expect(within(designer).queryByRole("link")).toBeNull();
+    expect(rows[2].querySelector("td.pairs")).toHaveTextContent("session's own pair");
+    // A marked escalation is named in the Main field's open list, not edited.
+    await userEvent.click(within(rows[7]).getByRole("button", { name: "Choose main pairs for implementer" }));
+    expect(rows[7]).toHaveTextContent("Escalation: opus/flow-high with No-progress escalation");
   });
 
   it("Experiments edits a role's base pairs", async () => {
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    const save = within(table).getByRole("button", { name: "Save explorer" });
-    expect(save).toBeDisabled();
-    await userEvent.click(within(table).getByRole("button", { name: "Choose base pairs for explorer" }));
+    expect(within(table).queryByRole("button", { name: "Save explorer" })).toBeNull();
+    await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for explorer" }));
     const menu = table.querySelector(".menu") as HTMLElement;
     await userEvent.click(within(menu).getByRole("checkbox", { name: "opus/Explore@low" }));
-    const add = within(menu).getByRole("searchbox", { name: "Add base pair to explorer" });
+    const add = within(menu).getByRole("searchbox", { name: "Add main pair to explorer" });
     // A malformed pair, or one already listed, is never offered to add.
     await userEvent.type(add, "opus Explore");
     expect(within(menu).queryByText(/^Add “/)).toBeNull();
@@ -2478,7 +2469,7 @@ describe("Experiments", () => {
     expect(add).toHaveValue("");
     await userEvent.click(within(menu).getByRole("button", { name: "Done" }));
     expect(table.querySelector(".menu")).toBeNull();
-    await userEvent.click(save);
+    await userEvent.click(within(table).getByRole("button", { name: "Save explorer" }));
     expect(putRolePairsMock).toHaveBeenCalledWith("explorer", { base: ["opus/Explore@medium", "sonnet/Explore@low"], optin: [] });
     await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
@@ -2486,7 +2477,7 @@ describe("Experiments", () => {
   it("Experiments closes a pairs field on Escape and on an outside click", async () => {
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    const trig = within(table).getByRole("button", { name: "Choose base pairs for explorer" });
+    const trig = within(table).getByRole("button", { name: "Choose main pairs for explorer" });
     await userEvent.click(trig);
     expect(table.querySelector(".menu")).not.toBeNull();
     await userEvent.keyboard("{Escape}");
@@ -2499,9 +2490,9 @@ describe("Experiments", () => {
   it("Experiments adds an opt-in pair", async () => {
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    await userEvent.click(within(table).getByRole("button", { name: "Choose opt-in pairs for plan-designer" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Choose explicit allow pairs for plan-designer" }));
     const menu = table.querySelector(".menu") as HTMLElement;
-    await userEvent.type(within(menu).getByRole("searchbox", { name: "Add opt-in pair to plan-designer" }), "fable/Plan@high{Enter}");
+    await userEvent.type(within(menu).getByRole("searchbox", { name: "Add explicit allow pair to plan-designer" }), "fable/Plan@high{Enter}");
     await userEvent.click(within(menu).getByRole("checkbox", { name: "fable/Plan@xhigh" }));
     await userEvent.click(within(table).getByRole("button", { name: "Save plan-designer" }));
     expect(putRolePairsMock).toHaveBeenCalledWith("plan-designer", { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@high"] });
@@ -2513,21 +2504,10 @@ describe("Experiments", () => {
     putRolePairsMock.mockReset().mockRejectedValue(new Error("role pair \"x\" is not <model>/<type>[@<effort>]"));
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    await userEvent.click(within(table).getByRole("button", { name: "Choose base pairs for implementer" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for implementer" }));
     await userEvent.click(within(table).getByRole("checkbox", { name: "opus/flow-low" }));
     await userEvent.click(within(table).getByRole("button", { name: "Save implementer" }));
     expect(await within(table).findByRole("alert")).toHaveTextContent("is not <model>/<type>");
-  });
-
-  it("Experiments promotes an open experiment", async () => {
-    render(<Experiments />);
-    const override = await screen.findByRole("region", { name: "Override" });
-    await userEvent.click(within(override).getByRole("button", { name: "Make permanent" }));
-    expect(promoteExperimentMock).toHaveBeenCalledWith(3);
-    await waitFor(() => expect(fetchExperimentsMock).toHaveBeenCalledTimes(2));
-    // A closed experiment offers no promote.
-    await userEvent.click(screen.getByRole("button", { name: /implementer sonnet\/flow-low/ }));
-    expect(within(await screen.findByRole("region", { name: "Override" })).queryByRole("button", { name: "Make permanent" })).toBeNull();
   });
 
   it("Experiments marks each experiment open or closed and selects the newest", async () => {
@@ -2559,10 +2539,9 @@ describe("Experiments", () => {
 
   it("Experiments shows the selected experiment's override, stat panels, charts and summary", async () => {
     render(<Experiments />);
-    const override = await screen.findByRole("region", { name: "Override" });
-    const row = within(override).getAllByRole("row")[1];
-    expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["plan-designer", "opus/Plan@low, opus/Plan@medium", "opus/Plan@xhigh"]);
-    expect(await within(override).findByText("Runs counted: 14 before · 4 after start")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Override" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make permanent" })).toBeNull();
+    expect(await screen.findByText("Runs counted: 14 before · 4 after start")).toBeInTheDocument();
 
     const rounds = screen.getByRole("region", { name: "Review rounds / change" });
     expect(within(rounds).getByText("1.9")).toHaveClass("v");
