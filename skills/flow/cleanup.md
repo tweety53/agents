@@ -107,6 +107,14 @@ A run 2 that **completes step 5** is terminal and names **no** next command.
 disproved with its evidence, or a `big` finding filed or declined at step 4's prompt of
 `/flow-self-review` (`skills/flow-self-review/SKILL.md`).
 
+**Every post-landing item is finished before the handoff prints — a "Not done" line is never the way
+out.** Once `COMPLETE:` arrives, the parent records the self-review `fixed` rows for every fix commit
+that landed on the base (each sha read from `git log` by its subject; `flow self-review findings
+-change <name>` must list them), copies each vendored or sibling-repository file the change's finding
+names — in a worktree of that repository, pushed to its `main` — and makes every Jira transition. A
+stop in the middle (a daemon holding a worktree, a hook refusing the main checkout) is a blocker to
+clear, never a reason to print `Not done` and end the turn.
+
 On a leftover — or on no verdict at all — the run stops at step 4 instead:
 
 ````
