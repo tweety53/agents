@@ -144,6 +144,7 @@ function RoleRow({ r, onSelect, onSaved }: { r: RoleEntry; onSelect: (id: number
         )}
         {!main && (
           <>
+            {" "}
             <span className="tier">opt-in:</span>
             <PairEditor role={r.role} tier="opt-in" pairs={optin} onChange={setOptin} />
             {r.marked.map((x) => (

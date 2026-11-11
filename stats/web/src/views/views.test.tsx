@@ -2441,6 +2441,7 @@ describe("Experiments", () => {
     expect(designer.querySelector("code.exp")).toHaveTextContent("opus/Plan@xhigh");
     // Each pair is its own unbreakable span, so a long list wraps between pairs, never at a hyphen (kan-1102 self-review, F19).
     expect(within(designer).getByRole("link", { name: "#3" })).toBeInTheDocument();
+    expect(designer).not.toHaveTextContent("#3opt-in:");
     expect(within(designer).getByText("Proposes a design or plan for the planner to choose from.")).toBeInTheDocument();
     const implementer = rows[7];
     expect(within(implementer).getByText("opus/flow-low")).toBeInTheDocument();
