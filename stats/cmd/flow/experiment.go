@@ -23,14 +23,14 @@ const experimentUsage = `usage: flow experiment open      [-addr url] [-timeout 
        flow experiment main-check [-addr url] [-timeout dur] -model <model> -effort <effort>
        flow experiment close <id> [-addr url] [-timeout dur] -verdict positive|negative|inconclusive [-summary text]
 
-An allowed-pairs experiment (KAN-1067) replaces whole unmarked rows of
-skills/flow-contracts/model-policy.md's Allowed pairs table while it is open.
+An allowed-pairs experiment (KAN-1067) replaces whole roles' base pairs
+(flow policy get) while it is open.
 -cell repeats, one role each; role main takes one <model>@<effort>.
 
 open prints "experiment <id> open". list prints one line per experiment,
 newest first: <id> <status> <started yyyy-mm-dd> <name> <role>=<pairs>;...
 overrides prints every open experiment's cells as one compact JSON object,
-{} when none is open -- the allowed-pairs readers overlay it on the table.
+{} when none is open -- the allowed-pairs readers overlay it on the pairs.
 stats prints the experiment's before/after figures per metric as the
 daemon's JSON: runs per window, excluded main-cell mismatches, and each
 metric's before and after means with its weekly series.
@@ -252,7 +252,7 @@ func runExperimentMainCheck(ctx context.Context, args []string, stdout, stderr i
 		return cl.ListExperiments(ctx, true)
 	})
 	if err != nil {
-		return 0 // unreachable store: the table's own pairs apply, nothing to warn about
+		return 0 // unreachable store: no experiment to compare with, nothing to warn about
 	}
 	for _, e := range open {
 		cell := e.Cells["main"]

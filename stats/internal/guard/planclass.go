@@ -436,7 +436,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "plan-class: %v\n", err)
 		return 2
 	}
-	policy, err := policyTable(env, root)
+	policy, err := policyTable(env)
 	for _, role := range []string{"panel-sanity-efficiency", "panel-mutation-failure"} {
 		if err != nil || len(policy[role]) == 0 {
 			fmt.Fprintf(stderr, "plan-class: the allowed-pairs table names no %s row (%v)\n", role, err)

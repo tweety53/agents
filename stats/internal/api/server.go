@@ -462,6 +462,12 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		mux.HandleFunc("GET /api/v1/experiments/overrides", eh.overrides)
 		mux.HandleFunc("POST /api/v1/experiments/{id}/close", eh.close)
 		mux.HandleFunc("GET /api/v1/experiments/{id}/stats", eh.stats)
+		mux.HandleFunc("POST /api/v1/experiments/{id}/promote", eh.promote)
+		mux.HandleFunc("GET /api/v1/policy", eh.policy)
+		mux.HandleFunc("PUT /api/v1/policy/roles/{role}", eh.putRole)
+		mux.HandleFunc("GET /api/v1/policy/grants", eh.grants)
+		mux.HandleFunc("PUT /api/v1/policy/grants", eh.putGrant)
+		mux.HandleFunc("DELETE /api/v1/policy/grants", eh.putGrant)
 		mux.HandleFunc("GET /api/v1/roles", eh.roles)
 	}
 	if so.spa != nil {

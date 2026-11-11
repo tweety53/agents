@@ -48,9 +48,8 @@ import (
 //       records <key>'s no-progress escalation (git config flow.escalation,
 //       value `<loop branch>:<key>`; land and drop clear the loop's), which
 //       flow-guard check-loop-dispatch requires before admitting <key> on its role's
-//       marked `No-progress escalation` row of **Allowed pairs**
-//       (skills/flow-contracts/model-policy.md); refused unless that table
-//       gives <key>'s role such a row and an earlier round of its kind
+//       `No-progress escalation` marked pairs (`flow policy get`); refused
+//       unless <key>'s role has such pairs and an earlier round of its kind
 //       completed.
 //   flow-guard pipeline-fix verify <worktree>
 //       runs the ## lint lines and tests the branch's touched paths need,
@@ -292,7 +291,7 @@ func pfHighestK(env Env, pe pfEnv) (int, bool) {
 // role is the suffix's allowed-pairs role id, and escalatable whether the
 // table gives that role a marked escalation row.
 func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix string, escalatable bool, rc int) {
-	rows, err := policyTable(env, pe.main)
+	rows, err := policyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "pipeline-fix: %v\n", err)
 		return lpLoop{}, "", false, 2

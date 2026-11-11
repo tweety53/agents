@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -21,12 +23,14 @@ type ExperimentStore interface {
 	OpenOverrides(ctx context.Context) (map[string][]string, error)
 	CloseExperiment(ctx context.Context, id int64, verdict, summary string) error
 	ExperimentStats(ctx context.Context, id int64) (store.ExperimentStatsResult, error)
+	PolicyStore
 }
 
 var _ ExperimentStore = (*store.Store)(nil)
 
-// WithExperiments registers the /api/v1/experiments routes against s, and
-// /api/v1/roles over table -- the Allowed pairs markdown. The caller passes
+// WithExperiments registers the /api/v1/experiments and /api/v1/policy
+// routes against s, and /api/v1/roles over s's pairs and table -- the roles
+// markdown, each role's group and Does line. The caller passes
 // the table (flowd: modelpolicy/embedded.Table) so this package never
 // imports the make-copied embed: internal/reconcile imports internal/api,
 // and cmd/flow must build without make.
@@ -89,19 +93,15 @@ func (h *experimentsHandler) open(w http.ResponseWriter, r *http.Request) {
 }
 
 // unknownRole names the first cell role that is neither `main` nor a row of
-// the Allowed pairs table: such a cell would claim the role yet govern no
-// dispatch, since the guards' overlay ignores roles the table lacks. With no
-// table wired, every role passes.
+// the roles table: such a cell would claim the role yet govern no dispatch.
+// With no table wired, every role passes.
 func (h *experimentsHandler) unknownRole(cells map[string][]string) (string, bool) {
-	if h.table == nil {
-		return "", true
-	}
-	rows, err := modelpolicy.Parse(h.table)
-	if err != nil {
+	known := tableRoles(h.table)
+	if known == nil {
 		return "", true
 	}
 	for role := range cells {
-		if _, ok := rows[role]; !ok && role != "main" {
+		if !known[role] && role != "main" {
 			return role, false
 		}
 	}
@@ -173,7 +173,54 @@ func (h *experimentsHandler) close(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, struct{}{})
 }
 
-// roleOverride is the open experiment cell replacing a role's unmarked row.
+// promote serves POST /api/v1/experiments/{id}/promote ("Make permanent",
+// decision promote-experiment): each cell of open experiment id but `main`
+// -- no role row -- becomes that role's base pairs, its opt-in pairs kept,
+// and the experiment closes positive. An unknown or closed id is 404.
+// Replaying a promote whose close failed rewrites the same pairs.
+func (h *experimentsHandler) promote(w http.ResponseWriter, r *http.Request) {
+	id, ok := experimentID(w, r)
+	if !ok {
+		return
+	}
+	open, err := h.store.ListExperiments(r.Context(), true)
+	if err != nil {
+		h.experimentError(w, "promote experiment", err)
+		return
+	}
+	i := slices.IndexFunc(open, func(e store.Experiment) bool { return e.ID == id })
+	if i < 0 {
+		h.experimentError(w, "promote experiment", fmt.Errorf("%w: %d", store.ErrExperimentNotOpen, id))
+		return
+	}
+	e := open[i]
+	pairs, err := h.store.RolePairs(r.Context())
+	if err != nil {
+		h.policyError(w, "promote experiment", err)
+		return
+	}
+	roles := make([]string, 0, len(e.Cells))
+	for role := range e.Cells {
+		if role != "main" {
+			roles = append(roles, role)
+		}
+	}
+	slices.Sort(roles)
+	for _, role := range roles {
+		if err := h.store.ReplaceRolePairs(r.Context(), role, e.Cells[role], pairs[role].Optin); err != nil {
+			h.policyError(w, "promote experiment", err)
+			return
+		}
+	}
+	summary := fmt.Sprintf("Made permanent: %s became the base pairs of %s.", e.Name, strings.Join(roles, ", "))
+	if err := h.store.CloseExperiment(r.Context(), id, "positive", summary); err != nil {
+		h.experimentError(w, "promote experiment", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, struct{}{})
+}
+
+// roleOverride is the open experiment cell replacing a role's base pairs.
 type roleOverride struct {
 	Pairs        []string `json:"pairs"`
 	ExperimentID int64    `json:"experimentId"`
@@ -181,24 +228,28 @@ type roleOverride struct {
 
 // roleEntry is one row of the roles table GET /api/v1/roles serves.
 type roleEntry struct {
-	Role     string        `json:"role"`
-	Pairs    []string      `json:"pairs"`
-	Marker   string        `json:"marker"`
-	Group    string        `json:"group"`
-	Does     string        `json:"does"`
-	Override *roleOverride `json:"override,omitempty"`
+	Role     string             `json:"role"`
+	Base     []string           `json:"base"`
+	Optin    []string           `json:"optin"`
+	Marked   []store.MarkedPair `json:"marked"`
+	Group    string             `json:"group"`
+	Does     string             `json:"does"`
+	Override *roleOverride      `json:"override,omitempty"`
 }
 
 // roles serves GET /api/v1/roles: a leading `main` entry (no table row of
-// its own), then the Allowed pairs table one entry per row in
-// table order, each unmarked row -- and main -- carrying the open
-// experiment cell that replaces it. Marked rows (escalations) never do. Each
-// entry carries its group and description from the table, main's from the
-// literals below.
+// its own), then one entry per row of the roles table in table order, its
+// pairs from the store, its group and Does line from the table, and the open
+// experiment cell that replaces its base pairs -- main's too.
 func (h *experimentsHandler) roles(w http.ResponseWriter, r *http.Request) {
 	rows, err := modelpolicy.Rows(h.table)
 	if err != nil {
 		h.experimentError(w, "parse roles table", err)
+		return
+	}
+	pairs, err := h.store.RolePairs(r.Context())
+	if err != nil {
+		h.policyError(w, "list roles", err)
 		return
 	}
 	open, err := h.store.ListExperiments(r.Context(), true)
@@ -208,16 +259,17 @@ func (h *experimentsHandler) roles(w http.ResponseWriter, r *http.Request) {
 	}
 	cell := map[string]*roleOverride{}
 	for _, e := range open {
-		for role, pairs := range e.Cells {
-			cell[role] = &roleOverride{Pairs: pairs, ExperimentID: e.ID}
+		for role, p := range e.Cells {
+			cell[role] = &roleOverride{Pairs: p, ExperimentID: e.ID}
 		}
 	}
-	out := []roleEntry{{Role: "main", Pairs: []string{}, Group: "Session",
+	out := []roleEntry{{Role: "main", Base: []string{}, Optin: []string{}, Marked: []store.MarkedPair{}, Group: "Session",
 		Does: "The session you talk to: runs the pipeline and sends out every other role.", Override: cell["main"]}}
 	for _, row := range rows {
-		e := roleEntry{Role: row.Role, Pairs: row.Pairs, Marker: row.Marker, Group: row.Group, Does: row.Does}
-		if row.Marker == "" {
-			e.Override = cell[row.Role]
+		p := pairs[row.Role]
+		e := roleEntry{Role: row.Role, Base: p.Base, Optin: p.Optin, Marked: p.Marked, Group: row.Group, Does: row.Does, Override: cell[row.Role]}
+		if e.Base == nil {
+			e.Base, e.Optin, e.Marked = []string{}, []string{}, []store.MarkedPair{}
 		}
 		out = append(out, e)
 	}

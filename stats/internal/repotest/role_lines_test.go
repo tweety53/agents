@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	// A role row of the **Allowed pairs** table: `| `<id>` | `<pair>`…`.
-	roleRow = regexp.MustCompile("(?m)^\\| `([a-z0-9-]+)` \\| `[^`]+/")
+	// A role row of the **Allowed pairs** roles tables: `| `<id>` | <Does> |`.
+	roleRow = regexp.MustCompile("(?m)^\\| `([a-z0-9-]+)` \\| [^`|]")
 	// A Role line a skill names, as a line of its own or quoted: `Role: <id>`.
 	roleLine = regexp.MustCompile("(?m)(?:^|`)Role: ([^`<\\s][^`\\n]*?)(?:`|$)")
 )
