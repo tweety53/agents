@@ -249,3 +249,42 @@ func TestCheckTaskBuildGreen(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckTaskBuildGreenRefusesARedCommitOffItsPartner: a red task folds
+// into its green partner as one commit, so its **Commit:** must be the
+// partner's (kan-1103 self-review, F8).
+func TestCheckTaskBuildGreenRefusesARedCommitOffItsPartner(t *testing.T) {
+	t.Parallel()
+	plan := func(c1, c2 string) string {
+		return "- [ ] 1. First\n\n**Build:** green\n" + c1 + "\n- [ ] 2. Second\n\n**Build:** red\n\n**Squash-with:** Task 1\n" + c2
+	}
+	for _, c := range []struct {
+		name, c1, c2 string
+		rc           int
+		out          string
+	}{
+		{"own subject", "**Commit:** feat(a): one\n", "**Commit:** feat(a): two\n", 1,
+			`tasks.md:10: task 2 declares **Commit:** "feat(a): two" but folds into Task 1, whose **Commit:** is "feat(a): one"`},
+		{"no subject", "**Commit:** feat(a): one\n", "", 1,
+			`task 2 declares **Commit:** none but folds into Task 1, whose **Commit:** is "feat(a): one"`},
+		{"partner's subject", "**Commit:** feat(a): one\n", "**Commit:** feat(a): one\n", 0, ""},
+		{"partner declares none", "", "**Commit:** feat(a): two\n", 0, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			r := runGuard("check-task-build-green", []string{psFixture(t, plan(c.c1, c.c2))}, Env{Getenv: os.Getenv})
+			if r.rc != c.rc || (c.out == "") != (r.out == "") || !strings.Contains(r.out, c.out) || strings.Count(r.out, "\n") > 1 {
+				t.Errorf("rc=%d out=%q, want rc=%d with %q", r.rc, r.out, c.rc, c.out)
+			}
+		})
+	}
+	t.Run("partners disagree", func(t *testing.T) {
+		t.Parallel()
+		p := "- [ ] 1. First\n\n**Build:** green\n**Commit:** feat(a): one\n\n- [ ] 2. Second\n\n**Build:** green\n**Commit:** feat(a): two\n\n- [ ] 3. Third\n\n**Build:** red\n\n**Squash-with:** Task 1, 2\n**Commit:** feat(a): one\n"
+		r := runGuard("check-task-build-green", []string{psFixture(t, p)}, Env{Getenv: os.Getenv})
+		want := `task 3 folds into Tasks 1 and 2, whose **Commit:** subjects differ ("feat(a): one", "feat(a): two")`
+		if r.rc != 1 || !strings.Contains(r.out, want) || strings.Count(r.out, "\n") > 1 {
+			t.Errorf("rc=%d out=%q, want rc=1 with %q", r.rc, r.out, want)
+		}
+	})
+}

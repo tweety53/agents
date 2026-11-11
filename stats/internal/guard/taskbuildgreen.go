@@ -3,6 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 )
 
 // The contract below moved here from the header of the deleted
@@ -44,7 +46,8 @@ import (
 //	1  violations found — one or more of: a duplicate task id, a task with
 //	   no tag, a malformed tag, a `red` task with no **Squash-with:** field
 //	   at all, a **Squash-with:** field naming zero ids, a named partner that
-//	   does not exist in this file, or a named partner that is itself `red`.
+//	   does not exist in this file, a named partner that is itself `red`, or a
+//	   `red` task whose **Commit:** is not its `green` partner's.
 //	   Printed on stdout one per line as `file:line: message`.
 //	2  invocation error — wrong argument count, or the file cannot be read
 //	   (a file that is not UTF-8 included: the Python let that decode error
@@ -94,7 +97,11 @@ import (
 //  5. A partner that is itself `red` → at the field line, reported once
 //     from the task carrying the field.
 //  6. A `red` task whose partner is `green`, or one nothing references, is
-//     no violation.
+//     no violation — save 7.
+//  7. A `red` task whose **Commit:** is absent or differs from a `green`
+//     partner's declared one → at the field line, naming the partner's
+//     subject to copy; a partner declaring none is not compared (kan-1103
+//     self-review, F8).
 //
 // A partner named twice in one field is validated once (the list is
 // de-duplicated, order preserving), and every id lookup resolves to the
@@ -151,12 +158,16 @@ type tbgTask struct {
 	taskLine, tagLine, squashLine, fence int
 	kind, value                          string
 	partners                             []string
+	commit                               *string // its **Commit:**, nil when absent
 }
 
 func tbgCheck(lines []string, file string) []string {
 	var tasks []tbgTask
 	for _, found := range tcfIterTasks(lines) {
 		task := tbgTask{id: found.id, taskLine: found.taskLine}
+		if parsed, ok := tcfParseTask(lines, found.id); ok {
+			task.commit = parsed.commit
+		}
 		if tag := tcfSelectBuildTag(found.lines); tag != nil {
 			task.tagLine, task.kind, task.value = found.taskLine+tag.offset+1, tag.kind, tag.value
 		}
@@ -203,6 +214,7 @@ func tbgCheck(lines []string, file string) []string {
 			at(task.squashLine, task, "is red with no merge partner named")
 		default:
 			seen := map[string]bool{}
+			var named, subjects []string // green partners declaring a **Commit:**, and their distinct subjects
 			for _, partner := range task.partners {
 				if seen[partner] {
 					continue
@@ -212,7 +224,23 @@ func tbgCheck(lines []string, file string) []string {
 					at(task.squashLine, task, "merges with Task %s, which does not exist in this plan", partner)
 				} else if p.kind == "red" {
 					at(task.squashLine, task, "merges with Task %s, which is itself red", partner)
+				} else if p.commit != nil {
+					named = append(named, partner)
+					if q := fmt.Sprintf("%q", *p.commit); !slices.Contains(subjects, q) {
+						subjects = append(subjects, q)
+					}
 				}
+			}
+			switch {
+			case len(subjects) > 1:
+				// No subject the red task declares can match both.
+				at(task.squashLine, task, "folds into Tasks %s and %s, whose **Commit:** subjects differ (%s) — give them one subject: the fold lands as one commit", strings.Join(named[:len(named)-1], ", "), named[len(named)-1], strings.Join(subjects, ", "))
+			case len(subjects) == 1 && (task.commit == nil || fmt.Sprintf("%q", *task.commit) != subjects[0]):
+				own := "none"
+				if task.commit != nil {
+					own = fmt.Sprintf("%q", *task.commit)
+				}
+				at(task.squashLine, task, "declares **Commit:** %s but folds into Task %s, whose **Commit:** is %s — copy that subject: the fold lands as one commit, and check-task-records groups it by subject", own, named[0], subjects[0])
 			}
 		}
 	}

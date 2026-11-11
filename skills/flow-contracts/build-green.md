@@ -58,6 +58,8 @@ the run when:
   enforces that a `red` chain resolves to `green` rather than to another unresolved `red`: a `red`
   task's named partner must itself carry a `green` tag, not a further `red` one.
 
+It also fails the run when a `red` task's `**Commit:**` differs from a `green` partner's, naming the partner's subject to copy: the fold lands as one commit, and `flow-guard check-task-records` groups a fold by that one subject (kan-1103 self-review, F8).
+
 A `red` task with no partner pointing back at it, and a `red` task whose partner is `green`, are
 both accepted — "unreferenced" is not a violation shape this guard checks for.
 
