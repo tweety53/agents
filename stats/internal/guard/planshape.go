@@ -36,9 +36,9 @@ import (
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
 // judges its commits (check-task-commit-fields) can actually read it. Twenty-seven
-// findings, F1-F27 (F1-F6's canonical definitions, decisions and rationale:
+// findings, F1-F28 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F27's are the rows below).
+// design.md -- not restated here; F7-F28's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -239,6 +239,12 @@ import (
 //	    open (skills/spectre-planning/SKILL.md, Convergence). Reported at
 //	    the entry's heading or the item's line. An absent or unreadable
 //	    design.md is not checked.
+//	F28 An unticked task (`- [ ]`) whose **Files:** lists run-loaded prose
+//	    -- a path vmScoped accepts (check-verbatim-moves' own predicate),
+//	    not a -rationale.md -- while no verbatim-moves.txt sits beside
+//	    tasks.md: the plan writes that file, `#` comment lines alone when
+//	    it only moves text verbatim (.flow/project.md; kan-1103
+//	    self-review, F9). Reported once per task at its task line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -452,6 +458,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.parentActions()...)
 	v = append(v, p.npxFetch()...)
 	v = append(v, p.openQuestions()...)
+	v = append(v, p.verbatimMoves()...)
 	return append(v, p.designSections()...)
 }
 
@@ -1256,6 +1263,31 @@ var (
 	psListItemRE = regexp.MustCompile(`^[` + tcfWS + `]*(?:[-*+]|[0-9]+\.)[` + tcfWS + `]+\S`)
 	psSectionRE  = regexp.MustCompile(`^#{1,2}[` + tcfWS + `]`)
 )
+
+// verbatimMoves is F28: an unticked task editing run-loaded prose needs the
+// change's verbatim-moves.txt, written with the plan.
+func (p *psPlan) verbatimMoves() []string {
+	if !p.on("F28") {
+		return nil
+	}
+	if _, err := os.Stat(psAbs(p.env, filepath.Join(filepath.Dir(p.path), "verbatim-moves.txt"))); err == nil {
+		return nil
+	}
+	var v []string
+	for _, task := range tcfIterTasks(p.lines) {
+		if !strings.HasPrefix(p.lines[task.taskLine-1], "- [ ]") {
+			continue
+		}
+		t, _ := tcfParseTask(p.lines, task.id)
+		for _, f := range t.files {
+			if vmScoped(f) && !strings.HasSuffix(f, "-rationale.md") {
+				v = append(v, p.at(task.taskLine, "task "+task.id+" edits run-loaded prose (`"+f+"`) and this change has no verbatim-moves.txt — write it with the plan, listing every sentence the tasks add or reword, or `#` comment lines alone when they only move text verbatim (.flow/project.md, check-verbatim-moves) (F28)"))
+				break
+			}
+		}
+	}
+	return v
+}
 
 // openQuestions is F27: the sibling design.md records no question left open.
 func (p *psPlan) openQuestions() []string {

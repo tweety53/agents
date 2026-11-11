@@ -196,7 +196,7 @@ in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
 listing every sentence its tasks add or reword, with the plan**; it lives on disk only, in the
 gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
-review panel (kan-1027's F1 and F8).
+review panel (kan-1027's F1 and F8). `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone (kan-1103 self-review, F9).
 
 **`flow-guard check-workspace-isolation` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question

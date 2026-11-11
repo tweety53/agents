@@ -931,3 +931,38 @@ func TestCheckPlanShapeF27(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckPlanShapeRefusesRunLoadedEditsWithoutVerbatimMoves: F28, an
+// unticked task editing run-loaded prose while the change has no
+// verbatim-moves.txt (kan-1103 self-review, F9).
+func TestCheckPlanShapeRefusesRunLoadedEditsWithoutVerbatimMoves(t *testing.T) {
+	t.Parallel()
+	plan := func(box, path string) string {
+		return box + " 1. Edit prose\n\n**Files:** `" + path + "`\n**Tests:** none\n**Commit:** docs(flow): edit\n"
+	}
+	for _, c := range []struct {
+		name, box, path string
+		moves           bool
+		want            int
+	}{
+		{"skills without the file", "- [ ]", "skills/flow/x.md", false, 1},
+		{"skills with a comment-only file", "- [ ]", "skills/flow/x.md", true, 0},
+		{"a ticked task", "- [x]", "skills/flow/x.md", false, 0},
+		{"a rationale appendix", "- [ ]", "skills/flow-contracts/x-rationale.md", false, 0},
+		{"the project config", "- [ ]", ".flow/project.md", false, 0},
+		{"a rule", "- [ ]", "rules/x.mdc", false, 1},
+		{"a command", "- [ ]", "commands-claude/x.md", false, 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			md := psFixture(t, plan(c.box, c.path))
+			if c.moves {
+				writeFile(t, filepath.Join(filepath.Dir(md), "verbatim-moves.txt"), "# nothing reworded\n")
+			}
+			r := psMutant(md, "")
+			if got := strings.Count(r.out, "(F28)"); got != c.want {
+				t.Errorf("(F28) count %d, want %d; out=%q", got, c.want, r.out)
+			}
+		})
+	}
+}
