@@ -908,7 +908,8 @@ the general rule, and every other dispatched role gets the same treatment. Befor
 whose child can write to the worktree — an implementer group, a per-task reviewer, a panel round,
 the panel-fix subagent — the parent writes the dispatch's marker list beside the run's other
 dispatch records: one `<path><TAB><ERE>` line per artifact the dispatch must not damage, each ERE
-a string that artifact is known to contain (a decision ID, a task title, a section heading), then
+a string that artifact is known to contain (a decision ID, a task title, a section heading), each
+`<path>` relative to the worktree root — the guard refuses an absolute path or one containing `..` — then
 runs `flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file>`. The marker list
 is written once, before the stage's first dispatch, and every later dispatch reuses it with a
 snapshot of its own. Once the dispatch's completion notification arrives, the parent runs `flow-guard check-tree-markers verify <worktree>
