@@ -3470,6 +3470,11 @@ func runRecordIncidents(ctx context.Context, args []string, stdout, stderr io.Wr
 // requireRecordFlags, a shell-substitution token by validateSessionToken,
 // and a body that is not valid JSON by json.Valid, all before callRecord
 // ever dials out.
+//
+// Before the write it refuses, with exit 2 and no journal, an implementer,
+// fixer or group pair the role's admitted pairs -- the open experiments'
+// overrides, else the policy's base pairs plus granted opt-ins -- do not
+// admit (decisionPairsAdmitted; kan-1103 self-review, F3).
 func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record decision", flag.ContinueOnError)
 	fset.SetOutput(stderr)
@@ -3512,6 +3517,27 @@ func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdo
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
+	}
+
+	// ponytail: each read that fails -- flowd down, or a flowd predating
+	// /api/v1/policy answering 404 -- counts as absent, so with flowd down a
+	// decision is journalled unchecked; Experiments in model-policy.md reads
+	// the same "flowd unreachable -> no experiment applies".
+	overrides, _ := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
+		return cl.ExperimentOverrides(ctx)
+	})
+	var policy map[string]struct{ Base, Optin []string }
+	if raw, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
+		return cl.Policy(ctx)
+	}); err == nil {
+		_ = json.Unmarshal(raw, &policy)
+	}
+	granted, _ := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]string, error) {
+		return cl.Grants(ctx, f.change)
+	})
+	if err := decisionPairsAdmitted(body, overrides, policy, granted); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
 	}
 
 	in := records.Decision{SessionToken: *sessionToken, Decision: json.RawMessage(body)}

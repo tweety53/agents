@@ -393,3 +393,53 @@ func dRange(raws []json.RawMessage) string {
 	}
 	return dIDs(raws)
 }
+
+// decisionPairsAdmitted refuses a decision whose implementer, fixer or
+// group pair, spelled <model>/flow-<effort>, its role's admitted pairs do
+// not admit (kan-1103 self-review, F3): implementer and every groups[i] are
+// role implementer, fixer is role panel-fix. A role's admitted pairs are its
+// open experiments' overrides when it has any, else its policy base pairs,
+// plus its opt-in pairs when granted lists the role -- an override replaces
+// only the base pairs (Experiments, model-policy.md). A role neither names is
+// not judged, and a string or null pair always passes.
+func decisionPairsAdmitted(body []byte, overrides map[string][]string, policy map[string]struct{ Base, Optin []string }, granted []string) error {
+	// Only the pairs are read, so a body render would refuse elsewhere is
+	// not refused here.
+	var d struct {
+		Implementer, Fixer dPair
+		Groups             []struct{ Model, Effort string }
+	}
+	if err := json.Unmarshal(body, &d); err != nil {
+		return fmt.Errorf("decision body: %v", err)
+	}
+	type check struct{ path, role, model, effort string }
+	var checks []check
+	if d.Implementer.isPair {
+		checks = append(checks, check{"implementer", "implementer", d.Implementer.Model, d.Implementer.Effort})
+	}
+	if d.Fixer.isPair {
+		checks = append(checks, check{"fixer", "panel-fix", d.Fixer.Model, d.Fixer.Effort})
+	}
+	for i, g := range d.Groups {
+		if g.Model != "" {
+			checks = append(checks, check{fmt.Sprintf("groups[%d]", i), "implementer", g.Model, g.Effort})
+		}
+	}
+	for _, c := range checks {
+		p, judged := policy[c.role]
+		admitted := slices.Clone(overrides[c.role])
+		if len(admitted) == 0 {
+			admitted = slices.Clone(p.Base)
+		} else {
+			judged = true
+		}
+		if slices.Contains(granted, c.role) {
+			admitted = append(admitted, p.Optin...)
+		}
+		pair := c.model + "/flow-" + c.effort
+		if judged && !slices.Contains(admitted, pair) {
+			return fmt.Errorf("record decision: %s pair %s is not admitted for role %s, whose admitted pairs are [%s]", c.path, pair, c.role, strings.Join(admitted, " "))
+		}
+	}
+	return nil
+}

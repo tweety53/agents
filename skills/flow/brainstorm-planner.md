@@ -666,6 +666,8 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 - **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
+**A role an open allowed-pairs experiment overrides takes one of that experiment's pairs** (**Experiments**, `skills/flow-contracts/model-policy.md`), whatever the effort roll or a hard seam would pick, its `reason` naming the experiment: the implementer and every implementer group are role `implementer`, the fixer is role `panel-fix`, and `flow experiment overrides` lists each overridden role's pairs. `flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit (kan-1103 self-review, F3).
+
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
 **review-panel.md**'s no-decision dispatch, the tooling analyst — runs on the literal `opus`. `flow record
 decision` refuses a decision whose pairs name any other model. Pairs may repeat — two dispatches,

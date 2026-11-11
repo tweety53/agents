@@ -3239,6 +3239,100 @@ func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
 	}
 }
 
+// TestRunRecordDecisionRefusesAPairNoPolicyAdmits pins the overlay check
+// (kan-1103 self-review, F3): a decision whose implementer, fixer or group
+// pair the role's admitted pairs -- the open experiments' overrides first,
+// else the policy's base pairs, plus opt-in pairs under a grant -- do not
+// admit is refused with exit 2 before anything is written.
+func TestRunRecordDecisionRefusesAPairNoPolicyAdmits(t *testing.T) {
+	cases := []struct {
+		name, implementer, fixer, group string
+		grant                           bool
+		overrides                       string
+		wantCode                        int
+		wantStderr                      []string
+	}{
+		{name: "implementer off the override", implementer: `{"model":"opus","effort":"medium"}`, fixer: `{"model":"opus","effort":"low"}`, group: `{"bundles":[1],"model":"opus","effort":"low"}`,
+			wantCode: 2, wantStderr: []string{"implementer", "opus/flow-medium"}},
+		{name: "group off the override", implementer: `{"model":"opus","effort":"low"}`, fixer: `{"model":"opus","effort":"low"}`, group: `{"bundles":[1],"model":"sonnet","effort":"medium"}`,
+			wantCode: 2, wantStderr: []string{"groups[0]"}},
+		{name: "fixer opt-in without a grant", implementer: `{"model":"opus","effort":"low"}`, fixer: `{"model":"opus","effort":"medium"}`, group: `{"bundles":[1],"model":"opus","effort":"low"}`,
+			wantCode: 2, wantStderr: []string{"fixer", "panel-fix"}},
+		{name: "fixer opt-in with a grant", implementer: `{"model":"opus","effort":"low"}`, fixer: `{"model":"opus","effort":"medium"}`, group: `{"bundles":[1],"model":"opus","effort":"low"}`,
+			grant: true, wantCode: 0},
+		{name: "all admitted", implementer: `{"model":"opus","effort":"low"}`, fixer: `{"model":"opus","effort":"low"}`, group: `{"bundles":[1],"model":"opus","effort":"low"}`,
+			wantCode: 0},
+		{name: "fixer opt-in with a grant under an override", implementer: `{"model":"opus","effort":"low"}`, fixer: `{"model":"opus","effort":"medium"}`, group: `{"bundles":[1],"model":"opus","effort":"low"}`,
+			grant: true, overrides: `{"implementer":["opus/flow-low"],"panel-fix":["opus/flow-low"]}`, wantCode: 0},
+		{name: "string fixer", implementer: `{"model":"opus","effort":"low"}`, fixer: `"skipped — inline"`, group: `{"bundles":[1],"model":"opus","effort":"low"}`,
+			wantCode: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			file := filepath.Join(t.TempDir(), "decision.json")
+			body := `{"class":"regular","implementer":` + tc.implementer + `,"fixer":` + tc.fixer + `,"groups":[` + tc.group + `]}`
+			if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
+				t.Fatalf("write decision file: %v", err)
+			}
+
+			posts := 0
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.URL.Path == "/api/v1/experiments/overrides":
+					if tc.overrides != "" {
+						_, _ = w.Write([]byte(tc.overrides))
+					} else {
+						_, _ = w.Write([]byte(`{"implementer":["opus/flow-low","sonnet/flow-low"]}`))
+					}
+				case r.URL.Path == "/api/v1/policy":
+					_, _ = w.Write([]byte(`{"implementer":{"base":["opus/flow-medium"],"optin":[],"marked":[]},"panel-fix":{"base":["opus/flow-low"],"optin":["opus/flow-medium"],"marked":[]}}`))
+				case r.URL.Path == "/api/v1/policy/grants":
+					if tc.grant {
+						_, _ = w.Write([]byte(`{"roles":["panel-fix"]}`))
+					} else {
+						_, _ = w.Write([]byte(`{"roles":[]}`))
+					}
+				case r.Method == http.MethodPost:
+					posts++
+					w.WriteHeader(http.StatusCreated)
+					_, _ = w.Write([]byte(`{}`))
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != tc.wantCode {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.wantCode, stderr.String())
+			}
+			for _, want := range tc.wantStderr {
+				if !strings.Contains(stderr.String(), want) {
+					t.Errorf("stderr = %q, want it to name %q", stderr.String(), want)
+				}
+			}
+			wantPosts := 1
+			if tc.wantCode != 0 {
+				wantPosts = 0
+			}
+			if posts != wantPosts {
+				t.Errorf("decision posts = %d, want %d", posts, wantPosts)
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-472"); exists {
+				t.Error("a decision was journalled")
+			}
+		})
+	}
+}
+
 // TestRunRecordDecisionsPrintsJSON pins `flow record decisions`' read
 // contract -- `incidents`'/`verdicts`' own, verbatim: the store's array,
 // printed as-is, and an empty array (never null) when the store holds none.
