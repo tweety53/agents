@@ -2463,42 +2463,58 @@ describe("Experiments", () => {
     const table = await screen.findByRole("region", { name: "Current roles" });
     const save = within(table).getByRole("button", { name: "Save explorer" });
     expect(save).toBeDisabled();
-    await userEvent.click(within(table).getByRole("button", { name: "Remove base pair opus/Explore@low from explorer" }));
-    const add = within(table).getByRole("textbox", { name: "Add base pair to explorer" });
-    const addButton = add.parentElement!.querySelector("button")!;
-    // A malformed pair, or one already listed, is never offered.
+    await userEvent.click(within(table).getByRole("button", { name: "Choose base pairs for explorer" }));
+    const menu = table.querySelector(".menu") as HTMLElement;
+    await userEvent.click(within(menu).getByRole("checkbox", { name: "opus/Explore@low" }));
+    const add = within(menu).getByRole("searchbox", { name: "Add base pair to explorer" });
+    // A malformed pair, or one already listed, is never offered to add.
     await userEvent.type(add, "opus Explore");
-    expect(addButton).toBeDisabled();
+    expect(within(menu).queryByText(/^Add “/)).toBeNull();
     await userEvent.clear(add);
     await userEvent.type(add, "opus/Explore@medium");
-    expect(addButton).toBeDisabled();
+    expect(within(menu).queryByText(/^Add “/)).toBeNull();
     await userEvent.clear(add);
     await userEvent.type(add, "sonnet/Explore@low{Enter}");
     expect(add).toHaveValue("");
+    await userEvent.click(within(menu).getByRole("button", { name: "Done" }));
+    expect(table.querySelector(".menu")).toBeNull();
     await userEvent.click(save);
     expect(putRolePairsMock).toHaveBeenCalledWith("explorer", { base: ["opus/Explore@medium", "sonnet/Explore@low"], optin: [] });
     await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
 
+  it("Experiments closes a pairs field on Escape and on an outside click", async () => {
+    render(<Experiments />);
+    const table = await screen.findByRole("region", { name: "Current roles" });
+    const trig = within(table).getByRole("button", { name: "Choose base pairs for explorer" });
+    await userEvent.click(trig);
+    expect(table.querySelector(".menu")).not.toBeNull();
+    await userEvent.keyboard("{Escape}");
+    expect(table.querySelector(".menu")).toBeNull();
+    await userEvent.click(trig);
+    await userEvent.click(document.body);
+    expect(table.querySelector(".menu")).toBeNull();
+  });
+
   it("Experiments adds an opt-in pair", async () => {
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    const add = within(table).getByRole("textbox", { name: "Add opt-in pair to plan-designer" });
-    await userEvent.type(add, "fable/Plan@high");
-    await userEvent.click(add.parentElement!.querySelector("button")!);
-    await userEvent.click(within(table).getByRole("button", { name: "Remove opt-in pair fable/Plan@xhigh from plan-designer" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Choose opt-in pairs for plan-designer" }));
+    const menu = table.querySelector(".menu") as HTMLElement;
+    await userEvent.type(within(menu).getByRole("searchbox", { name: "Add opt-in pair to plan-designer" }), "fable/Plan@high{Enter}");
+    await userEvent.click(within(menu).getByRole("checkbox", { name: "fable/Plan@xhigh" }));
     await userEvent.click(within(table).getByRole("button", { name: "Save plan-designer" }));
     expect(putRolePairsMock).toHaveBeenCalledWith("plan-designer", { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@high"] });
-    // main has no pairs of its own to edit; marked pairs are shown, not edited.
+    // main has no pairs of its own to edit.
     expect(within(table).queryByRole("button", { name: "Save main" })).toBeNull();
-    expect(within(table).queryByRole("button", { name: /Remove .* opus\/flow-high/ })).toBeNull();
   });
 
   it("Experiments shows a refused save", async () => {
     putRolePairsMock.mockReset().mockRejectedValue(new Error("role pair \"x\" is not <model>/<type>[@<effort>]"));
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    await userEvent.click(within(table).getByRole("button", { name: "Remove base pair opus/flow-low from implementer" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Choose base pairs for implementer" }));
+    await userEvent.click(within(table).getByRole("checkbox", { name: "opus/flow-low" }));
     await userEvent.click(within(table).getByRole("button", { name: "Save implementer" }));
     expect(await within(table).findByRole("alert")).toHaveTextContent("is not <model>/<type>");
   });

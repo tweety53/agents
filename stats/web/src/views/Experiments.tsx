@@ -8,7 +8,7 @@
 // Lower is better for every metric (store.ExperimentStats). Each role's base
 // and opt-in pairs are edited here and saved to flowd, their one source
 // (kan-1103); an open experiment can be made permanent.
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   PAIR_SHAPE,
   fetchExperimentStats,
@@ -99,48 +99,100 @@ function PairList({ pairs, className }: { pairs: string[]; className?: string })
   );
 }
 
-// PairEditor is one tier's pairs as removable chips plus a "+" dropdown: a
-// multiselect over every pair the roles already use, and a box that adds any
-// other well-formed pair (PAIR_SHAPE).
+// PairEditor is one tier's pairs as a multiselect field: the chips are its
+// trigger, which opens a filterable checklist over every pair the roles use.
+// Typing a well-formed pair (PAIR_SHAPE) not yet listed offers to add it.
+// Escape, a click outside or Done closes it.
 function PairEditor({ role, tier, pairs, catalog, onChange }: { role: string; tier: string; pairs: string[]; catalog: string[]; onChange: (p: string[]) => void }) {
+  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
-  const pair = draft.trim();
-  const ok = PAIR_SHAPE.test(pair) && !pairs.includes(pair);
-  const options = [...new Set([...catalog, ...pairs])].sort();
+  const box = useRef<HTMLSpanElement>(null);
+  // The menu is position: fixed, so the roles panel's scroll box never clips it;
+  // it sits under the trigger, or above when the viewport has no room below.
+  const [at, setAt] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0 });
+  useEffect(() => {
+    if (!open) return;
+    const r = box.current!.getBoundingClientRect();
+    const up = window.innerHeight - r.bottom < 300 && r.top > window.innerHeight - r.bottom;
+    setAt(up ? { left: r.left, bottom: window.innerHeight - r.top + 4 } : { left: r.left, top: r.bottom + 4 });
+    const shut = () => setOpen(false);
+    // A scroll inside the checklist itself keeps it open.
+    const scrolled = (ev: Event) => !box.current?.contains(ev.target as Node) && shut();
+    window.addEventListener("scroll", scrolled, true);
+    window.addEventListener("resize", shut);
+    const away = (ev: MouseEvent) => box.current && !box.current.contains(ev.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", away);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      window.removeEventListener("scroll", scrolled, true);
+      window.removeEventListener("resize", shut);
+    };
+  }, [open]);
+  const q = draft.trim();
+  const canAdd = PAIR_SHAPE.test(q) && !pairs.includes(q) && !catalog.includes(q);
+  const options = [...new Set([...catalog, ...pairs])].sort().filter((o) => o.toLowerCase().includes(q.toLowerCase()));
+  const add = () => {
+    onChange([...pairs, q]);
+    setDraft("");
+  };
   return (
-    <span className={`edit ${tier}`}>
-      {pairs.map((p) => (
-        <span className="chip" key={p}>
-          <span className="pair">{p}</span>
-          <button type="button" aria-label={`Remove ${tier} pair ${p} from ${role}`} onClick={() => onChange(pairs.filter((x) => x !== p))}>
-            ×
-          </button>
-        </span>
-      ))}
-      <details className="ms">
-        <summary aria-label={`Choose ${tier} pairs for ${role}`}>＋</summary>
-        <div className="menu">
-          {options.map((o) => (
-            <label key={o}>
-              <input type="checkbox" checked={pairs.includes(o)} onChange={(ev) => onChange(ev.target.checked ? [...pairs, o] : pairs.filter((x) => x !== o))} />
-              <span className="pair">{o}</span>
-            </label>
-          ))}
-          <form
-            onSubmit={(ev) => {
-              ev.preventDefault();
-              if (!ok) return;
-              onChange([...pairs, pair]);
-              setDraft("");
+    <span
+      className={`ms ${tier}${open ? " open" : ""}`}
+      ref={box}
+      onKeyDown={(ev) => {
+        if (ev.key === "Escape") setOpen(false);
+      }}
+    >
+      <button type="button" className="trig" aria-haspopup="listbox" aria-expanded={open} aria-label={`Choose ${tier} pairs for ${role}`} onClick={() => setOpen(!open)}>
+        <span className="lbl">{tier}</span>
+        {pairs.length === 0 ? (
+          <span className="none">none</span>
+        ) : (
+          pairs.map((p) => (
+            <span className="chip" key={p}>
+              <span className="pair">{p}</span>
+            </span>
+          ))
+        )}
+      </button>
+      {open && (
+        <div className="menu" style={at}>
+          <input
+            type="search"
+            aria-label={`Add ${tier} pair to ${role}`}
+            placeholder="Filter or type a new pair…"
+            autoFocus
+            value={draft}
+            onChange={(ev) => setDraft(ev.target.value)}
+            onKeyDown={(ev) => {
+              if (ev.key === "Enter") {
+                ev.preventDefault();
+                if (canAdd) add();
+              }
             }}
-          >
-            <input aria-label={`Add ${tier} pair to ${role}`} placeholder="model/agent[@effort]" value={draft} onChange={(ev) => setDraft(ev.target.value)} />
-            <button type="submit" disabled={!ok}>
-              Add
+          />
+          <div className="opts">
+            {canAdd && (
+              <label>
+                <input type="checkbox" checked={false} onChange={add} />
+                <span>Add “{q}”</span>
+              </label>
+            )}
+            {options.map((o) => (
+              <label key={o}>
+                <input type="checkbox" checked={pairs.includes(o)} onChange={(ev) => onChange(ev.target.checked ? [...pairs, o] : pairs.filter((x) => x !== o))} />
+                <span className="pair">{o}</span>
+              </label>
+            ))}
+          </div>
+          <div className="foot">
+            <span>{pairs.length} selected</span>
+            <button type="button" onClick={() => setOpen(false)}>
+              Done
             </button>
-          </form>
+          </div>
         </div>
-      </details>
+      )}
     </span>
   );
 }
@@ -193,7 +245,6 @@ function RoleRow({ r, catalog, onSelect, onSaved }: { r: RoleEntry; catalog: str
         {!main && (
           <>
             {" "}
-            <span className="tier">opt-in:</span>
             <PairEditor role={r.role} tier="opt-in" pairs={optin} catalog={catalog} onChange={setOptin} />
             {r.marked.map((x) => (
               <span className="esc" key={x.pair + x.marker}>

@@ -934,91 +934,109 @@ td.lb-clip { max-width: 0; width: 100%; }
   display: block;
   color: var(--text-muted);
 }
-/* The pairs editor (kan-1103): chips with a remove button and a "+" multiselect
-   dropdown, one tier a line. */
-.experiments .roles .edit {
+/* The pairs editor (kan-1103): one multiselect field per tier, its chips the
+   trigger, a filterable checklist popover below. */
+.experiments .roles .ms {
+  position: relative;
+  display: inline-block;
+  min-width: 200px;
+  max-width: 340px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.experiments .roles .trig {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 4px;
   align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 22px 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   position: relative;
 }
-.experiments .roles .chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 2px 0 6px;
-  font-size: 11px;
-  line-height: 1.5;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-tip);
-}
-.experiments .roles .chip button {
-  border: 0;
-  background: none;
-  padding: 0 3px;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-.experiments .roles .chip button:hover {
-  color: var(--text-primary);
-}
-.experiments .roles .ms summary {
-  list-style: none;
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
-  line-height: 16px;
-  text-align: center;
-  border: 1px dashed var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
-}
-.experiments .roles .ms summary::-webkit-details-marker {
-  display: none;
-}
-.experiments .roles .ms summary:hover,
-.experiments .roles .ms[open] summary {
-  color: var(--series-1);
-  border-color: var(--series-1);
-}
-.experiments .roles .ms .menu {
+.experiments .roles .trig::after {
+  content: "▾";
   position: absolute;
-  z-index: 5;
-  top: 100%;
-  left: 0;
-  min-width: 220px;
-  max-height: 260px;
-  overflow: auto;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.experiments .roles .trig:hover {
+  border-color: var(--text-muted);
+}
+.experiments .roles .ms.open .trig,
+.experiments .roles .trig:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: -1px;
+}
+.experiments .roles .lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.experiments .roles .chip {
+  font-size: 11px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--surface-tip);
+  color: var(--series-1);
+}
+.experiments .roles .none {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.experiments .roles s .chip {
+  color: var(--text-muted);
+}
+.experiments .roles .menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 260px;
   padding: 6px;
   background: var(--surface-panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.2);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
 }
-.experiments .roles .ms label {
+.experiments .roles .menu input[type="search"] {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 4px;
+  font-size: 11.5px;
+}
+.experiments .roles .opts {
+  max-height: 200px;
+  overflow: auto;
+}
+.experiments .roles .opts label {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
-  padding: 2px 4px;
+  padding: 3px 6px;
   border-radius: 4px;
   cursor: pointer;
 }
-.experiments .roles .ms label:hover {
+.experiments .roles .opts label:hover {
   background: var(--surface-tip);
 }
-.experiments .roles .ms form {
+.experiments .roles .foot {
   display: flex;
-  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--border);
-}
-.experiments .roles .ms form input {
-  flex: 1;
-  min-width: 0;
-  font-size: 11.5px;
+  color: var(--text-muted);
 }
 .experiments .roles .tier {
   color: var(--text-muted);
