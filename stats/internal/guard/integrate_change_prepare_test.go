@@ -369,6 +369,31 @@ check "live_check_none: a wrapped no-runtime section needs no record" '[ "$RC" -
 	})
 }
 
+// TestIntegrateChangeCommitRefusesAnOpenTestFailure: a narrative line that
+// leaves a failing or flaky test open stops commit; one that says it was fixed,
+// or records an operator's decision, or names no test, passes (kan-1103
+// self-review, F2).
+func TestIntegrateChangeCommitRefusesAnOpenTestFailure(t *testing.T) {
+	icRunCases(t, []icCaseDef{
+		{"narrative_open_test", `# --- narrative_open_test ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\n%s\n' '- Open, not mine: ` + "`" + `TestX` + "`" + ` failed once under load; it passes on re-run. Not fixed here.' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "narrative_open_test: a line leaving a failing test open stops commit" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*leaves a failing or flaky test open"'`},
+		{"narrative_open_test_fixed", icNarrativePasses + `# --- narrative_open_test_fixed ---
+narrative_passes "a failing test the run fixed" '- ` + "`" + `TestX` + "`" + ` failed once under load; fixed by the self-review (F1).'`},
+		{"narrative_open_test_preexisting_fixed", icNarrativePasses + `# --- narrative_open_test_preexisting_fixed ---
+narrative_passes "a pre-existing flaky test the run fixed" '- Pre-existing flaky test ` + "`" + `TestX` + "`" + ` fixed at its source in abc1234 (F1).'`},
+		{"narrative_open_test_operator", icNarrativePasses + `# --- narrative_open_test_operator ---
+narrative_passes "a flake the operator chose to proceed past" '- Pre-existing flake in the visual spec: the operator chose to proceed past it.'`},
+		{"narrative_open_test_no_test", icNarrativePasses + `# --- narrative_open_test_no_test ---
+narrative_passes "a pre-existing failure naming no test" '- admin-frontend failed to start — a pre-existing port conflict.'`},
+	})
+}
+
 // icNarrativePasses is narrative_format's pass case, one call per case.
 const icNarrativePasses = `# narrative_passes <label> <line>: a fresh prepare, <line> as the narrative's
 # in-run fix entry, and commit must pass.

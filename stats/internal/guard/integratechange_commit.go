@@ -14,6 +14,15 @@ import (
 var (
 	icFixLine   = regexp.MustCompile(`^(- )?In-run pipeline fix:`)
 	icFixFormat = regexp.MustCompile("In-run pipeline fix: `?([0-9a-f]{7,40}|deferred)`? — .+ \\(blast radius ([0-9]+) files?\\)\\.?[[:space:]]*$")
+	// A narrative line leaving a test failure open: all three match, and it
+	// names no operator (decision f2-open-test-line, kan-1103 self-review F2).
+	icFailRE     = regexp.MustCompile(`(?i)\b(fail(s|ed|ing|ures?)?|flak(y|e|es|iness))\b`)
+	icOpenRE     = regexp.MustCompile(`(?i)\b(not mine|not fixed|left open|unfixed|pre-?existing|out of scope|not this change)`)
+	icTestRE     = regexp.MustCompile(`\b[Tt]ests?\b|\bTest[A-Za-z_]|[a-z]Test\b|\bspecs?\b`)
+	icOperatorRE = regexp.MustCompile(`(?i)\boperator\b`)
+	// A line saying the failure was fixed, and not that it was not, closes it.
+	icFixedRE    = regexp.MustCompile(`(?i)\bfixed\b`)
+	icNotFixedRE = regexp.MustCompile(`(?i)\b(not fixed|unfixed)\b`)
 )
 
 func (c *ic) commit() {
@@ -115,13 +124,21 @@ func (c *ic) commit() {
 // checkNarrative stops `narrative` when the change's narrative nf holds an
 // in-run fix line off the format, defers a small fix, lacks a line a fixed
 // flow-fix row needs (requireFixLines) or a section a run the store marked
-// needs (check-narrative-runs).
+// needs (check-narrative-runs). It also stops on a line that leaves a failing
+// or flaky test open — a failure word, an open marker and a test word, no
+// operator named, not saying it was fixed, not an in-run fix line — since
+// nothing but a `big` pipeline fix is ever deferred (kan-1103 self-review, F2).
+// ponytail: it reads line by line, so a statement wrapped across lines can
+// split its words and pass; read paragraphs if that ever happens.
 func (c *ic) checkNarrative(nf string) {
 	var named []string // the sha group of every in-format in-run fix line
 	if b, err := os.ReadFile(nf); err == nil && isFile(nf) {
-		var bad []string
+		var bad, open []string
 		for n, l := range icLines(string(b)) {
 			if !icFixLine.MatchString(l) {
+				if !icOperatorRE.MatchString(l) && (!icFixedRE.MatchString(l) || icNotFixedRE.MatchString(l)) && icFailRE.MatchString(l) && icOpenRE.MatchString(l) && icTestRE.MatchString(l) {
+					open = append(open, fmt.Sprintf("%d:%s", n+1, l))
+				}
 				continue
 			}
 			if m := icFixFormat.FindStringSubmatch(l); m != nil {
@@ -137,6 +154,9 @@ func (c *ic) checkNarrative(nf string) {
 		}
 		if len(bad) > 0 {
 			c.stop("narrative", nf+" holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': "+strings.Join(bad, "; ")+" — rewrite each to it, then re-run commit")
+		}
+		if len(open) > 0 {
+			c.stop("narrative", nf+" leaves a failing or flaky test open: "+strings.Join(open, "; ")+" — fix it (The loop, or an in-run pipeline fix for a flow-tooling test, skills/flow/verify-and-handoff.md) and rewrite each line to say how, then re-run commit")
 		}
 	}
 	c.requireFixLines(named, nf)

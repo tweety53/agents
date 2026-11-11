@@ -134,7 +134,7 @@ inline re-run of that command — the environmental-flake case. Output carrying 
 or `race detected during execution of test` is never that case: the command takes **The loop**
 whatever its re-run exits, since a race that passes once is still a race
 (`rules/fix-determinism-at-the-source.mdc`), and `flow-guard run-verify-list` marks its block with
-`data race — never environmental`. A second non-zero exit from the same
+`data race — never environmental`. A failure the run traced to nondeterminism in code or a test — an unwaited kill, a read racing an exit, a zombie read as alive — is never that case either: it takes **The loop** whatever its re-run exits, or, for a test of the flow tooling, an in-run pipeline fix (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). `flow-guard integrate-change commit` refuses a narrative line that leaves a failing or flaky test open (kan-1103 self-review, F2). A second non-zero exit from the same
 command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
 the whole list has run, its first run's `result files:` and `full output:` paths named in the
 fixer's dispatch; where the environment itself failed — a missing build prerequisite — it
