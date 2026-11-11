@@ -978,6 +978,11 @@ async function sendJSON(method: string, path: string, body?: unknown): Promise<v
   await handleResponse<unknown>(res);
 }
 
+/** POST /api/v1/policy/roles -- saves several roles' pairs at once and opens one experiment over the new main pairs. */
+export function postRolesEdit(roles: Record<string, { base: string[]; optin: string[] }>): Promise<void> {
+  return sendJSON("POST", "/api/v1/policy/roles", { roles });
+}
+
 /** PUT /api/v1/policy/roles/{role} -- replaces the role's base and opt-in pairs whole. */
 export function putRolePairs(role: string, pairs: { base: string[]; optin: string[] }): Promise<void> {
   return sendJSON("PUT", `/api/v1/policy/roles/${encodeURIComponent(role)}`, pairs);

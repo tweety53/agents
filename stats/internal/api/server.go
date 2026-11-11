@@ -465,6 +465,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		mux.HandleFunc("POST /api/v1/experiments/{id}/promote", eh.promote)
 		mux.HandleFunc("GET /api/v1/policy", eh.policy)
 		mux.HandleFunc("PUT /api/v1/policy/roles/{role}", eh.putRole)
+		mux.HandleFunc("POST /api/v1/policy/roles", eh.putRoles)
 		mux.HandleFunc("GET /api/v1/policy/grants", eh.grants)
 		mux.HandleFunc("PUT /api/v1/policy/grants", eh.putGrant)
 		mux.HandleFunc("DELETE /api/v1/policy/grants", eh.putGrant)

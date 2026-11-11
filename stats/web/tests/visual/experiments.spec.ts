@@ -77,7 +77,7 @@ test.describe("experiments", () => {
     // and removing another enables the row's Save.
     await open(page);
     const roles = page.getByRole("region", { name: "Current roles" });
-    const save = roles.getByRole("button", { name: "Save implementer" });
+    const save = roles.getByRole("button", { name: "Save and open experiment" });
     const row = roles;
     await expect(save).toHaveCount(0);
     await row.getByRole("button", { name: "Choose explicit allow pairs for implementer" }).click();

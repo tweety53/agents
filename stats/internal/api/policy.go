@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -93,6 +96,82 @@ func (h *experimentsHandler) putRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.policy(w, r)
+}
+
+type rolesEditDTO struct {
+	Roles map[string]rolePairsDTO `json:"roles"`
+}
+
+// putRoles serves POST /api/v1/policy/roles: one edit of several roles' pairs.
+// It validates every role first, closes as inconclusive any open experiment
+// holding one of them, opens one experiment whose cells are the roles' new
+// main pairs, then writes the pairs -- so the edit is permanent at once and
+// its before/after stats start at once. 201 with the opened experiment.
+func (h *experimentsHandler) putRoles(w http.ResponseWriter, r *http.Request) {
+	var dto rolesEditDTO
+	if err := decodeJSONBody(w, r, &dto); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(dto.Roles) == 0 {
+		writeError(w, http.StatusBadRequest, "no roles to edit")
+		return
+	}
+	known := tableRoles(h.table)
+	roles := make([]string, 0, len(dto.Roles))
+	cells := map[string][]string{}
+	for role, p := range dto.Roles {
+		if role == "main" || (known != nil && !known[role]) {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("role %q is not an editable row of the Allowed pairs table", role))
+			return
+		}
+		if len(p.Base) == 0 {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("role %q needs at least one main pair", role))
+			return
+		}
+		for _, pair := range append(append([]string{}, p.Base...), p.Optin...) {
+			if !store.ValidPair(pair) {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("role pair %q is not <model>/<type>[@<effort>]", pair))
+				return
+			}
+		}
+		roles = append(roles, role)
+		cells[role] = p.Base
+	}
+	sort.Strings(roles)
+	open, err := h.store.ListExperiments(r.Context(), true)
+	if err != nil {
+		h.experimentError(w, "list experiments", err)
+		return
+	}
+	now := time.Now()
+	for _, e := range open {
+		for _, role := range roles {
+			if _, held := e.Cells[role]; held {
+				if err := h.store.CloseExperiment(r.Context(), e.ID, "inconclusive", "Superseded by a roles edit on "+now.Format("2006-01-02")+"."); err != nil {
+					h.experimentError(w, "close experiment", err)
+					return
+				}
+				break
+			}
+		}
+	}
+	name := "edit-" + strings.Join(roles, "+") + "-" + now.Format("2006-01-02-1504")
+	if len(roles) > 2 {
+		name = fmt.Sprintf("edit-%s+%d-more-%s", roles[0], len(roles)-1, now.Format("2006-01-02-1504"))
+	}
+	e, err := h.store.OpenExperiment(r.Context(), store.Experiment{Name: name, Cells: cells})
+	if err != nil {
+		h.experimentError(w, "open experiment", err)
+		return
+	}
+	for _, role := range roles {
+		if err := h.store.ReplaceRolePairs(r.Context(), role, dto.Roles[role].Base, dto.Roles[role].Optin); err != nil {
+			h.policyError(w, "replace role pairs", err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusCreated, e)
 }
 
 // grants serves GET /api/v1/policy/grants?change=<name>: the roles the

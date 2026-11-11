@@ -14,7 +14,7 @@ import {
   fetchExperimentStats,
   fetchExperiments,
   fetchRoles,
-  putRolePairs,
+  postRolesEdit,
   type ExperimentDTO,
   type ExperimentMetric,
   type ExperimentStats,
@@ -199,11 +199,9 @@ const agentOf = (r: RoleEntry) => {
   return p ? p.split("/")[1].replace(/@.*/, "").replace(/-(low|medium|high|xhigh)$/, "") : "—";
 };
 
-function RoleRow({ r, catalog, onSaved }: { r: RoleEntry; catalog: string[]; onSaved: () => void }) {
-  const [base, setBase] = useState(r.base);
-  const [optin, setOptin] = useState(r.optin);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const dirty = base.join() !== r.base.join() || optin.join() !== r.optin.join();
+type Draft = { base: string[]; optin: string[] };
+
+function RoleRow({ r, catalog, draft, onDraft }: { r: RoleEntry; catalog: string[]; draft: Draft; onDraft: (d: Draft) => void }) {
   const main = r.role === "main";
   const marked = r.marked.map((x) => `${x.pair} with ${x.marker}`).join("; ");
   return (
@@ -216,36 +214,28 @@ function RoleRow({ r, catalog, onSaved }: { r: RoleEntry; catalog: string[]; onS
         <code>{agentOf(r)}</code>
       </td>
       <td className="pairs">
-        {main ? <PairList pairs={[MAIN_PAIR]} /> : <PairEditor role={r.role} tier="main" pairs={base} catalog={catalog} note={marked} onChange={setBase} />}
+        {main ? (
+          <PairList pairs={[MAIN_PAIR]} />
+        ) : (
+          <PairEditor role={r.role} tier="main" pairs={draft.base} catalog={catalog} note={marked} onChange={(base) => onDraft({ ...draft, base })} />
+        )}
       </td>
-      <td className="pairs">{!main && <PairEditor role={r.role} tier="explicit allow" pairs={optin} catalog={catalog} onChange={setOptin} />}</td>
-      <td className="save">
-        {!main && dirty && (
-          <button
-            type="button"
-            aria-label={`Save ${r.role}`}
-            onClick={() => {
-              setSaveError(null);
-              putRolePairs(r.role, { base, optin })
-                .then(onSaved)
-                .catch((err: Error) => setSaveError(err.message));
-            }}
-          >
-            Save
-          </button>
-        )}
-        {saveError && (
-          <span role="alert" className="panel-error">
-            {saveError}
-          </span>
-        )}
+      <td className="pairs">
+        {!main && <PairEditor role={r.role} tier="explicit allow" pairs={draft.optin} catalog={catalog} onChange={(optin) => onDraft({ ...draft, optin })} />}
       </td>
     </tr>
   );
 }
 
+// RolesTable edits every role in place; one Save writes all the changed roles
+// and opens one experiment over them, so the edit is permanent and its
+// before/after stats start at once.
 function RolesTable({ roles, onSaved }: { roles: RoleEntry[]; onSaved: () => void }) {
   const catalog = [...new Set(roles.flatMap((r) => [...r.base, ...r.optin]))];
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const draftOf = (r: RoleEntry): Draft => drafts[r.role] ?? { base: r.base, optin: r.optin };
+  const changed = roles.filter((r) => r.role !== "main" && (draftOf(r).base.join() !== r.base.join() || draftOf(r).optin.join() !== r.optin.join()));
   // One row per role, groups in order of first appearance.
   const groups: { name: string; roles: RoleEntry[] }[] = [];
   for (const r of roles) {
@@ -254,30 +244,59 @@ function RolesTable({ roles, onSaved }: { roles: RoleEntry[]; onSaved: () => voi
     g.roles.push(r);
   }
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Role</th>
-          <th>Agent</th>
-          <th>Main</th>
-          <th>Explicit allow</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        {groups.map((g) => (
-          <Fragment key={g.name}>
-            <tr className="grp">
-              <th colSpan={5}>{g.name}</th>
-            </tr>
-            {g.roles.map((r) => (
-              // Keyed on the saved pairs, so a reload after Save resets the draft.
-              <RoleRow key={`${r.role} ${r.base.join()} ${r.optin.join()}`} r={r} catalog={catalog} onSaved={onSaved} />
-            ))}
-          </Fragment>
-        ))}
-      </tbody>
-    </table>
+    <>
+      {changed.length > 0 && (
+        <div className="savebar">
+          <span>
+            {changed.length} {changed.length === 1 ? "role" : "roles"} changed: {changed.map((r) => r.role).join(", ")}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSaveError(null);
+              postRolesEdit(Object.fromEntries(changed.map((r) => [r.role, draftOf(r)])))
+                .then(() => {
+                  setDrafts({});
+                  onSaved();
+                })
+                .catch((err: Error) => setSaveError(err.message));
+            }}
+          >
+            Save and open experiment
+          </button>
+          <button type="button" onClick={() => setDrafts({})}>
+            Discard
+          </button>
+          {saveError && (
+            <span role="alert" className="panel-error">
+              {saveError}
+            </span>
+          )}
+        </div>
+      )}
+      <table>
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Agent</th>
+            <th>Main</th>
+            <th>Explicit allow</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((g) => (
+            <Fragment key={g.name}>
+              <tr className="grp">
+                <th colSpan={4}>{g.name}</th>
+              </tr>
+              {g.roles.map((r) => (
+                <RoleRow key={r.role} r={r} catalog={catalog} draft={draftOf(r)} onDraft={(d) => setDrafts({ ...drafts, [r.role]: d })} />
+              ))}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 

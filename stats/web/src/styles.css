@@ -884,8 +884,17 @@ td.lb-clip { max-width: 0; width: 100%; }
 .experiments .roles th:nth-child(2) {
   width: 110px;
 }
-.experiments .roles th:nth-child(5) {
-  width: 70px;
+.experiments .roles .savebar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--series-1);
+  border-radius: 6px;
+}
+.experiments .roles .savebar span:first-child {
+  flex: 1;
 }
 .experiments .roles td.role {
   width: auto;

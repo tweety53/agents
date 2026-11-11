@@ -29,8 +29,8 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock, putRolePairsMock, promoteExperimentMock } = vi.hoisted(() => ({
-  putRolePairsMock: vi.fn(),
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock, postRolesEditMock, promoteExperimentMock } = vi.hoisted(() => ({
+  postRolesEditMock: vi.fn(),
   promoteExperimentMock: vi.fn(),
   fetchStatsViewMock: vi.fn(),
   fetchProjectsMock: vi.fn(),
@@ -48,7 +48,7 @@ vi.mock("../api", async (importOriginal) => {
     fetchRoles: fetchRolesMock,
     fetchExperiments: fetchExperimentsMock,
     fetchExperimentStats: fetchExperimentStatsMock,
-    putRolePairs: putRolePairsMock,
+    postRolesEdit: postRolesEditMock,
     promoteExperiment: promoteExperimentMock,
   };
 });
@@ -2411,7 +2411,7 @@ describe("Experiments", () => {
   });
 
   beforeEach(() => {
-    putRolePairsMock.mockReset().mockResolvedValue(undefined);
+    postRolesEditMock.mockReset().mockResolvedValue(undefined);
     promoteExperimentMock.mockReset().mockResolvedValue(undefined);
     fetchRolesMock.mockReset().mockResolvedValue(roles);
     fetchExperimentsMock.mockReset().mockResolvedValue(experiments);
@@ -2453,7 +2453,7 @@ describe("Experiments", () => {
   it("Experiments edits a role's base pairs", async () => {
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    expect(within(table).queryByRole("button", { name: "Save explorer" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "Save and open experiment" })).toBeNull();
     await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for explorer" }));
     const menu = table.querySelector(".menu") as HTMLElement;
     await userEvent.click(within(menu).getByRole("checkbox", { name: "opus/Explore@low" }));
@@ -2469,8 +2469,8 @@ describe("Experiments", () => {
     expect(add).toHaveValue("");
     await userEvent.click(within(menu).getByRole("button", { name: "Done" }));
     expect(table.querySelector(".menu")).toBeNull();
-    await userEvent.click(within(table).getByRole("button", { name: "Save explorer" }));
-    expect(putRolePairsMock).toHaveBeenCalledWith("explorer", { base: ["opus/Explore@medium", "sonnet/Explore@low"], optin: [] });
+    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
+    expect(postRolesEditMock).toHaveBeenCalledWith({ explorer: { base: ["opus/Explore@medium", "sonnet/Explore@low"], optin: [] } });
     await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
 
@@ -2494,19 +2494,33 @@ describe("Experiments", () => {
     const menu = table.querySelector(".menu") as HTMLElement;
     await userEvent.type(within(menu).getByRole("searchbox", { name: "Add explicit allow pair to plan-designer" }), "fable/Plan@high{Enter}");
     await userEvent.click(within(menu).getByRole("checkbox", { name: "fable/Plan@xhigh" }));
-    await userEvent.click(within(table).getByRole("button", { name: "Save plan-designer" }));
-    expect(putRolePairsMock).toHaveBeenCalledWith("plan-designer", { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@high"] });
-    // main has no pairs of its own to edit.
-    expect(within(table).queryByRole("button", { name: "Save main" })).toBeNull();
+    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
+    expect(postRolesEditMock).toHaveBeenCalledWith({ "plan-designer": { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@high"] } });
+  });
+
+  it("Experiments saves edits to several roles as one experiment", async () => {
+    render(<Experiments />);
+    const table = await screen.findByRole("region", { name: "Current roles" });
+    await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for explorer" }));
+    await userEvent.click(within(table).getByRole("checkbox", { name: "opus/Explore@low" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Done" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for implementer" }));
+    await userEvent.click(within(table).getByRole("checkbox", { name: "opus/flow-low" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Done" }));
+    expect(table.querySelector(".savebar")).toHaveTextContent("2 roles changed: explorer, implementer");
+    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
+    expect(postRolesEditMock).toHaveBeenCalledTimes(1);
+    expect(Object.keys(postRolesEditMock.mock.calls[0][0])).toEqual(["explorer", "implementer"]);
+    await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
 
   it("Experiments shows a refused save", async () => {
-    putRolePairsMock.mockReset().mockRejectedValue(new Error("role pair \"x\" is not <model>/<type>[@<effort>]"));
+    postRolesEditMock.mockReset().mockRejectedValue(new Error("role pair \"x\" is not <model>/<type>[@<effort>]"));
     render(<Experiments />);
     const table = await screen.findByRole("region", { name: "Current roles" });
     await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for implementer" }));
     await userEvent.click(within(table).getByRole("checkbox", { name: "opus/flow-low" }));
-    await userEvent.click(within(table).getByRole("button", { name: "Save implementer" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
     expect(await within(table).findByRole("alert")).toHaveTextContent("is not <model>/<type>");
   });
 

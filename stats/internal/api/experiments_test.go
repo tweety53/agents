@@ -320,6 +320,34 @@ func TestPolicyPutRoundTrip(t *testing.T) {
 	}
 }
 
+// TestPolicyPostRolesOpensOneExperiment: one edit of two roles writes both
+// roles' pairs, opens one experiment over their new main pairs and closes the
+// open experiment that held one of them; a refused edit writes nothing.
+func TestPolicyPostRolesOpensOneExperiment(t *testing.T) {
+	fe := &fakeExperiments{list: []store.Experiment{{ID: 3, Name: "old", Status: "open", Cells: map[string][]string{"planner": {"opus/flow-planner-low"}}}}}
+	ts := newExperimentsTestServer(t, fe)
+	status, body := doJSON(t, http.MethodPost, ts.URL+"/api/v1/policy/roles", `{"roles":{"planner":{"base":["opus/flow-planner-low","opus/flow-planner-high"],"optin":[]},"explorer":{"base":["opus/Explore@low"],"optin":[]}}}`)
+	if status != http.StatusCreated || !strings.Contains(body, `"explorer":["opus/Explore@low"]`) || !strings.Contains(body, `"planner":["opus/flow-planner-low","opus/flow-planner-high"]`) {
+		t.Fatalf("POST roles = %d %s", status, body)
+	}
+	if fe.closedID != 3 || fe.closedArg[0] != "inconclusive" {
+		t.Fatalf("the experiment holding planner was closed as %d %v", fe.closedID, fe.closedArg)
+	}
+	if len(fe.pairs["planner"].Base) != 2 || len(fe.pairs["explorer"].Base) != 1 {
+		t.Fatalf("pairs = %+v", fe.pairs)
+	}
+	fe2 := &fakeExperiments{}
+	ts2 := newExperimentsTestServer(t, fe2)
+	for _, bad := range []string{`{"roles":{}}`, `{"roles":{"main":{"base":["opus/x"]}}}`, `{"roles":{"explorer":{"base":[]}}}`, `{"roles":{"explorer":{"base":["opus"]}}}`} {
+		if status, body := doJSON(t, http.MethodPost, ts2.URL+"/api/v1/policy/roles", bad); status != http.StatusBadRequest {
+			t.Fatalf("POST %s = %d %s, want 400", bad, status, body)
+		}
+	}
+	if len(fe2.pairs) != 0 {
+		t.Fatalf("a refused edit wrote %+v", fe2.pairs)
+	}
+}
+
 // TestPolicyPutUnknownRole: a role the roles table lacks is 400, naming it.
 func TestPolicyPutUnknownRole(t *testing.T) {
 	fe := &fakeExperiments{}
