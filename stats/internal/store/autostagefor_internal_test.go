@@ -6,6 +6,7 @@ func TestAutoStageFor(t *testing.T) {
 	for key, want := range map[string]string{
 		"plan-1":              "flow.brainstorm",
 		"plan-4":              "flow.brainstorm",
+		"plan-review-1":       "flow.plan-review",
 		"task-3-implementer":  "flow.sdd-tdd",
 		"panel-1-bugs":        "flow.review-panel",
 		"visual-verify-1":     "flow.visual-verify",

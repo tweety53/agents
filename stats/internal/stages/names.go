@@ -74,6 +74,7 @@ var Table = []Stage{
 	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow, FlowPlan}},
 	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow, FlowFast, FlowPlan}},
 	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow, FlowFast, FlowPlan}},
+	{Key: "flow.plan-review", Name: "Plan review — a context-free read of the three artifacts", Commands: []Command{Flow, FlowPlan}},
 	{Key: "flow.decide", Name: "Decide — execution, models, panel", Commands: []Command{Flow, FlowFast, FlowPlan}},
 	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.isolate-workspace", Name: "Isolate the workspace", Commands: []Command{Flow, FlowFast}},
@@ -100,7 +101,7 @@ var Table = []Stage{
 	{Key: "flow.refresh-main-checkout", Name: "Bring the main checkout forward (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	// /flow-plan -- plan.session is its own stage: the research session up to
 	// a capture's kickoff, recorded so its cost joins the change it seeds. A
-	// capture's planning marks the five flow.* planning rows above, which list
+	// capture's planning marks the six flow.* planning rows above, which list
 	// FlowPlan for that reason.
 	{Key: "plan.session", Name: "Plan session — `/flow-plan` research up to a capture's kickoff", Commands: []Command{FlowPlan}},
 }

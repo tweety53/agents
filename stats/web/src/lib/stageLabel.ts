@@ -8,6 +8,7 @@ const LABELS: Record<string, string> = {
   "flow.design-approval": "Waiting for design approval",
   "flow.create-artifacts": "Writing the spec",
   "flow.writing-plans": "Writing the task plan",
+  "flow.plan-review": "Reviewing the plan",
   "flow.decide": "Choosing models and reviewers",
   "flow.isolate-workspace": "Setting up the worktree",
   "flow.preflight": "Pre-flight checks",

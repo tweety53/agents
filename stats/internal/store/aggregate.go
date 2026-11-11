@@ -708,7 +708,7 @@ var weeklyCostStages = struct {
 	visualVerify:   "flow.visual-verify",
 	implementation: "flow.sdd-tdd",
 	review:         "flow.review-panel",
-	planning:       []string{"plan.session", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide"},
+	planning:       []string{"plan.session", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.plan-review", "flow.decide"},
 }
 
 // WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,

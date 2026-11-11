@@ -174,6 +174,9 @@ test("flowAfter follows flow stage marks, the stage begun last and the change na
   expect(flowAfter('ls -la', NO_FLOW)).toBe(NO_FLOW)
   expect(flowAfter(mark('begin', 'brainstorm'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: 'brainstorm' })
   expect(flowAfter(mark('begin', 'brainstorm', 'add-dark-mode'), NO_FLOW)).toEqual({ phase: 'flow-plan', change: 'add-dark-mode', ticket: null, stage: 'brainstorm' })
+  const review = { phase: 'flow-plan', change: 'kan-873-port-guards', ticket: 'KAN-873', stage: 'plan-review' } as const
+  expect(flowAfter(mark('begin', 'plan-review'), NO_FLOW)).toEqual(review)
+  expect(flowAfter(mark('end', 'plan-review'), review)).toEqual(NO_FLOW)
   expect(flowAfter(mark('begin', 'decide'), NO_FLOW)).toEqual(NO_FLOW)
   expect(flowAfter(mark('begin', 'decide'), impl)).toEqual({ ...impl, stage: 'decide' })
   expect(flowAfter(mark('begin', 'sdd-tdd'), NO_FLOW)).toEqual(impl)

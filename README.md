@@ -183,6 +183,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.design-approval` | Design approval | `/flow`, `/flow-plan` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast`, `/flow-plan` |
 | `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast`, `/flow-plan` |
+| `flow.plan-review` | Plan review — a context-free read of the three artifacts | `/flow`, `/flow-plan` |
 | `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast`, `/flow-plan` |
 | `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
