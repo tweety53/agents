@@ -71,6 +71,30 @@ test.describe("experiments", () => {
     await expect(page).toHaveScreenshot("experiments-focus.png", { fullPage: true });
   });
 
+  test("experiments roles panel, pair editing draft", async ({ page }) => {
+    // Drives the editor without saving, so the shared fixture is unchanged:
+    // a malformed draft disables Add, a valid one enables it, adding a chip
+    // and removing another enables the row's Save.
+    await open(page);
+    const roles = page.getByRole("region", { name: "Current roles" });
+    const save = roles.getByRole("button", { name: "Save implementer" });
+    const row = roles;
+    await expect(save).toBeDisabled();
+    const input = row.getByRole("textbox", { name: "Add opt-in pair to implementer" });
+    const add = input.locator("xpath=following-sibling::button");
+    await input.fill("not a pair");
+    await expect(add).toBeDisabled();
+    await expect(page).toHaveScreenshot("experiments-edit-invalid.png", { fullPage: true });
+    await input.fill("opus/flow-high@xhigh");
+    await expect(add).toBeEnabled();
+    await add.click();
+    await expect(row.getByRole("button", { name: "Remove opt-in pair opus/flow-high@xhigh from implementer" })).toBeVisible();
+    await row.getByRole("button", { name: /^Remove base pair / }).first().click();
+    await expect(save).toBeEnabled();
+    await page.mouse.move(0, 0);
+    await expect(page).toHaveScreenshot("experiments-edit-dirty.png", { fullPage: true });
+  });
+
   test("experiments roles panel, row hover and link focus", async ({ page }) => {
     await open(page);
     const roles = page.getByRole("region", { name: "Current roles" });
