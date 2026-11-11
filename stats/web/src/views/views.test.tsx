@@ -2435,7 +2435,7 @@ describe("Experiments", () => {
     expect(rows.map((r) => r.querySelector("th, td")?.textContent)).toEqual([
       "Role", "Session", "Runs the pipelinemain", "Planning", "Reads the codebaseexplorer", "Proposes a planplan-designer", "Implementation", "Writes the codeimplementer",
     ]);
-    for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "5");
+    for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "4");
     const designer = rows[5];
     expect(designer.querySelector("td.role")).toHaveAttribute("title", "Proposes a design or plan for the planner to choose from.");
     expect(designer.querySelector("td.agent")).toHaveTextContent("Plan");
