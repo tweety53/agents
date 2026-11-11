@@ -143,17 +143,20 @@ function PairEditor({ role, tier, pairs, catalog, onChange }: { role: string; ti
         if (ev.key === "Escape") setOpen(false);
       }}
     >
-      <button type="button" className="trig" aria-haspopup="listbox" aria-expanded={open} aria-label={`Choose ${tier} pairs for ${role}`} onClick={() => setOpen(!open)}>
+      <button type="button" className="trig" aria-haspopup="listbox" aria-expanded={open} title={pairs.join(", ")} aria-label={`Choose ${tier} pairs for ${role}`} onClick={() => setOpen(!open)}>
         <span className="lbl">{tier}</span>
-        {pairs.length === 0 ? (
-          <span className="none">none</span>
-        ) : (
-          pairs.map((p) => (
-            <span className="chip" key={p}>
-              <span className="pair">{p}</span>
-            </span>
-          ))
-        )}
+        <span className="chips">
+          {pairs.length === 0 ? (
+            <span className="none">none</span>
+          ) : (
+            pairs.map((p) => (
+              <span className="chip" key={p}>
+                <span className="pair">{p}</span>
+              </span>
+            ))
+          )}
+        </span>
+        {pairs.length > 1 && <span className="cnt">{pairs.length}</span>}
       </button>
       {open && (
         <div className="menu" style={at}>
