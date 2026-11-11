@@ -219,7 +219,7 @@ diff carries. It carries, beside `Flow-Key: flow.commit-two`, the `Task-Id: <n>`
 commit the reshape squashed, so a re-run's unfinished-work gate, judged from the merge base, still
 finds each task's commit. An `--outstanding` text no implementation commit carries is printed as
 `OUTSTANDING-UNRECORDED:`, never dropped. `<project>/spectre/changes/` is gitignored, so the change directory lands in no
-commit.
+commit — save **The design record** below.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with
@@ -235,6 +235,25 @@ call site and the implement phase's PR-exception path.
 
 **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
 implementation commit lands — the reshape's push (**Branch backup**, `git-boundaries.md`).
+
+### The design record
+
+`flow-guard integrate-change commit` writes the canonical worktree's `<changeRoot>/design.md` out
+as `<project>/docs/designs/<name>.md` — the two header lines below, a blank line, then `design.md` byte
+for byte — after the reshape and before the implementation commit, which carries it (decision
+`design-record-at-run1`, KAN-1104). A change with no `design.md` gets none, and a satellite
+worktree never writes one. The file is derived on every run of the step, so a decision a fix
+round superseded is in it, and it is never edited by hand; nothing keeps it current after
+landing — a decision a later change overturns is superseded in that change's own record. A
+change with no Jira key drops the parenthesis.
+
+```markdown
+# <name>
+> Design record of change <name> (<Jira key>), written at landing. Each decision's own **Status:** line is the status.
+```
+
+A canonical worktree whose only implementation path is the record still commits it:
+`integrate-change prepare` asks for that worktree's implementation subject.
 
 ### Run the self-review pass
 

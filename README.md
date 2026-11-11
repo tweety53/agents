@@ -52,7 +52,7 @@ flowchart LR
 ├── .flow/            this repository's own flow config (project.md: lint, test, run, stop)
 ├── agents/           subagent definitions: flow-{low,medium,high,xhigh}, flow-planner-{low,medium,high,xhigh}
 ├── commands-claude/  thin slash-command wrappers for Claude Code and ZCode
-├── docs/             briefs/ (lessons) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
+├── docs/             briefs/ (lessons), designs/ (the design record run 1 writes per /flow change) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
 ├── hooks/            the Python hooks (see Guardrails)
 ├── mods/             Claude Code plugins: flow-task-list (the task band above the prompt)
 ├── rules/            rules (alwaysApply in each frontmatter) + agent-baseline.md, the subagent baseline
@@ -137,6 +137,14 @@ flowchart TD
 - **Merge status alone decides** whether a bare `/flow` integrates or cleans up.
 - **Run 2 runs no tests or linters** and commits nothing: it saves `tasks.md` and the self-review
   bundle to flowd, then removes the worktrees.
+- **The plan is read cold before it is implemented.** On a change that is not trivial, a fresh
+  reviewer reads the artifacts — and nothing of the conversation — twice, each time in the stage
+  `flow.plan-review`: once `proposal.md` and `design.md` are written, and once `tasks.md` is
+  planned, before `flow.decide`. The planner fixes, contests
+  or escalates each finding; the lenses are `skills/flow/plan-review-rubric.md`.
+- **The design outlives the change.** Run 1 commits the change's `design.md` as
+  `docs/designs/<name>.md` inside the implementation commit, a point-in-time record nothing keeps
+  current.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.
@@ -183,6 +191,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.design-approval` | Design approval | `/flow`, `/flow-plan` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast`, `/flow-plan` |
 | `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast`, `/flow-plan` |
+| `flow.plan-review` | Plan review — a context-free read of the three artifacts | `/flow`, `/flow-plan` |
 | `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast`, `/flow-plan` |
 | `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |

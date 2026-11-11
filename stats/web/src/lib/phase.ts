@@ -23,6 +23,7 @@ export const STAGE_PHASE: Record<string, Phase> = {
   "flow.brainstorm": "Planning",
   "flow.create-artifacts": "Planning",
   "flow.writing-plans": "Planning",
+  "flow.plan-review": "Planning",
   "flow.design-approval": "Decisions",
   "flow.decide": "Decisions",
   "flow.load-context": "Implementation",

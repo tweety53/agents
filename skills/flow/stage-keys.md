@@ -10,7 +10,7 @@ The full key list, in the order each phase file marks them:
 
 | Phase file | Keys |
 |------------|------|
-| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm` (begin), `flow.decide` |
+| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm` (begin), `flow.plan-review`, `flow.decide` |
 | `skills/flow/brainstorm-planner.md` | `flow.brainstorm` (end), `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
 | `skills/flow/document-fix.md` | `flow.document-fix`, `flow.decide` (fix runs) — loaded only on a fix run |

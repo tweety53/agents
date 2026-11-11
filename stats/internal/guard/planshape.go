@@ -183,10 +183,10 @@ import (
 //	F19 A tasks.md whose leading `>` header block carries
 //	    `> **Design shape:** plan-mode` beside a design.md missing any of
 //	    `## Recommended approach`, `## Critical files`, `## Existing code to
-//	    reuse`, `## Verification` -- one `<design.md>: missing section
+//	    reuse`, `## Verification`, `## Non-goals`, `## Risks` -- one `<design.md>: missing section
 //	    <heading> (Design shape: plan-mode)` line each; an absent design.md
 //	    is one such line naming the file. A plan without the line is not
-//	    checked, so changes planned before the four sections existed keep
+//	    checked, so changes planned before the sections existed keep
 //	    passing (kan-1033 design.md §4, decision design-shape-line).
 //	F21 Retired: an in-run visual-verify fix task's record is on disk only (the change directory is gitignored), so its **Files:** never names it.
 //	F22 A plan whose sibling design.md cites a `.superpowers/sdd/*.html`
@@ -464,7 +464,7 @@ func (p *psPlan) check() []string {
 
 var (
 	psDesignShapeRE  = regexp.MustCompile(`^>[` + tcfWS + `]*\*\*Design shape:\*\*[` + tcfWS + `]*plan-mode[` + tcfWS + `]*$`)
-	psDesignSections = []string{"## Recommended approach", "## Critical files", "## Existing code to reuse", "## Verification"}
+	psDesignSections = []string{"## Recommended approach", "## Critical files", "## Existing code to reuse", "## Verification", "## Non-goals", "## Risks"}
 )
 
 // designSections is F19: the plan-mode sections of the sibling design.md,

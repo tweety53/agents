@@ -526,6 +526,8 @@ func autoStageFor(key string) string {
 		return "flow.pipeline-fix"
 	case strings.HasPrefix(key, "panel-"), strings.HasPrefix(key, "full-suite-fix-"):
 		return "flow.review-panel"
+	case strings.HasPrefix(key, "plan-review-"): // /flow's plan reviewer, ahead of the planner's plan- case
+		return "flow.plan-review"
 	case strings.HasPrefix(key, "plan-"): // /flow's planner, before or between its own stage marks
 		return "flow.brainstorm"
 	case strings.HasPrefix(key, "visual-verify"):

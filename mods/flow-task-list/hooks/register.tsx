@@ -245,7 +245,7 @@ export const band = (subs: Row[], pending: Row[], change: string | null = null, 
 // Each flow.* stage key's phase, per skills/flow/stage-keys.md. `flow.decide` is left out: it marks
 // both the brainstorm and a fix run, so it keeps whichever phase is current.
 const PHASE_KEYS: Record<Phase, string[]> = {
-  'flow-plan': ['kickoff', 'brainstorm', 'design-approval', 'create-artifacts', 'writing-plans'],
+  'flow-plan': ['kickoff', 'brainstorm', 'design-approval', 'create-artifacts', 'writing-plans', 'plan-review'],
   'flow-implement': [
     'load-context', 'isolate-workspace', 'sdd-tdd', 'document-fix', 'review-panel', 'verify',
     'visual-verify', 'stage-diff', 'run-instructions', 'write-in-progress',
@@ -257,7 +257,7 @@ const PHASE_KEYS: Record<Phase, string[]> = {
   ],
 }
 // The stage each run of /flow stops after: its end leaves no phase running.
-const LAST_KEYS = ['writing-plans', 'write-in-progress', 'landing-routes', 'refresh-main-checkout']
+const LAST_KEYS = ['write-in-progress', 'landing-routes', 'refresh-main-checkout']
 
 // One `flow stage begin|end ... <name>` mark, up to the next shell separator.
 const STAGE_MARK = /\bflow stage (begin|end)\b([^;&|\n]*)/g

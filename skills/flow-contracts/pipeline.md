@@ -706,7 +706,7 @@ A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 ## A change's directory
 
 A change's directory is `<project>/spectre/changes/<name>/`, on disk in the worktree, never
-committed: `<project>/spectre/changes/` is gitignored and there is no archived path. Every step that reads or writes a change's planning artifacts resolves the
+committed: `<project>/spectre/changes/` is gitignored and there is no archived path — `design.md` alone lands, as **The design record** (`skills/flow-contracts/finish-contract-run1.md`). Every step that reads or writes a change's planning artifacts resolves the
 directory this way; the guards resolve it through `changePlanDir`
 (`<agents repo>/stats/internal/guard/changeplan.go`), whose bash twin KAN-887 deleted, and `flow tasks`
 through the same rule.

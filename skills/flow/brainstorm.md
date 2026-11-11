@@ -132,15 +132,18 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
    a reused key restarts the earlier round's row), writing or
    updating the prototype file a visible change needs and never publishing it, and writes
-   `round-<r>.md`: the prototype file's absolute path when the round wrote or changed it, the design draft, the
-   settled prose the convergence confirm shows, then `## Questions` — each question with two to
+   `round-<r>.md`: the prototype file's absolute path when the round wrote or changed it, `## Summary` — at
+   most ten lines, the decisions the round settled and what is still open, which is the settled
+   prose the convergence confirm shows — the design draft, then `## Questions` — each question with two to
    four options, one marked recommended where one honestly is, the convergence confirm last when
    nothing else is open.
    It asks the operator nothing.
 2. **Relay.** The parent first publishes the prototype
-   (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's settled prose, with the
-   prototype's Artifact URL in it whenever a prototype exists, asks its questions verbatim, four to
-   an **AskUserQuestion** call — the URL appended to the text of the question that depends on the
+   (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's `## Summary` verbatim and
+   the round file's absolute path — the design draft stays in the file — with the
+   prototype's Artifact URL beside them whenever a prototype exists, asks its questions verbatim, four to
+   an **AskUserQuestion** call and each question headed `[architectural]` in a call of its own, in
+   round-file order — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the
@@ -148,23 +151,27 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    `flow.brainstorm` end, `flow.design-approval` begin and end, as **Convergence**
    (`skills/flow/brainstorm-planner.md`) marks them; any other answer dispatches round `<r+1>`. An
    operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way.
-3. **Artifacts and plan.** A final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow -->
-   `skills/flow/brainstorm-planner.md` up to, not including, **Decide**: its `flow.create-artifacts`
-   and `flow.writing-plans` begin marks under the run's session token, `spectre new`, the three
-   artifacts from the approved design — read from every file under
-   `<abs-worktree>/.superpowers/sdd/planner/`, where the approved design lives — writing-plans,
-   `spectre validate`, `flow-guard check-plan-shape`, the configured guards and `flow tasks count`. It
-   returns `PLAN-WRITTEN` or the guard output it could not clear, and the parent redispatches a
-   fresh one with that output until `PLAN-WRITTEN`; a redispatch skips section **C** and the
-   `flow.writing-plans` begin, both already made, and resumes at the guard that failed. It returns
+3. **Artifacts and plan.** Two final planner dispatches, under the run's session token:
+   - the first runs section **C** of `skills/flow/brainstorm-planner.md` — its <!-- refs-guard:allow -->
+     `flow.create-artifacts` marks, `spectre new` and the three artifacts from the approved design,
+     read from every file under `<abs-worktree>/.superpowers/sdd/planner/`, where the approved
+     design lives — and returns `ARTIFACTS-WRITTEN`; the parent then runs **Plan review** #1 below;
+   - a fresh one then runs section **D** up to, not including, **Decide** — its
+     `flow.writing-plans` begin mark, writing-plans, `spectre validate`, `flow-guard
+     check-plan-shape`, the configured guards and `flow tasks count` — and returns `PLAN-WRITTEN`.
+
+   A dispatch returning the guard output it could not clear is redispatched fresh with that output
+   until it returns its word; a redispatch skips each mark already made and resumes at the guard
+   that failed. Either dispatch returns
    `QUESTIONS` instead the moment writing the artifacts or the plan surfaces an ambiguity (**The
    checklist**, `skills/flow/brainstorm-planner.md`), the next `round-<r>.md` holding it: the parent
    relays that round as step 2 does, and a fresh final dispatch — never a design round — takes its
    answers, skipping each mark already made and revising the design, the artifacts and the plan
    they change.
 
-The parent then closes `flow.writing-plans` and runs **Decide**, the record sequence and the gate,
-as the rest of this file states.
+The parent then closes `flow.writing-plans`, runs **Plan review** #2 below unless the planner's
+return skips it, and runs **Decide**, the record sequence and the gate, as the rest of this file
+states.
 
 Run each `begin` immediately before its Agent call and its `end` once that agent returns — never
 both after it returns, which records a window of zero seconds (kan-1034: both explorer rows read
@@ -199,6 +206,57 @@ below), then **end the run** with
 the `STARTED` handoff (**The `STARTED` handoff block**, below),
 `/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds
 the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
+
+### Plan review
+
+**A fresh reviewer that has seen nothing but the documents reads the plan, twice**
+(decisions `plan-review-after-artifacts`, `two-plan-reviews`, KAN-1104), in `/flow`'s creating
+run and a `/flow-plan` capture:
+- `plan-review-1` once the first final planner returned `ARTIFACTS-WRITTEN` and
+  `flow.create-artifacts` has ended;
+- `plan-review-2` once the second returned `PLAN-WRITTEN` and `flow.writing-plans` has ended.
+
+A return whose second line is `Plan review: skip — <reason>` skips both: print that line,
+mark no `flow.plan-review` and go on. A fix run's re-plan, the self-review and
+in-run fix planners and `/flow-fast` never run it.
+
+```bash
+flow stage begin -command '/flow' -stage flow.plan-review -harness <harness> -session-token mf-<literal-token> <name>
+flow record dispatch begin -change <name> -role reviewer -model opus -effort low -key plan-review-<n> -session-token mf-<literal-token>
+flow record dispatch end -change <name> -key plan-review-<n> -session-token mf-<literal-token> -outcome completed
+flow stage end -command '/flow' -stage flow.plan-review -outcome completed <name>
+```
+
+`flow.plan-review` is begun and ended around each review, and steps 1–4 apply to each; every
+dispatch, planner redispatch and question round of a review sits inside its stage.
+
+1. **Dispatch.** One Agent call, `subagent_type: flow-low`, `model: opus` — the **Allowed pairs**
+   row `design-reviewer` (`skills/flow-contracts/model-policy.md`) — its `description` opening
+   with `plan-review-<n>`, `<n>` counting this run's plan-review dispatches from 1. The prompt is
+   the lines `Role: design-reviewer` and `Key: plan-review-<n>`, the two agent-baseline
+   sentences, the report-tersely line, the paragraph below, and six absolute paths:
+   `<skill-dir>/plan-reviewer-prompt.md` as the file to read in full first,
+   `<skill-dir>/plan-review-rubric.md`, the change's `proposal.md`, `design.md` and `tasks.md`
+   under `<changeRoot>`, the repository root `<abs-worktree>`, and the report
+   `<abs-worktree>/.superpowers/sdd/plan-review-<n>.md` — `<skill-dir>` the directory this file
+   was read from. It carries no ticket text, no Jira key, no round or answers file and no
+   summary of the conversation.
+
+   > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+   > system prompt>` and nothing else on that line. Answer it before any tool call.
+
+2. **`PLAN-REVIEW-CLEAN`** — end `flow.plan-review` and go on.
+3. **`PLAN-REVIEW-FINDINGS`** — redispatch a fresh final planner as for guard output it could
+   not clear, its prompt naming the report's absolute path; it triages the report per **Plan
+   review** (`skills/flow/brainstorm-planner.md`) and makes no stage mark. Its `QUESTIONS` return
+   is relayed as step 2 of the section above relays a round, and a fresh final dispatch takes
+   the answers. Its `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return ends `flow.plan-review`;
+   nothing is reviewed a third time.
+4. **A failed reviewer.** A dispatch that errors, or returns neither verdict line, is
+   redispatched once under the next `<n>`. Failing again, the plan review is `not run`, never
+   clean: end the stage with `-outcome failed -reason 'plan review not run'` and go on.
+
+A `/flow-plan` capture marks the stage under `-command '/flow-plan'`.
 
 ### The `STARTED` handoff block
 

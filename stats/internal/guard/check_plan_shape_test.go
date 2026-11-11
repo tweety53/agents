@@ -619,7 +619,7 @@ func TestCheckPlanShapeF11Reachability(t *testing.T) {
 // design.md sections; a plan without the header line is not checked.
 func TestPlanShapeDesignSections(t *testing.T) {
 	const header = "> **Design shape:** plan-mode\n\n"
-	full := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n"
+	full := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n\n## Non-goals\n\n## Risks\n"
 	check := func(t *testing.T, tasks, design string) guardResult {
 		t.Helper()
 		p := psFixture(t, tasks)
@@ -628,7 +628,7 @@ func TestPlanShapeDesignSections(t *testing.T) {
 		}
 		return psMutant(p, "")
 	}
-	t.Run("all four sections pass", func(t *testing.T) {
+	t.Run("all six sections pass", func(t *testing.T) {
 		if r := check(t, header+psTasks("a"), full); r.rc != 0 {
 			t.Errorf("rc=%d out=%s", r.rc, r.out)
 		}
@@ -932,37 +932,34 @@ func TestCheckPlanShapeF27(t *testing.T) {
 	}
 }
 
-// TestCheckPlanShapeRefusesRunLoadedEditsWithoutVerbatimMoves: F28, an
-// unticked task editing run-loaded prose while the change has no
-// verbatim-moves.txt (kan-1103 self-review, F9).
-func TestCheckPlanShapeRefusesRunLoadedEditsWithoutVerbatimMoves(t *testing.T) {
-	t.Parallel()
-	plan := func(box, path string) string {
-		return box + " 1. Edit prose\n\n**Files:** `" + path + "`\n**Tests:** none\n**Commit:** docs(flow): edit\n"
+// TestPlanShapeRequiresNonGoalsAndRisks pins F19's two later headings: a
+// plan-mode design missing ## Non-goals or ## Risks fails naming only the
+// missing one, and a plan with no Design shape line is not checked.
+func TestPlanShapeRequiresNonGoalsAndRisks(t *testing.T) {
+	const header = "> **Design shape:** plan-mode\n\n"
+	older := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n"
+	check := func(t *testing.T, tasks, design string) guardResult {
+		t.Helper()
+		p := psFixture(t, tasks)
+		writeFile(t, filepath.Dir(p)+"/design.md", design)
+		return psMutant(p, "")
 	}
-	for _, c := range []struct {
-		name, box, path string
-		moves           bool
-		want            int
-	}{
-		{"skills without the file", "- [ ]", "skills/flow/x.md", false, 1},
-		{"skills with a comment-only file", "- [ ]", "skills/flow/x.md", true, 0},
-		{"a ticked task", "- [x]", "skills/flow/x.md", false, 0},
-		{"a rationale appendix", "- [ ]", "skills/flow-contracts/x-rationale.md", false, 0},
-		{"the project config", "- [ ]", ".flow/project.md", false, 0},
-		{"a rule", "- [ ]", "rules/x.mdc", false, 1},
-		{"a command", "- [ ]", "commands-claude/x.md", false, 1},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			md := psFixture(t, plan(c.box, c.path))
-			if c.moves {
-				writeFile(t, filepath.Join(filepath.Dir(md), "verbatim-moves.txt"), "# nothing reworded\n")
-			}
-			r := psMutant(md, "")
-			if got := strings.Count(r.out, "(F28)"); got != c.want {
-				t.Errorf("(F28) count %d, want %d; out=%q", got, c.want, r.out)
+	for _, tc := range []struct{ missing, present string }{{"## Non-goals", "## Risks"}, {"## Risks", "## Non-goals"}} {
+		t.Run("missing "+tc.missing, func(t *testing.T) {
+			r := check(t, header+psTasks("a"), older+"\n"+tc.present+"\n")
+			if r.rc != 1 || !strings.Contains(r.out, "missing section "+tc.missing+" (Design shape: plan-mode)") || strings.Contains(r.out, tc.present) {
+				t.Errorf("rc=%d out=%s", r.rc, r.out)
 			}
 		})
 	}
+	t.Run("both present pass", func(t *testing.T) {
+		if r := check(t, header+psTasks("a"), older+"\n## Non-goals\n\n## Risks\n"); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("no Design shape line is not checked", func(t *testing.T) {
+		if r := check(t, psTasks("a"), older); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
 }

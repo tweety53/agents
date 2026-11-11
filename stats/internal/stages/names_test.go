@@ -463,10 +463,10 @@ func TestPlanSessionIsADocumentedFlowPlanStage(t *testing.T) {
 }
 
 // TestFlowPlanMarksThePlanningStages pins that a /flow-plan capture, which
-// plans through /flow's planner role, may mark the five planning stages --
+// plans through /flow's planner role, may mark the six planning stages --
 // and still not flow.kickoff, whose time plan.session spans.
 func TestFlowPlanMarksThePlanningStages(t *testing.T) {
-	for _, key := range []string{"flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide"} {
+	for _, key := range []string{"flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.plan-review", "flow.decide"} {
 		if err := stages.Validate(stages.FlowPlan, key); err != nil {
 			t.Errorf("Validate(/flow-plan, %s) = %v, want nil", key, err)
 		}
@@ -515,4 +515,28 @@ func TestFlowInteractiveStageKeys(t *testing.T) {
 	if stages.Valid(stages.FlowInteractive, "flow.decide") {
 		t.Error("flow.decide must not be valid for /flow-interactive")
 	}
+}
+
+// TestPlanReviewIsAPlanningStage pins flow.plan-review: valid for /flow and
+// /flow-plan, not for /flow-fast, and placed between flow.writing-plans and
+// flow.decide in the table.
+func TestPlanReviewIsAPlanningStage(t *testing.T) {
+	for _, c := range []stages.Command{stages.Flow, stages.FlowPlan} {
+		if err := stages.Validate(c, "flow.plan-review"); err != nil {
+			t.Errorf("Validate(%s, flow.plan-review) = %v, want nil", c, err)
+		}
+	}
+	if stages.Valid(stages.FlowFast, "flow.plan-review") {
+		t.Error("flow.plan-review must not be valid for /flow-fast")
+	}
+	for i, s := range stages.Table {
+		if s.Key != "flow.plan-review" {
+			continue
+		}
+		if i == 0 || i+1 == len(stages.Table) || stages.Table[i-1].Key != "flow.writing-plans" || stages.Table[i+1].Key != "flow.decide" {
+			t.Errorf("flow.plan-review at %d is not between flow.writing-plans and flow.decide", i)
+		}
+		return
+	}
+	t.Error("flow.plan-review is not in stages.Table")
 }

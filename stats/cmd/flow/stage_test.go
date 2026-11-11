@@ -2454,6 +2454,7 @@ func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
 		code                         int
 	}{
 		{"open plan row", row("plan-3", ""), "/flow", "flow.decide", 1},
+		{"open plan-review row", row("plan-review-1", ""), "/flow", "flow.decide", 1},
 		{"open explore row", row("explore-1", ""), "/flow", "flow.decide", 1},
 		{"/flow-plan open plan row", row("plan-3", ""), "/flow-plan", "flow.decide", 1},
 		{"/flow-plan ended plan row", row("plan-3", ended), "/flow-plan", "flow.decide", 0},

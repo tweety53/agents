@@ -45,6 +45,24 @@ states.
   self-review and in-run fix planners never apply it: they take the recommendation
   (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
 
+- **An architectural question is marked, and each of its options says what it fails under**
+  (KAN-1104). A question whose options are approaches — the alternatives the competing-designs
+  step produces, each becoming a `**Considered:**` line — and not a name, a format, a wording or
+  a scope detail is headed `### Q<n>. [architectural] <question>` in the round file, and each of
+  its options closes with `Fails under: <the condition this option stops working in>`. The
+  recommended mark stays. The parent asks each such question in an **AskUserQuestion** call of
+  its own, in round-file order; every other question stays four to a call.
+
+- **An answer that contradicts an earlier one is asked about, never applied** (KAN-1104). When
+  an answer in `answers-<r>.md` contradicts an earlier answer or a decision the design draft
+  records, change nothing on that point: quote both verbatim in the next `round-<r>.md` and ask
+  which stands, with no recommended option — so it is asked under the `## decisions:
+  recommended` mode too. This holds in planning only; past the plan gate nothing changes.
+
+- **A round file opens with `## Summary`** — at most ten lines: the decisions the round settled
+  and what is still open. The parent relays that section and the file's absolute path, and the
+  design draft stays in the file.
+
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
   path is gitignored: never stage or commit it, even where the brainstorming skill says to, and
@@ -203,9 +221,16 @@ spectre new "<name>"   # working directory: the worktree flow.kickoff created
 `flow-guard check-plan-shape` F27 refuses a plan whose `design.md` records a question still open
 (**Open questions**, `skills/spectre-planning/SKILL.md`).
 
+**`design.md` also carries `## Non-goals` and `## Risks`** (KAN-1104): what the change
+deliberately does not do, and what can go wrong and what limits it. Each may be the one line
+`none — <reason>`. `flow-guard check-plan-shape` F19 refuses a plan-mode design missing either.
+
 ```bash
 flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
 ```
+
+A `/flow` or `/flow-plan` final planner running section **C** stops here and returns `ARTIFACTS-WRITTEN`; section **D** is a
+fresh dispatch's, after **Plan review** (`skills/flow/brainstorm.md`) #1.
 
 ## D. Basic Workflow #3 — Writing plans
 
@@ -355,7 +380,8 @@ planning, before the panel reads the plan.
 reshapes that branch (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`),
 so a sha a task's committed file names stops resolving; cite a path on the default branch and the
 ticket instead (kan-1034: task 2's vendored `UPSTREAM.md` named the task 1 commit, unreachable once
-the branch was reshaped).
+the branch was reshaped). `design.md` is committed content too: run 1 writes it out as the
+change's design record (**The design record**, `skills/flow-contracts/finish-contract-run1.md`).
 
 **A task premise about a harness or tool is spiked live at plan time, never assumed.** When a
 task written here rests on how a harness or tool behaves — that a config key takes effect where
@@ -467,7 +493,7 @@ generic moved into the vendored `skills/spectre-planning/SKILL.md`, and a fix ro
 lines back).
 
 Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
-carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing any of the four plan sections
+carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing any of the six plan sections
 (**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
 
 Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
@@ -556,6 +582,32 @@ planned figure every later fix round's growth is measured against:
 ```bash
 flow tasks count -C <worktree> <name>
 ```
+
+```bash
+flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
+```
+
+### Plan review
+
+**Your `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return says whether the plan is reviewed** (KAN-1104). A change that is not
+trivial — the competing-designs test of **Explore and design agents**
+(`skills/spectre-planning/SKILL.md`) — returns the word alone, and the parent runs **Plan
+review** (`skills/flow/brainstorm.md`). A change with one obvious approach returns
+the word and, on the next line, `Plan review: skip — <reason>`, the reason being the
+one-approach reason `design.md` records under `## Recommended approach`. The self-review and in-run fix planners and a fix run's
+re-plan never write that line and are never reviewed.
+
+**A dispatch whose prompt names a plan-review report triages it.** Append `## Triage` to the
+report, one line per finding: `F<k> fixed — <what changed>`, `F<k> contested — <the repository
+path:line or artifact line the reviewer could have read>`, `F<k> escalated`, or, for an
+`advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding with one obvious
+fix. Escalate a finding whose fix would change a `## Decisions` entry, or that you would contest
+without evidence the reviewer could have read: return `QUESTIONS`, the next `round-<r>.md`
+quoting the finding verbatim beside the options. After your fixes to `plan-review-2`'s findings,
+re-run `spectre validate`, `flow-guard check-plan-shape`, the configured guards and `flow tasks
+count`. Make no stage mark. Return the word your dispatch was working toward: `ARTIFACTS-WRITTEN` after triaging
+`plan-review-1`, `PLAN-WRITTEN` after `plan-review-2`. Triaging `plan-review-2`, first write each
+finding still standing into `design.md`'s `## Risks` as `Accepted: <the finding> — <why>`.
 
 ### Decide
 
@@ -731,10 +783,6 @@ flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -sessio
 It exits 0 on a printed block and 2 on a usage error, an unreadable file or a `decision.json`
 missing a required field or carrying a malformed `visual` — correct the file and render again.
 
-```bash
-flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
-```
-
 ### Plan review gate
 
 **The plan is never acted on unread.** Once the Decide step has printed its `## Decision` block,
@@ -743,6 +791,10 @@ gate is mandatory: no answer, no commit and no implementation. It runs at the en
 `/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) and in `/flow`
 after the `flow.decide` record sequence (**Run brainstorming and planning through the planner role**,
 `skills/flow/brainstorm.md`).
+
+The summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
+`**Plan review:** <absolute path of the last report> — clean | <n> fixed, <n> contested, <n>
+accepted | not run | skipped — <reason>`.
 
 Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs

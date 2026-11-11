@@ -533,3 +533,88 @@ check "fix_line_other_rows: a flow-cost fixed row and a flow-fix noted row pass 
 rm -f "$WORK/sr-findings.json"`},
 	})
 }
+
+// icDesignRecord writes a design.md into the canonical change directory and
+// sets rec to the record's path; design_files <worktree> prints the paths
+// the worktree's branch commits since main list.
+const icDesignRecord = `design() {
+  rec="$WORK/a-worktrees/demo/docs/designs/demo.md"
+  printf '## Context\n\n- one\n\n## Decisions\n\n**Status:** active\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/design.md"
+}
+design_files() {
+  git -C "$1" log --format= --name-only main..HEAD
+}
+`
+
+// TestIntegrateChangeDesignRecord pins run 1's design record: commit writes
+// the canonical change directory's design.md, under its two-line header, into
+// the canonical worktree's implementation commit, and prepare asks for that
+// worktree's subject whenever a design.md exists.
+func TestIntegrateChangeDesignRecord(t *testing.T) {
+	icRunCases(t, []icCaseDef{
+		{"record_in_impl_commit", icDesignRecord + `# --- record_in_impl_commit ---
+fixture
+design
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "record_in_impl_commit: commit exits 0" '[ "$RC" -eq 0 ]'
+check "record_in_impl_commit: a's implementation commit lists the record" \
+  'git -C "$WORK/a-worktrees/demo" log --format= --name-only --grep="^feat(a): do the work$" main..HEAD | grep -qx docs/designs/demo.md'
+check "record_in_impl_commit: line 1 is the title" '[ "$(sed -n 1p "$rec")" = "# demo" ]'
+check "record_in_impl_commit: line 2 is the header with the Jira key" \
+  '[ "$(sed -n 2p "$rec")" = "> Design record of change demo (KAN-1), written at landing. Each decision'"'"'s own **Status:** line is the status." ]'
+check "record_in_impl_commit: line 3 is empty" '[ -z "$(sed -n 3p "$rec")" ]'
+check "record_in_impl_commit: the rest is design.md byte for byte" \
+  'tail -n +4 "$rec" | cmp -s - "$WORK/a-worktrees/demo/spectre/changes/demo/design.md"'
+check "record_in_impl_commit: b's commit lists no record" '! design_files "$WORK/b-worktrees/demo" | grep -q "^docs/designs/"'`},
+		{"no_design_no_record", icDesignRecord + `# --- no_design_no_record ---
+fixture
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "no_design_no_record: commit exits 0" '[ "$RC" -eq 0 ]'
+check "no_design_no_record: no commit lists a record" \
+  '! design_files "$WORK/a-worktrees/demo" | grep -q "^docs/designs/" && ! design_files "$WORK/b-worktrees/demo" | grep -q "^docs/designs/"'`},
+		{"record_only_canon", icDesignRecord + `# --- record_only_canon ---
+fixture
+g -C "$WORK/a-worktrees/demo" reset -q --hard main
+c="$WORK/a-worktrees/demo/spectre/changes/demo"
+mkdir -p "$c"
+printf '# Tasks\n\n- [x] 1. Do the work\n' >"$c/tasks.md"
+printf '# demo\n\n## Merge order\n\n1. ` + "`" + `b` + "`" + `\n2. ` + "`" + `.` + "`" + `\n' >"$c/link.md"
+design
+sut prepare "$WORK/a" demo
+check "record_only_canon: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "record_only_canon: prepare's NEXT asks a subject for a" \
+  'printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/a-worktrees/demo=<impl subject>"'
+printf '\n## integrate run\n\nnarrative\n' >>"$c/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): record the design" "$WORK/b-worktrees/demo=feat(b): do the work"
+check "record_only_canon: commit exits 0" '[ "$RC" -eq 0 ]'
+check "record_only_canon: a's implementation commit lists the record" \
+  'git -C "$WORK/a-worktrees/demo" log --format= --name-only --grep="^feat(a): record the design$" main..HEAD | grep -qx docs/designs/demo.md'`},
+		{"record_write_fails", icDesignRecord + `# --- record_write_fails ---
+fixture
+design
+mkdir -p "$WORK/a-worktrees/demo/docs" && printf 'x\n' >"$WORK/a-worktrees/demo/docs/designs"
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "record_write_fails: an unwritable record stops commit naming its path" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -qF "STOP: design-record — cannot create the directory of $WORK/a-worktrees/demo/docs/designs/demo.md"'`},
+		{"no_jira_key", icDesignRecord + `# --- no_jira_key ---
+fixture
+sed -i.bak 's/"jiraIssue":"KAN-1",//' "$WORK/state.json"
+design
+sut prepare "$WORK/a" demo
+[ "$RC" -eq 0 ] || halt prepare
+printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
+check "no_jira_key: commit exits 0" '[ "$RC" -eq 0 ]'
+check "no_jira_key: line 2 drops the parenthesis" \
+  '[ "$(sed -n 2p "$rec")" = "> Design record of change demo, written at landing. Each decision'"'"'s own **Status:** line is the status." ]'`},
+	})
+}

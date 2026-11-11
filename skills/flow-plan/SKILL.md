@@ -61,7 +61,7 @@ otherwise, including a session that just stops.
 **`plan.session` spans the research, a capture's key, `STARTED` and kickoff, and ends there.**
 The store attaches the open plan session to the change the moment the capture's own `STARTED`
 write creates it. A capture's planning then marks `flow.brainstorm`, `flow.design-approval`,
-`flow.create-artifacts`, `flow.writing-plans` and `flow.decide` under `-command '/flow-plan'`, the
+`flow.create-artifacts`, `flow.writing-plans`, `flow.plan-review` when the plan is reviewed, and `flow.decide` under `-command '/flow-plan'`, the
 rows the Level 1 table admits for `/flow-plan`; `flow.kickoff` is not marked. **No
 `flow record dispatch` call before capture** — no change exists to record a planning dispatch
 against (decision `flow-plan-records-nothing`, kan-1033). After it, every `plan-<n>`,
@@ -244,10 +244,10 @@ minimum:
    title, holding whatever prose, lists, or code excerpts the discussion produced for that thread.
    Order sections in the order the threads came up.
 2. **A step-by-step breakdown section**, always present (see below).
-3. **The four plan sections** of **C. Create the change and its artifacts**
+3. **The six plan sections** of **C. Create the change and its artifacts**
    (`skills/flow/brainstorm-planner.md`) —
-   `## Recommended approach`, `## Critical files`, `## Existing code to reuse` and
-   `## Verification` — on a new change's design.
+   `## Recommended approach`, `## Critical files`, `## Existing code to reuse`,
+   `## Verification`, `## Non-goals` and `## Risks` — on a new change's design.
 
 **A captured design carries no open items.** Everything the session surfaced is decided before
 the artifacts are written — decided by the user through the planner's design rounds on a new
@@ -278,6 +278,10 @@ mid-run asks**, `skills/flow-contracts/pipeline.md`).
 ## Existing code to reuse
 
 ## Verification
+
+## Non-goals
+
+## Risks
 
 ## Step-by-step breakdown
 
