@@ -18,7 +18,10 @@ import (
 // `src/app/src/main/resources/db/migration/` (decision
 // files-path-dropped-segment). A path that exists, or a new file in an
 // existing directory, passes; so does a new package or module, since no
-// segment-dropped alternative of at least two segments exists for it. A
+// segment-dropped alternative of at least two segments exists for it. So
+// does a path whose dropped segment ends the directory of another
+// `**Files:**` path in the same plan — a new package the plan declares
+// (kan-1088, decision plan-declared-segment). A
 // token carrying `<`, `*`, `{` or `$` is a placeholder. The repository is
 // the one whose `<spec-root>/changes/<name>/tasks.md` this is; an archived
 // plan, or a file outside a `changes/<name>/` directory, is not checked.
@@ -54,6 +57,14 @@ func planFilesPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 		st, err := os.Stat(filepath.Join(root, p))
 		return err == nil && st.IsDir()
 	}
+	declared := map[string]bool{}
+	for _, task := range tcfIterTasks(lines) {
+		if t, ok := tcfParseTask(lines, task.id); ok {
+			for _, p := range t.files {
+				declared[path.Dir(p)] = true
+			}
+		}
+	}
 	found := 0
 	for _, task := range tcfIterTasks(lines) {
 		t, ok := tcfParseTask(lines, task.id)
@@ -73,6 +84,9 @@ func planFilesPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			segs := strings.Split(dir, "/")
 			for i := 0; i < len(segs)-1; i++ {
+				if declared[strings.Join(segs[:i+1], "/")] {
+					continue
+				}
 				alt := append(append([]string{}, segs[:i]...), segs[i+1:]...)
 				if len(alt) < 2 || !isDir(strings.Join(alt, "/")) {
 					continue

@@ -59,3 +59,57 @@ func TestPlanFilesPaths(t *testing.T) {
 		})
 	}
 }
+
+func TestPlanFilesPathsPlanDeclaredPackage(t *testing.T) {
+	plan := func(p1, p2 string) string {
+		return "- [ ] 1. A\n\n**Files:** `" + p1 + "`\n\n- [ ] 2. B\n\n**Files:** `" + p2 + "`\n"
+	}
+	dirs := []string{"src/app/workout/src/main/kotlin/com/gymie/workout/core/domain/specification", "src/app/src/main/resources/db/migration"}
+	cases := []struct {
+		name, p1, p2 string
+		code         int
+		want         []string
+	}{
+		{"new package declared by the plan",
+			"src/app/workout/src/main/kotlin/com/gymie/workout/core/domain/progression/LoadSteps.kt",
+			"src/app/workout/src/main/kotlin/com/gymie/workout/core/domain/progression/specification/ProgressionHistory.kt",
+			0, nil},
+		{"kan-1013 doubled segment in two tasks",
+			"src/app/app/src/main/resources/db/migration/V48__x.sql",
+			"src/app/app/src/main/resources/db/migration/V49__y.sql",
+			1, []string{
+				"tasks.md:3: task 1 names `src/app/app/src/main/resources/db/migration/V48__x.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists",
+				"tasks.md:7: task 2 names `src/app/app/src/main/resources/db/migration/V49__y.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists",
+			}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, d := range dirs {
+				if err := os.MkdirAll(filepath.Join(dir, d), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			rel := "spectre/changes/c/tasks.md"
+			if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, rel)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, rel), []byte(plan(tc.p1, tc.p2)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			var stdout, stderr bytes.Buffer
+			code := Registry["plan-files-paths"]([]string{rel}, Env{Dir: dir}, &stdout, &stderr)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d; stdout=%q stderr=%q", code, tc.code, stdout.String(), stderr.String())
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(stdout.String(), w) {
+					t.Errorf("stdout %q lacks %q", stdout.String(), w)
+				}
+			}
+			if tc.code == 0 && stdout.Len() != 0 {
+				t.Errorf("clean plan printed %q", stdout.String())
+			}
+		})
+	}
+}
