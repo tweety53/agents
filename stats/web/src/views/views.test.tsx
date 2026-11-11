@@ -2638,10 +2638,10 @@ describe("Experiments", () => {
     expect(within(list).getByText("flow experiment open").tagName).toBe("CODE");
   });
 
-  it("Experiments is a nav route labelled Experiments", async () => {
+  it("Experiments is a nav route labelled Agent roles", async () => {
     window.history.replaceState(null, "", "#/experiments");
     render(<App />);
-    expect(await screen.findByRole("link", { name: "Experiments" })).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("link", { name: "Agent roles" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByRole("region", { name: "Current roles" })).toBeInTheDocument();
   });
 });

@@ -39,7 +39,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
   "review-dynamics": "Review dynamics",
-  experiments: "Experiments",
+  experiments: "Agent roles",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {

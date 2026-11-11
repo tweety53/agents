@@ -11,7 +11,7 @@ import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
 // roles-panel captures are compared against .superpowers/sdd/roles-prototype.html.
 async function open(page: import("@playwright/test").Page) {
   await page.goto(`/#/experiments?${PINNED_QUERY}`);
-  await expect(page.getByRole("link", { name: "Experiments", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Agent roles", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("Loading…")).toHaveCount(0);
   await expect(page.getByText(/^Runs counted:/)).toBeVisible();
 }
