@@ -23,7 +23,7 @@ func TestRunSizeStopNamesPhaseFileLength(t *testing.T) {
 	if j := strings.Index(para, "\n\n"); j >= 0 {
 		para = para[:j]
 	}
-	for _, want := range []string{"phase file", "offset chunks", "never 're-run /flow to continue'"} {
+	for _, want := range []string{"phase file", "offset chunks", "no explicit operator stop", "never handed to the\noperator as 're-run /flow to continue'"} {
 		if !strings.Contains(para, want) {
 			t.Errorf("pipeline.md size-stop paragraph lacks %q", want)
 		}

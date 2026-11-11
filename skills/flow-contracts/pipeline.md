@@ -139,8 +139,8 @@ shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a sepa
 (kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate
 still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap
 as open items, each of which had a recommended fix). A phase file too long for one read is read in
-offset chunks and the run continues; ending the turn short of a handoff with no child out, no block
-and no operator-only question is this rule broken, never 're-run /flow to continue' (kan-1104: the
+offset chunks and the run continues, and, with no explicit operator stop, is never handed to the
+operator as 're-run /flow to continue' (kan-1104: the
 parent stopped at STARTED with every task ticked and the panel, verify and integrate ahead, citing
 the size of the phase files left to read).
 
