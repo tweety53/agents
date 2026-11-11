@@ -25,16 +25,19 @@ get there is scripted. You're a thinking partner helping the user explore.
 
 ---
 
-## The session does the thinking itself
+## Research in the session, planning through the planner role
 
-`/flow-plan` runs entirely in the current session, on its own model, with any argument shape —
-a Jira key, an existing change's name, a bare topic, or nothing at all. The session may dispatch
-the fresh Explore and Plan agents **Explore and design agents** (`skills/flow/brainstorm-planner.md`)
-allows — its pair from `flow-guard plan-agent-pair <session-token> <n> <role>`, seeded with this session's
-token — never a `fork`; the session itself
-does the thinking: it reads the tree, runs the investigate-then-ask rounds and the convergence check
-below, and creates the change or offers the `design.md` capture directly. Every "you" elsewhere
-in this skill addresses the running session.
+`/flow-plan` researches in the current session, on its own model, with any argument shape —
+a Jira key, an existing change's name, a bare topic, or nothing at all. Before a capture's **Yes**
+the session reads the tree, runs the investigate-then-ask rounds and the convergence check below,
+and may dispatch the fresh Explore and Plan agents **Explore and design agents**
+(`skills/flow/brainstorm-planner.md`) allows — its pair from
+`flow-guard plan-agent-pair <session-token> <n> <role>`, seeded with this session's token — never
+a `fork`. Once a capture has created the change, the session never brainstorms or writes the plan
+itself: `planner` dispatches do, exactly as in `/flow`'s creating run (**Capturing a new change**,
+below; decision `flow-plan-plans-through-planner`). The session still writes an addition to an
+existing change's `design.md` itself. Every "you" elsewhere in this skill addresses the running
+session.
 
 **Generate this session's token once, right here — `fp-<literal-token>`, a short unique literal
 string, exactly as `/flow` generates `mf-<literal-token>` (**Stage marks**, `skills/flow-contracts/pipeline.md`)
@@ -55,14 +58,18 @@ with exactly one `stage end`, on whichever exit path this session takes — `sta
 was created, `captured` when the session wrote into an existing change's artifacts, `abandoned`
 otherwise, including a session that just stops.
 
-**`plan.session` is the one mark this mode makes.** The `flow.*` keys a capture executes
-(**Capturing a new change**, below) are `/flow`'s rows in the Level 1 table and are not marked
-here; the store attaches the open plan session to the change the moment the capture's own
-`STARTED` write creates it. **No `flow record dispatch` call** either — no change exists to record
-a planning dispatch against before capture (decision `flow-plan-records-nothing`, kan-1033).
+**`plan.session` spans the research, a capture's key, `STARTED` and kickoff, and ends there.**
+The store attaches the open plan session to the change the moment the capture's own `STARTED`
+write creates it. A capture's planning then marks `flow.brainstorm`, `flow.design-approval`,
+`flow.create-artifacts`, `flow.writing-plans` and `flow.decide` under `-command '/flow-plan'`, the
+rows the Level 1 table admits for `/flow-plan`; `flow.kickoff` is not marked. **No
+`flow record dispatch` call before capture** — no change exists to record a planning dispatch
+against (decision `flow-plan-records-nothing`, kan-1033). After it, every `plan-<n>`,
+`explore-<n>` and `design-<n>` dispatch is recorded against the change, `<n>` counting from 1 per
+change.
 
-Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered at session start. Call `ExitPlanMode` only once the session reaches a capturable design, as the design
-approval, before the capture question — which is still asked after approval. A research session
+Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered at session start. Call `ExitPlanMode` only once the session reaches a capturable topic, right before the capture
+question, which is still asked. A research session
 that ends without a capture never calls `ExitPlanMode`. A declined `EnterPlanMode` consent is one
 line, and the session continues without plan mode.
 
@@ -156,7 +163,7 @@ When there's no existing change to write into, offer to capture the session as a
 
 **Nothing below runs before that Yes.** The `STARTED` write, the worktree and the artifacts are
 this answer's consequence; **No** is the abandoned path (**Capturing the Outcome**, above). The
-plan review gate at step 6 then gates the plan snapshot alone — a change that reached it exists
+plan review gate in step 5 then gates the plan snapshot alone — a change that reached it exists
 already, at `STARTED`, and a **No** there revises the plan rather than removing the change.
 
 **The key comes first, because it names the change.** A Jira key is known when it was passed as
@@ -179,30 +186,23 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    `STARTED` write are what runs. A lookup that finds an existing change for this key is the
    existing-change destination above, never a second change.
 2. The kickoff steps 1–4 in the same section — `<project>-worktrees/<name>` on `spectre/<name>`,
-   pushed, cut from `--base <branch>` when the argument carries one (`skills/flow/SKILL.md`). `flow.kickoff` itself is not marked (**The session does the thinking itself**, above).
-3. **C. Create the change and its artifacts** (`skills/flow/brainstorm-planner.md`) — `spectre
-   new` in the worktree, then the three artifacts. `design.md`'s body is **The Fixed Section
-   Structure** below — the thread sections and the step-by-step breakdown — followed by C's
-   `## Decisions`, filled from the answers the convergence rounds settled, and its `## Open
-   questions`, present and empty. `proposal.md`'s `## Why` and `## What changes` come from the
-   same session. `tasks.md` starts as one task per breakdown item.
-4. **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) — the
-   enrichment, its guards and `flow tasks count`, as written.
-5. **Decide** (`skills/flow/brainstorm-planner.md`) — `flow-guard plan-class` on `<changeRoot>/tasks.md`
-   with `<repos>` the number of distinct repository roots the plan's `**Files:**` fall under
-   (the project's `## apps` table; `1` when every path is in this one);
-   `REVIEWERS` per **Model resolution** (`skills/flow/SKILL.md`); the JSON at
-   `<abs-worktree>/.superpowers/sdd/decision.json`; the `## Decision` block printed. Record it
-   against the change:
+   pushed, cut from `--base <branch>` when the argument carries one (`skills/flow/SKILL.md`). `flow.kickoff` itself is not marked (**Research in the session, planning through the planner role**, above).
+3. Close the session's mark before any `flow.*` begin — a `stage begin` closes every open run
+   sharing its session token as `superseded`. An unlinked capture has no mark to close.
 
    ```bash
-   flow record decision -change <name> -session-token fp-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
+   flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome started
    ```
 
-6. **Plan review gate** (`skills/flow/brainstorm-planner.md`) — the prose summary, the
-   `## Decision` block, then **Save the plan?** with **Yes** / **No (plan needs updates)**.
-   Mandatory: **No** revises and re-decides per that section, recording each re-decision through
-   the call above, and the snapshot below is taken only on **Yes**.
+4. Write the planner's ticket, `<abs-worktree>/.superpowers/sdd/planner/ticket.md`: the Jira
+   issue when one is linked, then a `## Research session` section — the operator's statements
+   verbatim and the session's findings with their file paths, marked as findings, not decisions.
+5. **Run brainstorming and planning through the planner role** (`skills/flow/brainstorm.md`), from
+   its `flow.brainstorm` begin through the gate. Every `-command '/flow'` it shows is
+   `-command '/flow-plan'`, and every planner prompt carries that substitution beside the session
+   token. The final planner's prompt also carries the line "`design.md` follows **The Fixed Section
+   Structure** and **The Step-by-Step Breakdown** of `skills/flow-plan/SKILL.md`". The gate asks
+   **Save the plan?**, and the snapshot below is taken only on **Yes**.
 
 Every guard those sections invoke runs per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`): `flow-guard kickoff-worktree <project> <name>` with its siblings
@@ -215,12 +215,10 @@ staged, committed or pushed: a capture leaves the change on disk at `STARTED` in
 resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**,
 `skills/flow/resume.md`).
 
-End by naming the change, the Jira key and the worktree's absolute path, and close
-the session's mark:
+A capture stopped before that **Yes** is at `STARTED` as well, and `/flow <name>` resumes its
+rounds.
 
-```bash
-flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome started
-```
+End by naming the change, the Jira key and the worktree's absolute path.
 
 The handoff ends on the next command, alone in its own fence (**Handoff output**,
 `skills/flow-contracts/pipeline.md`):
@@ -251,7 +249,8 @@ minimum:
    `## Verification` — on a new change's design.
 
 **A captured design carries no open items.** Everything the session surfaced is decided before
-the artifacts are written — decided by the user through the convergence round's questions, and
+the artifacts are written — decided by the user through the planner's design rounds on a new
+change and through the session's convergence round on an addition, and
 recorded as a decision in its thread's section with the
 rejected alternative named, and under `## Decisions` with its `**ID:**`. There is no **Open /
 undesigned** section, and `## Open questions` is present and empty: an item still open when the
