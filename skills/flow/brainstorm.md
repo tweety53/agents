@@ -107,7 +107,8 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 ```
 
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
-`planner-role`, KAN-1067). Every planner dispatch is fresh and one-shot, on `subagent_type:
+`planner-role`, KAN-1067). A `/flow-plan` capture runs this section too, with the differences
+**Capturing a new change** (`skills/flow-plan/SKILL.md`) states. Every planner dispatch is fresh and one-shot, on `subagent_type:
 flow-planner-<effort>` with `model` and effort from the **Allowed pairs** row `planner`
 (`skills/flow-contracts/model-policy.md`) — its first pair unless an open experiment overrides
 it; a CORE change (its Jira issue carries an `**Agents (CORE):**` section) takes `flow-guard plan-agent-pair

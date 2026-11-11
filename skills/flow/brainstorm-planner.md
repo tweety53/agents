@@ -1,8 +1,8 @@
 # Brainstorm and plan — sections B, C, D
 
 Sections **B**, **C** and **D** of the brainstorming phase, run by `/flow`'s `planner` dispatch
-(**Run brainstorming and planning through the planner role**, `skills/flow/brainstorm.md`) — or, for **C**, **D** and **Decide**, a `/flow-plan` capture
-(**Capturing a new change**, `skills/flow-plan/SKILL.md`) — no one relays these sections, though
+(**Run brainstorming and planning through the planner role**, `skills/flow/brainstorm.md`), in
+`/flow`'s creating run and in a `/flow-plan` capture alike — no one relays these sections, though
 the session may dispatch the fresh subagents **Explore and design agents** below allows, and
 neither does the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is
 not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the in-run fix planner, which
@@ -761,11 +761,14 @@ not asked and **No** is taken.
 
 On **No**,
 take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none),
-revise `tasks.md`, re-run `spectre validate "<name>"`, `flow-guard check-plan-shape` and the project's configured guards, re-run the
-Decide step from `flow-guard plan-class` on — in `/flow`, the `flow.decide` record sequence again, a second
-decision row — then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
+write them verbatim to the next `answers-<r>.md`, and dispatch a fresh final planner on them as a
+`QUESTIONS` return is taken (**Run brainstorming and planning through the planner role**,
+`skills/flow/brainstorm.md`) — it revises `tasks.md` and re-runs `spectre validate "<name>"`,
+`flow-guard check-plan-shape` and the project's configured guards. Then re-run the Decide step
+from `flow-guard plan-class` on, the `flow.decide` record sequence again — a second decision row —
+then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
 Under the `## decisions: recommended` mode the gate takes **Yes** without asking — the summary
 and the `## Decision` block still print, so the record of what was approved stays complete
 (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
 
-`/flow-plan` commits and ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).
+`/flow-plan` ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).

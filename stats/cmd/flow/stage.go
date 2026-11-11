@@ -426,9 +426,10 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
-	// On a begin only /flow's flow.decide is gated; the brainstorm and
-	// self-review triggers inside the gate belong to the end path.
-	if f.command == "/flow" && f.stage == "flow.decide" {
+	// On a begin only flow.decide is gated (the gate picks which commands);
+	// the brainstorm and self-review triggers inside it belong to the end
+	// path.
+	if f.stage == "flow.decide" {
 		if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
 			return code
 		}
@@ -746,7 +747,7 @@ func verifyKeyRepository(key string) string {
 	return rest
 }
 
-// gateBrainstormDispatchesClosed refuses a /flow flow.brainstorm end, of any
+// gateBrainstormDispatchesClosed refuses a /flow or /flow-plan flow.brainstorm end, of any
 // outcome, while a dispatch row of the change has no end: brainstorm hands
 // over to a different session, which can only close the row with a guessed
 // end (kan-1046 self-review, 1e: explore-1 ended 21 minutes after its agent
@@ -755,20 +756,23 @@ func verifyKeyRepository(key string) string {
 // same way: the self-review pass's row, which enforce-loop-dispatch.py opens
 // under the change, is closed by this session when the pass hands back, and
 // a stage ended over it would leave it running on the board for good. It
-// refuses a /flow flow.decide begin while a planning dispatch row -- a key
+// refuses a /flow or /flow-plan flow.decide begin while a planning dispatch row -- a key
 // opening plan-, explore- or design- -- has no end: decide follows the
 // planners, so a row still open there was left open past its planner's
 // hand-back and would be closed hours late (kan-1057 self-review, F4: plan-3
-// and plan-4 ended at the next session's sweep). It refuses a
+// and plan-4 ended at the next session's sweep). /flow-plan shares both
+// planning gates because its capture plans through the same planner role and
+// records the same rows. It refuses a
 // /flow-interactive flow.sdd-tdd end, of any outcome, while an operator-
 // dispatch row has no end: the request that dispatched an operator-asked
 // subagent closes its row when the agent reports, and a request ended over
 // it left the row open for good (kan-1080 self-review, F4: 8 of 9 rows). A
 // failed record read refuses nothing.
 func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
-	brainstorm := f.command == "/flow" && f.stage == "flow.brainstorm"
+	plans := f.command == "/flow" || f.command == "/flow-plan"
+	brainstorm := plans && f.stage == "flow.brainstorm"
 	selfReview := (f.command == "/flow" || f.command == "/flow-fast" || f.command == "/flow-interactive") && f.stage == "flow.self-review"
-	decide := f.command == "/flow" && f.stage == "flow.decide"
+	decide := plans && f.stage == "flow.decide"
 	request := f.command == "/flow-interactive" && f.stage == "flow.sdd-tdd"
 	if !brainstorm && !selfReview && !decide && !request {
 		return 0

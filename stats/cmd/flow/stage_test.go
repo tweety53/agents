@@ -2179,16 +2179,17 @@ func TestStageResolvesTheRecordsAddress(t *testing.T) {
 	}
 }
 
-// TestStageEndBrainstormRefusesOpenDispatch pins the kan-1046 self-review fix
-// (1e): /flow's flow.brainstorm end is refused, exit 1 with no end mark sent,
-// while a dispatch row of the change is open, naming its key; with the row
-// ended it passes, and another stage over the same open row passes.
+// TestStageEndBrainstormRefusesOpenDispatch pins the kan-1046 self-review
+// fix (1e): a /flow or /flow-plan flow.brainstorm end is refused, exit 1 with
+// no end mark sent, while a dispatch row of the change is open, naming its
+// key; with the row ended it passes, and another stage over the same open row
+// passes.
 func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	open := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","sessionToken":"tok-9","startedAt":"2026-10-28T12:35:02Z"}]}`
 	closed := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","startedAt":"2026-10-28T12:35:02Z","endedAt":"2026-10-28T12:36:38Z"}]}`
-	end := func(record, stage string) (int, string, bool) {
+	end := func(record, command, stage string) (int, string, bool) {
 		t.Helper()
 		reached := false
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -2203,18 +2204,21 @@ func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-				"-command", "/flow", "-stage", stage, "-outcome", "completed", "kan-1"},
+				"-command", command, "-stage", stage, "-outcome", "completed", "kan-1"},
 			strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
-	if code, stderr, reached := end(open, "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") || !strings.Contains(stderr, "-session-token tok-9") {
+	if code, stderr, reached := end(open, "/flow", "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") || !strings.Contains(stderr, "-session-token tok-9") {
 		t.Fatalf("open row: exit=%d reached=%v, want 1 naming explore-1 and its token; stderr:\n%s", code, reached, stderr)
 	}
-	if code, stderr, reached := end(closed, "flow.brainstorm"); code != 0 || !reached {
+	if code, stderr, reached := end(closed, "/flow", "flow.brainstorm"); code != 0 || !reached {
 		t.Fatalf("closed row: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
 	}
-	if code, stderr, reached := end(open, "flow.create-artifacts"); code != 0 || !reached {
+	if code, stderr, reached := end(open, "/flow", "flow.create-artifacts"); code != 0 || !reached {
 		t.Fatalf("another stage: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+	if code, stderr, reached := end(open, "/flow-plan", "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") {
+		t.Fatalf("/flow-plan open row: exit=%d reached=%v, want 1 naming explore-1; stderr:\n%s", code, reached, stderr)
 	}
 }
 
@@ -2414,10 +2418,11 @@ func TestStageBeginRequestFlag(t *testing.T) {
 }
 
 // TestStageBeginDecideRefusesOpenPlanningDispatch pins the kan-1057
-// self-review fix (F4): /flow's flow.decide begin is refused, exit 1 with no
-// begin sent, while a plan-, explore- or design- dispatch row of the change is
-// open, naming its key and session token; an ended planner row, an open row of
-// another role, and another stage over the open planner row all pass.
+// self-review fix (F4) for /flow and /flow-plan: a flow.decide begin is
+// refused, exit 1 with no begin sent, while a plan-, explore- or design-
+// dispatch row of the change is open, naming its key and session token; an
+// ended planner row, an open row of another role, and another stage over the
+// open planner row all pass.
 func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -2450,6 +2455,8 @@ func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
 	}{
 		{"open plan row", row("plan-3", ""), "/flow", "flow.decide", 1},
 		{"open explore row", row("explore-1", ""), "/flow", "flow.decide", 1},
+		{"/flow-plan open plan row", row("plan-3", ""), "/flow-plan", "flow.decide", 1},
+		{"/flow-plan ended plan row", row("plan-3", ended), "/flow-plan", "flow.decide", 0},
 		{"ended plan row", row("plan-3", ended), "/flow", "flow.decide", 0},
 		{"open implementer row", row("task-1-implementer", ""), "/flow", "flow.decide", 0},
 		{"another stage", row("plan-3", ""), "/flow", "flow.load-context", 0},

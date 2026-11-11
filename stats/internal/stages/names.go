@@ -70,11 +70,11 @@ var Table = []Stage{
 	// /flow -- mints its own flow.* namespace rather than reusing start./do./finish.,
 	// per design.md's flow-rename-content-split (see README.md's Level 1 table for why).
 	{Key: "flow.kickoff", Name: "Kickoff — write `STARTED`", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow}},
-	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.decide", Name: "Decide — execution, models, panel", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{Flow, FlowFast, FlowInteractive, FlowPlan}},
+	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow, FlowPlan}},
+	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow, FlowFast, FlowPlan}},
+	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow, FlowFast, FlowPlan}},
+	{Key: "flow.decide", Name: "Decide — execution, models, panel", Commands: []Command{Flow, FlowFast, FlowPlan}},
 	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.isolate-workspace", Name: "Isolate the workspace", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow, FlowFast}},
@@ -98,9 +98,11 @@ var Table = []Stage{
 	{Key: "flow.verify-cleanup", Name: "Verify the cleanup (run 2)", Commands: []Command{Flow}},
 	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.refresh-main-checkout", Name: "Bring the main checkout forward (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	// /flow-plan -- one stage: the whole research session, recorded so its
-	// cost joins the change it seeds.
-	{Key: "plan.session", Name: "Plan session — the whole `/flow-plan` invocation", Commands: []Command{FlowPlan}},
+	// /flow-plan -- plan.session is its own stage: the research session up to
+	// a capture's kickoff, recorded so its cost joins the change it seeds. A
+	// capture's planning marks the five flow.* planning rows above, which list
+	// FlowPlan for that reason.
+	{Key: "plan.session", Name: "Plan session — `/flow-plan` research up to a capture's kickoff", Commands: []Command{FlowPlan}},
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that
