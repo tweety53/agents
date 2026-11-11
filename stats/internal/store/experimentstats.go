@@ -73,7 +73,7 @@ func roleMetrics(role string) []string {
 		return plannerMetrics
 	case "implementer", "panel-fix", "operator-asked", "self-review-fix", "pipeline-fix-fix", "late-fix":
 		return fixerMetrics
-	case "panel-reviewer", "panel-sanity-efficiency", "panel-mutation-failure", "panel-rerun", "gated-reviewer", "gated-re-reviewer",
+	case "design-reviewer", "panel-reviewer", "panel-sanity-efficiency", "panel-mutation-failure", "panel-rerun", "gated-reviewer", "gated-re-reviewer",
 		"self-review-review-1", "self-review-review-r", "pipeline-fix-review-1", "pipeline-fix-review-r":
 		return reviewerMetrics
 	case "visual-verifier":
@@ -98,6 +98,7 @@ var roleDispatchSQL = map[string]string{
 	"tooling-analyst":         `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,
 	"implementer":             `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%' AND d.dispatch_key !~ '-implementer-(fix|recommit|pick)-'`,
 	"panel-fix":               `d.role = 'panel-fix'`,
+	"design-reviewer":         `d.role = 'reviewer' AND d.dispatch_key ~ '^plan-review-[0-9]+$'`,
 	"operator-asked":          `d.role = 'implementer' AND d.dispatch_key LIKE 'operator-%'`,
 	"panel-reviewer":          `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-' AND d.dispatch_key !~ '^panel-0-(test-sanity\+call-efficiency|mutation\+failure-modes)'`,
 	"panel-sanity-efficiency": `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-test-sanity\+call-efficiency'`,

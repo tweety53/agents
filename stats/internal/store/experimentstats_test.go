@@ -313,6 +313,32 @@ func TestExperimentStatsReviewerAndVisual(t *testing.T) {
 	wantMeans(t, got, "vvReruns", f64(2), f64(0))
 }
 
+// TestExperimentStatsDesignReviewer pins the plan reviewer's role: a design-reviewer cell counts
+// only reviewer dispatches keyed plan-review-<n> -- never a planner's plan-<n> or a panel
+// reviewer's -- and reports the reviewer family's metrics.
+func TestExperimentStatsDesignReviewer(t *testing.T) {
+	fx := newStatsFixture(t)
+	id := fx.open(map[string][]string{"design-reviewer": {"opus/flow-low"}})
+
+	fx.change("d1", `{}`, fx.day(-1))
+	r := fx.dispatch("d1", "reviewer", "plan-review-1", "completed", "", fx.day(-1), 10, "")
+	fx.finding("d1", "R1", "minor", 0, &r)
+	fx.finding("d1", "R2", "minor", 0, &r)
+	pl := fx.dispatch("d1", "planner", "plan-1", "completed", "", fx.day(-1), 10, "")
+	fx.finding("d1", "PL1", "minor", 0, &pl)
+	pn := fx.dispatch("d1", "reviewer", "panel-0-primary", "completed", "", fx.day(-1), 10, "")
+	fx.finding("d1", "PN1", "minor", 0, &pn)
+
+	fx.change("d2", `{}`, fx.day(2))
+	fx.dispatch("d2", "reviewer", "plan-review-1", "completed", "", fx.day(2), 10, "")
+	fx.dispatch("d2", "planner", "plan-1", "completed", "", fx.day(2), 10, "")
+	fx.dispatch("d2", "reviewer", "panel-0-primary", "completed", "", fx.day(2), 10, "")
+
+	got := fx.stats(id)
+	wantMeans(t, got, "findingsPerDispatch", f64(2), f64(0))
+	wantMeans(t, got, "lateRoundFindings", f64(0), f64(0))
+}
+
 // TestExperimentStatsExtraBundleRoles pins that each always-on extra
 // bundle's pass-1 dispatches count under its own role alone, and that every
 // later-round dispatch -- one keyed test-sanity+call-efficiency included --

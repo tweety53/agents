@@ -115,6 +115,7 @@ roles table by them.
 
 | Role | Allowed pairs | Requires marker | Does |
 |---|---|---|---|
+| `design-reviewer` | `opus/flow-low` | — | Reviews the plan's three artifacts before implementation, from the documents alone. |
 | `gated-reviewer` | `opus/flow-medium` | — | Reviews risky tasks as they land, on big changes only. |
 | `gated-re-reviewer` | `opus/flow-low` | — | Re-checks a gated review's findings after their fix. |
 | `panel-reviewer` | `opus/flow-low`, `opus/flow-medium`, `fable/flow-low`, `fable/flow-medium` | — | Reviews the whole branch, first pass: the primary + principles bundle. |

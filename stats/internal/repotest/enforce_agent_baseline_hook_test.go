@@ -305,6 +305,38 @@ func TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookAdmitsPlanReviewKey pins the plan reviewer's key on the closed list:
+// a flow dispatch opening with plan-review-<n>, its row open, passes; one opening with
+// plan-review-x is denied for not naming its row.
+func TestEnforceAgentBaselineHookAdmitsPlanReviewKey(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		description string
+		deny        bool
+	}{
+		{"plan-review-1 plan review", false},
+		{"plan-review-x plan review", true},
+	} {
+		t.Run(c.description, func(t *testing.T) {
+			t.Parallel()
+			env, _ := openRowFixture(t, `[{"key":"plan-review-1","outcome":""}]`, false)
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, c.description, "review"), env...)
+			if rc != 0 {
+				t.Fatalf("rc=%d out=%s", rc, out)
+			}
+			if !c.deny {
+				if out != "" {
+					t.Fatalf("admit: out=%s", out)
+				}
+				return
+			}
+			if !strings.Contains(out, `"permissionDecision": "deny"`) || !strings.Contains(out, "opens with the row it records") {
+				t.Fatalf("deny: out=%s", out)
+			}
+		})
+	}
+}
+
 // TestEnforceAgentBaselineHookAsksForTheLoopKeyLine pins kan-1032's self-review: a flow dispatch
 // whose description opens with a loop key and whose prompt carries no `Key:` line is told to add
 // the line, never to begin a row under the run's change, and the store is never read for it.
