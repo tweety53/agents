@@ -26,6 +26,7 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"implementer":             {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "No-progress escalation"}}},
 		"panel-fix":               {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "No-progress escalation"}}},
 		"operator-asked":          {Base: []string{"opus/flow-medium", "opus/flow-high", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
+		"design-reviewer":         {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"gated-reviewer":          {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"gated-re-reviewer":       {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"panel-reviewer":          {Base: []string{"opus/flow-low", "opus/flow-medium", "fable/flow-low", "fable/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "Operator-approved high"}}},
