@@ -85,7 +85,16 @@ func (f *fakeExperiments) OpenExperiment(_ context.Context, e store.Experiment) 
 
 func (f *fakeExperiments) ListExperiments(_ context.Context, openOnly bool) ([]store.Experiment, error) {
 	f.openOnly = openOnly
-	return f.list, nil
+	if !openOnly {
+		return f.list, nil
+	}
+	var open []store.Experiment
+	for _, e := range f.list {
+		if e.Status == "open" {
+			open = append(open, e)
+		}
+	}
+	return open, nil
 }
 
 func (f *fakeExperiments) OpenOverrides(_ context.Context) (map[string][]string, error) {
@@ -360,12 +369,15 @@ func TestPromoteWritesBaseAndCloses(t *testing.T) {
 	fe := &fakeExperiments{
 		list: []store.Experiment{{ID: 4, Name: "fable-planner", Status: "open", Cells: map[string][]string{
 			"planner": {"fable/flow-planner-high"}, "main": {"opus@high"},
-		}}},
+		}}, {ID: 7, Name: "closed-one", Status: "closed", Cells: map[string][]string{"planner": {"opus/flow-planner-high"}}}},
 		pairs: map[string]store.RolePolicy{"planner": {Base: []string{"opus/flow-planner-low"}, Optin: []string{"fable/flow-planner-xhigh"}}},
 	}
 	ts := newExperimentsTestServer(t, fe)
 	if status, body := doJSON(t, http.MethodPost, ts.URL+"/api/v1/experiments/9/promote", ""); status != http.StatusNotFound {
 		t.Fatalf("promote unknown = %d %s, want 404", status, body)
+	}
+	if status, body := doJSON(t, http.MethodPost, ts.URL+"/api/v1/experiments/7/promote", ""); status != http.StatusNotFound || fe.closedID != 0 || fe.pairs["planner"].Base[0] != "opus/flow-planner-low" {
+		t.Fatalf("promote closed = %d %s (closed %d, planner %+v), want 404 writing nothing", status, body, fe.closedID, fe.pairs["planner"])
 	}
 	if status, body := doJSON(t, http.MethodPost, ts.URL+"/api/v1/experiments/4/promote", ""); status != http.StatusOK {
 		t.Fatalf("promote = %d %s", status, body)

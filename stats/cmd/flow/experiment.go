@@ -133,7 +133,7 @@ func runExperimentOpen(ctx context.Context, args []string, stdout, stderr io.Wri
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
-	e, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (client.Experiment, error) {
+	e, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (client.Experiment, error) {
 		return cl.OpenExperiment(ctx, *name, cells)
 	})
 	if err != nil {
@@ -151,7 +151,7 @@ func runExperimentList(ctx context.Context, args []string, stdout, stderr io.Wri
 	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
-	list, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
+	list, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
 		return cl.ListExperiments(ctx, *openOnly)
 	})
 	if err != nil {
@@ -179,7 +179,7 @@ func runExperimentOverrides(ctx context.Context, args []string, stdout, stderr i
 	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
-	o, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
+	o, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
 		return cl.ExperimentOverrides(ctx)
 	})
 	if err != nil {
@@ -225,7 +225,7 @@ func runExperimentStats(ctx context.Context, args []string, stdout, stderr io.Wr
 	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
 		return code
 	}
-	body, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
+	body, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
 		return cl.ExperimentStats(ctx, id)
 	})
 	if err != nil {
@@ -254,7 +254,7 @@ func runExperimentMainCheck(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
-	open, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
+	open, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
 		return cl.ListExperiments(ctx, true)
 	})
 	if err != nil {
@@ -290,7 +290,7 @@ func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Wr
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
-	_, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+	_, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
 		return struct{}{}, cl.CloseExperiment(ctx, id, *verdict, *summary)
 	})
 	if err != nil {
@@ -312,7 +312,7 @@ func runExperimentPromote(ctx context.Context, args []string, stdout, stderr io.
 	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
 		return code
 	}
-	_, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+	_, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
 		return struct{}{}, cl.PromoteExperiment(ctx, id, *summary)
 	})
 	if err != nil {
@@ -323,10 +323,10 @@ func runExperimentPromote(ctx context.Context, args []string, stdout, stderr io.
 	return 0
 }
 
-// withExperimentClient runs call against a client under f's address and
+// withFlowdClient runs call against a client under f's address and
 // timeout, recovering from any panic in the client path and reporting it as
 // client.ErrUnavailable -- getSettings' guarantee.
-func withExperimentClient[T any](ctx context.Context, f storeConnFlags, call func(context.Context, *client.Client) (T, error)) (out T, err error) {
+func withFlowdClient[T any](ctx context.Context, f storeConnFlags, call func(context.Context, *client.Client) (T, error)) (out T, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			var zero T

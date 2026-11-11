@@ -152,3 +152,25 @@ func TestGrantRevokeRoundTrip(t *testing.T) {
 		t.Fatalf("Grants of a FINISHED change = %v, want none", got)
 	}
 }
+
+// TestReplaceRolePairsRefusesOptinEqualToMarked: an opt-in pair equal to one
+// of the role's marked pairs refuses the whole write rather than vanishing.
+func TestReplaceRolePairsRefusesOptinEqualToMarked(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	before, err := st.RolePairs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = st.ReplaceRolePairs(ctx, "implementer", []string{"opus/flow-low"}, []string{"opus/flow-high"})
+	if !errors.Is(err, store.ErrInvalidPair) {
+		t.Fatalf("replace = %v, want ErrInvalidPair", err)
+	}
+	after, err := st.RolePairs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before["implementer"], after["implementer"]) {
+		t.Fatalf("refused write changed implementer: %+v -> %+v", before["implementer"], after["implementer"])
+	}
+}

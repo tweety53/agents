@@ -70,7 +70,7 @@ func runPolicy(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	case "get":
 		return runPolicyGet(ctx, f, stdout, stderr)
 	case "grants":
-		list, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]string, error) {
+		list, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]string, error) {
 			return cl.Grants(ctx, *change)
 		})
 		if err != nil {
@@ -85,7 +85,7 @@ func runPolicy(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return 0
 	default:
 		revoke := args[0] == "revoke"
-		_, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+		_, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
 			return struct{}{}, cl.Grant(ctx, *change, strings.Split(*roles, ","), revoke)
 		})
 		if err != nil {
@@ -102,7 +102,7 @@ func runPolicy(ctx context.Context, args []string, stdout, stderr io.Writer) int
 // neither it exits 1 naming both.
 func runPolicyGet(ctx context.Context, f storeConnFlags, stdout, stderr io.Writer) int {
 	cache := policyCachePath()
-	p, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
+	p, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
 		return cl.Policy(ctx)
 	})
 	if err == nil {

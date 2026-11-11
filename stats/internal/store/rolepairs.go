@@ -85,7 +85,8 @@ func (p RolePolicy) nonNil() RolePolicy {
 
 // ReplaceRolePairs replaces role's base and unmarked opt-in pairs whole, in
 // one transaction; its marked pairs are left as they are. A malformed pair,
-// or one named twice in a tier, refuses the whole write with ErrInvalidPair.
+// one named twice in a tier, or an opt-in pair equal to one of the role's
+// marked pairs, refuses the whole write with ErrInvalidPair.
 func (s *Store) ReplaceRolePairs(ctx context.Context, role string, base, optin []string) error {
 	if role == "" {
 		return fmt.Errorf("%w: empty role", ErrInvalidPair)
@@ -103,6 +104,18 @@ func (s *Store) ReplaceRolePairs(ctx context.Context, role string, base, optin [
 		}
 	}
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		// Serialize replaces of one role so two concurrent writes never merge.
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('role_pairs:' || $1))`, role); err != nil {
+			return fmt.Errorf("store: replace role pairs %q: %w", role, err)
+		}
+		var clash string
+		err := tx.QueryRow(ctx, `SELECT pair FROM role_pairs WHERE role = $1 AND tier = 'optin' AND marker <> '' AND pair = ANY($2) LIMIT 1`, role, optin).Scan(&clash)
+		if err == nil {
+			return fmt.Errorf("%w: role %q opt-in pair %q is already one of its marked pairs", ErrInvalidPair, role, clash)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("store: replace role pairs %q: %w", role, err)
+		}
 		if _, err := tx.Exec(ctx, `DELETE FROM role_pairs WHERE role = $1 AND marker = ''`, role); err != nil {
 			return fmt.Errorf("store: replace role pairs %q: %w", role, err)
 		}
@@ -110,7 +123,6 @@ func (s *Store) ReplaceRolePairs(ctx context.Context, role string, base, optin [
 			for i, p := range pairs {
 				if _, err := tx.Exec(ctx, `
 					INSERT INTO role_pairs (role, tier, pair, position) VALUES ($1, $2, $3, $4)
-					ON CONFLICT (role, tier, pair) DO NOTHING
 				`, role, tier, p, i); err != nil {
 					return fmt.Errorf("store: replace role pairs %q: %w", role, err)
 				}
