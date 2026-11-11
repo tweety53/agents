@@ -6,6 +6,9 @@ by. The reader is the dispatched reviewer.
 
 Categorize by actual severity — not everything is Critical, and a nitpick is never one.
 
+A lens with nothing to report says so in one line; a finding manufactured to fill a section is a
+defect of the review.
+
 - **Critical** — bugs, security issues, data-loss risks, broken functionality; a
   planned piece missing outright.
 - **Important** — architecture problems, poor error handling, test gaps; a task field

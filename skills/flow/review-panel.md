@@ -737,6 +737,9 @@ time; re-dispatch that one slot once, under `-key panel-<round>-<slot>-retry` â€
 re-dispatch of the same slot after another breach under `-retry-2`, `-retry-3` and so on, the
 count of its re-dispatches so far.
 
+A slot whose dispatch failed or returned no parsable report is `not run`, never zero findings, and
+its round is never clean.
+
 A second breach of the same slot is a prompt, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
 its recommended **Re-dispatch it again**; a third breach of the same slot is asked, under that
