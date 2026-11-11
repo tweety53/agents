@@ -39,6 +39,13 @@ request as the code. So run 1 runs its self-review pass on `spectre/<name>`, in 
 worktree, before any route pushes, and run 2 only cleans up. Since KAN-1073 no planning, archive
 or self-review artifact is committed at all.
 
+Reversed for `design.md` alone (KAN-1104, 2026-11-11): run 1 writes it out as
+`<project>/docs/designs/<name>.md` inside the implementation commit, because the chosen option, the
+rejected ones and why were surviving only in commit bodies and Jira. Rejected: a plan task that
+copies the file — stale the moment a fix round supersedes a decision; restoring the archive
+commit — two landings' worth of mechanics for one file; an opt-in `## design records` key —
+configurability one project asked for; a mutable status header — no guard would keep it true.
+
 Rejected, and removed: a second, throwaway landing worktree `<project>-worktrees/_landing-<name>`
 and a second branch `chore/archive-<name>`. Run 1's merge-and-push route positioned that worktree
 on `<base>` itself and merged there, which moved the local `<base>` ref under the main checkout:
