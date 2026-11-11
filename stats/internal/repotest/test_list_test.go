@@ -39,3 +39,24 @@ func TestTestListRunsTheGuardPackageOnce(t *testing.T) {
 		t.Errorf("## test Go line %q does not draw its packages from go list with /internal/guard filtered out", goLine)
 	}
 }
+
+// TestTestListRunsTheModTests pins the kan-1104 self-review's F12: the
+// `flow-task-list` mod's tests run in the `## test` list, on the harness's own
+// runner, as a suite of their own declaring the mod's directory as its inputs.
+func TestTestListRunsTheModTests(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), ".flow/project.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, section, ok := strings.Cut(string(b), "\n## test\n")
+	if !ok {
+		t.Fatal(".flow/project.md has no ## test section")
+	}
+	section, _, _ = strings.Cut(section, "\n```\n")
+	want := "# suite: flow-task-list\n" +
+		"# inputs: mods/flow-task-list/\n" +
+		"scripts/flow-guard unchanged mods/flow-task-list/ || claude plugin test mods/flow-task-list\n"
+	if !strings.Contains(section+"\n", want) {
+		t.Errorf("## test fence lacks the flow-task-list suite:\n%s", want)
+	}
+}

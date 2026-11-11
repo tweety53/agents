@@ -83,9 +83,12 @@ scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { cd sta
 # suite: stats-spa
 # inputs: stats/web/ stats/Makefile
 scripts/flow-guard unchanged stats/web/ stats/Makefile || { cd stats && make -s web-dist && cd web && npm test; }
+# suite: flow-task-list
+# inputs: mods/flow-task-list/
+scripts/flow-guard unchanged mods/flow-task-list/ || claude plugin test mods/flow-task-list
 ```
 
-The three suites run at once, so each Go suite runs on a third of the cores, rounded up —
+The four suites run at once, so each Go suite runs on a third of the cores, rounded up —
 `GOMAXPROCS` bounds the go command's build parallelism, its default `-p`, and each test binary's
 threads and `-parallel` — beside the SPA's two worker threads (`stats/web/vite.config.ts`), so no
 suite starves another (kan-1052 self-review, F5: a 235 ms vitest test passed its 5 s timeout while
@@ -93,7 +96,7 @@ both `-race` suites took every core).
 
 Each suite runs only when the branch changed, since its merge-base on `origin/main`, a path it
 reads (`scripts/flow-guard unchanged`): a change to `docs/` or `spectre/` alone runs no suite, and one to
-`stats/web/` alone runs only the SPA's. The full suite — the three suite commands without the
+`stats/web/` alone runs only the SPA's. The full suite — the four suite commands without the
 `flow-guard unchanged` guard — runs only when the operator asks for it, never as part of a `/flow` run.
 
 `stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
@@ -101,9 +104,11 @@ refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens ev
 `## lint` that compiles `internal/web` or needs `stats/web/node_modules`: it runs `make web-build`,
 `npm ci && npm run build` in `stats/web`, only when the build is absent.
 
-Only the SPA line declares `# inputs:` (`skills/flow-contracts/project-configuration.md`): the Go
+Only the SPA and `flow-task-list` lines declare `# inputs:` (`skills/flow-contracts/project-configuration.md`): the Go
 tests read files across the whole repository — `stats/internal/guard`'s tests
 open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always run.
+
+The `flow-task-list` suite runs the mod's tests on the harness's own runner: `claude plugin test <dir>` runs every `*.test.ts` and `*.test.tsx` under `<dir>` in an environment like the one the mod's hooks run in and supplies the `claude-code/testing` module they import, which nothing else in this repository resolves (kan-1104 self-review, F12).
 
 The `guard-tests` suite is `go test` over `stats/internal/guard/` — every guard's tests, a new one
 picked up with no edit here; the tests that exec a guard build `flow-guard` once per package run
@@ -116,7 +121,7 @@ missing (kan-903).
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
 canonical suites are `guard-tests` (`go test -race -count=1 ./internal/guard/...`), `stats-go`
-(`go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')`) and `stats-spa` (`stats/web` `npm test`); each row carries the
+(`go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')`), `stats-spa` (`stats/web` `npm test`) and `flow-task-list` (`claude plugin test mods/flow-task-list`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
 invocation is answered by those recorded figures, not by a number pasted here. Each command a `# suite:` line names is
