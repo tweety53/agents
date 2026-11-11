@@ -619,7 +619,7 @@ func TestCheckPlanShapeF11Reachability(t *testing.T) {
 // design.md sections; a plan without the header line is not checked.
 func TestPlanShapeDesignSections(t *testing.T) {
 	const header = "> **Design shape:** plan-mode\n\n"
-	full := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n"
+	full := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n\n## Non-goals\n\n## Risks\n"
 	check := func(t *testing.T, tasks, design string) guardResult {
 		t.Helper()
 		p := psFixture(t, tasks)
@@ -628,7 +628,7 @@ func TestPlanShapeDesignSections(t *testing.T) {
 		}
 		return psMutant(p, "")
 	}
-	t.Run("all four sections pass", func(t *testing.T) {
+	t.Run("all six sections pass", func(t *testing.T) {
 		if r := check(t, header+psTasks("a"), full); r.rc != 0 {
 			t.Errorf("rc=%d out=%s", r.rc, r.out)
 		}
@@ -930,4 +930,36 @@ func TestCheckPlanShapeF27(t *testing.T) {
 			t.Errorf("%s refused: rc=%d out=%q", name, r.rc, r.out)
 		}
 	}
+}
+
+// TestPlanShapeRequiresNonGoalsAndRisks pins F19's two later headings: a
+// plan-mode design missing ## Non-goals or ## Risks fails naming only the
+// missing one, and a plan with no Design shape line is not checked.
+func TestPlanShapeRequiresNonGoalsAndRisks(t *testing.T) {
+	const header = "> **Design shape:** plan-mode\n\n"
+	older := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n"
+	check := func(t *testing.T, tasks, design string) guardResult {
+		t.Helper()
+		p := psFixture(t, tasks)
+		writeFile(t, filepath.Dir(p)+"/design.md", design)
+		return psMutant(p, "")
+	}
+	for _, tc := range []struct{ missing, present string }{{"## Non-goals", "## Risks"}, {"## Risks", "## Non-goals"}} {
+		t.Run("missing "+tc.missing, func(t *testing.T) {
+			r := check(t, header+psTasks("a"), older+"\n"+tc.present+"\n")
+			if r.rc != 1 || !strings.Contains(r.out, "missing section "+tc.missing+" (Design shape: plan-mode)") || strings.Contains(r.out, tc.present) {
+				t.Errorf("rc=%d out=%s", r.rc, r.out)
+			}
+		})
+	}
+	t.Run("both present pass", func(t *testing.T) {
+		if r := check(t, header+psTasks("a"), older+"\n## Non-goals\n\n## Risks\n"); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
+	t.Run("no Design shape line is not checked", func(t *testing.T) {
+		if r := check(t, psTasks("a"), older); r.rc != 0 {
+			t.Errorf("rc=%d out=%s", r.rc, r.out)
+		}
+	})
 }
