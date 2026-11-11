@@ -131,13 +131,18 @@ action that is irreversible or outward-facing — **What still stops**
 under this one.
 
 **A run's size is never a stop.** Tokens spent, wall-clock time, context length, the number of
-rounds or tasks still ahead, a natural-looking checkpoint, and a list of open items that each carry
+rounds or tasks still ahead, a natural-looking checkpoint, the length of a phase file still to be
+read or the lines already loaded, and a list of open items that each carry
 a recommended option are never reasons to end a turn or to hand a status report to the operator
 mid-run (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A
 shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a separate change"
 (kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate
 still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap
-as open items, each of which had a recommended fix).
+as open items, each of which had a recommended fix). A phase file too long for one read is read in
+offset chunks and the run continues; ending the turn short of a handoff with no child out, no block
+and no operator-only question is this rule broken, never 're-run /flow to continue' (kan-1104: the
+parent stopped at STARTED with every task ticked and the panel, verify and integrate ahead, citing
+the size of the phase files left to read).
 
 **A failing tool, guard or environment is cured in the run, never handed off.** A guard's exit 2,
 a script that errors, a stack that will not start, a stale environment and an out-of-date tool are

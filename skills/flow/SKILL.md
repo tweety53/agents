@@ -175,3 +175,5 @@ An instruction given before **A. Resolve the change and write `STARTED`**
 - Never advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 (`skills/flow/cleanup.md`)
   and **The withdrawal route** (`skills/flow/withdrawal.md`) write `FINISHED`.
+- Never end a turn mid-run over a phase file's length; read it in offset chunks and continue
+  (**A run's size is never a stop.**, `skills/flow-contracts/pipeline.md`).
