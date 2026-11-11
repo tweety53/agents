@@ -1,6 +1,6 @@
 ---
 name: flow-experiment-close
-description: Analyse an open allowed-pairs experiment from its stored before/after stats, close it with a verdict and summary, and on a positive verdict start the /flow change that makes its winning cells permanent. Standalone, not a pipeline stage. Use for /flow-experiment-close.
+description: Analyse an open allowed-pairs experiment from its stored before/after stats, close it with a verdict and summary, and on a positive verdict make its cells permanent in flowd's role pairs. Standalone, not a pipeline stage. Use for /flow-experiment-close.
 allowed-tools: Bash(flow:*)
 license: MIT
 compatibility: Requires the flow CLI and a reachable flowd.
@@ -8,10 +8,10 @@ compatibility: Requires the flow CLI and a reachable flowd.
 
 # Close an allowed-pairs experiment
 
-An experiment overrides whole cells of the **Allowed pairs** table
-(`skills/flow-contracts/model-policy.md`) while it is open (KAN-1067). This skill judges one from
-the figures flowd stored, closes it, and — on a positive verdict — starts the change that writes
-its winning cells into the table, which stays the permanent source (decision `close-skill`).
+An experiment overrides roles' base pairs (**Allowed pairs**,
+`skills/flow-contracts/model-policy.md`) while it is open (KAN-1067). This skill judges one from
+the figures flowd stored, closes it, and — on a positive verdict — makes its cells those roles'
+base pairs in flowd, the pairs' one source (kan-1103, decision `promote-experiment`).
 
 ## 1. Pick the experiment
 
@@ -46,7 +46,8 @@ state that a combined result cannot attribute an effect to one cell.
 ## 4. Close it
 
 Write the summary — at most 8 lines: the verdict, the runs before/after, each decisive metric
-`before → after`, and the cells recommended — and run:
+`before → after`, and the cells recommended. On a positive verdict go to step 5 with it; otherwise
+run:
 
 ```bash
 flow experiment close <id> -verdict <positive|negative|inconclusive> -summary "$(cat <<'SUMMARY'
@@ -59,9 +60,20 @@ The quoted heredoc passes the summary verbatim, apostrophes included.
 
 ## 5. On a positive verdict, make the winners permanent
 
-Ask which cells to make permanent — the options are the supported cells, **all supported cells**
-recommended. Then invoke `/flow` with the change description:
+Ask whether to make the cells permanent — options **Make permanent** (recommended: the evidence
+supports them) and **Close without promoting**. On **Make permanent**, run:
 
-> Make experiment <id>'s winning cells permanent in the Allowed pairs table: <role>=<pairs>; …
+```bash
+flow experiment promote <id> -summary "$(cat <<'SUMMARY'
+<summary>
+SUMMARY
+)"
+```
 
-On `negative` or `inconclusive` the table is left as it is; report the closed experiment and stop.
+It writes every cell but `main` into that role's base pairs, keeping its opt-in and marked pairs,
+and closes the experiment `positive` with the summary — the Experiments view's **Make permanent**
+button does the same. Where only some cells are supported, promote and then edit the rest back by
+hand in the Experiments view. On **Close without promoting**, run step 4's
+`flow experiment close <id> -verdict positive …`.
+
+On `negative` or `inconclusive` the pairs are left as they are; report the closed experiment and stop.

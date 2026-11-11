@@ -906,13 +906,15 @@ export async function putChange(
 }
 
 
-/** One row of GET /api/v1/roles: the Allowed pairs table in force, a
- * leading `main` entry, and the open experiment cell replacing a role's
- * unmarked row (KAN-1067). */
+/** One row of GET /api/v1/roles: a leading `main` entry, then every role of
+ * the roles table with its pairs from flowd's store (kan-1103) -- base
+ * (always admitted), opt-in (on an operator grant), marked (on their marker
+ * line) -- and the open experiment cell replacing its base pairs (KAN-1067). */
 export interface RoleEntry {
   role: string;
-  pairs: string[];
-  marker: string;
+  base: string[];
+  optin: string[];
+  marked: { pair: string; marker: string }[];
   group: string;
   does: string;
   override?: { pairs: string[]; experimentId: number };
@@ -962,4 +964,26 @@ export function fetchExperiments(init?: RequestInit): Promise<ExperimentDTO[]> {
 /** GET /api/v1/experiments/{id}/stats */
 export function fetchExperimentStats(id: number, init?: RequestInit): Promise<ExperimentStats> {
   return getJSON<ExperimentStats>(`/api/v1/experiments/${id}/stats`, init);
+}
+
+/** A pair the store accepts: `<model>/<agent>[@<effort>]` (store.ValidPair). */
+export const PAIR_SHAPE = /^[a-z][a-z0-9.-]*\/[A-Za-z][A-Za-z0-9._-]*(@[a-z]+)?$/;
+
+async function sendJSON(method: string, path: string, body?: unknown): Promise<void> {
+  const res = await fetch(path, {
+    method,
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  await handleResponse<unknown>(res);
+}
+
+/** PUT /api/v1/policy/roles/{role} -- replaces the role's base and opt-in pairs whole. */
+export function putRolePairs(role: string, pairs: { base: string[]; optin: string[] }): Promise<void> {
+  return sendJSON("PUT", `/api/v1/policy/roles/${encodeURIComponent(role)}`, pairs);
+}
+
+/** POST /api/v1/experiments/{id}/promote -- "Make permanent": the cells become base pairs and the experiment closes positive. */
+export function promoteExperiment(id: number): Promise<void> {
+  return sendJSON("POST", `/api/v1/experiments/${id}/promote`);
 }

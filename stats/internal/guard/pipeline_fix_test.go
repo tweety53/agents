@@ -52,8 +52,7 @@ func pfNew(t *testing.T, rows string) pfFx {
 	}
 	writeFile(t, fx.states, `{"source":"store","complete":true,"records":[{"name":"pipeline-fix-old-5","state":"FINISHED"}]}`)
 	bin := tmp + "/bin"
-	writeExec(t, bin+"/flow", `#!/usr/bin/env bash
-printf '%s\n' "$*" >>`+fx.log+`
+	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n"+policyStub+`printf '%s\n' "$*" >>`+fx.log+`
 case "$1 $2" in
   "record dispatches") [ -f `+fx.rows+` ] && exec cat `+fx.rows+`; exit 1 ;;
   "state list") exec cat `+fx.states+` ;;

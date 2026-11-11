@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-
-	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
 // The contract below moved here from the header of the deleted
@@ -21,8 +19,8 @@ import (
 // or refuse it, and record it (hooks/enforce-loop-dispatch.py runs it on every
 // Agent/Task call whose prompt carries a `Key: pipeline-fix-<k>-…` or
 // `Key: self-review-…` line). The key's suffix names its role id of the
-// **Allowed pairs** table in skills/flow-contracts/model-policy.md — the one
-// place the pairs are read from.
+// **Allowed pairs** (skills/flow-contracts/model-policy.md); its pairs are
+// flowd's, read with `flow policy get` (policyTable).
 //
 // Refused (exit 1, one LOOP-DISPATCH-REFUSED line):
 //   KEY          the key's suffix is no loop suffix;
@@ -102,18 +100,19 @@ func lpRole(prefix, suffix string) string {
 
 // lpEscalation is the marker of the marked row of role that lists pair, ""
 // when no marked row does -- the no-progress escalation's pair.
-func lpEscalation(rows map[string][]modelpolicy.Row, role, pair string) string {
+func lpEscalation(rows map[string][]policyRow, role, pair string) string {
 	for _, r := range rows[role] {
-		if r.Marker != "" && slices.Contains(r.Pairs, pair) {
+		if r.Marker != "" && !r.Grant && slices.Contains(r.Pairs, pair) {
 			return r.Marker
 		}
 	}
 	return ""
 }
 
-// lpEscalatable is whether role has any marked row: a fix's, never a plan's or a review's.
-func lpEscalatable(rows map[string][]modelpolicy.Row, role string) bool {
-	return slices.ContainsFunc(rows[role], func(r modelpolicy.Row) bool { return r.Marker != "" })
+// lpEscalatable is whether role has any marked row needing no grant: a
+// fix's, never a plan's or a review's.
+func lpEscalatable(rows map[string][]policyRow, role string) bool {
+	return slices.ContainsFunc(rows[role], func(r policyRow) bool { return r.Marker != "" && !r.Grant })
 }
 
 // lpLoop names one loop's records: the change they are filed under, the
@@ -340,7 +339,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if !ok {
 		return 2
 	}
-	rows, err := policyTable(env, repo)
+	rows, err := policyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
 		return 2
@@ -377,7 +376,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	if err := policyAllows(rows, role, typ, model, "", ""); err != nil {
+	if err := policyAllows(rows, role, typ, model, "", "", false); err != nil {
 		// Off the unmarked rows: only the role's marked escalation row can admit it.
 		if lpEscalation(rows, role, policyPair(typ, model, "")) == "" {
 			return refuse("PAIR — " + err.Error())
@@ -385,7 +384,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		if !lpEscalated(env, git, lp.main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
 			return refuse(fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: flow-guard pipeline-fix escalate %s", key, typ, key))
 		}
-		if err := policyAllows(rows, role, typ, model, "", string(prompt)); err != nil {
+		if err := policyAllows(rows, role, typ, model, "", string(prompt), false); err != nil {
 			return refuse("PAIR — " + err.Error())
 		}
 	} else if suffix == "review-1" {

@@ -92,6 +92,7 @@ func runHook(t *testing.T, hook string, payload []byte, env ...string) (stdout, 
 	// FLOW_ADDR and FLOW_RECORDS_ADDR point at a dead port so no hook reads the live dev store: an
 	// inherited FLOW_RECORDS_ADDR let an open experiment's overrides flip a policy case (kan-1060).
 	cmd.Env = append(append(append(append(os.Environ(), "HOME="+t.TempDir()), goCacheEnv()...), "FLOW_GUARD_CACHE_DIR="+cache, "FLOW_HOOK_INCIDENT_CMD=true", "FLOW_HOOK_UNBOUNDED=1", "FLOW_ADDR=http://127.0.0.1:1", "FLOW_RECORDS_ADDR=http://127.0.0.1:1"), env...)
+	cmd.Env = append(cmd.Env, "PATH="+policyFlowDir(t)+string(os.PathListSeparator)+lastEnv(cmd.Env, "PATH"))
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err = cmd.Run()
@@ -175,4 +176,34 @@ func argAfter(argv []string, flag string) string {
 		}
 	}
 	return ""
+}
+
+// lastEnv is the value env's last k= entry sets, the one exec uses.
+func lastEnv(env []string, k string) string {
+	v := ""
+	for _, kv := range env {
+		if rest, ok := strings.CutPrefix(kv, k+"="); ok {
+			v = rest
+		}
+	}
+	return v
+}
+
+// policyFlowDir holds a `flow` that answers `policy get` with the seeded
+// pairs (internal/guard/testdata/policy.json) and hands every other call to
+// the next `flow` on PATH -- a test's own fake, or none: check-dispatch-pair
+// reads the pairs through `flow policy get` (kan-1103), and the dev store's
+// pairs, or a `flow` built before them, must never decide a hook case.
+func policyFlowDir(t *testing.T) string {
+	t.Helper()
+	fixture, err := filepath.Abs("../guard/testdata/policy.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	script := "#!/bin/sh\n[ \"$1 $2\" = \"policy get\" ] && exec cat '" + fixture + "'\nPATH=${PATH#*:} exec flow \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

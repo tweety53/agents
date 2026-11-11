@@ -1,75 +1,94 @@
 package guard
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
-
-	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
-// The real table, read from this checkout.
+// mpRepo is the agents-repo argument every check-dispatch-pair call takes.
 const mpRepo = "../../.."
+
+// testPolicy is `flow policy get` as 0061_role_pairs.sql seeds it: the
+// Allowed pairs table as it stood when the pairs moved into flowd
+// (testdata/policy.json, which internal/repotest's hook tests read too).
+var testPolicy = func() string {
+	// Located off this file, not the working directory: a test binary
+	// self-exec'd as a guard (runSibling) runs from wherever its caller is.
+	_, self, _, _ := runtime.Caller(0)
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(self), "testdata", "policy.json"))
+	if err != nil {
+		panic(err)
+	}
+	return strings.TrimSpace(string(b))
+}()
+
+// policyStub is the arm of a fake `flow` answering `policy get` with
+// testPolicy; every fake flow of this package's policy readers opens with it.
+var policyStub = "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '" + testPolicy + "'; exit 0; }\n"
 
 func TestPolicyAllowsMarkedRowOnlyWithMarker(t *testing.T) {
 	t.Parallel()
-	rows, err := policyTable(noFlowEnv(t), mpRepo)
+	rows, err := policyTable(noFlowEnv(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := policyAllows(rows, "panel-fix", "flow-high", "opus", "", "Role: panel-fix\nfix it"); err == nil {
+	if err := policyAllows(rows, "panel-fix", "flow-high", "opus", "", "Role: panel-fix\nfix it", false); err == nil {
 		t.Error("panel-fix on opus/flow-high admitted without the marker")
 	}
 	// The marker counts only as a whole line.
-	if err := policyAllows(rows, "panel-fix", "flow-high", "opus", "", "Role: panel-fix\nnot a No-progress escalation here"); err == nil {
+	if err := policyAllows(rows, "panel-fix", "flow-high", "opus", "", "Role: panel-fix\nnot a No-progress escalation here", false); err == nil {
 		t.Error("panel-fix on opus/flow-high admitted off a marker inside a line")
 	}
-	if err := policyAllows(rows, "panel-fix", "flow-high", "opus", "", "No-progress escalation\nRole: panel-fix"); err != nil {
+	if err := policyAllows(rows, "panel-fix", "flow-high", "opus", "", "No-progress escalation\nRole: panel-fix", false); err != nil {
 		t.Errorf("panel-fix on opus/flow-high with the marker refused: %v", err)
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "opus", "medium", ""); err != nil {
+	if err := policyAllows(rows, "explorer", "Explore", "opus", "medium", "", false); err != nil {
 		t.Errorf("explorer on opus/Explore@medium refused: %v", err)
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "opus", "high", ""); err == nil {
+	if err := policyAllows(rows, "explorer", "Explore", "opus", "high", "", false); err == nil {
 		t.Error("explorer on opus/Explore@high admitted")
 	}
-	if err := policyAllows(rows, "plan-designer", "Plan", "fable", "xhigh", ""); err != nil {
+	if err := policyAllows(rows, "plan-designer", "Plan", "fable", "xhigh", "", false); err != nil {
 		t.Errorf("plan-designer on fable/Plan@xhigh refused: %v", err)
 	}
-	if err := policyAllows(rows, "planner", "flow-planner-high", "fable", "", ""); err != nil {
+	if err := policyAllows(rows, "planner", "flow-planner-high", "fable", "", "", false); err != nil {
 		t.Errorf("planner on fable/flow-planner-high refused: %v", err)
 	}
-	if err := policyAllows(rows, "plan-designer", "Plan", "opus", "xhigh", ""); err != nil {
+	if err := policyAllows(rows, "plan-designer", "Plan", "opus", "xhigh", "", false); err != nil {
 		t.Errorf("plan-designer on opus/Plan@xhigh refused: %v", err)
 	}
-	if err := policyAllows(rows, "planner", "flow-planner-xhigh", "opus", "", ""); err != nil {
+	if err := policyAllows(rows, "planner", "flow-planner-xhigh", "opus", "", "", false); err != nil {
 		t.Errorf("planner on opus/flow-planner-xhigh refused: %v", err)
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "sonnet", "low", ""); err == nil {
+	if err := policyAllows(rows, "explorer", "Explore", "sonnet", "low", "", false); err == nil {
 		t.Error("explorer on sonnet/Explore@low admitted")
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "fable", "medium", ""); err == nil {
+	if err := policyAllows(rows, "explorer", "Explore", "fable", "medium", "", false); err == nil {
 		t.Error("explorer on fable/Explore@medium admitted")
 	}
-	if err := policyAllows(rows, "panel-reviewer", "flow-medium", "fable", "", ""); err != nil {
+	if err := policyAllows(rows, "panel-reviewer", "flow-medium", "fable", "", "", false); err != nil {
 		t.Errorf("panel-reviewer on fable/flow-medium refused: %v", err)
 	}
-	if err := policyAllows(rows, "panel-reviewer", "flow-low", "fable", "", ""); err != nil {
+	if err := policyAllows(rows, "panel-reviewer", "flow-low", "fable", "", "", false); err != nil {
 		t.Errorf("panel-reviewer on fable/flow-low refused: %v", err)
 	}
-	if err := policyAllows(rows, "panel-reviewer", "flow-high", "fable", "", ""); err == nil {
+	if err := policyAllows(rows, "panel-reviewer", "flow-high", "fable", "", "", false); err == nil {
 		t.Error("panel-reviewer on fable/flow-high admitted")
 	}
-	if err := policyAllows(rows, "implementer", "flow-medium", "fable", "", ""); err == nil {
+	if err := policyAllows(rows, "implementer", "flow-medium", "fable", "", "", false); err == nil {
 		t.Error("implementer on fable/flow-medium admitted")
 	}
 }
 
 func TestPolicyTableNamesNoBannedPair(t *testing.T) {
 	t.Parallel()
-	rows, err := policyTable(noFlowEnv(t), mpRepo)
+	rows, err := policyTable(noFlowEnv(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +110,7 @@ func TestPolicyTableNamesNoBannedPair(t *testing.T) {
 
 func TestCheckDispatchPairExitCodes(t *testing.T) {
 	t.Parallel()
-	env := envWith(t, nil)
+	env := noFlowEnv(t)
 	for _, c := range []struct {
 		name, prompt string
 		args         []string
@@ -103,7 +122,6 @@ func TestCheckDispatchPairExitCodes(t *testing.T) {
 		{"no role line", "Role panel-merger\n", []string{mpRepo, "flow-low", "sonnet"}, 1, "DISPATCH-PAIR-REFUSED: no `Role:` line"},
 		{"unknown role", "Role: nobody\n", []string{mpRepo, "flow-low", "sonnet"}, 1, "DISPATCH-PAIR-REFUSED: unknown role"},
 		{"wrong pair", "Role: panel-merger\n", []string{mpRepo, "flow-low", "opus"}, 1, "DISPATCH-PAIR-REFUSED: panel-merger"},
-		{"missing repo", "Role: panel-merger\n", []string{"/nonexistent", "flow-low", "sonnet"}, 2, ""},
 		{"usage", "", []string{mpRepo}, 2, ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -117,27 +135,83 @@ func TestCheckDispatchPairExitCodes(t *testing.T) {
 	}
 }
 
-// TestPolicyTableRefusesMalformedRows: a row naming two roles, no pair or two
-// markers exits the guard 2 -- never a row loaded fail-open. The parse cases
-// themselves are modelpolicy's TestParse.
-func TestPolicyTableRefusesMalformedRows(t *testing.T) {
+// TestCheckDispatchPairNoFlowdNoCacheRefuses: no answer from `flow policy
+// get` -- flowd down and no cache, an unparsable answer, or no flow at all --
+// exits the guard 2 naming flowd and the cache: never a dispatch admitted
+// off pairs nobody read.
+func TestCheckDispatchPairNoFlowdNoCacheRefuses(t *testing.T) {
 	t.Parallel()
-	for name, row := range map[string]string{
-		"two roles":   "| `a`, `b` | `opus/flow-low` | — | x |",
-		"no pair":     "| `a` | — | — | x |",
-		"two markers": "| `a` | `opus/flow-high` | `X`, `Y` | — |",
-		"two cells":   "| `a` | `opus/flow-low` |",
+	for name, env := range map[string]Env{
+		"flowd down, no cache": fakeFlowEnvBare(t, "echo 'flow: policy get: flowd unreachable (dial) and no usable cache at /x/policy-cache.json' >&2; exit 1"),
+		"not json":             fakeFlowEnvBare(t, "echo 'not json'"),
+		"no flow":              envWith(t, []string{"PATH=" + t.TempDir()}),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			repo := t.TempDir()
-			writeFile(t, repo+"/"+mpFile, "| Role | Allowed pairs | Requires marker | Does |\n|---|---|---|---|\n"+row+"\n")
-			e := envWith(t, nil)
-			e.Stdin = strings.NewReader("Role: a\n")
-			if r := runGuard("check-dispatch-pair", []string{repo, "flow-high", "opus"}, e); r.rc != 2 {
-				t.Fatalf("rc=%d out=%q, want 2", r.rc, r.out)
+			e := env
+			e.Stdin = strings.NewReader("Role: panel-merger\n")
+			r := runGuard("check-dispatch-pair", []string{mpRepo, "flow-low", "sonnet"}, e)
+			if r.rc != 2 || !strings.Contains(r.out, "flowd unreachable and no policy cache") {
+				t.Fatalf("rc=%d out=%q, want 2 naming flowd and the cache", r.rc, r.out)
 			}
 		})
+	}
+}
+
+// TestCheckDispatchPairOptinNeedsLineAndGrant: an opt-in pair is admitted
+// only with the whole line `Operator pair: <role>` and a live grant for the
+// change on the prompt's Worktree branch -- the line alone, the grant
+// alone, or a worktree off a spectre/ branch is refused.
+func TestCheckDispatchPairOptinNeedsLineAndGrant(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	for _, args := range [][]string{{"init", "-q", "-b", "spectre/kan-9"}, {"commit", "-q", "--allow-empty", "-m", "x"}} {
+		if out, err := exec.Command("git", append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	off := t.TempDir()
+	if out, err := exec.Command("git", "-C", off, "init", "-q", "-b", "main").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	policy := `{"planner":{"base":["opus/flow-planner-low"],"optin":["fable/flow-planner-xhigh"],"marked":[]}}`
+	stub := func(grants string) Env {
+		return fakeFlowEnvBare(t, `case "$1 $2" in
+"policy get") printf '%s\n' '`+policy+`' ;;
+"policy grants") [ "$4" = kan-9 ] && printf '%s\n' '`+grants+`' || echo '[]' ;;
+*) exit 1 ;;
+esac
+`)
+	}
+	for _, c := range []struct {
+		name, grants, prompt string
+		rc                   int
+	}{
+		{"line and grant", `["planner"]`, "Role: planner\nWorktree: " + wt + "\nOperator pair: planner\n", 0},
+		{"no line", `["planner"]`, "Role: planner\nWorktree: " + wt + "\n", 1},
+		{"line inside a line", `["planner"]`, "Role: planner\nWorktree: " + wt + "\nnot Operator pair: planner\n", 1},
+		{"no grant", `[]`, "Role: planner\nWorktree: " + wt + "\nOperator pair: planner\n", 1},
+		{"grant for another role", `["plan-designer"]`, "Role: planner\nWorktree: " + wt + "\nOperator pair: planner\n", 1},
+		{"off a spectre branch", `["planner"]`, "Role: planner\nWorktree: " + off + "\nOperator pair: planner\n", 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			e := stub(c.grants)
+			e.Stdin = strings.NewReader(c.prompt)
+			r := runGuard("check-dispatch-pair", []string{mpRepo, "flow-planner-xhigh", "fable"}, e)
+			if r.rc != c.rc {
+				t.Fatalf("rc=%d out=%q, want %d", r.rc, r.out, c.rc)
+			}
+			if c.rc == 1 && !strings.Contains(r.stdout, "Operator pair: planner` and an operator grant") {
+				t.Fatalf("refusal %q does not name the line and the grant", r.stdout)
+			}
+		})
+	}
+	// The base pair needs neither.
+	e := stub(`[]`)
+	e.Stdin = strings.NewReader("Role: planner\n")
+	if r := runGuard("check-dispatch-pair", []string{mpRepo, "flow-planner-low", "opus"}, e); r.rc != 0 {
+		t.Fatalf("base pair: rc=%d out=%q, want 0", r.rc, r.out)
 	}
 }
 
@@ -146,7 +220,7 @@ func TestPolicyTableRefusesMalformedRows(t *testing.T) {
 func TestCheckDispatchPairRoleOnly(t *testing.T) {
 	t.Parallel()
 	for prompt, rc := range map[string]int{"Role: visual-verifier\n": 0, "Role: nobody\n": 1, "verify\n": 1} {
-		e := envWith(t, nil)
+		e := noFlowEnv(t)
 		e.Stdin = strings.NewReader(prompt)
 		if r := runGuard("check-dispatch-pair", []string{mpRepo, "--role-only"}, e); r.rc != rc {
 			t.Errorf("%q: rc=%d out=%q, want %d", prompt, r.rc, r.out, rc)
@@ -154,14 +228,29 @@ func TestCheckDispatchPairRoleOnly(t *testing.T) {
 	}
 }
 
-// noFlowEnv is an env whose PATH holds no `flow`: the table alone.
+// noFlowEnv is an env whose only `flow` answers `policy get` with
+// testPolicy and fails everything else: the seeded pairs, no experiment.
 func noFlowEnv(t *testing.T) Env {
 	t.Helper()
-	return envWith(t, []string{"PATH=" + t.TempDir()})
+	return fakeFlowEnv(t, "exit 1\n")
 }
 
-// fakeFlowEnv is an env whose PATH holds only a `flow` running script.
+// fakeFlowEnv is an env whose PATH holds only a `flow` answering `policy
+// get` with testPolicy and running script for everything else.
 func fakeFlowEnv(t *testing.T, script string, over ...string) Env {
+	t.Helper()
+	return fakeFlowEnvBare(t, policyStub+script, over...)
+}
+
+// policyFlowEnv is an env whose only `flow` answers `policy get` with
+// policy and fails everything else.
+func policyFlowEnv(t *testing.T, policy string, over ...string) Env {
+	t.Helper()
+	return fakeFlowEnvBare(t, "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '"+policy+"'; exit 0; }\nexit 1\n", over...)
+}
+
+// fakeFlowEnvBare is an env whose PATH holds only a `flow` running script.
+func fakeFlowEnvBare(t *testing.T, script string, over ...string) Env {
 	t.Helper()
 	bin := t.TempDir()
 	writeExec(t, bin+"/flow", "#!/bin/sh\n"+script)
@@ -179,21 +268,21 @@ printf '%s\n' '{"plan-designer":["opus/Plan@max"],"main":["opus@medium"],"nobody
 // at all, leaves the table alone.
 func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 	t.Parallel()
-	alone, err := policyTable(noFlowEnv(t), mpRepo)
+	alone, err := policyTable(noFlowEnv(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := policyTable(fakeFlowEnv(t, overridesFlow), mpRepo)
+	got, err := policyTable(fakeFlowEnv(t, overridesFlow))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string][]modelpolicy.Row{}
+	want := map[string][]policyRow{}
 	for role, rs := range alone {
 		want[role] = slices.Clone(rs)
 	}
 	want["plan-designer"][0].Pairs = []string{"opus/Plan@max"}
 	// A planning row keeps its own pairs on an appended `CORE change` row (kan-1102 self-review, F4).
-	want["plan-designer"] = append(want["plan-designer"], modelpolicy.Row{Pairs: alone["plan-designer"][0].Pairs, Marker: "CORE change"})
+	want["plan-designer"] = append(want["plan-designer"], policyRow{Pairs: alone["plan-designer"][0].Pairs, Marker: "CORE change"})
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("overlaid table differs beyond plan-designer's unmarked row:\n got %v\nwant %v", got, want)
 	}
@@ -201,7 +290,7 @@ func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 		t.Fatal("main entered the guard table")
 	}
 
-	marked, err := policyTable(fakeFlowEnv(t, `printf '%s\n' '{"panel-fix":["opus/flow-max"]}'`), mpRepo)
+	marked, err := policyTable(fakeFlowEnv(t, `printf '%s\n' '{"panel-fix":["opus/flow-max"]}'`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +305,7 @@ func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 		"not json": fakeFlowEnv(t, "echo 'not json'"),
 		"no flow":  noFlowEnv(t),
 	} {
-		rows, err := policyTable(env, mpRepo)
+		rows, err := policyTable(env)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -281,17 +370,17 @@ func TestCorePairsSurviveOverride(t *testing.T) {
 	env := fakeFlowEnv(t, `[ "$1 $2" = "experiment overrides" ] || exit 9
 printf '%s\n' '{"explorer":["sonnet/Explore@low"],"plan-designer":["opus/Plan@medium"]}'
 `, "FLOW_GUARD_REPO_ROOT="+root)
-	rows, err := policyTable(env, mpRepo)
+	rows, err := policyTable(env)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "opus", "low", "Role: explorer\nCORE change\n"); err != nil {
+	if err := policyAllows(rows, "explorer", "Explore", "opus", "low", "Role: explorer\nCORE change\n", false); err != nil {
 		t.Errorf("opus/Explore@low with the CORE change line refused: %v", err)
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "opus", "low", "Role: explorer\n"); err == nil {
+	if err := policyAllows(rows, "explorer", "Explore", "opus", "low", "Role: explorer\n", false); err == nil {
 		t.Error("opus/Explore@low admitted without the CORE change line: the experiment silently lifted")
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "sonnet", "low", "Role: explorer\n"); err != nil {
+	if err := policyAllows(rows, "explorer", "Explore", "sonnet", "low", "Role: explorer\n", false); err != nil {
 		t.Errorf("the override's sonnet/Explore@low refused: %v", err)
 	}
 	for role, want := range map[string]string{"explorer": "opus low\n", "plan-designer": "fable xhigh\n"} {

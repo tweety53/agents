@@ -24,22 +24,21 @@ import (
 // (kan-1102 self-review, F4); exit 2 when no row carries one. The planner row's pairs are
 // `<model>/flow-planner-<effort>`, printed as `<model> <effort>`.
 //
-// Prints one line, `<model> <effort>` — the first pair of the <role> row,
-// `explorer` for an Explore dispatch and `plan-designer` for a Plan one, of
-// **Allowed pairs** (skills/flow-contracts/model-policy.md), an open
-// experiment's override of that row applied. <seed> is the change name — in
+// Prints one line, `<model> <effort>` — the first base pair of <role>,
+// `explorer` for an Explore dispatch and `plan-designer` for a Plan one, read
+// with `flow policy get`, an open experiment's override of it applied. <seed> is the change name — in
 // /flow-plan before capture, the session token; <n> counts the session's
 // planning dispatches from 1. Exit 0 on the printed line, exit 2 on a usage
 // error (<n> not a positive integer, a role other than the two, or an
-// argument count other than 3) or an unreadable table.
+// argument count other than 3) or no pairs to read.
 //
 // The logic is the Go port in stats/internal/guard/planagentpair.go.
 
 // planAgentPair is `flow-guard plan-agent-pair`: the model and effort of a
 // planning session's <n>th Explore or Plan dispatch -- the first pair of the
-// <role> row, explorer or plan-designer, of the allowed-pairs table
-// (skills/flow-contracts/model-policy.md), read from FLOW_GUARD_REPO_ROOT, which scripts/flow-guard sets, with an open experiment's override of that row applied
-// (policyTable), as the agent-baseline hook admits it.
+// <role>'s base pairs, explorer or plan-designer, read with `flow policy
+// get`, with an open experiment's override of them applied (policyTable), as
+// the agent-baseline hook admits it.
 // <seed> is the change name, or the session token in /flow-plan before
 // capture; <n> counts the session's planning dispatches from 1. Exit 0 on the
 // printed line, exit 2 on a usage error or an unreadable table.
@@ -66,7 +65,7 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "plan-agent-pair: <n> must be a positive integer, got %q\n", args[1])
 		return 2
 	}
-	rows, err := policyTable(env, env.Getenv("FLOW_GUARD_REPO_ROOT"))
+	rows, err := policyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "plan-agent-pair: %v\n", err)
 		return 2

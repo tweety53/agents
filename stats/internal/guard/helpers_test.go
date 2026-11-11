@@ -72,6 +72,21 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	execFixtures.dir, execFixtures.masters = dir, map[string]string{}
+	// Every allowed-pairs reader runs `flow policy get` (policyTable). A
+	// real `flow` would answer from the dev store, or its cache; a `flow`
+	// first on PATH answering testPolicy -- the seeded pairs -- and handing
+	// every other call to the next `flow` on PATH keeps every test on one
+	// known table. A test wanting another answer puts its own fake `flow`
+	// on PATH ahead of it.
+	policyBin := filepath.Join(dir, "policy-bin")
+	if err := os.MkdirAll(policyBin, 0o755); err == nil {
+		err = os.WriteFile(filepath.Join(policyBin, "flow"), []byte("#!/bin/sh\n"+policyStub+"PATH=${PATH#*:} exec flow \"$@\"\n"), 0o755)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+	}
+	os.Setenv("PATH", policyBin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	// Every sibling a guard under test runs is the flow-guard these sources
 	// build, as in production; TestRunSiblingSelfExec covers the default.
 	bin, err := guardCacheBuilt()

@@ -442,6 +442,18 @@ func (c *Client) CloseExperiment(ctx context.Context, id int64, verdict, summary
 	return experimentAnswer(body, status, http.StatusOK)
 }
 
+// PromoteExperiment makes open experiment id permanent via POST
+// /api/v1/experiments/{id}/promote: its cells become those roles' base
+// pairs and it closes positive with summary ("" for a generated one).
+func (c *Client) PromoteExperiment(ctx context.Context, id int64, summary string) error {
+	body, status, err := c.sendJSON(ctx, http.MethodPost, fmt.Sprintf("%s/%d/promote", c.experimentsURL(), id),
+		map[string]string{"summary": summary})
+	if err != nil {
+		return err
+	}
+	return experimentAnswer(body, status, http.StatusOK)
+}
+
 // ExperimentStats fetches experiment id's before/after figures via GET
 // /api/v1/experiments/{id}/stats, returned as the daemon's JSON: its one
 // reader prints it whole. An unknown id is ErrExperimentRejected.

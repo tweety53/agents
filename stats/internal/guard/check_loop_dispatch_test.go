@@ -41,8 +41,7 @@ func lpNew(t *testing.T, rows string, branches ...string) lpFx {
 		writeFile(t, fx.rows, rows)
 	}
 	bin := tmp + "/bin"
-	writeExec(t, bin+"/flow", `#!/usr/bin/env bash
-printf '%s\n' "$*" >>`+fx.log+`
+	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n"+policyStub+`printf '%s\n' "$*" >>`+fx.log+`
 case "$1 $2" in
   "record dispatches") [ -f `+fx.rows+` ] && exec cat `+fx.rows+`; exit 1 ;;
   "record dispatch") echo "recorded: dispatch 1" ;;
@@ -81,7 +80,7 @@ const (
 // every suffix lands on a role the allowed-pairs table carries.
 func TestLoopSuffixRoles(t *testing.T) {
 	t.Parallel()
-	rows, err := policyTable(noFlowEnv(t), "../../..")
+	rows, err := policyTable(noFlowEnv(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,21 +104,27 @@ func TestLoopSuffixRoles(t *testing.T) {
 	}
 }
 
-// TestLoopDispatchReadsPolicyTable: the pair comes from the allowed-pairs
-// table, never a table of the loop's own.
+// TestLoopDispatchReadsPolicyTable: the pair comes from the role's pairs in
+// flowd (`flow policy get`), never a table of the loop's own.
 func TestLoopDispatchReadsPolicyTable(t *testing.T) {
 	t.Parallel()
 	rows := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 fix")
 	fx := lpNew(t, rows, lpBranch)
-	b, err := os.ReadFile(fx.repo + "/" + mpFile)
-	if err != nil {
-		t.Fatal(err)
+	policy := strings.Replace(testPolicy, `"pipeline-fix-review-r":{"base":["sonnet/flow-low"]`, `"pipeline-fix-review-r":{"base":["opus/flow-low"]`, 1)
+	if policy == testPolicy {
+		t.Fatal("the seeded pairs carry no pipeline-fix-review-r base to rewrite")
 	}
-	table := strings.Replace(string(b), "| `pipeline-fix-review-r` | `sonnet/flow-low` | — |", "| `pipeline-fix-review-r` | `opus/flow-low` | — |", 1)
-	if table == string(b) {
-		t.Fatal("the real table carries no pipeline-fix-review-r row to rewrite")
+	// A `flow` ahead of the fixture's own answers `policy get` with the
+	// rewritten pairs and hands every other call to the fixture's.
+	wrap := t.TempDir()
+	writeExec(t, wrap+"/flow", "#!/bin/sh\n[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '"+policy+"'; exit 0; }\nexec "+filepath.Dir(fx.repo)+"/bin/flow \"$@\"\n")
+	inner := fx.env.Getenv
+	fx.env.Getenv = func(k string) string {
+		if k == "PATH" {
+			return wrap + ":" + inner(k)
+		}
+		return inner(k)
 	}
-	writeFile(t, fx.repo+"/"+mpFile, table)
 	if rc, out := fx.run(t, "pipeline-fix-6-review-2", "flow-low", "sonnet"); rc != 1 || !strings.Contains(out, "PAIR —") {
 		t.Fatalf("sonnet/flow-low off the fixture row: rc %d: %s", rc, out)
 	}
@@ -240,9 +245,9 @@ func TestLoopDispatchPlannerTypes(t *testing.T) {
 func TestCheckLoopDispatchUnreadableTable(t *testing.T) {
 	t.Parallel()
 	fx := lpNew(t, `[]`, lpBranch)
-	if err := os.Remove(fx.repo + "/" + mpFile); err != nil {
-		t.Fatal(err)
-	}
+	bin := t.TempDir()
+	writeExec(t, bin+"/flow", "#!/bin/sh\nexit 1\n")
+	fx.env.Getenv = pathEnv(bin)
 	if rc, out := fx.run(t, "pipeline-fix-6-plan", "flow-medium", "opus"); rc != 2 {
 		t.Fatalf("rc %d, want 2: %s", rc, out)
 	}

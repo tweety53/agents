@@ -22,21 +22,25 @@ const experimentUsage = `usage: flow experiment open      [-addr url] [-timeout 
        flow experiment stats <id> [-addr url] [-timeout dur]
        flow experiment main-check [-addr url] [-timeout dur] -model <model> -effort <effort>
        flow experiment close <id> [-addr url] [-timeout dur] -verdict positive|negative|inconclusive [-summary text]
+       flow experiment promote <id> [-addr url] [-timeout dur] [-summary text]
 
-An allowed-pairs experiment (KAN-1067) replaces whole unmarked rows of
-skills/flow-contracts/model-policy.md's Allowed pairs table while it is open.
+An allowed-pairs experiment (KAN-1067) replaces whole roles' base pairs
+(flow policy get) while it is open.
 -cell repeats, one role each; role main takes one <model>@<effort>.
 
 open prints "experiment <id> open". list prints one line per experiment,
 newest first: <id> <status> <started yyyy-mm-dd> <name> <role>=<pairs>;...
 overrides prints every open experiment's cells as one compact JSON object,
-{} when none is open -- the allowed-pairs readers overlay it on the table.
+{} when none is open -- the allowed-pairs readers overlay it on the pairs.
 stats prints the experiment's before/after figures per metric as the
 daemon's JSON: runs per window, excluded main-cell mismatches, and each
 metric's before and after means with its weekly series.
 main-check prints one warning line when an open experiment's main cell names
 another <model>@<effort> than this session's; it never blocks a run, so it
 exits 0 on a match, with no main cell open and with the store unreachable.
+promote makes an open experiment permanent: each cell but main becomes that
+role's base pairs (flow policy get) and the experiment closes positive with
+-summary, or a generated one; it prints "experiment <id> promoted".
 
 Exit codes: 0 done; 1 the store refused (a role an open experiment holds,
 a malformed experiment, an unknown or closed id) or could not be reached;
@@ -57,6 +61,8 @@ func runExperiment(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return runExperimentOverrides(ctx, args[1:], stdout, stderr)
 	case "close":
 		return runExperimentClose(ctx, args[1:], stdout, stderr)
+	case "promote":
+		return runExperimentPromote(ctx, args[1:], stdout, stderr)
 	case "stats":
 		return runExperimentStats(ctx, args[1:], stdout, stderr)
 	case "main-check":
@@ -127,7 +133,7 @@ func runExperimentOpen(ctx context.Context, args []string, stdout, stderr io.Wri
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
-	e, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (client.Experiment, error) {
+	e, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (client.Experiment, error) {
 		return cl.OpenExperiment(ctx, *name, cells)
 	})
 	if err != nil {
@@ -145,7 +151,7 @@ func runExperimentList(ctx context.Context, args []string, stdout, stderr io.Wri
 	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
-	list, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
+	list, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
 		return cl.ListExperiments(ctx, *openOnly)
 	})
 	if err != nil {
@@ -173,7 +179,7 @@ func runExperimentOverrides(ctx context.Context, args []string, stdout, stderr i
 	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
-	o, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
+	o, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
 		return cl.ExperimentOverrides(ctx)
 	})
 	if err != nil {
@@ -219,7 +225,7 @@ func runExperimentStats(ctx context.Context, args []string, stdout, stderr io.Wr
 	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
 		return code
 	}
-	body, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
+	body, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
 		return cl.ExperimentStats(ctx, id)
 	})
 	if err != nil {
@@ -248,11 +254,11 @@ func runExperimentMainCheck(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
-	open, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
+	open, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
 		return cl.ListExperiments(ctx, true)
 	})
 	if err != nil {
-		return 0 // unreachable store: the table's own pairs apply, nothing to warn about
+		return 0 // unreachable store: no experiment to compare with, nothing to warn about
 	}
 	for _, e := range open {
 		cell := e.Cells["main"]
@@ -284,7 +290,7 @@ func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Wr
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
-	_, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+	_, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
 		return struct{}{}, cl.CloseExperiment(ctx, id, *verdict, *summary)
 	})
 	if err != nil {
@@ -295,10 +301,32 @@ func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Wr
 	return 0
 }
 
-// withExperimentClient runs call against a client under f's address and
+func runExperimentPromote(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	id, ok := experimentIDArg("promote", args, stderr)
+	if !ok {
+		return 2
+	}
+	var f storeConnFlags
+	fset := newExperimentFlagSet("flow experiment promote", &f)
+	summary := fset.String("summary", "", "the closing summary; a generated one when empty")
+	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
+		return code
+	}
+	_, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+		return struct{}{}, cl.PromoteExperiment(ctx, id, *summary)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: experiment promote: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "experiment %d promoted\n", id)
+	return 0
+}
+
+// withFlowdClient runs call against a client under f's address and
 // timeout, recovering from any panic in the client path and reporting it as
 // client.ErrUnavailable -- getSettings' guarantee.
-func withExperimentClient[T any](ctx context.Context, f storeConnFlags, call func(context.Context, *client.Client) (T, error)) (out T, err error) {
+func withFlowdClient[T any](ctx context.Context, f storeConnFlags, call func(context.Context, *client.Client) (T, error)) (out T, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			var zero T

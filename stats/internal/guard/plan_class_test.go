@@ -651,7 +651,7 @@ func pcRoot(t *testing.T) string {
 // pcExtraPairs is the real table's pairs for one extra bundle's role.
 func pcExtraPairs(t *testing.T, role string) []string {
 	t.Helper()
-	rows, err := policyTable(noFlowEnv(t), "../../..")
+	rows, err := policyTable(noFlowEnv(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,35 +667,18 @@ func TestPlanClassExtraFollowsPolicy(t *testing.T) {
 		t.Errorf("pcExtra = %q, want %q", got, want)
 	}
 	root := pcRoot(t)
-	b, err := os.ReadFile(root + "/" + mpFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	table := string(b)
-	for _, role := range []string{"panel-sanity-efficiency", "panel-mutation-failure"} {
-		next := strings.Replace(table, "| `"+role+"` | `opus/flow-low`, `sonnet/flow-low` |", "| `"+role+"` | `opus/flow-low` |", 1)
-		if next == table {
-			t.Fatalf("the real table carries no %s row to rewrite", role)
-		}
-		table = next
-	}
-	writeFile(t, root+"/"+mpFile, table)
-	r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + root}))
+	tasks := pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n")
+	opusOnly := `{"base":["opus/flow-low"],"optin":[],"marked":[]}`
+	env := policyFlowEnv(t, `{"panel-sanity-efficiency":`+opusOnly+`,"panel-mutation-failure":`+opusOnly+`}`, "FLOW_GUARD_REPO_ROOT="+root)
+	r := runGuard("plan-class", []string{tasks, "1"}, env)
 	if r.rc != 0 || strings.Contains(r.stdout, "sonnet low") || !strings.Contains(r.stdout, "· opus low\n") {
 		t.Fatalf("rc=%d out=%q, want both extra lines on opus low", r.rc, r.out)
 	}
-	if r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + t.TempDir()})); r.rc != 2 {
-		t.Fatalf("rc=%d out=%q, want 2 with no table", r.rc, r.out)
+	if r := runGuard("plan-class", []string{tasks, "1"}, fakeFlowEnvBare(t, "exit 1\n", "FLOW_GUARD_REPO_ROOT="+root)); r.rc != 2 {
+		t.Fatalf("rc=%d out=%q, want 2 with no pairs", r.rc, r.out)
 	}
-	var kept []string
-	for _, line := range strings.Split(string(b), "\n") {
-		if !strings.HasPrefix(line, "| `panel-mutation-failure` |") {
-			kept = append(kept, line)
-		}
-	}
-	noMF := pcRoot(t)
-	writeFile(t, noMF+"/"+mpFile, strings.Join(kept, "\n"))
-	if r := runGuard("plan-class", []string{pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n"), "1"}, envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + noMF})); r.rc != 2 || !strings.Contains(r.out, "panel-mutation-failure") {
+	noMF := policyFlowEnv(t, `{"panel-sanity-efficiency":`+opusOnly+`}`, "FLOW_GUARD_REPO_ROOT="+root)
+	if r := runGuard("plan-class", []string{tasks, "1"}, noMF); r.rc != 2 || !strings.Contains(r.out, "panel-mutation-failure") {
 		t.Fatalf("rc=%d out=%q, want 2 naming panel-mutation-failure", r.rc, r.out)
 	}
 }
