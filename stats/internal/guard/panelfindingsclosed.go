@@ -576,9 +576,9 @@ var (
 )
 
 // cfcRegressionRE reads a fix report's `regression-test: F<n> — <path> — …`
-// line: the finding's ref, the path field (`none` in the none form) and the
+// line, bare or as a `- `/`* ` list item: the finding's ref, the path field (`none` in the none form) and the
 // rest, which the none form needs non-empty as its reason.
-var cfcRegressionRE = regexp.MustCompile(`(?m)^regression-test: (\S+) — ([^—\n]+)(?:— ([^\n]*))?`)
+var cfcRegressionRE = regexp.MustCompile(`(?m)^(?:[-*] )?regression-test: (\S+) — ([^—\n]+)(?:— ([^\n]*))?`)
 
 // cfcParse decodes `flow record findings`' array. It refuses, where the
 // bash guard's jq failed: a non-array, a non-object row, a non-string

@@ -633,6 +633,8 @@ func TestCheckPanelFindingsClosedFixedNeedsARegressionTest(t *testing.T) {
 		{label: "a committed test exits 0", json: important, report: "regression-test: F1 — pkg/foo_test.go — TestFoo\n", want: 0},
 		{label: "a test tracked only in a recorded worktree exits 0", json: important, report: "regression-test: F1 — peer_test.go — TestPeer\n", state: `{"worktrees":{"` + peer + `":{}}}`, want: 0},
 		{label: "an unreadable state record while the path is untracked here exits 2", json: important, report: "regression-test: F1 — peer_test.go — TestPeer\n", stateRC: 1, want: 2},
+		{label: "a bulleted line exits 0", json: important, report: "- regression-test: F1 — pkg/foo_test.go — TestFoo\n", want: 0},
+		{label: "a starred line exits 0", json: important, report: "* regression-test: F1 — pkg/foo_test.go — TestFoo\n", want: 0},
 		{label: "the none form exits 0", json: important, report: "regression-test: F1 — none — prose-only fix\n", want: 0},
 		{label: "the none form with no reason exits 1", json: important, report: "regression-test: F1 — none\n", want: 1, needle: "F1 (none form with no reason)"},
 		{label: "a fixed Minor needs no line", json: minor, want: 0},
