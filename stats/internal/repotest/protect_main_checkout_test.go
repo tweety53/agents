@@ -292,7 +292,8 @@ func TestProtectMainCheckout(t *testing.T) {
 	setRC("1")
 	f.check("77 loop push the checker refuses", func(t *testing.T) {
 		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {LWT} push origin pipeline-fix-x-6:main`)})
-		if !denyRe.MatchString(out) || !strings.Contains(out, "LOOP-LANDING-REFUSED: REVIEW") {
+		if !denyRe.MatchString(out) || !strings.Contains(out, "LOOP-LANDING-REFUSED: REVIEW") ||
+			!strings.Contains(out, "pipeline-fix land <worktree> <important|minor> once") {
 			t.Errorf("%s", out)
 		}
 	})
@@ -304,7 +305,12 @@ func TestProtectMainCheckout(t *testing.T) {
 		}
 	})
 	setRC("1")
-	f.bash("79 self-review HEAD:main push the checker refuses", "deny", "{ROOT}", `git -C {ROOT}/main-worktrees/self-review-x push origin HEAD:main`)
+	f.check("79 self-review HEAD:main push the checker refuses", func(t *testing.T) {
+		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {ROOT}/main-worktrees/self-review-x push origin HEAD:main`)})
+		if !denyRe.MatchString(out) || !strings.Contains(out, "pipeline-fix land <worktree> once") {
+			t.Errorf("%s", out)
+		}
+	})
 	f.bash("80 loop push with no runnable checker", "deny", "{ROOT}", `git -C {LWT} push origin pipeline-fix-x-6:main`, "LOOP_LANDING_CHECK="+root+"/missing")
 	_ = os.Remove(loopLog)
 	f.bash("81 a non-loop landing", "allow", "{ROOT}", `git -C {WT} push origin change:main`)
@@ -344,6 +350,12 @@ func TestProtectMainCheckout(t *testing.T) {
 		"git -C {WT} push origin `git branch --show-current`:main"} {
 		f.bash(fmt.Sprintf("%d unreadable landing: %s", 90+i, c), "deny", "{ROOT}", c)
 	}
+	f.check("90 unreadable landing names land's grade", func(t *testing.T) {
+		out := f.run(t, root, "Bash", map[string]string{"command": "git -C $W push origin $B:main"})
+		if !strings.Contains(out, "pipeline-fix land <worktree> <important|minor>") {
+			t.Errorf("%s", out)
+		}
+	})
 	f.bash("94 cd to an unexpanded path, then push HEAD", "deny", "{ROOT}", `cd $W && git push origin HEAD`)
 	f.bash("95 push of an unexpanded branch", "deny", "{ROOT}", `git -C $W push -u origin $B`)
 	f.bash("96 unexpanded repository, literal non-default destination", "allow", "{ROOT}", `git -C $W push origin spectre/x`)

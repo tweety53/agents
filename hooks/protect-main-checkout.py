@@ -788,7 +788,8 @@ def unreadable_landing(args, target):
         "spectre change, a fix loop's records) cannot see what it lands. Write the push with "
         "literal names:\n\n"
         "  git -C /abs/path/to/worktree push origin <branch>:<default-branch>\n\n"
-        "A fix loop lands with flow-guard pipeline-fix land <worktree>."
+        "A fix loop lands with flow-guard pipeline-fix land <worktree> <important|minor> "
+        "(no grade on a self-review-* branch)."
     )
 
 
@@ -833,10 +834,11 @@ def loop_landing(args, target):
             except (OSError, subprocess.SubprocessError) as e:
                 return f"Blocked: landing {branch} needs flow-guard check-loop-landing, which could not run ({e})."
             if r.returncode != 0:
+                grade = " <important|minor>" if branch.startswith("pipeline-fix-") else ""
                 return (
                     f"Blocked: {branch} is a fix loop, and its records do not cover this landing "
                     f"(flow-guard check-loop-landing exit {r.returncode}):\n{r.stdout}{r.stderr}\n"
-                    "Land it with flow-guard pipeline-fix land <worktree> once they do."
+                    f"Land it with flow-guard pipeline-fix land <worktree>{grade} once they do."
                 )
     return None
 
