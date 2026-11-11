@@ -136,7 +136,7 @@ keeping every stub heading:
 
 - **proposal.md** — what and why, carrying `## Why` and `## What changes`
 - **design.md** — how, from the approved design, carrying `## Context`, `## Decisions` and
-  `## Open questions` (the last two below), and four plan sections, each kept even when short:
+  `## Open questions` (the last two below), and six plan sections, each kept even when short:
   - `## Recommended approach` — the one chosen approach in prose, with a one-line reason for each
     rejected alternative pointing at its decision ID;
   - `## Critical files` — every file the change edits or depends on, by repository-relative path,
@@ -145,6 +145,8 @@ keeping every stub heading:
     on, by path (and symbol); `none` only with a one-line reason;
   - `## Verification` — how to prove the change works end to end: the commands, the run or
     scenario to exercise, and what is observed, beyond each task's own verify step.
+  - `## Non-goals` — what the change deliberately does not do; `none — <reason>` allowed;
+  - `## Risks` — what can go wrong and what limits it; `none — <reason>` allowed.
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
 **A README update is planned here too.** A change that alters user-visible behaviour, a command,

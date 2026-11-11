@@ -244,10 +244,10 @@ minimum:
    title, holding whatever prose, lists, or code excerpts the discussion produced for that thread.
    Order sections in the order the threads came up.
 2. **A step-by-step breakdown section**, always present (see below).
-3. **The four plan sections** of **C. Create the change and its artifacts**
+3. **The six plan sections** of **C. Create the change and its artifacts**
    (`skills/flow/brainstorm-planner.md`) —
-   `## Recommended approach`, `## Critical files`, `## Existing code to reuse` and
-   `## Verification` — on a new change's design.
+   `## Recommended approach`, `## Critical files`, `## Existing code to reuse`,
+   `## Verification`, `## Non-goals` and `## Risks` — on a new change's design.
 
 **A captured design carries no open items.** Everything the session surfaced is decided before
 the artifacts are written — decided by the user through the planner's design rounds on a new
@@ -278,6 +278,10 @@ mid-run asks**, `skills/flow-contracts/pipeline.md`).
 ## Existing code to reuse
 
 ## Verification
+
+## Non-goals
+
+## Risks
 
 ## Step-by-step breakdown
 

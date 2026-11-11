@@ -58,6 +58,9 @@ Four questions, asked of `proposal.md`. Cost and timeline are not asked.
 
 ## Implementation readiness
 
+A `tasks.md` that is still the title-only scaffold — the review before writing-plans — skips this
+lens.
+
 Asked of each task in `tasks.md`: from this text alone, do I know exactly what to write, where
 and how? Any choice left to the implementer is a `finding` naming the choice — the ambiguity
 rule of **The checklist** (`skills/flow/brainstorm-planner.md`), tested from a fresh reader's

@@ -257,7 +257,7 @@ const PHASE_KEYS: Record<Phase, string[]> = {
   ],
 }
 // The stage each run of /flow stops after: its end leaves no phase running.
-const LAST_KEYS = ['writing-plans', 'plan-review', 'write-in-progress', 'landing-routes', 'refresh-main-checkout']
+const LAST_KEYS = ['write-in-progress', 'landing-routes', 'refresh-main-checkout']
 
 // One `flow stage begin|end ... <name>` mark, up to the next shell separator.
 const STAGE_MARK = /\bflow stage (begin|end)\b([^;&|\n]*)/g

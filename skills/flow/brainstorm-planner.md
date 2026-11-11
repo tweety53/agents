@@ -229,6 +229,9 @@ deliberately does not do, and what can go wrong and what limits it. Each may be 
 flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
 ```
 
+A `/flow` or `/flow-plan` final planner running section **C** stops here and returns `ARTIFACTS-WRITTEN`; section **D** is a
+fresh dispatch's, after **Plan review** (`skills/flow/brainstorm.md`) #1.
+
 ## D. Basic Workflow #3 — Writing plans
 
 ```bash
@@ -490,7 +493,7 @@ generic moved into the vendored `skills/spectre-planning/SKILL.md`, and a fix ro
 lines back).
 
 Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
-carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing any of the four plan sections
+carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing any of the six plan sections
 (**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
 
 Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
@@ -586,11 +589,11 @@ flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <na
 
 ### Plan review
 
-**Your `PLAN-WRITTEN` return says whether the plan is reviewed** (KAN-1104). A change that is not
+**Your `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return says whether the plan is reviewed** (KAN-1104). A change that is not
 trivial — the competing-designs test of **Explore and design agents**
-(`skills/spectre-planning/SKILL.md`) — returns `PLAN-WRITTEN` alone, and the parent runs **Plan
+(`skills/spectre-planning/SKILL.md`) — returns the word alone, and the parent runs **Plan
 review** (`skills/flow/brainstorm.md`). A change with one obvious approach returns
-`PLAN-WRITTEN` and, on the next line, `Plan review: skip — <reason>`, the reason being the
+the word and, on the next line, `Plan review: skip — <reason>`, the reason being the
 one-approach reason `design.md` records under `## Recommended approach`. The self-review and in-run fix planners and a fix run's
 re-plan never write that line and are never reviewed.
 
@@ -600,12 +603,11 @@ path:line or artifact line the reviewer could have read>`, `F<k> escalated`, or,
 `advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding with one obvious
 fix. Escalate a finding whose fix would change a `## Decisions` entry, or that you would contest
 without evidence the reviewer could have read: return `QUESTIONS`, the next `round-<r>.md`
-quoting the finding verbatim beside the options. After your fixes, re-run `spectre validate`,
-`flow-guard check-plan-shape`, the configured guards and `flow tasks count`, and make no stage
-mark. Return `PLAN-WRITTEN re-review` when a fix or an escalation's answer added or superseded a
-`## Decisions` entry, and plain `PLAN-WRITTEN` otherwise. Triaging a re-review's report, write
-each finding still standing into `design.md`'s `## Risks` as `Accepted: <the finding> — <why>`
-and return plain `PLAN-WRITTEN`: nothing is reviewed a third time.
+quoting the finding verbatim beside the options. After your fixes to `plan-review-2`'s findings,
+re-run `spectre validate`, `flow-guard check-plan-shape`, the configured guards and `flow tasks
+count`. Make no stage mark. Return the word your dispatch was working toward: `ARTIFACTS-WRITTEN` after triaging
+`plan-review-1`, `PLAN-WRITTEN` after `plan-review-2`. Triaging `plan-review-2`, first write each
+finding still standing into `design.md`'s `## Risks` as `Accepted: <the finding> — <why>`.
 
 ### Decide
 

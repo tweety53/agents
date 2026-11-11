@@ -138,8 +138,9 @@ flowchart TD
 - **Run 2 runs no tests or linters** and commits nothing: it saves `tasks.md` and the self-review
   bundle to flowd, then removes the worktrees.
 - **The plan is read cold before it is implemented.** On a change that is not trivial, a fresh
-  reviewer reads the finished `proposal.md`, `design.md` and `tasks.md` — and nothing of the
-  conversation — in the stage `flow.plan-review`, before `flow.decide`. The planner fixes, contests
+  reviewer reads the artifacts — and nothing of the conversation — twice, each time in the stage
+  `flow.plan-review`: once `proposal.md` and `design.md` are written, and once `tasks.md` is
+  planned, before `flow.decide`. The planner fixes, contests
   or escalates each finding; the lenses are `skills/flow/plan-review-rubric.md`.
 - **The design outlives the change.** Run 1 commits the change's `design.md` as
   `docs/designs/<name>.md` inside the implementation commit, a point-in-time record nothing keeps
