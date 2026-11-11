@@ -102,7 +102,7 @@ var Table = []Stage{
 	// a capture's kickoff, recorded so its cost joins the change it seeds. A
 	// capture's planning marks the five flow.* planning rows above, which list
 	// FlowPlan for that reason.
-	{Key: "plan.session", Name: "Plan session — the whole `/flow-plan` invocation", Commands: []Command{FlowPlan}},
+	{Key: "plan.session", Name: "Plan session — `/flow-plan` research up to a capture's kickoff", Commands: []Command{FlowPlan}},
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that

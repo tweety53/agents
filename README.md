@@ -207,7 +207,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
 | `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `plan.session` | Plan session — the whole `/flow-plan` invocation | `/flow-plan` |
+| `plan.session` | Plan session — `/flow-plan` research up to a capture's kickoff | `/flow-plan` |
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
 

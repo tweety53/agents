@@ -426,10 +426,10 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
-	// On a begin only /flow's and /flow-plan's flow.decide is gated; the
-	// brainstorm and self-review triggers inside the gate belong to the end
+	// On a begin only flow.decide is gated (the gate picks which commands);
+	// the brainstorm and self-review triggers inside it belong to the end
 	// path.
-	if (f.command == "/flow" || f.command == "/flow-plan") && f.stage == "flow.decide" {
+	if f.stage == "flow.decide" {
 		if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
 			return code
 		}

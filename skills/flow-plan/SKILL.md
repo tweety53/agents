@@ -198,8 +198,9 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    issue when one is linked, then a `## Research session` section — the operator's statements
    verbatim and the session's findings with their file paths, marked as findings, not decisions.
 5. **Run brainstorming and planning through the planner role** (`skills/flow/brainstorm.md`), from
-   its `flow.brainstorm` begin through the gate. Every `-command '/flow'` it shows is
-   `-command '/flow-plan'`, and every planner prompt carries that substitution beside the session
+   its `flow.brainstorm` begin through the gate, after resolving `REVIEWERS` per **Model
+   resolution** (`skills/flow/SKILL.md`). Every `-command '/flow'` those sections show,
+   `skills/flow/brainstorm-planner.md`'s included, is `-command '/flow-plan'`, and every planner prompt carries that substitution beside the session
    token. The final planner's prompt also carries the line "`design.md` follows **The Fixed Section
    Structure** and **The Step-by-Step Breakdown** of `skills/flow-plan/SKILL.md`". The gate asks
    **Save the plan?**, and the snapshot below is taken only on **Yes**.
