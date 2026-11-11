@@ -37,6 +37,39 @@ const METRIC_LABELS: Record<string, string> = {
   vvReruns: "Visual re-runs",
 };
 
+// Brief plain-English role names for the Does column; the full sentence is the hover.
+// ponytail: a role missing here shows its sentence's first four words.
+const SHORT_DOES: Record<string, string> = {
+  main: "Runs the pipeline",
+  explorer: "Reads the codebase",
+  "plan-designer": "Proposes a plan",
+  planner: "Writes the plan",
+  implementer: "Writes the code",
+  "panel-fix": "Fixes review findings",
+  "operator-asked": "Does what you asked",
+  "design-reviewer": "Reviews the plan",
+  "gated-reviewer": "Reviews risky tasks",
+  "gated-re-reviewer": "Re-checks risky tasks",
+  "panel-reviewer": "Reviews the branch",
+  "panel-sanity-efficiency": "Checks tests and waste",
+  "panel-mutation-failure": "Breaks code on purpose",
+  "panel-rerun": "Re-reviews the branch",
+  "late-fix": "Reviews a late fix",
+  "panel-merger": "Merges findings",
+  "visual-verifier": "Compares UI to mockup",
+  "tooling-analyst": "Explains a missed defect",
+  "self-review-pass": "Reviews the run",
+  "self-review-plan": "Plans review fixes",
+  "self-review-fix": "Makes a review fix",
+  "self-review-review-1": "Reviews that fix",
+  "self-review-review-r": "Re-reviews that fix",
+  "pipeline-fix-plan": "Plans a tooling fix",
+  "pipeline-fix-fix": "Makes a tooling fix",
+  "pipeline-fix-review-1": "Reviews that fix",
+  "pipeline-fix-review-r": "Re-reviews that fix",
+};
+const shortDoes = (r: RoleEntry) => SHORT_DOES[r.role] ?? r.does.split(" ").slice(0, 4).join(" ");
+
 const MAIN_PAIR = "session's own pair";
 
 const label = (name: string) => METRIC_LABELS[name] ?? name;
@@ -124,7 +157,7 @@ function RoleRow({ r, catalog, onSelect, onSaved }: { r: RoleEntry; catalog: str
         <code>{r.role}</code>
       </td>
       <td className="does" title={r.does}>
-        {r.does}
+        <span className="tag">{r.group}</span> {shortDoes(r)}
       </td>
       <td className="pairs">
         {main ? (

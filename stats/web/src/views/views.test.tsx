@@ -2442,7 +2442,8 @@ describe("Experiments", () => {
     // Each pair is its own unbreakable span, so a long list wraps between pairs, never at a hyphen (kan-1102 self-review, F19).
     expect(within(designer).getByRole("link", { name: "#3" })).toBeInTheDocument();
     expect(designer).not.toHaveTextContent("#3opt-in:");
-    expect(within(designer).getByText("Proposes a design or plan for the planner to choose from.")).toBeInTheDocument();
+    expect(designer.querySelector("td.does")).toHaveAttribute("title", "Proposes a design or plan for the planner to choose from.");
+    expect(designer.querySelector("td.does")).toHaveTextContent("Proposes a plan");
     const implementer = rows[7];
     expect(implementer.querySelector(".chip .pair")).toHaveTextContent("opus/flow-low");
     expect(implementer.querySelector(".esc")).toHaveTextContent("opus/flow-high with No-progress escalation");
