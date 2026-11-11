@@ -66,12 +66,14 @@ function PairList({ pairs, className }: { pairs: string[]; className?: string })
   );
 }
 
-// PairEditor is one tier's pairs as removable chips plus an input that adds
-// only a well-formed pair (PAIR_SHAPE) not already listed.
-function PairEditor({ role, tier, pairs, onChange }: { role: string; tier: string; pairs: string[]; onChange: (p: string[]) => void }) {
+// PairEditor is one tier's pairs as removable chips plus a "+" dropdown: a
+// multiselect over every pair the roles already use, and a box that adds any
+// other well-formed pair (PAIR_SHAPE).
+function PairEditor({ role, tier, pairs, catalog, onChange }: { role: string; tier: string; pairs: string[]; catalog: string[]; onChange: (p: string[]) => void }) {
   const [draft, setDraft] = useState("");
   const pair = draft.trim();
   const ok = PAIR_SHAPE.test(pair) && !pairs.includes(pair);
+  const options = [...new Set([...catalog, ...pairs])].sort();
   return (
     <span className={`edit ${tier}`}>
       {pairs.map((p) => (
@@ -82,24 +84,35 @@ function PairEditor({ role, tier, pairs, onChange }: { role: string; tier: strin
           </button>
         </span>
       ))}
-      <form
-        onSubmit={(ev) => {
-          ev.preventDefault();
-          if (!ok) return;
-          onChange([...pairs, pair]);
-          setDraft("");
-        }}
-      >
-        <input aria-label={`Add ${tier} pair to ${role}`} placeholder="model/agent[@effort]" value={draft} onChange={(ev) => setDraft(ev.target.value)} />
-        <button type="submit" disabled={!ok}>
-          Add
-        </button>
-      </form>
+      <details className="ms">
+        <summary aria-label={`Choose ${tier} pairs for ${role}`}>＋</summary>
+        <div className="menu">
+          {options.map((o) => (
+            <label key={o}>
+              <input type="checkbox" checked={pairs.includes(o)} onChange={(ev) => onChange(ev.target.checked ? [...pairs, o] : pairs.filter((x) => x !== o))} />
+              <span className="pair">{o}</span>
+            </label>
+          ))}
+          <form
+            onSubmit={(ev) => {
+              ev.preventDefault();
+              if (!ok) return;
+              onChange([...pairs, pair]);
+              setDraft("");
+            }}
+          >
+            <input aria-label={`Add ${tier} pair to ${role}`} placeholder="model/agent[@effort]" value={draft} onChange={(ev) => setDraft(ev.target.value)} />
+            <button type="submit" disabled={!ok}>
+              Add
+            </button>
+          </form>
+        </div>
+      </details>
     </span>
   );
 }
 
-function RoleRow({ r, onSelect, onSaved }: { r: RoleEntry; onSelect: (id: number) => void; onSaved: () => void }) {
+function RoleRow({ r, catalog, onSelect, onSaved }: { r: RoleEntry; catalog: string[]; onSelect: (id: number) => void; onSaved: () => void }) {
   const [base, setBase] = useState(r.base);
   const [optin, setOptin] = useState(r.optin);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -110,7 +123,9 @@ function RoleRow({ r, onSelect, onSaved }: { r: RoleEntry; onSelect: (id: number
       <td className="role">
         <code>{r.role}</code>
       </td>
-      <td className="does">{r.does}</td>
+      <td className="does" title={r.does}>
+        {r.does}
+      </td>
       <td className="pairs">
         {main ? (
           r.override ? (
@@ -122,10 +137,10 @@ function RoleRow({ r, onSelect, onSaved }: { r: RoleEntry; onSelect: (id: number
           )
         ) : r.override ? (
           <s>
-            <PairEditor role={r.role} tier="base" pairs={base} onChange={setBase} />
+            <PairEditor role={r.role} tier="base" pairs={base} catalog={catalog} onChange={setBase} />
           </s>
         ) : (
-          <PairEditor role={r.role} tier="base" pairs={base} onChange={setBase} />
+          <PairEditor role={r.role} tier="base" pairs={base} catalog={catalog} onChange={setBase} />
         )}
         {r.override && (
           <>
@@ -146,7 +161,7 @@ function RoleRow({ r, onSelect, onSaved }: { r: RoleEntry; onSelect: (id: number
           <>
             {" "}
             <span className="tier">opt-in:</span>
-            <PairEditor role={r.role} tier="opt-in" pairs={optin} onChange={setOptin} />
+            <PairEditor role={r.role} tier="opt-in" pairs={optin} catalog={catalog} onChange={setOptin} />
             {r.marked.map((x) => (
               <span className="esc" key={x.pair + x.marker}>
                 <PairList pairs={[x.pair]} /> with <code>{x.marker}</code>
@@ -178,6 +193,7 @@ function RoleRow({ r, onSelect, onSaved }: { r: RoleEntry; onSelect: (id: number
 }
 
 function RolesTable({ roles, onSelect, onSaved }: { roles: RoleEntry[]; onSelect: (id: number) => void; onSaved: () => void }) {
+  const catalog = [...new Set(roles.flatMap((r) => [...r.base, ...r.optin, ...r.marked.map((m) => m.pair), ...(r.override?.pairs ?? [])]))];
   // One row per role, groups in order of first appearance.
   const groups: { name: string; roles: RoleEntry[] }[] = [];
   for (const r of roles) {
@@ -202,7 +218,7 @@ function RolesTable({ roles, onSelect, onSaved }: { roles: RoleEntry[]; onSelect
             </tr>
             {g.roles.map((r) => (
               // Keyed on the saved pairs, so a reload after Save resets the draft.
-              <RoleRow key={`${r.role} ${r.base.join()} ${r.optin.join()}`} r={r} onSelect={onSelect} onSaved={onSaved} />
+              <RoleRow key={`${r.role} ${r.base.join()} ${r.optin.join()}`} r={r} catalog={catalog} onSelect={onSelect} onSaved={onSaved} />
             ))}
           </Fragment>
         ))}

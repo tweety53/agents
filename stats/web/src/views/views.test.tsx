@@ -2444,7 +2444,7 @@ describe("Experiments", () => {
     expect(designer).not.toHaveTextContent("#3opt-in:");
     expect(within(designer).getByText("Proposes a design or plan for the planner to choose from.")).toBeInTheDocument();
     const implementer = rows[7];
-    expect(within(implementer).getByText("opus/flow-low")).toBeInTheDocument();
+    expect(implementer.querySelector(".chip .pair")).toHaveTextContent("opus/flow-low");
     expect(implementer.querySelector(".esc")).toHaveTextContent("opus/flow-high with No-progress escalation");
     expect(rows[2].querySelector("s")).toHaveTextContent("session's own pair");
     expect(within(rows[4]).queryByRole("link")).toBeNull();
