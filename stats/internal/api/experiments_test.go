@@ -380,4 +380,8 @@ func TestPromoteWritesBaseAndCloses(t *testing.T) {
 	if fe.closedID != 4 || fe.closedArg[0] != "positive" || !strings.Contains(fe.closedArg[1], "planner") {
 		t.Errorf("closed %d %q, want 4 positive with a summary naming planner", fe.closedID, fe.closedArg)
 	}
+	fe.list[0].ID = 6
+	if status, body := doJSON(t, http.MethodPost, ts.URL+"/api/v1/experiments/6/promote", `{"summary":"Positive: fewer rounds."}`); status != http.StatusOK || fe.closedArg[1] != "Positive: fewer rounds." {
+		t.Fatalf("promote with a summary = %d %s, closed %q", status, body, fe.closedArg)
+	}
 }

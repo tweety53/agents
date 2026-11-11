@@ -48,7 +48,7 @@ commands:
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
   settings set         write the harness-wide settings record
-  experiment open|list|overrides|stats|main-check|close  drive allowed-pairs experiments (see: flow experiment)
+  experiment open|list|overrides|stats|main-check|close|promote  drive allowed-pairs experiments (see: flow experiment)
   policy get|grants|grant|revoke  read role pairs, manage operator grants (see: flow policy)
   learning add <topic> record one learning note's topic (see: flow learning)
   learning list        print every learning topic with its count as a JSON array

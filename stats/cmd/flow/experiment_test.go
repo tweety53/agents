@@ -22,7 +22,7 @@ func runExperimentArgs(args ...string) (int, string, string) {
 // stand-in daemon: what each sends, prints and exits with.
 func TestFlowExperiment(t *testing.T) {
 	var opened map[string]any
-	var closeBody map[string]string
+	var closeBody, promoteBody map[string]string
 	overrides := `{}`
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -45,6 +45,12 @@ func TestFlowExperiment(t *testing.T) {
 			_, _ = w.Write([]byte(`[{"id":5,"name":"t","cells":{"a":["x/y@low"]},"startedAt":"2026-10-29T10:00:00Z","summary":"","status":"open"}]`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/experiments/overrides":
 			_, _ = w.Write([]byte(overrides))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/experiments/5/promote":
+			_ = json.Unmarshal(body, &promoteBody)
+			_, _ = w.Write([]byte(`{}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/experiments/6/promote":
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"store: experiment not open: 6"}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/experiments/5/close":
 			_ = json.Unmarshal(body, &closeBody)
 			_, _ = w.Write([]byte(`{}`))
@@ -98,6 +104,15 @@ func TestFlowExperiment(t *testing.T) {
 	if code, _, errOut = runExperimentArgs(append([]string{"close", "5"}, append(addr, "-verdict", "positive", "-summary", "s")...)...); code != 0 ||
 		closeBody["verdict"] != "positive" || closeBody["summary"] != "s" {
 		t.Fatalf("close = %d %q, posted %v", code, errOut, closeBody)
+	}
+	if code, out, errOut = runExperimentArgs(append([]string{"promote", "5"}, append(addr, "-summary", "won")...)...); code != 0 || out != "experiment 5 promoted\n" || promoteBody["summary"] != "won" {
+		t.Fatalf("promote = %d %q %q, sent %v", code, out, errOut, promoteBody)
+	}
+	if code, _, errOut = runExperimentArgs(append([]string{"promote", "6"}, addr...)...); code != 1 || !strings.Contains(errOut, "not open") {
+		t.Fatalf("promote closed = %d %q, want 1", code, errOut)
+	}
+	if code, _, _ = runExperimentArgs("promote"); code != 2 {
+		t.Fatalf("promote with no id = %d, want 2", code)
 	}
 	if code, _, _ = runExperimentArgs(append([]string{"close", "5"}, append(addr, "-verdict", "great", "-summary", "s")...)...); code != 2 {
 		t.Fatalf("close bad verdict = %d, want 2", code)

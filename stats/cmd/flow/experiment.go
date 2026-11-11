@@ -22,6 +22,7 @@ const experimentUsage = `usage: flow experiment open      [-addr url] [-timeout 
        flow experiment stats <id> [-addr url] [-timeout dur]
        flow experiment main-check [-addr url] [-timeout dur] -model <model> -effort <effort>
        flow experiment close <id> [-addr url] [-timeout dur] -verdict positive|negative|inconclusive [-summary text]
+       flow experiment promote <id> [-addr url] [-timeout dur] [-summary text]
 
 An allowed-pairs experiment (KAN-1067) replaces whole roles' base pairs
 (flow policy get) while it is open.
@@ -37,6 +38,9 @@ metric's before and after means with its weekly series.
 main-check prints one warning line when an open experiment's main cell names
 another <model>@<effort> than this session's; it never blocks a run, so it
 exits 0 on a match, with no main cell open and with the store unreachable.
+promote makes an open experiment permanent: each cell but main becomes that
+role's base pairs (flow policy get) and the experiment closes positive with
+-summary, or a generated one; it prints "experiment <id> promoted".
 
 Exit codes: 0 done; 1 the store refused (a role an open experiment holds,
 a malformed experiment, an unknown or closed id) or could not be reached;
@@ -57,6 +61,8 @@ func runExperiment(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return runExperimentOverrides(ctx, args[1:], stdout, stderr)
 	case "close":
 		return runExperimentClose(ctx, args[1:], stdout, stderr)
+	case "promote":
+		return runExperimentPromote(ctx, args[1:], stdout, stderr)
 	case "stats":
 		return runExperimentStats(ctx, args[1:], stdout, stderr)
 	case "main-check":
@@ -292,6 +298,28 @@ func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Wr
 		return 1
 	}
 	fmt.Fprintf(stdout, "experiment %d closed %s\n", id, *verdict)
+	return 0
+}
+
+func runExperimentPromote(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	id, ok := experimentIDArg("promote", args, stderr)
+	if !ok {
+		return 2
+	}
+	var f storeConnFlags
+	fset := newExperimentFlagSet("flow experiment promote", &f)
+	summary := fset.String("summary", "", "the closing summary; a generated one when empty")
+	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
+		return code
+	}
+	_, err := withExperimentClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+		return struct{}{}, cl.PromoteExperiment(ctx, id, *summary)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: experiment promote: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "experiment %d promoted\n", id)
 	return 0
 }
 

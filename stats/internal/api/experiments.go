@@ -176,12 +176,22 @@ func (h *experimentsHandler) close(w http.ResponseWriter, r *http.Request) {
 // promote serves POST /api/v1/experiments/{id}/promote ("Make permanent",
 // decision promote-experiment): each cell of open experiment id but `main`
 // -- no role row -- becomes that role's base pairs, its opt-in pairs kept,
-// and the experiment closes positive. An unknown or closed id is 404.
+// and the experiment closes positive with the body's optional summary, else
+// a generated one. An unknown or closed id is 404.
 // Replaying a promote whose close failed rewrites the same pairs.
 func (h *experimentsHandler) promote(w http.ResponseWriter, r *http.Request) {
 	id, ok := experimentID(w, r)
 	if !ok {
 		return
+	}
+	var dto struct {
+		Summary string `json:"summary"`
+	}
+	if r.ContentLength != 0 {
+		if err := decodeJSONBody(w, r, &dto); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 	open, err := h.store.ListExperiments(r.Context(), true)
 	if err != nil {
@@ -212,7 +222,10 @@ func (h *experimentsHandler) promote(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	summary := fmt.Sprintf("Made permanent: %s became the base pairs of %s.", e.Name, strings.Join(roles, ", "))
+	summary := dto.Summary
+	if summary == "" {
+		summary = fmt.Sprintf("Made permanent: %s became the base pairs of %s.", e.Name, strings.Join(roles, ", "))
+	}
 	if err := h.store.CloseExperiment(r.Context(), id, "positive", summary); err != nil {
 		h.experimentError(w, "promote experiment", err)
 		return

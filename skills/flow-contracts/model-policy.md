@@ -53,7 +53,7 @@ ledger line, which remains the only evidence of the model a dispatch actually ra
 slot is a prompt-driven role
 (**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every
 other slot does. The findings merger, which reviews nothing, and every gated per-task reviewer
-bundle and its fix re-review run on their fixed **Allowed pairs** rows below.
+bundle and its fix re-review run on their roles' fixed **Allowed pairs** below.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history
@@ -83,15 +83,30 @@ neither the write into the store nor the render out of it invents a model slug. 
 
 ## Allowed pairs
 
-This table is canonical for which `{model, effort}` every flow dispatch may run on: a dispatch
-names its role with a `Role: <role id>` line, and a row with a marker admits its pairs only when
-the prompt carries that marker as a whole line; a pair is `<model>` and `<subagent_type>` joined
-by `/`, an Explore or Plan pair adding `@<effort>`.
+**flowd's store is canonical for which `{model, effort}` every flow dispatch may run on**
+(kan-1103): each role's pairs live there, read with `flow policy get` and edited by hand in the
+Experiments view; the tables below name the roles only. A dispatch names its role with a
+`Role: <role id>` line; a pair is `<model>` and `<subagent_type>` joined by `/`, an Explore or Plan
+pair adding `@<effort>`. Any well-formed pair is accepted — which models a role may use is the
+operator's call, made in the editor. A role's pairs come in three tiers:
 
-Each `###` heading below is one pipeline area, and a role sits under exactly one; a role's
-unmarked row carries its `Does` cell, a plain-English line on what the role does, and a marked
-row's `Does` is `—`. flowd serves both on `GET /api/v1/roles`, and the Experiments view groups its
-roles table by them.
+- **base** — always admitted.
+- **marked** — admitted only when the prompt carries the pair's marker as a whole line
+  (`No-progress escalation`, `Operator-approved high`).
+- **opt-in** — admitted only on the operator's explicit say-so for a change: the operator tells
+  the session which roles may use them, the session records it with
+  `flow policy grant -change <name> -roles <role>[,<role>…]`, and each such dispatch's prompt
+  carries the whole line `Operator pair: <role>`. `flow-guard check-dispatch-pair` admits an
+  opt-in pair only with both the line and a live grant for the change on the prompt's
+  `Worktree:` branch (`spectre/<name>`); the line alone grants nothing. `flow policy revoke`
+  removes a grant, and every grant lapses when its change reaches `FINISHED`.
+
+`flow policy get` caches its last good answer under the flow state directory; with flowd down the
+guards answer from that cache, and with neither every dispatch is refused, naming both.
+
+Each `###` heading below is one pipeline area, and a role sits under exactly one, with its `Does`
+cell, a plain-English line on what the role does. flowd serves both, with the role's pairs, on
+`GET /api/v1/roles`, and the Experiments view groups its roles table by them.
 
 ### Planning
 
@@ -150,17 +165,18 @@ roles table by them.
 
 ## Experiments
 
-**An open experiment overrides whole cells of the table above.** `flow experiment open -name <n>
--cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the table
+**An open experiment overrides roles' base pairs.** `flow experiment open -name <n>
+-cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the pairs
 (check-dispatch-pair, check-loop-dispatch, plan-agent-pair, plan-class, pipeline-fix) admits the
-experiment's pairs in place of that role's unmarked row, and a marked row is never overridden. For
-a planning role (explorer, plan-designer, planner) the replaced pairs stay admitted for a prompt
-carrying the line `CORE change` (kan-1102 self-review, F4). One
+experiment's pairs in place of that role's base pairs, and marked and opt-in pairs are never
+overridden. For a planning role (explorer, plan-designer, planner) the replaced pairs stay admitted
+for a prompt carrying the line `CORE change` (kan-1102 self-review, F4). One
 experiment may carry several roles; a role is in at most one open experiment. Role `main` names
 the parent session's `<model>@<effort>`: `/flow` warns on a mismatch (**Model resolution**,
-`skills/flow/SKILL.md`) and only matching runs count in its after figures. flowd unreachable → the
-table alone. The table stays the permanent source: `/flow-experiment-close` closes an experiment
-and, on a positive verdict, starts the change that writes its winning cells here (KAN-1067).
+`skills/flow/SKILL.md`) and only matching runs count in its after figures. flowd unreachable → no
+experiment applies. **Make permanent** (`POST /api/v1/experiments/{id}/promote`, the Experiments
+view's button) writes an open experiment's cells — `main` aside — into those roles' base pairs and
+closes it `positive`; `/flow-experiment-close` calls it on a positive verdict.
 
 ## Harness mapping
 
