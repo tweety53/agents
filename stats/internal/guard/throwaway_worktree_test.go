@@ -176,6 +176,54 @@ func TestThrowawayWorktreeCreate(t *testing.T) {
 	}
 }
 
+// TestThrowawayWorktreeCreateCopiesTheChangeDirectory pins that create
+// carries the worktree's spectre/changes/ into the copy: gitignored, neither
+// the diff nor the untracked entries carry it (kan-1104 self-review, F3).
+func TestThrowawayWorktreeCreateCopiesTheChangeDirectory(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		tracked bool
+		files   []string
+	}{
+		{"ignored", false, []string{"spectre/changes/demo/tasks.md", "spectre/changes/demo/patches/a.diff"}},
+		{"tracked", true, []string{"spectre/changes/demo/proposal.md", "spectre/changes/demo/tasks.md"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			wt := filepath.Join(t.TempDir(), "wt")
+			mkdir(t, wt)
+			gitRun(t, wt, "init", "-q")
+			writeFile(t, wt+"/a.txt", "a\n")
+			if tc.tracked {
+				writeFile(t, wt+"/.gitignore", ".superpowers/\n")
+				writeFile(t, wt+"/spectre/changes/demo/proposal.md", "proposal\n")
+			} else {
+				writeFile(t, wt+"/.gitignore", ".superpowers/\nspectre/changes/\n")
+			}
+			gitRun(t, wt, "add", "-A")
+			gitRun(t, wt, "commit", "-q", "-m", "base")
+			writeFile(t, wt+"/spectre/changes/demo/tasks.md", "tasks\n")
+			if !tc.tracked {
+				writeFile(t, wt+"/spectre/changes/demo/patches/a.diff", "diff\n")
+			}
+			twGuard(t, "create", wt, wt+"-copy")
+			for _, f := range tc.files {
+				want, err := os.ReadFile(wt + "/" + f)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got, err := os.ReadFile(wt + "-copy/" + f); err != nil || !bytes.Equal(got, want) {
+					t.Errorf("copy's %s: %q, %v; want %q", f, got, err, want)
+				}
+			}
+			if _, err := os.Stat(wt + "-copy/spectre/changes/changes"); err == nil {
+				t.Error("copy carries spectre/changes/changes")
+			}
+		})
+	}
+}
+
 // twFoldFixture is twRepo plus a detached copy whose .superpowers/sdd holds
 // a newer report, an older one, an empty one, a new reproducer and a file
 // the fold-back never reads.

@@ -24,7 +24,9 @@ import (
 // create: `git worktree add --detach <copy> HEAD`, then the worktree's
 //   uncommitted diff against HEAD (`diff HEAD --binary`) applied in the copy,
 //   then every untracked (`??`) entry of `status --porcelain -z` copied with
-//   `cp -a`. --sdd also copies `<worktree>/.superpowers/sdd`, when present,
+//   `cp -a`, then the worktree's `<spec root>/changes/` -- gitignored, so
+//   neither the diff nor the untracked entries carry it -- copied into the
+//   same path of the copy, when present. --sdd also copies `<worktree>/.superpowers/sdd`, when present,
 //   to the same path in the copy.
 // remove: `git worktree remove --force <copy>`. --fold-back first copies each
 //   non-empty `.superpowers/sdd/panel-report-*.md` and
@@ -131,6 +133,15 @@ func twCreate(env Env, wt, cp string, sdd bool) error {
 			return err
 		}
 		if _, err := twRun(env, nil, "cp", "-a", wt+"/"+f, cp+"/"+f); err != nil {
+			return err
+		}
+	}
+	leaf := specRootLeaf(smcAbs(env, wt), io.Discard)
+	if isDir(smcAbs(env, wt+"/"+leaf+"/changes")) {
+		if err := os.MkdirAll(smcAbs(env, cp+"/"+leaf+"/changes"), 0o755); err != nil {
+			return err
+		}
+		if _, err := twRun(env, nil, "cp", "-a", wt+"/"+leaf+"/changes/.", cp+"/"+leaf+"/changes"); err != nil {
 			return err
 		}
 	}
