@@ -2465,12 +2465,12 @@ describe("Experiments", () => {
     await userEvent.type(add, "opus/Explore@medium");
     expect(within(menu).queryByText(/^Add “/)).toBeNull();
     await userEvent.clear(add);
-    await userEvent.type(add, "sonnet/Explore@low{Enter}");
+    await userEvent.type(add, "sonnet/Explore@max{Enter}");
     expect(add).toHaveValue("");
     await userEvent.click(within(menu).getByRole("button", { name: "Done" }));
     expect(table.querySelector(".menu")).toBeNull();
     await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
-    expect(postRolesEditMock).toHaveBeenCalledWith({ explorer: { base: ["opus/Explore@medium", "sonnet/Explore@low"], optin: [] } });
+    expect(postRolesEditMock).toHaveBeenCalledWith({ explorer: { base: ["opus/Explore@medium", "sonnet/Explore@max"], optin: [] } });
     await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
 
@@ -2492,10 +2492,10 @@ describe("Experiments", () => {
     const table = await screen.findByRole("region", { name: "Current roles" });
     await userEvent.click(within(table).getByRole("button", { name: "Choose explicit allow pairs for plan-designer" }));
     const menu = table.querySelector(".menu") as HTMLElement;
-    await userEvent.type(within(menu).getByRole("searchbox", { name: "Add explicit allow pair to plan-designer" }), "fable/Plan@high{Enter}");
+    await userEvent.type(within(menu).getByRole("searchbox", { name: "Add explicit allow pair to plan-designer" }), "fable/Plan@max{Enter}");
     await userEvent.click(within(menu).getByRole("checkbox", { name: "fable/Plan@xhigh" }));
     await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
-    expect(postRolesEditMock).toHaveBeenCalledWith({ "plan-designer": { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@high"] } });
+    expect(postRolesEditMock).toHaveBeenCalledWith({ "plan-designer": { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@max"] } });
   });
 
   it("Experiments saves edits to several roles as one experiment", async () => {

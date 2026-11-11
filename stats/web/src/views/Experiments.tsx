@@ -193,10 +193,24 @@ function PairEditor({ role, tier, pairs, catalog, note, onChange }: { role: stri
   );
 }
 
-// The agent a role's pairs run: the pairs' shared agent type, effort stripped.
-const agentOf = (r: RoleEntry) => {
+// The agent a role's pairs run, effort stripped, and how that effort is written
+// ("@" or a "-" suffix); null when the role has no pair to read it from.
+function agentOf(r: RoleEntry): { agent: string; sep: string } | null {
   const p = [...r.base, ...r.optin].find((x) => x.includes("/"));
-  return p ? p.split("/")[1].replace(/@.*/, "").replace(/-(low|medium|high|xhigh)$/, "") : "—";
+  if (!p) return null;
+  const rest = p.split("/")[1];
+  const at = rest.match(/^(.*)@[a-z]+$/);
+  if (at) return { agent: at[1], sep: "@" };
+  const dash = rest.match(/^(.*)-(low|medium|high|xhigh)$/);
+  return dash ? { agent: dash[1], sep: "-" } : { agent: rest, sep: "" };
+}
+
+const MODELS = ["opus", "sonnet", "fable", "haiku"];
+const EFFORTS = ["low", "medium", "high", "xhigh"];
+// Every model x effort the role's agent can run, so a pair nobody has used yet can be ticked.
+const optionsFor = (r: RoleEntry): string[] => {
+  const a = agentOf(r);
+  return a && a.sep ? MODELS.flatMap((m) => EFFORTS.map((e) => `${m}/${a.agent}${a.sep}${e}`)) : [];
 };
 
 type Draft = { base: string[]; optin: string[] };
@@ -211,17 +225,17 @@ function RoleRow({ r, catalog, draft, onDraft }: { r: RoleEntry; catalog: string
         <code>{r.role}</code>
       </td>
       <td className="agent">
-        <code>{agentOf(r)}</code>
+        <code>{agentOf(r)?.agent ?? "—"}</code>
       </td>
       <td className="pairs">
         {main ? (
           <PairList pairs={[MAIN_PAIR]} />
         ) : (
-          <PairEditor role={r.role} tier="main" pairs={draft.base} catalog={catalog} note={marked} onChange={(base) => onDraft({ ...draft, base })} />
+          <PairEditor role={r.role} tier="main" pairs={draft.base} catalog={optionsFor(r).length ? optionsFor(r) : catalog} note={marked} onChange={(base) => onDraft({ ...draft, base })} />
         )}
       </td>
       <td className="pairs">
-        {!main && <PairEditor role={r.role} tier="explicit allow" pairs={draft.optin} catalog={catalog} onChange={(optin) => onDraft({ ...draft, optin })} />}
+        {!main && <PairEditor role={r.role} tier="explicit allow" pairs={draft.optin} catalog={optionsFor(r).length ? optionsFor(r) : catalog} onChange={(optin) => onDraft({ ...draft, optin })} />}
       </td>
     </tr>
   );
