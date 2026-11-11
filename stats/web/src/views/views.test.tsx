@@ -29,7 +29,9 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock } = vi.hoisted(() => ({
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock, putRolePairsMock, promoteExperimentMock } = vi.hoisted(() => ({
+  putRolePairsMock: vi.fn(),
+  promoteExperimentMock: vi.fn(),
   fetchStatsViewMock: vi.fn(),
   fetchProjectsMock: vi.fn(),
   fetchRolesMock: vi.fn(),
@@ -46,6 +48,8 @@ vi.mock("../api", async (importOriginal) => {
     fetchRoles: fetchRolesMock,
     fetchExperiments: fetchExperimentsMock,
     fetchExperimentStats: fetchExperimentStatsMock,
+    putRolePairs: putRolePairsMock,
+    promoteExperiment: promoteExperimentMock,
   };
 });
 
@@ -2375,16 +2379,18 @@ describe("review dynamics", () => {
 describe("Experiments", () => {
   const roles = [
     {
-      role: "main", pairs: [], marker: "", group: "Session", does: "The session you talk to: runs the pipeline and sends out every other role.",
+      role: "main", base: [], optin: [], marked: [], group: "Session", does: "The session you talk to: runs the pipeline and sends out every other role.",
       override: { pairs: ["opus@medium"], experimentId: 2 },
     },
-    { role: "explorer", pairs: ["opus/Explore@low", "opus/Explore@medium"], marker: "", group: "Planning", does: "Reads the codebase to answer a planner's question." },
+    { role: "explorer", base: ["opus/Explore@low", "opus/Explore@medium"], optin: [], marked: [], group: "Planning", does: "Reads the codebase to answer a planner's question." },
     {
-      role: "plan-designer", pairs: ["opus/Plan@low", "opus/Plan@medium"], marker: "", group: "Planning",
+      role: "plan-designer", base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@xhigh"], marked: [], group: "Planning",
       does: "Proposes a design or plan for the planner to choose from.", override: { pairs: ["opus/Plan@xhigh"], experimentId: 3 },
     },
-    { role: "implementer", pairs: ["opus/flow-low"], marker: "", group: "Implementation", does: "Writes the code for a group of tasks, tests first." },
-    { role: "implementer", pairs: ["opus/flow-high"], marker: "No-progress escalation", group: "Implementation", does: "" },
+    {
+      role: "implementer", base: ["opus/flow-low"], optin: [], marked: [{ pair: "opus/flow-high", marker: "No-progress escalation" }],
+      group: "Implementation", does: "Writes the code for a group of tasks, tests first.",
+    },
   ];
   const experiments = [
     { id: 3, name: "plan-designer on xhigh", cells: { "plan-designer": ["opus/Plan@xhigh"] }, startedAt: "2026-10-30T09:00:00Z", summary: "", status: "open" },
@@ -2405,6 +2411,8 @@ describe("Experiments", () => {
   });
 
   beforeEach(() => {
+    putRolePairsMock.mockReset().mockResolvedValue(undefined);
+    promoteExperimentMock.mockReset().mockResolvedValue(undefined);
     fetchRolesMock.mockReset().mockResolvedValue(roles);
     fetchExperimentsMock.mockReset().mockResolvedValue(experiments);
     fetchExperimentStatsMock.mockReset().mockImplementation((id: number) =>
@@ -2429,10 +2437,9 @@ describe("Experiments", () => {
     ]);
     for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "3");
     const designer = rows[5];
-    expect(designer.querySelector("s")).toHaveTextContent("opus/Plan@low, opus/Plan@medium");
-    expect(within(designer).getByText("opus/Plan@xhigh").closest("code")).toHaveClass("exp");
+    expect([...designer.querySelectorAll("s .chip .pair")].map((p) => p.textContent)).toEqual(["opus/Plan@low", "opus/Plan@medium"]);
+    expect(designer.querySelector("code.exp")).toHaveTextContent("opus/Plan@xhigh");
     // Each pair is its own unbreakable span, so a long list wraps between pairs, never at a hyphen (kan-1102 self-review, F19).
-    expect([...designer.querySelectorAll("s .pair")].map((p) => p.textContent)).toEqual(["opus/Plan@low", "opus/Plan@medium"]);
     expect(within(designer).getByRole("link", { name: "#3" })).toBeInTheDocument();
     expect(within(designer).getByText("Proposes a design or plan for the planner to choose from.")).toBeInTheDocument();
     const implementer = rows[7];
@@ -2447,6 +2454,62 @@ describe("Experiments", () => {
 
     await userEvent.click(within(rows[2]).getByRole("link", { name: "#2" }));
     expect(screen.getByRole("button", { name: /main agent opus@medium/ })).toHaveClass("on");
+  });
+
+  it("Experiments edits a role's base pairs", async () => {
+    render(<Experiments />);
+    const table = await screen.findByRole("region", { name: "Current roles" });
+    const save = within(table).getByRole("button", { name: "Save explorer" });
+    expect(save).toBeDisabled();
+    await userEvent.click(within(table).getByRole("button", { name: "Remove base pair opus/Explore@low from explorer" }));
+    const add = within(table).getByRole("textbox", { name: "Add base pair to explorer" });
+    const addButton = add.parentElement!.querySelector("button")!;
+    // A malformed pair, or one already listed, is never offered.
+    await userEvent.type(add, "opus Explore");
+    expect(addButton).toBeDisabled();
+    await userEvent.clear(add);
+    await userEvent.type(add, "opus/Explore@medium");
+    expect(addButton).toBeDisabled();
+    await userEvent.clear(add);
+    await userEvent.type(add, "sonnet/Explore@low{Enter}");
+    expect(add).toHaveValue("");
+    await userEvent.click(save);
+    expect(putRolePairsMock).toHaveBeenCalledWith("explorer", { base: ["opus/Explore@medium", "sonnet/Explore@low"], optin: [] });
+    await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("Experiments adds an opt-in pair", async () => {
+    render(<Experiments />);
+    const table = await screen.findByRole("region", { name: "Current roles" });
+    const add = within(table).getByRole("textbox", { name: "Add opt-in pair to plan-designer" });
+    await userEvent.type(add, "fable/Plan@high");
+    await userEvent.click(add.parentElement!.querySelector("button")!);
+    await userEvent.click(within(table).getByRole("button", { name: "Remove opt-in pair fable/Plan@xhigh from plan-designer" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Save plan-designer" }));
+    expect(putRolePairsMock).toHaveBeenCalledWith("plan-designer", { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@high"] });
+    // main has no pairs of its own to edit; marked pairs are shown, not edited.
+    expect(within(table).queryByRole("button", { name: "Save main" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: /Remove .* opus\/flow-high/ })).toBeNull();
+  });
+
+  it("Experiments shows a refused save", async () => {
+    putRolePairsMock.mockReset().mockRejectedValue(new Error("role pair \"x\" is not <model>/<type>[@<effort>]"));
+    render(<Experiments />);
+    const table = await screen.findByRole("region", { name: "Current roles" });
+    await userEvent.click(within(table).getByRole("button", { name: "Remove base pair opus/flow-low from implementer" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Save implementer" }));
+    expect(await within(table).findByRole("alert")).toHaveTextContent("is not <model>/<type>");
+  });
+
+  it("Experiments promotes an open experiment", async () => {
+    render(<Experiments />);
+    const override = await screen.findByRole("region", { name: "Override" });
+    await userEvent.click(within(override).getByRole("button", { name: "Make permanent" }));
+    expect(promoteExperimentMock).toHaveBeenCalledWith(3);
+    await waitFor(() => expect(fetchExperimentsMock).toHaveBeenCalledTimes(2));
+    // A closed experiment offers no promote.
+    await userEvent.click(screen.getByRole("button", { name: /implementer sonnet\/flow-low/ }));
+    expect(within(await screen.findByRole("region", { name: "Override" })).queryByRole("button", { name: "Make permanent" })).toBeNull();
   });
 
   it("Experiments marks each experiment open or closed and selects the newest", async () => {

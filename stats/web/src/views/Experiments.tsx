@@ -5,12 +5,17 @@
 // .superpowers/sdd/roles-prototype.html draws it -- the experiment list, and the
 // selected experiment's override, per-metric stat panels, weekly charts
 // with the experiment window and before/after means, and its summary.
-// Lower is better for every metric (store.ExperimentStats).
+// Lower is better for every metric (store.ExperimentStats). Each role's base
+// and opt-in pairs are edited here and saved to flowd, their one source
+// (kan-1103); an open experiment can be made permanent.
 import { Fragment, useEffect, useState } from "react";
 import {
+  PAIR_SHAPE,
   fetchExperimentStats,
   fetchExperiments,
   fetchRoles,
+  promoteExperiment,
+  putRolePairs,
   type ExperimentDTO,
   type ExperimentMetric,
   type ExperimentStats,
@@ -44,7 +49,7 @@ const day = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
 function tablePairs(roles: RoleEntry[], role: string): string {
   if (role === "main") return MAIN_PAIR;
-  return roles.find((r) => r.role === role && r.marker === "")?.pairs.join(", ") ?? "";
+  return roles.find((r) => r.role === role)?.base.join(", ") ?? "";
 }
 
 // A pairs list wraps between its pairs, never inside one at a pair's hyphen.
@@ -61,16 +66,123 @@ function PairList({ pairs, className }: { pairs: string[]; className?: string })
   );
 }
 
-function RolesTable({ roles, onSelect }: { roles: RoleEntry[]; onSelect: (id: number) => void }) {
-  // One row per role, groups and roles in order of first appearance; a
-  // role's marked rows fold into its pairs cell.
-  const groups: { name: string; roles: RoleEntry[][] }[] = [];
+// PairEditor is one tier's pairs as removable chips plus an input that adds
+// only a well-formed pair (PAIR_SHAPE) not already listed.
+function PairEditor({ role, tier, pairs, onChange }: { role: string; tier: string; pairs: string[]; onChange: (p: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+  const pair = draft.trim();
+  const ok = PAIR_SHAPE.test(pair) && !pairs.includes(pair);
+  return (
+    <span className={`edit ${tier}`}>
+      {pairs.map((p) => (
+        <span className="chip" key={p}>
+          <span className="pair">{p}</span>
+          <button type="button" aria-label={`Remove ${tier} pair ${p} from ${role}`} onClick={() => onChange(pairs.filter((x) => x !== p))}>
+            ×
+          </button>
+        </span>
+      ))}
+      <form
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          if (!ok) return;
+          onChange([...pairs, pair]);
+          setDraft("");
+        }}
+      >
+        <input aria-label={`Add ${tier} pair to ${role}`} placeholder="model/agent[@effort]" value={draft} onChange={(ev) => setDraft(ev.target.value)} />
+        <button type="submit" disabled={!ok}>
+          Add
+        </button>
+      </form>
+    </span>
+  );
+}
+
+function RoleRow({ r, onSelect, onSaved }: { r: RoleEntry; onSelect: (id: number) => void; onSaved: () => void }) {
+  const [base, setBase] = useState(r.base);
+  const [optin, setOptin] = useState(r.optin);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const dirty = base.join() !== r.base.join() || optin.join() !== r.optin.join();
+  const main = r.role === "main";
+  return (
+    <tr className="role">
+      <td className="role">
+        <code>{r.role}</code>
+      </td>
+      <td className="does">{r.does}</td>
+      <td className="pairs">
+        {main ? (
+          r.override ? (
+            <s>
+              <PairList pairs={[MAIN_PAIR]} />
+            </s>
+          ) : (
+            <PairList pairs={[MAIN_PAIR]} />
+          )
+        ) : r.override ? (
+          <s>
+            <PairEditor role={r.role} tier="base" pairs={base} onChange={setBase} />
+          </s>
+        ) : (
+          <PairEditor role={r.role} tier="base" pairs={base} onChange={setBase} />
+        )}
+        {r.override && (
+          <>
+            {" "}
+            <PairList pairs={r.override.pairs} className="exp" />
+            <a
+              href="#"
+              onClick={(ev) => {
+                ev.preventDefault();
+                onSelect(r.override!.experimentId);
+              }}
+            >
+              #{r.override.experimentId}
+            </a>
+          </>
+        )}
+        {!main && (
+          <>
+            <span className="tier">opt-in:</span>
+            <PairEditor role={r.role} tier="opt-in" pairs={optin} onChange={setOptin} />
+            {r.marked.map((x) => (
+              <span className="esc" key={x.pair + x.marker}>
+                <PairList pairs={[x.pair]} /> with <code>{x.marker}</code>
+              </span>
+            ))}
+            <button
+              type="button"
+              disabled={!dirty}
+              aria-label={`Save ${r.role}`}
+              onClick={() => {
+                setSaveError(null);
+                putRolePairs(r.role, { base, optin })
+                  .then(onSaved)
+                  .catch((err: Error) => setSaveError(err.message));
+              }}
+            >
+              Save
+            </button>
+            {saveError && (
+              <span role="alert" className="panel-error">
+                {saveError}
+              </span>
+            )}
+          </>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function RolesTable({ roles, onSelect, onSaved }: { roles: RoleEntry[]; onSelect: (id: number) => void; onSaved: () => void }) {
+  // One row per role, groups in order of first appearance.
+  const groups: { name: string; roles: RoleEntry[] }[] = [];
   for (const r of roles) {
     let g = groups.find((x) => x.name === r.group);
     if (!g) groups.push((g = { name: r.group, roles: [] }));
-    const rows = g.roles.find((x) => x[0].role === r.role);
-    if (rows) rows.push(r);
-    else g.roles.push([r]);
+    g.roles.push(r);
   }
   return (
     <table>
@@ -87,46 +199,10 @@ function RolesTable({ roles, onSelect }: { roles: RoleEntry[]; onSelect: (id: nu
             <tr className="grp">
               <th colSpan={3}>{g.name}</th>
             </tr>
-            {g.roles.map((rows) => {
-              const r = rows.find((x) => x.marker === "") ?? rows[0];
-              const pairs = r.role === "main" ? [MAIN_PAIR] : r.pairs;
-              return (
-                <tr className="role" key={r.role}>
-                  <td className="role">
-                    <code>{r.role}</code>
-                  </td>
-                  <td className="does">{r.does}</td>
-                  <td className="pairs">
-                    {r.override ? (
-                      <>
-                        <s>
-                          <PairList pairs={pairs} />
-                        </s>{" "}
-                        <PairList pairs={r.override.pairs} className="exp" />
-                        <a
-                          href="#"
-                          onClick={(ev) => {
-                            ev.preventDefault();
-                            onSelect(r.override!.experimentId);
-                          }}
-                        >
-                          #{r.override.experimentId}
-                        </a>
-                      </>
-                    ) : (
-                      <PairList pairs={pairs} />
-                    )}
-                    {rows
-                      .filter((x) => x.marker !== "")
-                      .map((x) => (
-                        <span className="esc" key={x.marker}>
-                          <PairList pairs={x.pairs} /> with <code>{x.marker}</code>
-                        </span>
-                      ))}
-                  </td>
-                </tr>
-              );
-            })}
+            {g.roles.map((r) => (
+              // Keyed on the saved pairs, so a reload after Save resets the draft.
+              <RoleRow key={`${r.role} ${r.base.join()} ${r.optin.join()}`} r={r} onSelect={onSelect} onSaved={onSaved} />
+            ))}
           </Fragment>
         ))}
       </tbody>
@@ -226,8 +302,9 @@ function Chart({ metric, startedAt }: { metric: ExperimentMetric; startedAt: str
   );
 }
 
-function Detail({ e, stats, roles }: { e: ExperimentDTO; stats: ExperimentStats | null; roles: RoleEntry[] }) {
+function Detail({ e, stats, roles, onPromoted }: { e: ExperimentDTO; stats: ExperimentStats | null; roles: RoleEntry[]; onPromoted: () => void }) {
   const metrics = stats?.metrics ?? [];
+  const [promoteError, setPromoteError] = useState<string | null>(null);
   return (
     <section className="right" id="detail">
       <section className="panel" aria-label="Override">
@@ -264,6 +341,24 @@ function Detail({ e, stats, roles }: { e: ExperimentDTO; stats: ExperimentStats 
           </p>
         ) : (
           <p role="status">Loading…</p>
+        )}
+        {e.status === "open" && (
+          <button
+            type="button"
+            onClick={() => {
+              setPromoteError(null);
+              promoteExperiment(e.id)
+                .then(onPromoted)
+                .catch((err: Error) => setPromoteError(err.message));
+            }}
+          >
+            Make permanent
+          </button>
+        )}
+        {promoteError && (
+          <p role="alert" className="panel-error">
+            {promoteError}
+          </p>
         )}
       </section>
       <div className="cells">
@@ -320,6 +415,10 @@ export function Experiments() {
   const [stats, setStats] = useState<ExperimentStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
 
+  // Bumped after a save or a promote: reloads the roles and the list.
+  const [reload, setReload] = useState(0);
+  const refresh = () => setReload((n) => n + 1);
+
   useEffect(() => {
     let live = true;
     Promise.all([fetchRoles(), fetchExperiments()])
@@ -335,7 +434,7 @@ export function Experiments() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [reload]);
 
   useEffect(() => {
     if (sel === null) return;
@@ -365,7 +464,7 @@ export function Experiments() {
       <section className="panel roles" aria-label="Current roles">
         <h2 className="ttl">Current roles — allowed pairs in force</h2>
         <div className="wrap" id="roles">
-          <RolesTable roles={roles} onSelect={setSel} />
+          <RolesTable roles={roles} onSelect={setSel} onSaved={refresh} />
         </div>
       </section>
       <section className="panel list" aria-label="Experiments">
@@ -393,7 +492,7 @@ export function Experiments() {
           Failed to load stats: {statsError}
         </p>
       )}
-      {e && <Detail e={e} stats={stats?.experiment.id === e.id ? stats : null} roles={roles} />}
+      {e && <Detail key={e.id} e={e} stats={stats?.experiment.id === e.id ? stats : null} roles={roles} onPromoted={refresh} />}
     </div>
   );
 }
