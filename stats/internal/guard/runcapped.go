@@ -26,7 +26,11 @@ import (
 //
 // The tree is every process whose ppid chain reaches the command, plus every
 // member of the command's process group — so a child that calls setsid (a
-// Playwright browser) is measured and killed while its parent lives. A
+// Playwright browser) is measured and killed while its parent lives. A pid
+// found in the tree once stays in the kill set until the process list no
+// longer lists it or lists it as a zombie, so such a session leader whose
+// parent died is still killed; a remembered pid is signalled only while the
+// list still holds it (kan-1103 self-review, F1). A
 // process that reparents to PID 1 (a Gradle daemon) escapes it: the wrapper
 // therefore sets GRADLE_OPTS `-Dorg.gradle.daemon=false`, so Gradle builds in
 // its client's tree.
@@ -143,10 +147,13 @@ func runCapped(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 }
 
-// rcTree is the live (non-zombie) pids of pg's tree: descendants of pg by
-// ppid, plus members of group pg.
-func rcTree(pg int) []int {
-	procs := rcProcs()
+// rcTree is the live (non-zombie) pids of pg's tree in the current process
+// table.
+func rcTree(pg int) []int { return rcTreeIn(pg, rcProcs()) }
+
+// rcTreeIn is the live (non-zombie) pids of pg's tree in procs: descendants
+// of pg by ppid, plus members of group pg.
+func rcTreeIn(pg int, procs []rcProc) []int {
 	in := map[int]bool{pg: true}
 	for _, p := range procs {
 		if p.pgid == pg {
@@ -181,8 +188,30 @@ func rcTreeFootprint(pg int) uint64 {
 
 // rcKillTree is the bash's kill_tree: TERM to the group and every member,
 // up to 2 s for them to go, then KILL, re-signalled each pass so a child
-// forked after a snapshot is killed too.
+// forked after a snapshot is killed too. Every pass acts on every pid any
+// pass found in the tree, not on the tree re-derived: a session leader whose
+// parent died of the TERM is reparented out of the tree and would otherwise
+// never get the KILL. A remembered pid is signalled only while rcProcs still
+// lists it alive, so a pid gone or a zombie is never signalled (kan-1103
+// self-review, F1).
+// ponytail: re-listing does not detect pid reuse — a remembered pid that
+// exits and is reassigned within the kill window (seconds; pids allocate
+// incrementally) is signalled; match start time or lineage if that bites.
 func rcKillTree(pg int) {
+	seen := map[int]bool{}
+	live := func() []int {
+		procs := rcProcs()
+		for _, pid := range rcTreeIn(pg, procs) {
+			seen[pid] = true
+		}
+		var pids []int
+		for _, p := range procs {
+			if seen[p.pid] && !p.zombie {
+				pids = append(pids, p.pid)
+			}
+		}
+		return pids
+	}
 	signalAll := func(sig syscall.Signal, pids []int) {
 		_ = syscall.Kill(-pg, sig)
 		for _, pid := range pids {
@@ -191,19 +220,18 @@ func rcKillTree(pg int) {
 			}
 		}
 	}
-	pids := rcTree(pg)
+	pids := live()
 	if len(pids) == 0 {
 		return
 	}
 	signalAll(syscall.SIGTERM, pids)
 	for i := 0; i < 4; i++ {
-		if len(rcTree(pg)) == 0 {
+		if len(live()) == 0 {
 			return
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	signalAll(syscall.SIGKILL, rcTree(pg))
-	for pids := rcTree(pg); len(pids) > 0; pids = rcTree(pg) {
+	for pids := live(); len(pids) > 0; pids = live() {
 		signalAll(syscall.SIGKILL, pids)
 		time.Sleep(100 * time.Millisecond)
 	}

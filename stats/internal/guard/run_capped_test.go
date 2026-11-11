@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,6 +23,9 @@ func init() {
 	case "":
 		return
 	case "alloc":
+		if os.Getenv("RUN_CAPPED_TEST_IGNORE_TERM") != "" {
+			signal.Ignore(syscall.SIGTERM)
+		}
 		// 128 MB of random bytes, re-touched every 0.2 s for 10 s, so no page
 		// of it is idle long enough to be compressed; a marker written only
 		// once the allocator finishes proves the kill without a wall-clock
@@ -103,7 +107,20 @@ func rcSelf(t *testing.T) string {
 	return self
 }
 
-func rcAlive(pid int) bool { return pid > 0 && syscall.Kill(pid, 0) == nil }
+// rcAlive is whether rcProcs lists pid as a live process: a zombie is dead
+// for this purpose, since its exit is done and only the reap is left
+// (kan-1103 self-review, F1).
+func rcAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	for _, p := range rcProcs() {
+		if p.pid == pid {
+			return !p.zombie
+		}
+	}
+	return false
+}
 
 func rcReadPid(t *testing.T, path string) int {
 	t.Helper()
@@ -213,6 +230,25 @@ func TestRunCappedContract(t *testing.T) {
 			t.Fatalf("the child read stdin: %q", out)
 		}
 	})
+}
+
+// TestRunCappedKillsASessionLeaderThatIgnoresTerm: a setsid child that
+// ignores SIGTERM is reparented once its parent dies of the TERM, and still
+// gets the KILL — run-capped remembers every pid its tree held (kan-1103
+// self-review, F1).
+func TestRunCappedKillsASessionLeaderThatIgnoresTerm(t *testing.T) {
+	t.Parallel()
+	pidfile := t.TempDir() + "/sid"
+	rc, _, _ := rcRun(t, t.TempDir(), "", []string{rcHelperEnv + "=setsid", "RUN_CAPPED_TEST_PIDFILE=" + pidfile, "RUN_CAPPED_TEST_IGNORE_TERM=1"}, "-m", "64", "--", rcSelf(t))
+	sp := rcReadPid(t, pidfile)
+	defer func() {
+		if sp > 0 {
+			_ = syscall.Kill(sp, syscall.SIGKILL)
+		}
+	}()
+	if rc != 137 || sp == 0 || rcAlive(sp) {
+		t.Fatalf("exit %d, TERM-ignoring setsid child %d alive %v", rc, sp, rcAlive(sp))
+	}
 }
 
 // TestRunCappedFootprintSurvivesCompression is the proof the cap reaches a
