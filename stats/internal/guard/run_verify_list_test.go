@@ -1142,3 +1142,57 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 		}
 	})
 }
+
+// TestRunVerifyListSkipsACommandGreenAtHead: a `test` re-run at the same
+// clean HEAD skips each command an earlier run passed while another failed,
+// and a new commit runs it again (kan-1103 self-review, F10).
+func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := `echo ran >> "$(git rev-parse --git-dir)/a-runs"; echo a`
+	b := `test -f "$(git rev-parse --git-dir)/b-ok"`
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+a+"\n"+b+"\n```\n")
+	gitRun(t, wt, "init", "-q")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-qm", "a")
+	gitDir := filepath.Join(wt, ".git")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	test := func() (int, string) {
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		return rc, o.String() + e.String()
+	}
+	runs := func() int {
+		b, _ := os.ReadFile(filepath.Join(gitDir, "a-runs"))
+		return strings.Count(string(b), "\n")
+	}
+
+	if rc, out := test(); rc != 1 || runs() != 1 {
+		t.Fatalf("run 1: exit %d, a-runs %d; want 1, 1\n%s", rc, runs(), out)
+	}
+	writeFile(t, filepath.Join(gitDir, "b-ok"), "")
+	head, err := exec.Command("git", "-C", wt, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc, out := test()
+	if want := "- `" + a + "` — skipped, passed at " + strings.TrimSpace(string(head)) + "\n"; rc != 0 || !strings.Contains(out, want) || runs() != 1 || !strings.Contains(out, "- `"+b+"` — exit 0\n") {
+		t.Fatalf("run 2: exit %d, a-runs %d; want 0, 1, %q and b exit 0\n%s", rc, runs(), want, out)
+	}
+	writeFile(t, filepath.Join(wt, "more.txt"), "x")
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-qm", "b")
+	if rc, out := test(); runs() != 2 {
+		t.Fatalf("run 3: exit %d, a-runs %d; want 2\n%s", rc, runs(), out)
+	}
+}

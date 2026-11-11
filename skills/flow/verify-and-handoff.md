@@ -127,7 +127,7 @@ are one more.
 The test group skips what the list's last green run on a clean tree already covered: every command
 when HEAD is the sha that run recorded, otherwise each command whose `# inputs:` pathspecs the delta
 since that sha leaves untouched; a skipped command's `## Report` line says so, and the script's
-header is canonical for the rule.
+header is canonical for the rule. At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed (kan-1103 self-review, F10).
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. Output carrying `WARNING: DATA RACE`

@@ -84,6 +84,17 @@
 // ponytail: the sha ignores the exported KEY=value lines; a run under other
 // isolation values reuses the green, so key the file by them if they ever vary.
 //
+// THE GREEN COMMANDS (kan-1103 self-review, F10: a re-run after one failed
+// command re-ran every command already green at the same HEAD). A `test` run
+// on a tree clean before and after it writes `flow-test-green-cmds` to the
+// worktree's own git dir: HEAD on line one, then each command that exited 0
+// -- the visual verify's command as it ran included -- one per line, keeping
+// the earlier lines when the file already named that HEAD. A later `test` run
+// at the same clean HEAD skips each listed command, printing
+//   - `<command>` — skipped, passed at <sha>
+// A failing run still runs every other command, and the whole-list sha above
+// and its skip are unchanged.
+//
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
 // check-spec-reach included — that exits 0 on a tree clean before and after
@@ -466,6 +477,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return ok && st == ""
 	}
 	headSHA, since, greenFile := "", "", ""
+	cmdsFile, greenAt := "", []string{} // THE GREEN COMMANDS: those passed at headSHA
 	if list == "test" {
 		if h, ok := gitOut("rev-parse", "-q", "--verify", "HEAD"); ok && clean() {
 			if g, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-test-green"); ok {
@@ -473,8 +485,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				b, _ := os.ReadFile(g)
 				since = strings.TrimRight(string(b), "\n")
 			}
+			if g, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-test-green-cmds"); ok && headSHA != "" {
+				cmdsFile = g
+				b, _ := os.ReadFile(g)
+				if l := strings.Split(strings.TrimRight(string(b), "\n"), "\n"); l[0] == headSHA {
+					greenAt = l[1:]
+				}
+			}
 		}
 	}
+	passed := []string{} // commands that exited 0 this run, written to cmdsFile
 	lintSHA, lintFile := "", ""
 	if list == "lint" {
 		if h, ok := gitOut("rev-parse", "-q", "--verify", "HEAD"); ok && clean() {
@@ -570,11 +590,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 4
 	}
 	skip := make([]bool, len(cmds))
+	passedAt := make([]bool, len(cmds))
 	var argvs [][]string
 	for i, c := range cmds {
 		switch {
 		case unchanged(inputs[i]):
 			skip[i] = true
+		case list == "test" && slices.Contains(greenAt, c):
+			skip[i], passedAt[i] = true, true
 		case list == "test":
 			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
 				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--"}, append(capped[:len(capped):len(capped)], c)...))
@@ -588,6 +611,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if list == "test" {
 		results := rgtRun(context.Background(), argvs, max(len(argvs), 1), outDir, abs(wt), cmdEnv)
 		for i, c := range cmds {
+			if passedAt[i] {
+				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", c, headSHA)
+				continue
+			}
 			if skip[i] {
 				fmt.Fprintf(stdout, "- `%s` — skipped, no input changed since %s passed the list\n", c, since)
 				continue
@@ -595,6 +622,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			r := results[0]
 			results = results[1:]
 			report(c, r.rc, r.out, fmt.Sprint(i))
+			if r.rc == 0 {
+				passed = append(passed, c)
+			}
 		}
 	}
 	visualRan := false
@@ -632,14 +662,30 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					cmd = strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " "))
 				}
 			}
-			if cmd != "" {
+			switch {
+			case cmd == "":
+			case list == "test" && slices.Contains(greenAt, cmd):
+				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", cmd, headSHA)
+			default:
 				results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, dir, cmdEnv)
 				report(cmd, results[0].rc, results[0].out, "visual")
+				if results[0].rc == 0 {
+					passed = append(passed, cmd)
+				}
 			}
 		}
 	}
 	if headSHA != "" && failed == 0 && clean() {
 		os.WriteFile(greenFile, []byte(headSHA+"\n"), 0o666)
+	}
+	if cmdsFile != "" && clean() {
+		var lines []string
+		for _, c := range append(greenAt, passed...) {
+			if !slices.Contains(lines, c) {
+				lines = append(lines, c)
+			}
+		}
+		os.WriteFile(cmdsFile, []byte(strings.Join(append([]string{headSHA}, lines...), "\n")+"\n"), 0o666)
 	}
 	if list == "lint" {
 		self, _ := selfExe()
