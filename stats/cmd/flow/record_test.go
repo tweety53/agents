@@ -5290,6 +5290,28 @@ func TestRecordDispatchBeginModelAlias(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBeginModelFamily pins the kan-1104 self-review's F17:
+// every Claude model spelling -- with or without the claude- prefix, any
+// version suffix -- is recorded under its family, and any other value
+// verbatim.
+func TestRecordDispatchBeginModelFamily(t *testing.T) {
+	for given, want := range map[string]string{
+		"sonnet-5-5":                "sonnet",
+		"claude-fable-5-2":          "fable",
+		"claude-haiku-4-5-20251001": "haiku",
+		"opus-5":                    "opus",
+		"claude-opus-5-5":           "opus",
+		"claude-opus-5-5[1m]":       "opus",
+		"sonnet-x":                  "sonnet-x",
+		"glm-5.3-flash":             "glm-5.3-flash",
+		"GLM-5.3-Flash":             "GLM-5.3-Flash",
+	} {
+		if sent := dispatchBeginBody(t, "-model", given); sent["model"] != want {
+			t.Errorf("-model %s recorded as %v, want %s", given, sent["model"], want)
+		}
+	}
+}
+
 // TestRecordDispatchBackfill pins the kan-939 self-review fix: a back-fill
 // is one `dispatch backfill` call whose real instants are required. It
 // sends begin carrying -started-at, then end carrying -ended-at and the

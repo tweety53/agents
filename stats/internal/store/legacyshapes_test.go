@@ -229,3 +229,71 @@ func TestMigration0047DropsLoopDispatchTwins(t *testing.T) {
 		t.Errorf("finding dispatch_id = %d, want NULL", *dispatchID)
 	}
 }
+
+// TestMigration0061FoldsModelSpellings pins the kan-1104 self-review's F17
+// repair: every Claude model spelling folds onto its family, a claude- full ID
+// moves into metrics.modelVersion where that key is absent, a harvested
+// modelVersion is kept, any other model is untouched, and a second run changes
+// nothing.
+func TestMigration0061FoldsModelSpellings(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dsn := newTestDatabase(t)
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(st.Close)
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open raw pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, sql, args...); err != nil {
+			t.Fatalf("exec %q: %v", sql, err)
+		}
+	}
+
+	exec(`INSERT INTO projects (project_key, main_checkout_path) VALUES ('p', '/tmp/p')`)
+	exec(`INSERT INTO changes (project_key, name, state, updated_at, updated_by) VALUES
+		('p', 'kan-1', 'IN_PROGRESS', now(), '/flow')`)
+	exec(`INSERT INTO dispatches (change_id, seq, role, model, started_at, dispatch_key, metrics)
+		SELECT c.id, v.seq, 'reviewer', v.m, now(), 'k-' || v.seq, v.metrics::jsonb FROM changes c, (VALUES
+			(1, 'claude-opus-5-5', '{}'),
+			(2, 'claude-sonnet-5-5', '{"modelVersion":"claude-sonnet-5-5-x"}'),
+			(3, 'sonnet-5-5', '{}'),
+			(4, 'glm-5.3-flash', '{}'),
+			(5, 'opus', '{}')
+		) AS v(seq, m, metrics)`)
+
+	sql, err := os.ReadFile("migrations/0061_dispatch_model_family.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(string(sql))
+	exec(string(sql))
+
+	rows, err := pool.Query(ctx, `SELECT model, COALESCE(metrics->>'modelVersion', '-') FROM dispatches ORDER BY seq`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for rows.Next() {
+		var model, version string
+		if err := rows.Scan(&model, &version); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, model+"/"+version)
+	}
+	rows.Close()
+	want := "opus/claude-opus-5-5 sonnet/claude-sonnet-5-5-x sonnet/- glm-5.3-flash/- opus/-"
+	if g := strings.Join(got, " "); g != want {
+		t.Errorf("dispatches after 0061 twice = %q, want %q", g, want)
+	}
+}

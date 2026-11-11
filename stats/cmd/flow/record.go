@@ -1722,14 +1722,25 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr)
 }
 
-// recordModelAlias maps a full Claude model id to the alias dispatches are
+// recordModelFamilyRe matches every Claude model spelling: the family, with
+// or without the claude- prefix, and any numeric version suffix.
+var recordModelFamilyRe = regexp.MustCompile(`^(claude-)?(opus|sonnet|fable|haiku)(-[0-9]+)*$`)
+
+// recordModelAlias maps a Claude model spelling to the family dispatches are
 // recorded under (kan-939 self-review: a parent's inline row recorded
 // claude-opus-5-5 while every dispatch it made recorded opus, so one model
-// read as two). Every other value is kept verbatim.
+// read as two; kan-1104 self-review, F17: a sonnet-5-5 row passed the
+// claude- prefix check and split the sonnet family the same way). Every other
+// value is kept verbatim. A claude-opus-/claude-sonnet- spelling with a
+// non-numeric tail -- claude-opus-4-6[1m], a -thinking variant -- falls back
+// to the prefix fold the anchored pattern replaced (kan-1104 self-review).
 func recordModelAlias(model string) string {
-	for _, alias := range []string{"opus", "sonnet"} {
-		if strings.HasPrefix(model, "claude-"+alias+"-") {
-			return alias
+	if m := recordModelFamilyRe.FindStringSubmatch(model); m != nil {
+		return m[2]
+	}
+	for _, family := range []string{"opus", "sonnet"} {
+		if strings.HasPrefix(model, "claude-"+family+"-") {
+			return family
 		}
 	}
 	return model
