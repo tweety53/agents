@@ -462,6 +462,20 @@ func TestPlanSessionIsADocumentedFlowPlanStage(t *testing.T) {
 	}
 }
 
+// TestFlowPlanMarksThePlanningStages pins that a /flow-plan capture, which
+// plans through /flow's planner role, may mark the five planning stages --
+// and still not flow.kickoff, whose time plan.session spans.
+func TestFlowPlanMarksThePlanningStages(t *testing.T) {
+	for _, key := range []string{"flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide"} {
+		if err := stages.Validate(stages.FlowPlan, key); err != nil {
+			t.Errorf("Validate(/flow-plan, %s) = %v, want nil", key, err)
+		}
+	}
+	if stages.Valid(stages.FlowPlan, "flow.kickoff") {
+		t.Error("flow.kickoff must not be valid for /flow-plan")
+	}
+}
+
 // TestKeysServesTableInOrder pins the serving function to the table it
 // serves: Keys() is what `flow stage keys` prints and what the
 // check-stage-mark-calls guard consumes, so it must carry Table's keys in

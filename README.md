@@ -179,11 +179,11 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | Key | Name | Commands |
 |-----|------|----------|
 | `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.design-approval` | Design approval | `/flow` |
-| `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast` |
-| `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast` |
-| `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast` |
+| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast`, `/flow-interactive`, `/flow-plan` |
+| `flow.design-approval` | Design approval | `/flow`, `/flow-plan` |
+| `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast`, `/flow-plan` |
+| `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast`, `/flow-plan` |
+| `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast`, `/flow-plan` |
 | `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
 | `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
