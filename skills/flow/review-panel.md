@@ -993,7 +993,9 @@ re-run and it has not, or when any commit or working-tree change to source lande
 last read, from any stage — `flow.verify` included**. An unrecorded edit after the panel closes is
 stale by definition, not only one a fix round produced. A fix against which a slot raised no
 finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
-fix changed. **The parent's inline Minor commit leaves every slot's result current** — a source change
+fix changed. A fix of Mutation's own findings leaves Mutation's result current too: its
+reproducers' flips and the fix's `fix-mutation:` lines cover it (**Panel re-runs**,
+`skills/flow/review-panel-fix-round.md`). **The parent's inline Minor commit leaves every slot's result current** — a source change
 after a slot's last read that does not make that result stale. A delta the late-fix
 reduction read, or the small append, has its own carve-out (`skills/flow/review-panel-late-fix.md`).
 

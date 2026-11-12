@@ -25,7 +25,7 @@ directly beneath it:
 
 **Independent multi-slot detection is the
 panel's core signal**: Mutation's
-dispatch, pass 1 and every fix-round re-run, carrying the mutation-testing brief, therefore runs
+dispatch, carrying the mutation-testing brief, therefore runs
 against its own throwaway worktree, never the
 shared `<worktree>` the other slots read, so every slot's findings are raised against the same
 pristine snapshot and no slot's view ever contains another slot's work:

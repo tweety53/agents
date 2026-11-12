@@ -21,7 +21,7 @@ commit comes first at a round boundary too.
 resolved roster, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
 where the reduction's trigger holds, or the decided roster on the since-close delta under the
 append scope, or `primary` alone on that delta under the small append — plus every slot the operator named at this stage's start
-that it did not already carry.** Only re-runs after a fix are scoped. A `test-sanity`, `call-efficiency`, `mutation` or `failure-modes` role re-runs in the round's rerun bundle like any other role, on `opus` on a `default` panel. Record
+that it did not already carry.** Only re-runs after a fix are scoped. A `test-sanity`, `call-efficiency` or `failure-modes` role re-runs in the round's rerun bundle like any other role, on `opus` on a `default` panel. Record
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
 `flow-guard write-panel-diff fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
@@ -95,10 +95,14 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   an earlier pass of this run. **A fix round is never exempt from being itself reviewed**: the
   fix for one finding can introduce the very class it fixed, no per-file or per-test check
   catches that, and the round's own mutation-proof and reproducer flips never substitute for the
-  re-run its fixes name. A slot that raised nothing keeps the result it has; the round's own
-  mutation-proof (below) covers what the fix changed;
-- **a diff-reading slot that re-runs reads its delta**; Mutation reads no diff
-  file and re-runs in its pass-1 shape, throwaway worktree included. **A diff-reading slot whose
+  re-run its fixes name — for every role but Mutation, below. A slot that raised nothing keeps the
+  result it has; the round's own mutation-proof (below) covers what the fix changed;
+  **Mutation is the one role never re-dispatched after a fix.** A surviving mutant the round fixed
+  closes when its own reproducer, re-run on the fix, exits non-zero — a test now kills it — and
+  the fix's `fix-mutation:` lines prove the tests it added. A round whose every Critical and
+  Important is a surviving mutant therefore dispatches its fix and closes with no re-run round;
+  Mutation sweeps again only at the next pass 1.
+- **a diff-reading slot that re-runs reads its delta**. **A diff-reading slot whose
   delta is empty in every worktree is not dispatched** — record `not re-run —
   nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
@@ -118,8 +122,8 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   `-model`/`-effort` recorded is the rerun pair (**Bundled dispatch**).
 
 **A fix-round re-run reviews the fix, never the branch** — and no pass after pass 1 re-reads the
-whole branch; the paragraph below is the one statement of a re-run's read scope. Every re-running slot's dispatch prompt —
-on every panel, Mutation included — carries the FIX-ROUND SCOPE paragraph,
+whole branch; the paragraph below is the one statement of a re-run's read scope. Every re-running slot's dispatch prompt,
+on every panel, carries the FIX-ROUND SCOPE paragraph,
 with `<fix report>` the round's `panel-fix-report-<round>.md` (every chunk's file on a chunked
 round):
 

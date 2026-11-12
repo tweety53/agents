@@ -63,7 +63,8 @@ import (
 //      recorded `fixed` has a clean re-run dispatch of its slot in a later
 //      round whose panel-report-<round>-<id>.md is written — for a row whose
 //      `supersedes` names a row of the same round (review-panel.md's
-//      cross-role fold), the named row's slot covers it
+//      cross-role fold), the named row's slot covers it; a row of slot
+//      `mutation` needs none, Mutation never re-running after a fix
 //   1  a finding is open or `deferred`, or a Critical or Important is
 //      recorded `fixed` with no clean re-run dispatch of its slot in any
 //      later round — the ordering review-panel.md's **Recording findings**
@@ -105,6 +106,8 @@ func init() {
 const (
 	cfcPrefix   = "check-panel-findings-closed: "
 	cfcJQFailed = cfcPrefix + "jq failed — cannot determine anything"
+	// cfcMutationSlot is the one role never re-dispatched after a fix.
+	cfcMutationSlot = "mutation"
 )
 
 func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) int {
@@ -289,8 +292,13 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		if f.status != "fixed" {
 			continue
 		}
-		// A fixed Minor closes on its fix alone (review-panel.md's **Panel re-runs**).
-		if strings.EqualFold(f.severity, "minor") {
+		// A fixed Minor closes on its fix alone, and so does a fixed surviving
+		// mutant: Mutation is never re-dispatched after a fix
+		// (review-panel-fix-round.md's **Panel re-runs**). Its proof -- the
+		// reproducer exiting non-zero on the fix -- is not in the store, so it
+		// is admitted unchecked here; the fix-mutation-row and regression-test
+		// checks below still hold it.
+		if strings.EqualFold(f.severity, "minor") || f.slot == cfcMutationSlot {
 			continue
 		}
 		covered, missing := covers(f.slot, f.round)
