@@ -924,6 +924,36 @@ func gateSelfReviewPassRan(ctx context.Context, f stageIdentityFlags, outcome st
 // origin/<base>`, <base> resolve-base-branch's answer, exactly as
 // integrate's unfinished-work gate judges it. A guard that cannot answer, a
 // state map that cannot be read among them, refuses.
+// changeWorktreeMap is the change's state-map worktrees, sorted, or dir alone
+// when the map holds none; a failed store read is its error.
+func changeWorktreeMap(ctx context.Context, addr string, timeout time.Duration, dir, name string) ([]string, error) {
+	projectKey, _, err := fallback.ProjectKey(dir)
+	var body []byte
+	if err == nil {
+		body, err = getChange(ctx, addr, timeout, projectKey, name)
+	}
+	var rec struct {
+		Worktrees map[string]json.RawMessage `json:"worktrees"`
+	}
+	if err == nil {
+		err = json.Unmarshal(body, &rec)
+	}
+	if err != nil {
+		return nil, err
+	}
+	var worktrees []string
+	for wt := range rec.Worktrees {
+		if wt != "" {
+			worktrees = append(worktrees, wt)
+		}
+	}
+	if len(worktrees) == 0 {
+		worktrees = []string{dir}
+	}
+	slices.Sort(worktrees)
+	return worktrees, nil
+}
+
 func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
 	if f.command != "/flow" || f.stage != "flow.visual-verify" || outcome != "completed" {
 		return 0
@@ -939,31 +969,11 @@ func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome
 			}
 		}
 	}
-	var worktrees []string
-	projectKey, _, err := fallback.ProjectKey(dir)
-	var body []byte
-	if err == nil {
-		body, err = getChange(ctx, f.addr, f.timeout, projectKey, f.name)
-	}
-	var rec struct {
-		Worktrees map[string]json.RawMessage `json:"worktrees"`
-	}
-	if err == nil {
-		err = json.Unmarshal(body, &rec)
-	}
+	worktrees, err := changeWorktreeMap(ctx, f.addr, f.timeout, dir, f.name)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: stage end refused: cannot read %s's worktree map: %v\n", f.name, err)
 		return 1
 	}
-	for wt := range rec.Worktrees {
-		if wt != "" {
-			worktrees = append(worktrees, wt)
-		}
-	}
-	if len(worktrees) == 0 {
-		worktrees = []string{dir}
-	}
-	slices.Sort(worktrees)
 	env := guard.Env{Getenv: os.Getenv, Dir: dir}
 	for _, wt := range worktrees {
 		var base bytes.Buffer

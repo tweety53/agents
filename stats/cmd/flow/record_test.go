@@ -6040,6 +6040,11 @@ func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
 				_, _ = w.Write([]byte("[]"))
 				return
 			}
+			if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/changes/") {
+				// The gone-base gate's worktree-map read (kan-1086 self-review, F7).
+				_, _ = w.Write([]byte(`{}`))
+				return
+			}
 			if r.Method == http.MethodGet {
 				if !strings.Contains(r.URL.Path, "/records/") || !strings.HasSuffix(r.URL.Path, "/kan-258") {
 					t.Errorf("unexpected read %s", r.URL.Path)
@@ -8360,4 +8365,86 @@ func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
 			t.Errorf("%s -round 7: stderr %q names no allowed maximum 1", kind, stderr.String())
 		}
 	}
+}
+
+// TestRecordDispatchBeginRefusesAGoneBase pins kan-1086 self-review, F7: a
+// verifier or panel-slot begin is refused, with no row written, while a
+// worktree of the change records a flowBase origin no longer carries; an
+// implementer begin is not gated, and a base origin carries is admitted.
+func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
+	git := func(dir string, args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	isolatedStateRoot(t)
+	tmp, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	origin, clone := filepath.Join(tmp, "origin.git"), filepath.Join(tmp, "clone")
+	git(tmp, "init", "-q", "--bare", "-b", "main", origin)
+	git(tmp, "clone", "-q", origin, clone)
+	git(clone, "commit", "-q", "--allow-empty", "-m", "initial")
+	git(clone, "push", "-q", "origin", "HEAD:main")
+	git(clone, "checkout", "-q", "-b", "spectre/demo")
+	git(clone, "config", "branch.spectre/demo.flowBase", "feature/gone")
+	if err := os.MkdirAll(filepath.Join(clone, "spectre", "changes", "demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	begin := func(t *testing.T, role, key string, extra ...string) (int, string, int) {
+		t.Helper()
+		posts := 0
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions"):
+				_, _ = w.Write([]byte("[]"))
+			case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/changes/"):
+				body, _ := json.Marshal(map[string]any{"worktrees": map[string]string{clone: "abc123"}})
+				_, _ = w.Write(body)
+			case r.Method == http.MethodGet:
+				_, _ = w.Write([]byte(`{"dispatches":[]}`))
+			default:
+				posts++
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+			}
+		}))
+		defer srv.Close()
+		args := append([]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "2s", "-C", clone,
+			"-change", "demo", "-role", role, "-model", "opus", "-key", key, "-session-token", "mf-record-gone-base"}, extra...)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), posts
+	}
+	for _, c := range []struct {
+		name, role, key string
+		extra           []string
+		refused         bool
+	}{
+		{"a verifier begin", "verifier", "verify", nil, true},
+		{"a panel slot begin", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, true},
+		{"an implementer begin", "implementer", "task-1-implementer", nil, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			code, stderr, posts := begin(t, c.role, c.key, c.extra...)
+			if c.refused {
+				if code == 0 || posts != 0 || !strings.Contains(stderr, "feature/gone") || !strings.Contains(stderr, "config branch.spectre/demo.flowBase") {
+					t.Fatalf("exit %d, posts %d; want a refusal naming the base and the re-point; stderr:\n%s", code, posts, stderr)
+				}
+				return
+			}
+			if code != 0 || posts != 1 {
+				t.Fatalf("exit %d, posts %d; want admitted; stderr:\n%s", code, posts, stderr)
+			}
+		})
+	}
+	t.Run("a verifier begin once the base is on origin", func(t *testing.T) {
+		git(clone, "push", "-q", "origin", "HEAD:refs/heads/feature/gone")
+		if code, stderr, posts := begin(t, "verifier", "verify"); code != 0 || posts != 1 {
+			t.Fatalf("exit %d, posts %d; want admitted; stderr:\n%s", code, posts, stderr)
+		}
+	})
 }

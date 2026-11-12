@@ -25,6 +25,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/guard"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -1216,6 +1217,29 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
+	}
+
+	// A verify run or a panel slot judges the change against its base, so a
+	// live verifier or panel begin is refused while any of the change's
+	// worktrees records a base origin no longer carries -- resolve-base-branch
+	// exit 1; exit 2 and 3 refuse nothing, and a failed worktree-map read
+	// checks -C alone (kan-1086 self-review, F7: a deleted base went
+	// unnoticed for 3h18m). A back-filled row records a dispatch already run.
+	if _, panel := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); (panel || *role == "verifier") && *startedAt == "" {
+		worktrees, err := changeWorktreeMap(ctx, f.addr, f.timeout, f.dir, f.change)
+		if err != nil {
+			worktrees = []string{f.dir}
+		}
+		for _, wt := range worktrees {
+			var out, why bytes.Buffer
+			if guard.Registry["resolve-base-branch"]([]string{wt}, guard.Env{Getenv: os.Getenv, Dir: wt}, &out, &why) != 1 {
+				continue
+			}
+			branch, _ := exec.Command("git", "-C", wt, "rev-parse", "--abbrev-ref", "HEAD").Output()
+			fmt.Fprintf(stderr, "flow: -key %q refused on %s: %s -- re-point it: git -C %s config branch.%s.flowBase <the branch it landed on>, then rebase onto origin/<that branch>\n",
+				*key, wt, strings.TrimSpace(why.String()), wt, strings.TrimSpace(string(branch)))
+			return 2
+		}
 	}
 
 	// A panel round below one the change's records already carry splits
