@@ -1233,3 +1233,27 @@ func TestRenderLedgerNamesTheRequest(t *testing.T) {
 		})
 	}
 }
+
+// TestLedgerShowsLabelArrowServed pins decision readers-prefer-served-metrics:
+// each half of a dispatch's Model line reads `<label> → <served>` when the
+// metrics name another served model or effort, and the label alone otherwise.
+func TestLedgerShowsLabelArrowServed(t *testing.T) {
+	served := json.RawMessage(`{"modelVersion":"claude-opus-5-5","effort":"medium"}`)
+	for _, tc := range []struct {
+		model, effort string
+		metrics       json.RawMessage
+		want          string
+	}{
+		{"opus", "high", served, "- Model: opus → claude-opus-5-5 effort=high → medium\n"},
+		{"claude-opus-5-5", "medium", served, "- Model: claude-opus-5-5 effort=medium\n"},
+		{"opus", "high", nil, "- Model: opus effort=high\n"},
+	} {
+		out := records.RenderLedger(records.Run{Change: "demo", Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: tc.model, Effort: tc.effort, Metrics: tc.metrics,
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+		}}})
+		if !strings.Contains(out, tc.want) {
+			t.Errorf("ledger lacks %q:\n%s", tc.want, out)
+		}
+	}
+}
