@@ -19,10 +19,10 @@ const repriceTimeout = 30 * time.Minute
 
 const pricingUsage = `usage: flow pricing reprice -since YYYY-MM-DD [-addr url] [-timeout dur]
 
-pricing reprice prices every stage run started on or after -since (UTC)
-again, so dispatches harvested before their served model was priced get
-their cost, and prints "priced N, skipped M". A run with no tokens or no
-rate in effect counts as skipped.
+pricing reprice prices every stage run and every dispatch row started on
+or after -since (UTC) again, so dispatches harvested before their served
+model was priced get their cost, and prints "priced N, skipped M". A run
+or dispatch row with no tokens or no rate in effect counts as skipped.
 `
 
 func runPricing(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -42,7 +42,7 @@ func runPricing(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	// Overrides the -timeout default registerStoreConnFlags set.
 	fset.Lookup("timeout").DefValue = repriceTimeout.String()
 	f.timeout = repriceTimeout
-	fset.StringVar(&since, "since", "", "reprice stage runs started on or after this date (YYYY-MM-DD)")
+	fset.StringVar(&since, "since", "", "reprice stage runs and dispatch rows started on or after this date (YYYY-MM-DD)")
 	if err := fset.Parse(args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0

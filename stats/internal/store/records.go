@@ -1421,6 +1421,10 @@ func (s *Store) ChangeSummary(ctx context.Context, projectKey, change string) (r
 // literal null): jsonb_deep_add(metrics, NULL) returns NULL, which this
 // column's NOT NULL constraint would reject as a raw Postgres error rather
 // than as the caller mistake it is.
+//
+// Once the merge lands, PriceDispatch reprices the row's own tokens into
+// its metrics.cost_usd -- set, never added, so the cost is not a numeric
+// leaf any patch carries (decision dispatch-cost-on-row-metrics).
 func (s *Store) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
 	if patch == nil {
 		return ErrNilMetricsPatch
@@ -1434,6 +1438,9 @@ func (s *Store) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patc
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	if err := s.PriceDispatch(ctx, dispatchID); err != nil {
+		return fmt.Errorf("store: merge dispatch metrics: price: %w", err)
 	}
 	return nil
 }

@@ -695,11 +695,78 @@ func (s *Store) pricingRateInEffect(ctx context.Context, model string, at time.T
 	return r, nil
 }
 
+// PriceDispatch sets dispatch row dispatchID's own metrics.cost_usd: its
+// metrics.tokens (harvest.TokenDelta's "main"/"sidechain" encoding, the
+// patch MergeDispatchMetrics merges) priced at the model that served it --
+// metrics.modelVersion, else the recorded label -- at the rate in effect at
+// its started_at (decision dispatch-cost-on-row-metrics). The cost is set
+// with ||, never added, so every harvest pass may reprice the row.
+//
+// A row with no tokens, no started_at, no rate in effect or a component its
+// rate cannot charge is left unpriced and returns nil; a cost an earlier
+// pass wrote is dropped then, so it never reads as complete. Readers show
+// the figure as a breakdown only: the stage run's models.<m> bucket already
+// holds the same tokens.
+func (s *Store) PriceDispatch(ctx context.Context, dispatchID int64) error {
+	_, err := s.priceDispatch(ctx, dispatchID)
+	return err
+}
+
+// priceDispatch is PriceDispatch, reporting whether the row priced, which
+// RepriceSince counts.
+func (s *Store) priceDispatch(ctx context.Context, dispatchID int64) (bool, error) {
+	var (
+		metrics   []byte
+		label     string
+		startedAt *time.Time
+	)
+	if err := s.pool.QueryRow(ctx, `SELECT metrics, model, started_at FROM dispatches WHERE id = $1`, dispatchID).
+		Scan(&metrics, &label, &startedAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+		}
+		return false, fmt.Errorf("store: price dispatch %d: %w", dispatchID, err)
+	}
+	var bag struct {
+		ModelVersion string            `json:"modelVersion"`
+		Tokens       modelBucketTokens `json:"tokens"`
+	}
+	if err := json.Unmarshal(metrics, &bag); err != nil {
+		return false, fmt.Errorf("store: price dispatch %d: decode metrics: %w", dispatchID, err)
+	}
+	model := bag.ModelVersion
+	if model == "" {
+		model = label
+	}
+	tokens := combineMainAndSidechain(bag.Tokens.Main, bag.Tokens.Sidechain)
+	cost, ok := 0.0, false
+	if startedAt != nil && tokens.hasCharge() {
+		var missing []string
+		resolve := func(m string) (PricingRate, error) { return s.pricingRateInEffect(ctx, m, *startedAt) }
+		var err error
+		if _, cost, ok, err = priceCandidate(resolve, model, tokens, false, &missing); err != nil {
+			return false, fmt.Errorf("store: price dispatch %d: %w", dispatchID, err)
+		}
+	}
+	if !ok {
+		if _, err := s.pool.Exec(ctx, `UPDATE dispatches SET metrics = metrics - 'cost_usd' WHERE id = $1 AND metrics ? 'cost_usd'`, dispatchID); err != nil {
+			return false, fmt.Errorf("store: price dispatch %d: clear stale cost: %w", dispatchID, err)
+		}
+		return false, nil
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE dispatches SET metrics = metrics || jsonb_build_object('cost_usd', $2::float8) WHERE id = $1`, dispatchID, cost); err != nil {
+		return false, fmt.Errorf("store: price dispatch %d: %w", dispatchID, err)
+	}
+	return true, nil
+}
+
 // RepriceSince runs Price over every stage run started at or after since
 // (decision reprice-command), so dispatches harvested before Price could
-// resolve their served model get their cost. A run Price refuses with
-// ErrTokensUnavailable or ErrPricingNotFound counts as skipped; any other
-// error stops and returns.
+// resolve their served model get their cost, then PriceDispatch over every
+// dispatch row started since (decision dispatch-cost-on-row-metrics). A run
+// Price refuses with ErrTokensUnavailable or ErrPricingNotFound, or a
+// dispatch row left unpriced, counts as skipped; any other error stops and
+// returns.
 func (s *Store) RepriceSince(ctx context.Context, since time.Time) (priced, skipped int, err error) {
 	rows, err := s.pool.Query(ctx, `SELECT id FROM stage_runs WHERE started_at >= $1 ORDER BY id`, since)
 	if err != nil {
@@ -717,6 +784,25 @@ func (s *Store) RepriceSince(ctx context.Context, since time.Time) (priced, skip
 			skipped++
 		default:
 			return priced, skipped, err
+		}
+	}
+	rows, err = s.pool.Query(ctx, `SELECT id FROM dispatches WHERE started_at >= $1 ORDER BY id`, since)
+	if err != nil {
+		return priced, skipped, fmt.Errorf("store: reprice dispatches since %s: %w", since, err)
+	}
+	dispatchIDs, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil {
+		return priced, skipped, fmt.Errorf("store: reprice dispatches since %s: %w", since, err)
+	}
+	for _, id := range dispatchIDs {
+		ok, err := s.priceDispatch(ctx, id)
+		if err != nil {
+			return priced, skipped, err
+		}
+		if ok {
+			priced++
+		} else {
+			skipped++
 		}
 	}
 	return priced, skipped, nil
