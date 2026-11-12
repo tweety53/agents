@@ -368,7 +368,7 @@ context bundle reads; `-standard` carries **Principles**' resolved `[STANDARDS_P
 `-fix-report` a re-run's `<fix report>`, and `-no-bundle` the CONTEXT BUNDLE FAILURE continue
 path. Its header (`<agents repo>/scripts/flow-guard render-slot-prompt`) is canonical for the file it
 writes: the shared paragraphs below, then one **PASS `<id>`** section per role in roster order,
-each with its own REPORT FILE line. Exit 0 prints the rendered path; exit 1 names a placeholder it
+each with its own REPORT FILE line. Exit 0 prints the rendered path, then a `DISPATCH:` line naming the Agent call's description and its prompt's `Role:` line — use both as printed (kan-1086 self-review, F9); exit 1 names a placeholder it
 could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
 `mutation`'s pass is rendered from **The mutation-testing brief** below and names its throwaway
 copies, `<worktree>-mutation-<round>` per repository; its MUTATION ENTRY CONTEXT paragraph and

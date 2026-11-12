@@ -536,3 +536,18 @@ func TestVisualVerifyPassPrepareContinueNamesSurvivorWithoutApp(t *testing.T) {
 		t.Fatalf("exit %d\nstdout %s\nstderr %s", rc, out.String(), errb.String())
 	}
 }
+
+// TestVisualVerifyPassPrepareNamesTheAgentCall pins kan-1086's self-review,
+// F9: the verifier's Agent call was hand-assembled around the bundle path;
+// the DISPATCH line now names its description, subagent_type, model and
+// Role line, from the pair the row begins on.
+func TestVisualVerifyPassPrepareNamesTheAgentCall(t *testing.T) {
+	f := vvpFixture(t, "")
+	f.green()
+	rc, out, _ := f.prepare()
+	d := vvpLines(out, "DISPATCH: ")
+	want := ` — description "visual-verify", subagent_type flow-low, model opus, prompt opens "Role: visual-verifier"`
+	if rc != 0 || len(d) != 1 || !strings.HasSuffix(d[0], want) {
+		t.Fatalf("exit %d, DISPATCH lines %q; want one ending %q\n%s", rc, d, want, out)
+	}
+}

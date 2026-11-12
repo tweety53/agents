@@ -43,7 +43,7 @@ func rspNewFx(t *testing.T) rspFx {
 func (fx rspFx) run(t *testing.T, skill string, args ...string) (guardResult, string) {
 	t.Helper()
 	r := runGuard("render-slot-prompt", args, Env{Dir: fx.canon, Getenv: os.Getenv})
-	path := strings.TrimSuffix(r.stdout, "\n")
+	path, _, _ := strings.Cut(r.stdout, "\n")
 	if r.rc != 0 {
 		return r, ""
 	}
@@ -97,7 +97,7 @@ func TestRenderSlotPrompt(t *testing.T) {
 		if r.rc != 0 {
 			t.Fatalf("exit %d\n%s", r.rc, r.out)
 		}
-		if want := sdd + "slot-prompt-0-primary.md\n"; r.stdout != want {
+		if want := sdd + "slot-prompt-0-primary.md"; strings.Split(r.stdout, "\n")[0] != want {
 			t.Errorf("stdout %q, want %q", r.stdout, want)
 		}
 		for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ"} {
@@ -135,7 +135,7 @@ func TestRenderSlotPrompt(t *testing.T) {
 		if r.rc != 0 {
 			t.Fatalf("exit %d\n%s", r.rc, r.out)
 		}
-		if !strings.HasSuffix(r.stdout, "slot-prompt-0-primary+principles+failure-modes.md\n") {
+		if path, _, _ := strings.Cut(r.stdout, "\n"); !strings.HasSuffix(path, "slot-prompt-0-primary+principles+failure-modes.md") {
 			t.Errorf("stdout %q", r.stdout)
 		}
 		for _, p := range rspTablePlaceholders(t, skill) {
@@ -286,7 +286,7 @@ func TestRenderSlotPromptRendersMutationPass(t *testing.T) {
 	// ENTRY CONTEXT, mutation reading no diff file (kan-1029's self-review).
 	r, _ := fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
 	wantMutation := fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation.md"
-	if r.rc != 0 || strings.TrimSpace(r.stdout) != wantMutation {
+	if r.rc != 0 || strings.Split(r.stdout, "\n")[0] != wantMutation || !strings.Contains(r.stdout, `"Role: panel-mutation-failure"`) {
 		t.Fatalf("mutation alone: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, wantMutation)
 	}
 	mb, err := os.ReadFile(wantMutation)
@@ -308,7 +308,7 @@ func TestRenderSlotPromptRendersMutationPass(t *testing.T) {
 	// mutation+failure-modes), and the shared INDEPENDENT PASSES paragraph.
 	r, _ = fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation+failure-modes", "-diff", "final", "--", fx.canon)
 	want := fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation+failure-modes.md"
-	if r.rc != 0 || strings.TrimSpace(r.stdout) != want {
+	if r.rc != 0 || strings.Split(r.stdout, "\n")[0] != want {
 		t.Fatalf("mutation+failure-modes: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, want)
 	}
 	b, err := os.ReadFile(want)
@@ -433,5 +433,36 @@ func TestRenderSlotPromptStatesTheRound(t *testing.T) {
 	}
 	if strings.Contains(got, "R-ID-N") {
 		t.Errorf("the REPRODUCER paragraph still carries R-ID-N:\n%s", got)
+	}
+}
+
+// TestRenderSlotPromptPrintsTheDispatchHead pins kan-1086's self-review, F9:
+// the Agent call's description and Role line were hand-typed around the
+// rendered path and one went wrong; the guard now prints both after it.
+func TestRenderSlotPromptPrintsTheDispatchHead(t *testing.T) {
+	t.Parallel()
+	skill := rspSkillDir(t)
+	for _, c := range []struct {
+		name, slots, diff, decision, want string
+	}{
+		{"mutation pass", "mutation+failure-modes", "final", "", `DISPATCH: description "panel-2-mutation+failure-modes" — prompt opens "Role: panel-mutation-failure"`},
+		{"sanity pass", "test-sanity+call-efficiency", "final", "", `DISPATCH: description "panel-2-test-sanity+call-efficiency" — prompt opens "Role: panel-sanity-efficiency"`},
+		{"main pass", "primary+principles", "final", "", `DISPATCH: description "panel-2-primary+principles" — prompt opens "Role: panel-reviewer"`},
+		{"delta re-run", "primary", "delta", "", `DISPATCH: description "panel-2-primary" — prompt opens "Role: panel-rerun"`},
+		{"late fix, no decision", "primary", "late-fix", "", `DISPATCH: description "panel-2-primary" — prompt opens "Role: late-fix"`},
+		{"late fix, default panel", "primary", "late-fix", `{"panel":"default"}`, `DISPATCH: description "panel-2-primary" — prompt opens "Role: late-fix"`},
+		{"late fix, decided panel", "primary", "late-fix", `{"panel":{"rerun_dispatch":{"model":"sonnet","effort":"low"}}}`, `DISPATCH: description "panel-2-primary" — prompt opens "Role: panel-rerun"`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			fx := rspNewFx(t)
+			if c.decision != "" {
+				writeFile(t, fx.canon+"/.superpowers/sdd/decision.json", c.decision)
+			}
+			r, _ := fx.run(t, skill, skill, "2", fx.canon, fx.plan, c.slots, "-diff", c.diff, "--", fx.canon)
+			lines := strings.Split(strings.TrimSuffix(r.stdout, "\n"), "\n")
+			if r.rc != 0 || len(lines) != 2 || !strings.HasSuffix(lines[0], ".md") || lines[1] != c.want {
+				t.Errorf("exit %d stdout %q stderr %q; want the path, then %q", r.rc, r.stdout, r.err, c.want)
+			}
+		})
 	}
 }

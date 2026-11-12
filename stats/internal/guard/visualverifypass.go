@@ -134,7 +134,10 @@ import (
 //      the survivor's `ui paths` matched under --repo; keys suffixed
 //      `-<repository name>` when the set holds more than one worktree — each
 //      appending `row <key> <worktree>` to the stage file and printing
-//      `DISPATCH: <key> <bundle>`; then `NEXT: dispatch <n>`, exit 0. A
+//      `DISPATCH: <key> <bundle> — description "<key>", subagent_type
+//      flow-low, model opus, prompt opens "Role: visual-verifier"`, the
+//      Agent call's four fields (kan-1086 self-review, F9); then
+//      `NEXT: dispatch <n>`, exit 0. A
 //      refused begin ends the stage `stopped` with `STOP: row — flow record
 //      dispatch begin refused for <key>: <its output>`, exit 1.
 //

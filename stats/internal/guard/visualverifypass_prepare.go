@@ -368,8 +368,14 @@ func vvpLastLine(s string) string {
 // vvpRedispatch is a re-dispatch's key, `visual-verify-<n>[-…]`.
 var vvpRedispatch = regexp.MustCompile(`^visual-verify-[0-9]+(-|$)`)
 
+// vvpModel and vvpEffort are the pair every verifier row begins on
+// (decision verifier-stays-opus); the DISPATCH line names the Agent call
+// from them (kan-1086 self-review, F9).
+const vvpModel, vvpEffort = "opus", "low"
+
 // dispatch writes each verifier's bundle, begins its row and prints
-// `DISPATCH: <key> <bundle>` per row, then `NEXT: dispatch <n>`. A set of
+// `DISPATCH: <key> <bundle> — description "<key>", subagent_type
+// flow-low, model opus, prompt opens "Role: visual-verifier"` per row, then `NEXT: dispatch <n>`. A set of
 // more than one worktree suffixes each key `-<repository name>`; a
 // --continue key already ending in a survivor's suffix runs that worktree
 // alone.
@@ -413,7 +419,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 			heads = append(heads, h)
 		}
 		argv := []string{"record", "dispatch", "begin", "-C", v.canon, "-change", v.name, "-role", "verifier",
-			"-model", "opus", "-effort", "low", "-key", r.key, "-session-token", v.token, "-diff-base", strings.Join(heads, ",")}
+			"-model", vvpModel, "-effort", vvpEffort, "-key", r.key, "-session-token", v.token, "-diff-base", strings.Join(heads, ",")}
 		if rb := v.roundBase[r.w]; rb != "" {
 			argv = append(argv, "-round-base", rb)
 		}
@@ -427,7 +433,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 		}
 		begun = append(begun, r.key)
 		v.appendStage("row " + r.key + " " + r.w)
-		v.say("DISPATCH: %s %s", r.key, bundle)
+		v.say("DISPATCH: %s %s — description %q, subagent_type flow-%s, model %s, prompt opens \"Role: visual-verifier\"", r.key, bundle, r.key, vvpEffort, vvpModel)
 	}
 	v.next(fmt.Sprintf("dispatch %d", len(rows)))
 }

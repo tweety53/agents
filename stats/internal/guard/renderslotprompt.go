@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -61,8 +62,17 @@ import (
 // CONTEXT BUNDLE, the relocation-comparison pointer and the reproducer rule
 // stay typed in the Agent call.
 //
+// After the path, one line names the Agent call that launches the brief:
+// `DISPATCH: description "panel-<round>-<slots>" — prompt opens "Role: <role>"`,
+// <role> panel-mutation-failure for a dispatch carrying mutation and
+// panel-sanity-efficiency for test-sanity+call-efficiency under -diff final,
+// panel-reviewer for any other final dispatch, panel-rerun under delta and
+// fix-round, and under late-fix `late-fix` when
+// <canonical-wt>/.superpowers/sdd/decision.json is absent or its panel is
+// "default", else panel-rerun (kan-1086 self-review, F9).
+//
 // Exit codes:
-//   0  written; its path on stdout
+//   0  written; its path, then the DISPATCH line, on stdout
 //   1  a placeholder is left unfilled — each named on stderr; nothing written
 //   2  cannot answer — usage, a relative path, an unknown slot, a
 //      missing template, block, touched list, standards, principles or
@@ -70,8 +80,8 @@ import (
 
 // renderSlotPrompt is `flow-guard render-slot-prompt`: the comment above is the contract -- one panel dispatch's brief rendered from
 // review-panel.md's shared blocks and each slot's template, written to
-// <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slots>.md and its
-// path printed; exit 0 written, 1 a placeholder left unfilled (named, and
+// <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slots>.md, its
+// path printed and then its DISPATCH line; exit 0 written, 1 a placeholder left unfilled (named, and
 // nothing written), 2 cannot answer.
 func init() {
 	Registry["render-slot-prompt"] = renderSlotPrompt
@@ -383,7 +393,36 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("%v", err)
 	}
 	fmt.Fprintln(stdout, path)
+	fmt.Fprintf(stdout, "DISPATCH: description %q — prompt opens \"Role: %s\"\n", "panel-"+round+"-"+slotArg, rspRole(slotArg, kind, sdd))
 	return 0
+}
+
+// rspRole is the Role line's id a dispatch of slotArg under -diff kind opens
+// with (decision f9-dispatch-head, kan-1086 self-review F9) -- a final
+// dispatch carrying the mutation slot, alone or with failure-modes, is the
+// panel-mutation-failure bundle; under late-fix,
+// `late-fix` on a default panel -- decision.json absent or its panel the
+// string "default" -- and `panel-rerun` on a decided one.
+func rspRole(slotArg, kind, sdd string) string {
+	switch kind {
+	case "final":
+		switch {
+		case slices.Contains(strings.Split(slotArg, "+"), "mutation"):
+			return "panel-mutation-failure"
+		case slotArg == "test-sanity+call-efficiency":
+			return "panel-sanity-efficiency"
+		}
+		return "panel-reviewer"
+	case "late-fix":
+		var d struct {
+			Panel json.RawMessage `json:"panel"`
+		}
+		raw, err := os.ReadFile(sdd + "decision.json")
+		if err != nil || json.Unmarshal(raw, &d) != nil || len(d.Panel) == 0 || string(d.Panel) == `"default"` {
+			return "late-fix"
+		}
+	}
+	return "panel-rerun"
 }
 
 // rspBlock is the blockquote in src opening `> **<label>:**`: that line

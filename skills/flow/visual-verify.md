@@ -173,8 +173,8 @@ Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's — `flow-guard visual-verify-pa
 run them, and the parent starts and stops the stack, all in the parent's own Bash calls, never a
 subagent's. Steps 4 and 8–11 and the motion step are run by one verifier per worktree
 surviving steps 1–3, dispatched per **The verifier dispatch** above under the key `prepare` began; the
-parent applies **Blocking** to its report. `prepare` prints one `DISPATCH: <key> <bundle>` line per
-verifier, then `NEXT: dispatch`; its bundle,
+parent applies **Blocking** to its report. `prepare` prints one `DISPATCH: <key> <bundle> — <description, subagent_type, model and Role: line>` line per
+verifier, the Agent call taking those four as printed (kan-1086 self-review, F9), then `NEXT: dispatch`; its bundle,
 `<abs-worktree>/.superpowers/sdd/verify-prompt-<key>.md`, states the absolute worktree path; the
 `KEY=value` lines `flow-guard prepare-workspace` printed for it; this section's resolved `setup`, `capture` and
 `specs` commands and `screenshots` root, its resolved `mockups` root when
