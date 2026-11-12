@@ -510,11 +510,7 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 		line("%s: %s", c, vvpOr(cells[c]))
 	}
 	// The frontend the specs command reads is the sibling whose diff made w survive, when one did.
-	root, base := w, v.mergeBase[w]
-	if len(v.siblings[w]) > 0 {
-		root = v.siblings[w][0]
-		base = v.mergeBase[root]
-	}
+	root, base := siblingFrontend(w, v.siblings[w], v.mergeBase, func(string) bool { return true })
 	specs := strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(cells["specs"])
 	line("specs: %s", vvpOr(specs))
 	line("screenshots: %s", vvpOr(cellPath(v.captureRoot(w), cells["screenshots"])))
@@ -707,4 +703,17 @@ func vvpDecode(page []byte, dir string) error {
 		}
 	}
 	return nil
+}
+
+// siblingFrontend is the frontend a `specs` row reads and its merge base:
+// the first of siblings, in order, that matches admits, with its base, else
+// canon with its own -- the one rule `visual-verify-pass prepare` and
+// `run-verify-list` share (decision shared-sibling-frontend-helper).
+func siblingFrontend(canon string, siblings []string, bases map[string]string, matches func(string) bool) (root, base string) {
+	for _, s := range siblings {
+		if matches(s) {
+			return s, bases[s]
+		}
+	}
+	return canon, bases[canon]
 }

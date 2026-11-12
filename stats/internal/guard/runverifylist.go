@@ -241,7 +241,10 @@ import (
 // any other command (kan-1047). A declared `specs` row runs first, its paths
 // put in `<specs>`: no path runs no spec, a non-zero exit or an unresolved
 // base fails the list, and the whole suite never runs in its place. With no
-// `specs` row, `<specs>` is emptied and the suite runs whole.
+// `specs` row, `<specs>` is emptied and the suite runs whole. A sibling
+// worktree in the change's state record whose diff touches the `ui paths`
+// as `<its repository name>/<path>` runs the row too, its path and kickoff
+// base filling `<frontend-root>` and `<merge-base>` (siblingFrontend).
 //
 // A `visual` list runs that `verify` row alone, as a `test` list's tail would,
 // and never the `## lint` or `## test` commands; when the conditions above
@@ -316,34 +319,39 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallbac
 	return rvlVisualVerifyFor(env, wt, covered, "", "", io.Discard)
 }
 
-// rvlKickoffBase is the commit `flow.kickoff` branched wt from: wt's
-// absolute path's value in the worktrees map of `flow state get -C <canon>
-// <change>` (decision selection-base-kickoff-commit), "" when flow is not
-// on PATH, fails, or the record holds no entry for wt.
-func rvlKickoffBase(env Env, wt, change, canon string) string {
+// rvlKickoffBases is the worktrees map of `flow state get -C <canon>
+// <change>`: each worktree's absolute path, in record order, and the commit
+// `flow.kickoff` branched it from (decision selection-base-kickoff-commit)
+// -- none when flow is not on PATH or fails.
+func rvlKickoffBases(env Env, change, canon string) (worktrees []string, bases map[string]string) {
+	bases = map[string]string{}
 	flow, ok := lookPath(env, "flow")
 	if !ok || change == "" {
-		return ""
+		return nil, bases
 	}
 	get := exec.Command(flow, "state", "get", "-C", canon, change)
 	get.Dir, get.Env = env.Dir, icChildEnv(env)
 	out, err := get.Output()
 	if err != nil {
-		return ""
+		return nil, bases
 	}
 	st := icParseState(string(out))
 	for i, k := range st.keys {
-		if k == wt && st.values[i] != "-" {
-			return st.values[i]
+		if st.values[i] != "-" {
+			worktrees, bases[k] = append(worktrees, k), st.values[i]
 		}
 	}
-	return ""
+	return worktrees, bases
 }
 
 // rvlVisualVerifyFor is rvlVisualVerify with the change's name and its
 // canonical worktree (wt when ""), whose state record gives the merge base:
 // the kickoff base for wt, and only with none -- the fallback printed on
-// stdout -- the merge base of HEAD and the remote base branch.
+// stdout -- the merge base of HEAD and the remote base branch. The record's
+// other worktrees are wt's siblings: the row also runs when a sibling's diff
+// from its own base matches wt's `ui paths` under `--repo <its repository
+// name>`, and the `specs` row then reads the first such sibling and its base
+// (siblingFrontend, the rule `visual-verify-pass prepare` follows).
 func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
 	if canon == "" {
 		canon = wt
@@ -364,10 +372,11 @@ func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, 
 	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json")); err == nil && json.Unmarshal(raw, &d) == nil && d.Visual.Verify == "skipped" {
 		return "", "", "", "", false
 	}
+	git := envGit(env)
+	worktrees, bases := rvlKickoffBases(env, change, canon)
 	mb := ""
 	changed := func() ([]string, error) {
-		git := envGit(env)
-		if mb = rvlKickoffBase(env, wt, change, canon); mb == "" {
+		if mb = bases[wt]; mb == "" {
 			var base bytes.Buffer
 			if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
 				return nil, fmt.Errorf("no base branch")
@@ -386,7 +395,20 @@ func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, 
 		}
 		return strings.Split(names, "\n"), nil
 	}
-	if visualTrigger(env, wt, changed, io.Discard, io.Discard) == 1 {
+	own := visualTrigger(env, wt, changed, io.Discard, io.Discard) != 1
+	bases[wt] = mb
+	siblings := slices.DeleteFunc(worktrees, func(w string) bool { return w == wt })
+	root, base := siblingFrontend(wt, siblings, bases, func(s string) bool {
+		names, ok := capture(git("-C", s, "diff", "--no-renames", "--name-only", bases[s]+"..HEAD"))
+		common, ok2 := capture(git("-C", s, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		if !ok || !ok2 {
+			return false
+		}
+		e := env
+		e.Stdin = strings.NewReader(names + "\n")
+		return Registry["check-visual-trigger"]([]string{"--repo", filepath.Base(filepath.Dir(common)), wt}, e, io.Discard, io.Discard) == 0
+	})
+	if !own && root == wt {
 		return "", "", "", "", false
 	}
 	dir = wt
@@ -406,10 +428,10 @@ func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, 
 		}
 	}
 	if s := cells["specs"]; s != "" {
-		if mb == "" {
+		if base == "" {
 			return "", "", dir, fallback, true
 		}
-		return cells["verify"], strings.NewReplacer("<frontend-root>", wt, "<merge-base>", mb).Replace(s), dir, fallback, true
+		return cells["verify"], strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(s), dir, fallback, true
 	}
 	return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, true
 }

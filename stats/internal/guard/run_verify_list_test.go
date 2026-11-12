@@ -1517,3 +1517,42 @@ func TestRunVerifyListReadsTheRecordFromTheCanonicalWorktree(t *testing.T) {
 		}
 	}
 }
+
+func TestSiblingFrontendPicksTheFirstMatchingSibling(t *testing.T) {
+	t.Parallel()
+	bases := map[string]string{"canon": "c", "s1": "b1", "s2": "b2"}
+	for _, tc := range []struct {
+		name       string
+		match      []string
+		root, base string
+	}{
+		{"s2 only", []string{"s2"}, "s2", "b2"},
+		{"both", []string{"s1", "s2"}, "s1", "b1"},
+		{"none", nil, "canon", "c"},
+	} {
+		root, base := siblingFrontend("canon", []string{"s1", "s2"}, bases, func(s string) bool { return slices.Contains(tc.match, s) })
+		if root != tc.root || base != tc.base {
+			t.Errorf("%s: %s %s, want %s %s", tc.name, root, base, tc.root, tc.base)
+		}
+	}
+}
+
+func TestRunVerifyListRunsSpecsFromTheSiblingFrontend(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "docs/a.md", "", "echo <frontend-root> <merge-base>", false, false, false)
+	// A sibling worktree of a repository named `web`, whose diff touches
+	// src/a.tsx -- web/src/a.tsx under the canonical `ui paths`.
+	sib := filepath.Join(t.TempDir(), "web")
+	writeFile(t, filepath.Join(sib, "README"), "x\n")
+	rvlGit(t, filepath.Dir(sib), "init", "-q", "-b", "main", sib)
+	rvlGit(t, sib, "add", "-A")
+	rvlGit(t, sib, "commit", "-q", "-m", "base")
+	sibBase := rvlGit(t, sib, "rev-parse", "HEAD")
+	writeFile(t, filepath.Join(sib, "src/a.tsx"), "x\n")
+	rvlGit(t, sib, "add", "-A")
+	rvlGit(t, sib, "commit", "-q", "-m", "ui")
+	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
+	if rc, out := rvlRunIn(t, wt, stub, wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL ["+sib+" "+sibBase+"]") {
+		t.Errorf("exit %d, the specs row did not read the sibling frontend %s at %s:\n%s", rc, sib, sibBase, out)
+	}
+}
