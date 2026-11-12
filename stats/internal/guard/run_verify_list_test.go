@@ -748,13 +748,21 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 }
 
 // rvlRunIn runs run-verify-list with args from dir, path prepended to PATH
-// when set, and returns its exit code and stdout+stderr.
+// when set, and returns its exit code and stdout+stderr. PATH never holds
+// the real `flow`, whose `suite record` would write to the dev store: a test
+// wanting one passes its stub's directory as path.
 func rvlRunIn(t *testing.T, dir, path string, args ...string) (int, string) {
 	t.Helper()
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
-	if path != "" {
-		environ = append(environ, "PATH="+path+":"+os.Getenv("PATH"))
+	var bare []string
+	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
+		if _, err := os.Stat(filepath.Join(d, "flow")); err != nil {
+			bare = append(bare, d)
+		}
 	}
+	if path != "" {
+		bare = append([]string{path}, bare...)
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+strings.Join(bare, ":"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1554,5 +1562,35 @@ func TestRunVerifyListRunsSpecsFromTheSiblingFrontend(t *testing.T) {
 	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
 	if rc, out := rvlRunIn(t, wt, stub, wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL ["+sib+" "+sibBase+"]") {
 		t.Errorf("exit %d, the specs row did not read the sibling frontend %s at %s:\n%s", rc, sib, sibBase, out)
+	}
+}
+
+// TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns pins decision
+// suite-records-scope: a plain run of the visual `verify` row, alone or as a
+// `test` list's tail, runs under `flow suite record -suite visual`; a
+// narrowed run never does, and with no `flow` the row runs bare.
+func TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "", false, false, false)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "tests/c.spec.ts:4\n")
+	for _, tc := range []struct {
+		args   []string
+		record bool
+	}{
+		{[]string{wt, "visual"}, true},
+		{[]string{wt, "test"}, true},
+		{[]string{"-only", list, wt, "visual"}, false},
+		{[]string{"-detect-flaky", wt, "visual"}, false},
+	} {
+		stub, log := rvlFlowStub(t, "{}", 0)
+		rc, out := rvlRunIn(t, wt, stub, tc.args...)
+		calls, _ := os.ReadFile(log)
+		if got := strings.Contains(string(calls), "suite record -C "+wt+" -suite visual -- bash -c echo VISUAL-RAN"); rc != 0 || got != tc.record || !strings.Contains(out, "  VISUAL-RAN") {
+			t.Errorf("%v: exit %d, recorded %v, want %v; flow calls %q\n%s", tc.args, rc, got, tc.record, calls, out)
+		}
+	}
+	if rc, out := rvlRunIn(t, wt, "", wt, "visual"); rc != 0 || !strings.Contains(out, "  VISUAL-RAN") {
+		t.Errorf("without flow: exit %d\n%s", rc, out)
 	}
 }

@@ -232,7 +232,9 @@ import (
 // A `# suite: <name>` line in the `test` list names the one command below it
 // as that suite: it runs under `flow suite record -C <worktree> -suite <name>
 // --`, so its runtime reaches the store `flow suite list` reads; with no flow
-// on PATH it runs bare.
+// on PATH it runs bare. A plain run of the visual `verify` row runs under
+// `flow suite record -C <worktree> -suite visual --` the same way; a
+// narrowed run never does.
 //
 // A `test` list ends with the `## visual verification` `verify` row, run once
 // after every other command, when the worktree's diff from its base branch
@@ -951,7 +953,13 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			case list == "test" && slices.Contains(greenAt, cmd):
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", cmd, headSHA)
 			default:
-				results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, dir, cmdEnv)
+				// A plain run's runtime reaches the store as suite `visual`; a
+				// narrowed one is not that suite (decision suite-records-scope).
+				argv := []string{"bash", "-c", cmd}
+				if flow, ok := lookPath(env, "flow"); ok && mode == "plain" {
+					argv = append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", "visual", "--"}, argv...)
+				}
+				results := rgtRun(context.Background(), [][]string{argv}, 1, outDir, dir, cmdEnv)
 				name, round := list+"-visual", 0
 				if results[0].rc != 0 && keep != "" {
 					round = rvlNextRound(keep)
