@@ -1054,6 +1054,9 @@ FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
 | a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the group's own pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
 | a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the full suite**, above) |
 
+`full-suite-fix-<n>` keys the implement phase's full-suite fixes only; a fix at `flow.verify` is an
+`In-run fix <k>` task, its re-runs keyed `-fix-<k>` (**The loop**, `skills/flow/verify-fix-loop.md`).
+
 Every row is `-role implementer`, its prompt's `Role:` line `implementer`, recorded by `flow record
 dispatch begin` and `end` as a group's implementer is — its `-model` and `-effort` the pair the
 table names, the end's `-commit` its last commit — and launched with `run_in_background: true` like

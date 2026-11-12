@@ -172,7 +172,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
    `begin` mark, then **Visual verification** from its `begin` mark, so the fix's own lint, tests and
    captures are what the handoff reports. This round's `verify` and `visual-verify` dispatch keys
-   carry the suffix `-fix-<k>`, before any `-<repository name>` suffix. **The `verify` re-run
+   carry the suffix `-fix-<k>`, before any `-<repository name>` suffix. At `flow.verify` every fix is such an `In-run fix <k>` task, never a `full-suite-fix-<n>` row, which keys the implement phase's full-suite fixes only (`skills/flow/implement.md`). **The `verify` re-run
    runs only in a worktree whose HEAD moved since its previous verify of this run, or whose test
    commands drive the stack of one that did** — an unmoved worktree's lint and tests already
    passed on that same HEAD. **The `visual-verify`
