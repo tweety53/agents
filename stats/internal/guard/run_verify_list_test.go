@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -1305,5 +1306,84 @@ func TestRunVerifyListEmptiesTheFailingListWhenNoneParse(t *testing.T) {
 	b, err := os.ReadFile(list)
 	if rc != 1 || err != nil || len(b) != 0 || !strings.Contains(out, "  failing list: none parsed\n") {
 		t.Errorf("exit %d, %s holds %q (%v), output:\n%s", rc, list, b, err, out)
+	}
+}
+
+// rvlNarrowFixture is a visual-verify fixture whose `verify` cell writes its
+// argv to argv and prints out, exiting rc, and whose `specs` cell touches
+// marker and prints fidelity/a.spec.ts.
+func rvlNarrowFixture(t *testing.T, out string, rc int) (wt, argv, marker string) {
+	t.Helper()
+	d := t.TempDir()
+	argv, marker = filepath.Join(d, "argv"), filepath.Join(d, "marker")
+	writeFile(t, filepath.Join(d, "out"), out)
+	verify := rvlScript(t, "echo \"$*\" > "+argv+"\ncat "+filepath.Join(d, "out")+"\nexit "+strconv.Itoa(rc)+"\n") + " <specs>"
+	specs := rvlScript(t, "touch "+marker+"\necho fidelity/a.spec.ts\n")
+	wt, _ = rvlVisualSetup(t, verify, "web/src/a.tsx", "", specs, false, false, false)
+	return wt, argv, marker
+}
+
+func TestRunVerifyListOnlyRunsTheFailingList(t *testing.T) {
+	t.Parallel()
+	wt, argv, marker := rvlNarrowFixture(t, "", 0)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "fidelity/b.spec.ts:8\ntests/c.spec.ts:4\n")
+	rc, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
+	got, _ := os.ReadFile(argv)
+	if want := "fidelity/b.spec.ts:8 tests/c.spec.ts:4 --repeat-each 5 --workers 1\n"; rc != 0 || string(got) != want {
+		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Error("-only ran the specs row")
+	}
+	for _, f := range []string{"flow-test-green", "flow-test-green-cmds"} {
+		if _, err := os.Stat(rvlGit(t, wt, "rev-parse", "--path-format=absolute", "--git-path", f)); err == nil {
+			t.Errorf("-only wrote %s", f)
+		}
+	}
+}
+
+func TestRunVerifyListDetectFlakyRunsTheSelection(t *testing.T) {
+	t.Parallel()
+	wt, argv, _ := rvlNarrowFixture(t, "  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 1)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "tests/c.spec.ts:4\n")
+	rc, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
+	got, _ := os.ReadFile(argv)
+	if want := "fidelity/a.spec.ts --retries=1 --fail-on-flaky-tests\n"; rc != 1 || string(got) != want {
+		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+	}
+	if b, _ := os.ReadFile(list); string(b) != "tests/c.spec.ts:4\nfidelity/a.spec.ts:20\n" {
+		t.Errorf("the detector left %q, want the union\n%s", b, out)
+	}
+}
+
+func TestRunVerifyListNarrowedRunRefusals(t *testing.T) {
+	t.Parallel()
+	wt, argv, marker := rvlNarrowFixture(t, "", 0)
+	empty := filepath.Join(t.TempDir(), "empty")
+	writeFile(t, empty, "")
+	full := filepath.Join(t.TempDir(), "full")
+	writeFile(t, full, "tests/c.spec.ts:4\n")
+	missing := filepath.Join(t.TempDir(), "missing")
+	noSpecs, _ := rvlVisualSetup(t, "echo whole", "web/src/a.tsx", "", "", false, false, false)
+	for _, tc := range []struct {
+		name, want string
+		args       []string
+	}{
+		{"-only with a missing file", missing, []string{"-only", missing, wt, "visual"}},
+		{"-only with an empty file", "is empty", []string{"-only", empty, wt, "visual"}},
+		{"a verify cell with no <specs>", "echo whole", []string{"-detect-flaky", noSpecs, "visual"}},
+		{"both flags", "not both", []string{"-only", full, "-detect-flaky", wt, "visual"}},
+		{"a flag with the test list", "usage", []string{"-detect-flaky", wt, "test"}},
+		{"a flag with the lint list", "usage", []string{"-detect-flaky", wt, "lint"}},
+		{"a flag with recording arguments", "usage", []string{"-detect-flaky", wt, "visual", "kan-1", "verify", "tok", "opus", "low"}},
+	} {
+		rc, out := rvlRunIn(t, wt, "", tc.args...)
+		_, a := os.Stat(argv)
+		_, m := os.Stat(marker)
+		if rc != 2 || !strings.Contains(out, tc.want) || a == nil || m == nil {
+			t.Errorf("%s: exit %d, ran verify %v, ran specs %v, output:\n%s", tc.name, rc, a == nil, m == nil, out)
+		}
 	}
 }

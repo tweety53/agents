@@ -7,6 +7,19 @@
 // per run, its stdin detach patched in on a second call).
 //
 // Usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
+//        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
+//
+// NARROWED RUNS (decision narrow-via-run-verify-list-flags). `-only <file>`
+// skips the `specs` row and puts the file's entries -- the visual-failing.txt
+// a failing run wrote -- in the `verify` row's `<specs>`, followed by
+// `--repeat-each 5 --workers 1`; `-detect-flaky` runs the `specs` row as a
+// plain run does and puts its output there, followed by `--retries=1
+// --fail-on-flaky-tests`, and adds its failures to visual-failing.txt rather
+// than rewriting it. Either takes the `visual` list only and no recording
+// arguments: it records no dispatch row, never reads or writes the green
+// cache, and so never stands as the `verify` gate. A missing or empty
+// -only file, both flags, or a `verify` cell with no `<specs>` exits 2 before
+// any command runs.
 //
 // RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
 // back-filled a forgotten begin with a guessed start). Given the five trailing
@@ -178,6 +191,7 @@ import (
 // `## Report` lines.
 //
 // Usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
+//        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
 //
 // Exit codes:
 //   0  every command exited 0
@@ -187,6 +201,9 @@ import (
 //      arguments, no flow binary on PATH for those, or <worktree> is not a
 //      directory), a list line holding a `<word>` placeholder — its stderr
 //      line names it — or flow-guard project-get exit 2 — its stderr line says why
+//      -- or a narrowing flag with another list, recording arguments, the
+//      other flag, a missing or empty -only file, or a `verify` cell with no
+//      `<specs>` (its stderr line names the cause)
 //   3  the list is not declared (flow-guard project-get exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
@@ -382,13 +399,23 @@ func rvlVisualFailures(log []byte) []string {
 
 // rvlKeepFailures writes the failures a failing visual run's log names to
 // <keep>/visual-failing.txt, one per line -- an empty file when none parse,
-// so `-only` never re-runs an earlier round's list -- and prints the file and
+// so `-only` never re-runs an earlier round's list; with union, the
+// detector's, added to the entries the file already holds -- and prints the file and
 // the failures grouped as in the change's specs (their path is the path part
 // of a specs token; every failure when specs is nil) or elsewhere (decision
 // untouched-spec-outside-specs-output).
-func rvlKeepFailures(keep string, log []byte, specs []string, stdout io.Writer) {
-	failures := rvlVisualFailures(log)
+func rvlKeepFailures(keep string, log []byte, specs []string, union bool, stdout io.Writer) {
 	file := filepath.Join(keep, "visual-failing.txt")
+	var failures []string
+	if union {
+		b, _ := os.ReadFile(file)
+		failures = strings.Fields(string(b))
+	}
+	for _, f := range rvlVisualFailures(log) {
+		if !slices.Contains(failures, f) {
+			failures = append(failures, f)
+		}
+	}
 	body := ""
 	for _, f := range failures {
 		body += f + "\n"
@@ -436,6 +463,41 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return p
 	}
 	const usage = "usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
+	const narrowUsage = "usage: flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]"
+	// A narrowing flag re-runs the visual `verify` row alone, narrowed, and
+	// records nothing: no row it ends can stand as the gate (decision
+	// narrow-via-run-verify-list-flags).
+	mode, only := "plain", []string(nil)
+	for len(args) > 0 && (args[0] == "-only" || args[0] == "-detect-flaky") {
+		if mode != "plain" {
+			fmt.Fprintln(stderr, "run-verify-list: pass -only or -detect-flaky, not both")
+			return 2
+		}
+		if mode = args[0][1:]; mode == "only" {
+			if len(args) < 2 {
+				fmt.Fprintln(stderr, narrowUsage)
+				return 2
+			}
+			b, err := os.ReadFile(abs(args[1]))
+			if err != nil {
+				fmt.Fprintf(stderr, "run-verify-list: -only: %v\n", err)
+				return 2
+			}
+			if only = strings.Fields(string(b)); len(only) == 0 {
+				fmt.Fprintf(stderr, "run-verify-list: -only %s is empty — nothing to re-run\n", args[1])
+				return 2
+			}
+			args = args[1:]
+		}
+		args = args[1:]
+	}
+	if mode != "plain" {
+		if (len(args) != 2 && len(args) != 3) || args[1] != "visual" {
+			fmt.Fprintln(stderr, narrowUsage)
+			return 2
+		}
+		args = args[:2]
+	}
 	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test" && args[1] != "visual") {
 		fmt.Fprintln(stderr, usage)
 		return 2
@@ -490,6 +552,19 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	wt, list := args[0], args[1]
 	childEnv := icChildEnv(env)
+	// rawVerify is the `verify` cell, its `<specs>` unfilled; a narrowed run
+	// appends its flag's arguments after the paths it puts there.
+	rawVerify, suffix := "", map[string]string{"only": " --repeat-each 5 --workers 1", "detect-flaky": " --retries=1 --fail-on-flaky-tests"}[mode]
+	if b, err := os.ReadFile(filepath.Join(abs(wt), ".flow", "project.md")); err == nil {
+		rawVerify = vvCells(string(b))["verify"]
+	}
+	if mode != "plain" && rawVerify != "" && !strings.Contains(rawVerify, "<specs>") {
+		fmt.Fprintf(stderr, "run-verify-list: the `verify` cell has no <specs> placeholder to narrow — no command ran: %s\n", rawVerify)
+		return 2
+	}
+	fill := func(tokens []string) string {
+		return strings.ReplaceAll(rawVerify, "<specs>", strings.TrimSpace(strings.Join(tokens, " ")+suffix))
+	}
 
 	// A visual list runs the `verify` row alone: no list to read.
 	var body []byte
@@ -724,10 +799,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			// nothing runs no spec -- never the whole suite, which runs only
 			// when the operator asks (verify-list-runs-targeted).
 			switch {
+			case mode == "only":
+				cmd = fill(only)
 			case cmd == "":
 				failed = 1
 				fmt.Fprintln(stdout, "- `specs` — not run, no merge base to scope the visual verify to; the whole suite runs only when the operator asks")
-			case specs != "":
+			case specs == "":
+				cmd = fill(nil)
+			default:
 				r := rgtRun(context.Background(), [][]string{{"bash", "-c", specs}}, 1, outDir, dir, cmdEnv)[0]
 				out, _ := os.ReadFile(r.out)
 				paths := strings.Fields(string(out))
@@ -739,7 +818,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					fmt.Fprintf(stdout, "- `%s` — exit 0, mapped no spec: the visual verify ran no spec\n", specs)
 					cmd = ""
 				default:
-					cmd = strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " "))
+					cmd = fill(paths)
 					specTokens = paths
 				}
 			}
@@ -754,7 +833,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					passed = append(passed, cmd)
 				} else if keep != "" {
 					log, _ := os.ReadFile(results[0].out)
-					rvlKeepFailures(keep, log, specTokens, stdout)
+					rvlKeepFailures(keep, log, specTokens, mode == "detect-flaky", stdout)
 				}
 			}
 		}
