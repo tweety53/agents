@@ -1855,6 +1855,16 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
+	// A non-inline back-fill's window must contain its commit, when a
+	// worktree resolves it (kan-1084 self-review, F2: dispatch 87 was
+	// back-filled four hours before its commit).
+	if derived == nil && *v["commit"] != "" {
+		if at, ok := commitTime(*v["commit"], mutationRoots(ctx, f, projectKey)); ok && (at.Before(started) || at.After(ended)) {
+			fmt.Fprintf(stderr, "flow: -commit %s was committed at %s -- outside -started-at %s .. -ended-at %s; a parent-made commit is back-filled with -agent-id inline, which derives both instants\n",
+				*v["commit"], at.UTC().Format(time.RFC3339), *v["started-at"], *v["ended-at"])
+			return 2
+		}
+	}
 	// A task's completed commit is recorded once (kan-1044 self-review,
 	// F1-b: task 8's commit carried two completed rows). A failed record
 	// read refuses nothing.

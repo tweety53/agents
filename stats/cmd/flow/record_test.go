@@ -5539,6 +5539,43 @@ func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBackfillRefusesAWindowMissingItsCommit pins the kan-1084
+// self-review fix (F2): a non-inline back-fill with -commit is refused when
+// its hand-typed window does not contain the commit's committer time
+// (dispatch 87 was back-filled four hours before its commit).
+func TestRecordDispatchBackfillRefusesAWindowMissingItsCommit(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
+	srv, bodies := postBodies(t)
+	base := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-task", "1", "-role", "implementer", "-model", "opus",
+		"-key", "task-1-implementer", "-session-token", "mf-record-window", "-outcome", "completed", "-commit", sha}
+	window := func(extra ...string) []string { return append(append([]string{}, base...), extra...) }
+	for _, c := range []struct {
+		name  string
+		args  []string
+		code  int
+		calls int
+	}{
+		{"row-87 shape", window("-started-at", "2026-10-21T07:40:00Z", "-ended-at", "2026-10-21T07:50:00Z"), 2, 0},
+		{"begun after its commit", window("-started-at", "2026-10-21T11:12:00Z", "-ended-at", "2026-10-21T11:20:00Z"), 2, 0},
+		{"window holding its commit", window("-started-at", "2026-10-21T11:05:00Z", "-ended-at", "2026-10-21T11:10:31Z"), 0, 2},
+		{"row-87 shape with an agent id", window("-agent-id", "a0123456789abcdef", "-started-at", "2026-10-21T07:40:00Z", "-ended-at", "2026-10-21T07:50:00Z"), 2, 0},
+	} {
+		*bodies = nil
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), c.args, strings.NewReader(""), &stdout, &stderr)
+		if code != c.code || len(*bodies) != c.calls {
+			t.Errorf("%s: exit %d, store calls %d; want %d and %d (stderr %q)", c.name, code, len(*bodies), c.code, c.calls, stderr.String())
+		}
+		if c.code == 2 && !strings.Contains(stderr.String(), "2026-10-21T11:10:31Z") {
+			t.Errorf("%s: stderr %q does not name the commit's time", c.name, stderr.String())
+		}
+	}
+}
+
 // TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers pins the
 // kan-1027 self-review fix: an inline panel-fix-<r> back-fill never starts
 // before the latest end among round r-1's reviewer rows, however early the
