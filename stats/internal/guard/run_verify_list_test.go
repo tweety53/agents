@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // TestRunVerifyList carries the cases of the retired
@@ -624,6 +625,84 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	list = "lint"
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
 		t.Errorf("a green lint list after a blocked test: exit %d, calls:\n%s", rc, calls)
+	}
+}
+
+// TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns pins kan-1086
+// self-review, F3: lint and test share one row, and a group that ends green
+// while its sibling still runs — or was killed before its end — records no
+// end; the last group to finish ends the row.
+func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	gate := filepath.Join(dir, "go")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	git := func(args ...string) string {
+		t.Helper()
+		out, err := exec.Command(fixtureGit, append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	run := func(list string) int {
+		var o, e bytes.Buffer
+		return runVerifyList([]string{wt, list, "kan-1", "verify", "mf-k1", "opus", "low"},
+			Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+	}
+	calls := func() string { b, _ := os.ReadFile(log); return string(b) }
+	git("init", "-q")
+	writeFile(t, filepath.Join(wt, ".flow/project.md"),
+		"## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\nwhile [ ! -f "+gate+" ]; do sleep 0.05; done\n```\n")
+	git("add", "-A")
+	git("commit", "-q", "-m", "one")
+
+	done := make(chan int)
+	go func() { done <- run("test") }()
+	for deadline := time.Now().Add(30 * time.Second); !strings.Contains(calls(), "dispatch begin"); time.Sleep(20 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the test group never began")
+		}
+	}
+	before := len(calls())
+	if rc := run("lint"); rc != 0 {
+		t.Fatalf("lint exit %d", rc)
+	}
+	lint := calls()[before:]
+	if !strings.Contains(lint, "dispatch begin") || strings.Contains(lint, "dispatch end") {
+		t.Errorf("a lint group ending green while test runs must begin and not end the row, calls:\n%s", lint)
+	}
+	writeFile(t, gate, "")
+	if rc := <-done; rc != 0 {
+		t.Fatalf("test exit %d", rc)
+	}
+	all := strings.Split(strings.TrimRight(calls(), "\n"), "\n")
+	if last := all[len(all)-1]; !strings.Contains(last, "dispatch end") || !strings.HasSuffix(last, "-outcome completed") {
+		t.Errorf("the last group to finish must end the row completed, last call %q", last)
+	}
+
+	// A test group killed before its end leaves its running mark: a later
+	// green lint group leaves the row open for the parent.
+	writeFile(t, git("rev-parse", "--path-format=absolute", "--git-path", "flow-verify-running-verify-mf-k1-test"), "")
+	os.Remove(log)
+	if rc := run("lint"); rc != 0 {
+		t.Fatalf("lint exit %d", rc)
+	}
+	if c := calls(); strings.Contains(c, "dispatch end") {
+		t.Errorf("a green lint group beside a killed test group's mark must not end the row, calls:\n%s", c)
 	}
 }
 

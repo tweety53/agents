@@ -230,7 +230,13 @@ import (
 // skipped. The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
 // verified worktree, never <canonical-worktree>), which flow-guard check-verify-green
 // judges the row by; a <worktree> git cannot resolve a HEAD in records none,
-// and that row is never green (decision verify-row-records-head).
+// and that row is never green (decision verify-row-records-head). Lint and
+// test share the row: each group writes a `flow-verify-running-<key>-<token>-<list>`
+// mark under `git rev-parse --git-path` once its begin is accepted and removes
+// it at its end, and a group that would end completed or skipped while a
+// sibling's mark stands records no end — the last group to finish ends the
+// row, and a sibling killed before its end leaves it open for the parent to
+// end by hand (kan-1086 self-review, F3).
 //
 // A `# suite: <name>` line in the `test` list names the one command below it
 // as that suite: it runs under `flow suite record -C <worktree> -suite <name>
@@ -887,6 +893,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if !record("begin") {
 		return 4
 	}
+	// This group's running mark, written once its begin is accepted and
+	// removed at its end, so a sibling ending green leaves the row to the
+	// last group running (kan-1086 self-review, F3).
+	running := ""
+	if blockedMark != "" {
+		if p, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-verify-running-"+strings.TrimPrefix(blockedMark, "flow-verify-blocked-")); ok {
+			running = p
+			os.WriteFile(running+"-"+list, nil, 0o666)
+		}
+	}
 	skip := make([]bool, len(cmds))
 	passedAt := make([]bool, len(cmds))
 	var argvs [][]string
@@ -1035,8 +1051,12 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// Recording): each group marks its own failure, clears its own mark when
 	// green, and ends blocked while any group's mark stands. The ends run
 	// under one lock, held through the record, so whichever group ends last
-	// sees the other's mark — a blocked group is never masked.
-	anyBlocked := false
+	// sees the other's mark — a blocked group is never masked. A group that
+	// would end the row completed or skipped while a sibling's running mark
+	// stands records no end: the last group to finish ends it, and a sibling
+	// killed before its end leaves the row open for the parent to end by
+	// hand (kan-1086 self-review, F3).
+	anyBlocked, siblingRunning := false, false
 	if blockedMark != "" {
 		if mark, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", blockedMark); ok {
 			if lock, err := os.OpenFile(mark+".lock", os.O_CREATE|os.O_RDWR, 0o666); err == nil {
@@ -1053,11 +1073,21 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					anyBlocked = true
 				}
 			}
+			if running != "" {
+				os.Remove(running + "-" + list)
+				for _, l := range []string{"lint", "test", "visual"} {
+					if _, err := os.Stat(running + "-" + l); err == nil {
+						siblingRunning = true
+					}
+				}
+			}
 		}
 	}
 	switch {
 	case failed != 0 || anyBlocked:
 		record("end", "-outcome", "blocked", "-cause", "test-failure")
+	case siblingRunning:
+		// A sibling group still runs: it ends the row.
 	case list != "lint" && !visualRan && len(cmds) > 0 && !slices.Contains(skip, false):
 		// A lint list always ran check-spec-reach.sh, so it never ends skipped.
 		record("end", "-outcome", "skipped")
