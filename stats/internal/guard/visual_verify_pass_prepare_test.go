@@ -35,6 +35,8 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 	f := &vvpFix{t: t, wt: filepath.Join(root, "demo"), bin: filepath.Join(root, "bin"), log: filepath.Join(root, "flow.log")}
 	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+vvpSection+extra)
 	writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "base\n")
+	// The `specs` row's command: it prints no spec until a test rewrites it.
+	writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\n")
 	gitRun(t, f.wt, "init", "-q", "-b", "spectre/demo")
 	gitRun(t, f.wt, "add", "-A")
 	gitRun(t, f.wt, "commit", "-qm", "base")
@@ -208,6 +210,7 @@ func TestVisualVerifyPassPrepareStopsOnPreflight(t *testing.T) {
 	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts.mockups"), "gone.png f1\n")
 	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
 	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts"), "test('a', () => {})\n")
+	writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts\n")
 	gitRun(t, f.wt, "add", "-A")
 	gitRun(t, f.wt, "commit", "-qm", "cfg")
 	f.green()
@@ -587,4 +590,50 @@ func TestVisualVerifyPassPrepareDefaultsAppsFromTheProject(t *testing.T) {
 	if rc, out, _ := f.prepare(); rc != 0 || !strings.Contains(out, "DISPATCH: visual-verify ") {
 		t.Fatalf("explicit --app: exit %d\n%s", rc, out)
 	}
+}
+
+// TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars pins kan-1086's
+// self-review, F11: preflight judged every sidecar under the capture root,
+// so a foreign spec's stale sidecar stopped a pass that never captures it.
+// With `specs` declared only the printed specs' sidecars are checked.
+func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
+	setup := func(t *testing.T, specs string) *vvpFix {
+		section := "| `mockups` | `design/mockups` |\n"
+		f := vvpFixture(t, section)
+		if specs == "" {
+			b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
+			writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `specs` | `<frontend-root>/specs-since <merge-base>` |\n", "", 1))
+		} else {
+			writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\n"+specs)
+		}
+		writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
+		writeFile(t, filepath.Join(f.wt, "a.spec.ts"), "shot('a.png')\n")
+		writeFile(t, filepath.Join(f.wt, "a.spec.ts.mockups"), "a.png f1\n")
+		writeFile(t, filepath.Join(f.wt, "foreign.spec.ts"), "shot('b.png')\n")
+		writeFile(t, filepath.Join(f.wt, "foreign.spec.ts.mockups"), "b.png gone\n")
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "cfg")
+		f.green()
+		return f
+	}
+	t.Run("the captured spec's sidecar alone", func(t *testing.T) {
+		if rc, out, _ := setup(t, "echo a.spec.ts\n").prepare(); rc != 0 || strings.Contains(out, "STOP:") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
+	t.Run("a captured spec's stale sidecar", func(t *testing.T) {
+		if rc, out, _ := setup(t, "echo foreign.spec.ts\n").prepare(); rc != 1 || !strings.Contains(out, "check-sidecar-reach") || !strings.Contains(out, "gone") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
+	t.Run("a failing specs command", func(t *testing.T) {
+		if rc, out, _ := setup(t, "exit 1\n").prepare(); rc != 1 || !strings.Contains(out, "specs-since") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
+	t.Run("no specs row checks the whole root", func(t *testing.T) {
+		if rc, out, _ := setup(t, "").prepare(); rc != 1 || !strings.Contains(out, "check-sidecar-reach") || !strings.Contains(out, "foreign") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
 }

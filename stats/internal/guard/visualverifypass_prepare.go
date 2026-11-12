@@ -228,7 +228,10 @@ func (v *vvp) captureRoot(w string) string {
 
 // preflight is step 3's checks: check-verify-green once, then per survivor
 // prepare-workspace into check-visual-preflight and, with `mockups`
-// declared, check-sidecar-reach. Every failing check is collected, then one
+// declared, check-sidecar-reach -- on each existing `<spec>.mockups` of the
+// specs the `specs` row prints, run from the capture root, or on the whole
+// capture root when no `specs` row is declared; a failing `specs` command
+// is a failing check (kan-1086 self-review, F11). Every failing check is collected, then one
 // `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
 	var fails []string
@@ -254,8 +257,25 @@ func (v *vvp) preflight(survivors []string) {
 			fail("check-visual-preflight", out, errs)
 		}
 		if c := v.cells(w)["mockups"]; c != "" {
-			if rc, out, errs := v.guard("check-sidecar-reach", nil, v.captureRoot(w), cellPath(w, c)); rc != 0 {
-				fail("check-sidecar-reach", out, errs)
+			root := v.captureRoot(w)
+			targets := []string{root}
+			if cmd := v.specsCommand(w); cmd != "" {
+				rc, out := kwRun(v.env, root, "sh", "-c", cmd)
+				if rc != 0 {
+					fail("specs", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
+					continue
+				}
+				targets = nil
+				for _, spec := range strings.Fields(out) {
+					if sc := cellPath(root, spec) + ".mockups"; isFile(sc) {
+						targets = append(targets, sc)
+					}
+				}
+			}
+			for _, tgt := range targets {
+				if rc, out, errs := v.guard("check-sidecar-reach", nil, tgt, cellPath(w, c)); rc != 0 {
+					fail("check-sidecar-reach", out, errs)
+				}
 			}
 		}
 	}
@@ -286,6 +306,15 @@ func (v *vvp) declaredApps(w, kv string) {
 			v.apps[w] = append(v.apps[w], root+"="+url)
 		}
 	}
+}
+
+// specsCommand is w's `specs` row with `<frontend-root>` and `<merge-base>`
+// substituted: the frontend the command reads is the sibling whose diff made
+// w survive, when one did. "" when no `specs` row is declared.
+func (v *vvp) specsCommand(w string) string {
+	// The frontend the specs command reads is the sibling whose diff made w survive, when one did.
+	root, base := siblingFrontend(w, v.siblings[w], v.mergeBase, func(string) bool { return true })
+	return strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(v.cells(w)["specs"])
 }
 
 // continueSet is `--continue`: the survivors, their merge bases and siblings
@@ -545,10 +574,7 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	for _, c := range []string{"setup", "capture"} {
 		line("%s: %s", c, vvpOr(cells[c]))
 	}
-	// The frontend the specs command reads is the sibling whose diff made w survive, when one did.
-	root, base := siblingFrontend(w, v.siblings[w], v.mergeBase, func(string) bool { return true })
-	specs := strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(cells["specs"])
-	line("specs: %s", vvpOr(specs))
+	line("specs: %s", vvpOr(v.specsCommand(w)))
 	line("screenshots: %s", vvpOr(cellPath(v.captureRoot(w), cells["screenshots"])))
 	if m := cells["mockups"]; m != "" {
 		line("mockups: %s", cellPath(w, m))

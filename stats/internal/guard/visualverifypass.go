@@ -84,8 +84,12 @@ import (
 //      with `STOP: verify-not-green — <its verdict line>`, exit 1. Then per
 //      survivor flow-guard prepare-workspace piped into flow-guard check-visual-preflight
 //      with that worktree's --app pairs, or its declared `preflight apps`
-//      (a survivor with neither is a failing check), and with `mockups` declared flow-guard check-sidecar-reach <capture
-//      root> <mockups root>. Every failing check — an exit 1, or an exit 2
+//      (a survivor with neither is a failing check), and with `mockups` declared flow-guard check-sidecar-reach <sidecar>
+//      <mockups root> on each existing `<spec>.mockups` of the specs the
+//      `specs` row prints (run from the capture root, `<frontend-root>` and
+//      `<merge-base>` substituted; a non-zero exit is a failing `specs`
+//      check), or on the whole <capture root> when no `specs` row is
+//      declared (kan-1086 self-review, F11). Every failing check — an exit 1, or an exit 2
 //      carrying its stderr, check-verify-green's exit 2 included — is
 //      collected; then the stage ends `stopped` and one line names them all:
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
