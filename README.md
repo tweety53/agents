@@ -88,7 +88,7 @@ No command takes a flag.
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-settings` | Global reviewer slots |
 | `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
-| `/flow-prompt-tuning` | Applies saved implementer/reviewer prompt updates after an A/B replay proves each; logs to `docs/prompt-tuning/LEDGER.md` |
+| `/flow-prompt-tuning` | Applies saved implementer/reviewer prompt updates after a replay proves each; logs to `docs/prompt-tuning/LEDGER.md` |
 | `/flow-experiment-close` | Closes an allowed-pairs experiment from its stored stats with a verdict; a positive one starts the `/flow` change that makes it permanent |
 | `/flow-learn-quiz` | Teacher mode: has you restate a change and quizzes you until you understand it |
 | `/call-efficiency-audit` | Measures a running dev stack's repeated reads, repeated queries and per-item queries |
