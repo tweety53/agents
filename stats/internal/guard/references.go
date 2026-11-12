@@ -150,6 +150,7 @@ var crExpectedZero = []struct {
 	{"rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all",
 		[]string{
 			"rules/agent-baseline-rationale.md",
+			"rules/work-end-to-end-rationale.md",
 			"skills/flow-contracts/git-boundaries-rationale.md",
 			"skills/flow-contracts/session-records-rationale.md",
 			"skills/flow-contracts/worktree-resolution-rationale.md",
