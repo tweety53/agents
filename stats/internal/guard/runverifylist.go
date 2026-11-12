@@ -121,7 +121,12 @@
 //     `<git-path flow-verify-failed>/<list>-<n>-results-<ns>/` no later run
 //     removes, so a flake's first failing run stays traceable
 //   - the visual verify, when it ran, last, as `- `<verify row>` — exit <n>`,
-//     its kept output `test-visual.log`
+//     its kept output `test-visual.log`; a failing one adds
+//     `failing list: <git-path flow-verify-failed>/visual-failing.txt` (or
+//     `failing list: none parsed`, the file then emptied), the tests its
+//     Playwright summary names as failed, interrupted or flaky, and
+//     `failing in the change's specs (<n>): …` / `failing elsewhere (<n>): …`,
+//     grouped by the `specs` row's output (rvlKeepFailures)
 //
 // Exit codes:
 //   0  every command exited 0
@@ -340,6 +345,80 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallbac
 		return cells["verify"], strings.NewReplacer("<frontend-root>", wt, "<merge-base>", mb).Replace(s), dir, fallback, true
 	}
 	return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, true
+}
+
+var (
+	rvlANSI         = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	rvlFailureBlock = regexp.MustCompile(`^\s+\d+ (failed|interrupted|flaky)$`)
+	rvlFailureLine  = regexp.MustCompile(`^\s+\[[^\]]+\] › (\S+):(\d+):\d+ › `)
+)
+
+// rvlVisualFailures is every test a Playwright list-reporter log names in its
+// summary's failed, interrupted and flaky blocks (generateSummaryMessage,
+// Playwright 1.62.1): a `  N failed|interrupted|flaky` line opens a block, and
+// each following `    [project] › path:line:col › titles` line adds
+// `path:line` until a line that does not match. ANSI colour codes are
+// stripped, and an entry is kept once, at its first appearance. It is the
+// list `-only` re-runs (decision narrow-via-run-verify-list-flags).
+func rvlVisualFailures(log []byte) []string {
+	var out []string
+	open := false
+	for _, l := range strings.Split(rvlANSI.ReplaceAllString(string(log), ""), "\n") {
+		if rvlFailureBlock.MatchString(l) {
+			open = true
+			continue
+		}
+		m := rvlFailureLine.FindStringSubmatch(l)
+		if !open || m == nil {
+			open = false
+			continue
+		}
+		if e := m[1] + ":" + m[2]; !slices.Contains(out, e) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// rvlKeepFailures writes the failures a failing visual run's log names to
+// <keep>/visual-failing.txt, one per line -- an empty file when none parse,
+// so `-only` never re-runs an earlier round's list -- and prints the file and
+// the failures grouped as in the change's specs (their path is the path part
+// of a specs token; every failure when specs is nil) or elsewhere (decision
+// untouched-spec-outside-specs-output).
+func rvlKeepFailures(keep string, log []byte, specs []string, stdout io.Writer) {
+	failures := rvlVisualFailures(log)
+	file := filepath.Join(keep, "visual-failing.txt")
+	body := ""
+	for _, f := range failures {
+		body += f + "\n"
+	}
+	os.WriteFile(file, []byte(body), 0o666)
+	if len(failures) == 0 {
+		fmt.Fprintln(stdout, "  failing list: none parsed")
+		return
+	}
+	fmt.Fprintf(stdout, "  failing list: %s\n", file)
+	var mine, elsewhere []string
+	for _, f := range failures {
+		path, _, _ := strings.Cut(f, ":")
+		in := specs == nil
+		for _, s := range specs {
+			if p, _, _ := strings.Cut(s, ":"); p == path {
+				in = true
+			}
+		}
+		if in {
+			mine = append(mine, f)
+		} else {
+			elsewhere = append(elsewhere, f)
+		}
+	}
+	group := func(name string, g []string) {
+		fmt.Fprintf(stdout, "  failing %s (%d):%s\n", name, len(g), strings.TrimRight(" "+strings.Join(g, " "), " "))
+	}
+	group("in the change's specs", mine)
+	group("elsewhere", elsewhere)
 }
 
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
@@ -639,6 +718,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "- visual verify — not run: `regression checkout` %s holds no worktree on this branch; create it, and start the stack the `verify` row needs from it, then re-run\n", fallback)
 		} else if ok {
 			visualRan = true
+			var specTokens []string // the `specs` row's output, nil with no row
 			// A `specs` row scopes the suite to the specs it maps; one that
 			// cannot run, or fails, blocks the list, and one that maps
 			// nothing runs no spec -- never the whole suite, which runs only
@@ -660,6 +740,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					cmd = ""
 				default:
 					cmd = strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " "))
+					specTokens = paths
 				}
 			}
 			switch {
@@ -671,6 +752,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				report(cmd, results[0].rc, results[0].out, "visual")
 				if results[0].rc == 0 {
 					passed = append(passed, cmd)
+				} else if keep != "" {
+					log, _ := os.ReadFile(results[0].out)
+					rvlKeepFailures(keep, log, specTokens, stdout)
 				}
 			}
 		}

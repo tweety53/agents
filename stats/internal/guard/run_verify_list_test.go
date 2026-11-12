@@ -740,7 +740,19 @@ func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
 // code and stdout+stderr.
 func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOrigin, checkout, noAppWT bool) (rc int, out, appWT string) {
 	t.Helper()
+	wt, appWT := rvlVisualSetup(t, verify, file, decision, specs, noOrigin, checkout, noAppWT)
+	rc, out = rvlRunIn(t, wt, "", wt, list)
+	return rc, out, appWT
+}
+
+// rvlRunIn runs run-verify-list with args from dir, path prepended to PATH
+// when set, and returns its exit code and stdout+stderr.
+func rvlRunIn(t *testing.T, dir, path string, args ...string) (int, string) {
+	t.Helper()
 	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	if path != "" {
+		environ = append(environ, "PATH="+path+":"+os.Getenv("PATH"))
+	}
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -749,12 +761,26 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 		}
 		return ""
 	}
-	git := func(t *testing.T, dir string, args ...string) {
-		t.Helper()
-		if out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
+	var o, e bytes.Buffer
+	rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: dir}, &o, &e)
+	return rc, o.String() + e.String()
+}
+
+// rvlGit runs git in dir with a fixed identity, failing the test on error.
+func rvlGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
+	return strings.TrimSpace(string(out))
+}
+
+// rvlVisualSetup builds rvlVisualRun's fixture and returns the worktree on
+// branch `work` and the regression checkout's worktree path.
+func rvlVisualSetup(t *testing.T, verify, file, decision, specs string, noOrigin, checkout, noAppWT bool) (wt, appWT string) {
+	t.Helper()
+	git := func(t *testing.T, dir string, args ...string) { t.Helper(); rvlGit(t, dir, args...) }
 	project := func(verify, checkout, specs string) string {
 		row, specsRow := "", ""
 		if checkout != "" {
@@ -769,7 +795,8 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 	if err != nil {
 		t.Fatal(err)
 	}
-	seed, wt := filepath.Join(base, "seed"), filepath.Join(base, "wt")
+	seed := filepath.Join(base, "seed")
+	wt = filepath.Join(base, "wt")
 	app := filepath.Join(base, "app")
 	appWT = filepath.Join(base, "app-wt")
 	checkoutPath := ""
@@ -802,9 +829,7 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 	if decision != "" {
 		writeFile(t, filepath.Join(wt, ".superpowers/sdd/decision.json"), decision)
 	}
-	var o, e bytes.Buffer
-	rc = runVerifyList([]string{wt, list}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
-	return rc, o.String() + e.String(), appWT
+	return wt, appWT
 }
 
 // TestRunVerifyListRunsTheVisualVerify pins verify-list-runs-visual: a `test`
@@ -1194,5 +1219,91 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	gitRun(t, wt, "commit", "-qm", "b")
 	if rc, out := test(); runs() != 2 {
 		t.Fatalf("run 3: exit %d, a-runs %d; want 2\n%s", rc, runs(), out)
+	}
+}
+
+// rvlSummary is a Playwright 1.62.1 list-reporter run: passing lines, an error
+// header, and the failed / interrupted / flaky summary blocks, one block
+// header wrapped in ANSI colour codes.
+const rvlSummary = "  ✓  1 [fidelity] › fidelity/a.spec.ts:3:1 › a\n" +
+	"  1) [fidelity] › fidelity/templates.spec.ts:97:3 › templates › list\n" +
+	"\n" +
+	"\x1b[31m  2 failed\x1b[39m\n" +
+	"    [fidelity] › fidelity/templates.spec.ts:97:3 › templates › list\n" +
+	"    [functional] › tests/auth.spec.ts:132:1 › signs in @smoke\n" +
+	"  1 interrupted\n" +
+	"    [fidelity] › fidelity/b.spec.ts:8:1 › b\n" +
+	"  1 flaky\n" +
+	"    [fidelity] › fidelity/kan-754-offline-l3.spec.ts:380:5 › offline\n" +
+	"  140 passed (3.2m)\n"
+
+var rvlSummaryFailures = []string{"fidelity/templates.spec.ts:97", "tests/auth.spec.ts:132", "fidelity/b.spec.ts:8", "fidelity/kan-754-offline-l3.spec.ts:380"}
+
+func TestRvlVisualFailuresReadsTheSummaryBlocks(t *testing.T) {
+	t.Parallel()
+	if got := rvlVisualFailures([]byte(rvlSummary + rvlSummary)); !slices.Equal(got, rvlSummaryFailures) {
+		t.Errorf("rvlVisualFailures = %q, want %q", got, rvlSummaryFailures)
+	}
+}
+
+// rvlScript writes body as an executable script and returns `bash <path>`,
+// a table-safe `verify` or `specs` cell.
+func rvlScript(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "cell.sh")
+	writeExec(t, p, "#!/usr/bin/env bash\n"+body)
+	return "bash " + p
+}
+
+// rvlFailingList is the worktree's kept visual-failing.txt path.
+func rvlFailingList(t *testing.T, wt string) string {
+	t.Helper()
+	return filepath.Join(rvlGit(t, wt, "rev-parse", "--path-format=absolute", "--git-path", "flow-verify-failed"), "visual-failing.txt")
+}
+
+func TestRunVerifyListWritesTheFailingVisualTests(t *testing.T) {
+	t.Parallel()
+	summary := filepath.Join(t.TempDir(), "summary")
+	writeFile(t, summary, rvlSummary)
+	wt, _ := rvlVisualSetup(t, rvlScript(t, "cat "+summary+"\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
+	rc, out := rvlRunIn(t, wt, "", wt, "visual")
+	list := rvlFailingList(t, wt)
+	b, _ := os.ReadFile(list)
+	if rc != 1 || string(b) != strings.Join(rvlSummaryFailures, "\n")+"\n" || !strings.Contains(out, "  failing list: "+list+"\n") {
+		t.Errorf("exit %d, %s holds %q, output:\n%s", rc, list, b, out)
+	}
+}
+
+func TestRunVerifyListGroupsFailuresByTheChangeSpecs(t *testing.T) {
+	t.Parallel()
+	summary := filepath.Join(t.TempDir(), "summary")
+	writeFile(t, summary, rvlSummary)
+	verify := rvlScript(t, "cat "+summary+"\nexit 1\n") + " <specs>"
+	wt, _ := rvlVisualSetup(t, verify, "web/src/a.tsx", "", "echo fidelity/templates.spec.ts:12 tests/auth.spec.ts", false, false, false)
+	_, out := rvlRunIn(t, wt, "", wt, "visual")
+	for _, want := range []string{
+		"  failing in the change's specs (2): fidelity/templates.spec.ts:97 tests/auth.spec.ts:132\n",
+		"  failing elsewhere (2): fidelity/b.spec.ts:8 fidelity/kan-754-offline-l3.spec.ts:380\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+	// With no `specs` row every failure is in the change's specs.
+	wt, _ = rvlVisualSetup(t, verify, "web/src/a.tsx", "", "", false, false, false)
+	if _, out := rvlRunIn(t, wt, "", wt, "visual"); !strings.Contains(out, "  failing in the change's specs (4): "+strings.Join(rvlSummaryFailures, " ")+"\n") || !strings.Contains(out, "  failing elsewhere (0):\n") {
+		t.Errorf("no specs row: output:\n%s", out)
+	}
+}
+
+func TestRunVerifyListEmptiesTheFailingListWhenNoneParse(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, rvlScript(t, "echo boom\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "fidelity/old.spec.ts:1\n")
+	rc, out := rvlRunIn(t, wt, "", wt, "visual")
+	b, err := os.ReadFile(list)
+	if rc != 1 || err != nil || len(b) != 0 || !strings.Contains(out, "  failing list: none parsed\n") {
+		t.Errorf("exit %d, %s holds %q (%v), output:\n%s", rc, list, b, err, out)
 	}
 }
