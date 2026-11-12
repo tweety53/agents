@@ -477,7 +477,8 @@ func rvlVisualFailures(log []byte) []string {
 // detector's, added to the entries the file already holds -- and prints the file and
 // the failures grouped as in the change's specs (their path is the path part
 // of a specs token; every failure when specs is nil) or elsewhere (decision
-// untouched-spec-outside-specs-output).
+// untouched-spec-outside-specs-output). A file it cannot write is printed as
+// not written, with the error, and nothing else.
 func rvlKeepFailures(keep string, log []byte, specs []string, union bool, stdout io.Writer) {
 	file := filepath.Join(keep, "visual-failing.txt")
 	var failures []string
@@ -494,7 +495,10 @@ func rvlKeepFailures(keep string, log []byte, specs []string, union bool, stdout
 	for _, f := range failures {
 		body += f + "\n"
 	}
-	os.WriteFile(file, []byte(body), 0o666)
+	if err := os.WriteFile(file, []byte(body), 0o666); err != nil {
+		fmt.Fprintf(stdout, "  failing list: not written — %v\n", err)
+		return
+	}
 	if len(failures) == 0 {
 		fmt.Fprintln(stdout, "  failing list: none parsed")
 		return

@@ -1318,6 +1318,21 @@ func TestRunVerifyListEmptiesTheFailingListWhenNoneParse(t *testing.T) {
 	}
 }
 
+func TestRunVerifyListReportsAnUnwritableFailingList(t *testing.T) {
+	t.Parallel()
+	summary := filepath.Join(t.TempDir(), "summary")
+	writeFile(t, summary, rvlSummary)
+	wt, _ := rvlVisualSetup(t, rvlScript(t, "cat "+summary+"\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
+	list := rvlFailingList(t, wt)
+	if err := os.MkdirAll(list, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	_, out := rvlRunIn(t, wt, "", wt, "visual")
+	if strings.Contains(out, "  failing list: "+list+"\n") || !strings.Contains(out, "  failing list: not written — ") {
+		t.Errorf("an unwritten list was reported as written:\n%s", out)
+	}
+}
+
 // rvlNarrowFixture is a visual-verify fixture whose `verify` cell writes its
 // argv to argv and prints out, exiting rc, and whose `specs` cell touches
 // marker and prints fidelity/a.spec.ts.
