@@ -22,6 +22,9 @@ The panel's `test-sanity` slot, one of the two roles of the always-on `test-sani
       or the test's own input, a test that asserts nothing, and a test whose assertions sit
       on a path that never runs (a swallowed panic, an early return, a skipped table row,
       an unawaited promise) all fail this lens.
+      An ordering, first-by or tie-break test whose fixture rows sort the same under a
+      competing key — the id, insertion order, another column — fails it too: the test
+      cannot tell the key under test from the competing one, so a swap passes by chance.
     - **Behaviour, not trivia.** Does it pin observable behaviour — an output, a state
       change, an error, a contract a caller relies on — rather than implementation trivia:
       a private helper's call count, the order of internal calls nothing depends on, a log
