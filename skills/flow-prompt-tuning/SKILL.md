@@ -71,10 +71,14 @@ carries the target's current text. A run that comes back `avoided` proves the up
 produced the right behaviour on this input, not that the current text would have failed there.
 
 - **`reviewer` case** — a reviewer dispatch over `bad.diff` (a miss) or `good.diff` plus the
-  finding's location (a false positive), with the target prompt as its instructions.
+  finding's location (a false positive), with the target prompt as its instructions. A false
+  positive's dispatch also returns one line on that location: the finding it raises there, or
+  `no finding at <location>`.
 - **verifier case** — a `reviewer` case whose `target` is `skills/flow/visual-verify-verifier.md`
   or `skills/flow/visual-verify.md` is replayed instead by a verifier dispatch judging the case's
-  `capture.png` against its `mockup.png`, with the target prompt as its instructions.
+  `capture.png` against its `mockup.png`, with the target prompt as its instructions. A false
+  positive's dispatch is also given the element `finding.md` names and returns the same one line
+  on that element.
 - **`implementer` case** — an implementer dispatch given `task.md` and the pre-change code,
   writing in a scratch directory under the session's scratchpad, never in a repository. The
   pre-change code is the tree at `source.fix_sha`'s parent in the checkout of `source.repo`; a
@@ -112,6 +116,8 @@ A group passes when every one of its cases is `avoided`.
   — for a verifier case, at the element it names — whatever the line. The session records the
   verdict per case in the report, quoting both lines, the output's and `finding.md`'s. An output
   it cannot quote a deciding line from is `ambiguous`.
+  A false positive's one line on its location is its deciding line: one reading `no finding` is
+  `avoided`.
 
 ### 5. Apply
 
