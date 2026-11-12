@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -38,7 +39,10 @@ import (
 //             verdict is read or acted on — recomputes the same content and
 //             compares it, naming each changed path; a checkbox tick
 //             (`- [ ] ` to `- [x] `, the parent's `flow tasks tick` during
-//             the flight) is not a change, any other difference is
+//             the flight), an inserted `Correction (YYYY-MM-DD):` paragraph
+//             and a `**Files:**` line widened without dropping an entry (the
+//             parent's task-close edits, kan-1107 self-review F2) are not a
+//             change, any other difference is
 //
 // THE GUARD IS SCOPED TO THE PLAN TREE (`spectre/changes/<name>/`, on disk
 // and gitignored), deliberately, and never asserts HEAD or the rest of the worktree: a
@@ -49,7 +53,9 @@ import (
 // tree ("source code was never at risk", the KAN-635 issue records). The
 // snapshot is the plan tree's content, every file on disk, so a file
 // planted under the plan tree is a violation too, and so is a prose edit
-// beside a checkbox tick — only a line whose sole change is a tick passes;
+// beside a checkbox tick — only a line whose sole change is a tick, an
+// inserted `Correction (YYYY-MM-DD):` paragraph and a `**Files:**` line
+// widened without dropping an entry pass (kan-1107 self-review F2);
 // the plan directory being absent at snapshot and still absent at verify is
 // clean (nothing was there to lose).
 //
@@ -226,8 +232,8 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "PLAN-UNCHANGED-OK: spectre/changes/%s matches its pre-dispatch snapshot\n", name)
 		return 0
 	}
-	if ticksOnly(string(want), got.String()) {
-		fmt.Fprintf(stdout, "PLAN-UNCHANGED-OK: spectre/changes/%s matches its pre-dispatch snapshot (checkbox ticks only)\n", name)
+	if closeEditsOnly(string(want), got.String()) {
+		fmt.Fprintf(stdout, "PLAN-UNCHANGED-OK: spectre/changes/%s matches its pre-dispatch snapshot (checkbox ticks and close-time corrections only)\n", name)
 		return 0
 	}
 	fmt.Fprintf(stderr, "check-plan-unchanged: spectre/changes/%s changed across the review dispatch -- the reviewer's own clean-or-restored claim is not evidence; stop and recover by hand from the pre-dispatch commit\n", name)
@@ -272,20 +278,79 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	return 1
 }
 
-// ticksOnly reports whether cur differs from old only by checkbox ticks: the
-// same line count, and every differing line is old's line, opening `- [ ] `
-// after its indent, with that first `- [ ] ` turned to `- [x] `. The parent
-// ticks a task (`flow tasks tick`) while a reviewer flies; no step unticks.
-func ticksOnly(old, cur string) bool {
+// closeEditsOnly reports whether cur differs from old only by the parent's
+// task-close edits (kan-1107 self-review F2), walking old line i and cur
+// line j: equal lines, a checkbox tick (an old line opening `- [ ] ` after
+// its indent with that first `- [ ] ` turned to `- [x] ` -- the parent's
+// `flow tasks tick`; no step unticks) and a `**Files:**` line whose backticked
+// entries are a superset of the old line's advance both; an inserted run of
+// optional blank lines, a `Correction (YYYY-MM-DD):` line, the lines up to the
+// next blank line and any blank lines bordering it advances j alone. Anything
+// else -- a deleted, reworded or narrowed line, any other insertion -- fails.
+func closeEditsOnly(old, cur string) bool {
 	o, c := strings.Split(old, "\n"), strings.Split(cur, "\n")
-	if len(o) != len(c) {
+	var walk func(i, j int) bool
+	walk = func(i, j int) bool {
+		if i == len(o) && j == len(c) {
+			return true
+		}
+		if i < len(o) && j < len(c) && (o[i] == c[j] || isTick(o[i], c[j]) || filesWidened(o[i], c[j])) && walk(i+1, j+1) {
+			return true
+		}
+		// A bullet of backticked entries inserted under a multi-line
+		// `**Files:**` block widens it.
+		if j > 0 && j < len(c) && filesBulletRE.MatchString(c[j]) &&
+			(strings.HasPrefix(c[j-1], "**Files:**") || filesBulletRE.MatchString(c[j-1])) && walk(i, j+1) {
+			return true
+		}
+		k := j
+		for k < len(c) && c[k] == "" {
+			k++
+		}
+		if k == len(c) || !correctionRE.MatchString(c[k]) {
+			return false
+		}
+		for k < len(c) && c[k] != "" {
+			k++
+		}
+		// The blank lines after the paragraph may border it or belong to
+		// the old text: try each split.
+		for ; ; k++ {
+			if walk(i, k) {
+				return true
+			}
+			if k == len(c) || c[k] != "" {
+				return false
+			}
+		}
+	}
+	return walk(0, 0)
+}
+
+var (
+	correctionRE = regexp.MustCompile(`^Correction \(\d{4}-\d{2}-\d{2}\):`)
+	backtickRE   = regexp.MustCompile("`([^`]*)`")
+	// filesBulletRE: a multi-line `**Files:**` entry, `- Create: `x``,
+	// holding backticked entries only.
+	filesBulletRE = regexp.MustCompile("^- [A-Za-z]+: `[^`]+`(,? `[^`]+`)*$")
+)
+
+func isTick(o, c string) bool {
+	return strings.HasPrefix(strings.TrimLeft(o, " "), "- [ ] ") && c == strings.Replace(o, "- [ ] ", "- [x] ", 1)
+}
+
+// filesWidened: both lines open `**Files:**` and every backticked entry of
+// the old one is in the new one.
+func filesWidened(o, c string) bool {
+	if !strings.HasPrefix(o, "**Files:**") || !strings.HasPrefix(c, "**Files:**") {
 		return false
 	}
-	for i := range o {
-		if o[i] == c[i] {
-			continue
-		}
-		if !strings.HasPrefix(strings.TrimLeft(o[i], " "), "- [ ] ") || c[i] != strings.Replace(o[i], "- [ ] ", "- [x] ", 1) {
+	have := map[string]bool{}
+	for _, m := range backtickRE.FindAllStringSubmatch(c, -1) {
+		have[m[1]] = true
+	}
+	for _, m := range backtickRE.FindAllStringSubmatch(o, -1) {
+		if !have[m[1]] {
 			return false
 		}
 	}

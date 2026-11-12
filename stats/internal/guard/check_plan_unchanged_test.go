@@ -333,3 +333,57 @@ func TestCheckPlanUnchanged(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckPlanUnchangedAdmitsCloseTimeEdits pins kan-1107 self-review F2: the
+// parent's own task-close edits -- an inserted `Correction (YYYY-MM-DD):`
+// paragraph and a `**Files:**` line widened without dropping an entry -- pass
+// verify beside a tick; a reworded, deleted or narrowed line, any other
+// inserted paragraph, and a Correction paragraph that swallows a reworded
+// line still fail.
+func TestCheckPlanUnchangedAdmitsCloseTimeEdits(t *testing.T) {
+	t.Parallel()
+	const base = "- [ ] 1. A\n**Files:** `a.go`\n**Commit:** x\n\nprose line\n"
+	const corr = "Correction (2026-11-12): shipped b.go too.\n"
+	cases := []struct {
+		label string
+		cur   string
+		want  int
+	}{
+		{"a: a Correction paragraph after the fields", "- [ ] 1. A\n**Files:** `a.go`\n**Commit:** x\n\n" + corr + "\nprose line\n", 0},
+		{"b: a Correction paragraph at end of file", base + "\n" + corr, 0},
+		{"c: a widened Files line", "- [ ] 1. A\n**Files:** `a.go`, `b.go`\n**Commit:** x\n\nprose line\n", 0},
+		{"d: Correction, widened Files and a tick together", "- [x] 1. A\n**Files:** `a.go`, `b.go`\n**Commit:** x\n\n" + corr + "\nprose line\n", 0},
+		{"e: a reworded prose line", "- [ ] 1. A\n**Files:** `a.go`\n**Commit:** x\n\nprose reworded\n", 1},
+		{"f: a deleted prose line", "- [ ] 1. A\n**Files:** `a.go`\n**Commit:** x\n\n", 1},
+		{"g: a narrowed Files line", "- [ ] 1. A\n**Files:** `b.go`\n**Commit:** x\n\nprose line\n", 1},
+		{"h: an inserted Note paragraph", "- [ ] 1. A\n**Files:** `a.go`\n**Commit:** x\n\nNote: something.\n\nprose line\n", 1},
+		{"j: a bullet added to a multi-line Files block", "- [ ] 1. A\n**Files:** `a.go`\n- Create: `b.go`\n**Commit:** x\n\nprose line\n", 0},
+		{"k: a non-entry bullet added under Files", "- [ ] 1. A\n**Files:** `a.go`\n- Create: b.go\n**Commit:** x\n\nprose line\n", 1},
+		{"i: a Correction paragraph replacing a line", "- [ ] 1. A\n**Files:** `a.go`\n**Commit:** x\n\n" + corr + "prose reworded\n", 1},
+	}
+	for _, c := range cases {
+		steps := []pucStep{
+			pucAct(func(g *fxGit, wt string) { g.write(wt+"/spectre/changes/demo/tasks.md", base) }),
+			pucRun("snapshot", 0, "snapshot"),
+			pucAct(func(g *fxGit, wt string) { g.write(wt+"/spectre/changes/demo/tasks.md", c.cur) }),
+			pucRun("verify", c.want, "verify"),
+		}
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			res, err := pucExec(t.TempDir(), steps, "snapshot")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res[1].code != 0 {
+				t.Fatalf("snapshot exit %d\n%s", res[1].code, res[1].out)
+			}
+			r := res[3]
+			if r.code != c.want {
+				t.Fatalf("expected exit %d, got %d\n%s", c.want, r.code, r.out)
+			}
+			if c.want == 1 && !strings.Contains(r.out, "tasks.md") {
+				t.Fatalf("expected tasks.md named, got:\n%s", r.out)
+			}
+		})
+	}
+}

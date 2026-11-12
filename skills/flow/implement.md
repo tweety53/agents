@@ -904,7 +904,7 @@ handshake retry alike — the parent runs
 notification arrives, the parent runs `flow-guard check-plan-unchanged verify <worktree> <name>
 <snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit
 1 ends the turn with `## Question` carrying the guard's lines verbatim; exit 2, the same stop.
-The parent never edits the plan tree while a snapshot-bracketed dispatch is in flight: an operator's plan change that arrives then is applied after that dispatch's `verify`, and the next bracket's snapshot is taken after the edit (kan-1104 self-review, F4: the parent's own mid-run edits to `design.md` and `tasks.md` landed between a snapshot and its `verify`, and the guard stopped the run).
+The parent never edits the plan tree while a snapshot-bracketed dispatch is in flight: an operator's plan change that arrives then is applied after that dispatch's `verify`, and the next bracket's snapshot is taken after the edit (kan-1104 self-review, F4: the parent's own mid-run edits to `design.md` and `tasks.md` landed between a snapshot and its `verify`, and the guard stopped the run). The parent's own task-close edits are the exception: a checkbox tick, an inserted `Correction (YYYY-MM-DD):` paragraph and a `**Files:**` line widened without dropping an entry may land while a bracket is open, since `verify` admits exactly those three; any other plan edit waits for the bracket's `verify` (kan-1107 self-review, F2).
 
 **Every dispatch that can touch the worktree is bracketed by content markers — the subagent's
 own clean-state claim never answers for the tree.** The plan-tree guard above is one instance of
