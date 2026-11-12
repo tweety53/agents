@@ -161,3 +161,57 @@ func TestRepriceSinceRepricesDispatchRows(t *testing.T) {
 	}
 	wantCost(t, dispatchCost(t, pool, id), 10)
 }
+
+// TestRestampRepricesTheRow: both restamps replace a row's tokens, so the
+// cost priced from the old tokens is replaced with the new tokens' cost.
+func TestRestampRepricesTheRow(t *testing.T) {
+	st, pool, record := pricedDispatchStore(t)
+	ctx := context.Background()
+	const doubled = `{"tokens":{"main":{"output":2000000}}}`
+	for _, c := range []struct {
+		name    string
+		restamp func(id int64) error
+	}{
+		{"agent", func(id int64) error { return st.RestampDispatch(ctx, id, "agent-x", json.RawMessage(doubled)) }},
+		{"inline", func(id int64) error { return st.RestampInlineDispatch(ctx, id, json.RawMessage(doubled)) }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			id := record("task-restamp-"+c.name, `{"modelVersion":"claude-opus-5-5",`+dispatchTokens[1:])
+			if err := st.PriceDispatch(ctx, id); err != nil {
+				t.Fatalf("PriceDispatch: %v", err)
+			}
+			if err := c.restamp(id); err != nil {
+				t.Fatalf("restamp: %v", err)
+			}
+			wantCost(t, dispatchCost(t, pool, id), 20)
+		})
+	}
+}
+
+// TestDropDispatchPricesTheKeptRow: the tokens moved onto the kept row are
+// priced there.
+func TestDropDispatchPricesTheKeptRow(t *testing.T) {
+	st, pool, record := pricedDispatchStore(t)
+	keep := record("task-keep", `{"modelVersion":"claude-opus-5-5"}`)
+	drop := record("task-drop", `{"modelVersion":"claude-opus-5-5",`+dispatchTokens[1:])
+	if err := st.DropDispatch(context.Background(), drop, keep); err != nil {
+		t.Fatalf("DropDispatch: %v", err)
+	}
+	wantCost(t, dispatchCost(t, pool, keep), 10)
+}
+
+// TestBackfillModelVersionRepricesTheRow: a row its label could not price is
+// priced once the backfill stamps the model that served it.
+func TestBackfillModelVersionRepricesTheRow(t *testing.T) {
+	st, pool, record := pricedDispatchStore(t)
+	ctx := context.Background()
+	id := record("task-backfill", dispatchTokens)
+	agent := fmt.Sprintf("agent-backfill-%d", id)
+	if _, err := pool.Exec(ctx, `UPDATE dispatches SET agent_id = $2 WHERE id = $1`, id, agent); err != nil {
+		t.Fatalf("set agent: %v", err)
+	}
+	if _, err := st.BackfillModelVersions(ctx, func(a string) (string, bool) { return "claude-opus-5-5", a == agent }); err != nil {
+		t.Fatalf("BackfillModelVersions: %v", err)
+	}
+	wantCost(t, dispatchCost(t, pool, id), 10)
+}

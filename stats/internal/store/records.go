@@ -1467,6 +1467,9 @@ func (s *Store) RestampDispatch(ctx context.Context, dispatchID int64, agentID s
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
 	}
+	if err := s.PriceDispatch(ctx, dispatchID); err != nil {
+		return fmt.Errorf("store: restamp dispatch %d: price: %w", dispatchID, err)
+	}
 	return nil
 }
 
@@ -1571,7 +1574,13 @@ func (s *Store) DropDispatch(ctx context.Context, dropID, keepID int64) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM dispatches WHERE id = $1`, dropID); err != nil {
 		return fmt.Errorf("store: drop dispatch %d: %w", dropID, err)
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: drop dispatch %d: %w", dropID, err)
+	}
+	if err := s.PriceDispatch(ctx, keepID); err != nil {
+		return fmt.Errorf("store: drop dispatch %d: price kept row %d: %w", dropID, keepID, err)
+	}
+	return nil
 }
 
 // SetDispatchOutcome sets dispatch id's outcome and cause outright -- the
@@ -1692,6 +1701,9 @@ func (s *Store) RestampInlineDispatch(ctx context.Context, dispatchID int64, pat
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	if err := s.PriceDispatch(ctx, dispatchID); err != nil {
+		return fmt.Errorf("store: restamp inline dispatch %d: price: %w", dispatchID, err)
 	}
 	return nil
 }
