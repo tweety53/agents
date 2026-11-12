@@ -640,11 +640,19 @@ func RenderLedger(r Run) string {
 		// The label is what the dispatch asked for; the metrics name what
 		// served it, shown beside the label when they differ (decision
 		// readers-prefer-served-metrics).
-		var served struct{ ModelVersion, Effort string }
+		var served struct {
+			ModelVersion, Effort string
+			CostUSD              *float64 `json:"cost_usd"`
+		}
 		_ = json.Unmarshal(d.Metrics, &served)
 		fmt.Fprintf(&b, "- Model: %s effort=%s\n",
 			labelServed(orElse(d.Model, "not recorded"), served.ModelVersion),
 			labelServed(orElse(d.Effort, "default"), served.Effort))
+		// The dispatch's own price is a breakdown: its stage's cost already
+		// holds these tokens (decision dispatch-cost-on-row-metrics).
+		if served.CostUSD != nil {
+			fmt.Fprintf(&b, "- Cost: $%.2f (part of its stage's cost)\n", *served.CostUSD)
+		}
 		fmt.Fprintf(&b, "- Commit: %s\n", orElse(d.CommitSHA, "no commit"))
 		// Conditional, in the shape the Slot and Notes lines use, rather
 		// than orElse-defaulted: every implementer dispatch and the primary

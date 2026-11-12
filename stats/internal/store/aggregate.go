@@ -132,6 +132,10 @@ type ActiveDispatch struct {
 	// Inline is a dispatch the main session runs itself (agent_id
 	// "inline"), not a subagent.
 	Inline bool `json:"inline,omitempty"`
+	// CostUsd is the dispatch row's own metrics.cost_usd, a breakdown of
+	// its stage's cost: the stage run's models.<m> already holds those
+	// tokens, so no total adds it.
+	CostUsd *float64 `json:"costUsd,omitempty"`
 }
 
 // signalErrorsExpr is one stage run's tool and API errors, main and
@@ -216,7 +220,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			         'model', COALESCE(NULLIF(d.metrics->>'modelVersion', ''), d.model),
 			         'modelVersion', d.metrics->>'modelVersion',
 			         'effort', COALESCE(NULLIF(d.metrics->>'effort', ''), d.effort), 'startedAt', d.started_at,
-			         'inline', d.agent_id IS NOT DISTINCT FROM 'inline'
+			         'inline', d.agent_id IS NOT DISTINCT FROM 'inline',
+			         'costUsd', (d.metrics->>'cost_usd')::float8
 			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.ended_at IS NULL AND d.started_at IS NOT NULL

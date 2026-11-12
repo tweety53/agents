@@ -231,6 +231,12 @@ it was given. To price stage runs harvested before a pricing change again,
 run `flow pricing reprice -since <YYYY-MM-DD>`: it prints how many runs
 priced and how many were skipped for want of tokens or a rate.
 
+Each dispatch row is also priced at its served model's rate in effect at
+its start, set on its own `metrics.cost_usd` and repriced by
+`flow pricing reprice`. Readers show it as a breakdown only, never added to
+a stage total, since the stage run's `models.<m>` already holds those
+tokens.
+
 A transcript record goes to the stage window of its session that contains
 its timestamp; a record between two stage windows goes to the stage that
 began last before it, up to the change's finish, and a record before the

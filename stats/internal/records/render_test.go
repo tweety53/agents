@@ -1257,3 +1257,35 @@ func TestLedgerShowsLabelArrowServed(t *testing.T) {
 		}
 	}
 }
+
+// TestLedgerShowsDispatchCostAsABreakdown pins the per-dispatch Cost line:
+// shown after the Model line when the row carries metrics.cost_usd, labelled
+// as part of its stage's cost, and absent when the row carries none.
+func TestLedgerShowsDispatchCostAsABreakdown(t *testing.T) {
+	run := records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{
+				Seq: 1, Role: "implementer", Model: "opus", Outcome: "completed",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+				Metrics:   json.RawMessage(`{"cost_usd":1.5}`),
+			},
+			{
+				Seq: 2, Role: "implementer", Model: "opus", Outcome: "completed",
+				StartedAt: time.Date(2026, 1, 2, 4, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	out := records.RenderLedger(run)
+
+	first := out[:strings.Index(out, "## Dispatch 2 —")]
+	modelIdx := strings.Index(first, "- Model:")
+	costIdx := strings.Index(first, "- Cost: $1.50 (part of its stage's cost)\n")
+	if costIdx == -1 || modelIdx == -1 || costIdx < modelIdx {
+		t.Errorf("dispatch 1 must render its Cost line after the Model line:\n%s", first)
+	}
+	if strings.Contains(out[strings.Index(out, "## Dispatch 2 —"):], "- Cost:") {
+		t.Errorf("a dispatch with no cost_usd must render no Cost line:\n%s", out)
+	}
+}

@@ -3104,3 +3104,46 @@ func TestDecisionsReadsClassOnlyDecision(t *testing.T) {
 			rows[0].Class, rows[0].Execution, rows[0].ImplementerModel)
 	}
 }
+
+// TestLiveStateBoardShowsAnOpenDispatchCost pins that an open dispatch's own
+// metrics.cost_usd reaches the board's dispatch list as a breakdown, and is
+// never added into the change's cost: the stage run's models.<m> already
+// holds those tokens (decision dispatch-cost-on-row-metrics).
+func TestLiveStateBoardShowsAnOpenDispatchCost(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-dcost-%d", time.Now().UnixNano())
+	for _, name := range []string{"kan-priced", "kan-unpriced"} {
+		seedChange(t, st, projectKey, name)
+		d := baseDispatch("implementer", "opus")
+		if name == "kan-priced" {
+			d.Metrics = json.RawMessage(`{"cost_usd":0.42}`)
+		}
+		if _, err := st.RecordDispatch(ctx, projectKey, name, d); err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", name, err)
+		}
+	}
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	byName := map[string]store.LiveStateRow{}
+	for _, row := range rows {
+		byName[row.Name] = row
+	}
+
+	priced, unpriced := byName["kan-priced"], byName["kan-unpriced"]
+	if len(priced.Subagents) != 1 || priced.Subagents[0].CostUsd == nil || *priced.Subagents[0].CostUsd != 0.42 {
+		t.Errorf("priced Subagents = %+v, want one dispatch with costUsd 0.42", priced.Subagents)
+	}
+	if len(unpriced.Subagents) != 1 || unpriced.Subagents[0].CostUsd != nil {
+		t.Errorf("unpriced Subagents = %+v, want one dispatch with no costUsd", unpriced.Subagents)
+	}
+	if priced.CostUsd != unpriced.CostUsd {
+		t.Errorf("change CostUsd = %v with the dispatch cost, %v without, want equal: a dispatch cost is a breakdown, never summed in", priced.CostUsd, unpriced.CostUsd)
+	}
+}
