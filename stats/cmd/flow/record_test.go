@@ -811,6 +811,11 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/passes") { // the panel begin's own pass row (kan-1086 self-review, F8)
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1}`))
+				return
+			}
 			var err error
 			gotBody, err = readAll(r)
 			if err != nil {
@@ -869,6 +874,11 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/passes") { // the panel begin's own pass row (kan-1086 self-review, F8)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1}`))
+			return
+		}
 		var err error
 		gotBody, err = readAll(r)
 		if err != nil {
@@ -1147,6 +1157,11 @@ func TestDispatchEndCauseAccepted(t *testing.T) {
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/passes") { // the panel begin's own pass row (kan-1086 self-review, F8)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1}`))
+			return
+		}
 		var err error
 		gotBody, err = readAll(r)
 		if err != nil {
@@ -4025,6 +4040,11 @@ func TestRecordFindingSendsCategory(t *testing.T) {
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/passes") { // the panel begin's own pass row (kan-1086 self-review, F8)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1}`))
+			return
+		}
 		var err error
 		gotBody, err = readAll(r)
 		if err != nil {
@@ -6051,6 +6071,11 @@ func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
 				}
 				w.WriteHeader(readStatus)
 				_, _ = w.Write([]byte(record))
+				return
+			}
+			if strings.HasSuffix(r.URL.Path, "/passes") { // the panel begin's own pass row (kan-1086 self-review, F8)
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1}`))
 				return
 			}
 			posts++
@@ -8191,7 +8216,7 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		{"kan-258", "implementer", "task-2-implementer", nil, "recorded: dispatch 7\ndescription: Task 2/3\nRole: implementer\n"},
 		{"kan-258", "reviewer", "task-1+3-reviewer", nil, "recorded: dispatch 7\ndescription: Tasks 1+3/3\nRole: gated-reviewer\n"},
 		{"kan-258", "reviewer", "task-1-reviewer-fix-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: gated-re-reviewer\n"},
-		{"kan-259", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, "recorded: dispatch 7\ndescription: panel-2-primary\n"},
+		{"kan-259", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, "recorded: dispatch 7\nrecorded: pass 1\ndescription: panel-2-primary\n"},
 		{"kan-258", "merger", "panel-2-merger", nil, "recorded: dispatch 7\ndescription: panel-2-merger\nRole: panel-merger\n"},
 		{"kan-258", "panel-fix", "panel-fix-3", nil, "recorded: dispatch 7\ndescription: panel-fix-3\nRole: panel-fix\n"},
 		{"kan-258", "verifier", "visual-verify-2", []string{"-diff-base", "abc123"}, "recorded: dispatch 7\ndescription: visual-verify-2\nRole: visual-verifier\n"},
@@ -8447,4 +8472,78 @@ func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
 			t.Fatalf("exit %d, posts %d; want admitted; stderr:\n%s", code, posts, stderr)
 		}
 	})
+}
+
+// TestRecordDispatchBeginWritesThePanelPassRow pins kan-1086's self-review,
+// F8: a hand-begun panel round wrote no pass row, and the back-filled notes
+// named a pair the ledger contradicts. A panel slot's begin now writes its
+// own `dispatched:` pass row from its own flags; a refused begin and a
+// non-panel begin write none.
+func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	begin := func(t *testing.T, refuse bool, args ...string) (int, string, []records.Pass) {
+		t.Helper()
+		var passes []records.Pass
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions"):
+				_, _ = w.Write([]byte("[]"))
+			case r.Method == http.MethodGet:
+				_, _ = w.Write([]byte(`{"dispatches":[{"seq":1,"key":"panel-3-merger","role":"merger","model":"opus","outcome":"completed","startedAt":"2026-01-02T03:04:05Z","endedAt":"2026-01-02T03:05:05Z"}]}`))
+			case strings.HasSuffix(r.URL.Path, "/passes"):
+				var p records.Pass
+				if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+					t.Errorf("decode pass: %v", err)
+				}
+				passes = append(passes, p)
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":9}`))
+			case refuse:
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":"refused"}`))
+			default:
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+			}
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), append([]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
+			"-change", "kan-258", "-session-token", "mf-record-pass-row"}, args...), strings.NewReader(""), &stdout, &stderr)
+		return code, stdout.String() + stderr.String(), passes
+	}
+	panel := []string{"-role", "reviewer", "-slot", "primary", "-model", "sonnet", "-effort", "low", "-diff-base", "a515c200", "-key", "panel-4-primary"}
+	code, out, passes := begin(t, false, panel...)
+	if code != 0 || len(passes) != 1 || passes[0].Round != 4 || passes[0].Note != "dispatched: panel-4-primary on sonnet/low over a515c200" || !strings.Contains(out, "recorded: pass 9") {
+		t.Fatalf("panel begin: exit %d, passes %+v; output:\n%s", code, passes, out)
+	}
+	if code, out, passes := begin(t, true, panel...); code == 0 || len(passes) != 0 {
+		t.Errorf("refused begin: exit %d, passes %+v; output:\n%s", code, passes, out)
+	}
+	if code, out, passes := begin(t, false, "-role", "implementer", "-model", "opus", "-effort", "low", "-task", "1", "-key", "task-1-implementer"); code != 0 || len(passes) != 0 {
+		t.Errorf("implementer begin: exit %d, passes %+v; output:\n%s", code, passes, out)
+	}
+}
+
+// TestRecordPassRefusesAHandDispatchedNote pins kan-1086's self-review, F8:
+// the `dispatched:` pass line is the panel begin's own, so `flow record
+// pass` refuses a hand-written one and admits any other note.
+func TestRecordPassRefusesAHandDispatchedNote(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	pass := func(note string) (int, string) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "pass", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-258", "-round", "4", "-note", note},
+			strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	if code, stderr := pass("  dispatched: panel-4-primary on opus/low"); code != 2 || !strings.Contains(stderr, "flow record dispatch begin") {
+		t.Errorf("dispatched note: exit %d, stderr %q; want 2 naming the begin", code, stderr)
+	}
+	if code, stderr := pass("not dispatched — docs-only reduction: primary"); code == 2 {
+		t.Errorf("other note refused: stderr %q", stderr)
+	}
 }

@@ -1471,6 +1471,25 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		fmt.Fprintf(stdout, "recorded: dispatch %d\n", out.Seq)
 	}
 	code := classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr)
+	// A panel slot's begin writes that slot's `dispatched:` pass row from
+	// its own flags, so no round begun -- by panel-round-begins or by hand
+	// -- lacks one, and the line cannot contradict its row (kan-1086
+	// self-review, F8: hand-begun rounds had none, and the back-filled
+	// notes named a pair the ledger contradicts).
+	if n, ok := records.PanelDispatchRound(in); ok && code == 0 {
+		note := "dispatched: " + *key + " on " + *model + "/" + *effort
+		if *diffBase != "" {
+			note += " over " + *diffBase
+		}
+		pass := records.Pass{Round: n, Note: note}
+		pout, passErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Pass, error) {
+			return cl.RecordPass(ctx, projectKey, f.change, pass)
+		})
+		if passErr == nil {
+			fmt.Fprintf(stdout, "recorded: pass %d\n", pout.ID)
+		}
+		code = classifyRecordWrite(passErr, projectKey, f.change, "pass", pass, stderr)
+	}
 	if code == 0 && *startedAt == "" && *agentID != "inline" {
 		printLaunchLines(stdout, f.dir, f.change, *role, *key)
 	}
@@ -3781,6 +3800,13 @@ func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer)
 	// stray rows; no pass note in the store's history was one word and real.
 	if len(strings.Fields(*note)) < 2 {
 		fmt.Fprintf(stderr, "flow: record pass: -note %q is one word — a pass-log line says what happened, in two words at least\n", *note)
+		return 2
+	}
+	// The `dispatched:` line is the panel begin's own, written from the
+	// begin's flags (kan-1086 self-review, F8): a hand copy can only
+	// contradict the row it describes.
+	if strings.HasPrefix(strings.TrimSpace(*note), "dispatched:") {
+		fmt.Fprintln(stderr, "flow: record pass: -note opens with dispatched: -- that line is written by `flow record dispatch begin` of each panel-<round>-<slot> key, never by hand (skills/flow/review-panel.md)")
 		return 2
 	}
 	// A note opening with a marker label is a marker line in the wrong

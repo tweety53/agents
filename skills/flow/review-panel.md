@@ -440,7 +440,7 @@ launches every dispatch of the round — on pass 1, every dispatch but `mutation
 (below) — one call for all, as `flow-guard panel-round-begins <worktree> <name> <round> mf-<literal-token>
 <slot>:<model>:<effort>[:<diff-base>]...` — the begin above once per slot, under the literal key
 `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution, and then
-the round's own pass row naming each slot's pair, so no round it began lacks one; the round's wait is the harness's completion notifications, never a poll (see
+each begin of a `panel-<round>-<slot>` key writes that slot's `dispatched:` pass row from its own flags, so no round begun — by the guard or by hand — lacks one, and `flow record pass` refuses a hand-written `dispatched:` note (kan-1086 self-review, F8); the round's wait is the harness's completion notifications, never a poll (see
 **No forking, and a wall-clock ceiling on every slot** below); every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`).
 On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s). On any other harness the daemon reads no agent transcript, so each `end` passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.

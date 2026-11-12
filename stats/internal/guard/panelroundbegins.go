@@ -18,7 +18,9 @@ import (
 // whose row is not open yet (skills/flow/review-panel.md, "Every slot's
 // dispatch is recorded"). <round> is the number itself, never a substitution.
 //
-// stdout: one `<key>: <flow's answer>` line per slot, in slot order.
+// stdout: one `<key>: <flow's answer>` line per slot, in slot order; each
+// begin writes that slot's `dispatched:` pass row itself (kan-1086
+// self-review, F8).
 //
 // Exit codes: 0 every begin recorded; 1 a begin failed (its output relayed,
 // the later slots still recorded); 2 usage, or no flow binary on PATH.
@@ -31,13 +33,12 @@ import (
 // before, where kan-1026's `-key panel-$R-$s` from `R=$(flow record
 // next-round ...)` left the daemon nothing to read the key from
 // (skills/flow/review-panel.md, "Every slot's dispatch is recorded").
-// When at least one begin succeeded it then records the round's pass row,
-// `flow record pass -round <round> -note "dispatched: panel-<round>-<slot> on
-// <model>/<effort>[ over <diff-base>]; ..."` naming each succeeded slot, its
-// output printed as `pass: <output>` (kan-1033 self-review: the pass row was
-// hand-recorded, and a round could reach landing without one).
-// Exit 0 every begin and the pass recorded; 1 a begin or the pass failed (its
-// output relayed, the rest still recorded); 2 usage, or no flow binary on PATH.
+// Each begin writes its own slot's `dispatched: panel-<round>-<slot> on
+// <model>/<effort>[ over <diff-base>]` pass row (`flow record dispatch
+// begin`), so this guard writes none (kan-1086 self-review, F8; kan-1033
+// self-review moved the row out of hand-recording first).
+// Exit 0 every begin recorded; 1 a begin failed (its output relayed, the
+// rest still recorded); 2 usage, or no flow binary on PATH.
 func init() {
 	Registry["panel-round-begins"] = panelRoundBegins
 }
@@ -72,7 +73,6 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	code := 0
-	var dispatched []string
 	for _, s := range slots {
 		key := "panel-" + round + "-" + s.name
 		argv := []string{"record", "dispatch", "begin", "-C", wt, "-change", change, "-role", "reviewer",
@@ -83,20 +83,6 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 		argv = append(argv, "-key", key, "-session-token", token)
 		rc, out := kwRun(env, "", flow, argv...)
 		fmt.Fprintf(stdout, "%s: %s\n", key, strings.TrimSpace(out))
-		if rc != 0 {
-			code = 1
-			continue
-		}
-		d := key + " on " + s.model + "/" + s.effort
-		if s.diffBase != "" {
-			d += " over " + s.diffBase
-		}
-		dispatched = append(dispatched, d)
-	}
-	if len(dispatched) > 0 {
-		rc, out := kwRun(env, "", flow, "record", "pass", "-C", wt, "-change", change, "-round", round,
-			"-note", "dispatched: "+strings.Join(dispatched, "; "))
-		fmt.Fprintf(stdout, "pass: %s\n", strings.TrimSpace(out))
 		if rc != 0 {
 			code = 1
 		}
