@@ -1084,3 +1084,4 @@ and exit 2 puts `Freshness: unverified — <the guard's reason>` in every such t
 Every such task, and every wave copy it runs in, runs against that stack's worktree-resolved
 URLs, which its prompt names, and starts, stops and rebuilds nothing. The stack stays up for
 `flow.verify`.
+Every such task's prompt, and every task whose `**Files:**` add or change a capture spec, carries the capture rules of step 8 of `skills/flow/visual-verify-verifier.md` by absolute path: a capture is taken in the state it names — every interaction producing that state first, each asserted, and the pointer parked clear of every control after the last click.
