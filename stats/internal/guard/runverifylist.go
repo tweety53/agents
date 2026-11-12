@@ -65,8 +65,14 @@
 // `<worktree>/.superpowers/sdd/decision.json` does not record
 // `visual.verify` `skipped`, HEAD is not the green sha, and `git diff
 // --name-only <merge-base>..HEAD` touches a `ui paths` glob, the merge base
-// that of HEAD and resolve-base-branch's base (its `origin/` ref when
-// fetched). A base that does not resolve runs it. It reports and fails the
+// the commit `flow.kickoff` branched <worktree> from -- its value in the
+// worktrees map of `flow state get -C <canonical-worktree or worktree>
+// <change>`, <change> the recording argument or the branch name less
+// `spectre/` (decision selection-base-kickoff-commit) -- and only with no
+// such value that of HEAD and resolve-base-branch's base (its `origin/` ref
+// when fetched), printed as `- kickoff base: not recorded for <worktree> —
+// selecting from merge-base HEAD <ref>`. The same base fills the `specs`
+// row's `<merge-base>`. A base that does not resolve runs it. It reports and fails the
 // list like any other command; a `lint` list never runs it.
 // A `visual` list runs that `verify` row alone, as a `test` list's tail
 // would, and never the `## lint` or `## test` commands; when the conditions
@@ -307,6 +313,41 @@ var (
 // (verify-list-runs-targeted). fallback is the `regression checkout` dir
 // fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
 func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
+	return rvlVisualVerifyFor(env, wt, covered, "", "", io.Discard)
+}
+
+// rvlKickoffBase is the commit `flow.kickoff` branched wt from: wt's
+// absolute path's value in the worktrees map of `flow state get -C <canon>
+// <change>` (decision selection-base-kickoff-commit), "" when flow is not
+// on PATH, fails, or the record holds no entry for wt.
+func rvlKickoffBase(env Env, wt, change, canon string) string {
+	flow, ok := lookPath(env, "flow")
+	if !ok || change == "" {
+		return ""
+	}
+	get := exec.Command(flow, "state", "get", "-C", canon, change)
+	get.Dir, get.Env = env.Dir, icChildEnv(env)
+	out, err := get.Output()
+	if err != nil {
+		return ""
+	}
+	st := icParseState(string(out))
+	for i, k := range st.keys {
+		if k == wt && st.values[i] != "-" {
+			return st.values[i]
+		}
+	}
+	return ""
+}
+
+// rvlVisualVerifyFor is rvlVisualVerify with the change's name and its
+// canonical worktree (wt when ""), whose state record gives the merge base:
+// the kickoff base for wt, and only with none -- the fallback printed on
+// stdout -- the merge base of HEAD and the remote base branch.
+func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
+	if canon == "" {
+		canon = wt
+	}
 	b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
 	if err != nil {
 		return "", "", "", "", false
@@ -325,17 +366,20 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallbac
 	}
 	mb := ""
 	changed := func() ([]string, error) {
-		var base bytes.Buffer
-		if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
-			return nil, fmt.Errorf("no base branch")
-		}
 		git := envGit(env)
-		ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
-		m, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
-		if !ok {
-			return nil, fmt.Errorf("no merge base")
+		if mb = rvlKickoffBase(env, wt, change, canon); mb == "" {
+			var base bytes.Buffer
+			if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
+				return nil, fmt.Errorf("no base branch")
+			}
+			ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
+			fmt.Fprintf(stdout, "- kickoff base: not recorded for %s — selecting from merge-base HEAD %s\n", wt, ref)
+			m, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
+			if !ok {
+				return nil, fmt.Errorf("no merge base")
+			}
+			mb = strings.TrimSpace(m)
 		}
-		mb = strings.TrimSpace(m)
 		names, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb+"..HEAD"))
 		if !ok {
 			return nil, fmt.Errorf("no diff")
@@ -532,10 +576,15 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		args = args[1:]
 	}
+	// change and canon name the state record the kickoff base is read from.
+	change, canon := "", ""
 	if mode != "plain" {
 		if (len(args) != 2 && len(args) != 3) || args[1] != "visual" {
 			fmt.Fprintln(stderr, narrowUsage)
 			return 2
+		}
+		if len(args) == 3 {
+			canon = abs(args[2])
 		}
 		args = args[:2]
 	}
@@ -555,9 +604,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "run-verify-list: no flow binary on PATH")
 			return 2
 		}
-		wt, change, verified := args[0], args[2], args[0]
+		wt, verified := args[0], args[0]
+		change = args[2]
 		if len(args) == 8 {
 			wt = args[7]
+			canon = abs(wt)
 		}
 		key, token, model, effort := args[3], args[4], args[5], args[6]
 		if !verifyKeyOK(env, abs(args[0]), key) {
@@ -830,7 +881,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	visualRan := false
 	if list != "lint" {
-		if cmd, specs, dir, fallback, ok := rvlVisualVerify(env, abs(wt), unchanged("")); !ok && list == "visual" {
+		if change == "" {
+			branch, _ := gitOut("branch", "--show-current")
+			change = strings.TrimPrefix(branch, "spectre/")
+		}
+		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged(""), change, canon, stdout); !ok && list == "visual" {
 			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
 		} else if ok && list == "visual" && fallback != "" {
 			// /flow-fast and /flow-interactive set up no regression-checkout

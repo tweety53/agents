@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -1431,5 +1432,88 @@ func TestRunVerifyListKeepsTheTestListsRunStartCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(keep, "visual-plain-r1.log")); err != nil {
 		t.Errorf("a test run removed visual-plain-r1.log: %v", err)
+	}
+}
+
+// rvlFlowStub writes a `flow` stub into a new directory and returns it with
+// its call log: every call appends its argv to the log; `state get` prints
+// the file state, exiting stateRC; `suite record` runs the command after
+// `--`; anything else exits 0.
+func rvlFlowStub(t *testing.T, state string, stateRC int) (dir, log string) {
+	t.Helper()
+	dir = t.TempDir()
+	log = filepath.Join(dir, "calls")
+	writeFile(t, filepath.Join(dir, "state.json"), state)
+	writeExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\n"+
+		"if [ \"$1 $2\" = \"state get\" ]; then cat "+filepath.Join(dir, "state.json")+"; exit "+strconv.Itoa(stateRC)+"; fi\n"+
+		"if [ \"$1 $2\" = \"suite record\" ]; then\n  while [ \"$1\" != -- ]; do shift; done\n  shift\n  exec \"$@\"\nfi\n")
+	return dir, log
+}
+
+// rvlStateJSON is a state record whose worktrees map each path to its base.
+func rvlStateJSON(t *testing.T, bases map[string]string) string {
+	t.Helper()
+	b, err := json.Marshal(map[string]any{"worktrees": bases})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestRunVerifyListScopesSpecsToTheKickoffBase(t *testing.T) {
+	t.Parallel()
+	// origin/main: K, then a ui change, then M; the branch spectre/demo
+	// leaves M with a docs change only, so only K's diff touches ui paths.
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "docs/a.md", "", "echo <merge-base>", false, false, false)
+	k := rvlGit(t, wt, "rev-parse", "HEAD~1")
+	rvlGit(t, wt, "checkout", "-q", "-b", "spectre/demo", k)
+	writeFile(t, filepath.Join(wt, "web/src/k.tsx"), "x\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "ui")
+	writeFile(t, filepath.Join(wt, "README"), "m\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "m")
+	rvlGit(t, wt, "push", "-q", "-f", "origin", "HEAD:main")
+	rvlGit(t, wt, "fetch", "-q", "origin")
+	writeFile(t, filepath.Join(wt, "docs/b.md"), "x\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "change")
+	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: k}), 0)
+	if rc, out := rvlRunIn(t, wt, stub, wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL ["+k+"]") {
+		t.Errorf("exit %d, the verify row did not run on the kickoff base %s:\n%s", rc, k, out)
+	}
+}
+
+func TestRunVerifyListFallsBackWithoutAKickoffBase(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
+	mb := rvlGit(t, wt, "merge-base", "HEAD", "origin/main")
+	for name, rc := range map[string]int{"no entry": 0, "flow fails": 1} {
+		stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{"/elsewhere": "abc"}), rc)
+		_, out := rvlRunIn(t, wt, stub, wt, "visual")
+		if !strings.Contains(out, "VISUAL ["+mb+"]") || !strings.Contains(out, "- kickoff base: not recorded for "+wt+" — selecting from merge-base HEAD origin/main\n") {
+			t.Errorf("%s: output:\n%s", name, out)
+		}
+	}
+}
+
+func TestRunVerifyListReadsTheRecordFromTheCanonicalWorktree(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
+	rvlGit(t, wt, "branch", "-m", "spectre/demo")
+	canon := t.TempDir()
+	for _, tc := range []struct {
+		want string
+		args []string
+	}{
+		{"state get -C " + canon + " kan-9\n", []string{wt, "visual", "kan-9", "verify", "mf-t", "opus", "low", canon}},
+		{"state get -C " + canon + " demo\n", []string{"-detect-flaky", wt, "visual", canon}},
+		{"state get -C " + wt + " demo\n", []string{wt, "visual"}},
+	} {
+		stub, log := rvlFlowStub(t, "{}", 0)
+		_, out := rvlRunIn(t, wt, stub, tc.args...)
+		if calls, _ := os.ReadFile(log); !strings.Contains(string(calls), tc.want) {
+			t.Errorf("%v: flow calls %q, want %q\n%s", tc.args, calls, tc.want, out)
+		}
 	}
 }
