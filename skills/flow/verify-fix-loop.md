@@ -227,7 +227,7 @@ The detector's retry only names a flake: a flaky test is a failure the fixer fix
 (`rules/fix-determinism-at-the-source.mdc`). A plain run is the `specs` row's selection — the
 change's tests plus the smoke tail, or every spec when the diff touches shared rendering code —
 and never the whole suite otherwise. Each failing run prints its failures in two groups, the
-change's specs and the specs outside the `specs` row's output. A non-visual command keeps its own inline re-run.
+change's specs and the specs outside the `specs` row's output. Two consecutive rounds whose failures all fall outside it make no progress, and escalate as **Fewest operator actions** states (`skills/flow-contracts/pipeline.md`). A non-visual command keeps its own inline re-run.
 
 ## No cap
 
