@@ -598,10 +598,14 @@ and applies **The handshake** stated above, unchanged.
 **The parent runs the full suite — never an implementer.** Once the plan-last group — the group
 holding the last `bundle <k>` line `flow-guard plan-dispatch-bundles` printed — has passed the guard, by
 direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
-once on the canonical worktree, in the foreground, as `flow-guard run-verify-list <canonical-worktree> test`
+once per worktree in this run's resolved set, one worktree after another, in the foreground, as
+`flow-guard run-verify-list <worktree> test` — skipping a worktree the skip rule of **Inline verify**
+(`skills/flow/verify-and-handoff.md`) prints nothing for
 — by hand, in the order the context bundle carries it, only where that exits 3 — its output
-through `tail`; the green sha that run records is what lets **Inline verify**
-(`skills/flow/verify-and-handoff.md`) skip what no later commit touched. Every failure, wherever it lies, is fixed at its root
+through `tail`; the green sha each run records in its own worktree is what lets **Inline verify**
+(`skills/flow/verify-and-handoff.md`) skip what no later commit touched (kan-1084 self-review, F1:
+the frontend's `## test` list first ran at `flow.verify`, after three panel rounds had reviewed that
+tree). Every failure, wherever it lies, is fixed at its root
 cause and the list re-run until it passes. Under `sdd` the fix is a fresh one-shot, the
 `full-suite-fix-<n>` row of **Every fix is a fresh one-shot** below, its `FIX INPUT:` the failing
 block. Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
