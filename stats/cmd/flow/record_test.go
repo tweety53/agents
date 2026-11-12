@@ -8275,3 +8275,47 @@ func TestRecordDispatchBeginRefusesMergerBesideOpenReviewer(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordRefusesARoundBeyondTheNext pins kan-1088 self-review F3: after
+// round 0, pass, finding and mutation refuse -round 7 and name the allowed
+// maximum, 1, while round 0 on a run with no rounds is accepted.
+func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	record := `{"change":"kan-258"}`
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		posts++
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"round":0}`))
+	}))
+	defer srv.Close()
+	base := []string{"-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-258"}
+	cmds := map[string][]string{
+		"pass":     {"-note", "not re-run — nothing new"},
+		"finding":  {"-ref", "F1", "-slot", "primary", "-severity", "Minor", "-status", "open", "-reproducer", "none — prose", "-note", "a finding"},
+		"mutation": {"-path", "render.go", "-mutated", "x", "-test", "y"},
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), append(append([]string{"record", "pass"}, base...), append(cmds["pass"], "-round", "0")...), strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
+		t.Fatalf("round 0 on an empty run: exit %d, posts %d; want 0 and one (stderr %q)", code, posts, stderr.String())
+	}
+	record = `{"change":"kan-258","passes":[{"id":1,"round":0,"note":"not re-run"}]}`
+	for kind, flags := range cmds {
+		stderr.Reset()
+		code := run(context.Background(), append(append([]string{"record", kind}, base...), append(flags, "-round", "7")...), strings.NewReader(""), &stdout, &stderr)
+		if code != 2 || posts != 1 {
+			t.Errorf("%s -round 7: exit %d, posts %d; want 2 and no new write (stderr %q)", kind, code, posts, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "allows now is 1") {
+			t.Errorf("%s -round 7: stderr %q names no allowed maximum 1", kind, stderr.String())
+		}
+	}
+}

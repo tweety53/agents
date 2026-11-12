@@ -1501,6 +1501,28 @@ func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
 	}
 }
 
+// roundBeyondNext refuses a -round past the run's next round,
+// highestRecordedRound+1: a mistyped -round 7 after round 0 would make
+// next-round print 8 and the panel-dispatch check refuse rounds 1..6
+// (kan-1088 self-review, F3). Rounds 0 and 1 are always within it, so
+// they read nothing; a failed read refuses nothing.
+func roundBeyondNext(ctx context.Context, f recordIdentityFlags, projectKey, kind string, round int, stderr io.Writer) bool {
+	if round <= 1 {
+		return false
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return false
+	}
+	if next := highestRecordedRound(run) + 1; round > next {
+		fmt.Fprintf(stderr, "flow: record %s: -round %d is beyond the next round -- the highest round this run allows now is %d\n", kind, round, next)
+		return true
+	}
+	return false
+}
+
 // highestRecordedRound is the highest round over run's passes, findings,
 // mutations and panel reviewer dispatches.
 func highestRecordedRound(run records.Run) int {
@@ -2285,6 +2307,10 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
+	}
+
+	if roundBeyondNext(ctx, f, projectKey, "finding", *round, stderr) {
+		return 2
 	}
 
 	in := records.Finding{
@@ -3739,6 +3765,10 @@ func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer)
 		return 1
 	}
 
+	if roundBeyondNext(ctx, f, projectKey, "pass", *round, stderr) {
+		return 2
+	}
+
 	in := records.Pass{Round: *round, Note: *note}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Pass, error) {
 		return cl.RecordPass(ctx, projectKey, f.change, in)
@@ -3782,6 +3812,10 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
+	}
+
+	if roundBeyondNext(ctx, f, projectKey, "mutation", *round, stderr) {
+		return 2
 	}
 
 	// The mutated path names a file some worktree of the change holds
