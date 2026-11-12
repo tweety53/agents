@@ -2987,6 +2987,47 @@ func TestLiveStateBoardCountsEachInRunFixRoundOnce(t *testing.T) {
 	}
 }
 
+// TestLiveStateBoardPrefersServedModelAndEffort pins
+// readers-prefer-served-metrics on the board's open dispatches: one whose
+// metrics name the model and effort that served it shows those, one with no
+// metrics shows its labels.
+func TestLiveStateBoardPrefersServedModelAndEffort(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-served-%d", time.Now().UnixNano())
+	name := fmt.Sprintf("kan-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, name)
+	served := baseDispatch("implementer", "opus")
+	served.Key, served.Effort = "task-1-implementer", "high"
+	served.Metrics = json.RawMessage(`{"modelVersion":"claude-opus-5-5","effort":"medium"}`)
+	labelled := baseDispatch("implementer", "opus")
+	labelled.Key, labelled.Effort = "task-2-implementer", "high"
+	labelled.StartedAt = labelled.StartedAt.Add(time.Minute)
+	for _, d := range []records.Dispatch{served, labelled} {
+		if _, err := st.RecordDispatch(ctx, projectKey, name, d); err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", d.Key, err)
+		}
+	}
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, &name)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 || len(rows[0].Subagents) != 2 {
+		t.Fatalf("rows = %+v, want one change with two open dispatches", rows)
+	}
+	got := rows[0].Subagents
+	if got[0].Model != "claude-opus-5-5" || got[0].Effort == nil || *got[0].Effort != "medium" {
+		t.Errorf("served dispatch = %s/%v, want claude-opus-5-5/medium", got[0].Model, got[0].Effort)
+	}
+	if got[1].Model != "opus" || got[1].Effort == nil || *got[1].Effort != "high" {
+		t.Errorf("labelled dispatch = %s/%v, want opus/high", got[1].Model, got[1].Effort)
+	}
+}
+
 // TestLiveStateBoardCountsFindingsBySeverity pins the board's C/I/M counts:
 // main's from its panel findings, whatever case and synonym the severity was
 // recorded in, the self-review's from its findings recorded with a severity.

@@ -295,6 +295,47 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 	}
 }
 
+// TestReviewDynamicsPrefersServedModelAndEffort pins
+// readers-prefer-served-metrics: a reviewer dispatch whose harvested metrics
+// name the model and effort that served it counts under those in the
+// per-dispatch model, version and effort groups; one with no metrics counts
+// under its labels.
+func TestReviewDynamicsPrefersServedModelAndEffort(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	fx := dynamicsFixture{t: t, st: st, project: fmt.Sprintf("proj-served-%d", time.Now().UnixNano())}
+	seedChange(t, st, fx.project, "s")
+	at := week1.Add(9 * time.Hour)
+
+	fx.dispatch("s", "reviewer", "primary", "sonnet", "high", "panel-0-served", "completed", at)
+	fx.dispatch("s", "reviewer", "primary", "sonnet", "high", "panel-0-label", "completed", at.Add(time.Hour))
+	if _, err := pool.Exec(ctx, `UPDATE dispatches SET metrics = metrics || '{"modelVersion":"claude-opus-5-5","effort":"medium"}'
+		WHERE dispatch_key = 'panel-0-served' AND change_id = (SELECT id FROM changes WHERE name = 's' AND project_key = $1)`, fx.project); err != nil {
+		t.Fatalf("stamp served metrics: %v", err)
+	}
+
+	got, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &fx.project, nil)
+	if err != nil {
+		t.Fatalf("ReviewDynamics: %v", err)
+	}
+	series := map[string]map[string]int{}
+	for _, p := range got.Series {
+		if series[p.Metric] == nil {
+			series[p.Metric] = map[string]int{}
+		}
+		series[p.Metric][p.Series] += p.Basis
+	}
+	for metric, want := range map[string]string{
+		"per-dispatch-model":         "map[opus:1 sonnet:1]",
+		"per-dispatch-model-version": "map[claude-opus-5-5:1 sonnet (version unrecorded):1]",
+		"per-dispatch-effort":        "map[high:1 medium:1]",
+	} {
+		if fmt.Sprint(series[metric]) != want {
+			t.Errorf("%s = %v, want %s", metric, series[metric], want)
+		}
+	}
+}
+
 // TestReviewDynamicsClassAndProjects pins class-buttons and
 // project-buttons: a class keeps only the changes whose latest decision
 // carries it, and Projects lists the period's reviewed projects whatever

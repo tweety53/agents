@@ -118,7 +118,9 @@ type LiveStateRow struct {
 }
 
 // ActiveDispatch is one running subagent: its role, the plan task it works
-// on, its dispatch key, and the model, exact version and effort it runs at.
+// on, its dispatch key, and the model, exact version and effort it runs at --
+// Model and Effort the served ones the harvest recorded in its metrics, else
+// the requested labels (readers-prefer-served-metrics).
 type ActiveDispatch struct {
 	Role         string    `json:"role"`
 	TaskID       *string   `json:"taskId,omitempty"`
@@ -210,8 +212,10 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		) last_run ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(jsonb_agg(jsonb_build_object(
-			         'role', d.role, 'taskId', d.task_id, 'key', d.dispatch_key, 'model', d.model,
-			         'modelVersion', d.metrics->>'modelVersion', 'effort', d.effort, 'startedAt', d.started_at,
+			         'role', d.role, 'taskId', d.task_id, 'key', d.dispatch_key,
+			         'model', COALESCE(NULLIF(d.metrics->>'modelVersion', ''), d.model),
+			         'modelVersion', d.metrics->>'modelVersion',
+			         'effort', COALESCE(NULLIF(d.metrics->>'effort', ''), d.effort), 'startedAt', d.started_at,
 			         'inline', d.agent_id IS NOT DISTINCT FROM 'inline'
 			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
 			FROM dispatches d

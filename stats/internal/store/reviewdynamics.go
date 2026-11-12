@@ -65,12 +65,20 @@ type DynamicsSummary struct {
 	Changes                    int
 }
 
+// servedModelSQL and servedEffortSQL are the model and effort that served a
+// dispatch d: the harvested metrics' modelVersion and effort, else the
+// recorded labels (readers-prefer-served-metrics).
+const (
+	servedModelSQL  = `COALESCE(NULLIF(d.metrics->>'modelVersion', ''), d.model)`
+	servedEffortSQL = `COALESCE(NULLIF(d.metrics->>'effort', ''), d.effort)`
+)
+
 // modelVersionSQL is a dispatch d's model version: the harvested
 // modelVersion, else its recorded model when that is a full ID, else
 // "<family> (version unrecorded)" (model-version-split).
 const modelVersionSQL = `COALESCE(d.metrics->>'modelVersion',
-	CASE WHEN d.model ~* '^(claude|glm)-' THEN d.model END,
-	model_family(d.model) || ' (version unrecorded)')`
+	CASE WHEN ` + servedModelSQL + ` ~* '^(claude|glm)-' THEN ` + servedModelSQL + ` END,
+	model_family(` + servedModelSQL + `) || ' (version unrecorded)')`
 
 // classFilterSQL restricts a query's change c to the plan class $5 names,
 // read from the change's latest recorded decision; a NULL $5 keeps every
@@ -115,8 +123,9 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 //   - per-dispatch-slot (<slot>): findings ÷ dispatches carrying the slot.
 //   - per-dispatch-model (<family>), per-dispatch-model-version
 //     (<version>), per-dispatch-effort (<effort>): findings ÷ dispatch
-//     rows, never unnested slots. Family is model_family(model), version
-//     modelVersionSQL (model-version-split).
+//     rows, never unnested slots. Family is model_family of the served
+//     model, version modelVersionSQL (model-version-split), effort the
+//     served effort -- servedModelSQL, servedEffortSQL.
 //   - impl-blocked-share (blocked): implementer dispatches started in the
 //     bucket with an implBadOutcomes outcome ÷ all of them.
 //
@@ -251,7 +260,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 	}
 	err = s.scanRows(ctx, "review per dispatch", `
 		WITH d AS (
-			SELECT d.id, d.started_at, model_family(d.model) AS model, `+modelVersionSQL+` AS version, d.effort,
+			SELECT d.id, d.started_at, model_family(`+servedModelSQL+`) AS model, `+modelVersionSQL+` AS version, `+servedEffortSQL+` AS effort,
 				unnest(string_to_array(d.slot, '+')) AS slot
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
@@ -292,14 +301,14 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 	// Implementer, per change: by family · effort, then by version · effort.
 	var implFindings, implDispatches int
 	for _, keyed := range []struct{ metric, model string }{
-		{"impl-findings-per-task", "model_family(d.model)"},
+		{"impl-findings-per-task", "model_family(" + servedModelSQL + ")"},
 		{"impl-findings-per-task-version", modelVersionSQL},
 	} {
 		family := keyed.metric == "impl-findings-per-task"
 		err = s.scanRows(ctx, "implementer per change", `
 		WITH cohort AS (
 			SELECT d.change_id, min(d.started_at) AS first_at, count(*) AS dispatches,
-				mode() WITHIN GROUP (ORDER BY `+keyed.model+` || ' · ' || d.effort) AS series
+				mode() WITHIN GROUP (ORDER BY `+keyed.model+` || ' · ' || `+servedEffortSQL+`) AS series
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'implementer'
 			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
