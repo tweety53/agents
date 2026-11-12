@@ -10,7 +10,8 @@
 //        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
 //
 // NARROWED RUNS (decision narrow-via-run-verify-list-flags). `-only <file>`
-// skips the `specs` row and puts the file's entries -- the visual-failing.txt
+// runs the `specs` row only to group its failures by the change's specs, and
+// puts the file's entries -- the visual-failing.txt
 // a failing run wrote -- in the `verify` row's `<specs>`, followed by
 // `--repeat-each 5 --workers 1`; `-detect-flaky` runs the `specs` row as a
 // plain run does and puts its output there, followed by `--retries=1
@@ -180,8 +181,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -383,11 +386,12 @@ func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, 
 	changed := func() ([]string, error) {
 		// The record may name wt by its symlink-resolved form (/private/var
 		// for /var on macOS), or wt be that form.
-		if mb = bases[wt]; mb == "" {
-			if r, err := filepath.EvalSymlinks(wt); err == nil {
-				mb = bases[r]
-			}
+		// rvlKickoffBases keys every record also by its resolved form.
+		r := wt
+		if e, err := filepath.EvalSymlinks(wt); err == nil {
+			r = e
 		}
+		mb = bases[r]
 		if mb == "" {
 			var base bytes.Buffer
 			if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
@@ -538,8 +542,10 @@ func rvlKeepFailures(keep string, log []byte, specs []string, union bool, stdout
 
 var rvlRoundFile = regexp.MustCompile(`^visual-(?:.+-r(\d+)\.log|results-r(\d+))$`)
 
-// rvlNextRound is one past the highest round <N> among keep's
-// `visual-*-r<N>.log` and `visual-results-r<N>` -- 1 when there is none.
+// rvlNextRound claims the round one past the highest <N> among keep's
+// `visual-*-r<N>.log` and `visual-results-r<N>` -- 1 when there is none -- by
+// creating `visual-results-r<N>`, taking the next round when a concurrent run
+// created it first.
 func rvlNextRound(keep string) int {
 	n := 0
 	entries, _ := os.ReadDir(keep)
@@ -549,7 +555,9 @@ func rvlNextRound(keep string) int {
 			n = max(n, r)
 		}
 	}
-	return n + 1
+	for n++; errors.Is(os.Mkdir(filepath.Join(keep, fmt.Sprintf("visual-results-r%d", n)), 0o777), fs.ErrExist); n++ {
+	}
+	return n
 }
 
 // rvlKeepPlaywrightResults copies the newest directory under
@@ -940,6 +948,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			// when the operator asks (verify-list-runs-targeted).
 			switch {
 			case mode == "only":
+				// The `specs` row runs only to group the failures; the
+				// list alone picks what runs.
+				if cmd != "" && specs != "" {
+					r := rgtRun(context.Background(), [][]string{{"bash", "-c", specs}}, 1, outDir, dir, cmdEnv)[0]
+					if out, err := os.ReadFile(r.out); err == nil && r.rc == 0 {
+						specTokens = append([]string{}, strings.Fields(string(out))...)
+					}
+				}
 				cmd = fill(only)
 			case cmd == "":
 				failed = 1
@@ -983,8 +999,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				if results[0].rc == 0 {
 					passed = append(passed, cmd)
 				} else if keep != "" {
-					if kept := rvlKeepPlaywrightResults(dir, filepath.Join(keep, fmt.Sprintf("visual-results-r%d", round)), started); kept != "" {
+					dst := filepath.Join(keep, fmt.Sprintf("visual-results-r%d", round))
+					if kept := rvlKeepPlaywrightResults(dir, dst, started); kept != "" {
 						fmt.Fprintf(stdout, "  result files: %s\n", kept)
+					} else {
+						os.Remove(dst) // the empty claim
 					}
 					log, _ := os.ReadFile(results[0].out)
 					rvlKeepFailures(keep, log, specTokens, mode == "detect-flaky", stdout)

@@ -1349,7 +1349,7 @@ func rvlNarrowFixture(t *testing.T, out string, rc int) (wt, argv, marker string
 
 func TestRunVerifyListOnlyRunsTheFailingList(t *testing.T) {
 	t.Parallel()
-	wt, argv, marker := rvlNarrowFixture(t, "", 0)
+	wt, argv, _ := rvlNarrowFixture(t, "", 0)
 	list := rvlFailingList(t, wt)
 	writeFile(t, list, "fidelity/b.spec.ts:8\ntests/c.spec.ts:4\n")
 	rc, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
@@ -1357,13 +1357,42 @@ func TestRunVerifyListOnlyRunsTheFailingList(t *testing.T) {
 	if want := "fidelity/b.spec.ts:8 tests/c.spec.ts:4 --repeat-each 5 --workers 1\n"; rc != 0 || string(got) != want {
 		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
 	}
-	if _, err := os.Stat(marker); err == nil {
-		t.Error("-only ran the specs row")
-	}
 	for _, f := range []string{"flow-test-green", "flow-test-green-cmds"} {
 		if _, err := os.Stat(rvlGit(t, wt, "rev-parse", "--path-format=absolute", "--git-path", f)); err == nil {
 			t.Errorf("-only wrote %s", f)
 		}
+	}
+}
+
+// TestRunVerifyListOnlyGroupsFailuresByTheChangeSpecs: a -only round groups
+// its failures by the `specs` row's specs, so a failure outside them counts
+// as elsewhere, while the list alone picks what runs (panel-fix-1, F9).
+func TestRunVerifyListOnlyGroupsFailuresByTheChangeSpecs(t *testing.T) {
+	t.Parallel()
+	wt, argv, _ := rvlNarrowFixture(t, "  2 failed\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n    [fidelity] › tests/c.spec.ts:4:3 › c\n", 1)
+	list := filepath.Join(t.TempDir(), "only")
+	writeFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\n")
+	_, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
+	got, _ := os.ReadFile(argv)
+	if want := "fidelity/a.spec.ts:20 tests/c.spec.ts:4 --repeat-each 5 --workers 1\n"; string(got) != want {
+		t.Errorf("argv %q, want %q\n%s", got, want, out)
+	}
+	for _, want := range []string{"  failing in the change's specs (1): fidelity/a.spec.ts:20\n", "  failing elsewhere (1): tests/c.spec.ts:4\n"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRvlNextRoundIsNumericAndClaimsTheRound(t *testing.T) {
+	t.Parallel()
+	keep := t.TempDir()
+	writeFile(t, filepath.Join(keep, "visual-plain-r2.log"), "")
+	writeFile(t, filepath.Join(keep, "visual-plain-r10.log"), "")
+	// r10 sorts before r2: the highest is taken numerically (F12), and a
+	// second claim before any log is written takes the next round (F14).
+	if a, b := rvlNextRound(keep), rvlNextRound(keep); a != 11 || b != 12 {
+		t.Errorf("rounds %d, %d, want 11, 12", a, b)
 	}
 }
 
