@@ -27,9 +27,9 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 
 > **READ-ONLY REVIEW:** You review a tree other agents are working in — never mutate it. No
 > command that writes: no `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`,
-> no commit, no index change, and no file edit outside your own report file — the panel's
-> mutating slots are the one declared exception, and they work in throwaway copies, not this
-> tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
+> `git worktree add`, no commit, no index change, and no file edit outside your own report file —
+> the panel's mutating slots are the one declared exception, and they work in throwaway copies the
+> parent creates, not this tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
 > `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
 > implementer inherits, and a restore you perform is a claim nobody can check: gymie KAN-635's
 > reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts,
