@@ -131,8 +131,8 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
-**The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on its group's
-`model` at the effort **Model and effort** gives it (`skills/flow/brainstorm-planner.md`). On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
+**The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on the
+`gated-reviewer` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), never its group's pair (kan-1107 self-review, F1). On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too. **`flow-high` is dispatched in exactly two cases and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included, and a pass-1 panel dispatch the operator approved at `high` at the plan gate (**Model and effort**, `skills/flow/brainstorm-planner.md`); every other row takes the effort its recorded pair or its contract names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside the two. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
