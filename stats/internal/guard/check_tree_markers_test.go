@@ -239,7 +239,7 @@ func TestCheckTreeMarkers(t *testing.T) {
 		tmExact("case 11f: a failed verify prints nothing on stdout", r.stdout, ""))
 	r = fx.run()
 	add(tmExact("case 11g: the usage line is the bash's", r.err,
-		"check-tree-markers: usage: flow-guard check-tree-markers snapshot|verify <worktree> <markers-file> <snapshot-file>\n"))
+		"check-tree-markers: usage: flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file> | verify <worktree> <markers-file> <snapshot-file> [<path>…]\n"))
 
 	// Case 12: the ERE dialect, and a blank markers-file line skipped.
 	// `uncommit+ed` and `the-decision|nothing` match only as EREs; a BRE grep
@@ -305,4 +305,73 @@ func TestCheckTreeMarkersFailsOnAStrayPath(t *testing.T) {
 	if r = fx.run("verify", fx.wt, fx.markers, fx.snap); r.rc != 0 {
 		t.Errorf("pre-change snapshot: want exit 0, got %d\n%s", r.rc, r.out)
 	}
+}
+
+// TestCheckTreeMarkersIgnoresTheConcurrentGroupsFiles pins kan-1107
+// self-review F3: trailing paths on verify are the in-flight implementer
+// group's `**Files:**`, whose porcelain lines are not strays; a scratch copy
+// no path names, and every marker change, still fail.
+func TestCheckTreeMarkersIgnoresTheConcurrentGroupsFiles(t *testing.T) {
+	t.Parallel()
+	const tracked = "spectre/changes/demo/design.md"
+	edit := func(fx *tmFx) {
+		f, err := os.OpenFile(fx.wt+"/"+tracked, os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			fx.t.Fatal(err)
+		}
+		_, _ = f.WriteString("implementer edit\n")
+		_ = f.Close()
+	}
+	rename := func(fx *tmFx) {
+		writeFile(fx.t, fx.wt+"/old.md", "x\n")
+		for _, a := range [][]string{{"add", "old.md"}, {"commit", "-q", "-m", "old", "old.md"}, {"mv", "old.md", "moved.md"}} {
+			if out, err := exec.Command("git", append([]string{"-C", fx.wt}, a...)...).CombinedOutput(); err != nil {
+				fx.t.Fatalf("git %v: %v\n%s", a, err, out)
+			}
+		}
+	}
+	cases := []struct {
+		label string
+		act   func(fx *tmFx)
+		paths []string
+		want  int
+	}{
+		{"a: a tracked file the group declares", edit, []string{tracked}, 0},
+		{"b: an untracked file the group declares", func(fx *tmFx) { writeFile(fx.t, fx.wt+"/new.go", "x\n") }, []string{"new.go"}, 0},
+		{"c: a scratch copy no path names", func(fx *tmFx) {
+			edit(fx)
+			writeFile(fx.t, fx.wt+"/"+tracked+".x", "x\n")
+		}, []string{tracked}, 1},
+		{"d: a marker removed from a declared artifact", func(fx *tmFx) {
+			writeFile(fx.t, fx.wt+"/"+tracked, "## Decisions\n")
+		}, []string{tracked}, 1},
+		{"e: no trailing path", edit, nil, 1},
+		{"f: a declared name git C-quotes", func(fx *tmFx) { writeFile(fx.t, fx.wt+"/a b\u00e9.go", "x\n") }, []string{"a b\u00e9.go"}, 0},
+		{"g: a staged rename of declared files", rename, []string{"old.md", "moved.md"}, 0},
+		{"h: a staged rename whose source is undeclared", rename, []string{"moved.md"}, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			fx := tmNew(t)
+			if r := fx.run("snapshot", fx.wt, fx.markers, fx.snap); r.rc != 0 {
+				t.Fatalf("snapshot exit %d\n%s", r.rc, r.out)
+			}
+			c.act(fx)
+			r := fx.run(append([]string{"verify", fx.wt, fx.markers, fx.snap}, c.paths...)...)
+			if r.rc != c.want {
+				t.Fatalf("expected exit %d, got %d\n%s", c.want, r.rc, r.out)
+			}
+			if c.label[0] == 'c' && !strings.Contains(r.out, tracked+".x") {
+				t.Fatalf("expected the scratch copy named, got:\n%s", r.out)
+			}
+		})
+	}
+	t.Run("snapshot with a trailing path is a usage error", func(t *testing.T) {
+		t.Parallel()
+		fx := tmNew(t)
+		if r := fx.run("snapshot", fx.wt, fx.markers, fx.snap, tracked); r.rc != 2 {
+			t.Fatalf("expected exit 2, got %d\n%s", r.rc, r.out)
+		}
+	})
 }

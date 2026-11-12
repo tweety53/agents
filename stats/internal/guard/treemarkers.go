@@ -8,13 +8,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
 // The contract below moved here from the header of the deleted
 // scripts/check-tree-markers.sh shim (KAN-1058).
 //
-// flow-guard check-tree-markers snapshot|verify <worktree> <markers-file> <snapshot-file>
+// flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file>
+// flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file> [<path>…]
 //
 // The guard KAN-643 asked for: a subagent's self-reported clean state is
 // never evidence for anything — every dispatch that can touch the worktree
@@ -39,6 +41,13 @@ import (
 // path a slot left changed or untracked, a reproducer's scratch copy
 // included (kan-1017). A snapshot with no `#porcelain` section verifies on
 // its markers alone.
+//
+// Trailing <path>… arguments on verify are the in-flight implementer group's
+// `**Files:**`, worktree-relative: a gated bundle flies beside that group,
+// and the group's edits are not the reviewer's to be blamed for, so a
+// porcelain line whose path is one of them is not a stray. An untracked path
+// no `**Files:**` names, such as a reproducer's scratch copy, and every
+// marker change still fail (kan-1107 self-review F3).
 //
 // <markers-file> carries one <path><TAB><ERE> line per artifact the
 // dispatch must not damage, each ERE a string the artifact is known to
@@ -93,9 +102,9 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	usage := func() int {
-		return fail("usage: flow-guard check-tree-markers snapshot|verify <worktree> <markers-file> <snapshot-file>")
+		return fail("usage: flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file> | verify <worktree> <markers-file> <snapshot-file> [<path>…]")
 	}
-	if mode != "snapshot" && mode != "verify" {
+	if mode != "snapshot" && mode != "verify" || mode == "snapshot" && len(args) > 4 {
 		return usage()
 	}
 	if worktree == "" || !isDir(smcAbs(env, worktree)) {
@@ -238,8 +247,14 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, l := range strings.SplitAfter(string(recordedPorcelain), "\n") {
 			before[l] = true
 		}
+		declared := map[string]bool{}
+		if len(args) > 4 {
+			for _, p := range args[4:] {
+				declared[p] = true
+			}
+		}
 		for _, l := range porcelain {
-			if !before[l] {
+			if !before[l] && !declaredLine(declared, l) {
 				strays = append(strays, strings.TrimRight(l, "\n"))
 			}
 		}
@@ -329,4 +344,21 @@ func writeAtomic(path string, body []byte) bool {
 		return false
 	}
 	return true
+}
+
+// declaredLine: a porcelain line's path -- each side of a rename's
+// `old -> new`, C-quoted names unquoted -- is among the declared paths.
+func declaredLine(declared map[string]bool, l string) bool {
+	p := strings.TrimSuffix(l[3:], "\n")
+	if old, cur, ok := strings.Cut(p, " -> "); ok && (l[0] == 'R' || l[0] == 'C') {
+		return unquotePorcelain(declared, old) && unquotePorcelain(declared, cur)
+	}
+	return unquotePorcelain(declared, p)
+}
+
+func unquotePorcelain(declared map[string]bool, p string) bool {
+	if u, err := strconv.Unquote(p); err == nil && strings.HasPrefix(p, `"`) {
+		p = u
+	}
+	return declared[p]
 }

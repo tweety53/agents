@@ -844,6 +844,7 @@ pass — never its report bodies: `flow-guard check-plan-unchanged verify` and `
 verify` first (**The plan tree survives every reviewer dispatch**, below), then, on both exit 0,
 the findings call above, the record's end and `flow tasks tick` for every clean task — riding the
 boundary call above when the next group's implementer returns in the same wake.
+A gated bundle's `verify` appends the `**Files:**` paths of the implementer group dispatched beside it, `flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file> <path>…`, so that group's uncommitted edits are not read as the reviewer's; every other bracket passes none (kan-1107 self-review, F3).
 **A pass whose findings are all Minor is `clean`** — no re-review; its task ticks in the call
 that closes the record, and its Minors stay open findings for the stage-end fixer
 (`skills/flow/gated-review-fix.md`). A Minor no change to the tree can resolve is named,
