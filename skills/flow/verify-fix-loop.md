@@ -45,7 +45,7 @@ as its subject, or the design-system frame it is taken from: the departures that
 fixed, and the other frame's departure closes as a mockup conflict, named on the handoff's
 `**Decisions:**` lines beside the frame it lost to — never fixed, and never asked (KAN-801).
 
-One round runs these steps in order:
+One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 
 1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**
    (`skills/flow/document-fix.md`) with the stage's final `## Report` — every defect it names,
@@ -134,11 +134,26 @@ One round runs these steps in order:
    went straight to code; a fixer that names no candidate has not finished the trace, and is sent back to it.
    The task ticks through `flow-guard close-task <canonical-worktree> <name> <merge-base> <n>:<that commit's sha>`
    as any task.
-3. **Re-review the delta.** Open `flow.review-panel` again and run `primary` beside **The always-on
-   extra dispatches** (`skills/flow/review-panel.md`), reading `late-fix.diff` over the range since
-   the panel's last clean close, written, paired, ceilinged and recorded as **The late-fix
-   reduction** (`skills/flow/review-panel-late-fix.md`) states its dispatch, its prompt carrying
-   the FIX-ROUND SCOPE paragraph of **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+3. **Re-review the delta, once the loop's re-runs are clean.** A round does not open the panel:
+   step 4 follows step 2 directly, and the next round opens on any defect it reports. When the
+   closing full run reports no fixable defect, open `flow.review-panel` once and run `primary`
+   beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), reading
+   `late-fix.diff` over the range since the panel's last clean close — every round's fix in one
+   read. A Critical or Important it raises is fixed by the ordinary fix round, and that fix is
+   then verified by one step-4 re-run scoped to its diff; a fix that touches no `ui paths` entry
+   needs no `visual-verify` re-run.
+   A round that runs no full run — its diff touches no `ui paths` entry, or it closes compose-only
+   — opens the panel on its clean step-4 re-run instead.
+   Its `late-fix.diff` is written, and its dispatches paired, ceilinged and recorded, as **The
+   late-fix reduction** (`skills/flow/review-panel-late-fix.md`) states its dispatch, its prompt
+   carrying the FIX-ROUND SCOPE paragraph of **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+   The panel fix's re-run is keyed as one more round's, `-fix-<k+1>` with `<k>` the loop's last
+   round, so an `In-run fix` a defect it reports opens is numbered `<k+2>`; its `verify` re-run always runs — `flow-guard run-verify-list` records `skipped`
+   itself where nothing a test command reads changed — since a code commit no completed or skipped
+   verify row covers is unfinished work (`flow-guard check-unfinished-work`). A clean scoped
+   `visual-verify` re-run of it is followed by the closing full run of **One full run closes the
+   loop** below, as `flow-guard check-visual-verify-dispatched` requires, and that full run does
+   not open the panel again.
    The three dispatches are keyed `panel-<round>-primary`,
    `panel-<round>-test-sanity+call-efficiency` and `panel-<round>-mutation+failure-modes`, `<round>` the number `flow record next-round`
    prints, and the round records its `flow record pass -round <round>` rows like any panel round.
@@ -184,7 +199,8 @@ A scoped re-run's verifier row is begun with `-round-base <sha>`, the round base
 passed, and `flow-guard check-visual-verify-dispatched` refuses a worktree whose newest completed verifier
 row carries one — the closing unscoped run is not recorded.
 After an `In-run fix <k>` task is ticked, and until a `-fix-<k>-full` verifier row has completed,
-`flow record dispatch begin` refuses a `visual-verify` key that does not carry `-fix-<k>`, and one
+`flow record dispatch begin` refuses a `visual-verify` key that carries neither `-fix-<k>` nor a
+later round's `-fix-<n>` — the closing panel fix's re-run of step 3 — and one
 that is not the `-full` run, carries no `-round-base` and shares its repository suffix with a
 completed verifier row.
 A completed `-fix-<j>-full` verifier row closes every In-run fix up to `<j>`, and a `-fix-<k>-full`

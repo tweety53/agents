@@ -4355,13 +4355,19 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 	if top < 0 {
 		return ""
 	}
-	scoped := regexp.MustCompile(`-fix-` + k + `(-|$)`)
-	full := regexp.MustCompile(`-fix-` + k + `-full(-|$)`)
-	loc := scoped.FindStringIndex(key)
-	if loc == nil {
-		return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "[-full]-<repo> until the -fix-" + k + "-full run has completed"
+	// A later round's -fix-<n> is admitted too: the loop's closing panel fix
+	// is re-verified as one more round, with no In-run fix task of its own
+	// (skills/flow/verify-fix-loop.md step 3).
+	loc := fixRoundKey.FindStringSubmatchIndex(key)
+	if loc != nil {
+		if n, _ := strconv.Atoi(key[loc[2]:loc[3]]); n < top {
+			loc = nil
+		}
 	}
-	if full.MatchString(key) || roundBase != "" {
+	if loc == nil {
+		return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "[-full]-<repo>, or a later round's -fix-<n>, until the -fix-" + k + "-full run has completed"
+	}
+	if fullRunKey.MatchString(key) || roundBase != "" {
 		return ""
 	}
 	suffix := key[loc[1]:]
@@ -4378,6 +4384,9 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 
 // fullRunKey matches a visual-verify -fix-<j>-full key, capturing j.
 var fullRunKey = regexp.MustCompile(`-fix-([0-9]+)-full(-|$)`)
+
+// fixRoundKey matches a visual-verify key's -fix-<n> round, capturing n.
+var fixRoundKey = regexp.MustCompile(`-fix-([0-9]+)(-|$)`)
 
 // panelFixKeyRE is a well-formed panel-fix key: the round counts fix rounds
 // from 1, so the fix after panel-0 is panel-fix-1 (kan-1040's self-review);
