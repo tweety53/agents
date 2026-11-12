@@ -92,3 +92,27 @@ func TestPlanDispatchGroups(t *testing.T) {
 		})
 	}
 }
+
+// TestPlanDispatchGroupsKeepsRepositoriesApart pins kan-1107 self-review F4:
+// tasks under different one-word `## <repository>` headings never share a
+// group; a heading with spaces splits nothing, and a plan with no headings
+// groups as before.
+func TestPlanDispatchGroupsKeepsRepositoriesApart(t *testing.T) {
+	t.Parallel()
+	task := func(id string) string {
+		return "- [ ] " + id + ". Task " + id + "\n\n**Files:**\n- Create: `f" + id + ".txt`\n\n  - [ ] **Step 1: do it**\n\n"
+	}
+	run := func(body string) guardResult {
+		return runGuard("plan-dispatch-groups", []string{psFixture(t, body)}, Env{Getenv: os.Getenv})
+	}
+	r := run("## Global constraints\n\nnone\n\n## agents\n\n" + task("1") + task("2") + task("3") +
+		"## Narrowed notes\n\n" + task("4") + "## gymie\n\n" + task("5") + task("6") +
+		"## gymie-playwright\n\n" + task("7"))
+	if r.rc != 0 || r.out != "group 1: 1 2 3 4\ngroup 2: 5 6\ngroup 3: 7" {
+		t.Fatalf("a: rc=%d out=%q", r.rc, r.out)
+	}
+	r = run(task("1") + task("2") + task("3") + task("4") + task("5") + task("6") + task("7"))
+	if r.rc != 0 || r.out != "group 1: 1 2 3 4 5 6 7" {
+		t.Fatalf("b: rc=%d out=%q", r.rc, r.out)
+	}
+}

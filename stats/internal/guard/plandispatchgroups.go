@@ -42,6 +42,14 @@ import (
 //     identical ready set are folded down to exactly two, dealt round-robin
 //     in plan order (1st and 3rd together, 2nd and 4th together, ...).
 //
+// Tasks under different repository headings never share a group (kan-1107
+// self-review F4): a task's repository is the text of the nearest `## `
+// heading above it, outside code fences, that passes plainChangeName (one
+// word such as `agents` or `gymie-playwright`; `## Global constraints` is not
+// one), "" when none. A bundle takes its first task's repository; the chain
+// pass joins only a group of the same repository, and the fold pass buckets
+// on repository plus ready set.
+//
 // Arguments: exactly one tasks.md path -- the Decide step
 // (skills/flow/brainstorm-planner.md, step 5) always names one, and there is
 // no "every open change" scan.
@@ -71,7 +79,12 @@ func planDispatchGroups(args []string, env Env, stdout, stderr io.Writer) int {
 	if rc != 0 {
 		return rc
 	}
-	for g, ids := range pdgComputeGroups(bundles, afterSets) {
+	lines, err := tcfReadPlan(env, args[0])
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		return 2
+	}
+	for g, ids := range pdgComputeGroups(bundles, afterSets, pdgRepositories(lines)) {
 		words := make([]string, len(ids))
 		for i, id := range ids {
 			words[i] = strconv.Itoa(id)
@@ -84,13 +97,36 @@ func planDispatchGroups(args []string, env Env, stdout, stderr io.Writer) int {
 type pdgGroup struct {
 	bundleIDs      []int
 	members, ready map[string]bool
+	repo           string
+}
+
+// pdgRepositories maps each line number (1-based) to the repository heading
+// in force there.
+func pdgRepositories(lines []string) []string {
+	repo := make([]string, len(lines)+1)
+	cur := ""
+	tcfUnfenced(lines, func(i int, line string) bool {
+		if h, ok := strings.CutPrefix(line, "## "); ok && plainChangeName(strings.TrimSpace(h)) {
+			cur = strings.TrimSpace(h)
+		}
+		repo[i+1] = cur
+		return false
+	})
+	// Fenced lines were skipped: carry the last heading over them.
+	for i := 1; i < len(repo); i++ {
+		if repo[i] == "" {
+			repo[i] = repo[i-1]
+		}
+	}
+	return repo
 }
 
 // pdgComputeGroups is compute_groups: groups as 1-based bundle ids, each in
 // bundle-id order, the groups ordered by their lowest bundle id.
-func pdgComputeGroups(bundles [][]pdbTask, afterSets [][]string) [][]int {
+func pdgComputeGroups(bundles [][]pdbTask, afterSets [][]string, repoAt []string) [][]int {
 	var groups []*pdgGroup
 	for i, tasks := range bundles {
+		repo := repoAt[tasks[0].taskLine]
 		members := map[string]bool{}
 		for _, t := range tasks {
 			members[t.id] = true
@@ -105,6 +141,9 @@ func pdgComputeGroups(bundles [][]pdbTask, afterSets [][]string) [][]int {
 		for _, g := range groups {
 			if len(deps) == 0 {
 				break
+			}
+			if g.repo != repo {
+				continue
 			}
 			meets, covered := false, true
 			for d := range deps {
@@ -122,7 +161,7 @@ func pdgComputeGroups(bundles [][]pdbTask, afterSets [][]string) [][]int {
 				joined.members[m] = true
 			}
 		} else {
-			groups = append(groups, &pdgGroup{[]int{i + 1}, members, deps})
+			groups = append(groups, &pdgGroup{[]int{i + 1}, members, deps, repo})
 		}
 	}
 
@@ -136,7 +175,7 @@ func pdgComputeGroups(bundles [][]pdbTask, afterSets [][]string) [][]int {
 			ready = append(ready, id)
 		}
 		slices.Sort(ready)
-		key := strings.Join(ready, "\x00")
+		key := g.repo + "\x01" + strings.Join(ready, "\x00")
 		if _, ok := buckets[key]; !ok {
 			order = append(order, key)
 		}
