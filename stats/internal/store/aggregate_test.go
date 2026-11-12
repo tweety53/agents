@@ -2879,7 +2879,7 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 
 // TestLiveStateBoardCountsFixRoundsAndReviewerRuns pins the board's review
 // totals: main's fix rounds are its highest panel-<N> plus each fix dispatch
-// outside the panel -- each verify and visual-verify loop's highest round,
+// outside the panel -- the highest verify or visual-verify fix round,
 // each full-suite fix, inline (panel-fix) or sdd (implementer) -- its reviewer runs every
 // reviewer dispatch outside the self-review; the self-review's fix rounds are
 // its highest -review-<N> or -fix-<N>, its reviewer runs every self-review
@@ -2935,9 +2935,55 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 	if r.PanelRuns != 3 || r.FullPanelRuns != 2 {
 		t.Errorf("panel runs %d, full %d; want 3, 2", r.PanelRuns, r.FullPanelRuns)
 	}
-	// panel 2 + verify 1 + visual-verify 2 + full-suite 1 + two per-task fix rounds.
-	if r.FixRounds != 9 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
-		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 9/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	// panel 2 + verify/visual-verify round 2 + two full-suite fixes + two per-task fix rounds.
+	if r.FixRounds != 8 || r.ReviewerRuns != 6 || r.SelfReviewFixRounds != 3 || r.SelfReviewReviewerRuns != 2 {
+		t.Errorf("fix rounds %d/%d, reviewer runs %d/%d; want 8/3, 6/2", r.FixRounds, r.SelfReviewFixRounds, r.ReviewerRuns, r.SelfReviewReviewerRuns)
+	}
+}
+
+// TestLiveStateBoardCountsEachInRunFixRoundOnce pins fix_rounds over
+// flow.verify's In-run fix keys: <k> is the run's round across both stages, so
+// the highest -fix-<k> of either family is the round count -- a round's paired
+// verify-fix-<k> and visual-verify-fix-<k> rows, a repository-suffixed row and
+// the In-run fix task's own implementer row add nothing; an implement-phase
+// full-suite fix counts once, and a %verify-fix-% panel-fix row not at all.
+func TestLiveStateBoardCountsEachInRunFixRoundOnce(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-inrun-%d", time.Now().UnixNano())
+	name := fmt.Sprintf("kan-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, name)
+	for _, d := range []struct{ role, key string }{
+		{"verifier", "verify"},
+		{"verifier", "verify-fix-1"},
+		{"verifier", "visual-verify-fix-1"},
+		{"verifier", "verify-fix-2"},
+		{"verifier", "verify-fix-2-gymie"},
+		{"verifier", "visual-verify-fix-2"},
+		{"implementer", "task-29-implementer"},
+		{"implementer", "full-suite-fix-1"},
+		{"panel-fix", "panel-fix-1-verify-fix-3"},
+	} {
+		rec := baseDispatch(d.role, "opus")
+		rec.Key = d.key
+		if _, err := st.RecordDispatch(ctx, projectKey, name, rec); err != nil {
+			t.Fatalf("RecordDispatch(%s): %v", d.key, err)
+		}
+	}
+
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, &name)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	// Two In-run fix rounds + one implement-phase full-suite fix.
+	if got := rows[0].FixRounds; got != 3 {
+		t.Errorf("FixRounds = %d, want 3", got)
 	}
 }
 
