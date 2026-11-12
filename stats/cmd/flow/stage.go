@@ -677,18 +677,32 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 // check-live-verification passes on the change's directory under -C, run
 // in-process (kan-1029: the parent ended the stage with no gate chained
 // before it). Exit 1 or 2 both refuse: a directory the guard cannot read is
-// a gate that did not pass. Every other end passes through.
+// a gate that did not pass. Every other end passes through. With no -C it
+// reads the checkout carrying the change, a linked worktree first, as
+// gateVisualVerifyTrailers does: a /flow parent ends from the main checkout,
+// which holds no change directory (kan-1086 self-review, F5).
 func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer) int {
 	if f.command != "/flow" || f.stage != "flow.verify" || outcome != "completed" {
 		return 0
 	}
-	plan, err := planPath(f.dir, f.name)
+	dir := f.dir
+	if !f.dirGiven {
+		if main, carrying, err := changeCheckouts(dir, f.name); err == nil {
+			for _, wt := range carrying {
+				dir = wt
+				if wt != main {
+					break
+				}
+			}
+		}
+	}
+	plan, err := planPath(dir, f.name)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
 	root := filepath.Dir(plan)
-	if code := guard.Registry["check-live-verification"]([]string{root}, guard.Env{Getenv: os.Getenv, Dir: f.dir}, stderr, stderr); code != 0 {
+	if code := guard.Registry["check-live-verification"]([]string{root}, guard.Env{Getenv: os.Getenv, Dir: dir}, stderr, stderr); code != 0 {
 		fmt.Fprintf(stderr, "flow: stage end refused: check-live-verification exited %d on %s -- "+
 			"run **Live check** and write its record, or pass -C the worktree holding the change\n", code, root)
 		return 1

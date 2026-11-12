@@ -174,7 +174,9 @@ func TestSpecRootLeafIgnoresFileAtSpectrePath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "spectre", "changes"), []byte("not a dir"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "openspec", "changes"), 0o755); err != nil {
+	// An open openspec change, so a frozen-history openspec tree's yield to
+	// spectre/ (kan-1086 self-review, F5) is not what this case answers.
+	if err := os.MkdirAll(filepath.Join(dir, "openspec", "changes", "open-change"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if got := specRootLeaf(dir); got != "openspec" {
@@ -446,5 +448,30 @@ func TestTasksFilesRemoveNarrowsOneTask(t *testing.T) {
 	}
 	if code := files("1", "remove"); code != 2 {
 		t.Fatalf("no path: exit %d, want 2", code)
+	}
+}
+
+// TestSpecRootLeafFrozenOpenspecIsSpectre is the cmd twin of the guard's
+// TestSpecRootFrozenOpenspecIsSpectre (kan-1086 self-review, F5).
+func TestSpecRootLeafFrozenOpenspecIsSpectre(t *testing.T) {
+	for _, tc := range []struct {
+		name, want string
+		trees      []string
+	}{
+		{"a frozen openspec tree beside spectre/ is spectre", "spectre", []string{"openspec/changes/archive/old", "spectre/specs"}},
+		{"a frozen openspec tree alone is openspec", "openspec", []string{"openspec/changes/archive/old"}},
+		{"an open openspec change beside spectre/ is openspec", "openspec", []string{"openspec/changes/open-change", "spectre/specs"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, tree := range tc.trees {
+				if err := os.MkdirAll(filepath.Join(dir, tree), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := specRootLeaf(dir); got != tc.want {
+				t.Errorf("specRootLeaf = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

@@ -2578,3 +2578,52 @@ func TestStageEndSddTddRefusesOpenTaskDispatch(t *testing.T) {
 		})
 	}
 }
+
+// TestStageEndVerifyFindsTheChangeWorktree pins kan-1086 self-review, F5: a
+// /flow flow.verify end with no -C, run from the main checkout, reads the
+// live-verification record in the linked worktree carrying the change.
+func TestStageEndVerifyFindsTheChangeWorktree(t *testing.T) {
+	for _, c := range []struct {
+		name, record string
+		want         int
+	}{
+		{"a passing record in the worktree ends", "- Before: 3\n- After: 0\n", 0},
+		{"a failing record in the worktree is refused", "| Check | After |\n", 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+			wt := filepath.Join(t.TempDir(), "kan-1")
+			if out, err := exec.Command("git", "-C", repo, "worktree", "add", "-q", "-b", "spectre/kan-1", wt).CombinedOutput(); err != nil {
+				t.Fatalf("worktree add: %v\n%s", err, out)
+			}
+			wt, _ = filepath.EvalSymlinks(wt)
+			root := filepath.Join(wt, "spectre", "changes", "kan-1")
+			if err := os.MkdirAll(root, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "design.md"), []byte("## Live check\n\nRun the daemon.\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte(c.record), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(repo)
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms",
+					"-command", "/flow", "-stage", "flow.verify", "-outcome", "completed", "kan-1"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != c.want {
+				t.Fatalf("exit %d, want %d; stderr:\n%s", code, c.want, stderr.String())
+			}
+			if c.want == 1 && !strings.Contains(stderr.String(), root) {
+				t.Errorf("stderr %q does not name the worktree's change directory %s", stderr.String(), root)
+			}
+		})
+	}
+}

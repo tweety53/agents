@@ -91,14 +91,33 @@ func runTasks(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 // today, and adding one is disproportionate to the value -- a judged
 // tradeoff, not an oversight, so a future reader doesn't need to
 // rediscover the question.
+//
+// An openspec/changes/ holding no entry but archive/ is frozen history: with a
+// <dir>/spectre/ directory beside it the project has cut over, so it answers
+// `spectre` (kan-1086 self-review, F5).
 func specRootLeaf(dir string) string {
 	if info, err := os.Stat(filepath.Join(dir, "spectre", "changes")); err == nil && info.IsDir() {
 		return "spectre"
 	}
 	if info, err := os.Stat(filepath.Join(dir, "openspec", "changes")); err == nil && info.IsDir() {
+		if sp, err := os.Stat(filepath.Join(dir, "spectre")); err == nil && sp.IsDir() && !holdsOpenChange(filepath.Join(dir, "openspec", "changes")) {
+			return "spectre"
+		}
 		return "openspec"
 	}
 	return "spectre"
+}
+
+// holdsOpenChange reports whether changes/ holds any entry but archive/ --
+// the cmd twin of stats/internal/guard/specroot.go's.
+func holdsOpenChange(changes string) bool {
+	entries, _ := os.ReadDir(changes)
+	for _, e := range entries {
+		if e.Name() != "archive" {
+			return true
+		}
+	}
+	return false
 }
 
 // changeNamePattern is the same containment allowlist

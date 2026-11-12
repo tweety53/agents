@@ -12,7 +12,10 @@ import (
 // when only dir/openspec/changes/ does, `spectre` when neither does; both
 // present picks `spectre`, and says so on stderr only while openspec/changes/
 // holds an entry other than archive/ -- a tree of frozen history alone hides
-// no open change.
+// no open change. When only openspec/changes/ exists and it is that frozen
+// history alone, a dir/spectre/ directory -- a project cut over to spectre
+// whose first change has not landed yet -- answers `spectre` (kan-1086
+// self-review, F5).
 func specRootLeaf(dir string, stderr io.Writer) string {
 	hasSpectre, hasOpenspec := isDir(dir+"/spectre/changes"), isDir(dir+"/openspec/changes")
 	if hasSpectre && hasOpenspec {
@@ -22,7 +25,7 @@ func specRootLeaf(dir string, stderr io.Writer) string {
 		fmt.Fprintf(stderr, "spec-root: %s carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved\n", dir)
 		return "spectre"
 	}
-	if hasOpenspec {
+	if hasOpenspec && (holdsOpenChange(dir+"/openspec/changes") || !isDir(dir+"/spectre")) {
 		return "openspec"
 	}
 	return "spectre"

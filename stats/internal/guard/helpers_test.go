@@ -778,3 +778,31 @@ func TestTreeLeak(t *testing.T) {
 		t.Fatalf("a leaked file not reported: %q", leak)
 	}
 }
+
+// TestSpecRootFrozenOpenspecIsSpectre pins kan-1086 self-review, F5: an
+// openspec/changes/ holding archive/ alone is frozen history, so a spectre/
+// tree beside it — even with no changes/ yet — wins; an open openspec change
+// or no spectre/ keeps openspec.
+func TestSpecRootFrozenOpenspecIsSpectre(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, want string
+		trees      []string
+	}{
+		{"a frozen openspec tree beside spectre/ is spectre", "spectre", []string{"openspec/changes/archive/old", "spectre/specs"}},
+		{"a frozen openspec tree alone is openspec", "openspec", []string{"openspec/changes/archive/old"}},
+		{"an open openspec change beside spectre/ is openspec", "openspec", []string{"openspec/changes/open-change", "spectre/specs"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			for _, tree := range tc.trees {
+				mkdir(t, dir+"/"+tree)
+			}
+			var stderr bytes.Buffer
+			if got := specRootLeaf(dir, &stderr); got != tc.want || stderr.Len() != 0 {
+				t.Errorf("specRootLeaf = %q stderr %q, want %q and no stderr", got, stderr.String(), tc.want)
+			}
+		})
+	}
+}
