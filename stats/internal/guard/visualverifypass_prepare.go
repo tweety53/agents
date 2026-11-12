@@ -246,10 +246,10 @@ func (v *vvp) preflight(survivors []string) {
 		fail("check-verify-green", out, errs)
 	}
 	for _, w := range survivors {
-		if len(v.apps[w]) == 0 {
-			fail("check-visual-preflight", "", "no --app passed for "+w)
-		} else if rc, kv, errs := v.guard("prepare-workspace", nil, w); rc != 0 {
+		if rc, kv, errs := v.guard("prepare-workspace", nil, w); rc != 0 {
 			fail("prepare-workspace", kv, errs)
+		} else if v.declaredApps(w, kv); len(v.apps[w]) == 0 {
+			fail("check-visual-preflight", "", "no --app passed for "+w)
 		} else if rc, out, errs := v.guard("check-visual-preflight", strings.NewReader(kv+"\n"), append([]string{w}, v.apps[w]...)...); rc != 0 {
 			fail("check-visual-preflight", out, errs)
 		}
@@ -261,6 +261,30 @@ func (v *vvp) preflight(survivors []string) {
 	}
 	if len(fails) > 0 {
 		v.stop("stopped", "preflight — "+strings.Join(fails, "; "))
+	}
+}
+
+// declaredApps fills a survivor no --app names from its project's
+// `preflight apps` row: comma-separated `<app-root>=<url>` cells, `<name>`
+// and each `${VAR}` replaced from kv (prepare-workspace's `KEY=value`
+// lines), a pair whose root does not exist under w dropped (kan-1086
+// self-review, F10). An explicit --app wins.
+func (v *vvp) declaredApps(w, kv string) {
+	if len(v.apps[w]) > 0 {
+		return
+	}
+	repl := []string{"<name>", v.name}
+	for _, l := range strings.Split(kv, "\n") {
+		if k, val, ok := strings.Cut(strings.TrimSpace(l), "="); ok {
+			repl = append(repl, "${"+k+"}", val)
+		}
+	}
+	r := strings.NewReplacer(repl...)
+	for _, cell := range strings.Split(v.cells(w)["preflight apps"], ",") {
+		root, url, ok := strings.Cut(r.Replace(strings.Trim(strings.TrimSpace(cell), "`")), "=")
+		if ok && root != "" && url != "" && isDir(filepath.Join(w, root)) {
+			v.apps[w] = append(v.apps[w], root+"="+url)
+		}
 	}
 }
 
@@ -298,7 +322,8 @@ func (v *vvp) continueSet() []string {
 	return survivors
 }
 
-// probe is step 5: each survivor's --app URLs, a short GET each, any answer
+// probe is step 5: each survivor's --app URLs (or its declared `preflight
+// apps`, prepare-workspace run first to resolve them), a short GET each, any answer
 // counting. A survivor nothing answers for prints `NEXT: start-stack`, or
 // under --started stops the stage. The result is the bundle's `stack:` line.
 func (v *vvp) probe(survivors []string) string {
@@ -306,6 +331,11 @@ func (v *vvp) probe(survivors []string) string {
 	for _, w := range survivors {
 		// A survivor with no app to probe is the caller's omission, never a
 		// stack to start (kan-1102 self-review, F3).
+		if len(v.apps[w]) == 0 {
+			if rc, kv, _ := v.guard("prepare-workspace", nil, w); rc == 0 {
+				v.declaredApps(w, kv)
+			}
+		}
 		if len(v.apps[w]) == 0 {
 			v.usage("no --app passed for " + w)
 		}

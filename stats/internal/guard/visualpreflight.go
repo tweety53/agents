@@ -47,7 +47,12 @@ import (
 //                 fails, unless the `## visual verification` `start` command
 //                 names the Variable or the resolved value, or the Default
 //                 appears only inside `${VAR:fallback}` references whose VAR
-//                 the `start` command names or stdin exports.
+//                 the `start` command names or stdin exports. Runtime
+//                 sources only: a file under a test source set (a path
+//                 segment below the app root `test`, `tests` or ending in
+//                 `Test`), a file ending `.example`, and a line whose first
+//                 non-blank characters are `#`, `//`, `/*`, `*` or `<!--`
+//                 are skipped (kan-1086 self-review, F10).
 //   3. origins  — a configuration-shaped file (`.env*`, `*.json`, `*.y*ml`,
 //                 `*.toml`, `*.ini`, `*.properties`, `*.conf`, `*.config.*`;
 //                 never a production `*.prod.*` file)
@@ -287,10 +292,11 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 			}
 			hit := lit.MatchString
 			for _, a := range b.apps {
+				appRel, _ := filepath.Rel(wtAbs, a.dir)
 				vpWalk(wtAbs, a.dir, func(rel string) bool {
-					return !vpMarkdown(rel)
+					return !vpMarkdown(rel) && !vpNonRuntime(strings.TrimPrefix(rel, appRel+"/"))
 				}, func(rel string, n int, l string, _ []string) {
-					if hit(vpStripOverridden(l, exported, b.start)) && !vpNames(l, r.variable) {
+					if hit(vpStripOverridden(l, exported, b.start)) && !vpNames(l, r.variable) && !vpCommentLine(l) {
 						fails = append(fails, fmt.Sprintf("FAIL: base-url — %s:%d: names %s's default %s, which neither $%s nor the start command overrides (resolved: %s)", rel, n, r.variable, r.def, r.variable, r.value))
 					}
 				})
@@ -503,6 +509,34 @@ func vpStripOverridden(text string, exported map[string]string, start string) st
 // vpNames is whether text names the variable as a whole word.
 func vpNames(text, variable string) bool {
 	return regexp.MustCompile(`(^|[^A-Za-z0-9_])` + regexp.QuoteMeta(variable) + `([^A-Za-z0-9_]|$)`).MatchString(text)
+}
+
+// vpNonRuntime is a path, relative to its app root, check 2 does not read:
+// a file under a test source set -- a segment `test` or `tests`, or ending
+// in `Test` (`src/test/`, `commonTest/`) -- or an `.example` file (kan-1086
+// self-review, F10).
+func vpNonRuntime(rel string) bool {
+	if strings.HasSuffix(rel, ".example") {
+		return true
+	}
+	segs := strings.Split(filepath.ToSlash(rel), "/")
+	for _, s := range segs[:len(segs)-1] {
+		if s == "test" || s == "tests" || strings.HasSuffix(s, "Test") {
+			return true
+		}
+	}
+	return false
+}
+
+// vpCommentLine is a line whose first non-blank characters open a comment.
+func vpCommentLine(l string) bool {
+	l = strings.TrimSpace(l)
+	for _, p := range []string{"#", "//", "/*", "*", "<!--"} {
+		if strings.HasPrefix(l, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func vpMarkdown(rel string) bool {

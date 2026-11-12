@@ -471,13 +471,14 @@ var vvMockupFrame = regexp.MustCompile(`^scale=[1-9][0-9]* status=[0-9]+ border=
 // the compose step cannot parse is a usage error that would otherwise surface
 // mid-run, after the stack is up and the captures are taken. The three fields
 // are pinned in one order so a declared geometry is greppable, though the
-// compose step itself accepts any.
+// compose step itself accepts any. `preflight apps` is optional, its cells
+// read by visual-verify-pass prepare (kan-1086 self-review, F10).
 func (v *vvValidation) settingRow(line int, cells []string) {
 	disp, key := vtTrimCell(cells[0]), vtFoldCell(cells[0])
 	switch key {
-	case "ui paths", "screenshots", "regression checkout", "regression repo", "mockups", "mockup frame":
+	case "ui paths", "screenshots", "regression checkout", "regression repo", "mockups", "mockup frame", "preflight apps":
 	default:
-		v.addv(line, "Setting `"+disp+"` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups` or `mockup frame` — the vocabulary is closed, so the row is dropped")
+		v.addv(line, "Setting `"+disp+"` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame` or `preflight apps` — the vocabulary is closed, so the row is dropped")
 		return
 	}
 	if f, seen := v.set[key]; seen {

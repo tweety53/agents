@@ -471,3 +471,33 @@ func TestCheckVisualPreflightFlowBaseSiblings(t *testing.T) {
 	code, out, errOut = vpRun(t, wt, []string{vpApp}, vpStdin, bin)
 	vpWant{code: 0, omits: []string{"FAIL: siblings"}}.check(t, code, out, errOut)
 }
+
+// TestCheckVisualPreflightBaseURLSkipsTestsAndComments pins kan-1086's
+// self-review, F10: 55 base-url FAIL lines on gymie's app roots sat under a
+// test source set or on a comment line. Check 2 reads runtime sources only:
+// a test set's files, a `.example` file and a whole-line comment are
+// skipped; a non-comment line of a runtime config still fails.
+func TestCheckVisualPreflightBaseURLSkipsTestsAndComments(t *testing.T) {
+	t.Parallel()
+	skipped := map[string]string{
+		"web/src/test/kotlin/A.kt":           "val base = \"http://localhost:8080\"\n",
+		"web/shared/src/commonTest/B.kt":     "val base = \"http://localhost:8080\"\n",
+		"web/.env.example":                   "BASE=http://localhost:8080\n",
+		"web/src/main/resources/comment.yml": "  # the gateway answers on localhost:8080\n",
+		"web/src/main/kotlin/C.kt":           "    // was localhost:8080 before isolation\n",
+	}
+	for rel, body := range skipped {
+		t.Run(rel, func(t *testing.T) {
+			t.Parallel()
+			wt := vpTree(t, map[string]string{".flow/project.md": vpIsolation, rel: body})
+			code, out, errOut := vpRun(t, wt, []string{vpApp}, vpStdin, vpBin(t, nil, ""))
+			vpWant{code: 0, omits: []string{"FAIL: base-url"}}.check(t, code, out, errOut)
+		})
+	}
+	t.Run("a runtime config line still fails", func(t *testing.T) {
+		t.Parallel()
+		wt := vpTree(t, map[string]string{".flow/project.md": vpIsolation, "web/src/main/resources/application.yml": "server:\n  url: http://localhost:8080 # gateway\n"})
+		code, out, errOut := vpRun(t, wt, []string{vpApp}, vpStdin, vpBin(t, nil, ""))
+		vpWant{code: 1, contains: []string{"FAIL: base-url — web/src/main/resources/application.yml:2:"}}.check(t, code, out, errOut)
+	})
+}

@@ -248,7 +248,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
    workspace — against each surviving worktree, as
    `flow-guard prepare-workspace <worktree> | flow-guard check-visual-preflight <worktree> <app-root>=<resolved-url> ...`
-   with that worktree's `--app` arguments.
+   with that worktree's `--app` arguments. A worktree whose `<project>/.flow/project.md` declares `preflight apps` needs no `--app`: `prepare` reads its pairs from that row (kan-1086 self-review, F10).
    Each `<app-root>=<resolved-url>` is an app `ui paths` matched: its package root relative
    to the worktree and its worktree-resolved URL. A root in another repository — a cross-repo
    change's sibling worktree — is passed relative to the worktree too

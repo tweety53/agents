@@ -551,3 +551,40 @@ func TestVisualVerifyPassPrepareNamesTheAgentCall(t *testing.T) {
 		t.Fatalf("exit %d, DISPATCH lines %q; want one ending %q\n%s", rc, d, want, out)
 	}
 }
+
+// TestVisualVerifyPassPrepareDefaultsAppsFromTheProject pins kan-1086's
+// self-review, F10: a survivor no --app names takes its apps from the
+// project's `preflight apps` row, each `${VAR}` replaced from that
+// worktree's prepare-workspace output and a pair whose root is absent
+// dropped; an explicit --app replaces the declared set.
+func TestVisualVerifyPassPrepareDefaultsAppsFromTheProject(t *testing.T) {
+	iso := "\n## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|---|---|---|---|\n| `port` | `FRONTEND_PORT` | `3000` | `+<offset>` |\n"
+	f := vvpFixture(t, "| `preflight apps` | `web=http://localhost:${FRONTEND_PORT}`, `missing=http://localhost:1` |\n"+iso)
+	mkdir(t, filepath.Join(f.wt, "web"))
+	var kv bytes.Buffer
+	if rc := Registry["prepare-workspace"]([]string{f.wt}, Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}, &kv, &bytes.Buffer{}); rc != 0 {
+		t.Fatalf("prepare-workspace exit %d", rc)
+	}
+	port := ""
+	for _, l := range strings.Split(kv.String(), "\n") {
+		if v, ok := strings.CutPrefix(l, "FRONTEND_PORT="); ok {
+			port = v
+		}
+	}
+	if port == "" || port == "3000" {
+		t.Fatalf("prepare-workspace exported FRONTEND_PORT %q", port)
+	}
+	args := []string{f.wt, "demo", "visual-verify", "--harness", "claude", "--session-token", "mf-tok", "--merge-base", f.wt + "=" + f.mb}
+	if rc, out, _ := f.run("prepare", args...); rc != 0 || !strings.Contains(out, "NEXT: start-stack") || strings.Contains(out, "no --app passed") {
+		t.Fatalf("declared apps: exit %d; want preflight passed and the stack asked for\n%s", rc, out)
+	}
+	// Under --started an unanswered probe stops naming every URL it tried.
+	rc, out, _ := f.run("prepare", append(args, "--continue", "--started")...)
+	want := "stack — http://localhost:" + port + " answers nothing"
+	if rc != 1 || !strings.Contains(out, want) || strings.Contains(out, "no --app passed") {
+		t.Fatalf("declared apps under --continue: exit %d; want a stop naming %q alone\n%s", rc, want, out)
+	}
+	if rc, out, _ := f.prepare(); rc != 0 || !strings.Contains(out, "DISPATCH: visual-verify ") {
+		t.Fatalf("explicit --app: exit %d\n%s", rc, out)
+	}
+}

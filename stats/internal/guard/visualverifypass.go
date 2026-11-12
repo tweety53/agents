@@ -45,7 +45,11 @@ import (
 //   --app                 an app the stage may probe and pre-flight, the
 //                         `<app-root>=<url>` argument flow-guard check-visual-preflight
 //                         takes, prefixed with its worktree (decision
-//                         parent-passes-apps)
+//                         parent-passes-apps); a worktree none names
+//                         defaults to its project's `preflight apps` row,
+//                         `<name>` and each `${VAR}` replaced from its
+//                         prepare-workspace output, a pair whose root is
+//                         absent dropped (kan-1086 self-review, F10)
 //   --miss                a fix run with a missed defect: stop for the tooling
 //                         analyst once step 3 passes (decision
 //                         analyst-after-preflight)
@@ -79,8 +83,8 @@ import (
 //      <name> <token> <other worktrees…>; its exit 1 ends the stage `stopped`
 //      with `STOP: verify-not-green — <its verdict line>`, exit 1. Then per
 //      survivor flow-guard prepare-workspace piped into flow-guard check-visual-preflight
-//      with that worktree's --app pairs (a survivor with none is a failing
-//      check), and with `mockups` declared flow-guard check-sidecar-reach <capture
+//      with that worktree's --app pairs, or its declared `preflight apps`
+//      (a survivor with neither is a failing check), and with `mockups` declared flow-guard check-sidecar-reach <capture
 //      root> <mockups root>. Every failing check — an exit 1, or an exit 2
 //      carrying its stderr, check-verify-green's exit 2 included — is
 //      collected; then the stage ends `stopped` and one line names them all:
@@ -146,8 +150,9 @@ import (
 // the set's size from the stage file, and its own --app and --round-base
 // flags, then runs steps 8–11. A key ending in a survivor's
 // `-<repository name>` runs that worktree alone, its key unchanged. A
-// survivor no --app pair names is a usage error, exit 2, `no --app passed
-// for <worktree>` (kan-1102 self-review, F3).
+// survivor no --app pair names and no `preflight apps` row resolves is a
+// usage error, exit 2, `no --app passed for <worktree>` (kan-1102
+// self-review, F3).
 //
 // close reads the report <worktree>/.superpowers/sdd/verify-report-<key>.md,
 // <worktree> the one the stage file's `row <key>` line names (a key with no

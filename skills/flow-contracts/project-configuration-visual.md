@@ -12,7 +12,7 @@ is read.
 
 The settings table's header folds to `setting|value` before it is compared — case and internal
 whitespace do not matter, so `| setting | VALUE |` matches as readily as `| Setting | Value |`, but
-the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the six
+the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the seven
 rows below is reported and its row dropped, never silently ignored.
 
 | Setting | Required | Meaning |
@@ -23,6 +23,7 @@ rows below is reported and its row dropped, never silently ignored.
 | `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** The visual-verify step pushes nothing; integrate's push carries a worktree commit, see below. |
 | `mockups` | no | Directory holding one `<frame id>.png` per drawn frame, relative to the project root. Declared, it enables the compose step of `flow.visual-verify` for any capture spec carrying a `<spec>.mockups` sidecar; absent, the stage composes nothing and reports `mockups: not declared`. |
 | `mockup frame` | no | `scale=<int> status=<px> border=<px> [bare]`: the mockup PNGs' scale factor, the status-line height and the border width, the last two in logical px; the optional word `bare` marks a device render with no page around it, cropped by the border on every side and the status line on top, with no bottom search. Declared, the compose step crops each frame to its content area — the sides and the top from these values, the bottom found per frame as the first row below the status line every one of whose pixels between the borders equals the page colour at (0, 0) — and reports a capture whose size differs from the cropped frame as a finding rather than composing it. Absent, frames compose at native size, uncropped, with no size check. A `<spec>.mockups` sidecar's `frame <geometry>` or `frame none` lines override this value, each for the pairs below it until the next, `none` composing them at native size, uncropped. |
+| `preflight apps` | no | Comma-separated `<app-root>=<url>` cells: the apps `flow-guard visual-verify-pass prepare` pre-flights and probes for this worktree when no `--app` names it, `<app-root>` relative to the worktree and `<url>` with each `${VAR}` replaced from `flow-guard prepare-workspace`'s output and `<name>` with the change name; a pair whose root does not exist is dropped. Absent means `--app` is required (kan-1086 self-review, F10). |
 
 The commands table's header folds the same way, to `command|runs` — the same heading
 `## workspace isolation` above already establishes for a table of project-declared commands, reused
