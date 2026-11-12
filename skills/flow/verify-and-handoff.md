@@ -94,8 +94,8 @@ one more command in the same list, whose exit 0 line `Spec reach: not configured
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
 every command in order and do not stop at the first failure.
 The lint commands with `flow-guard check-spec-reach` and the test commands run as two groups at once, each
-in the order printed, each started detached and polled to completion as the paragraph below runs a
-`verify` that can outrun the shell tool's time limit; the `## Report` lists every command in the order
+in the order printed, in one Bash call launched with `run_in_background: true` as the paragraph below
+runs a `verify` that can outrun the shell tool's time limit; the `## Report` lists every command in the order
 printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `flow-guard check-dev-stack-fresh
@@ -103,12 +103,7 @@ While a stack is up for this run, the test commands start only after `flow-guard
 the run instructions** below, so no suite runs against a build older than the last commit; a stack
 that will not start ends the turn as a failed command's environment cause does.
 
-**A `verify` that can outrun the shell tool's time limit runs whole, in the background, polled
-to completion** — one Bash call starts it detached,
-`rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $? > <exit-file>' > /dev/null 2>&1 < /dev/null &`
-(`<verify>` sits inside single quotes, so it must contain none), then repeated foreground Bash calls at timeout 600000 each run
-`until [ -f <exit-file> ] || [ $SECONDS -gt 540 ]; do sleep 10; done` until `<exit-file>` exists,
-reading its exit code and output from those two files. Never split its
+**A `verify` that can outrun the shell tool's time limit runs whole, in the background** — one Bash call launched with `run_in_background: true`, and the parent waits for its completion notification and reads the exit code and output from it, never a `sleep` poll. Never split its
 `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
 chunk pays the suite's start-up again (kan-932's 78-spec suite, ~14 minutes, ran in two halves).
 
