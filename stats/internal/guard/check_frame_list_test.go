@@ -226,7 +226,7 @@ func TestCheckFrameListReadsReportAlone(t *testing.T) {
 
 // TestCheckFrameListSkipsCitedQuestionLabels pins decision f1-citation-position
 // (kan-1102 self-review, F1): an id design.md writes in decision-citation position,
-// `round 1, Q1` or `question Q4`, is a question label and declares no frame; the
+// `round 1, Q1`, `answer-2 Q1` or `question Q4`, is a question label and declares no frame; the
 // same id written as a plain token still declares one.
 func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
 	dir := t.TempDir()
@@ -256,6 +256,9 @@ func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
 	}
 	if res := check("- Chosen: x — round 1, Q1.\nsee question Q4\nthe hero frame\n"); res.rc != 0 || !strings.Contains(res.out, "FRAME-LIST-COMPLETE") || !strings.Contains(res.out, "1 declared") {
 		t.Errorf("cited: rc=%d out=%q; want 0, FRAME-LIST-COMPLETE with 1 declared", res.rc, res.out)
+	}
+	if res := check("- Chosen: x (answer-1 Q4, answer-2 Q1)\nthe hero frame\n"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
+		t.Errorf("answer-N citation: rc=%d out=%q; want 0 with 1 declared", res.rc, res.out)
 	}
 	if res := check("the Q1 frame\nthe hero frame\n"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: Q1") {
 		t.Errorf("plain token: rc=%d out=%q; want 1 naming no sidecar line: Q1", res.rc, res.out)

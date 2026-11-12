@@ -40,8 +40,8 @@ import (
 // An id design.md writes in answer position — directly followed by `=` and a
 // letter or digit, `Q1=A` — is a question label, and the design declares no
 // frame by that id anywhere. So is an id in citation position — letters then
-// digits written directly after `round <n>, ` or the word `question `, any case
-// (`round 1, Q1`, `question Q4`) — kan-1102 self-review, F1.
+// digits written directly after `round <n>, `, `answer-<n> ` or the word `question `, any case
+// (`round 1, Q1`, `answer-2 Q1`, `question Q4`) — kan-1102 self-review, F1.
 //
 // Every report line below is read from the report's `## Report` heading to
 // the next `## ` heading alone: a `## Verdict` departure line never stands in
@@ -85,7 +85,7 @@ var (
 	// flAnswered is an id in answer position, `Q1=A`: a question label, never a frame.
 	flAnswered = regexp.MustCompile(`(?m)(^|[^A-Za-z0-9_-])([A-Za-z0-9_-]+)=[A-Za-z0-9]`)
 	// flCited is a question label in citation position, `round 1, Q1` or `question Q4`: never a frame.
-	flCited = regexp.MustCompile(`(?im)(?:\bround \d+, |\bquestion )([A-Za-z]+\d+)(?:[^A-Za-z0-9_-]|$)`)
+	flCited = regexp.MustCompile(`(?im)(?:\bround \d+, |\banswer-\d+ |\bquestion )([A-Za-z]+\d+)(?:[^A-Za-z0-9_-]|$)`)
 	// flRange is `<prefix><a> … <prefix><b>`, each end optionally a path ending in `/`, `.png` and backticks.
 	flRange = regexp.MustCompile("`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?\\s*(?:…|–|\\.\\.\\.)\\s*`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?")
 )
