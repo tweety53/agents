@@ -531,6 +531,11 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
+			// The /flow flow.sdd-tdd open-task-row gate's read: no rows.
+			_, _ = w.Write([]byte(`{"change":"kan-16","dispatches":[]}`))
+			return
+		}
 		var err error
 		gotBody, err = readAll(r)
 		if err != nil {
@@ -611,6 +616,11 @@ func TestStageEndRecordsScreenshot(t *testing.T) {
 
 	var bodies [][]byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
+			// The /flow flow.sdd-tdd open-task-row gate's read: no rows.
+			_, _ = w.Write([]byte(`{"change":"kan-16","dispatches":[]}`))
+			return
+		}
 		b, err := readAll(r)
 		if err != nil {
 			t.Errorf("read request body: %v", err)
@@ -2517,6 +2527,53 @@ func TestStageEndRefusesOpenOperatorRow(t *testing.T) {
 			}
 			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key operator-82 -session-token fi-tok") {
 				t.Errorf("stderr = %q, want the end call that closes operator-82", stderr.String())
+			}
+		})
+	}
+}
+
+// TestStageEndSddTddRefusesOpenTaskDispatch pins that a /flow flow.sdd-tdd
+// end is refused while a task- dispatch row of the change has no end, naming
+// the end call that closes it, and passes once it has ended or when the open
+// row is no task- row; /flow-interactive keeps its operator- gate alone
+// (kan-1086 self-review, F4).
+func TestStageEndSddTddRefusesOpenTaskDispatch(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	const (
+		open   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"task-12+13-implementer-fix-1","role":"implementer","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
+		ended  = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"task-12+13-implementer-fix-1","role":"implementer","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z","endedAt":"2026-11-08T09:55:32Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`
+		others = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"verify","role":"verifier","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
+	)
+	for _, tc := range []struct {
+		name, record, command string
+		code                  int
+	}{
+		{"open task row", open, "/flow", 1},
+		{"ended task row", ended, "/flow", 0},
+		{"open non-task row", others, "/flow", 0},
+		{"interactive with an open task row", open, "/flow-interactive", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
+					_, _ = w.Write([]byte(tc.record))
+					return
+				}
+				_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-command", tc.command, "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != tc.code {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
+			}
+			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key task-12+13-implementer-fix-1") {
+				t.Errorf("stderr = %q, want the end call that closes task-12+13-implementer-fix-1", stderr.String())
 			}
 		})
 	}

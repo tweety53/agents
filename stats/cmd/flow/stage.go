@@ -766,15 +766,19 @@ func verifyKeyRepository(key string) string {
 // /flow-interactive flow.sdd-tdd end, of any outcome, while an operator-
 // dispatch row has no end: the request that dispatched an operator-asked
 // subagent closes its row when the agent reports, and a request ended over
-// it left the row open for good (kan-1080 self-review, F4: 8 of 9 rows). A
-// failed record read refuses nothing.
+// it left the row open for good (kan-1080 self-review, F4: 8 of 9 rows). It
+// refuses a /flow flow.sdd-tdd end, of any outcome, while a task- dispatch
+// row has no end (kan-1086 self-review, F4: an implementer row stayed open
+// past the stage end until visual-verify's begin refused). A failed record
+// read refuses nothing.
 func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
 	plans := f.command == "/flow" || f.command == "/flow-plan"
 	brainstorm := plans && f.stage == "flow.brainstorm"
 	selfReview := (f.command == "/flow" || f.command == "/flow-fast" || f.command == "/flow-interactive") && f.stage == "flow.self-review"
 	decide := plans && f.stage == "flow.decide"
 	request := f.command == "/flow-interactive" && f.stage == "flow.sdd-tdd"
-	if !brainstorm && !selfReview && !decide && !request {
+	tasks := f.command == "/flow" && f.stage == "flow.sdd-tdd"
+	if !brainstorm && !selfReview && !decide && !request && !tasks {
 		return 0
 	}
 	projectKey, _, err := fallback.ProjectKey(f.dir)
@@ -790,7 +794,7 @@ func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, s
 	var open []string
 	for _, d := range run.Dispatches {
 		planning := strings.HasPrefix(d.Key, "plan-") || strings.HasPrefix(d.Key, "explore-") || strings.HasPrefix(d.Key, "design-")
-		if d.EndedAt == nil && (!decide || planning) && (!request || strings.HasPrefix(d.Key, "operator-")) {
+		if d.EndedAt == nil && (!decide || planning) && (!request || strings.HasPrefix(d.Key, "operator-")) && (!tasks || strings.HasPrefix(d.Key, "task-")) {
 			open = append(open, fmt.Sprintf("%s (session %s: `flow record dispatch end -key %s -session-token %s -outcome completed|aborted`)", d.Key, d.SessionToken, d.Key, d.SessionToken))
 		}
 	}
