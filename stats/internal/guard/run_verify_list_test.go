@@ -1507,6 +1507,22 @@ func TestRunVerifyListScopesSpecsToTheKickoffBase(t *testing.T) {
 	}
 }
 
+// TestRunVerifyListMatchesTheKickoffBaseThroughSymlinks: a record naming
+// the worktree by a symlinked path still gives its kickoff base.
+func TestRunVerifyListMatchesTheKickoffBaseThroughSymlinks(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
+	k := rvlGit(t, wt, "rev-parse", "HEAD~1")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(wt, link); err != nil {
+		t.Fatal(err)
+	}
+	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{link: k}), 0)
+	if _, out := rvlRunIn(t, wt, stub, wt, "visual"); !strings.Contains(out, "VISUAL ["+k+"]") || strings.Contains(out, "kickoff base: not recorded") {
+		t.Errorf("the symlinked record key gave no kickoff base %s:\n%s", k, out)
+	}
+}
+
 func TestRunVerifyListFallsBackWithoutAKickoffBase(t *testing.T) {
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)

@@ -341,6 +341,9 @@ func rvlKickoffBases(env Env, change, canon string) (worktrees []string, bases m
 	for i, k := range st.keys {
 		if st.values[i] != "-" {
 			worktrees, bases[k] = append(worktrees, k), st.values[i]
+			if r, err := filepath.EvalSymlinks(k); err == nil && bases[r] == "" {
+				bases[r] = st.values[i]
+			}
 		}
 	}
 	return worktrees, bases
@@ -378,7 +381,14 @@ func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, 
 	worktrees, bases := rvlKickoffBases(env, change, canon)
 	mb := ""
 	changed := func() ([]string, error) {
+		// The record may name wt by its symlink-resolved form (/private/var
+		// for /var on macOS), or wt be that form.
 		if mb = bases[wt]; mb == "" {
+			if r, err := filepath.EvalSymlinks(wt); err == nil {
+				mb = bases[r]
+			}
+		}
+		if mb == "" {
 			var base bytes.Buffer
 			if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
 				return nil, fmt.Errorf("no base branch")
