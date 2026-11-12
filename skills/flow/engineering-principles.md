@@ -216,7 +216,7 @@ one value.
 payload the real backend never sends on that path — a bare `403` where every real one carries an
 error code — proves nothing about reachability: a global interceptor, a client-wide handler for
 that status or code, can take the real response first and leave the local handler dead while its
-test stays green (KAN-691). Before the test is written, trace the real response through every
+test stays green. Before the test is written, trace the real response through every
 interceptor to the handler, and drive the test or reproducer with that real response, end to end.
 
 ### Twelve-Factor App

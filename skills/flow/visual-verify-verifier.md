@@ -61,7 +61,7 @@ never an exit code the command did not return.
    and its header says so and why (gymie-playwright's body-calories spec).
    **A server-side pin narrows that exception.** Where the checkout can send the server its own
    today (gymie-playwright's `pinClock` sends `X-Gymie-Today`), the spec pins both ends to the one
-   instant, and leaves real or masks only what neither pin reaches (KAN-802).
+   instant, and leaves real or masks only what neither pin reaches.
 
    **Every mockup frame this change adds or updates gets a capture and a sidecar line — never
    optional, with `mockups` declared.** The frames are the change's declared list (step 10) plus
@@ -140,7 +140,7 @@ never an exit code the command did not return.
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value included) blocks.
 
-   **An approved prototype is the frame where no mockup is** (kan-1038). When no sidecar maps a
+   **An approved prototype is the frame where no mockup is**. When no sidecar maps a
    capture — `mockups` undeclared included — and `design.md`'s `## Context` cites an approved
    prototype HTML file that exists in the worktree (**The checklist**,
    `skills/flow/brainstorm-planner.md`), render that file as each capture test's frame first. With
@@ -266,12 +266,12 @@ never an exit code the command did not return.
    cost four fix rounds against the grid the HTML declared).
    A departure within 1dp is reported like any other, its measured value beside it: whether it
    stands is the parent's call under the Blocking paragraph of **Steps 3–13**
-   (`skills/flow/visual-verify.md`), never yours (KAN-1000).
+   (`skills/flow/visual-verify.md`), never yours.
    **A part the frame's sidecar comment declares expected until a named sibling ticket lands is
    no departure.** The line reporting the frame names that part
    `expected — <sibling ticket>, <decision ID>` and nothing blocks on it, while every part the
    comment does not name is measured and attributed as above — the comment being the one
-   `skills/flow/brainstorm-planner.md` plans for a frame a sibling ticket finishes (KAN-821).
+   `skills/flow/brainstorm-planner.md` plans for a frame a sibling ticket finishes.
 
    **A full-page match — a clean composite read, a structural match — is necessary, never
    sufficient: verify at the control level, measure rather than eyeball, and exercise the states
@@ -476,7 +476,7 @@ never an exit code the command did not return.
       `unresolved` row's value measured from the mockup's source per the cell rule above. Each item
       also quotes its row's own figures as the manifest's `figures` carry them,
       `#<row>: <cause> — <key> a=<a> b=<b>`, `<key>` one of the row's over keys, so a cause given
-      from a neighbouring row names figures its own row does not have (kan-1057 self-review, F20).
+      from a neighbouring row names figures its own row does not have.
       A row whose `figures` are empty — `missing`, `extra`, or `unresolved` alone — quotes nothing.
       `flow-guard check-verify-report` refuses a missing line, a wrong count, an unnamed row or a cause off
       the list, and reads `over` from this dispatch's manifest, so a pass that skipped `measure`
@@ -593,7 +593,7 @@ clock step 8 pins, bring the view to the motion's start, then record frames from
 trigger until the view settles — a CDP screencast (`Page.startScreencast`, each frame acknowledged
 with `Page.screencastFrameAck`) — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
 steps). Never sample with `page.screenshot`: the Chromium page this step mandates always
-carries the screencast, and sampling skips the frames it catches (kan-995). **A motion that changes an element's height is recorded in a viewport tall enough to hold that element's settled height** — step 8's viewport made taller for that recording alone — since an element whose bottom edge leaves the viewport reads as no height change (kan-1008: an 816px viewport twice reported "no height animation"). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
+carries the screencast, and sampling skips the frames it catches. **A motion that changes an element's height is recorded in a viewport tall enough to hold that element's settled height** — step 8's viewport made taller for that recording alone — since an element whose bottom edge leaves the viewport reads as no height change (kan-1008: an 816px viewport twice reported "no height animation"). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
 id>/<nnn>-<ms>.png`, `<ms>` the frame's offset in milliseconds from the trigger — the screencast
 frame's own timestamp — read every one, and
 judge the strip frame by frame: **every frame shows the view

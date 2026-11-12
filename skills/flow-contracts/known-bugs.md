@@ -39,7 +39,7 @@ own `test(fidelity): re-baseline <spec basenames>` commit, and re-runs the faili
 **No rewritten baseline is staged unread.** Each PNG a capture rewrote is read against its old
 baseline, and against its frame where a sidecar names one, before it is staged; one showing
 another screen than the test meant is restored, never committed — `--update-snapshots` writes
-whatever the run captured, a missed click included (KAN-803). A failure
+whatever the run captured, a missed click included. A failure
 that is no screenshot mismatch — a timeout, a screen only production serves, a missing service — is
 never re-baselined: it is reported, and blocks as above.
 
@@ -49,7 +49,7 @@ step 2 — no fix, no prompt, no store row, no report: nothing is committed for 
 next run meets no committed report, runs the pass again, and meets the defect again if it was not
 fixed. The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its
 state, and the run continues straight into the fix run that defect names, in the same invocation —
-never a handoff for the operator to start it (KAN-1039).
+never a handoff for the operator to start it.
 
 **A landing HEAD whose UI no verifier saw is such a defect.** A pass finding that a UI-path commit
 landed after the last HEAD a visual verifier saw — departures fixed and never re-captured, a fix

@@ -96,7 +96,7 @@ never passes: an in-run pipeline fix runs its own loop on its own branch,
 never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
 Nor does an implementer's own key, `Flow-Key: task-<ids>-implementer`, on a commit with no
 `Task-Id:`: an implementer's commits are task commits, so such a commit is an inline fix outside
-every task (kan-1079 self-review, F2).
+every task.
 Run 1's unfinished-work gate lists
 every other non-`chore` commit with `flow-guard check-untasked-commits`
 (`skills/flow-contracts/finish-contract-run1.md`).

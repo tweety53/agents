@@ -205,7 +205,7 @@ never silently rewritten. Exit 2 stops the run. Both guards first read the chang
 state record through the worktree argument, and a store-reached-but-absent record is exit 2 — on a
 cross-repo change the record resolves only through the canonical worktree's project key, so that
 shape is what invoking a guard on a peer tree reads as, and the empty findings array a peer tree's
-store read would otherwise answer is never a clean verdict (KAN-658).
+store read would otherwise answer is never a clean verdict.
 
 **The exit-code contract is checked mechanically before any dispatch decision reads a reproducer by
 hand**:
@@ -218,7 +218,7 @@ The guard runs every **open** finding's runnable reproducer through `flow-guard 
 finding's own worktree — per finding, the worktree whose copy of the reproducer's recorded relative
 path resolves: the canonical worktree first, else the one other entry of the state record's
 `worktrees` map carrying the path; a path resolving in several recorded worktrees is cannot-answer,
-its tree genuinely unchoosable (KAN-658) — bare, and requires the verdict *defect demonstrated* —
+its tree genuinely unchoosable — bare, and requires the verdict *defect demonstrated* —
 the exit-code behaviour an open
 finding's reproducer claims on the tree under review. Before anything runs, the guard audits the
 instrument itself: each runnable reproducer carries the `# demonstrates:
@@ -230,8 +230,8 @@ citation does not resolve, or whose script cannot be read to audit, is never run
 on an unresolvable instrument is the green flip the audit exists to deny. The audit also resolves
 every `# premise:` declaration the same way, tolerantly: absence of premise lines violates
 nothing, and a declared-but-unresolvable premise joins exit 1's violation classes, as does a
-declared-but-unreferenced one — a premise the script's body never names (KAN-904);
-mutation-declared reproducers skip it as they skip the demonstrates audit (KAN-839). Findings at any other
+declared-but-unreferenced one — a premise the script's body never names;
+mutation-declared reproducers skip it as they skip the demonstrates audit. Findings at any other
 status claim nothing about the current tree and are skipped, as are the exemption and bare-`none`
 forms the lexical guard above owns, and a mutation-declared reproducer skips the audit: what it
 demonstrates is the mutated tree it builds at run time, and the `--reproducer-sha` pin below is
@@ -262,13 +262,13 @@ flow-guard run-reproducer <worktree> "<the finding's finding-reproducer: text>"
 
 `<worktree>` is the cwd contract's per-finding resolution — the worktree whose copy of the
 recorded relative path resolves, canonical first, else the one recorded worktree carrying it
-(KAN-658) — the same tree the exit-contract guard above already ran this reproducer in.
+— the same tree the exit-contract guard above already ran this reproducer in.
 
 **A reproducer that builds or runs tests outlives the runner's 20-second bound, so it declares its
 own.** Its header carries the `# reproducer-bound: <seconds>` line that
 `skills/flow/review-panel.md` asks of it, and every run of one — the exit-contract guard above, the
 per-finding run here and its re-run below — enforces that bound, in a foreground Bash call whose
-timeout covers it (600000 max), so it reaches a verdict rather than a timeout (KAN-831).
+timeout covers it (600000 max), so it reaches a verdict rather than a timeout.
 
 Read its exit code: **0** dispatches the finding; **1** bounces it once, back to the raising slot,
 carrying the reproducer's passing output; **2** is a refusal — recorded **unverifiable**, put to the
@@ -312,7 +312,7 @@ commit as it now stands, read post-repair: no diff-path evidence exists for a de
 
 A re-run whose script fails a premise assertion — the loud non-zero the authoring rule requires —
 reads *demonstrated*, identical to the dispatch-time verdict, and is refused as ambiguous by
-design (KAN-839): the renamed premise voids the reproducer, and the refusal routes it to
+design: the renamed premise voids the reproducer, and the refusal routes it to
 re-authoring. That refusal is the fix working, never a runner bug.
 
 A finding meeting both conditions is recorded closed there and then — a Minor recorded
@@ -373,9 +373,9 @@ fix-mutations-total: <n>
 ```
 
 Each row is recorded before the round's re-review begins, and `flow record mutation` refuses one
-after (kan-1046 self-review, 1d). `flow record dispatch begin` refuses that re-review's reviewer
+after. `flow record dispatch begin` refuses that re-review's reviewer
 rows while the reviewed round holds a fixed Critical or Important finding and no fix-mutation row at
-the fix round (kan-1059 self-review, 1b). A row missed before the re-review is recorded with
+the fix round. A row missed before the re-review is recorded with
 `flow record mutation -late '<reason>'`, which admits it at its own round and records the reason as
 a pass note of that round, `late mutation proof for <path>: <reason>` (kan-1047 pipeline fix).
 
@@ -452,10 +452,10 @@ fragments one diff into competing fixups against the same worktree. Chunks run i
 dispatch awaited in the foreground before the next chunk begins and before the round's reproducer
 re-runs begin, and no fix subagent is left in flight when the turn ends. `<round>` is the fix
 round, one above the review round whose findings it fixes: the fix after `panel-0` is
-`panel-fix-1`, and `flow record dispatch` refuses `panel-fix-0` (kan-1040). A fix commit's
+`panel-fix-1`, and `flow record dispatch` refuses `panel-fix-0`. A fix commit's
 `Flow-Key:` trailer names that same fix round, and `flow record dispatch begin` refuses the
 re-review's reviewer rows while a commit authored since the reviewed round began carries a
-`Flow-Key: panel-fix-<k>` trailer of any other round (kan-1059 self-review, 1a). The round's first
+`Flow-Key: panel-fix-<k>` trailer of any other round. The round's first
 chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
 (`panel-fix-<round>-2`, `-3`, …), contiguous from 2; the handshake retry suffixes `-retry` onto
 its own chunk's key (`panel-fix-<round>[|-<n>]-retry`), and any other key shape is a violation
@@ -494,8 +494,7 @@ at a time, and does not ask:
   that needs an environment the run does not have, a defect something already covers — recorded
   `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. A "something already covers" reason that claims a
   test passes names the run — its command and exit — else the finding is carried to the next
-  fixer, and `flow record status` refuses a green withdrawal with no exit (kan-1083 self-review,
-  F5). That reason stands where the operator's would.
+  fixer, and `flow record status` refuses a green withdrawal with no exit. That reason stands where the operator's would.
 - **Only a genuine inability reaches the operator:** a finding the run cannot judge either way, or
   a fix that needs an irreversible or outward-facing action. **The round asks once.** It never
   fires an operator ask where a handback is discovered: the walk that produced it — the reproducer

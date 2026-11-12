@@ -41,7 +41,7 @@ irreversible stop under the mode exactly as off it.
 **A blocked verify or visual-verify is never turned into questions.** Each class below has one
 answer the pipeline's own rules already give, so the run takes it and goes on to **The loop**
 (`skills/flow/verify-fix-loop.md`) without asking. A list of "Decisions for you" built from these
-cases is a stop for nothing (KAN-1000):
+cases is a stop for nothing:
 
 - **A failure this branch introduced**, such as a capture's seed data crowding another spec's search:
   fix the branch so the other spec passes again, with the smallest change that does it (rename the
@@ -55,7 +55,7 @@ cases is a stop for nothing (KAN-1000):
   `git rev-list --count origin/<base>..origin/<the branch it tracks>` above 0 — develop or main
   holding commits the base lacks — syncs the base first (KAN-1000: a stale feature/cardio base
   cost 61 failures and about an hour). `flow-guard check-base-behind` makes that count for every worktree of the change and prints the sync commands (**Verify**, `skills/flow/verify-and-handoff.md`). Pushing the synced base is not asked (below).
-  **Never merge the tracked branch into a change branch** (kan-1007): the change branch then carries the tracked branch's commits as its own, and integrate's reshape folds them into the change's squash — the base is what gets synced.
+  **Never merge the tracked branch into a change branch**: the change branch then carries the tracked branch's commits as its own, and integrate's reshape folds them into the change's squash — the base is what gets synced.
 - **A departure from the mockup:** match the mockup (`rules/design-mockups-are-specs.mdc`). An element
   the mockup does not draw stays only when the screen cannot work without it. Record that reason
   with the frame.

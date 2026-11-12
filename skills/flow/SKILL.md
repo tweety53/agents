@@ -48,7 +48,7 @@ print any line it prints, once; it never blocks the run (decision `main-check-an
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. The read leaves the CLI's stderr visible: report it
 verbatim as the cause, and resolve `REVIEWERS` by the table's Unreachable row below, never as the
-empty list the failed read leaves (KAN-899). Settings unreachable is never a reason to block
+empty list the failed read leaves. Settings unreachable is never a reason to block
 implementation.
 
 **Execution mode, every dispatch's model and effort, and the review panel are decided per change,

@@ -254,7 +254,7 @@ the decision's `extra_dispatch` pair, and `mutation+failure-modes` on its
 `extra_dispatch_mutation` pair** — on a decided and a `default` panel alike, beside the dispatches
 the roster resolves, and outside their `≤2 × ≤3` cap. No automatic reduction removes either: the
 docs-only reduction, the late-fix reduction and the small append each still dispatch both. A
-decision with no such key — written before kan-959 or kan-1028 — dispatches that bundle on `opus`
+decision with no such key dispatches that bundle on `opus`
 at `low`.
 
 | id | Slot | How to spawn |
@@ -475,7 +475,7 @@ artifacts and working notes the round reads, `flow-guard check-tree-markers snap
 `flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file>` runs before any report
 is read or finding recorded. `verify` also compares the worktree's `git status --porcelain` with the one `snapshot`
 recorded, paths under `<project>/.superpowers/` aside, and fails naming every path a slot left changed or
-untracked — a reproducer's scratch copy included (kan-1017).
+untracked — a reproducer's scratch copy included.
 
 `-slot` names the dispatch's roles from **The roster** table above, or from **The always-on extra dispatches**' table for that bundle. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
@@ -527,14 +527,14 @@ resolve in every tree the script runs in, unlike the demonstrates citation, whic
 the defect was and must resolve only against the defect-present tree. The script's body asserts
 every declared premise before its real checks run: a missing premise is a loud failure naming
 it on stderr, exiting non-zero — never exit 0, the vacuous pass a rename must never produce
-(KAN-839). The marker the dispatch audit reads (KAN-904): the script must reference each declared
+(KAN-839). The marker the dispatch audit reads: the script must reference each declared
 premise path — `flow-guard check-panel-reproducer-exit-contract` refuses a declared premise the
 script never names outside the `# premise:` declaration itself, the declared-but-unasserted
 premise that reads a vacuous green. Carry the premise rule on every slot's dispatch prompt.
 **A reproducer that builds or runs tests also declares its own bound**: the exact line
 `# reproducer-bound: <seconds>`, a positive whole number covering that build or test run, in the
 same first-10-lines window — `flow-guard run-reproducer` enforces it on every run in place of its
-20-second default (KAN-831). **The exemption form is available to Minor
+20-second default. **The exemption form is available to Minor
 findings only: an Important-severity finding must carry a runnable command** — one that
 `flow-guard check-panel-reproducers` accepts and the parent can run — and the guard rejects the exemption
 at Important. A demonstrating command needing a pipe, a
@@ -551,7 +551,7 @@ reproducer always executes with its working directory set to the worktree the pa
 `flow-guard run-reproducer` — per finding, the worktree whose copy of the recorded relative path resolves:
 the canonical worktree first, else the one other entry of the state record's `worktrees` map
 carrying the path, the resolution `flow-guard check-panel-reproducer-exit-contract` performs before its
-audit and the parent's own per-finding runs repeat (KAN-658) — never the worktree the finding's own
+audit and the parent's own per-finding runs repeat — never the worktree the finding's own
 `file:line` prefix names. A reproducer whose script resolves in one tree while the defect it
 demonstrates lives in another resolves that worktree inside the
 script by its absolute path and never assumes it inherited that worktree's cwd: a script authored
@@ -559,7 +559,7 @@ on that assumption fails with a wrong-project error before it demonstrates anyth
 reproducer's first failure must be the defect, not the directory. Carry this requirement on
 every slot's dispatch prompt.
 
-**The authoring pattern (KAN-884): a reproducer's two legs run in their own trees, and its
+**The authoring pattern: a reproducer's two legs run in their own trees, and its
 declarations sit in the window.** The pre-fix leg reads the tree that leg runs in — its
 defect-logic reads cwd-relative to that leg's worktree, never an archived HEAD of the live
 worktree, which is what lets `flow-guard prove-reproducer` hold both legs. The `# demonstrates:` and
@@ -759,9 +759,9 @@ pass.
 `flow record dispatch begin` refuses a `panel-fix-<r>` row, and a live reviewer row of panel round `<r>`,
 while round `<r-1>` holds no completed `panel-<r-1>-merger` row (kan-1045 self-review, F-C).
 A completed `flow stage end` of `flow.review-panel` is refused the same way while the highest round
-holding a reviewer row has no completed `panel-<r>-merger` row (kan-1075 self-review, F14).
+holding a reviewer row has no completed `panel-<r>-merger` row.
 `flow record dispatch begin` refuses a `panel-<r>-merger` row while a reviewer row of round `<r>`
-has no end recorded (kan-1102 self-review, F12).
+has no end recorded.
 Once every dispatch of the round has ended — its `end` recorded, every role's report file
 confirmed under **Recording findings**, the plan-tree and content-marker `verify` passed, and on a
 re-run every `flow-guard check-rerun-citations` settled — the parent dispatches one merger: a one-shot that
@@ -848,7 +848,7 @@ mutation in place — the mutant survived, the defect present — and non-zero w
 Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess (kan-1039: the slot discarded a whole cached sweep whose survivals were false).
 The slot's own mutant runs are scoped before the first mutation too: it measures one run of the mutated code's whole package, and when that run's seconds times the number of mutants it plans pass half the slot's ceiling, every mutant run filters by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name (group-allowed-pairs-roles self-review: the slot ran the whole guard package per mutant and timed out at 15 minutes; the prefix-filtered retry finished in 88 s).
 The slot never forces a full rebuild of its copy — no `--rerun-tasks`, `clean`, cache-busting flag or deleting build output — whatever the build tool; it measures one scoped run before its first mutation; and it runs one build at a time in its copy, never starting another while an earlier one, a backgrounded one included, still runs (kan-1083 self-review, F15: round 2 lost 24m23s to a concurrent Gradle run in the copy, round 3 timed out at 25m27s after `--rerun-tasks` with no mutant run).
-Never symlink a shared `node_modules` into your copy: run `npm ci` inside the copy, which installs its own — over a symlink it empties the shared directory (kan-1037; kan-1052 self-review, F6).
+Never symlink a shared `node_modules` into your copy: run `npm ci` inside the copy, which installs its own — over a symlink it empties the shared directory.
 Never run `git worktree add`: you work only in the copies your prompt lists, which the parent creates and removes (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); a comparison against the base reads `git show <base>:<path>` or `git diff <base> -- <path>`, never a checkout of your own (kan-1084 self-review, F3: a mutation slot's detached worktree outlived its dispatch and was removed by hand).
 
 ### Principles
@@ -1125,7 +1125,7 @@ the **AskUserQuestion** it states.
 > shell that enters its directory first — `-- sh -c 'cd stats/web && exec npx vitest run <file>'` <!-- citations-guard:allow -->
 > for a vitest suite under `<project>/stats/web/`, since a vitest started at the root finds no config, runs
 > outside its jsdom environment and writes its cache into an untracked `<project>/node_modules/` that the
-> post-restore check refuses as drift (kan-1057 self-review, F1). Each mutation alters one mechanism — where a single
+> post-restore check refuses as drift. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
 > mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
 > your turn ends. Where your fix changed a guard script — a check that exists to fail on a defect

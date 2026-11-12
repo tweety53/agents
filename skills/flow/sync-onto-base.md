@@ -30,7 +30,7 @@ and `flow-guard check-base-moved` performs no fetch of its own.
   proceed to the landing question. Between the two, the rebased tree runs the project's whole
   `## lint` list (`flow-guard run-verify-list <worktree> lint`, under the `KEY=value` lines
   `flow-guard prepare-workspace` prints for it): a textually clean rebase can still break the build, as one
-  that dropped a Go import did (KAN-900), so a failure is `STOP: rebase-lint`, and so is a passing
+  that dropped a Go import did, so a failure is `STOP: rebase-lint`, and so is a passing
   list that rewrote tracked files,
   leaving the worktree rebased.
 - **Conflict** (exit 1, `CONFLICT: <worktree> — onto <sha>; unmerged: <paths>`): **resolve it in place, automatically.** For every path
@@ -64,7 +64,7 @@ and `flow-guard check-base-moved` performs no fetch of its own.
 
   A modify/delete conflict on a file this change deleted and carries a replacement for is resolved
   without asking: the upstream edit's intent is carried into the replacement, or shown to need
-  nothing there, the file stays deleted, and the handoff names it (kan-1058 self-review, F3).
+  nothing there, the file stays deleted, and the handoff names it.
   **Stop and ask** only where no honest resolution exists: any other modify/delete conflict, a binary
   file no `RECAPTURE:` line names, or an upstream commit that removed something this change
   depends on. In that case leave

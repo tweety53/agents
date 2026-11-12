@@ -32,13 +32,13 @@ nothing is dispatched into that copy.
 is picked once every plan-earlier member of its wave is picked. The same
 `flow-guard close-task` call the task-close step (`skills/flow/implement.md`) runs covers each picked
 commit, with one `-end-key <key> -end-commit <picked sha>` pair per picked member in pick order, so each
-member's row closes when it is picked, never at the handoff (kan-1058 self-review, F1). A pick conflict or a
+member's row closes when it is picked, never at the handoff. A pick conflict or a
 guard failure goes to a fresh fixer (**Every fix is a fresh one-shot**, `skills/flow/implement.md`)
 — a conflict aborted first, `git -C <canonical-worktree> cherry-pick --abort`, then the pick row
 dispatched into the canonical worktree, its `FIX INPUT:` naming the member's commits; a guard
 failure the re-commit row — and the parent re-runs the guard on what it commits, while sibling
 members, queued groups and already-ready later waves are unaffected. A copy is removed once its group is picked —
-`flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g>` — its own Bash call with literal absolute paths, never chained into a compound command, which the harness's rm safety check refuses (kan-1053 self-review, F4). A member reporting BLOCKED follows the existing BLOCKED handback. The
+`flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g>` — its own Bash call with literal absolute paths, never chained into a compound command, which the harness's rm safety check refuses. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
 **Gather one context bundle per group, immediately before that group's implementer goes out.**

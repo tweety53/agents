@@ -16,7 +16,7 @@ halves live in the one repo and are covered below.
 
 **This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-calls`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `check-mockup-citations`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `check-plan-shape`, `check-task-build-green`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
 
-**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_dispatch_pair_test.go` for `flow-guard check-dispatch-pair` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing (kan-903).
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_dispatch_pair_test.go` for `flow-guard check-dispatch-pair` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
 
 ### artifact tree
 
@@ -108,16 +108,16 @@ Only the SPA and `flow-task-list` lines declare `# inputs:` (`skills/flow-contra
 tests read files across the whole repository — `stats/internal/guard`'s tests
 open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always run.
 
-The `flow-task-list` suite runs the mod's tests on the harness's own runner: `claude plugin test <dir>` runs every `*.test.ts` and `*.test.tsx` under `<dir>` in an environment like the one the mod's hooks run in and supplies the `claude-code/testing` module they import, which nothing else in this repository resolves (kan-1104 self-review, F12).
+The `flow-task-list` suite runs the mod's tests on the harness's own runner: `claude plugin test <dir>` runs every `*.test.ts` and `*.test.tsx` under `<dir>` in an environment like the one the mod's hooks run in and supplies the `claude-code/testing` module they import, which nothing else in this repository resolves.
 
 The `guard-tests` suite is `go test` over `stats/internal/guard/` — every guard's tests, a new one
 picked up with no edit here; the tests that exec a guard build `flow-guard` once per package run
 into a temp `FLOW_GUARD_CACHE_DIR`, never the operator's cache. The package's `TestMain` fails the run when it leaves the
-repository's `git status` changed — a test or reproducer writing into the checkout (kan-1051 F5). The `stats-go` line excludes
+repository's `git status` changed — a test or reproducer writing into the checkout. The `stats-go` line excludes
 `internal/guard`, which `guard-tests` runs under `-race`, so the package runs once per verify
 (kan-1038). A new `check-*` guard lands with its Go test in the same change — plans declare it and
 review panels look for it, and `flow-guard check-guard-calls`'s rule C fails `## lint` while it is
-missing (kan-903).
+missing.
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
 canonical suites are `guard-tests` (`go test -race -count=1 ./internal/guard/...`), `stats-go`
@@ -201,7 +201,7 @@ in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
 listing every sentence its tasks add or reword, with the plan**; it lives on disk only, in the
 gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
-review panel (kan-1027's F1 and F8). `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone (kan-1103 self-review, F9).
+review panel (kan-1027's F1 and F8). `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone.
 
 **`flow-guard check-workspace-isolation` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
@@ -215,7 +215,7 @@ outside the repository.** The first compares the always-on rules this checkout d
 under `$HOME` — the symlinks in `~/.claude/rules/` and the per-rule markers in the two managed
 blocks — because a rule can merge and stay unreadable by every session. The second diffs the
 hand-maintained sections of those same two installed harness files against each other, so a
-one-sided edit fails loudly instead of drifting silently (KAN-808). Both still run against a bare tree and take no
+one-sided edit fails loudly instead of drifting silently. Both still run against a bare tree and take no
 change-in-flight state, so they belong here for `flow-guard check-installed-citations`'s reason. A machine
 with no global install is not a failure: the first reports `INSTALLED-RULES-NONE` and exits 0, and
 the second reports `HAND-NOTES-NONE` the same way, which is what
@@ -323,7 +323,7 @@ the statement of that.** The record family (`flow record`, `flow stage`, `flow s
 its store address from it, so an apply worktree's dispatch, finding and suite-runtime rows land in the
 persistent store the main checkout serves, and a deferred self-review bundle still finds them
 after `scripts/flow-guard workspace remove` has dropped the `database` row's resource; stage marks, state
-rows, settings and Jira transitions must outlive the worktree's daemon as the records do (kan-1038). The cell could not use the `database` word: that row is
+rows, settings and Jira transitions must outlive the worktree's daemon as the records do. The cell could not use the `database` word: that row is
 taken, and cleanup removes what it names — the persistent store must never be a removal target.
 
 | Command | Runs |
@@ -345,12 +345,12 @@ one database. Neither variable crosses the boundary this section exists to prote
 `stats/web` is the one SPA this repository carries. Its baseline covers the dashboard and
 run-detail views, per `stats/web/tests/visual/baseline.spec.ts`, against the disposable UI-test
 stack on `http://127.0.0.1:4174` — `## run`'s "This is the stack `flow.visual-verify` … starts and
-stops" paragraph is the answer to where that stage gets its stack from, and is not restated here. `ui paths` also names `skills/flow-contracts/model-policy.md`, which `stats/Makefile`'s `policy-copy` embeds into flowd for the Experiments view (kan-1052 self-review, F1).
+stops" paragraph is the answer to where that stage gets its stack from, and is not restated here. `ui paths` also names `skills/flow-contracts/model-policy.md`, which `stats/Makefile`'s `policy-copy` embeds into flowd for the Experiments view.
 
 **The `--app` argument is `<worktree>:stats/web=http://127.0.0.1:4174`.** `flow-guard
 visual-verify-pass prepare` and `flow-guard check-visual-preflight` take the app root
 `stats/web`, never `stats`: Go sources under `stats/` name the `flowd` default
-`http://127.0.0.1:4173`, so check 2 fails on `stats` by construction (kan-1053 self-review, F3).
+`http://127.0.0.1:4173`, so check 2 fails on `stats` by construction.
 
 **No `regression checkout` row** — this repository commits its own baselines to the change's own
 branch, per `design.md`'s `agents-has-no-regression-checkout` decision. **No `push to default
@@ -377,12 +377,12 @@ reused stack pays the restart. It then requires `skills/flow-contracts/model-pol
 `/tmp/flow-uitest-flowd`, the binary `make ui-test-up` built and runs (`UITEST_BIN` in
 `stats/Makefile`): `//go:embed` stores the file verbatim, and no `index.html` byte changes when
 that file does, so without it a reused stack would render the Experiments view from the old
-policy (kan-1052 self-review, R2). It last compares `make go-sources-hash` with the hash `make
+policy. It last compares `make go-sources-hash` with the hash `make
 ui-test-up` recorded in `/tmp/flow-uitest-go.sha256`, since neither `index.html` nor the policy
 changes when a Go source or the seed does, so a stack built before a Go-side fix reads stale
 (kan-1053 self-review, F1).
 
-**`capture` and `verify` check the stack first.** Each opens on `flow-guard check-dev-stack-fresh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure (kan-1038); `make ui-test-up` touches only that stack, never the `flowd` on 4173.
+**`capture` and `verify` check the stack first.** Each opens on `flow-guard check-dev-stack-fresh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure; `make ui-test-up` touches only that stack, never the `flowd` on 4173.
 
 **`capture` rebuilds `full-app-suite.zip` after Playwright.** The row runs Playwright inside a shell
 function, so the arguments a caller appends — `--update-snapshots=all`, `-g '<titles>'` — still

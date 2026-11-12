@@ -10,7 +10,7 @@ for the guards.
 
 On `OUTSTANDING` or `UNTASKED` — from either guard — **nothing is asked: the parent finishes the
 unfinished work itself and re-runs the guard**, at integrate as at **Write `IN_PROGRESS`**
-(`skills/flow/verify-and-handoff.md`). Recorded at the operator's instruction (2026-10-22): an
+(`skills/flow/verify-and-handoff.md`). An
 unfinished-work verdict is work to do, never a stop and never a question.
 
 - A missing dispatch, review, pass row or inline verify is run and recorded — never recorded after
@@ -25,7 +25,7 @@ names a passing spec — is recorded as a guard false positive per **A verdict t
 structural** below, its `-reason` naming that spec's passing run, and the run continues to the
 landing route. A verify failure that does not recur is never such an item: it is fixed anyway, as
 **The loop** (`skills/flow/verify-fix-loop.md`) states for an observed failure that does not
-reproduce (kan-1059 self-review, 1c). The outstanding items and their dispositions go into the
+reproduce. The outstanding items and their dispositions go into the
 message of the commit that carries the planning artifacts and into the handoff's `**Decisions:**`
 lines. The three courses below are never offered.
 

@@ -36,14 +36,14 @@ source draws and how large its change is — and only a capture whose every blob
 `-actual.png` copied over its baseline, each copied baseline read before it is staged. A test
 stops at its first failing capture, so the run repeats until no failure inside the footprint
 remains, and a capture with a blob outside it is a defect per **The sweep**
-(`skills/flow-contracts/known-bugs.md`), never copied (KAN-837).
+(`skills/flow-contracts/known-bugs.md`), never copied.
 
 **Mockup departures are classified before the round's task is written.** Where every frame that
 draws the departing component agrees, the departure is a defect this round fixes. Where frames
 disagree on a shared component, the component's own design source wins — the frame that draws it
 as its subject, or the design-system frame it is taken from: the departures that source backs are
 fixed, and the other frame's departure closes as a mockup conflict, named on the handoff's
-`**Decisions:**` lines beside the frame it lost to — never fixed, and never asked (KAN-801).
+`**Decisions:**` lines beside the frame it lost to — never fixed, and never asked.
 
 One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 
@@ -56,14 +56,13 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
    this stage's round in this run. On a `flow.visual-verify` round the task rewrites, beside the
    fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
-   CHECK (`skills/flow/implement.md`) requires (kan-1038); the record is never in its `**Files:**`
+   CHECK (`skills/flow/implement.md`) requires; the record is never in its `**Files:**`
    — it is written on disk only, the change directory gitignored, and flow-guard stage-task-files refuses
    an ignored path — and `close-task` runs the plan guard on
-   the task before ticking it (kan-1046 self-review, 1f). The round's evidence directory,
+   the task before ticking it. The round's evidence directory,
    `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` or
    `**Allowed-collateral:**` — `check-plan-shape` F23 refuses it and
-   `check-task-commit-planning-paths` sweeps it — and is written on disk only (kan-1048
-   self-review, 1-E). The re-decide runs as
+   `check-task-commit-planning-paths` sweeps it — and is written on disk only. The re-decide runs as
    that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
    round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`,
@@ -87,7 +86,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    under the input the verifier recorded, its pace, distance and step timing, and sampled inside
    the window the verifier saw it in, never with instantaneous steps or a settle wait that outlasts
    that window; where the harness cannot reproduce those conditions, the commit body names the
-   difference. (KAN-790).
+   difference.
    **Every new branch the fix adds lands a test of its own in the same commit.** A condition, flag,
    guard or state the fix introduces beyond the departure it closes — a hidden placeholder, a reset
    on return, a skipped refresh — carries a test that fails with that branch removed, and the task's
@@ -103,7 +102,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    named with its cause, and report every view's measured numbers (KAN-1000: rounds 2–5 each found
    a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round). It measures each
    pair on the 2× capture and the 2× mockup frame themselves, never on a `flow-guard compose-mockup-frames`
-   composite (kan-1015 self-review). A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small (kan-1007: a fix round called a first-try 1dp offset clean).
+   composite. A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small (kan-1007: a fix round called a first-try 1dp offset clean).
    **A task fixing a visual departure runs its capture spec before it closes.** Its verify step
    runs the project's `capture` command with the round's capture spec for `<spec>`, against the
    stack rebuilt from its fix, and the task closes through `flow-guard close-task` only on that run's exit

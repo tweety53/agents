@@ -382,7 +382,7 @@ runs that entry's recipe of
 checkout's toolchain, the merge-order extension), never a bare `git worktree add`. A worktree
 that will carry no commit is no exception: the recipe records it in the state record's
 `worktrees` map with its HEAD as its merge base, so run 2's per-worktree checks and its removal
-reach it like any other (KAN-804). Read
+reach it like any other. Read
 `<project>/.flow/project.md`'s `## apps` table and resolve each entry per the roots-are-main-checkouts rule of **Where the agents repository is**
 (`skills/flow-contracts/project-configuration.md`): an entry whose
 repository already holds a worktree for this change — the kickoff worktree's repository, a
@@ -467,7 +467,7 @@ Both calls are required. `begin` is recorded immediately before the dispatch —
 launches go out together in one message, in the one Bash call immediately before that message, one
 call for all (step 2 of **A group boundary is one wake, one Bash call and one launch message**, below) — carrying no
 `-agent-id`: the daemon captures the agent's identifier. A launch whose row is not yet open is
-refused by `hooks/enforce-agent-baseline.py` (kan-1038), and the harvester fills the row's empty
+refused by `hooks/enforce-agent-baseline.py`, and the harvester fills the row's empty
 `agent_id` from the launch result afterwards. `-agent-id` is accepted on both
 calls as recorded intent the daemon never overwrites, for a caller that knows the id — the
 literal `inline` on a row the parent's own inline work records included. A row whose work runs
@@ -687,7 +687,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    pair alone, which is the single-sha form; skipping the guard on a cross-repo change and
    checking fields by hand is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
-   A bare `<task-id>` resolves to the newest commit since `<merge-base>` in the canonical worktree whose `Task-Id:` trailer names it (kan-1058 self-review, F8).
+   A bare `<task-id>` resolves to the newest commit since `<merge-base>` in the canonical worktree whose `Task-Id:` trailer names it.
    `-undeclared` carries the paths a fields refusal named for that task (**The record carries
    its own corrections**, below). The script's header (`<agents repo>/scripts/flow-guard close-task`) is
    canonical for its arguments and its order.
@@ -760,7 +760,7 @@ disagree silently with what the run did. The implementer never edits `<project>/
 `correction:` line of its summary head, the exact field and its corrected value, and the parent transcribes it into the record before the guard runs
 on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is the
 one correction whose disclosure has a mechanical record: `flow-guard check-task-commit-fields` runs
-against the record as it stood, refuses the commit, and names every undeclared path, ending on one ready `flow tasks files … add` line per task (kan-1058 self-review, F8); the parent
+against the record as it stood, refuses the commit, and names every undeclared path, ending on one ready `flow tasks files … add` line per task; the parent
 judges the deviation legitimate or not on exactly that refusal, and only a legitimate one is
 transcribed and the guard re-run green. The parent transcribes a widening with
 `flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing — a declared path
@@ -781,9 +781,8 @@ Run `flow-guard check-plan-provenance` when transcribing it, and give each numer
 (kan-1020: a bare count in a Correction was refused only at verify). Once a `Correction:`
 paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which
 records the plan's correction count beside its task count — the plan-corrections metric
-experiments compare (KAN-1067). A `design.md` statement the plan or a task's commit is found to
-contradict is corrected in place in the same transcription, never recorded as left (kan-1055
-self-review, F2).
+experiments compare. A `design.md` statement the plan or a task's commit is found to
+contradict is corrected in place in the same transcription, never recorded as left.
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already

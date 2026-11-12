@@ -74,7 +74,7 @@ ahead of <default>)` line, and re-runs `flow-guard check-main-checkout-drift`, c
 session that had the checkout on it finds its HEAD moved, which the printed line names. Four
 shapes are never switched, and stop and ask as below: a detached HEAD, whose commits sit on no
 branch; a checkout on a base the change records (`branch.spectre/<name>.flowBase`), which run 2's <!-- citations-guard:allow -->
-refresh brings forward (KAN-911); a switch git refuses — the default branch checked out in
+refresh brings forward; a switch git refuses — the default branch checked out in
 another worktree, an untracked file it would overwrite, no default branch to switch to, a locked
 index — which leaves the checkout as it was and adds a `DRIFT-SWITCH-REFUSED` line to the
 listing; and a re-run that does not print `DRIFT-CLEAN`. Each repository is judged on its own: one
@@ -276,7 +276,7 @@ and its `git log --stat` lines leave out every `*.png` path. A source that is ab
 The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printing it, and appends `## Session narrative` there (one paragraph it writes for run 1 itself; the
 change's `narrative.md` is already a bundle section, and a change predating the narrative rule
 has the bundle report it skipped) — it is never committed.
-`flow-guard check-loop-dispatch` refuses a pass dispatched from the change branch whose prompt names no bundle carrying a `## Session narrative` heading (kan-1102 self-review, F21).
+`flow-guard check-loop-dispatch` refuses a pass dispatched from the change branch whose prompt names no bundle carrying a `## Session narrative` heading.
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`
 (`skills/flow-self-review/SKILL.md`), canonical for the eight angles, the fix loop and its

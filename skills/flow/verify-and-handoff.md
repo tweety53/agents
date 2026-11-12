@@ -127,14 +127,14 @@ are one more.
 The test group skips what the list's last green run on a clean tree already covered: every command
 when HEAD is the sha that run recorded, otherwise each command whose `# inputs:` pathspecs the delta
 since that sha leaves untouched; a skipped command's `## Report` line says so, and the script's
-header is canonical for the rule. At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed (kan-1103 self-review, F10).
+header is canonical for the rule. At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. Output carrying `WARNING: DATA RACE`
 or `race detected during execution of test` is never that case: the command takes **The loop**
 whatever its re-run exits, since a race that passes once is still a race
 (`rules/fix-determinism-at-the-source.mdc`), and `flow-guard run-verify-list` marks its block with
-`data race — never environmental`. A failure the run traced to nondeterminism in code or a test — an unwaited kill, a read racing an exit, a zombie read as alive — is never that case either: it takes **The loop** whatever its re-run exits, or, for a test of the flow tooling, an in-run pipeline fix (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). `flow-guard integrate-change commit` refuses a narrative line that leaves a failing or flaky test open (kan-1103 self-review, F2). A second non-zero exit from the same
+`data race — never environmental`. A failure the run traced to nondeterminism in code or a test — an unwaited kill, a read racing an exit, a zombie read as alive — is never that case either: it takes **The loop** whatever its re-run exits, or, for a test of the flow tooling, an in-run pipeline fix (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). `flow-guard integrate-change commit` refuses a narrative line that leaves a failing or flaky test open. A second non-zero exit from the same
 command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
 the whole list has run, its first run's `result files:` and `full output:` paths named in the
 fixer's dispatch; where the environment itself failed — a missing build prerequisite — it
@@ -156,7 +156,7 @@ refusal: clear the cause — a tracked modification, most often — and run the 
 `end` is a warning line that never changes the exit code. The first `begin` stamps the start and the
 later group's `end` the finish. A verify re-run after a new code commit passes a key no earlier verify row of the change
 used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
-key's first `startedAt`, and a row started before the commit never covers it (kan-1037). Once the one inline re-run is decided, a passing re-run ends a fresh
+key's first `startedAt`, and a row started before the commit never covers it. Once the one inline re-run is decided, a passing re-run ends a fresh
 row `-outcome completed`, and a command that failed twice for a missing build prerequisite is ended
 `-outcome blocked -cause environment` by the parent.
 
@@ -170,7 +170,7 @@ flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<re
 ```
 
 Both groups go out in one Bash call under one key, as the block above writes them — never two calls in
-turn, never a second key (kan-1058 self-review, F9).
+turn, never a second key.
 
 `<canonical worktree>` is the worktree holding `<project>/spectre/changes/<name>`; pass it when verifying any other worktree of a multi-repo change.
 
@@ -197,9 +197,9 @@ over the change worktree. A before figure already in
 `flow-guard check-live-verification
 <changeRoot>/live-verification.md`; its header is canonical for the record it accepts. Exit 1 → the
 record carries no before figure, or states one was not measured: measure it from the merge base as
-above and rewrite the record, never proceed past it (kan-998). The check is never deferred past this stage:
+above and rewrite the record, never proceed past it. The check is never deferred past this stage:
 `flow-guard integrate-change prepare` stops at `STOP: live-check` while the section names something to
-exercise and `live-verification.md` is missing or fails `flow-guard check-live-verification` (kan-1019).
+exercise and `live-verification.md` is missing or fails `flow-guard check-live-verification`.
 Exit 2 → it cannot answer; correct
 the input and run it again. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
 shows the failure look is the branch's own defect and takes **The loop**
@@ -207,7 +207,7 @@ shows the failure look is the branch's own defect and takes **The loop**
 command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
 database, a throwaway container — never simply dropped, and the `## Report` line names the proxy:
 kan-576's waived V34 DOWN-block step, run by a reviewer on a scratch database, caught a rollback
-that would have kept every `WORKOUTS: READ` grant as a full one (KAN-740). The verifier row's `end` (**Recording.**, above) is recorded
+that would have kept every `WORKOUTS: READ` grant as a full one. The verifier row's `end` (**Recording.**, above) is recorded
 after this check, not before it: `-outcome blocked -cause test-failure` on a failure look,
 `-cause environment` on a stack that will not start. The stack stays up for **Visual
 verification** and **Resolve the run instructions**.
@@ -276,7 +276,7 @@ this run's resolved set, the same set **Verify** above resolved. `--merge-base` 
 own merge base from this run's working notes. `--app` passes each app the stage may probe, the
 `<app-root>=<resolved-url>` argument `flow-guard check-visual-preflight` takes, prefixed with its worktree.
 A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<resolved-url>"`
-— zsh reads `$W:s…` as a history modifier (kan-1053 self-review, F3).
+— zsh reads `$W:s…` as a history modifier.
 
 1. **Resolve the section — with the guard, not by eye.** `prepare` pipes each worktree's diff into
    `flow-guard check-visual-trigger <worktree>`; exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr
@@ -399,7 +399,7 @@ Resolve the run instructions the start below uses, the handoff's `**Running:**` 
   **A run that will land straight away starts nothing.** When the record's `reviewBeforeLanding`
   is not `true` and the run leaves no `?` line for its `Decisions:` (**Write `IN_PROGRESS`**,
   below), no handoff hands a stack to anyone: the start, the stack freshness check and a refused
-  start's stop below are all skipped, so a held port never keeps the change from landing (kan-1030).
+  start's stop below are all skipped, so a held port never keeps the change from landing.
 
   Resolve the start from the two keys the project already declares, in order: its `## stop`, when
   it declares a command, then its `## run`. **A `## stop` that deliberately declares no command
@@ -506,7 +506,7 @@ On claude-code a row whose agent id is not `inline` passes no `-ended-at`: the d
 transcript's last write, as each panel `end` does (`skills/flow/review-panel.md`). Every other row passes
 `-ended-at` as the instant the row's work ended — its task commit's author date
 (`git log -1 --format=%aI <sha>`), never the committer date a cherry-pick restamps, else its report
-file's mtime — never the moment it is closed (kan-1058 self-review, F2). An implementer row carries
+file's mtime — never the moment it is closed. An implementer row carries
 `-commit` with its task commit's full sha.
 
 **Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`), since the guard below finds a change with no recorded summary unfinished.
@@ -573,7 +573,7 @@ flow state get <name> | jq -r '.reviewBeforeLanding // false'
 
 `true` prints the block below and ends the run. **So does a run that leaves a `?` line for its
 `Decisions:`, whatever the record holds** — an open question the operator must answer is never
-landed past (kan-1030). Anything else prints no block but the block's `**Running:**` section,
+landed past. Anything else prints no block but the block's `**Running:**` section,
 always, and its 🤖 `Decisions:` lines, when it took any, under a `**Decisions:**` heading —
 integrate's handoffs carry no such field — and continues at **Deciding which run this is**
 (`skills/flow/integrate.md`) in the same turn, as if a bare `/flow <name>` had started it; that

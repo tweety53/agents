@@ -64,7 +64,7 @@ one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
 **Name.** `<lowercased key>-<slug>` per **Change naming**; with no issue,
 `interactive-<YYYYMMDD-HHMM>` (UTC). A name so resolved that matches an open `/flow-interactive`
 change — the reused `Interactive session` issue's included — resumes it (**Resume**, below), never
-a new session numbering from 1 (kan-1070 self-review, F2).
+a new session numbering from 1.
 
 ```bash
 flow stage mark  -command '/flow-interactive' -stages flow.kickoff -harness <harness> -session-token fi-<literal-token> <name>
@@ -155,7 +155,7 @@ scoped to the packages and files the request touched, `<agents repo>/scripts/flo
 <base>` — as section 5 of `/flow-fast` states them. The request never lands red. The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
 --git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
-request's last commit (kan-1081 self-review, F1).
+request's last commit.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
@@ -225,7 +225,7 @@ stage, record the row (store role `implementer`, key `operator-<k>`, which flowd
 Each agent gets its own row: `<k>` is one past the highest `operator-` key the change records, so
 two agents of one request never share a key. A dispatch the hook refuses ends its row `aborted` at
 once. `flow stage end` of the request's `flow.sdd-tdd` refuses while an `operator-` row of the
-change is open (kan-1080 self-review, F4).
+change is open.
 
 ```bash
 flow record dispatch begin -change <name> -role implementer -model <model> -effort <level> -key operator-<k> -request <n> -session-token fi-<literal-token>
@@ -281,7 +281,7 @@ as a request and the session stays open, saying so in one line. Stop:
    token. `flow self-review bundle -change <name>` renders the session's requests in number order
    as its git-log source. Its fix commits land on `<name>`; no report is written.
    The pass runs on every stop, a stop that landed no new commit included: it reviews the whole
-   session's requests, never the stop invocation's diff (kan-1070 self-review, F1).
+   session's requests, never the stop invocation's diff.
 
    ```bash
    flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> -session-token fi-<literal-token> <name>

@@ -53,7 +53,7 @@ states.
   recommended mark stays. The parent asks each such question in an **AskUserQuestion** call of
   its own, in round-file order; every other question stays four to a call.
 
-- **An answer that contradicts an earlier one is asked about, never applied** (KAN-1104). When
+- **An answer that contradicts an earlier one is asked about, never applied**. When
   an answer in `answers-<r>.md` contradicts an earlier answer or a decision the design draft
   records, change nothing on that point: quote both verbatim in the next `round-<r>.md` and ask
   which stands, with no recommended option — so it is asked under the `## decisions:
@@ -89,7 +89,7 @@ states.
   alone — no caption, note or screenshot beside it — since `flow.visual-verify` renders the whole
   file as the capture's frame; a note to the operator goes in the message (kan-1047: a caption
   over a JPEG of the live page never paired with a capture). **The operator sees the prototype
-  whenever one exists** (kan-1057): a planner dispatch has no Artifact tool, so it only writes the
+  whenever one exists**: a planner dispatch has no Artifact tool, so it only writes the
   file, and the session that dispatched it publishes it with the Artifact tool after every return
   that wrote or changed it — a scratchpad copy adapted to the tool's page contract, with no
   doctype, `html`, `head` or `body` wrappers and the title and viewport meta at its top, while the
@@ -109,7 +109,7 @@ states.
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
-  the source of truth** (kan-1038): any departure from it found later in the run — by a reviewer,
+  the source of truth**: any departure from it found later in the run — by a reviewer,
   verify or `flow.visual-verify` — is fixed to match it, auto-resolved and never asked; a UI
   change the operator wants after using it is a later change, not this one.
 
@@ -148,7 +148,7 @@ two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispa
 and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
 `fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
 planning dispatch's row is opened before its Agent call and ended when its agent hands back, and
-`flow stage end` of `flow.brainstorm` refuses while one is open (kan-1046 self-review, 1e):
+`flow stage end` of `flow.brainstorm` refuses while one is open:
 
 ```bash
 flow record dispatch begin -change <change> -role explorer|planner -model <m> -effort <e> -key explore-<n>|design-<n> -session-token <token>
@@ -221,7 +221,7 @@ spectre new "<name>"   # working directory: the worktree flow.kickoff created
 `flow-guard check-plan-shape` F27 refuses a plan whose `design.md` records a question still open
 (**Open questions**, `skills/spectre-planning/SKILL.md`).
 
-**`design.md` also carries `## Non-goals` and `## Risks`** (KAN-1104): what the change
+**`design.md` also carries `## Non-goals` and `## Risks`**: what the change
 deliberately does not do, and what can go wrong and what limits it. Each may be the one line
 `none — <reason>`. `flow-guard check-plan-shape` F19 refuses a plan-mode design missing either.
 
@@ -252,7 +252,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > lint alone and no test command. A task whose `**Files:**` holds a Markdown file under `skills/` or
 > `rules/` is the exception: its verify step runs the whole list, `flow-guard run-verify-list <worktree>
 > lint`, because the prose guards that list carries are too many to hand-pick and the one a subset
-> leaves out fails only at `flow.verify` (kan-1067 self-review, 1-F).
+> leaves out fails only at `flow.verify`.
 
 > **Run only what is installed.** A step's command runs a tool already on the machine or declared
 > in `<project>/.flow/project.md` — never npx without `--no-install` or `--no`: with its yes flag,
@@ -303,7 +303,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > (kan-1019: a check deferred to integrate was never run). When `<project>/.flow/project.md` names
 > a tool for the check's stand-in — this repository's `<project>/scripts/flow-guard
 > live-store-copy`, run from the change's own worktree — the section invokes that tool by name and
-> never re-specifies what it does (kan-1046 self-review, 4a). The
+> never re-specifies what it does. The
 > no-runtime line opens with `None`.
 >
 > **The check's own inputs are checked at plan time.** Every case or fixture id the section names
@@ -361,7 +361,7 @@ a detached worktree in the repository's sibling worktrees directory, `<project>-
 — `<name>` your `Key:` on a loop planner — made with
 `<agents repo>/scripts/flow-guard throwaway-worktree create <worktree> <copy>` and removed with its `remove`
 before you hand back, never under a scratchpad or `/tmp`, outside the layout
-`flow-guard check-worktree-location` holds every worktree to (kan-1057 self-review, F7).
+`flow-guard check-worktree-location` holds every worktree to.
 
 **A `verified:` block for a parser or validator is run on what it must refuse.** Planning runs it
 on one rejecting input per rejection the plan states, beside its accepting ones, and the tag names
@@ -420,8 +420,7 @@ with `**Build:**` per **The build-green tag**
   otherwise every backticked token becomes a declared test name the commit's diff and the tree
   are searched for; any other prose in it is invisible to the check — write what covers the task
   outside the field, never inside it. A token written `Class.method` is found when both its
-  segments are, so a test may be named as the pipeline's `fix-mutation:` lines name it (kan-1059
-  self-review, 1f). A task adding none writes a field opening with the literal
+  segments are, so a test may be named as the pipeline's `fix-mutation:` lines name it. A task adding none writes a field opening with the literal
   `none`, and `flow-guard check-task-commit-fields` then never reads that field's backticks as test names
   it must find in the commit's diff. **Bold `**none**` opens such a field; italic `_none_` does
   not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
@@ -441,8 +440,8 @@ with `**Build:**` per **The build-green tag**
   re-derived by hand; **split by source set** — each Baseline counts one source set's own counter
   (one module's `@Test` annotations, one suite's cases), never one tree-wide number that a change
   anywhere shifts; **a word-boundary-safe counter** — whole tokens anchored, so `@Test` never
-  substring-matches `@Testcontainers` (KAN-626); and **no pinned ref** — the recorded command
-  carries no tree, sha, branch or revision argument anywhere inside it (KAN-661). The counts are
+  substring-matches `@Testcontainers`; and **no pinned ref** — the recorded command
+  carries no tree, sha, branch or revision argument anywhere inside it. The counts are
   counted statically from test declarations (`@Test` and its language equivalents), never from a
   test run, and each task's delta its own: `after` is `before` plus the tests the task's own
   `**Tests:**` field names. The counts are exact integers: `after=~N` is unparseable by the guard
@@ -498,7 +497,7 @@ carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing
 
 Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
 fields — the exact line below, copied verbatim, so every plan states its baselines' convention the
-same way and no later task can drift between conventions (KAN-678):
+same way and no later task can drift between conventions:
 
 ```markdown
 > **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
@@ -545,13 +544,13 @@ prescribed course, never accepting the plan while it stands.
 > round, applied at plan time (kan-1007: a plan-time capture was judged by eye). The same
 > compose-and-measure steps apply when the view's specification is an approved prototype, rendered
 > as each capture's frame per step 10 of `skills/flow/visual-verify-verifier.md`, with no declared
-> `mockups` root (kan-1046 self-review, 8c). Such a task pre-flights its own sidecar alone,
+> `mockups` root. Such a task pre-flights its own sidecar alone,
 > `flow-guard check-sidecar-reach <spec>.mockups <frames folder>`, never the capture folder, whose
-> other sidecars point at other frames folders (kan-1055 self-review, F1). Every screenshot such a
+> other sidecars point at other frames folders. Every screenshot such a
 > task's spec takes is the full page or viewport, never an element or a clipped region, and each
 > captures a state no sibling
 > capture shows — steps 8 and 9 of `skills/flow/visual-verify-verifier.md` refuse a clip and a
-> byte-identical pair (kan-1061 self-review).
+> byte-identical pair.
 > The task that builds the view seeds, in its capture fixture, the data for every element and
 > state the frame or prototype draws — per-row variants, empty and zero cells, badges, an
 > overflow-length list — on data outside the windows other views' captures read; only content
@@ -567,7 +566,7 @@ prescribed course, never accepting the plan while it stands.
 > the frame's `<spec>.mockups` sidecar line sits under a `#` comment naming the parts expected to
 > differ, the sibling ticket that builds them and that decision's ID — the verifier then reads
 > those parts as expected until the sibling lands, and judges every other part of the frame as
-> usual (KAN-821).
+> usual.
 
 When the project declares `mockups`, also run
 `flow-guard check-mockup-citations <worktree> <mockups root> <changeRoot>/design.md <changeRoot>/tasks.md`
@@ -589,7 +588,7 @@ flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <na
 
 ### Plan review
 
-**Your `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return says whether the plan is reviewed** (KAN-1104). A change that is not
+**Your `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return says whether the plan is reviewed**. A change that is not
 trivial — the competing-designs test of **Explore and design agents**
 (`skills/spectre-planning/SKILL.md`) — returns the word alone, and the parent runs **Plan
 review** (`skills/flow/brainstorm.md`). A change with one obvious approach returns
@@ -718,7 +717,7 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 - **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 
-**A role an open allowed-pairs experiment overrides takes one of that experiment's pairs** (**Experiments**, `skills/flow-contracts/model-policy.md`), whatever the effort roll or a hard seam would pick, its `reason` naming the experiment: the implementer and every implementer group are role `implementer`, the fixer is role `panel-fix`, and `flow experiment overrides` lists each overridden role's pairs. `flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit (kan-1103 self-review, F3).
+**A role an open allowed-pairs experiment overrides takes one of that experiment's pairs** (**Experiments**, `skills/flow-contracts/model-policy.md`), whatever the effort roll or a hard seam would pick, its `reason` naming the experiment: the implementer and every implementer group are role `implementer`, the fixer is role `panel-fix`, and `flow experiment overrides` lists each overridden role's pairs. `flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
 **review-panel.md**'s no-decision dispatch, the tooling analyst — runs on the literal `opus`. `flow record
@@ -800,8 +799,7 @@ Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
 updates)**.
 
-**`/flow` never asks its gate question: it takes **Yes** at once**, at the operator's instruction
-(2026-10-26). The summary and the `## Decision` block still print, the high-raise question below is
+**`/flow` never asks its gate question: it takes **Yes** at once**. The summary and the `## Decision` block still print, the high-raise question below is
 not asked and takes **No**, and the run continues to the plan snapshot and the `STARTED`
 handoff. An operator who wants the plan changed says so before running the handoff's `/flow
 <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is still asked.

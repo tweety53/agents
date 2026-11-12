@@ -152,7 +152,7 @@ a session that cannot ask at all — leaves the status untouched, emits one `⚠
 The other is **The join confirmation** (`skills/flow-contracts/jira-integration-finish.md`).
 
 **`flow jira transition` is not this pipeline's transition path.** The command fires the same
-four-position, forward-only table through flowd (KAN-571), but only on a daemon configured with
+four-position, forward-only table through flowd, but only on a daemon configured with
 `FLOWD_JIRA_SITE`, `FLOWD_JIRA_EMAIL` and `FLOWD_JIRA_TOKEN`, and it cannot ask: an unrecognised
 status exits 1 with the status named on stderr — this section's default **No**, never its **Yes**.
 No `/flow*` command calls it; every transition in **Transitions** above runs in the session. A

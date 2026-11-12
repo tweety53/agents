@@ -235,7 +235,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    missing checkout, ~4.45M tokens spent for nothing. The recipe's merge-order record runs with
    it (**Isolate the workspace — additional worktrees**,
    `skills/flow/cross-repo-worktrees.md`): a repository the canonical `link.md`'s `## Merge order`
-   omits is one run 1 never sequences and the self-review bundle never reads (kan-998). **A change
+   omits is one run 1 never sequences and the self-review bundle never reads. **A change
    whose worktree records a flowBase gets a worktree in every `## apps` repository the set holds
    none in, the same way** — the same `STOP: kickoff <repo>`, the `flow-guard kickoff-worktree --from` call
    and its merge-order record — so the stack serves `<base>`'s build, never a main checkout on the

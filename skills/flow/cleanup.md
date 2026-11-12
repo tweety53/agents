@@ -98,7 +98,7 @@ reason after it, when that step wrote none.
 this Finished handoff and `/flow-fast`'s final report — and a final report written beside it or
 instead of it still carries them. No earlier handoff carries either: not the `IN_PROGRESS` handoff
 (`skills/flow/verify-and-handoff.md`) and not integrate run 1's `## Handoff` block
-(`skills/flow/integrate.md`) (kan-1038).
+(`skills/flow/integrate.md`).
 
 A run 2 that **completes step 5** is terminal and names **no** next command.
 

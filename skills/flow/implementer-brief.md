@@ -200,7 +200,7 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > commit per task at the branch tip,
 > `git -C <abs-worktree> commit -m "fix(<module>): <subject>" --trailer "Task-Id: <n>" --trailer "Flow-Key: <your key>" -- <this task's files>`,
 > `<n>` that task's id — both trailers as `--trailer` flags, never a `-m` paragraph each, since git
-> reads trailers from the last paragraph alone (kan-1053 self-review, F2); a re-commit rewrites only the
+> reads trailers from the last paragraph alone; a re-commit rewrites only the
 > refused, unpushed task commit, without the paths the refusal names, keeping its declared
 > `**Commit:**` subject and `Task-Id:` trailer; a pick re-applies the member's commits onto the
 > branch tip in order, each keeping its subject and trailer; a full-suite fix commits with
@@ -220,4 +220,4 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > command, its output and the defect — for the parent's in-run pipeline-fix loop (**Pipeline
 > defects found mid-run**, `skills/flow-contracts/pipeline.md`), and never edited in this worktree
 > unless your task's own `**Files:**` names that file. `flow-guard check-untasked-commits` lists a
-> commit carrying your `Flow-Key:` and no `Task-Id:` (kan-1079 self-review, F2).
+> commit carrying your `Flow-Key:` and no `Task-Id:`.

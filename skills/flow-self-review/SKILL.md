@@ -42,10 +42,10 @@ checkout on any other branch: print the branch and stop.
 
 **This session passes file paths, never file contents.** Every handoff between this file's steps
 is a file in `<sr-dir>`, `<state-dir>/self-review/<name>/`, `<state-dir>` being the path `flow
-state dir` prints — outside every checkout, never committed. The one exception is the pass's own output: the harness refuses a subagent's Write under `<sr-dir>`, so the pass hands back its files' full contents and this session writes them (kan-1051 self-review, F6). This session reads each dispatch's
+state dir` prints — outside every checkout, never committed. The one exception is the pass's own output: the harness refuses a subagent's Write under `<sr-dir>`, so the pass hands back its files' full contents and this session writes them. This session reads each dispatch's
 hand-back, never the files it names, save where a step below says it reads one; every judgement —
 `big`, filing, landing, and when a step runs again — stays this session's.
-Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases. A pass already run is never run again: while the change holds a completed `self-review-<name>-pass` row (`flow record dispatches -change <name>`) and the loop branch `self-review-<name>` exists in `<agents repo>`, this session keeps `<sr-dir>` whole, dispatches no pass and resumes at step 3 from `<sr-dir>/findings.md`, and `flow-guard check-loop-dispatch` refuses a second pass row (kan-1102 self-review, F20).
+Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases. A pass already run is never run again: while the change holds a completed `self-review-<name>-pass` row (`flow record dispatches -change <name>`) and the loop branch `self-review-<name>` exists in `<agents repo>`, this session keeps `<sr-dir>` whole, dispatches no pass and resumes at step 3 from `<sr-dir>/findings.md`, and `flow-guard check-loop-dispatch` refuses a second pass row.
 
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
@@ -60,7 +60,7 @@ store rows. The pass's dispatch row is opened under `<name>` by the hook that ad
 when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
 self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end`
 refuses a `flow.self-review` end while it is open, and a completed one when the change holds no
-completed pass row (kan-1070 self-review, F1).
+completed pass row.
 
 **Every suspected defect is traced to a verdict before the pass returns it.** Reproduced, it is
 fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it in its line. "Not

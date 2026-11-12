@@ -160,7 +160,7 @@ yet launched, a dispatch returned and its result not yet acted on — the next s
 same turn, never announced as "next". A turn whose last action is anything other than an operator
 prompt **What still stops** names, a blocked report, or the handoff the state's run ends on is
 this rule broken (kan-1018: the parent ended its turn with round-0 panel findings recorded and
-every fix still ahead). The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end (kan-1024).
+every fix still ahead). The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end.
 
 **A wait on background subagents is the one turn end inside a phase.** The parent ends its turn on
 the one-shots it launched, and the harness's completion notifications resume it — never a poll;
@@ -501,7 +501,7 @@ Next:
   literally and whatever it was meant to fold spills into the output.
 - **The next command is the last thing printed, alone in its own fenced code block** — a plain
   triple-backtick fence, no language tag, holding the command and nothing else, with no prose after
-  it, so a client with a code-block copy button copies it in one tap (kan-1040). See
+  it, so a client with a code-block copy button copies it in one tap. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
 - **A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
   Yes, puts `/clear` on the line above the next command's fence.** It is a recommendation the operator may skip, never a gate, and the next
@@ -550,7 +550,7 @@ covers:
   off the summary without opening the ledger;
 - findings fixed, and findings withdrawn;
 - commits made — repo and a one-line description each, each commit named by its subject, never by
-  a sha integrate's reshape rewrites (kan-1075 self-review, F15);
+  a sha integrate's reshape rewrites;
 - any decision recorded along the way — an automatic rebase onto a moved base, a diff-size cap
   exceeded and proceeded past, and the like.
 
@@ -710,5 +710,5 @@ A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 A change's directory is `<project>/spectre/changes/<name>/`, on disk in the worktree, never
 committed: `<project>/spectre/changes/` is gitignored and there is no archived path — `design.md` alone lands, as **The design record** (`skills/flow-contracts/finish-contract-run1.md`). Every step that reads or writes a change's planning artifacts resolves the
 directory this way; the guards resolve it through `changePlanDir`
-(`<agents repo>/stats/internal/guard/changeplan.go`), whose bash twin KAN-887 deleted, and `flow tasks`
+(`<agents repo>/stats/internal/guard/changeplan.go`), and `flow tasks`
 through the same rule.
