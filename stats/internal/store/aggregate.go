@@ -98,7 +98,8 @@ type LiveStateRow struct {
 	Command  *string
 	Requests []records.Request
 	// FixRounds is main's highest review-panel round (panel-<N>) plus the
-	// highest verify-fix-<N> and visual-verify-fix-<N> and each other fix
+	// highest verify-fix-<N> or visual-verify-fix-<N> (one In-run fix round
+	// per <N>, counted across both stages) and each other fix
 	// dispatch outside the panel (full-suite-fix-1, a panel-fix row inline and
 	// an implementer row under sdd), ReviewerRuns
 	// its reviewer dispatches outside the self-review; SelfReviewFixRounds is
@@ -117,7 +118,9 @@ type LiveStateRow struct {
 }
 
 // ActiveDispatch is one running subagent: its role, the plan task it works
-// on, its dispatch key, and the model, exact version and effort it runs at.
+// on, its dispatch key, and the model, exact version and effort it runs at --
+// Model and Effort the served ones the harvest recorded in its metrics, else
+// the requested labels (readers-prefer-served-metrics).
 type ActiveDispatch struct {
 	Role         string    `json:"role"`
 	TaskID       *string   `json:"taskId,omitempty"`
@@ -129,6 +132,10 @@ type ActiveDispatch struct {
 	// Inline is a dispatch the main session runs itself (agent_id
 	// "inline"), not a subagent.
 	Inline bool `json:"inline,omitempty"`
+	// CostUsd is the dispatch row's own metrics.cost_usd, a breakdown of
+	// its stage's cost: the stage run's models.<m> already holds those
+	// tokens, so no total adds it.
+	CostUsd *float64 `json:"costUsd,omitempty"`
 }
 
 // signalErrorsExpr is one stage run's tool and API errors, main and
@@ -209,9 +216,12 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		) last_run ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(jsonb_agg(jsonb_build_object(
-			         'role', d.role, 'taskId', d.task_id, 'key', d.dispatch_key, 'model', d.model,
-			         'modelVersion', d.metrics->>'modelVersion', 'effort', d.effort, 'startedAt', d.started_at,
-			         'inline', d.agent_id IS NOT DISTINCT FROM 'inline'
+			         'role', d.role, 'taskId', d.task_id, 'key', d.dispatch_key,
+			         'model', COALESCE(NULLIF(d.metrics->>'modelVersion', ''), d.model),
+			         'modelVersion', d.metrics->>'modelVersion',
+			         'effort', COALESCE(NULLIF(d.metrics->>'effort', ''), d.effort), 'startedAt', d.started_at,
+			         'inline', d.agent_id IS NOT DISTINCT FROM 'inline',
+			         'costUsd', (d.metrics->>'cost_usd')::float8
 			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.ended_at IS NULL AND d.started_at IS NOT NULL
@@ -257,8 +267,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		) reqs ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(MAX(substring(d.dispatch_key FROM '^panel-(\d+)-')::int) FILTER (WHERE NOT d.sr), 0)
-			       + COALESCE(MAX(substring(d.dispatch_key FROM '^verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
-			       + COALESCE(MAX(substring(d.dispatch_key FROM '^visual-verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
+			       + COALESCE(MAX(substring(d.dispatch_key FROM '^(?:visual-)?verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
 			       + (COUNT(*) FILTER (WHERE d.role = 'panel-fix' AND NOT d.sr AND d.dispatch_key NOT LIKE 'panel%' AND d.dispatch_key NOT LIKE '%verify-fix-%'))::int
 			       + (COUNT(*) FILTER (WHERE NOT d.sr AND d.dispatch_key ~ '^tasks?-[0-9+]+-implementer-fix-[0-9]+$'))::int
 			       + (COUNT(*) FILTER (WHERE d.role = 'implementer' AND NOT d.sr AND d.dispatch_key ~ '^full-suite-fix-[0-9]+$'))::int AS fix_rounds,

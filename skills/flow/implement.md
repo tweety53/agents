@@ -608,7 +608,7 @@ the frontend's `## test` list first ran at `flow.verify`, after three panel roun
 tree). Every failure, wherever it lies, is fixed at its root
 cause and the list re-run until it passes. Under `sdd` the fix is a fresh one-shot, the
 `full-suite-fix-<n>` row of **Every fix is a fresh one-shot** below, its `FIX INPUT:` the failing
-block. Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
+block, and a failing visual `verify` row in it is re-run narrowed as **Narrowed visual re-runs** states (`skills/flow/verify-fix-loop.md`). Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
 the route the branch's push state dictates (**Panel re-runs**,
 `skills/flow/review-panel-fix-round.md`), and records the round as one `dispatches` pair
 `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under
@@ -1052,6 +1052,9 @@ FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
 | a `flow-guard close-task` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches |
 | a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the group's own pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
 | a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the full suite**, above) |
+
+`full-suite-fix-<n>` keys the implement phase's full-suite fixes only; a fix at `flow.verify` is an
+`In-run fix <k>` task, its re-runs keyed `-fix-<k>` (**The loop**, `skills/flow/verify-fix-loop.md`).
 
 Every row is `-role implementer`, its prompt's `Role:` line `implementer`, recorded by `flow record
 dispatch begin` and `end` as a group's implementer is — its `-model` and `-effort` the pair the

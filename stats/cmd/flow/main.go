@@ -52,7 +52,7 @@ commands:
   policy get|grants|grant|revoke  read role pairs, manage operator grants (see: flow policy)
   learning add <topic> record one learning note's topic (see: flow learning)
   learning list        print every learning topic with its count as a JSON array
-  pricing reprice      price every stage run since a date again (see: flow pricing)
+  pricing reprice      price every stage run and dispatch since a date again (see: flow pricing)
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
   tasks count <change> record one observation of a plan's task count
   hazard add/remove    record, or retire, one per-project hazard (see: flow hazard)

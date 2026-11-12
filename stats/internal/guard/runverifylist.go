@@ -7,6 +7,20 @@
 // per run, its stdin detach patched in on a second call).
 //
 // Usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
+//        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
+//
+// NARROWED RUNS (decision narrow-via-run-verify-list-flags). `-only <file>`
+// runs the `specs` row only to group its failures by the change's specs, and
+// puts the file's entries -- the visual-failing.txt
+// a failing run wrote -- in the `verify` row's `<specs>`, followed by
+// `--repeat-each 5 --workers 1`; `-detect-flaky` runs the `specs` row as a
+// plain run does and puts its output there, followed by `--retries=1
+// --fail-on-flaky-tests`, and adds its failures to visual-failing.txt rather
+// than rewriting it. Either takes the `visual` list only and no recording
+// arguments: it records no dispatch row, never reads or writes the green
+// cache, and so never stands as the `verify` gate. A missing or empty
+// -only file, both flags, or a `verify` cell with no `<specs>` exits 2 before
+// any command runs.
 //
 // RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
 // back-filled a forgotten begin with a guessed start). Given the five trailing
@@ -52,8 +66,14 @@
 // `<worktree>/.superpowers/sdd/decision.json` does not record
 // `visual.verify` `skipped`, HEAD is not the green sha, and `git diff
 // --name-only <merge-base>..HEAD` touches a `ui paths` glob, the merge base
-// that of HEAD and resolve-base-branch's base (its `origin/` ref when
-// fetched). A base that does not resolve runs it. It reports and fails the
+// the commit `flow.kickoff` branched <worktree> from -- its value in the
+// worktrees map of `flow state get -C <canonical-worktree or worktree>
+// <change>`, <change> the recording argument or the branch name less
+// `spectre/` (decision selection-base-kickoff-commit) -- and only with no
+// such value that of HEAD and resolve-base-branch's base (its `origin/` ref
+// when fetched), printed as `- kickoff base: not recorded for <worktree> —
+// selecting from merge-base HEAD <ref>`. The same base fills the `specs`
+// row's `<merge-base>`. A base that does not resolve runs it. It reports and fails the
 // list like any other command; a `lint` list never runs it.
 // A `visual` list runs that `verify` row alone, as a `test` list's tail
 // would, and never the `## lint` or `## test` commands; when the conditions
@@ -114,14 +134,25 @@
 //     `full output: <path>` — on a non-zero exit inside a git worktree, the
 //     command's whole output copied to `<git-path flow-verify-failed>/<list>-<n>.log`
 //     (<n> its 0-based list position, `spec-reach` for the appended
-//     check-spec-reach.sh), never into the tree; each run first removes that
-//     list's earlier logs, so a printed path holds this run's output
+//     check-spec-reach.sh), never into the tree; each `lint` or `test` run
+//     first removes that list's earlier logs, so a printed path holds this
+//     run's output
 //     `result files: <dir>` — beside it, when the run wrote JUnit `TEST-*.xml`
 //     files under the worktree: each copied into a per-run
 //     `<git-path flow-verify-failed>/<list>-<n>-results-<ns>/` no later run
 //     removes, so a flake's first failing run stays traceable
 //   - the visual verify, when it ran, last, as `- `<verify row>` — exit <n>`,
-//     its kept output `test-visual.log`
+//     its kept output `visual-<mode>-r<N>.log`, <mode> `plain`, `only` or
+//     `detect-flaky` and <N> one past the highest round already kept, with
+//     `result files: <git-path flow-verify-failed>/visual-results-r<N>` --
+//     the newest `test-results/` directory the run wrote, copied -- both kept
+//     until the worktree is removed (decision
+//     per-round-artifacts-round-counter); a failing one also adds
+//     `failing list: <git-path flow-verify-failed>/visual-failing.txt` (or
+//     `failing list: none parsed`, the file then emptied), the tests its
+//     Playwright summary names as failed, interrupted or flaky, and
+//     `failing in the change's specs (<n>): …` / `failing elsewhere (<n>): …`,
+//     grouped by the `specs` row's output (rvlKeepFailures)
 //
 // Exit codes:
 //   0  every command exited 0
@@ -150,8 +181,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -173,6 +206,7 @@ import (
 // `## Report` lines.
 //
 // Usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
+//        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
 //
 // Exit codes:
 //   0  every command exited 0
@@ -182,6 +216,9 @@ import (
 //      arguments, no flow binary on PATH for those, or <worktree> is not a
 //      directory), a list line holding a `<word>` placeholder — its stderr
 //      line names it — or flow-guard project-get exit 2 — its stderr line says why
+//      -- or a narrowing flag with another list, recording arguments, the
+//      other flag, a missing or empty -only file, or a `verify` cell with no
+//      `<specs>` (its stderr line names the cause)
 //   3  the list is not declared (flow-guard project-get exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
@@ -198,7 +235,9 @@ import (
 // A `# suite: <name>` line in the `test` list names the one command below it
 // as that suite: it runs under `flow suite record -C <worktree> -suite <name>
 // --`, so its runtime reaches the store `flow suite list` reads; with no flow
-// on PATH it runs bare.
+// on PATH it runs bare. A plain run of the visual `verify` row runs under
+// `flow suite record -C <worktree> -suite visual --` the same way; a
+// narrowed run never does.
 //
 // A `test` list ends with the `## visual verification` `verify` row, run once
 // after every other command, when the worktree's diff from its base branch
@@ -207,7 +246,10 @@ import (
 // any other command (kan-1047). A declared `specs` row runs first, its paths
 // put in `<specs>`: no path runs no spec, a non-zero exit or an unresolved
 // base fails the list, and the whole suite never runs in its place. With no
-// `specs` row, `<specs>` is emptied and the suite runs whole.
+// `specs` row, `<specs>` is emptied and the suite runs whole. A sibling
+// worktree in the change's state record whose diff touches the `ui paths`
+// as `<its repository name>/<path>` runs the row too, its path and kickoff
+// base filling `<frontend-root>` and `<merge-base>` (siblingFrontend).
 //
 // A `visual` list runs that `verify` row alone, as a `test` list's tail would,
 // and never the `## lint` or `## test` commands; when the conditions above
@@ -279,6 +321,49 @@ var (
 // (verify-list-runs-targeted). fallback is the `regression checkout` dir
 // fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
 func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
+	return rvlVisualVerifyFor(env, wt, covered, "", "", io.Discard)
+}
+
+// rvlKickoffBases is the worktrees map of `flow state get -C <canon>
+// <change>`: each worktree's absolute path, in record order, and the commit
+// `flow.kickoff` branched it from (decision selection-base-kickoff-commit)
+// -- none when flow is not on PATH or fails.
+func rvlKickoffBases(env Env, change, canon string) (worktrees []string, bases map[string]string) {
+	bases = map[string]string{}
+	flow, ok := lookPath(env, "flow")
+	if !ok || change == "" {
+		return nil, bases
+	}
+	get := exec.Command(flow, "state", "get", "-C", canon, change)
+	get.Dir, get.Env = env.Dir, icChildEnv(env)
+	out, err := get.Output()
+	if err != nil {
+		return nil, bases
+	}
+	st := icParseState(string(out))
+	for i, k := range st.keys {
+		if st.values[i] != "-" {
+			worktrees, bases[k] = append(worktrees, k), st.values[i]
+			if r, err := filepath.EvalSymlinks(k); err == nil && bases[r] == "" {
+				bases[r] = st.values[i]
+			}
+		}
+	}
+	return worktrees, bases
+}
+
+// rvlVisualVerifyFor is rvlVisualVerify with the change's name and its
+// canonical worktree (wt when ""), whose state record gives the merge base:
+// the kickoff base for wt, and only with none -- the fallback printed on
+// stdout -- the merge base of HEAD and the remote base branch. The record's
+// other worktrees are wt's siblings: the row also runs when a sibling's diff
+// from its own base matches wt's `ui paths` under `--repo <its repository
+// name>`, and the `specs` row then reads the first such sibling and its base
+// (siblingFrontend, the rule `visual-verify-pass prepare` follows).
+func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
+	if canon == "" {
+		canon = wt
+	}
 	b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
 	if err != nil {
 		return "", "", "", "", false
@@ -295,26 +380,51 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallbac
 	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json")); err == nil && json.Unmarshal(raw, &d) == nil && d.Visual.Verify == "skipped" {
 		return "", "", "", "", false
 	}
+	git := envGit(env)
+	worktrees, bases := rvlKickoffBases(env, change, canon)
 	mb := ""
 	changed := func() ([]string, error) {
-		var base bytes.Buffer
-		if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
-			return nil, fmt.Errorf("no base branch")
+		// The record may name wt by its symlink-resolved form (/private/var
+		// for /var on macOS), or wt be that form.
+		// rvlKickoffBases keys every record also by its resolved form.
+		r := wt
+		if e, err := filepath.EvalSymlinks(wt); err == nil {
+			r = e
 		}
-		git := envGit(env)
-		ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
-		m, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
-		if !ok {
-			return nil, fmt.Errorf("no merge base")
+		mb = bases[r]
+		if mb == "" {
+			var base bytes.Buffer
+			if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
+				return nil, fmt.Errorf("no base branch")
+			}
+			ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
+			fmt.Fprintf(stdout, "- kickoff base: not recorded for %s — selecting from merge-base HEAD %s\n", wt, ref)
+			m, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
+			if !ok {
+				return nil, fmt.Errorf("no merge base")
+			}
+			mb = strings.TrimSpace(m)
 		}
-		mb = strings.TrimSpace(m)
 		names, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb+"..HEAD"))
 		if !ok {
 			return nil, fmt.Errorf("no diff")
 		}
 		return strings.Split(names, "\n"), nil
 	}
-	if visualTrigger(env, wt, changed, io.Discard, io.Discard) == 1 {
+	own := visualTrigger(env, wt, changed, io.Discard, io.Discard) != 1
+	bases[wt] = mb
+	siblings := slices.DeleteFunc(worktrees, func(w string) bool { return w == wt })
+	root, base := siblingFrontend(wt, siblings, bases, func(s string) bool {
+		names, ok := capture(git("-C", s, "diff", "--no-renames", "--name-only", bases[s]+"..HEAD"))
+		common, ok2 := capture(git("-C", s, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		if !ok || !ok2 {
+			return false
+		}
+		e := env
+		e.Stdin = strings.NewReader(names + "\n")
+		return Registry["check-visual-trigger"]([]string{"--repo", filepath.Base(filepath.Dir(common)), wt}, e, io.Discard, io.Discard) == 0
+	})
+	if !own && root == wt {
 		return "", "", "", "", false
 	}
 	dir = wt
@@ -334,12 +444,139 @@ func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallbac
 		}
 	}
 	if s := cells["specs"]; s != "" {
-		if mb == "" {
+		if base == "" {
 			return "", "", dir, fallback, true
 		}
-		return cells["verify"], strings.NewReplacer("<frontend-root>", wt, "<merge-base>", mb).Replace(s), dir, fallback, true
+		return cells["verify"], strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(s), dir, fallback, true
 	}
 	return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, true
+}
+
+var (
+	rvlANSI         = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	rvlFailureBlock = regexp.MustCompile(`^\s+\d+ (failed|interrupted|flaky)$`)
+	rvlFailureLine  = regexp.MustCompile(`^\s+\[[^\]]+\] › (\S+):(\d+):\d+ › `)
+)
+
+// rvlVisualFailures is every test a Playwright list-reporter log names in its
+// summary's failed, interrupted and flaky blocks (generateSummaryMessage,
+// Playwright 1.62.1): a `  N failed|interrupted|flaky` line opens a block, and
+// each following `    [project] › path:line:col › titles` line adds
+// `path:line` until a line that does not match. ANSI colour codes are
+// stripped, and an entry is kept once, at its first appearance. It is the
+// list `-only` re-runs (decision narrow-via-run-verify-list-flags).
+func rvlVisualFailures(log []byte) []string {
+	var out []string
+	open := false
+	for _, l := range strings.Split(rvlANSI.ReplaceAllString(string(log), ""), "\n") {
+		if rvlFailureBlock.MatchString(l) {
+			open = true
+			continue
+		}
+		m := rvlFailureLine.FindStringSubmatch(l)
+		if !open || m == nil {
+			open = false
+			continue
+		}
+		if e := m[1] + ":" + m[2]; !slices.Contains(out, e) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// rvlKeepFailures writes the failures a failing visual run's log names to
+// <keep>/visual-failing.txt, one per line -- an empty file when none parse,
+// so `-only` never re-runs an earlier round's list; with union, the
+// detector's, added to the entries the file already holds -- and prints the file and
+// the failures grouped as in the change's specs (their path is the path part
+// of a specs token; every failure when specs is nil) or elsewhere (decision
+// untouched-spec-outside-specs-output). A file it cannot write is printed as
+// not written, with the error, and nothing else.
+func rvlKeepFailures(keep string, log []byte, specs []string, union bool, stdout io.Writer) {
+	file := filepath.Join(keep, "visual-failing.txt")
+	var failures []string
+	if union {
+		b, _ := os.ReadFile(file)
+		failures = strings.Fields(string(b))
+	}
+	for _, f := range rvlVisualFailures(log) {
+		if !slices.Contains(failures, f) {
+			failures = append(failures, f)
+		}
+	}
+	body := ""
+	for _, f := range failures {
+		body += f + "\n"
+	}
+	if err := os.WriteFile(file, []byte(body), 0o666); err != nil {
+		fmt.Fprintf(stdout, "  failing list: not written — %v\n", err)
+		return
+	}
+	if len(failures) == 0 {
+		fmt.Fprintln(stdout, "  failing list: none parsed")
+		return
+	}
+	fmt.Fprintf(stdout, "  failing list: %s\n", file)
+	var mine, elsewhere []string
+	for _, f := range failures {
+		path, _, _ := strings.Cut(f, ":")
+		in := specs == nil
+		for _, s := range specs {
+			if p, _, _ := strings.Cut(s, ":"); p == path {
+				in = true
+			}
+		}
+		if in {
+			mine = append(mine, f)
+		} else {
+			elsewhere = append(elsewhere, f)
+		}
+	}
+	group := func(name string, g []string) {
+		fmt.Fprintf(stdout, "  failing %s (%d):%s\n", name, len(g), strings.TrimRight(" "+strings.Join(g, " "), " "))
+	}
+	group("in the change's specs", mine)
+	group("elsewhere", elsewhere)
+}
+
+var rvlRoundFile = regexp.MustCompile(`^visual-(?:.+-r(\d+)\.log|results-r(\d+))$`)
+
+// rvlNextRound claims the round one past the highest <N> among keep's
+// `visual-*-r<N>.log` and `visual-results-r<N>` -- 1 when there is none -- by
+// creating `visual-results-r<N>`, taking the next round when a concurrent run
+// created it first.
+func rvlNextRound(keep string) int {
+	n := 0
+	entries, _ := os.ReadDir(keep)
+	for _, e := range entries {
+		if m := rvlRoundFile.FindStringSubmatch(e.Name()); m != nil {
+			r, _ := strconv.Atoi(m[1] + m[2])
+			n = max(n, r)
+		}
+	}
+	for n++; errors.Is(os.Mkdir(filepath.Join(keep, fmt.Sprintf("visual-results-r%d", n)), 0o777), fs.ErrExist); n++ {
+	}
+	return n
+}
+
+// rvlKeepPlaywrightResults copies the newest directory under
+// <dir>/test-results/ modified since the run started -- the failing run's
+// Playwright output, diffs and traces -- to dst, and returns dst, or "" when
+// there was none. dst is the round's own and no later run removes it.
+func rvlKeepPlaywrightResults(dir, dst string, since time.Time) string {
+	root := filepath.Join(dir, "test-results")
+	entries, _ := os.ReadDir(root)
+	newest, at := "", since
+	for _, e := range entries {
+		if fi, err := e.Info(); err == nil && e.IsDir() && !fi.ModTime().Before(at) {
+			newest, at = e.Name(), fi.ModTime()
+		}
+	}
+	if newest == "" || os.CopyFS(dst, os.DirFS(filepath.Join(root, newest))) != nil {
+		return ""
+	}
+	return dst
 }
 
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
@@ -357,6 +594,46 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return p
 	}
 	const usage = "usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
+	const narrowUsage = "usage: flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]"
+	// A narrowing flag re-runs the visual `verify` row alone, narrowed, and
+	// records nothing: no row it ends can stand as the gate (decision
+	// narrow-via-run-verify-list-flags).
+	mode, only := "plain", []string(nil)
+	for len(args) > 0 && (args[0] == "-only" || args[0] == "-detect-flaky") {
+		if mode != "plain" {
+			fmt.Fprintln(stderr, "run-verify-list: pass -only or -detect-flaky, not both")
+			return 2
+		}
+		if mode = args[0][1:]; mode == "only" {
+			if len(args) < 2 {
+				fmt.Fprintln(stderr, narrowUsage)
+				return 2
+			}
+			b, err := os.ReadFile(abs(args[1]))
+			if err != nil {
+				fmt.Fprintf(stderr, "run-verify-list: -only: %v\n", err)
+				return 2
+			}
+			if only = strings.Fields(string(b)); len(only) == 0 {
+				fmt.Fprintf(stderr, "run-verify-list: -only %s is empty — nothing to re-run\n", args[1])
+				return 2
+			}
+			args = args[1:]
+		}
+		args = args[1:]
+	}
+	// change and canon name the state record the kickoff base is read from.
+	change, canon := "", ""
+	if mode != "plain" {
+		if (len(args) != 2 && len(args) != 3) || args[1] != "visual" {
+			fmt.Fprintln(stderr, narrowUsage)
+			return 2
+		}
+		if len(args) == 3 {
+			canon = abs(args[2])
+		}
+		args = args[:2]
+	}
 	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test" && args[1] != "visual") {
 		fmt.Fprintln(stderr, usage)
 		return 2
@@ -373,9 +650,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "run-verify-list: no flow binary on PATH")
 			return 2
 		}
-		wt, change, verified := args[0], args[2], args[0]
+		wt, verified := args[0], args[0]
+		change = args[2]
 		if len(args) == 8 {
 			wt = args[7]
+			canon = abs(wt)
 		}
 		key, token, model, effort := args[3], args[4], args[5], args[6]
 		if !verifyKeyOK(env, abs(args[0]), key) {
@@ -411,6 +690,19 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	wt, list := args[0], args[1]
 	childEnv := icChildEnv(env)
+	// rawVerify is the `verify` cell, its `<specs>` unfilled; a narrowed run
+	// appends its flag's arguments after the paths it puts there.
+	rawVerify, suffix := "", map[string]string{"only": " --repeat-each 5 --workers 1", "detect-flaky": " --retries=1 --fail-on-flaky-tests"}[mode]
+	if b, err := os.ReadFile(filepath.Join(abs(wt), ".flow", "project.md")); err == nil {
+		rawVerify = vvCells(string(b))["verify"]
+	}
+	if mode != "plain" && rawVerify != "" && !strings.Contains(rawVerify, "<specs>") {
+		fmt.Fprintf(stderr, "run-verify-list: the `verify` cell has no <specs> placeholder to narrow — no command ran: %s\n", rawVerify)
+		return 2
+	}
+	fill := func(tokens []string) string {
+		return strings.ReplaceAll(rawVerify, "<specs>", strings.TrimSpace(strings.Join(tokens, " ")+suffix))
+	}
 
 	// A visual list runs the `verify` row alone: no list to read.
 	var body []byte
@@ -532,15 +824,21 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	keep, _ := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-verify-failed")
 	if keep != "" {
 		os.MkdirAll(keep, 0o777)
-		old, _ := filepath.Glob(filepath.Join(keep, list+"-*.log"))
-		for _, f := range old {
-			os.Remove(f)
+		// A visual round's log is kept until the worktree goes (decision
+		// per-round-artifacts-round-counter); only lint and test logs are
+		// this run's alone.
+		if list != "visual" {
+			old, _ := filepath.Glob(filepath.Join(keep, list+"-*.log"))
+			for _, f := range old {
+				os.Remove(f)
+			}
 		}
 	}
 
 	started := time.Now().Add(-time.Second)
 	failed := 0
-	report := func(shown string, rc int, file, key string) {
+	// report prints one command's block; name is its kept log's basename.
+	report := func(shown string, rc int, file, name string) {
 		if rc != 0 {
 			failed = 1
 		}
@@ -561,10 +859,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stdout, "  data race — never environmental")
 		}
 		if rc != 0 && keep != "" {
-			log := filepath.Join(keep, list+"-"+key+".log")
+			log := filepath.Join(keep, name+".log")
 			os.WriteFile(log, out, 0o666)
 			fmt.Fprintf(stdout, "  full output: %s\n", log)
-			if dir := keepResults(abs(wt), filepath.Join(keep, fmt.Sprintf("%s-%s-results-%d", list, key, time.Now().UnixNano())), started); dir != "" {
+			if dir := keepResults(abs(wt), filepath.Join(keep, fmt.Sprintf("%s-results-%d", name, time.Now().UnixNano())), started); dir != "" {
 				fmt.Fprintf(stdout, "  result files: %s\n", dir)
 			}
 		}
@@ -583,7 +881,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// run runs one command in the foreground.
 	run := func(shown, cmd, key string) {
 		results := rgtRun(context.Background(), [][]string{append(capped[:len(capped):len(capped)], cmd)}, 1, outDir, abs(wt), cmdEnv)
-		report(shown, results[0].rc, results[0].out, key)
+		report(shown, results[0].rc, results[0].out, list+"-"+key)
 	}
 
 	if !record("begin") {
@@ -621,7 +919,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			r := results[0]
 			results = results[1:]
-			report(c, r.rc, r.out, fmt.Sprint(i))
+			report(c, r.rc, r.out, list+"-"+fmt.Sprint(i))
 			if r.rc == 0 {
 				passed = append(passed, c)
 			}
@@ -629,7 +927,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	visualRan := false
 	if list != "lint" {
-		if cmd, specs, dir, fallback, ok := rvlVisualVerify(env, abs(wt), unchanged("")); !ok && list == "visual" {
+		if change == "" {
+			branch, _ := gitOut("branch", "--show-current")
+			change = strings.TrimPrefix(branch, "spectre/")
+		}
+		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged(""), change, canon, stdout); !ok && list == "visual" {
 			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
 		} else if ok && list == "visual" && fallback != "" {
 			// /flow-fast and /flow-interactive set up no regression-checkout
@@ -639,27 +941,41 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "- visual verify — not run: `regression checkout` %s holds no worktree on this branch; create it, and start the stack the `verify` row needs from it, then re-run\n", fallback)
 		} else if ok {
 			visualRan = true
+			var specTokens []string // the `specs` row's output, nil with no row
 			// A `specs` row scopes the suite to the specs it maps; one that
 			// cannot run, or fails, blocks the list, and one that maps
 			// nothing runs no spec -- never the whole suite, which runs only
 			// when the operator asks (verify-list-runs-targeted).
 			switch {
+			case mode == "only":
+				// The `specs` row runs only to group the failures; the
+				// list alone picks what runs.
+				if cmd != "" && specs != "" {
+					r := rgtRun(context.Background(), [][]string{{"bash", "-c", specs}}, 1, outDir, dir, cmdEnv)[0]
+					if out, err := os.ReadFile(r.out); err == nil && r.rc == 0 {
+						specTokens = append([]string{}, strings.Fields(string(out))...)
+					}
+				}
+				cmd = fill(only)
 			case cmd == "":
 				failed = 1
 				fmt.Fprintln(stdout, "- `specs` — not run, no merge base to scope the visual verify to; the whole suite runs only when the operator asks")
-			case specs != "":
+			case specs == "":
+				cmd = fill(nil)
+			default:
 				r := rgtRun(context.Background(), [][]string{{"bash", "-c", specs}}, 1, outDir, dir, cmdEnv)[0]
 				out, _ := os.ReadFile(r.out)
 				paths := strings.Fields(string(out))
 				switch {
 				case r.rc != 0:
-					report(specs, r.rc, r.out, "specs")
+					report(specs, r.rc, r.out, list+"-specs")
 					cmd = ""
 				case len(paths) == 0:
 					fmt.Fprintf(stdout, "- `%s` — exit 0, mapped no spec: the visual verify ran no spec\n", specs)
 					cmd = ""
 				default:
-					cmd = strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " "))
+					cmd = fill(paths)
+					specTokens = paths
 				}
 			}
 			switch {
@@ -667,10 +983,30 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			case list == "test" && slices.Contains(greenAt, cmd):
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", cmd, headSHA)
 			default:
-				results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, dir, cmdEnv)
-				report(cmd, results[0].rc, results[0].out, "visual")
+				// A plain run's runtime reaches the store as suite `visual`; a
+				// narrowed one is not that suite (decision suite-records-scope).
+				argv := []string{"bash", "-c", cmd}
+				if flow, ok := lookPath(env, "flow"); ok && mode == "plain" {
+					argv = append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", "visual", "--"}, argv...)
+				}
+				results := rgtRun(context.Background(), [][]string{argv}, 1, outDir, dir, cmdEnv)
+				name, round := list+"-visual", 0
+				if results[0].rc != 0 && keep != "" {
+					round = rvlNextRound(keep)
+					name = fmt.Sprintf("visual-%s-r%d", mode, round)
+				}
+				report(cmd, results[0].rc, results[0].out, name)
 				if results[0].rc == 0 {
 					passed = append(passed, cmd)
+				} else if keep != "" {
+					dst := filepath.Join(keep, fmt.Sprintf("visual-results-r%d", round))
+					if kept := rvlKeepPlaywrightResults(dir, dst, started); kept != "" {
+						fmt.Fprintf(stdout, "  result files: %s\n", kept)
+					} else {
+						os.Remove(dst) // the empty claim
+					}
+					log, _ := os.ReadFile(results[0].out)
+					rvlKeepFailures(keep, log, specTokens, mode == "detect-flaky", stdout)
 				}
 			}
 		}

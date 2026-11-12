@@ -94,8 +94,8 @@ one more command in the same list, whose exit 0 line `Spec reach: not configured
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
 every command in order and do not stop at the first failure.
 The lint commands with `flow-guard check-spec-reach` and the test commands run as two groups at once, each
-in the order printed, each started detached and polled to completion as the paragraph below runs a
-`verify` that can outrun the shell tool's time limit; the `## Report` lists every command in the order
+in the order printed, in one Bash call launched with `run_in_background: true` as the paragraph below
+runs a `verify` that can outrun the shell tool's time limit; the `## Report` lists every command in the order
 printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `flow-guard check-dev-stack-fresh
@@ -103,12 +103,7 @@ While a stack is up for this run, the test commands start only after `flow-guard
 the run instructions** below, so no suite runs against a build older than the last commit; a stack
 that will not start ends the turn as a failed command's environment cause does.
 
-**A `verify` that can outrun the shell tool's time limit runs whole, in the background, polled
-to completion** — one Bash call starts it detached,
-`rm -f <exit-file>; nohup sh -c '<verify> > <log> 2>&1; echo $? > <exit-file>' > /dev/null 2>&1 < /dev/null &`
-(`<verify>` sits inside single quotes, so it must contain none), then repeated foreground Bash calls at timeout 600000 each run
-`until [ -f <exit-file> ] || [ $SECONDS -gt 540 ]; do sleep 10; done` until `<exit-file>` exists,
-reading its exit code and output from those two files. Never split its
+**A `verify` that can outrun the shell tool's time limit runs whole, in the background** — one Bash call launched with `run_in_background: true`, and the parent waits for its completion notification and reads the exit code and output from it, never a `sleep` poll. Never split its
 `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
 chunk pays the suite's start-up again (kan-932's 78-spec suite, ~14 minutes, ran in two halves).
 
@@ -130,7 +125,8 @@ since that sha leaves untouched; a skipped command's `## Report` line says so, a
 header is canonical for the rule. At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
-inline re-run of that command — the environmental-flake case. Output carrying `WARNING: DATA RACE`
+inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the flake detector of **Narrowed visual re-runs**
+(`skills/flow/verify-fix-loop.md`). Output carrying `WARNING: DATA RACE`
 or `race detected during execution of test` is never that case: the command takes **The loop**
 whatever its re-run exits, since a race that passes once is still a race
 (`rules/fix-determinism-at-the-source.mdc`), and `flow-guard run-verify-list` marks its block with
@@ -156,7 +152,8 @@ refusal: clear the cause — a tracked modification, most often — and run the 
 `end` is a warning line that never changes the exit code. The first `begin` stamps the start and the
 later group's `end` the finish. A verify re-run after a new code commit passes a key no earlier verify row of the change
 used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
-key's first `startedAt`, and a row started before the commit never covers it. Once the one inline re-run is decided, a passing re-run ends a fresh
+key's first `startedAt`, and a row started before the commit never covers it. `verify-<k>` keys a re-run with no fix; a re-run after a fix carries the fix round's `-fix-<k>` key
+(**The loop**, `skills/flow/verify-fix-loop.md`). Once the one inline re-run is decided, a passing re-run ends a fresh
 row `-outcome completed`, and a command that failed twice for a missing build prerequisite is ended
 `-outcome blocked -cause environment` by the parent.
 

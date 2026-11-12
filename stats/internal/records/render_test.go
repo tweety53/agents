@@ -1233,3 +1233,59 @@ func TestRenderLedgerNamesTheRequest(t *testing.T) {
 		})
 	}
 }
+
+// TestLedgerShowsLabelArrowServed pins decision readers-prefer-served-metrics:
+// each half of a dispatch's Model line reads `<label> → <served>` when the
+// metrics name another served model or effort, and the label alone otherwise.
+func TestLedgerShowsLabelArrowServed(t *testing.T) {
+	served := json.RawMessage(`{"modelVersion":"claude-opus-5-5","effort":"medium"}`)
+	for _, tc := range []struct {
+		model, effort string
+		metrics       json.RawMessage
+		want          string
+	}{
+		{"opus", "high", served, "- Model: opus → claude-opus-5-5 effort=high → medium\n"},
+		{"claude-opus-5-5", "medium", served, "- Model: claude-opus-5-5 effort=medium\n"},
+		{"opus", "high", nil, "- Model: opus effort=high\n"},
+	} {
+		out := records.RenderLedger(records.Run{Change: "demo", Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: tc.model, Effort: tc.effort, Metrics: tc.metrics,
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+		}}})
+		if !strings.Contains(out, tc.want) {
+			t.Errorf("ledger lacks %q:\n%s", tc.want, out)
+		}
+	}
+}
+
+// TestLedgerShowsDispatchCostAsABreakdown pins the per-dispatch Cost line:
+// shown after the Model line when the row carries metrics.cost_usd, labelled
+// as part of its stage's cost, and absent when the row carries none.
+func TestLedgerShowsDispatchCostAsABreakdown(t *testing.T) {
+	run := records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{
+				Seq: 1, Role: "implementer", Model: "opus", Outcome: "completed",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+				Metrics:   json.RawMessage(`{"cost_usd":1.5}`),
+			},
+			{
+				Seq: 2, Role: "implementer", Model: "opus", Outcome: "completed",
+				StartedAt: time.Date(2026, 1, 2, 4, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	out := records.RenderLedger(run)
+
+	first := out[:strings.Index(out, "## Dispatch 2 —")]
+	modelIdx := strings.Index(first, "- Model:")
+	costIdx := strings.Index(first, "- Cost: $1.50 (part of its stage's cost)\n")
+	if costIdx == -1 || modelIdx == -1 || costIdx < modelIdx {
+		t.Errorf("dispatch 1 must render its Cost line after the Model line:\n%s", first)
+	}
+	if strings.Contains(out[strings.Index(out, "## Dispatch 2 —"):], "- Cost:") {
+		t.Errorf("a dispatch with no cost_usd must render no Cost line:\n%s", out)
+	}
+}

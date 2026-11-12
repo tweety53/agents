@@ -2,11 +2,13 @@ package guard
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -740,7 +742,27 @@ func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
 // code and stdout+stderr.
 func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOrigin, checkout, noAppWT bool) (rc int, out, appWT string) {
 	t.Helper()
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	wt, appWT := rvlVisualSetup(t, verify, file, decision, specs, noOrigin, checkout, noAppWT)
+	rc, out = rvlRunIn(t, wt, "", wt, list)
+	return rc, out, appWT
+}
+
+// rvlRunIn runs run-verify-list with args from dir, path prepended to PATH
+// when set, and returns its exit code and stdout+stderr. PATH never holds
+// the real `flow`, whose `suite record` would write to the dev store: a test
+// wanting one passes its stub's directory as path.
+func rvlRunIn(t *testing.T, dir, path string, args ...string) (int, string) {
+	t.Helper()
+	var bare []string
+	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
+		if _, err := os.Stat(filepath.Join(d, "flow")); err != nil {
+			bare = append(bare, d)
+		}
+	}
+	if path != "" {
+		bare = append([]string{path}, bare...)
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+strings.Join(bare, ":"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -749,12 +771,26 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 		}
 		return ""
 	}
-	git := func(t *testing.T, dir string, args ...string) {
-		t.Helper()
-		if out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
+	var o, e bytes.Buffer
+	rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: dir}, &o, &e)
+	return rc, o.String() + e.String()
+}
+
+// rvlGit runs git in dir with a fixed identity, failing the test on error.
+func rvlGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
+	return strings.TrimSpace(string(out))
+}
+
+// rvlVisualSetup builds rvlVisualRun's fixture and returns the worktree on
+// branch `work` and the regression checkout's worktree path.
+func rvlVisualSetup(t *testing.T, verify, file, decision, specs string, noOrigin, checkout, noAppWT bool) (wt, appWT string) {
+	t.Helper()
+	git := func(t *testing.T, dir string, args ...string) { t.Helper(); rvlGit(t, dir, args...) }
 	project := func(verify, checkout, specs string) string {
 		row, specsRow := "", ""
 		if checkout != "" {
@@ -769,7 +805,8 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 	if err != nil {
 		t.Fatal(err)
 	}
-	seed, wt := filepath.Join(base, "seed"), filepath.Join(base, "wt")
+	seed := filepath.Join(base, "seed")
+	wt = filepath.Join(base, "wt")
 	app := filepath.Join(base, "app")
 	appWT = filepath.Join(base, "app-wt")
 	checkoutPath := ""
@@ -802,9 +839,7 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 	if decision != "" {
 		writeFile(t, filepath.Join(wt, ".superpowers/sdd/decision.json"), decision)
 	}
-	var o, e bytes.Buffer
-	rc = runVerifyList([]string{wt, list}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
-	return rc, o.String() + e.String(), appWT
+	return wt, appWT
 }
 
 // TestRunVerifyListRunsTheVisualVerify pins verify-list-runs-visual: a `test`
@@ -1194,5 +1229,428 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	gitRun(t, wt, "commit", "-qm", "b")
 	if rc, out := test(); runs() != 2 {
 		t.Fatalf("run 3: exit %d, a-runs %d; want 2\n%s", rc, runs(), out)
+	}
+}
+
+// rvlSummary is a Playwright 1.62.1 list-reporter run: passing lines, an error
+// header, and the failed / interrupted / flaky summary blocks, one block
+// header wrapped in ANSI colour codes.
+const rvlSummary = "  ✓  1 [fidelity] › fidelity/a.spec.ts:3:1 › a\n" +
+	"  1) [fidelity] › fidelity/templates.spec.ts:97:3 › templates › list\n" +
+	"\n" +
+	"\x1b[31m  2 failed\x1b[39m\n" +
+	"    [fidelity] › fidelity/templates.spec.ts:97:3 › templates › list\n" +
+	"    [functional] › tests/auth.spec.ts:132:1 › signs in @smoke\n" +
+	"  1 interrupted\n" +
+	"    [fidelity] › fidelity/b.spec.ts:8:1 › b\n" +
+	"  1 flaky\n" +
+	"    [fidelity] › fidelity/kan-754-offline-l3.spec.ts:380:5 › offline\n" +
+	"  140 passed (3.2m)\n"
+
+var rvlSummaryFailures = []string{"fidelity/templates.spec.ts:97", "tests/auth.spec.ts:132", "fidelity/b.spec.ts:8", "fidelity/kan-754-offline-l3.spec.ts:380"}
+
+func TestRvlVisualFailuresReadsTheSummaryBlocks(t *testing.T) {
+	t.Parallel()
+	if got := rvlVisualFailures([]byte(rvlSummary + rvlSummary)); !slices.Equal(got, rvlSummaryFailures) {
+		t.Errorf("rvlVisualFailures = %q, want %q", got, rvlSummaryFailures)
+	}
+}
+
+// rvlScript writes body as an executable script and returns `bash <path>`,
+// a table-safe `verify` or `specs` cell.
+func rvlScript(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "cell.sh")
+	writeExec(t, p, "#!/usr/bin/env bash\n"+body)
+	return "bash " + p
+}
+
+// rvlFailingList is the worktree's kept visual-failing.txt path.
+func rvlFailingList(t *testing.T, wt string) string {
+	t.Helper()
+	return filepath.Join(rvlGit(t, wt, "rev-parse", "--path-format=absolute", "--git-path", "flow-verify-failed"), "visual-failing.txt")
+}
+
+func TestRunVerifyListWritesTheFailingVisualTests(t *testing.T) {
+	t.Parallel()
+	summary := filepath.Join(t.TempDir(), "summary")
+	writeFile(t, summary, rvlSummary)
+	wt, _ := rvlVisualSetup(t, rvlScript(t, "cat "+summary+"\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
+	rc, out := rvlRunIn(t, wt, "", wt, "visual")
+	list := rvlFailingList(t, wt)
+	b, _ := os.ReadFile(list)
+	if rc != 1 || string(b) != strings.Join(rvlSummaryFailures, "\n")+"\n" || !strings.Contains(out, "  failing list: "+list+"\n") {
+		t.Errorf("exit %d, %s holds %q, output:\n%s", rc, list, b, out)
+	}
+}
+
+func TestRunVerifyListGroupsFailuresByTheChangeSpecs(t *testing.T) {
+	t.Parallel()
+	summary := filepath.Join(t.TempDir(), "summary")
+	writeFile(t, summary, rvlSummary)
+	verify := rvlScript(t, "cat "+summary+"\nexit 1\n") + " <specs>"
+	wt, _ := rvlVisualSetup(t, verify, "web/src/a.tsx", "", "echo fidelity/templates.spec.ts:12 tests/auth.spec.ts", false, false, false)
+	_, out := rvlRunIn(t, wt, "", wt, "visual")
+	for _, want := range []string{
+		"  failing in the change's specs (2): fidelity/templates.spec.ts:97 tests/auth.spec.ts:132\n",
+		"  failing elsewhere (2): fidelity/b.spec.ts:8 fidelity/kan-754-offline-l3.spec.ts:380\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+	// With no `specs` row every failure is in the change's specs.
+	wt, _ = rvlVisualSetup(t, verify, "web/src/a.tsx", "", "", false, false, false)
+	if _, out := rvlRunIn(t, wt, "", wt, "visual"); !strings.Contains(out, "  failing in the change's specs (4): "+strings.Join(rvlSummaryFailures, " ")+"\n") || !strings.Contains(out, "  failing elsewhere (0):\n") {
+		t.Errorf("no specs row: output:\n%s", out)
+	}
+}
+
+func TestRunVerifyListEmptiesTheFailingListWhenNoneParse(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, rvlScript(t, "echo boom\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "fidelity/old.spec.ts:1\n")
+	rc, out := rvlRunIn(t, wt, "", wt, "visual")
+	b, err := os.ReadFile(list)
+	if rc != 1 || err != nil || len(b) != 0 || !strings.Contains(out, "  failing list: none parsed\n") {
+		t.Errorf("exit %d, %s holds %q (%v), output:\n%s", rc, list, b, err, out)
+	}
+}
+
+func TestRunVerifyListReportsAnUnwritableFailingList(t *testing.T) {
+	t.Parallel()
+	summary := filepath.Join(t.TempDir(), "summary")
+	writeFile(t, summary, rvlSummary)
+	wt, _ := rvlVisualSetup(t, rvlScript(t, "cat "+summary+"\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
+	list := rvlFailingList(t, wt)
+	if err := os.MkdirAll(list, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	_, out := rvlRunIn(t, wt, "", wt, "visual")
+	if strings.Contains(out, "  failing list: "+list+"\n") || !strings.Contains(out, "  failing list: not written — ") {
+		t.Errorf("an unwritten list was reported as written:\n%s", out)
+	}
+}
+
+// rvlNarrowFixture is a visual-verify fixture whose `verify` cell writes its
+// argv to argv and prints out, exiting rc, and whose `specs` cell touches
+// marker and prints fidelity/a.spec.ts.
+func rvlNarrowFixture(t *testing.T, out string, rc int) (wt, argv, marker string) {
+	t.Helper()
+	d := t.TempDir()
+	argv, marker = filepath.Join(d, "argv"), filepath.Join(d, "marker")
+	writeFile(t, filepath.Join(d, "out"), out)
+	verify := rvlScript(t, "echo \"$*\" > "+argv+"\ncat "+filepath.Join(d, "out")+"\nexit "+strconv.Itoa(rc)+"\n") + " <specs>"
+	specs := rvlScript(t, "touch "+marker+"\necho fidelity/a.spec.ts\n")
+	wt, _ = rvlVisualSetup(t, verify, "web/src/a.tsx", "", specs, false, false, false)
+	return wt, argv, marker
+}
+
+func TestRunVerifyListOnlyRunsTheFailingList(t *testing.T) {
+	t.Parallel()
+	wt, argv, _ := rvlNarrowFixture(t, "", 0)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "fidelity/b.spec.ts:8\ntests/c.spec.ts:4\n")
+	rc, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
+	got, _ := os.ReadFile(argv)
+	if want := "fidelity/b.spec.ts:8 tests/c.spec.ts:4 --repeat-each 5 --workers 1\n"; rc != 0 || string(got) != want {
+		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+	}
+	for _, f := range []string{"flow-test-green", "flow-test-green-cmds"} {
+		if _, err := os.Stat(rvlGit(t, wt, "rev-parse", "--path-format=absolute", "--git-path", f)); err == nil {
+			t.Errorf("-only wrote %s", f)
+		}
+	}
+}
+
+// TestRunVerifyListOnlyGroupsFailuresByTheChangeSpecs: a -only round groups
+// its failures by the `specs` row's specs, so a failure outside them counts
+// as elsewhere, while the list alone picks what runs (panel-fix-1, F9).
+func TestRunVerifyListOnlyGroupsFailuresByTheChangeSpecs(t *testing.T) {
+	t.Parallel()
+	wt, argv, _ := rvlNarrowFixture(t, "  2 failed\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n    [fidelity] › tests/c.spec.ts:4:3 › c\n", 1)
+	list := filepath.Join(t.TempDir(), "only")
+	writeFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\n")
+	_, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
+	got, _ := os.ReadFile(argv)
+	if want := "fidelity/a.spec.ts:20 tests/c.spec.ts:4 --repeat-each 5 --workers 1\n"; string(got) != want {
+		t.Errorf("argv %q, want %q\n%s", got, want, out)
+	}
+	for _, want := range []string{"  failing in the change's specs (1): fidelity/a.spec.ts:20\n", "  failing elsewhere (1): tests/c.spec.ts:4\n"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRvlNextRoundIsNumericAndClaimsTheRound(t *testing.T) {
+	t.Parallel()
+	keep := t.TempDir()
+	writeFile(t, filepath.Join(keep, "visual-plain-r2.log"), "")
+	writeFile(t, filepath.Join(keep, "visual-plain-r10.log"), "")
+	// r10 sorts before r2: the highest is taken numerically (F12), and a
+	// second claim before any log is written takes the next round (F14).
+	if a, b := rvlNextRound(keep), rvlNextRound(keep); a != 11 || b != 12 {
+		t.Errorf("rounds %d, %d, want 11, 12", a, b)
+	}
+}
+
+func TestRunVerifyListDetectFlakyRunsTheSelection(t *testing.T) {
+	t.Parallel()
+	wt, argv, _ := rvlNarrowFixture(t, "  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 1)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "tests/c.spec.ts:4\n")
+	rc, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
+	got, _ := os.ReadFile(argv)
+	if want := "fidelity/a.spec.ts --retries=1 --fail-on-flaky-tests\n"; rc != 1 || string(got) != want {
+		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+	}
+	if b, _ := os.ReadFile(list); string(b) != "tests/c.spec.ts:4\nfidelity/a.spec.ts:20\n" {
+		t.Errorf("the detector left %q, want the union\n%s", b, out)
+	}
+}
+
+func TestRunVerifyListNarrowedRunRefusals(t *testing.T) {
+	t.Parallel()
+	wt, argv, marker := rvlNarrowFixture(t, "", 0)
+	empty := filepath.Join(t.TempDir(), "empty")
+	writeFile(t, empty, "")
+	full := filepath.Join(t.TempDir(), "full")
+	writeFile(t, full, "tests/c.spec.ts:4\n")
+	missing := filepath.Join(t.TempDir(), "missing")
+	noSpecs, _ := rvlVisualSetup(t, "echo whole", "web/src/a.tsx", "", "", false, false, false)
+	for _, tc := range []struct {
+		name, want string
+		args       []string
+	}{
+		{"-only with a missing file", missing, []string{"-only", missing, wt, "visual"}},
+		{"-only with an empty file", "is empty", []string{"-only", empty, wt, "visual"}},
+		{"a verify cell with no <specs>", "echo whole", []string{"-detect-flaky", noSpecs, "visual"}},
+		{"both flags", "not both", []string{"-only", full, "-detect-flaky", wt, "visual"}},
+		{"a flag with the test list", "usage", []string{"-detect-flaky", wt, "test"}},
+		{"a flag with the lint list", "usage", []string{"-detect-flaky", wt, "lint"}},
+		{"a flag with recording arguments", "usage", []string{"-detect-flaky", wt, "visual", "kan-1", "verify", "tok", "opus", "low"}},
+	} {
+		rc, out := rvlRunIn(t, wt, "", tc.args...)
+		_, a := os.Stat(argv)
+		_, m := os.Stat(marker)
+		if rc != 2 || !strings.Contains(out, tc.want) || a == nil || m == nil {
+			t.Errorf("%s: exit %d, ran verify %v, ran specs %v, output:\n%s", tc.name, rc, a == nil, m == nil, out)
+		}
+	}
+}
+
+func TestRunVerifyListKeepsEveryVisualRound(t *testing.T) {
+	t.Parallel()
+	counter := filepath.Join(t.TempDir(), "n")
+	// Each run writes test-results/<n>/shot-diff.png holding its own n.
+	verify := rvlScript(t, "n=$(( $(cat "+counter+" 2>/dev/null || echo 0) + 1 ))\necho $n > "+counter+"\nmkdir -p test-results/$n\necho $n > test-results/$n/shot-diff.png\nexit 1\n") + " <specs>"
+	wt, _ := rvlVisualSetup(t, verify, "web/src/a.tsx", "", "", false, false, false)
+	keep := filepath.Dir(rvlFailingList(t, wt))
+	rvlRunIn(t, wt, "", wt, "visual")
+	_, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
+	for f, want := range map[string]string{
+		"visual-plain-r1.log":             "",
+		"visual-detect-flaky-r2.log":      "",
+		"visual-results-r1/shot-diff.png": "1\n",
+		"visual-results-r2/shot-diff.png": "2\n",
+	} {
+		b, err := os.ReadFile(filepath.Join(keep, f))
+		if err != nil || (want != "" && string(b) != want) {
+			t.Errorf("%s: %q (%v), want %q\n%s", f, b, err, want, out)
+		}
+	}
+	if !strings.Contains(out, "  result files: "+filepath.Join(keep, "visual-results-r2")+"\n") {
+		t.Errorf("output does not name the kept results:\n%s", out)
+	}
+	rvlRunIn(t, wt, "", wt, "visual")
+	for _, f := range []string{"visual-plain-r1.log", "visual-detect-flaky-r2.log", "visual-plain-r3.log", "visual-results-r1", "visual-results-r2", "visual-results-r3"} {
+		if _, err := os.Stat(filepath.Join(keep, f)); err != nil {
+			t.Errorf("a third run left no %s: %v", f, err)
+		}
+	}
+}
+
+func TestRunVerifyListKeepsTheTestListsRunStartCleanup(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "true <specs>", "docs/a.md", "", "", false, false, false)
+	keep := filepath.Dir(rvlFailingList(t, wt))
+	writeFile(t, filepath.Join(keep, "test-0.log"), "stale\n")
+	writeFile(t, filepath.Join(keep, "visual-plain-r1.log"), "round 1\n")
+	rvlRunIn(t, wt, "", wt, "test")
+	if _, err := os.Stat(filepath.Join(keep, "test-0.log")); err == nil {
+		t.Error("a test run left the stale test-0.log")
+	}
+	if _, err := os.Stat(filepath.Join(keep, "visual-plain-r1.log")); err != nil {
+		t.Errorf("a test run removed visual-plain-r1.log: %v", err)
+	}
+}
+
+// rvlFlowStub writes a `flow` stub into a new directory and returns it with
+// its call log: every call appends its argv to the log; `state get` prints
+// the file state, exiting stateRC; `suite record` runs the command after
+// `--`; anything else exits 0.
+func rvlFlowStub(t *testing.T, state string, stateRC int) (dir, log string) {
+	t.Helper()
+	dir = t.TempDir()
+	log = filepath.Join(dir, "calls")
+	writeFile(t, filepath.Join(dir, "state.json"), state)
+	writeExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\n"+
+		"if [ \"$1 $2\" = \"state get\" ]; then cat "+filepath.Join(dir, "state.json")+"; exit "+strconv.Itoa(stateRC)+"; fi\n"+
+		"if [ \"$1 $2\" = \"suite record\" ]; then\n  while [ \"$1\" != -- ]; do shift; done\n  shift\n  exec \"$@\"\nfi\n")
+	return dir, log
+}
+
+// rvlStateJSON is a state record whose worktrees map each path to its base.
+func rvlStateJSON(t *testing.T, bases map[string]string) string {
+	t.Helper()
+	b, err := json.Marshal(map[string]any{"worktrees": bases})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func TestRunVerifyListScopesSpecsToTheKickoffBase(t *testing.T) {
+	t.Parallel()
+	// origin/main: K, then a ui change, then M; the branch spectre/demo
+	// leaves M with a docs change only, so only K's diff touches ui paths.
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "docs/a.md", "", "echo <merge-base>", false, false, false)
+	k := rvlGit(t, wt, "rev-parse", "HEAD~1")
+	rvlGit(t, wt, "checkout", "-q", "-b", "spectre/demo", k)
+	writeFile(t, filepath.Join(wt, "web/src/k.tsx"), "x\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "ui")
+	writeFile(t, filepath.Join(wt, "README"), "m\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "m")
+	rvlGit(t, wt, "push", "-q", "-f", "origin", "HEAD:main")
+	rvlGit(t, wt, "fetch", "-q", "origin")
+	writeFile(t, filepath.Join(wt, "docs/b.md"), "x\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "change")
+	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: k}), 0)
+	if rc, out := rvlRunIn(t, wt, stub, wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL ["+k+"]") {
+		t.Errorf("exit %d, the verify row did not run on the kickoff base %s:\n%s", rc, k, out)
+	}
+}
+
+// TestRunVerifyListMatchesTheKickoffBaseThroughSymlinks: a record naming
+// the worktree by a symlinked path still gives its kickoff base.
+func TestRunVerifyListMatchesTheKickoffBaseThroughSymlinks(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
+	k := rvlGit(t, wt, "rev-parse", "HEAD~1")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(wt, link); err != nil {
+		t.Fatal(err)
+	}
+	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{link: k}), 0)
+	if _, out := rvlRunIn(t, wt, stub, wt, "visual"); !strings.Contains(out, "VISUAL ["+k+"]") || strings.Contains(out, "kickoff base: not recorded") {
+		t.Errorf("the symlinked record key gave no kickoff base %s:\n%s", k, out)
+	}
+}
+
+func TestRunVerifyListFallsBackWithoutAKickoffBase(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
+	mb := rvlGit(t, wt, "merge-base", "HEAD", "origin/main")
+	for name, rc := range map[string]int{"no entry": 0, "flow fails": 1} {
+		stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{"/elsewhere": "abc"}), rc)
+		_, out := rvlRunIn(t, wt, stub, wt, "visual")
+		if !strings.Contains(out, "VISUAL ["+mb+"]") || !strings.Contains(out, "- kickoff base: not recorded for "+wt+" — selecting from merge-base HEAD origin/main\n") {
+			t.Errorf("%s: output:\n%s", name, out)
+		}
+	}
+}
+
+func TestRunVerifyListReadsTheRecordFromTheCanonicalWorktree(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
+	rvlGit(t, wt, "branch", "-m", "spectre/demo")
+	canon := t.TempDir()
+	for _, tc := range []struct {
+		want string
+		args []string
+	}{
+		{"state get -C " + canon + " kan-9\n", []string{wt, "visual", "kan-9", "verify", "mf-t", "opus", "low", canon}},
+		{"state get -C " + canon + " demo\n", []string{"-detect-flaky", wt, "visual", canon}},
+		{"state get -C " + wt + " demo\n", []string{wt, "visual"}},
+	} {
+		stub, log := rvlFlowStub(t, "{}", 0)
+		_, out := rvlRunIn(t, wt, stub, tc.args...)
+		if calls, _ := os.ReadFile(log); !strings.Contains(string(calls), tc.want) {
+			t.Errorf("%v: flow calls %q, want %q\n%s", tc.args, calls, tc.want, out)
+		}
+	}
+}
+
+func TestSiblingFrontendPicksTheFirstMatchingSibling(t *testing.T) {
+	t.Parallel()
+	bases := map[string]string{"canon": "c", "s1": "b1", "s2": "b2"}
+	for _, tc := range []struct {
+		name       string
+		match      []string
+		root, base string
+	}{
+		{"s2 only", []string{"s2"}, "s2", "b2"},
+		{"both", []string{"s1", "s2"}, "s1", "b1"},
+		{"none", nil, "canon", "c"},
+	} {
+		root, base := siblingFrontend("canon", []string{"s1", "s2"}, bases, func(s string) bool { return slices.Contains(tc.match, s) })
+		if root != tc.root || base != tc.base {
+			t.Errorf("%s: %s %s, want %s %s", tc.name, root, base, tc.root, tc.base)
+		}
+	}
+}
+
+func TestRunVerifyListRunsSpecsFromTheSiblingFrontend(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "docs/a.md", "", "echo <frontend-root> <merge-base>", false, false, false)
+	// A sibling worktree of a repository named `web`, whose diff touches
+	// src/a.tsx -- web/src/a.tsx under the canonical `ui paths`.
+	sib := filepath.Join(t.TempDir(), "web")
+	writeFile(t, filepath.Join(sib, "README"), "x\n")
+	rvlGit(t, filepath.Dir(sib), "init", "-q", "-b", "main", sib)
+	rvlGit(t, sib, "add", "-A")
+	rvlGit(t, sib, "commit", "-q", "-m", "base")
+	sibBase := rvlGit(t, sib, "rev-parse", "HEAD")
+	writeFile(t, filepath.Join(sib, "src/a.tsx"), "x\n")
+	rvlGit(t, sib, "add", "-A")
+	rvlGit(t, sib, "commit", "-q", "-m", "ui")
+	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
+	if rc, out := rvlRunIn(t, wt, stub, wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL ["+sib+" "+sibBase+"]") {
+		t.Errorf("exit %d, the specs row did not read the sibling frontend %s at %s:\n%s", rc, sib, sibBase, out)
+	}
+}
+
+// TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns pins decision
+// suite-records-scope: a plain run of the visual `verify` row, alone or as a
+// `test` list's tail, runs under `flow suite record -suite visual`; a
+// narrowed run never does, and with no `flow` the row runs bare.
+func TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "", false, false, false)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "tests/c.spec.ts:4\n")
+	for _, tc := range []struct {
+		args   []string
+		record bool
+	}{
+		{[]string{wt, "visual"}, true},
+		{[]string{wt, "test"}, true},
+		{[]string{"-only", list, wt, "visual"}, false},
+		{[]string{"-detect-flaky", wt, "visual"}, false},
+	} {
+		stub, log := rvlFlowStub(t, "{}", 0)
+		rc, out := rvlRunIn(t, wt, stub, tc.args...)
+		calls, _ := os.ReadFile(log)
+		if got := strings.Contains(string(calls), "suite record -C "+wt+" -suite visual -- bash -c echo VISUAL-RAN"); rc != 0 || got != tc.record || !strings.Contains(out, "  VISUAL-RAN") {
+			t.Errorf("%v: exit %d, recorded %v, want %v; flow calls %q\n%s", tc.args, rc, got, tc.record, calls, out)
+		}
+	}
+	if rc, out := rvlRunIn(t, wt, "", wt, "visual"); rc != 0 || !strings.Contains(out, "  VISUAL-RAN") {
+		t.Errorf("without flow: exit %d\n%s", rc, out)
 	}
 }

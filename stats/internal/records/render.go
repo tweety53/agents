@@ -637,7 +637,22 @@ func RenderLedger(r Run) string {
 		if strings.TrimSpace(d.Key) != "" {
 			fmt.Fprintf(&b, "- Key: %s\n", neutraliseMarkers(d.Key))
 		}
-		fmt.Fprintf(&b, "- Model: %s effort=%s\n", orElse(d.Model, "not recorded"), orElse(d.Effort, "default"))
+		// The label is what the dispatch asked for; the metrics name what
+		// served it, shown beside the label when they differ (decision
+		// readers-prefer-served-metrics).
+		var served struct {
+			ModelVersion, Effort string
+			CostUSD              *float64 `json:"cost_usd"`
+		}
+		_ = json.Unmarshal(d.Metrics, &served)
+		fmt.Fprintf(&b, "- Model: %s effort=%s\n",
+			labelServed(orElse(d.Model, "not recorded"), served.ModelVersion),
+			labelServed(orElse(d.Effort, "default"), served.Effort))
+		// The dispatch's own price is a breakdown: its stage's cost already
+		// holds these tokens (decision dispatch-cost-on-row-metrics).
+		if served.CostUSD != nil {
+			fmt.Fprintf(&b, "- Cost: $%.2f (part of its stage's cost)\n", *served.CostUSD)
+		}
 		fmt.Fprintf(&b, "- Commit: %s\n", orElse(d.CommitSHA, "no commit"))
 		// Conditional, in the shape the Slot and Notes lines use, rather
 		// than orElse-defaulted: every implementer dispatch and the primary
@@ -853,4 +868,13 @@ func containedIn(root, path string) bool {
 // builds one.
 func ValidChangeName(change string) bool {
 	return changeNameAllowed.MatchString(change)
+}
+
+// labelServed is `<label> → <served>` when served is set and differs from
+// label, else label.
+func labelServed(label, served string) string {
+	if served == "" || served == label {
+		return label
+	}
+	return label + " → " + served
 }

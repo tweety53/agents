@@ -1421,6 +1421,10 @@ func (s *Store) ChangeSummary(ctx context.Context, projectKey, change string) (r
 // literal null): jsonb_deep_add(metrics, NULL) returns NULL, which this
 // column's NOT NULL constraint would reject as a raw Postgres error rather
 // than as the caller mistake it is.
+//
+// Once the merge lands, PriceDispatch reprices the row's own tokens into
+// its metrics.cost_usd -- set, never added, so the cost is not a numeric
+// leaf any patch carries (decision dispatch-cost-on-row-metrics).
 func (s *Store) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
 	if patch == nil {
 		return ErrNilMetricsPatch
@@ -1434,6 +1438,9 @@ func (s *Store) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patc
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	if err := s.PriceDispatch(ctx, dispatchID); err != nil {
+		return fmt.Errorf("store: merge dispatch metrics: price: %w", err)
 	}
 	return nil
 }
@@ -1459,6 +1466,9 @@ func (s *Store) RestampDispatch(ctx context.Context, dispatchID int64, agentID s
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	if err := s.PriceDispatch(ctx, dispatchID); err != nil {
+		return fmt.Errorf("store: restamp dispatch %d: price: %w", dispatchID, err)
 	}
 	return nil
 }
@@ -1564,7 +1574,13 @@ func (s *Store) DropDispatch(ctx context.Context, dropID, keepID int64) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM dispatches WHERE id = $1`, dropID); err != nil {
 		return fmt.Errorf("store: drop dispatch %d: %w", dropID, err)
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("store: drop dispatch %d: %w", dropID, err)
+	}
+	if err := s.PriceDispatch(ctx, keepID); err != nil {
+		return fmt.Errorf("store: drop dispatch %d: price kept row %d: %w", dropID, keepID, err)
+	}
+	return nil
 }
 
 // SetDispatchOutcome sets dispatch id's outcome and cause outright -- the
@@ -1685,6 +1701,9 @@ func (s *Store) RestampInlineDispatch(ctx context.Context, dispatchID int64, pat
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	if err := s.PriceDispatch(ctx, dispatchID); err != nil {
+		return fmt.Errorf("store: restamp inline dispatch %d: price: %w", dispatchID, err)
 	}
 	return nil
 }

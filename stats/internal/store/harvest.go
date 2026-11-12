@@ -273,7 +273,13 @@ func (s *Store) BackfillModelVersions(ctx context.Context, lookup func(agentID s
 		if err != nil {
 			return stamped, fmt.Errorf("store: backfill model version for dispatch %d: %w", p.id, err)
 		}
-		stamped += int(tag.RowsAffected())
+		if tag.RowsAffected() == 0 {
+			continue
+		}
+		stamped++
+		if err := s.PriceDispatch(ctx, p.id); err != nil {
+			return stamped, fmt.Errorf("store: backfill model version for dispatch %d: price: %w", p.id, err)
+		}
 	}
 	return stamped, nil
 }
