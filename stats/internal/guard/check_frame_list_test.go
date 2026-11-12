@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -262,5 +263,58 @@ func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
 	}
 	if res := check("the Q1 frame\nthe hero frame\n"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: Q1") {
 		t.Errorf("plain token: rc=%d out=%q; want 1 naming no sidecar line: Q1", res.rc, res.out)
+	}
+}
+
+// TestCheckFrameListDeclaresCitedSubDirectoryFrames pins decisions
+// f12-sub-directory-frames and f12-dark-twins-by-name (kan-1084 self-review,
+// F12): a mockups sub-directory design.md cites declares its frames as
+// `<sub>/<id>`, a bare id held by two cited sub-directories declares neither,
+// a cited sub-directory's frame shadows the root's, a root id after a `/`
+// matches only under the mockups root's own name, and no `dk-` twin is inferred.
+func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	for _, f := range []string{"P3.png", "NS25.png", "kan-1084/P3.png", "kan-1084/FV1.png", "kan-1084/dk-FV1.png",
+		"kan-1083/SL1.png", "kan-1083/NS25.png", "kan-1086/NS25.png"} {
+		p := filepath.Join(mockups, f)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	check := func(design string, ids ...string) guardResult {
+		t.Helper()
+		var side, rep strings.Builder
+		rep.WriteString("## Report\n- spec: " + spec + "\n")
+		for i, id := range ids {
+			fmt.Fprintf(&side, "shot%d %s\n", i, id)
+			rep.WriteString("- " + id + ": ok\n")
+		}
+		fmt.Fprintf(&rep, "- frames: %d/%d\n", len(ids), len(ids))
+		for p, b := range map[string]string{spec + ".mockups": side.String(), r: rep.String(), d: design} {
+			if err := os.WriteFile(p, []byte(b), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+	}
+	a := "Frames: `docs/design/mockups/kan-1084/` (FV1, P3), SL1 from `docs/design/mockups/kan-1083/`.\nPushed header (P3).\n"
+	if res := check(a, "kan-1084/P3", "kan-1084/FV1", "kan-1083/SL1"); res.rc != 0 || !strings.Contains(res.out, "3 declared") {
+		t.Errorf("(a) cited sub-directories: rc=%d out=%q; want 0 with 3 declared", res.rc, res.out)
+	}
+	if res := check(a, "P3", "kan-1084/FV1", "kan-1083/SL1"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: kan-1084/P3") {
+		t.Errorf("(b) root P3 for a sub frame: rc=%d out=%q; want 1 naming no sidecar line: kan-1084/P3", res.rc, res.out)
+	}
+	c := "From `docs/design/mockups/kan-1083/` and `docs/design/mockups/kan-1086/`: NS25, and docs/design/mockups/kan-1086/NS25.png\n"
+	if res := check(c, "kan-1086/NS25"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
+		t.Errorf("(c) ambiguous bare id: rc=%d out=%q; want 0 with only kan-1086/NS25 declared", res.rc, res.out)
+	}
+	if res := check("see `docs/design/mockups/NS25.png` and kan-1099/P3\n", "NS25"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
+		t.Errorf("(d) root ids after a slash: rc=%d out=%q; want 0 with only NS25 declared", res.rc, res.out)
 	}
 }

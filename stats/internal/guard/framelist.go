@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -36,6 +37,20 @@ import (
 // `<prefix><n>` from <a> to <b>; ends with different prefixes name only
 // themselves. A design line opening with `**Considered:**` names no frame:
 // its alternatives were rejected.
+//
+// A sub-directory `<sub>` of <mockups dir> that design.md names as `<sub>/`
+// (left-bounded like a token) is cited, and its `*.png` frames join the
+// candidates as `<sub>/<id>`. Such a frame is declared when design.md names
+// `<sub>/<id>` as a token, or when exactly one cited sub-directory holds
+// `<id>` and design.md names bare `<id>` (a token not preceded by `/`) or
+// covers it with a range; an `<id>` two or more cited sub-directories hold is
+// declared only by its explicit `<sub>/<id>`. A root frame is never declared
+// when a cited sub-directory holds the same id — the sub-directory shadows it
+// — and a root id preceded by `/` matches only when the path segment before it
+// is <mockups dir>'s own base name. No `dk-<id>` twin is inferred: it is
+// declared only when named itself (kan-1084 self-review, F12: a design citing
+// `kan-1084/` and naming P3 bare declared the root P3.png of another change,
+// while its own eleven frames went undeclared).
 //
 // An id design.md writes in answer position — directly followed by `=` and a
 // letter or digit, `Q1=A` — is a question label, and the design declares no
@@ -89,6 +104,16 @@ var (
 	// flRange is `<prefix><a> … <prefix><b>`, each end optionally a path ending in `/`, `.png` and backticks.
 	flRange = regexp.MustCompile("`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?\\s*(?:…|–|\\.\\.\\.)\\s*`?(?:[^\\s`]*/)?([A-Za-z0-9_-]*?)(\\d+)(?:\\.png)?`?")
 )
+
+// flBare matches id as a token never preceded by `/`, save after prefix
+// (the mockups root's own `<base>/`) when prefix is not empty.
+func flBare(id, prefix string) *regexp.Regexp {
+	left := `(^|[^A-Za-z0-9_/-]`
+	if prefix != "" {
+		left += `|` + regexp.QuoteMeta(prefix)
+	}
+	return regexp.MustCompile(left + `)` + regexp.QuoteMeta(id) + `($|[^A-Za-z0-9_-])`)
+}
 
 // flToken matches id as a whole token: not preceded or followed by a letter,
 // digit, `_` or `-`.
@@ -152,9 +177,33 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return false
 	}
+	// holders maps a frame id to the cited sub-directories holding it.
+	holders := map[string][]string{}
+	for _, e := range entries {
+		sub := e.Name()
+		if !e.IsDir() || !regexp.MustCompile(`(^|[^A-Za-z0-9_-])`+regexp.QuoteMeta(sub+"/")).Match(design) {
+			continue
+		}
+		pngs, _ := filepath.Glob(filepath.Join(args[1], sub, "*.png"))
+		for _, p := range pngs {
+			if id := strings.TrimSuffix(filepath.Base(p), ".png"); id != "" {
+				holders[id] = append(holders[id], sub)
+			}
+		}
+	}
 	var declared []string
+	for id, subs := range holders {
+		for _, sub := range subs {
+			full := sub + "/" + id
+			if !answered[full] && (flToken(full).Match(design) ||
+				len(subs) == 1 && !answered[id] && (inRange(id) || flBare(id, "").Match(design))) {
+				declared = append(declared, full)
+			}
+		}
+	}
+	base := filepath.Base(args[1]) + "/"
 	for id := range frames {
-		if !answered[id] && (inRange(id) || flToken(id).Match(design)) {
+		if len(holders[id]) == 0 && !answered[id] && (inRange(id) || flBare(id, base).Match(design)) {
 			declared = append(declared, id)
 		}
 	}
