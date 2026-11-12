@@ -55,6 +55,7 @@ import (
 //      when the canonical worktree's branch records a flowBase, any `## apps`
 //      repository, that the set holds no worktree in:
 //        STOP: kickoff <repo>[ <repo>…]        exit 1, before any `flow` call
+//      (not run when the decision records `visual.verify` `skipped`)
 //   2. `flow stage begin -C <canonical-worktree> -command /flow -stage
 //      flow.visual-verify -harness <h> -session-token <t> <name>`, then the
 //      stage file (below).

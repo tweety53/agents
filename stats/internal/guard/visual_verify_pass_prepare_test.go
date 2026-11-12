@@ -148,6 +148,23 @@ func TestVisualVerifyPassPrepareKickoff(t *testing.T) {
 	}
 }
 
+func TestVisualVerifyPassPrepareSkipNeedsNoKickoff(t *testing.T) {
+	f := vvpFixture(t, "")
+	other := filepath.Join(filepath.Dir(f.wt), "regress")
+	writeFile(t, filepath.Join(other, "README"), "x\n")
+	gitRun(t, other, "init", "-q", "-b", "main")
+	gitRun(t, other, "add", "-A")
+	gitRun(t, other, "commit", "-qm", "r")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+vvpSection+"| `regression checkout` | `"+other+"` |\n| `regression repo` | `x/regress` |\n")
+	gitRun(t, f.wt, "commit", "-qam", "cfg")
+	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"backend only"}}`)
+	f.green()
+	rc, out, calls := f.prepare()
+	if rc != 0 || strings.Contains(out, "STOP: kickoff") || !strings.Contains(out, "NEXT: skip — skipped at Decide — backend only") || !strings.Contains(calls, "-outcome skipped") {
+		t.Fatalf("exit %d, calls %q\n%s", rc, calls, out)
+	}
+}
+
 func TestVisualVerifyPassPrepareSkips(t *testing.T) {
 	f := vvpFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"copy only"}}`)

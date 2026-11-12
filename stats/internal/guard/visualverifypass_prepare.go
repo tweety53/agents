@@ -25,7 +25,10 @@ func (v *vvp) prepare() {
 		v.stageOpen = true
 		survivors = v.continueSet()
 	} else {
-		v.kickoff()
+		// A change decided `skipped` verifies nothing, so it needs no worktree to serve a stack.
+		if _, skip := v.decidedSkip(); !skip {
+			v.kickoff()
+		}
 		v.markBegin()
 		survivors = v.trigger()
 		v.writeStage(survivors)
