@@ -64,6 +64,7 @@ func TestSyncPanelBase(t *testing.T) {
 	t.Parallel()
 	moved := "MOVED: $WT — 1 commits on origin/main since the recorded merge base; "
 	clear := "CLEAR: $WT — origin/main has not moved since the recorded merge base\n"
+	settled := "REBASED: $WT — merge base now $MB; record it with flow state add-worktree and push --force-with-lease\n"
 	cases := []struct {
 		label   string
 		setup   func(fx *bmFx) // nil: origin/main does not move
@@ -79,14 +80,14 @@ func TestSyncPanelBase(t *testing.T) {
 		{label: "MOVED without overlap rebases with no prompt", code: 0, rebased: true,
 			setup: func(fx *bmFx) { rpbAdvance(fx, map[string]string{"unrelated.txt": "u"}) },
 			out: "BASE: main\n" + moved + "no overlap with this change's paths\n" +
-				"REBASED: $WT — merge base $MB\n" + clear},
+				"REBASED: $WT — merge base $MB\n" + clear + settled},
 		{label: "MOVED with overlap does not rebase without --rebase", code: 3,
 			setup: func(fx *bmFx) { rpbAdvance(fx, map[string]string{"five.txt": "base\n2\n3\n4\n5\n"}) },
 			out:   "BASE: main\n" + moved + "overlaps: five.txt\n"},
 		{label: "MOVED with overlap rebases with --rebase", code: 0, rebase: true, rebased: true,
 			setup: func(fx *bmFx) { rpbAdvance(fx, map[string]string{"five.txt": "base\n2\n3\n4\n5\n"}) },
 			out: "BASE: main\n" + moved + "overlaps: five.txt\n" +
-				"REBASED: $WT — merge base $MB\n" + clear},
+				"REBASED: $WT — merge base $MB\n" + clear + settled},
 		{label: "a fresh overlap on the re-check stops for the prompt", code: 3, stub: true, rebased: true,
 			setup: func(fx *bmFx) {
 				rpbAdvance(fx, map[string]string{"unrelated.txt": "u"})
@@ -160,6 +161,50 @@ func TestSyncPanelBase(t *testing.T) {
 				if _, err := os.Stat(fx.repo + "/.git/rebase-merge"); err != nil {
 					t.Error("no rebase in progress: the conflict was not left for the operator")
 				}
+			}
+		})
+	}
+}
+
+// TestSyncPanelBaseEndsOnTheRebase pins kan-1086 self-review, F2: a settled
+// rebase ends on a line naming the new merge base, never on the re-check's
+// CLEAR — which an unmoved base still ends on.
+func TestSyncPanelBaseEndsOnTheRebase(t *testing.T) {
+	t.Parallel()
+	final := "REBASED: $WT — merge base now $MB; record it with flow state add-worktree and push --force-with-lease"
+	cases := []struct {
+		label  string
+		setup  func(fx *bmFx)
+		rebase bool
+		last   string
+	}{
+		{label: "an unmoved base is CLEAR and nothing else", last: "CLEAR:"},
+		{label: "MOVED without overlap rebases with no prompt", last: final,
+			setup: func(fx *bmFx) { rpbAdvance(fx, map[string]string{"unrelated.txt": "u"}) }},
+		{label: "MOVED with overlap rebases with --rebase", rebase: true, last: final,
+			setup: func(fx *bmFx) { rpbAdvance(fx, map[string]string{"five.txt": "base\n2\n3\n4\n5\n"}) }},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			fx := spbFx(t)
+			if c.setup != nil {
+				c.setup(fx)
+			}
+			args := []string{fx.repo, fx.recorded}
+			if c.rebase {
+				args = append([]string{"--rebase"}, args...)
+			}
+			r := runGuard("sync-panel-base", args, Env{Dir: fx.dir, Getenv: os.Getenv})
+			if r.rc != 0 {
+				t.Fatalf("exit %d, want 0\nstdout %s\nstderr %s", r.rc, r.stdout, r.err)
+			}
+			lines := strings.Split(strings.TrimRight(r.stdout, "\n"), "\n")
+			got := lines[len(lines)-1]
+			want := strings.NewReplacer("$WT", fx.repo,
+				"$MB", fx.g.git(fx.repo, "merge-base", "HEAD", "refs/remotes/origin/main")).Replace(c.last)
+			if !strings.HasPrefix(got, want) || (c.last == final && got != want) {
+				t.Errorf("last line %q, want %q", got, want)
 			}
 		})
 	}

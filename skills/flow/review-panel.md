@@ -35,7 +35,7 @@ recorded in this run's working notes — never the state file's `worktrees` map,
 has not written yet. The script fetches, prints `BASE: <base>` and every `flow-guard check-base-moved`
 verdict, and rebases a worktree whose verdict is `MOVED` with no overlap automatically, with no
 prompt — the run reports that it happened rather than asking whether it should. Its header
-(`<agents repo>/scripts/flow-guard sync-panel-base`) is the full contract. Exit 0 is settled; 3 is an overlap: the rebase
+(`<agents repo>/scripts/flow-guard sync-panel-base`) is the full contract. Exit 0 is settled. A `REBASED:` last line names the worktree's new merge base: record it with `flow state add-worktree <name> <worktree> <sha>` and push with `--force-with-lease` before the panel diff is written (kan-1086 self-review, F2). Exit 3 is an overlap: the rebase
 is not confirmed conflict-free, so the run never takes that risk on itself; 1 is `CONFLICT`; 2 — a
 `REFUSE`, or anything it cannot answer — and an empty resolved set stop and ask. An exit 3 from any
 worktree is one prompt for the whole change, shape per Operator prompts

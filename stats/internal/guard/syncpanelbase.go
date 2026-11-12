@@ -29,6 +29,10 @@ import (
 //          wins — and check-base-moved re-runs against that sha. A re-check
 //          that answers MOVED with no overlap rebases again, at most 3
 //          rebases in all; one that answers MOVED with an overlap stops.
+//          A run that rebased and settles (exit 0) ends on
+//            REBASED: <worktree> — merge base now <sha>; record it with flow state add-worktree and push --force-with-lease
+//          <sha> the last rebase's, so a last-line reader never mistakes a
+//          rebased worktree for an unmoved one (kan-1086 self-review, F2).
 //   MOVED  with an overlap it did not rebase over -> exit 3: offer the
 //          operator the panel's base-movement prompt; its **Rebase** re-runs
 //          this with --rebase and the newest merge base.
@@ -84,6 +88,7 @@ func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return v, v.code == 0 && v.kind != "REFUSE"
 	}
+	last := "" // the last rebase's merge base
 	v, ok := check(mb)
 	if !ok {
 		return 2
@@ -109,9 +114,13 @@ func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("git refused to rebase %s onto %s — nothing changed", wt, o.sha)
 		}
 		fmt.Fprintf(stdout, "REBASED: %s — merge base %s\n", wt, o.sha)
+		last = o.sha
 		if v, ok = check(o.sha); !ok {
 			return 2
 		}
+	}
+	if last != "" {
+		fmt.Fprintf(stdout, "REBASED: %s — merge base now %s; record it with flow state add-worktree and push --force-with-lease\n", wt, last)
 	}
 	return 0
 }
