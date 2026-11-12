@@ -14,5 +14,4 @@ defect of the review.
 - **Important** — architecture problems, poor error handling, test gaps; a task field
   that no longer reflects the diff; a defect that produces a wrong result under a
   realistic input.
-- **Minor** — code style, optimization opportunities, documentation polish; a defensive
-  check worth adding even though nothing in this diff currently exercises the gap.
+- **Minor** — code style, optimization opportunities, documentation polish.

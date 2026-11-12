@@ -960,11 +960,22 @@ worktree at the branch tip —
 naming the module the edits moved — pushed per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`), then records each finding
 `flow record status -change <name> -ref F<n> -status fixed`. `flow.verify`'s lint and tests,
-which run after this stage, are that fix's verification. **A Minor is never deferred**: one no
-change to the tree can resolve, or that names no defect, is withdrawn with
-`-status 'withdrawn <reason>'`, the reason one clause naming the mechanism — out of scope,
-pre-existing and cosmetic are not reasons. Then proceed to `flow-guard check-panel-findings-closed` and
-the stage close. A fixed finding that fails verification takes the handback below, and that loop
+which run after this stage, are that fix's verification. **A Minor is never deferred, and it names a defect only
+when it completes this sentence with a Y that is true at HEAD**: given `<an input, a state or a
+reader>`, `<location>` `<does or says Y>`; it should `<Z>`. One that cannot — a suggestion, a
+hardening against a future edit, a tradeoff the code already states, a test remark naming no
+change that would survive, a layout the project's formatter and lint accept — is withdrawn with
+`-status 'withdrawn names no defect: <the half of the sentence it lacks>'`, as is one no change to
+the tree can resolve, with `-status 'withdrawn <reason>'`, the reason one clause naming the
+mechanism — out of scope, pre-existing and cosmetic are not reasons. **Where Y is a result shipped
+code produces at run time — an output, a stored value, an exit code, a permission, a request made —
+the inline fix carries one test that fails without it, in the same commit**; where the cause cannot
+be forced in one isolated run, the commit body says so. Then proceed to
+`flow-guard check-panel-findings-closed` and the stage close. **No reviewer is dispatched against a
+`review Minors` commit alone**: a further round opens only when `git log <the round's dispatch
+sha>..HEAD` holds a commit with another subject — a task, an in-run fix, a Critical or Important
+fix. A Minor a delta re-run raises on a line its fix round wrote is closed the same way, at that
+round's close. A fixed finding that fails verification takes the handback below, and that loop
 re-runs no slot either.
 
 **A rule that changes mid-run governs from the round it lands in, and each round's pass log names
