@@ -366,6 +366,12 @@ never an exit code the command did not return.
       state both. A value that does not follow its input, or that is absent on one entry path the
       populated path shows (first-time versus returning), is a defect no single capture can
       show.
+      The same holds for every element the view picks from a comparison of data values,
+      operator-editable or not — an arrow, a better/worse colour, a status badge, a stroke: list its
+      comparison's branches (greater, equal, less, each operand absent), reach each one in a capture,
+      seeding the data where none reaches it, and state per capture the values compared and whether
+      the element's claim is true of them. An element that asserts a direction its values do not show
+      is a defect whatever the frame draws.
    9. **Every row the frame bounds with a divider, hairline or container edge — a header bar, a
       sticky bar, a toolbar, a list section, a dialog's action row — gap-measured on the side
       facing each bound, in both images, before the row is called matching.** Which rows are
