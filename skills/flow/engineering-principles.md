@@ -205,6 +205,13 @@ on a measured or reported bound (Compose's semantics bounds, coerced to the pare
 the property under test is what is drawn — an overflow is visible only in the rendered
 pixels, so the assertion passes on the unfixed code.
 
+**A test of a choice is fed inputs that separate the alternatives.** When a test pins which
+rule the code applies (an order, a precedence, a grouping, which of two sources wins), its
+inputs make every plausible alternative rule produce a different result. Inputs on which the
+alternatives agree leave the choice unpinned and the test green against its mutants: the
+busiest item also first by name, a single group where the rule groups, two sources holding
+one value.
+
 **An error-path fix is tested against its real trigger.** A test that hands the fixed handler a
 payload the real backend never sends on that path — a bare `403` where every real one carries an
 error code — proves nothing about reachability: a global interceptor, a client-wide handler for
