@@ -332,6 +332,8 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 
 > **Sort a multi-repository plan's tasks under `## <repository>` headings.** Each repository's tasks sit under a one-word `## <repository>` heading naming it (`## agents`, `## gymie`); `flow-guard plan-dispatch-groups` reads those headings and never groups tasks of two repositories together. A heading with spaces is not a repository heading (kan-1107 self-review, F4).
 
+> **Put a scratch clone in the change's state dir.** A clone a task prescribes — `git clone --local <worktree> <dir>` to try something on a copy — lives under the path `flow state dir` prints, never in a `<project>-worktrees/` directory, and the task removes it with `rm -rf <dir>` (kan-1107 self-review, F5).
+
 > **End a removal task on an absence sweep.** When a task's job is removing text — copy, a setting,
 > an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
 > passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints

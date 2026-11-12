@@ -744,3 +744,19 @@ func TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
 	f.bash("an apostrophe in another heredoc body opens no span", "deny", "{MAIN}", "cat > {SIB}/x.sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\ncat > {SIB}/n <<'EOF2'\nit's\nEOF2\necho `bash {SIB}/x.sh` > {SIB}/o # '")
 	f.bash("a quote span crossing a newline reads as before", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\n# don't\necho `true` '")
 }
+
+// TestProtectMainCheckoutAdmitsRemovingALocalClone: removing a whole clone of a
+// local non-bare working checkout is not a write to a main checkout; a path
+// inside it, a clone of a network origin and a checkout cloned from a local
+// bare repository stay denied (kan-1107 self-review, F5).
+func TestProtectMainCheckoutAdmitsRemovingALocalClone(t *testing.T) {
+	t.Parallel()
+	f, root, main, _ := newPMFixture(t)
+	f.git("clone", "-q", "--local", main, root+"/clone")
+	f.git("clone", "-q", "--local", main, root+"/netclone")
+	f.git("-C", root+"/netclone", "remote", "set-url", "origin", "https://example.invalid/x.git")
+	f.bash("rm -rf of a whole local clone", "allow", "{ROOT}", `rm -rf {ROOT}/clone`)
+	f.bash("rm of a file inside a local clone", "deny", "{ROOT}", `rm {ROOT}/clone/f.txt`)
+	f.bash("rm -rf of a clone of a network origin", "deny", "{ROOT}", `rm -rf {ROOT}/netclone`)
+	f.bash("rm -rf of a checkout cloned from a local bare repository", "deny", "{ROOT}", `rm -rf {MAIN}`)
+}

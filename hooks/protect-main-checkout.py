@@ -12,7 +12,8 @@ landing as staged changes. This hook denies the tools that create such residue:
   * Bash commands that run a mutating git verb there (`git commit`, `git -C <main> add`,
     `cd <main> && git reset ...`), or write into it with `sed -i`, `tee`, a `>`/`>>`
     redirect, `cp` destinations, `mv`/`rm` sources and destinations, or `trash` of a path git
-    tracks there. A `cd` inside `( … )` or `$( … )` ends at its close, as bash scopes it
+    tracks there; removing a whole clone of a local working checkout is not a write to a main
+    checkout (kan-1107 self-review, F5). A `cd` inside `( … )` or `$( … )` ends at its close, as bash scopes it
     (kan-1083 self-review, F2). A heredoc body is
     scanned like any other line, except where the whole command is one plain data write —
     `cat > ABS <<EOF`, `cat >> ABS <<EOF` or `tee [-a] ABS <<EOF` to a literal absolute path,
@@ -177,6 +178,17 @@ def is_main_checkout(p):
     if not os.path.isabs(common):
         common = os.path.join(p, common)
     return os.path.realpath(top) == os.path.realpath(p) and os.path.realpath(git_dir) == os.path.realpath(common)
+
+
+def local_clone(p):
+    """True when p is the toplevel of a clone whose origin is a local non-bare checkout —
+    a scratch copy, whose whole removal writes no main checkout (kan-1107 self-review, F5)."""
+    if not os.path.isdir(p) or not is_main_checkout(p):
+        return False
+    origin = git(p, "remote", "get-url", "origin") or ""
+    if origin.startswith("file://"):
+        origin = origin[len("file://") :]
+    return os.path.isabs(origin) and os.path.isdir(origin) and git(origin, "rev-parse", "--is-bare-repository") == "false"
 
 
 def worktree_root(d):
@@ -1167,7 +1179,11 @@ def bash_hits(command, cwd, landings=None):
                         args.append(t)
                 if tok in ("rm", "mv"):
                     # mv removes its sources too; neither follows a symlink it is given
-                    hits.extend(LinkItself(r) for r in (resolve(a, cur) for a in args) if r)
+                    hits.extend(
+                        LinkItself(r)
+                        for r in (resolve(a, cur) for a in args)
+                        if r and not (tok == "rm" and local_clone(r))
+                    )
                 elif args:
                     hits.append(resolve(args[-1], cur))
                 i += 1
