@@ -82,7 +82,12 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    **Every mockup departure the round fixes lands a permanent probe in the task's one commit** —
    a test that drives the real composable or component, never a hand-copied constant, and asserts
    the value the verifier measured against the frame — so a later change that moves it again fails
-   a test instead of waiting for the next visual verification (KAN-790).
+   a test instead of waiting for the next visual verification.
+   A departure seen in motion or over time — a frame range, a gesture, a delay — is probed
+   under the input the verifier recorded, its pace, distance and step timing, and sampled inside
+   the window the verifier saw it in, never with instantaneous steps or a settle wait that outlasts
+   that window; where the harness cannot reproduce those conditions, the commit body names the
+   difference. (KAN-790).
    **Every new branch the fix adds lands a test of its own in the same commit.** A condition, flag,
    guard or state the fix introduces beyond the departure it closes — a hidden placeholder, a reset
    on return, a skipped refresh — carries a test that fails with that branch removed, and the task's
