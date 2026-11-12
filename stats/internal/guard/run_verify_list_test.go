@@ -1387,3 +1387,49 @@ func TestRunVerifyListNarrowedRunRefusals(t *testing.T) {
 		}
 	}
 }
+
+func TestRunVerifyListKeepsEveryVisualRound(t *testing.T) {
+	t.Parallel()
+	counter := filepath.Join(t.TempDir(), "n")
+	// Each run writes test-results/<n>/shot-diff.png holding its own n.
+	verify := rvlScript(t, "n=$(( $(cat "+counter+" 2>/dev/null || echo 0) + 1 ))\necho $n > "+counter+"\nmkdir -p test-results/$n\necho $n > test-results/$n/shot-diff.png\nexit 1\n") + " <specs>"
+	wt, _ := rvlVisualSetup(t, verify, "web/src/a.tsx", "", "", false, false, false)
+	keep := filepath.Dir(rvlFailingList(t, wt))
+	rvlRunIn(t, wt, "", wt, "visual")
+	_, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
+	for f, want := range map[string]string{
+		"visual-plain-r1.log":             "",
+		"visual-detect-flaky-r2.log":      "",
+		"visual-results-r1/shot-diff.png": "1\n",
+		"visual-results-r2/shot-diff.png": "2\n",
+	} {
+		b, err := os.ReadFile(filepath.Join(keep, f))
+		if err != nil || (want != "" && string(b) != want) {
+			t.Errorf("%s: %q (%v), want %q\n%s", f, b, err, want, out)
+		}
+	}
+	if !strings.Contains(out, "  result files: "+filepath.Join(keep, "visual-results-r2")+"\n") {
+		t.Errorf("output does not name the kept results:\n%s", out)
+	}
+	rvlRunIn(t, wt, "", wt, "visual")
+	for _, f := range []string{"visual-plain-r1.log", "visual-detect-flaky-r2.log", "visual-plain-r3.log", "visual-results-r1", "visual-results-r2", "visual-results-r3"} {
+		if _, err := os.Stat(filepath.Join(keep, f)); err != nil {
+			t.Errorf("a third run left no %s: %v", f, err)
+		}
+	}
+}
+
+func TestRunVerifyListKeepsTheTestListsRunStartCleanup(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "true <specs>", "docs/a.md", "", "", false, false, false)
+	keep := filepath.Dir(rvlFailingList(t, wt))
+	writeFile(t, filepath.Join(keep, "test-0.log"), "stale\n")
+	writeFile(t, filepath.Join(keep, "visual-plain-r1.log"), "round 1\n")
+	rvlRunIn(t, wt, "", wt, "test")
+	if _, err := os.Stat(filepath.Join(keep, "test-0.log")); err == nil {
+		t.Error("a test run left the stale test-0.log")
+	}
+	if _, err := os.Stat(filepath.Join(keep, "visual-plain-r1.log")); err != nil {
+		t.Errorf("a test run removed visual-plain-r1.log: %v", err)
+	}
+}

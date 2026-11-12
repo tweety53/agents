@@ -127,14 +127,20 @@
 //     `full output: <path>` — on a non-zero exit inside a git worktree, the
 //     command's whole output copied to `<git-path flow-verify-failed>/<list>-<n>.log`
 //     (<n> its 0-based list position, `spec-reach` for the appended
-//     check-spec-reach.sh), never into the tree; each run first removes that
-//     list's earlier logs, so a printed path holds this run's output
+//     check-spec-reach.sh), never into the tree; each `lint` or `test` run
+//     first removes that list's earlier logs, so a printed path holds this
+//     run's output
 //     `result files: <dir>` — beside it, when the run wrote JUnit `TEST-*.xml`
 //     files under the worktree: each copied into a per-run
 //     `<git-path flow-verify-failed>/<list>-<n>-results-<ns>/` no later run
 //     removes, so a flake's first failing run stays traceable
 //   - the visual verify, when it ran, last, as `- `<verify row>` — exit <n>`,
-//     its kept output `test-visual.log`; a failing one adds
+//     its kept output `visual-<mode>-r<N>.log`, <mode> `plain`, `only` or
+//     `detect-flaky` and <N> one past the highest round already kept, with
+//     `result files: <git-path flow-verify-failed>/visual-results-r<N>` --
+//     the newest `test-results/` directory the run wrote, copied -- both kept
+//     until the worktree is removed (decision
+//     per-round-artifacts-round-counter); a failing one also adds
 //     `failing list: <git-path flow-verify-failed>/visual-failing.txt` (or
 //     `failing list: none parsed`, the file then emptied), the tests its
 //     Playwright summary names as failed, interrupted or flaky, and
@@ -448,6 +454,41 @@ func rvlKeepFailures(keep string, log []byte, specs []string, union bool, stdout
 	group("elsewhere", elsewhere)
 }
 
+var rvlRoundFile = regexp.MustCompile(`^visual-(?:.+-r(\d+)\.log|results-r(\d+))$`)
+
+// rvlNextRound is one past the highest round <N> among keep's
+// `visual-*-r<N>.log` and `visual-results-r<N>` -- 1 when there is none.
+func rvlNextRound(keep string) int {
+	n := 0
+	entries, _ := os.ReadDir(keep)
+	for _, e := range entries {
+		if m := rvlRoundFile.FindStringSubmatch(e.Name()); m != nil {
+			r, _ := strconv.Atoi(m[1] + m[2])
+			n = max(n, r)
+		}
+	}
+	return n + 1
+}
+
+// rvlKeepPlaywrightResults copies the newest directory under
+// <dir>/test-results/ modified since the run started -- the failing run's
+// Playwright output, diffs and traces -- to dst, and returns dst, or "" when
+// there was none. dst is the round's own and no later run removes it.
+func rvlKeepPlaywrightResults(dir, dst string, since time.Time) string {
+	root := filepath.Join(dir, "test-results")
+	entries, _ := os.ReadDir(root)
+	newest, at := "", since
+	for _, e := range entries {
+		if fi, err := e.Info(); err == nil && e.IsDir() && !fi.ModTime().Before(at) {
+			newest, at = e.Name(), fi.ModTime()
+		}
+	}
+	if newest == "" || os.CopyFS(dst, os.DirFS(filepath.Join(root, newest))) != nil {
+		return ""
+	}
+	return dst
+}
+
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// A closed reader (`| head`) must not kill the list before its row's
 	// `end`: writes return EPIPE instead (decision f6-ignore-sigpipe, kan-1037).
@@ -686,15 +727,21 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	keep, _ := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-verify-failed")
 	if keep != "" {
 		os.MkdirAll(keep, 0o777)
-		old, _ := filepath.Glob(filepath.Join(keep, list+"-*.log"))
-		for _, f := range old {
-			os.Remove(f)
+		// A visual round's log is kept until the worktree goes (decision
+		// per-round-artifacts-round-counter); only lint and test logs are
+		// this run's alone.
+		if list != "visual" {
+			old, _ := filepath.Glob(filepath.Join(keep, list+"-*.log"))
+			for _, f := range old {
+				os.Remove(f)
+			}
 		}
 	}
 
 	started := time.Now().Add(-time.Second)
 	failed := 0
-	report := func(shown string, rc int, file, key string) {
+	// report prints one command's block; name is its kept log's basename.
+	report := func(shown string, rc int, file, name string) {
 		if rc != 0 {
 			failed = 1
 		}
@@ -715,10 +762,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stdout, "  data race — never environmental")
 		}
 		if rc != 0 && keep != "" {
-			log := filepath.Join(keep, list+"-"+key+".log")
+			log := filepath.Join(keep, name+".log")
 			os.WriteFile(log, out, 0o666)
 			fmt.Fprintf(stdout, "  full output: %s\n", log)
-			if dir := keepResults(abs(wt), filepath.Join(keep, fmt.Sprintf("%s-%s-results-%d", list, key, time.Now().UnixNano())), started); dir != "" {
+			if dir := keepResults(abs(wt), filepath.Join(keep, fmt.Sprintf("%s-results-%d", name, time.Now().UnixNano())), started); dir != "" {
 				fmt.Fprintf(stdout, "  result files: %s\n", dir)
 			}
 		}
@@ -737,7 +784,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// run runs one command in the foreground.
 	run := func(shown, cmd, key string) {
 		results := rgtRun(context.Background(), [][]string{append(capped[:len(capped):len(capped)], cmd)}, 1, outDir, abs(wt), cmdEnv)
-		report(shown, results[0].rc, results[0].out, key)
+		report(shown, results[0].rc, results[0].out, list+"-"+key)
 	}
 
 	if !record("begin") {
@@ -775,7 +822,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			r := results[0]
 			results = results[1:]
-			report(c, r.rc, r.out, fmt.Sprint(i))
+			report(c, r.rc, r.out, list+"-"+fmt.Sprint(i))
 			if r.rc == 0 {
 				passed = append(passed, c)
 			}
@@ -812,7 +859,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				paths := strings.Fields(string(out))
 				switch {
 				case r.rc != 0:
-					report(specs, r.rc, r.out, "specs")
+					report(specs, r.rc, r.out, list+"-specs")
 					cmd = ""
 				case len(paths) == 0:
 					fmt.Fprintf(stdout, "- `%s` — exit 0, mapped no spec: the visual verify ran no spec\n", specs)
@@ -828,10 +875,18 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", cmd, headSHA)
 			default:
 				results := rgtRun(context.Background(), [][]string{{"bash", "-c", cmd}}, 1, outDir, dir, cmdEnv)
-				report(cmd, results[0].rc, results[0].out, "visual")
+				name, round := list+"-visual", 0
+				if results[0].rc != 0 && keep != "" {
+					round = rvlNextRound(keep)
+					name = fmt.Sprintf("visual-%s-r%d", mode, round)
+				}
+				report(cmd, results[0].rc, results[0].out, name)
 				if results[0].rc == 0 {
 					passed = append(passed, cmd)
 				} else if keep != "" {
+					if kept := rvlKeepPlaywrightResults(dir, filepath.Join(keep, fmt.Sprintf("visual-results-r%d", round)), started); kept != "" {
+						fmt.Fprintf(stdout, "  result files: %s\n", kept)
+					}
 					log, _ := os.ReadFile(results[0].out)
 					rvlKeepFailures(keep, log, specTokens, mode == "detect-flaky", stdout)
 				}
