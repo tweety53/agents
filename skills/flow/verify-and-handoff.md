@@ -130,7 +130,8 @@ since that sha leaves untouched; a skipped command's `## Report` line says so, a
 header is canonical for the rule. At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed (kan-1103 self-review, F10).
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
-inline re-run of that command — the environmental-flake case. Output carrying `WARNING: DATA RACE`
+inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the flake detector of **Narrowed visual re-runs**
+(`skills/flow/verify-fix-loop.md`). Output carrying `WARNING: DATA RACE`
 or `race detected during execution of test` is never that case: the command takes **The loop**
 whatever its re-run exits, since a race that passes once is still a race
 (`rules/fix-determinism-at-the-source.mdc`), and `flow-guard run-verify-list` marks its block with

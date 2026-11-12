@@ -608,7 +608,7 @@ the frontend's `## test` list first ran at `flow.verify`, after three panel roun
 tree). Every failure, wherever it lies, is fixed at its root
 cause and the list re-run until it passes. Under `sdd` the fix is a fresh one-shot, the
 `full-suite-fix-<n>` row of **Every fix is a fresh one-shot** below, its `FIX INPUT:` the failing
-block. Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
+block, and a failing visual `verify` row in it is re-run narrowed as **Narrowed visual re-runs** states (`skills/flow/verify-fix-loop.md`). Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
 the route the branch's push state dictates (**Panel re-runs**,
 `skills/flow/review-panel-fix-round.md`), and records the round as one `dispatches` pair
 `-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under

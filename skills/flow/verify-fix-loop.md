@@ -54,7 +54,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    made at the human gate. The appended task carries the field family the verification-change
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
-   this stage's round in this run. On a `flow.visual-verify` round the task rewrites, beside the
+   this run's round, counted across both stages, so no two rounds share a `-fix-<k>` key. On a `flow.visual-verify` round the task rewrites, beside the
    fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
    CHECK (`skills/flow/implement.md`) requires (kan-1038); the record is never in its `**Files:**`
    — it is written on disk only, the change directory gitignored, and flow-guard stage-task-files refuses
@@ -211,6 +211,23 @@ completed verifier row.
 A completed `-fix-<j>-full` verifier row closes every In-run fix up to `<j>`, and a `-fix-<k>-full`
 key begun with `-round-base` is refused, since the full run is unscoped.
 Its clean report is the one the handoff reports.
+
+## Narrowed visual re-runs
+
+**A failing visual `verify` row is re-run narrowed, never whole.** When the `## visual verification`
+`verify` row a `test` group ends with fails, its one inline re-run is `flow-guard run-verify-list
+-detect-flaky <worktree> visual [<canonical worktree>]`, the same selection run once with
+`--retries=1 --fail-on-flaky-tests`, and one fixer gets the union of both runs' failures in one
+batch, the `visual-failing.txt` file the runs print. Each fix round then re-runs that file alone,
+`flow-guard run-verify-list -only <visual-failing.txt> <worktree> visual [<canonical worktree>]`,
+each entry five times at one worker. Once a narrowed run is green, one plain run of the `test`
+group under the round's `-fix-<k>` key is the gate, and when it fails the next round narrows to
+its failures. Neither flag records a dispatch row, writes the green cache or stands as the gate.
+The detector's retry only names a flake: a flaky test is a failure the fixer fixes at its source
+(`rules/fix-determinism-at-the-source.mdc`). A plain run is the `specs` row's selection — the
+change's tests plus the smoke tail, or every spec when the diff touches shared rendering code —
+and never the whole suite otherwise. Each failing run prints its failures in two groups, the
+change's specs and the specs outside the `specs` row's output. A non-visual command keeps its own inline re-run.
 
 ## No cap
 
