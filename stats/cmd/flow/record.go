@@ -4462,9 +4462,17 @@ var panelFixRoundRE = regexp.MustCompile(`^panel-fix-([0-9]+)`)
 // mergerKeyRE is a findings merger's key, panel-<r>-merger[-<suffix>].
 var mergerKeyRE = regexp.MustCompile(`^panel-(\d+)-merger(-.+)?$`)
 
-// mergerMissing reports whether run holds no panel-<round>-merger dispatch
-// of role merger that ended completed (decision merger-enforced-at-begin).
+// mergerMissing reports whether round holds a reviewer row and run holds no
+// panel-<round>-merger dispatch of role merger that ended completed (decisions
+// merger-enforced-at-begin, merger-gate-needs-a-reviewer-round): a round with
+// no reviewer row has nothing for a merger to read.
 func mergerMissing(run records.Run, round int) bool {
+	if !slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
+		r, ok := records.PanelDispatchRound(d)
+		return ok && r == round
+	}) {
+		return false
+	}
 	key := fmt.Sprintf("panel-%d-merger", round)
 	return !slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
 		return d.Key == key && d.Role == "merger" && d.EndedAt != nil && d.Outcome == "completed"

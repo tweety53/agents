@@ -753,7 +753,7 @@ pass.
 
 **The parent reads a round's findings through one findings merger, never the reports one by one.**
 `flow record dispatch begin` refuses a `panel-fix-<r>` row, and a live reviewer row of panel round `<r>`,
-while round `<r-1>` holds no completed `panel-<r-1>-merger` row.
+while round `<r-1>` holds a reviewer row and no completed `panel-<r-1>-merger` row.
 A completed `flow stage end` of `flow.review-panel` is refused the same way while the highest round
 holding a reviewer row has no completed `panel-<r>-merger` row.
 `flow record dispatch begin` refuses a `panel-<r>-merger` row while a reviewer row of round `<r>`

@@ -8548,3 +8548,35 @@ func TestRecordPassRefusesAHandDispatchedNote(t *testing.T) {
 		t.Errorf("other note refused: stderr %q", stderr)
 	}
 }
+
+// TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows pins decision
+// merger-gate-needs-a-reviewer-round: a round holding only planning pass rows
+// and no reviewer dispatch has nothing for a merger to read, so the first
+// panel round after it begins.
+func TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(`{"change":"kan-258","passes":[{"round":0,"note":"auto-resolved: x"}],"dispatches":[]}`))
+			return
+		}
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/dispatches") {
+			posts++
+		}
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-1-primary", "-slot", "primary",
+		"-session-token", "mf-record-merger", "-effort", "default"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || posts != 1 {
+		t.Errorf("exit %d, dispatch posts %d; want 0 and 1; stderr:\n%s", code, posts, stderr.String())
+	}
+}
