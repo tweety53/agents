@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestIgnoreScratch pins flow-guard ignore-scratch (kan-1081 self-review,
@@ -14,6 +16,7 @@ import (
 // commit ignoring and untracking it, the scratch kept on disk; an ignored
 // one is left alone; a pre-staged index is refused.
 func TestIgnoreScratch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	shim := guardShim(t, "ignore-scratch")
 	repo := func(t *testing.T) (string, func(args ...string) string) {

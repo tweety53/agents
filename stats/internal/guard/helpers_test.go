@@ -15,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // execFixtures backs every executable fixture with an inode already
@@ -218,6 +220,7 @@ func TestSpecRoot(t *testing.T) {
 }
 
 func TestChangePlan(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	work := t.TempDir()
 	// The store step must never reach the real flow CLI: this default stub

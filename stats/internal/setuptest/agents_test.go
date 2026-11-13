@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestSetupAgents asserts setup.sh installs the flow-<effort> and flow-planner-<effort> agent
@@ -16,6 +18,7 @@ import (
 // and `Task` — every panel slot dispatches on a flow-<effort> definition, flow-low on a
 // `default` panel, so a reviewer structurally cannot fork (KAN-495).
 func TestSetupAgents(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	g.runSetup(repoRoot, home, "global", "")

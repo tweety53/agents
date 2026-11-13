@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 type pwResult struct {
@@ -127,6 +129,7 @@ const pwDeclared = "## workspace isolation\n\n" +
 	"| `cache index` | `CACHE_INDEX` | `0` | `probed` |\n" + pwCommands
 
 func TestPrepareWorkspace(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	type check struct {

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // pgBashDir is scripts/project-get.sh with the two libs it sources, as they
@@ -48,6 +50,7 @@ func pgBash(t *testing.T, dir string, args ...string) pgRes {
 const pgCfg = "# project\n\n## lint\n\n```bash\nmake lint\n```\n\n## default landing route\n\n`open PR`\n\n## empty\n\n## last\nline one\n### sub\nline two\n"
 
 func TestProjectGetParity(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	bash := pgBashDir(t)
 

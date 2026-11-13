@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-resolve-base-branch.sh at c5379c0a: one subtest
@@ -140,6 +142,7 @@ func TestVerbatimMovesDefaultBaseHonoursRecordedBase(t *testing.T) {
 }
 
 func TestResolveBaseBranch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const invalid = "resolve-base-branch: the resolved base branch name is invalid\n"
 	type res struct {

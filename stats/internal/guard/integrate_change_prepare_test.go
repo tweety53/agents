@@ -1,10 +1,15 @@
 package guard
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
+)
 
 // The prepare and commit cases of integrate-change's former bash harness,
 // run as integrate_change_test.go runs the happy path.
 func TestIntegrateChangePrepareCommit(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"narrative_format", `# --- narrative_format ---
 fixture
@@ -374,6 +379,7 @@ check "live_check_none: a wrapped no-runtime section needs no record" '[ "$RC" -
 // or records an operator's decision, or names no test, passes (kan-1103
 // self-review, F2).
 func TestIntegrateChangeCommitRefusesAnOpenTestFailure(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"narrative_open_test", `# --- narrative_open_test ---
 fixture
@@ -431,6 +437,7 @@ const icRerunPinCase = `rerun_pin_case() {
 // the change directory is still on disk, uncommitted, and the re-run is a
 // first pass naming its live narrative.
 func TestIntegrateChangePrepareRerunReadsThePlanOnDisk(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"rerun_on_disk", `# --- rerun_on_disk ---
 fixture
@@ -475,6 +482,7 @@ check "rerun_reshape_base: a fixed row's commit is the reshape base" 'printf "%s
 // TestIntegrateChangeRequiresInRunFixLine pins kan-1032's self-review: a
 // fixed flow-fix row the store lists needs an in-run fix line naming its sha.
 func TestIntegrateChangeDerivesInRunFixLine(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"fix_line_derived", `# --- fix_line_derived ---
 fixture
@@ -503,6 +511,7 @@ rm -f "$WORK/sr-findings.json"`},
 }
 
 func TestIntegrateChangeRequiresInRunFixLine(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"fix_line_missing", `# --- fix_line_missing ---
 fixture
@@ -551,6 +560,7 @@ design_files() {
 // the canonical worktree's implementation commit, and prepare asks for that
 // worktree's subject whenever a design.md exists.
 func TestIntegrateChangeDesignRecord(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"record_in_impl_commit", icDesignRecord + `# --- record_in_impl_commit ---
 fixture

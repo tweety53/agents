@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // A re-install after a skill or command is DELETED from the source tree must remove the stale
@@ -21,6 +23,7 @@ import (
 // place for every later group, and the groups after it use the shared base fixture instead —
 // the same content.
 func TestReinstallPrunesDeletedSourceLinks(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	fx := filepath.Join(g.dir, "fixture-repo-prune")
 	if err := makeFixtureRepo(fx, false); err != nil {
@@ -68,6 +71,7 @@ func TestReinstallPrunesDeletedSourceLinks(t *testing.T) {
 // ~/.cursor or ~/.codex, leaves an earlier install's directories there exactly as it found
 // them, and the retired modes are refused with the usage line rather than half-run.
 func TestGlobalWritesNothingUnderCursorCodex(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	g.runSetup(fixture, home, "global", "")
@@ -122,6 +126,7 @@ func TestRetiredModesRefused(t *testing.T) {
 // mode writes project paths only — never user-level state, never another harness's
 // directories.
 func TestZcodeGlobalSelfContained(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	g.runSetup(fixture, home, "global", "")
@@ -189,6 +194,7 @@ func TestMuseProjectModeProjectPathsOnly(t *testing.T) {
 }
 
 func TestZcodeCompactWindowEnvBlock(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	zshrc, bashrc := filepath.Join(home, ".zshrc"), filepath.Join(home, ".bashrc")
@@ -223,6 +229,7 @@ func TestZcodeCompactWindowEnvBlock(t *testing.T) {
 // command and links nothing; the main checkout still installs there, and the worktree still
 // installs into any other home — the sandboxed one every other test here uses.
 func TestGlobalInstallRefusedFromLinkedWorktree(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	main := filepath.Join(g.dir, "fixture-repo-main")
 	if err := makeFixtureRepo(main, false); err != nil {
@@ -259,6 +266,7 @@ func TestGlobalInstallRefusedFromLinkedWorktree(t *testing.T) {
 // shim an earlier install wrote is removed, and a user's own file there — unmarked, or in the
 // flow-guard shim's place — is never overwritten or removed.
 func TestGlobalInstallsScriptShims(t *testing.T) {
+	smoke.Heavy(t)
 	const marker = "# flow script shim — written by setup.sh global; do not edit"
 	g := newGroup(t)
 	fx := filepath.Join(g.dir, "fixture-repo-shims")

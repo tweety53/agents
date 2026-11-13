@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-finish-preflight.sh at d71a2327, one
@@ -109,6 +111,7 @@ func fpEnv(dir, root, stub string) Env {
 }
 
 func TestCheckFinishPreflight(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	notVerdict := []string{"RUN1", "RUN2", "REFUSE"}
 	merged := func(fx *fpFx) { fx.newRepo(""); fx.work(); fx.merge() }

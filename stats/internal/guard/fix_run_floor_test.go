@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // frFx is one fixture repository: a base commit carrying `.flow/project.md`
@@ -80,6 +82,7 @@ const (
 // TestFixRunFloorClass pins the class and the floor it carries for each kind
 // of touched-path set, each read by the classifier the run already trusts.
 func TestFixRunFloorClass(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name  string
@@ -131,6 +134,7 @@ func TestFixRunFloorClass(t *testing.T) {
 
 // TestFixRunFloorVerdict pins the gate: a verdict is admitted only at or above
 // the floor, written with its round and base, and removed by the next call.
+// smoke: core — the one gate that lets a run skip its tests
 func TestFixRunFloorVerdict(t *testing.T) {
 	t.Parallel()
 	t.Run("an admitted verdict is written and the next plain call removes it", func(t *testing.T) {
@@ -212,6 +216,7 @@ func TestFixRunFloorVerdict(t *testing.T) {
 // TestPanelRoundBeginsEnforcesTheJudgedRoster: in the verdict's round a slot
 // carrying a role the roster omits is refused before any begin; another
 // round, or a tree that is no longer prose, is not restricted.
+// smoke: core — the only test that a judged roster is enforced
 func TestPanelRoundBeginsEnforcesTheJudgedRoster(t *testing.T) {
 	fx := newFrFx(t)
 	fx.commit("notes.md")
@@ -259,6 +264,7 @@ func TestPanelRoundBeginsEnforcesTheJudgedRoster(t *testing.T) {
 // runs no command, ends its row skipped and stamps no green; a Critical or
 // Important finding of the verdict's round or later, or a tree that is no
 // longer prose, runs the whole list.
+// smoke: core — the only test that verify fast is enforced
 func TestRunVerifyListVerifyFast(t *testing.T) {
 	fx := newFrFx(t)
 	fx.commit("notes.md")

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-unfinished-work.sh at 3e48ecac, one
@@ -242,6 +244,7 @@ func uwTrue(label string, ok func(r uwResult) bool) uwCheck {
 }
 
 func TestCheckUnfinishedWork(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// each runs scenario afresh inside every check's own subtest.
 	each := func(scenario func(t *testing.T) uwResult, checks ...uwCheck) {
@@ -959,6 +962,7 @@ func TestCheckUnfinishedWorkCloseCommandCarriesEndedAt(t *testing.T) {
 // holds no pass row at all is OUTSTANDING; a recorded pass, or only
 // planning commits, clears it.
 func TestCheckUnfinishedWorkNoPanelPassRecorded(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, path, passes, want string
@@ -1005,6 +1009,7 @@ func TestCheckUnfinishedWorkRefusesAnUnsplitRangeList(t *testing.T) {
 // failed capture that no commit after the report touched, and no narrative
 // line cites a range commit for, is OUTSTANDING.
 func TestCheckUnfinishedWorkVerifyFailureNotAddressed(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const capture = "  1 failed — fidelity/full-app-suite.spec.ts:110 register-from-invite.png, 24px differ\n"
 	const reason = "verify failure not addressed: fidelity/full-app-suite.spec.ts:110 register-from-invite.png (verify-report-visual-verify.md)"
@@ -1134,6 +1139,7 @@ func TestCheckUnfinishedWorkVerifyFailureRerunPassed(t *testing.T) {
 // clears it; another change's verdict, another line's, a longer line
 // number's and a store that cannot answer do not.
 func TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const reason = "verify failure not addressed: screenshots.spec.ts:52"
 	row := func(change, why string) string {
@@ -1177,6 +1183,7 @@ func TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier(t *testing.T) {
 // second repository is OUTSTANDING until link.md's `## Merge order` names
 // that repository by a peer the spectre/peers file resolves to it.
 func TestCheckUnfinishedWorkMergeOrderRecord(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const reason = "merge order does not name "
 	for _, c := range []struct {
@@ -1475,6 +1482,7 @@ func TestCheckUnfinishedWorkParentAction(t *testing.T) {
 // capture spec, never code, so signal seven asks no fresh verify row for it;
 // a `visual-verify-fix-…` implementer's commit still does.
 func TestUnfinishedWorkSkipsVisualVerifierCommit(t *testing.T) {
+	smoke.Heavy(t)
 	run := func(t *testing.T, key, role string) uwResult {
 		f := newUW(t)
 		gitRun(t, "", "init", "-q", f.wt)

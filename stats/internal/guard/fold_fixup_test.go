@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // ffFx is rbNewFx plus one task commit adding task.txt, with a dirty
@@ -89,6 +91,7 @@ func (fx *ffFx) assertSettled(t *testing.T) {
 	}
 }
 
+// smoke: core — the fold's success path
 func TestFoldFixupFolds(t *testing.T) {
 	t.Parallel()
 	fx := ffNewFx(t)
@@ -116,6 +119,7 @@ func TestFoldFixupFolds(t *testing.T) {
 // past 1 reads as cannot-answer (2). The stand-in runs the real guard for
 // `targets` and exits rc for `after`.
 func TestFoldFixupAfterVerdict(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct{ rc, want int }{{1, 1}, {3, 2}} {
 		t.Run(fmt.Sprintf("after exits %d", c.rc), func(t *testing.T) {
@@ -136,6 +140,7 @@ func TestFoldFixupAfterVerdict(t *testing.T) {
 }
 
 func TestFoldFixupEmptyDrop(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		label   string

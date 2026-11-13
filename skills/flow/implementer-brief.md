@@ -120,7 +120,7 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
 > tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
 > '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
-> run the module or repository suite mid-task: the full `## test` list runs once per worktree at
+> run the module or repository suite mid-task: the `## test` list runs once per worktree at
 > the last bundle, and again in `flow.verify`. A plan step that asks for the module or repository
 > suite is run as this task's targeted tests instead. Pipe a test run's output through `tail` so a
 > green run costs lines of context, not a build log.

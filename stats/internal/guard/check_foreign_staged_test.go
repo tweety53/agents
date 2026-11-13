@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-foreign-staged.sh at c4f26c84, one subtest per ok:
@@ -30,6 +32,7 @@ func fsRepo(t *testing.T, g *fxGit) string {
 }
 
 func TestCheckForeignStaged(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 

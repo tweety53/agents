@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-installed-rules.sh at c5379c0a, one
@@ -101,6 +103,7 @@ func cirDropMarker(t *testing.T, path, rule string) {
 }
 
 func TestCheckInstalledRules(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := cirRoot()
 	if err != nil {

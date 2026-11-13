@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-dispatch-paragraphs.sh at d71a2327, one
@@ -121,6 +123,7 @@ func dpUnreadableImplement(t *testing.T, root string) {
 }
 
 func TestCheckDispatchParagraphs(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range dpCases {
 		for _, chk := range c.checks {

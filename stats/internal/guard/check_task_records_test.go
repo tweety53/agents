@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestCheckTaskRecords ports scripts/test-check-task-records.sh at
@@ -15,6 +17,7 @@ import (
 // git fixtures copied from one base repository (trBase). The harness's two
 // wrapper cases tested the deleted bash shim and have no counterpart.
 func TestCheckTaskRecords(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	type check struct{ label, fail string }
 	var checks []check
@@ -384,6 +387,7 @@ func TestCheckTaskRecordsRefusesATickedTaskWithAnUntickedStep(t *testing.T) {
 // Task-Id: trailer names the task joins its files to the subject commit's
 // (kan-1067 self-review, 1-A).
 func TestCheckTaskRecordsJoinsTaskIdFixCommits(t *testing.T) {
+	smoke.Heavy(t)
 	cases := []struct {
 		name, path, ids string
 		rc              int

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of the retired scripts/test-check-task-commit-fields.sh, one
@@ -1597,6 +1599,7 @@ func tcfScriptsDir(t *testing.T) string {
 }
 
 func TestCheckTaskCommitFields(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := tcfNewFixture(t)
 	cases := []struct {
@@ -3168,6 +3171,7 @@ func TestTcfBodyFieldsFirstOccurrenceWins(t *testing.T) {
 // self-review fix, 1f: a `Class.method` token is found, in the diff and in
 // the tree, when both its segments are; a commit adding the class without
 // the method is refused naming the token.
+// smoke: core — check-task-commit-fields finds a declared test in a real commit
 func TestCheckTaskCommitFieldsFindsAClassDotMethodTest(t *testing.T) {
 	t.Parallel()
 	fx := tcfNewFixture(t)

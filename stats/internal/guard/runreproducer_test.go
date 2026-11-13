@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-run-reproducer.sh at 0747740, one subtest per
@@ -148,6 +150,7 @@ func rrSurvivorKilled(t *testing.T, got int, out, needle string) {
 }
 
 func TestRunReproducer(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// Simple verdict and refusal rows: fixture (if any), command line and
 	// flags, expected exit and the substring the output must name.
@@ -466,6 +469,7 @@ func TestRRDeclaredBound(t *testing.T) {
 // bound, a reproducer declaring `# reproducer-bound: 1` is killed at 1s, not
 // at the 20-second default (KAN-831).
 func TestRunReproducerEnforcesDeclaredBound(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt := rrWorktree(t)
 	rrFixture(t, wt, "scripts/declares-bound.sh", "# reproducer-bound: 1\nsleep 30")
@@ -533,6 +537,7 @@ func TestRunReproducerSurvivorNamedWhenReapedAtKill(t *testing.T) {
 // refused, never a vacuous pass. The runner itself is unchanged; this test
 // guards the seam against a future "fix" that mistakes the refusal for a bug.
 func TestRunReproducerRenamedPremiseRefuses(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt := rrWorktree(t)
 	writeFile(t, filepath.Join(wt, "target.txt"), "line one\ndefect present here\n")

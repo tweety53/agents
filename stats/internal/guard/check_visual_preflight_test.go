@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // check-visual-preflight is visual-verify.md step 3's four checks as one
@@ -350,6 +352,7 @@ func TestCheckVisualPreflightOrigins(t *testing.T) {
 }
 
 func TestCheckVisualPreflightPlaywright(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	t.Run("resolved outside the worktree", func(t *testing.T) {

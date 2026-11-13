@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-fix-single-dispatch.sh at d71a2327,
@@ -89,6 +91,7 @@ func pfdExpectNoStderr(t *testing.T, c pfdCase) {
 }
 
 func TestCheckPanelFixSingleDispatch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const pf = "panel-fix"
 	d := pfdDispatches

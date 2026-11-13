@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-break-and-prove.sh at 9cd35da8, one subtest per
@@ -133,6 +135,7 @@ func bpPatch(t *testing.T, repo, body string) string {
 }
 
 func TestBreakAndProve(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	base := bpBuild(t)
 	bashDir := bashAtBase(t, "break-and-prove.sh", "lib/post-mutation-check.sh")

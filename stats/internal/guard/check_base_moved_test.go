@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-base-moved.sh at d71a2327, one subtest per
@@ -233,6 +235,7 @@ func (fx *bmFx) overlap(files ...string) {
 }
 
 func TestCheckBaseMoved(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// new_repo, built once and copied per case: main with base.txt and
 	// shared.txt in one commit, and demo checked out at it.
@@ -538,6 +541,7 @@ func bmNewFx(t *testing.T) *bmFx {
 // keeps its 10-path cut -- and that the verdict a caller reads carries the
 // full sorted overlap the line cuts.
 func TestBaseMovedFullOverlap(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	var wide []string
 	for i := 1; i <= 11; i++ {

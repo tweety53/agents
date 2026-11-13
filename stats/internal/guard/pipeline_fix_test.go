@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // pfFx is one pipeline-fix fixture: a bare origin, the agents main checkout
@@ -94,6 +96,7 @@ func pfIdentity(t *testing.T) {
 	}
 }
 
+// smoke: core — a pipeline fix's start
 func TestPipelineFixStart(t *testing.T) {
 	pfIdentity(t)
 	for _, tc := range []struct {
@@ -173,6 +176,7 @@ func TestPipelineFixEndAndEscalate(t *testing.T) {
 }
 
 func TestPipelineFixVerify(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	fx := pfNew(t, "")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
@@ -250,6 +254,7 @@ func TestPipelineFixChecksHooks(t *testing.T) {
 }
 
 func TestPipelineFixLand(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	reviewed := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean")
 	for _, tc := range []struct {
@@ -320,6 +325,7 @@ func TestPipelineFixLand(t *testing.T) {
 // pushed (kan-1104 self-review, F2: the row was left to the parent and went
 // unrecorded).
 func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	for _, tc := range []struct {
 		name, start, branch string
@@ -377,6 +383,7 @@ func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
 // the loop's tasks.md (kan-1104 self-review, F6: a post-review fix landed as
 // a separate commit no task declared).
 func TestPipelineFixLandRefusesAnUnfoldedFix(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	for _, tc := range []struct {
 		name         string
@@ -430,6 +437,7 @@ func TestPipelineFixLandRefusesAnUnfoldedFix(t *testing.T) {
 // landed: (kan-1075 self-review, F13: every git call after the removal ran
 // in the deleted cwd, failed to chdir and exited 1 printing nothing).
 func TestPipelineFixLandFromItsOwnWorktree(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
@@ -583,6 +591,7 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 }
 
 func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	reviewed := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean")
 	for _, tc := range []struct {
@@ -621,6 +630,7 @@ func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
 }
 
 func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
@@ -660,6 +670,7 @@ func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
 }
 
 func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
+	smoke.Heavy(t)
 	pfIdentity(t)
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {

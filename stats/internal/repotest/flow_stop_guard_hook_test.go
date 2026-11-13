@@ -116,6 +116,7 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 	return out
 }
 
+// smoke: core — the stop gate
 func TestFlowStopGuardHook(t *testing.T) {
 	t.Parallel()
 	block := func(t *testing.T, out, needle string) {

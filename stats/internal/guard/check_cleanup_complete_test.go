@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-cleanup-complete.sh at 0747740, one leaf
@@ -247,6 +249,7 @@ func ccReadPid(t *testing.T, path string) int {
 }
 
 func TestCheckCleanupComplete(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	tmpl := ccTemplate(t)
 	cases := []struct {

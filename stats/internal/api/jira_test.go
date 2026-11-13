@@ -11,6 +11,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // jiraConfigFor points cfg.Jira at atlassian, a scripted stand-in for the
@@ -151,6 +152,7 @@ func TestJiraTransitionUpstreamAuthRejected(t *testing.T) {
 // (real backoff, ~4s) and answers 504 -- the one mapped failure the caller
 // may treat as "try again later".
 func TestJiraTransitionUpstreamTransientExhausted(t *testing.T) {
+	smoke.Heavy(t)
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"github.com/tweety53/agents/stats/internal/stages"
 )
 
@@ -28,6 +29,7 @@ import (
 // from the git repo, not typed by the caller), change name, command,
 // stage, harness and session id -- and that a documented stage key is
 // accepted, never rejected as a usage error.
+// smoke: core — flow stage begin records the stage's identity and instant
 func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -525,6 +527,7 @@ func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
 // TestStageEndRecordsOutcomeAndMetrics pins that `stage end` sends the
 // store the outcome and the metrics its own flags describe, deep enough to
 // round-trip through -findings' own JSON.
+// smoke: core — flow stage end records the outcome and the metrics
 func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -1292,6 +1295,7 @@ func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
 // grandchild (a background sleep) dies with it: the kill reaches the whole
 // process group, so no survivor outlives the cancelled wrap.
 func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
+	smoke.Heavy(t)
 	repo := gitRepo(t)
 	pidfile := t.TempDir() + "/grandchild.pid"
 	isolatedStateRoot(t)
@@ -1889,6 +1893,7 @@ func TestStageBeginRefusesUnstampedSessionToken(t *testing.T) {
 // refused while a finding is open (kan-1017: rounds 2-7 closed unguarded),
 // and that a stopped end is never gated.
 func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
+	smoke.Heavy(t)
 	cases := []struct {
 		name, findings, outcome string
 		want                    int
@@ -1941,6 +1946,7 @@ func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
 // earlier round's merger ran (kan-1075 self-review, F14), and that a
 // stopped end is never gated.
 func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
+	smoke.Heavy(t)
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	bin := t.TempDir()
@@ -1998,6 +2004,7 @@ func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
 // change, not the cwd (kan-1025: the main checkout held no report file and
 // the end was falsely refused).
 func TestStageEndReviewPanelResolvesWorktreeWithoutC(t *testing.T) {
+	smoke.Heavy(t)
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	wt := filepath.Join(t.TempDir(), "wt")
@@ -2316,6 +2323,7 @@ func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
 // a completed self-review-<name>-pass row; a stopped end, or a record read
 // that fails, refuses nothing (kan-1070 self-review, F1).
 func TestStageEndRefusesSelfReviewWithNoPassRow(t *testing.T) {
+	smoke.Heavy(t)
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 	const (

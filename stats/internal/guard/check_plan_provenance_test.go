@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of the retired scripts/test-check-plan-provenance.sh, one leaf
@@ -130,6 +132,7 @@ type ppCase struct {
 }
 
 func TestCheckPlanProvenance(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if Registry["check-plan-provenance"] == nil {
 		t.Fatal("check-plan-provenance is not registered")

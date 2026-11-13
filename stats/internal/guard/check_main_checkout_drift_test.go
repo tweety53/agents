@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-main-checkout-drift.sh at c4f26c84, the executable
@@ -34,6 +36,7 @@ func newDriftRepo(t *testing.T) string {
 }
 
 func TestCheckMainCheckoutDrift(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 	const usage = "usage: flow-guard check-main-checkout-drift <main-checkout>\n"

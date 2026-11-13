@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-task-reviewer-single-dispatch.sh at
@@ -118,6 +120,7 @@ func trsdRun(t *testing.T, c trsdCase) (int, string, string, string, string) {
 }
 
 func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const r, tok = "reviewer", "mf-tok"
 	d := pfdDispatches

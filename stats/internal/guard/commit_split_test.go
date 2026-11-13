@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-commit-split.sh, one subtest per case, each
@@ -99,6 +101,7 @@ func (fx csFx) files(t *testing.T, sha string) map[string]bool {
 }
 
 func TestCommitSplit(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	check := func(t *testing.T, ok bool, label, format string, a ...any) {
 		t.Helper()

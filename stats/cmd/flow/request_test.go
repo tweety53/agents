@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // requestDaemon is a fake flowd for the request verb: it records every call
@@ -235,6 +236,7 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 // origin/<base> and, when its range touches `ui paths`, the request's latest
 // flow.visual-verify run ended completed.
 func TestRecordRequestEndLandedGuard(t *testing.T) {
+	smoke.Heavy(t)
 	fx := newRequestFixture(t)
 	base := fx.git("rev-parse", "HEAD")
 	docs := fx.commit(t, "docs/a.md", true)
@@ -427,6 +429,7 @@ func mustProjectKey(t *testing.T, dir string) string {
 // Request-end guard: every landed end, whatever its range touches, needs the
 // request's latest flow.verify run ended completed.
 func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
+	smoke.Heavy(t)
 	fx := newRequestFixture(t)
 	base := fx.git("rev-parse", "HEAD")
 	docs := fx.commit(t, "docs/a.md", true)
@@ -483,6 +486,7 @@ func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 // only with a -screenshot naming a file modified inside its run — an 11 s
 // run carrying none, the sleep-padded mark, is refused.
 func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
+	smoke.Heavy(t)
 	fx := newRequestFixture(t)
 	docs := fx.commit(t, "docs/a.md", true)
 	ui := fx.commit(t, "web/x.ts", true)
@@ -531,6 +535,7 @@ func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
 // a green lint list stamped in flow-lint-green, unless the project declares
 // no lint list.
 func TestRecordRequestEndNeedsLintGreen(t *testing.T) {
+	smoke.Heavy(t)
 	fx := newRequestFixture(t)
 	base := fx.git("rev-parse", "HEAD")
 	docs := fx.commit(t, "docs/a.md", true)
@@ -582,6 +587,7 @@ func TestRecordRequestEndNeedsLintGreen(t *testing.T) {
 // while the session checkout does not ignore .superpowers/, or while -commit
 // tracks a path under it, before the store is written.
 func TestRecordRequestEndRefusesSuperpowers(t *testing.T) {
+	smoke.Heavy(t)
 	d := &requestDaemon{runs: `[{"stageRunId":99,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T09:00:00Z","outcome":"completed"}]`}
 	srv := httptest.NewServer(d.handler(t))
 	defer srv.Close()

@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The parity tests below run each bash library and its Go twin over the same
@@ -113,6 +115,7 @@ func symlink(t *testing.T, target, link string) {
 // lib/resolve-file.sh's resolve_file, as it stood at 8c54d6d3 (KAN-1020
 // deleted it once no script sourced it).
 func TestResolveFileParity(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	lib := filepath.Join(t.TempDir(), "resolve-file.sh")
 	writeFile(t, lib, string(historicalFile(t, "../../..", "8c54d6d3", "scripts/lib/resolve-file.sh")))
@@ -191,6 +194,7 @@ func TestResolveFileParity(t *testing.T) {
 // TestProjectSectionParity pins projectSection against the deleted bash
 // project_section, at libTwinBase.
 func TestProjectSectionParity(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	d := t.TempDir()
 	for i, tc := range []struct{ name, body, key string }{
@@ -264,6 +268,7 @@ func envWith(t *testing.T, over []string) Env {
 // panelTouchedPaths against the deleted bash library's three functions, at
 // libTwinBase.
 func TestPanelTouchedPathsParity(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	d := t.TempDir()
 	cwd, err := os.Getwd()

@@ -165,6 +165,16 @@ on a fresh bare `/flow` (**Every invocation is re-entrant**, `skills/flow-contra
 An instruction given before **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) has produced the record is written right after that write.
 
+## Full-suite instruction
+
+**A plain-language instruction to run the full suite, given at any point of any `/flow` run of
+the change, covers one run and is stored nowhere.** Given before the run reaches a `test` list,
+the next `test` list it reaches runs as `flow-guard run-verify-list -full <worktree> test`, with the
+recording arguments that list carries; given when no `test` list is ahead, the session runs that
+command at once in each of the change's worktrees. It is one line in the run's narrative and one
+`Decisions:` bullet. Every later `test` list runs the default one (**Inline verify**,
+`skills/flow/verify-and-handoff.md`).
+
 ## Guardrails
 
 - Never ask a planning-effort, model, or review-panel-roster question on a creating run. The

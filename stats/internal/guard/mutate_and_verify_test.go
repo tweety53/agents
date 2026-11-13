@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-mutate-and-verify.sh at d71a2327, one subtest per
@@ -280,6 +282,7 @@ func (c *mvCase) pinned(r mvRes, extra ...string) {
 }
 
 func TestMutateAndVerify(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := mvBuild(t)
 	cases := []struct {

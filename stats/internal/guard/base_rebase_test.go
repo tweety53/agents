@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // rbNewFx is bmNewFx plus the change's plan on disk and never committed, as
@@ -25,6 +27,7 @@ func rbNewFx(t *testing.T) *bmFx {
 }
 
 func TestRebaseOntoTip(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	rebasing := func(fx *bmFx) bool {
 		_, err := os.Stat(fx.repo + "/.git/rebase-merge")

@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // mpRepo is the agents-repo argument every check-dispatch-pair call takes.
@@ -108,6 +110,7 @@ func TestPolicyTableNamesNoBannedPair(t *testing.T) {
 	}
 }
 
+// smoke: core — the hook-facing exit codes of check-dispatch-pair
 func TestCheckDispatchPairExitCodes(t *testing.T) {
 	t.Parallel()
 	env := noFlowEnv(t)
@@ -163,6 +166,7 @@ func TestCheckDispatchPairNoFlowdNoCacheRefuses(t *testing.T) {
 // change on the prompt's Worktree branch -- the line alone, the grant
 // alone, or a worktree off a spectre/ branch is refused.
 func TestCheckDispatchPairOptinNeedsLineAndGrant(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt := t.TempDir()
 	for _, args := range [][]string{{"init", "-q", "-b", "spectre/kan-9"}, {"commit", "-q", "--allow-empty", "-m", "x"}} {
@@ -267,6 +271,7 @@ printf '%s\n' '{"plan-designer":["opus/Plan@max"],"main":["opus@medium"],"nobody
 // never change the table; a failed or unparsable overrides read, or no flow
 // at all, leaves the table alone.
 func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	alone, err := policyTable(noFlowEnv(t))
 	if err != nil {

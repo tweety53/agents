@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // lpFx is one loop fixture: an agents repo carrying the real model-policy.md
@@ -159,6 +161,7 @@ func TestLoopDispatchFirstReviewOffPolicy(t *testing.T) {
 }
 
 func TestCheckLoopDispatch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name, rows, key, typ, model string
@@ -285,6 +288,7 @@ func TestCheckLoopDispatchUnreadableTable(t *testing.T) {
 // spectre/changes/self-review-<name>/, in that project's <name> worktree.
 // A self-review-<name> loop branch in <agents repo> still files there.
 func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := lpNew(t, lpRowsJSON("self-review-kan-1-demo-", "self-review-kan-1-demo", "plan completed"))
 	proj := filepath.Dir(fx.repo) + "/gymie"
@@ -326,6 +330,7 @@ func TestCheckLoopDispatchOwnFastBranchReadsLoopPlan(t *testing.T) {
 // -- from that decision's own entry, and refuses an entry naming none rather
 // than falling back to flow-medium.
 func TestCheckLoopDispatchFirstReviewEffort(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const head = "## Decisions\n\n### First review\n\n**ID:** first-review-effort\n**Status:** active\n"
 	for _, tc := range []struct {
@@ -401,6 +406,7 @@ func TestCheckLoopDispatchSelfReviewFixPairs(t *testing.T) {
 // branch exists is refused, PASS-DONE, and never begun again; an aborted pass
 // row, no rows, or no loop branch admit it as before.
 func TestCheckLoopDispatchPassRunsOnce(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const (
 		key    = "self-review-kan-1-demo-pass"
@@ -439,6 +445,7 @@ func TestCheckLoopDispatchPassRunsOnce(t *testing.T) {
 // …/bundle.md its prompt names carries a `## Session narrative` line; a pass
 // from any other branch is not checked.
 func TestCheckLoopDispatchPassNeedsNarrative(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const key = "self-review-kan-1-demo-pass"
 	const bare = "# bundle\n\n## change summary\n\nx\n"

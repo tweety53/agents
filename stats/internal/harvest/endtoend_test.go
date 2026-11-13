@@ -210,6 +210,7 @@ func writeLines(t *testing.T, path string, lines ...[]byte) {
 // assertions below report exactly that -- "session = <nil>, want bound"
 // and zero tokens, zero cost. That is the defect this test exists to
 // catch, seen directly rather than reasoned about.
+// smoke: core — transcript to harvest to attribution to store
 func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 	st := newEndToEndStore(t)
 	ctx := context.Background()
@@ -482,6 +483,7 @@ type rolloutWireUsage struct {
 // store, and assert the run binds, attributes, and records the cache write
 // under the unknown split -- the split ZCode's collapsed cacheWriteTokens
 // produces.
+// smoke: core — the watcher harvests a rollout source
 func TestWatcherHarvestsRolloutSource(t *testing.T) {
 	st := newEndToEndStore(t)
 	ctx := context.Background()

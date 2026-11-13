@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // behindRepo is a main checkout one commit behind its origin: a bare origin
@@ -45,6 +47,7 @@ func rmcRev(t *testing.T, repo, rev string) string {
 func rmcExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 func TestRefreshMainCheckout(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 	run := func(args ...string) guardResult { return runGuard("refresh-main-checkout", args, env) }
@@ -226,6 +229,7 @@ func TestRefreshMainCheckoutRestartsFlowdWhenStatsMoved(t *testing.T) {
 // checkout holding identical uncommitted copies -- an unstaged edit, a
 // staged addition -- which git's own fast-forward refuses to overwrite.
 func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 

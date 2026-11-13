@@ -6,11 +6,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestCheckUntaskedCommits builds one repository per case: a base commit,
 // then the case's commits above it, and runs the guard over base..HEAD.
 func TestCheckUntaskedCommits(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	type commit struct{ path, subject, trailer string }
 	cases := []struct {

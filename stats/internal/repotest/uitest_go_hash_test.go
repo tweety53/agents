@@ -14,6 +14,7 @@ import (
 // stats/Makefile's go-sources-hash target in a scratch git repository; the
 // wiring half asserts, on source text, that ui-test-up records the hash only
 // after the seed, ui-test-down removes it, and the fingerprint row compares it.
+// smoke: core — the UI-test stack's fingerprint sees a Go edit
 func TestGoSourcesHashSeesGoEdits(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)

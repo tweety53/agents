@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // vmRepo is a git repository in t.TempDir() whose first commit holds base
@@ -69,6 +71,7 @@ var vmBase = map[string]string{
 }
 
 func TestCheckVerbatimMoves(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	cases := []struct {
 		name   string

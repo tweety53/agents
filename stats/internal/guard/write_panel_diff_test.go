@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // wpdWT is one fixture worktree: mb its merge base, held a later sha a slot
@@ -61,6 +63,7 @@ func wpdHand(t *testing.T, out, sem, flags, shape string, triples []string) stri
 }
 
 func TestWritePanelDiffParity(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const finalSem = "# final-review.diff — working tree vs merge-base, unstaged changes included"
 	for _, n := range []int{1, 2} {

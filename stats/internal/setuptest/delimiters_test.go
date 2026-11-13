@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Malformed delimiters must abort with the target untouched.
@@ -15,6 +17,7 @@ import (
 // byte-for-byte what it was. "Aborted" is not enough on its own: the reversed-delimiter defect
 // aborted nothing and deleted content, and a future one could abort *after* writing.
 func TestMalformedDelimitersAbortByteIdentical(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 
 	// --- reversed: end above begin. Counts 1 and 1, which is what made this dangerous.
@@ -62,6 +65,7 @@ func TestMalformedDelimitersAbortByteIdentical(t *testing.T) {
 // the append branch, which never converges (1/0 became 2/1 became 3/2). It must abort with the
 // target untouched, in either managed file. The bash harness never seeded this shape.
 func TestUnbalancedDelimitersAbortByteIdentical(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	for _, c := range []struct{ name, rel, body string }{
 		{"lone begin", ".claude/CLAUDE.md", "# My own notes\n\n" + begin + "\nhalf a block\n"},
@@ -85,6 +89,7 @@ func TestUnbalancedDelimitersAbortByteIdentical(t *testing.T) {
 // nothing here. Three runs, counting the delimiters in both managed files each time, and
 // requiring run 3 to be byte-identical to run 2 — the definition of converged.
 func TestThreeGlobalRunsConverge(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	claudeMD := filepath.Join(home, ".claude/CLAUDE.md")
@@ -108,6 +113,7 @@ func TestThreeGlobalRunsConverge(t *testing.T) {
 }
 
 func TestHandWrittenContentAndModeSurvive(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	claudeMD := filepath.Join(home, ".claude/CLAUDE.md")
@@ -154,6 +160,7 @@ func TestHandWrittenContentAndModeSurvive(t *testing.T) {
 // install is the worst outcome available: one harness picks up rules the other never
 // receives, and every later run reproduces the split identically.
 func TestDelimiterRuleInstallsNothing(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	badFixture := filepath.Join(g.dir, "fixture-repo-bad-rule")
 	if err := makeFixtureRepo(badFixture, true); err != nil {

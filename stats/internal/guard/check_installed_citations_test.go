@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-installed-citations.sh at 3e48ecac, one
@@ -116,6 +118,7 @@ func hasLine(out, prefix string) bool {
 }
 
 func TestCheckInstalledCitations(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const flow = "skills/flow/SKILL.md"
 	// register_case: content, then SAFE_CITATION, written with the trailing
@@ -399,6 +402,7 @@ except UnicodeDecodeError as e: print(str(e).removeprefix("'utf-8' codec "), end
 // the Python's try/finally left it on KeyboardInterrupt. The guard runs in a
 // child copy of this test binary, since the SIGINT ends its process.
 func TestCheckInstalledCitationsSIGINT(t *testing.T) {
+	smoke.Heavy(t)
 	if root := os.Getenv("CIC_SIGINT_ROOT"); root != "" {
 		os.Exit(checkInstalledCitations(nil, Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: root}, io.Discard, io.Discard))
 	}

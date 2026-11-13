@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // kwFlowBuilt is the real flow CLI, built once from this checkout: step 3's
@@ -155,6 +157,7 @@ func (fx kwFx) git(t *testing.T, dir string, args ...string) string {
 
 const kwSetupMD = "# project\n\n## worktree setup\n\n```bash\ntouch setup-ran\necho second >> setup-ran\n```\n\nTrailing prose, never run.\n"
 
+// smoke: core — kickoff: worktree, branch, setup, push, the STARTED record
 func TestKickoffWorktree(t *testing.T) {
 	t.Parallel()
 	if Registry["kickoff-worktree"] == nil {
@@ -407,6 +410,7 @@ func TestKickoffWorktree(t *testing.T) {
 // <parent>/<repo>-worktrees/<name>, outside the repository, nothing is
 // written to info/exclude, and the `worktree:` line names that path.
 func TestKickoffWorktreeSiblingLayout(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := kwNew(t, "", true)
 	fx.started(t)
@@ -432,6 +436,7 @@ func TestKickoffWorktreeSiblingLayout(t *testing.T) {
 // checkout — the root the location guard resolves — so the next kickoff's
 // location check does not report it STRAY.
 func TestKickoffWorktreeSymlinkedProject(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := kwNew(t, "", true)
 	fx.started(t)
@@ -453,6 +458,7 @@ func TestKickoffWorktreeSymlinkedProject(t *testing.T) {
 // kan-1017 (sr15): the hand-written merge-order record failed `spectre
 // validate` twice, so kickoff --from writes it into the canonical worktree.
 func TestKickoffWorktreeFromWritesMergeOrder(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name        string
@@ -516,6 +522,7 @@ func TestKickoffWorktreeFromWritesMergeOrder(t *testing.T) {
 // --from before the change directory existed is still listed when a later
 // peer's kickoff writes link.md, in spectre/peers order.
 func TestKickoffWorktreeFromListsEveryRecordedWorktree(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	canon, a, b := kwNew(t, "", true), kwNew(t, "", true), kwNew(t, "", true)
 	canon.started(t)

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Containment. Each of these fails silently if it regresses: an install that looks completely
@@ -45,6 +47,7 @@ func TestOnlyAlwaysApplyRulesInstall(t *testing.T) {
 // a pointer, ~/.claude/rules/ carries the full text as a symlink into the repo. The failure
 // this guards against is silent — a pointer that names a path no install creates, or a block
 // that quietly inlines a rule's entire body again.
+// smoke: core — the lightest run of the real setup.sh, over a fixture tree
 func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 	g := newGroup(t)
 	home := g.newHome()
@@ -105,6 +108,7 @@ func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 }
 
 func TestKotlinRuleInstalledByNoMode(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	if fi, err := os.Stat(filepath.Join(repoRoot, "rules", kotlinRule)); err != nil || !fi.Mode().IsRegular() {
 		g.fail("the opt-in Kotlin rule is present to be tested", filepath.Join(repoRoot, "rules", kotlinRule)+" is missing")
@@ -141,6 +145,7 @@ func TestKotlinRuleInstalledByNoMode(t *testing.T) {
 	}
 }
 
+// smoke: core — the real setup.sh global over the real tree
 func TestGlobalInstallPopulatesSkillDirs(t *testing.T) {
 	g := newGroup(t)
 	home := g.newHome()
@@ -203,6 +208,7 @@ func TestGlobalInstallPopulatesSkillDirs(t *testing.T) {
 }
 
 func TestPreexistingSkillDirMovedOut(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	skills := repoDirs(t, "skills")
@@ -260,6 +266,7 @@ func repoDirs(t *testing.T, dir string) []string {
 }
 
 func TestRegisteredHookTimeoutIsChecked(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	g.seedFile(filepath.Join(home, ".claude/settings.json"), 0o644, `{"hooks":{"PreToolUse":[

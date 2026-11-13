@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestGenerateRelocationComparison ports
@@ -13,6 +15,7 @@ import (
 // worktree the generator reads in-process, the comparison read back from the
 // file it writes. The shim's own argument handling execs the real shim.
 func TestGenerateRelocationComparison(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	type check struct{ label, fail string }
 	var checks []check

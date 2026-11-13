@@ -23,6 +23,7 @@ func runPolicyArgs(args ...string) (int, string, string) {
 // TestPolicyGetCachesAndFallsBack: get prints the daemon's pairs and caches
 // them; with the daemon gone it prints the cache and warns; with neither it
 // exits 1 naming both.
+// smoke: core — flow policy get, cached and falling back
 func TestPolicyGetCachesAndFallsBack(t *testing.T) {
 	state := t.TempDir()
 	t.Setenv("FLOW_STATE_DIR", state)

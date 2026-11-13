@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // reshape-branch runs in-process, followed by commit-split exactly as
@@ -55,6 +57,7 @@ func (fx rbFx) reshape(t *testing.T, dir string, args ...string) (int, string) {
 }
 
 func TestReshapeBranch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	check := func(t *testing.T, ok bool, label, format string, a ...any) {
 		t.Helper()

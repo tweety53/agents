@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-diff-size.sh at c9b8fde8, one
@@ -72,6 +74,7 @@ func pdsRun(args ...string) guardResult {
 }
 
 func TestCheckPanelDiffSize(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	type check struct{ label, fail string }
 	var checks []check

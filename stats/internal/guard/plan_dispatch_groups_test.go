@@ -10,6 +10,7 @@ import (
 // TestPlanDispatchGroups ports scripts/test-plan-dispatch-groups.sh at
 // bbfe685e: one subtest per ok: label, the guard run in-process against real
 // fixture files; the no-argument case execs the real shim.
+// smoke: core — the implementer groups a plan runs in
 func TestPlanDispatchGroups(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }

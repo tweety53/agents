@@ -65,6 +65,7 @@ func pcSeq(a, b int) string {
 	return s.String()
 }
 
+// smoke: core — the class that sets the roster and the modes
 func TestPlanClass(t *testing.T) {
 	t.Parallel()
 	// new_git_repo, built once and copied per case: one empty commit, the

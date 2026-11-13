@@ -467,6 +467,7 @@ func (f *fakeStore) callCount() int {
 // r.mu.Lock()/Unlock() makes this test fail intermittently (maxActive
 // observed as 2) under `go test -race -count=20`, confirming the mutex is
 // what the assertion actually depends on.
+// smoke: core — a data-race test of concurrent reconciler runs
 func TestReconcilerRunSerializesConcurrentCalls(t *testing.T) {
 	root := t.TempDir()
 	appendEntry(t, root, "proj-concurrent", "chg-1", "STARTED", "2026-08-13T10:00:00Z", "flow-start")

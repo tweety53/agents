@@ -44,6 +44,9 @@ import (
 //   code   floor_roster full, floor_verify full
 //   ui     floor_roster full, floor_verify full
 //
+// verify full is the whole `test` list, the default run -- never the full
+// suite, which is run-verify-list -full and runs only when the operator asks.
+//
 // THE VERDICT. -judge reads the judge's JSON, {"roster": [<role id>...],
 // "verify": "fast"|"full", "reasons": [<string>...]}, and admits it only at or
 // above the floor: the class is prose, the roster names `primary`, verify is

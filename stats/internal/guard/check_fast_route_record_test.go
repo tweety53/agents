@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // fastRecordRepo builds a fixture repository in a temp dir: one commit on
@@ -67,6 +69,7 @@ func TestFastRouteRecordEmptySeries(t *testing.T) {
 }
 
 func TestFastRouteRecordFindings(t *testing.T) {
+	smoke.Heavy(t)
 	tests := []struct {
 		name    string
 		branch  string

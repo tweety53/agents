@@ -12,12 +12,15 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestInteractiveLand pins `flow interactive land` (kan-1081 self-review,
 // F4): one call rebases, checks the scratch and the lint stamp on the
 // rebased HEAD, and pushes, marking flow.landing-routes around the push.
 func TestInteractiveLand(t *testing.T) {
+	smoke.Heavy(t)
 	type post struct {
 		path string
 		body map[string]any

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-task-commit-planning-paths.sh at
@@ -67,6 +69,7 @@ func tcppMerge(t *testing.T, repo, sideTid, sidePath string) {
 }
 
 func TestCheckTaskCommitPlanningPaths(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const p = "check-task-commit-planning-paths: "
 	const usage = "usage: flow-guard check-task-commit-planning-paths <worktree> <base>\n"

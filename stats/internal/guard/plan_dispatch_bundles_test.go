@@ -14,6 +14,7 @@ import (
 // The harness's wrapper cases -- the no-argument scan through a skill
 // directory's symlink, a flow-guard that cannot be built, a missing sibling
 // -- exec the real shim.
+// smoke: core — the bundles a plan's tasks dispatch in
 func TestPlanDispatchBundles(t *testing.T) {
 	t.Parallel()
 	type check struct{ label, fail string }

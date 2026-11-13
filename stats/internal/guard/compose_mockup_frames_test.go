@@ -15,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-compose-mockup-frames.sh at 3915fbc0, one
@@ -181,6 +183,7 @@ var cmfCases = []cmfCase{
 }
 
 func TestComposeMockupFrames(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	base := t.TempDir()
 	runs := map[string]func() cmfResult{}

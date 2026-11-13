@@ -45,6 +45,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 const wiRepoRoot = "../../.."
@@ -224,6 +226,7 @@ func wiRepoAbs(t *testing.T) string {
 }
 
 func TestCheckWorkspaceIsolation(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	t.Run("port: the output matches the bash at c5379c0a byte for byte", wiParity)
 

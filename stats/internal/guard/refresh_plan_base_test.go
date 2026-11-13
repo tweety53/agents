@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // rpbFx is bmFx.withOrigin with origin/HEAD set -- resolve-base-branch reads
@@ -40,6 +42,7 @@ func mkdirAll(g *fxGit, dir string) {
 }
 
 func TestRefreshPlanBase(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	specs := []string{"spectre/specs/cap.md", "spectre/specs/gone.md"}
 	cases := []struct {

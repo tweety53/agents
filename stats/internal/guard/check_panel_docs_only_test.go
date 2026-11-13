@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-docs-only.sh at 9cd35da8, one
@@ -21,6 +23,7 @@ import (
 // pin what that proof established — the anchored suffix alone decides case
 // 1's verdict, and case 3's exit 1 does not depend on it.
 func TestCheckPanelDocsOnly(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// new_repo, built once and copied per case: main with base.go and
 	// tracked.md in one commit, the merge base every case starts from.

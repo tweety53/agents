@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestCheckNarrativeRuns carries the cases of the retired
@@ -15,6 +17,7 @@ import (
 // through the bash at 8c54d6d3 over the same stub `flow` and narrative,
 // asserting the harness's expectation and byte-for-byte parity.
 func TestCheckNarrativeRuns(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	script := filepath.Join(t.TempDir(), "check-narrative-runs.sh")
 	writeExec(t, script, string(historicalFile(t, "../../..", "8c54d6d3", "scripts/check-narrative-runs.sh")))

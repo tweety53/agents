@@ -197,6 +197,7 @@ func TestSweepIsIdempotent(t *testing.T) {
 // says nothing about them -- which is the reason this task's own
 // instructions call for a real test here rather than an argument that the
 // SQL "should" be safe.
+// smoke: core — a data-race test of concurrent sweepers
 func TestConcurrentSweepersDoNotDoubleCloseOrCollide(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()

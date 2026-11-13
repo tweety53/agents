@@ -218,7 +218,7 @@ def main() -> int:
         json.dump(fingerprint, fh)
 
     nxt = (
-        "full suite, review panel, verify, then flow.write-in-progress"
+        "test list, review panel, verify, then flow.write-in-progress"
         if reason.startswith("all")
         else f"finish stage {run.get('stage')}"
     )

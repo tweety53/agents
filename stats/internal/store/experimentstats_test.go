@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/tweety53/agents/stats/internal/records"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -344,6 +345,7 @@ func TestExperimentStatsDesignReviewer(t *testing.T) {
 // later-round dispatch -- one keyed test-sanity+call-efficiency included --
 // counts under panel-rerun (decision extra-stats-pass-one).
 func TestExperimentStatsExtraBundleRoles(t *testing.T) {
+	smoke.Heavy(t)
 	for role, want := range map[string]float64{
 		"panel-reviewer": 3, "panel-sanity-efficiency": 1, "panel-mutation-failure": 2, "panel-rerun": 4,
 	} {

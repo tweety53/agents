@@ -11,9 +11,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 func TestAwaitOwnAgentsHook(t *testing.T) {
+	smoke.Heavy(t)
 	dir := filepath.Join(t.TempDir(), "sess", "subagents")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)

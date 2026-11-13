@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // vvmFix is a worktree with a capture spec, its captures under the declared
@@ -103,6 +105,7 @@ func (f vvmFix) manifest(t *testing.T, key string) vvmManifest {
 }
 
 func TestVisualVerifyPassMeasureManifest(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\nb.png frame-b\n")
 	rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts")
@@ -334,6 +337,7 @@ func TestVvpWriteOutCreatesAFrameIdsDirectory(t *testing.T) {
 // into the manifest rather than overwriting the first spec's pairs, and a
 // re-measured spec replaces its own pairs rather than duplicating them.
 func TestVisualVerifyPassMeasureMergesSpecs(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
 	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")

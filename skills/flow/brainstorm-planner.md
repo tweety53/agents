@@ -238,7 +238,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > names the lint commands the task's own `**Files:**` actually need — never the project's whole
 > `## lint` list — and the build tool's own selector for each `**Tests:**` entry (`--tests
 > '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t '<name>'` for vitest), never the bare
-> module or repository suite: that run belongs to the parent's full-suite run after the last
+> module or repository suite: that run belongs to the parent's test-list run after the last
 > group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
 > lint alone and no test command. A task whose `**Files:**` holds a Markdown file under `skills/` or
 > `rules/` is the exception: its verify step runs the whole list, `flow-guard run-verify-list <worktree>
@@ -266,7 +266,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > context instead of the one that just wrote the feature. The follow-on declares
 > `**After:** Task <N>` naming its feature task, and the feature task declares its own
 > predecessors or `none` — the declarations alone run the follow-on after the feature task — and
-> the parent's full-suite run after the last group still covers the pair.
+> the parent's test-list run after the last group still covers the pair.
 
 > **Write end-to-end spec and fidelity-capture tasks to run side by side.** Each such task's
 > `**After:**` names only the feature tasks whose behaviour it exercises — never another

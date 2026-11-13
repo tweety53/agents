@@ -22,6 +22,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/records"
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // recordJournalEntries reads the record journal for repo's project key and
@@ -256,6 +257,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 // regress into a non-zero exit: a store that cannot be reached journals
 // the intent, prints exactly one warning line and exits 0, so the work the
 // record describes proceeds unaffected.
+// smoke: core — a record write never blocks: it journals and exits 0
 func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 	cases := []struct {
 		name string
@@ -1439,6 +1441,7 @@ func TestRecordRenderPanelWithNoFindingsStillWritesTheRecord(t *testing.T) {
 // outstanding -- for a change that is genuinely clean. That is the whole
 // failure this rule removes, and this is the assertion that sees it.
 func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
+	smoke.Heavy(t)
 	guard := unfinishedWorkGuard(t)
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -1974,6 +1977,7 @@ func TestCostStatusNeverBlocks(t *testing.T) {
 // names a dispatch by, and the only way a caller learns where in the
 // change's record its dispatch landed -- and end names its row by the key
 // and token begin carried, never by that seq.
+// smoke: core — a dispatch row's begin and end
 func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
@@ -2250,6 +2254,7 @@ func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
 // two outcomes: a reachable store gets a POST body carrying every flag and
 // a non-zero recordedAt, the identical never-block fallback every other
 // record write shares.
+// smoke: core — flow record verdict, stored or journalled
 func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
 	t.Run("writes the verdict", func(t *testing.T) {
 		repo := gitRepo(t)
@@ -3921,6 +3926,7 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 // a finding recorded with -task 2 is sent under the wire key the store
 // reads, and `flow record findings` prints it back. The fake daemon keeps
 // the posted finding and serves it on the run-record read.
+// smoke: core — flow record finding's success path, read back
 func TestRecordFindingTaskRoundTrips(t *testing.T) {
 	repo := recordRepo(t, "kan-9")
 	isolatedStateRoot(t)
@@ -7137,6 +7143,7 @@ func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
 // row. A later round's key is the loop's closing panel fix re-verified
 // (skills/flow/verify-fix-loop.md step 3).
 func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *testing.T) {
+	smoke.Heavy(t)
 	const ticked = "# plan\n\n- [x] 1. a task\n- [x] 3. In-run fix 2 — flow.visual-verify: the chip colour\n"
 	const done = `{"key":"visual-verify-gymie","role":"verifier","outcome":"completed","endedAt":"2026-10-26T10:00:00Z"}`
 	const full = `{"key":"visual-verify-fix-2-full-gymie","role":"verifier","outcome":"completed","endedAt":"2026-10-26T11:00:00Z"}`
@@ -7861,6 +7868,7 @@ func TestRecordDispatchEndInlineDerivesItsStart(t *testing.T) {
 // row of the same task carries exits 2 before any store call; another
 // commit, and a failed record read, are admitted.
 func TestRecordDispatchBackfillRefusesADuplicateTaskCommit(t *testing.T) {
+	smoke.Heavy(t)
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
@@ -7938,6 +7946,7 @@ func trailerCommit(t *testing.T, repo, at, trailer string) {
 // change's state names, carries Flow-Key: panel-fix-4; the fix round's own
 // trailer, a back-fill and a commit authored before the round pass.
 func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.T) {
+	smoke.Heavy(t)
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	repo := recordRepo(t, "kan-258")
 	isolatedStateRoot(t)
@@ -8055,6 +8064,7 @@ func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
 // panel-fix-1, live or back-filled, and a live reviewer of round 1 are
 // refused while round 0 holds no completed panel-0-merger row.
 func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) {
+	smoke.Heavy(t)
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	const finding = `{"ref":"F1","round":0,"slot":"primary","severity":"Important","note":"n","status":"open"}`
 	const reviewer = `{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z","outcome":"completed"}`
@@ -8398,6 +8408,7 @@ func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
 // worktree of the change records a flowBase origin no longer carries; an
 // implementer begin is not gated, and a base origin carries is admitted.
 func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
+	smoke.Heavy(t)
 	git := func(dir string, args ...string) {
 		t.Helper()
 		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)

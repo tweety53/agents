@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The integrate-change cases are its former bash harness's cases, each run
@@ -247,6 +249,7 @@ func icServe(t *testing.T, tmp string) {
 	ack.Close()
 }
 
+// smoke: core — prepare, commit, land and cleanup over two repositories
 func TestIntegrateChangeHappyPath(t *testing.T) {
 	icRunCases(t, []icCaseDef{
 		{"happy_path", `# --- happy_path ---
@@ -293,6 +296,7 @@ check "the NEXT line names the template and its never-omitted lines" 'printf "%s
 // The bootstrap run outside sut, from inside the canonical
 // worktree, with a relative main checkout.
 func TestIntegrateChangeShim(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"shim_caller_cwd", `# --- shim_caller_cwd ---
 fixture

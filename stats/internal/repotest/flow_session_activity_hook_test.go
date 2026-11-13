@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // activityStore is a stub flow store; requests holds "METHOD path body".
@@ -43,6 +45,7 @@ func (s *activityStore) all() []string {
 }
 
 func TestFlowSessionActivityHook(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	run := func(t *testing.T, addr, stdin string) (string, int) {

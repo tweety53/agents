@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestWorkspace ports scripts/test-workspace.sh at e111a883: one subtest per
@@ -14,6 +16,7 @@ import (
 // exit before any docker call and always run; the round-trip cases run
 // against the real flow-postgres container and skip when it is unreachable.
 func TestWorkspace(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 	ws := func(args ...string) guardResult { return runGuard("workspace", args, env) }

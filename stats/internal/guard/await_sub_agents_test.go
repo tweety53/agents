@@ -6,12 +6,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestAwaitSubAgents ports scripts/test-await-sub-agents.sh cases (a)-(e):
 // 0 once every named agent's meta.json says finished, 1 at the cap while one
 // still runs, 2 on a usage error, an agent it cannot find, or a cap above 240.
 func TestAwaitSubAgents(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	tmp := t.TempDir()
 	dir := filepath.Join(tmp, "proj", "sess", "subagents")

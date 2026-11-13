@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-spec-reach.sh at b1b0d601, one subtest per
@@ -109,6 +111,7 @@ func srGit(t *testing.T, args ...string) {
 }
 
 func TestCheckSpecReach(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	bin := t.TempDir()
 	if err := os.WriteFile(filepath.Join(bin, "npm"), []byte(srFakeNpm), 0o755); err != nil {

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestRebuildFullAppSuiteZip carries the cases of the retired
@@ -19,6 +21,7 @@ import (
 // the harness's expectation and byte-for-byte stdout/stderr/exit parity, with
 // each twin's root written as <P>.
 func TestRebuildFullAppSuiteZip(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")

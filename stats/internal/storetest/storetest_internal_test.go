@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestDropLeftoverDatabasesRemovesALeftover pins Main's sweep: a test
@@ -50,6 +52,7 @@ func TestDropLeftoverDatabasesRemovesALeftover(t *testing.T) {
 // reachTimeout-sized deadline on the migration, it fails with
 // "context deadline exceeded".
 func TestMigrationWaitsOutSlowSetupInsteadOfTimingOut(t *testing.T) {
+	smoke.Heavy(t)
 	ctx := context.Background()
 	dbName := NewDatabase(t)
 

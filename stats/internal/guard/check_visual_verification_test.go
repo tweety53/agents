@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The cases of the retired scripts/test-check-visual-verification.sh, one
@@ -429,6 +431,7 @@ func vvCases() map[string]vvCase {
 }
 
 func TestCheckVisualVerification(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range vvCases() {
 		for _, chk := range c.checks {

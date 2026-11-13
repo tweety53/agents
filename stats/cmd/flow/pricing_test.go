@@ -8,12 +8,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPricingRepricePrintsCounts pins `flow pricing reprice` (decision
 // reprice-command): counts on success, usage on a bad -since, and the
 // client's error on an unreachable store.
 func TestPricingRepricePrintsCounts(t *testing.T) {
+	smoke.Heavy(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/pricing/reprice" {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)

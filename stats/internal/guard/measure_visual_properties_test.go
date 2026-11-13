@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPyJSON pins pyjson.go against Python's own output. Each expected string
@@ -180,6 +182,7 @@ func mvpSp(v ...any) string { return strings.TrimSuffix(fmt.Sprintln(v...), "\n"
 // byte (argv, exit code, stdout, stderr); then the argparse surface
 // exact-option-names changes, where the Python's stderr is not the port's.
 func TestMeasureVisualProperties(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	dir, err := filepath.Abs(mvpTestdata)
 	if err != nil {

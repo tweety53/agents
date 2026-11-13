@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case_N of scripts/test-prove-reproducer.sh at d71a2327, one subtest
@@ -175,6 +177,7 @@ func prWant(t *testing.T, r prResult, rc int, needle string) {
 const prRel = ".superpowers/sdd/reproducers/0-primary-1.sh"
 
 func TestProveReproducer(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	cases := []struct {
 		name string
@@ -370,6 +373,7 @@ func TestProveReproducerRefusesSymlinkResolvedWorktreePath(t *testing.T) {
 // TMPDIR with a trailing slash. Each leaves status, HEAD, the worktree
 // list and TMPDIR as they were.
 func TestProveReproducerBashParity(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	gitIn := func(t *testing.T, repo string, args ...string) string {
 		t.Helper()
@@ -530,6 +534,7 @@ func TestProveReproducerSIGPIPE(t *testing.T) {
 // trap and death did; a SIGHUP ignored at start stays ignored and the run
 // finishes, as a non-interactive bash could not trap it.
 func TestProveReproducerSignals(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	cache := guardCache(t)
 	for _, c := range []struct {

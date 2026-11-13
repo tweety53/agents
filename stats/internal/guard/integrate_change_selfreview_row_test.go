@@ -1,6 +1,10 @@
 package guard
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
+)
 
 // The self-review pass's land marker is flowd's completed flow.self-review
 // stage run, never a committed report (KAN-1073): the fixture's flow stub
@@ -11,6 +15,7 @@ import "testing"
 // check: no completed run stops land before any push, even with a report
 // committed the old way; flowd unreachable is exit 2; a completed run lands.
 func TestIntegrateChangeLandStopsWithoutACompletedSelfReview(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{{"land_on_stage_row", `# --- land_on_stage_row ---
 fixture
 to_land "land_on_stage_row: " no-report
@@ -35,6 +40,7 @@ check "land_on_stage_row: a completed run lands" '[ "$RC" -eq 0 ] && [ "$(jq -r 
 // TestIntegrateChangeSkipsThePassWhenTheStageCompleted pins commit's NEXT
 // line: a completed flow.self-review run skips the pass; none runs it.
 func TestIntegrateChangeSkipsThePassWhenTheStageCompleted(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{{"skip_on_stage_row", `# --- skip_on_stage_row ---
 fixture
 to_land "skip_on_stage_row: " no-report

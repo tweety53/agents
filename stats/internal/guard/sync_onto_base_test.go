@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // sobEnv runs the guard with root as FLOW_GUARD_REPO_ROOT,
@@ -77,6 +79,7 @@ exec "$REAL" "$@"
 	return dir + "/stub"
 }
 
+// smoke: core — the rebase onto a moved base
 func TestSyncOntoBase(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
@@ -185,6 +188,7 @@ func TestSyncOntoBase(t *testing.T) {
 }
 
 func TestSyncOntoBaseResume(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root := t.TempDir()
 	// conflicted is a sync stopped on a conflict over shared.txt; it returns the tip the sync rebased onto.

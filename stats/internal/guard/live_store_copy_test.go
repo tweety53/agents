@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestLiveStoreCopy ports scripts/test-live-store-copy.sh: live-store-copy
@@ -21,6 +23,7 @@ import (
 // on PATH; no database or daemon is touched. The cases share one name, so
 // they run in order.
 func TestLiveStoreCopy(t *testing.T) {
+	smoke.Heavy(t)
 	stub := t.TempDir()
 	log := stub + "/log"
 	name := fmt.Sprintf("lsc-test%d", os.Getpid())

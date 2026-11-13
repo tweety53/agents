@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Project-level opt-in rule rendering.
@@ -136,6 +138,7 @@ func TestProjectWithNothingToRenderLeftAlone(t *testing.T) {
 }
 
 func TestMissingNamedRuleReportedAndSkipped(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	proj := g.projectDir("missing")
@@ -168,6 +171,7 @@ func TestProjectDelimiterGuardsFire(t *testing.T) {
 }
 
 func TestRealKotlinStandardReachesProject(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	proj := g.projectDir("kotlin")
@@ -198,6 +202,7 @@ func TestRealKotlinStandardReachesProject(t *testing.T) {
 // `.flow/project.md ## lint` section — so a managed block can never name a command the
 // project does not declare.
 func TestLintCommandsSubstitutedFromProjectLint(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	proj := g.projectDir("lintsub")
@@ -217,6 +222,7 @@ func TestLintCommandsSubstitutedFromProjectLint(t *testing.T) {
 // before any target is touched, naming the missing section — never render an empty or
 // invented command block.
 func TestLintCommandsRefusedWithoutProjectLint(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	proj := g.projectDir("lintnolint")
@@ -231,6 +237,7 @@ func TestLintCommandsRefusedWithoutProjectLint(t *testing.T) {
 // The placeholder must never reach a render with no project context: an always-on rule
 // carrying it aborts the global render itself, the one render no ## lint exists for.
 func TestLintCommandsRefusedOnGlobalRender(t *testing.T) {
+	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	repo := filepath.Join(g.dir, "lint-always-repo")

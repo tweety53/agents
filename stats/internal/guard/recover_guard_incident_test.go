@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The cases of scripts/test-recover-guard-incident.sh at c5379c0a that
@@ -102,6 +104,7 @@ func rgiErrIs(label string, want func(fx *rgiFx) string) rgiCheck {
 }
 
 func TestRecoverGuardIncident(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// new_repo, built once and copied per case: one tracked file three
 	// commits touch, so a revert of HEAD~1 leaves REVERT_HEAD set.

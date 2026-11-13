@@ -759,6 +759,7 @@ func getRaw(t *testing.T, url string) (*http.Response, []byte) {
 // does) and that the allocated seq comes back on the response, which is
 // the only way a caller learns where in the change's record its dispatch
 // landed.
+// smoke: core — the dispatch route allocates a seq
 func TestRecordDispatchRouteAllocatesSeqAndAnswers201(t *testing.T) {
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
@@ -987,6 +988,7 @@ func TestEndDispatchRouteTakesAStampedRowsEndFromItsAgent(t *testing.T) {
 // row or replaced one. A fix round restating F1 must be distinguishable
 // from the round that first raised it, and the change must still hold
 // exactly one row for F1 either way.
+// smoke: core — the finding route creates once and updates after
 func TestRecordFindingRouteAnswers201OnCreateAnd200OnUpdate(t *testing.T) {
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/findings"

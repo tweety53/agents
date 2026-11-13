@@ -586,7 +586,7 @@ A fixer's prompt is the same stub under its own `Key:`, its `Tasks:` line the ta
 The parent compares that line against the group's recorded model (or the run's session override)
 and applies **The handshake** stated above, unchanged.
 
-**The parent runs the full suite — never an implementer.** Once the plan-last group — the group
+**The parent runs the test list — never an implementer.** Once the plan-last group — the group
 holding the last `bundle <k>` line `flow-guard plan-dispatch-bundles` printed — has passed the guard, by
 direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
 once per worktree in this run's resolved set, one worktree after another, in the foreground, as
@@ -627,7 +627,7 @@ as PNGs that do not yet exist, and they are committed by the regression checkout
 of `skills/flow/visual-verify.md`.
 
 **The pass-1 panel reads while the suite runs.** On a run whose `skills/flow/review-panel.md`
-opens a pass 1, the full-suite run above waits for that pass: the parent closes `flow.sdd-tdd`,
+opens a pass 1, the test-list run above waits for that pass: the parent closes `flow.sdd-tdd`,
 enters the panel, and runs the list there, between recording the pass-1 begins and the round's
 wait, as that file's **Bundled dispatch** states. The reading slots are read-only, so their verdict and the
 suite's arrive together rather than one after the other.
@@ -912,7 +912,7 @@ the plan-tree guard, never in its place.
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gated reviewer bundle has returned, the stage-end
 gated fix and its re-review have closed clean (`skills/flow/gated-review-fix.md`), and the parent's
-full-suite run has passed, after any fix — save a pass 1,
+test-list run has passed, after any fix — save a pass 1,
 whose slots are dispatched before the suite runs (**The pass-1 panel reads while the suite runs**,
 above); the review panel's pre-work may ride the last boundary's Bash call. No
 panel verdict is taken, and no round after pass 1 is dispatched, on a red branch.
@@ -969,7 +969,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Test/lint output through `tail`.** A targeted test or lint run's output is piped through
   `tail` (`| tail -20`, the failing block reproduced from the log file on a failure) — already the
   rule for implementers (TARGETED TESTS); it binds the parent's own `## lint`/`## test` runs in
-  `flow.verify` and the full-suite run after the last group the same way.
+  `flow.verify` and the test-list run after the last group the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
   — and `document-fix.md`, `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`,
   `implementer-brief.md`, `review-panel-late-fix.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
@@ -1026,7 +1026,7 @@ Once this stage completes, continue into `skills/flow/review-panel.md`.
 ### Every fix is a fresh one-shot
 
 **Under `sdd` the parent edits no code.** Whatever a task's close, a wave's pick, a gated pass or
-the full suite still needs changed in the tree goes to a fresh one-shot dispatch — never the
+the test list still needs changed in the tree goes to a fresh one-shot dispatch — never the
 parent, never a resumed child — on its row below. Its prompt is the implementer stub (section
 **4** above) under the row's own `Key:`, its `Tasks:` line the tasks it fixes and a `FIX INPUT:`
 line naming what to fix and, on the gated and full-suite rows, `MUTATION PROOF`; its work is the
@@ -1037,8 +1037,10 @@ FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
 | every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the decision's `fixer` | at the stage's end, one per group of at most twenty findings, in series (`skills/flow/gated-review-fix.md`) |
 | a `flow-guard close-task` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches |
 | a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the group's own pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
-| a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the full suite**, above) |
+| a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the test list**, above) |
 
+A full-suite fix takes its name from its key: the run it repairs is the test list, never the
+full suite, which is `flow-guard run-verify-list -full` and runs only when the operator asks.
 `full-suite-fix-<n>` keys the implement phase's full-suite fixes only; a fix at `flow.verify` is an
 `In-run fix <k>` task, its re-runs keyed `-fix-<k>` (**The loop**, `skills/flow/verify-fix-loop.md`).
 

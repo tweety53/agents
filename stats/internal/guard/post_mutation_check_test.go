@@ -3,6 +3,8 @@ package guard
 import (
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPostMutationCheck pins snapshotTreeState and checkTreeRestored against
@@ -14,6 +16,7 @@ import (
 // TestPostMutationCheckParity, deleted with the library, compared against
 // it. <wt> stands for the row's worktree path, which carries a space.
 func TestPostMutationCheck(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// The harness's repository: one empty commit. The parity rows': a.txt.
 	empty, withA := t.TempDir()+"/empty", t.TempDir()+"/with-a"

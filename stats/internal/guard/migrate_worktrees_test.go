@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // mwFx is a main checkout with two worktrees in the retired in-repo layout,
@@ -160,6 +162,7 @@ func (fx *mwFx) worktreeList(t *testing.T) string {
 }
 
 func TestMigrateWorktrees(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	t.Run("moves the free worktree, skips the held one, rewrites the record", func(t *testing.T) {

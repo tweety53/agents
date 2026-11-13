@@ -200,7 +200,9 @@ or `fix-run judge: full path — <the guard's stderr, or aborted>`.
   `flow-guard panel-round-begins` refuses the round's begins — exit 3, none recorded — while a
   slot carries a role the roster omits.
 - **Verify.** Under `"verify": "fast"`, `flow-guard run-verify-list <worktree> test` skips every
-  command and ends its row `skipped`; the `lint` group runs whole.
+  command and ends its row `skipped`; the `lint` group runs whole. Under `"verify": "full"` that
+  command runs the whole test list — the default run, never the full suite, which is
+  `flow-guard run-verify-list -full` and runs only when the operator asks.
 - **The void.** Any Critical or Important finding this fix run's panel raises voids the verdict
   for the rest of the run, as it voids the late-fix reduction: every role the verdict dropped is
   stale and runs on the next round under **Panel re-runs**, and verify runs `full` —

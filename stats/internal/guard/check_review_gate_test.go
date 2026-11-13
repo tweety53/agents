@@ -50,6 +50,7 @@ func rgCommit(t *testing.T, wt string, files ...string) string {
 
 func rgLines(n int) string { return strings.Repeat("x\n", n) }
 
+// smoke: core — a gate whose failure is silent
 func TestCheckReviewGate(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // dwRepo is a fresh repository with each of paths created (with parents) and
@@ -58,6 +60,7 @@ func runDoneWhen(t *testing.T, root string, args ...string) (int, string, string
 }
 
 func TestCheckDoneWhenPaths(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	for _, c := range []struct {

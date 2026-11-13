@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // vvcFixture is a prepare fixture whose stage has begun one row, its key
@@ -84,6 +86,7 @@ func vvcLog(t *testing.T, dir, format string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// smoke: core — a visual-verify pass closing done
 func TestVisualVerifyPassCloseDone(t *testing.T) {
 	f := vvcFixture(t, "")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
@@ -107,6 +110,7 @@ func TestVisualVerifyPassCloseDone(t *testing.T) {
 }
 
 func TestVisualVerifyPassCloseRest(t *testing.T) {
+	smoke.Heavy(t)
 	f := vvcFixture(t, "")
 	before := vgHead(t, f.wt)
 	undone := strings.Replace(vvcSteps, "10 done", "10 not done", 1)
@@ -205,6 +209,7 @@ func TestVisualVerifyPassCloseLaterBlocks(t *testing.T) {
 }
 
 func TestVisualVerifyPassCloseJudge(t *testing.T) {
+	smoke.Heavy(t)
 	f := vvcFixture(t, "")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, "", "home: the card is 3px narrower — departure"), "- steps: "+vvcSteps+"\n")
 	before := vgHead(t, f.wt)
@@ -234,6 +239,7 @@ func TestVisualVerifyPassCloseNoReport(t *testing.T) {
 }
 
 func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
+	smoke.Heavy(t)
 	f := vvcFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, "foreign.txt"), "x\n")
 	gitRun(t, f.wt, "add", "foreign.txt")

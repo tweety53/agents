@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // spbFx is rpbFx's origin clone with a five-line file on the recorded merge
@@ -61,6 +63,7 @@ exec "$REAL" "$@"
 }
 
 func TestSyncPanelBase(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	moved := "MOVED: $WT — 1 commits on origin/main since the recorded merge base; "
 	clear := "CLEAR: $WT — origin/main has not moved since the recorded merge base\n"
@@ -170,6 +173,7 @@ func TestSyncPanelBase(t *testing.T) {
 // rebase ends on a line naming the new merge base, never on the re-check's
 // CLEAR — which an unmoved base still ends on.
 func TestSyncPanelBaseEndsOnTheRebase(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	final := "REBASED: $WT — merge base now $MB; record it with flow state add-worktree and push --force-with-lease"
 	cases := []struct {

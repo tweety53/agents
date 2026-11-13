@@ -15,9 +15,9 @@ import (
 // inline code span outside a fence whose command — at its start or after
 // `&&`, `;` or `|` — invokes Gradle on a test task with no
 // `--tests`, `go test` with no `-run`, or `npm test`/vitest with no `-t`. A
-// task verifies with its lint and its own `**Tests:**` selector; the full
-// `## test` list runs once, after the last task (**The parent runs the full
-// suite — never an implementer.**, skills/flow/implement.md). Exit 0 clean,
+// task verifies with its lint and its own `**Tests:**` selector; the
+// `## test` list runs once, after the last task (**The parent runs the test
+// list — never an implementer.**, skills/flow/implement.md). Exit 0 clean,
 // 1 one `file:line: task <id> runs the suite …` line per span, 2 a usage
 // error or a file that cannot be read.
 func init() { Registry["plan-suite-steps"] = planSuiteStepsCmd }
@@ -75,7 +75,7 @@ func planSuiteStepsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 			for i+1 < len(starts) && starts[i+1] <= m[0] {
 				i++
 			}
-			fmt.Fprintf(stdout, "%s:%d: task %s runs the suite `%s` — a task verifies with its own **Tests:** selector; the full `## test` list runs once, after the last task\n",
+			fmt.Fprintf(stdout, "%s:%d: task %s runs the suite `%s` — a task verifies with its own **Tests:** selector; the `## test` list runs once, after the last task\n",
 				args[0], task.taskLine+1+offsets[i], task.id, cmd)
 			found++
 		}

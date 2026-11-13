@@ -26,6 +26,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 var denyRe = regexp.MustCompile(`"permissionDecision": *"deny"`)
@@ -149,6 +151,7 @@ func newPMFixture(t *testing.T) (f *pmFixture, root, main, wt string) {
 // close, so a redirect after the group lands in the cwd before it; and `trash` of a file git
 // tracks in a main checkout is a write, of an untracked one is not (kan-1083 self-review, F2).
 func TestProtectMainCheckoutScopesACdToItsGroup(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	f, _, main, _ := newPMFixture(t)
 	f.write(main+"/scratch.out", "x\n")
@@ -168,6 +171,7 @@ func TestProtectMainCheckoutScopesACdToItsGroup(t *testing.T) {
 }
 
 func TestProtectMainCheckout(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	f, root, main, wt := newPMFixture(t)
 	// repo with no origin, on develop
@@ -512,6 +516,7 @@ func TestProtectMainCheckout(t *testing.T) {
 // spectre/<name>, is denied; a trailered, chore, -F or --amend commit, and any commit on another
 // branch, passes.
 func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -584,6 +589,7 @@ func TestProtectMainCheckoutSkipsAMessageItCannotRead(t *testing.T) {
 // a bare `cat > <file>` reads stdin, which a Bash call never has, so it
 // hangs until the call times out; a cat with input of its own passes.
 func TestProtectMainCheckoutDeniesABareCatRedirect(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -608,6 +614,7 @@ func TestProtectMainCheckoutDeniesABareCatRedirect(t *testing.T) {
 // denied — the push check runs before the commit exists. The commit alone is still never judged,
 // and a readable trailered message pushed in one call passes.
 func TestCommitThenPushWithUnreadableMessageIsDenied(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -645,6 +652,7 @@ func TestCommitThenPushWithUnreadableMessageIsDenied(t *testing.T) {
 // data, not shell — while a body handed to a shell, a later runner word, a pipe
 // into `sh`, or an unquoted body's `$(…)` keeps being scanned.
 func TestProtectMainCheckoutReadsADataHeredocBodyAsData(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -688,6 +696,7 @@ func TestProtectMainCheckoutReadsADataHeredocBodyAsData(t *testing.T) {
 // so a lone `.` in one and an unpaired backtick in the other no longer keep
 // both scanned; an unquoted body that runs code still counts.
 func TestProtectMainCheckoutReadsTwoDataHeredocsAsData(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -717,6 +726,7 @@ func TestProtectMainCheckoutReadsTwoDataHeredocsAsData(t *testing.T) {
 // heredoc is a plain character, so the heredoc body stays data; an
 // unquoted or double-quoted backtick still keeps the body scanned.
 func TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -750,6 +760,7 @@ func TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
 // inside it, a clone of a network origin and a checkout cloned from a local
 // bare repository stay denied (kan-1107 self-review, F5).
 func TestProtectMainCheckoutAdmitsRemovingALocalClone(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	f, root, main, _ := newPMFixture(t)
 	f.git("clone", "-q", "--local", main, root+"/clone")

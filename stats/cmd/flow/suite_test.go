@@ -32,6 +32,7 @@ func wantHost(t *testing.T) string {
 // stdout untouched), one row is recorded with this host, a positive
 // duration and the child's exit code, and the command exits with the
 // child's own code.
+// smoke: core — flow suite record runs its child and records one row
 func TestSuiteRecordRunsChildAndRecordsRow(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -229,6 +230,7 @@ func TestSuiteRecordReportsUnstartableChild(t *testing.T) {
 // with host and exit visible, plus one summary line per (suite, host)
 // carrying the median of the last 10 passing runs -- the failed run renders
 // as a row but never enters a median.
+// smoke: core — the rows and medians the default list is watched by
 func TestSuiteListRendersRowsAndSummary(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)

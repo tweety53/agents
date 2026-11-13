@@ -445,7 +445,7 @@ On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row
 A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
-**On pass 1 the full suite runs between the begins and the wait.** The parent runs it there, in
+**On pass 1 the test list runs between the begins and the wait.** The parent runs it there, in
 the foreground, while the read-only slots review (**The pass-1 panel reads while the suite
 runs.**, `skills/flow/implement.md`).
 The `mutation+failure-modes` dispatch stays out of pass 1's launch message: once the suite has exited, a second `flow-guard panel-round-begins` call records that dispatch's begin alone and the next message launches it, before the round's wait.
@@ -1070,7 +1070,7 @@ the **AskUserQuestion** it states.
 > name, and the tests your fix adds, through the build
 > tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
 > '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
-> run the module or repository suite mid-task: the full `## test` list runs again in
+> run the module or repository suite mid-task: the `## test` list runs again in
 > `flow.verify`. Pipe a test run's output through `tail` so a green
 > run costs lines of context, not a build log.
 

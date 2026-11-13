@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-reproducer-exit-contract.sh at
@@ -112,6 +114,7 @@ func (s *pcSandbox) neverRan(t *testing.T, label string) {
 }
 
 func TestCheckPanelReproducerExitContract(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// The reproducer bodies that give each runner verdict: 0 demonstrated,
 	// 1 not demonstrated, 2 refused (no execute permission, found only once
@@ -675,6 +678,7 @@ func TestPanelExitContractNullFindingsCannotAnswer(t *testing.T) {
 // citation, tolerantly (absence violates nothing) and never for a
 // mutation-declared reproducer, whose instrument audit is the sha pin.
 func TestPanelExitContractPremiseAudit(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	decl := "# demonstrates: target.txt:2:defect present here\n"
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/prompttuning"
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // ptRepo is a scratch agents repo carrying one shared prompt and one scoped
@@ -77,6 +78,7 @@ func ptWrite(t *testing.T, root string, c prompttuning.Case) string {
 }
 
 func TestCheckPromptTuningCases(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name   string

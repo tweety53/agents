@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-visual-verify-dispatched.sh at 2056def4
@@ -326,6 +328,7 @@ func vvdFlowRows(rows, flags string) string {
 }
 
 func TestCheckVisualVerifyDispatched(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const v, done = "verifier", "completed"
 	p := vvdPrefix

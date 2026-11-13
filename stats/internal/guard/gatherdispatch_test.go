@@ -26,6 +26,7 @@ import (
 // the bundle it wrote. The guard sees a PATH holding only the case's own bin
 // directory, so `flow` is absent unless a case stubs it: the real store is
 // never consulted.
+// smoke: core — the bundle every dispatch reads
 func TestGatherDispatchContext(t *testing.T) {
 	t.Parallel()
 	tmpl := gdcTemplate(t)

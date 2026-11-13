@@ -500,6 +500,7 @@ func testDispatchEnd() records.DispatchEnd {
 // across kinds is exactly what matters: a status write replayed before the
 // finding it updates would be refused by a real store, and a dispatch end
 // replayed before the begin it closes names a row that does not exist yet.
+// smoke: core — the journal replay applies pending record entries
 func TestReplayAppliesPendingRecordEntries(t *testing.T) {
 	root := t.TempDir()
 	const project, change = "proj-record", "chg-record"

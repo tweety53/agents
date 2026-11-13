@@ -32,6 +32,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // loopStub is one subtest's stub checker: it writes its argv to log and
@@ -57,6 +59,7 @@ func newLoopStub(t *testing.T, rc string) loopStub {
 }
 
 func TestEnforceLoopDispatchHook(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	repo, err := filepath.EvalSymlinks(repoRoot(t))
 	if err != nil {
@@ -246,6 +249,7 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 // TestEnforceLoopDispatchHookRecordsADenial pins decision sr4-hook-denial-incident for the loop
 // hook: a refused loop dispatch writes one `flow record incident` call; an admitted one none.
 func TestEnforceLoopDispatchHookRecordsADenial(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	b, err := json.Marshal(map[string]any{"tool_name": "Agent", "tool_input": map[string]string{
 		"prompt":        "Before anything else, read `~/.claude/rules/agent-baseline.md`.\nKey: pipeline-fix-6-fix\nDo it.",
