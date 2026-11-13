@@ -193,7 +193,9 @@ func (v *vvp) measure(args []string) {
 		v.writeOut(p.BandsFile, out)
 		var bs map[string]any
 		if json.Unmarshal([]byte(out), &bs) == nil {
-			p.Bands, p.Seams = vvmFlagged(bs["bands"]), vvmFlagged(bs["seams"])
+			// measure-visual-properties nests the page props under `delta`.
+			d, _ := bs["delta"].(map[string]any)
+			p.Bands, p.Seams = vvmFlagged(d["bands"]), vvmFlagged(d["seams"])
 		}
 
 		rc, out, serr = run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "matrix")

@@ -126,6 +126,9 @@ func TestVisualVerifyPassMeasureManifest(t *testing.T) {
 				t.Fatalf("%s: %v", p.Frame, err)
 			}
 		}
+		if p.Frame == "frame-a" && len(p.Bands) == 0 {
+			t.Fatalf("%s: the bands the measure flagged under `delta` never reached the manifest", p.Frame)
+		}
 		flagged := len(p.Bands) + len(p.Over)
 		if (p.Frame == "frame-a") != (flagged > 0) {
 			t.Fatalf("%s: %d flagged bands, %d over rows; want flags on frame-a alone", p.Frame, len(p.Bands), len(p.Over))
