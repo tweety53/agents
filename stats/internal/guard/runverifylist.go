@@ -115,6 +115,18 @@
 // A failing run still runs every other command, and the whole-list sha above
 // and its skip are unchanged.
 //
+// VERIFY FAST. A `test` run in a worktree whose
+// `.superpowers/sdd/fix-run.json` -- the fix-run judge's verdict, written by
+// flow-guard fix-run-floor, whose header is canonical for it -- says verify
+// fast skips every command and the visual verify, printing
+//   - `<command>` — skipped, fix-run verify fast: the change is prose
+// writes neither green file and ends its row `skipped`. The verdict holds
+// only while the change's class, re-derived from the tree, is still prose,
+// and only while `flow record findings` holds no Critical or Important
+// finding of the verdict's round or a later one; otherwise the whole list
+// runs, a voided verdict saying so on a line of its own. A `lint` list is
+// never shortened.
+//
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
 // check-spec-reach included — that exits 0 on a tree clean before and after
@@ -261,6 +273,9 @@ import (
 // and never the `## lint` or `## test` commands; when the conditions above
 // skip it, it prints `- visual verify — not run: …` and exits 0 (kan-1052
 // self-review, F2).
+//
+// A `test` list under a fix-run judge's verify fast (flow-guard fix-run-floor)
+// skips every command and ends its row skipped.
 //
 // The mechanism, and its full contract — the list, the green sha, the output
 // — is stats/internal/guard/runverifylist.go; its test is
@@ -585,6 +600,45 @@ func rvlKeepPlaywrightResults(dir, dst string, since time.Time) string {
 	return dst
 }
 
+// rvlParse reads a verify list out of `project-get <worktree> <list>`'s
+// output: every non-blank, non-`#` line inside a ```bash fence, in order.
+// inputs[i] is the pathspec list the `# inputs:` line above cmds[i] named,
+// suites[i] the `# suite:` line's name. fix-run-floor reads the `test`
+// list's inputs through it too.
+func rvlParse(body string) (cmds, inputs, suites []string) {
+	pending, suite, fenced := "", "", false
+	for _, line := range strings.Split(strings.TrimRight(body, "\n"), "\n") {
+		switch {
+		case rvlFenceOpen.MatchString(line):
+			fenced = true
+			continue
+		case strings.HasPrefix(line, "```"):
+			fenced = false
+			continue
+		}
+		fields := strings.FieldsFunc(line, func(r rune) bool { return r == ' ' || r == '\t' })
+		if !fenced || len(fields) == 0 {
+			continue
+		}
+		if m := rvlInputs.FindStringSubmatch(line); m != nil {
+			pending = m[1]
+			continue
+		}
+		if m := rvlSuite.FindStringSubmatch(line); m != nil {
+			suite = m[1]
+			continue
+		}
+		if strings.HasPrefix(fields[0], "#") {
+			continue
+		}
+		cmds = append(cmds, line)
+		inputs = append(inputs, pending)
+		suites = append(suites, suite)
+		pending, suite = "", ""
+	}
+	return cmds, inputs, suites
+}
+
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// A closed reader (`| head`) must not kill the list before its row's
 	// `end`: writes return EPIPE instead (decision f6-ignore-sigpipe, kan-1037).
@@ -726,39 +780,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	// inputs[i] is the pathspec list the `# inputs:` line above cmds[i] named,
-	// suites[i] the `# suite:` line's name.
-	var cmds, inputs, suites []string
-	pending, suite, fenced := "", "", false
-	for _, line := range strings.Split(strings.TrimRight(string(body), "\n"), "\n") {
-		switch {
-		case rvlFenceOpen.MatchString(line):
-			fenced = true
-			continue
-		case strings.HasPrefix(line, "```"):
-			fenced = false
-			continue
-		}
-		fields := strings.FieldsFunc(line, func(r rune) bool { return r == ' ' || r == '\t' })
-		if !fenced || len(fields) == 0 {
-			continue
-		}
-		if m := rvlInputs.FindStringSubmatch(line); m != nil {
-			pending = m[1]
-			continue
-		}
-		if m := rvlSuite.FindStringSubmatch(line); m != nil {
-			suite = m[1]
-			continue
-		}
-		if strings.HasPrefix(fields[0], "#") {
-			continue
-		}
-		cmds = append(cmds, line)
-		inputs = append(inputs, pending)
-		suites = append(suites, suite)
-		pending, suite = "", ""
-	}
+	cmds, inputs, suites := rvlParse(string(body))
 	for _, c := range cmds {
 		if rvlTemplate.MatchString(c) {
 			fmt.Fprintf(stderr, "run-verify-list: %s line is a template, not a command — move it out of the fence: %s\n", list, c)
@@ -903,11 +925,34 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			os.WriteFile(running+"-"+list, nil, 0o666)
 		}
 	}
+	// VERIFY FAST: a fix run's judged verdict (fix-run-floor) skips every
+	// `test` command while the change is still prose and the store holds no
+	// Critical or Important finding of the verdict's round or later.
+	fast, fastWhy := false, ""
+	if list == "test" {
+		if v, ok := fixRunVerdict(env, abs(wt)); ok && v.Verify == "fast" {
+			if change == "" {
+				branch, _ := gitOut("branch", "--show-current")
+				change = strings.TrimPrefix(branch, "spectre/")
+			}
+			store := abs(wt)
+			if canon != "" {
+				store = canon
+			}
+			if fastWhy = frSevereSince(env, store, change, v.Round); fastWhy == "" {
+				fast = true
+			} else {
+				fmt.Fprintf(stdout, "- fix-run verify fast voided — %s: the whole list runs\n", fastWhy)
+			}
+		}
+	}
 	skip := make([]bool, len(cmds))
 	passedAt := make([]bool, len(cmds))
 	var argvs [][]string
 	for i, c := range cmds {
 		switch {
+		case fast:
+			skip[i] = true
 		case unchanged(inputs[i]):
 			skip[i] = true
 		case list == "test" && slices.Contains(greenAt, c):
@@ -925,6 +970,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if list == "test" {
 		results := rgtRun(context.Background(), argvs, max(len(argvs), 1), outDir, abs(wt), cmdEnv)
 		for i, c := range cmds {
+			if fast {
+				fmt.Fprintf(stdout, "- `%s` — skipped, fix-run verify fast: the change is prose\n", c)
+				continue
+			}
 			if passedAt[i] {
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", c, headSHA)
 				continue
@@ -942,7 +991,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	visualRan := false
-	if list != "lint" {
+	if list != "lint" && !fast {
 		if change == "" {
 			branch, _ := gitOut("branch", "--show-current")
 			change = strings.TrimPrefix(branch, "spectre/")
@@ -1027,10 +1076,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	if headSHA != "" && failed == 0 && clean() {
+	// A fast run ran no command, so it stamps no green a later run could skip on.
+	if headSHA != "" && failed == 0 && !fast && clean() {
 		os.WriteFile(greenFile, []byte(headSHA+"\n"), 0o666)
 	}
-	if cmdsFile != "" && clean() {
+	if cmdsFile != "" && !fast && clean() {
 		var lines []string
 		for _, c := range append(greenAt, passed...) {
 			if !slices.Contains(lines, c) {

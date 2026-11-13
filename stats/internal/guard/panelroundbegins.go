@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -23,7 +25,12 @@ import (
 // self-review, F8).
 //
 // Exit codes: 0 every begin recorded; 1 a begin failed (its output relayed,
-// the later slots still recorded); 2 usage, or no flow binary on PATH.
+// the later slots still recorded); 2 usage, or no flow binary on PATH; 3 a
+// slot carries a role the fix run's judged roster omits -- in the round
+// <worktree>/.superpowers/sdd/fix-run.json governs (flow-guard fix-run-floor,
+// whose header is canonical for that file), stderr names the slot and role
+// and no begin is recorded, so hooks/enforce-agent-baseline.py denies the
+// launch.
 //
 // Go, in flow-guard (stats/internal/guard/panelroundbegins.go).
 
@@ -38,7 +45,8 @@ import (
 // begin`), so this guard writes none (kan-1086 self-review, F8; kan-1033
 // self-review moved the row out of hand-recording first).
 // Exit 0 every begin recorded; 1 a begin failed (its output relayed, the
-// rest still recorded); 2 usage, or no flow binary on PATH.
+// rest still recorded); 2 usage, or no flow binary on PATH; 3 a slot off the
+// fix run's judged roster, no begin recorded.
 func init() {
 	Registry["panel-round-begins"] = panelRoundBegins
 }
@@ -66,6 +74,18 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 			s.diffBase = f[3]
 		}
 		slots = append(slots, s)
+	}
+	// THE JUDGED ROSTER: in the round a fix run's verdict governs, a slot
+	// carrying a role the verdict's roster omits is refused before any begin.
+	if v, ok := fixRunVerdict(env, smcAbs(env, wt)); ok && strconv.Itoa(v.Round) == round {
+		for _, s := range slots {
+			for _, role := range strings.Split(s.name, "+") {
+				if !slices.Contains(v.Roster, role) {
+					fmt.Fprintf(stderr, "panel-round-begins: slot %s carries %s, which this fix run's judged roster (%s) omits — no begin recorded (flow-guard fix-run-floor)\n", s.name, role, strings.Join(v.Roster, ","))
+					return 3
+				}
+			}
+		}
 	}
 	flow, ok := lookPath(env, "flow")
 	if !ok {
