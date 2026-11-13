@@ -300,6 +300,31 @@ func TestThrowawayWorktreeRemoveFoldBack(t *testing.T) {
 	}
 }
 
+// A wave group's copy holds the context bundle and implementer report its
+// gated reviewer reads after the copy is gone: --fold-back carries both back
+// under the same newer-than rule, and still leaves any other file behind.
+func TestThrowawayWorktreeFoldBackCarriesTheGroupBundle(t *testing.T) {
+	t.Parallel()
+	wt := twRepo(t)
+	cp := wt + "-wave-group-2"
+	gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
+	writeFile(t, cp+"/.superpowers/sdd/dispatch-context-group-2.md", "group 2 bundle\n")
+	writeFile(t, cp+"/.superpowers/sdd/implementer-report-2.md", "group 2 report\n")
+	writeFile(t, cp+"/.superpowers/sdd/task-3.diff", "never folded\n")
+	twGuard(t, "remove", wt, cp, "--fold-back")
+	for name, want := range map[string]string{
+		"dispatch-context-group-2.md": "group 2 bundle\n",
+		"implementer-report-2.md":     "group 2 report\n",
+	} {
+		if b, err := os.ReadFile(wt + "/.superpowers/sdd/" + name); err != nil || string(b) != want {
+			t.Errorf("%s = %q (%v), want %q", name, b, err, want)
+		}
+	}
+	if _, err := os.Stat(wt + "/.superpowers/sdd/task-3.diff"); err == nil {
+		t.Error("task-3.diff was folded back; only the named patterns are")
+	}
+}
+
 // A failed fold-back still exits 2 but never leaves the copy registered: the
 // fence removed the copy whatever the fold-back did.
 func TestThrowawayWorktreeRemoveFoldBackFailureStillRemoves(t *testing.T) {

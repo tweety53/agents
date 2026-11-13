@@ -43,8 +43,10 @@ that slot as the repository paths to mutate and test in, in place of `<worktree>
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
 (including after the wall-clock re-dispatch), or the run stopped — with
 `flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, run as its own Bash call with literal absolute paths, never chained into a compound command, which first copies
-each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md` and
-`<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
+each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md`,
+`<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh`,
+`<worktree>-<slot>-<round>/.superpowers/sdd/dispatch-context-group-*.md` and
+`<worktree>-<slot>-<round>/.superpowers/sdd/implementer-report-*.md` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
 
 The fold-back runs inside the removal step itself — on every path that removes a copy,
 completed, timed out or run stopped — because a report the slot resolved onto its dispatched root

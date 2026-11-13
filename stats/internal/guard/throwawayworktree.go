@@ -29,8 +29,9 @@ import (
 //   same path of the copy, when present. --sdd also copies `<worktree>/.superpowers/sdd`, when present,
 //   to the same path in the copy.
 // remove: `git worktree remove --force <copy>`. --fold-back first copies each
-//   non-empty `.superpowers/sdd/panel-report-*.md` and
-//   `.superpowers/sdd/reproducers/*.sh` from the copy back into the worktree,
+//   non-empty `.superpowers/sdd/panel-report-*.md`,
+//   `.superpowers/sdd/reproducers/*.sh`, `.superpowers/sdd/dispatch-context-group-*.md`
+//   and `.superpowers/sdd/implementer-report-*.md` from the copy back into the worktree,
 //   unless the worktree already holds a non-empty file the copy's is not
 //   newer than.
 //
@@ -181,7 +182,8 @@ func twRemove(env Env, wt, cp string, foldBack bool) error {
 // than.
 func twFoldBack(env Env, wt, cp string) error {
 	var found []string
-	for _, pat := range []string{"/.superpowers/sdd/panel-report-*.md", "/.superpowers/sdd/reproducers/*.sh"} {
+	for _, pat := range []string{"/.superpowers/sdd/panel-report-*.md", "/.superpowers/sdd/reproducers/*.sh",
+		"/.superpowers/sdd/dispatch-context-group-*.md", "/.superpowers/sdd/implementer-report-*.md"} {
 		m, _ := filepath.Glob(smcAbs(env, cp) + pat)
 		found = append(found, m...)
 	}
