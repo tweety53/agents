@@ -77,9 +77,9 @@ forbids any agent action touching it at all.
 
 ```bash
 # suite: guard-tests
-scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -count=1 ./internal/guard/...; }
+scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/ hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/ scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/ setup.sh=stats/internal/setuptest/) && cd stats && FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -short -count=1 ./internal/guard/...; }
 # suite: stats-go
-scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { cd stats && make -s web-dist && GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -count=1 $(go list ./... | grep -v '/internal/guard$'); }
+scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/ hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/ scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/ setup.sh=stats/internal/setuptest/) && cd stats && make -s web-dist && FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -race -short -count=1 $(go list ./... | grep -v '/internal/guard$'); }
 # suite: stats-spa
 # inputs: stats/web/ stats/Makefile
 scripts/flow-guard unchanged stats/web/ stats/Makefile || { cd stats && make -s web-dist && cd web && npm test; }
@@ -95,8 +95,51 @@ suite starves another.
 
 Each suite runs only when the branch changed, since its merge-base on `origin/main`, a path it
 reads (`scripts/flow-guard unchanged`): a change to `docs/` or `spectre/` alone runs no suite, and one to
-`stats/web/` alone runs only the SPA's. The full suite — the four suite commands without the
-`flow-guard unchanged` guard — runs only when the operator asks for it, never as part of a `/flow` run.
+`stats/web/` alone runs only the SPA's. A suite its guard skipped prints the guard's line in the
+`## Report` and records no suite row.
+
+**This list is the smoke set — the default run.** Both Go lines run under `-short`, and three kinds
+of test run in it:
+
+- **every light test.** A test is heavy when its cost is 1 s or more — its own `Elapsed` plus that
+  of every descendant that paused for `t.Parallel()`, under the line's own flags less `-short` on an
+  idle machine. A heavy test opens with `smoke.Heavy(t)` (`stats/internal/smoke`), which skips it
+  in a `-short` run; a new test carries no mark and runs.
+- **the core set.** A core test carries `// smoke: core — <the capability it proves>` as the last
+  line of the comment directly above its `func` and never calls `smoke.Heavy`;
+  `git grep -n '^// smoke: core' -- stats ':!stats/internal/smoke'` lists the set with its reasons,
+  and the static test of `stats/internal/smoke` fails a test carrying both the tag and the call.
+- **the heavy tests of what the branch touched.** `flow-guard smoke-keep` reads the diff
+  `flow-guard unchanged` reads and prints the paths `FLOW_SMOKE_KEEP` carries to `smoke.Heavy`: a
+  changed `_test.go` file, the test files paired by name with a changed Go source, and the kept
+  path of each `<path prefix>=<kept path>` argument a changed path falls under — the rows on the
+  two Go lines. A changed Go source that pairs with no test file keeps nothing and is named on
+  stderr, at the top of its suite's block.
+
+**A core test is gathered by one rubric.** Keep a heavy test only when it is the cheapest
+success-path proof — through the registered command, the CLI's `run` or a real script — of
+something every run executes, of a gate whose failure is silent, or of an operation that rewrites
+or destroys; when no lighter test covers that path and `## lint` does not already run that guard
+over the real tree; and when no other core test already runs it for real. A heavy test that is the
+only reader of a repository input nearly every change touches is kept under the same rule, in
+place of a keep row on that input.
+
+**The full suite is `scripts/flow-guard run-verify-list -full <worktree> test`**, the same list
+with every skip off: it exports `FLOW_VERIFY_FULL=1`, under which `flow-guard unchanged` answers
+"changed" without looking and `smoke.Heavy` skips nothing, skips no command on a green run and
+runs the visual `verify` row whole. It runs only when the operator asks for it, never unasked as
+part of a `/flow` run. A command it fails that the default list passed at the same HEAD prints
+`escaped the default list — it passed at <sha>` in its block: the fix tags the failing test core,
+or a cheaper sibling proving the same behaviour, by the rubric above.
+
+**Re-profiling is one command per Go line**: the line's `go test` command with `-json` added,
+piped into `scripts/flow-guard test-cost -min 1`. A marked test is skipped and so not printed;
+what prints is the core set plus whatever grew heavy — each new row meets the rubric and is
+tagged, or gains the `smoke.Heavy(t)` call.
+
+**`/flow-fast` and `/flow-interactive` scope these commands by hand**, and `smoke.Heavy` follows
+the scope: a command naming tests with `-run` runs every test it names whatever else it carries,
+and one scoped to a whole package drops `-short`.
 
 `stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
 refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens every line here and in
@@ -118,12 +161,13 @@ review panels look for it, and `flow-guard check-guard-calls`'s rule C fails `##
 missing.
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
-canonical suites are `guard-tests` (`go test -race -count=1 ./internal/guard/...`), `stats-go`
-(`go test -race -count=1 $(go list ./... | grep -v '/internal/guard$')`), `stats-spa` (`stats/web` `npm test`) and `flow-task-list` (`claude plugin test mods/flow-task-list`); each row carries the
+canonical suites are `guard-tests` (`go test -race -short -count=1 ./internal/guard/...`), `stats-go`
+(`go test -race -short -count=1 $(go list ./... | grep -v '/internal/guard$')`), `stats-spa` (`stats/web` `npm test`) and `flow-task-list` (`claude plugin test mods/flow-task-list`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
 invocation is answered by those recorded figures, not by a number pasted here. Each command a `# suite:` line names is
-recorded so on every `flow-guard run-verify-list <worktree> test`; record any other run with
+recorded so on every `flow-guard run-verify-list <worktree> test` that runs it, and as `<name>-full`
+— the visual row as `visual-full` — on a `-full` run, so no median mixes the two; record any other run with
 `flow suite record -suite <name> -- <command>` — a store that cannot be reached costs one warning
 line and never changes the suite's own exit code.
 
