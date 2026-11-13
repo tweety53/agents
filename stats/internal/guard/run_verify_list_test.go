@@ -841,9 +841,9 @@ func rvlRunIn(t *testing.T, dir, path string, args ...string) (int, string) {
 	if path != "" {
 		bare = append([]string{path}, bare...)
 	}
-	// FLOW_VERIFY_FULL= last: every run through here is a default run,
-	// whatever the process carries.
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+strings.Join(bare, ":"), "FLOW_VERIFY_FULL=")
+	// FLOW_VERIFY_FULL= and FLOW_SMOKE_KEEP= last: every run through here is
+	// a default run, whatever the process carries.
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+strings.Join(bare, ":"), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=")
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1795,5 +1795,153 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 	calls, _ = os.ReadFile(flowLog)
 	if !strings.Contains(string(calls), "-outcome skipped") || strings.Contains(string(calls), "-outcome completed") {
 		t.Errorf("the row of a guard-skipped list did not end skipped:\n%s", calls)
+	}
+}
+
+// rvlFullRepo is a clean repository whose origin/main is its HEAD and whose
+// `## test` fence is list.
+func rvlFullRepo(t *testing.T, list string) string {
+	t.Helper()
+	repo, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(repo, ".flow/project.md"), "## test\n\n```bash\n"+list+"```\n")
+	rvlGit(t, repo, "init", "-q", "-b", "main")
+	rvlGit(t, repo, "add", "-A")
+	rvlGit(t, repo, "commit", "-q", "-m", "base")
+	rvlGit(t, repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+	return repo
+}
+
+// TestRunVerifyListFullRunsEverySuite pins full-is-the-list-unskipped and
+// full-rows-carry-a-suffix.
+func TestRunVerifyListFullRunsEverySuite(t *testing.T) {
+	t.Parallel()
+	repo := rvlFullRepo(t, "# suite: quiet\n"+guardBinary(t)+" unchanged . || { echo QUIET-RAN; }\n# suite: plain\necho \"FULL=$FLOW_VERIFY_FULL\"\n")
+	stub, log := rvlFlowStub(t, "", 1)
+	rc, out := rvlRunIn(t, repo, stub, repo, "test")
+	if rc != 0 || !strings.Contains(out, "— suite skipped") || strings.Contains(out, "  QUIET-RAN\n") || !strings.Contains(out, "  FULL=\n") {
+		t.Fatalf("default run: exit %d, want 0, quiet skipped by its guard and FULL= printed:\n%s", rc, out)
+	}
+	rvlGit(t, repo, "commit", "-q", "--allow-empty", "-m", "empty")
+	head := rvlGit(t, repo, "rev-parse", "HEAD")
+	os.Remove(log)
+	rc, out = rvlRunIn(t, repo, stub, "-full", repo, "test", "kan-1", "verify", "mf-k1", "opus", "low")
+	if rc != 0 || strings.Contains(out, "skipped") || !strings.Contains(out, "  QUIET-RAN\n") || !strings.Contains(out, "  FULL=1\n") {
+		t.Errorf("-full run: exit %d, want 0, nothing skipped, QUIET-RAN and FULL=1:\n%s", rc, out)
+	}
+	calls, _ := os.ReadFile(log)
+	for _, want := range []string{"-suite quiet-full ", "-suite plain-full ", "dispatch begin", "-role verifier", "-outcome completed"} {
+		if !strings.Contains(string(calls), want) {
+			t.Errorf("flow log lacks %q:\n%s", want, calls)
+		}
+	}
+	if strings.Contains(string(calls), "-suite quiet --") || strings.Contains(string(calls), "-suite plain --") {
+		t.Errorf("-full recorded a default row:\n%s", calls)
+	}
+	rc, out = rvlRunIn(t, repo, stub, repo, "test")
+	if want := " — skipped, no input changed since " + head + " passed the list\n"; rc != 0 || strings.Count(out, want) != 2 {
+		t.Errorf("default run after -full: exit %d, want both commands skipped on %s:\n%s", rc, head, out)
+	}
+}
+
+// TestRunVerifyListFullNamesAnEscape pins full-failure-names-its-escape.
+func TestRunVerifyListFullNamesAnEscape(t *testing.T) {
+	t.Parallel()
+	const a, b, c = `test -z "$FLOW_VERIFY_FULL"`, `test -n "$FLOW_VERIFY_FULL"`, "test -f .git/never"
+	repo := rvlFullRepo(t, a+"\n"+b+"\n"+c+"\n")
+	head := rvlGit(t, repo, "rev-parse", "HEAD")
+	if rc, out := rvlRunIn(t, repo, "", repo, "test"); rc != 1 || !strings.Contains(out, "`"+a+"` — exit 0") {
+		t.Fatalf("default run: exit %d, want 1 with a passed:\n%s", rc, out)
+	}
+	rc, out := rvlRunIn(t, repo, "", "-full", repo, "test")
+	escape := "  escaped the default list — it passed at " + head + "\n"
+	block := func(cmd, next string) string {
+		_, rest, _ := strings.Cut(out, "- `"+cmd+"` — ")
+		if next != "" {
+			rest, _, _ = strings.Cut(rest, "- `"+next+"`")
+		}
+		return rest
+	}
+	if rc != 1 || !strings.Contains(block(a, b), escape) || !strings.Contains(out, "`"+b+"` — exit 0") ||
+		strings.Contains(block(c, ""), "escaped") || strings.Count(out, "escaped the default list") != 1 {
+		t.Errorf("-full run: exit %d, want 1 and the escape line in a's block alone:\n%s", rc, out)
+	}
+
+	repo = rvlFullRepo(t, a+"\n")
+	head = rvlGit(t, repo, "rev-parse", "HEAD")
+	if rc, out := rvlRunIn(t, repo, "", repo, "test"); rc != 0 {
+		t.Fatalf("default run of a alone: exit %d:\n%s", rc, out)
+	}
+	if rc, out := rvlRunIn(t, repo, "", "-full", repo, "test"); rc != 1 || !strings.Contains(out, "  escaped the default list — it passed at "+head+"\n") {
+		t.Errorf("-full run of a alone: exit %d, want 1 and the escape line on the green sha:\n%s", rc, out)
+	}
+}
+
+// TestRunVerifyListFullSetsVerifyFastAside: -full runs every command under a
+// judged verify fast and leaves the verdict as it was.
+func TestRunVerifyListFullSetsVerifyFastAside(t *testing.T) {
+	t.Parallel()
+	fx := newFrFx(t)
+	fx.commit("notes.md")
+	if r := fx.judge("2", frFast); r.rc != 0 {
+		t.Fatalf("rc=%d stderr=%q", r.rc, r.err)
+	}
+	verdict := fx.repo + "/.superpowers/sdd/fix-run.json"
+	before, err := os.ReadFile(verdict)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := fx.env
+	environ := append(env.Environ(), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=")
+	env.Environ = func() []string { return environ }
+	var out, errb bytes.Buffer
+	rc := runVerifyList([]string{"-full", fx.repo, "test"}, env, &out, &errb)
+	ran, _ := os.ReadFile(fx.log)
+	if rc != 0 || (string(ran) != "all\ngo\n" && string(ran) != "go\nall\n") || strings.Count(out.String(), "fix-run verify fast set aside") != 1 {
+		t.Errorf("-full under verify fast: rc=%d ran=%q out:\n%s%s", rc, ran, out.String(), errb.String())
+	}
+	if after, _ := os.ReadFile(verdict); !bytes.Equal(before, after) {
+		t.Errorf("-full changed fix-run.json:\n%s\nwas\n%s", after, before)
+	}
+}
+
+// TestRunVerifyListFullRunsTheVisualSuiteWhole pins
+// full-runs-the-visual-suite-whole.
+func TestRunVerifyListFullRunsTheVisualSuiteWhole(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "docs/x.md", `{"visual":{"verify":"skipped"}}`, "echo SPECS-ROW-RAN", false, false, false)
+	stub, log := rvlFlowStub(t, "", 1)
+	if _, out := rvlRunIn(t, wt, stub, wt, "visual"); !strings.Contains(out, "- visual verify — not run:") {
+		t.Errorf("default visual list ran the row:\n%s", out)
+	}
+	for _, list := range []string{"visual", "test"} {
+		os.Remove(log)
+		rc, out := rvlRunIn(t, wt, stub, "-full", wt, list)
+		calls, _ := os.ReadFile(log)
+		if rc != 0 || !strings.Contains(out, "VISUAL []") || strings.Contains(out, "SPECS-ROW-RAN") || !strings.Contains(string(calls), "-suite visual-full ") {
+			t.Errorf("-full %s: exit %d, want the whole suite run as visual-full:\n%s\nflow log:\n%s", list, rc, out, calls)
+		}
+	}
+}
+
+// TestRunVerifyListFullUsage: -full refuses the lint list, a narrowing flag
+// and a missing worktree before any command runs.
+func TestRunVerifyListFullUsage(t *testing.T) {
+	t.Parallel()
+	repo := rvlFullRepo(t, "touch ran\n")
+	writeFile(t, filepath.Join(repo, "only.txt"), "a.spec.ts\n")
+	for _, args := range [][]string{
+		{"-full", repo, "lint"},
+		{"-full", "-only", filepath.Join(repo, "only.txt"), repo, "visual"},
+		{"-detect-flaky", "-full", repo, "visual"},
+		{"-full"},
+	} {
+		var out, errb bytes.Buffer
+		rc := runVerifyList(args, Env{Getenv: os.Getenv, Environ: os.Environ, Dir: repo}, &out, &errb)
+		if _, err := os.Stat(filepath.Join(repo, "ran")); rc != 2 || errb.Len() == 0 || err == nil {
+			t.Errorf("%q: rc=%d stderr=%q, want 2, a stderr line and no command run", args, rc, errb.String())
+		}
 	}
 }

@@ -8,6 +8,7 @@
 //
 // Usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
+//        flow-guard run-verify-list -full <worktree> test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //
 // NARROWED RUNS (decision narrow-via-run-verify-list-flags). `-only <file>`
 // runs the `specs` row only to group its failures by the change's specs, and
@@ -90,7 +91,7 @@
 // and a race-marked command takes **The loop** whatever its re-run exits.
 //
 // THE GREEN SHA (KAN-887's self-review: verify re-ran the whole list minutes
-// after a green full-suite run, the delta a test rename). A `test` run that
+// after a green test-list run, the delta a test rename). A `test` run that
 // exits 0 on a tree clean before and after it — `git status --porcelain
 // --untracked-files=all` empty — writes HEAD to the worktree's own git dir
 // (`git rev-parse --git-path flow-test-green`), never into the tree. A later
@@ -139,6 +140,27 @@
 // skipped-suite-records-no-row: the skipped suite was stored as a passing run
 // of a fraction of a second). Any other shape -- a command substitution among
 // the pathspecs included -- and any other exit runs the command as before.
+//
+// THE FULL SUITE (decisions full-is-the-list-unskipped,
+// full-runs-the-visual-suite-whole, full-rows-carry-a-suffix,
+// full-failure-names-its-escape). `-full`, a leading flag beside `-only` and
+// `-detect-flaky`, runs the `test` or `visual` list with every skip off, only
+// when the operator asks for it. Every command's environment gains
+// `FLOW_VERIFY_FULL=1` after every inherited entry, so `flow-guard unchanged`
+// answers 1 and each suite runs. Neither green file skips a command and A
+// SKIPPED SUITE's check is not run, while both files are written as on any
+// run. A judged verify fast prints
+//   - fix-run verify fast set aside — -full runs the whole list
+// skips nothing and leaves fix-run.json as it was. A suite is recorded as
+// `<name>-full` and the visual row as `visual-full`. The visual `verify` row
+// runs whenever the cell is declared, `<specs>` emptied and the `specs` row
+// not run, whatever the diff, the green sha and decision.json say, from the
+// `regression checkout` resolved as on any run. A failing command the green
+// sha covers at this HEAD, or the green-commands file lists, gains
+//   escaped the default list — it passed at <sha>
+// in its block, after its output lines. `-full` with `-only` or
+// `-detect-flaky`, with the `lint` list, or with no <worktree> and list exits
+// 2 before any command runs.
 //
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
@@ -190,7 +212,9 @@
 //      or a recording <key> that does not fold, by check-verify-green's
 //      vgFixSuffix, to `verify` or `verify-<s>`, <s> the worktree's basename
 //      or its repository's name (kan-1067 self-review, 1-C: `verify-fix-1b`
-//      formed its own group and verify stayed NOT-GREEN)
+//      formed its own group and verify stayed NOT-GREEN), or `-full` with
+//      `-only` or `-detect-flaky`, with the `lint` list, or with no
+//      <worktree> and list
 //   3  the list is not declared (project-get.sh exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
@@ -232,6 +256,7 @@ import (
 //
 // Usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
+//        flow-guard run-verify-list -full <worktree> test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //
 // Exit codes:
 //   0  every command exited 0
@@ -243,7 +268,8 @@ import (
 //      line names it — or flow-guard project-get exit 2 — its stderr line says why
 //      -- or a narrowing flag with another list, recording arguments, the
 //      other flag, a missing or empty -only file, or a `verify` cell with no
-//      `<specs>` (its stderr line names the cause)
+//      `<specs>` (its stderr line names the cause) -- or `-full` with `-only`
+//      or `-detect-flaky`, with the `lint` list, or with no <worktree> and list
 //   3  the list is not declared (flow-guard project-get exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
@@ -289,6 +315,27 @@ import (
 //
 // A `test` list under a fix-run judge's verify fast (flow-guard fix-run-floor)
 // skips every command and ends its row skipped.
+//
+// THE FULL SUITE (decisions full-is-the-list-unskipped,
+// full-runs-the-visual-suite-whole, full-rows-carry-a-suffix,
+// full-failure-names-its-escape). `-full`, a leading flag beside `-only` and
+// `-detect-flaky`, runs the `test` or `visual` list with every skip off, only
+// when the operator asks for it. Every command's environment gains
+// `FLOW_VERIFY_FULL=1` after every inherited entry, so `flow-guard unchanged`
+// answers 1 and each suite runs. Neither green file skips a command and A
+// SKIPPED SUITE's check is not run, while both files are written as on any
+// run. A judged verify fast prints
+//   - fix-run verify fast set aside — -full runs the whole list
+// skips nothing and leaves fix-run.json as it was. A suite is recorded as
+// `<name>-full` and the visual row as `visual-full`. The visual `verify` row
+// runs whenever the cell is declared, `<specs>` emptied and the `specs` row
+// not run, whatever the diff, the green sha and decision.json say, from the
+// `regression checkout` resolved as on any run. A failing command the green
+// sha covers at this HEAD, or the green-commands file lists, gains
+//   escaped the default list — it passed at <sha>
+// in its block, after its output lines. `-full` with `-only` or
+// `-detect-flaky`, with the `lint` list, or with no <worktree> and list exits
+// 2 before any command runs.
 //
 // A SKIPPED SUITE. A `test` command opening with `flow-guard unchanged
 // <pathspecs> ||` (an optional path before `flow-guard`; each pathspec a bare
@@ -390,7 +437,7 @@ func rvlGuardSkip(env Env, wt, cmd string) string {
 // (verify-list-runs-targeted). fallback is the `regression checkout` dir
 // fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
 func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
-	return rvlVisualVerifyFor(env, wt, covered, "", "", io.Discard)
+	return rvlVisualVerifyFor(env, wt, covered, false, "", "", io.Discard)
 }
 
 // rvlKickoffBases is the worktrees map of `flow state get -C <canon>
@@ -428,8 +475,10 @@ func rvlKickoffBases(env Env, change, canon string) (worktrees []string, bases m
 // other worktrees are wt's siblings: the row also runs when a sibling's diff
 // from its own base matches wt's `ui paths` under `--repo <its repository
 // name>`, and the `specs` row then reads the first such sibling and its base
-// (siblingFrontend, the rule `visual-verify-pass prepare` follows).
-func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
+// (siblingFrontend, the rule `visual-verify-pass prepare` follows). full
+// (THE FULL SUITE) runs the row whenever it is declared, `<specs>` emptied and
+// no `specs` row, whatever covered, decision.json and the diff say.
+func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
 	if canon == "" {
 		canon = wt
 	}
@@ -438,8 +487,32 @@ func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, 
 		return "", "", "", "", false
 	}
 	cells := vvCells(string(b))
-	if cells["verify"] == "" || covered {
+	if cells["verify"] == "" || (covered && !full) {
 		return "", "", "", "", false
+	}
+	// checkout resolves the `regression checkout` the row runs from.
+	checkout := func() (dir, fallback string) {
+		dir = wt
+		if c := cells["regression checkout"]; c != "" {
+			dir = c
+			if !filepath.IsAbs(c) {
+				dir = filepath.Join(wt, c)
+			}
+			// The cell names a main checkout; the change's worktree of it, on
+			// wt's branch, is where the change's code and captures live.
+			git := envGit(env)
+			fallback = dir
+			if branch, _ := capture(git("-C", wt, "branch", "--show-current")); branch != "" {
+				if w := rvsWorktreeOn(git("-C", dir, "worktree", "list", "--porcelain"), branch); w != "" {
+					dir, fallback = w, ""
+				}
+			}
+		}
+		return dir, fallback
+	}
+	if full {
+		dir, fallback = checkout()
+		return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, true
 	}
 	var d struct {
 		Visual struct {
@@ -496,22 +569,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered bool, change, canon string, 
 	if !own && root == wt {
 		return "", "", "", "", false
 	}
-	dir = wt
-	if c := cells["regression checkout"]; c != "" {
-		dir = c
-		if !filepath.IsAbs(c) {
-			dir = filepath.Join(wt, c)
-		}
-		// The cell names a main checkout; the change's worktree of it, on
-		// wt's branch, is where the change's code and captures live.
-		git := envGit(env)
-		fallback = dir
-		if branch, _ := capture(git("-C", wt, "branch", "--show-current")); branch != "" {
-			if w := rvsWorktreeOn(git("-C", dir, "worktree", "list", "--porcelain"), branch); w != "" {
-				dir, fallback = w, ""
-			}
-		}
-	}
+	dir, fallback = checkout()
 	if s := cells["specs"]; s != "" {
 		if base == "" {
 			return "", "", dir, fallback, true
@@ -703,11 +761,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	const usage = "usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
 	const narrowUsage = "usage: flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]"
+	const fullUsage = "usage: flow-guard run-verify-list -full <worktree> test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
 	// A narrowing flag re-runs the visual `verify` row alone, narrowed, and
 	// records nothing: no row it ends can stand as the gate (decision
 	// narrow-via-run-verify-list-flags).
-	mode, only := "plain", []string(nil)
-	for len(args) > 0 && (args[0] == "-only" || args[0] == "-detect-flaky") {
+	mode, only, full := "plain", []string(nil), false
+	for len(args) > 0 && (args[0] == "-only" || args[0] == "-detect-flaky" || args[0] == "-full") {
+		if args[0] == "-full" {
+			full, args = true, args[1:]
+			continue
+		}
 		if mode != "plain" {
 			fmt.Fprintln(stderr, "run-verify-list: pass -only or -detect-flaky, not both")
 			return 2
@@ -729,6 +792,18 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			args = args[1:]
 		}
 		args = args[1:]
+	}
+	if full && mode != "plain" {
+		fmt.Fprintln(stderr, "run-verify-list: -full runs the whole list — not with -only or -detect-flaky")
+		return 2
+	}
+	if full && (len(args) < 2 || (args[1] != "test" && args[1] != "visual")) {
+		if len(args) >= 2 && args[1] == "lint" {
+			fmt.Fprintln(stderr, "run-verify-list: -full takes the test or visual list, never lint")
+		} else {
+			fmt.Fprintln(stderr, fullUsage)
+		}
+		return 2
 	}
 	// change and canon name the state record the kickoff base is read from.
 	change, canon := "", ""
@@ -873,7 +948,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// unchanged reports whether a recorded green sha covers a command.
 	unchanged := func(in string) bool {
-		if since == "" {
+		if since == "" || full {
 			return false
 		}
 		if since == headSHA {
@@ -946,6 +1021,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// Each command runs as `(cd "$WT" && bash -c …)` did: from the worktree,
 	// PWD its logical path, so `pwd` prints the path the caller named.
 	cmdEnv := append(childEnv[:len(childEnv):len(childEnv)], "PWD="+abs(wt))
+	if full {
+		cmdEnv = append(cmdEnv, "FLOW_VERIFY_FULL=1")
+	}
 	// Every command runs under run-capped, which kills its process tree
 	// past the project's `## resource cap` (kan-1044).
 	self, err := selfExe()
@@ -978,7 +1056,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// Critical or Important finding of the verdict's round or later.
 	fast, fastWhy := false, ""
 	if list == "test" {
-		if v, ok := fixRunVerdict(env, abs(wt)); ok && v.Verify == "fast" {
+		if v, ok := fixRunVerdict(env, abs(wt)); ok && v.Verify == "fast" && full {
+			fmt.Fprintln(stdout, "- fix-run verify fast set aside — -full runs the whole list")
+		} else if ok && v.Verify == "fast" {
 			if change == "" {
 				branch, _ := gitOut("branch", "--show-current")
 				change = strings.TrimPrefix(branch, "spectre/")
@@ -994,6 +1074,22 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	suffixFull := "" // THE FULL SUITE: its rows are `<name>-full`
+	if full {
+		suffixFull = "-full"
+	}
+	// escaped answers the sha a command passed the default list at, "" when none.
+	escaped := func(c string) string {
+		switch {
+		case !full:
+			return ""
+		case since != "" && since == headSHA:
+			return since
+		case slices.Contains(greenAt, c):
+			return headSHA
+		}
+		return ""
+	}
 	skip := make([]bool, len(cmds))
 	passedAt := make([]bool, len(cmds))
 	guardSkip := make([]string, len(cmds)) // A SKIPPED SUITE: the guard's skip line
@@ -1004,13 +1100,13 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			skip[i] = true
 		case unchanged(inputs[i]):
 			skip[i] = true
-		case list == "test" && slices.Contains(greenAt, c):
+		case list == "test" && !full && slices.Contains(greenAt, c):
 			skip[i], passedAt[i] = true, true
-		case list == "test" && func() bool { guardSkip[i] = rvlGuardSkip(env, abs(wt), c); return guardSkip[i] != "" }():
+		case list == "test" && !full && func() bool { guardSkip[i] = rvlGuardSkip(env, abs(wt), c); return guardSkip[i] != "" }():
 			skip[i] = true
 		case list == "test":
 			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
-				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--"}, append(capped[:len(capped):len(capped)], c)...))
+				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i] + suffixFull, "--"}, append(capped[:len(capped):len(capped)], c)...))
 			} else {
 				argvs = append(argvs, append(capped[:len(capped):len(capped)], c))
 			}
@@ -1042,6 +1138,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			report(c, r.rc, r.out, list+"-"+fmt.Sprint(i))
 			if r.rc == 0 {
 				passed = append(passed, c)
+			} else if sha := escaped(c); sha != "" {
+				fmt.Fprintf(stdout, "  escaped the default list — it passed at %s\n", sha)
 			}
 		}
 	}
@@ -1051,7 +1149,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			branch, _ := gitOut("branch", "--show-current")
 			change = strings.TrimPrefix(branch, "spectre/")
 		}
-		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged(""), change, canon, stdout); !ok && list == "visual" {
+		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged(""), full, change, canon, stdout); !ok && list == "visual" {
 			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
 		} else if ok && list == "visual" && fallback != "" {
 			// /flow-fast and /flow-interactive set up no regression-checkout
@@ -1100,14 +1198,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			switch {
 			case cmd == "":
-			case list == "test" && slices.Contains(greenAt, cmd):
+			case list == "test" && !full && slices.Contains(greenAt, cmd):
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", cmd, headSHA)
 			default:
 				// A plain run's runtime reaches the store as suite `visual`; a
 				// narrowed one is not that suite (decision suite-records-scope).
 				argv := []string{"bash", "-c", cmd}
 				if flow, ok := lookPath(env, "flow"); ok && mode == "plain" {
-					argv = append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", "visual", "--"}, argv...)
+					argv = append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", "visual" + suffixFull, "--"}, argv...)
 				}
 				results := rgtRun(context.Background(), [][]string{argv}, 1, outDir, dir, cmdEnv)
 				name, round := list+"-visual", 0
