@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
@@ -55,6 +56,7 @@ func (fx rbFx) reshape(t *testing.T, dir string, args ...string) (int, string) {
 }
 
 func TestReshapeBranch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	check := func(t *testing.T, ok bool, label, format string, a ...any) {
 		t.Helper()

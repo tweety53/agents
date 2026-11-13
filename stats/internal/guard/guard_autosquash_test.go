@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,6 +53,7 @@ func gaOrphan(g *fxGit, repo string) string {
 }
 
 func TestGuardAutosquash(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	type gaCase struct {
 		label string

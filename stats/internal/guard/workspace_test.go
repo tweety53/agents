@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 // exit before any docker call and always run; the round-trip cases run
 // against the real flow-postgres container and skip when it is unreachable.
 func TestWorkspace(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 	ws := func(args ...string) guardResult { return runGuard("workspace", args, env) }

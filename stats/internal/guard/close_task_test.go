@@ -3,6 +3,7 @@ package guard
 import (
 	"archive/zip"
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"os"
 	"os/exec"
@@ -117,6 +118,7 @@ func ctEqual(t *testing.T, got, want []string) {
 	}
 }
 
+// smoke: core — a task's close, its five checks run in process
 func TestCloseTaskOrder(t *testing.T) {
 	t.Parallel()
 	t.Run("clean: gate, tick of QUIET tasks only, one push", func(t *testing.T) {
@@ -262,6 +264,7 @@ func TestCloseTaskOrder(t *testing.T) {
 }
 
 func TestCloseTaskExitContract(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	cases := []struct {
 		name             string
@@ -335,6 +338,7 @@ func TestCloseTaskExitContract(t *testing.T) {
 // commit is found again, so a commit without one naming the task — or the
 // green partner a red task folds into — is refused before any tick or push.
 func TestCloseTaskTaskIdTrailer(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fold := ctPlan + bt(`
 - [ ] 4. Red half
@@ -407,6 +411,7 @@ func TestCloseTaskTaskIdTrailer(t *testing.T) {
 // is refused, exit 1, nothing ticked or pushed (kan-982 self-review); a
 // plan-time task never reads the store at all.
 func TestCloseTaskRefusesAnUndispatchedAppendedTask(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, rows string
@@ -450,6 +455,7 @@ func TestCloseTaskRefusesAnUndispatchedAppendedTask(t *testing.T) {
 // -end-commit reaches `flow record dispatch end` as the full sha, which is
 // all the store accepts.
 func TestCloseTaskExpandsAnAbbreviatedEndCommit(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := ctFixture(t, true, "0", "0")
 	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
@@ -509,6 +515,7 @@ func TestCloseTaskPrintsUnrecordedLinesInKeyOrder(t *testing.T) {
 // so a commit there touching an undeclared path is refused; a worktree with
 // no such commit adds nothing.
 func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, peerFile, peerTask string
@@ -544,6 +551,7 @@ func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
 // build is refused, and the committed bytes are left on disk; the script's
 // own zip closes (design.md suite-zip-at-close-task).
 func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
@@ -605,6 +613,7 @@ func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
 // tree has no .flow/project.md: the rebuild reads the canonical worktree's
 // config, which names that checkout (kan-1016's self-review, C1).
 func TestCloseTaskRebuildsASuiteZipInTheRegressionCheckout(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
@@ -666,6 +675,7 @@ func TestCloseTaskSuiteZipAgainstTheTaskCommit(t *testing.T) {
 // close's last zip is still judged, so a hand-built one is refused
 // (kan-1016's self-review).
 func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
@@ -727,6 +737,7 @@ func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
 // binary (kan-1024 Task 14: unable to reach it, close-task stopped on exit 2
 // for every committed zip).
 func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
@@ -758,6 +769,7 @@ func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
 // with the Opener named it closes; and a planned
 // task over the same bad plan is refused too (kan-1067 self-review, 1-B).
 func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fix := func(opener string) string {
 		return ctPlan + "\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Commit:** four\n" + opener + "**Build:** green\n"
@@ -829,6 +841,7 @@ func TestCloseTaskRunsPlanShapeOnAWidenedPlannedTask(t *testing.T) {
 // one naming row with a commit closes it, and a non-appended task is never
 // judged.
 func TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, header, rows string
@@ -902,6 +915,7 @@ func TestCloseTaskRefusesUnpairedEndCommits(t *testing.T) {
 // since the merge base whose Task-Id: trailer names it; a bare id no commit
 // names is a usage error naming the task.
 func TestCloseTaskResolvesABareTaskID(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	t.Run("the newest trailer commit is judged and ticked", func(t *testing.T) {
 		t.Parallel()

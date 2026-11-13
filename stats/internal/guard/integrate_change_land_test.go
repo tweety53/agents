@@ -1,11 +1,15 @@
 package guard
 
-import "testing"
+import (
+	"github.com/tweety53/agents/stats/internal/smoke"
+	"testing"
+)
 
 // The land, cleanup and visual-gate cases of integrate-change's former bash
 // harness, run as integrate_change_test.go runs the happy path; peer_fix_case is the
 // helper both peer-fix cases call.
 func TestIntegrateChangeLandCleanup(t *testing.T) {
+	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
 		{"no_report", `# --- no_report ---
 fixture

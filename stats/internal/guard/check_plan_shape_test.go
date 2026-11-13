@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,6 +47,7 @@ func TestPlanParseScansLiveChangesOnly(t *testing.T) {
 }
 
 func TestCheckPlanShape(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	type check struct{ label, fail string }
 	var checks []check
@@ -617,6 +619,7 @@ func TestCheckPlanShapeF11Reachability(t *testing.T) {
 
 // TestPlanShapeDesignSections pins F19: a plan-mode plan needs the four
 // design.md sections; a plan without the header line is not checked.
+// smoke: core — check-plan-shape on a plan-mode plan's design sections
 func TestPlanShapeDesignSections(t *testing.T) {
 	const header = "> **Design shape:** plan-mode\n\n"
 	full := "## Recommended approach\n\n## Critical files\n\n## Existing code to reuse\n\n## Verification\n\n## Non-goals\n\n## Risks\n"

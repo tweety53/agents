@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -144,6 +145,7 @@ func TestCheckPanelFindingsClosedNeedsAFixMutationRow(t *testing.T) {
 	}
 }
 
+// smoke: core — a gate whose failure is silent
 func TestCheckPanelFindingsClosed(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
@@ -614,6 +616,7 @@ func TestCheckPanelFindingsClosedFixedReproducerExists(t *testing.T) {
 // `regression-test:` line of a panel-fix report, or `none — <reason>`
 // (kan-1019: three fixed Importants left only untracked reproducers).
 func TestCheckPanelFindingsClosedFixedNeedsARegressionTest(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const line = "fixed Critical/Important finding(s) with no tracked regression test: "
 	important := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 1, Slot: "primary"})

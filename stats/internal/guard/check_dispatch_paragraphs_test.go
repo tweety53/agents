@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"os"
 	"os/exec"
@@ -121,6 +122,7 @@ func dpUnreadableImplement(t *testing.T, root string) {
 }
 
 func TestCheckDispatchParagraphs(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range dpCases {
 		for _, chk := range c.checks {

@@ -2,6 +2,7 @@ package guard
 
 import (
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"path/filepath"
 	"testing"
 )
@@ -9,6 +10,7 @@ import (
 // TestPlanAgentPair pins scripts/plan-agent-pair.sh: every seed and both roles
 // to `opus low`, and every usage refusal.
 func TestPlanAgentPair(t *testing.T) {
+	smoke.Heavy(t)
 	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal(err)
@@ -50,6 +52,7 @@ func TestPlanAgentPair(t *testing.T) {
 
 // TestPlanAgentPairFollowsPolicy: the pair is the plan-designer base
 // pairs' first, read through `flow policy get`, and no answer exits 2.
+// smoke: core — a planning dispatch's pair, read from the policy
 func TestPlanAgentPairFollowsPolicy(t *testing.T) {
 	env := policyFlowEnv(t, `{"plan-designer":{"base":["opus/Plan@medium","opus/Plan@low"],"optin":[],"marked":[]}}`)
 	if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer"}, env); r.rc != 0 || r.stdout != "opus medium\n" {

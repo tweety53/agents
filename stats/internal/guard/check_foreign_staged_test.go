@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ func fsRepo(t *testing.T, g *fxGit) string {
 }
 
 func TestCheckForeignStaged(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 

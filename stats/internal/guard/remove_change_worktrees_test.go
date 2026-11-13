@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,6 +115,7 @@ func rcwLines(out, prefix string) []string {
 }
 
 func TestRemoveChangeWorktrees(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	t.Run("clean removal", func(t *testing.T) {
@@ -330,6 +332,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 }
 
 func TestRemoveChangeWorktreesDisclose(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	t.Run("an unclassified entry", func(t *testing.T) {
@@ -572,6 +575,7 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 }
 
 func TestRemoveChangeWorktreesStopCommand(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	t.Run("no fence: skipped", func(t *testing.T) {

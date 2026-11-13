@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -73,6 +74,7 @@ func cprExpect(t *testing.T, got int, out string, want int, needle string) {
 }
 
 func TestCheckPanelReproducers(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt := t.TempDir()
 	okBin := cprBin(t, `cat "$(dirname -- "$0")/state.json"; exit 0`, `echo "flow: connect: connection refused" >&2; exit 1`)

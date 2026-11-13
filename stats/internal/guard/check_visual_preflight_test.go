@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -350,6 +351,7 @@ func TestCheckVisualPreflightOrigins(t *testing.T) {
 }
 
 func TestCheckVisualPreflightPlaywright(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	t.Run("resolved outside the worktree", func(t *testing.T) {

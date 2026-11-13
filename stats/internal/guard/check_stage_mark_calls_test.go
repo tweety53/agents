@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,6 +83,7 @@ func smcLacks(label, part string) smcCheck {
 func smcFile(dir string) string { return dir + "/SKILL.md" }
 
 func TestCheckStageMarkCalls(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const (
 		fence   = "```bash\n"

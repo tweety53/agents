@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"image/png"
 	"os"
 	"os/exec"
@@ -203,6 +204,7 @@ func TestRenderFramesFindings(t *testing.T) {
 // DPR 2), the light one as <id>.png and the dark one as dk-<id>.png, a
 // light-only frame with no dk-, and the directory ignoring itself.
 func TestRenderFramesRenders(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	_, root := rfFixture(t, rfPlaywright(t))
 	f := rfCite(t, root, "docs/design/mockups/t1/F1.png docs/design/mockups/t1/dk-F1.png docs/design/mockups/t1/L1.png")
@@ -262,6 +264,7 @@ func rfPlaywright(t *testing.T) string {
 // TestRenderFramesWaitsForLazyPanes: a lazy frame whose panes fill after its
 // data-mig-filled flag still renders both phones (KAN-1087).
 func TestRenderFramesWaitsForLazyPanes(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	_, root := rfFixture(t, rfPlaywright(t))
 	f := rfCite(t, root, "docs/design/mockups/t1/Z1.png docs/design/mockups/t1/dk-Z1.png")

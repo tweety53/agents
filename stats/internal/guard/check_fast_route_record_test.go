@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strings"
@@ -67,6 +68,7 @@ func TestFastRouteRecordEmptySeries(t *testing.T) {
 }
 
 func TestFastRouteRecordFindings(t *testing.T) {
+	smoke.Heavy(t)
 	tests := []struct {
 		name    string
 		branch  string

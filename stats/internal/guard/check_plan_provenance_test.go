@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -130,6 +131,7 @@ type ppCase struct {
 }
 
 func TestCheckPlanProvenance(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if Registry["check-plan-provenance"] == nil {
 		t.Fatal("check-plan-provenance is not registered")

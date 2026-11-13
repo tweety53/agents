@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
@@ -40,6 +41,7 @@ func mkdirAll(g *fxGit, dir string) {
 }
 
 func TestRefreshPlanBase(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	specs := []string{"spectre/specs/cap.md", "spectre/specs/gone.md"}
 	cases := []struct {

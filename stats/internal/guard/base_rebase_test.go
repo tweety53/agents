@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
@@ -25,6 +26,7 @@ func rbNewFx(t *testing.T) *bmFx {
 }
 
 func TestRebaseOntoTip(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	rebasing := func(fx *bmFx) bool {
 		_, err := os.Stat(fx.repo + "/.git/rebase-merge")

@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,6 +68,7 @@ func tcppMerge(t *testing.T, repo, sideTid, sidePath string) {
 }
 
 func TestCheckTaskCommitPlanningPaths(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const p = "check-task-commit-planning-paths: "
 	const usage = "usage: flow-guard check-task-commit-planning-paths <worktree> <base>\n"

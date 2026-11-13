@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -326,6 +327,7 @@ func vvdFlowRows(rows, flags string) string {
 }
 
 func TestCheckVisualVerifyDispatched(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const v, done = "verifier", "completed"
 	p := vvdPrefix

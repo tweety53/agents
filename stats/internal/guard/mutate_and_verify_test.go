@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"io/fs"
 	"os"
@@ -280,6 +281,7 @@ func (c *mvCase) pinned(r mvRes, extra ...string) {
 }
 
 func TestMutateAndVerify(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := mvBuild(t)
 	cases := []struct {

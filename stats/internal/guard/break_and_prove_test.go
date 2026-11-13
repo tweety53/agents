@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -133,6 +134,7 @@ func bpPatch(t *testing.T, repo, body string) string {
 }
 
 func TestBreakAndProve(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	base := bpBuild(t)
 	bashDir := bashAtBase(t, "break-and-prove.sh", "lib/post-mutation-check.sh")

@@ -100,6 +100,7 @@ func TestCheckVerifyGreenJudgesEachWorktree(t *testing.T) {
 	}
 }
 
+// smoke: core — the gate that reads a verify row as green
 func TestCheckVerifyGreen(t *testing.T) {
 	t.Parallel()
 	wt, head := vgRepo(t)

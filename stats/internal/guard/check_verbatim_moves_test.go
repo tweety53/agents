@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,6 +70,7 @@ var vmBase = map[string]string{
 }
 
 func TestCheckVerbatimMoves(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	cases := []struct {
 		name   string

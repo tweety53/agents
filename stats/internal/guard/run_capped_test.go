@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bufio"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -133,6 +134,7 @@ func rcReadPid(t *testing.T, path string) int {
 // run-capped kills a command's process tree past its memory cap. Kept
 // light: cap 64 MB, the allocator 128 MB.
 func TestRunCappedContract(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	self := rcSelf(t)
 	alloc := rcHelperEnv + "=alloc"
@@ -237,6 +239,7 @@ func TestRunCappedContract(t *testing.T) {
 // gets the KILL — run-capped remembers every pid its tree held (kan-1103
 // self-review, F1).
 func TestRunCappedKillsASessionLeaderThatIgnoresTerm(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	pidfile := t.TempDir() + "/sid"
 	rc, _, _ := rcRun(t, t.TempDir(), "", []string{rcHelperEnv + "=setsid", "RUN_CAPPED_TEST_PIDFILE=" + pidfile, "RUN_CAPPED_TEST_IGNORE_TERM=1"}, "-m", "64", "--", rcSelf(t))
@@ -256,6 +259,7 @@ func TestRunCappedKillsASessionLeaderThatIgnoresTerm(t *testing.T) {
 // idles falls out of its own RSS as macOS compresses those pages, and the
 // tree sampler still reads all of it.
 func TestRunCappedFootprintSurvivesCompression(t *testing.T) {
+	smoke.Heavy(t)
 	if runtime.GOOS != "darwin" {
 		t.Skip("memory compression of idle pages is the darwin behaviour this pins")
 	}

@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -109,6 +110,7 @@ func fpEnv(dir, root, stub string) Env {
 }
 
 func TestCheckFinishPreflight(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	notVerdict := []string{"RUN1", "RUN2", "REFUSE"}
 	merged := func(fx *fpFx) { fx.newRepo(""); fx.work(); fx.merge() }

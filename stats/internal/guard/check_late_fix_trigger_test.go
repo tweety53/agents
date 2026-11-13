@@ -2,6 +2,7 @@ package guard
 
 import (
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
@@ -46,6 +47,7 @@ func lftEnv(dir, findings string) Env {
 }
 
 func TestCheckLateFixTrigger(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const open = `[{"ref":"F1","status":"open","severity":"Important","round":1,"slot":"primary"}]`
 	cases := []struct {

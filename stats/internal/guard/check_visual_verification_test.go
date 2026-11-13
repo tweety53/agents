@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strings"
@@ -429,6 +430,7 @@ func vvCases() map[string]vvCase {
 }
 
 func TestCheckVisualVerification(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range vvCases() {
 		for _, chk := range c.checks {

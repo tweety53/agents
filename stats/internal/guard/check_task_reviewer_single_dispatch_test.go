@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"errors"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,6 +119,7 @@ func trsdRun(t *testing.T, c trsdCase) (int, string, string, string, string) {
 }
 
 func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const r, tok = "reviewer", "mf-tok"
 	d := pfdDispatches

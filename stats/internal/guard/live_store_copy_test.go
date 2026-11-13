@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 // on PATH; no database or daemon is touched. The cases share one name, so
 // they run in order.
 func TestLiveStoreCopy(t *testing.T) {
+	smoke.Heavy(t)
 	stub := t.TempDir()
 	log := stub + "/log"
 	name := fmt.Sprintf("lsc-test%d", os.Getpid())

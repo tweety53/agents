@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -89,6 +90,7 @@ func pfdExpectNoStderr(t *testing.T, c pfdCase) {
 }
 
 func TestCheckPanelFixSingleDispatch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const pf = "panel-fix"
 	d := pfdDispatches

@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -29,6 +30,7 @@ func lpRowsJSON(prefix, token string, rows ...string) string {
 }
 
 func TestCheckLoopLanding(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	pf := func(rows ...string) string { return lpRowsJSON("pipeline-fix-6-", lpBranch, rows...) }
 	for _, tc := range []struct {
@@ -94,6 +96,7 @@ func TestCheckLoopLanding(t *testing.T) {
 // a loop with rows nowhere is still refused, and a change's own branch never
 // reads another project's rows.
 func TestCheckLoopLandingSatellite(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const sr = "self-review-kan-1-demo"
 	clean := lpRowsJSON(sr+"-", sr, "plan completed", "fix completed", "review-1 clean")

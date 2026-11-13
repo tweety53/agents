@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -181,6 +182,7 @@ var cmfCases = []cmfCase{
 }
 
 func TestComposeMockupFrames(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	base := t.TempDir()
 	runs := map[string]func() cmfResult{}

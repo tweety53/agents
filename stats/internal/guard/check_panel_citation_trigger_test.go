@@ -2,6 +2,7 @@ package guard
 
 import (
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
@@ -47,6 +48,7 @@ exec %q "${args[@]}"
 }
 
 func TestCheckPanelCitationTrigger(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// new_repo, built once and copied per case: main with base.go and
 	// tracked.md in one commit, the merge base every case starts from.

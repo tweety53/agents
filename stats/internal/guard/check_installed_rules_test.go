@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -101,6 +102,7 @@ func cirDropMarker(t *testing.T, path, rule string) {
 }
 
 func TestCheckInstalledRules(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	root, err := cirRoot()
 	if err != nil {

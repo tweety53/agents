@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,6 +35,7 @@ func newDriftRepo(t *testing.T) string {
 }
 
 func TestCheckMainCheckoutDrift(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
 	const usage = "usage: flow-guard check-main-checkout-drift <main-checkout>\n"

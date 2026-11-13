@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -218,6 +219,7 @@ func TestSpecRoot(t *testing.T) {
 }
 
 func TestChangePlan(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	work := t.TempDir()
 	// The store step must never reach the real flow CLI: this default stub

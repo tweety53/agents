@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
@@ -53,6 +54,7 @@ func rcwFlowStub(t *testing.T, fx *rcwFx, rc string) func(*Env) {
 // TestRemoveChangeWorktreesRefusesBeforeTheSave: a worktree holding the
 // change's plan, which flowd has not saved, is refused exit 1 with nothing
 // removed — the plan's only copy would go with the worktree.
+// smoke: core — no worktree is removed while it holds the plan's only copy
 func TestRemoveChangeWorktreesRefusesBeforeTheSave(t *testing.T) {
 	t.Parallel()
 	fx := rcwNewFx(t)
@@ -113,6 +115,7 @@ func TestRemoveChangeWorktreesRefusesAnUnsavedBundle(t *testing.T) {
 // the save, the ignored change directory and .superpowers/ are counted as
 // regeneratable, never listed as unclassified, and the worktree is removed.
 func TestRemoveChangeWorktreesTreatsTheIgnoredPlanAsExpected(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	fx := rcwNewFx(t)
 	writeFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")

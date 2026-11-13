@@ -2,6 +2,7 @@ package guard
 
 import (
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strings"
@@ -72,6 +73,7 @@ func pdsRun(args ...string) guardResult {
 }
 
 func TestCheckPanelDiffSize(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	type check struct{ label, fail string }
 	var checks []check

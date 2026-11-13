@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strconv"
@@ -140,6 +141,7 @@ func TestVerbatimMovesDefaultBaseHonoursRecordedBase(t *testing.T) {
 }
 
 func TestResolveBaseBranch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const invalid = "resolve-base-branch: the resolved base branch name is invalid\n"
 	type res struct {

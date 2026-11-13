@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -247,6 +248,7 @@ func ccReadPid(t *testing.T, path string) int {
 }
 
 func TestCheckCleanupComplete(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	tmpl := ccTemplate(t)
 	cases := []struct {

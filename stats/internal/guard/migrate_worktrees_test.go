@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -160,6 +161,7 @@ func (fx *mwFx) worktreeList(t *testing.T) string {
 }
 
 func TestMigrateWorktrees(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	t.Run("moves the free worktree, skips the held one, rewrites the record", func(t *testing.T) {

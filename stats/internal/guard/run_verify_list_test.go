@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 // and byte-for-byte stdout/stderr/exit parity with the bash, each twin's root
 // written as <ROOT>.
 func TestRunVerifyList(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	repo, err := filepath.Abs("../../..")
 	if err != nil {
@@ -306,6 +308,7 @@ func TestRunVerifyList(t *testing.T) {
 // the five trailing arguments the list records its own verify row — begin
 // before its first command, end once its commands ran (TestRunVerifyListEndsEveryRun
 // pins each outcome).
+// smoke: core — the verify row a list records for itself
 func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
@@ -505,6 +508,7 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 // skipped when every command of a test list was skipped, completed otherwise -- and no end
 // carries -tokens.
 func TestRunVerifyListEndsEveryRun(t *testing.T) {
+	smoke.Heavy(t)
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
@@ -754,6 +758,7 @@ func TestRunVerifyListKeepsResultFiles(t *testing.T) {
 // not killed by SIGPIPE and still records its row's end. The guard runs in a
 // child copy of this test binary, since SIGPIPE ends its process.
 func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
+	smoke.Heavy(t)
 	if wt := os.Getenv("RVL_SIGPIPE_WT"); wt != "" {
 		os.Exit(runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"},
 			Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, os.Stdout, os.Stderr))
@@ -928,6 +933,7 @@ func rvlVisualSetup(t *testing.T, verify, file, decision, specs string, noOrigin
 // diff from its base touches `ui paths`, unless decision.json records the
 // visual verify skipped; a `lint` list never runs it.
 func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name, verify, file, decision, list string
@@ -977,6 +983,7 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 // list's tail applies, never the `## lint` or `## test` commands, and prints a
 // not-run line and exits 0 when those conditions skip it.
 func TestRunVerifyListVisualList(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name, verify, file, decision string
@@ -1015,6 +1022,7 @@ func TestRunVerifyListVisualList(t *testing.T) {
 // under run-capped, so one allocating past `## resource cap` (64 MB here,
 // the child ~128 MB) is killed and the list fails naming CAPPED:.
 func TestRunVerifyListCapsMemory(t *testing.T) {
+	smoke.Heavy(t)
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -1048,6 +1056,7 @@ func TestRunVerifyListCapsMemory(t *testing.T) {
 // 1-C: a recording key that does not fold to verify or verify-<repository
 // name> is refused, exit 2, before the begin and before any command.
 func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
+	smoke.Heavy(t)
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
@@ -1262,6 +1271,7 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 // TestRunVerifyListSkipsACommandGreenAtHead: a `test` re-run at the same
 // clean HEAD skips each command an earlier run passed while another failed,
 // and a new commit runs it again (kan-1103 self-review, F10).
+// smoke: core — the green-commands skip at an unchanged HEAD
 func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -1634,6 +1644,7 @@ func TestRunVerifyListMatchesTheKickoffBaseThroughSymlinks(t *testing.T) {
 }
 
 func TestRunVerifyListFallsBackWithoutAKickoffBase(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
 	mb := rvlGit(t, wt, "merge-base", "HEAD", "origin/main")
@@ -1647,6 +1658,7 @@ func TestRunVerifyListFallsBackWithoutAKickoffBase(t *testing.T) {
 }
 
 func TestRunVerifyListReadsTheRecordFromTheCanonicalWorktree(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
 	rvlGit(t, wt, "branch", "-m", "spectre/demo")
@@ -1687,6 +1699,7 @@ func TestSiblingFrontendPicksTheFirstMatchingSibling(t *testing.T) {
 }
 
 func TestRunVerifyListRunsSpecsFromTheSiblingFrontend(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "docs/a.md", "", "echo <frontend-root> <merge-base>", false, false, false)
 	// A sibling worktree of a repository named `web`, whose diff touches
@@ -1711,6 +1724,7 @@ func TestRunVerifyListRunsSpecsFromTheSiblingFrontend(t *testing.T) {
 // `test` list's tail, runs under `flow suite record -suite visual`; a
 // narrowed run never does, and with no `flow` the row runs bare.
 func TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "", false, false, false)
 	list := rvlFailingList(t, wt)
@@ -1817,6 +1831,7 @@ func rvlFullRepo(t *testing.T, list string) string {
 // TestRunVerifyListFullRunsEverySuite pins full-is-the-list-unskipped and
 // full-rows-carry-a-suffix.
 func TestRunVerifyListFullRunsEverySuite(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	repo := rvlFullRepo(t, "# suite: quiet\n"+guardBinary(t)+" unchanged . || { echo QUIET-RAN; }\n# suite: plain\necho \"FULL=$FLOW_VERIFY_FULL\"\n")
 	stub, log := rvlFlowStub(t, "", 1)
@@ -1848,6 +1863,7 @@ func TestRunVerifyListFullRunsEverySuite(t *testing.T) {
 
 // TestRunVerifyListFullNamesAnEscape pins full-failure-names-its-escape.
 func TestRunVerifyListFullNamesAnEscape(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const a, b, c = `test -z "$FLOW_VERIFY_FULL"`, `test -n "$FLOW_VERIFY_FULL"`, "test -f .git/never"
 	repo := rvlFullRepo(t, a+"\n"+b+"\n"+c+"\n")

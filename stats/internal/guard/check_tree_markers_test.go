@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strconv"
@@ -104,6 +105,7 @@ func tmExact(label, got, want string) tmCheck {
 }
 
 func TestCheckTreeMarkers(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	var checks []tmCheck
 	add := func(c ...tmCheck) { checks = append(checks, c...) }
@@ -312,6 +314,7 @@ func TestCheckTreeMarkersFailsOnAStrayPath(t *testing.T) {
 // group's `**Files:**`, whose porcelain lines are not strays; a scratch copy
 // no path names, and every marker change, still fail.
 func TestCheckTreeMarkersIgnoresTheConcurrentGroupsFiles(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const tracked = "spectre/changes/demo/design.md"
 	edit := func(fx *tmFx) {

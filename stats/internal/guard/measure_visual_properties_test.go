@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"image"
 	"image/color"
 	"image/png"
@@ -180,6 +181,7 @@ func mvpSp(v ...any) string { return strings.TrimSuffix(fmt.Sprintln(v...), "\n"
 // byte (argv, exit code, stdout, stderr); then the argparse surface
 // exact-option-names changes, where the Python's stderr is not the port's.
 func TestMeasureVisualProperties(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	dir, err := filepath.Abs(mvpTestdata)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -314,6 +315,7 @@ func TestVisualVerifyPassPrepareRestartStack(t *testing.T) {
 	}
 }
 
+// smoke: core — the bundle a visual-verify pass prepares
 func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `mockup frame` | `phone` |\n")
 	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
@@ -404,6 +406,7 @@ func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
+	smoke.Heavy(t)
 	f := vvpFixture(t, "")
 	head := vgHead(t, f.wt)
 	rc, out, calls := f.prepare("--round-base", f.wt+"="+f.mb)
@@ -440,6 +443,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareContinue(t *testing.T) {
+	smoke.Heavy(t)
 	f := vvpFixture(t, "")
 	if rc, out, _ := f.prepare(); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
@@ -478,6 +482,7 @@ func TestVisualVerifyPassPrepareContinue(t *testing.T) {
 // bundle's `specs` row names that sibling and its merge base, the frontend the
 // specs command reads (kan-1083 self-review, F3).
 func TestVisualVerifyPassPrepareSpecsNameTheSibling(t *testing.T) {
+	smoke.Heavy(t)
 	section := strings.NewReplacer("`src/ui/**`", "`src/ui/**, gymie-frontend/**`",
 		"`<frontend-root>/specs-since <merge-base>`", "`node specs.mjs <frontend-root> <merge-base>`").Replace(vvpSection)
 	newFix := func() *vvpFix {
@@ -597,6 +602,7 @@ func TestVisualVerifyPassPrepareDefaultsAppsFromTheProject(t *testing.T) {
 // so a foreign spec's stale sidecar stopped a pass that never captures it.
 // With `specs` declared only the printed specs' sidecars are checked.
 func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
+	smoke.Heavy(t)
 	setup := func(t *testing.T, specs string) *vvpFix {
 		section := "| `mockups` | `design/mockups` |\n"
 		f := vvpFixture(t, section)

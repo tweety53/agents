@@ -2,6 +2,7 @@ package guard
 
 import (
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -109,6 +110,7 @@ func srGit(t *testing.T, args ...string) {
 }
 
 func TestCheckSpecReach(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	bin := t.TempDir()
 	if err := os.WriteFile(filepath.Join(bin, "npm"), []byte(srFakeNpm), 0o755); err != nil {

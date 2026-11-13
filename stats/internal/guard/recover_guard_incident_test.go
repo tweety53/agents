@@ -3,6 +3,7 @@ package guard
 import (
 	"errors"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -102,6 +103,7 @@ func rgiErrIs(label string, want func(fx *rgiFx) string) rgiCheck {
 }
 
 func TestRecoverGuardIncident(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	// new_repo, built once and copied per case: one tracked file three
 	// commits touch, so a revert of HEAD~1 leaves REVERT_HEAD set.
