@@ -240,7 +240,8 @@ sentences — 8 in the whole corpus, against hundreds of rules stated with "neve
 reworded rather than moved verbatim, and new run-loaded prose, unless the change lists the sentence
 in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
 `flow-guard check-verbatim-moves` in that task's verify step and writes the change's `verbatim-moves.txt`,
-listing every sentence its tasks add or reword, with the plan**; it lives on disk only, in the
+listing every sentence its tasks add or reword, with the plan** — one sentence per line, exactly as the
+guard's FAIL line prints it after `::`; a reworded sentence is listed in both its old and its new form; it lives on disk only, in the
 gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
 review panel. `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone.
