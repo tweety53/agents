@@ -549,6 +549,39 @@ func TestCheckVerifyReportUnresolvedBaselineCitation(t *testing.T) {
 	}
 }
 
+// A baseline cited from a sibling repository's worktree of the same change
+// resolves there; one that resolves in no tree still fails.
+func TestCheckVerifyReportBaselineCitationInSiblingWorktree(t *testing.T) {
+	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n"
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt := filepath.Join(root, "proj-worktrees", "chg")
+	sib := filepath.Join(root, "pw-worktrees", "chg")
+	writeFile(t, filepath.Join(wt, "README.md"), "x\n")
+	writeFile(t, filepath.Join(sib, "tests/visual/b-darwin.png"), "png\n")
+	for _, d := range []string{wt, sib} {
+		gitRun(t, d, "init", "-q")
+		gitRun(t, d, "add", "-A")
+		gitRun(t, d, "commit", "-qm", "a")
+	}
+	head := vgHead(t, sib)
+	for _, tc := range []struct {
+		name, cite string
+		rc         int
+	}{
+		{"resolves in the sibling", head + ":tests/visual/b-darwin.png", 0},
+		{"resolves nowhere", head + ":tests/visual/none.png", 1},
+	} {
+		path := filepath.Join(wt, ".superpowers/sdd/verify-report-k.md")
+		writeFile(t, path, "## Report\n"+steps+"- view: departure present at the merge base, merge-base baseline: "+tc.cite+"\n")
+		if r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv}); r.rc != tc.rc {
+			t.Errorf("%s: rc=%d out=%q, want %d", tc.name, r.rc, r.out, tc.rc)
+		}
+	}
+}
+
 // TestCheckVerifyReportOverItemQuotesRowFigures pins kan-1057's self-review,
 // F20: an over-tolerance item's cause was read off a neighbouring row. Each
 // item whose manifest row carries figures quotes one of its own.

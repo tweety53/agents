@@ -1487,7 +1487,7 @@ func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
 		y--
 	}
 	t := y + 1
-	if t < 60 || y == r.h-1 {
+	if t < 60 || y == r.h-1 || t > r.h-60 {
 		t = 0
 	}
 	x0, x1 := 8, r.w-8

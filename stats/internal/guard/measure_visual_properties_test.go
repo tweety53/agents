@@ -561,6 +561,29 @@ func TestMeasureVisualPropertiesElementsDarkPage(t *testing.T) {
 	}
 }
 
+// A bare dark frame's bottom corners lie outside the device's rounded corner
+// and are light: the surface walk stops at the first dark row above that
+// 20-row strip, and the strip is not the app surface.
+func TestMeasureVisualPropertiesElementsDarkPageLightCorners(t *testing.T) {
+	t.Parallel()
+	page := mvpPNG(t, 120, 200, func(x, y int) color.RGBA {
+		if y >= 180 && x < 8 {
+			return color.RGBA{0xe2, 0xdf, 0xdf, 0xff}
+		}
+		if x >= 20 && x < 60 && y >= 120 && y < 130 {
+			return color.RGBA{0xee, 0xee, 0xee, 0xff}
+		}
+		return color.RGBA{0x12, 0x12, 0x12, 0xff}
+	})
+	d := mvpJSON(t, "", page, page, "--scale", "1", "--props", "elements")
+	if top := mvpDig(d, "a", "elements", "surface_top"); top != float64(0) {
+		t.Fatalf("dark page with light corners: surface_top %v, want 0", top)
+	}
+	if paired := mvpDig(d, "delta", "elements_summary", "paired"); paired != float64(1) {
+		t.Fatalf("dark page with light corners: paired %v, want 1", paired)
+	}
+}
+
 // kan-1017 (sr11): `--props matrix` fills each paired element's columns in
 // one call, and a region running past the image's edge is clipped to it.
 func TestMeasureVisualPropertiesMatrix(t *testing.T) {

@@ -334,9 +334,23 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		step10 = append(step10, "pre-existing attribution with no merge-base evidence: "+unevidenced)
 	}
 	wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
+	// A baseline of a cross-repo change lives in a sibling repository's worktree
+	// of the same change (`<repo>-worktrees/<change>` beside this one), so the
+	// citation resolves in the report's worktree or in any such sibling.
+	trees := []string{wt}
+	if sib, _ := filepath.Glob(filepath.Join(filepath.Dir(filepath.Dir(wt)), "*-worktrees", filepath.Base(wt))); len(sib) > 0 {
+		trees = append(trees, sib...)
+	}
 	for _, c := range cites {
 		sha, path, _ := strings.Cut(c, ":")
-		if _, ok := capture(envGit(env)("-C", wt, "cat-file", "-e", c)); sha == "" || path == "" || !ok {
+		resolved := false
+		for _, tree := range trees {
+			if _, ok := capture(envGit(env)("-C", tree, "cat-file", "-e", c)); ok {
+				resolved = true
+				break
+			}
+		}
+		if sha == "" || path == "" || !resolved {
 			step10 = append(step10, "merge-base baseline `"+c+"` does not resolve in "+wt)
 		}
 	}
