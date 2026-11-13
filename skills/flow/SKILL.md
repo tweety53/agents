@@ -41,8 +41,8 @@ VERIFY_MODEL=opus
 ```
 
 **An open main-agent experiment is checked, never enforced.** Right after resolving the above, run
-`flow experiment main-check -model <this session's model> -effort <this session's effort>` and
-print any line it prints, once; it never blocks the run (decision `main-check-and-tag`).
+`flow experiment main-check -model <parent model> -effort <parent effort>` (**Harness mapping**,
+`skills/flow-contracts/model-policy.md`) and print any line it prints, once; it never blocks the run (decision `main-check-and-tag`).
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. The read leaves the CLI's stderr visible: report it
