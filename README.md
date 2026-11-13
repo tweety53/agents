@@ -254,7 +254,7 @@ squash partner).
 `check-plan-unchanged` + `check-tree-markers` (snapshot around each subagent),
 `check-dispatch-paragraphs`, `check-workspace-isolation` (own database, cache, bucket, ports).
 
-**Verify:** `run-verify-list` (the lint and test lists, the visual `verify` row last; `-detect-flaky` names a flaky visual test once, `-only <visual-failing.txt>` re-runs only the failing ones five times, each round's log kept as `visual-<mode>-r<N>.log`, and one plain run is the gate), `check-verify-green`.
+**Verify:** `run-verify-list` (the lint and test lists, the visual `verify` row last; the test list is the default run, and `-full` — every skip off, run only when the operator asks — is the full suite; `-detect-flaky` names a flaky visual test once, `-only <visual-failing.txt>` re-runs only the failing ones five times, each round's log kept as `visual-<mode>-r<N>.log`, and one plain run is the gate), `check-verify-green`, `smoke-keep` (the heavy tests a touched file keeps in the default run), `test-cost` (each test's cost from `go test -json`, for re-profiling the heavy marks).
 
 **Review panel:** `run-reproducer` + `prove-reproducer` (each finding red before, green after),
 `check-panel-reproducers`, `check-panel-reproducer-exit-contract`, `check-panel-findings-closed`
