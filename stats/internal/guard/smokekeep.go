@@ -1,8 +1,10 @@
 package guard
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path"
@@ -22,7 +24,8 @@ import (
 //   - a changed `_test.go` file itself;
 //   - for any other changed `.go` file, every `_test.go` file of its directory, in the working
 //     tree, whose name pairs with it — and, when none does, one stderr line naming it, with
-//     nothing kept for it.
+//     nothing kept for it; a directory that exists but cannot be read gets one stderr line naming
+//     the read error instead.
 //
 // Two names pair when one normal form is a prefix of the other and neither is empty: lowercased,
 // `_` removed, the extension dropped; on the test side also the `test` suffix and a leading
@@ -77,7 +80,11 @@ func smokeKeep(args []string, env Env, stdout, stderr io.Writer) int {
 			kept[p] = true
 		case strings.HasSuffix(p, ".go"):
 			paired := false
-			entries, _ := os.ReadDir(filepath.Join(top, path.Dir(p)))
+			entries, err := os.ReadDir(filepath.Join(top, path.Dir(p)))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintf(stderr, "smoke-keep: %s: %v — nothing kept for it\n", p, err)
+				continue
+			}
 			for _, e := range entries {
 				if strings.HasSuffix(e.Name(), "_test.go") && smokeKeepPairs(path.Base(p), e.Name()) {
 					kept[path.Join(path.Dir(p), e.Name())] = true

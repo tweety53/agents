@@ -74,15 +74,16 @@ func changedSinceBase(env Env, prog string, stderr io.Writer, pathspecs ...strin
 		return "", nil, false
 	}
 	base = strings.TrimSpace(string(out))
-	diff, err := git(append([]string{"diff", "--no-renames", "--name-only", base, "--"}, pathspecs...)...)
+	diff, err := git(append([]string{"diff", "-z", "--no-renames", "--name-only", base, "--"}, pathspecs...)...)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: git diff failed: %v\n", prog, err)
 		return "", nil, false
 	}
-	untracked, err := git(append([]string{"ls-files", "--others", "--exclude-standard", "--full-name", "--"}, pathspecs...)...)
+	untracked, err := git(append([]string{"ls-files", "-z", "--others", "--exclude-standard", "--full-name", "--"}, pathspecs...)...)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: git ls-files failed: %v\n", prog, err)
 		return "", nil, false
 	}
-	return base, append(strings.Fields(string(diff)), strings.Fields(string(untracked))...), true
+	nul := func(r rune) bool { return r == 0 }
+	return base, append(strings.FieldsFunc(string(diff), nul), strings.FieldsFunc(string(untracked), nul)...), true
 }

@@ -23,6 +23,10 @@ const testCostFixture = `{"Action":"run","Package":"ex/a","Test":"TestSeq"}
 {"Action":"pass","Package":"ex/a","Test":"TestPar/y/deep","Elapsed":0.25}
 {"Action":"pass","Package":"ex/a","Test":"TestPar/x","Elapsed":1.25}
 {"Action":"pass","Package":"ex/a","Test":"TestPar/y","Elapsed":0.5}
+{"Action":"run","Package":"ex/a","Test":"TestParallel"}
+{"Action":"pause","Package":"ex/a","Test":"TestParallel"}
+{"Action":"cont","Package":"ex/a","Test":"TestParallel"}
+{"Action":"pass","Package":"ex/a","Test":"TestParallel","Elapsed":1}
 {"Action":"run","Package":"ex/b","Test":"TestSkipped"}
 {"Action":"skip","Package":"ex/b","Test":"TestSkipped","Elapsed":0}
 {"Action":"run","Package":"ex/b","Test":"TestFails"}
@@ -39,6 +43,8 @@ func TestTestCostAddsPausedDescendants(t *testing.T) {
 		par   = "2.25\tex/a\tTestPar\n"
 		fails = "2.25\tex/b\tTestFails\n"
 		seq   = "0.50\tex/a\tTestSeq\n"
+		// TestParallel's name extends TestPar's: a paused sibling, never TestPar's descendant.
+		sib = "1.00\tex/a\tTestParallel\n"
 	)
 	for _, c := range []struct {
 		name  string
@@ -46,7 +52,7 @@ func TestTestCostAddsPausedDescendants(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"no argument", nil, testCostFixture, par + fails + seq},
+		{"no argument", nil, testCostFixture, par + fails + sib + seq},
 		{"-min 2.25", []string{"-min", "2.25"}, testCostFixture, par + fails},
 		{"-min 2.26", []string{"-min", "2.26"}, testCostFixture, ""},
 		{"empty stdin", nil, "", ""},
@@ -60,7 +66,7 @@ func TestTestCostAddsPausedDescendants(t *testing.T) {
 
 func TestTestCostUsage(t *testing.T) {
 	t.Parallel()
-	for _, args := range [][]string{{"-min"}, {"-min", "abc"}, {"x"}} {
+	for _, args := range [][]string{{"-min"}, {"-min", "abc"}, {"x"}, {"-min", "1", "x"}} {
 		r := runGuard("test-cost", args, Env{Stdin: strings.NewReader(testCostFixture)})
 		if r.rc != 2 || r.err != "usage: flow-guard test-cost [-min <seconds>]\n" || r.stdout != "" {
 			t.Errorf("%q: rc=%d stderr=%q stdout=%q, want 2 and the usage line", args, r.rc, r.err, r.stdout)
