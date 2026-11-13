@@ -401,13 +401,37 @@ var (
 	rvlPathspec = regexp.MustCompile(`[A-Za-z0-9_./:!@%+=,-]+|'[^']*'`)
 )
 
+// rvlOneCommand reports whether rest, what follows a guarded line's `||`, is
+// one command the guard's exit 0 skips whole: a brace group closing at the
+// line's end, or a command with no list operator. `a || b && c` still runs c
+// on a's exit 0, so such a line runs as before.
+func rvlOneCommand(rest string) bool {
+	rest = strings.TrimSpace(rest)
+	if strings.HasPrefix(rest, "{") {
+		depth := 0
+		for i, r := range rest {
+			switch r {
+			case '{':
+				depth++
+			case '}':
+				depth--
+				if depth == 0 {
+					return i == len(rest)-1
+				}
+			}
+		}
+		return false
+	}
+	return !strings.ContainsAny(rest, ";&|\n")
+}
+
 // rvlGuardSkip runs a command's leading `flow-guard unchanged <pathspecs> ||`
 // in process, from wt, and answers the guard's skip line when it exits 0 --
 // "" for a command of any other shape or any other exit, which runs as
 // before (decision skipped-suite-records-no-row).
 func rvlGuardSkip(env Env, wt, cmd string) string {
 	m := rvlGuarded.FindStringSubmatch(cmd)
-	if m == nil {
+	if m == nil || !rvlOneCommand(cmd[len(m[0]):]) {
 		return ""
 	}
 	specs := rvlPathspec.FindAllString(m[1], -1)

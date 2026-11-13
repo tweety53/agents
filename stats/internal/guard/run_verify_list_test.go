@@ -1753,7 +1753,8 @@ func TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns(t *testing.T) {
 // TestRunVerifyListRecordsNoRowForAGuardSkippedSuite pins
 // skipped-suite-records-no-row: a `flow-guard unchanged <pathspecs> ||` line
 // the guard skips runs in process, prints a skip line and records no suite
-// row; a line of another shape runs as before.
+// row; a line of another shape, or whose `||` is followed by more than one
+// command, runs as before.
 func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 	t.Parallel()
 	// fixture: the base commit holds the list, origin/main; one commit adds docs/a.md.
@@ -1776,7 +1777,8 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 	const quiet = "# suite: quiet\nflow-guard unchanged . ':!docs/' || { echo QUIET-RAN; }\n"
 	repo, base := fixture(quiet +
 		"# suite: loud\nflow-guard unchanged docs/ || { echo LOUD-RAN; }\n" +
-		"# suite: odd\nflow-guard unchanged $(echo src/) || { echo ODD-RAN; }\n")
+		"# suite: odd\nflow-guard unchanged $(echo src/) || { echo ODD-RAN; }\n" +
+		"# suite: chain\nflow-guard unchanged . ':!docs' || echo A && echo CHAIN-RAN\n")
 	stub, flowLog := rvlFlowStub(t, "", 1)
 	guardLog := filepath.Join(stub, "guard-calls")
 	writeExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+guardLog+"\nexit 1\n")
@@ -1788,13 +1790,13 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 	if want := "`flow-guard unchanged . ':!docs/' || { echo QUIET-RAN; }` — skipped, unchanged: nothing under . :!docs/ changed since " + base + " — suite skipped\n"; !strings.Contains(out, want) || strings.Contains(out, "QUIET-RAN\n") {
 		t.Errorf("the quiet suite was not skipped by its guard, want %q:\n%s", want, out)
 	}
-	for _, c := range []string{"`flow-guard unchanged docs/ || { echo LOUD-RAN; }` — exit 0\n  LOUD-RAN", "`flow-guard unchanged $(echo src/) || { echo ODD-RAN; }` — exit 0\n  ODD-RAN"} {
+	for _, c := range []string{"`flow-guard unchanged docs/ || { echo LOUD-RAN; }` — exit 0\n  LOUD-RAN", "`flow-guard unchanged $(echo src/) || { echo ODD-RAN; }` — exit 0\n  ODD-RAN", "CHAIN-RAN"} {
 		if !strings.Contains(out, c) {
 			t.Errorf("output lacks %q:\n%s", c, out)
 		}
 	}
 	calls, _ := os.ReadFile(flowLog)
-	if !strings.Contains(string(calls), "-suite loud ") || !strings.Contains(string(calls), "-suite odd ") || strings.Contains(string(calls), "-suite quiet ") {
+	if !strings.Contains(string(calls), "-suite loud ") || !strings.Contains(string(calls), "-suite odd ") || !strings.Contains(string(calls), "-suite chain ") || strings.Contains(string(calls), "-suite quiet ") {
 		t.Errorf("suite record calls want loud and odd, not quiet:\n%s", calls)
 	}
 	if g, _ := os.ReadFile(guardLog); strings.Contains(string(g), ":!docs/") {
