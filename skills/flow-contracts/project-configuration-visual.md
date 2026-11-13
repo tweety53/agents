@@ -12,7 +12,7 @@ is read.
 
 The settings table's header folds to `setting|value` before it is compared — case and internal
 whitespace do not matter, so `| setting | VALUE |` matches as readily as `| Setting | Value |`, but
-the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the seven
+the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the eight
 rows below is reported and its row dropped, never silently ignored.
 
 | Setting | Required | Meaning |
@@ -23,6 +23,7 @@ rows below is reported and its row dropped, never silently ignored.
 | `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** The visual-verify step pushes nothing; integrate's push carries a worktree commit, see below. |
 | `mockups` | no | Directory holding one `<frame id>.png` per drawn frame, relative to the project root. Declared, it enables the compose step of `flow.visual-verify` for any capture spec carrying a `<spec>.mockups` sidecar; absent, the stage composes nothing and reports `mockups: not declared`. |
 | `mockup frame` | no | `scale=<int> status=<px> border=<px> [bare]`: the mockup PNGs' scale factor, the status-line height and the border width, the last two in logical px; the optional word `bare` marks a device render with no page around it, cropped by the border on every side and the status line on top, with no bottom search. Declared, the compose step crops each frame to its content area — the sides and the top from these values, the bottom found per frame as the first row below the status line every one of whose pixels between the borders equals the page colour at (0, 0) — and reports a capture whose size differs from the cropped frame as a finding rather than composing it. Absent, frames compose at native size, uncropped, with no size check. A `<spec>.mockups` sidecar's `frame <geometry>` or `frame none` lines override this value, each for the pairs below it until the next, `none` composing them at native size, uncropped. |
+| `design repo` | no | `<clone path> <remote>`: the design repository `flow-guard render-frames` renders tagged frames from. The clone's real `origin` must equal `<remote>` — the same identity assertion as `regression repo`'s. |
 | `preflight apps` | no | Comma-separated `<app-root>=<url>` cells: the apps `flow-guard visual-verify-pass prepare` pre-flights and probes for this worktree when no `--app` names it, `<app-root>` relative to the worktree and `<url>` with each `${VAR}` replaced from `flow-guard prepare-workspace`'s output and `<name>` with the change name; a pair whose root does not exist is dropped. Absent means `--app` is required. |
 
 The commands table's header folds the same way, to `command|runs` — the same heading
@@ -38,6 +39,15 @@ the six rows below is reported and its row dropped.
 | `fingerprint` | no | Exits 0 when the app the stage's probe answered from is serving the worktree's own build, non-zero otherwise. What a bundle's identity is differs per stack, so the project owns the comparison; `flow.visual-verify` owns what a non-zero exit does (one restart from `## run`, then block). Absent means the stage reports `fingerprint: not declared` and proves nothing about the served bundle — a supported state for a project with no served bundle, not a misconfiguration. |
 | `start` | no | Starts the stack for this stage's own probe, from the worktree; absent means `## run`. This is where a project moves a port the operator's `## run` keeps fixed. |
 | `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted — a fix round's re-run substitutes its round base for `<merge-base>` (**The loop**, `skills/flow/verify-fix-loop.md`). Its output reaches `verify` through `verify`'s `<specs>`; an empty output runs no `verify` spec and a non-zero exit blocks — neither falls back to the whole suite, which runs only when the operator asks for it. Absent means `verify` and `capture` run as declared. |
+
+**Frames at a design-repo tag.** With `design repo` declared, a frame drawn at a tag of that
+repository is referenced by the tag and its frame id joined with a slash — cited in a plan as the
+`mockups` root, the tag and `<frame id>.png` joined as a path, named so in a sidecar's frame field, its
+dark phone's id prefixed `dk-`. `flow-guard render-frames <project root> <file>...` renders each such
+reference into the tag's sub-directory of the `mockups` root, a directory that ignores itself and is
+never committed, using the `regression checkout`'s Playwright; its header is canonical
+for the rendering and its exit codes. A `<tag>` equal to a committed sub-directory of `<mockups>` is
+refused. Rendered frames are device renders, so their sidecars carry `frame scale=2 status=26 border=1 bare`.
 
 **The `mockups` sidecar.** A capture spec finds its frames through a `<spec>.mockups` file beside
 it — one `<screenshot name> <frame id>` line per pair, `#` comments and blank lines ignored. A

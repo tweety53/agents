@@ -259,7 +259,10 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    When `mockups` is declared, it also runs `flow-guard check-sidecar-reach <capture
    root> <mockups root>`, `<capture root>` the `regression checkout`'s worktree when one is
    declared, else this worktree, and `<mockups root>` the resolved `mockups` root
-   (`<project>/<mockups>`); its header is canonical for the rule. With `specs` declared it runs on each existing `<spec>.mockups` of the specs that row prints, run from `<capture root>`, instead of the whole root, and a failing `specs` command is a failing check. Its exit 1 names each
+   (`<project>/<mockups>`); its header is canonical for the rule. With `design repo` declared too,
+   `flow-guard render-frames <worktree> <changeRoot>/design.md <sidecars>` runs first, so the tagged frames
+   they cite exist before this check, compose and `flow-guard check-frame-list` read them; its exit 1 or 2 is a
+   failing check. With `specs` declared it runs on each existing `<spec>.mockups` of the specs that row prints, run from `<capture root>`, instead of the whole root, and a failing `specs` command is a failing check. Its exit 1 names each
    sidecar line whose screenshot no spec beside it takes, or whose frame the mockups root does
    not hold, a failing check. A guard's exit 2 — it cannot answer — is a failing check, carrying its stderr.
 

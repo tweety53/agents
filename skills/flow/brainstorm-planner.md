@@ -514,11 +514,13 @@ prescribed course, never accepting the plan while it stands.
 > capture to the task that builds that view or by a capture task of its own. **Cite each frame by
 > its project-relative path, the `mockups` root joined to `<frame id>.png`, never as a bare
 > `<frame id>.png`** — a capture screenshot's name takes that shape too, so only the path form is
-> a citation `flow-guard check-mockup-citations` can resolve.
+> a citation `flow-guard check-mockup-citations` can resolve. A frame drawn in the `design repo` at a
+> tag is cited the same way with the tag as a sub-directory between the root and `<frame id>.png`, its
+> dark twin's id prefixed `dk-`.
 
 > **Write a capture task that baselines against a mockup to measure before it commits.** Such a
 > task's steps, after its capture, run `flow-guard compose-mockup-frames` on its spec's `<spec>.mockups`
-> sidecar and the band, seam and matrix reads of `flow-guard measure-visual-properties` on every pair, and
+> sidecar — with `design repo` declared, after `flow-guard render-frames <worktree> <spec>.mockups` — and the band, seam and matrix reads of `flow-guard measure-visual-properties` on every pair, and
 > fix until they come back clean or each leftover is named with its cause — the rule
 > **The implementer measures before it hands back** in **The loop** (`skills/flow/verify-fix-loop.md`) states for a fix
 > round, applied at plan time. The same
@@ -548,7 +550,9 @@ prescribed course, never accepting the plan while it stands.
 > those parts as expected until the sibling lands, and judges every other part of the frame as
 > usual.
 
-When the project declares `mockups`, also run
+When the project declares `mockups`, also run — with `design repo` declared, after
+`flow-guard render-frames <worktree> <changeRoot>/design.md <changeRoot>/tasks.md`, whose exit 1 or 2 is
+reported and stops the plan —
 `flow-guard check-mockup-citations <worktree> <mockups root> <changeRoot>/design.md <changeRoot>/tasks.md`
 before continuing. Its exit 1 names a cited frame no file in the mockups root holds: a handoff asset
 **The checklist** above still owes, never a frame to plan against — commit the asset or record its
