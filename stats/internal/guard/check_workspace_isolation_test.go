@@ -39,13 +39,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 const wiRepoRoot = "../../.."

@@ -1,8 +1,9 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The land, cleanup and visual-gate cases of integrate-change's former bash

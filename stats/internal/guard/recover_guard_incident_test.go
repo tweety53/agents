@@ -3,12 +3,13 @@ package guard
 import (
 	"errors"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The cases of scripts/test-recover-guard-incident.sh at c5379c0a that

@@ -2,10 +2,11 @@ package guard
 
 import (
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // sobEnv runs the guard with root as FLOW_GUARD_REPO_ROOT,

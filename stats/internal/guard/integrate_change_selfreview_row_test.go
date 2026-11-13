@@ -1,8 +1,9 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The self-review pass's land marker is flowd's completed flow.self-review

@@ -1,8 +1,9 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The prepare and commit cases of integrate-change's former bash harness,

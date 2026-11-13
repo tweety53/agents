@@ -2,11 +2,12 @@ package guard
 
 import (
 	"bytes"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-commit-split.sh, one subtest per case, each

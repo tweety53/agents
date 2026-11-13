@@ -2,10 +2,11 @@ package guard
 
 import (
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // spbFx is rpbFx's origin clone with a five-line file on the recorded merge

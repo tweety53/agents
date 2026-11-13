@@ -2,7 +2,6 @@ package guard
 
 import (
 	"bytes"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-installed-rules.sh at c5379c0a, one

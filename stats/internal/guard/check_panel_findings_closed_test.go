@@ -3,12 +3,13 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-findings-closed.sh, one subtest per

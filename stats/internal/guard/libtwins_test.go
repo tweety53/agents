@@ -3,7 +3,6 @@ package guard
 import (
 	"bytes"
 	"errors"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"os"
 	"os/exec"
@@ -11,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The parity tests below run each bash library and its Go twin over the same

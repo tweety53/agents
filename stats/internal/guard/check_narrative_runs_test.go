@@ -3,12 +3,13 @@ package guard
 import (
 	"bytes"
 	"errors"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestCheckNarrativeRuns carries the cases of the retired

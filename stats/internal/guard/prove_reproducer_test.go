@@ -2,7 +2,6 @@ package guard
 
 import (
 	"bytes"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +11,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case_N of scripts/test-prove-reproducer.sh at d71a2327, one subtest

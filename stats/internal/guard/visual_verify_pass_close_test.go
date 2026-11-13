@@ -1,12 +1,13 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // vvcFixture is a prepare fixture whose stage has begun one row, its key

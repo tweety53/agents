@@ -3,12 +3,13 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // mwFx is a main checkout with two worktrees in the retired in-repo layout,

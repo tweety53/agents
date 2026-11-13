@@ -3,13 +3,14 @@ package guard
 import (
 	"bytes"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestCheckPlanShape ports scripts/test-check-plan-shape.sh at bbfe685e: one

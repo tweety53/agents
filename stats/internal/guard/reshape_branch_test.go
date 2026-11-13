@@ -1,10 +1,11 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // reshape-branch runs in-process, followed by commit-split exactly as

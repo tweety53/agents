@@ -3,7 +3,6 @@ package guard
 import (
 	"bytes"
 	"errors"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestRebuildFullAppSuiteZip carries the cases of the retired

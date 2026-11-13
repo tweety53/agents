@@ -3,10 +3,11 @@ package guard
 import (
 	"bytes"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // lpRowsJSON is `flow record dispatches` output for the pipeline-fix fixture

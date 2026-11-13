@@ -3,10 +3,11 @@ package guard
 import (
 	"bytes"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // rbNewFx is bmNewFx plus the change's plan on disk and never committed, as

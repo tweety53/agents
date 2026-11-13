@@ -1,10 +1,11 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-docs-only.sh at 9cd35da8, one

@@ -2,12 +2,13 @@ package guard
 
 import (
 	"bytes"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestIgnoreScratch pins flow-guard ignore-scratch (kan-1081 self-review,

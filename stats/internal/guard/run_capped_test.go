@@ -2,7 +2,6 @@ package guard
 
 import (
 	"bufio"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -13,6 +12,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // rcHelperEnv names this test binary's helper mode: re-exec'd with it set,

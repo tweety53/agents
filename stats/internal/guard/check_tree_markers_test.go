@@ -1,13 +1,14 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-tree-markers.sh at c9b8fde8, one subtest

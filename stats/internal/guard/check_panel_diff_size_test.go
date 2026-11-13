@@ -2,12 +2,13 @@ package guard
 
 import (
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-diff-size.sh at c9b8fde8, one

@@ -1,10 +1,11 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The change directory is gitignored (KAN-1073): the guards that once read a

@@ -3,7 +3,6 @@ package guard
 import (
 	"bytes"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -16,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-compose-mockup-frames.sh at 3915fbc0, one

@@ -3,11 +3,12 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // frFx is one fixture repository: a base commit carrying `.flow/project.md`

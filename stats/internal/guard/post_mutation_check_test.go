@@ -1,9 +1,10 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPostMutationCheck pins snapshotTreeState and checkTreeRestored against

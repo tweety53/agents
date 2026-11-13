@@ -2,10 +2,11 @@ package guard
 
 import (
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-panel-citation-trigger.sh at c5379c0a,

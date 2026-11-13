@@ -2,9 +2,10 @@ package guard
 
 import (
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"path/filepath"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPlanAgentPair pins scripts/plan-agent-pair.sh: every seed and both roles

@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // vvpFix is one visual-verify-pass fixture: a canonical worktree on

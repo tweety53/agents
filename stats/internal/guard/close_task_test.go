@@ -3,7 +3,6 @@ package guard
 import (
 	"archive/zip"
 	"bytes"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"os"
 	"os/exec"
@@ -11,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The close-task fixture: the change "demo" on branch spectre/demo, pushed

@@ -3,11 +3,12 @@ package guard
 import (
 	"bytes"
 	"errors"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Every case of scripts/test-check-task-reviewer-single-dispatch.sh at

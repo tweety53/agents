@@ -3,7 +3,6 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/prompttuning"
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // ptRepo is a scratch agents repo carrying one shared prompt and one scoped

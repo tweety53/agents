@@ -3,7 +3,6 @@ package guard
 import (
 	"bytes"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // check-visual-preflight is visual-verify.md step 3's four checks as one

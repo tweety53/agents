@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -16,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // execFixtures backs every executable fixture with an inode already

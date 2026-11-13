@@ -1,12 +1,13 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestAwaitSubAgents ports scripts/test-await-sub-agents.sh cases (a)-(e):

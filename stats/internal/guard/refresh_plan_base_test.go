@@ -1,10 +1,11 @@
 package guard
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // rpbFx is bmFx.withOrigin with origin/HEAD set -- resolve-base-branch reads

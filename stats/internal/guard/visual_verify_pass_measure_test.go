@@ -3,7 +3,6 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"image"
 	"image/color"
 	"image/png"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // vvmFix is a worktree with a capture spec, its captures under the declared

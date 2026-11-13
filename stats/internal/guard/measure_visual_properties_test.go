@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"image"
 	"image/color"
 	"image/png"
@@ -15,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPyJSON pins pyjson.go against Python's own output. Each expected string
