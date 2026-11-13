@@ -219,19 +219,722 @@ GROUP  BY s.stage;</pre>
     </details>
   </header>
 
-  <section class="stage" id="flow.kickoff"><h2>flow.kickoff</h2></section>
+  <section class="stage" id="flow.kickoff">
+    <h2>flow.kickoff</h2>
+    <p class="files">Marked in <code>skills/flow/brainstorm.md</code> (section A) · worktree by <code>flow-guard kickoff-worktree</code></p>
 
-  <section class="stage" id="flow.brainstorm"><h2>flow.brainstorm</h2></section>
+    <h3>Summary</h3>
+    <p>Fixes the change's name from the linked Jira issue, moves the issue to In Progress, writes the <code>STARTED</code> state record and creates the change's worktree and branch, pushing it as a backup. Ends once <code>flow-guard kickoff-worktree</code> exits 0 and the worktree is recorded in the state record.</p>
 
-  <section class="stage" id="flow.design-approval"><h2>flow.design-approval</h2></section>
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> the linked Jira issue is resolved first, and it decides the change name <span class="cite">brainstorm.md:12</span></li>
+      <li>a linked issue <span class="arrow">→</span> the candidate set of changes named <code>&lt;key&gt;-…</code> is enumerated <span class="cite">brainstorm.md:18</span>
+        <ul>
+          <li>exactly one candidate <span class="arrow">→</span> that change is resumed at its recorded state <span class="cite">brainstorm.md:19</span></li>
+          <li>more than one <span class="arrow">→</span> an AskUserQuestion lists each <span class="cite">brainstorm.md:22</span></li>
+          <li>none <span class="arrow">→</span> the name is <code>&lt;key&gt;-&lt;slug&gt;</code> <span class="cite">brainstorm.md:23</span></li>
+        </ul>
+      </li>
+      <li>no linked issue <span class="arrow">→</span> the descriptive slug alone <span class="cite">brainstorm.md:24</span></li>
+      <li>name and description both omitted <span class="arrow">→</span> candidates restricted to changes with incomplete planning artifacts <span class="cite">brainstorm.md:27</span></li>
+      <li>the name resolves to a change already at <code>STARTED</code> <span class="arrow">→</span> <code>resume.md</code> is loaded and the rest of section A is skipped <span class="cite">brainstorm.md:31</span></li>
+      <li>always <span class="arrow">→</span> Jira transition to In Progress; a failure is one skipped-with-reason line <span class="cite">brainstorm.md:35</span></li>
+      <li>always <span class="arrow">→</span> <code>flow-guard kickoff-worktree</code> runs the location check, the worktree add, the <code>## worktree setup</code> commands and the push in one call <span class="cite">brainstorm.md:75</span>
+        <ul>
+          <li>a <code>--base &lt;branch&gt;</code> was given <span class="arrow">→</span> the branch is cut from <code>origin/&lt;base&gt;</code>; a missing base is exit 1 <span class="cite">brainstorm.md:87</span></li>
+          <li>exit 1 or 2 <span class="arrow">→</span> the run stops with the script's lines <span class="cite">brainstorm.md:94</span></li>
+        </ul>
+      </li>
+    </ul>
 
-  <section class="stage" id="flow.create-artifacts"><h2>flow.create-artifacts</h2></section>
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>108</td><td>108</td><td>0.06</td><td>0.18</td><td>19.61</td><td>14 s</td><td>25 s</td><td>1.00</td><td>1</td><td>7</td><td>1</td><td>0</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 106 <code>completed</code>, 1 <code>abandoned</code>, 1 <code>superseded</code>.</p>
 
-  <section class="stage" id="flow.writing-plans"><h2>flow.writing-plans</h2></section>
+    <h3>Loops and their caps</h3>
+    <p>none</p>
 
-  <section class="stage" id="flow.plan-review"><h2>flow.plan-review</h2></section>
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>fable</td><td>2</td><td>5.59</td></tr>
+      <tr><td>opus</td><td>2</td><td>4.15</td></tr>
+    </table>
+    </div>
+    <p class="note">4 dispatches over 108 runs: median 0 per run, p90 0, highest 3; 106 runs record none.</p>
 
-  <section class="stage" id="flow.decide"><h2>flow.decide</h2></section>
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>No test suite runs in this stage. The project's <code>## worktree setup</code> commands run once per creating run <span class="cite">brainstorm.md:79</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>The three costliest runs are $10.73, $0.92 and $0.53; the first, <code>minor-triage-policy</code>, lasted 17,161 s and is a change with no recorded decision — its window held work that is not kickoff's own.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>What happened in <code>minor-triage-policy</code>'s 17,161 s kickoff window — was the stage left open while the session did other work?</li>
+      <li>Should a kickoff window that runs longer than its worktree setup be closed by the store rather than collect later cost?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The store gives a message that falls in no stage window to the window that began last before it (<code>stats/internal/harvest/attribute.go:18</code>), so kickoff's dollars include whatever the session did before the next mark; the 4 recorded dispatches are not kickoff's own.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>49</td><td>49</td><td>0.06</td><td>3.34</td><td>14 s</td></tr>
+      <tr><td>big</td><td>34</td><td>34</td><td>0.06</td><td>2.43</td><td>15 s</td></tr>
+      <tr><td>small</td><td>18</td><td>18</td><td>0.06</td><td>2.22</td><td>12 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.08</td><td>0.74</td><td>14 s</td></tr>
+      <tr><td>no decision recorded</td><td>3</td><td>3</td><td>0.13</td><td>10.88</td><td>8,585 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The class is recorded by <code>flow.decide</code>, after this stage; the stage itself does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.brainstorm">
+    <h2>flow.brainstorm</h2>
+    <p class="files">Begins in <code>skills/flow/brainstorm.md</code> · ends in <code>skills/flow/brainstorm-planner.md</code> · round rules in <code>skills/spectre-planning/SKILL.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Turns the ticket into an approved design. The parent session never designs: it dispatches a fresh planner for each round, the planner writes a round file of settled points and questions, and the parent relays the questions to the operator and writes the answers down. The stage ends on one thing only — the operator's explicit "approve the design and move on" answer to the convergence confirm.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> one fresh planner dispatch per round, which reads every file under <code>.superpowers/sdd/planner/</code> <span class="cite">brainstorm.md:127</span>
+        <ul>
+          <li>the ticket carries an <code>Agents (CORE)</code> section <span class="arrow">→</span> planner on <code>fable xhigh</code>, its explorers on <code>opus low</code>, its plan-designers on <code>fable xhigh</code> <span class="cite">brainstorm.md:113</span> <span class="cite">brainstorm-planner.md:131</span></li>
+          <li>otherwise <span class="arrow">→</span> the first pair of the <code>planner</code> row, unless an open experiment overrides it <span class="cite">brainstorm.md:111</span></li>
+        </ul>
+      </li>
+      <li>the ticket's labels carry <code>flow-fix</code>, <code>flow-cost</code> or <code>flow-speed</code> <span class="arrow">→</span> the reachability check runs before any design question; an unreachable defect ends the run as withdrawn <span class="cite">brainstorm-planner.md:21</span></li>
+      <li>the ask arrives as a seeded research note <span class="arrow">→</span> <code>seeded-note.md</code> is loaded <span class="cite">brainstorm-planner.md:110</span></li>
+      <li>the change can alter what a user sees and no mockup frame specifies it <span class="arrow">→</span> the planner writes a single-file HTML prototype and revises it each round; the parent publishes it after every return that changed it <span class="cite">brainstorm-planner.md:78</span></li>
+      <li>the design's specification is a drawn frame <span class="arrow">→</span> no approval until the handoff assets are committed or their location is recorded <span class="cite">brainstorm-planner.md:69</span></li>
+      <li>an answer contradicts an earlier one <span class="arrow">→</span> nothing changes on that point; the next round quotes both and asks which stands <span class="cite">brainstorm-planner.md:55</span></li>
+      <li>a decision departs from a handoff ticket's Done-when <span class="arrow">→</span> that line is rewritten in its own commit <span class="cite">brainstorm-planner.md:114</span></li>
+      <li>the round's answer to the convergence confirm
+        <ul>
+          <li>explicit approve <span class="arrow">→</span> <code>flow.brainstorm</code> ends, <code>flow.design-approval</code> begins and ends <span class="cite">brainstorm-planner.md:191</span></li>
+          <li>"Dig deeper" <span class="arrow">→</span> one Explore dispatch for a briefing, then the quiz skill; the confirm is asked again <span class="cite">brainstorm-planner.md:180</span></li>
+          <li>anything else, silence included <span class="arrow">→</span> round <code>r+1</code> <span class="cite">brainstorm.md:151</span> <span class="cite">SKILL.md:98</span></li>
+          <li><code>## decisions: recommended</code> mode <span class="arrow">→</span> the confirm is not asked; approve is taken <span class="cite">brainstorm-planner.md:176</span></li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>145</td><td>105</td><td>1.32</td><td>5.59</td><td>461.49</td><td>215 s</td><td>1,753 s</td><td>1.38</td><td>5</td><td>6</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>105</td><td>409.26</td></tr>
+      <tr><td>2</td><td>27</td><td>26.84</td></tr>
+      <tr><td>3</td><td>9</td><td>17.36</td></tr>
+      <tr><td>4</td><td>3</td><td>7.16</td></tr>
+      <tr><td>5</td><td>1</td><td>0.86</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 110 <code>completed</code>, 35 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Design rounds — exit: explicit approve. <strong>Uncapped</strong>: "There is no hard cap. No round count ends the stage." <span class="cite">SKILL.md:120</span></li>
+      <li>Dig-deeper quiz — exit: the quiz skill ends; the confirm is then asked again and the option can be picked again. <strong>Uncapped.</strong> <span class="cite">brainstorm-planner.md:187</span></li>
+      <li>Explore and Plan dispatches inside one round — exit: the planner's own judgment. <strong>Uncapped</strong>; highest recorded in one run: 20. <span class="cite">brainstorm-planner.md:127</span></li>
+      <li>Waiting on its own agents — <code>flow-guard await-sub-agents</code> returns within two minutes and is called again until every agent finished. Capped only by the agents ending. <span class="cite">brainstorm-planner.md:161</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>planner</td><td>1 per round</td><td><strong>Allowed pairs</strong> row <code>planner</code>, first pair; CORE: <code>fable xhigh</code></td></tr>
+      <tr><td>explorer</td><td>0 or more per round</td><td><code>flow-guard plan-agent-pair &lt;name&gt; &lt;n&gt; explorer</code></td></tr>
+      <tr><td>plan-designer</td><td>0 or more per round</td><td><code>flow-guard plan-agent-pair &lt;name&gt; &lt;n&gt; plan-designer</code></td></tr>
+      <tr><td>explorer (quiz briefing)</td><td>1 per "Dig deeper"</td><td>as explorer</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>fable</td><td>35</td><td>215.07</td></tr>
+      <tr><td>opus</td><td>180</td><td>192.89</td></tr>
+      <tr><td>sonnet</td><td>67</td><td>20.84</td></tr>
+    </table>
+    </div>
+    <p class="note">282 dispatches over 145 runs: median 1 per run, p90 5, highest 20; 57 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>No test suite runs in this stage.</li>
+      <li>Every planner dispatch reads every file under <code>.superpowers/sdd/planner/</code> — all earlier round files and answers. Repeats once per round, and the list grows by two files each round. <span class="cite">brainstorm.md:128</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag uncapped">uncapped</span>The number of design rounds has no limit and no warning threshold; each round is a full fresh planner dispatch.</li>
+      <li><span class="tag uncapped">uncapped</span>The number of Explore and Plan agents a planner may dispatch in a round has no limit. One run dispatched 14 and cost $118.50 — 26% of the stage's 30-day total.</li>
+      <li><span class="tag repeated">repeated</span>Every round starts a planner from an empty context that re-reads every earlier round file and answer file before it does anything new.</li>
+      <li><span class="tag repeated">repeated</span>An explorer's findings reach the next round only through what the planner wrote into the round file, so a later round dispatches a new explorer over ground an earlier one covered.</li>
+      <li><span class="tag repeated">repeated</span>40 of 145 runs are a second or later attempt of the stage on the same change ($52.22).</li>
+      <li><span class="tag unselected">unselected</span>The planner's pair is the row's first pair for every change that is not CORE; the change's size is not known until <code>flow.decide</code>, so a one-line change and a data-model change plan on the same model and effort.</li>
+      <li><span class="tag unselected">unselected</span>Each planner dispatch reads the whole <code>planner/</code> directory rather than the latest round and the answers that changed it.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Should a round count, or a dollar figure, make the stage warn the operator before the next round is dispatched?</li>
+      <li>Should a round's exploration be saved to a file the next round's planner reads, in place of a new explorer?</li>
+      <li>What does an attempt above 1 stand for here — a resume after <code>/clear</code>, or a real re-entry? 35 runs end as <code>superseded</code>.</li>
+      <li>What did the 14 dispatches of <code>kan-1088</code> each do, and which of them repeated another?</li>
+      <li>Is there a signal available before <code>flow.decide</code> that could pick a cheaper planner pair for a small change?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The stage's window spans every round, so its duration includes the time the operator took to answer; the p90 of 1,753 s is not agent time.</p>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1088-progression-engine-history-backfill</td><td>1</td><td>118.50</td><td>12,184 s</td><td>14</td><td>2026-11-11</td></tr>
+      <tr><td>kan-1060-flow-cost-visual-verify-now-costs-more-than</td><td>1</td><td>24.28</td><td>3,703 s</td><td>12</td><td>2026-10-30</td></tr>
+      <tr><td>kan-1061-flow-add-flow-interactive-fast-conversational</td><td>1</td><td>19.59</td><td>2,708 s</td><td>6</td><td>2026-10-30</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>57</td><td>34</td><td>1.98</td><td>310.97</td><td>392 s</td></tr>
+      <tr><td>regular</td><td>58</td><td>48</td><td>1.22</td><td>105.77</td><td>222 s</td></tr>
+      <tr><td>small</td><td>25</td><td>18</td><td>1.03</td><td>41.17</td><td>132 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.44</td><td>1.77</td><td>59 s</td></tr>
+      <tr><td>no decision recorded</td><td>1</td><td>1</td><td>1.80</td><td>1.80</td><td>3,819 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The class is recorded by <code>flow.decide</code>, after this stage; the stage itself branches on CORE only.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.design-approval">
+    <h2>flow.design-approval</h2>
+    <p class="files">Marked in <code>skills/flow/brainstorm-planner.md</code> (<strong>Convergence</strong>)</p>
+
+    <h3>Summary</h3>
+    <p>Records the operator's explicit approve-and-move-on answer as the HARD GATE between design and artifacts. It is begun and ended around that one answer, right after <code>flow.brainstorm</code> ends; nothing else runs inside it.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>explicit "approve the design and move on" <span class="arrow">→</span> <code>flow.brainstorm</code> ends, this stage begins and ends at once <span class="cite">brainstorm-planner.md:191</span> <span class="cite">brainstorm-planner.md:197</span></li>
+      <li><code>## decisions: recommended</code> mode <span class="arrow">→</span> the confirm is not asked and approve is taken <span class="cite">brainstorm-planner.md:176</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>102</td><td>101</td><td>0.39</td><td>0.98</td><td>7.64</td><td>0 s</td><td>0 s</td><td>1.01</td><td>2</td><td>86</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>101</td><td>7.64</td></tr>
+      <tr><td>2</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 102 <code>completed</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>inherit</td><td>1</td><td>—</td></tr>
+      <tr><td>opus</td><td>3</td><td>1.24</td></tr>
+    </table>
+    </div>
+    <p class="note">4 dispatches over 102 runs: median 0 per run, p90 0, highest 1; 98 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <p>none</p>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>The stage's median window is 0.02 s, yet it carries $7.64 over 101 runs and 4 recorded dispatches. Which work does that cost belong to — the first planner messages after the answer?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>A window this short collects cost only through the store's boundary rule — a message at a window's start instant belongs to the window starting (<code>stats/internal/harvest/attribute.go:21</code>) — so its dollars are not the gate's own.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>34</td><td>33</td><td>0.38</td><td>4.29</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>47</td><td>47</td><td>0.60</td><td>3.18</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.17</td><td>0.17</td><td>0 s</td></tr>
+      <tr><td>small</td><td>16</td><td>16</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>no decision recorded</td><td>1</td><td>1</td><td>—</td><td>—</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The class is recorded by <code>flow.decide</code>, after this stage; the stage itself does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.create-artifacts">
+    <h2>flow.create-artifacts</h2>
+    <p class="files">Run by the first final planner dispatch of <code>skills/flow/brainstorm.md</code> · section C of <code>skills/flow/brainstorm-planner.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Creates the spectre change and writes <code>proposal.md</code>, <code>design.md</code> and <code>tasks.md</code>'s precursor artifacts from the approved design. A fresh final planner runs it and returns <code>ARTIFACTS-WRITTEN</code>; the stage ends with that return, before plan review #1.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> one fresh final planner runs section C: <code>spectre new</code> and the three artifacts, reading every file under <code>.superpowers/sdd/planner/</code> <span class="cite">brainstorm.md:154</span> <span class="cite">brainstorm-planner.md:206</span></li>
+      <li>a guard's output the dispatch could not clear <span class="arrow">→</span> a fresh redispatch with that output, skipping marks already made <span class="cite">brainstorm.md:162</span></li>
+      <li>writing the artifacts surfaces an ambiguity <span class="arrow">→</span> <code>QUESTIONS</code> return; the parent relays the round and a fresh final dispatch takes the answers <span class="cite">brainstorm.md:164</span></li>
+      <li><code>design.md</code> records a question still open <span class="arrow">→</span> <code>check-plan-shape</code> F27 refuses the plan <span class="cite">brainstorm-planner.md:212</span></li>
+      <li>a plan-mode design misses <code>## Non-goals</code> or <code>## Risks</code> <span class="arrow">→</span> F19 refuses it <span class="cite">brainstorm-planner.md:217</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>105</td><td>104</td><td>1.00</td><td>3.30</td><td>188.76</td><td>160 s</td><td>646 s</td><td>1.01</td><td>2</td><td>2</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>104</td><td>184.94</td></tr>
+      <tr><td>2</td><td>1</td><td>3.82</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 101 <code>completed</code>, 4 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Guard redispatch — exit: the dispatch returns its word. <strong>Uncapped</strong>: "redispatched fresh with that output until it returns its word". <span class="cite">brainstorm.md:162</span></li>
+      <li><code>QUESTIONS</code> rounds after approval — exit: a return with no question. <strong>Uncapped</strong>. <span class="cite">brainstorm.md:164</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>planner (final, section C)</td><td>1, plus 1 per redispatch or question round</td><td><strong>Allowed pairs</strong> row <code>planner</code>, as <code>flow.brainstorm</code></td></tr>
+      <tr><td>explorer / plan-designer</td><td>0 or more</td><td><code>flow-guard plan-agent-pair</code></td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>fable</td><td>7</td><td>35.20</td></tr>
+      <tr><td>inherit</td><td>1</td><td>0.07</td></tr>
+      <tr><td>opus</td><td>35</td><td>84.15</td></tr>
+      <tr><td>sonnet</td><td>21</td><td>5.80</td></tr>
+    </table>
+    </div>
+    <p class="note">64 dispatches over 105 runs: median 0 per run, p90 2, highest 5; 71 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>No test suite runs. Every final planner dispatch re-reads every file under <code>.superpowers/sdd/planner/</code>. <span class="cite">brainstorm.md:156</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>The final planner starts from an empty context and re-reads every round and answer file the design rounds already produced.</li>
+      <li><span class="tag unselected">unselected</span>The final planner runs on the same <code>planner</code> pair as a design round, whatever the change's size; 2 of 105 runs are a second attempt.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Could the approved design be handed to the final planner as one summary file in place of the whole <code>planner/</code> directory?</li>
+      <li>Do the 64 recorded dispatches include the planner itself, or only its own explorers and designers?</li>
+    </ul>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1088-progression-engine-history-backfill</td><td>1</td><td>16.09</td><td>1,785 s</td><td>2</td><td>2026-11-11</td></tr>
+      <tr><td>kan-1062-flow-implement-one-shot-subagents</td><td>1</td><td>11.49</td><td>1,738 s</td><td>4</td><td>2026-10-31</td></tr>
+      <tr><td>kan-1087-random-workout-generator</td><td>1</td><td>11.22</td><td>1,291 s</td><td>2</td><td>2026-11-13</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>35</td><td>34</td><td>1.54</td><td>102.27</td><td>247 s</td></tr>
+      <tr><td>regular</td><td>48</td><td>48</td><td>0.92</td><td>66.77</td><td>128 s</td></tr>
+      <tr><td>small</td><td>18</td><td>18</td><td>0.73</td><td>18.64</td><td>122 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.25</td><td>1.08</td><td>47 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The class is recorded by <code>flow.decide</code>, after this stage; the stage itself does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.writing-plans">
+    <h2>flow.writing-plans</h2>
+    <p class="files">Run by the second final planner dispatch of <code>skills/flow/brainstorm.md</code> · section D of <code>skills/flow/brainstorm-planner.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Writes <code>tasks.md</code> from the approved design, validates it with <code>spectre validate</code>, <code>flow-guard check-plan-shape</code> and the configured guards, and records the plan's size with <code>flow tasks count</code>. A fresh planner returns <code>PLAN-WRITTEN</code>; the parent ends the stage.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> a fresh final planner runs section D up to, not including, Decide <span class="cite">brainstorm.md:158</span></li>
+      <li>always <span class="arrow">→</span> <code>check-plan-shape</code> and the configured guards run unconditionally before the plan is accepted <span class="cite">brainstorm-planner.md:498</span></li>
+      <li>a guard's output the dispatch could not clear <span class="arrow">→</span> fresh redispatch, resuming at the failing guard <span class="cite">brainstorm.md:162</span></li>
+      <li>writing the plan surfaces an ambiguity <span class="arrow">→</span> <code>QUESTIONS</code>; a fresh final dispatch takes the answers and revises design, artifacts and plan <span class="cite">brainstorm.md:164</span></li>
+      <li>the return's second line <span class="cite">brainstorm-planner.md:578</span>
+        <ul>
+          <li><code>Plan review: skip — &lt;reason&gt;</code> <span class="arrow">→</span> both plan reviews are skipped <span class="cite">brainstorm.md:217</span></li>
+          <li>absent <span class="arrow">→</span> plan review #2 runs after this stage ends <span class="cite">brainstorm.md:171</span></li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>103</td><td>103</td><td>0.52</td><td>2.80</td><td>179.49</td><td>73 s</td><td>477 s</td><td>1.00</td><td>1</td><td>2</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 99 <code>completed</code>, 4 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Guard redispatch — exit: <code>PLAN-WRITTEN</code>. <strong>Uncapped</strong>. <span class="cite">brainstorm.md:162</span></li>
+      <li><code>QUESTIONS</code> rounds — exit: a return with no question. <strong>Uncapped</strong>. <span class="cite">brainstorm.md:164</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>planner (final, section D)</td><td>1, plus 1 per redispatch or question round</td><td><strong>Allowed pairs</strong> row <code>planner</code></td></tr>
+      <tr><td>explorer / plan-designer</td><td>0 or more</td><td><code>flow-guard plan-agent-pair</code></td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>fable</td><td>7</td><td>64.15</td></tr>
+      <tr><td>inherit</td><td>1</td><td>0.13</td></tr>
+      <tr><td>opus</td><td>41</td><td>70.11</td></tr>
+      <tr><td>sonnet</td><td>2</td><td>0.26</td></tr>
+    </table>
+    </div>
+    <p class="note">51 dispatches over 103 runs: median 0 per run, p90 1, highest 5; 72 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>No test suite runs. <code>check-plan-shape</code> and every configured plan guard run over the whole plan on each redispatch. <span class="cite">brainstorm-planner.md:498</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag unselected">unselected</span>Big changes take $139.92 of the stage's $179.49; the planner's pair does not depend on class, which is not known until <code>flow.decide</code>.</li>
+      <li><span class="tag repeated">repeated</span>A redispatch is a fresh planner that re-reads the design and the planner directory to fix one guard line.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Should a guard failure be fixed by the parent or a cheaper dispatch rather than a fresh planner?</li>
+      <li>The two costliest runs ($34.14, $33.23) are 1-hour runs with 5 dispatches each — what did the dispatches do?</li>
+    </ul>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1087-random-workout-generator</td><td>1</td><td>34.14</td><td>3,653 s</td><td>5</td><td>2026-11-13</td></tr>
+      <tr><td>kan-1088-progression-engine-history-backfill</td><td>1</td><td>33.23</td><td>4,149 s</td><td>5</td><td>2026-11-11</td></tr>
+      <tr><td>kan-1083-s1-white-design-system-dark-theme</td><td>1</td><td>14.74</td><td>2,434 s</td><td>5</td><td>2026-11-09</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>34</td><td>34</td><td>1.18</td><td>139.92</td><td>194 s</td></tr>
+      <tr><td>regular</td><td>47</td><td>47</td><td>0.43</td><td>27.38</td><td>48 s</td></tr>
+      <tr><td>small</td><td>18</td><td>18</td><td>0.28</td><td>11.03</td><td>29 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.19</td><td>1.16</td><td>23 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The class is recorded by <code>flow.decide</code>, after this stage; the stage itself does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.plan-review">
+    <h2>flow.plan-review</h2>
+    <p class="files">Marked in <code>skills/flow/brainstorm.md</code> (<strong>Plan review</strong>) · triage rules in <code>skills/flow/brainstorm-planner.md</code></p>
+
+    <h3>Summary</h3>
+    <p>A fresh reviewer that has seen only the documents reads the plan twice: after <code>ARTIFACTS-WRITTEN</code> and after <code>PLAN-WRITTEN</code>. Findings go to a fresh planner for triage. Each review is its own begin/end of the stage, so a change records two runs.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>the planner's return carries <code>Plan review: skip</code> <span class="arrow">→</span> neither review runs, no mark <span class="cite">brainstorm.md:217</span></li>
+      <li>a fix run's re-plan, the self-review and in-run fix planners, <code>/flow-fast</code> <span class="arrow">→</span> never run <span class="cite">brainstorm.md:218</span></li>
+      <li>otherwise <span class="arrow">→</span> one reviewer dispatch per review, <code>opus low</code> from the <code>design-reviewer</code> row <span class="cite">brainstorm.md:231</span>
+        <ul>
+          <li><code>PLAN-REVIEW-CLEAN</code> <span class="arrow">→</span> the stage ends <span class="cite">brainstorm.md:246</span></li>
+          <li><code>PLAN-REVIEW-FINDINGS</code> <span class="arrow">→</span> a fresh final planner triages the report; its <code>QUESTIONS</code> are relayed; nothing is reviewed a third time <span class="cite">brainstorm.md:247</span> <span class="cite">brainstorm-planner.md:583</span></li>
+          <li>the reviewer errors or returns no verdict <span class="arrow">→</span> redispatched once; failing again, the stage ends <code>failed</code>, review <code>not run</code> <span class="cite">brainstorm.md:253</span></li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>16</td><td>8</td><td>1.18</td><td>4.76</td><td>30.96</td><td>139 s</td><td>573 s</td><td>2.00</td><td>2</td><td>0</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>8</td><td>10.00</td></tr>
+      <tr><td>2</td><td>8</td><td>20.96</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 16 <code>completed</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Reviewer retry — exit: a verdict line. Capped at one redispatch. <span class="cite">brainstorm.md:253</span></li>
+      <li>Triage <code>QUESTIONS</code> rounds — exit: an <code>ARTIFACTS-WRITTEN</code> or <code>PLAN-WRITTEN</code> return. <strong>Uncapped</strong>. <span class="cite">brainstorm.md:249</span></li>
+      <li>Reviews per change — capped at two; "nothing is reviewed a third time". <span class="cite">brainstorm.md:252</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>design-reviewer</td><td>1 per review, +1 on failure</td><td><strong>Allowed pairs</strong> row <code>design-reviewer</code>: <code>opus low</code></td></tr>
+      <tr><td>planner (triage)</td><td>0 or 1 per review, plus question rounds</td><td><strong>Allowed pairs</strong> row <code>planner</code></td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>fable</td><td>3</td><td>10.21</td></tr>
+      <tr><td>opus</td><td>26</td><td>17.07</td></tr>
+    </table>
+    </div>
+    <p class="note">29 dispatches over 16 runs: median 2 per run, p90 2, highest 4; 0 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>After triaging <code>plan-review-2</code>, <code>spectre validate</code>, <code>check-plan-shape</code>, the configured guards and <code>flow tasks count</code> run again over the whole plan. <span class="cite">brainstorm-planner.md:590</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag unselected">unselected</span>Only 16 runs over 8 changes in the window against about 100 changes planned — most planners return the skip line; the second review costs twice the first ($20.96 against $10.00).</li>
+      <li><span class="tag repeated">repeated</span>The triage planner is a fresh <code>planner</code> dispatch on the planner pair, re-reading the design to apply a handful of findings.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Why does review #2 cost twice review #1 — the reviewer, or the triage planner it sends findings to?</li>
+      <li>Is the skip judgment (one obvious approach) being made where a review would have found something?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>16 runs over 8 changes: percentiles here rest on very few runs.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>12</td><td>6</td><td>1.39</td><td>28.19</td><td>161 s</td></tr>
+      <tr><td>small</td><td>4</td><td>2</td><td>0.46</td><td>2.77</td><td>43 s</td></tr>
+    </table>
+    </div>
+    <p class="note">Recorded runs are of <code>big</code> and <code>small</code> changes only; the stage itself does not branch on class, which is recorded after it.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.decide">
+    <h2>flow.decide</h2>
+    <p class="files">Marked in <code>skills/flow/brainstorm.md</code> and <code>skills/flow/document-fix.md</code> (fix runs) · rules in <code>skills/flow/brainstorm-planner.md</code> (<strong>Decide</strong>)</p>
+
+    <h3>Summary</h3>
+    <p>Records the planner's decision — class, execution mode, implementer and fixer pairs, panel roster and dispatch pairs, groups — with <code>flow record decision</code>. The planner works the decision out inside <code>flow.writing-plans</code>; this stage is the begin, record and end around it, re-run each time the plan is re-decided.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> <code>flow-guard plan-class</code> prints the class and the tree for it <span class="cite">brainstorm-planner.md:597</span></li>
+      <li>the planner raises the class one step <span class="arrow">→</span> recorded as <code>override</code>, script re-run with <code>-class</code> <span class="cite">brainstorm-planner.md:606</span></li>
+      <li><code>class: micro</code> <span class="arrow">→</span> a recorded default decision: inline, no pairs, panel <code>default</code> <span class="cite">brainstorm-planner.md:613</span></li>
+      <li><code>flow record decision</code> refused <span class="arrow">→</span> the pair is corrected and recorded again before the gate <span class="cite">brainstorm.md:196</span></li>
+      <li>the plan gate <span class="cite">brainstorm-planner.md:769</span>
+        <ul>
+          <li><code>/flow</code> <span class="arrow">→</span> Yes taken at once, the high-raise question not asked <span class="cite">brainstorm-planner.md:786</span></li>
+          <li>an operator message asking for changes <span class="arrow">→</span> fresh final planner, Decide again, a new decision row; loop until Yes <span class="cite">brainstorm-planner.md:805</span></li>
+        </ul>
+      </li>
+      <li>a fix run <span class="arrow">→</span> the appended plan is re-decided before load-context, a second row <span class="cite">document-fix.md:138</span> <span class="cite">document-fix.md:153</span></li>
+      <li>an in-run verify fix round <span class="arrow">→</span> re-decided as <code>document-fix.md</code> states <span class="cite">verify-fix-loop.md:65</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>203</td><td>104</td><td>0.20</td><td>1.53</td><td>191.29</td><td>0 s</td><td>0 s</td><td>1.95</td><td>12</td><td>33</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>104</td><td>27.89</td></tr>
+      <tr><td>2</td><td>39</td><td>47.03</td></tr>
+      <tr><td>3</td><td>21</td><td>33.37</td></tr>
+      <tr><td>4</td><td>13</td><td>69.68</td></tr>
+      <tr><td>5</td><td>9</td><td>7.55</td></tr>
+      <tr><td>6</td><td>8</td><td>3.53</td></tr>
+      <tr><td>7</td><td>4</td><td>2.23</td></tr>
+      <tr><td>8</td><td>1</td><td>—</td></tr>
+      <tr><td>9</td><td>1</td><td>—</td></tr>
+      <tr><td>10</td><td>1</td><td>—</td></tr>
+      <tr><td>11</td><td>1</td><td>—</td></tr>
+      <tr><td>12</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 203 <code>completed</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Plan gate — exit: Yes. <strong>Uncapped</strong>: "Loop until <strong>Yes</strong>. <strong>Yes</strong> is the only exit." <span class="cite">brainstorm-planner.md:805</span></li>
+      <li>Re-decide per fix run or verify fix round — one row each; uncapped as the fix runs are. <span class="cite">document-fix.md:138</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>inherit</td><td>1</td><td>0.06</td></tr>
+      <tr><td>opus</td><td>72</td><td>102.21</td></tr>
+      <tr><td>sonnet</td><td>10</td><td>1.64</td></tr>
+    </table>
+    </div>
+    <p class="note">83 dispatches over 203 runs: median 0 per run, p90 0, highest 47; 185 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>Highest attempt 12 on one change: every fix run and in-run fix round records a new decision row, though the rolls come out identical.</li>
+      <li><span class="tag uncapped">uncapped</span>One run of <code>kan-1017</code> carries $59.28 and 47 dispatches in a 0 s window — work after the stage closed is billed to it.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Where does the $191.29 come from, when the stage itself is a record call? Is it the plan gate, the snapshot and the handoff, or the next stage's work arriving before its begin mark?</li>
+      <li>Should a fix run that leaves the class unchanged skip the re-decide?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The stage window is a fraction of a second (p50 0.05 s), so its dollars are the work the store attributes to the window that began last before it (<code>stats/internal/harvest/attribute.go:18</code>) — gate, snapshot, handoff and whatever runs before the next mark — not the record call's own.</p>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1017-templates-step-3-admin-templates-queue-create</td><td>4</td><td>59.28</td><td>0 s</td><td>47</td><td>2026-10-26</td></tr>
+      <tr><td>kan-1023-templates-step-2-fe-save-as-template-template</td><td>2</td><td>27.56</td><td>0 s</td><td>3</td><td>2026-10-25</td></tr>
+      <tr><td>kan-1023-templates-step-2-fe-save-as-template-template</td><td>3</td><td>18.22</td><td>0 s</td><td>4</td><td>2026-10-25</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>80</td><td>34</td><td>0.19</td><td>147.89</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>91</td><td>49</td><td>0.22</td><td>34.43</td><td>0 s</td></tr>
+      <tr><td>small</td><td>28</td><td>17</td><td>0.19</td><td>8.43</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.14</td><td>0.54</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage records the class; its own steps branch on it only through <code>micro</code>'s default decision.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
 
   <section class="stage" id="flow.load-context"><h2>flow.load-context</h2></section>
 
