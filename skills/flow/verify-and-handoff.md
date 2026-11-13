@@ -147,6 +147,14 @@ change did not introduce takes **The loop** as well (**the sweep**, `skills/flow
 passing re-run as license to skip the rest of the list — every remaining command in the order
 above still runs.
 
+**A test runner's own timeout under outside load is the environment's failure.** A command killed by
+its test runner's own timeout — Go's `panic: test timed out after` — with no failed assertion and no
+data race, while the one-minute load average (`uptime`) exceeds the machine's core count
+(`getconf _NPROCESSORS_ONLN`), takes neither **The loop** nor a `## Question`: its re-run waits until
+that load average is at or under the core count, on a Monitor until-loop, never a foreground sleep. A
+timeout on a run started at or under the core count is the branch's own defect and takes **The loop**. No
+timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`).
+
 **Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <parent
 model> -effort <parent effort> -agent-id inline`, suffixed `-<repository name>` when this
 run's resolved set holds more than one worktree — the same convention
