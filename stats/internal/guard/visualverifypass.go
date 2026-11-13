@@ -89,7 +89,9 @@ import (
 //      `specs` row prints (run from the capture root, `<frontend-root>` and
 //      `<merge-base>` substituted; a non-zero exit is a failing `specs`
 //      check), or on the whole <capture root> when no `specs` row is
-//      declared (kan-1086 self-review, F11). Every failing check — an exit 1, or an exit 2
+//      declared (kan-1086 self-review, F11) — with `design repo` declared
+//      too, flow-guard render-frames <worktree> <design.md> <those sidecars…>
+//      first (kan-1096). Every failing check — an exit 1, or an exit 2
 //      carrying its stderr, check-verify-green's exit 2 included — is
 //      collected; then the stage ends `stopped` and one line names them all:
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1

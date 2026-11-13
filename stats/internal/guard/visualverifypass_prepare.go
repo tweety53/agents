@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -231,8 +232,11 @@ func (v *vvp) captureRoot(w string) string {
 // declared, check-sidecar-reach -- on each existing `<spec>.mockups` of the
 // specs the `specs` row prints, run from the capture root, or on the whole
 // capture root when no `specs` row is declared; a failing `specs` command
-// is a failing check (kan-1086 self-review, F11). Every failing check is collected, then one
-// `STOP:` line names them all.
+// is a failing check (kan-1086 self-review, F11). With `design repo` declared
+// too, render-frames runs first on design.md and those sidecars, so the
+// tagged frames they cite exist before check-sidecar-reach, compose and
+// check-frame-list read them (kan-1096). Every failing check is collected,
+// then one `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
 	var fails []string
 	fail := func(guard, out, errs string) {
@@ -272,6 +276,11 @@ func (v *vvp) preflight(survivors []string) {
 					}
 				}
 			}
+			if v.cells(w)["design repo"] != "" {
+				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, v.frameFiles(targets)...)...); rc != 0 {
+					fail("render-frames", out, errs)
+				}
+			}
 			for _, tgt := range targets {
 				if rc, out, errs := v.guard("check-sidecar-reach", nil, tgt, cellPath(w, c)); rc != 0 {
 					fail("check-sidecar-reach", out, errs)
@@ -282,6 +291,33 @@ func (v *vvp) preflight(survivors []string) {
 	if len(fails) > 0 {
 		v.stop("stopped", "preflight — "+strings.Join(fails, "; "))
 	}
+}
+
+// frameFiles is the change's design.md, when present, and every
+// `<spec>.mockups` sidecar of targets — a sidecar itself, or each one under
+// a capture root, `node_modules` and `.git` skipped as check-sidecar-reach
+// skips them.
+func (v *vvp) frameFiles(targets []string) []string {
+	var files []string
+	if d := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name, "design.md"); isFile(d) {
+		files = append(files, d)
+	}
+	for _, tgt := range targets {
+		if !isDir(tgt) {
+			files = append(files, tgt)
+			continue
+		}
+		_ = filepath.WalkDir(tgt, func(p string, d fs.DirEntry, err error) error {
+			if err == nil && d.IsDir() && (d.Name() == "node_modules" || d.Name() == ".git") {
+				return filepath.SkipDir
+			}
+			if err == nil && !d.IsDir() && strings.HasSuffix(p, ".mockups") {
+				files = append(files, p)
+			}
+			return nil
+		})
+	}
+	return files
 }
 
 // declaredApps fills a survivor no --app names from its project's

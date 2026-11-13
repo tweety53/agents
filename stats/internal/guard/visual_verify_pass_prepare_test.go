@@ -637,3 +637,32 @@ func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
 		}
 	})
 }
+
+// kan-1096: with `design repo` declared, prepare runs render-frames on the
+// sidecars before check-sidecar-reach; a reference absent at its tag stops
+// preflight naming render-frames, and one already rendered passes.
+func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
+	setup := func(t *testing.T, frame string) *vvpFix {
+		design, _ := rfFixture(t, "/nowhere")
+		f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `regression checkout` | `.` |\n| `design repo` | `"+design+" "+design+"` |\n")
+		b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
+		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `specs` | `<frontend-root>/specs-since <merge-base>` |\n", "", 1))
+		writeFile(t, filepath.Join(f.wt, "a.spec.ts"), "shot('a.png')\n")
+		writeFile(t, filepath.Join(f.wt, "a.spec.ts.mockups"), "a.png "+frame+"\n")
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "cfg")
+		f.green()
+		writeFile(t, filepath.Join(f.wt, "design/mockups/t1/F1.png"), "png\n")
+		return f
+	}
+	t.Run("a reference absent at its tag", func(t *testing.T) {
+		if rc, out, _ := setup(t, "t1/NOPE").prepare(); rc != 1 || !strings.Contains(out, "render-frames") || !strings.Contains(out, "t1/NOPE") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
+	t.Run("a reference already rendered", func(t *testing.T) {
+		if rc, out, _ := setup(t, "t1/F1").prepare(); rc != 0 || strings.Contains(out, "STOP:") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
+}
