@@ -134,6 +134,16 @@ func vvWithCheckout(origin string, extra ...string) func(t *testing.T) (string, 
 	})
 }
 
+// vvDesignRepo is a case whose `design repo` names a real clone at
+// <root>/design with origin (none when "") and declares remote.
+func vvDesignRepo(origin, remote string) func(t *testing.T) (string, int) {
+	return vvCfg(func(t *testing.T, root string) string {
+		dir := root + "/design"
+		vvGitCheckout(t, dir, origin)
+		return vvSection([]string{vvUIRow, vvShotsRow, "| `design repo` | `" + dir + " " + remote + "` |"}, []string{vvVerifyRow, vvCaptureRow})
+	})
+}
+
 func vvCases() map[string]vvCase {
 	cases := map[string]vvCase{
 		// Case 1: no .flow/project.md at all — exit 0, clean.
@@ -384,6 +394,16 @@ func vvCases() map[string]vvCase {
 		"case preflight apps": {vvText(vvSection([]string{vvUIRow, vvShotsRow, "| `preflight apps` | `web=http://localhost:${FRONTEND_PORT}`, `src/app=http://localhost:${BACKEND_PORT}` |"},
 			[]string{vvVerifyRow, vvCaptureRow})), []vvCheck{vvExit("case preflight apps", 0), vvNames("case preflight apps", "VISUAL-OK")}},
 
+		// kan-1096: a `design repo` row is a known Setting; its clone's real
+		// origin must equal the declared remote, as `regression repo`'s does.
+		"case design repo": {vvDesignRepo(vvRepoURL, vvRepoURL), []vvCheck{vvExit("case design repo", 0), vvNames("case design repo", "VISUAL-OK")}},
+		"case design repo mismatch": {vvDesignRepo("git@example.com:other.git", vvRepoURL),
+			[]vvCheck{vvExit("case design repo mismatch", 1), vvNames("case design repo mismatch", "does not equal the declared `design repo`")}},
+		"case design repo no origin": {vvDesignRepo("", vvRepoURL),
+			[]vvCheck{vvExit("case design repo no origin", 1), vvNames("case design repo no origin", "has no `origin` remote")}},
+		"case design repo one field": {vvText(vvSection([]string{vvUIRow, vvShotsRow, "| `design repo` | `/nowhere` |"}, []string{vvVerifyRow, vvCaptureRow})),
+			[]vvCheck{vvExit("case design repo one field", 1), vvNames("case design repo one field", "two fields")}},
+
 		// Case 36 (KAN-515 task 2): `mockup frame` declared twice — the
 		// existing duplicate-setting violation.
 		"case 36": {vvText(vvSection([]string{vvUIRow, vvShotsRow, "| `mockup frame` | `scale=2 status=26 border=1` |",
@@ -445,7 +465,7 @@ func TestCheckVisualVerification(t *testing.T) {
 			"| Command | Runs |\r\n| `verify` | v |\r\n")
 		out, rc := vvGuard(t, vvEnv(root), ".")
 		c := "./.flow/project.md"
-		want := c + ":6: Setting `bogus\\x1b[1m` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame` or `preflight apps` — the vocabulary is closed, so the row is dropped\n" +
+		want := c + ":6: Setting `bogus\\x1b[1m` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame`, `preflight apps` or `design repo` — the vocabulary is closed, so the row is dropped\n" +
 			c + ":7: a second `ui paths` row, the first being at line 5 — the row is dropped\n" +
 			c + ":9: a setting row with 1 cell(s) where its header has 2 (expected 2) — the row does not line up with its header, so it is dropped rather than read against the wrong columns\n" +
 			c + ":10: a second table header (`command|runs`) begins here, inside the table that started at line 3 — two tables written with no blank line or prose between them are one block to this parser, so it read only the first header and stopped here rather than reading the rows below against the wrong columns; separate the two tables with a blank line\n" +

@@ -40,7 +40,7 @@ import (
 // answer at all: the project root is not a directory, `.flow/project.md`
 // exists but cannot be read or is not a regular file, the heading scan itself
 // failed to look, or `git remote get-url origin` against a declared
-// `regression checkout` failed for a reason other than "no such remote" (that
+// `regression checkout` or `design repo` clone failed for a reason other than "no such remote" (that
 // one IS a finding — see below). A `2` is never a silent skip: a guard
 // pointed at a moved file that reports `VISUAL-OK` is a vacuous pass.
 //
@@ -273,44 +273,24 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	// checkout above, and a declared repo to compare its origin against.
 	// Every other combination already has its own finding above, so running
 	// this too would report the same misconfiguration twice.
-	if valid && hasRepo {
-		cmd := vvGitClean(env, "-C", checkout.val, "remote", "get-url", "origin")
-		var out, errOut bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &out, &errOut
-		rc := 0
-		if err := cmd.Run(); err != nil {
-			rc = 127
-			var exit *exec.ExitError
-			if errors.As(err, &exit) {
-				rc = exit.ExitCode()
-				if ws, ok := exit.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
-					rc = 128 + int(ws.Signal())
-				}
-			}
-		}
-		// `$(…)` dropped every trailing newline.
-		origin := strings.TrimRight(out.String(), "\n")
-		gitErr := strings.TrimRight(errOut.String(), "\n")
+	if valid && hasRepo && !v.originIs(env, stderr, checkout.line, checkout.val, repo.val, "regression repo") {
+		return 2
+	}
+
+	// `design repo` is `<clone> <remote>`: the design repository flow-guard
+	// render-frames exports tagged frames from. Its remote is the same
+	// identity assertion as `regression repo`'s, checked against the clone's
+	// real `origin`.
+	if d, ok := v.set["design repo"]; ok {
+		f := strings.Fields(strings.ReplaceAll(d.val, "`", ""))
 		switch {
-		case rc == 0:
-			if origin != repo.val {
-				v.addv(checkout.line, "the checkout's real `origin` (`"+origin+"`) does not equal the declared `regression repo` (`"+repo.val+"`)")
-			}
-		case strings.Contains(gitErr, "No such remote") || strings.Contains(gitErr, "no such remote"):
-			// `git remote get-url origin` FAILING FOR "NO SUCH REMOTE" IS A
-			// FINDING, NOT A 2: a real, valid checkout with no `origin` remote
-			// at all cannot honour the identity assertion either — a fact
-			// about the declaration, not a failure to look.
-			v.addv(checkout.line, "the checkout at `"+checkout.val+"` has no `origin` remote configured, so it cannot match the declared `regression repo` (`"+repo.val+"`)")
-		default:
-			// Any OTHER failure is this guard failing to look, and escalates
-			// the whole run rather than folding into a "clean" verdict (none
-			// reproduces against real git 2.50.1 once `rev-parse --git-dir`
-			// accepted the checkout, which is why the test reaches it through
-			// a stub git). The checkout is a cell out of `.flow/project.md`
-			// and gitErr is git's own stderr against it, so both go through
-			// sanitizeDisplay as every other interpolated cell does.
-			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-visual-verification: git remote get-url origin failed unexpectedly in %s (exit %d): %s — cannot determine whether the identity assertion holds\n", checkout.val, rc, gitErr)))
+		case len(f) != 2:
+			v.addv(d.line, "`design repo` is `"+d.val+"` — it must be `<clone path> <remote>`, two fields")
+		case !isDir(wiAbs(env, f[0])):
+			v.addv(d.line, "`design repo` names `"+f[0]+"`, which is not an existing directory")
+		case vvGitClean(env, "-C", f[0], "rev-parse", "--git-dir").Run() != nil:
+			v.addv(d.line, "`design repo` names `"+f[0]+"`, which is not a git checkout")
+		case !v.originIs(env, stderr, d.line, f[0], f[1], "design repo"):
 			return 2
 		}
 	}
@@ -322,6 +302,51 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	}
 	fmt.Fprintf(stdout, "VISUAL-OK: %s — the `## visual verification` section validated\n", cfg)
 	return 0
+}
+
+// originIs is the identity assertion `regression repo` and `design repo`
+// share: the checkout's real `origin` must equal want. A mismatch or a
+// missing `origin` is a finding; false means git failed for any other reason
+// and the run cannot answer (exit 2), the message already on stderr.
+//
+// `git remote get-url origin` FAILING FOR "NO SUCH REMOTE" IS A FINDING, NOT
+// A 2: a real, valid checkout with no `origin` remote at all cannot honour the
+// identity assertion either — a fact about the declaration, not a failure to
+// look. Any OTHER failure (none reproduces against real git 2.50.1 once
+// `rev-parse --git-dir` accepted the checkout, which is why the test reaches
+// it through a stub git) is this guard failing to look. The checkout is a
+// cell out of `.flow/project.md` and gitErr is git's own stderr against it,
+// so both go through sanitizeDisplay as every other interpolated cell does.
+func (v *vvValidation) originIs(env Env, stderr io.Writer, line int, dir, want, row string) bool {
+	cmd := vvGitClean(env, "-C", dir, "remote", "get-url", "origin")
+	var out, errOut bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errOut
+	rc := 0
+	if err := cmd.Run(); err != nil {
+		rc = 127
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			rc = exit.ExitCode()
+			if ws, ok := exit.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+				rc = 128 + int(ws.Signal())
+			}
+		}
+	}
+	// `$(…)` dropped every trailing newline.
+	origin := strings.TrimRight(out.String(), "\n")
+	gitErr := strings.TrimRight(errOut.String(), "\n")
+	switch {
+	case rc == 0:
+		if origin != want {
+			v.addv(line, "the checkout's real `origin` (`"+origin+"`) does not equal the declared `"+row+"` (`"+want+"`)")
+		}
+	case strings.Contains(gitErr, "No such remote") || strings.Contains(gitErr, "no such remote"):
+		v.addv(line, "the checkout at `"+dir+"` has no `origin` remote configured, so it cannot match the declared `"+row+"` (`"+want+"`)")
+	default:
+		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-visual-verification: git remote get-url origin failed unexpectedly in %s (exit %d): %s — cannot determine whether the identity assertion holds\n", dir, rc, gitErr)))
+		return false
+	}
+	return true
 }
 
 // vvGitClean is the since-deleted lib/git-clean.sh's git_clean: git run with every AMBIENT
@@ -472,13 +497,14 @@ var vvMockupFrame = regexp.MustCompile(`^scale=[1-9][0-9]* status=[0-9]+ border=
 // mid-run, after the stack is up and the captures are taken. The three fields
 // are pinned in one order so a declared geometry is greppable, though the
 // compose step itself accepts any. `preflight apps` is optional, its cells
-// read by visual-verify-pass prepare (kan-1086 self-review, F10).
+// read by visual-verify-pass prepare (kan-1086 self-review, F10). `design repo`
+// is optional, `<clone> <remote>`, read by flow-guard render-frames.
 func (v *vvValidation) settingRow(line int, cells []string) {
 	disp, key := vtTrimCell(cells[0]), vtFoldCell(cells[0])
 	switch key {
-	case "ui paths", "screenshots", "regression checkout", "regression repo", "mockups", "mockup frame", "preflight apps":
+	case "ui paths", "screenshots", "regression checkout", "regression repo", "mockups", "mockup frame", "preflight apps", "design repo":
 	default:
-		v.addv(line, "Setting `"+disp+"` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame` or `preflight apps` — the vocabulary is closed, so the row is dropped")
+		v.addv(line, "Setting `"+disp+"` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame`, `preflight apps` or `design repo` — the vocabulary is closed, so the row is dropped")
 		return
 	}
 	if f, seen := v.set[key]; seen {
