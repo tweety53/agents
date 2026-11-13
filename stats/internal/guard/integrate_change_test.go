@@ -75,31 +75,10 @@ fixture() {
   printf '# demo\n\n## Parts\n\n` + "`" + `b:demo` + "`" + `\n\n## Branch\n\nmain\n\n## Merge order\n\n1. ` + "`" + `b` + "`" + `\n2. ` + "`" + `.` + "`" + `\n' >"$c/link.md"
 
   mkdir -p "$WORK/bin" "$WORK/statedir"
-  cat >"$WORK/bin/flow" <<EOF
-#!/usr/bin/env bash
-case "\$1 \$2" in
-  "state get") cat "$WORK/state.json" ;;
-  "state set") cat >"$WORK/state.json" ;;
-  "state dir") echo "$WORK/statedir" ;;
-  "state list") echo '{"source":"store","complete":true,"records":[{"name":"demo"}]}' ;;
-  "stage begin"|"stage end") echo "\$*" >>"$WORK/stages.log" ;;
-  "stage completed") [ -f "$WORK/sr-unreachable" ] && exit 2; [ -f "$WORK/sr-completed" ] ;;
-  "stage sessions") [ -f "$WORK/fail-sessions" ] && exit 1; if [ "\$6" = flow.document-fix ]; then cat "$WORK/fix-sessions" 2>/dev/null || echo 0; else echo 0; fi ;;
-  "record findings") [ -f "$WORK/fail-findings" ] && exit 1; echo '[]' ;;
-  "self-review findings") cat "$WORK/sr-findings.json" 2>/dev/null || echo '[]' ;;
-  "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
-  "self-review finding") echo "\$*" >>"$WORK/fixed.log" ;;
-  "record dispatches") [ -f "$WORK/loop-rows" ] && exec cat "$WORK/loop-rows"; cat "$WORK/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
-  "record decisions") echo '[]' ;;
-  "record passes") echo '[{"id":1,"round":0,"note":"roster: full"}]' ;;
-  "record verdicts") cat "$WORK/verdicts.json" 2>/dev/null || echo '[]' ;;
-  "workspace-id "*) echo demo-id ;;
-  *) : ;;
-esac
-EOF
+  ln "$IC_STUBS/flow" "$WORK/bin/flow"
   # Run 1 no longer calls spectre: any call fails the run.
   printf '#!/usr/bin/env bash\nexit 1\n' >"$WORK/bin/spectre"
-  chmod +x "$WORK/bin/flow" "$WORK/bin/spectre"
+  chmod +x "$WORK/bin/spectre"
   printf '{"state":"IN_PROGRESS","branch":"spectre/demo","worktrees":{"%s":"%s","%s":"%s"},"jiraIssue":"KAN-1","prUrl":null,"updatedBy":"/flow"}\n' \
     "$WORK/a-worktrees/demo" "$(git -C "$WORK/a" rev-parse main)" \
     "$WORK/b-worktrees/demo" "$(git -C "$WORK/b" rev-parse main)" >"$WORK/state.json"
@@ -140,6 +119,32 @@ flag() {
     "${3:-demo}" "$(cd "$1" && pwd -P)" "$2" >"$WORK/verdicts.json"
 }`
 
+// icFlowStub is the fixture's fake flow CLI; it finds its fixture from its
+// own path, so one body serves every case and writeExec links each copy to
+// one assessed inode.
+const icFlowStub = `#!/usr/bin/env bash
+W="${0%/bin/*}"
+case "$1 $2" in
+  "state get") cat "$W/state.json" ;;
+  "state set") cat >"$W/state.json" ;;
+  "state dir") echo "$W/statedir" ;;
+  "state list") echo '{"source":"store","complete":true,"records":[{"name":"demo"}]}' ;;
+  "stage begin"|"stage end") echo "$*" >>"$W/stages.log" ;;
+  "stage completed") [ -f "$W/sr-unreachable" ] && exit 2; [ -f "$W/sr-completed" ] ;;
+  "stage sessions") [ -f "$W/fail-sessions" ] && exit 1; if [ "$6" = flow.document-fix ]; then cat "$W/fix-sessions" 2>/dev/null || echo 0; else echo 0; fi ;;
+  "record findings") [ -f "$W/fail-findings" ] && exit 1; echo '[]' ;;
+  "self-review findings") cat "$W/sr-findings.json" 2>/dev/null || echo '[]' ;;
+  "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
+  "self-review finding") echo "$*" >>"$W/fixed.log" ;;
+  "record dispatches") [ -f "$W/loop-rows" ] && exec cat "$W/loop-rows"; cat "$W/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
+  "record decisions") echo '[]' ;;
+  "record passes") echo '[{"id":1,"round":0,"note":"roster: full"}]' ;;
+  "record verdicts") cat "$W/verdicts.json" 2>/dev/null || echo '[]' ;;
+  "workspace-id "*) echo demo-id ;;
+  *) : ;;
+esac
+`
+
 type icCaseDef struct{ name, script string }
 
 // icRunCases runs each case on its own fixture, in parallel.
@@ -158,6 +163,7 @@ func icRun(t *testing.T, script string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	writeExec(t, tmp+"/stubs/flow", icFlowStub)
 	if err := syscall.Mkfifo(tmp+"/sut.ack", 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +171,7 @@ func icRun(t *testing.T, script string) {
 	cmd.Dir = tmp
 	// HOME is the test's own, so no guard's commit reads the operator's
 	// git config; the Go caches stay where the toolchain keeps them.
-	cmd.Env = append(os.Environ(), "IC_TMP="+tmp, "IC_SCRIPTS="+scripts,
+	cmd.Env = append(os.Environ(), "IC_TMP="+tmp, "IC_STUBS="+tmp+"/stubs", "IC_SCRIPTS="+scripts,
 		"FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_TELEMETRY=off",
 		"HOME="+tmp+"/home", "GIT_CONFIG_NOSYSTEM=1")
 	cmd.Env = append(cmd.Env, icGoEnv(t)...)
@@ -247,6 +253,15 @@ func icServe(t *testing.T, tmp string) {
 	}
 	ack.WriteString("\n")
 	ack.Close()
+}
+
+// The fixture's flow stub is a link to the one inode writeExec assessed, never
+// a file written afresh: macOS assesses each new executable on its first exec,
+// serialised machine-wide, and every case would pay it.
+func TestIntegrateChangeFixtureLinksTheFlowStub(t *testing.T) {
+	t.Parallel()
+	icRun(t, `fixture
+check "the fixture's flow stub is the assessed inode" '[ "$WORK/bin/flow" -ef "$IC_STUBS/flow" ]'`)
 }
 
 // smoke: core — prepare, commit, land and cleanup over two repositories
