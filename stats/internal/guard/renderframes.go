@@ -50,7 +50,9 @@ import (
 // checkout`'s own `@playwright/test` (flow-guard check-visual-preflight's
 // precedent): one page at DPR 2, requests to http://design.local/ fulfilled
 // from the exported tree (no server process), the frame scrolled into view
-// and its lazy panes filled. Each of the frame's phones — outermost
+// and its lazy panes filled — the data-mig-filled flag set and every
+// [data-mig-pane] holding an element, since the page sets the flag when it
+// queues the panes and fills them later (KAN-1087). Each of the frame's phones — outermost
 // elements 390 css px wide with 28 px corners, in document order — is
 // screenshotted at an integer-aligned 390×844 box with animations disabled:
 // the first as `<id>.png`, the second as `dk-<id>.png`; a one-phone
@@ -380,7 +382,8 @@ const jobs = JSON.parse(spec);
       await frame.scrollIntoViewIfNeeded();
       await frame.evaluate(f => new Promise(res => {
         const t0 = Date.now();
-        const chk = () => (f.dataset.mig === undefined || f.dataset.migFilled || Date.now() - t0 > 8000) ? res() : setTimeout(chk, 100);
+        const filled = () => f.dataset.migFilled && [...f.querySelectorAll('[data-mig-pane]')].every(p => p.firstElementChild);
+        const chk = () => (f.dataset.mig === undefined || filled() || Date.now() - t0 > 8000) ? res() : setTimeout(chk, 100);
         chk();
       }));
       await page.evaluate(() => document.fonts.ready);

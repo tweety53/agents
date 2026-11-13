@@ -11,7 +11,9 @@ import (
 )
 
 // rfPage is a tiny design page: frame F1 with a light and a dark phone,
-// frame L1 with a light phone only.
+// frame L1 with a light phone only, and lazy frame Z1, which sets
+// data-mig-filled before filling its panes (light and dark phone), as the
+// design pages' _migLazy does.
 const rfPage = `<!doctype html><html><body style="margin:0;background:#888">
 <div id="F1" data-frame style="display:flex;gap:40px;padding:20px;width:820px">
 <div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>
@@ -20,6 +22,18 @@ const rfPage = `<!doctype html><html><body style="margin:0;background:#888">
 <div id="L1" data-frame style="padding:20px;width:820px">
 <div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>
 </div>
+<div id="Z1" data-frame data-mig style="display:flex;gap:40px;padding:20px;width:820px">
+<div data-mig-pane></div>
+<div data-mig-pane></div>
+</div>
+<script>
+document.getElementById('Z1').dataset.migFilled = '1';
+setTimeout(() => {
+  const ps = document.querySelectorAll('#Z1 [data-mig-pane]');
+  ps[0].innerHTML = '<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>';
+  ps[1].innerHTML = '<div style="width:390px;height:844px;border-radius:28px;background:#000000"></div>';
+}, 1500);
+</script>
 </body></html>
 `
 
@@ -176,19 +190,7 @@ func TestRenderFramesFindings(t *testing.T) {
 // light-only frame with no dk-, and the directory ignoring itself.
 func TestRenderFramesRenders(t *testing.T) {
 	t.Parallel()
-	web, err := filepath.Abs("../../web")
-	if err != nil {
-		t.Fatal(err)
-	}
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("SKIPPED, not run: node is not on PATH, so the renderer cannot be exercised")
-	}
-	probe := "const p=require(require.resolve('@playwright/test',{paths:[process.argv[1]]}));if(!require('fs').existsSync(p.chromium.executablePath()))throw new Error('no chromium')"
-	if b, err := exec.Command(node, "-e", probe, web).CombinedOutput(); err != nil {
-		t.Skipf("SKIPPED, not run: @playwright/test or its Chromium does not resolve from %s (run `make -s web-dist` and `npx playwright install chromium` there): %s", web, strings.TrimSpace(string(b)))
-	}
-	_, root := rfFixture(t, web)
+	_, root := rfFixture(t, rfPlaywright(t))
 	f := rfCite(t, root, "docs/design/mockups/t1/F1.png docs/design/mockups/t1/dk-F1.png docs/design/mockups/t1/L1.png")
 	out, rc := rfRun(t, vvEnv("/"), root, f)
 	if rc != 0 || out != "FRAMES-RENDERED: 3 rendered, 0 already present\n" {
@@ -221,5 +223,36 @@ func TestRenderFramesRenders(t *testing.T) {
 	}
 	if st, _ := capture(exec.Command("git", "-C", root, "status", "--porcelain", "--", "docs")); st != "" {
 		t.Errorf("rendered frames show in git status: %q", st)
+	}
+}
+
+// rfPlaywright returns stats/web, skipping the test when node, @playwright/test
+// or its Chromium does not resolve from it.
+func rfPlaywright(t *testing.T) string {
+	t.Helper()
+	web, err := filepath.Abs("../../web")
+	if err != nil {
+		t.Fatal(err)
+	}
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("SKIPPED, not run: node is not on PATH, so the renderer cannot be exercised")
+	}
+	probe := "const p=require(require.resolve('@playwright/test',{paths:[process.argv[1]]}));if(!require('fs').existsSync(p.chromium.executablePath()))throw new Error('no chromium')"
+	if b, err := exec.Command(node, "-e", probe, web).CombinedOutput(); err != nil {
+		t.Skipf("SKIPPED, not run: @playwright/test or its Chromium does not resolve from %s (run `make -s web-dist` and `npx playwright install chromium` there): %s", web, strings.TrimSpace(string(b)))
+	}
+	return web
+}
+
+// TestRenderFramesWaitsForLazyPanes: a lazy frame whose panes fill after its
+// data-mig-filled flag still renders both phones (KAN-1087).
+func TestRenderFramesWaitsForLazyPanes(t *testing.T) {
+	t.Parallel()
+	_, root := rfFixture(t, rfPlaywright(t))
+	f := rfCite(t, root, "docs/design/mockups/t1/Z1.png docs/design/mockups/t1/dk-Z1.png")
+	out, rc := rfRun(t, vvEnv("/"), root, f)
+	if rc != 0 || out != "FRAMES-RENDERED: 2 rendered, 0 already present\n" {
+		t.Fatalf("rc=%d out=%q, want 0 with two rendered", rc, out)
 	}
 }
