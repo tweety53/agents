@@ -104,6 +104,20 @@ func TestRenderFramesCannotAnswer(t *testing.T) {
 			t.Errorf("rc=%d out=%q, want 2 naming the committed sub-directory", rc, out)
 		}
 	})
+	t.Run("committed sub-directory of a tag the design repo lacks stands", func(t *testing.T) {
+		t.Parallel()
+		_, root := rfFixture(t, "/nowhere")
+		writeFile(t, filepath.Join(root, "docs/design/mockups/t9/F1.png"), "png")
+		gitRun(t, root, "add", "-A")
+		f := rfCite(t, root, "docs/design/mockups/t9/F1.png")
+		if out, rc := rfRun(t, env, root, f); rc != 0 {
+			t.Errorf("rc=%d out=%q, want 0: the committed frames are the only source", rc, out)
+		}
+		f = rfCite(t, root, "docs/design/mockups/t9/F2.png")
+		if out, rc := rfRun(t, env, root, f); rc != 2 || !strings.Contains(out, "missing from it") {
+			t.Errorf("rc=%d out=%q, want 2 naming the missing frame", rc, out)
+		}
+	})
 	t.Run("tag unfetchable", func(t *testing.T) {
 		t.Parallel()
 		_, root := rfFixture(t, "/nowhere")

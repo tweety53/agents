@@ -154,7 +154,20 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("cannot tell whether %s is committed in %s", rel, args[0])
 		}
 		if tracked != "" {
-			return refuse("tag `%s` names a committed sub-directory %s — its frames would be the committed ones, not the tag's", tag, rel)
+			// A tracked directory whose tag the design repo does not hold is the
+			// frames' only source (an epic that committed them before tags
+			// existed): its committed frames stand, and a cited frame missing
+			// from it is the refusal.
+			if vvGitClean(env, "-C", clone, "rev-parse", "-q", "--verify", "refs/tags/"+tag).Run() == nil {
+				return refuse("tag `%s` names a committed sub-directory %s — its frames would be the committed ones, not the tag's", tag, rel)
+			}
+			for _, id := range byTag[tag] {
+				if !isFile(filepath.Join(root, rel, id+".png")) {
+					return refuse("tag `%s` is committed in %s and not in the design repo, and frame %s is missing from it", tag, rel, id)
+				}
+				present++
+			}
+			continue
 		}
 		out := filepath.Join(root, rel)
 		var pending []string
