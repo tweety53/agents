@@ -32,6 +32,8 @@ type stopFixture struct {
 	oldText  string // assistant text from an earlier turn, before the operator message
 	launched bool   // a background agent launch after the operator message
 	notified bool   // that agent's task-notification
+	bgBash   bool   // a Bash command moved to the background after the operator message
+	bgDone   bool   // that command's task-notification
 }
 
 func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string {
@@ -101,6 +103,13 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 	if f.notified {
 		transcript += `{"type":"user","message":{"content":"<task-notification>\n<task-id>a1b2c3d4e5f60718</task-id>\n<status>completed</status>\n</task-notification>"}}` + "\n"
 	}
+	if f.bgBash {
+		transcript += `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_bg1","name":"Bash","input":{}}]}}` + "\n"
+		transcript += `{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_bg1","content":"Command running in background with ID: b7egj759e. Output is being written to: /tmp/x.output"}]}}` + "\n"
+	}
+	if f.bgDone {
+		transcript += `{"type":"user","message":{"content":"<task-notification>\n<task-id>b7egj759e</task-id>\n<status>completed</status>\n</task-notification>"}}` + "\n"
+	}
 	if f.lastText != "" {
 		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"text","text":%q}]}}`+"\n", f.lastText)
 	}
@@ -164,6 +173,16 @@ func TestFlowStopGuardHook(t *testing.T) {
 		{"g3: a background agent that notified its end blocks", func(t *testing.T) {
 			f := started(3, 7, true)
 			f.launched, f.notified = true, true
+			block(t, runStopGuard(t, f, t.TempDir(), false), "flow.implement")
+		}},
+		{"g4: a background Bash command still running allows", func(t *testing.T) {
+			f := started(3, 7, true)
+			f.bgBash = true
+			allow(t, runStopGuard(t, f, t.TempDir(), false))
+		}},
+		{"g5: a background Bash command that notified its end blocks", func(t *testing.T) {
+			f := started(3, 7, true)
+			f.bgBash, f.bgDone = true, true
 			block(t, runStopGuard(t, f, t.TempDir(), false), "flow.implement")
 		}},
 		{"g: AskUserQuestion allows", func(t *testing.T) {

@@ -13,7 +13,9 @@ STARTED and:
 
 It allows (exit 0, no output) at an AskUserQuestion, after an operator message saying
 "stop", while a background agent this transcript launched has not yet notified its end (the
-wait on one-shot subagents, skills/flow-contracts/pipeline.md), at IN_PROGRESS / FINISHED, at STARTED with no tasks or none ticked and no open
+wait on one-shot subagents, skills/flow-contracts/pipeline.md), while a Bash command it moved to the
+background has not either (await-own-agents.py's running_background; the wait
+skills/flow/verify-and-handoff.md prescribes for a long check), at IN_PROGRESS / FINISHED, at STARTED with no tasks or none ticked and no open
 stage, when the session has no /flow run, and when stop_hook_active is true with nothing
 advanced since its last block (a fingerprint under ~/.claude/flow-stop-guard/).
 
@@ -49,6 +51,12 @@ _spec = importlib.util.spec_from_file_location(
 )
 _fac = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_fac)
+_aoa_spec = importlib.util.spec_from_file_location(
+    "await_own_agents",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "await-own-agents.py"),
+)
+_aoa = importlib.util.module_from_spec(_aoa_spec)
+_aoa_spec.loader.exec_module(_aoa)
 
 TASK_RE = re.compile(r"^- \[([ xX])\] ")
 STOP_RE = re.compile(r"^\s*(stop|pause|wait)\b", re.IGNORECASE)
@@ -168,6 +176,11 @@ def agents_pending(lines: list) -> bool:
     return bool(launched - notified)
 
 
+def bash_pending(path) -> bool:
+    """True when a Bash command this transcript moved to the background has not notified its end."""
+    return isinstance(path, str) and os.path.isfile(path) and bool(_aoa.running_background(path))
+
+
 def main() -> int:
     payload = json.load(sys.stdin)
     if not isinstance(payload, dict):
@@ -186,7 +199,7 @@ def main() -> int:
             sys.stdout,
         )
         return 0
-    if transcript_allows(lines) or agents_pending(lines):
+    if transcript_allows(lines) or agents_pending(lines) or bash_pending(payload.get("transcript_path")):
         return 0
     session_id = _fac.resolve_session_id(payload)
     if not session_id:
