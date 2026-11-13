@@ -936,13 +936,430 @@ GROUP  BY s.stage;</pre>
     </div>
   </section>
 
-  <section class="stage" id="flow.load-context"><h2>flow.load-context</h2></section>
+  <section class="stage" id="flow.load-context">
+    <h2>flow.load-context</h2>
+    <p class="files">Marked in <code>skills/flow/implement.md</code> (section 1)</p>
 
-  <section class="stage" id="flow.isolate-workspace"><h2>flow.isolate-workspace</h2></section>
+    <h3>Summary</h3>
+    <p>Opens an implementation run: validates the plan with <code>spectre validate</code> and <code>check-plan-shape</code>, reads the three artifacts and the named capability specs, checks every recorded base, refreshes the plan against the base, rebases the branch onto it and force-pushes, and composes the learning note on a first run. Ends once the plan validates and the branch sits on its base.</p>
 
-  <section class="stage" id="flow.document-fix"><h2>flow.document-fix</h2></section>
+    <h3>Branching</h3>
+    <ul>
+      <li><code>spectre validate</code> exit 1 or <code>check-plan-shape</code> exit 1 <span class="arrow">→</span> the findings are repaired here, before code; exit 2 stops <span class="cite">implement.md:245</span></li>
+      <li><code>check-base-behind</code> exit 1 <span class="arrow">→</span> relay each <code>BASE-BEHIND:</code> block, run its two commands, check again <span class="cite">implement.md:264</span></li>
+      <li>always <span class="arrow">→</span> <code>flow-guard refresh-plan-base</code> <span class="cite">implement.md:275</span>
+        <ul>
+          <li><code>MOVED:</code> <span class="arrow">→</span> name every route or requirement the base already carries; a collision is reconciled as a pivot before task 1 <span class="cite">implement.md:282</span></li>
+        </ul>
+      </li>
+      <li>always <span class="arrow">→</span> <code>sync-panel-base --rebase</code> once per worktree <span class="cite">implement.md:290</span>
+        <ul>
+          <li><code>REBASED:</code> <span class="arrow">→</span> the new merge base is recorded and the branch force-pushed with a pinned lease <span class="cite">implement.md:294</span></li>
+          <li>exit 1 <code>CONFLICT</code> <span class="arrow">→</span> the run stops for the operator <span class="cite">implement.md:305</span></li>
+        </ul>
+      </li>
+      <li>the plan's checkboxes <span class="cite">implement.md:309</span>
+        <ul>
+          <li><code>total == 0</code> <span class="arrow">→</span> stop, resume at <code>resume.md</code> <span class="cite">implement.md:312</span></li>
+          <li>every task checked <span class="arrow">→</span> proceed to <code>integrate.md</code> <span class="cite">implement.md:313</span></li>
+        </ul>
+      </li>
+      <li>a first implementation run, not a fix run <span class="arrow">→</span> the learning note is composed and written <span class="cite">implement.md:322</span></li>
+    </ul>
 
-  <section class="stage" id="flow.sdd-tdd"><h2>flow.sdd-tdd</h2></section>
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>115</td><td>105</td><td>0.16</td><td>0.39</td><td>24.50</td><td>24 s</td><td>60 s</td><td>1.10</td><td>3</td><td>10</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>105</td><td>24.02</td></tr>
+      <tr><td>2</td><td>8</td><td>0.42</td></tr>
+      <tr><td>3</td><td>2</td><td>0.06</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 113 <code>completed</code>, 2 <code>blocked</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Base-behind check — exit: exit 0 after the relayed commands. <strong>Uncapped</strong>, though each pass moves the base forward. <span class="cite">implement.md:264</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 115 runs: median 0 per run, p90 0, highest 0; 115 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>No test suite runs. <code>spectre validate</code> and <code>check-plan-shape</code> run over the whole plan, again on every run of the stage — the plan was already validated at <code>flow.writing-plans</code> and is validated again here. <span class="cite">implement.md:239</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>The plan is validated again on every implementation run, after <code>flow.writing-plans</code> and plan review already ran the same guards on the same unchanged plan.</li>
+      <li><span class="tag repeated">repeated</span>proposal.md, design.md, tasks.md and the capability specs are read into the parent's context here — on every attempt, 10 runs being a second or third.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>What did <code>kan-1084</code>'s 2,619 s load-context ($3.95) spend its time on — a rebase conflict, or the learning note?</li>
+      <li>Could the learning note be composed once at the plan gate rather than in the implementation run?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>36</td><td>33</td><td>0.28</td><td>12.60</td><td>40 s</td></tr>
+      <tr><td>regular</td><td>54</td><td>50</td><td>0.16</td><td>9.49</td><td>16 s</td></tr>
+      <tr><td>small</td><td>21</td><td>18</td><td>0.07</td><td>1.93</td><td>11 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.09</td><td>0.47</td><td>16 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class; big changes cost more here because their plans and artifacts are longer to read.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.isolate-workspace">
+    <h2>flow.isolate-workspace</h2>
+    <p class="files">Marked in <code>skills/flow/implement.md</code> (section 2) · cross-repository recipe in <code>skills/flow/cross-repo-worktrees.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Resumes the worktree <code>flow.kickoff</code> created, records every worktree's merge base in the state record, derives the run's resolved worktree set, resolves every <code>## apps</code> entry and reads the workspace id. Ends once the resolved set is recorded.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> each worktree's merge base and path recorded at once with <code>flow state add-worktree</code> <span class="cite">implement.md:339</span></li>
+      <li>always <span class="arrow">→</span> every <code>## apps</code> entry resolved; an entry whose repository already holds a worktree records it and creates nothing <span class="cite">implement.md:367</span></li>
+      <li>the change links a peer, an app names a repository with no worktree, a <code>regression checkout</code> is named, or the set spans repositories <span class="arrow">→</span> <code>cross-repo-worktrees.md</code> is loaded <span class="cite">implement.md:383</span></li>
+      <li>always <span class="arrow">→</span> <code>flow workspace-id</code>, once per run <span class="cite">implement.md:389</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>115</td><td>106</td><td>0.11</td><td>0.29</td><td>5.45</td><td>0 s</td><td>16 s</td><td>1.08</td><td>3</td><td>77</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>106</td><td>4.86</td></tr>
+      <tr><td>2</td><td>7</td><td>0.39</td></tr>
+      <tr><td>3</td><td>2</td><td>0.21</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 115 <code>completed</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">1 dispatches over 115 runs: median 0 per run, p90 0, highest 1; 114 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>77 of 115 runs are uncosted and the median run costs $0.11, but the stage re-reads <code>worktree-resolution.md</code> and <code>## apps</code> on every attempt — a fix run redoes it all for a set that rarely changes.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Could a fix run skip this stage when the state record already holds the resolved set and <code>## apps</code> has not moved?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>55</td><td>50</td><td>0.14</td><td>2.62</td><td>0 s</td></tr>
+      <tr><td>big</td><td>35</td><td>34</td><td>0.10</td><td>2.09</td><td>0 s</td></tr>
+      <tr><td>small</td><td>21</td><td>18</td><td>0.12</td><td>0.51</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.12</td><td>0.24</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.document-fix">
+    <h2>flow.document-fix</h2>
+    <p class="files">Marked in <code>skills/flow/document-fix.md</code> — loaded only on a fix run, and by the in-run fix loop</p>
+
+    <h3>Summary</h3>
+    <p>On a fix run, records the fix in <code>proposal.md</code> and <code>tasks.md</code> (or a <code>-fix-N</code> sub-change) before any code is written, syncs the Jira description where scope grew, records the plan's growth, runs the plan guards and snapshots the plan. Ends before the re-decide that follows it.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li><code>**Tasks appended:**</code> has reached 6 <span class="arrow">→</span> "Re-plan instead of appending?"; silence and the recommended mode take Re-plan <span class="cite">document-fix.md:20</span> <span class="cite">document-fix.md:34</span></li>
+      <li>always <span class="arrow">→</span> the planning pass runs inline in the parent, no dispatch <span class="cite">document-fix.md:45</span></li>
+      <li>where should it go <span class="arrow">→</span> append (default) or a <code>-fix-N</code> sub-change <span class="cite">document-fix.md:52</span></li>
+      <li>instructions dispute an earlier visual judgement <span class="arrow">→</span> <code>measure-visual-properties</code> first <span class="cite">document-fix.md:102</span></li>
+      <li>the fix adds scope the Jira issue does not describe <span class="arrow">→</span> description sync <span class="cite">document-fix.md:112</span></li>
+      <li>always <span class="arrow">→</span> <code>flow tasks count</code>, <code>check-plan-shape</code> and the plan-provenance guard, then a plan snapshot <span class="cite">document-fix.md:120</span> <span class="cite">document-fix.md:124</span> <span class="cite">document-fix.md:130</span></li>
+      <li>an in-run verify fix round <span class="arrow">→</span> this file runs with the stage's report as instructions, neither ask made <span class="cite">verify-fix-loop.md:50</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>59</td><td>26</td><td>0.38</td><td>1.05</td><td>32.38</td><td>22 s</td><td>80 s</td><td>2.27</td><td>11</td><td>14</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>26</td><td>15.79</td></tr>
+      <tr><td>2</td><td>13</td><td>4.78</td></tr>
+      <tr><td>3</td><td>6</td><td>1.77</td></tr>
+      <tr><td>4</td><td>5</td><td>0.05</td></tr>
+      <tr><td>5</td><td>2</td><td>0.69</td></tr>
+      <tr><td>6</td><td>2</td><td>8.36</td></tr>
+      <tr><td>7</td><td>1</td><td>0.19</td></tr>
+      <tr><td>8</td><td>1</td><td>0.11</td></tr>
+      <tr><td>9</td><td>1</td><td>0.10</td></tr>
+      <tr><td>10</td><td>1</td><td>0.54</td></tr>
+      <tr><td>11</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 57 <code>completed</code>, 2 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Fix runs per change — exit: the operator lands. <strong>Uncapped</strong>; the re-plan budget of 6 appended tasks prompts a re-plan but does not stop appending. <span class="cite">document-fix.md:20</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>10</td><td>6.36</td></tr>
+    </table>
+    </div>
+    <p class="note">10 dispatches over 59 runs: median 0 per run, p90 0, highest 8; 57 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li><code>check-plan-shape</code> and the project's plan-provenance guard run over the whole appended plan on every fix run. <span class="cite">document-fix.md:124</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag uncapped">uncapped</span>Highest attempt 11 on one change: the stage has no cap on fix runs, and the re-plan budget is a prompt, not a limit.</li>
+      <li><span class="tag repeated">repeated</span>33 of 59 runs are a second or later attempt on the same change; each re-runs the whole-plan guards and snapshots the whole plan.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Which changes reached attempt 6 and above, and were those fix runs the operator's or the in-run verify loop's?</li>
+      <li>Should the stage stop and ask once fix runs pass a count, as the appended-task budget does for tasks?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>This stage also runs inside the in-run verify fix loop, so its attempts count verify rounds as well as operator fix runs.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>22</td><td>9</td><td>0.54</td><td>16.30</td><td>21 s</td></tr>
+      <tr><td>regular</td><td>31</td><td>13</td><td>0.35</td><td>11.75</td><td>18 s</td></tr>
+      <tr><td>small</td><td>6</td><td>4</td><td>0.38</td><td>4.32</td><td>40 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class; the re-decide after it may move the class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.sdd-tdd">
+    <h2>flow.sdd-tdd</h2>
+    <p class="files">Marked in <code>skills/flow/implement.md</code> (section 4) · <code>skills/flow/sdd-dispatch.md</code> when execution is <code>sdd</code> · <code>skills/flow/gated-review-fix.md</code> when a gated pass closes <code>fix</code></p>
+
+    <h3>Summary</h3>
+    <p>Implements the plan task by task under TDD — through implementer dispatches per group on <code>sdd</code>, or in the parent on <code>inline</code> — closes each task through <code>flow-guard close-task</code>, runs the gated per-task reviewer on <code>big</code>, and has the parent run the full <code>## test</code> list once the last group lands. Ends when every task is ticked and the list passes, or hands the list to the panel's pass 1.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>the decision's <code>execution</code>
+        <ul>
+          <li><code>inline</code> (micro) <span class="arrow">→</span> the parent implements every task itself <span class="cite">implement.md:183</span></li>
+          <li><code>sdd</code> <span class="arrow">→</span> <code>sdd-dispatch.md</code> loaded; one implementer per group <span class="cite">implement.md:518</span> <span class="cite">sdd-dispatch.md:9</span>
+            <ul>
+              <li>two groups ready <span class="arrow">→</span> both launch into throwaway worktrees; at most two in flight <span class="cite">sdd-dispatch.md:20</span></li>
+              <li>a wave member's pick conflicts or its guard fails <span class="arrow">→</span> a fresh fixer <span class="cite">sdd-dispatch.md:31</span></li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li>a handshake mismatch <span class="arrow">→</span> one retry on <code>&lt;key&gt;-retry</code>; a second mismatch asks the operator <span class="cite">implement.md:160</span></li>
+      <li>class <code>big</code> and a commit over 40 lines or outside its declared paths <span class="arrow">→</span> a gated per-task reviewer; the task's tick waits for a clean pass <span class="cite">implement.md:723</span> <span class="cite">implement.md:732</span>
+        <ul>
+          <li>a gated pass closes <code>fix</code> <span class="arrow">→</span> <code>gated-review-fix.md</code>: fixers in series, at most twenty findings each, then one re-review bundle <span class="cite">implement.md:841</span> <span class="cite">gated-review-fix.md:7</span> <span class="cite">gated-review-fix.md:30</span></li>
+        </ul>
+      </li>
+      <li>the plan-last group has passed its guard <span class="arrow">→</span> the parent runs the resolved <code>## test</code> list per worktree <span class="cite">implement.md:588</span>
+        <ul>
+          <li>a diff touching <code>ui paths</code> <span class="arrow">→</span> <code>check-dev-stack-fresh</code> first, and the list ends with the visual <code>verify</code> on the mapped specs <span class="cite">implement.md:618</span></li>
+          <li>a pass-1 panel opens <span class="arrow">→</span> the list runs inside <code>flow.review-panel</code> instead, beside the reading slots <span class="cite">implement.md:628</span></li>
+          <li>a failure <span class="arrow">→</span> a <code>full-suite-fix-&lt;n&gt;</code> fixer, and the list re-runs <span class="cite">implement.md:597</span></li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>194</td><td>107</td><td>3.56</td><td>21.24</td><td>1671.90</td><td>837 s</td><td>5,054 s</td><td>1.81</td><td>28</td><td>8</td><td>2</td><td>3</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>107</td><td>1242.21</td></tr>
+      <tr><td>2</td><td>29</td><td>139.29</td></tr>
+      <tr><td>3</td><td>14</td><td>150.86</td></tr>
+      <tr><td>4</td><td>8</td><td>20.82</td></tr>
+      <tr><td>5</td><td>8</td><td>13.56</td></tr>
+      <tr><td>6</td><td>4</td><td>6.87</td></tr>
+      <tr><td>7</td><td>2</td><td>23.84</td></tr>
+      <tr><td>8</td><td>2</td><td>9.05</td></tr>
+      <tr><td>9</td><td>1</td><td>2.20</td></tr>
+      <tr><td>10</td><td>1</td><td>5.45</td></tr>
+      <tr><td>11</td><td>1</td><td>1.58</td></tr>
+      <tr><td>12</td><td>1</td><td>20.03</td></tr>
+      <tr><td>13</td><td>1</td><td>7.49</td></tr>
+      <tr><td>14</td><td>1</td><td>3.32</td></tr>
+      <tr><td>15</td><td>1</td><td>2.91</td></tr>
+      <tr><td>16</td><td>1</td><td>4.70</td></tr>
+      <tr><td>17</td><td>1</td><td>0.85</td></tr>
+      <tr><td>18</td><td>1</td><td>1.29</td></tr>
+      <tr><td>19</td><td>1</td><td>1.19</td></tr>
+      <tr><td>20</td><td>1</td><td>0.85</td></tr>
+      <tr><td>21</td><td>1</td><td>0.62</td></tr>
+      <tr><td>22</td><td>1</td><td>2.51</td></tr>
+      <tr><td>23</td><td>1</td><td>3.82</td></tr>
+      <tr><td>24</td><td>1</td><td>1.40</td></tr>
+      <tr><td>25</td><td>1</td><td>3.47</td></tr>
+      <tr><td>26</td><td>1</td><td>0.15</td></tr>
+      <tr><td>27</td><td>1</td><td>0.77</td></tr>
+      <tr><td>28</td><td>1</td><td>0.79</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 172 <code>completed</code>, 16 <code>superseded</code>, 3 open, 2 <code>abandoned</code>, 1 <code>stopped</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Full-suite fix — exit: the list passes. <strong>Uncapped</strong>: "fixed at its root cause and the list re-run until it passes". <span class="cite">implement.md:597</span></li>
+      <li>Gated fix and re-review — exit: a clean re-review. <strong>Uncapped</strong>: a <code>fix</code> "sends its task through this file again under the next <code>&lt;k&gt;</code>". <span class="cite">gated-review-fix.md:42</span></li>
+      <li>Handshake retry — capped at one retry, then the operator is asked. <span class="cite">implement.md:160</span></li>
+      <li>Implementer dispatches in flight — capped at two per wave. <span class="cite">sdd-dispatch.md:20</span></li>
+      <li>Stage-end fixers — one per group of at most twenty findings, in series; the number of groups is uncapped. <span class="cite">implement.md:1036</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>implementer</td><td>1 per group</td><td>the decision's <code>groups[].model/effort</code>, default the implementer pair</td></tr>
+      <tr><td>implementer (fix, recommit, pick, full-suite fix)</td><td>0 or more</td><td>the decision's <code>fixer</code> pair; a pick the group's own pair</td></tr>
+      <tr><td>gated reviewer bundle</td><td>1 per gated group, <code>big</code> only</td><td><strong>Allowed pairs</strong> row <code>gated-reviewer</code>; re-review <code>gated-re-reviewer</code></td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>inherit</td><td>1</td><td>0.11</td></tr>
+      <tr><td>opus</td><td>492</td><td>1101.34</td></tr>
+      <tr><td>sonnet</td><td>32</td><td>18.32</td></tr>
+    </table>
+    </div>
+    <p class="note">525 dispatches over 194 runs: median 1 per run, p90 9.7, highest 31; 81 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>The parent runs the whole resolved <code>## test</code> list once per worktree after the last group, and again after every full-suite fix. <span class="cite">implement.md:588</span> <span class="cite">implement.md:597</span></li>
+      <li><code>flow.verify</code> runs the list again later; its skip rule passes over what no later commit touched. <span class="cite">implement.md:592</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag uncapped">uncapped</span>The full-suite fix loop has no round cap — the loop KAN-1107 capped at <code>flow.verify</code> still reads "until it passes" here.</li>
+      <li><span class="tag uncapped">uncapped</span>The gated fix and re-review cycle has no round cap.</li>
+      <li><span class="tag repeated">repeated</span>87 of 194 runs are a second or later attempt on the same change ($429.69); one change reached attempt 28.</li>
+      <li><span class="tag unselected">unselected</span>Big changes take $1,256.93 of the stage's $1,671.90; the implementer pair is decided per group, but every task of a group runs on it whatever the task's size.</li>
+      <li><span class="tag repeated">repeated</span>Each group's implementer reads the context bundle and the brief from scratch; a fresh fixer re-reads them again for a one-line repair.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>What drives attempt counts above 10 — resumes after a context limit, or fix runs?</li>
+      <li>Should the full-suite fix loop take the same cap <code>flow.verify</code> took in KAN-1107?</li>
+      <li>What did <code>kan-938</code>'s 31 dispatches in one run do, and how many were fixers?</li>
+      <li>Is opus the right implementer for every group of a big change, or only for the groups carrying a hard seam?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>3 runs are still open and 2 abandoned; their durations are out of the percentiles. The 19,498 s and 21,627 s costliest runs include waiting on background children.</p>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1084-floating-bottom-bar-rooms</td><td>1</td><td>109.18</td><td>19,498 s</td><td>11</td><td>2026-11-11</td></tr>
+      <tr><td>kan-1083-s1-white-design-system-dark-theme</td><td>3</td><td>99.87</td><td>21,627 s</td><td>19</td><td>2026-11-09</td></tr>
+      <tr><td>kan-938-step-3-frontend-cardio-type-picker-on-add-a</td><td>1</td><td>87.98</td><td>17,133 s</td><td>31</td><td>2026-10-14</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>96</td><td>34</td><td>4.66</td><td>1256.93</td><td>1,333 s</td></tr>
+      <tr><td>regular</td><td>68</td><td>50</td><td>3.71</td><td>343.27</td><td>760 s</td></tr>
+      <tr><td>small</td><td>25</td><td>18</td><td>2.49</td><td>59.70</td><td>571 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.71</td><td>3.82</td><td>97 s</td></tr>
+      <tr><td>no decision recorded</td><td>1</td><td>1</td><td>8.19</td><td>8.19</td><td>2,748 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage branches on class: <code>micro</code> runs inline, and the gated per-task reviewer runs on <code>big</code> alone.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
 
   <section class="stage" id="flow.review-panel"><h2>flow.review-panel</h2></section>
 
