@@ -82,7 +82,7 @@ import (
 //   regular: everything else
 //
 //   micro:   the small thresholds met with tasks<=2, every **Files:** path
-//            documentation (.md/.mdc), no `**Build:** red` tag, and — when
+//            documentation (.md/.mdc, or an .html under docs/), no `**Build:** red` tag, and — when
 //            <worktree> <merge-base> are passed — this change's own touched
 //            paths (paneltouchedpaths.go's union of
 //            committed-since-merge-base, staged and unstaged) entirely
@@ -161,9 +161,12 @@ func pcRed(env Env, line string) bool {
 	return !(r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r))
 }
 
-// isDocPath is `\.mdc?$`: a documentation path.
+// isDocPath reports a documentation path: `\.mdc?$` anywhere, or an .html
+// under docs/ -- a rendered brief or design page, which no build, test or
+// served page reads. An .html anywhere else (stats/web/index.html) is source.
 func isDocPath(p string) bool {
-	return strings.HasSuffix(p, ".md") || strings.HasSuffix(p, ".mdc")
+	return strings.HasSuffix(p, ".md") || strings.HasSuffix(p, ".mdc") ||
+		(strings.HasPrefix(p, "docs/") && strings.HasSuffix(p, ".html"))
 }
 
 // pcClasses is the class order -class may step up by one.

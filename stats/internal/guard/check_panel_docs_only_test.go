@@ -128,6 +128,26 @@ func TestCheckPanelDocsOnly(t *testing.T) {
 		{"committed .md plus staged main.go -> stdout is main.go", func(t *testing.T) { is(t, case4(t), 1, "main.go") }},
 		{"committed .md plus unstaged edit to base.go -> exit 1", func(t *testing.T) { rcIs(t, case5(t), 1) }},
 		{"committed .md plus unstaged edit to base.go -> stdout is base.go", func(t *testing.T) { is(t, case5(t), 1, "base.go") }},
+		{"docs/briefs/x.html alone -> exit 0: documentation HTML under docs/", func(t *testing.T) {
+			fx := newFx(t)
+			if err := os.MkdirAll(fx.repo+"/docs/briefs", 0o755); err != nil {
+				t.Fatal(err)
+			}
+			commit(fx, "docs/briefs/x.html")
+			is(t, run(t, fx, fx.repo, mb), 0, "")
+		}},
+		{"an .html outside docs/, a .go or a .ts -> exit 1, that path printed", func(t *testing.T) {
+			for _, f := range []string{"stats/web/index.html", "docs/tool.go", "docs/app.ts", "notdocs/x.html"} {
+				fx := newFx(t)
+				for _, d := range []string{"docs", f[:strings.LastIndex(f, "/")]} {
+					if err := os.MkdirAll(fx.repo+"/"+d, 0o755); err != nil {
+						t.Fatal(err)
+					}
+				}
+				commit(fx, "docs/x.html", f)
+				is(t, run(t, fx, fx.repo, mb), 1, f)
+			}
+		}},
 		{"committed .md plus a change's verbatim-moves.txt -> exit 0 (kan-991)", func(t *testing.T) {
 			fx := newFx(t)
 			if err := os.MkdirAll(fx.repo+"/spectre/changes/c", 0o755); err != nil {

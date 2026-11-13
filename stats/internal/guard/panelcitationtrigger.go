@@ -11,7 +11,8 @@ import "io"
 // Usage: flow-guard check-panel-citation-trigger <worktree> <merge-base>
 //
 // Prints nothing; the exit code is the whole answer.
-//   0  the change's own paths include at least one path ending .md or .mdc
+//   0  the change's own paths include at least one documentation path --
+//      one ending .md or .mdc, or an .html under docs/ (isDocPath)
 //   1  none do
 //   2  usage error: a missing argument, <worktree> not a directory or not a
 //      git worktree, <merge-base> not resolving, or a git invocation failed
@@ -24,7 +25,7 @@ import "io"
 // The logic is the Go port in stats/internal/guard/panelcitationtrigger.go.
 
 // checkPanelCitationTrigger is `flow-guard check-panel-citation-trigger`: the comment above is the contract -- nothing printed, exit 0 when
-// the change's own paths include one ending .md or .mdc, 1 when none do, 2
+// the change's own paths include a documentation path (isDocPath), 1 when none do, 2
 // on a usage error or a git invocation that failed. The change's own paths
 // include the index and the working tree (design.md:
 // touched-paths-include-index-and-worktree); resolving git, validating the

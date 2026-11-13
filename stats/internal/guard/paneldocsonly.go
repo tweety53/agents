@@ -16,7 +16,7 @@ import (
 // Usage: flow-guard check-panel-docs-only <worktree> <merge-base>
 //
 // Exit codes:
-//   0  every touched path ends .md or .mdc, or is a change's
+//   0  every touched path ends .md or .mdc, is an .html under docs/, or is a change's
 //      verbatim-moves.txt under <spec-root>/changes/ — the acknowledgement
 //      list flow-guard check-verbatim-moves reads, documentation though not Markdown
 //   1  at least one touched path is neither — that first path is printed to
@@ -37,7 +37,7 @@ import (
 // touched-path collection is stats/internal/guard/paneltouchedpaths.go's.
 
 // checkPanelDocsOnly is `flow-guard check-panel-docs-only`: the comment above is the contract -- exit 0 when every path this change
-// touched ends .md or .mdc or is a change's verbatim-moves.txt under
+// touched ends .md or .mdc, is an .html under docs/, or is a change's verbatim-moves.txt under
 // <spec-root>/changes/, 1 with the first path that is neither printed to
 // stdout (an empty touched-path set is 1 with nothing printed), 2 on a usage
 // error or a git invocation that failed. Resolving git, validating the
@@ -71,7 +71,8 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, p := range paths {
 		// A verbatim-moves.txt is check-verbatim-moves.sh's acknowledgement
 		// list of reworded prose: documentation, though not Markdown.
-		// isDocPath stays `.mdc?$`, shared with plan-class.
+		// isDocPath is the one path classifier, shared with plan-class,
+		// check-panel-citation-trigger and fix-run-floor.
 		if !isDocPath(p) && !(strings.HasPrefix(p, changes) && path.Base(p) == "verbatim-moves.txt") {
 			fmt.Fprintln(stdout, p)
 			return 1
