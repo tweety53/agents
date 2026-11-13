@@ -27,6 +27,13 @@ func TestCheckMockupCitations(t *testing.T) {
 		{"bare ids and other roots are not citations",
 			"Per `P6.png`, see other/docs/mockups/P6.png and snapshots/P6.png.\n",
 			0, "0 cited"},
+		// kan-1096: a tag's rendered frames sit one sub-directory down.
+		{"a cited frame in a sub-directory",
+			"See docs/mockups/v2-tag/P1.png.\n",
+			0, "MOCKUP-CITATIONS-RESOLVED: 1 cited"},
+		{"a cited frame missing from a sub-directory",
+			"See docs/mockups/v2-tag/P9.png.\n",
+			1, "plan.md:1 docs/mockups/v2-tag/P9.png"},
 		{"a directory named like a frame is no file",
 			"See docs/mockups/dir.png.\n",
 			1, "docs/mockups/dir.png"},
@@ -39,6 +46,12 @@ func TestCheckMockupCitations(t *testing.T) {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(filepath.Join(mockups, "P1.png"), nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Join(mockups, "v2-tag"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(mockups, "v2-tag", "P1.png"), nil, 0o644); err != nil {
 				t.Fatal(err)
 			}
 			plan := filepath.Join(dir, "plan.md")

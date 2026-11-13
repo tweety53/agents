@@ -27,7 +27,10 @@ import (
 //
 // A CITATION is a `<mockups root>/<frame id>.png` token, <frame id> made of
 // letters, digits, `_` and `-`, not preceded by a letter, digit, `_`, `.`,
-// `/` or `-` — so `other/<mockups root>/X.png` is no citation. A bare
+// `/` or `-` — so `other/<mockups root>/X.png` is no citation. One
+// sub-directory may sit between: `<mockups root>/<sub>/<frame id>.png`, the
+// form a design-repo tag's frames take once flow-guard render-frames
+// rendered them (kan-1096). A bare
 // `<frame id>.png` is not one either: plans name capture screenshots that
 // way too, and nothing in the token tells the two apart. Writing plans
 // (skills/flow/brainstorm-planner.md, section D) has a plan cite each frame
@@ -58,7 +61,7 @@ func checkMockupCitations(args []string, env Env, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stderr, "%s: mockups root %s is not a directory under %s\n", prog, root, args[0])
 		return 2
 	}
-	cite := regexp.MustCompile(`(^|[^A-Za-z0-9_./-])(` + regexp.QuoteMeta(root) + `/[A-Za-z0-9_-]+\.png)`)
+	cite := regexp.MustCompile(`(^|[^A-Za-z0-9_./-])(` + regexp.QuoteMeta(root) + `/([A-Za-z0-9][A-Za-z0-9_.-]*/)?[A-Za-z0-9_-]+\.png)`)
 	cited := 0
 	var missing []string
 	for _, file := range args[2:] {
