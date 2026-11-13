@@ -127,6 +127,19 @@
 // runs, a voided verdict saying so on a line of its own. A `lint` list is
 // never shortened.
 //
+// A SKIPPED SUITE. A `test` command opening with `flow-guard unchanged
+// <pathspecs> ||` -- an optional path before `flow-guard`, each pathspec a
+// bare word of letters, digits and `_ . / : ! @ % + = , -` or one
+// single-quoted string holding no quote -- has that guard run in process from
+// <worktree> once neither green file skipped it. On the guard's exit 0 the
+// command prints
+//   - `<command>` — skipped, <the guard's line>
+// runs no child, records no suite row, joins neither green file as passed,
+// and counts as skipped for the row's outcome (decision
+// skipped-suite-records-no-row: the skipped suite was stored as a passing run
+// of a fraction of a second). Any other shape -- a command substitution among
+// the pathspecs included -- and any other exit runs the command as before.
+//
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
 // check-spec-reach included — that exits 0 on a tree clean before and after
@@ -277,6 +290,15 @@ import (
 // A `test` list under a fix-run judge's verify fast (flow-guard fix-run-floor)
 // skips every command and ends its row skipped.
 //
+// A SKIPPED SUITE. A `test` command opening with `flow-guard unchanged
+// <pathspecs> ||` (an optional path before `flow-guard`; each pathspec a bare
+// word of letters, digits and `_ . / : ! @ % + = , -` or one single-quoted
+// string holding no quote) has that guard run in process; on its exit 0 the
+// command prints `- <command in backticks> — skipped, <the guard's line>`,
+// runs no child, records no suite row, joins neither green file as passed and
+// counts as skipped for the row's outcome. Any other shape, and any other
+// exit, runs as before.
+//
 // The mechanism, and its full contract — the list, the green sha, the output
 // — is stats/internal/guard/runverifylist.go; its test is
 // stats/internal/guard/run_verify_list_test.go.
@@ -326,7 +348,33 @@ var (
 	rvlInputs    = regexp.MustCompile(`^[[:space:]]*# inputs:(.*)$`)
 	rvlSuite     = regexp.MustCompile(`^[[:space:]]*# suite:[[:space:]]*([A-Za-z0-9._-]+)[[:space:]]*$`)
 	rvlTemplate  = regexp.MustCompile(`<[A-Za-z][A-Za-z0-9_-]*>`)
+	// rvlGuarded is a `## test` line's leading `flow-guard unchanged
+	// <pathspecs> ||` (A SKIPPED SUITE); rvlPathspec one of its pathspecs.
+	rvlGuarded  = regexp.MustCompile(`^\s*(?:[A-Za-z0-9_./-]*/)?flow-guard\s+unchanged((?:\s+(?:[A-Za-z0-9_./:!@%+=,-]+|'[^']*'))+)\s*\|\|`)
+	rvlPathspec = regexp.MustCompile(`[A-Za-z0-9_./:!@%+=,-]+|'[^']*'`)
 )
+
+// rvlGuardSkip runs a command's leading `flow-guard unchanged <pathspecs> ||`
+// in process, from wt, and answers the guard's skip line when it exits 0 --
+// "" for a command of any other shape or any other exit, which runs as
+// before (decision skipped-suite-records-no-row).
+func rvlGuardSkip(env Env, wt, cmd string) string {
+	m := rvlGuarded.FindStringSubmatch(cmd)
+	if m == nil {
+		return ""
+	}
+	specs := rvlPathspec.FindAllString(m[1], -1)
+	for i, p := range specs {
+		specs[i] = strings.Trim(p, "'")
+	}
+	e := env
+	e.Dir = wt
+	var out bytes.Buffer
+	if Registry["unchanged"](specs, e, &out, io.Discard) != 0 {
+		return ""
+	}
+	return strings.TrimSpace(out.String())
+}
 
 // rvlVisualVerify is the `## visual verification` `verify` row a `test` list
 // ends with, the directory it runs from, and -- when the section declares a
@@ -948,6 +996,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	skip := make([]bool, len(cmds))
 	passedAt := make([]bool, len(cmds))
+	guardSkip := make([]string, len(cmds)) // A SKIPPED SUITE: the guard's skip line
 	var argvs [][]string
 	for i, c := range cmds {
 		switch {
@@ -957,6 +1006,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			skip[i] = true
 		case list == "test" && slices.Contains(greenAt, c):
 			skip[i], passedAt[i] = true, true
+		case list == "test" && func() bool { guardSkip[i] = rvlGuardSkip(env, abs(wt), c); return guardSkip[i] != "" }():
+			skip[i] = true
 		case list == "test":
 			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
 				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i], "--"}, append(capped[:len(capped):len(capped)], c)...))
@@ -976,6 +1027,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			if passedAt[i] {
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", c, headSHA)
+				continue
+			}
+			if guardSkip[i] != "" {
+				fmt.Fprintf(stdout, "- `%s` — skipped, %s\n", c, guardSkip[i])
 				continue
 			}
 			if skip[i] {
