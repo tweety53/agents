@@ -17,12 +17,12 @@ import (
 // Compares HEAD and the working tree (untracked files included) with its merge-base on
 // origin/main. A suite line guards itself as `flow-guard unchanged <pathspecs> || { <suite>; }`,
 // so the suite runs only when a path matching a <pathspec> (git pathspec syntax, so ':!docs/'
-// excludes) changed. The full suite — the suite commands without the guard — runs only when the
-// operator asks for it.
+// excludes) changed. Under FLOW_VERIFY_FULL, which `flow-guard run-verify-list -full` exports,
+// the guard answers 1 without looking, so the full suite runs every suite.
 //
 // Exit codes:
 //   0  nothing matching changed: the suite is skipped, and one line says so
-//   1  a matching path changed: the suite runs
+//   1  a matching path changed, or FLOW_VERIFY_FULL is set: the suite runs
 //   2  usage: no pathspec, or a git call failed
 //
 // The logic is the Go port in stats/internal/guard/unchanged.go.
@@ -38,6 +38,9 @@ func unchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: flow-guard unchanged <pathspec>...")
 		return 2
+	}
+	if env.Getenv("FLOW_VERIFY_FULL") != "" {
+		return 1
 	}
 	base, paths, ok := changedSinceBase(env, prog, stderr, args...)
 	if !ok {
