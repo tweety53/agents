@@ -2010,21 +2010,752 @@ GROUP  BY s.stage;</pre>
     </div>
   </section>
 
-  <section class="stage" id="flow.preflight"><h2>flow.preflight</h2></section>
+  <section class="stage" id="flow.preflight">
+    <h2>flow.preflight</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change prepare</code>, <code>stats/internal/guard/integratechange_prepare.go</code> · procedure in <code>skills/flow/integrate.md</code> and <code>skills/flow-contracts/finish-contract-run1.md</code></p>
 
-  <section class="stage" id="flow.unfinished-work-gate"><h2>flow.unfinished-work-gate</h2></section>
+    <h3>Summary</h3>
+    <p>Opens integrate run 1. The checks themselves — an empty worktree set, foreign staged work, main-checkout drift, retired-layout migration, <code>check-finish-preflight</code> per worktree and the base consistency checks — run inside <code>prepare</code> before the mark; the mark is begun and ended back to back once they pass.</p>
 
-  <section class="stage" id="flow.landing-question"><h2>flow.landing-question</h2></section>
+    <h3>Branching</h3>
+    <ul>
+      <li>the resolved worktree set is empty <span class="arrow">→</span> <code>STOP: preflight</code> <span class="cite">integratechange_prepare.go:50</span></li>
+      <li>foreign staged work in a main checkout <span class="arrow">→</span> <code>STOP: foreign-staged</code>, asked once; Continue re-runs with <code>--accept-foreign</code> <span class="cite">integratechange_prepare.go:67</span> <span class="cite">integrate.md:52</span></li>
+      <li><code>migrate-worktrees</code> fails <span class="arrow">→</span> <code>STOP: migrate</code> <span class="cite">integratechange_prepare.go:72</span></li>
+      <li><code>check-finish-preflight</code> fails <span class="arrow">→</span> <code>STOP: preflight</code>, relayed with the hand-verification procedure <span class="cite">integratechange_prepare.go:89</span> <span class="cite">integrate.md:57</span></li>
+      <li>a worktree's recorded base disagrees with another's <span class="arrow">→</span> the base is created on origin, or <code>STOP: base-mismatch</code> <span class="cite">integratechange_prepare.go:126</span> <span class="cite">integratechange_prepare.go:132</span></li>
+      <li>all pass <span class="arrow">→</span> begin and end the mark at once <span class="cite">integratechange_prepare.go:136</span></li>
+    </ul>
 
-  <section class="stage" id="flow.preserve-sessions"><h2>flow.preserve-sessions</h2></section>
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>195</td><td>102</td><td>0.03</td><td>0.03</td><td>0.03</td><td>0 s</td><td>0 s</td><td>1.91</td><td>9</td><td>194</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>0.03</td></tr>
+      <tr><td>2</td><td>41</td><td>—</td></tr>
+      <tr><td>3</td><td>23</td><td>—</td></tr>
+      <tr><td>4</td><td>11</td><td>—</td></tr>
+      <tr><td>5</td><td>8</td><td>—</td></tr>
+      <tr><td>6</td><td>6</td><td>—</td></tr>
+      <tr><td>7</td><td>2</td><td>—</td></tr>
+      <tr><td>8</td><td>1</td><td>—</td></tr>
+      <tr><td>9</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 195 <code>completed</code>.</p>
 
-  <section class="stage" id="flow.commit-two"><h2>flow.commit-two</h2></section>
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li><code>prepare</code> re-run after each handled stop — exit: <code>NEXT:</code>. <strong>Uncapped</strong>; each stop is handled by the parent or the operator. <span class="cite">integrate.md:48</span></li>
+    </ul>
 
-  <section class="stage" id="flow.self-review"><h2>flow.self-review</h2></section>
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>1</td><td>0.03</td></tr>
+    </table>
+    </div>
+    <p class="note">1 dispatches over 195 runs: median 0 per run, p90 0, highest 1; 194 runs record none.</p>
 
-  <section class="stage" id="flow.pipeline-fix"><h2>flow.pipeline-fix</h2></section>
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
 
-  <section class="stage" id="flow.landing-routes"><h2>flow.landing-routes</h2></section>
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>The mark is zero-width — begun and ended after the checks it names — so its 195 runs and their duration measure nothing; 93 runs are re-runs of <code>prepare</code> after a stop.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Should the mark be moved to wrap the checks it names, so a slow preflight shows up?</li>
+      <li>What stops send <code>prepare</code> back nine times on one change?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The mark wraps no work (p50 0.02 s); attempts count <code>prepare</code> re-runs, not preflight work.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>small</td><td>20</td><td>17</td><td>0.03</td><td>0.03</td><td>0 s</td></tr>
+      <tr><td>big</td><td>83</td><td>31</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>88</td><td>50</td><td>—</td><td>—</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.unfinished-work-gate">
+    <h2>flow.unfinished-work-gate</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change prepare</code>, <code>stats/internal/guard/integratechange_prepare.go</code> · courses in <code>skills/flow/unfinished-work-gate.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Runs the live-check gate, <code>check-unfinished-work</code> and <code>check-untasked-commits</code> per worktree, and the visual gate. Any outstanding item stops integrate; the parent finishes the work itself, asking nothing, and re-runs <code>prepare</code>. Ends when every worktree prints <code>CLEAR</code> and the visual gate passes.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li><code>design.md</code> names a live check with no passing record <span class="arrow">→</span> <code>STOP: live-check</code>; the live check runs, then <code>prepare</code> again <span class="cite">integrate.md:79</span></li>
+      <li><code>OUTSTANDING</code> or <code>UNTASKED</code> <span class="arrow">→</span> <code>STOP: unfinished-work</code>: the parent finishes the work and re-runs <span class="cite">integratechange_prepare.go:182</span> <span class="cite">unfinished-work-gate.md:9</span></li>
+      <li>a guard reaches no verdict <span class="arrow">→</span> <code>STOP: no-verdict</code>, asked <span class="cite">integratechange_prepare.go:166</span></li>
+      <li><code>VISUAL-VERIFY-MISSING</code> <span class="arrow">→</span> visual verification and its fix loop, then <code>prepare</code> again <span class="cite">integrate.md:86</span></li>
+      <li>an item no change to the tree can finish <span class="arrow">→</span> recorded as a guard false positive <span class="cite">unfinished-work-gate.md:23</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>195</td><td>102</td><td>0.11</td><td>0.77</td><td>28.46</td><td>1 s</td><td>2 s</td><td>1.91</td><td>9</td><td>156</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>3.12</td></tr>
+      <tr><td>2</td><td>41</td><td>3.32</td></tr>
+      <tr><td>3</td><td>23</td><td>18.75</td></tr>
+      <tr><td>4</td><td>11</td><td>2.84</td></tr>
+      <tr><td>5</td><td>8</td><td>0.25</td></tr>
+      <tr><td>6</td><td>6</td><td>0.13</td></tr>
+      <tr><td>7</td><td>2</td><td>0.03</td></tr>
+      <tr><td>8</td><td>1</td><td>0.02</td></tr>
+      <tr><td>9</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 150 <code>completed</code>, 45 <code>stopped</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Finish and re-run — exit: every worktree <code>CLEAR</code>. <strong>Uncapped</strong>. <span class="cite">unfinished-work-gate.md:9</span></li>
+      <li>Visual gate — exit: <code>VISUAL-VERIFY-OK</code>; runs again on every rebase and before every push. <strong>Uncapped</strong>. <span class="cite">integrate.md:98</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>whatever the unfinished item needs — verifier, reviewer, fixer</td><td>0 or more</td><td>the role's own row</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>21</td><td>11.35</td></tr>
+      <tr><td>sonnet</td><td>6</td><td>2.08</td></tr>
+    </table>
+    </div>
+    <p class="note">27 dispatches over 195 runs: median 0 per run, p90 0, highest 19; 186 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li><code>check-unfinished-work</code> and <code>check-untasked-commits</code> run over every worktree's whole commit range on each <code>prepare</code>. <span class="cite">integratechange_prepare.go:160</span> <span class="cite">integratechange_prepare.go:168</span></li>
+      <li>The same guards already ran at <code>flow.write-in-progress</code>. <span class="cite">verify-and-handoff.md:503</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>The guard that cleared at <code>flow.write-in-progress</code> runs again here on the same HEAD; 45 runs end <code>stopped</code>.</li>
+      <li><span class="tag uncapped">uncapped</span>Finishing outstanding items and re-running <code>prepare</code> has no cap; one change reached attempt 9.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>What does the gate catch here that <code>flow.write-in-progress</code>'s run of the same guard missed?</li>
+      <li><code>kan-1044</code>'s third attempt carries $17.62 and 19 dispatches in a 4 s window — which finishing work was that?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The stage closes <code>stopped</code> before the finishing work runs, so that work's cost lands here only through the store's last-window rule (<code>stats/internal/harvest/attribute.go:18</code>).</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>83</td><td>31</td><td>0.10</td><td>25.28</td><td>1 s</td></tr>
+      <tr><td>regular</td><td>88</td><td>50</td><td>0.12</td><td>3.18</td><td>1 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>small</td><td>20</td><td>17</td><td>—</td><td>—</td><td>1 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class; big changes carry $25.28 of the $28.46.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.landing-question">
+    <h2>flow.landing-question</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change prepare</code>, <code>stats/internal/guard/integratechange_prepare.go</code> · <code>skills/flow/integrate.md</code> step 2 · <code>skills/flow/sync-onto-base.md</code> on a sync stop</p>
+
+    <h3>Summary</h3>
+    <p>Checks whether the base moved, syncs the branch onto it when it did and lints the rebased tree, then resolves the landing route — the project's default without asking, or the landing question. Ends once the route is known.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li><code>check-base-moved</code> per worktree <span class="cite">integratechange_prepare.go:189</span>
+        <ul>
+          <li><code>MOVED</code> <span class="arrow">→</span> <code>sync-onto-base</code>, then the whole <code>## lint</code> list on the rebased tree <span class="cite">sync-onto-base.md:25</span></li>
+          <li>a conflict <span class="arrow">→</span> <code>STOP: sync-conflict</code>: resolved in place, the whole lint and test lists, <code>prepare</code> again <span class="cite">integrate.md:109</span> <span class="cite">sync-onto-base.md:77</span></li>
+          <li><code>REFUSE</code> or the base still moving after three rebases <span class="arrow">→</span> stop and ask <span class="cite">sync-onto-base.md:75</span></li>
+          <li>the rebase made a HEAD no verifier saw <span class="arrow">→</span> <code>STOP: visual-verify</code> <span class="cite">integratechange_prepare.go:217</span></li>
+        </ul>
+      </li>
+      <li>a configured <code>## default landing route</code> <span class="arrow">→</span> taken without asking <span class="cite">integrate.md:114</span></li>
+      <li>none <span class="arrow">→</span> the landing question; open a PR is recommended <span class="cite">integrate.md:119</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>150</td><td>102</td><td>0.27</td><td>0.98</td><td>4.56</td><td>0 s</td><td>19 s</td><td>1.47</td><td>5</td><td>139</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>3.56</td></tr>
+      <tr><td>2</td><td>32</td><td>0.07</td></tr>
+      <tr><td>3</td><td>10</td><td>0.24</td></tr>
+      <tr><td>4</td><td>5</td><td>0.68</td></tr>
+      <tr><td>5</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 140 <code>completed</code>, 10 <code>stopped</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Base sync — capped at three rebases while the base keeps moving. <span class="cite">sync-onto-base.md:75</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 150 runs: median 0 per run, p90 0, highest 0; 150 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>A clean rebase runs the whole <code>## lint</code> list; a resolved conflict runs the whole lint and test lists. <span class="cite">sync-onto-base.md:30</span> <span class="cite">sync-onto-base.md:77</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag unselected">unselected</span>A clean rebase lints the whole tree, not the paths the base moved under the change.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>139 of 150 runs are uncosted — is the stage almost always the configured default with no sync?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>54</td><td>31</td><td>0.32</td><td>3.09</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>72</td><td>50</td><td>0.08</td><td>1.47</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>small</td><td>20</td><td>17</td><td>—</td><td>—</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.preserve-sessions">
+    <h2>flow.preserve-sessions</h2>
+    <p class="files">Begun by <code>prepare</code>, ended by <code>flow-guard integrate-change commit</code>, <code>stats/internal/guard/integratechange_commit.go</code></p>
+
+    <h3>Summary</h3>
+    <p>Spans the parent appending the run's narrative and writing the implementation subjects, then <code>commit</code> checking the narrative, pinning each worktree's pre-reshape HEAD, reshaping the branch and rendering the ledger. Ends after the ledger render, when <code>flow.commit-two</code> begins.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> the parent appends the narrative and passes each worktree's subject to <code>commit</code> <span class="cite">integratechange_prepare.go:253</span></li>
+      <li>an <code>In-run pipeline fix:</code> line off format, or a run missing its narrative section <span class="arrow">→</span> <code>STOP: narrative</code> <span class="cite">integrate.md:157</span></li>
+      <li>a worktree has a reshape file <span class="arrow">→</span> pre-reshape pin, <code>reshape-branch</code>, ledger render <span class="cite">integratechange_commit.go:41</span></li>
+      <li>pinning fails or origin holds a diverged pin <span class="arrow">→</span> <code>STOP: pre-reshape</code> <span class="cite">integrate.md:155</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>139</td><td>102</td><td>0.08</td><td>0.13</td><td>13.43</td><td>12 s</td><td>24 s</td><td>1.36</td><td>4</td><td>2</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>10.29</td></tr>
+      <tr><td>2</td><td>27</td><td>2.18</td></tr>
+      <tr><td>3</td><td>8</td><td>0.76</td></tr>
+      <tr><td>4</td><td>2</td><td>0.20</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 121 <code>completed</code>, 18 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>5</td><td>0.53</td></tr>
+    </table>
+    </div>
+    <p class="note">5 dispatches over 139 runs: median 0 per run, p90 0, highest 2; 136 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>The narrative is appended again here, after <code>flow.write-in-progress</code> appended the same run's section — the parent re-tells what it already wrote.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Is the second narrative append needed on a run that went straight from <code>flow.write-in-progress</code> to integrate in one invocation?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The window includes the parent writing the narrative between <code>prepare</code> and <code>commit</code>, so its dollars are mostly the parent's prose.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>68</td><td>50</td><td>0.09</td><td>7.17</td><td>13 s</td></tr>
+      <tr><td>big</td><td>47</td><td>31</td><td>0.06</td><td>3.46</td><td>15 s</td></tr>
+      <tr><td>small</td><td>20</td><td>17</td><td>0.08</td><td>2.51</td><td>10 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.07</td><td>0.28</td><td>9 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.commit-two">
+    <h2>flow.commit-two</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change commit</code>, <code>stats/internal/guard/integratechange_commit.go</code></p>
+
+    <h3>Summary</h3>
+    <p>Writes the design record and splits each reshaped worktree's history into the implementation commit and the planning-artifact commit, carrying the squashed tasks' <code>Task-Id:</code> trailers and any outstanding line. Ends when every worktree is committed; the branch is then pushed.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>the canonical worktree with a <code>design.md</code> <span class="arrow">→</span> the design record written <span class="cite">integratechange_commit.go:75</span></li>
+      <li>no subject given for a worktree with implementation paths <span class="arrow">→</span> <code>STOP: commit-split</code> <span class="cite">integratechange_commit.go:87</span></li>
+      <li>a link-only worktree <span class="arrow">→</span> <code>chore(spectre): merge order</code> <span class="cite">integratechange_commit.go:84</span></li>
+      <li><code>commit-split</code> fails <span class="arrow">→</span> <code>STOP: commit-split</code> <span class="cite">integratechange_commit.go:94</span></li>
+      <li>after the stage, a UI HEAD no verifier saw <span class="arrow">→</span> <code>STOP: visual-verify</code>, nothing pushed <span class="cite">integratechange_commit.go:114</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>126</td><td>102</td><td>0.20</td><td>0.44</td><td>1.42</td><td>0 s</td><td>1 s</td><td>1.24</td><td>4</td><td>120</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>0.62</td></tr>
+      <tr><td>2</td><td>18</td><td>0.56</td></tr>
+      <tr><td>3</td><td>5</td><td>0.24</td></tr>
+      <tr><td>4</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 120 <code>completed</code>, 6 <code>stopped</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 126 runs: median 0 per run, p90 0, highest 0; 126 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <p>none</p>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>The stage is mechanical and cost $1.42 over 126 runs; does anything here need the session's attention?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>42</td><td>31</td><td>0.20</td><td>1.42</td><td>1 s</td></tr>
+      <tr><td>small</td><td>20</td><td>17</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>60</td><td>50</td><td>—</td><td>—</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.self-review">
+    <h2>flow.self-review</h2>
+    <p class="files">Begun by <code>flow-guard integrate-change commit</code>, ended by the session · <code>skills/flow-contracts/finish-contract-run1.md</code> (<strong>Run the self-review pass</strong>) · <code>skills/flow-self-review/SKILL.md</code> steps 2–6</p>
+
+    <h3>Summary</h3>
+    <p>Runs one opus pass over the change's bundle across eight angles, then fixes every finding that is not <code>big</code> on one loop branch — planner, fixers, reviews until clean, verify — and lands those fixes, files the <code>big</code> ones, and records the rows. Ends when the session ends the stage <code>completed</code>; <code>land</code> refuses until it has.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>the stage already completed <span class="arrow">→</span> the pass is skipped <span class="cite">integratechange_commit.go:119</span> <span class="cite">finish-contract-run1.md:291</span></li>
+      <li>always <span class="arrow">→</span> <code>flow self-review bundle</code> written to <code>bundle.md</code> and one pass dispatched <span class="cite">finish-contract-run1.md:261</span></li>
+      <li>each finding classified: <code>big</code> at 60 or more files <span class="cite">SKILL.md:245</span></li>
+      <li>findings that are not <code>big</code> <span class="arrow">→</span> fixed and landed without asking <span class="cite">SKILL.md:251</span>
+        <ul>
+          <li>plan <span class="arrow">→</span> one planner, opus at low or medium <span class="cite">SKILL.md:269</span></li>
+          <li>fix <span class="arrow">→</span> one fixer per recorded group, in series <span class="cite">SKILL.md:361</span></li>
+          <li>review raising a Critical or Important <span class="arrow">→</span> fix, then review again <span class="cite">SKILL.md:384</span></li>
+          <li>verify red <span class="arrow">→</span> a fresh fix, review, verify again <span class="cite">SKILL.md:395</span></li>
+          <li>a finding a re-plan did not solve <span class="arrow">→</span> the next re-plan, never leaving the loop <span class="cite">SKILL.md:267</span></li>
+        </ul>
+      </li>
+      <li>a product defect the pass met <span class="arrow">→</span> the stage closes <code>stopped</code> and a fix run follows in the same invocation <span class="cite">integrate.md:169</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>213</td><td>112</td><td>4.67</td><td>13.67</td><td>1146.97</td><td>1,006 s</td><td>5,886 s</td><td>1.90</td><td>10</td><td>32</td><td>3</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>112</td><td>900.49</td></tr>
+      <tr><td>2</td><td>48</td><td>167.42</td></tr>
+      <tr><td>3</td><td>18</td><td>54.33</td></tr>
+      <tr><td>4</td><td>11</td><td>10.90</td></tr>
+      <tr><td>5</td><td>9</td><td>6.46</td></tr>
+      <tr><td>6</td><td>7</td><td>4.29</td></tr>
+      <tr><td>7</td><td>4</td><td>1.43</td></tr>
+      <tr><td>8</td><td>2</td><td>0.88</td></tr>
+      <tr><td>9</td><td>1</td><td>0.34</td></tr>
+      <tr><td>10</td><td>1</td><td>0.44</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 179 <code>completed</code>, 16 <code>superseded</code>, 15 <code>stopped</code>, 3 <code>abandoned</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Review and fix — exit: a clean or Minor-only review. <strong>Uncapped</strong>: "until a review comes back clean or raises only Minors". <span class="cite">SKILL.md:384</span></li>
+      <li>Verify and fix — exit: no red line. <strong>Uncapped</strong>. <span class="cite">SKILL.md:395</span></li>
+      <li>Re-plan — exit: the finding solved. <strong>Uncapped</strong>: "never leaves the loop". <span class="cite">SKILL.md:267</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>pass</td><td>1</td><td>opus, one-shot</td></tr>
+      <tr><td>planner</td><td>1, plus re-plans</td><td><strong>Allowed pairs</strong> self-review loop rows: opus low or medium</td></tr>
+      <tr><td>fixer</td><td>1 per group, plus 1 per review or red verify</td><td>opus by default; sonnet for a simple fix</td></tr>
+      <tr><td>reviewer</td><td>1 per review round</td><td>the first review's effort from the plan; re-reviews <code>flow-low</code> sonnet</td></tr>
+      <tr><td>explorer / plan-designer</td><td>0 or more</td><td><code>flow-guard plan-agent-pair</code></td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>653</td><td>867.83</td></tr>
+      <tr><td>sonnet</td><td>93</td><td>10.10</td></tr>
+      <tr><td>—</td><td>1</td><td>0.76</td></tr>
+    </table>
+    </div>
+    <p class="note">747 dispatches over 213 runs: median 1 per run, p90 8, highest 14; 32 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>The pass reads the whole bundle: ledger, panel record, artifacts, narrative, verification records and the branch's <code>git log --stat</code>. <span class="cite">finish-contract-run1.md:261</span></li>
+      <li>Every verify runs the loop's lint lines and tests; on merge and push <code>pipeline-fix land</code> runs them again on the rebased HEAD. <span class="cite">SKILL.md:388</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag uncapped">uncapped</span>The review, verify and re-plan loops are all uncapped by rule.</li>
+      <li><span class="tag repeated">repeated</span>101 of 213 runs are a second or later attempt on the same change ($246.48).</li>
+      <li><span class="tag unselected">unselected</span>The pass is one opus dispatch over the whole bundle on every change, a <code>micro</code> one included: micro runs median $8.09, close to big's $9.14.</li>
+      <li><span class="tag repeated">repeated</span>The pass re-reads the ledger and panel record the run already holds; the bundle is rebuilt for every run.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>What do micro changes' self-review passes find, at a median of $8.09?</li>
+      <li>Should the review and verify loops take a round cap, as KAN-1107 gave <code>flow.verify</code>?</li>
+      <li>60 runs fall under <code>no decision recorded</code> — are those standalone <code>/flow-self-review</code> loop changes counted under <code>/flow</code>?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>Dispatches keyed <code>self-review-*</code> open this stage on their own change when none is open (<code>stats/internal/store/records.go:521</code>), so loop changes with no decision appear here.</p>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1015-templates-step-1-fe-templates-room-search-gym</td><td>1</td><td>32.33</td><td>5,899 s</td><td>14</td><td>2026-10-24</td></tr>
+      <tr><td>kan-1026-stored-data-first-on-every-open</td><td>1</td><td>28.21</td><td>5,966 s</td><td>9</td><td>2026-10-23</td></tr>
+      <tr><td>kan-1017-templates-step-3-admin-templates-queue-create</td><td>1</td><td>26.20</td><td>7,156 s</td><td>12</td><td>2026-10-26</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>73</td><td>50</td><td>8.23</td><td>482.57</td><td>2,314 s</td></tr>
+      <tr><td>big</td><td>48</td><td>31</td><td>9.14</td><td>403.57</td><td>2,987 s</td></tr>
+      <tr><td>small</td><td>26</td><td>17</td><td>4.97</td><td>112.76</td><td>2,044 s</td></tr>
+      <tr><td>micro</td><td>6</td><td>4</td><td>8.09</td><td>36.28</td><td>1,400 s</td></tr>
+      <tr><td>no decision recorded</td><td>60</td><td>10</td><td>1.01</td><td>111.80</td><td>272 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class: the pass and loop run the same on every change.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.pipeline-fix">
+    <h2>flow.pipeline-fix</h2>
+    <p class="files">Opened by the store, <code>stats/internal/store/records.go</code> · governed by <code>skills/flow-contracts/pipeline.md</code> (<strong>Pipeline defects found mid-run</strong>)</p>
+
+    <h3>Summary</h3>
+    <p>An in-run fix of the pipeline itself — a skill, contract, guard, the CLI or flowd — made inside a <code>/flow</code> run that hit the defect. No phase file marks it: the store opens it on the loop's own change when a <code>pipeline-fix-*</code> dispatch begins. Each loop plans, fixes, reviews and lands one defect in <code>agents</code>.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>a dispatch key starting <code>pipeline-fix-</code> <span class="arrow">→</span> the store opens <code>flow.pipeline-fix</code> on the loop's change <span class="cite">records.go:525</span></li>
+      <li>the fix touches 60 or more files <span class="arrow">→</span> <code>big</code>, deferred to self-review; nothing else is deferred <span class="cite">pipeline.md:234</span></li>
+      <li>otherwise <span class="arrow">→</span> the loop of the self-review's step 3 <span class="cite">pipeline.md:259</span>
+        <ul>
+          <li>plan, then fix <span class="cite">pipeline.md:272</span></li>
+          <li>review; a dropped commit is re-planned in a fresh loop <span class="cite">pipeline.md:280</span></li>
+          <li>land by <code>agents</code>' default route through <code>pipeline-fix land</code> <span class="cite">pipeline.md:286</span></li>
+        </ul>
+      </li>
+      <li>always <span class="arrow">→</span> the loop runs in the background while the run continues <span class="cite">pipeline.md:295</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>75</td><td>21</td><td>0.50</td><td>1.52</td><td>58.19</td><td>74 s</td><td>394 s</td><td>3.57</td><td>6</td><td>0</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>21</td><td>31.52</td></tr>
+      <tr><td>2</td><td>21</td><td>12.72</td></tr>
+      <tr><td>3</td><td>21</td><td>8.50</td></tr>
+      <tr><td>4</td><td>6</td><td>3.08</td></tr>
+      <tr><td>5</td><td>5</td><td>1.92</td></tr>
+      <tr><td>6</td><td>1</td><td>0.44</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 75 <code>completed</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Review and fix — <strong>Uncapped</strong>, under <strong>Fewest operator actions</strong>. <span class="cite">pipeline.md:280</span></li>
+      <li>Re-plan in a fresh loop on a dropped commit — <strong>Uncapped</strong>. <span class="cite">pipeline.md:283</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>planner</td><td>1 per loop</td><td>self-review loop rows of <strong>Allowed pairs</strong></td></tr>
+      <tr><td>fixer</td><td>1 per group, plus fixes per review or red verify</td><td>as the self-review loop</td></tr>
+      <tr><td>reviewer</td><td>1 per review round</td><td>as the self-review loop</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>fable</td><td>4</td><td>5.37</td></tr>
+      <tr><td>opus</td><td>86</td><td>37.78</td></tr>
+      <tr><td>sonnet</td><td>4</td><td>0.33</td></tr>
+    </table>
+    </div>
+    <p class="note">94 dispatches over 75 runs: median 1 per run, p90 2, highest 4; 0 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li><code>pipeline-fix land</code> runs the loop's lint lines and tests on the rebased HEAD before pushing. <span class="cite">pipeline.md:286</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag uncapped">uncapped</span>Loops are uncapped; a loop change averaged 3.57 runs.</li>
+      <li><span class="tag repeated">repeated</span>Every loop runs its own full lint and tests on <code>agents</code>, whatever the defect touched.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Which defects took 6 runs, and were they one defect re-planned or several?</li>
+      <li>Should the loop's verify select the suites the fix touched, as the project's <code>## test</code> rows already can?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>Its 21 "changes" are the loops' own <code>pipeline-fix-*</code> changes, not the <code>/flow</code> changes that hit the defects.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>no decision recorded</td><td>75</td><td>21</td><td>0.50</td><td>58.19</td><td>74 s</td></tr>
+    </table>
+    </div>
+    <p class="note">Every run is a loop change with no recorded decision; the stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.landing-routes">
+    <h2>flow.landing-routes</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change land</code>, <code>stats/internal/guard/integratechange_land.go</code> · routes in <code>skills/flow-contracts/finish-contract-run1.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Checks the self-review stage completed, then lands each worktree in merge order by the chosen route — merge and push, pull request, or manual — writes the state and asks Jira for In Review. Ends when every worktree is landed by its route.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li><code>flow.self-review</code> not completed <span class="arrow">→</span> <code>STOP: self-review-report</code> <span class="cite">integrate.md:194</span></li>
+      <li>no route given or configured <span class="arrow">→</span> <code>STOP: landing-route</code>, the question asked <span class="cite">integratechange_land.go:132</span></li>
+      <li>merge and push <span class="cite">integratechange_land.go:153</span>
+        <ul>
+          <li><code>check-loop-landing</code> refuses <span class="arrow">→</span> <code>STOP: loop-landing</code> <span class="cite">integrate.md:203</span></li>
+          <li>the push is rejected <span class="arrow">→</span> one re-sync and one retry; a second rejection is <code>STOP: push</code> <span class="cite">integratechange_land.go:178</span> <span class="cite">integrate.md:212</span></li>
+        </ul>
+      </li>
+      <li>pull request with no usable <code>gh</code> <span class="arrow">→</span> <code>STOP: pr</code>, the operator confirms <span class="cite">integrate.md:216</span></li>
+      <li>a UI HEAD no verifier saw before a push <span class="arrow">→</span> <code>STOP: visual-verify</code> <span class="cite">integratechange_land.go:146</span></li>
+      <li><code>JIRA: transition</code> <span class="arrow">→</span> In Review after the state write, never blocking <span class="cite">integrate.md:222</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>129</td><td>102</td><td>0.27</td><td>1.44</td><td>11.26</td><td>11 s</td><td>37 s</td><td>1.26</td><td>4</td><td>107</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>9.36</td></tr>
+      <tr><td>2</td><td>19</td><td>1.91</td></tr>
+      <tr><td>3</td><td>7</td><td>—</td></tr>
+      <tr><td>4</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 107 <code>completed</code>, 22 <code>stopped</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Rejected push — capped at one re-sync and retry. <span class="cite">integratechange_land.go:178</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>14</td><td>0.40</td></tr>
+      <tr><td>sonnet</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">15 dispatches over 129 runs: median 0 per run, p90 0, highest 11; 124 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>A re-sync after a rejected push lints the rebased tree. <span class="cite">integratechange_land.go:171</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>22 runs end <code>stopped</code> and 27 are re-runs of <code>land</code>.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Which stops send <code>land</code> back — the self-review row, the loop-landing guard or a rejected push?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>42</td><td>31</td><td>0.32</td><td>4.73</td><td>21 s</td></tr>
+      <tr><td>regular</td><td>61</td><td>50</td><td>0.16</td><td>3.41</td><td>10 s</td></tr>
+      <tr><td>small</td><td>22</td><td>17</td><td>0.61</td><td>3.12</td><td>8 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>12 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
 
   <section class="stage" id="flow.verify-merge"><h2>flow.verify-merge</h2></section>
 
