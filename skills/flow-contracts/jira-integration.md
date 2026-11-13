@@ -7,16 +7,17 @@ The reasoning behind this file lives in `skills/flow-contracts/jira-integration-
 **a `/flow*` run never loads it.**
 
 **Jira is a projection of pipeline state, never a source of it and never a gate.** flow reads
-and writes it through the `twg` CLI whenever `command -v twg` finds it (`twg jira workitem get`,
+and writes it through the Atlassian MCP tools available to the session first (`getJiraIssue`,
+`getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`, `createJiraIssue`,
+`searchJiraIssuesUsingJql`), each call with a timeout of 10 seconds. An MCP call that errors or has
+not answered within that timeout is a failed MCP call, and the same operation is then made once
+through its `twg` counterpart whenever `command -v twg` finds it (`twg jira workitem get`,
 `twg jira workitem transition` — without `--transition-id` it lists the transitions, with one it
 fires it — `twg jira workitem update`, `twg jira workitem create`, `twg jira workitem comment`,
-`twg jira workitem query <jql>`), and through the Atlassian MCP tools available to the session
-(`getJiraIssue`, `getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`,
-`createJiraIssue`, `searchJiraIssuesUsingJql`) only when `twg` is absent. The MCP connector
-resolves a cloud ID through a remote lookup first and can hang for minutes; `twg` answers in about
-a second. Each MCP call named in this contract means its `twg` counterpart on the `twg` route. **Atlassian tooling** in every `/flow*` contract means either route; a session has none
-only when no Atlassian MCP tool is loaded **and** `command -v twg` finds nothing. A `twg` call that
-fails — auth, network, a rejected write — is a failed Jira call under **Never blocking** below,
+`twg jira workitem query <jql>`); from then on `twg` is the route for the rest of the run. With no
+Atlassian MCP tool loaded, `twg` is the route from the start. Each MCP call named in this contract means its `twg` counterpart on the `twg` route. **Atlassian tooling** in every `/flow*` contract means either route; a session has none
+only when no Atlassian MCP tool is loaded **and** `command -v twg` finds nothing. A call that
+fails on both routes — auth, network, a rejected write — is a failed Jira call under **Never blocking** below,
 never a reason to report the tooling absent.
 
 The linked issue key lives in the state file's `jiraIssue` field — see **State file** in `state-file.md`.
