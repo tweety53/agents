@@ -695,6 +695,7 @@ var GuardHelpers = []string{
 	"stage-task-files",
 	"sync-onto-base",
 	"sync-panel-base",
+	"test-cost",
 	"throwaway-worktree",
 	"unchanged",
 	"visual-verify-pass",
