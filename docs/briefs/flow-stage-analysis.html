@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>/flow stage analysis</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f1f0ec;
+    --surface-panel: #ffffff;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #7a7972;
+    --border: #d8d6cf;
+    --link: #1f5fbf;
+    --tag-repeated-bg: #fdf0d5;  --tag-repeated-fg: #7a4b00;
+    --tag-uncapped-bg: #fbdfe3;  --tag-uncapped-fg: #8f1226;
+    --tag-unselected-bg: #dde9fb; --tag-unselected-fg: #153e80;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  a { color: var(--link); }
+  code, pre, .mono { font-family: var(--font-mono); font-size: 0.87em; }
+  .page { display: flex; align-items: flex-start; max-width: 1280px; margin: 0 auto; }
+
+  nav.keys {
+    position: sticky; top: 0;
+    flex: 0 0 250px;
+    max-height: 100vh; overflow-y: auto;
+    padding: 20px 14px 28px 20px;
+    border-right: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  nav.keys .title { font-weight: 600; margin: 0 0 12px; }
+  nav.keys h2 {
+    margin: 16px 0 4px;
+    font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 600;
+  }
+  nav.keys ol { list-style: none; margin: 0; padding: 0; }
+  nav.keys li a {
+    display: block; padding: 2px 8px; border-radius: 3px;
+    font-family: var(--font-mono); font-size: 0.8rem;
+    color: var(--text-secondary); text-decoration: none;
+  }
+  nav.keys li a:hover { background: var(--surface-panel); color: var(--text-primary); }
+
+  main { flex: 1 1 auto; min-width: 0; padding: 24px 32px 80px; }
+  h1 { font-size: 1.5rem; margin: 0 0 12px; }
+  header.head { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 28px; }
+  header.head dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 12px; }
+  header.head dt { color: var(--text-muted); }
+  header.head dd { margin: 0; }
+  header.head ul { margin: 8px 0 0; padding-left: 20px; color: var(--text-secondary); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: var(--text-secondary); }
+  pre {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px;
+    padding: 12px; overflow-x: auto; margin: 8px 0 0;
+  }
+
+  section.stage { margin-bottom: 56px; }
+  section.stage > h2 { font-family: var(--font-mono); font-size: 1.25rem; margin: 0 0 2px; }
+  .files { color: var(--text-secondary); margin: 0 0 16px; }
+  section.stage h3 {
+    margin: 26px 0 8px;
+    font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 600;
+  }
+  section.stage p { margin: 0 0 8px; max-width: 78ch; }
+  section.stage ul { margin: 0; padding-left: 20px; }
+  section.stage li { margin: 3px 0; max-width: 86ch; }
+  .cite { color: var(--text-muted); font-family: var(--font-mono); font-size: 0.78rem; white-space: nowrap; }
+  .arrow { color: var(--text-muted); }
+
+  table { border-collapse: collapse; background: var(--surface-panel); border: 1px solid var(--border); margin: 0 0 6px; }
+  th, td { padding: 6px 12px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; background: var(--surface-2); }
+  th:first-child, td:first-child { text-align: left; }
+  td { font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x: auto; }
+  .note { color: var(--text-secondary); font-size: 0.87rem; }
+
+  .tag {
+    display: inline-block; padding: 0 7px; margin-right: 6px; border-radius: 3px;
+    font-size: 0.72rem; font-weight: 600; line-height: 1.6; vertical-align: 1px;
+  }
+  .tag.repeated { background: var(--tag-repeated-bg); color: var(--tag-repeated-fg); }
+  .tag.uncapped { background: var(--tag-uncapped-bg); color: var(--tag-uncapped-fg); }
+  .tag.unselected { background: var(--tag-unselected-bg); color: var(--tag-unselected-fg); }
+  ul.findings { list-style: none; padding-left: 0; }
+  ul.findings li { margin: 6px 0; }
+
+  .outcome {
+    margin-top: 26px; padding: 12px 16px;
+    border: 1px solid var(--text-secondary); border-radius: 3px; background: var(--surface-panel);
+  }
+  .outcome h3 { margin: 0 0 4px; }
+  .outcome p { margin: 0; color: var(--text-muted); }
+
+  @media (max-width: 860px) {
+    .page { display: block; }
+    nav.keys { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); }
+    main { padding: 20px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<nav class="keys" aria-label="Stage keys">
+  <p class="title">/flow stage analysis</p>
+
+  <h2>Session 1</h2>
+  <ol>
+    <li><a href="#flow.kickoff">flow.kickoff</a></li>
+    <li><a href="#flow.brainstorm">flow.brainstorm</a></li>
+    <li><a href="#flow.design-approval">flow.design-approval</a></li>
+    <li><a href="#flow.create-artifacts">flow.create-artifacts</a></li>
+    <li><a href="#flow.writing-plans">flow.writing-plans</a></li>
+  </ol>
+
+  <h2>Session 2</h2>
+  <ol>
+    <li><a href="#flow.plan-review">flow.plan-review</a></li>
+    <li><a href="#flow.decide">flow.decide</a></li>
+    <li><a href="#flow.load-context">flow.load-context</a></li>
+    <li><a href="#flow.isolate-workspace">flow.isolate-workspace</a></li>
+    <li><a href="#flow.document-fix">flow.document-fix</a></li>
+  </ol>
+
+  <h2>Session 3</h2>
+  <ol>
+    <li><a href="#flow.sdd-tdd">flow.sdd-tdd</a></li>
+    <li><a href="#flow.review-panel">flow.review-panel</a></li>
+    <li><a href="#flow.verify">flow.verify</a></li>
+    <li><a href="#flow.visual-verify">flow.visual-verify</a></li>
+    <li><a href="#flow.stage-diff">flow.stage-diff</a></li>
+  </ol>
+
+  <h2>Session 4</h2>
+  <ol>
+    <li><a href="#flow.run-instructions">flow.run-instructions</a></li>
+    <li><a href="#flow.write-in-progress">flow.write-in-progress</a></li>
+    <li><a href="#flow.preflight">flow.preflight</a></li>
+    <li><a href="#flow.unfinished-work-gate">flow.unfinished-work-gate</a></li>
+    <li><a href="#flow.landing-question">flow.landing-question</a></li>
+  </ol>
+
+  <h2>Session 5</h2>
+  <ol>
+    <li><a href="#flow.preserve-sessions">flow.preserve-sessions</a></li>
+    <li><a href="#flow.commit-two">flow.commit-two</a></li>
+    <li><a href="#flow.self-review">flow.self-review</a></li>
+    <li><a href="#flow.pipeline-fix">flow.pipeline-fix</a></li>
+    <li><a href="#flow.landing-routes">flow.landing-routes</a></li>
+  </ol>
+
+  <h2>Session 6</h2>
+  <ol>
+    <li><a href="#flow.verify-merge">flow.verify-merge</a></li>
+    <li><a href="#flow.cleanup">flow.cleanup</a></li>
+    <li><a href="#flow.verify-cleanup">flow.verify-cleanup</a></li>
+    <li><a href="#flow.write-finished">flow.write-finished</a></li>
+    <li><a href="#flow.refresh-main-checkout">flow.refresh-main-checkout</a></li>
+    <li><a href="#plan.session">plan.session</a></li>
+  </ol>
+</nav>
+
+<main>
+  <header class="head">
+    <h1>/flow stage analysis</h1>
+    <dl>
+      <dt>Citations read at</dt><dd><code>c07258a3</code></dd>
+      <dt>Figures queried</dt><dd>2026-11-13</dd>
+      <dt>Filters</dt><dd>last 30 days · command <code>/flow</code> · every change state · <code>harness = 'claude-code'</code></dd>
+      <dt>Branching</dt><dd>a branch taken only on another harness is left out of every list</dd>
+    </dl>
+    <ul>
+      <li>A stage left open is closed after 6 hours with outcome <code>abandoned</code>; those runs and open runs are out of the duration percentiles and counted on their own.</li>
+      <li>Dollar percentiles use costed runs only; the uncosted count stands beside them.</li>
+      <li>No column marks a fix run.</li>
+      <li><code>suite_runs</code> carries no change or stage link, so suite time cannot be tied to a stage.</li>
+    </ul>
+    <details>
+      <summary>The query</summary>
+<pre>SELECT s.stage,
+       count(*)                                   AS runs,
+       count(DISTINCT s.change_id)                AS changes,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY (s.metrics-&gt;&gt;'cost_usd')::numeric)
+         FILTER (WHERE s.metrics ? 'cost_usd')    AS median_usd,
+       percentile_cont(0.9) WITHIN GROUP (ORDER BY (s.metrics-&gt;&gt;'cost_usd')::numeric)
+         FILTER (WHERE s.metrics ? 'cost_usd')    AS p90_usd,
+       sum((s.metrics-&gt;&gt;'cost_usd')::numeric)     AS total_usd,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM s.ended_at - s.started_at))
+         FILTER (WHERE s.ended_at IS NOT NULL AND s.outcome &lt;&gt; 'abandoned') AS p50_s,
+       percentile_cont(0.9) WITHIN GROUP (ORDER BY extract(epoch FROM s.ended_at - s.started_at))
+         FILTER (WHERE s.ended_at IS NOT NULL AND s.outcome &lt;&gt; 'abandoned') AS p90_s,
+       round(count(*)::numeric / count(DISTINCT s.change_id), 2) AS attempts_per_change,
+       max(s.attempt)                             AS highest_attempt,
+       count(*) FILTER (WHERE NOT s.metrics ? 'cost_usd') AS uncosted,
+       count(*) FILTER (WHERE s.outcome = 'abandoned')    AS abandoned,
+       count(*) FILTER (WHERE s.ended_at IS NULL)         AS open
+FROM   stage_runs s
+WHERE  s.command = '/flow'
+  AND  s.harness = 'claude-code'
+  AND  s.started_at &gt;  timestamptz '2026-11-13T13:34:13Z' - interval '30 days'
+  AND  s.started_at &lt;= timestamptz '2026-11-13T13:34:13Z'
+GROUP  BY s.stage;</pre>
+    </details>
+  </header>
+
+  <section class="stage" id="flow.kickoff"><h2>flow.kickoff</h2></section>
+
+  <section class="stage" id="flow.brainstorm"><h2>flow.brainstorm</h2></section>
+
+  <section class="stage" id="flow.design-approval"><h2>flow.design-approval</h2></section>
+
+  <section class="stage" id="flow.create-artifacts"><h2>flow.create-artifacts</h2></section>
+
+  <section class="stage" id="flow.writing-plans"><h2>flow.writing-plans</h2></section>
+
+  <section class="stage" id="flow.plan-review"><h2>flow.plan-review</h2></section>
+
+  <section class="stage" id="flow.decide"><h2>flow.decide</h2></section>
+
+  <section class="stage" id="flow.load-context"><h2>flow.load-context</h2></section>
+
+  <section class="stage" id="flow.isolate-workspace"><h2>flow.isolate-workspace</h2></section>
+
+  <section class="stage" id="flow.document-fix"><h2>flow.document-fix</h2></section>
+
+  <section class="stage" id="flow.sdd-tdd"><h2>flow.sdd-tdd</h2></section>
+
+  <section class="stage" id="flow.review-panel"><h2>flow.review-panel</h2></section>
+
+  <section class="stage" id="flow.verify"><h2>flow.verify</h2></section>
+
+  <section class="stage" id="flow.visual-verify"><h2>flow.visual-verify</h2></section>
+
+  <section class="stage" id="flow.stage-diff"><h2>flow.stage-diff</h2></section>
+
+  <section class="stage" id="flow.run-instructions"><h2>flow.run-instructions</h2></section>
+
+  <section class="stage" id="flow.write-in-progress"><h2>flow.write-in-progress</h2></section>
+
+  <section class="stage" id="flow.preflight"><h2>flow.preflight</h2></section>
+
+  <section class="stage" id="flow.unfinished-work-gate"><h2>flow.unfinished-work-gate</h2></section>
+
+  <section class="stage" id="flow.landing-question"><h2>flow.landing-question</h2></section>
+
+  <section class="stage" id="flow.preserve-sessions"><h2>flow.preserve-sessions</h2></section>
+
+  <section class="stage" id="flow.commit-two"><h2>flow.commit-two</h2></section>
+
+  <section class="stage" id="flow.self-review"><h2>flow.self-review</h2></section>
+
+  <section class="stage" id="flow.pipeline-fix"><h2>flow.pipeline-fix</h2></section>
+
+  <section class="stage" id="flow.landing-routes"><h2>flow.landing-routes</h2></section>
+
+  <section class="stage" id="flow.verify-merge"><h2>flow.verify-merge</h2></section>
+
+  <section class="stage" id="flow.cleanup"><h2>flow.cleanup</h2></section>
+
+  <section class="stage" id="flow.verify-cleanup"><h2>flow.verify-cleanup</h2></section>
+
+  <section class="stage" id="flow.write-finished"><h2>flow.write-finished</h2></section>
+
+  <section class="stage" id="flow.refresh-main-checkout"><h2>flow.refresh-main-checkout</h2></section>
+
+  <section class="stage" id="plan.session"><h2>plan.session</h2></section>
+</main>
+
+</div>
+</body>
+</html>
