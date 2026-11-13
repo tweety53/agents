@@ -25,7 +25,8 @@ import (
 // verbatim in the target at target_sha (or empty, for a scoped case creating
 // its rule file); after naming no source change, Jira key, kan-<n> key or
 // diff path; index.html byte-equal to `flow prompt-tuning render`. LEDGER.md,
-// when present, holds only well-shaped entries. An absent root is clean.
+// when present, holds only well-shaped entries: applied <sha>, rejected:
+// <reason>, and a prune check's kept or removed <sha>. An absent root is clean.
 //
 // Exit codes: 0 clean, silent; 1 one `<path>: <reason>` line per violation;
 // 2 cannot answer (no git, root outside a git checkout, usage).
@@ -54,7 +55,7 @@ var (
 	ptScope = regexp.MustCompile(`^(generic|language:([a-z0-9+#-]+)|layer:(frontend|backend)|language:([a-z0-9+#-]+)/layer:(frontend|backend))$`)
 	ptKan   = regexp.MustCompile(`(?i)\bkan-\d+\b`)
 	ptDiffH = regexp.MustCompile(`(?m)^(?:\+\+\+ b/|--- a/)(\S+)`)
-	ptEntry = regexp.MustCompile("^- \\d{4}-\\d{2}-\\d{2} · `[^`]+` · (implementer|reviewer) · `[^`]+` · .+ — .+ — (applied [0-9a-f]{7,40}|rejected: .+)$")
+	ptEntry = regexp.MustCompile("^- \\d{4}-\\d{2}-\\d{2} · `[^`]+` · (implementer|reviewer) · `[^`]+` · .+ — .+ — (applied [0-9a-f]{7,40}|rejected: .+|kept|removed [0-9a-f]{7,40})$")
 )
 
 // ptTarget is the target a valid scope maps to: a "skills/" prefix for
@@ -236,7 +237,7 @@ func ptCheckLedger(path string) []string {
 	var bad []string
 	for i, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "- ") && !ptEntry.MatchString(line) {
-			bad = append(bad, fmt.Sprintf("%s:%d: not a ledger entry — - <YYYY-MM-DD> · `<id>` · implementer|reviewer · `<target>` · <class> — <summary> — applied <sha> | rejected: <reason>", path, i+1))
+			bad = append(bad, fmt.Sprintf("%s:%d: not a ledger entry — - <YYYY-MM-DD> · `<id>` · implementer|reviewer · `<target>` · <class> — <summary> — applied <sha> | rejected: <reason> | kept | removed <sha>", path, i+1))
 		}
 	}
 	return bad

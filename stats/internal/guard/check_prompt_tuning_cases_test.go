@@ -127,6 +127,16 @@ func TestCheckPromptTuningCases(t *testing.T) {
 				"- 2026-10-25 · `x-1` · reviewer · `skills/flow/implement.md` · a class — an update — applied abc1234\n"+
 				"- 2026-10-25 · x-2 · reviewer — broken\n")
 		}, rc: 1, out: "LEDGER.md:4:"},
+		{name: "a prune check's kept and removed ledger lines pass", after: func(t *testing.T, _, root string) {
+			writeFile(t, root+"/LEDGER.md", "# Prompt-tuning ledger\n\n"+
+				"- 2026-10-25 · `x-1` · reviewer · `skills/flow/implement.md` · a class — an update — applied abc1234\n"+
+				"- 2026-11-25 · `x-1` · reviewer · `skills/flow/implement.md` · a class — an update — kept\n"+
+				"- 2026-12-25 · `x-1` · reviewer · `skills/flow/implement.md` · a class — an update — removed def5678\n")
+		}},
+		{name: "a removed ledger line with no sha is caught", after: func(t *testing.T, _, root string) {
+			writeFile(t, root+"/LEDGER.md", "# Prompt-tuning ledger\n\n"+
+				"- 2026-12-25 · `x-1` · reviewer · `skills/flow/implement.md` · a class — an update — removed\n")
+		}, rc: 1, out: "LEDGER.md:3:"},
 		{name: "a false-positive reviewer case passes", edit: func(c *prompttuning.Case) { c.Type, c.ReviewerKind = "reviewer", "false-positive" }},
 		{name: "a target_sha naming no commit is caught", edit: func(c *prompttuning.Case) {
 			c.Scope, c.Target, c.Before, c.TargetSHA = "language:kotlin", "rules/lang-kotlin.mdc", "", "0000000000000000000000000000000000000000"

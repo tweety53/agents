@@ -1,6 +1,6 @@
 # Prompt-tuning ledger
 
-Each entry records one prompt-tuning case — applied with the commit that applied it, or rejected with the reason — once its case folder is removed (`skills/flow-prompt-tuning/SKILL.md`).
+Each entry records one prompt-tuning case — applied with the commit that applied it, or rejected with the reason — once its case folder is removed, and each later prune check of an applied case — kept, or removed with the commit that deleted its lines (`skills/flow-prompt-tuning/SKILL.md`).
 
 - 2026-11-12 · `kan-1013-templates-step-3-be-review-states-admin-1` · implementer · `skills/flow/engineering-principles.md` · A status transition checks the current state in a read, then writes the new state with an update not conditioned on that state, so concurrent transitions both pass the check and the last writer wins — put a state transition's source-state check in the write itself, as a conditional update or compare-and-set — rejected: rare class, 6 of 564 Critical or Important findings in six weeks (KAN-1106)
 - 2026-11-12 · `kan-1017-templates-step-3-admin-templates-queue-create-1` · implementer · `skills/flow/engineering-principles.md` · One request path issues the same kind of read once per item of a list it already fetched, so the number of calls grows with the data instead of staying constant — keep a request path's number of reads constant in the size of its data — rejected: rare class, cannot pay back (KAN-1106)

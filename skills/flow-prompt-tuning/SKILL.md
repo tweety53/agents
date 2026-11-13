@@ -1,6 +1,6 @@
 ---
 name: flow-prompt-tuning
-description: Apply the generic implementer and reviewer prompt updates the self-review's prompt-tuning angle saved, after a replay on each case's repro data proves them; record every case in docs/prompt-tuning/LEDGER.md, remove its folder and land the result. Standalone, not a pipeline stage. Use for /flow-prompt-tuning.
+description: Apply the generic implementer and reviewer prompt updates the self-review's prompt-tuning angle saved, after a replay on each case's repro data proves them, and remove an applied update a replay no longer needs; record every case in docs/prompt-tuning/LEDGER.md, remove its folder and land the result. Standalone, not a pipeline stage. Use for /flow-prompt-tuning.
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/flow-guard check-prompt-tuning-cases:*), Bash(scripts/flow-guard project-get:*)
 license: MIT
 compatibility: Runs from the agents repository's main checkout, which stays read-only; needs the flow CLI and the Agent tool.
@@ -9,7 +9,8 @@ compatibility: Runs from the agents repository's main checkout, which stays read
 Walk the prompt-tuning cases the self-review's angle 8, `flow-prompt-tuning`, saved —
 step 2a of **Workflow** (`skills/flow-self-review/SKILL.md`) is canonical for the case folder and its fields — under
 `<agents repo>/docs/prompt-tuning/<case-id>/`, prove each proposed prompt update by a replay
-on the case's repro data, apply the updates that pass, record every case in
+on the case's repro data, apply the updates that pass, remove the applied updates a replay no
+longer needs, record every case in
 `<agents repo>/docs/prompt-tuning/LEDGER.md`, delete the case folders and land the result.
 
 **This is a standalone command, not a pipeline stage.** It takes no argument, writes no state
@@ -46,7 +47,8 @@ in a repository.
 
 ### 1. Walk
 
-List `<worktree>/docs/prompt-tuning/*/`. None: print `none pending`, remove the worktree and stop.
+List `<worktree>/docs/prompt-tuning/*/`. None: go straight to step 5a, and with no candidate there
+either print `none pending`, remove the worktree and stop.
 Run `flow-guard check-prompt-tuning-cases <agents repo>-worktrees/prompt-tuning-<date>/docs/prompt-tuning`; a case it names in a red line is reported
 by its folder and left untouched — never replayed, applied, recorded or deleted.
 
@@ -130,6 +132,31 @@ never goes into a hand-written standard such as `rules/kotlin-backend-developmen
 nor reuses its header. Then run `<agents repo>/.flow/project.md`'s `## lint` lines for the touched files; a red
 line is fixed before the next step.
 
+### 5a. Prune
+
+**A line this command applied stays only while a replay still needs it** — without this step a
+target only grows, since every run adds proven lines and none is ever proven again.
+
+The candidates are `LEDGER.md`'s `applied <sha>` entries with no later `removed` entry for the same
+case id, whose added lines — the `+` lines `git -C <worktree> show <sha> -- <target>` prints — still
+occur verbatim in the target at `<worktree>`'s HEAD. Take at most five per run, the case whose
+newest ledger entry is oldest first. A case this run applied has no ledger entry yet and is not a
+candidate.
+
+For each candidate, read the case's files from the commit before the one that removed its folder:
+`git -C <worktree> log --diff-filter=D -1 --format=%H -- <agents repo>-worktrees/prompt-tuning-<date>/docs/prompt-tuning/<case-id>/`
+names the removing commit `<rm>`, and `git -C <worktree> show <rm>^:docs/prompt-tuning/<case-id>/<file>`
+prints each file, written under the session's scratchpad. Replay the case twice as step 4 does,
+both runs carrying the target's text with those added lines removed; step 4's verdicts and judges
+apply unchanged. Two runs, because one `avoided` can be chance and a line removed wrongly brings
+its defect class back.
+
+- **Both runs `avoided`** — the target no longer needs the lines: delete them from the target in
+  `<worktree>`, one commit per case, then run the `## lint` lines as step 5 does.
+- **Anything else** — the lines stay.
+
+Each checked case gets one ledger entry in step 6, `kept` or `removed <sha>`.
+
 ### 6. Ledger and cleanup
 
 Append one entry per case to `<agents repo>/docs/prompt-tuning/LEDGER.md` and `git rm -r` its folder. Rejected
@@ -138,7 +165,12 @@ cases are recorded too, so the same case is never re-mined:
 ```markdown
 - <date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — applied <sha>
 - <date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — rejected: <reason>
+- <date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — kept
+- <date> · `<case-id>` · <type> · `<target>` · <defect class> — <one-line summary of the update> — removed <sha>
 ```
+
+The last two are step 5a's: the case's `applied` entry copied under this run's date, ending `kept`,
+or `removed <sha>` with the commit that deleted its lines.
 
 Before a folder's `git rm`, every applied case is recorded in the stats store, which feeds the
 Review dynamics view's prompt-change markers:
@@ -161,7 +193,8 @@ Then remove the worktree.
 
 ## Report
 
-One line per group: target, defect class, applied or rejected with its reason. A group that
+One line per group: target, defect class, applied or rejected with its reason. One line per
+case step 5a checked: target, defect class, kept or removed. A group that
 created a `rules/` file says the file reaches a project only once that project names it in
 `## standards`.
 
@@ -170,3 +203,4 @@ created a `rules/` file says the file reaches a project only once that project n
 - No review panel runs over the prompt edits: the replay and the `## lint` guards are the gate.
 - Never edit the main checkout.
 - Never apply an update whose group did not pass the replay.
+- Never remove an applied line on fewer than two `avoided` runs without it.
