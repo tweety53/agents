@@ -287,7 +287,7 @@ every finding the plan carries is mechanical, this session recording the one-lin
 dispatch; the `flow-planner-<effort>` definitions are the `flow-<effort>` ones plus `Agent`
 (decision `planner-carries-agent`) — **the fixer pair** the `fix` row, `opus` by default and `sonnet` only for a fix that is simple and predictable, this session recording the one-line reason with the dispatch — and **the review pair**
 the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded —
-`flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
+`flow-medium` when it recorded none, a type the role's allowed pairs do not admit standing aside for the pair they do — and every re-review after a fix on `flow-low` and `sonnet`.
 
 **Every loop dispatch is admitted and recorded mechanically.**
 `<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
@@ -340,7 +340,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `flow tasks count`, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
    review gate**. `design.md`'s decisions record instead this pass's dynamic choices: the first
    review's effort, `medium` or `low`, and the grouping of tasks into fixer dispatches. The effort is the entry `**ID:** first-review-effort`,
-   its `**Chosen:**` line naming `flow-low` or `flow-medium` — the ID `flow-guard check-loop-dispatch` parses;
+   its `**Chosen:**` line naming `flow-low` or `flow-medium`, whichever the `review-1` row's allowed pairs admit — the ID `flow-guard check-loop-dispatch` parses;
    under any other ID the guard sees no decision and wants `flow-medium`. It commits
    none of the artifacts — `<agents repo>/spectre/changes/` is gitignored — and never merges or pushes.
    A run-1 re-run never folds the loop's fix commits: the newest commit a `fixed` row names is its

@@ -133,6 +133,31 @@ func TestLoopDispatchReadsPolicyTable(t *testing.T) {
 	}
 }
 
+// TestLoopDispatchFirstReviewOffPolicy: a first-review-effort the role's
+// allowed pairs do not admit never refuses the pair they do (smoke-test-set,
+// pipeline-fix 67).
+func TestLoopDispatchFirstReviewOffPolicy(t *testing.T) {
+	t.Parallel()
+	fx := lpNew(t, lpPlanDone, lpBranch)
+	policy := strings.Replace(testPolicy, `"pipeline-fix-review-1":{"base":["opus/flow-medium","opus/flow-low"]`, `"pipeline-fix-review-1":{"base":["opus/flow-low"]`, 1)
+	if policy == testPolicy {
+		t.Fatal("the seeded pairs carry no pipeline-fix-review-1 base to rewrite")
+	}
+	wrap := t.TempDir()
+	writeExec(t, wrap+"/flow", "#!/bin/sh\n[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '"+policy+"'; exit 0; }\nexec "+filepath.Dir(fx.repo)+"/bin/flow \"$@\"\n")
+	inner := fx.env.Getenv
+	fx.env.Getenv = func(k string) string {
+		if k == "PATH" {
+			return wrap + ":" + inner(k)
+		}
+		return inner(k)
+	}
+	writeFile(t, fx.repo+"-worktrees/"+lpBranch+"/spectre/changes/"+lpBranch+"/design.md", strings.Replace(lpDesignLow, "flow-low", "flow-medium", 1))
+	if rc, out := fx.run(t, "pipeline-fix-6-review-1", "flow-low", "opus"); rc != 0 {
+		t.Fatalf("the policy's only pair against a recorded flow-medium: rc %d: %s", rc, out)
+	}
+}
+
 func TestCheckLoopDispatch(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {

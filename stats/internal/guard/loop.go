@@ -392,7 +392,8 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		if !ok {
 			return refuse(fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
 		}
-		if typ != want {
+		// The allowed pairs decide: a recorded type they do not admit never refuses one they do.
+		if typ != want && policyAllows(rows, role, want, model, "", "", false) == nil {
 			return refuse(fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
 		}
 	}
