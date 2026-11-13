@@ -348,12 +348,11 @@ test exists to catch — and the test confirmed to fail under the flip is that a
 test, not merely any test that happens to trip: the flip is what shows the fix's own test tests
 what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
 round's re-review begins.
-`flow-guard check-panel-findings-closed` refuses the panel's close while a round with a fixed Critical or Important finding has no `flow record mutation` row, the predicate integrate's unfinished-work gate applies, so the omission surfaces while the fix round is still open (kan-1039: it surfaced only at the landing gate).
+`flow-guard check-panel-findings-closed` refuses the panel's close while a round with a fixed Critical or Important finding has no `flow record mutation` row, the predicate integrate's unfinished-work gate applies, so the omission surfaces while the fix round is still open.
 
 **Every fixed Critical or Important finding leaves a tracked suite test behind** — the
 `regression-test:` line of the REPORT FILE paragraph (`skills/flow/review-panel.md`), so a
-regression of a reviewed defect is still caught once the worktree and its reproducers are gone
-(kan-1019). Where the parent fixes inline, it writes those lines to
+regression of a reviewed defect is still caught once the worktree and its reproducers are gone. Where the parent fixes inline, it writes those lines to
 `panel-fix-report-<round>.md` itself. `check-panel-findings-closed` refuses the close without them;
 a fixed Minor needs none.
 
@@ -377,7 +376,7 @@ after. `flow record dispatch begin` refuses that re-review's reviewer
 rows while the reviewed round holds a fixed Critical or Important finding and no fix-mutation row at
 the fix round. A row missed before the re-review is recorded with
 `flow record mutation -late '<reason>'`, which admits it at its own round and records the reason as
-a pass note of that round, `late mutation proof for <path>: <reason>` (kan-1047 pipeline fix).
+a pass note of that round, `late mutation proof for <path>: <reason>`.
 
 **The rendered record carries these lines in its pass-log section, one round's count after that
 round's lines, and never inside the marker block.**

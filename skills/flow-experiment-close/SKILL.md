@@ -11,7 +11,7 @@ compatibility: Requires the flow CLI and a reachable flowd.
 An experiment overrides roles' base pairs (**Allowed pairs**,
 `skills/flow-contracts/model-policy.md`) while it is open. This skill judges one from
 the figures flowd stored, closes it, and — on a positive verdict — makes its cells those roles'
-base pairs in flowd, the pairs' one source (kan-1103, decision `promote-experiment`).
+base pairs in flowd, the pairs' one source (decision `promote-experiment`).
 
 ## 1. Pick the experiment
 

@@ -106,7 +106,7 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 ```
 
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
-`planner-role`, KAN-1067). A `/flow-plan` capture runs this section too, with the differences
+`planner-role`). A `/flow-plan` capture runs this section too, with the differences
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states. Every planner dispatch is fresh and one-shot, on `subagent_type:
 flow-planner-<effort>` with `model` and effort from the **Allowed pairs** row `planner`
 (`skills/flow-contracts/model-policy.md`) — its first pair unless an open experiment overrides
@@ -173,8 +173,7 @@ return skips it, and runs **Decide**, the record sequence and the gate, as the r
 states.
 
 Run each `begin` immediately before its Agent call and its `end` once that agent returns — never
-both after it returns, which records a window of zero seconds (kan-1034: both explorer rows read
-0s).
+both after it returns, which records a window of zero seconds.
 
 No `fork` from kickoff to the plan gate: a fork copies the whole conversation and doubles the
 token spend.
@@ -209,7 +208,7 @@ the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implemen
 ### Plan review
 
 **A fresh reviewer that has seen nothing but the documents reads the plan, twice**
-(decisions `plan-review-after-artifacts`, `two-plan-reviews`, KAN-1104), in `/flow`'s creating
+(decisions `plan-review-after-artifacts`, `two-plan-reviews`), in `/flow`'s creating
 run and a `/flow-plan` capture:
 - `plan-review-1` once the first final planner returned `ARTIFACTS-WRITTEN` and
   `flow.create-artifacts` has ended;
@@ -285,8 +284,7 @@ the next commands; a conditional line prints only when its condition holds.
 **The block is the run's final message, whole — never the `Next:` lines alone.** The summary and
 the decision sit directly above `Next:` even though the gate already showed them: text printed
 beside a question is hidden where the operator sees only a turn's last message (focus mode), so
-the handoff is the one place the settled plan is guaranteed to be read (kan-941 printed only
-`Next:`).
+the handoff is the one place the settled plan is guaranteed to be read.
 
 ## Plan snapshots
 

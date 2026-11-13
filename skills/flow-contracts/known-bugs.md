@@ -21,9 +21,7 @@ tolerance-widened (**Fix determinism at the source, never by widening tolerance*
 file the change touched in the failing area to its merge-base content, re-run the failing tests,
 then restore the files: a failure that persists pre-dates the change, and one that goes away is the
 change's own. The classification decides only whose defect it is and where its fix is recorded —
-never whether it blocks. KAN-570 is the case that set the standard: kan-485 reverted its own
-calculator-area touches, saw the same failures, and so kept a pre-existing defect out of its own
-scope on evidence rather than assertion.
+never whether it blocks.
 
 **A stale snapshot baseline on the base is re-baselined, never asked.** A screenshot mismatch is a
 failure whose run produced an `-actual.png` or `-diff.png` attachment; a "waiting for stable

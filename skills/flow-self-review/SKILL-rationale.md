@@ -54,3 +54,18 @@ cruft — re-baselining can add text as well as remove it (kan-1032).
 - **Cases ride the pass's fix branch** (decision `cases-ride-fix-branch`) — rejected: a separate
   `prompt-tuning-<name>` branch, because it adds a second landing per run.
 
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### SKILL.md — 2. Read the bundle and run the eight angles
+
+- *action is `big`, reaches production (`rules/never-touch-production.mdc`) or deletes what cannot be restored* — (kan-995: "feature/cardio lacks develop's fix 98da4aad; a branch decision for the operator" was recorded `noted` and relayed as an open decision, and the operator then had the run merge the branch)
+
+### SKILL.md — 3. Fix every finding that is not `big`
+
+- *the objection as a constraint, never offered for filing in step 4* — (kan-982: the `Task-Id:` guard and the scope check were dropped as imprecise and offered for filing; the operator answered "fix them now")
+- *never left as a forward-only fix with the repair an operator's option* — (kan-995: decision `k995-rows-left` left three mis-stamped ledger rows wrong, and `flowd restamp-dispatch`, `b2555b98`, repaired them once the operator asked)
+- *and its exit code and `red:` lines are read as this verify's* — (kan-1051 self-review, F18: the suite ran twice at one HEAD, about 5 min a loop)

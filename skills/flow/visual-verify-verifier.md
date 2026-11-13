@@ -127,8 +127,7 @@ never an exit code the command did not return.
    The manifest's `identical` groups are `flow-guard check-identical-baselines`'s, whose header is canonical
    for what it compares: each names PNGs of one directory that are
    byte-identical, and the report carries one `- identical:` line per group stating why those views
-   draw the same pixels, or the defect that made them, which blocks: kan-998's pad-up and pad-down
-   baselines were one image, and only a reviewer saw it. Its exit 2 → it cannot answer, and blocks.
+   draw the same pixels, or the defect that made them, which blocks. Its exit 2 → it cannot answer, and blocks.
 10. **Compose captured frames against their mockups, if `mockups` is declared.** With a
    `<spec>.mockups` sidecar beside the capture spec, step 9's `measure` composed every pair it maps
    through `flow-guard compose-mockup-frames`, with this project's resolved `mockup frame` value as its fourth
@@ -180,7 +179,7 @@ never an exit code the command did not return.
    > beside the other frame-bound readings.
 
    **The difference panel cannot show a structural departure, so the first read of every pair
-   is the script's band pairing, never the panel.** The composite's panels are the capture left, the frame middle and the difference right, unlabelled; a radius, a stroke width, a glyph size or a colour is read from `<stem>.frame.png` and the capture PNG themselves, never off the composite (kan-1016: a stepper radius read off the composite was raised in two rounds and withdrawn). The panel is white wherever any channel
+   is the script's band pairing, never the panel.** The composite's panels are the capture left, the frame middle and the difference right, unlabelled; a radius, a stroke width, a glyph size or a colour is read from `<stem>.frame.png` and the capture PNG themselves, never off the composite. The panel is white wherever any channel
    differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
    frame's own annotations alone. A 1px rule the capture omits, a row padding it lacks, a surface fill
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
@@ -227,7 +226,7 @@ never an exit code the command did not return.
    measured twice more before the report is written: the same element on the frame at 2x, and the
    same element on the view's own rendering at the merge base — the committed baseline PNG the
    merge base carries for that spec, read out with `git show <merge-base>:<baseline png path>`
-   into a temporary file and measured like any other image. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured (kan-1016: a band's `colour` delta was put down to decision `warmup-sublines-w4b` for four rounds, and was the checkbox's size). The comparison decides which of the
+   into a temporary file and measured like any other image. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured. The comparison decides which of the
    three the departure is, every time: **present at the merge base** — pre-existing, blocking and
    fixed in this run per **the sweep** (`skills/flow-contracts/known-bugs.md`); **absent at the merge base** — this change's own defect, blocking and taking
    **The loop** (`skills/flow/verify-fix-loop.md`) per **Steps 3–13**
@@ -236,8 +235,7 @@ never an exit code the command did not return.
    view this change creates has no rendering at the merge base: every departure on it is this
    change's. **A view the merge base already draws but carries no baseline PNG for is captured at
    the merge base before any departure on it is attributed — never counted as this change's for
-   want of a baseline** (KAN-942: KAN-758's verifier counted some 39 over-tolerance band pairs as
-   its change's, every one geometry the merge base already shipped or a frame artefact). One
+   want of a baseline**. One
    capture per spec serves every departure on its views. In each repository the stack and the
    capture run from, add a detached worktree `<name>-merge-base` beside the change's own, at that
    repository's merge base (`git worktree add --detach ../<name>-merge-base <merge-base>`); copy
@@ -254,16 +252,14 @@ never an exit code the command did not return.
    A line attributing a departure as present at the merge base names its evidence beside it —
    `merge-base baseline: <merge-base sha>:<baseline png path>` or `merge-base capture: <absolute
    png path>` — and `flow-guard check-verify-report` refuses a `pre-existing` or `present at the merge
-   base` attribution that names neither (kan-1015: the kan-466 weight-tab button was attributed
-   pre-existing from the code path alone, and its baseline re-captured over the defect).
+   base` attribution that names neither.
    Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
    rule inferred from the pixels**: where the frame was drawn from HTML or CSS in the tree — beside
    the mockups or cited by `design.md` — the line names the declaration the expected layout, size or
    colour comes from (`grid-template-columns:1fr 1.3fr 1fr; height:32px`), and a value no
-   declaration states is named as read from the pixels (kan-1003: an inferred `flex: 1 1 auto`
-   cost four fix rounds against the grid the HTML declared).
+   declaration states is named as read from the pixels.
    A departure within 1dp is reported like any other, its measured value beside it: whether it
    stands is the parent's call under the Blocking paragraph of **Steps 3–13**
    (`skills/flow/visual-verify.md`), never yours.
@@ -301,7 +297,7 @@ never an exit code the command did not return.
    itself when no such citation exists, plus every frame the prompt names under `moved:` — one a
    shared fix's recapture moved (**The loop**, `skills/flow/verify-fix-loop.md`); a frame reached only by inference from another (already
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
-   still gets named, with the reason. The list also carries every frame the `<spec>.mockups` sidecar of each capture spec this change edits maps, whether or not its baseline has moved yet, and two frame ids are never read as one (kan-1016: the warm-up sheet's frame `templates-A4b`, mapped by the edited `templates.spec.ts`'s sidecar, joined the list only in round 7, once its baseline moved). **The list is the change's, never the round's**: a fix run
+   still gets named, with the reason. The list also carries every frame the `<spec>.mockups` sidecar of each capture spec this change edits maps, whether or not its baseline has moved yet, and two frame ids are never read as one. **The list is the change's, never the round's**: a fix run
    re-verifies the same list, not the views its fix touched, and the specs `capture` runs are
    chosen to reach every frame on it, never the other way round — a denominator the verifier
    derives from the specs it happened to run is the partial pass wearing a fraction. The report's
@@ -428,9 +424,8 @@ never an exit code the command did not return.
       `flow-guard measure-visual-properties --props matrix`, which finds each image's app surface — a sheet's
       top edge on a scrim frame — lists every ink run inside it paired in order, and fills every
       column below for every paired element, each region clipped to its image; every element it
-      merges or misses is added by hand (kan-1015: the band read took each scrim-dimmed frame as one
-      band, and every matrix was measured with a hand-written script), and a row it does not pair
-      takes the per-element calls. That file is the one copy, overwritten every pass — never a second copy under another name (kan-1016: each frame's matrix was committed three times under three names).
+      merges or misses is added by hand, and a row it does not pair
+      takes the per-element calls. That file is the one copy, overwritten every pass — never a second copy under another name.
    2. **Fill every column for every row from the script's own output**, one call per element:
 
       | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |
@@ -593,7 +588,7 @@ clock step 8 pins, bring the view to the motion's start, then record frames from
 trigger until the view settles — a CDP screencast (`Page.startScreencast`, each frame acknowledged
 with `Page.screencastFrameAck`) — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
 steps). Never sample with `page.screenshot`: the Chromium page this step mandates always
-carries the screencast, and sampling skips the frames it catches. **A motion that changes an element's height is recorded in a viewport tall enough to hold that element's settled height** — step 8's viewport made taller for that recording alone — since an element whose bottom edge leaves the viewport reads as no height change (kan-1008: an 816px viewport twice reported "no height animation"). Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
+carries the screencast, and sampling skips the frames it catches. **A motion that changes an element's height is recorded in a viewport tall enough to hold that element's settled height** — step 8's viewport made taller for that recording alone — since an element whose bottom edge leaves the viewport reads as no height change. Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
 id>/<nnn>-<ms>.png`, `<ms>` the frame's offset in milliseconds from the trigger — the screencast
 frame's own timestamp — read every one, and
 judge the strip frame by frame: **every frame shows the view
@@ -606,13 +601,11 @@ state. A frame that breaks one is a departure, named by its index and what it sh
 less is reported only once confirmed — by a DOM read at the next animation frame after the trigger
 (`page.evaluate` resolving inside a `requestAnimationFrame` callback, reading the departing
 element's presence or computed style) or by a second recording showing the same frame; an
-unconfirmed one is not a departure (kan-1048 self-review, 8-A: a single screencast frame showed a
-tooltip lingering after `mouseleave`, yet React flushes that discrete event before paint and a
-`requestAnimationFrame` DOM read showed no lag — the report cost a whole fix round).
+unconfirmed one is not a departure.
 **A re-record replaces the strip.** A later round's recording of a motion first deletes `<changeRoot>/visual-verification/motion/<motion
 id>/` and writes its frames there, never into a suffixed sibling such as `<changeRoot>/visual-verification/motion/<motion
 id>-r2/`, and `visual-verification.md` cites an earlier round's strip by its round number,
-never by a path (kan-995: superseded strips were 28.6 MB of a 43 MB archive).
+never by a path.
 **A difference between two triggers is judged at one sampling.** Before reporting that one
 trigger draws a frame its sibling does not — Back against the forward navigation, a gesture
 against the tap it replaces — record the sibling in the same session by the same capture method
@@ -648,7 +641,7 @@ API at its worktree-resolved URL, read the response's shape and wire names again
 drive the stated acceptance behaviour through the API and read the next response — a screenshot
 comparison is no substitute for it. With a `wire contract:` line the dispatch names no view, so
 steps 8, 9 and 10 read n/a — wire contract, no view drawn — never `done` over a capture that
-never ran (kan-1022's self-review).
+never ran.
 
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
 each of steps 4, 8–11 and the motion step a status `flow-guard check-verify-report` admits — its header
@@ -656,14 +649,12 @@ is canonical for them — and the parent runs that guard on the report before re
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
 **A departure found never shortens the pass:** every step still runs to its end in the same
-dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it
-(kan-1008: a verifier left step 10 "by choice" once it had found departures, and two remainder
-dispatches cost 19 and 10 minutes).
+dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it.
 **Step 10 is `done` only when every frame's matrix and sweeps are**: a row for every element the
 frame draws, every cell filled as step 10 states, and every sweep on each `sweeps:` and `added
 sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell left for time, context
 or a measurement the pixels could not give is step 10 undone.
-Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `flow-guard check-verify-report` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8).
+Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `flow-guard check-verify-report` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none.
 It refuses one the same way for a missing `bands:`, `seams:` or `over-tolerance:` line, an empty
 matrix cell, an n/a cell in a column that applies to its row's class and not reading
 `no mockup source`, and a sweep item reading neither `done` nor n/a — `<why it does not apply>`.

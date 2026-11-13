@@ -65,9 +65,7 @@ carried one.
 
 **The append covers every call site of what the fix replaces.** Before writing the append, grep
 every call site of the code the fix replaces and every test exercising it; the appended task's
-`**Files:**` covers each, or the task names why one stays (kan-1075 self-review, F18: task 5
-replaced `signal.NotifyContext` in `run` alone, and the panel found `regrade` and
-`TestSIGTERMCancelsARun` still on it).
+`**Files:**` covers each, or the task names why one stays.
 
 **The appended task's verification tags are evidence-checked like a seeded note's.** An appended
 task carries a `verified:`/`measured:` tag only when its evidence is in hand; an unverifiable one
@@ -131,8 +129,7 @@ before the plan snapshot below.
 
 Then take a plan snapshot of the appended plan (**Plan snapshots**, `skills/flow/brainstorm.md`),
 after the plan guards pass and before any implementer is dispatched; the change directory is still
-on disk, since cleanup runs only after the merge. **Every appended task is written unticked**: the task is ticked only once its commit passes `flow-guard check-task-commit-fields` (kan-1010: a fix
-run appended Task 3 ticked and skipped implement, panel and handoff).
+on disk, since cleanup runs only after the merge. **Every appended task is written unticked**: the task is ticked only once its commit passes `flow-guard check-task-commit-fields`.
 
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>

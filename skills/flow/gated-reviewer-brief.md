@@ -31,9 +31,7 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 > the panel's mutating slots are the one declared exception, and they work in throwaway copies the
 > parent creates, not this tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
 > `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
-> implementer inherits, and a restore you perform is a claim nobody can check: gymie KAN-635's
-> reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts,
-> and reported the tree restored.
+> implementer inherits, and a restore you perform is a claim nobody can check.
 
 > **GO CHANGES:** When a reviewed diff includes a `*.go` file, read and follow the `go-code-review` skill
 > first. A diff with no `.go` file skips this.

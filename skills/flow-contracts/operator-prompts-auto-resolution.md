@@ -53,8 +53,7 @@ cases is a stop for nothing:
   whichever of `flow.verify` and `flow.visual-verify` runs first, before any failure arrives: for
   each repository whose recorded base is a feature branch, after `git fetch origin`, a
   `git rev-list --count origin/<base>..origin/<the branch it tracks>` above 0 — develop or main
-  holding commits the base lacks — syncs the base first (KAN-1000: a stale feature/cardio base
-  cost 61 failures and about an hour). `flow-guard check-base-behind` makes that count for every worktree of the change and prints the sync commands (**Verify**, `skills/flow/verify-and-handoff.md`). Pushing the synced base is not asked (below).
+  holding commits the base lacks — syncs the base first. `flow-guard check-base-behind` makes that count for every worktree of the change and prints the sync commands (**Verify**, `skills/flow/verify-and-handoff.md`). Pushing the synced base is not asked (below).
   **Never merge the tracked branch into a change branch**: the change branch then carries the tracked branch's commits as its own, and integrate's reshape folds them into the change's squash — the base is what gets synced.
 - **A departure from the mockup:** match the mockup (`rules/design-mockups-are-specs.mdc`). An element
   the mockup does not draw stays only when the screen cannot work without it. Record that reason
@@ -69,11 +68,10 @@ cases is a stop for nothing:
 **A blocked verify never ends the turn.** The report of a blocked `flow.verify` or
 `flow.visual-verify` is the input to **The loop**, dispatched in the same turn; a handoff that
 lists the failures and stops, or ends on a "Decision for you" whose recommended option the run
-could have taken, is the stop this file exists to prevent (kan-1007: the run stopped after
-visual-verify to ask whether a requested rise could start visible).
+could have taken, is the stop this file exists to prevent.
 
 **A scope or cost question with a recommended option is never asked during integrate or the
-self-review either** (operator, kan-1038). "Fix every finding (recommended), or only the
+self-review either** (operator). "Fix every finding (recommended), or only the
 blocker?", whether to run one more fix or review round, whether a fix is worth its cost: the run
 takes the recommended option, records it as below and goes on. A question written as prose in a
 message, a final message's included, is an ask exactly as an `AskUserQuestion` call is. The
@@ -119,7 +117,7 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   the flow tooling itself: a guard, script, skill or contract of the `agents` repository that blocks
   the run — two guards that contradict, a check that refuses correct work — is fixed in an `agents`
   worktree with a test that fails without the fix, pushed to `main`, and the run continues; that push
-  is not asked (kan-1044, `rules/work-end-to-end.mdc`).
+  is not asked (`rules/work-end-to-end.mdc`).
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, deleting, and
   every Jira write — the follow-up filing and the self-review filing included — and the
   self-review's flow-eval mining.
@@ -127,5 +125,4 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   One push is not asked: creating a `--base` a repository's origin lacks, from that repository's default branch — kickoff's (`skills/flow/SKILL.md`) and integrate's `prepare` (`BASE-CREATED:`, `skills/flow/integrate.md`) — adds a branch at the default branch's own tip, overwrites nothing, and is what the operator's `--base` already asked for.
   Nor is the base sync `flow-guard check-base-behind` prints: a merge commit of the tracked branch onto the
   `--base`, pushed fast-forward — it rewrites no history and only brings the base up to what it
-  tracks (gymie KAN-1015: the run stopped mid-verify to ask it, and the operator said to answer it
-  automatically).
+  tracks.

@@ -190,9 +190,7 @@ fixed in step 3 unless it is `big`, and offered under its angle when it is. A fi
 went well, under angle 3, or an observation with nothing to fix — is reported and recorded `noted`, never offered: **only a `big`
 finding, or one whose fix step 3 dropped, is ever offered for filing**. **An observation that names
 an action the run can take is a fixable finding, never `noted`**, unless the action is `big`, reaches production
-(`rules/never-touch-production.mdc`) or deletes what cannot be restored (kan-995: "feature/cardio
-lacks develop's fix 98da4aad; a branch decision for the operator" was recorded `noted` and relayed
-as an open decision, and the operator then had the run merge the branch). **The pass covers
+(`rules/never-touch-production.mdc`) or deletes what cannot be restored. **The pass covers
 the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
 config, guards — and nothing else.** A finding about the project's own product code is out of
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
@@ -261,19 +259,15 @@ constraint: the planner designs within it, measures the result against the histo
 plans the fix. A finding leaves step 3 unfixed only when it is `big`, or disproved — the planner
 shows, with evidence, that the defect it names does not exist. A planner report that drops a
 finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a
-constraint, never offered for filing in step 4 (kan-982: the `Task-Id:` guard and the scope check
-were dropped as imprecise and offered for filing; the operator answered "fix them now").
+constraint, never offered for filing in step 4.
 **A fix repairs what its defect already wrote wrong** — a store row, a record or a file the defect
 left corrupted is repaired in the same plan, a small command added where none exists, never left
-as a forward-only fix with the repair an operator's option (kan-995: decision `k995-rows-left`
-left three mis-stamped ledger rows wrong, and `flowd restamp-dispatch`, `b2555b98`, repaired them
-once the operator asked).
+as a forward-only fix with the repair an operator's option.
 A finding a re-plan
 did not solve — the same finding back on the same evidence — never leaves the loop: the next re-plan, key
 `self-review-<name>-plan-<n>`, stays on the planner pair and changes approach under **Fewest operator actions**
 (`skills/flow-contracts/pipeline.md`) — never a stop and never an ask. Every planning dispatch runs on
-`opus` at effort `low` or `medium` only: no planner escalates to `flow-planner-high`, and
-`flow-planner-xhigh` is defined for later and no step dispatches it yet. **This session plans,
+`opus` at effort `low` or `medium` only: no planner here escalates to `flow-planner-high` or `flow-planner-xhigh`. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE
 paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) and the TOOLS, FOREGROUND BUILDS and
@@ -291,7 +285,7 @@ every re-review.
 **The planner pair** is the `plan` row — `flow-planner-medium` by default, `flow-planner-low` when
 every finding the plan carries is mechanical, this session recording the one-line reason with the
 dispatch; the `flow-planner-<effort>` definitions are the `flow-<effort>` ones plus `Agent`
-(decision `planner-carries-agent`, kan-1033) — **the fixer pair** the `fix` row, `opus` by default and `sonnet` only for a fix that is simple and predictable, this session recording the one-line reason with the dispatch — and **the review pair**
+(decision `planner-carries-agent`) — **the fixer pair** the `fix` row, `opus` by default and `sonnet` only for a fix that is simple and predictable, this session recording the one-line reason with the dispatch — and **the review pair**
 the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded —
 `flow-medium` when it recorded none — and every re-review after a fix on `flow-low` and `sonnet`.
 
@@ -397,7 +391,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    On a `self-review-<name>` branch whose route is merge and push, that separate verify is not run:
    step 5's `<agents repo>/scripts/flow-guard pipeline-fix land <fix worktree> > <sr-dir>/verify-<v>.log 2>&1` runs the same lint
    lines and tests on the rebased HEAD before it pushes, and its exit code and `red:` lines are read
-   as this verify's (kan-1051 self-review, F18: the suite ran twice at one HEAD, about 5 min a loop).
+   as this verify's.
    A red line is fixed by a fresh
    dispatch of step 3, key
    `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`; then step 2, then this step's lint lines and tests again, `<v>` plus one. A red branch never lands, and a

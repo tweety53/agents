@@ -26,7 +26,7 @@ project's resolved `## worktree setup` command once before its implementer dispa
 later ready group queues in plan order and launches, into its own throwaway worktree by the same
 call, as soon as one of the two in-flight groups is picked — the cap bounds dispatches in
 flight, never how many groups may be ready at once. Exit 2 means a step failed, named on stderr, and
-nothing is dispatched into that copy. A group never spans two repositories: `flow-guard plan-dispatch-groups` keeps tasks under different `## <repository>` headings — a one-word heading naming the repository — in different groups, so each group's worktree is its repository's (kan-1107 self-review, F4).
+nothing is dispatched into that copy. A group never spans two repositories: `flow-guard plan-dispatch-groups` keeps tasks under different `## <repository>` headings — a one-word heading naming the repository — in different groups, so each group's worktree is its repository's.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its wave is picked. The same

@@ -36,8 +36,7 @@ explain. A number that a line **reproduces** rather than **asserts** needs no ta
 - **A number inside a matched pair of double quotes is a quotation.** Straight (`"`) and curly
   (`“ ”`) both count, and they are the **whole** delimiter set.
 - **A code span is not a delimiter.** A backtick is an ordinary character here, so a number written
-  `` `85 lines` `` is an ordinary unattributed claim and is reported. See **Why the delimiters are double quotes only**
-  (`plan-provenance-guard-rationale.md`).
+  `` `85 lines` `` is an ordinary unattributed claim and is reported.
 - **Single quotes and apostrophes are not delimiters.** Prose apostrophes are unpaired by nature,
   so admitting them would make pairing meaningless on most lines this repository writes.
 - **A backslash-escaped delimiter is not a delimiter, and its line is exempted from nothing.**
@@ -70,10 +69,6 @@ offending character is skipped". The cost is a loud false positive, fixable by r
 balancing the delimiter; the alternative is a silent false negative that nothing surfaces. Counting
 backslashes matters: an odd run escapes what follows, an even run does not. Reword or tag; do not
 reach for a suppression marker, and do not weaken the guard.
-
-See **Why the delimiters are double quotes only**, **The class-wide veto**, **The escape veto** and
-**The angle-bracket veto** (`skills/flow-contracts/plan-provenance-guard-rationale.md`) for the
-failures each rule settles and what they cost, measured.
 
 ## What the guard does not do
 

@@ -91,8 +91,7 @@ scripts/flow-guard unchanged mods/flow-task-list/ || claude plugin test mods/flo
 The four suites run at once, so each Go suite runs on a third of the cores, rounded up —
 `GOMAXPROCS` bounds the go command's build parallelism, its default `-p`, and each test binary's
 threads and `-parallel` — beside the SPA's two worker threads (`stats/web/vite.config.ts`), so no
-suite starves another (kan-1052 self-review, F5: a 235 ms vitest test passed its 5 s timeout while
-both `-race` suites took every core).
+suite starves another.
 
 Each suite runs only when the branch changed, since its merge-base on `origin/main`, a path it
 reads (`scripts/flow-guard unchanged`): a change to `docs/` or `spectre/` alone runs no suite, and one to
@@ -114,8 +113,7 @@ The `guard-tests` suite is `go test` over `stats/internal/guard/` — every guar
 picked up with no edit here; the tests that exec a guard build `flow-guard` once per package run
 into a temp `FLOW_GUARD_CACHE_DIR`, never the operator's cache. The package's `TestMain` fails the run when it leaves the
 repository's `git status` changed — a test or reproducer writing into the checkout. The `stats-go` line excludes
-`internal/guard`, which `guard-tests` runs under `-race`, so the package runs once per verify
-(kan-1038). A new `check-*` guard lands with its Go test in the same change — plans declare it and
+`internal/guard`, which `guard-tests` runs under `-race`, so the package runs once per verify. A new `check-*` guard lands with its Go test in the same change — plans declare it and
 review panels look for it, and `flow-guard check-guard-calls`'s rule C fails `## lint` while it is
 missing.
 
@@ -201,7 +199,7 @@ in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
 listing every sentence its tasks add or reword, with the plan**; it lives on disk only, in the
 gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
-review panel (kan-1027's F1 and F8). `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone.
+review panel. `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone.
 
 **`flow-guard check-workspace-isolation` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
@@ -379,8 +377,7 @@ reused stack pays the restart. It then requires `skills/flow-contracts/model-pol
 that file does, so without it a reused stack would render the Experiments view from the old
 policy. It last compares `make go-sources-hash` with the hash `make
 ui-test-up` recorded in `/tmp/flow-uitest-go.sha256`, since neither `index.html` nor the policy
-changes when a Go source or the seed does, so a stack built before a Go-side fix reads stale
-(kan-1053 self-review, F1).
+changes when a Go source or the seed does, so a stack built before a Go-side fix reads stale.
 
 **`capture` and `verify` check the stack first.** Each opens on `flow-guard check-dev-stack-fresh`, the declared `fingerprint` run, and restarts the disposable UI-test stack with `make ui-test-up` when it is stale, so an implementer's or fixer's capture never reads a pre-fix build as a failure; `make ui-test-up` touches only that stack, never the `flowd` on 4173.
 

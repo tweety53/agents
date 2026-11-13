@@ -366,3 +366,13 @@ need six rows to say what two columns already say.
 The label union exists to stop an issue holding a second change's work from being invisible to a
 label filter, so a union that silently failed produces exactly the invisibility the rule was written
 to prevent — and reporting the join as clean is what would make it silent.
+
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### jira-integration.md — Resolution (how `jiraIssue` is decided)
+
+- *a stop: the run continues into the In Progress transition and planning* — (kan-1040: a run filed the issue and ended its turn)

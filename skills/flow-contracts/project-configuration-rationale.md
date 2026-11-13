@@ -213,3 +213,12 @@ anything erroring. So the split is written down rather than left to be inferred 
 run — a reader who assumed the whole of this section were checked would trust a green run further
 than it goes.
 
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### project-configuration.md — Project configuration
+
+- *its header is canonical for the pathspec. Absent means nothing is excluded* — (kan-1012: vendored `handoff_*` directories were a third of `final-review.diff`)

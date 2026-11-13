@@ -33,9 +33,7 @@ PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH flow-guard integrate-chang
 ```
 
 The installed script and CLI predate the change, and the script builds its guards from its own
-checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH` — kan-1073's
-installed `commit` failed on the branch's planning commit, and its installed `flow` had no
-`change` command.
+checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH`.
 
 ```bash
 flow-guard integrate-change prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
@@ -158,7 +156,7 @@ and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the bra
 
 **`STOP: narrative`** → an `In-run pipeline fix:` line in the narrative is off the format **Pipeline defects found mid-run** fixes for it (`skills/flow-contracts/pipeline.md`): rewrite that line to that format and re-run `commit`.
 
-A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` whose sha no `In-run pipeline fix:` line names has that line appended to `narrative.md` by `commit` itself, from the row's ref, note and blast radius, and printed as `narrative: appended <the line>` (kan-1039: a fix the planning session landed had no narrative to be recorded in). **`STOP: narrative`** stops on such a row only when it carries no note or no blast radius: append that line by hand, in that format, and re-run `commit`.
+A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` whose sha no `In-run pipeline fix:` line names has that line appended to `narrative.md` by `commit` itself, from the row's ref, note and blast radius, and printed as `narrative: appended <the line>`. **`STOP: narrative`** stops on such a row only when it carries no note or no blast radius: append that line by hand, in that format, and re-run `commit`.
 
 **`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`flow-guard check-narrative-runs`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
 

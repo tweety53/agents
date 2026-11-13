@@ -335,3 +335,13 @@ When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
 the other checks — check 6 among them, which is what makes an undeclared `## stop` key survivable:
 a project that declares nothing to stop is still checked for a process running from its worktree.
+
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### finish-contract-run1.md — Run 1 — the branch is not merged
+
+- *another branch's, and the reset would fold it under the change's subject* — (kan-941 folded `develop`'s and `main`'s commits that way)

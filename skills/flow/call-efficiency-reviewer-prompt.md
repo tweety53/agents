@@ -12,14 +12,14 @@ The panel's `call-efficiency` slot, one of the two roles of the always-on `test-
     For every read or effect the diff adds or changes, walk it through each of these lenses
     and report only where the diff's actual code costs a call it does not need:
 
-    - **Second caller** (KAN-924 F1, F2, F3, F7). Who else in the codebase already reads or
+    - **Second caller**. Who else in the codebase already reads or
       causes the same thing on the same user action — a prefetch and a screen both loading
       it, two components each fetching on mount, a retry racing the original? Grep for the
       endpoint, query or repository method to find them.
-    - **Repeated within one request** (KAN-924 F11, F12, F14). Is the same row, entity or
+    - **Repeated within one request**. Is the same row, entity or
       query loaded twice in one request or one screen load — an auth filter and a handler
       both loading the user, a guard query run twice?
-    - **Per item of a list** (KAN-924 F9, F13). Does a list endpoint or loop cost a query or
+    - **Per item of a list**. Does a list endpoint or loop cost a query or
       call per row — a lazy relation touched per row, a per-owner query in a loop, one call
       per id where a batch read exists?
     - **Unstable trigger.** Is a load keyed on a value that starts unset and settles, so it

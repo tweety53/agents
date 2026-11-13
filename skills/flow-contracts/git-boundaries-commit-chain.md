@@ -7,8 +7,7 @@ is canonical for every other git boundary.
 
 **The commit is guarded, and an empty one is skipped rather than failed.** The commit is
 preceded by a staged-changes test, and the whole sequence is one `&&` chain, run as a single
-command. See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale.md`) for the ordinary
-cases this guards against and why it is a chain rather than `set -e`.
+command.
 
 ```bash
 git -C <abs-worktree> add -A -- . \
@@ -27,8 +26,7 @@ gitignored, so `add -A` stages nothing under it; `flow-guard commit-split` refus
 path, a worktree where it is not ignored.
 
 **A skipped commit is reported, and a FAILED commit — one a hook rejects — is a git failure: report
-git's own output and stop.** See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale.md`)
-for what an unguarded sequence would do instead.
+git's own output and stop.**
 
 **A planning path that is a tracked symlink stops the run, and is never worked around.** When
 `<project>/spectre/changes/` is a symlink — or `<project>/spectre/` is, putting it behind one — the

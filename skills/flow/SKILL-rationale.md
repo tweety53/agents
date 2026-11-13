@@ -1131,3 +1131,232 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
   retyped command and nothing else.
 - **Kept as stops:** asks with no recommended option, outward-facing or irreversible actions, and
   causes out of the run's reach.
+
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### review-panel.md — Bundled dispatch
+
+- *MUTATION ENTRY CONTEXT paragraph and tests stay typed beside the rendered path* — (kan-1029: an unrendered mutation pass, bundled with `failure-modes`, never ran)
+- *a slot that answers without reading its brief still owes its file* — (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report)
+- *slot that finished early is never stamped with the round's last finish* — (kan-1019: two slots of one round both read 15m31s)
+- *for call-site text a fix leaves unchanged, makes the parent re-author it* — (kan-1022's F7 grepped `catalog.byKeys(keys)`)
+
+### review-panel.md — No forking, and a wall-clock ceiling on every slot
+
+- *gets no further wait and takes the breach path below at once* — (kan-1025: with no named wake-up, a breach was caught at about three times the ceiling)
+
+### review-panel.md — The mutation-testing brief
+
+- *exits non-zero, and `flow-guard run-reproducer` refuses one with no `set -e` line* — (kan-1048 self-review, 1-D: four of seven reproducers carried no landing check)
+- *a fixed-string replacement, never through shell quoting nested inside another quoted string* — (kan-1047: an EXIT trap restoring a relative path after `cd stats` left a live mutant, and nested single quotes in a `sed` never applied the edit)
+- *every other file it writes lives in its own `mktemp -d` directory* — (kan-1051 self-review, F5: a test file a reproducer wrote into `<agents repo>/stats/internal/harvest/` failed a concurrent guard-test run)
+- *copy it was authored in, which is gone once the dispatch closes* — (kan-1022's F8 pointed at that copy and demonstrated nothing)
+- *under a new name has to be able to kill the mutant* — (kan-1032: `-run TestLoopLandingAdmitsPromptTuningOnly` never selected the killing `TestLoopLandingPromptTuningAdmissionBounds`)
+- *so a fix's new test under that prefix still kills the mutant* — (kan-1025: the guard package's 332 tests ran 165 s idle and about 455 s contended, the slot ran 55 minutes, and the parent narrowed the reproducer to one test's name)
+- *result never sees a mutated file a test reads through a subprocess* — (kan-1039: the slot discarded a whole cached sweep whose survivals were false)
+- *starting another while an earlier one, a backgrounded one included, still runs* — (kan-1083 self-review, F15: round 2 lost 24m23s to a concurrent Gradle run in the copy, round 3 timed out at 25m27s after `--rerun-tasks` with no mutant run)
+- *`unproven (journal lock held by <pid from the message>)`, never skipped silently* — (kan-1086 self-review, F12: a mutation run waited on `journal-1.lock` held by another run's daemon for up to ~35 minutes)
+- *or `git diff <base> -- <path>`, never a checkout of your own* — (kan-1084 self-review, F3: a mutation slot's detached worktree outlived its dispatch and was removed by hand)
+
+### review-panel.md — Recording findings, and the record's format
+
+- *the script there yourself from the demonstration the slot's final message gives* — (kan-1034: F7's mutation reproducer was lost with its throwaway copy)
+
+### review-panel.md — Panel re-runs
+
+- *or 2, so a round closed without the guard never reaches integrate* — (kan-1017: rounds 2–7 closed unguarded, and nine findings went unrecorded)
+
+### implement.md — Dispatch sites — the parent's closed list
+
+- *the parent's context, and `hooks/enforce-agent-baseline.py` denies a fork in a flow session* — (KAN-1000: a parent forked itself to run a self-review loop, dragging about 300k tokens of uncached context into a dispatch that needed a change list and file paths)
+- *in a flow run, a dispatch whose description opens any other way* — (kan-1026: launches described `Round-11 primary review` left their rows to time pairing, which stamped two with another dispatch's agent)
+
+### implement.md — Inline — the parent implements
+
+- *each dirty path — work already under way when its row begins* — (kan-920: task 5's row began after its edit and recorded 7 seconds)
+- *before the row's begin, a begin recorded after the work it opens* — (kan-1003: tasks 10–22's rows opened after their commits, read 3–53 s and recorded no commit)
+
+### implement.md — 1. Load context and validate the plan
+
+- *again. Exit 2 → name its stderr in the handoff and continue* — (kan-1015: feature/templates sat 21 commits behind develop through every task, and the base sync at verify exposed a Flyway clash only after implement)
+- *or fix — once the plan refresh above has named what moved* — (kan-1032: the base moved 13 commits during planning, and the overlap surfaced only at the review panel's base sync, after every task)
+
+### implement.md — 4. Execute (SDD + TDD)
+
+- *either flag beside it — a hand-written instant there is a guess* — (kan-1003: `-started-at $(date -u -v-45M …)`)
+- *is what lets Inline verify (`skills/flow/verify-and-handoff.md`) skip what no later commit touched* — (kan-1084 self-review, F1: the frontend's `## test` list first ran at `flow.verify`, after three panel rounds had reviewed that tree)
+- *verdict and the suite's arrive together rather than one after the other* — (kan-920: the panel waited six and a half minutes for a suite it did not read)
+- *`mutation+failure-modes` dispatch is begun and launched only once the suite has exited* — (kan-1039: the guard package hit `go test`'s 10-minute timeout under the mutation slot's runs, and passed alone in 332 s)
+- *each numeric claim its `measured:` comment or word it without a count* — (kan-1020: a bare count in a Correction was refused only at verify)
+- *first row's. So the newest row's `inputs` count the plan that ran* — (kan-1028: Task 6, added mid-run, left the only row at `tasks=5 files=20` against `tasks=6 files=23`)
+- *dispatch's `verify`, and the next bracket's snapshot is taken after the edit* — (kan-1104 self-review, F4: the parent's own mid-run edits to `design.md` and `tasks.md` landed between a snapshot and its `verify`, and the guard stopped the run)
+- *blocked, a human gate, or a question only the operator can settle* — (gymie KAN-1015: the parent ticked Tasks 15–19 and ended its turn with "the review panel is next")
+
+### brainstorm-planner.md — The checklist
+
+- *and chart size of the sibling views — never a standalone restyle* — (kan-1057: a hard-coded dark, centered page did not match the existing pages)
+- *the capture's frame; a note to the operator goes in the message* — (kan-1047: a caption over a JPEG of the live page never paired with a capture)
+- *, so integrate never stops on a criterion the plan already overruled* — (kan-1003: decision `lands-on-develop` left "Branch `feature/one-block` in both repos, <!-- citations-guard:allow --> never develop" standing, and integrate stopped and asked again)
+
+### brainstorm-planner.md — Explore and design agents
+
+- *row is never back-filled with instants not read from its agent's transcript* — (kan-1075 self-review, F1: a `begin` refused for a missing `-model`, its error piped through `tail`, left both Explore agents unrecorded, and their back-filled rows began before their planner did)
+
+### brainstorm-planner.md — D. Basic Workflow #3 — Writing plans
+
+- *runs a package the machine lacks: the external code auto mode denies* — (kan-1079 self-review, F3: a diagram render step was denied and the diagrams shipped unrendered)
+- *service, a scratch copy of the record — named in the section* — (kan-1019: a check deferred to integrate was never run)
+- *`measured:` per Plan provenance (`skills/flow-contracts/plan-provenance.md`), never left `unverified:` for `flow.verify` to find* — (kan-1075 self-review, F3: three `unverified:` inputs failed one at a time at verify and cost 37 minutes)
+- *over is tagged `unverified:flow-guard run-verify-list lint on the applied copy`, never `verified:`* — (kan-1064 self-review: task 2's prose diff, tagged `verified:` after a scratch apply, failed `check-installed-citations` and `check-guard-symlinks` at implementation)
+- *its accepting ones, and the tag names each rejecting input it ran* — (kan-1075 self-review, F6: a `verified:` regex was run on four accepting lines and on none of the empty reason its step promised to refuse)
+- *resolving; cite a path on the default branch and the ticket instead* — (kan-1034: task 2's vendored `UPSTREAM.md` named the task 1 commit, unreachable once the branch was reshaped)
+- *a decision gives the parent is a tracked line, never prose alone* — (kan-1079 self-review, F1: a chore commit and a clutter deletion two decisions assigned outside every task were never done)
+- *sweep — is pinned by a test some task names in `Tests:`* — (kan-1075 self-review, F6: decisions `judge-on-last-trial` and `judge-deadline` named no test, and the panel found both behaviours untested)
+- *guard and stage the paragraph cites resolves in what that destination ships* — (kan-1034: flow-only paragraphs classed generic moved into the vendored `skills/spectre-planning/SKILL.md`, and a fix round moved about 230 lines back)
+- *The loop (`skills/flow/verify-fix-loop.md`) states for a fix round, applied at plan time* — (kan-1007: a plan-time capture was judged by eye)
+
+### visual-verify-verifier.md — Visual verification — the verifier's steps
+
+- *read from `<stem>.frame.png` and the capture PNG themselves, never off the composite* — (kan-1016: a stepper radius read off the composite was raised in two rounds and withdrawn)
+- *other delta on the same band or element is unexplained until measured* — (kan-1016: a band's `colour` delta was put down to decision `warmup-sublines-w4b` for four rounds, and was the checkbox's size)
+- *attributed — never counted as this change's for want of a baseline* — (KAN-942: KAN-758's verifier counted some 39 over-tolerance band pairs as its change's, every one geometry the merge base already shipped or a frame artefact)
+- *a `pre-existing` or `present at the merge base` attribution that names neither* — (kan-1015: the kan-466 weight-tab button was attributed pre-existing from the code path alone, and its baseline re-captured over the defect)
+- *a value no declaration states is named as read from the pixels* — (kan-1003: an inferred `flex: 1 1 auto` cost four fix rounds against the grid the HTML declared)
+- *has moved yet, and two frame ids are never read as one* — (kan-1016: the warm-up sheet's frame `templates-A4b`, mapped by the edited `templates.spec.ts`'s sidecar, joined the list only in round 7, once its baseline moved)
+- *its image; every element it merges or misses is added by hand* — (kan-1015: the band read took each scrim-dimmed frame as one band, and every matrix was measured with a hand-written script)
+- *copy, overwritten every pass — never a second copy under another name* — (kan-1016: each frame's matrix was committed three times under three names)
+- *element whose bottom edge leaves the viewport reads as no height change* — (kan-1008: an 816px viewport twice reported "no height animation")
+- *recording showing the same frame; an unconfirmed one is not a departure* — (kan-1048 self-review, 8-A: a single screencast frame showed a tooltip lingering after `mouseleave`, yet React flushes that discrete event before paint and a `requestAnimationFrame` DOM read showed no lag — the report cost a whole fix round)
+- *an earlier round's strip by its round number, never by a path* — (kan-995: superseded strips were 28.6 MB of a 43 MB archive)
+- *re-verify finishing what this one left is no reason to leave it* — (kan-1008: a verifier left step 10 "by choice" once it had found departures, and two remainder dispatches cost 19 and 10 minutes)
+- *frame with a `- <frame id>: <composite path> diff=` line has none* — (kan-1016: one line covered nine frames, and the warm-up sheet's frame had no matrix until round 8)
+
+### verify-and-handoff.md — Verify
+
+- *mark. Exit 2 → name its stderr in the handoff and continue* — (kan-1007: a stale `--base` was papered over by merging develop into the change branches, and integrate's reshape folded KAN-1010 into the squash)
+
+### verify-and-handoff.md — Inline verify
+
+- *can drop a spec, and each chunk pays the suite's start-up again* — (kan-932's 78-spec suite, ~14 minutes, ran in two halves)
+
+### verify-and-handoff.md — Live check
+
+- *still prove the claim — and widens only once that run passes* — (kan-1075 self-review, F3: `--parallel 2` exhausted the Docker VM's memory and only `--parallel 1` ran)
+- *tool's completion notice — never a hand-built `nohup` and a polling loop* — (kan-1075 self-review, F7: seven polls of a fixed `/tmp/live.exit` path, each at a 270k-token context)
+
+### verify-and-handoff.md — Close the stage
+
+- *the canonical worktree, or correct the input it names, and end again* — (kan-1008: the stage end checked nothing, the live check first ran at integrate, and its defect landed after the panel; kan-1029: a stage end with no chained check passed)
+
+### review-panel-fix-round.md — The fix round mutation-proves what it changed
+
+- *applies, so the omission surfaces while the fix round is still open* — (kan-1039: it surfaced only at the landing gate)
+
+### visual-verify.md — The verifier dispatch
+
+- *row's `end`, which takes `-diff-base` too, never by back-filling a second row* — (kan-1008: an agentless `-heads` row carried the correction)
+- *no row is recorded for a sibling no verifier was dispatched to* — (kan-983's `visual-verify-2-gymie-frontend`)
+
+### visual-verify.md — Steps 3–13
+
+- *`design.md`, reading `no mockup source` while `design.md` cites a source that exists* — (kan-1017: every verifier left 7 of 11 matrix columns n/a)
+- *it to the remote — no hand push is printed for it* — (kan-1026: the operator was told to push a worktree integrate had already pushed)
+- *different values (names, counts, dates), never for an element the seed hides* — (gymie KAN-1015: A1's Group session row, hidden because the seed had no grant)
+
+### brainstorm.md — Run brainstorming and planning through the planner role
+
+- *never both after it returns, which records a window of zero seconds* — (kan-1034: both explorer rows read 0s)
+
+### brainstorm.md — Plan ready
+
+- *is the one place the settled plan is guaranteed to be read* — (kan-941 printed only `Next:`)
+
+### integrate.md — 3. Commit the staged work
+
+- *ref, note and blast radius, and printed as `narrative: appended <the line>`* — (kan-1039: a fix the planning session landed had no narrative to be recorded in)
+
+### implementer-brief.md — Implementer brief
+
+- *this task's paths unstaged: report the lines it printed and commit nothing* — (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed)
+- *change's own worktrees and branches, so one you create outlives the run* — (kan-960 left a `kan-960-measure` worktree and branch in `gymie-playwright`)
+
+### verify-fix-loop.md — The loop
+
+- *an `In-run fix` task with none and two naming the same opener* — (kan-1003: rounds 6–13 transcribed two verifier reports, one task per defect)
+- *first, so the round's next `flow stage begin` supersedes no open run* — (kan-1016: `flow.visual-verify` attempts 1–9 and 11 closed `superseded`)
+- *refuses a panel key while `tasks.md` holds an unticked task* — (kan-1007: panel round 4 began 16 seconds after task 8's inline commit, before its close)
+- *names each such test beside the departure's probe, never the probe alone* — (kan-1023: panel rounds 3, 5, 7 and 9 each raised an Important the round's own fix had introduced)
+- *leftover is named with its cause, and report every view's measured numbers* — (KAN-1000: rounds 2–5 each found a new 1–3px offset the previous fix had judged by eye, 45–70 minutes a round)
+- *or named with its cause, never reported clean because it is small* — (kan-1007: a fix round called a first-try 1dp offset clean)
+- *is fixed in the same task and folded into its one commit* — (kan-1015: Tasks 21–24 closed on desktop geometry tests, and each departure surfaced only at the next verifier)
+- *(Playwright `--repeat-each 5 --workers 1`), beside the capture spec's own exit 0* — (kan-1044 self-review A8-a: Tasks 7 and 8 closed green on the pinned-clock capture, and Task 9 on one running-clock pass against a four-in-five failure rate, three extra visual-verify rounds following)
+- *task's PNGs — so the zip never trails the baselines it archives* — (kan-1003: two rounds left it stale)
+- *— `completed` when clean, `stopped` when a leftover opens the next round* — (kan-1007: a mockups-only round re-ran the whole suite, 18m28s)
+- *`-full` run follows only a clean scoped re-run, never another round's fix* — (KAN-1000: three rounds in a row re-ran unscoped)
+
+### document-fix.md — Documenting a fix, before implementing it
+
+- *appended task's `Files:` covers each, or the task names why one stays* — (kan-1075 self-review, F18: task 5 replaced `signal.NotifyContext` in `run` alone, and the panel found `regrade` and `TestSIGTERMCancelsARun` still on it)
+- *unticked: the task is ticked only once its commit passes `flow-guard check-task-commit-fields`* — (kan-1010: a fix run appended Task 3 ticked and skipped implement, panel and handoff)
+
+### unfinished-work-gate.md — A verdict the operator calls structural
+
+- *satellite's `-C` names a project holding none, and the store refuses it* — (kan-941: "dispatch not found" for both satellites)
+- *names each verify failure it flags by the `<spec>:<line>` the verdict printed* — (kan-1010: `screenshots.spec.ts:52` was flagged three times, each flag on that run's newest row alone)
+- *verdict, so the flag would land on `check-unfinished-work`'s newest row, a `CLEAR`* — (kan-1003: verdict 646)
+
+### review-panel.md — Recording findings, and the record's format
+
+- *out — never a shell loop of single `flow record finding` calls* — whose quoting of an optional flag cost kan-918's run a retry
+
+### implement.md — Dispatch sites — the parent's closed list
+
+- *A first word off the Key shape column above is another way* — kan-1029's `verify-fix-1` and `verify` launches recorded no row
+
+### brainstorm-planner.md — D. Basic Workflow #3 — Writing plans
+
+- *list, and the plan carries the task that updates every hit there* — kan-998's sweep, scoped to its own paths, missed the labels gymie-playwright drove, and the regression suite failed 83 tests on them
+
+### visual-verify-verifier.md — Visual verification — the verifier's steps
+
+- *pixels, or the defect that made them, which blocks. Its exit 2* — kan-998's pad-up and pad-down baselines were one image, and only a reviewer saw it
+
+### verify-and-handoff.md — Live check
+
+- *never while either still runs — with the parent's own Bash calls:* — kan-918's live check, run beside the polled groups, wrote `live-verification.md` into the tree the guard-test runner then watched, failing its watched-tree check and costing a 272-second re-run
+
+### verify-and-handoff.md — Live check
+
+- *dropped, and the `## Report` line names the proxy. The verifier row's* — kan-576's waived V34 DOWN-block step, run by a reviewer on a scratch database, caught a rollback that would have kept every `WORKOUTS: READ` grant as a full one
+
+### visual-verify.md — Steps 3–13
+
+- *adds the worktree to the set, and runs `prepare` again. The recipe's* — kan-983's first verifier was dispatched without it and blocked on the missing checkout, ~4.45M tokens spent for nothing
+
+### visual-verify.md — Steps 3–13
+
+- *`<base>`'s build, never a main checkout on the default branch. `flow-guard check-visual-preflight`* — kan-1022's stack served the `develop` frontend to a change based on feature/templates, and 28 specs failed on it
+
+### visual-verify.md — Steps 3–13
+
+- *frame the mockups root does not hold, a failing check. A guard's* — kan-998's stale lines surfaced only at compose, after a 13-minute capture
+
+### integrate.md — Deciding which run this is
+
+- *guards from its own checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH`* — kan-1073's installed `commit` failed on the branch's planning commit, and its installed `flow` had no `change` command
+
+### review-panel-late-fix.md — The small append
+
+- *the small append drops is the second lens and the higher effort* — which KAN-930 spent on six append rounds that raised Minors at most
+
+### gated-reviewer-brief.md — Gated reviewer brief
+
+- *inherits, and a restore you perform is a claim nobody can check* — gymie KAN-635's reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts, and reported the tree restored
+
+### visual-verify.md — The verifier dispatch
+
+- *Report every departure you see in this one pass.* — kan-1009: the paragraph priced a rejected report as one more dispatch, and a verifier handed back with step 10 undone on that reading; its remainder ran 9m34s.

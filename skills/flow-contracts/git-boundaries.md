@@ -106,22 +106,20 @@ denies a typed push of HEAD to `spectre/<name>` while it lists a commit origin's
 and `flow-guard close-task` refuses (exit 1, nothing ticked or pushed) on the same range per worktree
 before its push. A listed HEAD takes the trailer through `git commit --amend`, an earlier commit
 through a reword; the push or the close is then made again. A commit already on origin is not
-judged there — run 1's unfinished-work gate lists it and handles `UNTASKED` (kan-941 pushed four
-such commits before either check existed).
+judged there — run 1's unfinished-work gate lists it and handles `UNTASKED`.
 
 **A commit and its push in one command are judged together.** The push check above runs before
 the command does, so it cannot see a commit the same command makes first:
 `hooks/protect-main-checkout.py` therefore denies a command that commits and pushes a `spectre/` <!-- citations-guard:allow -->
 branch when that commit's own `-m` text carries neither trailer and no `chore` subject, and its
-pathspec is not limited to `<project>/<spec-root>/changes/` (kan-1003: the design handoff 0497d943 was
-committed and pushed in one command, and run 1's gate listed it).
+pathspec is not limited to `<project>/<spec-root>/changes/`.
 
 ## Restoring a path with unstaged edits
 
 **A restore that would discard unstaged edits is denied.** `hooks/protect-main-checkout.py` denies
 a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names
 carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on
-it is lost with the flip a mutation proof made (kan-1006's self-review). Restore a flipped file
+it is lost with the flip a mutation proof made. Restore a flipped file
 with `flow-guard break-and-prove` or `flow-guard mutate-and-verify`, which restore from a pre-mutation byte
 snapshot (**Panel re-runs**, `skills/flow/review-panel.md`); `git restore --staged`, and a path
 with no unstaged edits, are restored as before.
@@ -131,15 +129,10 @@ with no unstaged edits, are restored as before.
 **A back-out's commit body carries the rejection reason.** When a landed-then-reverted prototype
 or a withdrawn task is backed out, the revert/back-out commit's body states what was wrong and
 what would have to change for the design to come back, so a later run inherits the verdict with
-the artifact instead of re-deriving the rejected position from indirect evidence. KAN-703 is the
-case that paid for it: a run whose design space held a reverted prototype re-derived the
-prototype's intended polarity from contract wording because the revert's body recorded only
-`This reverts commit <sha>` — that the code left, never why.
+the artifact instead of re-deriving the rejected position from indirect evidence.
 
 **A commit's message describes the tree it lands, never an attempt that left it.** When work
 written inside a task or a fix round is undone before it lands — reverted in the working tree, or
 removed by a fixup folded into the commit — the commit's subject and body describe the net tree,
 and the body names the abandoned attempt only as abandoned, with why. To keep the attempt in the
 history instead, land it and back it out as two commits, the back-out under the paragraph above.
-KAN-539 is the case that paid for it: a guessed icon and its revert were folded into one commit
-whose message still described the icon its tree did not contain.

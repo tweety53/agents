@@ -93,8 +93,7 @@ most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, besid
 operator named at this stage's start, on the `late-fix` row of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`) under the ordinary 15-minute ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders
 it. `primary` reads every line of the new source, so nothing appended goes unreviewed; what the
-small append drops is the second lens and the higher effort, which KAN-930 spent on six append
-rounds that raised Minors at most. It runs on `opus`, never the rerun pair: the delta is new
+small append drops is the second lens and the higher effort. It runs on `opus`, never the rerun pair: the delta is new
 source, a first read rather than a re-run. Every other slot pass 1 would carry — the experimental
 slot included — is not dispatched, each recorded with
 `flow record pass -round <round> -note 'not dispatched — small append: <slot>'`, and the small

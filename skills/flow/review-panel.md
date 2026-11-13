@@ -35,7 +35,7 @@ recorded in this run's working notes — never the state file's `worktrees` map,
 has not written yet. The script fetches, prints `BASE: <base>` and every `flow-guard check-base-moved`
 verdict, and rebases a worktree whose verdict is `MOVED` with no overlap automatically, with no
 prompt — the run reports that it happened rather than asking whether it should. Its header
-(`<agents repo>/scripts/flow-guard sync-panel-base`) is the full contract. Exit 0 is settled. A `REBASED:` last line names the worktree's new merge base: record it with `flow state add-worktree <name> <worktree> <sha>` and push with `--force-with-lease` before the panel diff is written (kan-1086 self-review, F2). Exit 3 is an overlap: the rebase
+(`<agents repo>/scripts/flow-guard sync-panel-base`) is the full contract. Exit 0 is settled. A `REBASED:` last line names the worktree's new merge base: record it with `flow state add-worktree <name> <worktree> <sha>` and push with `--force-with-lease` before the panel diff is written. Exit 3 is an overlap: the rebase
 is not confirmed conflict-free, so the run never takes that risk on itself; 1 is `CONFLICT`; 2 — a
 `REFUSE`, or anything it cannot answer — and an empty resolved set stop and ask. An exit 3 from any
 worktree is one prompt for the whole change, shape per Operator prompts
@@ -159,8 +159,7 @@ overrides:
 | `principles` | **Principles** | `flow-low` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
 
 **The roster names only `primary` and `principles`.** `failure-modes` and `mutation` run on
-**The always-on extra dispatches** below, so every resolved roster — a `default` panel's, and a decided one recorded before
-kan-1028 — drops any role an always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not
+**The always-on extra dispatches** below, so every resolved roster drops any role an always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not
 dispatched — carried by an always-on extra dispatch: <slot>'`. A dropped role leaves its
 `panel.dispatches` bundle too: that bundle dispatches the roles it still names, and a bundle left
 naming none is not dispatched — so no role an always-on extra dispatch carries runs twice, and no
@@ -368,15 +367,14 @@ context bundle reads; `-standard` carries **Principles**' resolved `[STANDARDS_P
 `-fix-report` a re-run's `<fix report>`, and `-no-bundle` the CONTEXT BUNDLE FAILURE continue
 path. Its header (`<agents repo>/scripts/flow-guard render-slot-prompt`) is canonical for the file it
 writes: the shared paragraphs below, then one **PASS `<id>`** section per role in roster order,
-each with its own REPORT FILE line. Exit 0 prints the rendered path, then a `DISPATCH:` line naming the Agent call's description and its prompt's `Role:` line — use both as printed (kan-1086 self-review, F9); exit 1 names a placeholder it
+each with its own REPORT FILE line. Exit 0 prints the rendered path, then a `DISPATCH:` line naming the Agent call's description and its prompt's `Role:` line — use both as printed; exit 1 names a placeholder it
 could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
 `mutation`'s pass is rendered from **The mutation-testing brief** below and names its throwaway
 copies, `<worktree>-mutation-<round>` per repository; its MUTATION ENTRY CONTEXT paragraph and
-tests stay typed beside the rendered path (kan-1029: an unrendered mutation pass, bundled with
-`failure-modes`, never ran). The Agent call's prompt carries only its Role line
+tests stay typed beside the rendered path. The Agent call's prompt carries only its Role line
 (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline
 pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
-reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file (kan-918: round 1's `primary+principles` re-run read only the diff and handed back in 14 seconds, writing neither report). The return message carries one findings summary per role under a heading naming the
+reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
 Every bundle prompt also carries this paragraph verbatim:
@@ -440,10 +438,10 @@ launches every dispatch of the round — on pass 1, every dispatch but `mutation
 (below) — one call for all, as `flow-guard panel-round-begins <worktree> <name> <round> mf-<literal-token>
 <slot>:<model>:<effort>[:<diff-base>]...` — the begin above once per slot, under the literal key
 `panel-<round>-<slot>`, `<round>` written as the number itself, never a shell substitution, and then
-each begin of a `panel-<round>-<slot>` key writes that slot's `dispatched:` pass row from its own flags, so no round begun — by the guard or by hand — lacks one, and `flow record pass` refuses a hand-written `dispatched:` note (kan-1086 self-review, F8); the round's wait is the harness's completion notifications, never a poll (see
+each begin of a `panel-<round>-<slot>` key writes that slot's `dispatched:` pass row from its own flags, so no round begun — by the guard or by hand — lacks one, and `flow record pass` refuses a hand-written `dispatched:` note; the round's wait is the harness's completion notifications, never a poll (see
 **No forking, and a wall-clock ceiling on every slot** below); every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`).
-On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish (kan-1019: two slots of one round both read 15m31s). On any other harness the daemon reads no agent transcript, so each `end` passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
+On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish. On any other harness the daemon reads no agent transcript, so each `end` passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
 A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
@@ -489,7 +487,7 @@ fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` l
 `panel.rerun_dispatch`'s `low` on a re-run. The always-on extra dispatches are the one exception to both: each one's pass-1 `-model` and `-effort` are its own pair — `extra_dispatch` for `test-sanity+call-efficiency`, `extra_dispatch_mutation` for `mutation+failure-modes` — `opus`/`low` when the decision has none.
 On harness `zcode` every pair this paragraph names is recorded as `glm-5.3-flash` / `high`
 instead — the one pair the store accepts on a `zcode` session token — and on harness `muse` as
-the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`; KAN-898).
+the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`).
 
 **`-agent-id` is never typed on a slot's row, never invented** — the daemon captures the launch identifier,
 stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session — each slot's description opens with its row's `-key` (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`) — and pairing a launch whose description names no row with the begin nearest it in time;
@@ -526,8 +524,7 @@ mutation-declared ones are exempt, the sha pin being their instrument audit. A p
 resolve in every tree the script runs in, unlike the demonstrates citation, which names where
 the defect was and must resolve only against the defect-present tree. The script's body asserts
 every declared premise before its real checks run: a missing premise is a loud failure naming
-it on stderr, exiting non-zero — never exit 0, the vacuous pass a rename must never produce
-(KAN-839). The marker the dispatch audit reads: the script must reference each declared
+it on stderr, exiting non-zero — never exit 0, the vacuous pass a rename must never produce. The marker the dispatch audit reads: the script must reference each declared
 premise path — `flow-guard check-panel-reproducer-exit-contract` refuses a declared premise the
 script never names outside the `# premise:` declaration itself, the declared-but-unasserted
 premise that reads a vacuous green. Carry the premise rule on every slot's dispatch prompt.
@@ -568,7 +565,7 @@ script's body, so the window rule above resolves them without a bounce. **A repr
 reads the defect's behaviour, never one fix route's text**: it runs the path the defect takes, or
 reads the defect's own code, so any fix that removes the defect turns it to defect not
 demonstrated — a grep for one fix's call, or for call-site text a fix leaves unchanged, makes the
-parent re-author it (kan-1022's F7 grepped `catalog.byKeys(keys)`).
+parent re-author it.
 
 **A reproducer is authored, or repaired, only with both recorded exits.** Before the finding's
 reproducer line is recorded, its author has executed the script in both directions and recorded
@@ -724,8 +721,7 @@ dispatch instant (`date +%s`) when it dispatches, waits on the slot only through
 notification and one background timer — `sleep <seconds to the earliest open ceiling>`, launched
 with `run_in_background: true`, its own notification the named wake-up — and on every notification
 compares each open slot's elapsed time against its ceiling, re-arming the timer for the next —
-a slot past its ceiling gets no further wait and takes the breach path below at once (kan-1025: with no named wake-up, a breach was caught
-at about three times the ceiling). **The ceiling is a record-and-review bound, not a stop**: it cannot halt
+a slot past its ceiling gets no further wait and takes the breach path below at once. **The ceiling is a record-and-review bound, not a stop**: it cannot halt
 an in-flight dispatch — a slot the harness runs as one blocking call pays the overrun in full
 before the breach can even be recorded — so a run is never promised a stop the harness cannot
 deliver.
@@ -757,7 +753,7 @@ pass.
 
 **The parent reads a round's findings through one findings merger, never the reports one by one.**
 `flow record dispatch begin` refuses a `panel-fix-<r>` row, and a live reviewer row of panel round `<r>`,
-while round `<r-1>` holds no completed `panel-<r-1>-merger` row (kan-1045 self-review, F-C).
+while round `<r-1>` holds no completed `panel-<r-1>-merger` row.
 A completed `flow stage end` of `flow.review-panel` is refused the same way while the highest round
 holding a reviewer row has no completed `panel-<r>-merger` row.
 `flow record dispatch begin` refuses a `panel-<r>-merger` row while a reviewer row of round `<r>`
@@ -824,33 +820,29 @@ landed: every mutation must confirm its edit landed before the tests run — the
 where the slot intended, not nowhere and not somewhere else. An edit that never applied must be
 redone with a working mechanism: it is a refusal, never a **surviving mutant**, and it never buys
 a test. A mutation reproducer runs under `set -e`, so an edit that fails exits non-zero, and
-`flow-guard run-reproducer` refuses one with no `set -e` line (kan-1048 self-review, 1-D: four of seven
-reproducers carried no landing check). A mutation no test catches is a
+`flow-guard run-reproducer` refuses one with no `set -e` line. A mutation no test catches is a
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless it is
 withdrawn with a reason under the fix round's handback. A surviving mutant's reproducer carries the exact line
 `# mutation-reproducer` within its first 10 lines — the declaration
 `flow-guard run-reproducer` reads as the mutation convention, since the build succeeding
-with the mutation landed is the bug present, the reverse of the generic exit-code contract. A reproducer never `cd`s — it runs each tool against its directory with `go -C`, `make -C` or `npm --prefix` and names every file as `$PWD/<path>` — and makes its edit through a patch file or a fixed-string replacement, never through shell quoting nested inside another quoted string (kan-1047: an EXIT trap restoring a relative path after `cd stats` left a live mutant, and nested single quotes in a `sed` never applied the edit). A reproducer adds no file under `$PWD`: a Go test it adds is written under `mktemp -d` and passed to `go test -overlay <json>`, whose `Replace` map names the test's path in the package, a Go mutation goes through the same overlay, its `Replace` map naming the mutated source's path and its mutated copy under `mktemp -d`, and every other file it writes lives in its own `mktemp -d` directory (kan-1051 self-review, F5: a test file a reproducer wrote into `<agents repo>/stats/internal/harvest/` failed a concurrent guard-test run). Its
+with the mutation landed is the bug present, the reverse of the generic exit-code contract. A reproducer never `cd`s — it runs each tool against its directory with `go -C`, `make -C` or `npm --prefix` and names every file as `$PWD/<path>` — and makes its edit through a patch file or a fixed-string replacement, never through shell quoting nested inside another quoted string. A reproducer adds no file under `$PWD`: a Go test it adds is written under `mktemp -d` and passed to `go test -overlay <json>`, whose `Replace` map names the test's path in the package, a Go mutation goes through the same overlay, its `Replace` map naming the mutated source's path and its mutated copy under `mktemp -d`, and every other file it writes lives in its own `mktemp -d` directory. Its
 tree is `$PWD`, the worktree `flow-guard run-reproducer` passes — never the slot's throwaway copy it was
-authored in, which is gone once the dispatch closes (kan-1022's F8 pointed at that copy and
-demonstrated nothing). Its test command runs every test of the package, file or module the mutated
+authored in, which is gone once the dispatch closes. Its test command runs every test of the package, file or module the mutated
 code belongs to, never a filter naming the tests that exist today: a test the fix adds under a new
-name has to be able to kill the mutant (kan-1032: `-run TestLoopLandingAdmitsPromptTuningOnly`
-never selected the killing `TestLoopLandingPromptTuningAdmissionBounds`). When one run of that whole
+name has to be able to kill the mutant. When one run of that whole
 package takes more than a third of the slot's ceiling — measured once in the slot, before the first
 mutation — the command may instead filter by the name prefix the mutated code's test family shares
 (`-run '^TestCheckPanel'`), never a full test name, so a fix's new test under that prefix still
-kills the mutant (kan-1025: the guard package's 332 tests ran 165 s idle and about 455 s contended,
-the slot ran 55 minutes, and the parent narrowed the reproducer to one test's name). Its
+kills the mutant. Its
 `# reproducer-bound:` is that measured run's seconds, doubled. Its exits follow the
 mutation-reproducer convention, never the generic one: it exits 0 when every test passes with the
 mutation in place — the mutant survived, the defect present — and non-zero when a test kills it.
-Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess (kan-1039: the slot discarded a whole cached sweep whose survivals were false).
+Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess.
 The slot's own mutant runs are scoped before the first mutation too: it measures one run of the mutated code's whole package, and when that run's seconds times the number of mutants it plans pass half the slot's ceiling, every mutant run filters by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name (group-allowed-pairs-roles self-review: the slot ran the whole guard package per mutant and timed out at 15 minutes; the prefix-filtered retry finished in 88 s).
-The slot never forces a full rebuild of its copy — no `--rerun-tasks`, `clean`, cache-busting flag or deleting build output — whatever the build tool; it measures one scoped run before its first mutation; and it runs one build at a time in its copy, never starting another while an earlier one, a backgrounded one included, still runs (kan-1083 self-review, F15: round 2 lost 24m23s to a concurrent Gradle run in the copy, round 3 timed out at 25m27s after `--rerun-tasks` with no mutant run).
-A Gradle run that fails with `Timeout waiting to lock journal` is waited out and retried with backoff, a few minutes in total — the lock sits in the shared Gradle home, held by another worktree's daemon; never run `gradle --stop` or kill a daemon another worktree owns, and if the lock is still held the mutant is reported `unproven (journal lock held by <pid from the message>)`, never skipped silently (kan-1086 self-review, F12: a mutation run waited on `journal-1.lock` held by another run's daemon for up to ~35 minutes).
+The slot never forces a full rebuild of its copy — no `--rerun-tasks`, `clean`, cache-busting flag or deleting build output — whatever the build tool; it measures one scoped run before its first mutation; and it runs one build at a time in its copy, never starting another while an earlier one, a backgrounded one included, still runs.
+A Gradle run that fails with `Timeout waiting to lock journal` is waited out and retried with backoff, a few minutes in total — the lock sits in the shared Gradle home, held by another worktree's daemon; never run `gradle --stop` or kill a daemon another worktree owns, and if the lock is still held the mutant is reported `unproven (journal lock held by <pid from the message>)`, never skipped silently.
 Never symlink a shared `node_modules` into your copy: run `npm ci` inside the copy, which installs its own — over a symlink it empties the shared directory.
-Never run `git worktree add`: you work only in the copies your prompt lists, which the parent creates and removes (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); a comparison against the base reads `git show <base>:<path>` or `git diff <base> -- <path>`, never a checkout of your own (kan-1084 self-review, F3: a mutation slot's detached worktree outlived its dispatch and was removed by hand).
+Never run `git worktree add`: you work only in the copies your prompt lists, which the parent creates and removes (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); a comparison against the base reads `git show <base>:<path>` or `git diff <base> -- <path>`, never a checkout of your own.
 
 ### Principles
 
@@ -888,16 +880,14 @@ slot's report from this context** — record its `F<n>` rows and cite the file, 
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 Confirm likewise that each runnable reproducer path a slot supplies exists in the worktree before
 recording its finding; when it does not, write the script there yourself from the demonstration
-the slot's final message gives (kan-1034: F7's mutation reproducer was lost with its throwaway
-copy).
+the slot's final message gives.
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself. Every
 finding a round raised is recorded in one Bash call, `flow record finding -change <name> -from
 <abs-worktree>/.superpowers/sdd/findings-<round>.jsonl`, over a file the parent writes first: one
 JSON object per finding, its keys the flags below without their dash, a flag the finding omits
-left out — never a shell loop of single `flow record finding` calls, whose quoting of an optional
-flag cost kan-918's run a retry.
+left out — never a shell loop of single `flow record finding` calls.
 
 ```bash
 flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
@@ -1190,7 +1180,7 @@ the round's `Flow-Key:` trailer.
 
 `flow stage end -stage flow.review-panel -outcome completed` runs `check-panel-findings-closed` in
 process and refuses the close on its exit 1 or 2, so a round closed without the guard never reaches
-integrate (kan-1017: rounds 2–7 closed unguarded, and nine findings went unrecorded).
+integrate.
 
 **Before closing the stage**, the parent runs both close guards:
 

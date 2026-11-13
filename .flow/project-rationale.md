@@ -98,3 +98,13 @@ commit-scope rule spent a day with a dangling pointer.
 
 `after `scripts/flow-guard workspace remove` has dropped the `database` row's resource` — the exact loss
 gymie kan-468's incomplete bundle reported.
+
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### project.md — inputs: mods/flow-task-list/
+
+- *beside the SPA's two worker threads (`stats/web/vite.config.ts`), so no suite starves another* — (kan-1052 self-review, F5: a 235 ms vitest test passed its 5 s timeout while both `-race` suites took every core)

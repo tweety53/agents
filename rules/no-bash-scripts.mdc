@@ -22,7 +22,7 @@ file or file whose first line runs bash.
 A bash script grows a second copy of logic the project's own language already carries, is tested
 by a harness of its own instead of the project's test runner, and fails on the quoting, word
 splitting and exit-status edges that language never has. The `agents` repository ported every
-script but those two to Go under KAN-1058; this rule keeps the next one from being written in bash.
+script but those two to Go; this rule keeps the next one from being written in bash.
 
 ## What it does not cover
 

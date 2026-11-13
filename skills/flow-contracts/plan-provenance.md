@@ -80,8 +80,7 @@ A plan that rests on another change being present — "KAN-361 is merged before 
 it in the worktree the change is implemented in, never against a remote branch:
 `git -C <worktree> merge-base --is-ancestor <prerequisite sha> HEAD`, its `measured:` comment
 naming that worktree's HEAD as the ref. A remote branch carrying the prerequisite says nothing
-about a worktree based before it (KAN-698: confirmed against `origin/develop` while the backend
-worktree's HEAD lacked KAN-361, so the feature was silently absent on the stack). The first step of
+about a worktree based before it. The first step of
 every task that depends on the prerequisite runs the same check in its own worktree; an exit 1 is a
 stale base the implementer reports and never builds past — rebasing the worktree is the
 operator's call.

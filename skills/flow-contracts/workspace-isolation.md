@@ -2,18 +2,12 @@
 
 **This file is canonical for workspace isolation.** Skills, guards, and the projects that declare
 isolation reference it by name; none of them restate the derivation, the port rule, or the empty-id
-promise. See **The workspace id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for
-why a second copy of a derivation is worse than a second copy of a procedure. If a rule below and a
+promise. If a rule below and a
 skill, a guard, or a project's own configuration ever disagree, this file wins.
-
-See **The workspace id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for the
-failure this contract exists to prevent.
 
 **What is isolated is the logical resource, never the service that holds it.** A workspace gets its
 own database inside the shared database server, its own index inside the shared cache, and its own
-bucket inside the shared object store. See **The workspace id**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why duplicating whole services per
-workspace was not the design taken instead.
+bucket inside the shared object store.
 
 ## The workspace id
 
@@ -25,8 +19,7 @@ produce the same id for two different changes, or two different ids for one chan
 allocation step that a second session could lose a race to.
 
 **Every step is defined over the change name's UTF-8 bytes, and nothing in it is defined over
-characters.** See **The workspace id** (`skills/flow-contracts/workspace-isolation-rationale.md`)
-for why a byte, rather than a character, is the unit two independent implementations can agree on.
+characters.**
 The derivation, stated precisely enough that two independent implementations agree:
 
 1. **The digest** is the first four characters of the lowercase hexadecimal **SHA-256** of the
@@ -56,48 +49,26 @@ id="$prefix-$digest"                 # kan-15-fb13
 ```
 
 **`LC_ALL=C` on both `tr` calls is the whole of step 2's locale independence, and it is in the block
-rather than left to prose.** See **The workspace id**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for the measured locale divergence this
-guards against.
+rather than left to prose.**
 
-**The normalisation runs first, before any length is counted, and that order is load-bearing.** See
-**The workspace id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why the order
-matters and what it produces for a name carrying a dot.
+**The normalisation runs first, before any length is counted, and that order is load-bearing.**
 
-See **The workspace id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why a name
-already within `[a-z0-9-]` passes through step 2 unchanged, and what that means for testing a second
-implementation.
+**`printf '%s'` rather than `echo` is the load-bearing detail.**
 
-**`printf '%s'` rather than `echo` is the load-bearing detail.** See **The workspace id**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why, and for which tools are
-acceptable.
-
-**The prefix is for humans; the digest is for correctness.** See **The workspace id**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for the collision example this
-separates.
+**The prefix is for humans; the digest is for correctness.**
 
 **A change name outside `[a-z0-9-]`, stated rather than left to be discovered.** Step 2 defines
 it completely, and these are its consequences:
 
 - **Upper case is folded by the ASCII rule only**, never by Unicode case folding. `A`–`Z` lower;
-  every other byte, `İ` and `Ä` included, is a separator. See **The workspace id**
-  (`skills/flow-contracts/workspace-isolation-rationale.md`) for the three-implementation
-  disagreement this rule settles.
+  every other byte, `İ` and `Ä` included, is a separator.
 - **One byte, one `-`**, so a multi-byte character yields as many `-` as it has UTF-8 bytes: `İ` is
   two bytes and becomes `--`, and a three-byte character such as `€` becomes `---`. Runs of `-` are
   **not** collapsed. `İstanbul-test` therefore normalises to `--stanbul-test` and derives
   `--stanbul-6b8a`, which is the worked example in the block above.
 - **Only trailing `-` are trimmed, and all of them are.** Leading and interior runs stay, so an id
   may begin with `-` — a name that normalises to nothing but separators leaves the prefix empty and
-  the id is then `-<digest>`. See **The workspace id**
-  (`skills/flow-contracts/workspace-isolation-rationale.md`) for why every value derived from such
-  an id is still legal.
-
-See **The workspace id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why the
-digest, unlike the prefix, is locale-independent already and cannot be merged by normalising.
-
-See **The workspace id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for what
-determinism does not promise about a digest collision, and the remedy if one ever bites.
+  the id is then `-<digest>`.
 
 ## What the id derives
 
@@ -119,9 +90,7 @@ moves a published port. What is namespaced is the logical resource *inside* each
 the level the failure actually lives at.
 
 **A derived database name must be safe unquoted.** It is spelled with `_` separators rather than the
-`-` the id itself uses, so it is a legal SQL identifier with no quoting at all. See **What the id
-derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why this is required of
-the one call site added next year, not only the ones that exist today.
+`-` the id itself uses, so it is a legal SQL identifier with no quoting at all.
 
 **`<id_underscored>` is that spelling, and the substitution is total: every `-` in the id becomes
 `_`.** It applies to the whole id — the separators inside the prefix and the `-` joining the prefix
@@ -134,9 +103,7 @@ substitution can have to reach.
 id_underscored="${id//-/_}"          # kan_15_fb13
 ```
 
-**A bucket name is not a SQL identifier, so it takes the id verbatim.** See **What the id derives**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why no second spelling is used
-here. The bucket carries a project prefix for the same reason the database name does — an operator
+**A bucket name is not a SQL identifier, so it takes the id verbatim.** The bucket carries a project prefix for the same reason the database name does — an operator
 listing buckets should be able to tell which project a workspace's bucket belongs to — and then the
 id exactly as this file derives it.
 
@@ -148,19 +115,15 @@ offset=$(( (16#$digest % 400 + 1) * 10 ))    # 2760 for digest fb13
 
 That yields a multiple of 10 between 10 and 4000, so a change's ports are stable across sessions and
 can be bookmarked with no registry and no coordination — the same property the id has, for the same
-reason. See **What the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for
-why one offset covers the whole block rather than one per port.
+reason.
 
 **The block is exported as derived, with no free check.** `flow-guard prepare-workspace` exports every
 port of the block at its offset without probing whether anything holds it, and nothing later
 rediscovers, repairs or reassigns a port — a workspace's ports are always wholly its deterministic
-block. See **What the id derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for
-why a patched block is worse than either alternative.
+block.
 
 **The ports actually bound are printed in the `/flow`'s implement phase handoff.** The handoff names the
-URLs of the worktree that resolved them, never the project's declared defaults. See **What the id
-derives** (`skills/flow-contracts/workspace-isolation-rationale.md`) for the cost this mitigates
-and the failure it prevents.
+URLs of the worktree that resolved them, never the project's declared defaults.
 
 **A held port is relayed, never resolved.** A port in the block already held — by another
 workspace, or by an unrelated process that knows nothing about this pipeline — makes the project's
@@ -177,9 +140,7 @@ starts. It is the single value in this contract that is not a function of the ch
 exception is deliberate.
 
 **That argument holds only while a probe can see the previous claim, so the claim is written where
-the next probe looks — inside the cache itself.** See **The cache index**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why a private claim would invert
-the comparison the section is built on. **A probing scheme whose claim is private is the derived
+the next probe looks — inside the cache itself.** **A probing scheme whose claim is private is the derived
 scheme with its collision promoted to the default outcome.** A claim is therefore recorded in the
 shared cache, under an entry naming the workspace that holds it, so it is visible to the next
 claimant at the moment it is made.
@@ -199,25 +160,17 @@ index and who holds it, and refuses. **Index 0 is never claimed** — it is the 
 declared default, so a workspace taking it would be sharing with the main checkout the moment that
 checkout started.
 
-See **The cache index** (`skills/flow-contracts/workspace-isolation-rationale.md`) for the
-deriving-and-refusing alternative that was considered and rejected for this design.
-
-**There is no expiry, deliberately.** See **The cache index**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why a lease-based lifetime would
-expire under a live workspace. The claim also lives exactly as long as what it protects, since it is
+**There is no expiry, deliberately.** The claim also lives exactly as long as what it protects, since it is
 kept in the index it reserves — a cache that restarts without persistence loses the claim and the
 entries together, which is correct, because there is then nothing left to keep apart.
 
 **The accepted cost is that the index is not stable across restarts.** Every other value a workspace
 derives is the same one a week later; this one depends on what else happened to be running when the
-run first claimed. See **The cache index**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why that is an accepted cost. A
+run first claimed. A
 workspace that lands on a different index loses a login, not data — so nothing that must survive a
 restart may be kept there.
 
-**This pipeline releases nothing at finish, and the claimed index has a registry row saying so.**
-See **The cache index** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why run 2
-cannot know which index to sweep. What that leaves behind and why it is acceptable are stated once
+**This pipeline releases nothing at finish, and the claimed index has a registry row saying so.** What that leaves behind and why it is acceptable are stated once
 under **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`).
 
 ## The empty id
@@ -237,9 +190,7 @@ configuration is optional; see **Project configuration** (`skills/flow-contracts
 
 **Isolation in an apply worktree is automatic, never opt-in.** A worktree that declares isolation
 receives its own database, cache index, bucket and port block without anybody asking for them, and
-the main checkout receives the defaults. See **The empty id**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for the opt-in alternative this rejects
-and why. An operator who genuinely wants the shared default still has one: the project's declared
+the main checkout receives the defaults. An operator who genuinely wants the shared default still has one: the project's declared
 defaults are reachable through the same variables the empty-id case resolves to, so choosing them is
 a deliberate act rather than an omission.
 
@@ -274,26 +225,20 @@ worktree points at the **shared** bucket, so the applications come up and answer
 change's uploads — one step later than the schema case and identical in kind. Which rows a resource
 word selects is a cleanup question and only that; it decides nothing about isolation.
 
-See **The empty id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why refusing,
-rather than reporting and continuing, follows the same argument that makes isolation automatic.
-
-See **The empty id** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why the empty
-id is the default rather than a special case, and the uniform alternative it rejects. The
+ The
 backwards-compatibility promise is therefore load-bearing, and a change to a derived value that does
 not preserve it is a defect in that change, not a limitation of this contract.
 
 ## Creation and cleanup
 
 **The resources are created on demand, and the first creation is reported.** A run that finds no
-database or bucket for its workspace creates them and says so, once. See **Creation and cleanup**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why the first creation is reported.
+database or bucket for its workspace creates them and says so, once.
 Later runs find the resources already there and print nothing, so the notice carries real
 information — it means *this is new*, not merely *this is here*.
 
 **A new database starts empty and is brought up to date by the project's normal migration and
 seeding path**, which is the same path a fresh machine and a clean CI job take. It is never created
-by copying an existing database. See **Creation and cleanup**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why copying was rejected.
+by copying an existing database.
 
 **At finish, the resources are removed.** Each is a temporary artifact and therefore has a row
 naming what creates it, where it lives and what removes it, in **Temporary artifacts registry**
@@ -302,8 +247,7 @@ declares for it, given the workspace id so the teardown targets this change's re
 the project's defaults. **Which command that is belongs to the project, not to this contract** — a
 project names its create and remove commands in its own configuration, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and whether it reuses a command it already had
-or adds one is its decision to record there. See **Creation and cleanup**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for why no mechanism is named here.
+or adds one is its decision to record there.
 
 **Removal is not verification, so a project declares a third command that reports survivors.** The
 registry row promises that a workspace's database and bucket are *gone*,
@@ -322,12 +266,8 @@ server is down when run 2 reaches cleanup, there is nothing to remove at that mo
 reported by name and the run continues. This is deliberately unlike a reported survivor, which
 blocks the terminal state under **Project configuration — workspace isolation**
 (`skills/flow-contracts/project-configuration-isolation.md`), and the asymmetry is stated here rather than
-left for a reader to find and mistake for an oversight. See **Creation and cleanup**
-(`skills/flow-contracts/workspace-isolation-rationale.md`) for the cost this asymmetry trades
-against, and why it matches the project-supplied stop check. A change whose project declares no
+left for a reader to find and mistake for an oversight. A change whose project declares no
 isolation passes the same way: a step whose artifact is already absent is a success, which is the
 re-entrancy rule run 2 follows everywhere else.
 
-**That skip is signalled by one non-zero exit rather than two, deliberately.** See **Creation and
-cleanup** (`skills/flow-contracts/workspace-isolation-rationale.md`) for why one exit code, and
-what cost that accepts.
+**That skip is signalled by one non-zero exit rather than two, deliberately.**

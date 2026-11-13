@@ -298,3 +298,25 @@ the provenance survives the contract text.
   (KAN-500).
 - *Give the surviving findings to fix subagents in chunks of at most 10 findings.* gymie KAN-459's round 1
   read ~110M cache tokens fixing 24 findings in one dispatch (KAN-499).
+
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### pipeline.md — Fewest operator actions
+
+- *in another file licenses asking a question that carries a recommended option* — (kan-1037: the parent asked a visual verifier's three spec questions under `rules/design-mockups-are-specs.mdc`'s "Ask rather than invent", then stopped after an in-run fix task citing token cost)
+- *`skills/flow-contracts/operator-prompts-auto-resolution.md`). A shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a separate change"* — (kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap as open items, each of which had a recommended fix)
+- *stop, is never handed to the operator as 're-run /flow to continue'* — (kan-1104: the parent stopped at STARTED with every task ticked and the panel, verify and integrate ahead, citing the size of the phase files left to read)
+- *or the handoff the state's run ends on is this rule broken* — (kan-1018: the parent ended its turn with round-0 panel findings recorded and every fix still ahead)
+
+### pipeline.md — Unanswered mid-run asks
+
+- *output, and the same turn then continues into the run's next step* — (kan-1033: the parent closed the review panel, answered two mid-run questions and filed a requested ticket, then ended the turn with verify still to run)
+
+### pipeline.md — Stage marks
+
+- *no two runs share one: a name-derived token alone repeats across sessions* — (kan-1028: `mf-k1028b`, reused by a resumed run, collided with the dead session's rows)
+- *the clock then and marks under the stamped token from there on* — (kan-1029: `mf-k1029-PLACEHOLDER` was accepted)

@@ -12,8 +12,6 @@ The reasoning behind this file lives in `skills/flow-contracts/model-policy-rati
 
 ## Model policy
 
-See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`).
-
 Planning — brainstorming, design and writing-plans — runs in the current session, on its own
 model; see **Model resolution** (`skills/flow/SKILL.md`), canonical for what the session's model
 prices. The parent session runs on the harness's own model for the whole of `/flow`, and **every
@@ -22,13 +20,11 @@ never varies is that the panel's model is *chosen*, not inherited from the paren
 
 **Implementer subagents dispatched by `/flow`'s implement phase run on their group's decision
 pair**, which **explicitly overrides** superpowers:subagent-driven-development's model
-guidance. See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why that
-guidance's cost savings do not apply here.
+guidance.
 
 **Two further instructions in that same upstream skill are also overridden: dispatching the final
 review on the most capable model, and escalating the model in fix rounds 4-5.** flow fixes every
-panel slot at its dispatch's decision pair instead. See **Model policy**
-(`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
+panel slot at its dispatch's decision pair instead.
 
 **The planner makes the choice.** The implementer, the fixer and each panel dispatch run on the
 model and effort the Decide step chose for them, per **Model and effort**
@@ -43,7 +39,7 @@ mechanical work. Record the instruction with the dispatch; an override nobody wr
 from a mistake.
 
 **A subagent that repairs panel findings is implementer work, so the implementer rule above governs
-it too.** See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why.
+it too.**
 
 **A session instruction governs the run in which it is given** and is recorded with its dispatch
 exactly as above.
@@ -56,20 +52,14 @@ other slot does. The findings merger, which reviews nothing, and every gated per
 bundle and its fix re-review run on their roles' fixed **Allowed pairs** below.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
-See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history
-behind this rule.
 
 Where the dispatcher **cannot know** the model, the ledger records `unknown (agent-defined)` and
 never a guess.
 
-**This record outlives the change.** See **Model policy**
-(`skills/flow-contracts/model-policy-rationale.md`) for why, and
-**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) for the render
-duty itself.
+**This record outlives the change.** See **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) for the render duty itself.
 
 **A persisting record must not fill in `unknown (agent-defined)` on the way into the repository** —
-neither the write into the store nor the render out of it invents a model slug. See **Model policy**
-(`skills/flow-contracts/model-policy-rationale.md`) for why.
+neither the write into the store nor the render out of it invents a model slug.
 
 - **Claude Code**: a command's `model:` frontmatter (`commands-claude/*.md`) applies only to the
   turn that command starts, never to any turn after it — so it enforces no **session** model for a
@@ -83,8 +73,7 @@ neither the write into the store nor the render out of it invents a model slug. 
 
 ## Allowed pairs
 
-**flowd's store is canonical for which `{model, effort}` every flow dispatch may run on**
-(kan-1103): each role's pairs live there, read with `flow policy get` and edited by hand in the
+**flowd's store is canonical for which `{model, effort}` every flow dispatch may run on**: each role's pairs live there, read with `flow policy get` and edited by hand in the
 Experiments view; the tables below name the roles only. A dispatch names its role with a
 `Role: <role id>` line; a pair is `<model>` and `<subagent_type>` joined by `/`, an Explore or Plan
 pair adding `@<effort>`. Any well-formed pair is accepted — which models a role may use is the

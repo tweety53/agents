@@ -5,10 +5,7 @@ The `## workspace isolation` section of **Project configuration** (`skills/flow-
 **How a `## workspace isolation` section is written.** One table of resources, then one table of
 commands, and nothing else in the section is read.
 
-**Prose beside the tables is permitted and is never read** by the resolver. See
-**Prose beside the tables is for the reader**
-(`skills/flow-contracts/project-configuration-rationale.md`)
-for what that prose is for.
+**Prose beside the tables is permitted and is never read** by the resolver.
 
 **Three words in this section, and they name three different things.** A **row** is one line of
 either table — one resource, or one of the commands. A **cell** is one column of a row. And
@@ -84,23 +81,15 @@ larger string builds that string where it is used, from the exported index, rath
 it here.
 
 A project whose rows share a host writes that host in both, since neither `url` row may reference
-the other. See **The accepted cost of `url`-row duplication**
-(`skills/flow-contracts/project-configuration-rationale.md`) for why that duplication is an
-accepted cost.
+the other.
 
 **A `url` row carrying no token at all is a legitimate declaration, not a mistake.** Its workspace
-value is its `Default`, unchanged, and nothing removes or creates anything for it. See
-**A `url` row with no token** (`skills/flow-contracts/project-configuration-rationale.md`)
-for why a project would write one.
+value is its `Default`, unchanged, and nothing removes or creates anything for it.
 
 **A dropped `url` row is not exempt from the refusal below.** The refusal is keyed on the row
 having been dropped, never on whether the row names something removable: a dropped `url` row
 refuses in an apply worktree exactly as a dropped `database` row does, and so does a `url` row
-dropped because its `<value:…>` reference named no row or named another `url` row. See
-**The dropped `url` row is not exempt**
-(`skills/flow-contracts/project-configuration-rationale.md`)
-for the argument, also stated under **The empty id**
-(`skills/flow-contracts/workspace-isolation.md`).
+dropped because its `<value:…>` reference named no row or named another `url` row. See **The empty id** (`skills/flow-contracts/workspace-isolation.md`) for the argument.
 
 The id `<id>` carries is defined once under
 **The workspace id** (`skills/flow-contracts/workspace-isolation.md`), which states its prefix
@@ -154,22 +143,13 @@ guard reading them cannot ask a follow-up question:
   tell *your command is broken* from *your command is slow*. Anything it printed before being
   terminated is discarded: a partial listing is not a report.
 
-  See **The one-minute bound**
-  (`skills/flow-contracts/project-configuration-rationale.md`) for why the bound is stated here
-  and how its outcome deliberately differs from the stop command's.
-
   **What the bound terminates is a process group on the machine running the guard, and a command
   that puts its real work outside that group outlives the bound** — most of all **a command that
-  reaches its service through a container runtime**, `docker exec …` most of all. See
-  **The one-minute bound**
-  (`skills/flow-contracts/project-configuration-rationale.md`) for the mechanism and a measured
-  example.
+  reaches its service through a container runtime**, `docker exec …` most of all.
 - **That is a limitation of the bound, not a defect the guard can close.** **So a `survivors`
   command that crosses a container boundary carries its own timeout inside the container** —
   `docker exec`'s own, the client tool's connect and statement timeouts, or a wrapper that ends the
-  query rather than the proxy. See **The one-minute bound**
-  (`skills/flow-contracts/project-configuration-rationale.md`) for why the guard cannot close
-  this itself.
+  query rather than the proxy.
 
 **A project that declares `create` and `remove` but no `survivors`** has nothing to verify the
 removal with, so the verification is reported as skipped rather than passed — never inferred from
@@ -218,10 +198,7 @@ of row and they are not consumed the same way, so one rule stated for both would
 **No path is isolated inside a command, and that narrowing is deliberate.** Containment binds what
 the pipeline **reads**, validation binds what it **substitutes**, and a command is **run** — not
 contained. If a key in this section ever named a file the pipeline reads, that path would be
-contained exactly as a `## standards` path is — the rule follows the read, not the section. See
-**No path is isolated inside a command**
-(`skills/flow-contracts/project-configuration-rationale.md`)
-for why.
+contained exactly as a `## standards` path is — the rule follows the read, not the section.
 
 **Mechanically enforced** by `<agents repo>/scripts/flow-guard check-workspace-isolation`, which reads
 `<project>/.flow/project.md` and reports each failing row by name with the rule it broke: the closed
@@ -236,8 +213,7 @@ that order; and the section being declared at most once.
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
 ran".** The guard runs at the point this section is *read*: `/flow`'s `flow-guard prepare-workspace` runs it against each apply
 worktree before it resolves or exports a single row, per **Verify** in `skills/flow/verify-and-handoff.md`, and a non-zero exit stops that run. A project that declares no section passes silently.
-bare `/flow` deliberately does not repeat the validation. See **Where enforcement happens**
-(`skills/flow-contracts/project-configuration-rationale.md`) for why.
+bare `/flow` deliberately does not repeat the validation.
 
 **Left to the agent**, because no script that stays project-agnostic can decide them:
 

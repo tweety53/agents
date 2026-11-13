@@ -29,3 +29,22 @@ it" and "so wherever a run's instructions know the paths a commit should carry, 
 them": "— gymie kan-469's visual-verify step swept a ~130-file pre-staged foreign tree into a
 baselines commit in a main checkout, and gymie kan-468 lost task commits to staged planning
 artifacts the same way —".
+
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### git-boundaries.md — Commits outside every task
+
+- *judged there — run 1's unfinished-work gate lists it and handles `UNTASKED`* — (kan-941 pushed four such commits before either check existed)
+- *and no `chore` subject, and its pathspec is not limited to `<project>/<spec-root>/changes/`* — (kan-1003: the design handoff 0497d943 was committed and pushed in one command, and run 1's gate listed it)
+
+### git-boundaries.md — Revert and back-out commits
+
+- *with the artifact instead of re-deriving the rejected position from indirect evidence* — KAN-703 is the case that paid for it: a run whose design space held a reverted prototype re-derived the prototype's intended polarity from contract wording because the revert's body recorded only `This reverts commit <sha>` — that the code left, never why.
+
+### git-boundaries.md — Revert and back-out commits
+
+- *back it out as two commits, the back-out under the paragraph above* — KAN-539 is the case that paid for it: a guessed icon and its revert were folded into one commit whose message still described the icon its tree did not contain.

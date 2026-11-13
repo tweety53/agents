@@ -18,8 +18,7 @@ handoff shape and change-name resolution. Its **State transitions** table is `/f
 **Stage keys** (`skills/flow/stage-keys.md`) names which phase file marks each key.
 Load every contract file with the harness's file-read tool — Read on Claude Code — in offset
 chunks wherever one read cannot return the whole file, never with `cat`: `pipeline.md` and
-`finish-contract-run1.md` exceed the shell tool's output cap, and a `cat` load arrives truncated
-(kan-1020).
+`finish-contract-run1.md` exceed the shell tool's output cap, and a `cat` load arrives truncated.
 
 **No flags.** The only argument is the optional change name/description on a creating or resuming
 run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
@@ -43,7 +42,7 @@ VERIFY_MODEL=opus
 
 **An open main-agent experiment is checked, never enforced.** Right after resolving the above, run
 `flow experiment main-check -model <this session's model> -effort <this session's effort>` and
-print any line it prints, once; it never blocks the run (decision `main-check-and-tag`, KAN-1067).
+print any line it prints, once; it never blocks the run (decision `main-check-and-tag`).
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. The read leaves the CLI's stderr visible: report it

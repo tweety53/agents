@@ -62,3 +62,26 @@ This file is the entry point to the contracts, so a stale entry here misdirects 
 starts from it. When a contract file gains or loses a section, update the row above in the same
 change — `<agents repo>/scripts/flow-guard check-references` catches a **named** section that no longer exists, but it
 cannot catch a description that is merely out of date.
+
+## Moved by the 2026-11-13 prompt audit — incident records
+
+Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
+in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
+attribution; the text after it is the passage, verbatim.
+
+### operator-prompts-auto-resolution.md — Auto-resolution
+
+- *or main holding commits the base lacks — syncs the base first* — (KAN-1000: a stale feature/cardio base cost 61 failures and about an hour)
+- *run could have taken, is the stop this file exists to prevent* — (kan-1007: the run stopped after visual-verify to ask whether a requested rise could start visible)
+
+### operator-prompts-auto-resolution.md — What still stops
+
+- *no history and only brings the base up to what it tracks* — (gymie KAN-1015: the run stopped mid-verify to ask it, and the operator said to answer it automatically)
+
+### plan-provenance.md — A prerequisite is measured on the worktree's own HEAD
+
+- *branch carrying the prerequisite says nothing about a worktree based before it* — (KAN-698: confirmed against `origin/develop` while the backend worktree's HEAD lacked KAN-361, so the feature was silently absent on the stack)
+
+### known-bugs.md — The sweep
+
+- *is and where its fix is recorded — never whether it blocks* — KAN-570 is the case that set the standard: kan-485 reverted its own calculator-area touches, saw the same failures, and so kept a pre-existing defect out of its own scope on evidence rather than assertion.

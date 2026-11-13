@@ -7,8 +7,7 @@ license: MIT
 # Call-efficiency audit
 
 Measure how many calls a running app makes — client to gateway, gateway to backend, backend to
-database and cache — and report every call it does not need, with measured evidence. The method
-is the KAN-924 audit's, generalised for any project's dev stack.
+database and cache — and report every call it does not need, with measured evidence.
 
 ## Never production
 
@@ -121,7 +120,7 @@ Every finding carries measured evidence, in one table:
 |----|------|----------|----------|--------|
 
 Then a **Prevention** table grouping the finding classes that recur — two or more instances — with
-their count and finding ids. Three classes recurred in KAN-924, and the `call-efficiency` panel slot
+their count and finding ids. Three classes recur, and the `call-efficiency` panel slot
 (`skills/flow/call-efficiency-reviewer-prompt.md`) asks about each in every diff: the same read sent
 by two independent callers, the same row or query repeated within one request, and one query per
 item of a list.

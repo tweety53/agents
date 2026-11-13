@@ -37,7 +37,7 @@ exactly what that row specifies and nothing else. The row is authoritative.
 | `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified in `skills/flow-contracts/project-configuration-isolation.md` are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). |
 | `## visual verification` | Optional. What the `flow.visual-verify` stage validates before it runs: which UI paths in a change's diff trigger it, where captured screenshots land, the `setup`/`verify`/`capture`/`fingerprint`/`specs` commands, and an optional `regression checkout` naming the repository the spec and its PNGs commit to, with `regression repo` recording the identity — never an authorisation — that checkout's real `origin` must equal. Its rows are resolved and validated rather than read, so the two tables specified in `skills/flow-contracts/project-configuration-visual.md` are the whole of what this body means to the resolver — prose beside them is for the reader. Absent means the stage is not configured for this project, a supported state and not a misconfiguration. Mechanically enforced by `<agents repo>/scripts/flow-guard check-visual-verification`, canonical for what it checks. |
 | `## review panel citation check` | Optional. A single fenced command block and nothing else in the section — unlike `## workspace isolation` and `## visual verification` above, this key gets no dedicated parsing guard: the whole of what it means to the resolver is "a fenced block exists, read literally". **Absent means the whole pre-panel step is skipped**, exactly like every other optional key. The command runs from the apply worktree only when `flow-guard check-panel-citation-trigger` exits 0 (**Guard resolution**, `skills/flow-contracts/pipeline.md`, is how `skills/flow/review-panel.md` names it, which is also canonical for the full wiring procedure); its combined stdout+stderr is captured verbatim and its exit code is never gating. |
-| `## panel diff exclude` | Optional. A single fenced block of git glob pathspecs, one per line, matched against the repository root — vendored trees a change carries but no reviewer judges, such as a design handoff's `handoff_*/**`. `<agents repo>/scripts/flow-guard write-panel-diff` leaves every path they match out of that repository's panel diff sections and their `.touched` list, so the size cap and the docs-only check never count them; its header is canonical for the pathspec. Absent means nothing is excluded (kan-1012: vendored `handoff_*` directories were a third of `final-review.diff`). |
+| `## panel diff exclude` | Optional. A single fenced block of git glob pathspecs, one per line, matched against the repository root — vendored trees a change carries but no reviewer judges, such as a design handoff's `handoff_*/**`. `<agents repo>/scripts/flow-guard write-panel-diff` leaves every path they match out of that repository's panel diff sections and their `.touched` list, so the size cap and the docs-only check never count them; its header is canonical for the pathspec. Absent means nothing is excluded. |
 
 **Load `skills/flow-contracts/project-configuration-standards.md`** only when resolving a `## standards` entry.
 
@@ -74,22 +74,13 @@ machine with an unusual layout can state the answer instead of having one derive
 2. `<agents repo>` is **two levels above** the resolved directory: up out of the skill's own
    directory, then up out of `skills/`.
 
-**The link to resolve is the per-skill one, never the `skills/` directory above it.** See
-**The per-skill link, not the `skills/` directory**
-(`skills/flow-contracts/project-configuration-rationale.md`)
-for the measured global-install layout this guards against.
+**The link to resolve is the per-skill one, never the `skills/` directory above it.**
 
-The same two steps are correct for a project-local install, where nothing is a symlink at all. See
-**Project-local installs need no link**
-(`skills/flow-contracts/project-configuration-rationale.md`)
-for why.
+The same two steps are correct for a project-local install, where nothing is a symlink at all.
 
 **Confirm the derived root before using it, and treat a miss as an absence rather than a nearer
 guess.** Check that the path you are about to use exists under it. That is never a licence to skip
-the step, and never a reason to search the filesystem for a checkout that might be one. See
-**Confirm the derived root before using it**
-(`skills/flow-contracts/project-configuration-rationale.md`)
-for the copied-directory case this guards against.
+the step, and never a reason to search the filesystem for a checkout that might be one.
 
 **Roots in `## apps` are main checkouts.** When an apply worktree exists for the change, resolve
 that app's root from `git worktree list` in its repo and use the worktree root instead — never a

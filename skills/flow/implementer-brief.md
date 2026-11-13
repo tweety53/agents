@@ -23,7 +23,7 @@ implements**, `skills/flow/implement.md`).
 >
 > `flow-guard stage-task-files <abs-worktree> <file>…` runs that clearing reset, then the add of the task's
 > non-planning paths, then a second clearing reset, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and
-> commit nothing (kan-1012: `git add` exited 0 with 15 new paths untracked, and the commit failed).
+> commit nothing.
 > Its header (`<agents repo>/scripts/flow-guard stage-task-files`) is canonical for the sequence.
 > Paths are relative to the worktree root, which `-C <abs-worktree>` anchors whatever directory
 > the shell is in — from a subdirectory of it, an unanchored `git add` reads them
@@ -165,8 +165,7 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > **SCRATCH HARNESS:** A throwaway harness — a measuring spec, a repro script, a probe — lives in
 > your session scratchpad or in this change's state dir (the path `flow state dir` prints), never
 > in a new worktree or branch of any repository. Cleanup removes only the change's own worktrees
-> and branches, so one you create outlives the run (kan-960 left a `kan-960-measure` worktree and
-> branch in `gymie-playwright`).
+> and branches, so one you create outlives the run.
 
 > **REPORT FILE:** write your report to
 > `<abs-worktree>/.superpowers/sdd/implementer-report-<k>.md` as your **last** act — after your

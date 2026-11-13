@@ -26,4 +26,3 @@ any one failure, and the handoff names which records were rendered and which wer
 `MISSING:` nor `journalled:` is non-zero** — non-zero keeps its one meaning, a destination refused or
 a write that failed, so a caller branching on exit status never reads an empty record, or an
 unreachable store, as a failure.
-See **Rendering the session records** (`skills/flow-contracts/session-records-rationale.md`) for why.

@@ -64,7 +64,7 @@ write creates it. A capture's planning then marks `flow.brainstorm`, `flow.desig
 `flow.create-artifacts`, `flow.writing-plans`, `flow.plan-review` when the plan is reviewed, and `flow.decide` under `-command '/flow-plan'`, the
 rows the Level 1 table admits for `/flow-plan`; `flow.kickoff` is not marked. **No
 `flow record dispatch` call before capture** — no change exists to record a planning dispatch
-against (decision `flow-plan-records-nothing`, kan-1033). After it, every `plan-<n>`,
+against (decision `flow-plan-records-nothing`). After it, every `plan-<n>`,
 `explore-<n>` and `design-<n>` dispatch is recorded against the change, `<n>` counting from 1 per
 change.
 

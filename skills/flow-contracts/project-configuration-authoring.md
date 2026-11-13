@@ -6,8 +6,6 @@ resolves; nothing here is consulted by any run.
 
 **The `.mdc` extension is what selects the shared library, and nothing else.** A project-local
 `.mdc` is still nameable — write it as a path (`<project>/.claude/rules/api.mdc`), which form 3 takes as-is.
-See **The `.mdc` routing rule** (`skills/flow-contracts/project-configuration-rationale.md`)
-for why.
 
 Written out, with placeholder names standing in for a real project's own — flow's own files carry
 no project's databases, ports or task names, per **Project configuration**
@@ -34,6 +32,3 @@ no project's databases, ports or task names, per **Project configuration**
 | `survivors` | `./scripts/workspace survivors` |
 ```
 
-See **The three-`url`-rows worked example**
-(`skills/flow-contracts/project-configuration-rationale.md`) for a walkthrough of the three
-`url` rows in the worked example above.

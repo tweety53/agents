@@ -59,7 +59,7 @@ export were performed manually and why.
 flow-guard check-base-behind <worktree>...
 ```
 
-over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block and run its two command lines in order — the first pushes the base, unasked (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`); on zsh write `${C}:refs/heads/…`, since a bare `$C:r…` is the `:r` modifier — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue (kan-1007: a stale `--base` was papered over by merging develop into the change branches, and integrate's reshape folded KAN-1010 into the squash).
+over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block and run its two command lines in order — the first pushes the base, unasked (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`); on zsh write `${C}:refs/heads/…`, since a bare `$C:r…` is the `:r` modifier — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue.
 
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**
@@ -105,7 +105,7 @@ that will not start ends the turn as a failed command's environment cause does.
 
 **A `verify` that can outrun the shell tool's time limit runs whole, in the background** — one Bash call launched with `run_in_background: true`, and the parent waits for its completion notification and reads the exit code and output from it, never a `sleep` poll. Never split its
 `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
-chunk pays the suite's start-up again (kan-932's 78-spec suite, ~14 minutes, ran in two halves).
+chunk pays the suite's start-up again.
 
 ```text verified:design.md section 2 of this change
 ## Report
@@ -150,7 +150,7 @@ group was cache-skipped, `-outcome blocked -cause test-failure` when its list ex
 `begin` the store refuses stops the list before its first command, exit 4, its stderr line naming the
 refusal: clear the cause — a tracked modification, most often — and run the list again; a failed
 `end` is a warning line that never changes the exit code. The first `begin` stamps the start and the
-last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand (kan-1086 self-review, F3). A verify re-run after a new code commit passes a key no earlier verify row of the change
+last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand. A verify re-run after a new code commit passes a key no earlier verify row of the change
 used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
 key's first `startedAt`, and a row started before the commit never covers it. `verify-<k>` keys a re-run with no fix; a re-run after a fix carries the fix round's `-fix-<k>` key
 (**The loop**, `skills/flow/verify-fix-loop.md`). Once the one inline re-run is decided, a passing re-run ends a fresh
@@ -177,9 +177,7 @@ turn, never a second key.
 (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`); a one-line
 no-runtime section, or none, skips it. A section is that no-runtime form when its first line opens
 with `None`, `No ` or `Not applicable`, however many lines its justification wraps to. Once both groups of the lint and test list have exited —
-never while either still runs: kan-918's live check, run beside the polled groups, wrote
-`live-verification.md` into the tree the guard-test runner then watched, failing its watched-tree check
-and costing a 272-second re-run — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, or `flow-guard check-dev-stack-fresh
+never while either still runs — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, or `flow-guard check-dev-stack-fresh
 <worktree>` exits non-zero, start it as **One stack for the verification tasks**
 (`skills/flow/implement.md`) does; then exercise what the section names and write each
 before/after figure, beside the failure look the section states, to `live-verification.md` in
@@ -202,24 +200,19 @@ the input and run it again. The `## Report` gains one line, `live check — <mat
 shows the failure look is the branch's own defect and takes **The loop**
 (`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
 command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
-database, a throwaway container — never simply dropped, and the `## Report` line names the proxy:
-kan-576's waived V34 DOWN-block step, run by a reviewer on a scratch database, caught a rollback
-that would have kept every `WORKOUTS: READ` grant as a full one. The verifier row's `end` (**Recording.**, above) is recorded
+database, a throwaway container — never simply dropped, and the `## Report` line names the proxy. The verifier row's `end` (**Recording.**, above) is recorded
 after this check, not before it: `-outcome blocked -cause test-failure` on a failure look,
 `-cause environment` on a stack that will not start. The stack stays up for **Visual
 verification** and **Resolve the run instructions**.
 
 **The check runs at the smallest footprint that proves its claim** — the lowest parallelism, the
 fewest inputs that still prove the claim — and widens only once that run
-passes (kan-1075 self-review, F3: `--parallel 2` exhausted the Docker VM's memory and only
-`--parallel 1` ran).
+passes.
 
 **A check command that outlasts the Bash tool's foreground limit runs with the tool's
 `run_in_background`**, its log and exit status written under the change's directory (**A
 change's directory**, `skills/flow-contracts/pipeline.md`) rather than a fixed `/tmp` path, and
-the parent waits on the tool's completion notice — never a hand-built `nohup` and a polling loop
-(kan-1075 self-review, F7: seven polls of a fixed `/tmp/live.exit` path, each at a 270k-token
-context).
+the parent waits on the tool's completion notice — never a hand-built `nohup` and a polling loop.
 
 ### Close the stage
 
@@ -244,9 +237,7 @@ discovered later. The outcome words are the table under
 check in-process on the change's directory under `-C`, and refuses a `completed` end on its exit 1
 or 2; its header is canonical for the verdict. A refusal on exit 1 → run **Live check** above and
 rewrite the record, never end the stage past it; on exit 2 → pass `-C` the canonical worktree, or
-correct the input it names, and end again (kan-1008: the stage end checked nothing, the live check
-first ran at integrate, and its defect landed after the panel; kan-1029: a stage end with no
-chained check passed).
+correct the input it names, and end again.
 
 ```bash
 flow stage end -C <canonical-worktree> -command '/flow' -stage flow.verify -outcome completed <name>
@@ -292,8 +283,7 @@ A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<
    does.
 
    Each worktree's diff runs from its `--merge-base` — never `origin/<base>` or another ref picked by
-   hand, which matches every path the base gained since the worktree was cut as this change's own
-   (KAN-702).
+   hand, which matches every path the base gained since the worktree was cut as this change's own.
 
    **On a fix run, both calls read the fix run's own diff.** A worktree that has a since-close sha this
    run — the one **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`) read for it — is

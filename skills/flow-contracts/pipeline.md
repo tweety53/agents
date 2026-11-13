@@ -120,9 +120,7 @@ change, implementation, review, verify, integrate and cleanup follow in one invo
 landing route ends the run (`skills/flow-contracts/finish-contract-run1.md`). The one stop the
 operator chooses is review-before-landing (`reviewBeforeLanding`, `state-file.md`), for manual
 testing after implementation; beyond it only **What still stops** ends a turn early. No rule in
-another file licenses asking a question that carries a recommended option (kan-1037: the parent
-asked a visual verifier's three spec questions under `rules/design-mockups-are-specs.mdc`'s "Ask
-rather than invent", then stopped after an in-run fix task citing token cost).
+another file licenses asking a question that carries a recommended option.
 
 **The operator's actions and the run's stops are minimised: a run resolves everything it can
 itself and continues.** It stops only for a decision only the operator can make, or for an
@@ -135,14 +133,9 @@ rounds or tasks still ahead, a natural-looking checkpoint, the length of a phase
 read or the lines already loaded, and a list of open items that each carry
 a recommended option are never reasons to end a turn or to hand a status report to the operator
 mid-run (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A
-shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a separate change"
-(kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate
-still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap
-as open items, each of which had a recommended fix). A phase file too long for one read is read in
+shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a separate change". A phase file too long for one read is read in
 offset chunks and the run continues, and, with no explicit operator stop, is never handed to the
-operator as 're-run /flow to continue' (kan-1104: the
-parent stopped at STARTED with every task ticked and the panel, verify and integrate ahead, citing
-the size of the phase files left to read).
+operator as 're-run /flow to continue'.
 
 **A failing tool, guard or environment is cured in the run, never handed off.** A guard's exit 2,
 a script that errors, a stack that will not start, a stale environment and an out-of-date tool are
@@ -159,8 +152,7 @@ phase — findings recorded and the fix round not yet made, a fix committed and 
 yet launched, a dispatch returned and its result not yet acted on — the next step is taken in the
 same turn, never announced as "next". A turn whose last action is anything other than an operator
 prompt **What still stops** names, a blocked report, or the handoff the state's run ends on is
-this rule broken (kan-1018: the parent ended its turn with round-0 panel findings recorded and
-every fix still ahead). The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end.
+this rule broken. The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end.
 
 **A wait on background subagents is the one turn end inside a phase.** The parent ends its turn on
 the one-shots it launched, and the harness's completion notifications resume it — never a poll;
@@ -205,8 +197,7 @@ safest that still makes progress.
 **An operator message that arrives mid-run is not a stop by default.** A question, an aside or a
 side request the operator sends while a run is executing — about the run, the change or anything
 else — is answered or done in the run's own output, and the same turn then continues into the
-run's next step (kan-1033: the parent closed the review panel, answered two mid-run questions and
-filed a requested ticket, then ended the turn with verify still to run). **An explicit instruction
+run's next step. **An explicit instruction
 to stop is the one exception** — "stop", "pause", "wait for me", "don't continue": the run
 finishes the step in flight, waits for every child it launched, answers what the message asked,
 and ends the turn at the state it reached, naming the next step and `/flow <name>` to resume. A
@@ -398,7 +389,7 @@ plan's completion state, and `<agents repo>/scripts/flow-guard check-unfinished-
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
 count comes from no persisted record at all — the board's rows are session state, never written
-to disk. See **Progress visibility** (`skills/flow-contracts/pipeline-rationale.md`) for why a marker would be unsafe.
+to disk.
 
 **On a harness without the mod (ZCode, Muse), `/flow` prints the equivalent block instead** — a count
 line naming how many steps are done, in progress and open, followed by one line per step marked
@@ -449,11 +440,9 @@ identifier is the **key**, never the prose name, from **Level 1 — the stages o
 the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
 same run; do not invent a fresh one per mark. **The token ends in the run's start time, UTC to the
 second** — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal, `mf-k1028-20261023T183402Z`
-— so no two runs share one: a name-derived token alone repeats across sessions (kan-1028:
-`mf-k1028b`, reused by a resumed run, collided with the dead session's rows). `flow stage begin`,
+— so no two runs share one: a name-derived token alone repeats across sessions. `flow stage begin`,
 `wrap` and `mark` refuse a token that does not end so, exit 2; a run whose token predates the rule
-reads the clock then and marks under the stamped token from there on (kan-1029:
-`mf-k1029-PLACEHOLDER` was accepted). `-harness` names the harness actually running the mark
+reads the clock then and marks under the stamped token from there on. `-harness` names the harness actually running the mark
 — `claude-code`, `zcode` or `muse`.
 
 **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
@@ -508,8 +497,7 @@ Next:
   literally and whatever it was meant to fold spills into the output.
 - **The next command is the last thing printed, alone in its own fenced code block** — a plain
   triple-backtick fence, no language tag, holding the command and nothing else, with no prose after
-  it, so a client with a code-block copy button copies it in one tap. See
-  **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
+  it, so a client with a code-block copy button copies it in one tap.
 - **A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
   Yes, puts `/clear` on the line above the next command's fence.** It is a recommendation the operator may skip, never a gate, and the next
   command's fence stays last.
@@ -534,9 +522,7 @@ Next:
 - **Implementation never stages `<project>/spectre/changes/` into its own commits**, and the path
   is fixed here rather than configured per project. `<project>/spectre/specs/`
   and a change directory's `link.md` are deliberately not on it — see **Git boundaries**
-  (`skills/flow-contracts/git-boundaries.md`) for why. See
-  **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why leaving them unstaged
-  — rather than filtering a display — is what keeps them out of every view of the staging area:
+  (`skills/flow-contracts/git-boundaries.md`) for why. Leaving them unstaged — rather than filtering a display — is what keeps them out of every view of the staging area:
 
   ```bash
   git -C <abs-worktree> diff --cached --stat
@@ -610,9 +596,6 @@ This narrows the "code, commits, docs and specs stay full" carve-out the be-brie
 
 **No length guard and no byte budget measures a change artifact.**
 
-See **Artifact brevity** (`skills/flow-contracts/pipeline-rationale.md`) for why this is stated
-here rather than in each artifact-writing skill.
-
 ## IntelliJ commands
 
 Every state that waits on a human prints a copy-paste command in its handoff, save where the table
@@ -622,8 +605,7 @@ below says none:
 open -na "IntelliJ IDEA" --args "<absolute path>"
 ```
 
-Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH. See
-**IntelliJ commands** (`skills/flow-contracts/pipeline-rationale.md`) for what `open` buys.
+Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH.
 
 | State | Path to open |
 |-------|--------------|

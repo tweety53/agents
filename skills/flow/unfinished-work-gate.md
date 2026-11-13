@@ -87,17 +87,14 @@ flow record verdict false-positive -change <name> -guard check-unfinished-work \
 Once, and at the canonical worktree, whichever worktrees reported `OUTSTANDING`: the guard records
 every worktree's verdict under the canonical project (THE STORE CALLS ANCHOR AT THE PLAN'S PROJECT,
 `<agents repo>/scripts/flow-guard check-unfinished-work`), and the command flags that project's newest verdict for the
-change — a satellite's `-C` names a project holding none, and the store refuses it (kan-941:
-"dispatch not found" for both satellites).
+change — a satellite's `-C` names a project holding none, and the store refuses it.
 
 **A flagged verify failure stays cleared.** `flow-guard check-unfinished-work` clears a verify failure
 whose `<spec>:<line>` an earlier false-positive verdict of the change names, so the `-reason`
-names each verify failure it flags by the `<spec>:<line>` the verdict printed (kan-1010:
-`screenshots.spec.ts:52` was flagged three times, each flag on that run's newest row alone).
+names each verify failure it flags by the `<spec>:<line>` the verdict printed.
 
 A write that falls back to the journal is one warning line and the run continues.
 
 **An `UNTASKED` listing is never flagged this way.** `flow-guard check-untasked-commits` records no
-verdict, so the flag would land on `check-unfinished-work`'s newest row, a `CLEAR` (kan-1003:
-verdict 646). A listed commit's author is the identity every session commits under, so the relay
+verdict, so the flag would land on `check-unfinished-work`'s newest row, a `CLEAR`. A listed commit's author is the identity every session commits under, so the relay
 never calls it the operator's own.

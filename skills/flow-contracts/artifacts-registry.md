@@ -42,13 +42,10 @@ there is nothing temporary to remove.
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
 points here rather than restating it. **Worktree cleanup**
 (`skills/flow-contracts/finish-contract-run2.md`) is the *procedure* for the rows removed there, not a
-second statement of the rule. See **Temporary artifacts registry**
-(`skills/flow-contracts/artifacts-registry-rationale.md`) for why a stale second copy would be dangerous.
+second statement of the rule.
 
 **An artifact no row accounts for is a defect in the registry**, corrected by adding the row —
-never left unaccounted for on the grounds that something probably removes it. See **Temporary
-artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for the incident that
-established this.
+never left unaccounted for on the grounds that something probably removes it.
 
 **The proposal artifact source is not a record.** `/flow` writes no
 `<state-dir>/<name>-proposal-artifact.html`; a change created before `publish-proposal-removed` may
@@ -69,12 +66,10 @@ established from the project's own survivor report, never inferred from the remo
 — stated once under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`), with
 the report's output and exit-code contract under **Project configuration — workspace isolation**
 (`skills/flow-contracts/project-configuration-isolation.md`). A report that could not reach its service is
-skipped rather than failed. See **Temporary artifacts registry**
-(`skills/flow-contracts/artifacts-registry-rationale.md`) for why asking, not looking, is required here.
+skipped rather than failed.
 
 **Nothing removes the claimed cache index, and nothing in this pipeline can.** It is not written
 into the state file, and the project's `remove` command does not touch it either — stated as a
 property of the `cache index` resource word under **Project configuration — workspace isolation**
-(`skills/flow-contracts/project-configuration-isolation.md`). See **Temporary artifacts registry**
-(`skills/flow-contracts/artifacts-registry-rationale.md`) for why: guessing an index to sweep risks flushing
+(`skills/flow-contracts/project-configuration-isolation.md`). Guessing an index to sweep risks flushing
 another workspace's.

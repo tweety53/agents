@@ -14,8 +14,7 @@ The reasoning behind this file lives in
 
 Any step in any command that needs "the worktrees" for a change — a preflight verdict, a gate that
 runs once per worktree, a status report, or a removal — resolves the set first; it never loops over
-the state file's `worktrees` map directly. See **Resolving a change's worktrees**
-(`skills/flow-contracts/worktree-resolution-rationale.md`) for why.
+the state file's `worktrees` map directly.
 
 **A resolved set that comes back empty is never a vacuous pass.** Report it explicitly rather than
 let a zero-iteration loop read as "every worktree passed," "every worktree is merged," or whatever

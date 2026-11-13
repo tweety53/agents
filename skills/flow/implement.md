@@ -93,9 +93,7 @@ call that names no row is not made.
 **No row is ever a fork.** No `/flow*` phase, and no loop a phase or the self-review runs,
 dispatches `subagent_type: "fork"`: every flow dispatch is a fresh agent whose prompt carries what
 it needs — paths to the run's artifacts, reports and records — never the parent's context, and
-`hooks/enforce-agent-baseline.py` denies a fork in a flow session (KAN-1000: a parent forked itself
-to run a self-review loop, dragging about 300k tokens of uncached context into a dispatch that
-needed a change list and file paths).
+`hooks/enforce-agent-baseline.py` denies a fork in a flow session.
 
 **Every dispatch's Agent-tool `description` names what it carries, in the operator's status-line
 shape.** A dispatch carrying plan tasks — an implementer, a gated reviewer bundle — names them
@@ -104,10 +102,8 @@ for one task, `Tasks 3+4+7/22 (review)` for a group, its ids in the order its ke
 words, with no parentheses: `panel-1-primary correctness review`. The `flow-task-list` mod
 (`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
 row its description's first word names, so `hooks/enforce-agent-baseline.py` denies, in a flow run,
-a dispatch whose description opens any other way (kan-1026: launches described `Round-11 primary
-review` left their rows to time pairing, which stamped two with another dispatch's agent). A first
-word off the **Key shape** column above is another way: kan-1029's `verify-fix-1` and `verify`
-launches recorded no row. A live `flow record dispatch begin` prints both for its row after its
+a dispatch whose description opens any other way. A first
+word off the **Key shape** column above is another way. A live `flow record dispatch begin` prints both for its row after its
 `recorded:` line — `description: <opening>`, and `Role: <role id>` wherever the row decides it —
 and the parent pastes that opening into the Agent call's `description` and that line into its
 prompt, never composing either; where no `Role:` line is printed, as for a panel reviewer row, the
@@ -124,7 +120,7 @@ Every row's own prompt or brief carries the NO DELEGATION paragraph (`skills/flo
 `skills/flow/gated-reviewer-brief.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
 nothing exists below these rows — save the in-run pipeline fix planner, which carries PLANNING
 DELEGATION in its place on a `flow-planner-<effort>` definition and may dispatch fresh Explore and
-Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`; kan-1033).
+Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`).
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
 — three definitions, one per effort, each carrying `effort:` and no
 `model:`) carries a `tools:` allowlist that omits
@@ -132,7 +128,7 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on the
-`gated-reviewer` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), never its group's pair (kan-1107 self-review, F1). On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
+`gated-reviewer` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), never its group's pair. On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too. **`flow-high` is dispatched in exactly two cases and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included, and a pass-1 panel dispatch the operator approved at `high` at the plan gate (**Model and effort**, `skills/flow/brainstorm-planner.md`); every other row takes the effort its recorded pair or its contract names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside the two. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
@@ -232,12 +228,10 @@ these substitutions:
   harvested transcript may pass; `-tokens` is refused where `CLAUDE_CODE_SESSION_ID` is set.
   `flow record dispatch begin -agent-id inline` refuses while the worktree carries a tracked
   modification other than the change's own `tasks.md`, naming each dirty path — work already
-  under way when its row begins (kan-920: task 5's row began after its edit and recorded 7
-  seconds).
+  under way when its row begins.
   It also refuses a `completed` inline row on a task's key (`task-<ids>-implementer…`) that
   carries no `-commit`, and one whose `-commit` — found in any of the change's worktrees — was
-  made before the row's begin, a begin recorded after the work it opens (kan-1003: tasks 10–22's
-  rows opened after their commits, read 3–53 s and recorded no commit).
+  made before the row's begin, a begin recorded after the work it opens.
 
 ## 1. Load context and validate the plan
 
@@ -270,9 +264,7 @@ stops the run.
 `flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
 for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block, run its two command
 lines in order as **Verify** (`skills/flow/verify-and-handoff.md`) runs them, and run the check
-again. Exit 2 → name its stderr in the handoff and continue (kan-1015: feature/templates sat 21
-commits behind develop through every task, and the base sync at verify exposed a Flyway clash only
-after implement).
+again. Exit 2 → name its stderr in the handoff and continue.
 
 **The plan is refreshed against the base before task 1 runs.** Before the
 first task dispatches — inline or as an implementer — run, with this run's working-notes merge
@@ -291,9 +283,7 @@ moved base now already carries**. A collision is reconciled before task 1 runs, 
 reconciles the three artifacts together** (section 4 below) — never discovered mid-task.
 
 **The change branch is rebased onto its base before task 1 runs**, on every implementation run —
-creating, resumed or fix — once the plan refresh above has named what moved (kan-1032: the base
-moved 13 commits during planning, and the overlap surfaced only at the review panel's base sync,
-after every task). It runs before the collision reconciliation above. Then, once per worktree in this run's resolved set, with its working-notes
+creating, resumed or fix — once the plan refresh above has named what moved. It runs before the collision reconciliation above. Then, once per worktree in this run's resolved set, with its working-notes
 merge base:
 
 ```bash
@@ -487,7 +477,7 @@ An inline back-fill (`-agent-id inline`) carrying `-commit` takes neither instan
 commit before it in any of the change's worktrees — for a `panel-fix-<r>` key never earlier than the
 last end among round `<r-1>`'s reviewer rows, whose reports the fix works from — and refuses either
 flag beside it — a
-hand-written instant there is a guess (kan-1003: `-started-at $(date -u -v-45M …)`).
+hand-written instant there is a guess.
 
 **`-model` is the model this dispatch was actually given — the group's own `model` from the
 decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brainstorm-planner.md`,
@@ -603,9 +593,7 @@ once per worktree in this run's resolved set, one worktree after another, in the
 (`skills/flow/verify-and-handoff.md`) prints nothing for
 — by hand, in the order the context bundle carries it, only where that exits 3 — its output
 through `tail`; the green sha each run records in its own worktree is what lets **Inline verify**
-(`skills/flow/verify-and-handoff.md`) skip what no later commit touched (kan-1084 self-review, F1:
-the frontend's `## test` list first ran at `flow.verify`, after three panel rounds had reviewed that
-tree). Every failure, wherever it lies, is fixed at its root
+(`skills/flow/verify-and-handoff.md`) skip what no later commit touched. Every failure, wherever it lies, is fixed at its root
 cause and the list re-run until it passes. Under `sdd` the fix is a fresh one-shot, the
 `full-suite-fix-<n>` row of **Every fix is a fresh one-shot** below, its `FIX INPUT:` the failing
 block, and a failing visual `verify` row in it is re-run narrowed as **Narrowed visual re-runs** states (`skills/flow/verify-fix-loop.md`). Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
@@ -641,9 +629,8 @@ of `skills/flow/visual-verify.md`.
 opens a pass 1, the full-suite run above waits for that pass: the parent closes `flow.sdd-tdd`,
 enters the panel, and runs the list there, between recording the pass-1 begins and the round's
 wait, as that file's **Bundled dispatch** states. The reading slots are read-only, so their verdict and the
-suite's arrive together rather than one after the other (kan-920: the panel waited six and a half
-minutes for a suite it did not read).
-The mutation slot is not read-only: it runs the tests once per mutant on the same CPUs, so the `mutation+failure-modes` dispatch is begun and launched only once the suite has exited (kan-1039: the guard package hit `go test`'s 10-minute timeout under the mutation slot's runs, and passed alone in 332 s). A full-suite fix is applied only after the round's wait ends, never
+suite's arrive together rather than one after the other.
+The mutation slot is not read-only: it runs the tests once per mutant on the same CPUs, so the `mutation+failure-modes` dispatch is begun and launched only once the suite has exited. A full-suite fix is applied only after the round's wait ends, never
 while the slots are reading the tree.
 
 **A group boundary is one wake, one Bash call and one launch message.** The unit is the group — the decision's `groups`
@@ -777,8 +764,7 @@ that task's entry in `tasks.md`, at the task-close boundary where the task's oth
 are transcribed (before the guard runs on the commit), stating what the plan declared, what
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
 reports the deviation, the parent transcribes it; inline, the session is both halves. A `Correction:` paragraph is plan prose the plan-provenance guard reads.
-Run `flow-guard check-plan-provenance` when transcribing it, and give each numeric claim its `measured:` comment or word it without a count
-(kan-1020: a bare count in a Correction was refused only at verify). Once a `Correction:`
+Run `flow-guard check-plan-provenance` when transcribing it, and give each numeric claim its `measured:` comment or word it without a count. Once a `Correction:`
 paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which
 records the plan's correction count beside its task count — the plan-corrections metric
 experiments compare. A `design.md` statement the plan or a task's commit is found to
@@ -809,8 +795,7 @@ before load-context.** (`skills/flow/document-fix.md`) does — its own `flow.de
 block, opened and closed while `flow.sdd-tdd` stays open — before the added task is implemented. The
 tasks still to run follow the new row's implementer and fixer pairs and panel roster, never the first
 row's. So the newest row's `inputs` count the plan that
-ran (kan-1028: Task 6, added mid-run, left the only row at `tasks=5 files=20` against
-`tasks=6 files=23`).
+ran.
 
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
@@ -844,7 +829,7 @@ pass — never its report bodies: `flow-guard check-plan-unchanged verify` and `
 verify` first (**The plan tree survives every reviewer dispatch**, below), then, on both exit 0,
 the findings call above, the record's end and `flow tasks tick` for every clean task — riding the
 boundary call above when the next group's implementer returns in the same wake.
-A gated bundle's `verify` appends the `**Files:**` paths of the implementer group dispatched beside it, `flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file> <path>…`, so that group's uncommitted edits are not read as the reviewer's; every other bracket passes none (kan-1107 self-review, F3).
+A gated bundle's `verify` appends the `**Files:**` paths of the implementer group dispatched beside it, `flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file> <path>…`, so that group's uncommitted edits are not read as the reviewer's; every other bracket passes none.
 **A pass whose findings are all Minor is `clean`** — no re-review; its task ticks in the call
 that closes the record, and its Minors stay open findings for the stage-end fixer
 (`skills/flow/gated-review-fix.md`). A Minor no change to the tree can resolve is named,
@@ -905,7 +890,7 @@ handshake retry alike — the parent runs
 notification arrives, the parent runs `flow-guard check-plan-unchanged verify <worktree> <name>
 <snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit
 1 ends the turn with `## Question` carrying the guard's lines verbatim; exit 2, the same stop.
-The parent never edits the plan tree while a snapshot-bracketed dispatch is in flight: an operator's plan change that arrives then is applied after that dispatch's `verify`, and the next bracket's snapshot is taken after the edit (kan-1104 self-review, F4: the parent's own mid-run edits to `design.md` and `tasks.md` landed between a snapshot and its `verify`, and the guard stopped the run). The parent's own task-close edits are the exception: a checkbox tick, an inserted `Correction (YYYY-MM-DD):` paragraph and a `**Files:**` line widened without dropping an entry may land while a bracket is open, since `verify` admits exactly those three; any other plan edit waits for the bracket's `verify` (kan-1107 self-review, F2).
+The parent never edits the plan tree while a snapshot-bracketed dispatch is in flight: an operator's plan change that arrives then is applied after that dispatch's `verify`, and the next bracket's snapshot is taken after the edit. The parent's own task-close edits are the exception: a checkbox tick, an inserted `Correction (YYYY-MM-DD):` paragraph and a `**Files:**` line widened without dropping an entry may land while a bracket is open, since `verify` admits exactly those three; any other plan edit waits for the bracket's `verify`.
 
 **Every dispatch that can touch the worktree is bracketed by content markers — the subagent's
 own clean-state claim never answers for the tree.** The plan-tree guard above is one instance of
@@ -936,8 +921,7 @@ the same turn loads the next phase's file and dispatches its first step — the 
 the last tick, verify after the panel. A phase file still to be read, the size of the next phase,
 or the context it will cost are never reasons to end the turn; the run ends only where
 `skills/flow-contracts/pipeline.md` names a stop — blocked, a human gate, or a question only the
-operator can settle (gymie KAN-1015: the parent ticked Tasks 15–19 and ended its turn with
-"the review panel is next"). A turn that ends with a background child out is that child's wait
+operator can settle. A turn that ends with a background child out is that child's wait
 (**Turn discipline**, below), never a stop.
 
 **Turn discipline.** A turn is spent only where an output must be read before the next action is

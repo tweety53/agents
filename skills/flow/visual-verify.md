@@ -67,9 +67,6 @@ own system prompt>`.
 > an incomplete report only for a blocker you cannot cure, named; time, context and a departure
 > found are none. Report every departure you see in this one pass.
 
-kan-1009: the paragraph priced a rejected report as one more dispatch, and a verifier handed back
-with step 10 undone on that reading; its remainder ran 9m34s.
-
 **Recording.** `flow-guard visual-verify-pass prepare` records each dispatch's `begin` and `close` its `end`,
 `-role verifier`, `-task` omitted, `-model
 opus -effort low`, `-key visual-verify`, suffixed `-<repository name>` when this run's resolved set holds
@@ -77,8 +74,8 @@ more than one worktree — the worktree's main checkout's basename, the name
 `flow-guard check-visual-trigger --repo` takes, since every worktree's own basename is the change name — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
 Its `begin` carries `-diff-base` with the sha `git -C <worktree> rev-parse HEAD` prints before the dispatch, the HEAD it verifies: `flow-guard check-visual-verify-dispatched` counts a verifier row only for that HEAD, and only while no UI path the change touches has changed since.
-A `-diff-base` found wrong after the begin is corrected on that row's `end`, which takes `-diff-base` too, never by back-filling a second row (kan-1008: an agentless `-heads` row carried the correction).
-A verifier whose worktree's `ui paths` also match a sibling worktree's diff — a `<repo>/**` glob naming the sibling's repository — verifies that sibling's HEAD as well, so its `-diff-base` names each such HEAD too, comma-joined after its own: the guard checks each worktree against the one sha it resolves, and no row is recorded for a sibling no verifier was dispatched to (kan-983's `visual-verify-2-gymie-frontend`).
+A `-diff-base` found wrong after the begin is corrected on that row's `end`, which takes `-diff-base` too, never by back-filling a second row.
+A verifier whose worktree's `ui paths` also match a sibling worktree's diff — a `<repo>/**` glob naming the sibling's repository — verifies that sibling's HEAD as well, so its `-diff-base` names each such HEAD too, comma-joined after its own: the guard checks each worktree against the one sha it resolves, and no row is recorded for a sibling no verifier was dispatched to.
 
 **`close` checks every report for completeness before anything else reads it**, ends its row and
 prints the next step — the parent's own Bash call, once the report file exists:
@@ -93,8 +90,7 @@ declared, `flow-guard check-frame-list`; their headers are canonical for the rep
 admissible statuses and the frame list, and `close`'s header for its outcomes. Act on its closing line:
 
 - `NEXT: rest <key>` — **the report is incomplete and is never accepted, whatever its prose says**,
-  and no fix task is planned from it, its departures included, until its remainder completes it
-  (KAN-1000). `close` closed the dispatch `-outcome aborted`; run `prepare --continue` for the key it
+  and no fix task is planned from it, its departures included, until its remainder completes it. `close` closed the dispatch `-outcome aborted`; run `prepare --continue` for the key it
   names — `-rest`, then `-rest-<n>` from 2, before any `-<repository name>` suffix — and dispatch the
   remainder at once, its bundle carrying the incomplete report's path and the guards' verdict lines
   under `## Incomplete attempt`. A remainder completes its dispatch rather than adding one, so it
@@ -174,7 +170,7 @@ run them, and the parent starts and stops the stack, all in the parent's own Bas
 subagent's. Steps 4 and 8–11 and the motion step are run by one verifier per worktree
 surviving steps 1–3, dispatched per **The verifier dispatch** above under the key `prepare` began; the
 parent applies **Blocking** to its report. `prepare` prints one `DISPATCH: <key> <bundle> — <description, subagent_type, model and Role: line>` line per
-verifier, the Agent call taking those four as printed (kan-1086 self-review, F9), then `NEXT: dispatch`; its bundle,
+verifier, the Agent call taking those four as printed, then `NEXT: dispatch`; its bundle,
 `<abs-worktree>/.superpowers/sdd/verify-prompt-<key>.md`, states the absolute worktree path; the
 `KEY=value` lines `flow-guard prepare-workspace` printed for it; this section's resolved `setup`, `capture` and
 `specs` commands and `screenshots` root, its resolved `mockups` root when
@@ -202,10 +198,10 @@ page, one carrying `<script type="__bundler/template">`, into <!-- citations-gua
 
 The verifier runs `flow-guard check-verify-report` with `--design <changeRoot>/design.md`, which refuses a
 report, or the `visual-verification.md` beside `design.md`, reading `no mockup source` while
-`design.md` cites a source that exists (kan-1017: every verifier left 7 of 11 matrix columns n/a).
+`design.md` cites a source that exists.
 It also refuses step 10 reported n/a while `design.md` cites an HTML source that exists: an
 approved prototype is rendered as each capture's frame (step 10,
-`skills/flow/visual-verify-verifier.md`; kan-1038).
+`skills/flow/visual-verify-verifier.md`).
 
 **The parent names the change's motions in the prompt** — `motions:`, then one `<motion id>:
 <trigger> → <end state>` line per motion, or `motions: none`. A motion is every animation,
@@ -231,16 +227,14 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    `prepare` prints `STOP: kickoff <repo>` before it begins anything, and the parent runs that
    entry's recipe — the `flow-guard kickoff-worktree --from` call, then the regression
    checkout's `setup` (`skills/flow/cross-repo-worktrees.md`) — adds the worktree to the set, and runs
-   `prepare` again: kan-983's first verifier was dispatched without it and blocked on the
-   missing checkout, ~4.45M tokens spent for nothing. The recipe's merge-order record runs with
+   `prepare` again. The recipe's merge-order record runs with
    it (**Isolate the workspace — additional worktrees**,
    `skills/flow/cross-repo-worktrees.md`): a repository the canonical `link.md`'s `## Merge order`
    omits is one run 1 never sequences and the self-review bundle never reads. **A change
    whose worktree records a flowBase gets a worktree in every `## apps` repository the set holds
    none in, the same way** — the same `STOP: kickoff <repo>`, the `flow-guard kickoff-worktree --from` call
    and its merge-order record — so the stack serves `<base>`'s build, never a main checkout on the
-   default branch: kan-1022's stack served the `develop` frontend to a change based on
-   feature/templates, and 28 specs failed on it. `flow-guard check-visual-preflight` fails a
+   default branch. `flow-guard check-visual-preflight` fails a
    worktree whose branch records a flowBase while an `## apps` repository holds no
    `<repo>-worktrees/<name>` worktree. <!-- citations-guard:allow -->
 
@@ -248,7 +242,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
    workspace — against each surviving worktree, as
    `flow-guard prepare-workspace <worktree> | flow-guard check-visual-preflight <worktree> <app-root>=<resolved-url> ...`
-   with that worktree's `--app` arguments. A worktree whose `<project>/.flow/project.md` declares `preflight apps` needs no `--app`: `prepare` reads its pairs from that row (kan-1086 self-review, F10).
+   with that worktree's `--app` arguments. A worktree whose `<project>/.flow/project.md` declares `preflight apps` needs no `--app`: `prepare` reads its pairs from that row.
    Each `<app-root>=<resolved-url>` is an app `ui paths` matched: its package root relative
    to the worktree and its worktree-resolved URL. A root in another repository — a cross-repo
    change's sibling worktree — is passed relative to the worktree too
@@ -265,10 +259,9 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    When `mockups` is declared, it also runs `flow-guard check-sidecar-reach <capture
    root> <mockups root>`, `<capture root>` the `regression checkout`'s worktree when one is
    declared, else this worktree, and `<mockups root>` the resolved `mockups` root
-   (`<project>/<mockups>`); its header is canonical for the rule. With `specs` declared it runs on each existing `<spec>.mockups` of the specs that row prints, run from `<capture root>`, instead of the whole root, and a failing `specs` command is a failing check (kan-1086 self-review, F11). Its exit 1 names each
+   (`<project>/<mockups>`); its header is canonical for the rule. With `specs` declared it runs on each existing `<spec>.mockups` of the specs that row prints, run from `<capture root>`, instead of the whole root, and a failing `specs` command is a failing check. Its exit 1 names each
    sidecar line whose screenshot no spec beside it takes, or whose frame the mockups root does
-   not hold, a failing check: kan-998's stale lines surfaced only at compose, after a 13-minute
-   capture. A guard's exit 2 — it cannot answer — is a failing check, carrying its stderr.
+   not hold, a failing check. A guard's exit 2 — it cannot answer — is a failing check, carrying its stderr.
 
    **Any failing check ends the stage here**: no verifier is dispatched, `prepare` ends the stage
    `-outcome stopped`, and its `STOP:` line names every failing check with the evidence above.
@@ -313,8 +306,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
     checkout is expected to be, and `flow-guard check-visual-verification` reports a mismatch against
     its real `origin`, but that is an identity assertion, not an authorisation. A commit in a
     resolved worktree is on the change's own `spectre/<name>`, and integrate's push under **Branch
-    backup** (`skills/flow-contracts/git-boundaries.md`) carries it to the remote — no hand push is printed for it (kan-1026: the operator was told to push a
-    worktree integrate had already pushed). When the commit landed in the main checkout, `close`
+    backup** (`skills/flow-contracts/git-boundaries.md`) carries it to the remote — no hand push is printed for it. When the commit landed in the main checkout, `close`
     prints the push command as `PUSH:` for the handoff to give the operator, naming that checkout's
     current branch:
 
@@ -372,15 +364,13 @@ a grant, a template, a scheduled workout — the fix round adds that data where 
 comes from — the project's dev seed for a seeded account, the capture spec's own setup for one the
 spec registers fresh — then re-captures. "Seed difference" is a cause only for
 content the frame draws with different values (names, counts, dates), never for an element the
-seed hides (gymie KAN-1015: A1's Group session row, hidden because the seed had no grant).
+seed hides.
 
 **A position departure of at most 1dp — 2px at 2x — on a band or an element may stand, and only
 when all of these hold:** a fix round has already tried to close it at its source; the run records
 why no easy fix exists, such as a font's glyph metrics; `visual-verification.md` carries it beside
 the frame with its measured value and that reason; and the handoff's `**Decisions:**` lines name it.
-It is never the first answer, and colour, a missing or extra element, and copy get no tolerance
-(KAN-1000: the operator states this approximation as the requirement, the one widening
-`rules/fix-determinism-at-the-source.mdc` admits).
+It is never the first answer, and colour, a missing or extra element, and copy get no tolerance (the operator states this approximation as the requirement, the one widening `rules/fix-determinism-at-the-source.mdc` admits).
 
 **The parent runs the `end` mark below itself only on `NEXT: judge` and `NEXT: compose-only`**;
 on every other path `prepare` or `close` has already ended the stage, and a second end is never run.

@@ -45,8 +45,7 @@ states.
   self-review and in-run fix planners never apply it: they take the recommendation
   (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
 
-- **An architectural question is marked, and each of its options says what it fails under**
-  (KAN-1104). A question whose options are approaches — the alternatives the competing-designs
+- **An architectural question is marked, and each of its options says what it fails under**. A question whose options are approaches — the alternatives the competing-designs
   step produces, each becoming a `**Considered:**` line — and not a name, a format, a wording or
   a scope detail is headed `### Q<n>. [architectural] <question>` in the round file, and each of
   its options closes with `Fails under: <the condition this option stops working in>`. The
@@ -76,19 +75,16 @@ states.
   `skills/flow-contracts/project-configuration-visual.md`). A commit of the assets carries
   `-m "Flow-Key: flow.brainstorm"` (**Commits outside every task**,
   `skills/flow-contracts/git-boundaries.md`).
-- **A visible change is prototyped before its design is approved** (`plan-visual-prototype`,
-  kan-1038). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
+- **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
   iterate it on the operator's feedback each round until they approve; that approval is the convergence confirm's
   **approve the design and move on** (**Convergence**, below). The prototype is
   built on the app's own shell and styles — the real header and nav, the project's theme,
   stylesheet tokens and existing component classes, the content width and chart size of the
-  sibling views — never a standalone restyle (kan-1057: a hard-coded dark, centered page did not
-  match the existing pages). The file draws the proposed page
+  sibling views — never a standalone restyle. The file draws the proposed page
   alone — no caption, note or screenshot beside it — since `flow.visual-verify` renders the whole
-  file as the capture's frame; a note to the operator goes in the message (kan-1047: a caption
-  over a JPEG of the live page never paired with a capture). **The operator sees the prototype
+  file as the capture's frame; a note to the operator goes in the message. **The operator sees the prototype
   whenever one exists**: a planner dispatch has no Artifact tool, so it only writes the
   file, and the session that dispatched it publishes it with the Artifact tool after every return
   that wrote or changed it — a scratchpad copy adapted to the tool's page contract, with no
@@ -102,10 +98,8 @@ states.
   or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
   spec the implementation and `flow.visual-verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
-  hover, focus, pressed — so `flow.visual-verify` renders and compares that state too
-  (kan-1038). `flow-guard check-plan-shape` F22 refuses a plan whose design cites the prototype and whose
-  tasks touch a `ui paths` glob while no task's `**Files:**` names a file under `screenshots`
-  (kan-1047). A change with nothing visible builds none. Where the confirm is not asked — the
+  hover, focus, pressed — so `flow.visual-verify` renders and compares that state too. `flow-guard check-plan-shape` F22 refuses a plan whose design cites the prototype and whose
+  tasks touch a `ui paths` glob while no task's `**Files:**` names a file under `screenshots`. A change with nothing visible builds none. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
@@ -122,8 +116,7 @@ commit.** When a `## Decisions` entry chooses otherwise than a handoff ticket's 
 states — a branch, a landing target, an acceptance criterion — rewrite that line to what the
 decision chose, citing the decision's `**ID:**` and its date, in its own commit carrying
 `-m "Flow-Key: flow.brainstorm"`, so integrate never stops on a criterion the plan already
-overruled (kan-1003: decision `lands-on-develop` left "Branch `feature/one-block` in both repos, <!-- citations-guard:allow -->
-never develop" standing, and integrate stopped and asked again).
+overruled.
 
 A Done-when names only committed, tracked paths of the repository it belongs to — never a
 gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done
@@ -160,9 +153,7 @@ and session token the planner's own prompt names. A Plan agent's row records the
 `planner` under its `design-<n>` key, whatever its `Role:` line says — `plan-designer` is the
 **Allowed pairs** role, which the stats derive from that key, and `flow record` refuses it. A
 recording command's stderr is never hidden — never redirected away or piped through `tail` — and a
-row is never back-filled with instants not read from its agent's transcript (kan-1075 self-review,
-F1: a `begin` refused for a missing `-model`, its error piped through `tail`, left both Explore
-agents unrecorded, and their back-filled rows began before their planner did).
+row is never back-filled with instants not read from its agent's transcript.
 
 Each Explore or Plan agent's `description` names its row's key, `explore-<n>` or `design-<n>` — the
 word the harvester stamps the launch's agent id onto.
@@ -257,8 +248,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > **Run only what is installed.** A step's command runs a tool already on the machine or declared
 > in `<project>/.flow/project.md` — never npx without `--no-install` or `--no`: with its yes flag,
 > or bare in an agent's shell, where no TTY makes npm assume it, npx fetches and runs a package
-> the machine lacks: the external code auto mode denies (kan-1079 self-review, F3: a diagram render
-> step was denied and the diagrams shipped unrendered). A package in npx's cache runs as
+> the machine lacks: the external code auto mode denies. A package in npx's cache runs as
 > `npx --no-install <bin>`; one nowhere on the machine is a dependency a task adds
 > (`rules/dependency-versions.mdc`). `flow-guard check-plan-shape` F26 refuses any other npx.
 
@@ -299,8 +289,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > justification is required, the check is not. Every step of the check runs at `flow.verify`,
 > before the change lands: a step that needs the change landed, a restarted shared service, or a
 > write to the change's own integrate state is written as the stand-in that runs in its place — a
-> scratch fixture, a workspace's own service, a scratch copy of the record — named in the section
-> (kan-1019: a check deferred to integrate was never run). When `<project>/.flow/project.md` names
+> scratch fixture, a workspace's own service, a scratch copy of the record — named in the section. When `<project>/.flow/project.md` names
 > a tool for the check's stand-in — this repository's `<project>/scripts/flow-guard
 > live-store-copy`, run from the change's own worktree — the section invokes that tool by name and
 > never re-specifies what it does. The
@@ -310,8 +299,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > is present, every commit it resolves exists in the checkout it names, and the credential route
 > the project declares yields the credential the check needs — each run while planning and tagged
 > `measured:` per **Plan provenance** (`skills/flow-contracts/plan-provenance.md`), never left
-> `unverified:` for `flow.verify` to find (kan-1075 self-review, F3: three `unverified:` inputs
-> failed one at a time at verify and cost 37 minutes).
+> `unverified:` for `flow.verify` to find.
 
 > **Write a verification change so its found defects become their own tasks.** When a plan's task
 > exists to exercise a surface and report what it finds — a final-verification pass over a feature
@@ -330,9 +318,9 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > (`skills/flow/brainstorm.md`) or in **2. Isolate the workspace** (`skills/flow/implement.md`), so a task names that worktree's path and no step
 > carries a `git worktree add` (self-review-backlog-flow-6).
 
-> **Sort a multi-repository plan's tasks under `## <repository>` headings.** Each repository's tasks sit under a one-word `## <repository>` heading naming it (`## agents`, `## gymie`); `flow-guard plan-dispatch-groups` reads those headings and never groups tasks of two repositories together. A heading with spaces is not a repository heading (kan-1107 self-review, F4).
+> **Sort a multi-repository plan's tasks under `## <repository>` headings.** Each repository's tasks sit under a one-word `## <repository>` heading naming it (`## agents`, `## gymie`); `flow-guard plan-dispatch-groups` reads those headings and never groups tasks of two repositories together. A heading with spaces is not a repository heading.
 
-> **Put a scratch clone in the change's state dir.** A clone a task prescribes — `git clone --local <worktree> <dir>` to try something on a copy — lives under the path `flow state dir` prints, never in a `<project>-worktrees/` directory, and the task removes it with `rm -rf <dir>` (kan-1107 self-review, F5).
+> **Put a scratch clone in the change's state dir.** A clone a task prescribes — `git clone --local <worktree> <dir>` to try something on a copy — lives under the path `flow state dir` prints, never in a `<project>-worktrees/` directory, and the task removes it with `rm -rf <dir>`.
 
 > **End a removal task on an absence sweep.** When a task's job is removing text — copy, a setting,
 > an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
@@ -345,9 +333,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > A removed UI tag, test id or label that a declared `regression checkout` drives
 > (**Project configuration — visual verification**,
 > `skills/flow-contracts/project-configuration-visual.md`) is swept in that checkout too, with
-> the same `-e` list, and the plan carries the task that updates every hit there: kan-998's
-> sweep, scoped to its own paths, missed the labels gymie-playwright drove, and the regression
-> suite failed 83 tests on them.
+> the same `-e` list, and the plan carries the task that updates every hit there.
 
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan
@@ -358,9 +344,7 @@ fenced block by applying it to a scratch copy of the branch — a diff, or a scr
 tree — it runs `<agents repo>/scripts/flow-guard run-verify-list <scratch copy> lint` on that copy with
 the block applied before writing the tag, fixes every red line in the block itself, and the
 `verified:` tag names that run. A block the list was not run over is tagged
-`unverified:flow-guard run-verify-list lint on the applied copy`, never `verified:` (kan-1064
-self-review: task 2's prose diff, tagged `verified:` after a scratch apply, failed
-`check-installed-citations` and `check-guard-symlinks` at implementation). The scratch copy is
+`unverified:flow-guard run-verify-list lint on the applied copy`, never `verified:`. The scratch copy is
 a detached worktree in the repository's sibling worktrees directory, `<project>-worktrees/<name>-scratch`
 — `<name>` your `Key:` on a loop planner — made with
 `<agents repo>/scripts/flow-guard throwaway-worktree create <worktree> <copy>` and removed with its `remove`
@@ -369,8 +353,7 @@ before you hand back, never under a scratchpad or `/tmp`, outside the layout
 
 **A `verified:` block for a parser or validator is run on what it must refuse.** Planning runs it
 on one rejecting input per rejection the plan states, beside its accepting ones, and the tag names
-each rejecting input it ran (kan-1075 self-review, F6: a `verified:` regex was run on four accepting
-lines and on none of the empty reason its step promised to refuse).
+each rejecting input it ran.
 
 **A task premise about a guard's behaviour is run at plan time, never assumed.** When a task
 written here rests on what a guard or check currently does — that a ratchet trips or does not,
@@ -383,8 +366,7 @@ planning, before the panel reads the plan.
 **Committed content never cites a commit sha on the change's own branch.** Integrate's run 1
 reshapes that branch (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`),
 so a sha a task's committed file names stops resolving; cite a path on the default branch and the
-ticket instead (kan-1034: task 2's vendored `UPSTREAM.md` named the task 1 commit, unreachable once
-the branch was reshaped). `design.md` is committed content too: run 1 writes it out as the
+ticket instead. `design.md` is committed content too: run 1 writes it out as the
 change's design record (**The design record**, `skills/flow-contracts/finish-contract-run1.md`).
 
 **A task premise about a harness or tool is spiked live at plan time, never assumed.** When a
@@ -396,9 +378,7 @@ records the result in the task as a `measured:` comment per **Plan provenance**
 disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
 stays tagged `unverified:<what-to-check>` for the implementer.
 
-**An action a decision gives the parent is a tracked line, never prose alone** (kan-1079
-self-review, F1: a chore commit and a clutter deletion two decisions assigned outside every task
-were never done). When a `## Decisions` entry's `**Chosen:**` has the parent do something outside
+**An action a decision gives the parent is a tracked line, never prose alone**. When a `## Decisions` entry's `**Chosen:**` has the parent do something outside
 every task — a commit before the first task, a run action at a stage — the entry carries, beneath
 its `**Chosen:**`, a column-0 line `- [ ] Parent: <the action, and the stage it runs at>`. The
 parent performs it and ticks it (**4. Execute (SDD + TDD)**, `skills/flow/implement.md`);
@@ -431,9 +411,7 @@ with `**Build:**` per **The build-green tag**
   underscore swallows it.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
   Every `## Decisions` entry whose `**Chosen:**` states runtime behaviour — a deadline, a
-  cancellation path, a retry, a sweep — is pinned by a test some task names in `**Tests:**`
-  (kan-1075 self-review, F6: decisions `judge-on-last-trial` and `judge-deadline` named no test,
-  and the panel found both behaviours untested).
+  cancellation path, a retry, a sweep — is pinned by a test some task names in `**Tests:**`.
 - `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, on ONE convention the
   plan states in its own header (`> **Baseline convention:**`, seeded below), so later tasks
   cannot drift between counting methods: **chain-position absolutes against each commit's
@@ -491,13 +469,11 @@ of every task's own `**Files:**` field across the plan.
 
 A relocation whose destination is consumed outside this repository — a skill another repository
 vendors — checks, before the plan classes a paragraph as movable, that every file, guard and stage
-the paragraph cites resolves in what that destination ships (kan-1034: flow-only paragraphs classed
-generic moved into the vendored `skills/spectre-planning/SKILL.md`, and a fix round moved about 230
-lines back).
+the paragraph cites resolves in what that destination ships.
 
 Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
 carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing any of the six plan sections
-(**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`, kan-1033).
+(**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`).
 
 Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
 fields — the exact line below, copied verbatim, so every plan states its baselines' convention the
@@ -545,7 +521,7 @@ prescribed course, never accepting the plan while it stands.
 > sidecar and the band, seam and matrix reads of `flow-guard measure-visual-properties` on every pair, and
 > fix until they come back clean or each leftover is named with its cause — the rule
 > **The implementer measures before it hands back** in **The loop** (`skills/flow/verify-fix-loop.md`) states for a fix
-> round, applied at plan time (kan-1007: a plan-time capture was judged by eye). The same
+> round, applied at plan time. The same
 > compose-and-measure steps apply when the view's specification is an approved prototype, rendered
 > as each capture's frame per step 10 of `skills/flow/visual-verify-verifier.md`, with no declared
 > `mockups` root. Such a task pre-flights its own sidecar alone,
@@ -560,7 +536,7 @@ prescribed course, never accepting the plan while it stands.
 > overflow-length list — on data outside the windows other views' captures read; only content
 > drawn with different values is an expected leftover, never a missing element (**A departure
 > caused by missing account data is fixed by adding the data, never explained away.**,
-> `skills/flow/visual-verify.md`; kan-1053 self-review, F11).
+> `skills/flow/visual-verify.md`).
 > The one exception is a region an approved prototype draws alone, captured as an element beside
 > the view's own full-page capture, per step 8 of `skills/flow/visual-verify-verifier.md`.
 
@@ -688,7 +664,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    a page, a response a page consumes, the CORS, auth or routing the frontend depends on:
    `required` when it can, `skipped` when it cannot, the `reason` naming why. A path inside a
    declared `ui paths` glob is not by itself a reason for `required`, since a glob is coarse;
-   `required` answers genuine doubt, never an obvious no-UI change. Worked example, gymie kan-863:
+   `required` answers genuine doubt, never an obvious no-UI change. Worked example:
    `**Files:**` a gateway `MetricsScrapeTokenFilter` matching only `/actuator/prometheus|metrics`,
    management config, the Caddyfile, deploy workflows and tests — all inside the declared
    `src/gateway/src/main/**` glob, yet nothing a user sees can change → `skipped`, reason
@@ -716,8 +692,8 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 - **every other pass-1 panel dispatch** — `opus`, always; except a CORE change whose Jira `**Agents (CORE):**`
   section's `reviewers` line names `fable 5.2 · medium`, whose primary and principles dispatches record
   `fable` at `medium` — `flow record decision` admits `fable` on `panel.dispatches[]` pairs and nowhere
-  else, and the `panel-reviewer` row of **Allowed pairs** admits `fable/flow-medium` (operator, 2026-11-09);
-- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`, kan-959; kan-1028);
+  else, and the dispatch runs on a pair the `panel-reviewer` role admits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
+- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`);
 - **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
 

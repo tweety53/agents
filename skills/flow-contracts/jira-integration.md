@@ -48,8 +48,7 @@ discarded too.
   Task, its summary and description drawn from the request, labelled per **Labels on issues the
   pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`); the new key is then the
   user-supplied key, unfetched — the create's response is the confirmation. Filing it is part of resolving the issue — never the whole request and never a
-  stop: the run continues into the In Progress transition and planning (kan-1040: a run filed the
-  issue and ended its turn). A failed create is one `⚠ Jira: skipped — <reason>` line and resolves
+  stop: the run continues into the In Progress transition and planning. A failed create is one `⚠ Jira: skipped — <reason>` line and resolves
   as no hit.
 - **A `/flow-interactive` session start with no key in its arguments** first looks for an existing
   issue: one in the `## jira` project, in **In Progress** (whoever it is assigned to, or none) and whose

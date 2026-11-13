@@ -19,8 +19,7 @@ never a bare filename, so the operator can cmd+click it open. A template's `<pro
 The block a state hands off is defined **here and nowhere else**, as one template per rendering. Two
 commands render it: the command that ends in that state, and `/flow-status <name>`. **No command
 stores the emitted text** — `/flow-status <name>` always regenerates it from the state file and
-the artifacts as they now stand, never from a stored copy. See **Why regeneration beats storage**
-(`skills/flow-contracts/handoff-blocks-rationale.md`).
+the artifacts as they now stand, never from a stored copy.
 
 **The template is the definition, and it carries what the commands print.** A field a command emits
 and the template omits is drift the moment `/flow-status` renders the same state: the two blocks
@@ -204,17 +203,14 @@ Next:
 ```
 ````
 
-**`Route` and `Outstanding` are `(run-only)`.** See **Why `Route` and `Outstanding` are run-only**
-(`skills/flow-contracts/handoff-blocks-rationale.md`).
+**`Route` and `Outstanding` are `(run-only)`.**
 
 **Which rendering `/flow-status` regenerates.** **Merge status decides it whenever the merge
 status is known**, and the command already has that answer: it runs the merge-status test in its own
 step 2 to fill the next-command column. A branch proven to have reached the base branch **is**
 integrated, so the run-1 rendering is the correct one for it, whatever `prUrl` says. `prUrl` is the
 tiebreaker only where the stronger signal is genuinely absent. `IN_PROGRESS` has two renderings
-because one template cannot serve both a diff waiting on review and a branch waiting on a merge; see
-**Why `IN_PROGRESS` needs two renderings**
-(`skills/flow-contracts/handoff-blocks-rationale.md`):
+because one template cannot serve both a diff waiting on review and a branch waiting on a merge:
 
 | Merge status | `prUrl` | Rendering |
 |--------------|---------|-----------|
@@ -225,9 +221,7 @@ because one template cannot serve both a diff waiting on review and a branch wai
 | inconclusive | none | `/flow`'s implement phase |
 
 **The first row is a pre-check, not a special case, and it must be answered before the ancestor
-test.** See **Why the pre-check must run before the ancestor test**
-(`skills/flow-contracts/handoff-blocks-rationale.md`) for the mechanism and why the ordering
-matters.
+test.**
 
 **The recorded merge base has three conditions, not two, and two of them are `inconclusive`.**
 **Recorded and resolving** is the ordinary case — the pre-check above answers it directly.
@@ -236,9 +230,7 @@ cannot be trusted. **Recorded but unresolvable** — `git rev-parse --verify` ca
 sha into a commit — is the same unknown wearing a value. Both land the change on the two
 `inconclusive` rows above, where `prUrl` is the tiebreaker. **The rule this drives is resolve, then
 compare, never compare alone**: a recorded-but-unresolvable sha is `inconclusive`, never merely "not
-equal to `HEAD`." See **Why "recorded but unresolvable" is the dangerous condition**
-(`skills/flow-contracts/handoff-blocks-rationale.md`) for why comparing it as a bare string is the
-mistake this guards against.
+equal to `HEAD`."
 
 **`FINISHED`** has **no regenerated block**: the state is terminal and finished changes are omitted
 from the report, so there is nothing left waiting on the operator to hand off. bare `/flow`

@@ -198,8 +198,7 @@ to that merge base: every commit the run made on the branch — task and fixup c
 back into the index, uncommitted. **A merge of another
 branch stops the reshape**: the pipeline never merges into a change branch — its sync rebases — so
 a commit that merge base does not reach and the branch's first-parent chain does not carry is
-another branch's, and the reset would fold it under the change's subject (kan-941 folded `develop`'s
-and `main`'s commits that way). The script then prints `RESHAPE-FOREIGN-MERGE`, names each such
+another branch's, and the reset would fold it under the change's subject. The script then prints `RESHAPE-FOREIGN-MERGE`, names each such
 commit, and exits 1 before HEAD moves; the run stops and relays its remedy — merge that branch
 into the change's base first, or rebase the change branch onto a base that holds them. Before that reset,
 `flow-guard integrate-change commit` pins the worktree's HEAD as `refs/flow/pre-reshape/<name>` — kept when it
@@ -210,7 +209,7 @@ cannot be located**, stop and report it.
 
 **A re-run reshapes from past the work already landed in its fixed form**: `prepare` writes as the
 reshape base the newest commit in the merge base's range that a `fixed` self-review row names (so a
-fix's recorded sha survives, kan-1021), else the newest commit carrying `Flow-Key: flow.commit-two`
+fix's recorded sha survives), else the newest commit carrying `Flow-Key: flow.commit-two`
 (run 1's implementation commit), else the merge base.
 
 All three routes then commit the work as the implementation commit, subject
@@ -241,7 +240,7 @@ implementation commit lands — the reshape's push (**Branch backup**, `git-boun
 `flow-guard integrate-change commit` writes the canonical worktree's `<changeRoot>/design.md` out
 as `<project>/docs/designs/<name>.md` — the two header lines below, a blank line, then `design.md` byte
 for byte — after the reshape and before the implementation commit, which carries it (decision
-`design-record-at-run1`, KAN-1104). A change with no `design.md` gets none, and a satellite
+`design-record-at-run1`). A change with no `design.md` gets none, and a satellite
 worktree never writes one. The file is derived on every run of the step, so a decision a fix
 round superseded is in it, and it is never edited by hand; nothing keeps it current after
 landing — a decision a later change overturns is superseded in that change's own record. A
@@ -290,7 +289,7 @@ shas per item 5 of step 3 of `/flow-self-review`, and the run's final report nam
 cases, branch and shas.
 
 A completed `flow.self-review` stage skips the pass on a re-run, so no finding is recorded or
-offered twice. So does a completed `self-review-<name>-pass` row while the loop branch `self-review-<name>` exists, the re-run resuming the loop from `<sr-dir>/findings.md` (step 2 of `/flow-self-review`, kan-1102 self-review, F20).
+offered twice. So does a completed `self-review-<name>-pass` row while the loop branch `self-review-<name>` exists, the re-run resuming the loop from `<sr-dir>/findings.md` (step 2 of `/flow-self-review`).
 A pass covers what the bundle holds and nothing beyond it.
 
 ### The routes

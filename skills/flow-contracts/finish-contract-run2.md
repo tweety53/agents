@@ -42,23 +42,13 @@ procedure for them is there.
    agents repository cannot ask the question itself — is stated under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 
    **Each command runs with a repository root as its working directory, and which root is fixed here
-   rather than left to the caller.** See
-   **Working directory for `survivors`, `remove`, and `create`**
-   (`skills/flow-contracts/project-configuration-rationale.md`) for why it must be stated.
+   rather than left to the caller.**
 
-   - **`survivors` runs from the main checkout**, and that is not a convention invented here. See
-     **Working directory for `survivors`, `remove`, and `create`**
-     (`skills/flow-contracts/project-configuration-rationale.md`) for how
-     `<agents repo>/scripts/flow-guard check-cleanup-complete` invokes it.
+   - **`survivors` runs from the main checkout**, and that is not a convention invented here.
    - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
-     step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`). See
-     **Working directory for `survivors`, `remove`, and `create`**
-     (`skills/flow-contracts/project-configuration-rationale.md`) for why.
+     step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
    - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
-     applications does, and that is the worktree whose applications need the resources. See
-     **Working directory for `survivors`, `remove`, and `create`**
-     (`skills/flow-contracts/project-configuration-rationale.md`) for why the asymmetry is the rule
-     working rather than an exception to it.
+     applications does, and that is the worktree whose applications need the resources.
 
    The tokens `<id>` and `<id_underscored>` are substituted in a command's text too, and that is how the
    workspace id reaches it — one mechanism for both tables, so there is no argument convention to

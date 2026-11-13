@@ -134,6 +134,7 @@ var crExpectedZero = []struct {
 			"CLAUDE.md",
 			"skills/flow-contracts/plan-provenance.md",
 			"skills/flow-contracts/build-green.md",
+			"skills/flow-contracts/session-records.md",
 			"skills/flow-contracts/SKILL.md",
 			"skills/flow-contracts/lessons.md",
 			"skills/call-efficiency-audit/SKILL.md",
