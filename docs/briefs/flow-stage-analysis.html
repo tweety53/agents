@@ -823,7 +823,7 @@ GROUP  BY s.stage;</pre>
 
   <section class="stage" id="flow.decide">
     <h2>flow.decide</h2>
-    <p class="files">Marked in <code>skills/flow/brainstorm.md</code> and <code>skills/flow/document-fix.md</code> (fix runs) · rules in <code>skills/flow/brainstorm-planner.md</code> (<strong>Decide</strong>)</p>
+    <p class="files">Marked in <code>skills/flow/brainstorm.md</code> and <code>skills/flow/document-fix.md</code> (fix runs) · rules in <code>skills/flow/brainstorm-planner.md</code> (<strong>Decide</strong>) · also cites <code>skills/flow/verify-fix-loop.md</code></p>
 
     <h3>Summary</h3>
     <p>Records the planner's decision — class, execution mode, implementer and fixer pairs, panel roster and dispatch pairs, groups — with <code>flow record decision</code>. The planner works the decision out inside <code>flow.writing-plans</code>; this stage is the begin, record and end around it, re-run each time the plan is re-decided.</p>
@@ -1108,7 +1108,7 @@ GROUP  BY s.stage;</pre>
 
   <section class="stage" id="flow.document-fix">
     <h2>flow.document-fix</h2>
-    <p class="files">Marked in <code>skills/flow/document-fix.md</code> — loaded only on a fix run, and by the in-run fix loop</p>
+    <p class="files">Marked in <code>skills/flow/document-fix.md</code> — loaded only on a fix run, and by the in-run fix loop · also cites <code>skills/flow/verify-fix-loop.md</code></p>
 
     <h3>Summary</h3>
     <p>On a fix run, records the fix in <code>proposal.md</code> and <code>tasks.md</code> (or a <code>-fix-N</code> sub-change) before any code is written, syncs the Jira description where scope grew, records the plan's growth, runs the plan guards and snapshots the plan. Ends before the re-decide that follows it.</p>
@@ -1363,7 +1363,7 @@ GROUP  BY s.stage;</pre>
 
   <section class="stage" id="flow.review-panel">
     <h2>flow.review-panel</h2>
-    <p class="files">Marked in <code>skills/flow/review-panel.md</code> · fix rounds in <code>skills/flow/review-panel-fix-round.md</code> · fix runs in <code>skills/flow/review-panel-late-fix.md</code> · <code>skills/flow/review-panel-optional-slots.md</code> and <code>skills/flow/review-panel-experimental-slot.md</code> on their triggers</p>
+    <p class="files">Marked in <code>skills/flow/review-panel.md</code> · fix rounds in <code>skills/flow/review-panel-fix-round.md</code> · fix runs in <code>skills/flow/review-panel-late-fix.md</code> · <code>skills/flow/review-panel-optional-slots.md</code> and <code>skills/flow/review-panel-experimental-slot.md</code> on their triggers · also cites <code>skills/flow/implement.md</code></p>
 
     <h3>Summary</h3>
     <p>Reviews the change's whole diff with the decided roster — <code>primary</code>, <code>principles</code> and the decided extras — plus two always-on bundles, <code>test-sanity+call-efficiency</code> and <code>mutation+failure-modes</code>. Every Critical, Important and Minor finding is fixed: Critical or Important through panel-fix dispatches and re-runs of the slots that raised them, a Minor-only round inline by the parent. Ends only at zero open findings and no stale slot result.</p>
@@ -2104,7 +2104,7 @@ GROUP  BY s.stage;</pre>
 
   <section class="stage" id="flow.unfinished-work-gate">
     <h2>flow.unfinished-work-gate</h2>
-    <p class="files">Marked by <code>flow-guard integrate-change prepare</code>, <code>stats/internal/guard/integratechange_prepare.go</code> · courses in <code>skills/flow/unfinished-work-gate.md</code></p>
+    <p class="files">Marked by <code>flow-guard integrate-change prepare</code>, <code>stats/internal/guard/integratechange_prepare.go</code> · courses in <code>skills/flow/unfinished-work-gate.md</code> · also cites <code>skills/flow/integrate.md</code>, <code>skills/flow/verify-and-handoff.md</code></p>
 
     <h3>Summary</h3>
     <p>Runs the live-check gate, <code>check-unfinished-work</code> and <code>check-untasked-commits</code> per worktree, and the visual gate. Any outstanding item stops integrate; the parent finishes the work itself, asking nothing, and re-runs <code>prepare</code>. Ends when every worktree prints <code>CLEAR</code> and the visual gate passes.</p>
@@ -2286,7 +2286,7 @@ GROUP  BY s.stage;</pre>
 
   <section class="stage" id="flow.preserve-sessions">
     <h2>flow.preserve-sessions</h2>
-    <p class="files">Begun by <code>prepare</code>, ended by <code>flow-guard integrate-change commit</code>, <code>stats/internal/guard/integratechange_commit.go</code></p>
+    <p class="files">Begun by <code>prepare</code>, ended by <code>flow-guard integrate-change commit</code>, <code>stats/internal/guard/integratechange_commit.go</code> · also cites <code>skills/flow/integrate.md</code>, <code>stats/internal/guard/integratechange_prepare.go</code></p>
 
     <h3>Summary</h3>
     <p>Spans the parent appending the run's narrative and writing the implementation subjects, then <code>commit</code> checking the narrative, pinning each worktree's pre-reshape HEAD, reshaping the branch and rendering the ledger. Ends after the ledger render, when <code>flow.commit-two</code> begins.</p>
@@ -2440,7 +2440,7 @@ GROUP  BY s.stage;</pre>
 
   <section class="stage" id="flow.self-review">
     <h2>flow.self-review</h2>
-    <p class="files">Begun by <code>flow-guard integrate-change commit</code>, ended by the session · <code>skills/flow-contracts/finish-contract-run1.md</code> (<strong>Run the self-review pass</strong>) · <code>skills/flow-self-review/SKILL.md</code> steps 2–6</p>
+    <p class="files">Begun by <code>flow-guard integrate-change commit</code>, ended by the session · <code>skills/flow-contracts/finish-contract-run1.md</code> (<strong>Run the self-review pass</strong>) · <code>skills/flow-self-review/SKILL.md</code> steps 2–6 · also cites <code>skills/flow/integrate.md</code>, <code>stats/internal/guard/integratechange_commit.go</code></p>
 
     <h3>Summary</h3>
     <p>Runs one opus pass over the change's bundle across eight angles, then fixes every finding that is not <code>big</code> on one loop branch — planner, fixers, reviews until clean, verify — and lands those fixes, files the <code>big</code> ones, and records the rows. Ends when the session ends the stage <code>completed</code>; <code>land</code> refuses until it has.</p>
@@ -2670,7 +2670,7 @@ GROUP  BY s.stage;</pre>
 
   <section class="stage" id="flow.landing-routes">
     <h2>flow.landing-routes</h2>
-    <p class="files">Marked by <code>flow-guard integrate-change land</code>, <code>stats/internal/guard/integratechange_land.go</code> · routes in <code>skills/flow-contracts/finish-contract-run1.md</code></p>
+    <p class="files">Marked by <code>flow-guard integrate-change land</code>, <code>stats/internal/guard/integratechange_land.go</code> · routes in <code>skills/flow-contracts/finish-contract-run1.md</code> · also cites <code>skills/flow/integrate.md</code></p>
 
     <h3>Summary</h3>
     <p>Checks the self-review stage completed, then lands each worktree in merge order by the chosen route — merge and push, pull request, or manual — writes the state and asks Jira for In Review. Ends when every worktree is landed by its route.</p>
@@ -2757,17 +2757,454 @@ GROUP  BY s.stage;</pre>
     </div>
   </section>
 
-  <section class="stage" id="flow.verify-merge"><h2>flow.verify-merge</h2></section>
+  <section class="stage" id="flow.verify-merge">
+    <h2>flow.verify-merge</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change cleanup</code>, <code>stats/internal/guard/integratechange_cleanup.go</code> · procedure in <code>skills/flow/cleanup.md</code> and <code>skills/flow-contracts/finish-contract-run2.md</code></p>
 
-  <section class="stage" id="flow.cleanup"><h2>flow.cleanup</h2></section>
+    <h3>Summary</h3>
+    <p>Opens run 2: checks every worktree's branch is merged into its base. A branch not merged means this is not run 2 — nothing is removed and the run falls back to integrate. Ends when every worktree is merged.</p>
 
-  <section class="stage" id="flow.verify-cleanup"><h2>flow.verify-cleanup</h2></section>
+    <h3>Branching</h3>
+    <ul>
+      <li>cleanup is chained from <code>land</code> on merge and push, or called once <code>prepare</code>'s <code>NEXT:</code> names it <span class="cite">cleanup.md:3</span></li>
+      <li>a worktree not merged <span class="arrow">→</span> <code>STOP: not-merged</code>, nothing removed, back to <code>integrate.md</code> <span class="cite">integratechange_cleanup.go:73</span> <span class="cite">cleanup.md:51</span></li>
+      <li>every worktree merged <span class="arrow">→</span> the stage ends <code>completed</code> <span class="cite">integratechange_cleanup.go:75</span></li>
+    </ul>
 
-  <section class="stage" id="flow.write-finished"><h2>flow.write-finished</h2></section>
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>202</td><td>102</td><td>—</td><td>—</td><td>—</td><td>2 s</td><td>12 s</td><td>1.98</td><td>5</td><td>202</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>—</td></tr>
+      <tr><td>2</td><td>65</td><td>—</td></tr>
+      <tr><td>3</td><td>25</td><td>—</td></tr>
+      <tr><td>4</td><td>8</td><td>—</td></tr>
+      <tr><td>5</td><td>2</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 202 <code>completed</code>.</p>
 
-  <section class="stage" id="flow.refresh-main-checkout"><h2>flow.refresh-main-checkout</h2></section>
+    <h3>Loops and their caps</h3>
+    <p>none</p>
 
-  <section class="stage" id="plan.session"><h2>plan.session</h2></section>
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 202 runs: median 0 per run, p90 0, highest 0; 202 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>202 runs over 102 changes, all <code>completed</code>: each change runs the merge check about twice — once per <code>cleanup</code> call, the second after a stop in <code>flow.cleanup</code>.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Is the second run per change the re-run after <code>flow.cleanup</code> stops, and could it skip a merge check that already passed?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>All 202 runs are uncosted; the stage is pure tooling.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>67</td><td>31</td><td>—</td><td>—</td><td>6 s</td></tr>
+      <tr><td>micro</td><td>5</td><td>4</td><td>—</td><td>—</td><td>2 s</td></tr>
+      <tr><td>regular</td><td>100</td><td>50</td><td>—</td><td>—</td><td>2 s</td></tr>
+      <tr><td>small</td><td>30</td><td>17</td><td>—</td><td>—</td><td>2 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.cleanup">
+    <h2>flow.cleanup</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change cleanup</code>, <code>stats/internal/guard/integratechange_cleanup.go</code> · procedure in <code>skills/flow/cleanup.md</code> and <code>skills/flow-contracts/finish-contract-run2.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Removes the change's worktrees through <code>remove-change-worktrees</code> per repository, then drops each worktree's derived workspace and lists orphans. Before the call the session saves <code>tasks.md</code> and the self-review context to flowd, and on a self-hosting change refreshes the tooling first. Ends when every worktree is removed.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>a change to the agents repository's own tooling <span class="arrow">→</span> <code>refresh-main-checkout</code> and <code>make restart</code> before the save <span class="cite">cleanup.md:14</span></li>
+      <li>always <span class="arrow">→</span> <code>flow change save</code>; exit 1 stops at <code>IN_PROGRESS</code> <span class="cite">cleanup.md:30</span></li>
+      <li><code>remove-change-worktrees</code> per repository <span class="cite">integratechange_cleanup.go:90</span>
+        <ul>
+          <li><code>UNCLASSIFIED:</code> or <code>DISCLOSE:</code> lines <span class="arrow">→</span> <code>STOP: disclose</code>, asked, re-run with <code>--proceed</code> <span class="cite">cleanup.md:53</span></li>
+          <li><code>REFUSED:</code>, <code>HELD:</code> or exit 2 <span class="arrow">→</span> <code>STOP: worktree-cleanup</code>, everything left alone <span class="cite">cleanup.md:57</span></li>
+        </ul>
+      </li>
+      <li>always <span class="arrow">→</span> <code>flow workspace-id</code> and each project's workspace <code>remove</code> and <code>orphans</code> rows <span class="cite">integratechange_cleanup.go:99</span> <span class="cite">integratechange_cleanup.go:104</span></li>
+      <li>a workspace removal fails <span class="arrow">→</span> carried on; the cleanup check decides <span class="cite">cleanup.md:64</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>202</td><td>102</td><td>0.13</td><td>0.38</td><td>19.32</td><td>5 s</td><td>36 s</td><td>1.98</td><td>5</td><td>105</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>102</td><td>14.87</td></tr>
+      <tr><td>2</td><td>65</td><td>3.47</td></tr>
+      <tr><td>3</td><td>25</td><td>0.70</td></tr>
+      <tr><td>4</td><td>8</td><td>0.29</td></tr>
+      <tr><td>5</td><td>2</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 102 <code>completed</code>, 100 <code>stopped</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li><code>cleanup</code> re-run after a stop — exit: <code>COMPLETE:</code>. <strong>Uncapped</strong>; each re-run follows an answer or a cleared blocker. <span class="cite">cleanup.md:53</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>2</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">2 dispatches over 202 runs: median 0 per run, p90 0, highest 2; 201 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>100 of 202 runs end <code>stopped</code> — nearly one stop per change before the removal completes.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Which stop is it — <code>disclose</code>, <code>worktree-cleanup</code> or the save — and is it the same one every time?</li>
+      <li>Where does the stage's $19.32 come from, when the removal itself is tooling — the session answering the stop?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The stage's dollars are the session's work around the stops, attributed to this window by the store's last-window rule (<code>stats/internal/harvest/attribute.go:18</code>).</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>100</td><td>50</td><td>0.14</td><td>10.13</td><td>5 s</td></tr>
+      <tr><td>big</td><td>67</td><td>31</td><td>0.13</td><td>7.01</td><td>6 s</td></tr>
+      <tr><td>small</td><td>30</td><td>17</td><td>0.12</td><td>2.10</td><td>5 s</td></tr>
+      <tr><td>micro</td><td>5</td><td>4</td><td>0.09</td><td>0.09</td><td>6 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.verify-cleanup">
+    <h2>flow.verify-cleanup</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change cleanup</code>, <code>stats/internal/guard/integratechange_cleanup.go</code> · procedure in <code>skills/flow/cleanup.md</code> and <code>skills/flow-contracts/finish-contract-run2.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Runs <code>check-cleanup-complete</code> per main checkout over the project's survivor report. A leftover stops run 2 at <code>IN_PROGRESS</code> with the incomplete block; a clean verdict ends the stage.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> <code>check-cleanup-complete</code> per main checkout <span class="cite">integratechange_cleanup.go:159</span></li>
+      <li>a leftover or no verdict <span class="arrow">→</span> <code>STOP: leftover</code>, <code>FINISHED</code> not written <span class="cite">integratechange_cleanup.go:166</span> <span class="cite">cleanup.md:60</span></li>
+      <li>a <code>LEFTOVER:</code> line naming a registry row <span class="arrow">→</span> <code>artifacts-registry.md</code> is loaded <span class="cite">cleanup.md:12</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>102</td><td>101</td><td>0.47</td><td>0.47</td><td>0.47</td><td>2 s</td><td>2 s</td><td>1.01</td><td>2</td><td>101</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>101</td><td>0.47</td></tr>
+      <tr><td>2</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 101 <code>completed</code>, 1 <code>leftover</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 102 runs: median 0 per run, p90 0, highest 0; 102 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <p>none</p>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>One <code>leftover</code> outcome in the window — what remained, and was it cleared by hand?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>small</td><td>18</td><td>17</td><td>0.47</td><td>0.47</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>49</td><td>49</td><td>—</td><td>—</td><td>2 s</td></tr>
+      <tr><td>big</td><td>31</td><td>31</td><td>—</td><td>—</td><td>2 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.write-finished">
+    <h2>flow.write-finished</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change cleanup</code>, <code>stats/internal/guard/integratechange_cleanup.go</code> · procedure in <code>skills/flow/cleanup.md</code> and <code>skills/flow-contracts/finish-contract-run2.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Writes <code>FINISHED</code> to the change's state record. Ends with the write.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>the write fails <span class="arrow">→</span> <code>STOP: state</code>, the change stays <code>IN_PROGRESS</code> <span class="cite">integratechange_cleanup.go:179</span> <span class="cite">cleanup.md:62</span></li>
+      <li>after the write <span class="arrow">→</span> Jira transition to Done <span class="cite">cleanup.md:70</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>101</td><td>101</td><td>—</td><td>—</td><td>—</td><td>0 s</td><td>0 s</td><td>1.00</td><td>1</td><td>101</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 101 <code>completed</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 101 runs: median 0 per run, p90 0, highest 0; 101 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <p>none</p>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>none — a single state write; is there anything to discuss?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>small</td><td>17</td><td>17</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>big</td><td>31</td><td>31</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>49</td><td>49</td><td>—</td><td>—</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.refresh-main-checkout">
+    <h2>flow.refresh-main-checkout</h2>
+    <p class="files">Marked by <code>flow-guard integrate-change cleanup</code>, <code>stats/internal/guard/integratechange_cleanup.go</code> · procedure in <code>skills/flow/cleanup.md</code> and <code>skills/flow-contracts/finish-contract-run2.md</code></p>
+
+    <h3>Summary</h3>
+    <p>Fast-forwards each main checkout onto its base — a <code>--base</code> change's base where the checkout sits on it — so the next run starts current. A refused refresh goes into the handoff verbatim. Ends with the last refresh.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> <code>refresh-main-checkout</code> per main checkout <span class="cite">integratechange_cleanup.go:209</span></li>
+      <li>a main checkout on a <code>--base</code> change's base <span class="arrow">→</span> refreshed onto that base <span class="cite">integratechange_cleanup.go:190</span></li>
+      <li><code>REFRESH-REFUSED</code> <span class="arrow">→</span> relayed into the handoff <span class="cite">cleanup.md:74</span></li>
+      <li>a self-hosting change <span class="arrow">→</span> already refreshed before the save, so nothing moves <span class="cite">cleanup.md:26</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>101</td><td>101</td><td>—</td><td>—</td><td>—</td><td>7 s</td><td>17 s</td><td>1.00</td><td>1</td><td>101</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 101 <code>completed</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 101 runs: median 0 per run, p90 0, highest 0; 101 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>On a self-hosting change the refresh already ran before the save; this stage refreshes again and finds nothing to move.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Micro changes show a 16 s median against 6 s for the rest — what is slower there?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>All 101 runs are uncosted.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>31</td><td>31</td><td>—</td><td>—</td><td>7 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>16 s</td></tr>
+      <tr><td>regular</td><td>49</td><td>49</td><td>—</td><td>—</td><td>6 s</td></tr>
+      <tr><td>small</td><td>17</td><td>17</td><td>—</td><td>—</td><td>6 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="plan.session">
+    <h2>plan.session</h2>
+    <p class="files">Marked by <code>skills/flow-plan/SKILL.md</code> alone</p>
+
+    <h3>Summary</h3>
+    <p>A <code>/flow-plan</code> research session: reads the tree read-only in plan mode, explores with the operator, and may capture the outcome as a new change at <code>STARTED</code> or into an existing change's artifacts. The mark opens once the Jira key is known and closes on the session's one exit — <code>started</code>, <code>captured</code> or <code>abandoned</code>.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>the Jira key is known <span class="arrow">→</span> the mark begins; with no key it begins once a capture creates one <span class="cite">SKILL.md:47</span> <span class="cite">SKILL.md:171</span></li>
+      <li>the session dispatches fresh Explore and Plan agents as it needs; none is recorded before capture <span class="cite">SKILL.md:33</span> <span class="cite">SKILL.md:66</span></li>
+      <li>the session's exit
+        <ul>
+          <li>a new change captured <span class="arrow">→</span> kickoff steps, then the mark closes <code>started</code> before any <code>flow.*</code> begin <span class="cite">SKILL.md:160</span> <span class="cite">SKILL.md:190</span></li>
+          <li>written into an existing change <span class="arrow">→</span> <code>captured</code> <span class="cite">SKILL.md:139</span></li>
+          <li>anything else <span class="arrow">→</span> <code>abandoned</code> <span class="cite">SKILL.md:149</span></li>
+        </ul>
+      </li>
+      <li>a store refusal <span class="arrow">→</span> one line, the session continues <span class="cite">SKILL.md:55</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>4</td><td>3</td><td>0.90</td><td>1.56</td><td>1.81</td><td>3 s</td><td>255 s</td><td>1.33</td><td>2</td><td>2</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>3</td><td>0.08</td></tr>
+      <tr><td>2</td><td>1</td><td>1.72</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 3 <code>superseded</code>, 1 <code>started</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Research and questions — exit: the operator's capture or stop. <strong>Uncapped</strong>; a thinking-partner session by design. <span class="cite">SKILL.md:61</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>explorer / plan-designer</td><td>0 or more</td><td><code>flow-guard plan-agent-pair</code>; not recorded before capture</td></tr>
+    </table>
+    </div>
+    <p class="note">0 dispatches over 4 runs: median 0 per run, p90 0, highest 0; 4 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag unselected">unselected</span>Dispatches before capture are never recorded, so the session's agent spend is invisible to the store.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>With 4 runs in 30 days, is <code>/flow-plan</code> used enough to analyse?</li>
+      <li>Three runs end <code>superseded</code> — closed by the next <code>flow.*</code> begin rather than by the session's own end?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>Figures are queried with command <code>/flow-plan</code>, not <code>/flow</code>; 4 runs over 3 changes.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>3</td><td>2</td><td>0.90</td><td>1.81</td><td>6 s</td></tr>
+      <tr><td>small</td><td>1</td><td>1</td><td>—</td><td>—</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class; the class is decided later, by the planning it hands to.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
 </main>
 
 </div>
