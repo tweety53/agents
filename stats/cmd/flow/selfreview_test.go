@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -62,6 +63,7 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 // fallback, so a bare call waits past the store-write deadline
 // (kan-1072 self-review, F3).
 func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
+	smoke.Heavy(t)
 	repo := linkedWorktree(t, gitRepo(t), "demo")
 	isolatedStateRoot(t)
 

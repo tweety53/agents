@@ -12,6 +12,7 @@ import (
 // TestMigrationsAreIdempotent asserts that running the migration runner a
 // second time against a database it has already migrated is a no-op: no
 // error, and the schema_migrations bookkeeping is not duplicated.
+// smoke: core — the migrations apply twice
 func TestMigrationsAreIdempotent(t *testing.T) {
 	st := newTestStore(t)
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -453,6 +454,7 @@ func periodPath(view string) string {
 
 // --- TestEveryViewAcceptsAPeriod ---------------------------------------
 
+// smoke: core — every stats view answers for a period
 func TestEveryViewAcceptsAPeriod(t *testing.T) {
 	views := []string{
 		"state-board", "cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
@@ -1590,6 +1592,7 @@ func (f *slowStatsFake) CostPerChange(ctx context.Context, _ store.Period, _, _,
 }
 
 func TestStatsViewTimesOutCleanly(t *testing.T) {
+	smoke.Heavy(t)
 	if os.Getenv("FLOW_STATS_SKIP_SLOW_TESTS") != "" {
 		t.Skip("FLOW_STATS_SKIP_SLOW_TESTS set")
 	}

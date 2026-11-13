@@ -31,6 +31,7 @@ const run = async argv => {
 console.log((await landedIn(run, process.argv[2])).sort((a, b) => a - b).join(" "))
 `
 
+// smoke: core — the mod's landed check against real git
 func TestFlowTaskListLanded(t *testing.T) {
 	t.Parallel()
 	landed := filepath.Join(repoRoot(t), "mods", "flow-task-list", "hooks", "landed.ts")

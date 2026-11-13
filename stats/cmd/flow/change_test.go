@@ -34,6 +34,7 @@ func writeChangeFile(t *testing.T, root, rel, body string) {
 // TestChangeSaveUpsertsBothFiles drives `flow change save` against a real
 // flowd and store: both files land, and `flow change file` reads each back
 // byte for byte.
+// smoke: core — the CLI through a real api.New to a real store
 func TestChangeSaveUpsertsBothFiles(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)

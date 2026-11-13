@@ -141,6 +141,7 @@ func (d *rolloutDispatchDeps) MergeDispatchMetrics(_ context.Context, dispatchID
 // that dispatch alone, in full, keyed on the per-dispatch session id --
 // never offered to the window-inference pass that stamps such pairs
 // "matched more than one dispatch".
+// smoke: core — a data-race test of concurrent subagent batches
 func TestRolloutSubagentBatchesCreditTheirOwnDispatchUnderConcurrency(t *testing.T) {
 	dir := t.TempDir()
 	const uuid1 = "11111111-1111-4111-8111-111111111111"

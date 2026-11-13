@@ -11,6 +11,7 @@ package repotest
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -64,6 +65,7 @@ func stageRow(change string) string {
 }
 
 func TestFlowActiveChangeHook(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	const deadAddr = "http://127.0.0.1:1"
 

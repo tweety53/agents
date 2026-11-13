@@ -54,6 +54,7 @@ func baseChange(projectKey, name string) store.Change {
 	}
 }
 
+// smoke: core — a change record round-trips every field
 func TestPutChangeRoundTripsEveryField(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()

@@ -216,6 +216,7 @@ func TestStateSetFallbackExitsZero(t *testing.T) {
 	}
 }
 
+// smoke: core — the state write's fallback to the state file and the journal
 func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -417,6 +418,7 @@ func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
 
 // --- state set: succeeds against a real running fake store ---
 
+// smoke: core — flow state set against a reachable store
 func TestStateSetSucceedsAgainstReachableStore(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
@@ -861,6 +863,7 @@ func TestStateGetTreatsForeignServer404AsFallback(t *testing.T) {
 	}
 }
 
+// smoke: core — flow state get against a reachable store
 func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)

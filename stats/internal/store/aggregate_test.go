@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"math"
 	"slices"
 	"strings"
@@ -40,6 +41,7 @@ func runStage(t *testing.T, st *store.Store, in store.BeginStageInput, metrics j
 }
 
 func TestAggregateRestrictsByPeriodInSQL(t *testing.T) {
+	smoke.Heavy(t)
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-period-%d", time.Now().UnixNano())
@@ -1639,6 +1641,7 @@ func TestReviewersPricesFromStageRunBuckets(t *testing.T) {
 }
 
 func TestReviewersPricesSharedAgentIDOnce(t *testing.T) {
+	smoke.Heavy(t)
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-rv-shared-agent-%d", time.Now().UnixNano())
@@ -1679,6 +1682,7 @@ func TestReviewersPricesSharedAgentIDOnce(t *testing.T) {
 }
 
 func TestReviewerProjectsCountsScopedDispatches(t *testing.T) {
+	smoke.Heavy(t)
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()
@@ -1771,6 +1775,7 @@ func TestDecisionsFoldsCanonicalSeverity(t *testing.T) {
 // Minor skip a finding whose status begins "withdrawn" (case-insensitive),
 // as the Reviewers query does, while FixRounds still spans every finding.
 func TestDecisionsExcludesWithdrawnFindings(t *testing.T) {
+	smoke.Heavy(t)
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-withdrawn-%d", time.Now().UnixNano())
@@ -1976,6 +1981,7 @@ func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
 // roles surface as rows, failure-modes with its finding, each with the
 // description review-panel.md gives it.
 func TestReviewersCountsMutationExtraDispatch(t *testing.T) {
+	smoke.Heavy(t)
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reviewers-extramf-%d", time.Now().UnixNano())

@@ -35,6 +35,7 @@ func newTestStoreDSN(t *testing.T) string {
 // store when the command runs, reported on stdout, and retired from the
 // journal -- without flowd running at all, since this command talks to
 // the store directly (journal.go's own doc comment).
+// smoke: core — the journal replays into a real store
 func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 	dsn := newTestStoreDSN(t)
 	root := t.TempDir()

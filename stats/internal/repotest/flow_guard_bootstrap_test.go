@@ -3,6 +3,7 @@ package repotest
 import (
 	"errors"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -202,6 +203,7 @@ func goBinary(t *testing.T) string {
 // TestFlowGuardBootstrap ports scripts/test-lib-flow-guard.sh's cases 1–14
 // and 5b to scripts/flow-guard.
 func TestFlowGuardBootstrap(t *testing.T) {
+	smoke.Heavy(t)
 	goBin := goBinary(t)
 	path := os.Getenv("PATH")
 
@@ -408,6 +410,7 @@ func TestFlowGuardBootstrap(t *testing.T) {
 // derive the binary exits its guard's own cannot-answer code after a
 // "<name>:" opening.
 func TestFlowGuardBootstrapRepoRootAndCodes(t *testing.T) {
+	smoke.Heavy(t)
 	path := os.Getenv("PATH")
 	goBinary(t)
 	fix := newBootstrapFixture(t, "root")

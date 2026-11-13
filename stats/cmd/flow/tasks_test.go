@@ -217,6 +217,7 @@ func TestPlanPathRejectsTrailingCharsAfterValidPrefix(t *testing.T) {
 // the figure is POSTed as one observation under the change's own
 // task-counts collection, and the recorded row's stamps come back on
 // stdout.
+// smoke: core — flow tasks count records the plan's size
 func TestTasksCountRecordsThePlanTaskCount(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)

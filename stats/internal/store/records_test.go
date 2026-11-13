@@ -744,6 +744,7 @@ func TestMergeDispatchMetricsDeepMerges(t *testing.T) {
 // Both are written here out of order on purpose: a record whose order came
 // from insertion time rather than from seq and ref would pass a test that
 // wrote them in order and fail the moment a journalled write replayed late.
+// smoke: core — a run record reads back in write order
 func TestRunRecordOrdersDispatchesAndFindings(t *testing.T) {
 	st, _ := newRecordStore(t)
 	ctx := context.Background()

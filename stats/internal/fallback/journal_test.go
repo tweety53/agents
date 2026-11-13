@@ -303,6 +303,7 @@ func TestAppendJournalEntryAppendsInCallOrder(t *testing.T) {
 // (a torn write producing an unparseable line, or a lost append producing
 // fewer than goroutineCount entries) if a future change replaced the
 // O_APPEND flag with something not atomic across processes.
+// smoke: core — a data-race test of concurrent journal writers
 func TestAppendJournalEntryIsSafeUnderConcurrentWriters(t *testing.T) {
 	const goroutineCount = 20
 	path := filepath.Join(t.TempDir(), "proj", "change.journal")

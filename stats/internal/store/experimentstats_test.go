@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"math"
 	"reflect"
 	"sort"
@@ -344,6 +345,7 @@ func TestExperimentStatsDesignReviewer(t *testing.T) {
 // later-round dispatch -- one keyed test-sanity+call-efficiency included --
 // counts under panel-rerun (decision extra-stats-pass-one).
 func TestExperimentStatsExtraBundleRoles(t *testing.T) {
+	smoke.Heavy(t)
 	for role, want := range map[string]float64{
 		"panel-reviewer": 3, "panel-sanity-efficiency": 1, "panel-mutation-failure": 2, "panel-rerun": 4,
 	} {

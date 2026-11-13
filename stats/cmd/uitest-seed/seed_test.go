@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"math"
 	"os"
 	"regexp"
@@ -106,6 +107,7 @@ func newUitestDatabase(t *testing.T) string {
 // states, and at least one stage run carrying token usage a cost view
 // could render. It runs against its own throwaway "..._uitest" database,
 // never the live "flow" database or the shared "flow_uitest" one.
+// smoke: core — the seeder a store change can break
 func TestSeedPopulatesFixture(t *testing.T) {
 	dsn := newUitestDatabase(t)
 	if err := requireUitestDatabase(dsn); err != nil {
@@ -269,6 +271,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 // states with its open run carrying request 7, and the waiting session its
 // three landed requests.
 func TestSeedInteractiveSessions(t *testing.T) {
+	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -321,6 +324,7 @@ func TestSeedInteractiveSessions(t *testing.T) {
 // or more distinct costs; /flow-fast fills at least two weeks; changes land
 // in an agents-<8 hex> project and in one other.
 func TestSeedTrendFinishedChanges(t *testing.T) {
+	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -397,6 +401,7 @@ func TestSeedTrendFinishedChanges(t *testing.T) {
 // dispatches carry the agent ids its flow.review-panel run's priced buckets
 // key, so Reviewers reads their spend (decision reviewers-seed-agent-ids).
 func TestSeedPricesReviewerDispatches(t *testing.T) {
+	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -444,6 +449,7 @@ func TestSeedPricesReviewerDispatches(t *testing.T) {
 // nothing"), a non-zero withdrawn share, different heads for the Severity
 // and False alarms ranks, and enough rows to run past a 1024px viewport.
 func TestSeedDrawsReviewerStates(t *testing.T) {
+	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -517,6 +523,7 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 // fixtureNow, draw every state the Decisions prototype shows, and stay out
 // of PINNED_QUERY's window.
 func TestSeedDecisionsDrawsEveryState(t *testing.T) {
+	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -610,6 +617,7 @@ func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 // 30d, eight never fired, helpers left out, cannot-answer runs, a run-time
 // leader, and runs outside 7d and outside 30d.
 func TestSeedGuardRunsDrawEveryState(t *testing.T) {
+	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

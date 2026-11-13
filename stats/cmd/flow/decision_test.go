@@ -37,6 +37,7 @@ func decisionRun(t *testing.T, body string, args ...string) (int, string, string
 // sdd run with a split group (a range, a reason only on the group departing
 // from the implementer pair, the split reason), and a big run whose
 // experimental slot was skipped for the bundle cap.
+// smoke: core — the Decision block every run prints
 func TestDecisionRenderGolden(t *testing.T) {
 	inputs := func(tasks, files int, red string) string {
 		return `"inputs":{"tasks":` + strconv.Itoa(tasks) + `,"files":` + strconv.Itoa(files) + `,"repos":1,"migration":false,"spec":false,"red":` + red + `,"unverified":` + red + `}`

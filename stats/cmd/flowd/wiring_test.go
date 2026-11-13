@@ -199,6 +199,7 @@ func TestAcquireStartupRefusesNonLoopbackHostBeforeListening(t *testing.T) {
 //
 // Reverting that edit (back to passing st as deps) made it pass. Both runs
 // used `go test ./cmd/flowd/ -race -count=1 -run TestDaemonWiresTheRealStore -v`.
+// smoke: core — the daemon wired to the real store
 func TestDaemonWiresTheRealStore(t *testing.T) {
 	var st *store.Store // never dereferenced: newTranscriptWatcher only stores it behind Deps and HarvestSink.
 	w := newTranscriptWatcher(t.TempDir(), t.TempDir(), st, harvest.NewAttributor(nil), nil)

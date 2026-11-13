@@ -21,6 +21,7 @@ package repotest
 
 import (
 	"encoding/json"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"testing"
 )
 
+// smoke: core — the hook that gates every dispatch, through the real guard and CLI
 func TestEnforceAgentBaselineHook(t *testing.T) {
 	t.Parallel()
 	const baseline = "Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent."
@@ -197,6 +199,7 @@ func openRowPayload(t *testing.T, description, prompt string) []byte {
 // store answers for with no open matching row is denied; every unanswered store, and a loop-key
 // dispatch, passes.
 func TestEnforceAgentBaselineHookRequiresAnOpenRow(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	cases := []struct {
 		name, rows, description, prompt string
@@ -237,6 +240,7 @@ func TestEnforceAgentBaselineHookRequiresAnOpenRow(t *testing.T) {
 // TestEnforceAgentBaselineHookAllowsAnotherRepoCwd pins the fail-open on a cwd outside the
 // change's project: its rows read empty there, so the hook lets the dispatch through.
 func TestEnforceAgentBaselineHookAllowsAnotherRepoCwd(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	repo := t.TempDir()
 	if out, err := exec.Command("git", "init", "-q", repo).CombinedOutput(); err != nil {
@@ -261,6 +265,7 @@ func TestEnforceAgentBaselineHookAllowsAnotherRepoCwd(t *testing.T) {
 // TestEnforceAgentBaselineHookAdmitsRestKeys pins the verifier's -rest keys on the closed list: a
 // flow dispatch opening with one, its row open, passes.
 func TestEnforceAgentBaselineHookAdmitsRestKeys(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, key := range []string{"visual-verify-rest-gymie", "visual-verify-rest-2-gymie"} {
 		t.Run(key, func(t *testing.T) {
@@ -278,6 +283,7 @@ func TestEnforceAgentBaselineHookAdmitsRestKeys(t *testing.T) {
 // list: a flow dispatch opening with full-suite-fix-<n>, its row open, passes; one opening with a
 // word off the list is denied for not naming its row.
 func TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		description string
@@ -310,6 +316,7 @@ func TestEnforceAgentBaselineHookAdmitsFullSuiteFixKey(t *testing.T) {
 // a flow dispatch opening with plan-review-<n>, its row open, passes; one opening with
 // plan-review-x is denied for not naming its row.
 func TestEnforceAgentBaselineHookAdmitsPlanReviewKey(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		description string
@@ -383,6 +390,7 @@ func TestEnforceAgentBaselineHookAsksForTheLoopKeyLine(t *testing.T) {
 // Explore or Plan dispatch records no row, so the row checks let it through in a flow session,
 // while any other type with the same description is still denied.
 func TestEnforceAgentBaselineHookAdmitsPlanningAgents(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for typ, deny := range map[string]bool{"Explore": false, "Plan": false, "flow-low": true} {
 		t.Run(typ, func(t *testing.T) {
@@ -472,6 +480,7 @@ func offPolicyPayload(t *testing.T, prompt, typ, model, effort string) []byte {
 // TestEnforceAgentBaselineHookRefusesOffPolicyDispatch pins KAN-1045: in a flow run every dispatch
 // is checked against the Allowed pairs table through flow-guard check-dispatch-pair.
 func TestEnforceAgentBaselineHookRefusesOffPolicyDispatch(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, prompt, typ, model, effort string
@@ -524,6 +533,7 @@ func TestEnforceAgentBaselineHookRefusesOffPolicyDispatch(t *testing.T) {
 // TestEnforceAgentBaselineHookZcodePairForKnownRole pins the ZCode mapping: run from ~/.zcode/hooks
 // the hook still needs a Role line naming a role of the table, and admits the mapped pair alone.
 func TestEnforceAgentBaselineHookZcodePairForKnownRole(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	zhook := filepath.Join(t.TempDir(), ".zcode", "hooks", "enforce-agent-baseline.py")
 	if err := os.MkdirAll(filepath.Dir(zhook), 0o755); err != nil {
@@ -594,6 +604,7 @@ func anyCommandDeny(t *testing.T, command string) bool {
 // begun-row check reads the session's latest stage run of any command, so a /flow-fast
 // session's dispatch with no open row is denied rather than failing open.
 func TestEnforceAgentBaselineHookReadsAnyCommand(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if !anyCommandDeny(t, "/flow-fast") {
 		t.Errorf("a /flow-fast session's dispatch with no open row was allowed, want denied")
@@ -603,6 +614,7 @@ func TestEnforceAgentBaselineHookReadsAnyCommand(t *testing.T) {
 // TestEnforceAgentBaselineHookSeesFlowInteractive pins that a typed /flow-interactive is a flow
 // session, its dispatches held to the begun-row check like every flow command's.
 func TestEnforceAgentBaselineHookSeesFlowInteractive(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	if !anyCommandDeny(t, "/flow-interactive") {
 		t.Errorf("a /flow-interactive session's dispatch with no open row was allowed, want denied")
@@ -613,6 +625,7 @@ func TestEnforceAgentBaselineHookSeesFlowInteractive(t *testing.T) {
 // writes one `flow record incident` call, with the session's change where the store names one;
 // an allowed dispatch writes none; a failing write leaves the deny JSON as the whole stdout.
 func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 	noPointer, err := json.Marshal(map[string]any{
 		"tool_name":  "Agent",

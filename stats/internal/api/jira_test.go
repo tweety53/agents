@@ -3,6 +3,7 @@ package api_test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -151,6 +152,7 @@ func TestJiraTransitionUpstreamAuthRejected(t *testing.T) {
 // (real backoff, ~4s) and answers 504 -- the one mapped failure the caller
 // may treat as "try again later".
 func TestJiraTransitionUpstreamTransientExhausted(t *testing.T) {
+	smoke.Heavy(t)
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}

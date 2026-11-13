@@ -6,6 +6,7 @@ package repotest
 
 import (
 	"encoding/json"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 )
 
 func TestAwaitOwnAgentsHook(t *testing.T) {
+	smoke.Heavy(t)
 	dir := filepath.Join(t.TempDir(), "sess", "subagents")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)

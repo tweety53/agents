@@ -1,6 +1,7 @@
 package repotest
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -21,6 +22,7 @@ var (
 // so no dispatch template carries a role hooks/enforce-agent-baseline.py
 // refuses as unknown.
 func TestEveryRoleLineIsAPolicyRow(t *testing.T) {
+	smoke.Heavy(t)
 	root := repoRoot(t)
 	b, err := os.ReadFile(filepath.Join(root, "skills/flow-contracts/model-policy.md"))
 	if err != nil {

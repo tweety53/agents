@@ -6,6 +6,7 @@ package repotest
 // asserts the PUT it sends -- or that it sends none and stays silent.
 
 import (
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -43,6 +44,7 @@ func (s *activityStore) all() []string {
 }
 
 func TestFlowSessionActivityHook(t *testing.T) {
+	smoke.Heavy(t)
 	t.Parallel()
 
 	run := func(t *testing.T, addr, stdin string) (string, int) {
