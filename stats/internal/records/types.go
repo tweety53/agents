@@ -692,6 +692,7 @@ var GuardHelpers = []string{
 	"run-capped",
 	"run-reproducer",
 	"run-verify-list",
+	"smoke-keep",
 	"stage-task-files",
 	"sync-onto-base",
 	"sync-panel-base",

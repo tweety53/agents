@@ -39,37 +39,47 @@ func unchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "usage: flow-guard unchanged <pathspec>...")
 		return 2
 	}
-	gitBin, ok := panelResolveGit(env, prog, stderr)
+	base, paths, ok := changedSinceBase(env, prog, stderr, args...)
 	if !ok {
 		return 2
 	}
-	git := func(a ...string) *exec.Cmd {
-		cmd := exec.Command(gitBin, a...)
-		cmd.Dir = env.Dir
-		return cmd
-	}
-	out, err := git("merge-base", "HEAD", "origin/main").Output()
-	if err != nil {
-		fmt.Fprintf(stderr, "%s: git merge-base HEAD origin/main failed: %v\n", prog, err)
-		return 2
-	}
-	base := strings.TrimSpace(string(out))
-	err = git(append([]string{"diff", "--quiet", base, "--"}, args...)...).Run()
-	if err != nil {
-		if exitCode(err) == 1 {
-			return 1
-		}
-		fmt.Fprintf(stderr, "%s: git diff failed: %v\n", prog, err)
-		return 2
-	}
-	untracked, err := git(append([]string{"ls-files", "--others", "--exclude-standard", "--"}, args...)...).Output()
-	if err != nil {
-		fmt.Fprintf(stderr, "%s: git ls-files failed: %v\n", prog, err)
-		return 2
-	}
-	if len(untracked) > 0 {
+	if len(paths) > 0 {
 		return 1
 	}
 	fmt.Fprintf(stdout, "unchanged: nothing under %s changed since %s — suite skipped\n", strings.Join(args, " "), base)
 	return 0
+}
+
+// changedSinceBase answers the merge base of HEAD and origin/main and the
+// paths matching pathspecs (all paths when none) that changed since it --
+// committed, staged, unstaged or untracked -- each repository-relative. A
+// failed git call prints one `<prog>: git … failed: …` line and answers ok
+// false.
+func changedSinceBase(env Env, prog string, stderr io.Writer, pathspecs ...string) (base string, paths []string, ok bool) {
+	gitBin, ok := panelResolveGit(env, prog, stderr)
+	if !ok {
+		return "", nil, false
+	}
+	git := func(a ...string) ([]byte, error) {
+		cmd := exec.Command(gitBin, a...)
+		cmd.Dir = env.Dir
+		return cmd.Output()
+	}
+	out, err := git("merge-base", "HEAD", "origin/main")
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: git merge-base HEAD origin/main failed: %v\n", prog, err)
+		return "", nil, false
+	}
+	base = strings.TrimSpace(string(out))
+	diff, err := git(append([]string{"diff", "--no-renames", "--name-only", base, "--"}, pathspecs...)...)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: git diff failed: %v\n", prog, err)
+		return "", nil, false
+	}
+	untracked, err := git(append([]string{"ls-files", "--others", "--exclude-standard", "--full-name", "--"}, pathspecs...)...)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s: git ls-files failed: %v\n", prog, err)
+		return "", nil, false
+	}
+	return base, append(strings.Fields(string(diff)), strings.Fields(string(untracked))...), true
 }
