@@ -1505,15 +1505,510 @@ GROUP  BY s.stage;</pre>
     </div>
   </section>
 
-  <section class="stage" id="flow.verify"><h2>flow.verify</h2></section>
+  <section class="stage" id="flow.verify">
+    <h2>flow.verify</h2>
+    <p class="files">Marked in <code>skills/flow/verify-and-handoff.md</code> (<strong>Verify</strong>) · fix rounds in <code>skills/flow/verify-fix-loop.md</code></p>
 
-  <section class="stage" id="flow.visual-verify"><h2>flow.visual-verify</h2></section>
+    <h3>Summary</h3>
+    <p>Runs the project's lint and test lists inline in the parent, per worktree, through <code>flow-guard run-verify-list</code>, then the design's live check when it names one. A fixable failure goes to the in-run fix loop, which appends a task, implements it, re-reviews it and re-runs this stage. Ends when every list passes and the live check guard accepts.</p>
 
-  <section class="stage" id="flow.stage-diff"><h2>flow.stage-diff</h2></section>
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> <code>flow-guard prepare-workspace</code> per worktree of the resolved set <span class="cite">verify-and-handoff.md:22</span></li>
+      <li>the run's first <code>flow.verify</code> <span class="arrow">→</span> <code>check-base-behind</code>; exit 1 pushes the base and re-checks <span class="cite">verify-and-handoff.md:56</span></li>
+      <li>a worktree with nothing outside its change directory <span class="arrow">→</span> skipped <span class="cite">verify-and-handoff.md:78</span></li>
+      <li>always <span class="arrow">→</span> lint with <code>check-spec-reach</code> and the test list as two background groups in one call <span class="cite">verify-and-handoff.md:96</span></li>
+      <li><code>design.md</code> carries a <code>## Live check</code> <span class="arrow">→</span> the live check runs and gates the stage end <span class="cite">verify-and-handoff.md:176</span> <span class="cite">verify-and-handoff.md:236</span></li>
+      <li>a fixable defect in the final report <span class="arrow">→</span> <code>verify-fix-loop.md</code> <span class="cite">verify-and-handoff.md:73</span>
+        <ul>
+          <li>one round appends one <code>In-run fix &lt;k&gt;</code> task carrying every defect <span class="cite">verify-fix-loop.md:67</span></li>
+          <li>a failing visual <code>verify</code> row <span class="arrow">→</span> re-run narrowed to its failures, five times each at one worker <span class="cite">verify-fix-loop.md:210</span></li>
+          <li>two consecutive rounds failing only outside the change's specs <span class="arrow">→</span> escalated as <strong>Fewest operator actions</strong> <span class="cite">verify-fix-loop.md:223</span></li>
+          <li>after the loop's re-runs are clean <span class="arrow">→</span> <code>flow.review-panel</code> opens once: <code>primary</code> and the two extras over the late-fix diff <span class="cite">verify-fix-loop.md:135</span></li>
+        </ul>
+      </li>
+    </ul>
 
-  <section class="stage" id="flow.run-instructions"><h2>flow.run-instructions</h2></section>
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>257</td><td>104</td><td>0.34</td><td>1.61</td><td>185.86</td><td>298 s</td><td>848 s</td><td>2.47</td><td>13</td><td>26</td><td>1</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>104</td><td>95.04</td></tr>
+      <tr><td>2</td><td>49</td><td>59.32</td></tr>
+      <tr><td>3</td><td>31</td><td>9.92</td></tr>
+      <tr><td>4</td><td>23</td><td>3.59</td></tr>
+      <tr><td>5</td><td>16</td><td>4.34</td></tr>
+      <tr><td>6</td><td>11</td><td>5.27</td></tr>
+      <tr><td>7</td><td>8</td><td>1.36</td></tr>
+      <tr><td>8</td><td>5</td><td>1.75</td></tr>
+      <tr><td>9</td><td>3</td><td>2.41</td></tr>
+      <tr><td>10</td><td>3</td><td>2.30</td></tr>
+      <tr><td>11</td><td>2</td><td>0.57</td></tr>
+      <tr><td>12</td><td>1</td><td>—</td></tr>
+      <tr><td>13</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 230 <code>completed</code>, 18 <code>superseded</code>, 6 <code>stopped</code>, 1 <code>abandoned</code>, 1 <code>blocked</code>, 1 <code>clean</code>.</p>
 
-  <section class="stage" id="flow.write-in-progress"><h2>flow.write-in-progress</h2></section>
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>In-run fix rounds — exit: a clean report. <strong>Uncapped</strong>: "No round count ends the loop." <span class="cite">verify-fix-loop.md:227</span></li>
+      <li>Narrowed visual re-runs — exit: a green narrowed run, then a green plain run; two rounds with no progress escalate. <span class="cite">verify-fix-loop.md:223</span></li>
+      <li>Base-behind re-check — first <code>flow.verify</code> only. <span class="cite">verify-and-handoff.md:56</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>verifier (inline)</td><td>1 row per worktree, in the parent</td><td>the parent's own model; no subagent</td></tr>
+      <tr><td>implementer (in-run fix)</td><td>1 per round</td><td>the decision's implementer pair, through <code>flow.sdd-tdd</code></td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>36</td><td>39.63</td></tr>
+      <tr><td>sonnet</td><td>7</td><td>0.46</td></tr>
+    </table>
+    </div>
+    <p class="note">43 dispatches over 257 runs: median 0 per run, p90 0, highest 7; 234 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>The whole <code>## lint</code> and <code>## test</code> lists run per worktree, after <code>flow.sdd-tdd</code> and the panel already ran the test list. A test group whose inputs did not change is cache-skipped. <span class="cite">verify-and-handoff.md:96</span></li>
+      <li>Every fix round re-runs the lists in every worktree whose HEAD moved. <span class="cite">verify-fix-loop.md:165</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag uncapped">uncapped</span>"No round count ends the loop"; one change reached attempt 13 of the stage, and <code>kan-1086</code>'s second attempt ran 21,622 s for $33.24.</li>
+      <li><span class="tag repeated">repeated</span>The test list runs at <code>flow.sdd-tdd</code>, on the panel's pass 1 and again here; only the green-sha cache spares a repeat.</li>
+      <li><span class="tag repeated">repeated</span>153 of 257 runs are a second or later attempt on the same change ($90.82).</li>
+      <li><span class="tag unselected">unselected</span>On a change whose diff touches nothing a suite reads, the lists still run — <code>flow-guard unchanged</code> skips only where a project declares it.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>After KAN-1107, which loops of this stage still lack a cap — the fix rounds, or only the narrowed visual re-runs?</li>
+      <li>Is the test-list run here needed when <code>flow.sdd-tdd</code> and the panel already ran it on the same HEAD?</li>
+      <li>What share of the attempts are in-run fix rounds and what share fix runs?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>The parent's own tokens while it waits on the background lists are billed here; a long wall-clock run is mostly suite time, not agent time.</p>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1086-training-setup-settings</td><td>2</td><td>33.24</td><td>21,622 s</td><td>7</td><td>2026-11-12</td></tr>
+      <tr><td>kan-1084-floating-bottom-bar-rooms</td><td>2</td><td>6.85</td><td>4,980 s</td><td>2</td><td>2026-11-12</td></tr>
+      <tr><td>kan-1026-stored-data-first-on-every-open</td><td>1</td><td>5.26</td><td>1,226 s</td><td>0</td><td>2026-10-22</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>110</td><td>32</td><td>0.32</td><td>102.70</td><td>230 s</td></tr>
+      <tr><td>regular</td><td>111</td><td>50</td><td>0.36</td><td>66.62</td><td>324 s</td></tr>
+      <tr><td>small</td><td>31</td><td>17</td><td>0.22</td><td>14.24</td><td>393 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.29</td><td>0.81</td><td>334 s</td></tr>
+      <tr><td>no decision recorded</td><td>1</td><td>1</td><td>1.50</td><td>1.50</td><td>231 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.visual-verify">
+    <h2>flow.visual-verify</h2>
+    <p class="files">Steps 1–2 in <code>skills/flow/verify-and-handoff.md</code> through <code>flow-guard visual-verify-pass prepare</code> · steps 3–13 in <code>skills/flow/visual-verify.md</code> · misses in <code>skills/flow/visual-verify-tooling-analysis.md</code></p>
+
+    <h3>Summary</h3>
+    <p>When a worktree's diff matches a <code>ui paths</code> glob, dispatches one opus verifier per worktree to capture every changed view, compare it with the mockup frames and the approved prototype, measure the departures and commit the capture PNGs. Every blocking item but an environment failure goes to the in-run fix loop. Ends at a clean report, or <code>skipped</code> when no glob matched or Decide skipped it.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li><code>prepare</code> runs the begin mark and steps 1–2 in one call <span class="cite">verify-and-handoff.md:250</span></li>
+      <li>no <code>ui paths</code> section, or no path matched <span class="arrow">→</span> the worktree is skipped <span class="cite">verify-and-handoff.md:273</span></li>
+      <li>the decision records <code>visual.verify</code> <code>skipped</code> <span class="arrow">→</span> the stage closes <code>skipped</code> at step 2 <span class="cite">verify-and-handoff.md:294</span></li>
+      <li>otherwise <span class="arrow">→</span> one verifier per worktree, the literal <code>opus</code> on <code>flow-low</code> <span class="cite">visual-verify.md:11</span> <span class="cite">visual-verify.md:21</span></li>
+      <li>a fix run with a defect an earlier round passed <span class="arrow">→</span> one tooling analyst per worktree before its verifier <span class="cite">visual-verify.md:155</span></li>
+      <li><code>close</code>'s closing line
+        <ul>
+          <li><code>NEXT: rest</code> <span class="arrow">→</span> the incomplete report is completed by a remainder dispatch <span class="cite">visual-verify.md:92</span></li>
+          <li><code>NEXT: redispatch</code> <span class="arrow">→</span> a complete report with a non-zero exit is re-dispatched <span class="cite">visual-verify.md:101</span></li>
+          <li>a blocking item that is the branch's defect <span class="arrow">→</span> <code>verify-fix-loop.md</code> <span class="cite">visual-verify.md:381</span></li>
+          <li>pre-flight, stack start or fingerprint failing <span class="arrow">→</span> the stage ends <code>stopped</code> <span class="cite">visual-verify.md:381</span></li>
+        </ul>
+      </li>
+      <li>a position departure of at most 1 dp after a fix round tried <span class="arrow">→</span> may stand, recorded with its reason <span class="cite">visual-verify.md:372</span></li>
+      <li>after a clean scoped re-run <span class="arrow">→</span> one unscoped full run closes the loop <span class="cite">verify-fix-loop.md:190</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>287</td><td>104</td><td>1.43</td><td>8.06</td><td>727.57</td><td>166 s</td><td>2,881 s</td><td>2.76</td><td>18</td><td>40</td><td>4</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>104</td><td>275.19</td></tr>
+      <tr><td>2</td><td>49</td><td>113.49</td></tr>
+      <tr><td>3</td><td>33</td><td>66.39</td></tr>
+      <tr><td>4</td><td>24</td><td>47.93</td></tr>
+      <tr><td>5</td><td>22</td><td>68.85</td></tr>
+      <tr><td>6</td><td>13</td><td>63.64</td></tr>
+      <tr><td>7</td><td>10</td><td>38.13</td></tr>
+      <tr><td>8</td><td>7</td><td>22.23</td></tr>
+      <tr><td>9</td><td>6</td><td>10.21</td></tr>
+      <tr><td>10</td><td>5</td><td>7.86</td></tr>
+      <tr><td>11</td><td>5</td><td>4.40</td></tr>
+      <tr><td>12</td><td>4</td><td>6.24</td></tr>
+      <tr><td>13</td><td>1</td><td>1.20</td></tr>
+      <tr><td>14</td><td>1</td><td>—</td></tr>
+      <tr><td>15</td><td>1</td><td>0.06</td></tr>
+      <tr><td>16</td><td>1</td><td>1.13</td></tr>
+      <tr><td>18</td><td>1</td><td>0.62</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 94 <code>completed</code>, 83 <code>stopped</code>, 69 <code>superseded</code>, 36 <code>skipped</code>, 4 <code>abandoned</code>, 1 <code>clean</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Remainder dispatches — <strong>Uncapped</strong>: "No count ends these either". <span class="cite">visual-verify.md:97</span></li>
+      <li>Re-dispatches on a non-zero exit — <strong>Uncapped</strong>: "no count ends the re-dispatches". <span class="cite">visual-verify.md:101</span></li>
+      <li>In-run fix rounds — <strong>Uncapped</strong>. <span class="cite">verify-fix-loop.md:227</span></li>
+      <li>Unfinished-work and visual guards at <code>flow.write-in-progress</code> send the run back here until <code>VISUAL-VERIFY-OK</code>. <strong>Uncapped</strong>. <span class="cite">verify-and-handoff.md:516</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Role</th><th>Per run</th><th>Model and effort from</th></tr>
+      <tr><td>verifier</td><td>1 per worktree, plus remainders, re-dispatches and fix rounds</td><td>the literal <code>opus</code>, <code>flow-low</code>; never a decision pair</td></tr>
+      <tr><td>tooling analyst</td><td>1 per worktree with a miss, fix runs only</td><td>the literal <code>opus</code></td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>346</td><td>453.23</td></tr>
+      <tr><td>sonnet</td><td>24</td><td>2.72</td></tr>
+    </table>
+    </div>
+    <p class="note">370 dispatches over 287 runs: median 1 per run, p90 3, highest 14; 113 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>The capture spec runs over every changed view; a fix to a shared source recaptures every spec its diff maps, and the whole suite when <code>specs</code> is not declared. <span class="cite">verify-fix-loop.md:20</span></li>
+      <li>After every clean scoped re-run, one full unscoped run over every motion of the change. <span class="cite">verify-fix-loop.md:190</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag uncapped">uncapped</span>Remainders, re-dispatches and fix rounds are each uncapped by design; one change reached attempt 18.</li>
+      <li><span class="tag repeated">repeated</span>183 of 287 runs are a second or later attempt on the same change ($452.38 of $727.57).</li>
+      <li><span class="tag repeated">repeated</span>Every scoped clean re-run is followed by a full unscoped run of the whole change.</li>
+      <li><span class="tag unselected">unselected</span>The verifier is always opus whatever the change's class, by rule; opus carries $453.23 over 346 dispatches.</li>
+      <li><span class="tag unselected">unselected</span>83 runs end <code>stopped</code> and 69 <code>superseded</code> — more than half the runs end without a clean report.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>Why do 83 runs end <code>stopped</code> — environment failures, or fix-loop rounds closing the stage?</li>
+      <li>Could the closing full run be dropped when the scoped round's diff touches no shared source?</li>
+      <li>Is the verifier's fixed opus pair the right default for a capture-only round?</li>
+      <li>What made <code>kan-1038</code>'s fifth attempt cost $20.23 in 218 s?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>36 runs are <code>skipped</code> at step 2 and cost almost nothing; the percentiles include them.</p>
+
+    <h3>Three costliest runs</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Change</th><th>Attempt</th><th>$</th><th>Duration</th><th>Dispatches</th><th>Started</th></tr>
+      <tr><td>kan-1015-templates-step-1-fe-templates-room-search-gym</td><td>1</td><td>27.20</td><td>9,897 s</td><td>11</td><td>2026-10-24</td></tr>
+      <tr><td>kan-1044-bugfixes-cardio-overflow-time-anims-stale-sets</td><td>6</td><td>21.08</td><td>8,950 s</td><td>14</td><td>2026-10-28</td></tr>
+      <tr><td>kan-1038-stats-weekly-costs-one-chart</td><td>5</td><td>20.23</td><td>218 s</td><td>13</td><td>2026-10-27</td></tr>
+    </table>
+    </div>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>134</td><td>32</td><td>1.23</td><td>401.29</td><td>256 s</td></tr>
+      <tr><td>regular</td><td>114</td><td>49</td><td>1.70</td><td>259.20</td><td>210 s</td></tr>
+      <tr><td>small</td><td>33</td><td>17</td><td>1.08</td><td>62.52</td><td>5 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>—</td><td>—</td><td>0 s</td></tr>
+      <tr><td>no decision recorded</td><td>2</td><td>2</td><td>2.28</td><td>4.56</td><td>97 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class; Decide may record <code>visual.verify</code> <code>skipped</code>, and <code>micro</code> runs recorded no cost here.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.stage-diff">
+    <h2>flow.stage-diff</h2>
+    <p class="files">Marked in <code>skills/flow/verify-and-handoff.md</code> (<strong>Stage, excluding the planning paths</strong>)</p>
+
+    <h3>Summary</h3>
+    <p>Confirms every task is ticked and the branch holds one commit per task plus its fix commits, with nothing from <code>spectre/changes/</code> in them. Where a PR is already open it renders the records and splits the operator's gate edits into commits. Ends once the log is confirmed, or the split is pushed.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> <code>git status</code> and <code>git log &lt;merge-base&gt;..HEAD</code> in every affected worktree <span class="cite">verify-and-handoff.md:312</span></li>
+      <li>the state records a <code>prUrl</code> <span class="arrow">→</span> <code>flow record render</code>, <code>flow-guard commit-split</code> and a force-with-lease push <span class="cite">verify-and-handoff.md:338</span></li>
+      <li>no <code>prUrl</code> <span class="arrow">→</span> commits nothing more <span class="cite">verify-and-handoff.md:336</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>107</td><td>93</td><td>0.09</td><td>0.24</td><td>3.15</td><td>0 s</td><td>2 s</td><td>1.15</td><td>3</td><td>82</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>93</td><td>2.98</td></tr>
+      <tr><td>2</td><td>11</td><td>0.12</td></tr>
+      <tr><td>3</td><td>3</td><td>0.05</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 103 <code>completed</code>, 4 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <p class="note">0 dispatches over 107 runs: median 0 per run, p90 0, highest 0; 107 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <p>none</p>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>The stage costs $3.15 in total; is the confirmation it makes also made by <code>check-task-commit-fields</code> at each task close, and so redundant?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>big</td><td>32</td><td>25</td><td>0.08</td><td>1.23</td><td>0 s</td></tr>
+      <tr><td>small</td><td>20</td><td>17</td><td>0.10</td><td>0.83</td><td>0 s</td></tr>
+      <tr><td>regular</td><td>51</td><td>47</td><td>0.08</td><td>0.78</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.16</td><td>0.31</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.run-instructions">
+    <h2>flow.run-instructions</h2>
+    <p class="files">Marked in <code>skills/flow/verify-and-handoff.md</code> (<strong>Resolve the run instructions</strong>)</p>
+
+    <h3>Summary</h3>
+    <p>Resolves the start commands and worktree-resolved URLs the handoff prints, and starts the stack so the handoff hands over a running build. Ends once the stack is up, skipped as fresh or protected, or a refused start has been relayed.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> start commands from <code>## run</code>, URLs from the worktree's workspace id <span class="cite">verify-and-handoff.md:365</span></li>
+      <li>the run will land straight away (no review asked, no open question) <span class="arrow">→</span> nothing is started <span class="cite">verify-and-handoff.md:386</span></li>
+      <li>the stack already serves this worktree's build <span class="arrow">→</span> the start is skipped <span class="cite">verify-and-handoff.md:381</span></li>
+      <li>every app is the protected flow dev stack <span class="arrow">→</span> <code>Not started</code> line <span class="cite">verify-and-handoff.md:406</span></li>
+      <li>a start fails <span class="arrow">→</span> the stage blocks <span class="cite">verify-and-handoff.md:414</span></li>
+      <li>a port is already held <span class="arrow">→</span> relayed verbatim, the run ends at <code>IN_PROGRESS</code> <span class="cite">verify-and-handoff.md:432</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>107</td><td>93</td><td>0.13</td><td>0.25</td><td>9.26</td><td>0 s</td><td>16 s</td><td>1.15</td><td>4</td><td>50</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>93</td><td>9.00</td></tr>
+      <tr><td>2</td><td>11</td><td>0.19</td></tr>
+      <tr><td>3</td><td>2</td><td>0.07</td></tr>
+      <tr><td>4</td><td>1</td><td>—</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 106 <code>completed</code>, 1 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <p>none</p>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>2</td><td>0.14</td></tr>
+    </table>
+    </div>
+    <p class="note">2 dispatches over 107 runs: median 0 per run, p90 0, highest 1; 105 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li>none</li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>A change verified with <code>flow.visual-verify</code> rebuilds and restarts the stack here when <code>check-dev-stack-fresh</code> reports stale, after the verifier already built it.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>How often is the start skipped as fresh, against a full rebuild?</li>
+    </ul>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>53</td><td>47</td><td>0.20</td><td>4.77</td><td>0 s</td></tr>
+      <tr><td>big</td><td>30</td><td>25</td><td>0.11</td><td>2.38</td><td>0 s</td></tr>
+      <tr><td>small</td><td>20</td><td>17</td><td>0.13</td><td>1.89</td><td>0 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.12</td><td>0.23</td><td>0 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
+
+  <section class="stage" id="flow.write-in-progress">
+    <h2>flow.write-in-progress</h2>
+    <p class="files">Marked in <code>skills/flow/verify-and-handoff.md</code> (<strong>Write <code>IN_PROGRESS</code></strong>)</p>
+
+    <h3>Summary</h3>
+    <p>Appends the run's narrative, checks it against the store's runs, closes every open dispatch row, records the Summary bullets, runs the unfinished-work and visual guards on itself and writes <code>IN_PROGRESS</code>. Ends with the state write; the run then lands straight away unless review was asked for.</p>
+
+    <h3>Branching</h3>
+    <ul>
+      <li>always <span class="arrow">→</span> narrative appended, then <code>check-narrative-runs</code> <span class="cite">verify-and-handoff.md:460</span> <span class="cite">verify-and-handoff.md:473</span></li>
+      <li>always <span class="arrow">→</span> every open dispatch row closed <span class="cite">verify-and-handoff.md:475</span></li>
+      <li><code>check-unfinished-work</code> prints <code>OUTSTANDING:</code> <span class="arrow">→</span> the work is finished and the guard re-run <span class="cite">verify-and-handoff.md:503</span></li>
+      <li><code>VISUAL-VERIFY-MISSING:</code> <span class="arrow">→</span> visual verification again from its begin mark, through the loop, guard re-run <span class="cite">verify-and-handoff.md:516</span></li>
+      <li>always <span class="arrow">→</span> state written: <code>IN_PROGRESS</code> from <code>STARTED</code>, else as read <span class="cite">verify-and-handoff.md:538</span></li>
+      <li><code>reviewBeforeLanding</code> unset and no open question <span class="arrow">→</span> lands straight away <span class="cite">verify-and-handoff.md:554</span></li>
+    </ul>
+
+    <h3>Stats</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Runs</th><th>Changes</th><th>Median $</th><th>p90 $</th><th>Total $</th><th>p50</th><th>p90</th><th>Attempts / change</th><th>Highest attempt</th><th>Uncosted</th><th>Abandoned</th><th>Open</th></tr>
+      <tr><td>120</td><td>100</td><td>0.38</td><td>1.12</td><td>72.16</td><td>20 s</td><td>148 s</td><td>1.20</td><td>4</td><td>2</td><td>0</td><td>0</td></tr>
+    </table>
+    </div>
+    <div class="scroll">
+    <table>
+      <tr><th>Attempt</th><th>Runs</th><th>Total $</th></tr>
+      <tr><td>1</td><td>100</td><td>64.31</td></tr>
+      <tr><td>2</td><td>16</td><td>7.21</td></tr>
+      <tr><td>3</td><td>3</td><td>0.56</td></tr>
+      <tr><td>4</td><td>1</td><td>0.08</td></tr>
+    </table>
+    </div>
+    <p class="note">Outcomes: 108 <code>completed</code>, 12 <code>superseded</code>.</p>
+
+    <h3>Loops and their caps</h3>
+    <ul>
+      <li>Unfinished-work guard — exit: <code>CLEAR:</code> in every worktree. <strong>Uncapped</strong>. <span class="cite">verify-and-handoff.md:503</span></li>
+      <li>Visual guard — exit: <code>VISUAL-VERIFY-OK:</code>. <strong>Uncapped</strong>. <span class="cite">verify-and-handoff.md:516</span></li>
+    </ul>
+
+    <h3>Subagent dispatches</h3>
+    <p>none — the stage's own steps dispatch no subagent.</p>
+    <div class="scroll">
+    <table>
+      <tr><th>Recorded dispatches, by model</th><th>Count</th><th>Total $</th></tr>
+      <tr><td>opus</td><td>13</td><td>7.36</td></tr>
+      <tr><td>sonnet</td><td>2</td><td>0.20</td></tr>
+    </table>
+    </div>
+    <p class="note">15 dispatches over 120 runs: median 0 per run, p90 0, highest 4; 112 runs record none.</p>
+
+    <h3>Full-suite or whole-list runs</h3>
+    <ul>
+      <li><code>check-unfinished-work</code> and <code>check-visual-verify-dispatched</code> run over every worktree of the resolved set. <span class="cite">verify-and-handoff.md:503</span></li>
+    </ul>
+
+    <h3>Candidate findings</h3>
+    <ul class="findings">
+      <li><span class="tag repeated">repeated</span>The narrative is written by the parent from its own context on every run; the costliest runs ($7.11, $5.52) are 50-minute windows.</li>
+      <li><span class="tag repeated">repeated</span>The same unfinished-work guard runs again at integrate's gate.</li>
+    </ul>
+
+    <h3>Open questions for the session</h3>
+    <ul>
+      <li>What made <code>kan-1010</code>'s run last 3,071 s — a visual re-run the guard sent it back to?</li>
+      <li>Can the narrative be shorter, or written once per change rather than per run?</li>
+    </ul>
+
+    <h3>Data caveat</h3>
+    <p>A run the visual guard sends back to visual verification bills that re-run's parent work here until the next mark.</p>
+
+    <h3>Class split</h3>
+    <div class="scroll">
+    <table>
+      <tr><th>Class</th><th>Runs</th><th>Changes</th><th>Median $</th><th>Total $</th><th>p50</th></tr>
+      <tr><td>regular</td><td>55</td><td>48</td><td>0.36</td><td>30.17</td><td>19 s</td></tr>
+      <tr><td>big</td><td>38</td><td>31</td><td>0.49</td><td>27.16</td><td>39 s</td></tr>
+      <tr><td>small</td><td>23</td><td>17</td><td>0.29</td><td>13.92</td><td>14 s</td></tr>
+      <tr><td>micro</td><td>4</td><td>4</td><td>0.24</td><td>0.91</td><td>14 s</td></tr>
+    </table>
+    </div>
+    <p class="note">The stage does not branch on class.</p>
+
+    <div class="outcome">
+      <h3>Session outcome</h3>
+      <p>not yet held</p>
+    </div>
+  </section>
 
   <section class="stage" id="flow.preflight"><h2>flow.preflight</h2></section>
 
