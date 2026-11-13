@@ -85,6 +85,10 @@ test.describe("experiments", () => {
     await input.fill("not a pair");
     await expect(row.getByText(/^Add “/)).toHaveCount(0);
     await expect(page).toHaveScreenshot("experiments-edit-invalid.png", { fullPage: true });
+    // The menu shuts on a window scroll or resize, and a full-page capture
+    // leaves it shut: reopen it.
+    await page.keyboard.press("Escape");
+    await row.getByRole("button", { name: "Choose explicit allow pairs for implementer" }).click();
     await input.fill("opus/flow-high@xhigh");
     await input.press("Enter");
     await expect(row.getByRole("checkbox", { name: "opus/flow-high@xhigh" })).toBeChecked();
