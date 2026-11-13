@@ -14,7 +14,10 @@ not answered within that timeout is a failed MCP call, and the same operation is
 through its `twg` counterpart whenever `command -v twg` finds it (`twg jira workitem get`,
 `twg jira workitem transition` — without `--transition-id` it lists the transitions, with one it
 fires it — `twg jira workitem update`, `twg jira workitem create`, `twg jira workitem comment`,
-`twg jira workitem query <jql>`); from then on `twg` is the route for the rest of the run. With no
+`twg jira workitem query <jql>`); from then on `twg` is the route for the rest of the run. A timed-out MCP write
+(create, transition, comment, edit) may have landed server-side, so the `twg` route first re-reads
+the issue (`twg jira workitem get`, `query`, or the transition listing) and repeats the write only
+when its effect is absent; a read is replayed directly. With no
 Atlassian MCP tool loaded, `twg` is the route from the start. Each MCP call named in this contract means its `twg` counterpart on the `twg` route. **Atlassian tooling** in every `/flow*` contract means either route; a session has none
 only when no Atlassian MCP tool is loaded **and** `command -v twg` finds nothing. A call that
 fails on both routes — auth, network, a rejected write — is a failed Jira call under **Never blocking** below,
