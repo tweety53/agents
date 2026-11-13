@@ -652,7 +652,7 @@ func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
 		gitRun(t, f.wt, "add", "-A")
 		gitRun(t, f.wt, "commit", "-qm", "cfg")
 		f.green()
-		writeFile(t, filepath.Join(f.wt, "design/mockups/t1/F1.png"), "png\n")
+		rfWritePNG(t, filepath.Join(f.wt, "design/mockups/t1/F1.png"), true)
 		return f
 	}
 	t.Run("a reference absent at its tag", func(t *testing.T) {

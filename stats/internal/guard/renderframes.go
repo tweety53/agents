@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/png"
 	"io"
 	"os"
 	"os/exec"
@@ -33,7 +34,9 @@ import (
 //   - in a `.mockups` sidecar, a pair line's frame field `<tag>/<frame id>`.
 // A <frame id> `dk-<id>` names the second (dark) phone of frame <id>.
 //
-// Each reference not yet rendered — its PNG absent — is rendered into
+// Each reference not yet rendered — its PNG absent or blank (below the top
+// eighth, under 0.5% of pixels off the centre colour: a lazy pane caught
+// before it painted) — is rendered into
 // `<project root>/<mockups root>/<tag>/`, a directory this guard creates
 // with a `.gitignore` of `*`, so nothing in it is ever committed. A <tag>
 // equal to a committed sub-directory of the mockups root is refused (exit
@@ -56,7 +59,8 @@ import (
 // elements 390 css px wide with 28 px corners, in document order — is
 // screenshotted at an integer-aligned 390×844 box with animations disabled:
 // the first as `<id>.png`, the second as `dk-<id>.png`; a one-phone
-// (light-only) frame gets no `dk-`.
+// (light-only) frame gets no `dk-`. A render that comes out blank is
+// deleted and reported as a finding, never left as the frame.
 //
 // Prints one `RENDER-FINDING: <tag>/<id> — <why>` line per reference that
 // cannot be rendered, then ONE verdict line:
@@ -64,7 +68,8 @@ import (
 //   FRAMES-MISSING:  <k> reference(s) not rendered
 //
 // Exit 0 every reference rendered or present; 1 a reference whose id is not
-// at its tag (absent or not unique), or whose phone is not found; 2 cannot
+// at its tag (absent or not unique), whose phone is not found, or that
+// renders blank; 2 cannot
 // answer: a usage error, an unreadable <file>, no `design repo`, `mockups`
 // or `regression checkout` row, the clone missing, a tag unfetchable or
 // unexportable, a tag naming a committed sub-directory, `node` or
@@ -172,7 +177,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		out := filepath.Join(root, rel)
 		var pending []string
 		for _, id := range byTag[tag] {
-			if isFile(filepath.Join(out, id+".png")) {
+			if p := filepath.Join(out, id+".png"); isFile(p) && !rfBlank(p) {
 				present++
 			} else {
 				pending = append(pending, id)
@@ -308,6 +313,11 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 			findings = append(findings, fmt.Sprintf("%s/%s — frame `%s` draws %d phone(s), none at position %d", tag, id, frame, phones[frame], need))
 			continue
 		}
+		if p := filepath.Join(out, id+".png"); rfBlank(p) {
+			os.Remove(p)
+			findings = append(findings, tag+"/"+id+" — renders blank: its panes never painted")
+			continue
+		}
 		rendered++
 	}
 	return rendered, findings, 0
@@ -426,3 +436,33 @@ const jobs = JSON.parse(spec);
   }
 })().catch(e => { console.error(String(e && e.stack || e)); process.exit(1); });
 `
+
+// rfBlank reports whether the PNG at path is a blank phone: below its top
+// eighth (the status line), fewer than 0.5% of pixels differ from the
+// colour at its centre — a render caught before the frame's panes painted.
+// An unreadable or undecodable file counts as blank, so it is re-rendered.
+func rfBlank(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return true
+	}
+	defer f.Close()
+	img, err := png.Decode(f)
+	if err != nil {
+		return true
+	}
+	b := img.Bounds()
+	cr, cg, cb, _ := img.At((b.Min.X+b.Max.X)/2, (b.Min.Y+b.Max.Y)/2).RGBA()
+	far := func(a, b uint32) bool { return a > b+0x1000 || b > a+0x1000 }
+	diff, total := 0, 0
+	for y := b.Min.Y + b.Dy()/8; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			r, g, bl, _ := img.At(x, y).RGBA()
+			total++
+			if far(r, cr) || far(g, cg) || far(bl, cb) {
+				diff++
+			}
+		}
+	}
+	return diff*200 < total
+}

@@ -2,6 +2,9 @@ package guard
 
 import (
 	"bytes"
+	"image"
+	"image/color"
+	"image/draw"
 	"image/png"
 	"os"
 	"os/exec"
@@ -13,25 +16,29 @@ import (
 // rfPage is a tiny design page: frame F1 with a light and a dark phone,
 // frame L1 with a light phone only, and lazy frame Z1, which sets
 // data-mig-filled before filling its panes (light and dark phone), as the
-// design pages' _migLazy does.
+// design pages' _migLazy does. Every phone draws a band below its status
+// line except B1's, which is blank.
 const rfPage = `<!doctype html><html><body style="margin:0;background:#888">
 <div id="F1" data-frame style="display:flex;gap:40px;padding:20px;width:820px">
-<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>
-<div style="width:390px;height:844px;border-radius:28px;background:#000000"></div>
+<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"><div style="height:150px"></div><div style="height:200px;background:#4080c0"></div></div>
+<div style="width:390px;height:844px;border-radius:28px;background:#000000"><div style="height:150px"></div><div style="height:200px;background:#4080c0"></div></div>
 </div>
 <div id="L1" data-frame style="padding:20px;width:820px">
-<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>
+<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"><div style="height:150px"></div><div style="height:200px;background:#4080c0"></div></div>
 </div>
 <div id="Z1" data-frame data-mig style="display:flex;gap:40px;padding:20px;width:820px">
 <div data-mig-pane></div>
 <div data-mig-pane></div>
 </div>
+<div id="B1" data-frame style="padding:20px;width:820px">
+<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>
+</div>
 <script>
 document.getElementById('Z1').dataset.migFilled = '1';
 setTimeout(() => {
   const ps = document.querySelectorAll('#Z1 [data-mig-pane]');
-  ps[0].innerHTML = '<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>';
-  ps[1].innerHTML = '<div style="width:390px;height:844px;border-radius:28px;background:#000000"></div>';
+  ps[0].innerHTML = '<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"><div style="height:150px"></div><div style="height:200px;background:#4080c0"></div></div>';
+  ps[1].innerHTML = '<div style="width:390px;height:844px;border-radius:28px;background:#000000"><div style="height:150px"></div><div style="height:200px;background:#4080c0"></div></div>';
 }, 1500);
 </script>
 </body></html>
@@ -190,7 +197,7 @@ func TestRenderFramesFindings(t *testing.T) {
 	t.Run("already rendered references render nothing", func(t *testing.T) {
 		t.Parallel()
 		_, root := rfFixture(t, "/nowhere")
-		writeFile(t, filepath.Join(root, "docs/design/mockups/t1/F1.png"), "png")
+		rfWritePNG(t, filepath.Join(root, "docs/design/mockups/t1/F1.png"), true)
 		f := rfCite(t, root, "docs/design/mockups/t1/F1.png and other/docs/design/mockups/t1/NOPE.png")
 		if out, rc := rfRun(t, env, root, f); rc != 0 || out != "FRAMES-RENDERED: 0 rendered, 1 already present\n" {
 			t.Errorf("rc=%d out=%q, want 0 with one present", rc, out)
@@ -268,5 +275,43 @@ func TestRenderFramesWaitsForLazyPanes(t *testing.T) {
 	out, rc := rfRun(t, vvEnv("/"), root, f)
 	if rc != 0 || out != "FRAMES-RENDERED: 2 rendered, 0 already present\n" {
 		t.Fatalf("rc=%d out=%q, want 0 with two rendered", rc, out)
+	}
+}
+
+// rfWritePNG writes a 780x1688 white PNG at p, with a blue band below its
+// status line when drawn.
+func rfWritePNG(t *testing.T, p string, drawn bool) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 780, 1688))
+	draw.Draw(img, img.Bounds(), image.White, image.Point{}, draw.Src)
+	if drawn {
+		draw.Draw(img, image.Rect(0, 300, 780, 700), &image.Uniform{color.RGBA{64, 128, 192, 255}}, image.Point{}, draw.Src)
+	}
+	mkdir(t, filepath.Dir(p))
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, p, b.String())
+}
+
+// TestRenderFramesBlank: a blank PNG already present is re-rendered, not
+// counted present, and a frame that renders blank is a finding with no file
+// left behind.
+func TestRenderFramesBlank(t *testing.T) {
+	t.Parallel()
+	_, root := rfFixture(t, rfPlaywright(t))
+	dir := filepath.Join(root, "docs/design/mockups/t1")
+	rfWritePNG(t, filepath.Join(dir, "F1.png"), false)
+	f := rfCite(t, root, "docs/design/mockups/t1/F1.png docs/design/mockups/t1/B1.png")
+	out, rc := rfRun(t, vvEnv("/"), root, f)
+	if rc != 1 || out != "RENDER-FINDING: t1/B1 — renders blank: its panes never painted\nFRAMES-MISSING: 1 reference(s) not rendered\n" {
+		t.Fatalf("rc=%d out=%q, want 1 naming t1/B1 blank", rc, out)
+	}
+	if rfBlank(filepath.Join(dir, "F1.png")) {
+		t.Error("the blank F1.png was not re-rendered")
+	}
+	if isFile(filepath.Join(dir, "B1.png")) {
+		t.Error("a blank render was left behind")
 	}
 }
