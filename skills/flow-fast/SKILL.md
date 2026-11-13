@@ -294,10 +294,10 @@ flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -se
 
 Run `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint` — it runs every command of
 `## lint`'s fence, never the fence lines `flow-guard project-get` prints with them — and the `## test` commands scoped to what the
-change touched — the packages, modules or test files the diff names, never the full suite unless
-the operator asked for it. When the diff names nothing those commands can scope to, none of them
+change touched — the packages, modules or test files the diff names, never the whole list; the full suite,
+`<agents repo>/scripts/flow-guard run-verify-list -full <worktree> test`, runs only when the operator asked for it. When the diff names nothing those commands can scope to, none of them
 runs — the change summary below states that empty-scope reason explicitly, the stated reason
-being what makes the skip auditable rather than lazy, never a reflexive full-suite run in its
+being what makes the skip auditable rather than lazy, never a reflexive run of the whole list in its
 place. Then `flow-guard check-fast-route-record <worktree> <base>` reads the branch's
 commit series as the record, per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`). Then `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks; a failure that is the change's intended look is recaptured with the section's `capture` row and committed under section 4's commit rule before the run lands. Where the section declares a `regression checkout`, the run first adds that repository's worktree on the change's branch, runs the section's `setup` command in it, and starts there the stack its `verify` row needs (the project's `## run`) — the one exception to the no-isolation rule above; the `visual` list never falls back to the main checkout, and exits 1 naming it while it holds no worktree on the branch. A failure is fixed and re-run under section 4's

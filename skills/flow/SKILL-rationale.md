@@ -183,7 +183,7 @@ text after it is the passage, verbatim.
 
 - *…the baseline is the project's own statement that the failure exists on an unmodified tree* — (KAN-547)
 - *`environment` where the environment itself failed twice* — KAN-510
-- *The test group skips what the list's last green run on a clean tree already covered* — KAN-887's self-review: verify re-ran the whole `## test` list about 14 minutes after a green full-suite run when the only delta was a test-name rename. The skip keys on the tree, never on time: a green sha is reused only for a command whose declared inputs the delta leaves untouched.
+- *The test group skips what the list's last green run on a clean tree already covered* — KAN-887's self-review: verify re-ran the whole `## test` list about 14 minutes after a green test-list run when the only delta was a test-name rename. The skip keys on the tree, never on time: a green sha is reused only for a command whose declared inputs the delta leaves untouched.
 
 ### visual-verify.md — The verifier dispatch
 
@@ -784,7 +784,7 @@ The child's own claim that nothing went wrong never closes an incident — the s
 
 The write journals on store failure like every record write and never blocks the run — the row is the evidence a later cross-repo fix is justified and shaped by, which silence cannot hold.
 
-### implement.md — The parent runs the full suite (KAN-857)
+### implement.md — The parent runs the test list (KAN-857)
 
 A subagent's prompt cache lives five minutes, the parent's an hour: a suite run outlasting five minutes inside an implementer re-prices that implementer's whole context on its next turn.
 
