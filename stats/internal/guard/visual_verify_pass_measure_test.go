@@ -183,6 +183,10 @@ func TestVisualVerifyPassMeasureUsage(t *testing.T) {
 	if rc, _, stderr := f.run(t, f.wt, "demo", "visual-verify"); rc != 2 || !strings.Contains(stderr, "usage") {
 		t.Fatalf("missing spec: exit %d, stderr %q, want 2 with usage", rc, stderr)
 	}
+	// A spec path that resolves nowhere would leave the last run's pairs standing as this run's.
+	if rc, _, stderr := f.run(t, f.wt, "demo", "visual-verify", "elsewhere/app.spec.ts"); rc != 2 || !strings.Contains(stderr, "does not exist") {
+		t.Fatalf("absent spec: exit %d, stderr %q, want 2 naming it", rc, stderr)
+	}
 	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/visual-measure-k"), "a file, not a directory\n")
 	if rc, _, stderr := f.run(t, f.wt, "demo", "k", "tests/visual/app.spec.ts"); rc != 2 {
 		t.Fatalf("unwritable output directory: exit %d, stderr %q, want 2", rc, stderr)

@@ -73,6 +73,11 @@ func (v *vvp) measure(args []string) {
 		v.usage("change name '" + name + "' or key '" + key + "' is not plain")
 	}
 	spec = cellPath(w, spec)
+	// A spec that is not there measures nothing, and the merge would keep the
+	// last run's pairs under a manifest that reads as this run's.
+	if !vvmExists(spec) {
+		v.usage("spec '" + spec + "' does not exist")
+	}
 	changeRoot := filepath.Join(w, specRootLeaf(w, io.Discard), "changes", name)
 	vvDir := filepath.Join(changeRoot, "visual-verification")
 	sdd := filepath.Join(w, ".superpowers", "sdd")
