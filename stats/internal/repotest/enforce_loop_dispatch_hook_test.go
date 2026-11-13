@@ -28,11 +28,12 @@ package repotest
 
 import (
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // loopStub is one subtest's stub checker: it writes its argv to log and

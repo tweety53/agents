@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"io/fs"
 	"net/http"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/records"
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // recordJournalEntries reads the record journal for repo's project key and

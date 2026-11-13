@@ -1,13 +1,14 @@
 package repotest
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 var (

@@ -2,9 +2,10 @@ package setuptest
 
 import (
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"path/filepath"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // Project-level opt-in rule rendering.

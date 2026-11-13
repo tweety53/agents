@@ -3,7 +3,6 @@ package api_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // jiraConfigFor points cfg.Jira at atlassian, a scripted stand-in for the

@@ -21,7 +21,6 @@ package repotest
 
 import (
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // smoke: core — the hook that gates every dispatch, through the real guard and CLI

@@ -6,12 +6,13 @@ package repotest
 
 import (
 	"encoding/json"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 func TestAwaitOwnAgentsHook(t *testing.T) {

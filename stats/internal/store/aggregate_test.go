@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"math"
 	"slices"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 

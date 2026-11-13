@@ -1,11 +1,12 @@
 package setuptest
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestSetupAgents asserts setup.sh installs the flow-<effort> and flow-planner-<effort> agent

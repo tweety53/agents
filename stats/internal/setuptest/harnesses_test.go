@@ -1,7 +1,6 @@
 package setuptest
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -9,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // A re-install after a skill or command is DELETED from the source tree must remove the stale

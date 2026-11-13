@@ -11,12 +11,13 @@ package repotest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // stageStore is a stub flow store; requests holds every request's path and query.

@@ -2,11 +2,12 @@ package storetest
 
 import (
 	"context"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestDropLeftoverDatabasesRemovesALeftover pins Main's sweep: a test

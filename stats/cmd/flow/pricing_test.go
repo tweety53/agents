@@ -3,12 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPricingRepricePrintsCounts pins `flow pricing reprice` (decision

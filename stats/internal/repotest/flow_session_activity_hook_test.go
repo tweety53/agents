@@ -6,13 +6,14 @@ package repotest
 // asserts the PUT it sends -- or that it sends none and stays silent.
 
 import (
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // activityStore is a stub flow store; requests holds "METHOD path body".

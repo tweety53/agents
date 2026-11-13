@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"math"
 	"os"
 	"regexp"
@@ -17,6 +15,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/tweety53/agents/stats/internal/config"
+	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
+	"github.com/tweety53/agents/stats/internal/smoke"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
