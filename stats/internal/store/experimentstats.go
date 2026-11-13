@@ -96,6 +96,7 @@ var roleDispatchSQL = map[string]string{
 	"plan-designer":           `d.role = 'planner' AND d.dispatch_key ~ '^design-[0-9]+'`,
 	"explorer":                `d.role = 'explorer'`,
 	"tooling-analyst":         `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,
+	"fix-run-judge":           `d.role = 'planner' AND d.dispatch_key LIKE 'fix-run-judge-%'`,
 	"implementer":             `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%' AND d.dispatch_key !~ '-implementer-(fix|recommit|pick)-'`,
 	"panel-fix":               `d.role = 'panel-fix'`,
 	"design-reviewer":         `d.role = 'reviewer' AND d.dispatch_key ~ '^plan-review-[0-9]+$'`,

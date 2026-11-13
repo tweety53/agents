@@ -175,16 +175,19 @@ import (
 //   **TOOLS:**                         skills/flow/review-panel.md                 2   (none)
 //   **TOOLS:**                         skills/flow/visual-verify.md                1   (none)
 //   **TOOLS:**                         skills/flow/visual-verify-tooling-analysis.md 1 (none)
+//   **TOOLS:**                         skills/flow/review-panel-late-fix.md        1   (none)
 //   **MODEL HANDSHAKE:**               skills/flow/implement.md                    2   (none)
 //   **MODEL HANDSHAKE:**               skills/flow/review-panel.md                 2   (none)
 //   **MODEL HANDSHAKE:**               skills/flow/visual-verify.md                1   (none)
 //   **MODEL HANDSHAKE:**               skills/flow/visual-verify-tooling-analysis.md 1 (none)
+//   **MODEL HANDSHAKE:**               skills/flow/review-panel-late-fix.md        1   (none)
 //   **INDEPENDENT PASSES:**            skills/flow/review-panel.md                 1   (none)
 //   **NO DELEGATION:**                 skills/flow/implementer-brief.md            1   (none)
 //   **NO DELEGATION:**                 skills/flow/gated-reviewer-brief.md         1   (none)
 //   **NO DELEGATION:**                 skills/flow/review-panel.md                 2   (none)
 //   **NO DELEGATION:**                 skills/flow/visual-verify.md                1   (none)
 //   **NO DELEGATION:**                 skills/flow/visual-verify-tooling-analysis.md 1 (none)
+//   **NO DELEGATION:**                 skills/flow/review-panel-late-fix.md        1   (none)
 //   **PROVE THE GUARD BITES:**         skills/flow/implementer-brief.md            1   (none)
 //   **REPORT, DON'T DECIDE:**          skills/flow/implementer-brief.md            1   (none)
 //   **ENTRY CONTEXT:**                 skills/flow/review-panel.md                 1   (none)
@@ -290,8 +293,9 @@ import (
 //   (gated per-task reviewer dispatch — the conductor's own copy, and the
 //   planner's in brainstorm.md, were removed with those roles, kan-488), twice in
 //   review-panel.md (panel slot dispatch, panel-fix subagent dispatch),
-//   and once each in visual-verify.md (verifier dispatch) and
-//   visual-verify-tooling-analysis.md (tooling-analyst dispatch).
+//   and once each in visual-verify.md (verifier dispatch),
+//   visual-verify-tooling-analysis.md (tooling-analyst dispatch) and
+//   review-panel-late-fix.md (fix-run judge dispatch).
 //
 //   MODEL HANDSHAKE shared phrases (no variants — every block carrying the
 //   label must carry all three): "the first line of your first reply",
@@ -301,8 +305,9 @@ import (
 //   the planner's in brainstorm.md, were removed with those roles,
 //   kan-488), twice in review-panel.md (panel slot dispatch, panel-fix
 //   subagent dispatch), and once each in visual-verify.md (verifier
-//   dispatch) and visual-verify-tooling-analysis.md (tooling-analyst
-//   dispatch) — the TOOLS sites, with the two stubs in place of the two
+//   dispatch), visual-verify-tooling-analysis.md (tooling-analyst
+//   dispatch) and review-panel-late-fix.md (fix-run judge dispatch) — the
+//   TOOLS sites, with the two stubs in place of the two
 //   briefs (decision stub-carries-handshake).
 //
 //   INDEPENDENT PASSES shared phrases (no variants — every block carrying the
@@ -319,8 +324,9 @@ import (
 //   (gated per-task reviewer dispatch), twice in
 //   review-panel.md (panel slot dispatch,
 //   panel-fix subagent dispatch), once each in visual-verify.md (verifier
-//   dispatch) and visual-verify-tooling-analysis.md (tooling-analyst
-//   dispatch) — there is no conductor or planner dispatch left to be a site
+//   dispatch), visual-verify-tooling-analysis.md (tooling-analyst
+//   dispatch) and review-panel-late-fix.md (fix-run judge dispatch) — there
+//   is no conductor or planner dispatch left to be a site
 //   (kan-488): the parent orchestrates directly and runs brainstorming
 //   inline.
 //
@@ -480,16 +486,19 @@ var dpSites = []dpSite{
 	{"tools", "skills/flow/review-panel.md", 2, nil},
 	{"tools", "skills/flow/visual-verify.md", 1, nil},
 	{"tools", "skills/flow/visual-verify-tooling-analysis.md", 1, nil},
+	{"tools", "skills/flow/review-panel-late-fix.md", 1, nil},
 	{"handshake", "skills/flow/implement.md", 2, nil},
 	{"handshake", "skills/flow/review-panel.md", 2, nil},
 	{"handshake", "skills/flow/visual-verify.md", 1, nil},
 	{"handshake", "skills/flow/visual-verify-tooling-analysis.md", 1, nil},
+	{"handshake", "skills/flow/review-panel-late-fix.md", 1, nil},
 	{"independent", "skills/flow/review-panel.md", 1, nil},
 	{"delegation", "skills/flow/implementer-brief.md", 1, nil},
 	{"delegation", "skills/flow/gated-reviewer-brief.md", 1, nil},
 	{"delegation", "skills/flow/review-panel.md", 2, nil},
 	{"delegation", "skills/flow/visual-verify.md", 1, nil},
 	{"delegation", "skills/flow/visual-verify-tooling-analysis.md", 1, nil},
+	{"delegation", "skills/flow/review-panel-late-fix.md", 1, nil},
 	{"prove", "skills/flow/implementer-brief.md", 1, nil},
 	{"decide", "skills/flow/implementer-brief.md", 1, nil},
 	{"entry", "skills/flow/review-panel.md", 1, nil},

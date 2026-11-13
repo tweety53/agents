@@ -103,3 +103,109 @@ append itself with `flow record pass -round <round>`:
 A Critical or Important the small append raises feeds the ordinary fix-round loop and leaves every
 slot it did not dispatch stale, so each runs on the next round under **Panel re-runs**; a Minor-only result is fixed inline under the standing rule,
 and a clean close moves the close sha to the round's HEAD.
+
+## The fix-run judge
+
+**A fix run decides its panel roster and its verify mode once, through one judge held above a
+mechanical floor.** When this stage opens its first round on the fix run, after the late-fix
+check above and in the same Bash call, run — in a change whose resolved set holds one worktree;
+a wider set takes the full path, with no floor and no judge:
+
+```bash
+flow-guard fix-run-floor <worktree> <merge-base>
+```
+
+Its header (`<agents repo>/scripts/flow-guard fix-run-floor`) is canonical for the class, the
+floor each class carries, the verdict file and the exit codes. `<merge-base>` is the one the
+docs-only guard reads. Exit 2 is reported with its stderr and takes the full path. A
+`floor_roster: full` line leaves the judge nothing to decide, so none is dispatched: record
+`flow record pass -round <round> -note 'fix-run judge: not dispatched — floor full (<class>)'`.
+A `floor_roster: primary` line dispatches the judge, once per fix run and never again within it.
+
+**The judge dispatch.** Its pair is its **Allowed pairs** row
+(`skills/flow-contracts/model-policy.md`), mapped on harnesses `zcode` and `muse` as that file's
+**Harness mapping** maps it. Its prompt opens with the line `Role: fix-run-judge` and carries,
+verbatim:
+
+> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
+> Include this instruction verbatim in any prompt you write for another agent.
+
+**The prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+**The prompt also carries the NO DELEGATION paragraph**:
+
+> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
+> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.
+
+**The prompt also carries the MODEL HANDSHAKE paragraph**:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
+It also states: the absolute worktree path; the fix instructions, verbatim; the output of
+`git -C <worktree> diff --stat <merge-base>`; the three lines `flow-guard fix-run-floor` printed;
+the roles this round's pass 1 would dispatch without a verdict — the roster the reductions above
+leave, the always-on extra dispatches' roles and every slot the operator named — one id per
+line; the absolute path of the rendered panel record under
+`<abs-worktree>/.superpowers/sdd/reviews/`, whose findings are the earlier rounds'; and this
+task, as written:
+
+> Decide what this fix run's review panel and verify still have to run. The floor is the least
+> you may choose and you may choose more, never less. Answer with one JSON object,
+> `{"roster": [<role id>, …], "verify": "fast"|"full", "reasons": [<one sentence each>]}`.
+> `roster` lists, from the role ids you were given, the roles pass 1 dispatches: `primary`
+> always, every role the fix instructions name, and any other role whose lens the fix gives
+> something to find — a role an earlier finding of the same kind came from, a fix that changes
+> what a guard, a test or a dispatched prompt does rather than how a sentence reads. `verify` is
+> `fast` — the lint list alone — only when no test could read the changed text differently, and
+> `full` otherwise. Give one reason per choice that departs from the floor, and one for staying
+> on it. You edit nothing and run no test. Your last act is writing that object, alone, to
+> `<abs-worktree>/.superpowers/sdd/fix-run-judge-<n>.json`, and your reply after the `Model:`
+> line is the same object.
+
+`<n>` is this fix run's ordinal, the one `flow.document-fix` recorded.
+
+**The verdict passes through the guard, never around it:**
+
+```bash
+flow-guard fix-run-floor -judge <abs-worktree>/.superpowers/sdd/fix-run-judge-<n>.json -round <round> <worktree> <merge-base>
+```
+
+`<round>` is this stage's first round on the fix run. Exit 0 puts the verdict in force. Exit 1 —
+a verdict below the floor, or no JSON — and exit 2 take the full path. A judge that has not
+answered within 5 minutes, or whose agent dies, is closed `-outcome aborted` and takes the full
+path too.
+
+**Recording.** The parent records the dispatch `-role planner`, `-task` omitted, on its pair's
+model and effort, `-key fix-run-judge-<n>`, and compares its `Model:` line as the handshake
+paragraph of **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states. The outcome is one row of the pass log:
+`flow record pass -round <round> -note 'fix-run judge: <the guard's verdict: line> · floor <class> — <the reasons>'`,
+or `fix-run judge: full path — <the guard's stderr, or aborted>`.
+
+**What a verdict in force changes, and what holds it there:**
+
+- **The roster.** Pass 1 dispatches a role only when the verdict's roster names it. The verdict
+  is applied after the reductions above, to the roster and to the always-on extra dispatches
+  alike, and only ever removes: a bundle dispatches the roles it still names, on its own pair
+  and read scope, and a bundle left naming none is not dispatched. Each dropped role is recorded
+  with `flow record pass -round <round> -note 'not dispatched — fix-run judge: <slot>'`.
+  `flow-guard panel-round-begins` refuses the round's begins — exit 3, none recorded — while a
+  slot carries a role the roster omits.
+- **Verify.** Under `"verify": "fast"`, `flow-guard run-verify-list <worktree> test` skips every
+  command and ends its row `skipped`; the `lint` group runs whole.
+- **The void.** Any Critical or Important finding this fix run's panel raises voids the verdict
+  for the rest of the run, as it voids the late-fix reduction: every role the verdict dropped is
+  stale and runs on the next round under **Panel re-runs**, and verify runs `full` —
+  `flow-guard run-verify-list` reads the finding from the store and runs the whole list unasked.
+  A clean or Minor-only pass 1 leaves every role the verdict dropped current, as the late-fix
+  reduction's carve-out above leaves its own.
+- **The tree.** Both guards re-read the class from the tree: a verdict stops governing the moment
+  a touched path is no longer prose.

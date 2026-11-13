@@ -254,7 +254,7 @@ the decision's `extra_dispatch` pair, and `mutation+failure-modes` on its
 the roster resolves, and outside their `≤2 × ≤3` cap. No automatic reduction removes either: the
 docs-only reduction, the late-fix reduction and the small append each still dispatch both. A
 decision with no such key dispatches that bundle on `opus`
-at `low`.
+at `low`. A fix run's judged roster alone may drop a role of either (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`).
 
 | id | Slot | How to spawn |
 |---|------|---------------|
@@ -273,7 +273,7 @@ raised a finding re-runs like any other role (**Panel re-runs**,
 
 **Exit 0 from
 every worktree in the resolved set — every path this branch touched, committed since the merge
-base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus **The always-on extra dispatches** and every
+base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus **The always-on extra dispatches** and every
 slot the operator's per-run instruction
 named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
@@ -321,7 +321,7 @@ grouped into those dispatches.
 **Load `skills/flow/review-panel-late-fix.md` only when** this run is a fix run — a `/flow`
 invocation whose argument is fix instructions, or a plain message at `IN_PROGRESS`
 (`skills/flow/SKILL.md`) — before this stage opens its first round; it carries
-the reduction's conditions, its single dispatch, what voids it, the append scope and the small append.
+the reduction's conditions, its single dispatch, what voids it, the append scope, the small append and the fix-run judge.
 
 ### Bundled dispatch
 

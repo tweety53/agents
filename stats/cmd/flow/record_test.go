@@ -8221,6 +8221,7 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		{"kan-258", "panel-fix", "panel-fix-3", nil, "recorded: dispatch 7\ndescription: panel-fix-3\nRole: panel-fix\n"},
 		{"kan-258", "verifier", "visual-verify-2", []string{"-diff-base", "abc123"}, "recorded: dispatch 7\ndescription: visual-verify-2\nRole: visual-verifier\n"},
 		{"kan-258", "planner", "tooling-analysis-1", nil, "recorded: dispatch 7\ndescription: tooling-analysis-1\nRole: tooling-analyst\n"},
+		{"kan-258", "planner", "fix-run-judge-2", nil, "recorded: dispatch 7\ndescription: fix-run-judge-2\nRole: fix-run-judge\n"},
 		{"kan-258", "implementer", "task-1-implementer", []string{"-started-at", "2026-10-30T09:00:00Z"}, "recorded: dispatch 7\n"},
 		{"kan-258", "verifier", "verify", []string{"-agent-id", "inline"}, "recorded: dispatch 7\n"},
 		{"kan-259", "implementer", "task-1-implementer", nil, "recorded: dispatch 7\nRole: implementer\n"},

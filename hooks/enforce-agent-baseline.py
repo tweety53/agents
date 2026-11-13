@@ -135,6 +135,7 @@ ROW_KEY = (
     r"|full-suite-fix-\d+"
     r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
     r"|tooling-analysis-\d+(?:-[a-z0-9][a-z0-9-]*)?"
+    r"|fix-run-judge-\d+"
     r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
     r"|plan-review-\d+"
     r"|plan-\d+"

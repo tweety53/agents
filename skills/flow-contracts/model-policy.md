@@ -125,6 +125,7 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | `panel-mutation-failure` | Always-on extra bundle: breaks the code on purpose to prove the tests notice, and checks error, timeout and partial-write paths. |
 | `panel-rerun` | Re-reviews the branch after a fix round. |
 | `late-fix` | Reviews just a small fix made after the branch already passed review. |
+| `fix-run-judge` | Decides, once per fix run, which reviewers and which verify a prose fix still needs. |
 | `panel-merger` | Merges the reviewers' findings into one list without duplicates. |
 
 ### Visual verification

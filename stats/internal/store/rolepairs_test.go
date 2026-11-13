@@ -34,6 +34,7 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"panel-mutation-failure":  {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"panel-rerun":             {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"late-fix":                {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
+		"fix-run-judge":           {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"panel-merger":            {Base: []string{"sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"visual-verifier":         {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"tooling-analyst":         {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},

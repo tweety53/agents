@@ -54,6 +54,7 @@ const SHORT_DOES: Record<string, string> = {
   "panel-mutation-failure": "Breaks code on purpose",
   "panel-rerun": "Re-reviews the branch",
   "late-fix": "Reviews a late fix",
+  "fix-run-judge": "Sizes a fix run",
   "panel-merger": "Merges findings",
   "visual-verifier": "Compares UI to mockup",
   "tooling-analyst": "Explains a missed defect",

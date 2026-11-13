@@ -122,7 +122,7 @@ are one more.
 The test group skips what the list's last green run on a clean tree already covered: every command
 when HEAD is the sha that run recorded, otherwise each command whose `# inputs:` pathspecs the delta
 since that sha leaves untouched; a skipped command's `## Report` line says so, and the script's
-header is canonical for the rule. At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed.
+header is canonical for the rule. On a fix run it skips every command while a judged `verify: fast` is in force (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`). At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the flake detector of **Narrowed visual re-runs**

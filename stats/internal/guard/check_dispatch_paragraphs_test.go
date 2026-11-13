@@ -56,7 +56,8 @@ const dpCleanPlanning = `1. **Plan, then fix**
 `
 
 // dpFixture is new_root plus the case's files: every root carries a
-// visual-verify.md and a visual-verify-tooling-analysis.md, each with its
+// visual-verify.md, a visual-verify-tooling-analysis.md and a
+// review-panel-late-fix.md, each with its
 // three required blocks at its one dispatch site, a
 // review-panel-fix-round.md with its one required block, and a clean
 // implement.md, implementer-brief.md and gated-reviewer-brief.md, which a
@@ -67,6 +68,7 @@ func dpFixture(t *testing.T, files map[string]string) string {
 	flow := filepath.Join(root, "skills", "flow")
 	writeFile(t, filepath.Join(flow, "visual-verify.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "visual-verify-tooling-analysis.md"), dpCleanVisualVerify+"\n")
+	writeFile(t, filepath.Join(flow, "review-panel-late-fix.md"), dpCleanVisualVerify+"\n")
 	writeFile(t, filepath.Join(flow, "review-panel-fix-round.md"), dpCleanFixRound+"\n")
 	writeFile(t, filepath.Join(flow, "implement.md"), dpCleanImplementStub+"\n")
 	writeFile(t, filepath.Join(flow, "implementer-brief.md"), dpCleanImplementerBrief+"\n")
@@ -163,7 +165,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 43 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 46 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -204,7 +206,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 43 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 46 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -729,6 +731,17 @@ var dpCases = []dpCase{
 			dpHas("case 50a: names the TOOLS min-blocks violation at its own threshold", "visual-verify-tooling-analysis.md", "requires at least 1 block(s) carrying the label \"**TOOLS:**\", found 0"),
 			dpHas("case 50a: names the MODEL HANDSHAKE min-blocks violation at its own threshold", "visual-verify-tooling-analysis.md", "requires at least 1 block(s) carrying the label \"**MODEL HANDSHAKE:**\", found 0"),
 			dpHas("case 50a: names the NO DELEGATION min-blocks violation at its own threshold", "visual-verify-tooling-analysis.md", "requires at least 1 block(s) carrying the label \"**NO DELEGATION:**\", found 0"),
+		}},
+	{files: map[string]string{
+		"review-panel-late-fix.md": "No dispatch paragraphs here at all, just prose.",
+		"review-panel.md":          dpCleanReviewPanel,
+		"implement.md":             dpCleanImplement,
+	},
+		checks: []dpCheck{
+			dpRC("case 50c: no block of each in review-panel-late-fix.md exits 1", 1),
+			dpHas("case 50c: names the fix-run judge's TOOLS min-blocks violation", "review-panel-late-fix.md", "requires at least 1 block(s) carrying the label \"**TOOLS:**\", found 0"),
+			dpHas("case 50c: names the fix-run judge's MODEL HANDSHAKE min-blocks violation", "review-panel-late-fix.md", "requires at least 1 block(s) carrying the label \"**MODEL HANDSHAKE:**\", found 0"),
+			dpHas("case 50c: names the fix-run judge's NO DELEGATION min-blocks violation", "review-panel-late-fix.md", "requires at least 1 block(s) carrying the label \"**NO DELEGATION:**\", found 0"),
 		}},
 	{files: map[string]string{
 		"visual-verify.md": dpDoc(dpToolsBlock, dpHandshakeBlock),
@@ -1935,7 +1948,7 @@ func TestCheckDispatchParagraphsBriefSites(t *testing.T) {
 		want      func(root string) string
 	}{
 		{"every brief carries its paragraphs", dpCleanImplementStub, dpCleanImplementerBrief, dpCleanGatedReviewerBrief, 0,
-			func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 43 site(s) validated\n" }},
+			func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 46 site(s) validated\n" }},
 		{"TARGETED TESTS back in implement.md", dpDoc(dpCleanImplementStub, dpTargetedBlock),
 			strings.Replace(dpCleanImplementerBrief, dpTargetedBlock+"\n\n", "", 1), dpCleanGatedReviewerBrief, 1,
 			func(root string) string {
