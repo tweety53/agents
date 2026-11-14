@@ -42,8 +42,7 @@ states.
   takes its recommended option: it is recorded as a `## Decisions` entry and as one line,
   `<decision id>: <chosen> — <what it was chosen over>`, under the round file's `## Auto-taken`,
   and in `answers-<r>.md`; the parent's relay never prints, asks or mentions it, and the next
-  planner and the final planner read it from the file. The operator overturns one by answering
-  **Revise** at the confirm. At most four `[architectural]` and at most four `[impactful: …]`
+  planner and the final planner read it from the file. At most four `[architectural]` and at most four `[impactful: …]`
   questions are asked a round; beyond four, the four whose wrong pick costs most are asked and the
   rest are held for the next round, never auto-taken. Each question is asked in the round it
   appears: from an answer, an agent's findings or the builder check, or, once the design is
@@ -73,8 +72,9 @@ states.
   which stands, with no recommended option — so it is asked under the `## decisions:
   recommended` mode too. This holds in planning only; past the plan gate nothing changes.
 
-- **A round file opens with `## Summary`** — at most ten lines: the decisions the round settled
-  and what is still open. The parent relays that section and the file's absolute path, and the
+- **A round file opens with `## Summary`** — at most ten lines: the decisions the operator's answers settled
+  and what is still open. The Summary names no auto-taken decision — an auto-taken pick lives only
+  under `## Auto-taken` and in `answers-<r>.md`. The parent relays that section and the file's absolute path, and the
   design draft stays in the file. The design draft carries `### Settled` — every answer given so
   far, the operator's words verbatim beside the question and its round — so the latest round file
   alone is the design's whole state. The section ends with `**Scope:** small|regular|large — <one-line
