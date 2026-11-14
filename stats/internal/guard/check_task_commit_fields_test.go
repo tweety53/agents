@@ -3209,3 +3209,25 @@ func TestCheckTaskCommitFieldsFindsAClassDotMethodTest(t *testing.T) {
 	ok(t, "a missing method segment fails", res.rc == 1, res)
 	ok(t, "names the token", has(res.out, "FooUiTest.barKeepsBaz", "not found"), res)
 }
+
+// TestTaskIDCommitsJoinsATaskKeyedFix: the gated per-task fix path has a fix
+// commit carry Task-Id: and Flow-Key: task-<ids>-implementer-fix-<k>; it joins
+// the task's earlier commits, while a self-review key still joins only its own.
+func TestTaskIDCommitsJoinsATaskKeyedFix(t *testing.T) {
+	t.Parallel()
+	fx := tcfNewFixture(t)
+	branch := func(fixKey string) tcfRes {
+		r := fx.repo(t, "change-a")
+		r.plan(tcfPlans["159"])
+		r.git("branch", "-M", "main")
+		r.commit("base", "base.txt", "x\n")
+		r.git("checkout", "-q", "-b", "spectre/change-a")
+		r.commit("add alpha\n\nTask-Id: 1", "alpha.txt", "def test_alpha(): pass\n")
+		fix := r.commit("fix review finding\n\nTask-Id: 1\nFlow-Key: "+fixKey, "beta.txt", "b\n")
+		return r.run("1", fix)
+	}
+	res := branch("task-1-implementer-fix-1")
+	ok(t, "a task-keyed fix commit joins its task's earlier commit", res.rc == 0, res)
+	res = branch("self-review-change-b")
+	ok(t, "a self-review key joins only its own commits", res.rc == 1, res)
+}
