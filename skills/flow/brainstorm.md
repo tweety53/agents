@@ -112,8 +112,10 @@ flow-planner-<effort>` with `model` and effort from `flow-guard plan-agent-pair 
 <effort>`, read off the **Allowed pairs** row `planner` (`skills/flow-contracts/model-policy.md`).
 Round 1's effort is `low` when the ask is a seeded note or a `/flow-plan` capture that already
 carries the design (`skills/flow/seeded-note.md`), else `medium`; every later planner dispatch of
-the run takes the latest round file's `**Scope:**` line — `small` → `low`, `regular` → `medium`,
-`large` → `high` — and a guard redispatch `low`. `xhigh` and an opt-in pair are used only under an
+the run takes its pair from `flow-guard plan-agent-pair <name> <n> planner auto <latest round
+file>`, which computes the effort from that file — its `**Scope:**` line, its `[architectural]`
+question count and its distinct cited repo paths — never above `high`; a guard redispatch takes
+the effort the guard redispatch rule below names. `xhigh` and an opt-in pair are used only under an
 operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`): the parent's prompt
 then carries `Operator pair: planner`, and one line `Granted: <role> <model> <effort>` for each
 granted `explorer` or `plan-designer` role. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
@@ -183,10 +185,11 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    A dispatch returning the guard output it could not clear is redispatched fresh on `flow-guard
    plan-agent-pair <name> <n> planner low`, its prompt carrying that output and the absolute paths
    of `proposal.md`, `design.md` and `tasks.md` — no round, answers or findings file; a redispatch
-   skips each mark already made and resumes at the guard that failed. No round count stops this
-   loop: after three failed redispatches on the same guard the next is a fresh dispatch on the
-   run's own planner pair under **Three failed rounds** (`skills/flow-contracts/pipeline.md`), its
-   prompt carrying all three returns verbatim and naming the approach that failed, within the
+   skips each mark already made and resumes at the guard that failed. A second failure of the same
+   guard is redispatched the same way on `flow-guard plan-agent-pair <name> <n> planner medium`. No
+   round count stops this loop: the third failure of the same guard is **Three failed rounds**
+   (`skills/flow-contracts/pipeline.md`) — the next is a fresh dispatch on the run's own planner
+   pair, its prompt carrying all three returns verbatim and naming the approach that failed, within the
    later-round agent cap (**Explore and design agents**, `skills/flow/brainstorm-planner.md`). Either dispatch returns
    `QUESTIONS` instead the moment writing the artifacts or the plan surfaces an ambiguity (**The
    checklist**, `skills/flow/brainstorm-planner.md`), the next `round-<r>.md` holding it: the parent

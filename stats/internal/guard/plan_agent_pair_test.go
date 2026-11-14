@@ -2,6 +2,7 @@ package guard
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -91,5 +92,65 @@ func TestPlanAgentPairReadsOverride(t *testing.T) {
 	// The base row's opus/Plan@high would print `opus high`.
 	if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "high"}, env); r.rc != 0 || r.stdout != "sonnet high\n" {
 		t.Fatalf("plan-designer high: rc=%d out=%q, want sonnet high", r.rc, r.out)
+	}
+}
+
+// TestPlanAgentPairAuto: `planner auto <round-file>` prints the planner row's
+// pair at the effort the round file's own signals call for — Scope sets the
+// start, three architectural questions or ten distinct cited repo paths
+// each raise it one step, never past high, and no file or no Scope line is
+// medium; auto for another role, or without a round file, is a usage error.
+func TestPlanAgentPairAuto(t *testing.T) {
+	env := policyFlowEnv(t, `{"planner":{"base":["opus/flow-planner-medium","opus/flow-planner-low","opus/flow-planner-high","opus/flow-planner-xhigh"],"optin":[],"marked":[]}}`)
+	dir := t.TempDir()
+	arch := func(n int) string {
+		s := ""
+		for i := 1; i <= n; i++ {
+			s += fmt.Sprintf("### Q%d. [architectural] which way?\n\n", i)
+		}
+		return s
+	}
+	paths := func(n int) string {
+		s := ""
+		for i := range n {
+			// each path cited twice, once with a line suffix: distinct count is n
+			s += fmt.Sprintf("see `skills/a%d/f.md` and `skills/a%d/f.md:12-14`\n", i, i)
+		}
+		return s
+	}
+	for name, tc := range map[string]struct{ body, want string }{
+		"small, no signals is low":                      {"**Scope:** small — one file\n", "low"},
+		"regular is medium":                             {"**Scope:** regular — two areas\n", "medium"},
+		"large is high":                                 {"**Scope:** large — spans repos\n", "high"},
+		"no scope line is medium":                       {"# Round 2\n", "medium"},
+		"two architectural questions stay":              {"**Scope:** small — x\n" + arch(2), "low"},
+		"three architectural questions raise":           {"**Scope:** small — x\n" + arch(3), "medium"},
+		"nine distinct paths stay":                      {"**Scope:** small — x\n" + paths(9), "low"},
+		"ten distinct paths raise":                      {"**Scope:** small — x\n" + paths(10), "medium"},
+		"both signals raise two steps":                  {"**Scope:** small — x\n" + arch(3) + paths(10), "high"},
+		"never above high":                              {"**Scope:** large — x\n" + arch(4) + paths(12), "high"},
+		"a slashless or extensionless token is no path": {"**Scope:** small — x\n" + "`a.md` `b/c` `d.go`\n" + paths(9), "low"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := filepath.Join(t.TempDir(), "round-2.md")
+			if err := os.WriteFile(f, []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if r := runGuard("plan-agent-pair", []string{"demo", "2", "planner", "auto", f}, env); r.rc != 0 || r.stdout != "opus "+tc.want+"\n" {
+				t.Fatalf("rc=%d out=%q, want opus %s", r.rc, r.out, tc.want)
+			}
+		})
+	}
+	t.Run("a missing round file is medium", func(t *testing.T) {
+		if r := runGuard("plan-agent-pair", []string{"demo", "2", "planner", "auto", filepath.Join(dir, "absent.md")}, env); r.rc != 0 || r.stdout != "opus medium\n" {
+			t.Fatalf("rc=%d out=%q, want opus medium", r.rc, r.out)
+		}
+	})
+	for _, args := range [][]string{{"demo", "2", "explorer", "auto", "r.md"}, {"demo", "2", "planner", "auto"}, {"demo", "2", "planner", "high", "r.md"}} {
+		t.Run(fmt.Sprintf("refuses %v", args), func(t *testing.T) {
+			if r := runGuard("plan-agent-pair", args, env); r.rc != 2 || r.stdout != "" {
+				t.Errorf("rc=%d out=%q, want 2 and no stdout", r.rc, r.out)
+			}
+		})
 	}
 }
