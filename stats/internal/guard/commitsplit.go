@@ -49,6 +49,7 @@ func init() { Registry["commit-split"] = commitSplit }
 func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 4 {
 		fmt.Fprintln(stderr, "usage: flow-guard commit-split <worktree> <name> <impl-msg> <plan-msg> [<trailer>…]")
+		Reason(env, "usage")
 		return 2
 	}
 	worktree, name, implMsg, planMsg, trailers := args[0], args[1], args[2], args[3], args[4:]
@@ -69,15 +70,18 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	changes := specRootLeaf(worktree, stderr) + "/changes/"
 	if exitCode(git("-C", worktree, "check-ignore", "-q", "--no-index", changes).Run()) != 0 {
 		fmt.Fprintf(stderr, "commit-split: %s is not gitignored in %s — add it to .gitignore before integrating\n", changes, worktree)
+		Reason(env, "not-gitignored-in")
 		return 2
 	}
 	// An ignore rule never removes a path the index already tracks, and a
 	// change planned under the old tooling committed its own directory: it is
 	// untracked here, and stays on disk.
 	if rc := run("rm", "-r", "-q", "-f", "--cached", "--ignore-unmatch", "--", changes+name); rc != 0 {
+		Reason(env, "git-failed")
 		return rc
 	}
 	if rc := run("add", "-A", "--", "."); rc != 0 {
+		Reason(env, "git-failed")
 		return rc
 	}
 	// `git diff --cached --quiet || git commit`: any non-zero diff — changes
@@ -99,9 +103,11 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 		implArgs = append(implArgs, "--trailer", t)
 	}
 	if rc := commit(implArgs...); rc != 0 {
+		Reason(env, "git-failed")
 		return rc
 	}
 	if rc := run("add", "-A"); rc != 0 {
+		Reason(env, "git-failed")
 		return rc
 	}
 	return commit("-m", planMsg)

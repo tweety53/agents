@@ -13,20 +13,21 @@ import (
 // before they move HEAD: a rewrite in the main checkout, or on another
 // change's branch, lands where no step of this change ever sees it.
 func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "change-worktree-location: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		return die("usage: <worktree> <name>")
+		return die("worktree-name", "usage: <worktree> <name>")
 	}
 	wt, name := args[0], args[1]
 	if !isDir(smcAbs(env, wt)) {
-		return die("not a readable directory: %s", wt)
+		return die("not-a-readable-directory", "not a readable directory: %s", wt)
 	}
 	git := envGit(env)
 	if inside, _ := capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); inside != "true" {
-		return die("not a git work tree: %s", wt)
+		return die("not-a-git-work-tree", "not a git work tree: %s", wt)
 	}
 	// "MAIN CHECKOUT" IS THE WORKTREE WHOSE GIT DIR IS THE COMMON DIR — the
 	// same test hooks/protect-main-checkout.py makes. A linked worktree's
@@ -36,11 +37,11 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 	// absolute form.
 	gitDir, ok := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-dir"))
 	if !ok {
-		return die("cannot resolve the git dir of: %s", wt)
+		return die("cannot-resolve-the-git-dir", "cannot resolve the git dir of: %s", wt)
 	}
 	common, ok := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 	if !ok {
-		return die("cannot resolve the common git dir of: %s", wt)
+		return die("cannot-resolve-the-common-git", "cannot resolve the common git dir of: %s", wt)
 	}
 
 	// symbolic-ref exits 1 on a detached HEAD, which is an answer here, not an
@@ -62,6 +63,7 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 		violation = true
 	}
 	if violation {
+		Reason(env, "worktree-location-wrong")
 		return 1
 	}
 	fmt.Fprintf(stdout, "WORKTREE-LOCATION-OK: %s on spectre/%s\n", wt, name)

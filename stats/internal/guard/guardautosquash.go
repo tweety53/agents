@@ -56,6 +56,7 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 	usage := func() int {
 		fmt.Fprintf(stderr, "usage: %s targets <worktree> <sha> [<sha>...]\n", prog)
 		fmt.Fprintf(stderr, "       %s after <worktree> <base-ref> <tasks-md>\n", prog)
+		Reason(env, "usage")
 		return 2
 	}
 	if len(args) < 1 {
@@ -69,7 +70,8 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 		return usage()
 	}
 	wt, rest := rest[0], rest[1:]
-	cannot := func(msg string) int {
+	cannot := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "%s: %s\n", prog, msg)
 		return 2
 	}
@@ -81,12 +83,12 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 
 	git := envGit(env)
 	if git("-C", wt, "rev-parse", "--git-dir").Run() != nil {
-		return cannot(wt + " is not a git repository")
+		return cannot("not-a-git-repository", wt+" is not a git repository")
 	}
 	head := git("-C", wt, "rev-parse", "--verify", "-q", "HEAD")
 	head.Stderr = stderr
 	if head.Run() != nil {
-		return cannot(wt + " has no resolvable HEAD")
+		return cannot("has-no-resolvable-head", wt+" has no resolvable HEAD")
 	}
 	// commits is `cat-file -e <sha>^{commit}` for every sha in one
 	// --batch-check process: one output line per input line, in order,
@@ -135,7 +137,7 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 			body, err = os.ReadFile(smcAbs(env, tasksMD))
 		}
 		if err != nil || !fi.Mode().IsRegular() {
-			return cannot("tasks file " + tasksMD + " is missing, not a regular file, or unreadable")
+			return cannot("tasks-file-is-missing", "tasks file "+tasksMD+" is missing, not a regular file, or unreadable")
 		}
 		if !isAncestor(base) {
 			violation("base " + base + " is no longer an ancestor of HEAD")
@@ -155,6 +157,7 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 
 	if violations > 0 {
 		fmt.Fprintf(stderr, "%s: %d violation(s)\n", prog, violations)
+		Reason(env, "violation")
 		return 1
 	}
 	fmt.Fprintf(stdout, "%s: %s ok\n", prog, sub)

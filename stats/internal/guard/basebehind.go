@@ -47,6 +47,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-base-behind"
 	if len(args) == 0 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard check-base-behind <worktree>...\n", prog)
+		Reason(env, "usage")
 		return 2
 	}
 	git := envGit(env)
@@ -55,6 +56,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, wt := range args {
 		if _, ok := capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); !ok {
 			fmt.Fprintf(stderr, "%s: not a git worktree: %s\n", prog, wt)
+			Reason(env, "not-a-git-worktree")
 			return 2
 		}
 		branch, _ := capture(git("-C", wt, "symbolic-ref", "--short", "-q", "HEAD"))
@@ -70,6 +72,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		head, ok := capture(git("-C", wt, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"))
 		if !ok {
 			fmt.Fprintf(stderr, "%s: %s has no origin/HEAD\n", prog, wt)
+			Reason(env, "has-no-origin-head")
 			return 2
 		}
 		tracked := strings.TrimPrefix(head, "origin/")
@@ -81,6 +84,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		n, err := strconv.Atoi(count)
 		if !ok || err != nil {
 			fmt.Fprintf(stderr, "%s: %s: git rev-list --count origin/%s..origin/%s failed\n", prog, wt, base, tracked)
+			Reason(env, "git-rev-list-count-origin")
 			return 2
 		}
 		if n == 0 {
@@ -90,9 +94,11 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		mb, ok := capture(git("-C", wt, "merge-base", "HEAD", "origin/"+base))
 		if !ok {
 			fmt.Fprintf(stderr, "%s: %s: git merge-base HEAD origin/%s failed\n", prog, wt, base)
+			Reason(env, "git-merge-base-head-origin")
 			return 2
 		}
 		rc = 1
+		Reason(env, "base-behind")
 		fmt.Fprintf(&out, "BASE-BEHIND: %s — origin/%s lacks %d commits of origin/%s; sync the base, never merge %s into the change branch (kan-1007):\n", wt, base, n, tracked, tracked)
 		fmt.Fprintf(&out, "  T=$(git -C %s merge-tree --write-tree origin/%s origin/%s) && C=$(git -C %s commit-tree \"$T\" -p origin/%s -p origin/%s -m 'Merge %s into %s') && git -C %s push origin \"${C}:refs/heads/%s\"\n",
 			wt, base, tracked, wt, base, tracked, tracked, base, wt, base)

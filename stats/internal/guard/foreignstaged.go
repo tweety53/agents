@@ -59,26 +59,28 @@ import (
 func init() { Registry["check-foreign-staged"] = checkForeignStaged }
 
 func checkForeignStaged(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-foreign-staged: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-foreign-staged <main-checkout>")
+		Reason(env, "usage")
 		return 2
 	}
 	// The physical path the header's verdict names.
 	root, ok := cdPhysical(env, args[0])
 	if !ok {
-		return die("%s is not a directory", args[0])
+		return die("not-a-directory", "%s is not a directory", args[0])
 	}
 	git := envGit(env)
 	if git("-C", root, "rev-parse", "--git-dir").Run() != nil {
-		return die("%s is not a git repository", root)
+		return die("not-a-git-repository", "%s is not a git repository", root)
 	}
 	status, ok := capture(git("-C", root, "status", "--porcelain", "--untracked-files=no"))
 	if !ok {
-		return die("cannot read the status of %s", root)
+		return die("cannot-read-the-status", "cannot read the status of %s", root)
 	}
 
 	count := 0

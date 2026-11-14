@@ -108,13 +108,16 @@ const bpUsageLine = "break-and-prove: usage: flow-guard break-and-prove [--clean
 func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 	usageFail := func() int {
 		fmt.Fprintln(stderr, bpUsageLine)
+		Reason(env, "usage")
 		return 4
 	}
-	cannotAnswer := func(msg string) int {
+	cannotAnswer := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "break-and-prove: cannot answer — %s\n", msg)
 		return 4
 	}
-	refuse := func(msg string) int {
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "break-and-prove: refused — %s — nothing was mutated\n", msg)
 		return 2
 	}
@@ -177,20 +180,20 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 	// command and every git call below run from it.
 	top, rc := gitExec(origPwd, nil, io.Discard, "rev-parse", "--show-toplevel")
 	if rc != 0 {
-		return cannotAnswer("not inside a git worktree: " + origPwd)
+		return cannotAnswer("not-inside-a-git-worktree", "not inside a git worktree: "+origPwd)
 	}
 	root := strings.TrimRight(top, "\n")
 
 	// Step 2: the target file must exist and be readable — the loop mutates
 	// an existing config file; creating one is not part of the proof.
 	if !isFile(file) || syscall.Access(file, 4) != nil {
-		return refuse("target file does not exist or is not readable: " + fileArg)
+		return refuse("target-file-does-not-exist", "target file does not exist or is not readable: "+fileArg)
 	}
 
 	if patch != "" {
 		// Step 3: the patch, when given, must exist and be readable.
 		if !isFile(patch) || syscall.Access(patch, 4) != nil {
-			return cannotAnswer("cannot read patch file: " + value)
+			return cannotAnswer("cannot-read-patch-file", "cannot read patch file: "+value)
 		}
 
 		// Step 4: git apply --check — refuse (exit 2) without touching
@@ -200,7 +203,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 		if out, err := check.CombinedOutput(); err != nil {
 			fmt.Fprintln(stderr, "break-and-prove: git apply --check failed:")
 			fmt.Fprintln(stderr, strings.TrimRight(string(out), "\n"))
-			return refuse("patch does not apply cleanly: " + value)
+			return refuse("patch-does-not-apply-cleanly", "patch does not apply cleanly: "+value)
 		}
 
 		// Step 5: the patch must touch exactly <file> — the operator named
@@ -223,7 +226,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 		if count != 1 {
-			return refuse(fmt.Sprintf("patch touches %d files — it must touch exactly %s", count, fileArg))
+			return refuse("patch-touches-files", fmt.Sprintf("patch touches %d files — it must touch exactly %s", count, fileArg))
 		}
 		// Compare canonicalized paths: a caller cwd reached through a
 		// symlink (macOS's /tmp → /private/tmp) yields an absolute path that
@@ -234,10 +237,10 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 		repoCanon, _ := filepath.EvalSymlinks(root)
 		rel, inside := strings.CutPrefix(dir+"/"+filepath.Base(file), repoCanon+"/")
 		if !inside {
-			return refuse("target file is outside the repository: " + fileArg)
+			return refuse("target-file-is-outside", "target file is outside the repository: "+fileArg)
 		}
 		if touched != rel {
-			return refuse(fmt.Sprintf("patch touches %s, not %s", touched, rel))
+			return refuse("patch-touches", fmt.Sprintf("patch touches %s, not %s", touched, rel))
 		}
 	}
 
@@ -246,6 +249,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 	snap, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Fprintf(stderr, "break-and-prove: %s\n", bpErrText(file, err))
+		Reason(env, "cannot-read-target")
 		return 1
 	}
 
@@ -254,6 +258,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 	// the run actually left.
 	tree, rc := snapshotTreeState(root, stderr)
 	if rc != 0 {
+		Reason(env, "snapshot-failed")
 		return rc
 	}
 
@@ -303,7 +308,7 @@ func (r *bpRun) lock() {
 // main is steps 9-12: the mutation and the two legs. It returns the exit
 // code the trap starts from.
 func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env Env, stdout io.Writer,
-	cannotAnswer, refuse func(string) int) int {
+	cannotAnswer, refuse func(id, msg string) int) int {
 	// Step 9: apply the mutation.
 	fmt.Fprintf(stdout, "break-and-prove: proving %s\n", r.fileArg)
 	if kind == "sed" {
@@ -311,10 +316,10 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		sed := exec.Command("sed", "-e", value, r.file)
 		sed.Dir, sed.Stdout, sed.Stderr = r.root, &mutated, r.stderr
 		if rc := exitCode(sed.Run()); rc != 0 {
-			return refuse(fmt.Sprintf("sed failed with exit %d: %s", rc, value))
+			return refuse("sed-failed-with-exit", fmt.Sprintf("sed failed with exit %d: %s", rc, value))
 		}
 		if bytes.Equal(mutated.Bytes(), r.snap) {
-			return refuse("sed expression changes nothing — the mutation must alter the file: " + value)
+			return refuse("sed-expression-changes-nothing", "sed expression changes nothing — the mutation must alter the file: "+value)
 		}
 		fmt.Fprintf(stdout, "break-and-prove: mutating via sed: %s\n", value)
 		r.lock()
@@ -322,6 +327,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		if err != nil {
 			r.mu.Unlock()
 			fmt.Fprintf(r.stderr, "break-and-prove: %s\n", bpErrText(r.file, err))
+			Reason(env, "cannot-write-mutation")
 			return 1
 		}
 		// Applied from the truncate on, not once the write succeeds as the
@@ -335,6 +341,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		r.mu.Unlock()
 		if werr != nil {
 			fmt.Fprintf(r.stderr, "break-and-prove: %s\n", bpErrText(r.file, werr))
+			Reason(env, "cannot-write-mutation")
 			return 1
 		}
 	} else {
@@ -355,14 +362,15 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	// exit lands on, the answer is the same cannot-answer.
 	rc, ok := r.leg("run 1 (mutated)", cleanCmd, testCmd, env, stdout)
 	if !ok {
-		return cannotAnswer(fmt.Sprintf("clean command exited %d — the proof environment is broken", rc))
+		return cannotAnswer("clean-command-exited", fmt.Sprintf("clean command exited %d — the proof environment is broken", rc))
 	}
 	fmt.Fprintf(stdout, "break-and-prove: run 1 exited %d\n", rc)
 	if rc == 126 || rc == 127 {
-		return cannotAnswer(fmt.Sprintf("test command exited %d (126/127) — an exec failure or its own such exit, not usable as evidence", rc))
+		return cannotAnswer("test-command-exited", fmt.Sprintf("test command exited %d (126/127) — an exec failure or its own such exit, not usable as evidence", rc))
 	}
 	if rc == 0 {
 		fmt.Fprintln(r.stderr, "break-and-prove: run 1 exited 0 — the proof did not hold: the mutation did not break the test")
+		Reason(env, "run-1-exited-0")
 		return 1
 	}
 
@@ -372,6 +380,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	r.restore()
 	if !r.matches() {
 		r.mu.Unlock()
+		Reason(env, "restore-mismatch")
 		return 3
 	}
 	r.restored = true
@@ -381,14 +390,15 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	// Step 12: run 2, against the restored file — it must pass.
 	rc, ok = r.leg("run 2 (restored)", cleanCmd, testCmd, env, stdout)
 	if !ok {
-		return cannotAnswer(fmt.Sprintf("clean command exited %d — the proof environment is broken", rc))
+		return cannotAnswer("clean-command-exited", fmt.Sprintf("clean command exited %d — the proof environment is broken", rc))
 	}
 	fmt.Fprintf(stdout, "break-and-prove: run 2 exited %d\n", rc)
 	if rc == 126 || rc == 127 {
-		return cannotAnswer(fmt.Sprintf("test command exited %d (126/127) — an exec failure or its own such exit, not usable as evidence", rc))
+		return cannotAnswer("test-command-exited", fmt.Sprintf("test command exited %d (126/127) — an exec failure or its own such exit, not usable as evidence", rc))
 	}
 	if rc != 0 {
 		fmt.Fprintf(r.stderr, "break-and-prove: run 2 exited %d — the proof did not hold: the test fails on the restored file\n", rc)
+		Reason(env, "run-2-exited")
 		return 1
 	}
 

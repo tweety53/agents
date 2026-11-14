@@ -125,21 +125,25 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-frame-list"
 	if len(args) != 3 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file>\n", prog)
+		Reason(env, "usage")
 		return 2
 	}
 	design, err := os.ReadFile(args[0])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[0], err)
+		Reason(env, "cannot-read")
 		return 2
 	}
 	entries, err := os.ReadDir(args[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read mockups dir %s: %v\n", prog, args[1], err)
+		Reason(env, "cannot-read-mockups-dir")
 		return 2
 	}
 	report, err := os.ReadFile(args[2])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[2], err)
+		Reason(env, "cannot-read")
 		return 2
 	}
 
@@ -273,6 +277,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(gaps) > 0 {
 		fmt.Fprintf(stdout, "FRAME-LIST-GAP: %s — %s\n", args[2], strings.Join(gaps, "; "))
+		Reason(env, "frame-list-gap")
 		return 1
 	}
 	fmt.Fprintf(stdout, "FRAME-LIST-COMPLETE: %s — %d declared\n", args[2], len(declared))

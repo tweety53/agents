@@ -163,10 +163,12 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "%s: CHECK_INSTALLED_CITATIONS_ROOT is set but empty\n", cicName)
+		Reason(env, "check-installed-citations-root")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-installed-citations, which sets it\n", cicName)
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
@@ -176,11 +178,13 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 	}
 	if !isDir(abs) {
 		fmt.Fprintf(stderr, "%s: %s is not a directory — cannot scan\n", cicName, root)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	repo, err := filepath.EvalSymlinks(abs)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot resolve %s — %v\n", cicName, root, err)
+		Reason(env, "cannot-resolve")
 		return 2
 	}
 
@@ -208,6 +212,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 		text, msg := cicRead(repo, rel)
 		if msg != "" {
 			fmt.Fprintf(stderr, "%s: %s\n", cicName, msg)
+			Reason(env, "cannot-read-corpus")
 			return 2
 		}
 		checked := 0
@@ -222,6 +227,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 		}
 		if err := cov.record(rel, checked); err != nil {
 			fmt.Fprintf(stderr, "%v\n%s: coverage_record failed for %s (see stderr above)\n", err, cicName, rel)
+			Reason(env, "coverage-record-failed")
 			return 2
 		}
 	}
@@ -231,6 +237,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 		}
 		if err := cov.declare(d[0], d[1]); err != nil {
 			fmt.Fprintf(stderr, "%v\n%s: coverage_declare failed for '%s' (see stderr above)\n", err, cicName, d[0])
+			Reason(env, "coverage-declare-failed")
 			return 2
 		}
 	}
@@ -250,6 +257,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 		if frag != "" {
 			fmt.Fprintf(stdout, "  %s\n", frag)
 		}
+		Reason(env, "installed-citations-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "INSTALLED-CITATIONS-OK: %s — %d file(s) scanned\n", repo, len(corpus))
@@ -282,6 +290,7 @@ func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]boo
 			tmp = "/tmp"
 		}
 		fmt.Fprintf(stderr, "%s: mktemp -d failed under %s — cannot create a scratch directory\n", cicName, tmp)
+		Reason(env, "mktemp-d-failed-under")
 		return nil, 2
 	}
 	// An interrupt removes the sandbox, then dies of that SIGINT (exit 130
@@ -303,20 +312,24 @@ func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]boo
 	proj := filepath.Join(sandbox, "proj")
 	if err := os.MkdirAll(proj, 0o777); err != nil {
 		fmt.Fprintf(stderr, "%s: cannot create %s — %v\n", cicName, proj, err)
+		Reason(env, "cannot-create")
 		return nil, 2
 	}
 	for _, run := range []struct{ mode, proj string }{{"global", ""}, {"claude-code", proj}, {"zcode", proj}} {
 		res, err := cicRunSetup(ctx, repo, sandbox, sandbox, run.proj, run.mode)
 		if ctx.Err() != nil {
+			Reason(env, "interrupted")
 			return nil, 2 // interrupted: the deferred cleanup ends the process
 		}
 		var refusal *cicSandboxRefusal
 		switch {
 		case errors.As(err, &refusal):
 			fmt.Fprintf(stderr, "%s: refusing to run setup.sh — %v\n", cicName, err)
+			Reason(env, "refusing-to-run-setup-sh")
 			return nil, 2
 		case err != nil:
 			fmt.Fprintf(stderr, "%s: cannot run the sandboxed `setup.sh %s` — %v\n", cicName, run.mode, err)
+			Reason(env, "cannot-run-the-sandboxed")
 			return nil, 2
 		case res.code != 0:
 			fmt.Fprintf(stderr, "%s: sandboxed `setup.sh %s` exited %d — cannot derive the installed set\n", cicName, run.mode, res.code)
@@ -326,6 +339,7 @@ func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]boo
 			if res.stderr != "" {
 				fmt.Fprintln(stderr, res.stderr)
 			}
+			Reason(env, "sandboxed")
 			return nil, 2
 		}
 	}

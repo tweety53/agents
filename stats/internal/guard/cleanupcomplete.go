@@ -289,6 +289,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	repo, name, stateDir := arg(0), arg(1), arg(2)
 	if repo == "" || name == "" || stateDir == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard check-cleanup-complete <repo> <change-name> <state-dir>")
+		Reason(env, "usage")
 		return 2
 	}
 	// CONTAINMENT: the change name arrives from a pull-request-editable state
@@ -303,6 +304,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	// anything.
 	if !plainChangeName(name) {
 		fmt.Fprint(stderr, ccSanitize(fmt.Sprintf("check-cleanup-complete: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)))
+		Reason(env, "change-name")
 		return 2
 	}
 	git := "git"
@@ -312,6 +314,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	gitCmd := func(a ...string) *exec.Cmd { return exec.Command(git, append([]string{"-C", repo}, a...)...) }
 	if !isDir(repo) || gitCmd("rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-cleanup-complete: %s is not a git repository — cannot determine anything\n", repo)
+		Reason(env, "not-a-git-repository")
 		return 2
 	}
 	// A state directory that is not there cannot answer whether the artifact
@@ -319,6 +322,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	// absent" and contribute to a COMPLETE verdict nobody checked.
 	if !isDir(stateDir) {
 		fmt.Fprintf(stderr, "check-cleanup-complete: %s is not a directory — cannot tell whether the proposal artifact source remains\n", stateDir)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 
@@ -345,6 +349,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	porcelain, err := gitCmd("worktree", "list", "--porcelain").Output()
 	if err != nil {
 		fmt.Fprintf(stderr, "check-cleanup-complete: cannot list the worktrees of %s — cannot determine anything\n", repo)
+		Reason(env, "cannot-list-the-worktrees")
 		return 2
 	}
 	// A worktree still listed after `git worktree prune` should have run is a

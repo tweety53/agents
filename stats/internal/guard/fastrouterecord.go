@@ -62,21 +62,23 @@ var (
 
 func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-fast-route-record"
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, self+": "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 2 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-fast-route-record <worktree> <base>")
+		Reason(env, "usage")
 		return 2
 	}
 	wt := pcAbs(env, args[0])
 	if !isDir(wt) {
-		return die("%s is not a directory", args[0])
+		return die("not-a-directory", "%s is not a directory", args[0])
 	}
 	git := envGit(env)
 	if git("-C", wt, "rev-parse", "--git-dir").Run() != nil {
-		return die("%s is not a git worktree", args[0])
+		return die("not-a-git-worktree", "%s is not a git worktree", args[0])
 	}
 	// <base> is the bare name resolve-base-branch.sh prints: origin/<base>
 	// first — the fetched base a fast route lands against — the name itself
@@ -91,16 +93,16 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 		resolved, ok = capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "--end-of-options", args[1]+"^{commit}"))
 	}
 	if !ok {
-		return die("%s resolves neither as origin/%s nor as a revision", args[1], args[1])
+		return die("resolves-neither-as-origin-nor", "%s resolves neither as origin/%s nor as a revision", args[1], args[1])
 	}
 	mergeBase, ok := capture(git("-C", wt, "merge-base", "HEAD", resolved))
 	if !ok {
-		return die("cannot merge-base HEAD with %s", resolved)
+		return die("cannot-merge-base-head-with", "cannot merge-base HEAD with %s", resolved)
 	}
 	branch, _ := capture(git("-C", wt, "branch", "--show-current"))
 	series, ok := capture(git("-C", wt, "rev-list", "--reverse", mergeBase+"..HEAD"))
 	if !ok {
-		return die("cannot list %s..HEAD", mergeBase)
+		return die("cannot-list-head", "cannot list %s..HEAD", mergeBase)
 	}
 	findings := 0
 	say := func(sha, format string, a ...any) {
@@ -110,7 +112,7 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 	for _, sha := range strings.Fields(series) {
 		msg, ok := capture(git("-C", wt, "show", "-s", "--format=%s%x00%b", sha))
 		if !ok {
-			return die("cannot read %s", sha)
+			return die("cannot-read", "cannot read %s", sha)
 		}
 		subject, body, _ := strings.Cut(msg, "\x00")
 		if !frrSubject.MatchString(subject) {
@@ -140,6 +142,7 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 	}
 	if findings > 0 {
+		Reason(env, "route-record-findings")
 		return 1
 	}
 	return 0

@@ -62,7 +62,8 @@ const ffUsage = "usage: flow-guard fold-fixup <worktree> <task-sha> <tasks-md> <
 	"       flow-guard fold-fixup --finish <worktree> <task-sha> <tasks-md>\n"
 
 func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "fold-fixup: "+format+"\n", a...)
 		return 2
 	}
@@ -72,12 +73,14 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if (finish && len(args) != 3) || (!finish && len(args) < 4) {
 		fmt.Fprint(stderr, ffUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	wt, task, tasksMD := args[0], args[1], args[2]
 	for _, a := range args[:3] {
 		if a == "" {
 			fmt.Fprint(stderr, ffUsage)
+			Reason(env, "usage")
 			return 2
 		}
 	}
@@ -92,6 +95,7 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		case 0, 1:
 			return rc
 		default:
+			Reason(env, "autosquash-cannot-answer")
 			return 2
 		}
 	}
@@ -105,18 +109,19 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 	if !finish {
 		paths := args[3:]
 		if !quiet(append([]string{"-C", wt, "add", "--"}, paths...)...) {
-			return refuse("git add refused the fix's paths in %s", wt)
+			return refuse("git-add-refused-the-fix", "git add refused the fix's paths in %s", wt)
 		}
 		if rc := guard("targets", wt, task); rc != 0 {
+			Reason(env, "targets-refused")
 			return rc
 		}
 		// The parent is resolved before anything rewrites the task commit.
 		var ok bool
 		if parent, ok = capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", task+"^")); !ok {
-			return refuse("%s has no parent in %s — cannot fold into a root commit", task, wt)
+			return refuse("has-no-parent-in", "%s has no parent in %s — cannot fold into a root commit", task, wt)
 		}
 		if !quiet(append([]string{"-C", wt, "commit", "-q", "--fixup=" + task, "--"}, paths...)...) {
-			return refuse("git commit --fixup=%s refused in %s", task, wt)
+			return refuse("git-commit-fixup-refused-in", "git commit --fixup=%s refused in %s", task, wt)
 		}
 		// A non-interactive --autosquash is ignored by git; -i with a no-op
 		// sequence editor runs the autosquashed todo as written.
@@ -125,34 +130,36 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		if cmd.Run() != nil {
 			in, err := inProgress(env, wt, "rebase-merge", "rebase-apply")
 			if err != nil {
-				return refuse("%v", err)
+				return refuse("cannot-read-rebase-state", "%v", err)
 			}
 			if !in {
-				return refuse("git refused to rebase %s onto %s — the fixup commit stands unfolded", wt, parent)
+				return refuse("git-refused-to-rebase-onto", "git refused to rebase %s onto %s — the fixup commit stands unfolded", wt, parent)
 			}
 		}
 	} else {
 		var ok bool
 		if parent, ok = capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", task+"^")); !ok {
-			return refuse("%s has no parent in %s", task, wt)
+			return refuse("has-no-parent-in", "%s has no parent in %s", task, wt)
 		}
 	}
 
 	dropped, unmerged, err := ffSettle(env, wt, stderr)
 	if err != nil {
-		return refuse("%v", err)
+		return refuse("cannot-settle-rebase", "%v", err)
 	}
 	if unmerged != nil {
 		fmt.Fprintf(stdout, "CONFLICT: %s — unmerged: %s; resolve keeping both sides, `git rebase --continue`, then flow-guard fold-fixup --finish %s %s %s\n",
 			wt, strings.Join(unmerged, ", "), wt, task, tasksMD)
+		Reason(env, "conflict")
 		return 3
 	}
 	if rc := guard("after", wt, parent, tasksMD); rc != 0 {
+		Reason(env, "after-refused")
 		return rc
 	}
 	head, ok := capture(git("-C", wt, "rev-parse", "HEAD"))
 	if !ok {
-		return refuse("HEAD does not resolve in %s", wt)
+		return refuse("head-does-not-resolve-in", "HEAD does not resolve in %s", wt)
 	}
 	if dropped {
 		fmt.Fprintf(stdout, "DROPPED: %s — the fold emptied %s; HEAD %s\n", wt, task, head)

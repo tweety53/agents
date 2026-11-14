@@ -42,6 +42,7 @@ func init() {
 func ignoreScratch(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard ignore-scratch <worktree>")
+		Reason(env, "usage")
 		return 2
 	}
 	wt := args[0]
@@ -50,6 +51,7 @@ func ignoreScratch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if fi, err := os.Stat(wt); err != nil || !fi.IsDir() {
 		fmt.Fprintf(stderr, "ignore-scratch: %s is not a directory\n", args[0])
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	git := envGit(env)
@@ -62,10 +64,12 @@ func ignoreScratch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fail := func(step, out string) int {
 		fmt.Fprintf(stderr, "ignore-scratch: %s failed in %s: %s\n", step, wt, out)
+		Reason(env, "failed-in")
 		return 1
 	}
 	if _, ok := run("diff", "--cached", "--quiet"); !ok {
 		fmt.Fprintf(stderr, "ignore-scratch: the staged index in %s is not empty — commit or unstage it first; nothing committed\n", wt)
+		Reason(env, "staged-index-in-is-not")
 		return 1
 	}
 	p := filepath.Join(wt, ".gitignore")
