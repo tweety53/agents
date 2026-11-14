@@ -39,13 +39,13 @@ func TestPlanStepFiles(t *testing.T) {
 		want            string
 	}{
 		{"a sibling's function drops its entry", rel, psfRefused,
-			[]string{"a/x.go", "a/keep.go"}, 1, "tasks.md:3: task 1 step 1 edits `a/keep.go`"},
+			[]string{"a/x.go", "a/keep.go"}, 1, "tasks.md:3: plan-step-files task 1 step 1 edits `a/keep.go`"},
 		{"a list after in:", rel,
 			"- [ ] 1. A\n\n  - [ ] **Step 1: Edit.** Rewrite each header sentence, in: `s/one.sh`, `s/two.sh`.\n\n**Files:** `s/one.sh`\n",
-			[]string{"s/one.sh", "s/two.sh"}, 1, "tasks.md:3: task 1 step 1 edits `s/two.sh`"},
+			[]string{"s/one.sh", "s/two.sh"}, 1, "tasks.md:3: plan-step-files task 1 step 1 edits `s/two.sh`"},
 		{"a clause-opening list followed by a colon", rel,
 			"- [ ] 1. A\n\n  - [ ] **Step 1: Edit.** `d/a.md`: x. `d/b.md` (y), `c.md`: each follows.\n\n**Files:** `d/a.md`, `d/b.md`\n",
-			[]string{"d/a.md", "d/b.md", "d/c.md"}, 1, "tasks.md:3: task 1 step 1 edits `d/c.md`"},
+			[]string{"d/a.md", "d/b.md", "d/c.md"}, 1, "tasks.md:3: plan-step-files task 1 step 1 edits `d/c.md`"},
 		{"every edited path declared", rel,
 			"- [ ] 1. A\n\n  - [ ] **Step 1: Implement.** Delete `a/x.go`. `keep.go`'s `f` drops its entry.\n\n**Files:** `a/x.go`, `a/keep.go`\n",
 			[]string{"a/x.go", "a/keep.go"}, 0, ""},
@@ -101,7 +101,7 @@ func TestPlanStepFiles(t *testing.T) {
 		dir := psfWrite(t, map[string]string{rel: psfRefused, "a/x.go": "", "a/keep.go": ""})
 		var stdout, stderr bytes.Buffer
 		code := checkPlanShape([]string{rel}, Env{Dir: dir, Getenv: func(string) string { return "" }}, &stdout, &stderr)
-		if code != 1 || !strings.Contains(stdout.String(), "tasks.md:3: task 1 step 1 edits `a/keep.go`") {
+		if code != 1 || !strings.Contains(stdout.String(), "tasks.md:3: plan-step-files task 1 step 1 edits `a/keep.go`") {
 			t.Fatalf("exit %d, want 1 and the plan-step-files line; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 		}
 	})

@@ -77,6 +77,7 @@ func checkPromptTuningCases(args []string, env Env, stdout, stderr io.Writer) in
 	const self = "check-prompt-tuning-cases"
 	if len(args) > 1 {
 		fmt.Fprint(stderr, "usage: flow-guard check-prompt-tuning-cases [dir]\n")
+		Reason(env, "usage")
 		return 2
 	}
 	root := filepath.Join(env.Getenv("FLOW_GUARD_REPO_ROOT"), "docs", "prompt-tuning")
@@ -88,11 +89,13 @@ func checkPromptTuningCases(args []string, env Env, stdout, stderr io.Writer) in
 	}
 	git, ok := panelResolveGit(env, self, stderr)
 	if !ok {
+		Reason(env, "git-unresolved")
 		return 2
 	}
 	rc, top := kwRun(env, "", git, "-C", root, "rev-parse", "--show-toplevel")
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: %s is not inside a git checkout\n", self, root)
+		Reason(env, "not-inside-a-git-checkout")
 		return 2
 	}
 	repo := strings.TrimSpace(top)
@@ -101,6 +104,7 @@ func checkPromptTuningCases(args []string, env Env, stdout, stderr io.Writer) in
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
+		Reason(env, "cannot-read-cases")
 		return 2
 	}
 	for _, e := range entries {
@@ -113,6 +117,7 @@ func checkPromptTuningCases(args []string, env Env, stdout, stderr io.Writer) in
 		fmt.Fprintln(stdout, b)
 	}
 	if len(bad) > 0 {
+		Reason(env, "case-violations")
 		return 1
 	}
 	return 0

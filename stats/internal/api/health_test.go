@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -216,4 +217,21 @@ func TestRecordGuardRunRoute(t *testing.T) {
 			t.Fatalf("status %d, want 404; body %s", status, body)
 		}
 	})
+}
+
+// TestRecordGuardRunRouteCarriesReasons: the POST's reasons reach the store
+// unchanged, in order, through the route's strict decoder.
+func TestRecordGuardRunRouteCarriesReasons(t *testing.T) {
+	run := records.GuardRun{Guard: "check-plan-shape", Worktree: "/w/kan-1", ExitCode: 1,
+		Outcome: "fired", DurationMS: 120, RecordedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		Reasons: []string{"F2", "F6"}}
+	f := &guardRunFake{}
+	ts := newGuardRunServer(t, f)
+	status, body := postGuardRun(t, ts, "p", run)
+	if status != http.StatusCreated {
+		t.Fatalf("status %d, want 201; body %s", status, body)
+	}
+	if !slices.Equal(f.got.Reasons, []string{"F2", "F6"}) {
+		t.Errorf("store got reasons %q, want [F2 F6]", f.got.Reasons)
+	}
 }

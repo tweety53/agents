@@ -79,7 +79,8 @@ func init() { Registry["prove-reproducer"] = proveReproducer }
 const prPrefix = "prove-reproducer: "
 
 func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, prPrefix+format+"\n", a...)
 		return 2
 	}
@@ -88,6 +89,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 			"       <reproducer-path> is relative to <worktree>; the pre-fix leg runs\n"+
 			"       it in a detached scratch worktree at <pre-fix-ref>, the post-fix\n"+
 			"       leg against <worktree> itself\n")
+		Reason(env, "usage")
 		return 2
 	}
 	wt, ref, rel := args[0], args[1], args[2]
@@ -108,17 +110,17 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	if wt == "" || !isDir(abs(wt)) { // bash: [ -d "" ] is false
-		return die("not a directory: %s", wt)
+		return die("not-a-directory", "not a directory: %s", wt)
 	}
 	if git("rev-parse", "--is-inside-work-tree").Run() != nil {
-		return die("not a git worktree: %s", wt)
+		return die("not-a-worktree", "not a git worktree: %s", wt)
 	}
 	resolve := git("rev-parse", "--verify", "--quiet", ref+"^{commit}")
 	resolve.Stderr = stderr
 	out, err := resolve.Output()
 	preSHA := strings.TrimRight(string(out), "\n")
 	if err != nil || preSHA == "" {
-		return die("pre-fix ref does not resolve to a commit: %s", ref)
+		return die("pre-fix-ref-unresolved", "pre-fix ref does not resolve to a commit: %s", ref)
 	}
 
 	// The reproducer path follows the recorded-form refusals at the door:
@@ -126,13 +128,13 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// against the scratch root, so a `..` here would escape the scratch the
 	// same way F17's absolute ROOT escaped the live tree.
 	if reason := reproducerPathRefusal(rel); reason != "" {
-		return die("%s", reason)
+		return die("reproducer-path-refused", "%s", reason)
 	}
 	if fi, err := os.Stat(abs(wt + "/" + rel)); err != nil || !fi.Mode().IsRegular() {
-		return die("no reproducer file at %s in %s", rel, wt)
+		return die("no-reproducer-file", "no reproducer file at %s in %s", rel, wt)
 	}
 	if syscall.Access(abs(wt+"/"+rel), rrExecOK) != nil {
-		return die("reproducer is not executable: %s/%s", wt, rel)
+		return die("reproducer-not-executable", "reproducer is not executable: %s/%s", wt, rel)
 	}
 	// A body naming the live worktree by its absolute path reads the
 	// already-fixed tree from inside the pre-fix scratch (F17's ROOT class),
@@ -145,7 +147,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		for _, p := range live {
 			if bytes.Contains(body, []byte(p)) {
-				return die("the reproducer names the live worktree's absolute path %s -- the pre-fix leg would read the already-fixed tree; name paths relative to the working directory", p)
+				return die("reproducer-names-live-worktree", "the reproducer names the live worktree's absolute path %s -- the pre-fix leg would read the already-fixed tree; name paths relative to the working directory", p)
 			}
 		}
 	}
@@ -157,7 +159,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	base, err := os.MkdirTemp(tmp+"/", "prove-reproducer.")
 	if err != nil {
-		return die("no writable temporary directory")
+		return die("no-temp-dir", "no writable temporary directory")
 	}
 	scratch := base + "/scratch"
 
@@ -177,7 +179,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	add.Stdout, add.Stderr = &addOut, &addOut
 	if err := add.Run(); err != nil {
 		_, _ = stderr.Write(addOut.Bytes())
-		return die("could not materialize the scratch worktree at %s", preSHA)
+		return die("scratch-worktree-failed", "could not materialize the scratch worktree at %s", preSHA)
 	}
 
 	// A plumbing failure in the copy steps is the documented cannot-answer
@@ -186,13 +188,13 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// its mode, so it loses the executable bit only on a noexec TMPDIR.
 	dir := gdcDirname(rel)
 	if tool("mkdir", "-p", scratch+"/"+dir) != nil {
-		return die("cannot create %s/%s in the scratch worktree", scratch, dir)
+		return die("scratch-mkdir-failed", "cannot create %s/%s in the scratch worktree", scratch, dir)
 	}
 	if tool("cp", "-p", wt+"/"+rel, scratch+"/"+rel) != nil {
-		return die("cannot copy %s/%s into the scratch worktree", wt, rel)
+		return die("scratch-copy-failed", "cannot copy %s/%s into the scratch worktree", wt, rel)
 	}
 	if syscall.Access(scratch+"/"+rel, rrExecOK) != nil {
-		return die("the scratch copy lost its executable bit: %s/%s", scratch, rel)
+		return die("scratch-lost-exec-bit", "the scratch copy lost its executable bit: %s/%s", scratch, rel)
 	}
 
 	// Each leg's own temporary files go under the scratch base, so the
@@ -222,6 +224,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, leg := range []int{leg1, leg2} {
 		if leg != 0 && leg != 1 {
 			fmt.Fprintf(stderr, "%scannot spend the proof — run-reproducer exited %d on a leg (2 refused, 3 unverifiable, 4 cannot answer, 5 tree changed)\n", prPrefix, leg)
+			Reason(env, "leg-not-spendable")
 			return 2
 		}
 	}
@@ -231,9 +234,11 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if leg1 != 0 {
 		fmt.Fprintf(stdout, "PROOF FAILED — pre-fix leg read defect not demonstrated: the reproducer does not demonstrate the defect at %s\n", preSHA)
+		Reason(env, "pre-fix-not-demonstrated")
 	}
 	if leg2 != 1 {
 		fmt.Fprintln(stdout, "PROOF FAILED — post-fix leg still reads defect demonstrated: the fix does not stop this reproducer")
+		Reason(env, "post-fix-still-demonstrated")
 	}
 	return 1
 }

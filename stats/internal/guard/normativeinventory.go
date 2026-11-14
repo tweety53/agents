@@ -138,16 +138,19 @@ func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int 
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "CHECK_NORMATIVE_INVENTORY_ROOT is set but empty\n")
+		Reason(env, "check-normative-inventory-root")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-normative-inventory, which sets it\n", niName)
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
 	fsRoot := smcAbs(env, root)
 	if !isDir(fsRoot) {
 		fmt.Fprintf(stderr, "not a directory: %s\n", root)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 
@@ -156,6 +159,7 @@ func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int 
 	// resolves against the process's working directory, the caller's.
 	files, code := ownedCorpus(root, "owned_corpus_files", stderr)
 	if files == nil {
+		Reason(env, "corpus-unresolved")
 		return code
 	}
 	// An empty corpus is refused, not reported as an empty inventory. The two
@@ -164,6 +168,7 @@ func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int 
 	// comparison this guard feeds.
 	if len(files) == 0 {
 		fmt.Fprintf(stderr, "no .md or .mdc file found under %s — refusing to report an empty inventory\n", root)
+		Reason(env, "no-md-or-mdc-file")
 		return 2
 	}
 
@@ -172,6 +177,7 @@ func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int 
 		b, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(stderr, "cannot read %s\n", path)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		sentences = niScan(string(b), sentences)

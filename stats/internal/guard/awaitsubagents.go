@@ -57,11 +57,13 @@ func awaitSubAgents(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: flow-guard await-sub-agents <agent id>...")
+		Reason(env, "usage")
 		return 2
 	}
 	capN, err := strconv.Atoi(capS)
 	if !asaCapRe.MatchString(capS) || err != nil || capN > 240 {
 		fmt.Fprintf(stderr, "await-sub-agents: AWAIT_SUB_AGENTS_SECONDS must be 0-240, got %s\n", capS)
+		Reason(env, "bad-seconds")
 		return 2
 	}
 
@@ -70,6 +72,7 @@ func awaitSubAgents(args []string, env Env, stdout, stderr io.Writer) int {
 		metas[i] = asaFindMeta(root, "agent-"+id+".meta.json")
 		if metas[i] == "" {
 			fmt.Fprintf(stderr, "await-sub-agents: no meta.json for agent %s under %s\n", id, root)
+			Reason(env, "no-meta-json-for-agent")
 			return 2
 		}
 	}
@@ -96,6 +99,7 @@ func awaitSubAgents(args []string, env Env, stdout, stderr io.Writer) int {
 				return 0
 			}
 			fmt.Fprintln(stdout, "still running: "+strings.Join(running, " "))
+			Reason(env, "still-running")
 			return 1
 		}
 		time.Sleep(2 * time.Second)

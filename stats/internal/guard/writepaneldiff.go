@@ -82,6 +82,7 @@ var (
 func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 	usage := func() int {
 		fmt.Fprint(stderr, wpdUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	if len(args) == 0 {
@@ -114,10 +115,12 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 	canon, rest := args[0], args[1:]
 	if !isDir(smcAbs(env, canon)) {
 		fmt.Fprintf(stderr, "write-panel-diff: %s is not a directory — cannot determine anything\n", canon)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	gitBin, ok := panelResolveGit(env, "write-panel-diff", stderr)
 	if !ok {
+		Reason(env, "git-unresolved")
 		return 2
 	}
 
@@ -128,6 +131,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 	for i := 0; i < len(rest); i += width {
 		wt, base := rest[i], rest[i+1]
 		if !panelValidateWorktree(env, "write-panel-diff", wt, base, gitBin, stderr) {
+			Reason(env, "invalid-worktree")
 			return 2
 		}
 		// The range each kind reads, as the prose recipes spelled it.
@@ -141,6 +145,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 			rng = []string{base}
 			if held := rest[i+2]; held != "-" {
 				if !panelValidateWorktree(env, "write-panel-diff", wt, held, gitBin, stderr) {
+					Reason(env, "invalid-worktree")
 					return 2
 				}
 				rng = []string{held, "HEAD"}
@@ -155,6 +160,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 			out, err := panelGit(env, gitBin, wt, append(append(append([]string{"diff"}, o.flags...), rng...), excludes...)...).Output()
 			if err != nil {
 				fmt.Fprintf(stderr, "write-panel-diff: git diff %v failed in %s\n", append(o.flags, rng...), wt)
+				Reason(env, "git-diff-failed")
 				return 2
 			}
 			o.buf.WriteString(header)
@@ -166,6 +172,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 	path := canon + "/.superpowers/sdd/" + file
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		fmt.Fprintf(stderr, "write-panel-diff: %v\n", err)
+		Reason(env, "cannot-write-diff")
 		return 2
 	}
 	for _, f := range []struct {
@@ -174,6 +181,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 	}{{file, diff.Bytes()}, {file + ".touched", touched.Bytes()}} {
 		if err := wpdWriteAtomic(filepath.Join(dir, f.name), f.body); err != nil {
 			fmt.Fprintf(stderr, "write-panel-diff: %v\n", err)
+			Reason(env, "cannot-write-diff")
 			return 2
 		}
 	}
@@ -184,6 +192,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, f := range []string{"late-fix.diff", "late-fix.diff.touched"} {
 			if err := os.Remove(filepath.Join(dir, f)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintf(stderr, "write-panel-diff: %v\n", err)
+				Reason(env, "cannot-write-diff")
 				return 2
 			}
 		}

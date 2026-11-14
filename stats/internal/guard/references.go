@@ -189,10 +189,12 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	switch {
 	case set && root == "":
 		fmt.Fprint(stderr, "CHECK_REFERENCES_ROOT is set but empty\n")
+		Reason(env, "root-set-but-empty")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprint(stderr, "check-references: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-references, which sets it\n")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
@@ -203,11 +205,13 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	r.rootNorm = r.lexicalNorm(root)
 	if !isDir(r.rootNorm) {
 		fmt.Fprintf(stderr, "not a directory: %s\n", root)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	phys, err := filepath.EvalSymlinks(r.rootNorm)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-references: cannot resolve %s: %v\n", root, err)
+		Reason(env, "cannot-resolve")
 		return 2
 	}
 	r.rootPhys = phys
@@ -228,6 +232,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 			}
 			if err := r.cov.declare(f, cat.reason); err != nil {
 				fmt.Fprintf(stderr, "%v\ncheck-references: coverage_declare failed for %s (see stderr above)\n", err, f)
+				Reason(env, "coverage-declare-failed")
 				return 2
 			}
 		}
@@ -243,6 +248,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 		if isDir(full) {
 			if files, err = crMarkdownUnder(env, full); err != nil {
 				fmt.Fprintf(stderr, "check-references: cannot list %s: %v\n", full, err)
+				Reason(env, "cannot-list")
 				return 2
 			}
 		}
@@ -250,9 +256,11 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 			if err := r.checkFile(f); err != nil {
 				if ref, ok := err.(crRefusal); ok {
 					fmt.Fprintln(stderr, string(ref))
+					Reason(env, "reference-refused")
 					return 2
 				}
 				fmt.Fprintf(stderr, "%v\ncheck-references: coverage_record failed for %s (see stderr above)\n", err, r.rel(f))
+				Reason(env, "coverage-record-failed")
 				return 2
 			}
 			scanned++
@@ -260,6 +268,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if scanned == 0 {
 		fmt.Fprintf(stderr, "no Markdown files found under %s — refusing to report a clean run\n", root)
+		Reason(env, "no-markdown-files")
 		return 2
 	}
 
@@ -277,6 +286,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	if r.failures != 0 {
 		fmt.Fprintf(stderr, "\n%d stale reference(s) found.\n", r.failures)
 		fmt.Fprint(stderr, "Fix the reference, or mark the line refs-guard:allow if the bold text is emphasis.\n")
+		Reason(env, "fix-the-reference")
 		return 1
 	}
 	fmt.Fprint(stdout, "check-references: all referenced sections resolve\n")

@@ -83,12 +83,13 @@ import (
 func init() { Registry["installer-sandbox-diff"] = installerSandboxDiff }
 
 func installerSandboxDiff(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(msg string) int {
+	die := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintln(stderr, "ERROR: "+msg)
 		return 2
 	}
 	if len(args) != 2 {
-		return die("Usage: flow-guard installer-sandbox-diff <old-tree> <new-tree>")
+		return die("usage", "Usage: flow-guard installer-sandbox-diff <old-tree> <new-tree>")
 	}
 	var trees [2]string
 	for i, arg := range args {
@@ -102,10 +103,10 @@ func installerSandboxDiff(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 		tree = filepath.Clean(tree)
 		if st, err := os.Stat(tree); err != nil || !st.IsDir() {
-			return die(arg + " is not a directory")
+			return die("not-a-directory", arg+" is not a directory")
 		}
 		if st, err := os.Stat(filepath.Join(tree, "setup.sh")); err != nil || !st.Mode().IsRegular() {
-			return die(tree + " has no setup.sh at its root — the installer cannot be run from it")
+			return die("no-setup-sh", tree+" has no setup.sh at its root — the installer cannot be run from it")
 		}
 		trees[i] = tree
 	}
@@ -118,9 +119,9 @@ func installerSandboxDiff(args []string, env Env, stdout, stderr io.Writer) int 
 	work, err := os.MkdirTemp(tmp, "installer-sandbox-diff.")
 	if err != nil {
 		fmt.Fprintln(stderr, "mktemp:", err)
-		return die("cannot create the sandbox work directory under " + tmp)
+		return die("cannot-create-sandbox-work-dir", "cannot create the sandbox work directory under "+tmp)
 	}
-	rc := isdRun(trees, work, stdout, stderr)
+	rc := isdRun(env, trees, work, stdout, stderr)
 	if rc == 0 {
 		_ = os.RemoveAll(work)
 	} else {
@@ -131,11 +132,12 @@ func installerSandboxDiff(args []string, env Env, stdout, stderr io.Writer) int 
 
 // isdRun installs both trees into fresh HOMEs under work, writes both
 // manifests and diffs them.
-func isdRun(trees [2]string, work string, stdout, stderr io.Writer) int {
+func isdRun(env Env, trees [2]string, work string, stdout, stderr io.Writer) int {
 	sides := [2]string{"old", "new"}
 	for _, side := range sides {
 		if err := os.Mkdir(filepath.Join(work, side+"-home"), 0o755); err != nil {
 			fmt.Fprintln(stderr, "ERROR: cannot create the sandbox HOME directories")
+			Reason(env, "cannot-create-sandbox-home")
 			return 2
 		}
 	}
@@ -146,6 +148,7 @@ func isdRun(trees [2]string, work string, stdout, stderr io.Writer) int {
 			tail := exec.Command("tail", "-n", "15", log)
 			tail.Stdout = stderr
 			_ = tail.Run()
+			Reason(env, "setup-failed")
 			return 2
 		}
 	}
@@ -156,6 +159,7 @@ func isdRun(trees [2]string, work string, stdout, stderr io.Writer) int {
 		}
 		if err != nil {
 			fmt.Fprintln(stderr, "ERROR:", err)
+			Reason(env, "cannot-write-manifest")
 			return 2
 		}
 	}
@@ -170,6 +174,7 @@ func isdRun(trees [2]string, work string, stdout, stderr io.Writer) int {
 	}
 	_, _ = stdout.Write(diff.Bytes())
 	fmt.Fprintf(stderr, "installer output differs: %s vs %s\n", trees[0], trees[1])
+	Reason(env, "installer-output-differs")
 	return 1
 }
 

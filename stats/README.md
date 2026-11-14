@@ -58,7 +58,7 @@ the shim exits that guard's own cannot-answer code — 4 for `run-reproducer`,
 
 Every guard `flow-guard` dispatches is also recorded in flowd's `guard_runs`
 table (`POST /api/v1/guard-runs/{project}`): the guard, its exit code
-classified as `clear`, `fired` or `cannot-answer`, and its runtime. That is
+classified as `clear`, `fired` or `cannot-answer`, and its runtime, and — on a run that fired or could not answer — the distinct reason ids the guard recorded, in first-seen order, in its `reasons` column (NULL on a clear run); `SELECT guard, unnest(reasons) AS reason, count(*) FROM guard_runs GROUP BY 1, 2 ORDER BY 3 DESC` ranks them. That is
 what the SPA's **Flow health** view reads to rank guards by fires, never-fired
 and run time, leaving out flow-guard's helper commands (`records.GuardHelpers`). The
 write is best-effort: it goes to `FLOW_RECORDS_ADDR`, then `FLOW_ADDR`, then

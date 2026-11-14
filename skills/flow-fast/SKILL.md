@@ -94,9 +94,9 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   `<project>/spectre/changes/<change>/verbatim-moves.txt` on a `/flow` run,
   `<changeRoot>/verbatim-moves.txt` — `<abs-worktree>/.superpowers/sdd/<change>/` — on this one,
   never `<project>/spectre/`.
-  A minimal task in that shape — every field line at column 0, never indented under the task line
-  (an indented field is invisible to the parser and fails `flow-guard check-plan-shape`), and `**Tests:**`
-  naming the test in backticks or opening with `none — <reason>`:
+  Run `flow-guard check-plan-shape -rules` before writing `tasks.md`, and meet every rule it prints.
+  A minimal task in that shape — every field line at column 0, never indented under the task line,
+  and `**Tests:**` naming the test in backticks or opening with `none — <reason>`:
 
 ```markdown
 - [ ] 1. Reject an empty name in the parser

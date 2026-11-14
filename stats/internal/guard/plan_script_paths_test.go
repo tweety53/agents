@@ -20,7 +20,7 @@ func TestPlanScriptPaths(t *testing.T) {
 	}{
 		{"retired guard cited (kan-991 step 6)", "spectre/changes/c/tasks.md",
 			"- [ ] 1. A\n\n**Files:** `a.md`\n\n  - [ ] **Step 6: Verify: `scripts/present.sh && scripts/check-vocabulary.sh`.**\n",
-			1, []string{"tasks.md:5: task 1 cites `scripts/check-vocabulary.sh`"}},
+			1, []string{"tasks.md:5: plan-script-paths task 1 cites `scripts/check-vocabulary.sh`"}},
 		{"present path with a line suffix", "spectre/changes/c/tasks.md",
 			"- [ ] 1. A\n\n- see `scripts/present.sh:12` and `bash scripts/present.sh`\n", 0, nil},
 		{"path the plan creates", "spectre/changes/c/tasks.md",

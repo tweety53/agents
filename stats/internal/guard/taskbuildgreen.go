@@ -115,17 +115,20 @@ func checkTaskBuildGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	case 0:
 	default:
 		fmt.Fprintln(stderr, "usage: flow-guard check-task-build-green [path-to-tasks.md]")
+		Reason(env, "usage")
 		return 2
 	}
 	root := env.Getenv("CHECK_TASK_BUILD_GREEN_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprintln(stderr, "check-task-build-green: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-task-build-green, which sets it")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
 	files, ok := tcfScanPlans(env, root, stderr)
 	if !ok {
+		Reason(env, "scan-failed")
 		return 2
 	}
 	status := 0
@@ -139,6 +142,7 @@ func tbgCheckFile(path string, env Env, stdout, stderr io.Writer) int {
 	lines, err := tcfReadPlanTyped(env, path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", path, err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	violations := tbgCheck(lines, path)
@@ -146,6 +150,7 @@ func tbgCheckFile(path string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, v)
 	}
 	if len(violations) > 0 {
+		Reason(env, "build-green-violations")
 		return 1
 	}
 	return 0

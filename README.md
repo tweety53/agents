@@ -245,7 +245,7 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 - `flow-session-activity.py` — reports each session's working/waiting state to `flowd` for the
   state board.
 
-**Plan:** `check-plan-shape` (tasks readable by the commit guards), `check-plan-provenance` (every
+**Plan:** `check-plan-shape` (tasks readable by the commit guards; `-rules` prints the rules it holds a plan to), `check-plan-provenance` (every
 code block and number `verified:`/`unverified:`), `check-task-build-green` (a red task names its
 squash partner).
 

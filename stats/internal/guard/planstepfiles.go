@@ -34,7 +34,7 @@ import (
 //
 // The repository is the one whose `<spec-root>/changes/<name>/tasks.md`
 // this is; an archived plan, or a file outside a `changes/<name>/`
-// directory, is not checked. Exit 0 clean, 1 one `file:line: task <id> step
+// directory, is not checked. Exit 0 clean, 1 one `file:line: plan-step-files task <id> step
 // <n> edits …` line per finding, 2 a usage error or a file that cannot be
 // read.
 //
@@ -76,6 +76,7 @@ type psfStep struct {
 func planStepFilesCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 || args[0] == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-step-files <tasks.md>")
+		Reason(env, "usage")
 		return 2
 	}
 	file := args[0]
@@ -85,11 +86,13 @@ func planStepFilesCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	b, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	lines, err := tcfPlanLines(b)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	changes := filepath.Dir(filepath.Dir(file))
@@ -117,13 +120,14 @@ func planStepFilesCmd(args []string, env Env, stdout, stderr io.Writer) int {
 				if p == "" || len(tcfCheckFiles(task, []string{p})) == 0 || !psfEditPos(s.text, toks, k) {
 					continue
 				}
-				fmt.Fprintf(stdout, "%s:%d: task %s step %s edits `%s`, which no **Files:** or **Allowed-collateral:** entry covers — add it to **Files:** when this task's commit changes it, else reword the step\n",
+				fmt.Fprintf(stdout, "%s:%d: plan-step-files task %s step %s edits `%s`, which no **Files:** or **Allowed-collateral:** entry covers — add it to **Files:** when this task's commit changes it, else reword the step\n",
 					args[0], body.taskLine+1+s.offset, task.id, s.n, p)
 				found++
 			}
 		}
 	}
 	if found > 0 {
+		Reason(env, "plan-step-files")
 		return 1
 	}
 	return 0

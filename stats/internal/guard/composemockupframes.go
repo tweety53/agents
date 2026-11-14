@@ -130,6 +130,7 @@ type cmfOutput struct {
 func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 && len(args) != 4 {
 		fmt.Fprint(stderr, cmfUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	mapPath, mockupsRoot, outDir := args[0], args[1], args[2]
@@ -138,6 +139,7 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		g, ok := cmfParseGeometry(args[3])
 		if !ok {
 			fmt.Fprint(stderr, cmfUsage)
+			Reason(env, "usage")
 			return 2
 		}
 		geometry = &g
@@ -152,10 +154,12 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	data, err := os.ReadFile(at(mapPath))
 	if err != nil {
 		fmt.Fprintf(stderr, cmfPrefix+"cannot read map file %s: %s\n", mapPath, ppOSError(err, mapPath))
+		Reason(env, "cannot-read-map-file")
 		return 2
 	}
 	if !utf8.Valid(data) {
 		fmt.Fprintf(stderr, cmfPrefix+"cannot read map file %s: not valid UTF-8\n", mapPath)
+		Reason(env, "cannot-read-map-file")
 		return 2
 	}
 	// open(…, encoding="utf-8").readlines(): universal newlines, so a lone
@@ -181,6 +185,7 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 				frames[i] = &g
 			} else {
 				fmt.Fprintf(stderr, cmfPrefix+"%s:%d: malformed `frame` line: want `frame scale=<int> status=<px> border=<px> [bare]` or `frame none`\n", mapPath, i+1)
+				Reason(env, "malformed-frame-line")
 				return 2
 			}
 		}
@@ -188,11 +193,13 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 
 	if fi, err := os.Stat(at(mockupsRoot)); err != nil || !fi.IsDir() {
 		fmt.Fprintf(stderr, cmfPrefix+"mockups root is not a directory: %s\n", mockupsRoot)
+		Reason(env, "mockups-root-missing")
 		return 2
 	}
 
 	if name, err := cmfMakedirs(at, outDir); err != nil {
 		fmt.Fprintf(stderr, cmfPrefix+"cannot create output directory %s: %s\n", outDir, ppOSError(err, name))
+		Reason(env, "cannot-create-output-directory")
 		return 2
 	}
 
@@ -203,11 +210,13 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	if env.Stdin != nil {
 		if in, err = io.ReadAll(env.Stdin); err != nil {
 			fmt.Fprintf(stderr, cmfPrefix+"cannot read stdin: %v\n", err)
+			Reason(env, "cannot-read-stdin")
 			return 2
 		}
 	}
 	if !utf8.Valid(in) {
 		fmt.Fprint(stderr, cmfPrefix+"cannot read stdin: not valid UTF-8\n")
+		Reason(env, "cannot-read-stdin")
 		return 2
 	}
 	var stdinPaths []string
@@ -223,6 +232,7 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		im, err := decodeRGB(at(p))
 		if err != nil {
 			fmt.Fprintf(stderr, cmfPrefix+"unreadable PNG on stdin: %s: %s\n", p, pilImageError(err, at(p), p))
+			Reason(env, "unreadable-png-on-stdin")
 			return nil, 2
 		}
 		return im, 0
@@ -290,6 +300,7 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		mock, err := decodeRGB(at(framePath))
 		if err != nil {
 			fmt.Fprintf(stderr, cmfPrefix+"unreadable PNG: %s: %s\n", framePath, pilImageError(err, at(framePath), framePath))
+			Reason(env, "unreadable-png")
 			return 2
 		}
 		capture, code := decodeCapture(matches[0])
@@ -317,7 +328,7 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			// The cropped frame is the calibrated ruler every later
 			// measurement is taken against (scale 1 to the capture), so it is
 			// written beside the composite rather than re-derived by hand.
-			if code := cmfSave(stderr, at, cmfJoin(outDir, stem+".frame.png"), mock); code != 0 {
+			if code := cmfSave(env, stderr, at, cmfJoin(outDir, stem+".frame.png"), mock); code != 0 {
 				return code
 			}
 
@@ -333,7 +344,7 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			cmfPaste(canvas, mock, capture.W+cmfGutter, 0)
 			cmfPaste(canvas, diff, capture.W+cmfGutter+mock.W+cmfGutter, 0)
 		}
-		if code := cmfSave(stderr, at, outPath, canvas); code != 0 {
+		if code := cmfSave(env, stderr, at, outPath, canvas); code != 0 {
 			return code
 		}
 		outputs = append(outputs, cmfOutput{cmfAbspath(env, outPath), ratio})
@@ -346,14 +357,16 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, f)
 	}
 	if len(findings) > 0 {
+		Reason(env, "frame-findings")
 		return 1
 	}
 	return 0
 }
 
-func cmfSave(stderr io.Writer, at func(string) string, path string, im *rgbImage) int {
+func cmfSave(env Env, stderr io.Writer, at func(string) string, path string, im *rgbImage) int {
 	if err := encodeRGB(at(path), im); err != nil {
 		fmt.Fprintf(stderr, cmfPrefix+"cannot write %s: %s\n", path, ppOSError(err, path))
+		Reason(env, "cannot-write-frame")
 		return 2
 	}
 	return 0

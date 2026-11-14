@@ -179,14 +179,17 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 			shown = "<missing>"
 		}
 		fmt.Fprintf(stderr, "%snot a directory: %s\n", pfdPrefix, shown)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if name == "" {
 		fmt.Fprintf(stderr, "%susage: flow-guard check-panel-fix-single-dispatch <worktree> <change-name> <session-token>\n", pfdPrefix)
+		Reason(env, "usage")
 		return 2
 	}
 	if token == "" {
 		fmt.Fprintf(stderr, "%ssession token is required and must be this run's own literal token\n", pfdPrefix)
+		Reason(env, "session-token-required")
 		return 2
 	}
 
@@ -199,6 +202,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	// `export LC_ALL=C` made its enumeration do.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", pfdPrefix, name)
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 
@@ -215,6 +219,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil || strings.HasPrefix(worktreeArg, "-") || syscall.Access(pcAbs(env, worktreeArg), 1) != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished: \n", pfdPrefix)
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
@@ -224,6 +229,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, worktree)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", pfdPrefix, name)
+		Reason(env, "record-dispatches-failed")
 		return 2
 	}
 
@@ -233,6 +239,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	findings, err := pfdRead(env, env.Findings, "findings", name, worktree)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record findings failed for '%s' -- cannot answer\n", pfdPrefix, name)
+		Reason(env, "record-findings-failed")
 		return 2
 	}
 
@@ -242,11 +249,13 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	fixRows, foreignRows, ok := pfdPanelFixRows(rows, token)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdispatch rows were not readable JSON -- cannot answer\n", pfdPrefix)
+		Reason(env, "dispatch-rows-were-not-readable")
 		return 2
 	}
 	findingVals, ok := pfdStream(findings)
 	if !ok {
 		fmt.Fprintf(stderr, "%sfindings rows were not readable JSON -- cannot answer\n", pfdPrefix)
+		Reason(env, "findings-rows-were-not-readable")
 		return 2
 	}
 
@@ -364,6 +373,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		prior, ok := pfdPriorFindings(findingVals, r)
 		if !ok {
 			fmt.Fprintf(stderr, "%sfindings rows were not readable JSON -- cannot answer\n", pfdPrefix)
+			Reason(env, "findings-rows-were-not-readable")
 			return 2
 		}
 		// An empty findings payload is jq printing nothing: the bash's prior
@@ -382,6 +392,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	// landed as 50af0ddf.
 	commitViolations, ok := pfdCheckCommits(env, worktree, name, fixRows, stderr)
 	if !ok {
+		Reason(env, "commits-unreadable")
 		return 2
 	}
 	violations = append(violations, commitViolations...)
@@ -390,6 +401,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 		for _, v := range violations {
 			fmt.Fprintf(stderr, "%s%s\n", pfdPrefix, v)
 		}
+		Reason(env, "fix-dispatch-violations")
 		return 1
 	}
 	fmt.Fprintln(stdout, "PANEL-FIX-SINGLE-DISPATCH-OK: every panel-fix dispatch of this run is one per chunked round (bounds and retries included)")

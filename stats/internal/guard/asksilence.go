@@ -110,10 +110,12 @@ func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
 		fmt.Fprintf(stderr, askSilenceName+": FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-ask-silence, which sets it\n")
+		Reason(env, "repo-root-unset")
 		return 2
 	}
 	files, code := ownedCorpus(root, askSilenceName, stderr)
 	if files == nil {
+		Reason(env, "corpus-unresolved")
 		return code
 	}
 
@@ -126,6 +128,7 @@ func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 			// the same refusal owned_corpus_files makes for a missing
 			// scope root, never a partial answer counted as violations.
 			fmt.Fprintf(stderr, askSilenceName+": %s exists but cannot be read — %v\n", path, err)
+			Reason(env, "exists-but-cannot-be-read")
 			return 2
 		}
 		for _, sec := range asSections(string(b)) {
@@ -149,6 +152,7 @@ func checkAskSilence(_ []string, env Env, stdout, stderr io.Writer) int {
 	if violations != 0 {
 		fmt.Fprintf(stdout, "ASK-SILENCE-FAIL: %s — %d ask section(s) of %d state no silence outcome; state the outcome, delegate the ask, or cite Unanswered mid-run asks (skills/flow-contracts/pipeline.md)\n",
 			root, violations, sections)
+		Reason(env, "ask-silence-fail")
 		return 1
 	}
 	if sections == 0 {

@@ -61,10 +61,12 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	gitBin, ok := panelResolveGit(env, prog, stderr)
 	if !ok || !panelValidateWorktree(env, prog, worktree, mergebase, gitBin, stderr) {
+		Reason(env, "invalid-worktree")
 		return 2
 	}
 	paths, ok := panelTouchedPaths(env, prog, worktree, mergebase, gitBin, stderr)
 	if !ok {
+		Reason(env, "cannot-list-touched-paths")
 		return 2
 	}
 	changes := specRootLeaf(smcAbs(env, worktree), stderr) + "/changes/"
@@ -75,10 +77,12 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 		// check-panel-citation-trigger and fix-run-floor.
 		if !isDocPath(p) && !(strings.HasPrefix(p, changes) && path.Base(p) == "verbatim-moves.txt") {
 			fmt.Fprintln(stdout, p)
+			Reason(env, "non-doc-path-touched")
 			return 1
 		}
 	}
 	if len(paths) == 0 {
+		Reason(env, "no-path-touched")
 		return 1
 	}
 	return 0

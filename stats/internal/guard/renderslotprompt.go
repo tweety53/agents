@@ -103,12 +103,14 @@ var (
 )
 
 func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "render-slot-prompt: "+format+"\n", a...)
 		return 2
 	}
 	usage := func() int {
 		fmt.Fprint(stderr, rspUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	if len(args) < 5 {
@@ -140,7 +142,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			kind, rest = rest[0], rest[1:]
 		case "-repo":
 			if len(rest) == 0 || !plainChangeName(rest[0]) {
-				return refuse("-repo needs a plain repository name")
+				return refuse("repo-needs-a-plain-repository", "-repo needs a plain repository name")
 			}
 			repo, rest = rest[0], rest[1:]
 		case "-no-bundle":
@@ -160,7 +162,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	for _, p := range append(append(append([]string{skill, canon, plan}, wts...), standards...), reports...) {
 		if !strings.HasPrefix(p, "/") {
-			return refuse("%q is not an absolute path — a subagent resolves every path it is given from its own directory", p)
+			return refuse("not-an-absolute-path", "%q is not an absolute path — a subagent resolves every path it is given from its own directory", p)
 		}
 	}
 	// mutation has no template: its PASS section is review-panel.md's
@@ -178,7 +180,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		case !strings.Contains(s, "/") && (len(s) > len("exp-") && strings.HasPrefix(s, "exp-") || isFile(skill+"/"+s+"-reviewer-prompt.md")):
 			roles = append(roles, s)
 		default:
-			return refuse("no reviewer template for slot %q", s)
+			return refuse("no-reviewer-template-for-slot", "no reviewer template for slot %q", s)
 		}
 	}
 
@@ -210,6 +212,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	panel, ok := read(skill + "/review-panel.md")
 	if !ok {
+		Reason(env, "cannot-read-template")
 		return 2
 	}
 	block := func(src, file, label string) (string, bool) {
@@ -221,7 +224,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	for _, p := range standards {
 		if !isFile(p) {
-			return refuse("standards file %s does not exist", p)
+			return refuse("standards-file-does-not-exist", "standards file %s does not exist", p)
 		}
 	}
 
@@ -241,6 +244,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ", "REPRODUCER", "WORKTREES"} {
 		b, ok := block(panel, "review-panel.md", label)
 		if !ok {
+			Reason(env, "template-block-missing")
 			return 2
 		}
 		// A slot is told its round, not left to guess it: kan-1024's round-0
@@ -249,6 +253,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			const phrase = "`<round>` this round's number"
 			if !strings.Contains(b, phrase) {
 				fmt.Fprintf(stderr, "render-slot-prompt: review-panel.md's REPRODUCER block no longer carries %q — cannot state the round\n", phrase)
+				Reason(env, "review-panel-md")
 				return 2
 			}
 			b = strings.Replace(b, phrase, phrase+" — `"+round+"` here", 1)
@@ -265,6 +270,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		suffix = "-" + repo
 		b, ok := block(panel, "review-panel.md", "SECTION")
 		if !ok {
+			Reason(env, "template-block-missing")
 			return 2
 		}
 		emit(strings.ReplaceAll(b, "<repo>", repo))
@@ -273,6 +279,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		if isFile(wt + "/.superpowers/sdd/citation-check.md") {
 			b, ok := block(panel, "review-panel.md", "CITATION CHECK")
 			if !ok {
+				Reason(env, "template-block-missing")
 				return 2
 			}
 			emit(strings.Replace(b, "<abs-worktree>", wt, 1))
@@ -283,6 +290,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(roles) > 0 {
 		entry, ok := block(panel, "review-panel.md", "ENTRY CONTEXT")
 		if !ok {
+			Reason(env, "template-block-missing")
 			return 2
 		}
 		emit(named(entry))
@@ -297,6 +305,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		seen[d] = true
 		touched, ok := read(d + ".touched")
 		if !ok {
+			Reason(env, "cannot-read-touched")
 			return 2
 		}
 		if kind == "delta" && len(roles) > 1 {
@@ -307,6 +316,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(slots) > 1 {
 		b, ok := block(panel, "review-panel.md", "INDEPENDENT PASSES")
 		if !ok {
+			Reason(env, "template-block-missing")
 			return 2
 		}
 		emit(named(b))
@@ -314,10 +324,12 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(reports) > 0 {
 		fixRound, ok := read(skill + "/review-panel-fix-round.md")
 		if !ok {
+			Reason(env, "cannot-read-template")
 			return 2
 		}
 		b, ok := block(fixRound, "review-panel-fix-round.md", "FIX-ROUND SCOPE")
 		if !ok {
+			Reason(env, "template-block-missing")
 			return 2
 		}
 		emit(strings.Replace(b, "<fix report>", strings.Join(reports, "`, `"), 1))
@@ -345,6 +357,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	report, ok := block(panel, "review-panel.md", "REPORT FILE")
 	if !ok {
+		Reason(env, "template-block-missing")
 		return 2
 	}
 	// The mutating pass runs last, whatever position the slot argument gives it
@@ -357,7 +370,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		if id == "mutation" {
 			brief := rspSection(panel, "### The mutation-testing brief")
 			if brief == "" {
-				return refuse("review-panel.md carries no mutation-testing brief")
+				return refuse("mutation-brief-missing", "review-panel.md carries no mutation-testing brief")
 			}
 			copies := make([]string, len(wts))
 			for i, wt := range wts {
@@ -376,11 +389,12 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		tmpl, ok := read(tmplPath)
 		if !ok {
+			Reason(env, "cannot-read-template")
 			return 2
 		}
 		body, found := rspFenced(tmpl)
 		if !found {
-			return refuse("%s carries no fenced template body", tmplPath)
+			return refuse("carries-no-fenced-template-body", "%s carries no fenced template body", tmplPath)
 		}
 		fill["[DIFF_PATH]"] = diffPath(id)
 		for _, p := range rspUnfilled.FindAllString(body, -1) {
@@ -390,7 +404,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			// A path the subagent is told to read must exist.
 			if (p == "[CALIBRATION_PATH]" || p == "[PRINCIPLES_PATH]") && !isFile(v) {
-				return refuse("%s does not exist — never dispatch a blind reviewer", v)
+				return refuse("does-not-exist", "%s does not exist — never dispatch a blind reviewer", v)
 			}
 			body = strings.ReplaceAll(body, p, v)
 		}
@@ -403,14 +417,15 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	rendered := strings.TrimRight(out.String(), "\n") + "\n"
 	if left := rspUnfilled.FindAllString(strings.Replace(rendered, repro, "", 1), -1); len(left) > 0 {
 		fmt.Fprintf(stderr, "render-slot-prompt: unresolved placeholder(s): %s\n", strings.Join(left, ", "))
+		Reason(env, "unresolved-placeholder")
 		return 1
 	}
 	path := sdd + "slot-prompt-" + round + "-" + slotArg + suffix + ".md"
 	if err := os.MkdirAll(sdd, 0o755); err != nil {
-		return refuse("%v", err)
+		return refuse("cannot-create-sdd-dir", "%v", err)
 	}
 	if err := wpdWriteAtomic(path, []byte(rendered)); err != nil {
-		return refuse("%v", err)
+		return refuse("cannot-write-prompt", "%v", err)
 	}
 	fmt.Fprintln(stdout, path)
 	fmt.Fprintf(stdout, "DISPATCH: description %q — prompt opens \"Role: %s\"\n", "panel-"+round+"-"+slotArg+suffix, rspRole(slotArg, kind, sdd))

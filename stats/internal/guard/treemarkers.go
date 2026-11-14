@@ -97,18 +97,19 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		return ""
 	}
 	mode, worktree, markers, snap := arg(0), arg(1), arg(2), arg(3)
-	fail := func(format string, a ...any) int {
+	fail := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-tree-markers: "+format+"\n", a...)
 		return 2
 	}
 	usage := func() int {
-		return fail("usage: flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file> | verify <worktree> <markers-file> <snapshot-file> [<path>…]")
+		return fail("usage", "usage: flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file> | verify <worktree> <markers-file> <snapshot-file> [<path>…]")
 	}
 	if mode != "snapshot" && mode != "verify" || mode == "snapshot" && len(args) > 4 {
 		return usage()
 	}
 	if worktree == "" || !isDir(smcAbs(env, worktree)) {
-		return fail("not a directory: %s", orMissing(worktree))
+		return fail("not-a-directory", "not a directory: %s", orMissing(worktree))
 	}
 	var specBytes []byte
 	readErr := os.ErrNotExist
@@ -116,7 +117,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		specBytes, readErr = os.ReadFile(smcAbs(env, markers))
 	}
 	if readErr != nil {
-		return fail("no readable markers file: %s", orMissing(markers))
+		return fail("no-readable-markers-file", "no readable markers file: %s", orMissing(markers))
 	}
 	if snap == "" {
 		return usage()
@@ -125,7 +126,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 	// and the one a grep-failure message names.
 	physical, err := filepath.EvalSymlinks(smcAbs(env, worktree))
 	if err != nil {
-		return fail("worktree vanished: %s", worktree)
+		return fail("worktree-vanished", "worktree vanished: %s", worktree)
 	}
 
 	// Validate every spec line BEFORE anything is written: the snapshot
@@ -143,25 +144,25 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		path, marker, ok := strings.Cut(line, "\t")
 		if !ok {
-			return fail("line without a tab: %s", line)
+			return fail("line-without-a-tab", "line without a tab: %s", line)
 		}
 		// CONTAINMENT: the markers file names what grep reads. An absolute
 		// path or any `..` component would read outside the worktree, so the
 		// spec is refused rather than sanitised -- the parent fixes its
 		// marker list, the guard never widens it.
 		if path == "" {
-			return fail("empty path in markers file")
+			return fail("empty-path-in-markers-file", "empty path in markers file")
 		}
 		if strings.HasPrefix(path, "/") {
-			return fail("absolute path '%s' in markers file -- refused", path)
+			return fail("absolute-path", "absolute path '%s' in markers file -- refused", path)
 		}
 		for _, c := range strings.Split(path, "/") {
 			if c == ".." {
-				return fail("path '%s' carries a '..' component -- refused", path)
+				return fail("dotdot-path", "path '%s' carries a '..' component -- refused", path)
 			}
 		}
 		if marker == "" {
-			return fail("empty marker for '%s' in markers file", path)
+			return fail("empty-marker", "empty marker for '%s' in markers file", path)
 		}
 		specs = append(specs, spec{path, marker})
 	}
@@ -169,7 +170,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 	// snapshot and verify clean over a destroyed tree -- two empty line-sets
 	// compare equal. An empty pin set pins nothing, so it cannot answer.
 	if len(specs) == 0 {
-		return fail("the markers file names no artifact -- cannot answer")
+		return fail("markers-file-names-no-artifact", "the markers file names no artifact -- cannot answer")
 	}
 
 	// Both snapshot-path checks run before any marker is recomputed, as the
@@ -181,13 +182,13 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		// directory, so the promised path would hold nothing while exit 0
 		// claimed a snapshot -- refused before anything is written.
 		if isDir(snapAbs) {
-			return fail("snapshot path is an existing directory: %s", snap)
+			return fail("snapshot-path-is-directory", "snapshot path is an existing directory: %s", snap)
 		}
 	} else {
 		var err error
 		recorded, err = os.ReadFile(snapAbs)
 		if err != nil || !isFile(snapAbs) {
-			return fail("no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it", snap)
+			return fail("no-readable-snapshot", "no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it", snap)
 		}
 	}
 
@@ -213,7 +214,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		out, err := cmd.Output()
 		var exit *exec.ExitError
 		if err != nil && (!errors.As(err, &exit) || exit.ExitCode() > 1) {
-			return fail("grep failed on %s -- cannot answer", file)
+			return fail("grep-failed", "grep failed on %s -- cannot answer", file)
 		}
 		count := strings.TrimRight(string(out), "\n")
 		if count == "" {
@@ -232,7 +233,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		// Written to a temp file beside the snapshot and renamed over it, as
 		// the bash's mktemp + mv: never half-made, mode 0600.
 		if !writeAtomic(snapAbs, current.Bytes()) {
-			return fail("could not write the snapshot at %s", snap)
+			return fail("could-not-write-the-snapshot", "could not write the snapshot at %s", snap)
 		}
 		fmt.Fprintf(stdout, "TREE-MARKERS-SNAPSHOT-OK: markers pinned at %s\n", snap)
 		return 0
@@ -268,6 +269,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, l := range strays {
 			fmt.Fprintln(stderr, "check-tree-markers:   "+l)
 		}
+		Reason(env, "dispatch-left-stray-paths")
 		return 1
 	}
 	fmt.Fprintln(stderr, "check-tree-markers: the tree's recorded markers changed across the dispatch -- the dispatch's own clean-or-restored claim is not evidence; stop and recover by hand from before the dispatch")
@@ -301,6 +303,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		_ = os.Remove(tmp.Name())
 	}
+	Reason(env, "check-tree-markers-verify")
 	return 1
 }
 

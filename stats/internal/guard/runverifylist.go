@@ -438,7 +438,7 @@ func rvlGuardSkip(env Env, wt, cmd string) string {
 	for i, p := range specs {
 		specs[i] = strings.Trim(p, "'")
 	}
-	e := env
+	e := quietReasons(env)
 	e.Dir = wt
 	var out bytes.Buffer
 	if Registry["unchanged"](specs, e, &out, io.Discard) != 0 {
@@ -560,7 +560,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		mb = bases[r]
 		if mb == "" {
 			var base bytes.Buffer
-			if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
+			if Registry["resolve-base-branch"]([]string{wt}, quietReasons(env), &base, io.Discard) != 0 {
 				return nil, fmt.Errorf("no base branch")
 			}
 			ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
@@ -577,7 +577,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		}
 		return strings.Split(names, "\n"), nil
 	}
-	own := visualTrigger(env, wt, changed, io.Discard, io.Discard) != 1
+	own := visualTrigger(quietReasons(env), wt, changed, io.Discard, io.Discard) != 1
 	bases[wt] = mb
 	siblings := slices.DeleteFunc(worktrees, func(w string) bool { return w == wt })
 	root, base := siblingFrontend(wt, siblings, bases, func(s string) bool {
@@ -586,7 +586,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		if !ok || !ok2 {
 			return false
 		}
-		e := env
+		e := quietReasons(env)
 		e.Stdin = strings.NewReader(names + "\n")
 		return Registry["check-visual-trigger"]([]string{"--repo", filepath.Base(filepath.Dir(common)), wt}, e, io.Discard, io.Discard) == 0
 	})
@@ -797,20 +797,24 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if mode != "plain" {
 			fmt.Fprintln(stderr, "run-verify-list: pass -only or -detect-flaky, not both")
+			Reason(env, "pass-only-or-detect-flaky")
 			return 2
 		}
 		if mode = args[0][1:]; mode == "only" {
 			if len(args) < 2 {
 				fmt.Fprintln(stderr, narrowUsage)
+				Reason(env, "usage")
 				return 2
 			}
 			b, err := os.ReadFile(abs(args[1]))
 			if err != nil {
 				fmt.Fprintf(stderr, "run-verify-list: -only: %v\n", err)
+				Reason(env, "only-list-unreadable")
 				return 2
 			}
 			if only = strings.Fields(string(b)); len(only) == 0 {
 				fmt.Fprintf(stderr, "run-verify-list: -only %s is empty — nothing to re-run\n", args[1])
+				Reason(env, "only-is-empty")
 				return 2
 			}
 			args = args[1:]
@@ -819,6 +823,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if full && mode != "plain" {
 		fmt.Fprintln(stderr, "run-verify-list: -full runs the whole list — not with -only or -detect-flaky")
+		Reason(env, "full-runs-the-whole-list")
 		return 2
 	}
 	if full && (len(args) < 2 || (args[1] != "test" && args[1] != "visual")) {
@@ -827,6 +832,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintln(stderr, fullUsage)
 		}
+		Reason(env, "full-needs-test-or-visual")
 		return 2
 	}
 	// change and canon name the state record the kickoff base is read from.
@@ -834,6 +840,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if mode != "plain" {
 		if (len(args) != 2 && len(args) != 3) || args[1] != "visual" {
 			fmt.Fprintln(stderr, narrowUsage)
+			Reason(env, "usage")
 			return 2
 		}
 		if len(args) == 3 {
@@ -843,10 +850,12 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test" && args[1] != "visual") {
 		fmt.Fprintln(stderr, usage)
+		Reason(env, "usage")
 		return 2
 	}
 	if fi, err := os.Stat(abs(args[0])); err != nil || !fi.IsDir() {
 		fmt.Fprintln(stderr, usage)
+		Reason(env, "usage")
 		return 2
 	}
 	record := func(string, ...string) bool { return true }
@@ -855,6 +864,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		flow, ok := lookPath(env, "flow")
 		if !ok {
 			fmt.Fprintln(stderr, "run-verify-list: no flow binary on PATH")
+			Reason(env, "no-flow-binary-on-path")
 			return 2
 		}
 		wt, verified := args[0], args[0]
@@ -866,6 +876,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		key, token, model, effort := args[3], args[4], args[5], args[6]
 		if !verifyKeyOK(env, abs(args[0]), key) {
 			fmt.Fprintf(stderr, "run-verify-list: key %q does not fold to verify or verify-<repository name> (skills/flow/verify-and-handoff.md, **Recording.**) — no command ran\n", key)
+			Reason(env, "key-does-not-fold")
 			return 2
 		}
 		blockedMark = "flow-verify-blocked-" + key + "-" + token
@@ -905,6 +916,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if mode != "plain" && rawVerify != "" && !strings.Contains(rawVerify, "<specs>") {
 		fmt.Fprintf(stderr, "run-verify-list: the `verify` cell has no <specs> placeholder to narrow — no command ran: %s\n", rawVerify)
+		Reason(env, "verify-cell-unnarrowable")
 		return 2
 	}
 	fill := func(tokens []string) string {
@@ -921,8 +933,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		switch exitCode(err) {
 		case 0:
 		case 1:
+			Reason(env, "no-list")
 			return 3
 		default:
+			Reason(env, "project-get-failed")
 			return 2
 		}
 	}
@@ -931,6 +945,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, c := range cmds {
 		if rvlTemplate.MatchString(c) {
 			fmt.Fprintf(stderr, "run-verify-list: %s line is a template, not a command — move it out of the fence: %s\n", list, c)
+			Reason(env, "line-is-a-template")
 			return 2
 		}
 	}
@@ -993,6 +1008,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	outDir, err := os.MkdirTemp(tmp, "run-verify-list.")
 	if err != nil {
 		fmt.Fprintf(stderr, "run-verify-list: cannot create a temporary directory: %v\n", err)
+		Reason(env, "cannot-create-a-temporary-directory")
 		return 2
 	}
 	defer os.RemoveAll(outDir)
@@ -1053,6 +1069,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	self, err := selfExe()
 	if err != nil {
 		fmt.Fprintf(stderr, "run-verify-list: cannot resolve flow-guard's own executable: %v\n", err)
+		Reason(env, "cannot-resolve-flow-guard")
 		return 2
 	}
 	capped := []string{self, "run-capped", "--", "bash", "-c"}
@@ -1063,6 +1080,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	if !record("begin") {
+		Reason(env, "record-failed")
 		return 4
 	}
 	// This group's running mark, written once its begin is accepted and

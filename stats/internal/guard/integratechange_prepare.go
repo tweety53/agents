@@ -48,7 +48,7 @@ func (c *ic) prepare() {
 	c.loadSet()
 	c.markBegin("flow.preflight")
 	if len(c.wt) == 0 {
-		c.stop("preflight", "the resolved worktree set is empty — report it and ask the operator")
+		c.stopAs("worktree-set-empty", "preflight", "the resolved worktree set is empty — report it and ask the operator")
 	}
 
 	ask := false
@@ -70,14 +70,14 @@ func (c *ic) prepare() {
 
 	c.run("migrate-worktrees", c.mains...)
 	if c.rc != 0 {
-		c.stop("migrate", fmt.Sprintf("migrate-worktrees exit %d — report its lines", c.rc))
+		c.stopAs("migrate-failed", "migrate", fmt.Sprintf("migrate-worktrees exit %d — report its lines", c.rc))
 	}
 	c.loadSet()
 
 	run1 := false
 	for i := range c.wt {
 		if !isDir(c.wt[i]) {
-			c.stop("preflight", c.wt[i]+" is not on disk — report it and ask the operator")
+			c.stopAs("worktree-missing", "preflight", c.wt[i]+" is not on disk — report it and ask the operator")
 		}
 		c.baseOf(i)
 		c.bases[i] = c.base
@@ -87,7 +87,7 @@ func (c *ic) prepare() {
 			run1 = true
 		case strings.HasPrefix(v, "RUN2:"):
 		default:
-			c.stop("preflight", "relay the verdict and its hand-verification procedure, then ask the operator")
+			c.stopAs("verdict-needs-operator", "preflight", "relay the verdict and its hand-verification procedure, then ask the operator")
 		}
 	}
 	if !run1 {
@@ -138,7 +138,7 @@ func (c *ic) prepare() {
 	c.markEnd("flow.preflight", "completed")
 	c.markBegin("flow.unfinished-work-gate")
 	if !c.findCanonical() {
-		c.stop("preflight", "no worktree in the set holds "+c.name+"'s tasks.md — ask the operator")
+		c.stopAs("tasks-md-not-found", "preflight", "no worktree in the set holds "+c.name+"'s tasks.md — ask the operator")
 	}
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
 	c.liveCheckGate(live)
@@ -207,7 +207,7 @@ func (c *ic) prepare() {
 		case 1:
 			c.stop("sync-conflict", "load skills/flow/sync-onto-base.md and resolve in place, run 'flow-guard sync-onto-base --resume', the whole ## lint and ## test lists, then re-run prepare")
 		default:
-			c.stop("sync", fmt.Sprintf("sync-onto-base exit %d — report its output and ask the operator", c.rc))
+			c.stopAs("sync-failed", "sync", fmt.Sprintf("sync-onto-base exit %d — report its output and ask the operator", c.rc))
 		}
 		vline := c.verdict("REBASED")
 		if k := strings.LastIndex(vline, "onto "); k >= 0 {

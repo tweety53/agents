@@ -60,10 +60,12 @@ func init() { Registry["rebuild-full-app-suite-zip"] = rebuildFullAppSuiteZip }
 func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
 		fmt.Fprintln(stderr, "usage: flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>")
+		Reason(env, "usage")
 		return 2
 	}
 	if !filepath.IsAbs(args[1]) {
 		fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way flow-guard resolve-visual-screenshots resolves it\n", args[1])
+		Reason(env, "screenshots-root-is-relative")
 		return 2
 	}
 	abs := func(p string) string {
@@ -81,6 +83,7 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	list, rc := strings.TrimRight(string(out), "\n"), exitCode(err)
 	// A resolver that cannot answer (exit 2) leaves the old zip alone: only a resolved list replaces it.
 	if rc == 2 {
+		Reason(env, "resolver-cannot-answer")
 		return 2
 	}
 	// A root no resolved PNG lies under is the wrong root: zipping there
@@ -90,12 +93,14 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 		for _, png := range strings.Split(list, "\n") {
 			if !strings.HasPrefix(abs(png), filepath.Clean(args[1])+"/") {
 				fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: %s lies outside <screenshots root> %s — pass `screenshots` resolved the way flow-guard resolve-visual-screenshots resolves it\n", png, args[1])
+				Reason(env, "lies-outside-screenshots-root")
 				return 2
 			}
 		}
 	}
 	os.Remove(abs(zipPath))
 	if rc != 0 {
+		Reason(env, "resolver-failed")
 		return rc
 	}
 	epoch := time.Date(1980, 1, 1, 0, 0, 0, 0, time.Local)
@@ -108,6 +113,7 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: cannot pin the mtime of %s: %v\n", png, err)
+			Reason(env, "cannot-pin-the-mtime")
 			return 123
 		}
 	}
@@ -120,6 +126,7 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	zip.Stdin = strings.NewReader(list + "\n")
 	zip.Stdout, zip.Stderr = stdout, stderr
 	if zip.Run() != nil {
+		Reason(env, "zip-failed")
 		return 2
 	}
 	return 0

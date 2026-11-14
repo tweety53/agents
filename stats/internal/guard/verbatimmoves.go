@@ -100,11 +100,13 @@ const vmAckFile = "verbatim-moves.txt"
 func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) > 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-verbatim-moves [<base-ref>]")
+		Reason(env, "usage")
 		return 2
 	}
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
 		fmt.Fprintln(stderr, "check-verbatim-moves: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-verbatim-moves, which sets it")
+		Reason(env, "repo-root-unset")
 		return 2
 	}
 	gitEnv := []string{"LC_ALL=C"}
@@ -114,6 +116,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	git := envGit(env, gitEnv...)
 	if git("-C", root, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: %s is not a git worktree\n", root)
+		Reason(env, "not-a-worktree")
 		return 2
 	}
 
@@ -125,6 +128,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		sha, ok := capture(git("-C", root, "rev-parse", "--verify", "--quiet", "--end-of-options", args[0]+"^{commit}"))
 		if !ok || sha == "" {
 			fmt.Fprintf(stderr, "check-verbatim-moves: base ref %q does not resolve to a commit\n", args[0])
+			Reason(env, "base-ref-does-not-resolve")
 			return 2
 		}
 		base = sha
@@ -132,6 +136,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		var ok bool
 		if base, label, ok = vmDefaultBase(git, root); !ok {
 			fmt.Fprintln(stderr, "check-verbatim-moves: cannot resolve the merge base with the default branch — pass a base ref")
+			Reason(env, "cannot-resolve-the-merge-base")
 			return 2
 		}
 	}
@@ -139,20 +144,24 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	baseRun, baseRat, err := vmCorpusAt(git, root, base)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: cannot read %s: %v\n", label, err)
+		Reason(env, "cannot-read")
 		return 2
 	}
 	headRun, headRat, err := vmCorpusTree(root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: cannot read the working tree: %v\n", err)
+		Reason(env, "cannot-read-the-working-tree")
 		return 2
 	}
 	if len(baseRun)+len(headRun) == 0 {
 		fmt.Fprintf(stderr, "check-verbatim-moves: no sentences under skills/, commands-claude/ or rules/ in %s — refusing to report a clean run\n", root)
+		Reason(env, "no-sentences-under-skills")
 		return 2
 	}
 	acks, err := vmAcks(root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
+		Reason(env, "cannot-read-acks")
 		return 2
 	}
 
@@ -196,6 +205,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 			ack = fast + "/" + vmAckFile
 		}
 		fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in %s.\n", ack)
+		Reason(env, "restore-the-sentence")
 		return 1
 	}
 	return 0

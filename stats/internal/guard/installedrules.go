@@ -130,14 +130,15 @@ var cirMarker = regexp.MustCompile(`<!-- rule: ([^ \n]*\.mdc) -->`)
 var cirAlways = regexp.MustCompile(`^alwaysApply:[[:space:]]*true[[:space:]]*$`)
 
 func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, cirName+": "+format+"\n", a...)
 		return 1
 	}
 	// The rule set is this repository's own rules/, under FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports.
 	repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if repoRoot == "" {
-		return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-installed-rules, which sets it")
+		return refuse("repo-root-unset", "FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-installed-rules, which sets it")
 	}
 	rulesSrc := repoRoot + "/rules"
 	homeDir := env.Getenv("CHECK_INSTALLED_RULES_HOME")
@@ -147,7 +148,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 		// on an unset HOME, so the port refuses rather than read it as empty.
 		h, ok := env.LookupEnv("HOME")
 		if !ok {
-			return refuse("HOME is unset and CHECK_INSTALLED_RULES_HOME is not set — cannot locate the install")
+			return refuse("home-unset", "HOME is unset and CHECK_INSTALLED_RULES_HOME is not set — cannot locate the install")
 		}
 		homeDir = h
 	}
@@ -160,14 +161,14 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	if !isDir(rulesSrc) {
-		return refuse("%s does not exist — this is not an agents checkout", rulesSrc)
+		return refuse("does-not-exist", "%s does not exist — this is not an agents checkout", rulesSrc)
 	}
 	alwaysOn, err := cirAlwaysOnRules(env, rulesSrc)
 	if err != nil {
-		return refuse("%v", err)
+		return refuse("cannot-read-always-on-rules", "%v", err)
 	}
 	if len(alwaysOn) == 0 {
-		return refuse("%s declares no always-on rule — refusing to report an empty install as clean", rulesSrc)
+		return refuse("declares-no-always-on-rule", "%s declares no always-on rule — refusing to report an empty install as clean", rulesSrc)
 	}
 
 	if !override && isFile(repoRoot+"/.git") {
@@ -212,7 +213,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 	// Rule 2 — nothing installed that is no longer an always-on rule.
 	installedMDs, err := cirGlob(env, rulesDir, ".md")
 	if err != nil {
-		return refuse("%v", err)
+		return refuse("cannot-list-installed-rules", "%v", err)
 	}
 	for _, installed := range installedMDs {
 		base := filepath.Base(installed)
@@ -241,7 +242,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	setup, err := os.ReadFile(setupSh)
 	if err != nil {
-		return refuse("%s is unreadable — cannot resolve the managed-block targets", setupSh)
+		return refuse("unreadable", "%s is unreadable — cannot resolve the managed-block targets", setupSh)
 	}
 	harnessFiles, code := cirManagedFiles(string(setup), setupSh, refuse)
 	if harnessFiles == nil {
@@ -267,7 +268,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 		// `sort -u`, exec'd so the order is the caller's collation (crSort).
 		markers, err := crSort(env, markers, true)
 		if err != nil {
-			return refuse("%v", err)
+			return refuse("sort-failed", "%v", err)
 		}
 		for _, marker := range markers {
 			if !slices.Contains(alwaysOn, marker) {
@@ -278,6 +279,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 
 	if violations != 0 {
 		fmt.Fprintf(stdout, "INSTALLED-RULES-STALE: %s — %d violation(s); re-run ./setup.sh global from %s\n", homeDir, violations, repoRoot)
+		Reason(env, "installed-rules-stale")
 		return 1
 	}
 	fmt.Fprintf(stdout, "INSTALLED-RULES-OK: %s — %d always-on rule(s) installed and rendered\n", homeDir, len(alwaysOn))
@@ -293,7 +295,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 // declaration would otherwise be silently truncated to its first line, the
 // guard scanning a subset and reporting green over an unscanned file's broken
 // block (F1/F4, round 0).
-func cirManagedFiles(setup, setupSh string, refuse func(string, ...any) int) ([]string, int) {
+func cirManagedFiles(setup, setupSh string, refuse func(id, format string, a ...any) int) ([]string, int) {
 	decl := ""
 	for _, line := range strings.Split(setup, "\n") {
 		if strings.HasPrefix(strings.TrimLeft(line, " \t\n\v\f\r"), "local managed_files=(") {
@@ -302,10 +304,10 @@ func cirManagedFiles(setup, setupSh string, refuse func(string, ...any) int) ([]
 		}
 	}
 	if decl == "" {
-		return nil, refuse("no 'local managed_files=(' declaration in %s — cannot resolve the managed-block targets", setupSh)
+		return nil, refuse("no-managed-files-declaration", "no 'local managed_files=(' declaration in %s — cannot resolve the managed-block targets", setupSh)
 	}
 	if !strings.HasSuffix(decl, ")") {
-		return nil, refuse("the managed_files declaration in %s does not close on its own line — this guard parses a single-line declaration only, and a truncated set must be refused, never silently served", setupSh)
+		return nil, refuse("managed-files-unclosed", "the managed_files declaration in %s does not close on its own line — this guard parses a single-line declaration only, and a truncated set must be refused, never silently served", setupSh)
 	}
 	_, rest, _ := strings.Cut(decl, "managed_files=(")
 	files := []string{}
@@ -322,12 +324,12 @@ func cirManagedFiles(setup, setupSh string, refuse func(string, ...any) int) ([]
 		el = strings.TrimPrefix(strings.TrimSuffix(el, `"`), `"`)
 		rel, ok := strings.CutPrefix(el, "$home_dir/")
 		if !ok {
-			return nil, refuse("cannot resolve managed_files element '%s' in %s — expected a \"$home_dir/-relative path", el, setupSh)
+			return nil, refuse("cannot-resolve-managed-files-element", "cannot resolve managed_files element '%s' in %s — expected a \"$home_dir/-relative path", el, setupSh)
 		}
 		files = append(files, rel)
 	}
 	if len(files) == 0 {
-		return nil, refuse("setup.sh's managed_files declaration is empty in %s — refusing to scan nothing and call it clean", setupSh)
+		return nil, refuse("setup-sh", "setup.sh's managed_files declaration is empty in %s — refusing to scan nothing and call it clean", setupSh)
 	}
 	return files, 0
 }

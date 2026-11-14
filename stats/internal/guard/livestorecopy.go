@@ -94,18 +94,18 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 		l.port = args[2]
 	}
 	if !lscName.MatchString(name) {
-		l.die(2, "name '%s' is not [a-z0-9][a-z0-9_-]*", name)
+		l.die("bad-name", 2, "name '%s' is not [a-z0-9][a-z0-9_-]*", name)
 	}
 	l.db = "flow_" + strings.ReplaceAll(name, "-", "_") + "_live"
 	l.dir = "/tmp/flow-live-" + strings.ReplaceAll(name, "-", "_")
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if repo == "" {
-		l.die(2, "FLOW_GUARD_REPO_ROOT is unset — run flow-guard live-store-copy, which sets it")
+		l.die("repo-root-unset", 2, "FLOW_GUARD_REPO_ROOT is unset — run flow-guard live-store-copy, which sets it")
 	}
 	if cmd == "up" || cmd == "restart" {
 		if out, err := l.cmd("git", "-C", env.Dir, "rev-parse", "--show-toplevel").Output(); err == nil {
 			if top := strings.TrimRight(string(out), "\n"); !lscSameFile(top, repo) {
-				l.die(2, "live-store-copy runs from %s, but you are in %s — run %s/scripts/flow-guard live-store-copy", repo, top, top)
+				l.die("wrong-checkout", 2, "live-store-copy runs from %s, but you are in %s — run %s/scripts/flow-guard live-store-copy", repo, top, top)
 			}
 		}
 	}
@@ -117,17 +117,17 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 		}
 		l.portOK()
 		if lscExists(l.dir) {
-			l.die(2, "%s exists -- run down %s first", l.dir, name)
+			l.die("copy-exists", 2, "%s exists -- run down %s first", l.dir, name)
 		}
 		if lscExists(sdd) {
-			l.die(2, "%s exists -- pick another name", sdd)
+			l.die("sdd-exists", 2, "%s exists -- pick another name", sdd)
 		}
 		if l.answers() {
-			l.die(2, "port %s already answers", l.port)
+			l.die("port-in-use", 2, "port %s already answers", l.port)
 		}
 		probe := l.pg("psql", "-U", "flow", "-d", "flow", "-tAc", "select 1 from pg_database where datname='"+l.db+"'")
 		if out, _ := probe.Output(); strings.TrimRight(string(out), "\n") != "" {
-			l.die(2, "database %s exists -- run down %s first", l.db, name)
+			l.die("database-exists", 2, "database %s exists -- run down %s first", l.db, name)
 		}
 		for _, d := range []string{l.dir + "/transcripts", l.dir + "/state", sdd} {
 			l.check(os.MkdirAll(d, 0o777))
@@ -141,7 +141,7 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 		}
 		l.step(l.pg("createdb", "-U", "flow", l.db))
 		if !l.copyStore() {
-			l.die(1, "copy into %s failed", l.db)
+			l.die("copy-failed", 1, "copy into %s failed", l.db)
 		}
 		for _, c := range [][]string{{"make", "-s", "web-dist"}, {"go", "build", "-o", l.dir + "/flowd", "./cmd/flowd"}} {
 			build := l.cmd(c[0], c[1:]...)
@@ -159,7 +159,7 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 		set.Stdin = strings.NewReader(body)
 		set.Stdout, set.Stderr = stdout, stderr
 		if set.Run() != nil {
-			l.die(1, "state record for %s failed", name)
+			l.die("state-record-failed", 1, "state record for %s failed", name)
 		}
 		fmt.Fprintf(stdout, "scratch change: %s\n", name)
 	case "restart":
@@ -168,7 +168,7 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 		}
 		for _, f := range []string{"port", "flowd", "transcripts-dir"} {
 			if !lscExists(l.dir + "/" + f) {
-				l.die(2, "no %s/%s -- run up %s first", l.dir, f, name)
+				l.die("copy-missing", 2, "no %s/%s -- run up %s first", l.dir, f, name)
 			}
 		}
 		l.port = l.read("port")
@@ -198,10 +198,12 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 
 func (l *lsc) usage() {
 	fmt.Fprintln(l.stderr, "usage: flow-guard live-store-copy up <name> [<port>] | restart <name> | down <name>")
+	Reason(l.env, "usage")
 	panic(lscExit(2))
 }
 
-func (l *lsc) die(code int, format string, a ...any) {
+func (l *lsc) die(id string, code int, format string, a ...any) {
+	Reason(l.env, id)
 	fmt.Fprintf(l.stderr, "live-store-copy: "+format+"\n", a...)
 	panic(lscExit(code))
 }
@@ -209,7 +211,7 @@ func (l *lsc) die(code int, format string, a ...any) {
 // check is set -e over a file system step: its error ends the run with 1.
 func (l *lsc) check(err error) {
 	if err != nil {
-		l.die(1, "%v", err)
+		l.die("step-failed", 1, "%v", err)
 	}
 }
 
@@ -235,6 +237,7 @@ func (l *lsc) pg(args ...string) *exec.Cmd {
 func (l *lsc) step(cmd *exec.Cmd) {
 	cmd.Stdout, cmd.Stderr = l.stdout, l.stderr
 	if rc := exitCode(cmd.Run()); rc != 0 {
+		Reason(l.env, "command-failed")
 		panic(lscExit(rc))
 	}
 }
@@ -292,7 +295,7 @@ func (l *lsc) read(f string) string {
 func (l *lsc) portOK() {
 	n, err := strconv.Atoi(l.port)
 	if err != nil || strings.TrimLeft(l.port, "0123456789") != "" || n < 1024 || n > 65535 || n == 4173 || n == 4174 {
-		l.die(2, "port '%s' refused (1024-65535, never 4173 or 4174)", l.port)
+		l.die("port-refused", 2, "port '%s' refused (1024-65535, never 4173 or 4174)", l.port)
 	}
 }
 
@@ -323,7 +326,7 @@ func (l *lsc) stopFlowd() {
 		time.Sleep(time.Second)
 	}
 	if alive() {
-		l.die(1, "flowd %d did not exit within 30s", pid)
+		l.die("flowd-did-not-exit", 1, "flowd %d did not exit within 30s", pid)
 	}
 }
 
@@ -356,7 +359,7 @@ func (l *lsc) launch(transcripts string) {
 		}
 		time.Sleep(time.Second)
 	}
-	l.die(1, "flowd did not answer on :%s within 60s -- see %s/log", l.port, l.dir)
+	l.die("flowd-did-not-answer", 1, "flowd did not answer on :%s within 60s -- see %s/log", l.port, l.dir)
 }
 
 func (l *lsc) printAddr() {

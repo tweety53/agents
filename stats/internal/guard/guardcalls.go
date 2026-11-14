@@ -75,11 +75,13 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if root == "" {
 		fmt.Fprint(stderr, "check-guard-calls: no repository root — run flow-guard check-guard-calls, which sets FLOW_GUARD_REPO_ROOT\n")
+		Reason(env, "no-repository-root")
 		return 2
 	}
 	files, err := gcFiles(root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-guard-calls: %v\n", err)
+		Reason(env, "cannot-list-files")
 		return 2
 	}
 	var out strings.Builder
@@ -88,6 +90,7 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 		b, err := os.ReadFile(filepath.Join(root, rel))
 		if err != nil {
 			fmt.Fprintf(stderr, "check-guard-calls: cannot read %s: %v\n", rel, err)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		sc := bufio.NewScanner(bytes.NewReader(b))
@@ -116,6 +119,7 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	gn, err := gcGoLiterals(&out, root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-guard-calls: %v\n", err)
+		Reason(env, "cannot-read-go-literals")
 		return 2
 	}
 	n += gn
@@ -125,6 +129,7 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprint(stdout, out.String())
 	if n > 0 {
 		fmt.Fprintf(stdout, "GUARD-CALLS-INVALID: %s — %d violation(s)\n", root, n)
+		Reason(env, "guard-calls-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "GUARD-CALLS-OK: %s — %d file(s) scanned\n", root, len(files))

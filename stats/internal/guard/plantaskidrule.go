@@ -21,7 +21,7 @@ import (
 // named self-review-…, while a loop's branch is never spectre/<its own name>.
 // A repository git cannot read holds no such branch. An archived plan, or a
 // file outside a `changes/<name>/` directory, is not checked: its text is
-// history, judged when it was live. Exit 0 clean, 1 one `file:line:` line per
+// history, judged when it was live. Exit 0 clean, 1 one `file:line: plan-task-id-rule …` line per
 // statement, 2 a usage error or a file that cannot be read.
 func init() { Registry["plan-task-id-rule"] = planTaskIDRuleCmd }
 
@@ -30,6 +30,7 @@ var ptirRE = regexp.MustCompile("(?i)\\bno\\s+`Task-Id:`")
 func planTaskIDRuleCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 || args[0] == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-task-id-rule <tasks.md>")
+		Reason(env, "usage")
 		return 2
 	}
 	path := args[0]
@@ -39,11 +40,13 @@ func planTaskIDRuleCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	lines, err := tcfPlanLines(b)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	changes := filepath.Dir(filepath.Dir(path))
@@ -59,13 +62,14 @@ func planTaskIDRuleCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	found := 0
 	tcfUnfenced(lines, func(i int, line string) bool {
 		if ptirRE.MatchString(line) {
-			fmt.Fprintf(stdout, "%s:%d: a /flow plan states task commits carry no `Task-Id:` trailer — flow-guard close-task refuses a /flow task commit without one; that rule is a fix loop's alone\n",
+			fmt.Fprintf(stdout, "%s:%d: plan-task-id-rule a /flow plan states task commits carry no `Task-Id:` trailer — flow-guard close-task refuses a /flow task commit without one; that rule is a fix loop's alone\n",
 				args[0], i+1)
 			found++
 		}
 		return false
 	})
 	if found > 0 {
+		Reason(env, "plan-task-id-rule")
 		return 1
 	}
 	return 0

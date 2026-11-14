@@ -50,16 +50,19 @@ func main() {
 func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) string, workingDir func() string, client *http.Client) int {
 	start := time.Now()
 	out := &firstLine{w: stdout}
-	code := run(args, out, stderr)
+	reasons := &guard.Reasons{}
+	code := run(args, reasons, out, stderr)
 	if name, ok := dispatched(args); ok {
 		if dir := workingDir(); dir != "" {
-			recordRun(getenv, dir, name, code, string(out.line), time.Since(start), client)
+			recordRun(getenv, dir, name, code, string(out.line), reasons.IDs(), time.Since(start), client)
 		}
 	}
 	return code
 }
 
-func run(args []string, stdout, stderr io.Writer) int {
+// run dispatches args to its guard, recording the guard's reason ids into
+// reasons.
+func run(args []string, reasons *guard.Reasons, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
@@ -72,7 +75,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(stderr, "flow-guard: cannot read the working directory: %v\n", err)
+		guard.Reason(guard.Env{Reasons: reasons}, "cannot-read-working-dir")
 		return guard.CannotAnswer(args[0])
 	}
-	return fn(args[1:], guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin}, stdout, stderr)
+	return fn(args[1:], guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin, Reasons: reasons}, stdout, stderr)
 }

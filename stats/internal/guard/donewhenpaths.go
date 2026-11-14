@@ -82,27 +82,28 @@ var (
 )
 
 func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-done-when-paths: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 1 {
-		return die("usage: flow-guard check-done-when-paths <worktree>")
+		return die("usage", "usage: flow-guard check-done-when-paths <worktree>")
 	}
 	root, ok := cdPhysical(env, args[0])
 	if !ok {
-		return die("%s is not a directory", args[0])
+		return die("not-a-directory", "%s is not a directory", args[0])
 	}
 	git := envGit(env)
 	if git("-C", root, "rev-parse", "--is-inside-work-tree").Run() != nil {
-		return die("%s is not a git worktree", root)
+		return die("not-a-worktree", "%s is not a git worktree", root)
 	}
 	// One listing is both the scan set (its .md entries) and the index the
 	// named paths are checked against — the same tracked set, so a named
 	// path fails exactly when it is missing from it.
 	raw, ok := capture(git("-C", root, "ls-files", "-z"))
 	if !ok {
-		return die("cannot read the index of %s", root)
+		return die("cannot-read-the-index", "cannot read the index of %s", root)
 	}
 	tracked := map[string]bool{}
 	dirs := map[string]bool{}
@@ -125,7 +126,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 	// remote-tracking `refs/remotes/<r>/<b>` yields both <b> and <r>/<b>.
 	refs, ok := capture(git("-C", root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"))
 	if !ok {
-		return die("cannot read the branches of %s", root)
+		return die("cannot-read-the-branches", "cannot read the branches of %s", root)
 	}
 	branch := map[string]bool{}
 	for _, r := range strings.Split(refs, "\n") {
@@ -144,7 +145,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, file := range markdown {
 		b, err := os.ReadFile(root + "/" + file)
 		if err != nil {
-			return die("cannot read tracked file %s in %s: %v", file, root, err)
+			return die("cannot-read-tracked-file", "cannot read tracked file %s in %s: %v", file, root, err)
 		}
 		inSection := false
 		fence := false
@@ -181,6 +182,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "DONE-WHEN-PATH: %s\n", o)
 		}
 		fmt.Fprintf(stdout, "DONE-WHEN-VIOLATION: %s — %d\n", root, len(offenders))
+		Reason(env, "done-when-violation")
 		return 1
 	}
 	fmt.Fprintf(stdout, "DONE-WHEN-OK: %s\n", root)

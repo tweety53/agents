@@ -68,6 +68,7 @@ var psMarker = regexp.MustCompile(`(?i)noqa|nolint|type:[[:space:]]*ignore|pyrig
 func checkPythonSuppressions(args []string, env Env, stdout, stderr io.Writer) int {
 	files, ok := psScanSet(args, env, stderr)
 	if !ok {
+		Reason(env, "scan-set-failed")
 		return 2
 	}
 	// No Python in scope is a clean answer, not an error.
@@ -85,6 +86,7 @@ func checkPythonSuppressions(args []string, env Env, stdout, stderr io.Writer) i
 		if err != nil {
 			// grep's trouble exit, reported as the bash reported it.
 			fmt.Fprintf(stderr, "grep: %s: %s\nERROR: grep failed with exit 2 — cannot answer\n", f, psStrerror(err))
+			Reason(env, "cannot-read-file")
 			return 2
 		}
 		// A file holding a NUL byte is binary and yields no hit — how grep
@@ -104,6 +106,7 @@ func checkPythonSuppressions(args []string, env Env, stdout, stderr io.Writer) i
 	}
 	fmt.Fprintln(stdout, strings.Join(hits, "\n"))
 	fmt.Fprintf(stderr, "suppressions-found: %d marker hit(s) — fix the code, never widen this guard\n", len(hits))
+	Reason(env, "marker-hit")
 	return 1
 }
 

@@ -230,12 +230,13 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	// refuse is could_not_judge: the one printer for every exit-2 refusal, so
 	// the EXIT CODES opening stays identical at every site. The detail is the
 	// site's own specifics; this adds the standard opening in front of it.
-	refuse := func(detail string) int {
+	refuse := func(id, detail string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "%s %s\n", tcfNotAVerdict, detail)
 		return 2
 	}
 	if len(args) < 3 || len(args) > 6 {
-		return refuse(fmt.Sprintf("usage: flow-guard check-task-commit-fields <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> [parent-sha] [canonical-worktree] [change-name] — got %d argument(s)", len(args)))
+		return refuse("usage", fmt.Sprintf("usage: flow-guard check-task-commit-fields <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]> [parent-sha] [canonical-worktree] [change-name] — got %d argument(s)", len(args)))
 	}
 	a := append(slices.Clone(args), "", "", "")
 	worktree, taskID, commit, parent, canonical, name := a[0], a[1], a[2], a[3], a[4], a[5]
@@ -256,19 +257,19 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	var repos []tcfRepoCommit
 	if strings.Contains(commit, "=") {
 		if parent != "" {
-			return refuse("the per-repository commit map derives each commit's parent itself — pass the fourth argument empty")
+			return refuse("parent-with-commit-map", "the per-repository commit map derives each commit's parent itself — pass the fourth argument empty")
 		}
 		for _, entry := range strings.Split(commit, ",") {
 			entry = strings.TrimSpace(entry)
 			wt, sha, _ := strings.Cut(entry, "=")
 			if wt == "" || sha == "" || strings.Contains(sha, "=") {
-				return refuse(fmt.Sprintf("map entry is not <worktree>=<sha>: %q", entry))
+				return refuse("bad-map-entry", fmt.Sprintf("map entry is not <worktree>=<sha>: %q", entry))
 			}
 			if slices.ContainsFunc(repos, func(r tcfRepoCommit) bool { return r.worktree == wt }) {
-				return refuse("worktree named twice in the commit map: " + wt)
+				return refuse("worktree-named-twice", "worktree named twice in the commit map: "+wt)
 			}
 			if !isDir(wt) {
-				return refuse("worktree not found: " + wt)
+				return refuse("worktree-not-found", "worktree not found: "+wt)
 			}
 			repos = append(repos, tcfRepoCommit{wt, sha})
 		}
@@ -292,12 +293,12 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	// "task 01 not found" that reads as the task missing (panel F1).
 	switch {
 	case taskID == "" || taskID[0] == '0' || strings.Trim(taskID, "0123456789.") != "":
-		return refuse(fmt.Sprintf("task id argument is not a single flat-integer task id: '%s' — a joined multi-task list in one call is the loop-clobber shape; invoke one call per task", taskID))
+		return refuse("joined-task-ids", fmt.Sprintf("task id argument is not a single flat-integer task id: '%s' — a joined multi-task list in one call is the loop-clobber shape; invoke one call per task", taskID))
 	case strings.Contains(taskID, "."):
-		return refuse(fmt.Sprintf("task id argument is a dotted id, and a dotted id is no task to spectre: '%s' — use the task's own flat integer id", taskID))
+		return refuse("dotted-task-id", fmt.Sprintf("task id argument is a dotted id, and a dotted id is no task to spectre: '%s' — use the task's own flat integer id", taskID))
 	}
 	if !isDir(worktree) {
-		return refuse("worktree not found: " + worktree)
+		return refuse("worktree-not-found", "worktree not found: "+worktree)
 	}
 
 	// judge is dispatch_python_guard: the check against tasksMD, parent sha
@@ -313,9 +314,10 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		switch {
 		case errors.As(err, &crash):
 			fmt.Fprintln(stderr, crash.Error())
+			Reason(env, "check-crashed")
 			return 1
 		case err != nil:
-			return refuse(err.Error())
+			return refuse("cannot-judge", err.Error())
 		}
 		for _, v := range violations {
 			fmt.Fprintln(stdout, v)
@@ -337,6 +339,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 			}
 		}
 		if len(violations) > 0 {
+			Reason(env, "commit-field-violations")
 			return 1
 		}
 		return 0
@@ -347,9 +350,10 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	case tasksMD != "":
 		return judge(tasksMD)
 	case detail == "":
+		Reason(env, "tasks-md-unresolved")
 		return 2
 	}
-	return refuse(detail)
+	return refuse("tasks-md-unresolved", detail)
 }
 
 // tcfCrash is an exception check-task-commit-fields.py's main does not

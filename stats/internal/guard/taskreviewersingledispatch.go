@@ -172,14 +172,17 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 			shown = "<missing>"
 		}
 		fmt.Fprintf(stderr, "%snot a directory: %s\n", trsdPrefix, shown)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if name == "" {
 		fmt.Fprintf(stderr, "%susage: flow-guard check-task-reviewer-single-dispatch <worktree> <change-name> <session-token>\n", trsdPrefix)
+		Reason(env, "usage")
 		return 2
 	}
 	if token == "" {
 		fmt.Fprintf(stderr, "%ssession token is required and must be this run's own literal token\n", trsdPrefix)
+		Reason(env, "session-token-required")
 		return 2
 	}
 
@@ -187,6 +190,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	// (cleanupcomplete.go), whose comment is canonical for the reasoning.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", trsdPrefix, name)
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 
@@ -196,12 +200,14 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil || strings.HasPrefix(worktreeArg, "-") || syscall.Access(pcAbs(env, worktreeArg), 1) != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished: \n", trsdPrefix)
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
 	tasksMD := ChangeDir(worktree+"/spectre/changes", name) + "/tasks.md"
 	if fi, err := os.Stat(tasksMD); err != nil || !fi.Mode().IsRegular() {
 		fmt.Fprintf(stderr, "%sno tasks.md at %s -- cannot answer\n", trsdPrefix, tasksMD)
+		Reason(env, "no-tasks-md")
 		return 2
 	}
 
@@ -210,6 +216,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, worktree)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", trsdPrefix, name)
+		Reason(env, "record-dispatches-failed")
 		return 2
 	}
 
@@ -218,6 +225,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	keys, ok := trsdReviewerKeys(rows, token)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdispatch rows were not readable JSON -- cannot answer\n", trsdPrefix)
+		Reason(env, "dispatch-rows-were-not-readable")
 		return 2
 	}
 
@@ -225,10 +233,12 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	// never re-derived from the raw markdown by this guard.
 	bundleLines, ok := trsdSibling(env, "FLOW_GUARD_PLAN_DISPATCH_BUNDLES", "plan-dispatch-bundles", tasksMD, stderr)
 	if !ok {
+		Reason(env, "sibling-failed")
 		return 2
 	}
 	groupLines, ok := trsdSibling(env, "FLOW_GUARD_PLAN_DISPATCH_GROUPS", "plan-dispatch-groups", tasksMD, stderr)
 	if !ok {
+		Reason(env, "sibling-failed")
 		return 2
 	}
 	groupOf := trsdGroups(bundleLines, groupLines)
@@ -245,6 +255,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		c, ok := trsdNewestClass(out)
 		if !ok {
 			fmt.Fprintf(stderr, "%sdecision output was JSON but not an array of decision rows -- cannot answer\n", trsdPrefix)
+			Reason(env, "bad-decision-output")
 			return 2
 		}
 		if c != "" {
@@ -332,6 +343,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		for _, v := range violations {
 			fmt.Fprintf(stderr, "%s%s\n", trsdPrefix, v)
 		}
+		Reason(env, "reviewer-dispatch-violations")
 		return 1
 	}
 	fmt.Fprintln(stdout, "TASK-REVIEWER-SINGLE-DISPATCH-OK: every gated-per-task reviewer dispatch of this run is bundled by implementer group (bounds and retries included)")

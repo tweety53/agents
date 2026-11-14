@@ -20,7 +20,7 @@ import (
 // token carrying `<`, `*`, `{` or `$` is a placeholder, not a path. An
 // archived plan, or a file outside a `changes/<name>/` directory, is not
 // checked: its citations are history, judged when it was live. Exit 0 clean,
-// 1 one `file:line: task <id> cites … ` line per missing path, 2 a usage
+// 1 one `file:line: plan-script-paths task <id> cites … ` line per missing path, 2 a usage
 // error or a file that cannot be read.
 func init() { Registry["plan-script-paths"] = planScriptPathsCmd }
 
@@ -29,6 +29,7 @@ var pspTokenRE = regexp.MustCompile(`(^|[\s(=])(scripts/[^\s` + "`" + `]+)`)
 func planScriptPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 || args[0] == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-script-paths <tasks.md>")
+		Reason(env, "usage")
 		return 2
 	}
 	path := args[0]
@@ -38,11 +39,13 @@ func planScriptPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	lines, err := tcfPlanLines(b)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	changes := filepath.Dir(filepath.Dir(path))
@@ -86,13 +89,14 @@ func planScriptPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 				for i+1 < len(starts) && starts[i+1] <= m[0] {
 					i++
 				}
-				fmt.Fprintf(stdout, "%s:%d: task %s cites `%s`, which the repository does not carry — name a path that exists, or list it in a task's **Files:** when the plan creates it\n",
+				fmt.Fprintf(stdout, "%s:%d: plan-script-paths task %s cites `%s`, which the repository does not carry — name a path that exists, or list it in a task's **Files:** when the plan creates it\n",
 					args[0], task.taskLine+1+offsets[i], task.id, p)
 				found++
 			}
 		}
 	}
 	if found > 0 {
+		Reason(env, "plan-script-paths")
 		return 1
 	}
 	return 0

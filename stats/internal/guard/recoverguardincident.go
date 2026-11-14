@@ -51,7 +51,8 @@ func init() {
 }
 
 func recoverGuardIncident(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(rc int, msg string) int {
+	die := func(id string, rc int, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "recover-guard-incident: %s\n", msg)
 		return rc
 	}
@@ -67,12 +68,12 @@ func recoverGuardIncident(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	for _, a := range args {
 		if strings.HasPrefix(a, "-") {
-			return die(2, "unknown option: "+a)
+			return die("usage", 2, "unknown option: "+a)
 		}
 	}
 
 	if len(args) > 1 {
-		return die(2, "unexpected argument: "+args[1])
+		return die("usage", 2, "unexpected argument: "+args[1])
 	}
 
 	// F1 contract: repo-dir (or the cwd) resolves to the toplevel however
@@ -100,28 +101,28 @@ func recoverGuardIncident(args []string, env Env, stdout, stderr io.Writer) int 
 			target = raw
 		}
 		if args[0] == "" || !searchable(target) {
-			return die(2, "not a directory: "+args[0])
+			return die("not-a-directory", 2, "not a directory: "+args[0])
 		}
 	}
 	dir, err := filepath.EvalSymlinks(target)
 	if given {
 		if err != nil {
-			return die(2, "not a directory: "+args[0])
+			return die("not-a-directory", 2, "not a directory: "+args[0])
 		}
 	} else if err != nil {
-		return die(1, err.Error())
+		return die("cannot-resolve-repo", 1, err.Error())
 	}
 	git := func(errw io.Writer, a ...string) (string, int) {
 		return gitExec(env.Dir, nil, errw, a...)
 	}
 	top, rc := git(io.Discard, "-C", dir, "rev-parse", "--show-toplevel")
 	if rc != 0 {
-		return die(2, "not a git repository: "+dir)
+		return die("not-a-git-repository", 2, "not a git repository: "+dir)
 	}
 	repo := strings.TrimRight(top, "\n")
 
 	if _, rc := git(io.Discard, "-C", repo, "rev-parse", "-q", "--verify", "REVERT_HEAD"); rc != 0 {
-		return die(1, "no revert in progress in "+repo+" (REVERT_HEAD missing) — nothing to recover")
+		return die("no-revert-in-progress", 1, "no revert in progress in "+repo+" (REVERT_HEAD missing) — nothing to recover")
 	}
 
 	// The reflog block prints in every mode (header): git writes straight to
@@ -134,7 +135,11 @@ func recoverGuardIncident(args []string, env Env, stdout, stderr io.Writer) int 
 		return 0
 	}
 	fmt.Fprintf(stdout, "running: git -C %s revert --abort\n", repo)
-	return rgiRun(env.Dir, stdout, stderr, "git", "-C", repo, "revert", "--abort")
+	rc = rgiRun(env.Dir, stdout, stderr, "git", "-C", repo, "revert", "--abort")
+	if rc != 0 {
+		Reason(env, "revert-abort-failed")
+	}
+	return rc
 }
 
 // rgiRun runs argv with its stdout and stderr handed to the child as they

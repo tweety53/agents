@@ -341,16 +341,18 @@ func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code in
 
 func (v *vvp) usage(why string) {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: %s\n%s\n", why, vvpUsage)
+	Reason(v.env, "usage")
 	panic(vvpExit(2))
 }
 
 // die prints the error and exits 2, first ending a stage markBegin opened so
 // no exit leaves flow.visual-verify running in the store.
-func (v *vvp) die(format string, a ...any) {
+func (v *vvp) die(id, format string, a ...any) {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: "+format+"\n", a...)
 	if v.stageOpen {
 		v.markEnd("stopped")
 	}
+	Reason(v.env, id)
 	panic(vvpExit(2))
 }
 
@@ -364,11 +366,12 @@ func (v *vvp) next(line string) {
 
 // stop ends an open stage with outcome, prints the closing `STOP:` line and
 // exits 1.
-func (v *vvp) stop(outcome, line string) {
+func (v *vvp) stop(id, outcome, line string) {
 	if v.stageOpen {
 		v.markEnd(outcome)
 	}
 	v.say("STOP: %s", line)
+	Reason(v.env, id)
 	panic(vvpExit(1))
 }
 
@@ -460,7 +463,7 @@ func (v *vvp) parse(args []string, prepare bool) {
 	}
 	for _, w := range v.worktrees {
 		if !isDir(w) {
-			v.die("%s is not a directory", w)
+			v.die("not-a-directory", "%s is not a directory", w)
 		}
 	}
 }
@@ -489,7 +492,7 @@ func (v *vvp) markEnd(outcome string) {
 
 // guard runs a registered guard in process: its exit, stdout and stderr.
 func (v *vvp) guard(name string, stdin io.Reader, args ...string) (int, string, string) {
-	env := v.env
+	env := quietReasons(v.env)
 	env.Stdin = stdin
 	var out, errb bytes.Buffer
 	rc := Registry[name](args, env, &out, &errb)
@@ -542,17 +545,17 @@ func (v *vvp) writeStage(survivors []string) {
 		b.WriteString("\n")
 	}
 	if err := os.MkdirAll(filepath.Dir(v.stagePath()), 0o755); err != nil {
-		v.die("cannot write the stage file: %v", err)
+		v.die("cannot-write-the-stage-file", "cannot write the stage file: %v", err)
 	}
 	if err := os.WriteFile(v.stagePath(), []byte(b.String()), 0o644); err != nil {
-		v.die("cannot write the stage file: %v", err)
+		v.die("cannot-write-the-stage-file", "cannot write the stage file: %v", err)
 	}
 }
 
 func (v *vvp) appendStage(line string) {
 	f, err := os.OpenFile(v.stagePath(), os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		v.die("cannot append to the stage file: %v", err)
+		v.die("cannot-append-stage-file", "cannot append to the stage file: %v", err)
 	}
 	defer f.Close()
 	fmt.Fprintln(f, line)
@@ -563,7 +566,7 @@ func (v *vvp) appendStage(line string) {
 func (v *vvp) readStage() [][2]string {
 	b, err := os.ReadFile(v.stagePath())
 	if err != nil {
-		v.die("cannot read the stage file %s — run prepare first: %v", v.stagePath(), err)
+		v.die("cannot-read-the-stage-file", "cannot read the stage file %s — run prepare first: %v", v.stagePath(), err)
 	}
 	var out [][2]string
 	for _, l := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {

@@ -47,6 +47,7 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 	const prog = "check-identical-baselines"
 	if len(args) != 0 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard resolve-visual-screenshots … | flow-guard check-identical-baselines\n", prog)
+		Reason(env, "usage")
 		return 2
 	}
 	in := env.Stdin
@@ -65,6 +66,7 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 		data, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, path, err)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		dir := filepath.Dir(path)
@@ -77,10 +79,12 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 	}
 	if err := sc.Err(); err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", prog, err)
+		Reason(env, "cannot-read-input")
 		return 2
 	}
 	if n == 0 {
 		fmt.Fprintf(stderr, "%s: no PNG paths on stdin\n", prog)
+		Reason(env, "no-png-paths-on-stdin")
 		return 2
 	}
 	var lines []string
@@ -99,5 +103,6 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 	// "identical: <dir>: <first name> …" sorts by directory, then first name.
 	sort.Strings(lines)
 	fmt.Fprintln(stdout, strings.Join(lines, "\n"))
+	Reason(env, "identical-none")
 	return 1
 }

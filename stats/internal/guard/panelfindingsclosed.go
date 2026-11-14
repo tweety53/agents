@@ -137,10 +137,12 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			shown = "<missing>"
 		}
 		fmt.Fprintf(stderr, "%snot a directory: %s\n", cfcPrefix, shown)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if name == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard check-panel-findings-closed <worktree> <change-name>")
+		Reason(env, "usage")
 		return 2
 	}
 	// CONTAINMENT: plainChangeName (changename.go) is canonical for why
@@ -148,6 +150,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	// passed to `flow record findings -change`.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", cfcPrefix, name)
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	// Canonicalised before it is passed to `flow` as `-C`, and refused if it
@@ -156,6 +159,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished before it could be resolved: %s\n", cfcPrefix, worktreeArg)
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
@@ -167,6 +171,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		findingsJSON, err = env.Findings(name)
 		if err != nil {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %v\n", cfcPrefix, name, err)
+			Reason(env, "cannot-read-findings")
 			return 2
 		}
 	} else {
@@ -175,12 +180,14 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		findingsJSON, errOut, rc = pcFlow(env, false, "record", "findings", "-change", name, "-C", worktree)
 		if rc != 0 {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
+			Reason(env, "cannot-read-findings")
 			return 2
 		}
 	}
 	findings, ok := cfcParse(findingsJSON)
 	if !ok {
 		fmt.Fprintln(stderr, cfcJQFailed)
+		Reason(env, "records-unparseable")
 		return 2
 	}
 	// A gated per-task reviewer's row is no panel finding
@@ -198,6 +205,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		dispatchesJSON, err = env.Dispatches(name)
 		if err != nil {
 			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %v\n", cfcPrefix, name, err)
+			Reason(env, "cannot-read-dispatches")
 			return 2
 		}
 	} else {
@@ -206,12 +214,14 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		dispatchesJSON, errOut, rc = pcFlow(env, false, "record", "dispatches", "-change", name, "-C", worktree)
 		if rc != 0 {
 			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
+			Reason(env, "cannot-read-dispatches")
 			return 2
 		}
 	}
 	dispatches, ok := cfcParseDispatches(dispatchesJSON)
 	if !ok {
 		fmt.Fprintln(stderr, cfcJQFailed)
+		Reason(env, "records-unparseable")
 		return 2
 	}
 
@@ -382,6 +392,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			passesJSON, err = env.Passes(name)
 			if err != nil {
 				fmt.Fprintf(stderr, "%scannot read passes for '%s' from the store — cannot determine anything: %v\n", cfcPrefix, name, err)
+				Reason(env, "cannot-read-passes")
 				return 2
 			}
 		} else {
@@ -390,6 +401,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			passesJSON, errOut, rc = pcFlow(env, false, "record", "passes", "-change", name, "-C", worktree)
 			if rc != 0 {
 				fmt.Fprintf(stderr, "%scannot read passes for '%s' from the store — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
+				Reason(env, "cannot-read-passes")
 				return 2
 			}
 		}
@@ -398,6 +410,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		}
 		if json.Unmarshal(passesJSON, &passes) != nil || passes == nil {
 			fmt.Fprintln(stderr, cfcJQFailed)
+			Reason(env, "records-unparseable")
 			return 2
 		}
 		var over []string
@@ -461,6 +474,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			continue
 		}
 		if !recordedTrees("a fixed finding's reproducer is absent from the worktree") {
+			Reason(env, "trees-unrecorded")
 			return 2
 		}
 		if !slices.ContainsFunc(trees, func(t string) bool { return pcExists(t + "/" + token) }) {
@@ -485,6 +499,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		body, err := os.ReadFile(p)
 		if err != nil {
 			fmt.Fprintf(stderr, "%scannot read fix report %s — cannot determine anything: %v\n", cfcPrefix, p, err)
+			Reason(env, "cannot-read-fix-report")
 			return 2
 		}
 		for _, m := range cfcRegressionRE.FindAllStringSubmatch(string(body), -1) {
@@ -526,6 +541,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 				break
 			}
 			if !recordedTrees("a fixed finding's regression test is untracked in the worktree") {
+				Reason(env, "trees-unrecorded")
 				return 2
 			}
 			if slices.ContainsFunc(trees, func(t string) bool { return tracked(t, path) }) {
@@ -552,6 +568,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	uncounted, undercounted, err := cfcUncounted(worktree, findings)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", cfcPrefix, err)
+		Reason(env, "cannot-count-findings")
 		return 2
 	}
 	if len(uncounted) > 0 {
@@ -572,6 +589,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	unread, err := cfcUnreadSections(worktree, findings)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", cfcPrefix, err)
+		Reason(env, "cannot-read-sections")
 		return 2
 	}
 	if len(unread) > 0 {
@@ -584,6 +602,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	rounds, cause := uwUnprovedFixRounds(env, name, worktree, findingsJSON)
 	if cause != "" {
 		fmt.Fprintln(stderr, cfcPrefix+cause)
+		Reason(env, "fix-rounds-unreadable")
 		return 2
 	}
 	if len(rounds) > 0 {
@@ -591,6 +610,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		violated = true
 	}
 	if violated {
+		Reason(env, "findings-not-closed")
 		return 1
 	}
 	fmt.Fprintln(stdout, "FINDINGS-CLOSED")

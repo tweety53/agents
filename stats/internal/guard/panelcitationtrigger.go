@@ -46,10 +46,12 @@ func checkPanelCitationTrigger(args []string, env Env, stdout, stderr io.Writer)
 	}
 	gitBin, ok := panelResolveGit(env, prog, stderr)
 	if !ok || !panelValidateWorktree(env, prog, worktree, mergebase, gitBin, stderr) {
+		Reason(env, "invalid-worktree")
 		return 2
 	}
 	paths, ok := panelTouchedPaths(env, prog, worktree, mergebase, gitBin, stderr)
 	if !ok {
+		Reason(env, "cannot-list-touched-paths")
 		return 2
 	}
 	for _, p := range paths {
@@ -57,5 +59,6 @@ func checkPanelCitationTrigger(args []string, env Env, stdout, stderr io.Writer)
 			return 0
 		}
 	}
+	Reason(env, "no-doc-path-touched")
 	return 1
 }

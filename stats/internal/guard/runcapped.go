@@ -72,6 +72,7 @@ func runCapped(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(args) == 0 || args[0] != "--" || len(args) == 1 {
 		fmt.Fprintln(stderr, rcUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	args = args[1:]
@@ -83,23 +84,26 @@ func runCapped(args []string, env Env, stdout, stderr io.Writer) int {
 	if env.Getenv("RUN_CAPPED_PGID") != "" {
 		err := syscall.Exec(path, args, environ)
 		fmt.Fprintf(stderr, "run-capped: %s: %v\n", args[0], err)
+		Reason(env, "exec-failed")
 		return 127
 	}
 	if capMB == "" {
 		var body, errb bytes.Buffer
-		switch Registry["project-get"]([]string{env.Dir, "resource cap"}, env, &body, &errb) {
+		switch Registry["project-get"]([]string{env.Dir, "resource cap"}, quietReasons(env), &body, &errb) {
 		case 0:
 			capMB = strings.Join(strings.Fields(body.String()), " ")
 		case 1:
 			capMB = "4096"
 		default:
 			fmt.Fprintf(stderr, "run-capped: project-get failed: %s\n", strings.TrimRight(errb.String(), "\n"))
+			Reason(env, "project-get-failed")
 			return 2
 		}
 	}
 	limit, err := strconv.Atoi(capMB)
 	if err != nil || strings.TrimLeft(capMB, "0123456789") != "" {
 		fmt.Fprintf(stderr, "run-capped: cap must be a plain integer of MB: %s\n", capMB)
+		Reason(env, "bad-cap")
 		return 2
 	}
 
@@ -121,6 +125,7 @@ func runCapped(args []string, env Env, stdout, stderr io.Writer) int {
 	defer signal.Stop(sigs)
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(stderr, "run-capped: %s: %v\n", args[0], err)
+		Reason(env, "exec-failed")
 		return 127
 	}
 	pg := cmd.Process.Pid
@@ -133,6 +138,7 @@ func runCapped(args []string, env Env, stdout, stderr io.Writer) int {
 			rcKillTree(pg)
 			<-done
 			fmt.Fprintf(stderr, "CAPPED: %dMB (tree footprint %dMB)\n", limit, b>>20)
+			Reason(env, "capped")
 			return 137
 		}
 		select {

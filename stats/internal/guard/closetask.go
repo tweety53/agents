@@ -113,7 +113,8 @@ import (
 func init() { Registry["close-task"] = closeTask }
 
 func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
-	usage := func(msg string) int {
+	usage := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…\n", msg)
 		return 2
 	}
@@ -139,14 +140,15 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		return nil
 	})
 	if fset.Parse(args) != nil {
+		Reason(env, "usage")
 		return 2
 	}
 	if len(endCommits) != 0 && len(endCommits) != len(endKeys) {
-		return usage(fmt.Sprintf("%d -end-commit for %d -end-key: give one per key, in order, or none", len(endCommits), len(endKeys)))
+		return usage("end-commit-for-end-key", fmt.Sprintf("%d -end-commit for %d -end-key: give one per key, in order, or none", len(endCommits), len(endKeys)))
 	}
 	pos := fset.Args()
 	if len(pos) < 4 {
-		return usage(fmt.Sprintf("got %d positional argument(s)", len(pos)))
+		return usage("got-positional-argument", fmt.Sprintf("got %d positional argument(s)", len(pos)))
 	}
 	canonical, name, mergeBase := pos[0], pos[1], pos[2]
 	type task struct{ id, commit string }
@@ -156,11 +158,11 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	for _, a := range pos[3:] {
 		id, commit, ok := strings.Cut(a, ":")
 		if id == "" || (ok && commit == "") {
-			return usage("task argument is not <task-id>[:<sha|map>]: " + a)
+			return usage("bad-task-argument", "task argument is not <task-id>[:<sha|map>]: "+a)
 		}
 		if !ok {
 			if commit = ctTrailerCommit(envGit(env), canonical, mergeBase, id); commit == "" {
-				return usage(fmt.Sprintf("task %s: no commit since %s carries Task-Id: %s", id, mergeBase, id))
+				return usage("no-task-commit", fmt.Sprintf("task %s: no commit since %s carries Task-Id: %s", id, mergeBase, id))
 			}
 		}
 		commit = ctJoinRecorded(env, stderr, canonical, id, commit, recorded)
@@ -263,13 +265,16 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	case 0:
 	case 1:
 		fmt.Fprintln(stderr, "close-task: RE-COMMIT — a commit guard refused; nothing was ticked or pushed")
+		Reason(env, "re-commit")
 		return 1
 	default:
 		fmt.Fprintln(stderr, "close-task: STOP — a commit guard could not judge; nothing was ticked or pushed")
+		Reason(env, "commit-guard-cannot-judge")
 		return 2
 	}
 	if len(undispatched) > 0 {
 		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row carrying its commit; nothing was ticked or pushed")
+		Reason(env, "appended-task-undispatched")
 		return 1
 	}
 
@@ -279,6 +284,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		rc := Registry["check-review-gate"](append([]string{canonical, t.id, t.commit, canonical, name}, undeclared[t.id]...), env, io.MultiWriter(stdout, &verdict), stderr)
 		if rc != 0 {
 			fmt.Fprintln(stderr, "close-task: STOP — the review gate could not judge; nothing was ticked or pushed")
+			Reason(env, "review-gate-cannot-judge")
 			return 2
 		}
 		if strings.HasPrefix(verdict.String(), "QUIET:") {
@@ -305,6 +311,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	for _, id := range ticks {
 		if ctFlow(env, stdout, stderr, "tasks", "tick", "-C", canonical, name, id) != 0 {
 			fmt.Fprintf(stderr, "close-task: STOP — flow tasks tick failed for task %s\n", id)
+			Reason(env, "tick-failed")
 			rc = 2
 		}
 	}
@@ -314,6 +321,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		cmd.Stdout, cmd.Stderr = stdout, stderr
 		if cmd.Run() != nil {
 			fmt.Fprintf(stderr, "close-task: STOP — git push failed in %s\n", wt)
+			Reason(env, "push-failed")
 			rc = 2
 		}
 	}
@@ -420,12 +428,14 @@ func ctFlow(env Env, stdout, stderr io.Writer, args ...string) int {
 	flow, ok := lookPath(env, "flow")
 	if !ok {
 		fmt.Fprintln(stderr, "close-task: no flow binary on PATH")
+		Reason(env, "no-flow-binary-on-path")
 		return 127
 	}
 	cmd := exec.Command(flow, args...)
 	cmd.Dir = env.Dir
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	if cmd.Run() != nil {
+		Reason(env, "flow-record-failed")
 		return 1
 	}
 	return 0
@@ -470,11 +480,13 @@ func ctCheckTrailer(env Env, stdout, stderr io.Writer, canonical, name, id, comm
 		out, err := cmd.Output()
 		if err != nil {
 			fmt.Fprintf(stderr, "close-task: cannot read the Task-Id trailer of %s in %s\n", p[1], p[0])
+			Reason(env, "cannot-read-the-task-id")
 			return 2
 		}
 		named := ctTaskNumberRE.FindAllString(string(out), -1)
 		if !slices.ContainsFunc(named, func(n string) bool { return slices.Contains(accepted, n) }) {
 			fmt.Fprintf(stdout, "task %s: commit %s carries no Task-Id: trailer naming task %s (found %q) — re-commit with `Task-Id: %s`\n", id, p[1], id, strings.TrimSpace(string(out)), id)
+			Reason(env, "no-task-id-trailer")
 			rc = 1
 		}
 	}

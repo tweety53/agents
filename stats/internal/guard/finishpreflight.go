@@ -87,15 +87,18 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	worktree, baseRef, recorded := arg(0), arg(1), arg(2)
 	if worktree == "" || baseRef == "" || recorded == "" {
 		fmt.Fprint(stderr, baseRefUsage("flow-guard check-finish-preflight"))
+		Reason(env, "usage")
 		return 2
 	}
 	if !isDir(smcAbs(env, worktree)) {
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is not a directory — cannot determine anything\n", worktree)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	git := envGit(env)
 	if git("-C", worktree, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is not a git worktree — cannot determine anything\n", worktree)
+		Reason(env, "not-a-worktree")
 		return 2
 	}
 
@@ -111,6 +114,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	headSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve HEAD in %s\n", worktree)
+		Reason(env, "head-unresolved")
 		return 2
 	}
 	recordedSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", recorded+"^{commit}"))
@@ -149,6 +153,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		return 0
 	} else if rc != 0 {
 		fmt.Fprintf(stderr, "check-finish-preflight: merge-base failed in %s (exit %d) — cannot determine anything\n", worktree, rc)
+		Reason(env, "merge-base-failed")
 		return 2
 	}
 
@@ -162,6 +167,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	status, ok := capture(git("-C", worktree, "status", "--porcelain", "--untracked-files=normal"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot read the worktree status in %s — cannot determine anything\n", worktree)
+		Reason(env, "cannot-read-the-worktree-status")
 		return 2
 	}
 	if status != "" {
@@ -178,6 +184,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	common, ok := capture(git("-C", worktree, "rev-parse", "--git-common-dir"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve the main checkout from %s\n", worktree)
+		Reason(env, "cannot-resolve-the-main-checkout")
 		return 2
 	}
 	if !strings.HasPrefix(common, "/") {
@@ -190,6 +197,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve the main checkout from %s\n", worktree)
+		Reason(env, "cannot-resolve-the-main-checkout")
 		return 2
 	}
 
@@ -197,6 +205,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	// the executable FLOW_GUARD_WORKTREE_LOCATION names.
 	if location := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"); location != "" && syscall.Access(location, 1) != nil { // `[ -x ]`
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is missing or not executable — cannot determine anything\n", location)
+		Reason(env, "missing-or-not-executable")
 		return 2
 	}
 	var locOut, locErr bytes.Buffer
@@ -216,6 +225,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 			}
 		}
 		if len(strays) == 0 {
+			Reason(env, "worktree-location-refused")
 			return 1
 		}
 		fmt.Fprintf(stdout, "REFUSE: stray worktree(s): %s\n", strings.ReplaceAll(strings.Join(strays, ";"), ";", "; "))
@@ -224,9 +234,11 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		if e := strings.TrimRight(locErr.String(), "\n"); e != "" {
 			fmt.Fprintln(stderr, e)
 		}
+		Reason(env, "worktree-location-cannot-answer")
 		return 2
 	case rc != 0:
 		fmt.Fprintf(stderr, "check-finish-preflight: flow-guard check-worktree-location exited %d against %s — cannot determine anything\n", rc, mainCheckout)
+		Reason(env, "worktree-location-failed")
 		return 2
 	}
 

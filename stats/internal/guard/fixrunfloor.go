@@ -123,38 +123,48 @@ func frBelowFloor(v frVerdict) string {
 func frClass(env Env, wt, base string, stderr io.Writer) (string, int) {
 	gitBin, ok := panelResolveGit(env, frProg, stderr)
 	if !ok || !panelValidateWorktree(env, frProg, wt, base, gitBin, stderr) {
+		Reason(env, "git-unresolved")
 		return "", 2
 	}
 	paths, ok := panelTouchedPaths(env, frProg, wt, base, gitBin, stderr)
 	if !ok {
+		Reason(env, "cannot-list-touched-paths")
 		return "", 2
 	}
+	// The classifiers' non-zero answers are classes here, never refusals of
+	// this run, so they record into no collector; this function records its
+	// own cannot-answer exits.
+	quiet := env
+	quiet.Reasons = nil
 	var vtErr bytes.Buffer
-	switch visualTrigger(env, wt, func() ([]string, error) { return paths, nil }, io.Discard, &vtErr) {
+	switch visualTrigger(quiet, wt, func() ([]string, error) { return paths, nil }, io.Discard, &vtErr) {
 	case 0:
 		return "ui", 0
 	case 1:
 	default:
 		if !strings.Contains(vtErr.String(), vtNotConfigured+":") {
 			fmt.Fprint(stderr, vtErr.String())
+			Reason(env, "visual-trigger-failed")
 			return "", 2
 		}
 	}
-	switch checkPanelDocsOnly([]string{wt, base}, env, io.Discard, stderr) {
+	switch checkPanelDocsOnly([]string{wt, base}, quiet, io.Discard, stderr) {
 	case 0:
 	case 1:
 		return "code", 0
 	default:
+		Reason(env, "docs-only-failed")
 		return "", 2
 	}
 	// Documentation a suite declares it reads is not prose: the `test`
 	// list's `# inputs:` pathspecs, as run-verify-list reads them.
 	var list bytes.Buffer
-	switch projectGet([]string{wt, "test"}, env, &list, stderr) {
+	switch projectGet([]string{wt, "test"}, quiet, &list, stderr) {
 	case 0:
 	case 1:
 		return "prose", 0
 	default:
+		Reason(env, "project-get-failed")
 		return "", 2
 	}
 	_, inputs, _ := rvlParse(list.String())
@@ -170,6 +180,7 @@ func frClass(env Env, wt, base string, stderr io.Writer) (string, int) {
 			return "code", 0
 		default:
 			fmt.Fprintf(stderr, "%s: cannot diff the `# inputs:` %s against %s in %s\n", frProg, strings.TrimSpace(in), base, wt)
+			Reason(env, "cannot-diff")
 			return "", 2
 		}
 	}
@@ -185,12 +196,14 @@ func fixRunFloor(args []string, env Env, stdout, stderr io.Writer) int {
 			round = n
 		} else {
 			fmt.Fprint(stderr, frUsage)
+			Reason(env, "usage")
 			return 2
 		}
 		args = args[2:]
 	}
 	if len(args) != 2 || (judge == "") != (round < 0) {
 		fmt.Fprint(stderr, frUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	wt, base := args[0], args[1]
@@ -214,6 +227,7 @@ func fixRunFloor(args []string, env Env, stdout, stderr io.Writer) int {
 	raw, err := os.ReadFile(smcAbs(env, judge))
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read the verdict: %v\n", frProg, err)
+		Reason(env, "cannot-read-the-verdict")
 		return 2
 	}
 	v := frVerdict{Round: round, Class: class}
@@ -226,21 +240,25 @@ func fixRunFloor(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err := dec.Decode(&in); err != nil {
 		fmt.Fprintf(stderr, "%s: the verdict is not {roster, verify, reasons}: %v\n", frProg, err)
+		Reason(env, "verdict-is-not-roster")
 		return 1
 	}
 	v.Roster, v.Verify, v.Reasons = in.Roster, in.Verify, in.Reasons
 	if class != "prose" {
 		fmt.Fprintf(stderr, "%s: class %s has no room above its floor — no verdict is admitted\n", frProg, class)
+		Reason(env, "class-at-ceiling")
 		return 1
 	}
 	if why := frBelowFloor(v); why != "" {
 		fmt.Fprintf(stderr, "%s: verdict refused — %s\n", frProg, why)
+		Reason(env, "verdict-refused")
 		return 1
 	}
 	gitBin, _ := panelResolveGit(env, frProg, io.Discard)
 	sha, ok := capture(panelGit(env, gitBin, wt, "rev-parse", "--verify", "--end-of-options", base+"^{commit}"))
 	if !ok {
 		fmt.Fprintf(stderr, "%s: merge base '%s' does not resolve in %s\n", frProg, base, wt)
+		Reason(env, "merge-base-unresolved")
 		return 2
 	}
 	v.Base = sha
@@ -250,6 +268,7 @@ func fixRunFloor(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot write %s: %v\n", frProg, file, err)
+		Reason(env, "cannot-write")
 		return 2
 	}
 	fmt.Fprintf(stdout, "verdict: roster %s · verify %s\n", strings.Join(v.Roster, ","), v.Verify)

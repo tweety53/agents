@@ -118,16 +118,19 @@ func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) i
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "%s: CHECK_MUTATION_REPRODUCER_PIN_ROOT is set but empty\n", mrpName)
+		Reason(env, "check-mutation-reproducer-pin-root")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-mutation-reproducer-pin, which sets it\n", mrpName)
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
 	violations, marker, window, refusal := mrpScan(env, root)
 	if refusal != nil {
 		fmt.Fprintf(stderr, "%s:0: %s\n", refusal.path, refusal.msg)
+		Reason(env, "scan-refused")
 		return 2
 	}
 	if len(violations) > 0 {
@@ -135,6 +138,7 @@ func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) i
 			fmt.Fprintln(stdout, v)
 		}
 		fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-INVALID: %s — %d violation(s)\n", root, len(violations))
+		Reason(env, "mutation-reproducer-pin-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "MUTATION-REPRODUCER-PIN-OK: %s — marker '%s' window %s pinned across stats/internal/guard/runreproducer.go, scripts/flow-guard and skills/flow/review-panel.md\n", root, marker, window)

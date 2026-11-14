@@ -54,34 +54,35 @@ func init() {
 }
 
 func refreshPlanBase(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "refresh-plan-base: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) < 3 || args[0] == "" || args[1] == "" || args[2] == "" {
-		return refuse("usage: flow-guard refresh-plan-base <worktree> <merge-base> <tasks.md> [<spec-path>…]")
+		return refuse("usage", "usage: flow-guard refresh-plan-base <worktree> <merge-base> <tasks.md> [<spec-path>…]")
 	}
 	wt, mb, tasks, specs := args[0], args[1], args[2], args[3:]
 	git := envGit(env)
 
 	if _, ok := capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "--end-of-options", mb+"^{commit}")); !ok {
-		return refuse("%s is not a commit in %s", mb, wt)
+		return refuse("not-a-commit", "%s is not a commit in %s", mb, wt)
 	}
 	plan, err := os.ReadFile(pcAbs(env, tasks))
 	if err != nil {
-		return refuse("cannot read %s: %v", tasks, err)
+		return refuse("cannot-read", "cannot read %s: %v", tasks, err)
 	}
 	// resolve-base-branch does the fetch; its refusal is this guard's
 	// cannot-answer, its reason passed through on stderr.
 	var name bytes.Buffer
 	if rc := resolveBaseBranch([]string{wt}, env, &name, stderr); rc != 0 {
-		return refuse("could not resolve the base branch of %s (resolve-base-branch exit %d)", wt, rc)
+		return refuse("could-not-resolve-the-base", "could not resolve the base branch of %s (resolve-base-branch exit %d)", wt, rc)
 	}
 	ref := "origin/" + strings.TrimSpace(name.String())
 
 	n, ok := capture(git("-C", wt, "rev-list", "--count", mb+".."+ref))
 	if !ok {
-		return refuse("cannot count %s..%s in %s", mb, ref, wt)
+		return refuse("cannot-count", "cannot count %s..%s in %s", mb, ref, wt)
 	}
 	if n == "0" {
 		fmt.Fprintf(stdout, "UNMOVED: %s — %s has not moved since %s\n", wt, ref, mb)
@@ -89,7 +90,7 @@ func refreshPlanBase(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	changed, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb, ref))
 	if !ok {
-		return refuse("cannot diff %s %s in %s", mb, ref, wt)
+		return refuse("diff-failed", "cannot diff %s %s in %s", mb, ref, wt)
 	}
 
 	fmt.Fprintf(stdout, "MOVED: %s — %s commits on %s since %s\n", wt, n, ref, mb)

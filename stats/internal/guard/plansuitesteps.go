@@ -18,7 +18,7 @@ import (
 // task verifies with its lint and its own `**Tests:**` selector; the
 // `## test` list runs once, after the last task (**The parent runs the test
 // list — never an implementer.**, skills/flow/implement.md). Exit 0 clean,
-// 1 one `file:line: task <id> runs the suite …` line per span, 2 a usage
+// 1 one `file:line: plan-suite-steps task <id> runs the suite …` line per span, 2 a usage
 // error or a file that cannot be read.
 func init() { Registry["plan-suite-steps"] = planSuiteStepsCmd }
 
@@ -37,6 +37,7 @@ var (
 func planSuiteStepsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 || args[0] == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-suite-steps <tasks.md>")
+		Reason(env, "usage")
 		return 2
 	}
 	path := args[0]
@@ -46,11 +47,13 @@ func planSuiteStepsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	lines, err := tcfPlanLines(b)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	found := 0
@@ -75,12 +78,13 @@ func planSuiteStepsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 			for i+1 < len(starts) && starts[i+1] <= m[0] {
 				i++
 			}
-			fmt.Fprintf(stdout, "%s:%d: task %s runs the suite `%s` — a task verifies with its own **Tests:** selector; the `## test` list runs once, after the last task\n",
+			fmt.Fprintf(stdout, "%s:%d: plan-suite-steps task %s runs the suite `%s` — a task verifies with its own **Tests:** selector; the `## test` list runs once, after the last task\n",
 				args[0], task.taskLine+1+offsets[i], task.id, cmd)
 			found++
 		}
 	}
 	if found > 0 {
+		Reason(env, "plan-suite-steps")
 		return 1
 	}
 	return 0

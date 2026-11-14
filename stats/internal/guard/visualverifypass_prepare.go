@@ -118,7 +118,7 @@ func (v *vvp) kickoff() {
 		}
 	}
 	if len(missing) > 0 {
-		v.stop("", "kickoff "+strings.Join(missing, " "))
+		v.stop("kickoff-missing", "", "kickoff "+strings.Join(missing, " "))
 	}
 }
 
@@ -126,7 +126,7 @@ func (v *vvp) kickoff() {
 func (v *vvp) changed(w, base, dots string) []string {
 	out, ok := v.git("-C", w, "diff", "--no-renames", "--name-only", base+dots+"HEAD")
 	if !ok {
-		v.die("git diff %s%sHEAD failed in %s", base, dots, w)
+		v.die("git-diff-failed", "git diff %s%sHEAD failed in %s", base, dots, w)
 	}
 	if out == "" {
 		return nil
@@ -242,7 +242,7 @@ func (v *vvp) captureRoot(w string) string {
 // then one `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
 	var fails []string
-	fail := func(guard, out, errs string) {
+	collect := func(guard, out, errs string) {
 		ev := strings.TrimSpace(out + "\n" + errs)
 		fails = append(fails, guard+": "+strings.Join(strings.Fields(strings.ReplaceAll(ev, "\n", " | ")), " "))
 	}
@@ -251,17 +251,17 @@ func (v *vvp) preflight(survivors []string) {
 	switch rc, out, errs := v.guard("check-verify-green", nil, others...); rc {
 	case 0:
 	case 1:
-		v.stop("stopped", "verify-not-green — "+out)
+		v.stop("verify-not-green", "stopped", "verify-not-green — "+out)
 	default:
-		fail("check-verify-green", out, errs)
+		collect("check-verify-green", out, errs)
 	}
 	for _, w := range survivors {
 		if rc, kv, errs := v.guard("prepare-workspace", nil, w); rc != 0 {
-			fail("prepare-workspace", kv, errs)
+			collect("prepare-workspace", kv, errs)
 		} else if v.declaredApps(w, kv); len(v.apps[w]) == 0 {
-			fail("check-visual-preflight", "", "no --app passed for "+w)
+			collect("check-visual-preflight", "", "no --app passed for "+w)
 		} else if rc, out, errs := v.guard("check-visual-preflight", strings.NewReader(kv+"\n"), append([]string{w}, v.apps[w]...)...); rc != 0 {
-			fail("check-visual-preflight", out, errs)
+			collect("check-visual-preflight", out, errs)
 		}
 		if c := v.cells(w)["mockups"]; c != "" {
 			root := v.captureRoot(w)
@@ -269,7 +269,7 @@ func (v *vvp) preflight(survivors []string) {
 			if cmd := v.specsCommand(w); cmd != "" {
 				rc, out := kwRun(v.env, root, "sh", "-c", cmd)
 				if rc != 0 {
-					fail("specs", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
+					collect("specs", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
 					continue
 				}
 				targets = nil
@@ -281,18 +281,18 @@ func (v *vvp) preflight(survivors []string) {
 			}
 			if v.cells(w)["design repo"] != "" {
 				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, v.frameFiles(targets)...)...); rc != 0 {
-					fail("render-frames", out, errs)
+					collect("render-frames", out, errs)
 				}
 			}
 			for _, tgt := range targets {
 				if rc, out, errs := v.guard("check-sidecar-reach", nil, tgt, cellPath(w, c)); rc != 0 {
-					fail("check-sidecar-reach", out, errs)
+					collect("check-sidecar-reach", out, errs)
 				}
 			}
 		}
 	}
 	if len(fails) > 0 {
-		v.stop("stopped", "preflight — "+strings.Join(fails, "; "))
+		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
 }
 
@@ -369,7 +369,7 @@ func (v *vvp) continueSet() []string {
 		case "worktree":
 			f := strings.Fields(l[1])
 			if len(f) < 4 {
-				v.die("malformed stage file line: worktree %s", l[1])
+				v.die("malformed-stage-file-line", "malformed stage file line: worktree %s", l[1])
 			}
 			survivors = append(survivors, f[0])
 			v.mergeBase[f[0]] = f[2]
@@ -385,7 +385,7 @@ func (v *vvp) continueSet() []string {
 		}
 	}
 	if len(survivors) == 0 {
-		v.die("the stage file %s names no surviving worktree", v.stagePath())
+		v.die("no-surviving-worktree", "the stage file %s names no surviving worktree", v.stagePath())
 	}
 	return survivors
 }
@@ -422,7 +422,7 @@ func (v *vvp) probe(survivors []string) string {
 			continue
 		}
 		if v.started {
-			v.stop("stopped", "stack — "+strings.Join(urls, " ")+" answers nothing after the stack was started, for "+w)
+			v.stop("stack-unreachable", "stopped", "stack — "+strings.Join(urls, " ")+" answers nothing after the stack was started, for "+w)
 		}
 		v.next("start-stack")
 	}
@@ -444,7 +444,7 @@ func (v *vvp) fingerprint(survivors []string) map[string]string {
 			got[w] = "exit 0 — the served bundle is the worktree's build"
 		case 1:
 			if v.started {
-				v.stop("stopped", "fingerprint — "+vvpOneLine(out+"\n"+errs))
+				v.stop("fingerprint-failed", "stopped", "fingerprint — "+vvpOneLine(out+"\n"+errs))
 			}
 			v.next("restart-stack")
 		default:
@@ -477,14 +477,14 @@ var vvpPairRe = regexp.MustCompile(`^([a-z0-9.-]+)/flow-([a-z]+)$`)
 func (v *vvp) pair() (model, effort string) {
 	rows, err := policyTable(v.env)
 	if err != nil {
-		v.stop("stopped", "pair — "+err.Error())
+		v.stop("policy-unreadable", "stopped", "pair — "+err.Error())
 	}
 	var m []string
 	if rs := rows["visual-verifier"]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
 		m = vvpPairRe.FindStringSubmatch(rs[0].Pairs[0])
 	}
 	if m == nil {
-		v.stop("stopped", "pair — the allowed pairs name no `<model>/flow-<effort>` visual-verifier pair")
+		v.stop("visual-pair-missing", "stopped", "pair — the allowed pairs name no `<model>/flow-<effort>` visual-verifier pair")
 	}
 	return m[1], m[2]
 }
@@ -532,7 +532,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 		for _, w := range append([]string{r.w}, v.siblings[r.w]...) {
 			h, ok := v.git("-C", w, "rev-parse", "HEAD")
 			if !ok {
-				v.die("cannot resolve HEAD in %s", w)
+				v.die("head-unresolved", "cannot resolve HEAD in %s", w)
 			}
 			heads = append(heads, h)
 		}
@@ -547,7 +547,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 				v.flow("record", "dispatch", "end", "-C", v.canon, "-change", v.name, "-key", b,
 					"-session-token", v.token, "-outcome", "aborted")
 			}
-			v.stop("stopped", "row — flow record dispatch begin refused for "+r.key+": "+vvpOneLine(out))
+			v.stop("dispatch-begin-refused", "stopped", "row — flow record dispatch begin refused for "+r.key+": "+vvpOneLine(out))
 		}
 		begun = append(begun, r.key)
 		v.appendStage("row " + r.key + " " + r.w)
@@ -562,7 +562,7 @@ func (v *vvp) relayContract() string {
 	root := v.env.Getenv("FLOW_GUARD_REPO_ROOT")
 	b, err := os.ReadFile(filepath.Join(root, "skills", "flow", "visual-verify.md"))
 	if root == "" || err != nil {
-		v.die("cannot read skills/flow/visual-verify.md under FLOW_GUARD_REPO_ROOT '%s' — run flow-guard visual-verify-pass, which sets it", root)
+		v.die("cannot-read-visual-verify-md", "cannot read skills/flow/visual-verify.md under FLOW_GUARD_REPO_ROOT '%s' — run flow-guard visual-verify-pass, which sets it", root)
 	}
 	var para []string
 	for _, l := range strings.Split(string(b), "\n") {
@@ -575,7 +575,7 @@ func (v *vvp) relayContract() string {
 		para = append(para, l)
 	}
 	if len(para) == 0 {
-		v.die("skills/flow/visual-verify.md carries no paragraph opening **The relay contract.**")
+		v.die("skills-flow-visual-verify-md", "skills/flow/visual-verify.md carries no paragraph opening **The relay contract.**")
 	}
 	return strings.Join(para, "\n")
 }
@@ -589,7 +589,7 @@ func (v *vvp) greenRows() []struct{ Key, DiffBase string } {
 		err = json.Unmarshal(raw, &rows)
 	}
 	if err != nil {
-		v.die("flow record dispatches failed for '%s'", v.name)
+		v.die("record-dispatches-failed", "flow record dispatches failed for '%s'", v.name)
 	}
 	var out []struct{ Key, DiffBase string }
 	for _, r := range rows {
@@ -621,7 +621,7 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	line("## Workspace")
 	line("")
 	if rc, kv, errs := v.guard("prepare-workspace", nil, w); rc != 0 {
-		v.die("prepare-workspace %s: %s", w, errs)
+		v.die("prepare-workspace", "prepare-workspace %s: %s", w, errs)
 	} else if kv == "" {
 		line("(no `## workspace isolation` value exported)")
 	} else {
@@ -685,10 +685,10 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	}
 	path := filepath.Join(sdd, "verify-prompt-"+key+".md")
 	if err := os.MkdirAll(sdd, 0o755); err != nil {
-		v.die("cannot write %s: %v", path, err)
+		v.die("cannot-write", "cannot write %s: %v", path, err)
 	}
 	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
-		v.die("cannot write %s: %v", path, err)
+		v.die("cannot-write", "cannot write %s: %v", path, err)
 	}
 	return path
 }
@@ -762,7 +762,7 @@ func (v *vvp) mockupSources(key, w, changeRoot string) ([]string, []string) {
 		}
 		dir := filepath.Join(w, ".superpowers", "sdd", "verify-mockup-"+key, strings.ReplaceAll(strings.TrimSuffix(m[1], filepath.Ext(m[1])), "/", "-"))
 		if err := vvpDecode(page, dir); err != nil {
-			v.die("cannot decode the bundled page %s: %v", p, err)
+			v.die("cannot-decode-the-bundled-page", "cannot decode the bundled page %s: %v", p, err)
 		}
 		decoded = append(decoded, m[1]+" → "+dir)
 	}

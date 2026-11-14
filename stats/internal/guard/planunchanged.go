@@ -104,6 +104,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	mode, worktree, name, snap := arg(0), arg(1), arg(2), arg(3)
 	usage := func() int {
 		fmt.Fprintln(stderr, "check-plan-unchanged: usage: flow-guard check-plan-unchanged snapshot|verify <worktree> <change-name> <snapshot-file>")
+		Reason(env, "usage")
 		return 2
 	}
 	if mode != "snapshot" && mode != "verify" {
@@ -115,6 +116,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 			shown = "<missing>"
 		}
 		fmt.Fprintf(stderr, "check-plan-unchanged: not a directory: %s\n", shown)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if name == "" || snap == "" {
@@ -128,6 +130,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	// why it is enumerated).
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "check-plan-unchanged: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 
@@ -140,6 +143,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "check-plan-unchanged: worktree vanished: %s\n", worktree)
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
@@ -191,6 +195,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	cannotRead := func() int {
 		fmt.Fprintf(stderr, "check-plan-unchanged: the plan tree under %s could not be read, or its content "+
 			"could not be written -- cannot answer\n", wt)
+		Reason(env, "cannot-read-plan-tree")
 		return 2
 	}
 	snapPath := smcAbs(env, snap)
@@ -222,6 +227,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	want, err := os.ReadFile(snapPath)
 	if fi, serr := os.Stat(snapPath); serr != nil || !fi.Mode().IsRegular() || err != nil {
 		fmt.Fprintf(stderr, "check-plan-unchanged: no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it\n", snap)
+		Reason(env, "no-readable-snapshot")
 		return 2
 	}
 	var got bytes.Buffer
@@ -252,6 +258,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	cur, err := os.CreateTemp(tmpdir, "check-plan-unchanged-verify.")
 	if err != nil {
 		fmt.Fprintln(stderr, "check-plan-unchanged: mktemp failed -- cannot answer")
+		Reason(env, "mktemp-failed")
 		return 2
 	}
 	defer os.Remove(cur.Name())
@@ -261,6 +268,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if werr != nil {
 		fmt.Fprintln(stderr, "check-plan-unchanged: mktemp failed -- cannot answer")
+		Reason(env, "mktemp-failed")
 		return 2
 	}
 	diffBin := "diff"
@@ -275,6 +283,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprint(stderr, "check-plan-unchanged: "+l)
 		}
 	}
+	Reason(env, "plan-changed")
 	return 1
 }
 

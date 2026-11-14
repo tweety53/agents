@@ -88,14 +88,17 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if dir == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard resolve-base-branch <dir>")
+		Reason(env, "usage")
 		return 2
 	}
 	if !isDir(pcAbs(env, dir)) {
 		fmt.Fprintf(stderr, "resolve-base-branch: %s is not a directory\n", dir)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if git("-C", dir, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "resolve-base-branch: %s is not a git worktree\n", dir)
+		Reason(env, "not-a-worktree")
 		return 2
 	}
 	// Exit 3 stays separate from exit 2: the finish contract requires a
@@ -103,6 +106,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// stderr text.
 	if git("-C", dir, "remote", "get-url", "origin").Run() != nil {
 		fmt.Fprintf(stderr, "resolve-base-branch: no 'origin' remote configured in %s\n", dir)
+		Reason(env, "no-origin-remote")
 		return 3
 	}
 
@@ -136,11 +140,13 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	cur, ok := capture(git("-C", dir, "branch", "--show-current"))
 	if !ok {
 		fmt.Fprintf(stderr, "resolve-base-branch: could not read the current branch in %s\n", dir)
+		Reason(env, "cannot-read-current-branch")
 		return 2
 	}
 	cur = strings.TrimRight(strings.ReplaceAll(cur, "\x00", ""), "\n")
 	if cur == "" {
 		fmt.Fprintf(stderr, "resolve-base-branch: HEAD is detached in %s\n", dir)
+		Reason(env, "head-detached")
 		return 1
 	}
 	// A base recorded on this branch when its worktree was created
@@ -154,10 +160,12 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if base == "" {
 		fmt.Fprintf(stderr, "resolve-base-branch: could not resolve a base branch in %s\n", dir)
+		Reason(env, "could-not-resolve-a-base")
 		return 1
 	}
 	if base == cur {
 		fmt.Fprintf(stderr, "resolve-base-branch: base branch '%s' is the same as the current branch — refusing to compare a branch with itself\n", base)
+		Reason(env, "base-is-current-branch")
 		return 1
 	}
 
@@ -170,6 +178,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	for i := 0; i < len(base); i++ {
 		if !rbbNameByte(base[i], i > 0) {
 			fmt.Fprintln(stderr, "resolve-base-branch: the resolved base branch name is invalid")
+			Reason(env, "resolved-base-branch-name")
 			return 1
 		}
 	}
@@ -184,6 +193,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		err := envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "-c", "core.askpass=true", "ls-remote", "--exit-code", "--heads", "origin", "refs/heads/"+base).Run()
 		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 2 {
 			fmt.Fprintf(stderr, "resolve-base-branch: recorded base '%s' is not on origin — re-point the change (skills/flow/SKILL.md)\n", base)
+			Reason(env, "recorded-base-gone")
 			return 1
 		}
 	}

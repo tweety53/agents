@@ -73,6 +73,7 @@ const pdgMaxInFlight = 2
 func planDispatchGroups(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-dispatch-groups <path-to-tasks.md>")
+		Reason(env, "usage")
 		return 2
 	}
 	bundles, afterSets, rc := pdbBundlesOf(args[0], env, stderr)
@@ -82,6 +83,7 @@ func planDispatchGroups(args []string, env Env, stdout, stderr io.Writer) int {
 	lines, err := tcfReadPlan(env, args[0])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	for g, ids := range pdgComputeGroups(bundles, afterSets, pdgRepositories(lines)) {

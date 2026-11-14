@@ -58,6 +58,7 @@ const twUsage = "usage: flow-guard throwaway-worktree create <worktree> <copy> [
 func throwawayWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || len(args) > 4 {
 		fmt.Fprint(stderr, twUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	verb, wt, cp := args[0], args[1], args[2]
@@ -67,17 +68,19 @@ func throwawayWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	switch {
 	case verb == "create" && (flag == "" || flag == "--sdd"):
-		return twStep(stderr, twCreate(env, wt, cp, flag == "--sdd"))
+		return twStep(env, stderr, twCreate(env, wt, cp, flag == "--sdd"))
 	case verb == "remove" && (flag == "" || flag == "--fold-back"):
-		return twStep(stderr, twRemove(env, wt, cp, flag == "--fold-back"))
+		return twStep(env, stderr, twRemove(env, wt, cp, flag == "--fold-back"))
 	}
 	fmt.Fprint(stderr, twUsage)
+	Reason(env, "usage")
 	return 2
 }
 
-func twStep(stderr io.Writer, err error) int {
+func twStep(env Env, stderr io.Writer, err error) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "throwaway-worktree: %v\n", err)
+		Reason(env, "step-failed")
 		return 2
 	}
 	return 0

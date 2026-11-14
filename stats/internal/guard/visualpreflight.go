@@ -123,18 +123,20 @@ type vpTarget struct{ root, url, origin, port, base, dir string }
 type vpRow struct{ res, variable, def, value string }
 
 func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-visual-preflight: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) < 2 {
 		fmt.Fprint(stderr, vpUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	wt := args[0]
 	wtAbs := wiAbs(env, wt)
 	if !isDir(wtAbs) {
-		return refuse("%s is not a directory — cannot check the workspace", wt)
+		return refuse("not-a-directory", "%s is not a directory — cannot check the workspace", wt)
 	}
 
 	var apps []vpTarget
@@ -142,11 +144,11 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		root, raw, ok := strings.Cut(a, "=")
 		u, err := url.Parse(raw)
 		if !ok || root == "" || err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
-			return refuse("argument %q is not <app-root>=<http(s) URL>", a)
+			return refuse("argument-is-not-app-root", "argument %q is not <app-root>=<http(s) URL>", a)
 		}
 		dir := filepath.Join(wtAbs, root)
 		if !isDir(dir) {
-			return refuse("app root %s is not a directory under %s", root, wt)
+			return refuse("app-root-not-a-directory", "app root %s is not a directory under %s", root, wt)
 		}
 		base := wtAbs
 		if r := vpRepoRoot(dir); r != "" && r != vpRepoRoot(wtAbs) {
@@ -169,12 +171,12 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 			}
 			k, v, ok := strings.Cut(line, "=")
 			if !ok || !wiVariable.MatchString(k) {
-				return refuse("stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
+				return refuse("bad-stdin-line", "stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
 			}
 			exported[k] = v
 		}
 		if sc.Err() != nil {
-			return refuse("cannot read stdin: %v", sc.Err())
+			return refuse("cannot-read-stdin", "cannot read stdin: %v", sc.Err())
 		}
 	}
 
@@ -200,15 +202,15 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		cfg := filepath.Join(d, ".flow/project.md")
 		body, err := os.ReadFile(cfg)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return refuse("cannot read %s: %v", cfg, err)
+			return refuse("cannot-read", "cannot read %s: %v", cfg, err)
 		}
 		b := &vpBase{dir: d}
 		var msg string
 		if b.rows, msg = vpRows(cfg, body, exported); msg != "" {
-			return refuse("%s", msg)
+			return refuse("bad-rows", "%s", msg)
 		}
 		if b.start, msg = vpStart(body); msg != "" {
-			return refuse("%s", msg)
+			return refuse("bad-start", "%s", msg)
 		}
 		byDir[d] = b
 		bases = append(bases, b)
@@ -223,7 +225,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	// Check 1 — ports held only by their own app.
 	lsof, ok := lookPath(env, "lsof")
 	if !ok {
-		return refuse("lsof is not on PATH — cannot tell which ports are held")
+		return refuse("lsof-is-not-on-path", "lsof is not on PATH — cannot tell which ports are held")
 	}
 	type probe struct{ port, url string }
 	var ports []probe
@@ -255,7 +257,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		case err == nil, errors.As(err, &ee) && ee.ExitCode() == 1:
 			continue // free
 		default:
-			return refuse("lsof -nP -iTCP:%s -sTCP:LISTEN failed (%v) — cannot tell whether the port is held", p.port, err)
+			return refuse("lsof-failed", "lsof -nP -iTCP:%s -sTCP:LISTEN failed (%v) — cannot tell whether the port is held", p.port, err)
 		}
 		if vpAnswers(p.port, p.url) {
 			continue // the already-running stack steps 5 and 6 probe
@@ -375,6 +377,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	if len(fails) > 0 {
 		fmt.Fprintf(stdout, "PREFLIGHT-FAILED: %s — %d failing check line(s)\n", wt, len(fails))
+		Reason(env, "preflight-failed")
 		return 1
 	}
 	fmt.Fprintf(stdout, "PREFLIGHT-OK: %s — ports, base URL, origins and Playwright all pass\n", wt)

@@ -85,17 +85,20 @@ func planDispatchBundles(args []string, env Env, stdout, stderr io.Writer) int {
 	case 0:
 	default:
 		fmt.Fprintln(stderr, "usage: flow-guard plan-dispatch-bundles [path-to-tasks.md]")
+		Reason(env, "usage")
 		return 2
 	}
 	root := env.Getenv("PLAN_DISPATCH_BUNDLES_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprintln(stderr, "plan-dispatch-bundles: FLOW_GUARD_REPO_ROOT is unset — run flow-guard plan-dispatch-bundles, which sets it")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
 	files, ok := tcfScanPlans(env, root, stderr)
 	if !ok {
+		Reason(env, "scan-failed")
 		return 2
 	}
 	status := 0
@@ -130,6 +133,7 @@ func pdbBundlesOf(path string, env Env, stderr io.Writer) ([][]pdbTask, [][]stri
 	lines, err := tcfReadPlan(env, path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", path, err)
+		Reason(env, "cannot-read-file")
 		return nil, nil, 2
 	}
 	bundles, afterSets, violations := pdbComputeBundles(pdbParseTasks(lines))
@@ -137,6 +141,7 @@ func pdbBundlesOf(path string, env Env, stderr io.Writer) ([][]pdbTask, [][]stri
 		fmt.Fprintf(stderr, "%s:%s\n", path, v)
 	}
 	if len(violations) > 0 {
+		Reason(env, "bundle-violations")
 		return nil, nil, 1
 	}
 	return bundles, afterSets, 0

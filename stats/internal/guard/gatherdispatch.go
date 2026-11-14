@@ -253,6 +253,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 
 	if worktree == "" || changeRoot == "" || name == "" || principles == "" || output == "" {
 		fmt.Fprint(stderr, gdcUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	if taskIDs != "" && !gdcTaskIDs.MatchString(taskIDs) {
@@ -261,16 +262,19 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 			hint = " — " + gdcUnsplitTaskIDsHint
 		}
 		fmt.Fprintf(stderr, "gather-dispatch-context: task ids '%s' must be a comma-separated list of integers%s\n", taskIDs, hint)
+		Reason(env, "task-ids")
 		return 2
 	}
 	switch shape {
 	case "", "all", "cross-repo", "single-repo":
 	default:
 		fmt.Fprintf(stderr, "gather-dispatch-context: shape '%s' must be one of all, cross-repo, single-repo\n", shape)
+		Reason(env, "bad-shape")
 		return 2
 	}
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 
@@ -278,10 +282,12 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	worktreeReal, mismatch := validatePath(env, worktree)
 	if worktreeReal == "" || !isDir(worktreeReal) {
 		fmt.Fprintf(stderr, "gather-dispatch-context: worktree '%s' does not resolve to an existing directory\n", worktree)
+		Reason(env, "worktree-not-a-directory")
 		return 2
 	}
 	if mismatch {
 		fmt.Fprintf(stderr, "gather-dispatch-context: worktree '%s' resolves through a symlink somewhere between the repository root and the leaf\n", worktree)
+		Reason(env, "worktree-through-symlink")
 		return 2
 	}
 	// --- change-root: must resolve to an existing, non-symlinked directory
@@ -289,10 +295,12 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	changeRootReal, mismatch := validatePath(env, changeRoot)
 	if changeRootReal == "" || !isDir(changeRootReal) {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' does not resolve to an existing directory\n", changeRoot)
+		Reason(env, "change-root-not-a-directory")
 		return 2
 	}
 	if mismatch {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves through a symlink somewhere between the repository root and the leaf\n", changeRoot)
+		Reason(env, "change-root-through-symlink")
 		return 2
 	}
 	// An ## apps worktree created without a spectre link
@@ -310,6 +318,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		} else {
 			fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves outside the worktree '%s'\n", changeRoot, worktree)
 		}
+		Reason(env, "change-root-outside-worktree")
 		return 2
 	}
 	// --- principles-path: normalized and resolved the same way, but never
@@ -379,10 +388,12 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		last := len(b.found) - 1
 		if last < 0 || b.found[last].label != "tasks.md"+suffix {
 			fmt.Fprintln(stderr, "gather-dispatch-context: task ids given but tasks.md is absent or refused")
+			Reason(env, "tasks-md-missing")
 			return 2
 		}
 		body, ok := scopeTasks(b.found[last].path, taskIDs, stderr)
 		if !ok {
+			Reason(env, "cannot-scope-tasks")
 			return 2
 		}
 		b.found[last] = gdcSource{label: "tasks.md" + suffix + " (scoped to task(s) " + taskIDs + ")", text: body + "\n"}
@@ -448,14 +459,17 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		"head: " + head + "\n\n" + body + "\n"
 	if err := os.MkdirAll(gdcDirname(outputAbs), 0o777); err != nil {
 		fmt.Fprintf(stderr, "gather-dispatch-context: %v\n", err)
+		Reason(env, "cannot-write-bundle")
 		return 1
 	}
 	if err := os.WriteFile(outputAbs, []byte(file), 0o666); err != nil {
 		fmt.Fprintf(stderr, "gather-dispatch-context: %v\n", err)
+		Reason(env, "cannot-write-bundle")
 		return 1
 	}
 	if err := os.WriteFile(hashPath, []byte(newHash), 0o666); err != nil {
 		fmt.Fprintf(stderr, "gather-dispatch-context: %v\n", err)
+		Reason(env, "cannot-write-bundle")
 		return 1
 	}
 	fmt.Fprintf(stderr, "gather-dispatch-context: bundle rebuilt — %s\n", reason)

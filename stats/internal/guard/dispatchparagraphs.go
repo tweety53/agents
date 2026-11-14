@@ -526,10 +526,12 @@ func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int 
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "%s: CHECK_DISPATCH_PARAGRAPHS_ROOT is set but empty\n", dpName)
+		Reason(env, "check-dispatch-paragraphs-root")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-dispatch-paragraphs, which sets it\n", dpName)
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
@@ -539,6 +541,7 @@ func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int 
 	fsPath := func(p string) string { return smcAbs(env, p) }
 	if !gsReadableDir(fsPath(root)) {
 		fmt.Fprintf(stderr, "%s: %s is not a readable directory — cannot scan\n", dpName, root)
+		Reason(env, "not-a-readable-directory")
 		return 2
 	}
 
@@ -552,6 +555,7 @@ func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int 
 			// site means the whole run cannot answer, not that this one site
 			// failed -- so the violations gathered so far are never printed.
 			fmt.Fprintf(stderr, "%s:0: %s\n", full, refusal)
+			Reason(env, "site-unreadable")
 			return 2
 		}
 		violations = append(violations, dpCheckSite(site, full, lines)...)
@@ -562,6 +566,7 @@ func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int 
 			fmt.Fprintln(stdout, v)
 		}
 		fmt.Fprintf(stdout, "DISPATCH-PARAGRAPHS-INVALID: %s — %d violation(s)\n", root, len(violations))
+		Reason(env, "dispatch-paragraphs-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "DISPATCH-PARAGRAPHS-OK: %s — %d site(s) validated\n", root, len(dpSites))

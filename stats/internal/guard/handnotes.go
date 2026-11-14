@@ -78,7 +78,8 @@ func init() {
 const hnhName = "check-hand-notes-in-step"
 
 func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, hnhName+": "+format+"\n", a...)
 		return 1
 	}
@@ -97,13 +98,13 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 	if setupSh == "" {
 		repoRoot := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if repoRoot == "" {
-			return refuse("FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run flow-guard check-hand-notes-in-step, which sets it")
+			return refuse("repo-root-unset", "FLOW_GUARD_REPO_ROOT is unset and CHECK_HAND_NOTES_SETUP_SH is not set — run flow-guard check-hand-notes-in-step, which sets it")
 		}
 		setupSh = repoRoot + "/setup.sh"
 	}
 	setup, err := os.ReadFile(setupSh)
 	if err != nil {
-		return refuse("%s is unreadable — cannot resolve the managed-block targets", setupSh)
+		return refuse("unreadable", "%s is unreadable — cannot resolve the managed-block targets", setupSh)
 	}
 	harnessFiles, code := cirManagedFiles(string(setup), setupSh, refuse)
 	if harnessFiles == nil {
@@ -114,7 +115,7 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 	if homeDir == "" {
 		h, ok := env.LookupEnv("HOME")
 		if !ok {
-			return refuse("HOME is unset and CHECK_HAND_NOTES_HOME is not set — cannot locate the install")
+			return refuse("home-unset", "HOME is unset and CHECK_HAND_NOTES_HOME is not set — cannot locate the install")
 		}
 		homeDir = h
 	}
@@ -151,6 +152,7 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 			return 0
 		}
 		fmt.Fprintf(stdout, "HAND-NOTES-DRIFT: %s — %d violation(s); make every harness file's hand-maintained sections identical\n", homeDir, violations)
+		Reason(env, "hand-notes-drift")
 		return 1
 	}
 	if len(existing) == 1 && violations == 0 {
@@ -185,6 +187,7 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 
 	if violations != 0 {
 		fmt.Fprintf(stdout, "HAND-NOTES-DRIFT: %s — %d violation(s); make every harness file's hand-maintained sections identical\n", homeDir, violations)
+		Reason(env, "hand-notes-drift")
 		return 1
 	}
 	fmt.Fprintf(stdout, "HAND-NOTES-OK: %s — %d harness file(s), hand-maintained sections in step\n", homeDir, len(existing))

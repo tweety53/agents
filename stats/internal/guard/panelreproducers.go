@@ -97,10 +97,12 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 			shown = "<missing>"
 		}
 		fmt.Fprintf(stderr, "%snot a directory: %s\n", cprPrefix, shown)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if name == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard check-panel-reproducers <worktree> <change-name>")
+		Reason(env, "usage")
 		return 2
 	}
 
@@ -115,6 +117,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	// compares bytes, as the bash's `export LC_ALL=C` made its enumeration do.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", cprPrefix, name)
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	// Canonicalised to an absolute path before it is ever passed to `flow`
@@ -136,6 +139,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished before it could be resolved: %s\n", cprPrefix, worktreeArg)
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
@@ -177,11 +181,13 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		} else {
 			fmt.Fprintf(stderr, "%sthe store has no record of change '%s' under this worktree's project (flow exit %d%s) — a cross-repo change's guards answer only through its canonical worktree\n", cprPrefix, name, stateRC, flowSaid)
 		}
+		Reason(env, "cannot-run-the-flow-cli")
 		return 2
 	}
 	var state map[string]json.RawMessage
 	if json.Unmarshal(bytes.TrimRight(stateOut, "\n"), &state) != nil || state == nil {
 		fmt.Fprintf(stderr, "%scannot read the state record for '%s' — cannot determine anything%s\n", cprPrefix, name, flowSaid)
+		Reason(env, "cannot-read-the-state-record")
 		return 2
 	}
 
@@ -205,21 +211,25 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	findingsText := strings.TrimRight(string(findingsJSON), "\n")
 	if err != nil {
 		fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", cprPrefix, name, findingsText)
+		Reason(env, "cannot-read-findings")
 		return 2
 	}
 	findings, ok := pcParseFindings([]byte(findingsText))
 	if !ok {
 		fmt.Fprintln(stderr, cprJQFailed)
+		Reason(env, "records-unparseable")
 		return 2
 	}
 	severities, ok := cprSeverities([]byte(findingsText))
 	if !ok {
 		fmt.Fprintln(stderr, cprJQFailed)
+		Reason(env, "records-unparseable")
 		return 2
 	}
 	rounds, slots, open, ok := cprRoundsAndSlots([]byte(findingsText))
 	if !ok {
 		fmt.Fprintln(stderr, cprJQFailed)
+		Reason(env, "records-unparseable")
 		return 2
 	}
 
@@ -237,6 +247,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	if len(empty) > 0 {
 		fmt.Fprintf(stderr, "%sfinding(s) %s carry no reproducer field at all — cannot determine anything\n", cprPrefix, strings.Join(empty, " "))
+		Reason(env, "reproducer-field-missing")
 		return 2
 	}
 	// A finding whose ref is not a JSON string -- absent, null, a number --
@@ -248,6 +259,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	for _, f := range findings {
 		if f.ref == nil {
 			fmt.Fprintln(stderr, cprJQFailed)
+			Reason(env, "records-unparseable")
 			return 2
 		}
 	}
@@ -357,6 +369,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		for _, v := range violations {
 			fmt.Fprintf(stderr, "%s%s\n", cprPrefix, v)
 		}
+		Reason(env, "reproducer-violations")
 		return 1
 	}
 	// Every finding carries a non-empty reproducer by now (the refusal above),

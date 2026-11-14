@@ -69,21 +69,23 @@ func init() {
 
 func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writer) int {
 	const p = "check-task-commit-planning-paths: "
-	refuse := func(msg string) int {
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintln(stderr, p+msg)
 		return 2
 	}
 	if len(args) != 2 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-task-commit-planning-paths <worktree> <base>")
+		Reason(env, "usage")
 		return 2
 	}
 	wt, base := args[0], args[1]
 	if !isDir(wt) {
-		return refuse("not a readable directory: " + wt)
+		return refuse("not-a-readable-directory", "not a readable directory: "+wt)
 	}
 	git := envGit(env)
 	if git("-C", wt, "rev-parse", "--is-inside-work-tree").Run() != nil {
-		return refuse("not a git repository: " + wt)
+		return refuse("not-a-git-repository", "not a git repository: "+wt)
 	}
 	verify := func(rev string) bool {
 		cmd := git("-C", wt, "rev-parse", "--verify", "--quiet", rev)
@@ -91,10 +93,10 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 		return cmd.Run() == nil
 	}
 	if !verify("HEAD") {
-		return refuse("HEAD does not resolve in: " + wt)
+		return refuse("head-unresolved", "HEAD does not resolve in: "+wt)
 	}
 	if !verify(base + "^{commit}") {
-		return refuse("base does not resolve to a commit: " + base)
+		return refuse("base-does-not-resolve", "base does not resolve to a commit: "+base)
 	}
 
 	leaf := specRootLeaf(wt, stderr)
@@ -115,7 +117,7 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 	logCmd.Stderr = stderr
 	logWalk, ok := capture(logCmd)
 	if !ok {
-		return refuse("git log refused the walk in: " + wt)
+		return refuse("git-log-refused-the-walk", "git log refused the walk in: "+wt)
 	}
 	for _, line := range strings.Split(logWalk, "\n") {
 		if line == "" {
@@ -144,7 +146,7 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 		dt.Stderr = stderr
 		paths, ok := capture(dt)
 		if !ok {
-			return refuse("git diff-tree refused the walk on " + sha)
+			return refuse("git-diff-tree-refused", "git diff-tree refused the walk on "+sha)
 		}
 		// Newline-separated, deliberately without -z, as the bash read it.
 		commitSwept := false
@@ -163,6 +165,7 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 	if swept > 0 {
 		fmt.Fprint(stdout, sweepLines.String())
 		fmt.Fprintf(stdout, "PLANNING-PATHS-SWEPT: %s — %d task commit(s)\n", wt, swept)
+		Reason(env, "planning-paths-swept")
 		return 1
 	}
 	fmt.Fprintf(stdout, "PLANNING-PATHS-CLEAN: %s — %d task commit(s) checked\n", wt, checked)

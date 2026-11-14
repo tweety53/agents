@@ -113,12 +113,12 @@ func (c *ic) land() {
 	c.canonBase = ""
 	c.loadSet()
 	if !c.findCanonical() {
-		c.die("no worktree in the set holds %s's tasks.md", c.name)
+		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
 	}
 	c.mergeOrder()
 	done, ok := c.selfReviewCompleted()
 	if !ok {
-		c.die("flowd cannot say whether flow.self-review completed for %s — nothing was pushed", c.name)
+		c.die("self-review-state-unknown", "flowd cannot say whether flow.self-review completed for %s — nothing was pushed", c.name)
 	}
 	if !done {
 		c.stop("self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run land; nothing was pushed")
@@ -166,7 +166,7 @@ func (c *ic) land() {
 				case 1:
 					c.stop("sync-conflict", "load skills/flow/sync-onto-base.md, resolve in place, --resume, run the whole ## lint and ## test lists, then re-run land — that push is the one retry")
 				default:
-					c.stop("sync", fmt.Sprintf("sync-onto-base exit %d — report its output", c.rc))
+					c.stopAs("sync-failed", "sync", fmt.Sprintf("sync-onto-base exit %d — report its output", c.rc))
 				}
 				c.rebaseLint(w, "already pushed: "+alreadyPushed()+"; ")
 				if !c.visualOK(w, c.base) {
@@ -175,7 +175,7 @@ func (c *ic) land() {
 				c.refreshFixedRefs(w)
 				c.pushBranch(w)
 				if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
-					c.stop("push", "the second push of "+w+" to origin/"+c.base+" was rejected — report git's output; the change stays IN_PROGRESS")
+					c.stopAs("push-rejected", "push", "the second push of "+w+" to origin/"+c.base+" was rejected — report git's output; the change stays IN_PROGRESS")
 				}
 			}
 			c.say("PUSHED: " + w + " — spectre/" + c.name + " onto origin/" + c.base)
@@ -195,7 +195,7 @@ func (c *ic) land() {
 				ok = ok && strings.HasPrefix(url, "http")
 			}
 			if !ok {
-				c.stop("pr", "no usable gh for "+w+" ("+url+") — print the forge's create-PR URL, ask whether it was opened, then re-run land adding --pr-url "+w+"=<url|none> to every --pr-url already given")
+				c.stopAs("gh-unusable", "pr", "no usable gh for "+w+" ("+url+") — print the forge's create-PR URL, ask whether it was opened, then re-run land adding --pr-url "+w+"=<url|none> to every --pr-url already given")
 			}
 			if url == "none" {
 				continue
@@ -209,7 +209,7 @@ func (c *ic) land() {
 		}
 	}
 	if !c.writeState("IN_PROGRESS", nil, pr) {
-		c.stop("state", "the IN_PROGRESS write failed — report it")
+		c.stopAs("state-write-failed", "state", "the IN_PROGRESS write failed — report it")
 	}
 	c.markEnd("flow.landing-routes", "completed")
 	if c.jiraKey != "" {

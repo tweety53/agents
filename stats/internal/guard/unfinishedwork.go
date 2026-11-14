@@ -291,6 +291,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	worktree, name, canonical := arg(0), arg(1), arg(2)
 	if worktree == "" || name == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard check-unfinished-work <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...")
+		Reason(env, "usage")
 		return 2
 	}
 	// The change's commit ranges, one per worktree of its resolved set:
@@ -301,10 +302,12 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		wt, base, ok := strings.Cut(a, "=")
 		if !ok || wt == "" || base == "" {
 			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base>\n", uwPrefix, a)
+			Reason(env, "bad-range-arg")
 			return 2
 		}
 		if strings.ContainsAny(base, " \t\n") {
 			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base> — %s\n", uwPrefix, a, unsplitListHint)
+			Reason(env, "bad-range-arg")
 			return 2
 		}
 		ranges = append(ranges, [2]string{wt, base})
@@ -341,10 +344,12 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// is what makes the paths this guard reads the ones it was asked about.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", uwPrefix, name)
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	if !isDir(worktree) {
 		fmt.Fprintf(stderr, "%s%s is not a directory — cannot determine anything\n", uwPrefix, worktree)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 
@@ -357,6 +362,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// one failure direction this whole guard exists to remove.
 	unreadable := func(path string) int {
 		fmt.Fprintf(stderr, "%scannot read %s — cannot determine anything\n", uwPrefix, path)
+		Reason(env, "cannot-read")
 		return 2
 	}
 
@@ -393,6 +399,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	if planRC == 3 {
 		_, _ = stderr.Write(planErr.Bytes())
 		fmt.Fprintf(stderr, "%sthe state record resolves '%s' to more than one project's plan — cannot determine anything\n", uwPrefix, name)
+		Reason(env, "state-record-resolves")
 		return 2
 	}
 	planOpen, parentOpen := 0, 0
@@ -418,9 +425,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				peers := worktree + "/" + specRootLeaf(worktree, stderr) + "/peers"
 				fmt.Fprintf(stderr, "%s'%s' is a satellite change (link.md at %s); no canonical worktree was supplied and its canonical plan could not be resolved through %s — cannot determine anything\n", uwPrefix, name, link, peers)
 			}
+			Reason(env, "canonical-plan-unresolved")
 			return 2
 		}
 		primary = changes + "/" + name + "/tasks.md"
+		Reason(env, "no-plan")
 		reasons = append(reasons, "no plan at "+primary)
 		sweepDir, sweepID = changes, name
 	}
@@ -473,9 +482,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if planOpen > 0 {
+		Reason(env, "unchecked-plan-items")
 		reasons = append(reasons, strconv.Itoa(planOpen)+" unchecked plan item(s)")
 	}
 	if parentOpen > 0 {
+		Reason(env, "unticked-parent-actions")
 		reasons = append(reasons, strconv.Itoa(parentOpen)+" unticked parent action(s) in "+planDir+"/design.md")
 	}
 
@@ -513,12 +524,14 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		var err error
 		if findingsJSON, err = env.Findings(name); err != nil {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(findingsJSON), "\n"))
+			Reason(env, "cannot-read-findings")
 			return 2
 		}
 	} else {
 		out, errOut, rc := pcFlow(env, false, "record", "findings", "-change", name, "-C", anchor)
 		if rc != 0 {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(errOut), "\n"))
+			Reason(env, "cannot-read-findings")
 			return 2
 		}
 		findingsJSON = out
@@ -533,17 +546,21 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	open, ok := uwOpenFindings(findingsJSON)
 	if !ok {
 		fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
+		Reason(env, "jq-failed")
 		return 2
 	}
 	if open > 0 {
+		Reason(env, "open-findings")
 		reasons = append(reasons, strconv.Itoa(open)+" open finding(s) in the review panel record")
 	}
 	rounds, cause := uwUnprovedFixRounds(env, name, anchor, findingsJSON)
 	if cause != "" {
 		fmt.Fprintln(stderr, uwPrefix+cause)
+		Reason(env, "fix-rounds-unreadable")
 		return 2
 	}
 	if len(rounds) > 0 {
+		Reason(env, "unproved-fix-rounds")
 		reasons = append(reasons, "fixed Critical/Important finding(s) in round(s) "+uwJoinRounds(rounds)+" and no fix-mutation row for that fix round — record each fix's fix-mutation: line, or one `-mutated none -test <reason>` row for a fix that changed nothing executable (skills/flow/review-panel-fix-round.md) before landing")
 	}
 	// Signal two's report half (kan-1015): a slot's report counting more
@@ -554,19 +571,23 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		rows, ok := cfcParse(findingsJSON)
 		if !ok {
 			fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
+			Reason(env, "jq-failed")
 			return 2
 		}
 		uncounted, undercounted, err := cfcUncounted(anchor, rows)
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", uwPrefix, err)
+			Reason(env, "cannot-count-findings")
 			return 2
 		}
 		if len(uncounted) > 0 {
+			Reason(env, "uncounted-findings")
 			reasons = append(reasons, strconv.Itoa(len(uncounted))+" panel report(s) count findings the store does not hold ("+strings.Join(uncounted, " ")+") — record each with `flow record finding -change "+name+" -C "+anchor+"` before landing")
 		}
 		// The store-side direction (kan-1096 self-review, F3): store rows no
 		// report counts mean a report was lost.
 		if len(undercounted) > 0 {
+			Reason(env, "undercounted-findings")
 			reasons = append(reasons, strconv.Itoa(len(undercounted))+" slot(s) whose store rows outnumber their reports ("+strings.Join(undercounted, " ")+") — restore or write each missing panel report before landing")
 		}
 	}
@@ -583,6 +604,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		dispOut, dispErr, dispRC := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", anchor)
 		if dispRC != 0 {
 			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(dispErr), "\n"))
+			Reason(env, "cannot-read-dispatches")
 			return 2
 		}
 		var dispatches []struct {
@@ -597,6 +619,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if json.Unmarshal(dispOut, &dispatches) != nil || dispatches == nil {
 			fmt.Fprintf(stderr, "%sdispatches for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
+			Reason(env, "dispatches-unparseable")
 			return 2
 		}
 		// Each row is closed under the token of the run that BEGAN it, not
@@ -621,6 +644,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 		if len(unclosed) > 0 {
+			Reason(env, "unclosed-dispatches")
 			reasons = append(reasons, strconv.Itoa(len(unclosed))+" dispatch row(s) with no outcome ("+strings.Join(unclosed, ", ")+") — close each with "+strings.Join(closeCmds, ", "))
 		}
 		// SIGNAL FIVE — a panel round dispatched with no pass row (kan-939
@@ -640,6 +664,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
 			if passRC != 0 {
 				fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
+				Reason(env, "cannot-read-pass-rows")
 				return 2
 			}
 			var passes []struct {
@@ -647,6 +672,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			if json.Unmarshal(passOut, &passes) != nil || passes == nil {
 				fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
+				Reason(env, "pass-rows-not-json")
 				return 2
 			}
 			for _, p := range passes {
@@ -662,6 +688,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				for _, n := range nums {
 					named = append(named, "round "+strconv.Itoa(n)+": "+strings.Join(rounds[n], ", "))
 				}
+				Reason(env, "rounds-without-pass-rows")
 				reasons = append(reasons, strconv.Itoa(len(nums))+" panel round(s) dispatched with no pass row ("+strings.Join(named, "; ")+") — record each round's pass rows with `flow record pass -change "+name+" -round <round>` before landing")
 			}
 		}
@@ -676,6 +703,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		bundleOut, bundleErr, bundleRC := pcFlow(env, false, "self-review", "bundle", "-change", name, "-C", anchor)
 		if bundleRC != 0 {
 			fmt.Fprintf(stderr, "%scannot read the self-review bundle for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(bundleErr), "\n"))
+			Reason(env, "cannot-read-bundle")
 			return 2
 		}
 		var headerLines []string
@@ -687,9 +715,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if !slices.ContainsFunc(headerLines, func(l string) bool { return strings.HasPrefix(l, "found: ") }) {
 			fmt.Fprintf(stderr, "%sthe self-review bundle for '%s' carries no found: line — cannot determine anything\n", uwPrefix, name)
+			Reason(env, "bundle-missing-found-line")
 			return 2
 		}
 		if slices.Contains(headerLines, "skipped: change summary (absent)") {
+			Reason(env, "no-change-summary")
 			reasons = append(reasons, "no change summary recorded — record the run's summary with `flow record summary -change "+name+" -C "+anchor+" -file -` before landing")
 		}
 		// SIGNAL SEVEN — a code commit no completed inline verify row covers
@@ -722,6 +752,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%h %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", r[1]+"..HEAD", "--", ".", ":(exclude)"+leaf+"/changes/"))
 				if !ok {
 					fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
+					Reason(env, "cannot-read-the-commits")
 					return 2
 				}
 				for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
@@ -740,6 +771,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 			if newest != "" && newestAt > lastVerify {
+				Reason(env, "no-inline-verify")
 				reasons = append(reasons, "no completed inline verify row since "+newest+" — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing — a re-run after a new commit takes a fresh `verify-<k>` key (the store keeps a reused key's first start)")
 			}
 			// SIGNAL EIGHT — a code commit and no review-panel pass at all
@@ -754,14 +786,17 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
 				if passRC != 0 {
 					fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
+					Reason(env, "cannot-read-pass-rows")
 					return 2
 				}
 				var passes []json.RawMessage
 				if json.Unmarshal(passOut, &passes) != nil || passes == nil {
 					fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
+					Reason(env, "pass-rows-not-json")
 					return 2
 				}
 				if len(passes) == 0 {
+					Reason(env, "no-review-pass")
 					reasons = append(reasons, "no review-panel pass recorded for code commit "+newest+" — run the review panel (skills/flow/review-panel.md) and record its pass rows with `flow record pass -change "+name+" -round <round>` before landing")
 				}
 			}
@@ -791,6 +826,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				out, ok := capture(envGit(env)(append([]string{"-C", r[0], "log", "--no-merges", "--format=%H %h %(trailers:key=Flow-Key,valueonly,separator=%x20)", "^" + r[1]}, tips...)...))
 				if !ok {
 					fmt.Fprintf(stderr, "%scannot read the commits of %s..%s in %s — cannot determine anything\n", uwPrefix, r[1], strings.Join(tips, " "), r[0])
+					Reason(env, "cannot-read-the-commits")
 					return 2
 				}
 				for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
@@ -804,6 +840,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 			if len(missing) > 0 {
+				Reason(env, "unrecorded-panel-fix-commits")
 				reasons = append(reasons, strconv.Itoa(len(missing))+" panel-fix commit(s) whose Flow-Key no dispatch row carries ("+strings.Join(missing, ", ")+") — record each with `flow record dispatch backfill -change "+name+" -role panel-fix -agent-id inline -commit <sha>` under its real round's key before landing")
 			}
 		}
@@ -829,6 +866,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%x00%H %ct", "--name-only", r[1]+"..HEAD"))
 					if !ok {
 						fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
+						Reason(env, "cannot-read-the-commits")
 						return 2
 					}
 					for _, chunk := range strings.Split(out, "\x00")[1:] {
@@ -915,6 +953,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 						if fl.png != "" {
 							what += " " + fl.png + ".png"
 						}
+						Reason(env, "verify-failure-unaddressed")
 						reasons = append(reasons, "verify failure not addressed: "+what+" ("+uwBasename(rp)+") — fix it in this run, or cite its fixing commit as a narrative line \"Verify failure addressed: "+fl.spec+":"+fl.line+" — <sha>\"")
 					}
 				}
@@ -960,6 +999,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 						continue
 					}
 					seen[mc] = true
+					Reason(env, "merge-order-incomplete")
 					reasons = append(reasons, "merge order does not name "+mc+": "+link+" — write the change's ## Merge order per skills/flow/cross-repo-worktrees.md (\"Then make the merge-order record cover the whole set\") before landing")
 				}
 			}
@@ -975,10 +1015,12 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			switch checkVisualVerifyDispatched([]string{worktree, name, r[1], canonical}, env, &vOut, &vErr) {
 			case 1:
 				if line := strings.TrimSpace(vOut.String()); !uwVisualFlagged(env, name, worktree, anchor, line) {
+					Reason(env, "visual-verify-outstanding")
 					reasons = append(reasons, line)
 				}
 			case 2:
 				fmt.Fprintf(stderr, "%s%s\n", uwPrefix, strings.TrimRight(vErr.String(), "\n"))
+				Reason(env, "visual-check-failed")
 				return 2
 			}
 		}
@@ -1024,9 +1066,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 			if len(missing) > 0 {
+				Reason(env, "appended-tasks-without-dispatch")
 				reasons = append(reasons, strconv.Itoa(len(missing))+" ticked appended task(s) with no dispatch row (Task "+strings.Join(missing, ", ")+") — record each task's dispatch, and its fix round's pass rows and findings, before landing")
 			}
 			if len(unreviewed) > 0 {
+				Reason(env, "appended-tasks-unreviewed")
 				reasons = append(reasons, strconv.Itoa(len(unreviewed))+" ticked appended task(s) with no panel reviewer row (key `panel-<round>-<slot>`) begun after its implementer row (Task "+strings.Join(unreviewed, ", ")+") — run its fix round's panel and record its pass rows and findings, before landing")
 			}
 			// A dispatch row is not a commit: a row back-filled after the
@@ -1037,6 +1081,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			if len(appended) > 0 {
 				if len(ranges) == 0 {
 					fmt.Fprintf(stderr, "%sticked appended task(s) (Task %s) and no <worktree>=<merge-base> range was passed — cannot judge their commits\n", uwPrefix, strings.Join(appended, ", "))
+					Reason(env, "ticked-appended-task")
 					return 2
 				}
 				committed := map[string]bool{}
@@ -1044,6 +1089,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%(trailers:key=Task-Id,valueonly)", r[1]+"..HEAD"))
 					if !ok {
 						fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
+						Reason(env, "cannot-read-the-commits")
 						return 2
 					}
 					for _, id := range ctTaskNumberRE.FindAllString(out, -1) {
@@ -1057,6 +1103,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 					}
 				}
 				if len(uncommitted) > 0 {
+					Reason(env, "appended-tasks-uncommitted")
 					reasons = append(reasons, strconv.Itoa(len(uncommitted))+" ticked appended task(s) with no commit carrying its `Task-Id:` trailer on the branch (Task "+strings.Join(uncommitted, ", ")+") — commit each task's work with `Task-Id: <n>` before landing")
 				}
 			}
@@ -1093,7 +1140,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 // origin/<base>`. False on any failure.
 func uwDerivedRange(env Env, worktree string) ([2]string, bool) {
 	var out bytes.Buffer
-	if resolveBaseBranch([]string{worktree}, env, &out, io.Discard) != 0 {
+	// A failure here only means no derived range, never a refusal of this
+	// run: the resolver's reason is not this run's.
+	quiet := env
+	quiet.Reasons = nil
+	if resolveBaseBranch([]string{worktree}, quiet, &out, io.Discard) != 0 {
 		return [2]string{}, false
 	}
 	base, ok := capture(envGit(env)("-C", worktree, "merge-base", "HEAD", "origin/"+strings.TrimSpace(out.String())))

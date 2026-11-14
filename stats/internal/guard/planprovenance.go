@@ -3260,7 +3260,8 @@ func (g *ppGuard) checkFile(path, repoRoot string) string {
 // trust. The counts it prints are read from `guard`, so the
 // before-the-scan call naturally reports zeroes for channels that never
 // had a chance to accumulate anything.
-func (g *ppGuard) reportContainmentRefusal(fileErrors []string) int {
+func (g *ppGuard) reportContainmentRefusal(env Env, fileErrors []string) int {
+	Reason(env, "containment-refused")
 	if g.failures != 0 {
 		fmt.Fprintf(g.stderr, "\n%d plan-provenance violation(s) found.\n", g.failures)
 	}
@@ -3340,11 +3341,13 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		repoRoot = env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if repoRoot == "" {
 			fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT and FLOW_GUARD_REPO_ROOT are unset — run flow-guard check-plan-provenance, which sets the latter")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
 	if repoRoot == "" {
 		fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT is set but empty")
+		Reason(env, "check-plan-provenance-root")
 		return 2
 	}
 	g := &ppGuard{stdout: stdout, stderr: stderr, dir: env.Dir}
@@ -3354,6 +3357,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 	// which is the one outcome a guard must never produce.
 	if !isDir(g.abs(repoRoot)) {
 		fmt.Fprintf(stderr, "not a directory: %s\n", repoRoot)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 
@@ -3392,12 +3396,12 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 	if ppIsLink(g.abs(changesDir)) {
 		fmt.Fprintf(stderr, "%s: spectre/changes is a symlink — refusing to scan through it (a decoy target reports a false clean run; an out-of-tree target reads outside the repository)\n", changesDir)
 		g.containmentErrors = append(g.containmentErrors, changesDir)
-		return g.reportContainmentRefusal(nil)
+		return g.reportContainmentRefusal(env, nil)
 	}
 	if realChangesDir := g.realpath(changesDir); isDir(g.abs(changesDir)) && realChangesDir != expectedChangesDir {
 		fmt.Fprintf(stderr, "%s: resolves to %s, not %s — refusing to scan a changes directory reached through a symlink escape\n", changesDir, realChangesDir, expectedChangesDir)
 		g.containmentErrors = append(g.containmentErrors, changesDir)
-		return g.reportContainmentRefusal(nil)
+		return g.reportContainmentRefusal(env, nil)
 	}
 
 	// No spectre/changes directory at all: spectre/changes/ is gitignored,
@@ -3437,6 +3441,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintln(stderr, notFound)
 		}
+		Reason(env, "permission-denied")
 		return 2
 	}
 
@@ -3618,6 +3623,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		// anywhere.
 		fmt.Fprintf(stderr, "none of %s found at all, in any of %d in-flight change(s) under %s — refusing to report a clean run\n",
 			strings.Join(ppScannedFilenames, ", "), len(changeDirs), changesDir)
+		Reason(env, "no-plan-files-found")
 		return 2
 	}
 
@@ -3643,9 +3649,18 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 	// every one of them is still printed below regardless of which exit
 	// code wins — `_resolve_exit_code` decides only the WINNING code, not
 	// which channels get reported.
+	if g.failures != 0 {
+		Reason(env, "provenance-violations")
+	}
+	if len(g.abortMessages) > 0 {
+		Reason(env, "unclassifiable-line")
+	}
+	if len(fileErrors) > 0 {
+		Reason(env, "cannot-read-file")
+	}
 	switch ppResolveExitCode(g.containmentErrors, g.failures, g.abortMessages, fileErrors) {
 	case 3:
-		return g.reportContainmentRefusal(fileErrors)
+		return g.reportContainmentRefusal(env, fileErrors)
 	case 1:
 		fmt.Fprintf(stderr, "\n%d plan-provenance violation(s) found.\n", g.failures)
 		if len(g.abortMessages) > 0 {
@@ -3680,6 +3695,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		// (`_veto_note`) names the specific cause and fix; this scopes
 		// the banner so it does not contradict it.
 		fmt.Fprintln(stderr, "For the violations above: fix by adding the missing verified:/unverified: tag or measured:/predicted: comment — or, where a note above says the quotation exemption was withdrawn, by rewording the line; never suppress.")
+		Reason(env, "provenance-violations")
 		return 1
 	case 4:
 		// No provenance violations were found, but at least one line
@@ -3693,6 +3709,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		if len(fileErrors) > 0 {
 			fmt.Fprintf(stderr, "%d file(s) also could not be read (environment failure, see above).\n", len(fileErrors))
 		}
+		Reason(env, "unclassifiable-line")
 		return 4
 	case 2:
 		// No provenance violations or classification aborts were found,
@@ -3710,6 +3727,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		// here told an operator to go re-read prose when the actual fix
 		// was a filesystem permission or an encoding issue.
 		fmt.Fprintf(stderr, "\n%d file(s) could not be read (environment failure — a permission, encoding or size problem on disk, see above) — refusing to report a clean run\n", len(fileErrors))
+		Reason(env, "unreadable-files")
 		return 2
 	}
 

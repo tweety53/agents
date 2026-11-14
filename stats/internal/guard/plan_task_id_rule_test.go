@@ -22,7 +22,7 @@ func TestPlanTaskIDRule(t *testing.T) {
 		want                 string
 	}{
 		{"/flow plan, local branch (self-review-backlog-flow-5-oct18)", "spectre/changes/c/tasks.md", rule, "refs/heads/spectre/c", true,
-			1, "tasks.md:3: a /flow plan states task commits carry no `Task-Id:` trailer"},
+			1, "tasks.md:3: plan-task-id-rule a /flow plan states task commits carry no `Task-Id:` trailer"},
 		{"/flow plan, origin branch", "spectre/changes/c/tasks.md", rule, "refs/remotes/origin/spectre/c", true, 1, "tasks.md:3:"},
 		{"loop plan, no spectre branch", "spectre/changes/c/tasks.md", rule, "refs/heads/spectre/other", true, 0, ""},
 		{"fenced example", "spectre/changes/c/tasks.md", "```\nno `Task-Id:` trailer\n```\n", "refs/heads/spectre/c", true, 0, ""},
