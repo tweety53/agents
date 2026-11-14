@@ -129,7 +129,7 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on the
-`gated-reviewer` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), never its group's pair. On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
+pair `flow-guard pair-judge gated-reviewer` prints (**Model and effort**, `skills/flow/brainstorm-planner.md`), never its group's pair. On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
 so it is structurally fork-free too. **`flow-high` is dispatched in exactly two cases and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included, and a pass-1 panel dispatch the operator approved at `high` at the plan gate (**Model and effort**, `skills/flow/brainstorm-planner.md`); every other row takes the effort its recorded pair or its contract names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside the two. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
@@ -822,8 +822,8 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
 (the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
 **The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
-goes out in one reviewer Agent call beside group N+2's implementer, on its **Allowed pairs** row
-(`skills/flow-contracts/model-policy.md`), fixed whatever the roll, its prompt opening with the
+goes out in one reviewer Agent call beside group N+2's implementer, on the pair `flow-guard
+pair-judge gated-reviewer <prompt file>` prints (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
 line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
 with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps
 its original bundle's pair and Role line. On harnesses `zcode` and `muse`, **Harness mapping**

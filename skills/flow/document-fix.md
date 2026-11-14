@@ -149,7 +149,7 @@ When the `class:` line it prints equals the newest recorded row's `classMechanic
 carried: `decision.json` is that row's file with three things rewritten and nothing else
 re-chosen — `inputs` from the `inputs:` line; `groups_mechanical` and `groups` from
 `flow-guard plan-dispatch-bundles` and `flow-guard plan-dispatch-groups` over the appended plan,
-each group on the row's implementer pair (`opus` at `medium` for a group carrying a hard seam),
+each group on the pair `flow-guard pair-judge implementer` prints over its own tasks, `-opus-only` for a group carrying a hard seam (**Decide** step 5, `skills/flow/brainstorm-planner.md`),
 `groups_override` `null` and `groups_reason` `mechanical`, all left `null` where the row's
 `execution` is `inline`; and `visual` raised to `required` when the append can change what a user
 sees, never lowered. **Decide** is not read on this path.
