@@ -42,15 +42,21 @@ func main() {
 			}
 		}
 	}
+	os.Exit(runAndRecord(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, workingDir, http.DefaultClient))
+}
+
+// runAndRecord runs the guard args name and records the run's telemetry,
+// passing recordRun the first line the guard printed on stdout.
+func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) string, workingDir func() string, client *http.Client) int {
 	start := time.Now()
-	out := &firstLine{w: os.Stdout}
-	code := run(os.Args[1:], out, os.Stderr)
-	if name, ok := dispatched(os.Args[1:]); ok {
+	out := &firstLine{w: stdout}
+	code := run(args, out, stderr)
+	if name, ok := dispatched(args); ok {
 		if dir := workingDir(); dir != "" {
-			recordRun(os.Getenv, dir, name, code, string(out.line), time.Since(start), http.DefaultClient)
+			recordRun(getenv, dir, name, code, string(out.line), time.Since(start), client)
 		}
 	}
-	os.Exit(code)
+	return code
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
