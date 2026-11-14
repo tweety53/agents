@@ -172,10 +172,11 @@ func TestPlanDispatchBundles(t *testing.T) {
 	want("pin: a plan with no unchecked task prints nothing and exits 0", r.rc == 0 && r.out == "", r)
 	// Python's BULLET_RE / _extract_paths: the Create:/Modify:/Delete: prefix
 	// is stripped, untick text is the path, a fenced bullet adds nothing and
-	// does not end the run, and a Files line's own inline value is not read.
+	// does not end the run, and a Files line's own inline value is read too,
+	// so task 1's inline.txt joins task 3.
 	_, r = run("- [ ] 1. A\n\n**Files:** `inline.txt`\n-   Delete:   plain path  \n```\n- `fenced.txt`\n```\n- Create: `x.txt`\n\n" +
 		"- [ ] 2. B\n\n**Files:**\n- plain path\n\n- [ ] 3. C\n\n**Files:**\n- `fenced.txt`\n- `inline.txt`\n\n- [ ] 4. D\n\n**Files:**\n- `x.txt`\n")
-	want("pin: Files bullets parse as the Python's BULLET_RE did", r.rc == 0 && r.out == "bundle 1: 1 2 4\nafter 1: 1 2 3\nbundle 2: 3\nafter 2: 1 2", r)
+	want("pin: Files bullets parse as the Python's BULLET_RE did", r.rc == 0 && r.out == "bundle 1: 1 2 3 4\nafter 1: 1 2 3", r)
 	root := t.TempDir()
 	writeFile(t, root+"/spectre/changes/a/tasks.md", tk("1", "a.txt"))
 	writeFile(t, root+"/spectre/changes/b/tasks.md", "- [ ] 1. \xff\n")
@@ -196,5 +197,28 @@ func TestPlanDispatchBundles(t *testing.T) {
 				t.Error(c.fail)
 			}
 		})
+	}
+}
+
+// TestPlanDispatchBundlesInlineFiles: an inline `**Files:** \`a\`, \`b\“
+// line declares its paths exactly as the list-item form does.
+func TestPlanDispatchBundlesInlineFiles(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	step := "  - [ ] **Step 1: do it**\n"
+	for _, c := range []struct{ name, body, want string }{
+		{"inline overlap bundles together",
+			"- [ ] 1. A\n\n**Files:** `a.go`\n\n" + step + "\n- [ ] 2. B\n\n**Files:** `b.go`, `a.go`\n\n" + step,
+			"bundle 1: 1 2\nafter 1: 1"},
+		{"disjoint inline stays apart",
+			"- [ ] 1. A\n\n**Files:** `a.go`\n\n" + step + "\n- [ ] 2. B\n\n**Files:** `b.go`\n\n" + step,
+			"bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1"},
+		{"list-item form unchanged",
+			"- [ ] 1. A\n\n**Files:**\n- Modify: `a.go`\n\n" + step + "\n- [ ] 2. B\n\n**Files:**\n- Modify: `a.go`\n\n" + step,
+			"bundle 1: 1 2\nafter 1: 1"},
+	} {
+		if r := runGuard("plan-dispatch-bundles", []string{psFixture(t, c.body)}, env); r.rc != 0 || r.out != c.want {
+			t.Errorf("%s: rc=%d out=%q, want %q", c.name, r.rc, r.out, c.want)
+		}
 	}
 }

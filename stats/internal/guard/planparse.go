@@ -639,9 +639,8 @@ type pdbTask struct {
 // every immediately following `- ` bullet that is not a checkbox (`- [ ]`,
 // `- [x]`, `- [X]`), read until the first line that is not such a bullet. A
 // fence line toggles fence state without ending the run, and a fenced line
-// is never read. The Files line's own inline value is not read -- the
-// Python never did; generate-relocation-comparison reads Files through
-// tcfPythonFiles instead. An **Allowed-collateral:** entry never joins.
+// is never read. The Files line's own inline value is read as
+// tcfParseTask reads it, through tcfBacktickTokens, `none` declaring no path. An **Allowed-collateral:** entry never joins.
 func pdbParseTasks(lines []string) []pdbTask {
 	var tasks []pdbTask
 	for _, b := range tcfIterTasks(lines) {
@@ -673,8 +672,11 @@ func pdbParseTasks(lines []string) []pdbTask {
 				}
 				inFiles = false
 			}
-			if strings.HasPrefix(line, "**Files:**") {
+			if inline, ok := strings.CutPrefix(line, "**Files:**"); ok {
 				t.filesPresent, inFiles = true, true
+				if !tcfNoneOpenRE.MatchString(inline) {
+					t.files = append(t.files, tcfBacktickTokens(inline)...)
+				}
 			}
 		}
 		tasks = append(tasks, t)
