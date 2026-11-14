@@ -1324,6 +1324,29 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		}
 	}
 
+	// Nothing is reviewed a third time (skills/flow/brainstorm.md, Plan
+	// review): a live plan-review-<n> reviewer begins only while its session
+	// token holds fewer than two completed plan-review rows; a failed
+	// reviewer's row ends aborted and does not count. A failed read refuses
+	// nothing.
+	if *role == "reviewer" && planReviewKeyRE.MatchString(*key) && *startedAt == "" {
+		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+			return cl.GetRunRecord(ctx, projectKey, f.change)
+		})
+		if err == nil {
+			var done []string
+			for _, d := range run.Dispatches {
+				if d.Role == "reviewer" && d.Outcome == "completed" && d.SessionToken == *sessionToken && planReviewKeyRE.MatchString(d.Key) {
+					done = append(done, d.Key)
+				}
+			}
+			if len(done) >= 2 {
+				fmt.Fprintf(stderr, "flow: -key %q is a third plan review under session token %s, which already completed %s -- nothing is reviewed a third time (skills/flow/brainstorm.md)\n", *key, *sessionToken, strings.Join(done, " and "))
+				return 2
+			}
+		}
+	}
+
 	// A task already holding a completed implementer row is not begun again
 	// inline (kan-1044 self-review, F1-b); a back-fill carries its own
 	// commit check, and a failed read refuses nothing.
@@ -1792,6 +1815,9 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 
 // recordModelFamilyRe matches every Claude model spelling: the family, with
 // or without the claude- prefix, and any numeric version suffix.
+// planReviewKeyRE matches a plan reviewer's key, plan-review-<n>.
+var planReviewKeyRE = regexp.MustCompile(`^plan-review-[0-9]+$`)
+
 var recordModelFamilyRe = regexp.MustCompile(`^(claude-)?(opus|sonnet|fable|haiku)(-[0-9]+)*$`)
 
 // recordModelAlias maps a Claude model spelling to the family dispatches are

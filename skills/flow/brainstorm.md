@@ -277,7 +277,9 @@ dispatch, planner redispatch and question round of a review sits inside its stag
    the answers. Its `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return ends `flow.plan-review`;
    nothing is reviewed a third time.
 4. **A failed reviewer.** A dispatch that errors, or returns neither verdict line, is
-   redispatched once under the next `<n>`. Failing again, the plan review is `not run`, never
+   redispatched once under the next `<n>`, its row first ended `-outcome aborted` so it does not
+   count toward the two reviews `flow record dispatch begin` admits under one session token.
+   Failing again, the plan review is `not run`, never
    clean: end the stage with `-outcome failed -reason 'plan review not run'` and go on.
 
 A `/flow-plan` capture marks the stage under `-command '/flow-plan'`.
