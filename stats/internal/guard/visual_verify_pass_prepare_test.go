@@ -411,7 +411,7 @@ func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
 
 // TestVisualVerifyPassPrepareReadsThePair pins KAN-1110: the verifier's pair
 // is the first base pair of its allowed-pairs row, not a constant; an empty
-// row stops prepare.
+// row, and a failed allowed-pairs read, stops prepare.
 func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
 	smoke.Heavy(t)
 	f := vvpFixture(t, "")
@@ -426,6 +426,12 @@ func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
 	rc, out, calls = g.prepare()
 	if rc != 1 || !strings.Contains(out, "STOP: pair — ") || strings.Contains(calls, "record dispatch begin") || !strings.Contains(calls, "-outcome stopped") {
 		t.Fatalf("empty row: exit %d\n%s\n%s", rc, out, calls)
+	}
+	h := vvpFixture(t, "")
+	writeFile(t, filepath.Join(filepath.Dir(h.log), "policy.json"), `not json`)
+	rc, out, calls = h.prepare()
+	if rc != 1 || !strings.Contains(out, "STOP: pair — no allowed pairs: `flow policy get`") || strings.Contains(calls, "record dispatch begin") {
+		t.Fatalf("failed policy read: exit %d\n%s\n%s", rc, out, calls)
 	}
 }
 

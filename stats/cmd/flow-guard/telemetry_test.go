@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/guard"
 )
 
 func TestOutcomeForUsesTheGuardsOwnCannotAnswerCode(t *testing.T) {
@@ -173,5 +176,31 @@ func TestDispatchedOnlyNamesRegisteredGuards(t *testing.T) {
 	}
 	if name, ok := dispatched([]string{"check-cleanup-complete", "x"}); !ok || name != "check-cleanup-complete" {
 		t.Errorf("dispatched = %q, %v", name, ok)
+	}
+}
+
+// TestRunAndRecordPassesTheFirstLine pins KAN-1110: the first line a guard
+// prints reaches recordRun, so check-unfinished-work's exit-0 OUTSTANDING
+// verdict is recorded fired. Not parallel: it swaps a registry entry.
+func TestRunAndRecordPassesTheFirstLine(t *testing.T) {
+	dir := gitRepo(t)
+	const name = "check-unfinished-work"
+	orig := registry[name]
+	registry[name] = func(_ []string, _ guard.Env, stdout, _ io.Writer) int {
+		fmt.Fprintln(stdout, "OUTSTANDING: task 3 has no implementer row")
+		return 0
+	}
+	defer func() { registry[name] = orig }()
+	var got guardRun
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	var stdout bytes.Buffer
+	code := runAndRecord([]string{name}, &stdout, io.Discard, func(k string) string { return env[k] }, func() string { return dir }, srv.Client())
+	if code != 0 || got.Guard != name || got.Outcome != "fired" {
+		t.Errorf("exit %d, body %+v; want exit 0 recorded fired", code, got)
 	}
 }
