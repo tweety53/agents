@@ -86,7 +86,7 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(md)
 	want("case 2 (F1): duplicate Files line fails", r.rc == 1, r)
 	want("case 2 (F1): names the task and the field", has(r, "task 1 declares a second **Files:**"), r)
-	want("case 2 (F1): the exact file:line prefix is line 7", strings.HasPrefix(r.out, md+":7: task 1 declares a second"), r)
+	want("case 2 (F1): the exact file:line prefix is line 7", strings.HasPrefix(r.out, md+":7: F1 task 1 declares a second"), r)
 	mutation("F1", md, md, "declares a second **Files:**", "case 2")
 
 	// Case 3 (F2): no **Files:** line at all.
@@ -106,7 +106,7 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(md)
 	want("case 5 (F3a): an indented Files line fails", r.rc == 1, r)
 	want("case 5 (F3a): names the indentation defect", has(r, "indented past column 0"), r)
-	want("case 5 (F3a): the exact file:line prefix is line 3", strings.HasPrefix(r.out, md+":3: task 1 carries a"), r)
+	want("case 5 (F3a): the exact file:line prefix is line 3", strings.HasPrefix(r.out, md+":3: F3a task 1 carries a"), r)
 	mutation("F3a", md, md, "indented past column 0", "case 5")
 
 	// Case 6 (F3b): an unclosed fence names the fence, and suppresses F2/F6.
@@ -227,7 +227,7 @@ func TestCheckPlanShape(t *testing.T) {
 	want("case 26 (F11): a file two unordered tasks own fails", r.rc == 1, r)
 	want("case 26 (F11): names the path, both tasks, and the missing ordering",
 		has(r, "task 2's **Files:** also names `a.txt`") && has(r, "task 1") && has(r, "no **After:** ordering"), r)
-	want("case 26 (F11): the exact file:line prefix is line 9", strings.HasPrefix(r.out, md+":9: task 2's **Files:** also names"), r)
+	want("case 26 (F11): the exact file:line prefix is line 9", strings.HasPrefix(r.out, md+":9: F11 task 2's **Files:** also names"), r)
 	mutation("F11", md, md, "no **After:** ordering", "case 26")
 
 	// Case 27 (F11): the declared edge passes.
@@ -448,13 +448,13 @@ func TestCheckPlanShape(t *testing.T) {
 	r = one(psFixture(t, "- [ ] 1. \xff\n"))
 	want("pin: a plan that is not UTF-8 exits 2", r.rc == 2 && has(r, "cannot read file: UnicodeDecodeError"), r)
 	r = runGuard("check-plan-shape", []string{"a", "b"}, env)
-	want("pin: the usage line", r.err == "usage: flow-guard check-plan-shape [path-to-tasks.md]\n", r)
+	want("pin: the usage line", r.err == "usage: flow-guard check-plan-shape [-rules | path-to-tasks.md]\n", r)
 	r = one(psFixture(t, psTasks("a", "a")))
 	want("pin: violations go to stdout, one per line", r.err == "" && strings.HasSuffix(r.stdout, "explicit\n"), r)
 	root = t.TempDir()
 	writeFile(t, root+"/spectre/changes/dirty-change/tasks.md", "- [ ] 1. Dirty\n\n**Tests:** `test-a.sh`\n")
 	r = runGuard("check-plan-shape", nil, Env{Getenv: psGetenv(map[string]string{"FLOW_GUARD_REPO_ROOT": root})})
-	want("pin: with no override the root is FLOW_GUARD_REPO_ROOT", r.rc == 1 && has(r, root+"/spectre/changes/dirty-change/tasks.md:1: task 1 has no **Files:** line"), r)
+	want("pin: with no override the root is FLOW_GUARD_REPO_ROOT", r.rc == 1 && has(r, root+"/spectre/changes/dirty-change/tasks.md:1: F2 task 1 has no **Files:** line"), r)
 	r = runGuard("check-plan-shape", nil, Env{Getenv: psGetenv(nil)})
 	want("pin: with no override and no FLOW_GUARD_REPO_ROOT it exits 2", r.rc == 2 &&
 		r.err == "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-plan-shape, which sets it\n", r)
@@ -663,7 +663,7 @@ func TestPlanShapeDesignSections(t *testing.T) {
 		}
 	})
 	t.Run("absent design.md fails naming the file", func(t *testing.T) {
-		if r := check(t, header+psTasks("a"), ""); r.rc != 1 || !strings.Contains(r.out, "design.md: missing file design.md") {
+		if r := check(t, header+psTasks("a"), ""); r.rc != 1 || !strings.Contains(r.out, "design.md:1: F19 missing file design.md") {
 			t.Errorf("rc=%d out=%s", r.rc, r.out)
 		}
 	})
@@ -834,12 +834,12 @@ func TestCheckPlanShapeF24(t *testing.T) {
 		return s + "**After:** none\n\n"
 	}
 	r := runGuard("check-plan-shape", []string{psFixture(t, task(1, ""))}, env)
-	if r.rc != 1 || strings.Count(r.out, "(F24)") != 1 || !strings.Contains(r.out, ":1: ") || !strings.Contains(r.out, "skills/flow/verify-fix-loop.md") {
+	if r.rc != 1 || strings.Count(r.out, ": F24 ") != 1 || !strings.Contains(r.out, ":1: ") || !strings.Contains(r.out, "skills/flow/verify-fix-loop.md") {
 		t.Errorf("an in-run fix with no opener: rc=%d out=%q", r.rc, r.out)
 	}
 	shared := psFixture(t, task(1, "`visual-verify-2`")+task(2, "`visual-verify-2`"))
 	r = runGuard("check-plan-shape", []string{shared}, env)
-	if r.rc != 1 || strings.Count(r.out, "(F24)") != 1 || !strings.Contains(r.out, "task 2") {
+	if r.rc != 1 || strings.Count(r.out, ": F24 ") != 1 || !strings.Contains(r.out, "task 2") {
 		t.Errorf("two in-run fixes sharing an opener: rc=%d out=%q", r.rc, r.out)
 	}
 	r = runGuard("check-plan-shape", []string{psFixture(t, task(1, "`visual-verify`")+task(2, "`visual-verify-2`"))}, env)
@@ -853,7 +853,7 @@ func TestCheckPlanShapeF24(t *testing.T) {
 	}
 	tickedShared := strings.Replace(task(1, "`visual-verify-2`"), "- [ ]", "- [x]", 1) + task(2, "visual-verify-2")
 	r = runGuard("check-plan-shape", []string{psFixture(t, tickedShared)}, env)
-	if r.rc != 1 || strings.Count(r.out, "(F24)") != 1 || !strings.Contains(r.out, "task 2") {
+	if r.rc != 1 || strings.Count(r.out, ": F24 ") != 1 || !strings.Contains(r.out, "task 2") {
 		t.Errorf("an open in-run fix sharing a ticked task's opener, bare against backticked: rc=%d out=%q", r.rc, r.out)
 	}
 	if r := psMutant(shared, "F24"); r.rc != 0 {
@@ -877,14 +877,14 @@ func TestCheckPlanShapeF25(t *testing.T) {
 	}
 	wrapped := "the dead entries are deleted once, by the\nparent at `flow.verify`."
 	p, r := check(t, entry(wrapped, ""))
-	if r.rc != 1 || strings.Count(r.out, "(F25)") != 1 || !strings.Contains(r.out, "demo-action") || !strings.Contains(r.out, "design.md:5:") {
+	if r.rc != 1 || strings.Count(r.out, ": F25 ") != 1 || !strings.Contains(r.out, "demo-action") || !strings.Contains(r.out, "design.md:5:") {
 		t.Errorf("an untracked action, wrapped across lines: rc=%d out=%q", r.rc, r.out)
 	}
 	for _, chosen := range []string{
 		"the parent commits the chore before the first task.",
 		"the parent deletes them at flow.verify.",
 	} {
-		if _, r := check(t, entry(chosen, "")); r.rc != 1 || strings.Count(r.out, "(F25)") != 1 {
+		if _, r := check(t, entry(chosen, "")); r.rc != 1 || strings.Count(r.out, ": F25 ") != 1 {
 			t.Errorf("an untracked action %q: rc=%d out=%q", chosen, r.rc, r.out)
 		}
 	}
@@ -922,7 +922,7 @@ func TestCheckPlanShapeF26(t *testing.T) {
 	// review-1, R2).
 	for _, flag := range []string{"-y", "--yes", "", "-p @mermaid-js/mermaid-cli"} {
 		p := step(strings.TrimSpace("npx " + flag))
-		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, "(F26)") != 1 {
+		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, ": F26 ") != 1 {
 			t.Errorf("npx %s refused nothing: rc=%d out=%q", flag, r.rc, r.out)
 		}
 		if m := psMutant(p, "F26"); m.rc != 0 {
@@ -937,7 +937,7 @@ func TestCheckPlanShapeF26(t *testing.T) {
 	if r := psMutant(psFixture(t, psTasks("a")+"\nNever npx with its yes flag; run `npx --no-install mmdc`.\n"), ""); r.rc != 0 {
 		t.Errorf("prose naming npx refused: rc=%d out=%q", r.rc, r.out)
 	}
-	if r := psMutant(psFixture(t, psTasks("a")+"\nRender with `npx mmdc -i a.mmd`.\n"), ""); r.rc != 1 || strings.Count(r.out, "(F26)") != 1 {
+	if r := psMutant(psFixture(t, psTasks("a")+"\nRender with `npx mmdc -i a.mmd`.\n"), ""); r.rc != 1 || strings.Count(r.out, ": F26 ") != 1 {
 		t.Errorf("a bare npx in a code span refused nothing: rc=%d out=%q", r.rc, r.out)
 	}
 }
@@ -960,7 +960,7 @@ func TestCheckPlanShapeF29(t *testing.T) {
 		"cd stats && " + gt + " && echo ok",
 	} {
 		p := step(cmd)
-		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, "(F29)") != 1 {
+		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, ": F29 ") != 1 {
 			t.Errorf("%s refused nothing: rc=%d out=%q", cmd, r.rc, r.out)
 		}
 		if m := psMutant(p, "F29"); m.rc != 0 {
@@ -975,7 +975,7 @@ func TestCheckPlanShapeF29(t *testing.T) {
 			t.Errorf("%s refused: rc=%d out=%q", cmd, r.rc, r.out)
 		}
 	}
-	if r := psMutant(psFixture(t, psTasks("a")+"\nthe build tool's selector for `"+gt+"` is -run\n"), ""); strings.Contains(r.out, "(F29)") {
+	if r := psMutant(psFixture(t, psTasks("a")+"\nthe build tool's selector for `"+gt+"` is -run\n"), ""); strings.Contains(r.out, ": F29 ") {
 		t.Errorf("prose naming go test refused: rc=%d out=%q", r.rc, r.out)
 	}
 }
@@ -998,7 +998,7 @@ func TestCheckPlanShapeF27(t *testing.T) {
 		return "# Design\n\n## Decisions\n\n### A\n\n**ID:** a\n**Status:** active\n\n## Open questions\n\n" + open + "\n## Verification\n\n- run it\n"
 	}
 	p, r := check(t, doc(entry("**Status:** open\n")))
-	if r.rc != 1 || strings.Count(r.out, "(F27)") != 1 || !strings.Contains(r.out, "Should X be Y?") || !strings.Contains(r.out, "design.md:12:") {
+	if r.rc != 1 || strings.Count(r.out, ": F27 ") != 1 || !strings.Contains(r.out, "Should X be Y?") || !strings.Contains(r.out, "design.md:12:") {
 		t.Errorf("an open entry: rc=%d out=%q", r.rc, r.out)
 	}
 	if m := psMutant(p, "F27"); m.rc != 0 {
@@ -1008,7 +1008,7 @@ func TestCheckPlanShapeF27(t *testing.T) {
 		"no status line": entry(""),
 		"list item":      "- Should X be Y? (deferred by the operator)\n",
 	} {
-		if _, r := check(t, doc(open)); r.rc != 1 || strings.Count(r.out, "(F27)") != 1 {
+		if _, r := check(t, doc(open)); r.rc != 1 || strings.Count(r.out, ": F27 ") != 1 {
 			t.Errorf("%s: rc=%d out=%q", name, r.rc, r.out)
 		}
 	}
@@ -1086,8 +1086,8 @@ func TestCheckPlanShapeRefusesRunLoadedEditsWithoutVerbatimMoves(t *testing.T) {
 				writeFile(t, filepath.Join(filepath.Dir(md), "verbatim-moves.txt"), "# nothing reworded\n")
 			}
 			r := psMutant(md, "")
-			if got := strings.Count(r.out, "(F28)"); got != c.want {
-				t.Errorf("(F28) count %d, want %d; out=%q", got, c.want, r.out)
+			if got := strings.Count(r.out, ": F28 "); got != c.want {
+				t.Errorf("F28 count %d, want %d; out=%q", got, c.want, r.out)
 			}
 		})
 	}

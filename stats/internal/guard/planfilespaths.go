@@ -25,13 +25,14 @@ import (
 // token carrying `<`, `*`, `{` or `$` is a placeholder. The repository is
 // the one whose `<spec-root>/changes/<name>/tasks.md` this is; an archived
 // plan, or a file outside a `changes/<name>/` directory, is not checked.
-// Exit 0 clean, 1 one `file:line: task <id> names … ` line per such path, 2 a
+// Exit 0 clean, 1 one `file:line: plan-files-paths task <id> names … ` line per such path, 2 a
 // usage error or a file that cannot be read.
 func init() { Registry["plan-files-paths"] = planFilesPathsCmd }
 
 func planFilesPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 || args[0] == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-files-paths <tasks.md>")
+		Reason(env, "usage")
 		return 2
 	}
 	file := args[0]
@@ -41,11 +42,13 @@ func planFilesPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 	b, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	lines, err := tcfPlanLines(b)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", args[0], err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	changes := filepath.Dir(filepath.Dir(file))
@@ -91,7 +94,7 @@ func planFilesPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 				if len(alt) < 2 || !isDir(strings.Join(alt, "/")) {
 					continue
 				}
-				fmt.Fprintf(stdout, "%s:%d: task %s names `%s` in a directory the repository does not carry; `%s` exists — name the path the file lands in (decision files-path-dropped-segment)\n",
+				fmt.Fprintf(stdout, "%s:%d: plan-files-paths task %s names `%s` in a directory the repository does not carry; `%s` exists — name the path the file lands in (decision files-path-dropped-segment)\n",
 					args[0], psFieldLine(task.lines, task.taskLine, "Files"), task.id, p, strings.Join(alt, "/"))
 				found++
 				break
@@ -99,6 +102,7 @@ func planFilesPathsCmd(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if found > 0 {
+		Reason(env, "plan-files-paths")
 		return 1
 	}
 	return 0

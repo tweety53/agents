@@ -45,7 +45,10 @@ import (
 // tcfUnclosedFence and tcfSelectAfter in planparse.go -- never a copy:
 // parser identity is structural (one function), never asserted.
 //
-// Arguments: one tasks.md path checks that file; none scans every live
+// Arguments: `-rules` alone prints every live rule as one `<id>  <sentence>`
+// line from psRules and exits 0 -- the list a planner loads before writing
+// tasks.md (decision rules-flag); one tasks.md path checks that file; none
+// scans every live
 // change's <spec-root>/changes/*/tasks.md under the repository root --
 // never the archive/ entry, since run 1 drops a change's directory rather
 // than moving it. The root
@@ -68,8 +71,11 @@ import (
 // UTF-8 included, where check-plan-shape.py crashed with exit 1 and its
 // header named exit 2; the header wins -- or an archive listing that
 // fails), else 1 if any found a violation, else 0. Violations print to
-// stdout one per line as `file:line: message`, naming the task id (F5
-// excepted: a file with no tasks has no task id to name).
+// stdout one per line as `file:line: <id> message`, <id> the rule's
+// -rules id -- an F-row, or a sub-guard's name (decision line-id-position)
+// -- and the message naming the task id (F5 excepted: a file with no tasks
+// has no task id to name). Each violation records its id as the run's
+// reason (Reason).
 //
 // Findings -- every one reported as file:line, fences excluded from every
 // scan (tcfFenceRE): a field-shaped line inside a worked example is not a
@@ -187,7 +193,7 @@ import (
 //	F19 A tasks.md whose leading `>` header block carries
 //	    `> **Design shape:** plan-mode` beside a design.md missing any of
 //	    `## Recommended approach`, `## Critical files`, `## Existing code to
-//	    reuse`, `## Verification`, `## Non-goals`, `## Risks` -- one `<design.md>: missing section
+//	    reuse`, `## Verification`, `## Non-goals`, `## Risks` -- one `<design.md>:1: F19 missing section
 //	    <heading> (Design shape: plan-mode)` line each; an absent design.md
 //	    is one such line naming the file. A plan without the line is not
 //	    checked, so changes planned before the sections existed keep
@@ -260,26 +266,89 @@ import (
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
 // resolves to it.
+// psSubGuards are the plan sub-guards psCheckOne runs after the F-checks,
+// in order; each is also its own -rules row and reason id (decision
+// sub-guard-ids).
+var psSubGuards = []string{"plan-suite-steps", "plan-script-paths", "plan-files-paths", "plan-task-id-rule", "plan-step-files"}
+
+// psRules is what `check-plan-shape -rules` prints: one row per live rule,
+// its id and the planner-facing sentence -- what a plan must do. Each
+// rule's rationale stays in this file's header (decisions rules-flag,
+// rationale-stays-in-header). F21 is retired and has no row.
+var psRules = []struct{ id, sentence string }{
+	{"F1", `A task body declares each of **Files:**, **Tests:**, **Commit:**, **Baseline:** and **Allowed-collateral:** at most once.`},
+	{"F2", `Every task declares a **Files:** line naming at least one file.`},
+	{"F3a", "Every field line (`**Files:**`, `**Tests:**`, `**After:**`, …) starts at column 0, never indented."},
+	{"F3b", `Every code fence a task body opens closes inside that body.`},
+	{"F4", "A task whose **Files:** names a test-shaped path (`test-*`, `*_test.go`, `*.test.*`, `*.spec.ts`) never opens **Tests:** with `none`, save `none — repairs existing tests: <names>`."},
+	{"F5", "The plan holds at least one `- [ ] <n>. <title>` task line."},
+	{"F6", "**Tests:** opens with `none`, carries a `Case <N>` label, or names a test in backticks."},
+	{"F7", `A task body carries at most one gating **After:** line.`},
+	{"F8", "An **After:** value reads `Task <ids>` or `none`."},
+	{"F9", `Every task an **After:** names is a task of this plan.`},
+	{"F10", `The resolved **After:** graph has no cycle; a task with no **After:** comes after every earlier task.`},
+	{"F11", `Two tasks whose **Files:** name one file are ordered by declared **After:** fields, directly or through other tasks; the absent-field default orders nothing.`},
+	{"F12", "A plan whose tasks declare **Baseline:** carries the header line `> **Baseline convention:**`."},
+	{"F13", "A `measured:` command counting `@Test` with `grep -c` or `grep -o` also passes `-w`."},
+	{"F14", "A task's **Files:** names at least one path outside `spectre/changes/`, `openspec/changes/` and `docs/superpowers/`."},
+	{"F15", `Every backticked **Tests:** name is new: no test-shaped file outside the task's **Files:**, in a directory those files lie in, declares it at the change's base.`},
+	{"F16", `A **Files:** or **Allowed-collateral:** value naming more than one path backticks each path.`},
+	{"F17", "A task's **Baseline:** before is never below the after of the previous task whose **Baseline:** carries the same `measured:` command, save the later task of a **Squash-with:** pair."},
+	{"F18", `An absence sweep's paths never cover a later task's **Files:** path that still holds a swept string at the base.`},
+	{"F19", "A tasks.md whose header carries `> **Design shape:** plan-mode` has a sibling design.md holding " + psDesignSectionList() + "."},
+	{"F20", "A **Baseline:** `measured:` comment reads `<!-- measured: <command> @ <ref> -->`."},
+	{"F22", "When design.md cites a `.superpowers/sdd/*.html` prototype and a task's non-Markdown **Files:** path matches a `ui paths` glob, some task's **Files:** names a capture under `screenshots`."},
+	{"F23", "No **Files:** or **Allowed-collateral:** entry lies under `spectre/changes/`, `openspec/changes/` or `docs/superpowers/`."},
+	{"F24", "Every unticked `In-run fix <k> — …` task carries an **Opener:** that no earlier such task names."},
+	{"F25", "A design.md decision whose **Chosen:** has the parent act before the first task or at `flow.<stage>` carries a column-0 `- [ ] Parent: <action>` line."},
+	{"F26", "No line runs npx without `--no-install` or `--no`, nor with `-y` or `--yes`."},
+	{"F27", "Every `## Open questions` entry in design.md reads `**Status:** answered by <decision-id>`, and the section holds no list item."},
+	{"F28", `A plan whose unticked task edits run-loaded prose has a verbatim-moves.txt beside tasks.md.`},
+	{"F29", "Every go test command passes `-count=`."},
+	{"plan-suite-steps", "No step runs a module or repository test suite: go test takes `-run`, Gradle `--tests`, npm test and vitest `-t`."},
+	{"plan-script-paths", "Every `scripts/` path a task cites exists in the repository or is in some task's **Files:**."},
+	{"plan-files-paths", `Every **Files:** path names the directory its file lands in, never one with a segment dropped.`},
+	{"plan-task-id-rule", "A /flow plan never says its task commits go without a `Task-Id:` trailer; that rule is a fix loop's alone."},
+	{"plan-step-files", `Every file an edit step names is covered by its task's **Files:** or **Allowed-collateral:**.`},
+}
+
+// psDesignSectionList is F19's headings as `a`, `b` and `c`.
+func psDesignSectionList() string {
+	q := make([]string, len(psDesignSections))
+	for i, h := range psDesignSections {
+		q[i] = "`" + h + "`"
+	}
+	return strings.Join(q[:len(q)-1], ", ") + " and " + q[len(q)-1]
+}
+
 func init() { Registry["check-plan-shape"] = checkPlanShape }
 
 func checkPlanShape(args []string, env Env, stdout, stderr io.Writer) int {
-	switch len(args) {
-	case 1:
+	switch {
+	case len(args) == 1 && args[0] == "-rules":
+		for _, r := range psRules {
+			fmt.Fprintf(stdout, "%s  %s\n", r.id, r.sentence)
+		}
+		return 0
+	case len(args) == 1:
 		return psCheckOne(args[0], env, "", stdout, stderr)
-	case 0:
+	case len(args) == 0:
 	default:
-		fmt.Fprintln(stderr, "usage: flow-guard check-plan-shape [path-to-tasks.md]")
+		fmt.Fprintln(stderr, "usage: flow-guard check-plan-shape [-rules | path-to-tasks.md]")
+		Reason(env, "usage")
 		return 2
 	}
 	root := env.Getenv("CHECK_PLAN_SHAPE_ROOT")
 	if root == "" {
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprintln(stderr, "check-plan-shape: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-plan-shape, which sets it")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
 	files, ok := tcfScanPlans(env, root, stderr)
 	if !ok {
+		Reason(env, "scan-failed")
 		return 2
 	}
 	status := 0
@@ -314,7 +383,7 @@ func psAbs(env Env, p string) string {
 // production passes "".
 func psCheckOne(path string, env Env, off string, stdout, stderr io.Writer) int {
 	rc := psShape(path, env, off, stdout, stderr)
-	for _, name := range []string{"plan-suite-steps", "plan-script-paths", "plan-files-paths", "plan-task-id-rule", "plan-step-files"} {
+	for _, name := range psSubGuards {
 		rc = psWorse(rc, Registry[name]([]string{path}, env, stdout, stderr))
 	}
 	return rc
@@ -324,12 +393,14 @@ func psShape(path string, env Env, off string, stdout, stderr io.Writer) int {
 	lines, err := tcfReadPlanTyped(env, path)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read file: %v\n", path, err)
+		Reason(env, "cannot-read-file")
 		return 2
 	}
 	p := &psPlan{path: path, lines: lines, off: off, env: env}
 	violations := p.check()
-	for _, v := range violations {
-		fmt.Fprintln(stdout, v)
+	for _, f := range violations {
+		Reason(env, f.id)
+		fmt.Fprintln(stdout, f.text)
 	}
 	if len(violations) > 0 {
 		return 1
@@ -355,7 +426,17 @@ func (p *psPlan) parse(id string) tcfTask {
 	return t
 }
 
-func (p *psPlan) at(line int, msg string) string { return fmt.Sprintf("%s:%d: %s", p.path, line, msg) }
+// psFinding is one violation: its rule id and its printed line.
+type psFinding struct{ id, text string }
+
+// at is a finding at line of the plan; atFile one at line of file. Both
+// print `<file>:<line>: <id> <msg>`, the id a -rules id (decision
+// line-id-position).
+func (p *psPlan) at(line int, id, msg string) psFinding { return p.atFile(p.path, line, id, msg) }
+
+func (p *psPlan) atFile(file string, line int, id, msg string) psFinding {
+	return psFinding{id, fmt.Sprintf("%s:%d: %s %s", file, line, id, msg)}
+}
 
 // psF1Fields are the five names F1 counts; Regression and Build are not
 // part of it -- Build's precedence is tcfSelectBuildKind's job.
@@ -449,12 +530,12 @@ func psFieldLine(body []string, start int, name string) int {
 	return line
 }
 
-func (p *psPlan) check() []string {
+func (p *psPlan) check() []psFinding {
 	ids := tcfTaskIDs(p.lines)
 	if len(ids) == 0 && p.on("F5") {
-		return []string{p.at(1, "this plan defines zero tasks — the grammar finds no `- [ ] <n>. ` checkbox line, so every check that follows would be a vacuous pass rather than a real one")}
+		return []psFinding{p.at(1, "F5", "this plan defines zero tasks — the grammar finds no `- [ ] <n>. ` checkbox line, so every check that follows would be a vacuous pass rather than a real one")}
 	}
-	var v []string
+	var v []psFinding
 	for _, id := range ids {
 		v = append(v, p.checkTask(*tcfSelectTask(p.lines, id))...)
 	}
@@ -482,7 +563,7 @@ var (
 // designSections is F19: the plan-mode sections of the sibling design.md,
 // checked only when the header block -- the `>` lines before the first
 // task -- declares the plan-mode design shape.
-func (p *psPlan) designSections() []string {
+func (p *psPlan) designSections() []psFinding {
 	shaped := false
 	for _, l := range p.lines {
 		if pcTaskLine.MatchString(l) {
@@ -499,19 +580,19 @@ func (p *psPlan) designSections() []string {
 	design := filepath.Join(filepath.Dir(p.path), "design.md")
 	raw, err := os.ReadFile(psAbs(p.env, design))
 	if errors.Is(err, fs.ErrNotExist) {
-		return []string{design + ": missing file design.md (Design shape: plan-mode)"}
+		return []psFinding{p.atFile(design, 1, "F19", "missing file design.md (Design shape: plan-mode)")}
 	}
 	if err != nil {
-		return []string{design + ": cannot read design.md: " + err.Error() + " (Design shape: plan-mode)"}
+		return []psFinding{p.atFile(design, 1, "F19", "cannot read design.md: "+err.Error()+" (Design shape: plan-mode)")}
 	}
 	have := map[string]bool{}
 	for _, l := range strings.Split(string(raw), "\n") {
 		have[strings.TrimRight(l, " \t\r")] = true
 	}
-	var v []string
+	var v []psFinding
 	for _, h := range psDesignSections {
 		if !have[h] {
-			v = append(v, design+": missing section "+h+" (Design shape: plan-mode)")
+			v = append(v, p.atFile(design, 1, "F19", "missing section "+h+" (Design shape: plan-mode)"))
 		}
 	}
 	return v
@@ -521,7 +602,7 @@ func (p *psPlan) designSections() []string {
 var psPrototypeRE = regexp.MustCompile("\\.superpowers/sdd/[^\\s`)]+\\.html")
 
 // prototypeCapture is F22: a prototype-specified UI change plans its capture.
-func (p *psPlan) prototypeCapture() []string {
+func (p *psPlan) prototypeCapture() []psFinding {
 	if !p.on("F22") {
 		return nil
 	}
@@ -561,7 +642,7 @@ func (p *psPlan) prototypeCapture() []string {
 	if uiPath == "" {
 		return nil
 	}
-	return []string{p.at(first.taskLine, "F22 design.md cites a prototype and this task touches `ui paths` (`"+uiPath+"`), but no task's **Files:** names a capture under `"+shots+"/` — plan the capture spec driving every interactive state the prototype draws (skills/flow/brainstorm-planner.md)")}
+	return []psFinding{p.at(first.taskLine, "F22", "design.md cites a prototype and this task touches `ui paths` (`"+uiPath+"`), but no task's **Files:** names a capture under `"+shots+"/` — plan the capture spec driving every interactive state the prototype draws (skills/flow/brainstorm-planner.md)")}
 }
 
 // psInRunFixRE is F24's title: an in-run fix task of any stage.
@@ -569,11 +650,11 @@ var psInRunFixRE = regexp.MustCompile(`^\s*- \[.\] \S+\s+In-run fix [0-9]+ — `
 
 // inRunOpeners is F24: every in-run fix task names the report that opened
 // its round, and no two name the same one.
-func (p *psPlan) inRunOpeners(ids []string) []string {
+func (p *psPlan) inRunOpeners(ids []string) []psFinding {
 	if !p.on("F24") {
 		return nil
 	}
-	var v []string
+	var v []psFinding
 	seen := map[string]string{}
 	for _, id := range ids {
 		found := tcfSelectTask(p.lines, id)
@@ -590,9 +671,9 @@ func (p *psPlan) inRunOpeners(ids []string) []string {
 		}
 		switch {
 		case opener == "":
-			v = append(v, p.at(found.taskLine, "task "+id+" is an in-run fix with no **Opener:** field — name the verifier report that opened its round (skills/flow/verify-fix-loop.md step 1) (F24)"))
+			v = append(v, p.at(found.taskLine, "F24", "task "+id+" is an in-run fix with no **Opener:** field — name the verifier report that opened its round (skills/flow/verify-fix-loop.md step 1)"))
 		case shared:
-			v = append(v, p.at(found.taskLine, "task "+id+"'s **Opener:** "+opener+" is task "+first+"'s too — one report opens one round, and two tasks never transcribe one report (skills/flow/verify-fix-loop.md step 1) (F24)"))
+			v = append(v, p.at(found.taskLine, "F24", "task "+id+"'s **Opener:** "+opener+" is task "+first+"'s too — one report opens one round, and two tasks never transcribe one report (skills/flow/verify-fix-loop.md step 1)"))
 		}
 	}
 	return v
@@ -611,7 +692,7 @@ var (
 
 // parentActions is F25: a decision giving the parent an action outside every
 // task carries the `- [ ] Parent:` line check-unfinished-work counts.
-func (p *psPlan) parentActions() []string {
+func (p *psPlan) parentActions() []psFinding {
 	if !p.on("F25") {
 		return nil
 	}
@@ -620,11 +701,11 @@ func (p *psPlan) parentActions() []string {
 	if err != nil {
 		return nil
 	}
-	var v []string
+	var v []psFinding
 	id, idLine, chosen, inChosen, tracked := "", 0, "", false, false
 	flush := func() {
 		if id != "" && !tracked && psParentActorRE.MatchString(chosen) && psRunMomentRE.MatchString(chosen) {
-			v = append(v, fmt.Sprintf("%s:%d: decision %s's **Chosen:** gives the parent an action, but the entry carries no `- [ ] Parent: <action>` line — add one beneath its **Chosen:**, so check-unfinished-work holds run 1 until it is ticked (skills/flow/brainstorm-planner.md) (F25)", design, idLine, id))
+			v = append(v, p.atFile(design, idLine, "F25", fmt.Sprintf("decision %s's **Chosen:** gives the parent an action, but the entry carries no `- [ ] Parent: <action>` line — add one beneath its **Chosen:**, so check-unfinished-work holds run 1 until it is ticked (skills/flow/brainstorm-planner.md)", id)))
 		}
 	}
 	for i, l := range strings.Split(string(raw), "\n") {
@@ -658,15 +739,15 @@ var (
 )
 
 // npxFetch is F26: a plan step runs only what is installed.
-func (p *psPlan) npxFetch() []string {
+func (p *psPlan) npxFetch() []psFinding {
 	if !p.on("F26") {
 		return nil
 	}
-	var v []string
+	var v []psFinding
 	for i, l := range p.lines {
 		loc := psNpxRE.FindStringIndex(l)
 		if psNpxYesRE.MatchString(l) || loc != nil && !psNpxNoRE.MatchString(l[loc[1]-1:]) {
-			v = append(v, p.at(i+1, "this line runs npx without --no-install, which fetches and runs a package not installed here — run a tool already installed or declared in .flow/project.md, a cached package as `npx --no-install <bin>` (skills/flow/brainstorm-planner.md) (F26)"))
+			v = append(v, p.at(i+1, "F26", "this line runs npx without --no-install, which fetches and runs a package not installed here — run a tool already installed or declared in .flow/project.md, a cached package as `npx --no-install <bin>` (skills/flow/brainstorm-planner.md)"))
 		}
 	}
 	return v
@@ -680,26 +761,26 @@ var (
 )
 
 // goTestCache is F29: a planned go test command disables the test cache.
-func (p *psPlan) goTestCache() []string {
+func (p *psPlan) goTestCache() []psFinding {
 	if !p.on("F29") {
 		return nil
 	}
-	var v []string
+	var v []psFinding
 	for i, l := range p.lines {
 		if psGoTestRE.MatchString(l) && !psCountRE.MatchString(l) {
-			v = append(v, p.at(i+1, "this line runs go test without -count=, so a cached result can pass a file the run never re-read — the test cache never rechecks a file outside the module root; pass -count=1 (skills/flow/brainstorm-planner.md) (F29)"))
+			v = append(v, p.at(i+1, "F29", "this line runs go test without -count=, so a cached result can pass a file the run never re-read — the test cache never rechecks a file outside the module root; pass -count=1 (skills/flow/brainstorm-planner.md)"))
 		}
 	}
 	return v
 }
 
-func (p *psPlan) checkTask(found tcfTaskBody) []string {
+func (p *psPlan) checkTask(found tcfTaskBody) []psFinding {
 	id, body, start := found.id, found.lines, found.taskLine
 	fields := p.parse(id)
 	if fields.unclosedFenceLine != 0 && p.on("F3b") {
-		return []string{p.at(fields.unclosedFenceLine, "task "+id+" opens a code fence here that is never closed in its body, so every field below it is inside the fence and was not read")}
+		return []psFinding{p.at(fields.unclosedFenceLine, "F3b", "task "+id+" opens a code fence here that is never closed in its body, so every field below it is inside the fence and was not read")}
 	}
-	var v []string
+	var v []psFinding
 	seen := map[string]int{}
 	tcfUnfenced(body, func(off int, line string) bool {
 		m := tcfFieldRE.FindStringSubmatch(line)
@@ -707,7 +788,7 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 			return false
 		}
 		if first, ok := seen[m[1]]; ok && p.on("F1") {
-			v = append(v, p.at(start+off+1, fmt.Sprintf("task %s declares a second **%s:** line (first at line %d); the parser keeps the first occurrence and ignores this one", id, m[1], first)))
+			v = append(v, p.at(start+off+1, "F1", fmt.Sprintf("task %s declares a second **%s:** line (first at line %d); the parser keeps the first occurrence and ignores this one", id, m[1], first)))
 		} else {
 			seen[m[1]] = start + off + 1
 		}
@@ -715,7 +796,7 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	})
 	tcfUnfenced(body, func(off int, line string) bool {
 		if m := psIndentedFieldRE.FindStringSubmatch(line); m != nil && p.on("F3a") {
-			v = append(v, p.at(start+off+1, "task "+id+" carries a **"+m[1]+":** line indented past column 0, invisible to the field grammar (FIELD_RE anchors at column 0) and therefore never read as a declaration"))
+			v = append(v, p.at(start+off+1, "F3a", "task "+id+" carries a **"+m[1]+":** line indented past column 0, invisible to the field grammar (FIELD_RE anchors at column 0) and therefore never read as a declaration"))
 		}
 		return false
 	})
@@ -729,7 +810,7 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 			return false
 		}
 		if firstGating != 0 && p.on("F7") {
-			v = append(v, p.at(start+off+1, fmt.Sprintf("task %s declares a second **After:** line (first at line %d); select_after keeps the first", id, firstGating)))
+			v = append(v, p.at(start+off+1, "F7", fmt.Sprintf("task %s declares a second **After:** line (first at line %d); select_after keeps the first", id, firstGating)))
 		} else {
 			firstGating = start + off + 1
 		}
@@ -737,7 +818,7 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	})
 	tcfUnfenced(body, func(off int, line string) bool {
 		if psCountsTestUnsafely(line) && p.on("F13") {
-			v = append(v, p.at(start+off+1, "task "+id+"'s measured: command counts `@Test` with `grep -c` or `grep -o` and no `-w`, so `@Testcontainers` and `@TestConfiguration` lines count too — use a word-boundary-safe counter such as `grep -cw '@Test'` or `grep -ow '@Test' | wc -l` (the **Baseline convention:** line)"))
+			v = append(v, p.at(start+off+1, "F13", "task "+id+"'s measured: command counts `@Test` with `grep -c` or `grep -o` and no `-w`, so `@Testcontainers` and `@TestConfiguration` lines count too — use a word-boundary-safe counter such as `grep -cw '@Test'` or `grep -ow '@Test' | wc -l` (the **Baseline convention:** line)"))
 		}
 		return false
 	})
@@ -746,16 +827,16 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	// which line the field is; the refusal names the accepted values so
 	// the first rewrite is informed (KAN-605).
 	if a := tcfSelectAfter(body); a != nil && !a.gates && p.on("F8") {
-		v = append(v, p.at(start+a.offset+1, "task "+id+" has a malformed **After:** value: "+a.value+" — an **After:** value is `Task <ids>` or `none`"))
+		v = append(v, p.at(start+a.offset+1, "F8", "task "+id+" has a malformed **After:** value: "+a.value+" — an **After:** value is `Task <ids>` or `none`"))
 	}
 	if len(fields.files) == 0 && p.on("F2") {
-		v = append(v, p.at(found.taskLine, "task "+id+" has no **Files:** line, or one naming no file at all"))
+		v = append(v, p.at(found.taskLine, "F2", "task "+id+" has no **Files:** line, or one naming no file at all"))
 	}
 	planning := func(f string) bool {
 		return slices.ContainsFunc(psPlanning, func(pfx string) bool { return strings.HasPrefix(f, pfx) })
 	}
 	if len(fields.files) > 0 && !slices.ContainsFunc(fields.files, func(f string) bool { return !planning(f) }) && p.on("F14") {
-		v = append(v, p.at(found.taskLine, "task "+id+"'s **Files:** all lie under the planning paths (spectre/changes/, openspec/changes/, docs/superpowers/), so its commit cannot carry a `Task-Id:` — name the file the task's work lands in, or make the record a planning commit with no task"))
+		v = append(v, p.at(found.taskLine, "F14", "task "+id+"'s **Files:** all lie under the planning paths (spectre/changes/, openspec/changes/, docs/superpowers/), so its commit cannot carry a `Task-Id:` — name the file the task's work lands in, or make the record a planning commit with no task"))
 	}
 	joined := tcfBodyFields(body)
 	for _, name := range []string{"Files", "Allowed-collateral"} {
@@ -765,18 +846,18 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 			if line == 0 {
 				line = found.taskLine
 			}
-			v = append(v, p.at(line, "task "+id+"'s **"+name+":** value names no backticked path but carries a comma or whitespace — the commit guard reads it as one path; backtick each path"))
+			v = append(v, p.at(line, "F16", "task "+id+"'s **"+name+":** value names no backticked path but carries a comma or whitespace — the commit guard reads it as one path; backtick each path"))
 		}
 		for _, f := range tcfBacktickTokens(value) {
 			if planning(f) && p.on("F23") {
-				v = append(v, p.at(psFieldLine(body, start, name), "task "+id+"'s **"+name+":** names the planning path `"+f+"` — it rides a planning or `Flow-Key: flow.visual-verify` commit, never a task commit (check-task-commit-planning-paths); drop it from the task's fields (F23)"))
+				v = append(v, p.at(psFieldLine(body, start, name), "F23", "task "+id+"'s **"+name+":** names the planning path `"+f+"` — it rides a planning or `Flow-Key: flow.visual-verify` commit, never a task commit (check-task-commit-planning-paths); drop it from the task's fields"))
 			}
 		}
 	}
 
 	for _, c := range psMeasuredCommentRE.FindAllString(strings.Join(joined["Baseline"], " "), -1) {
 		if !tcfMeasuredRE.MatchString(c) && p.on("F20") {
-			v = append(v, p.at(psFieldLine(body, start, "Baseline"), "task "+id+"'s **Baseline:** carries a `<!-- measured: … -->` comment with no ` @ <ref>`, so no command is read from it and the re-measurement never runs — write `<!-- measured: <command> @ <ref> -->`"))
+			v = append(v, p.at(psFieldLine(body, start, "Baseline"), "F20", "task "+id+"'s **Baseline:** carries a `<!-- measured: … -->` comment with no ` @ <ref>`, so no command is read from it and the re-measurement never runs — write `<!-- measured: <command> @ <ref> -->`"))
 		}
 	}
 	// F4 and F6 read the continuation-joined Tests value tcfParseTask
@@ -787,14 +868,14 @@ func (p *psPlan) checkTask(found tcfTaskBody) []string {
 	testsLine := psFieldLine(body, start, "Tests")
 	noneOpen := tcfNoneOpenRE.MatchString(fields.testsValue)
 	if noneOpen && !tcfRepairsOpenRE.MatchString(fields.testsValue) && slices.ContainsFunc(fields.files, psIsTestShaped) && p.on("F4") {
-		v = append(v, p.at(testsLine, "task "+id+"'s **Tests:** field opens with `none` but **Files:** names a test-shaped path — a contradiction between the opt-out and the declared files; a task repairing existing tests and adding none says so with `Tests: none — repairs existing tests: <names>` (KAN-794)"))
+		v = append(v, p.at(testsLine, "F4", "task "+id+"'s **Tests:** field opens with `none` but **Files:** names a test-shaped path — a contradiction between the opt-out and the declared files; a task repairing existing tests and adding none says so with `Tests: none — repairs existing tests: <names>` (KAN-794)"))
 	}
 	if !noneOpen && len(fields.tests) == 0 && p.on("F6") {
 		line := testsLine
 		if line == 0 {
 			line = found.taskLine
 		}
-		v = append(v, p.at(line, "task "+id+"'s **Tests:** field declares nothing — it opens with neither `none`, a `Case N` label, nor a backtick-quoted test name, so nothing is verified"))
+		v = append(v, p.at(line, "F6", "task "+id+"'s **Tests:** field declares nothing — it opens with neither `none`, a `Case N` label, nor a backtick-quoted test name, so nothing is verified"))
 	}
 	return v
 }
@@ -806,7 +887,7 @@ var psMeasuredCommentRE = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:.*?--
 // baselineConvention is F12: the declaring task is the first whose
 // non-fenced body carries a Baseline field line; the stated convention is
 // any non-fenced line of the file opening as psBaselineConventionRE.
-func (p *psPlan) baselineConvention() []string {
+func (p *psPlan) baselineConvention() []psFinding {
 	declaring, line := "", 0
 	for _, task := range tcfIterTasks(p.lines) {
 		if tcfUnclosedFence(task.lines) >= 0 {
@@ -828,19 +909,19 @@ func (p *psPlan) baselineConvention() []string {
 	if stated || !p.on("F12") {
 		return nil
 	}
-	return []string{p.at(line, "task "+declaring+" declares **Baseline:** fields but the plan states no **Baseline convention:** header line — one stated convention is what keeps later tasks from drifting between counting methods; seed the `> **Baseline convention:**` line (skills/flow/brainstorm-planner.md)")}
+	return []psFinding{p.at(line, "F12", "task "+declaring+" declares **Baseline:** fields but the plan states no **Baseline convention:** header line — one stated convention is what keeps later tasks from drifting between counting methods; seed the `> **Baseline convention:**` line (skills/flow/brainstorm-planner.md)")}
 }
 
 // baselineChain is F17: per measured: command, each task's Baseline before
 // against the after of the last task seen under that command.
-func (p *psPlan) baselineChain() []string {
+func (p *psPlan) baselineChain() []psFinding {
 	type seen struct {
 		id      string
 		after   *big.Int
 		partner []string
 	}
 	last := map[string]seen{}
-	var v []string
+	var v []psFinding
 	for _, task := range tcfIterTasks(p.lines) {
 		if tcfUnclosedFence(task.lines) >= 0 {
 			continue // F3b: this task's fields are unread
@@ -852,7 +933,7 @@ func (p *psPlan) baselineChain() []string {
 		for _, cmd := range t.baselineMeasured {
 			if prev, ok := last[cmd]; ok && t.baseline[0].Cmp(prev.after) < 0 &&
 				!slices.Contains(t.squashPartners, prev.id) && !slices.Contains(prev.partner, task.id) && p.on("F17") {
-				v = append(v, p.at(psFieldLine(task.lines, task.taskLine, "Baseline"), fmt.Sprintf("task %s's **Baseline:** before=%s is below task %s's after=%s under the same measured: command — chain-position absolutes chain in plan order; restate before from task %s's after", task.id, t.baseline[0], prev.id, prev.after, prev.id)))
+				v = append(v, p.at(psFieldLine(task.lines, task.taskLine, "Baseline"), "F17", fmt.Sprintf("task %s's **Baseline:** before=%s is below task %s's after=%s under the same measured: command — chain-position absolutes chain in plan order; restate before from task %s's after", task.id, t.baseline[0], prev.id, prev.after, prev.id)))
 			}
 			last[cmd] = seen{task.id, t.baseline[1], t.squashPartners}
 		}
@@ -864,7 +945,7 @@ func (p *psPlan) baselineChain() []string {
 // time in plan order, each id once, keyed by the task's repository heading
 // and the path; an ordering is a gating declared After edge between the pair
 // in either direction.
-func (p *psPlan) fileOwnership() []string {
+func (p *psPlan) fileOwnership() []psFinding {
 	type file struct{ repo, name string }
 	owners := map[file][]string{}
 	var order []file
@@ -899,7 +980,7 @@ func (p *psPlan) fileOwnership() []string {
 			filesLines[task.id] = l
 		}
 	}
-	var v []string
+	var v []psFinding
 	for _, f := range order {
 		ids := owners[f]
 		for i := 1; i < len(ids); i++ {
@@ -911,7 +992,7 @@ func (p *psPlan) fileOwnership() []string {
 					if line == 0 {
 						line = 1
 					}
-					v = append(v, p.at(line, "task "+later+"'s **Files:** also names `"+f.name+"`, first named by task "+earlier+", and no **After:** ordering is declared between the two — two tasks editing one file is the shared-file conflict this check exists to make explicit"))
+					v = append(v, p.at(line, "F11", "task "+later+"'s **Files:** also names `"+f.name+"`, first named by task "+earlier+", and no **After:** ordering is declared between the two — two tasks editing one file is the shared-file conflict this check exists to make explicit"))
 				}
 			}
 		}
@@ -943,7 +1024,7 @@ func psReaches(declared map[string][]string, from, to string) bool {
 // afterReferences is F9 and F10 over the After fields: F9 a gating id
 // naming no task, F10 the first back-edge of the resolved graph. A task
 // whose fence never closes is skipped for both.
-func (p *psPlan) afterReferences() []string {
+func (p *psPlan) afterReferences() []psFinding {
 	tasks := tcfIterTasks(p.lines)
 	var all []string
 	idSet := map[string]bool{}
@@ -968,7 +1049,7 @@ func (p *psPlan) afterReferences() []string {
 		}
 	}
 
-	var v []string
+	var v []psFinding
 	for _, id := range all {
 		d := declared[id]
 		if d == nil || !d.gates {
@@ -976,7 +1057,7 @@ func (p *psPlan) afterReferences() []string {
 		}
 		for _, name := range d.ids {
 			if !idSet[name] {
-				v = append(v, p.at(p.afterFieldLine(id), "task "+id+"'s **After:** names task "+name+", which this plan does not define"))
+				v = append(v, p.at(p.afterFieldLine(id), "F9", "task "+id+"'s **After:** names task "+name+", which this plan does not define"))
 			}
 		}
 	}
@@ -1028,7 +1109,7 @@ func (p *psPlan) afterReferences() []string {
 					if anchor == 0 {
 						anchor = 1
 					}
-					v = append(v, p.at(anchor, strings.Join(parts, " -> ")+": the resolved After graph has a cycle, so neither bundle can ever dispatch"))
+					v = append(v, p.at(anchor, "F10", strings.Join(parts, " -> ")+": the resolved After graph has a cycle, so neither bundle can ever dispatch"))
 					reported = true
 					return
 				}
@@ -1156,7 +1237,7 @@ func (p *psPlan) baseDeclarations() []psDecl {
 // not **After:** order; and an earlier task listing the file without
 // removing the string is a missed finding. Upgrade: read each earlier
 // task's diff when a plan hits one.
-func (p *psPlan) sweepScope() []string {
+func (p *psPlan) sweepScope() []psFinding {
 	if !p.on("F18") {
 		return nil
 	}
@@ -1203,7 +1284,7 @@ func (p *psPlan) sweepScope() []string {
 			return s == "." || s == ":/" || f == s || strings.HasPrefix(f, s+"/")
 		})
 	}
-	var v []string
+	var v []psFinding
 	for _, s := range sweeps {
 		owner := map[string]string{}
 		earlier := map[string]bool{}
@@ -1242,19 +1323,19 @@ func (p *psPlan) sweepScope() []string {
 		}
 		sort.Strings(held)
 		for _, f := range held {
-			v = append(v, p.at(s.line, "task "+s.task.id+"'s absence sweep searches "+f+", which task "+owner[f]+" owns and which still holds a swept string at the base — the sweep cannot print nothing at this task's commit; scope it to the paths this task touches"))
+			v = append(v, p.at(s.line, "F18", "task "+s.task.id+"'s absence sweep searches "+f+", which task "+owner[f]+" owns and which still holds a swept string at the base — the sweep cannot print nothing at this task's commit; scope it to the paths this task touches"))
 		}
 	}
 	return v
 }
 
 // baseDeclared is F15.
-func (p *psPlan) baseDeclared(ids []string) []string {
+func (p *psPlan) baseDeclared(ids []string) []psFinding {
 	decls := p.baseDeclarations()
 	if len(decls) == 0 {
 		return nil
 	}
-	var v []string
+	var v []psFinding
 	for _, id := range ids {
 		fields := p.parse(id)
 		if fields.unclosedFenceLine != 0 {
@@ -1290,7 +1371,7 @@ func (p *psPlan) baseDeclared(ids []string) []string {
 			for i, f := range files {
 				where[i] = f + " (" + strings.Join(hits[f], ", ") + ")"
 			}
-			v = append(v, p.at(psFieldLine(found.lines, found.taskLine, "Tests"), "task "+id+"'s **Tests:** names `"+spec.label+"`, which the base already declares outside its **Files:** — "+strings.Join(where, "; ")+"; the task's commit cannot add it, so check-task-commit-fields refuses the commit — name the test this task adds, or list the file in **Files:**"))
+			v = append(v, p.at(psFieldLine(found.lines, found.taskLine, "Tests"), "F15", "task "+id+"'s **Tests:** names `"+spec.label+"`, which the base already declares outside its **Files:** — "+strings.Join(where, "; ")+"; the task's commit cannot add it, so check-task-commit-fields refuses the commit — name the test this task adds, or list the file in **Files:**"))
 		}
 	}
 	return v
@@ -1306,14 +1387,14 @@ var (
 
 // verbatimMoves is F28: an unticked task editing run-loaded prose needs the
 // change's verbatim-moves.txt, written with the plan.
-func (p *psPlan) verbatimMoves() []string {
+func (p *psPlan) verbatimMoves() []psFinding {
 	if !p.on("F28") {
 		return nil
 	}
 	if _, err := os.Stat(psAbs(p.env, filepath.Join(filepath.Dir(p.path), "verbatim-moves.txt"))); err == nil {
 		return nil
 	}
-	var v []string
+	var v []psFinding
 	for _, task := range tcfIterTasks(p.lines) {
 		if !strings.HasPrefix(p.lines[task.taskLine-1], "- [ ]") {
 			continue
@@ -1321,7 +1402,7 @@ func (p *psPlan) verbatimMoves() []string {
 		t, _ := tcfParseTask(p.lines, task.id)
 		for _, f := range t.files {
 			if vmScoped(f) && !strings.HasSuffix(f, "-rationale.md") {
-				v = append(v, p.at(task.taskLine, "task "+task.id+" edits run-loaded prose (`"+f+"`) and this change has no verbatim-moves.txt — write it with the plan, listing every sentence the tasks add or reword, or `#` comment lines alone when they only move text verbatim (.flow/project.md, check-verbatim-moves) (F28)"))
+				v = append(v, p.at(task.taskLine, "F28", "task "+task.id+" edits run-loaded prose (`"+f+"`) and this change has no verbatim-moves.txt — write it with the plan, listing every sentence the tasks add or reword, or `#` comment lines alone when they only move text verbatim (.flow/project.md, check-verbatim-moves)"))
 				break
 			}
 		}
@@ -1330,7 +1411,7 @@ func (p *psPlan) verbatimMoves() []string {
 }
 
 // openQuestions is F27: the sibling design.md records no question left open.
-func (p *psPlan) openQuestions() []string {
+func (p *psPlan) openQuestions() []psFinding {
 	if !p.on("F27") {
 		return nil
 	}
@@ -1339,12 +1420,12 @@ func (p *psPlan) openQuestions() []string {
 	if err != nil {
 		return nil
 	}
-	const fix = "planning leaves nothing open — ask it again, narrowed, and record the answer under ## Decisions (skills/spectre-planning/SKILL.md) (F27)"
-	var v []string
+	const fix = "planning leaves nothing open — ask it again, narrowed, and record the answer under ## Decisions (skills/spectre-planning/SKILL.md)"
+	var v []psFinding
 	in, fenced, title, line, answered := false, false, "", 0, false
 	flush := func() {
 		if title != "" && !answered {
-			v = append(v, fmt.Sprintf("%s:%d: open question %q is not answered by a decision — %s", design, line, title, fix))
+			v = append(v, p.atFile(design, line, "F27", fmt.Sprintf("open question %q is not answered by a decision — %s", title, fix)))
 		}
 		title = ""
 	}
@@ -1367,7 +1448,7 @@ func (p *psPlan) openQuestions() []string {
 				answered = strings.HasPrefix(m[1], "answered by")
 			}
 		case psListItemRE.MatchString(l):
-			v = append(v, fmt.Sprintf("%s:%d: open question %q is recorded as a list item — %s", design, i+1, strings.TrimSpace(l), fix))
+			v = append(v, p.atFile(design, i+1, "F27", fmt.Sprintf("open question %q is recorded as a list item — %s", strings.TrimSpace(l), fix)))
 		}
 	}
 	flush()

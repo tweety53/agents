@@ -22,7 +22,7 @@ func TestPlanFilesPaths(t *testing.T) {
 	}{
 		{"kan-1013 doubled segment", "spectre/changes/c/tasks.md", "src/app/app/src/main/resources/db/migration/V48__template_review.sql",
 			[]string{"src/app/src/main/resources/db/migration"}, 1,
-			"tasks.md:3: task 1 names `src/app/app/src/main/resources/db/migration/V48__template_review.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists"},
+			"tasks.md:3: plan-files-paths task 1 names `src/app/app/src/main/resources/db/migration/V48__template_review.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists"},
 		{"new file in existing directory", "spectre/changes/c/tasks.md", "a/b/New.kt", []string{"a/b"}, 0, ""},
 		{"new package", "spectre/changes/c/tasks.md", "a/b/core/services/warmup/X.kt", []string{"a/b/core/services"}, 0, ""},
 		{"new module", "spectre/changes/c/tasks.md", "src/app/template/src/main/kotlin/x/Y.kt", []string{"src/app"}, 0, ""},
@@ -78,8 +78,8 @@ func TestPlanFilesPathsPlanDeclaredPackage(t *testing.T) {
 			"src/app/app/src/main/resources/db/migration/V48__x.sql",
 			"src/app/app/src/main/resources/db/migration/V49__y.sql",
 			1, []string{
-				"tasks.md:3: task 1 names `src/app/app/src/main/resources/db/migration/V48__x.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists",
-				"tasks.md:7: task 2 names `src/app/app/src/main/resources/db/migration/V49__y.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists",
+				"tasks.md:3: plan-files-paths task 1 names `src/app/app/src/main/resources/db/migration/V48__x.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists",
+				"tasks.md:7: plan-files-paths task 2 names `src/app/app/src/main/resources/db/migration/V49__y.sql` in a directory the repository does not carry; `src/app/src/main/resources/db/migration` exists",
 			}},
 	}
 	for _, tc := range cases {
