@@ -27,10 +27,11 @@ import (
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
-// maxResponseBytes caps a response body this client will read, matching
-// the daemon's own request-body cap (internal/api.maxRequestBodyBytes) --
-// a response to a change record is realistically the same small size.
-const maxResponseBytes = 1 << 20
+// maxResponseBytes caps a response body this client will read. It is far
+// above the daemon's request-body cap (internal/api.maxRequestBodyBytes)
+// because the self-review bundle of a large change is read whole and runs
+// past 2 MiB.
+const maxResponseBytes = 16 << 20
 
 // daemonHeaderName and daemonHeaderValue must match internal/api's
 // DaemonHeader and DaemonHeaderValue exactly. They are kept as literal
