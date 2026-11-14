@@ -184,7 +184,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		// and exits 1, so the worktree is checked first.
 		if rc, _ := kwRun(env, "", git, "-C", from, "rev-parse", "--git-dir"); rc != 0 {
 			fmt.Fprintf(stderr, "%s: --from %s is not a git worktree — cannot read its base, so none is added\n", self, from)
-			Reason(env, "from-is-not-a-git")
+			Reason(env, "from-not-a-worktree")
 			return 2
 		}
 		// Exit 1 is no flowBase: the default branch, as without --from; any
@@ -303,7 +303,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		// flowBase would record a base the branch was never cut from.
 		if rc, _ := kwRun(env, "", git, "-C", project, "merge-base", "--is-ancestor", "origin/"+base, "origin/"+branch); rc != 0 {
 			fmt.Fprintf(stderr, "%s: origin/%s does not descend from origin/%s in %s — stop and ask the operator: rebase it with git rebase --onto origin/%s <its merge base> %s and push, then re-run\n", self, branch, base, project, base, branch)
-			Reason(env, "origin-does-not-descend-from")
+			Reason(env, "branch-not-cut-from-base")
 			return 1
 		}
 	}

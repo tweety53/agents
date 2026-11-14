@@ -223,7 +223,7 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 			del, err2 := strconv.Atoi(f[1])
 			if err1 != nil || err2 != nil {
 				fmt.Fprintf(stderr, "check-late-fix-trigger: unreadable numstat line in %s: %q\n", wt, l)
-				Reason(env, "unreadable-numstat-line-in")
+				Reason(env, "unreadable-numstat-line")
 				return 2
 			}
 			lines += add + del

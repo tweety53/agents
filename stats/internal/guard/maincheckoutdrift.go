@@ -106,7 +106,7 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 	// such ref the guard cannot answer rather than guessing `main`.
 	def, ok := capture(git("-C", root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"))
 	if !ok {
-		return die("has-no-resolvable-refs-remotes", "%s has no resolvable refs/remotes/origin/HEAD — the default branch cannot be named", root)
+		return die("origin-head-unresolved", "%s has no resolvable refs/remotes/origin/HEAD — the default branch cannot be named", root)
 	}
 	def = strings.TrimPrefix(def, "refs/remotes/origin/")
 	// A symbolic ref can dangle -- `git update-ref -d` on the branch it

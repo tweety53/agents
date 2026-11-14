@@ -118,7 +118,7 @@ func (c *ic) land() {
 	c.mergeOrder()
 	done, ok := c.selfReviewCompleted()
 	if !ok {
-		c.die("flowd-cannot-say-whether-flow", "flowd cannot say whether flow.self-review completed for %s — nothing was pushed", c.name)
+		c.die("self-review-state-unknown", "flowd cannot say whether flow.self-review completed for %s — nothing was pushed", c.name)
 	}
 	if !done {
 		c.stop("self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run land; nothing was pushed")

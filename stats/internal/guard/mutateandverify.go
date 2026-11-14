@@ -220,7 +220,7 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	if dirty = strings.TrimRight(dirty, "\n"); dirty != "" {
 		fmt.Fprintln(stderr, "mutate-and-verify: touched files already have uncommitted changes:")
 		fmt.Fprintln(stderr, dirty)
-		return refuse("file-the-patch-touches", "a file the patch touches is not clean")
+		return refuse("patch-target-dirty", "a file the patch touches is not clean")
 	}
 
 	// Step 6b: snapshot the tree the mutation starts from — status and stash
@@ -298,7 +298,7 @@ func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout
 		name := t.name
 		ok, fails, answered, timedOut := t.run(r.root, r.timeout, r.expire)
 		if timedOut {
-			return cannotAnswer("harness-timed-out-after-on", fmt.Sprintf("harness %s timed out after %s on the baseline pass", name, r.timeout))
+			return cannotAnswer("harness-timed-out", fmt.Sprintf("harness %s timed out after %s on the baseline pass", name, r.timeout))
 		}
 		if !answered {
 			return cannotAnswer("harness-produced-no-ok", "harness "+name+" produced no ok:/FAIL: line on the baseline pass")

@@ -307,7 +307,7 @@ func (c *ic) parse(args []string) {
 			// never its subject, so a text with no Conventional Commits subject
 			// never reaches a commit-msg hook as one.
 			if next() == "" {
-				c.die("outstanding-takes-the-outstanding-work", "--outstanding takes the outstanding work's text")
+				c.die("outstanding-text-missing", "--outstanding takes the outstanding work's text")
 			}
 			c.outstanding = next()
 			i++
@@ -316,14 +316,14 @@ func (c *ic) parse(args []string) {
 			i++
 		case "--pr-url":
 			if !icPairArg(next()) {
-				c.die("pr-url-takes-worktree-url", "--pr-url takes <worktree>=<url|none>")
+				c.die("bad-pr-url", "--pr-url takes <worktree>=<url|none>")
 			}
 			c.prArgs = append(c.prArgs, next())
 			i++
 		case "--proceed":
 			p, ok := icPhys(c.env.Dir, next())
 			if !ok {
-				c.die("proceed-takes-the-main-checkout", "--proceed takes the main checkout its disclosure stop named")
+				c.die("bad-proceed", "--proceed takes the main checkout its disclosure stop named")
 			}
 			c.proceed = append(c.proceed, p)
 			i++
@@ -335,7 +335,7 @@ func (c *ic) parse(args []string) {
 		}
 	}
 	if c.harness == "" || c.token == "" {
-		c.die("harness-and-session-token", "--harness and --session-token are required (or FLOW_HARNESS / FLOW_SESSION_TOKEN)")
+		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS / FLOW_SESSION_TOKEN)")
 	}
 }
 

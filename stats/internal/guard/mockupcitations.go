@@ -60,7 +60,7 @@ func checkMockupCitations(args []string, env Env, stdout, stderr io.Writer) int 
 	root := strings.TrimSuffix(args[1], "/")
 	if fi, err := os.Stat(filepath.Join(args[0], root)); err != nil || !fi.IsDir() {
 		fmt.Fprintf(stderr, "%s: mockups root %s is not a directory under %s\n", prog, root, args[0])
-		Reason(env, "mockups-root-is-not")
+		Reason(env, "mockups-root-missing")
 		return 2
 	}
 	cite := regexp.MustCompile(`(^|[^A-Za-z0-9_./-])(` + regexp.QuoteMeta(root) + `/([A-Za-z0-9][A-Za-z0-9_.-]*/)?[A-Za-z0-9_-]+\.png)`)

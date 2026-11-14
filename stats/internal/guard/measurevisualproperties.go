@@ -361,7 +361,7 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 	if imageB != "" {
 		switch {
 		case a.scale != nil && (a.refA != nil || a.refB != nil):
-			return refuse("give-scale-or-the-ref", "give --scale or the --ref-a/--ref-b pair, not both")
+			return refuse("scale-and-refs-both-given", "give --scale or the --ref-a/--ref-b pair, not both")
 		case a.scale != nil:
 			if *a.scale <= 0 {
 				return refuse("scale-must-be-positive", "--scale must be positive")
@@ -374,15 +374,15 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 				return refuse("ref-boxes-disagree", fmt.Sprintf("--ref boxes disagree: width factor %.4f, height factor %.4f", scale, byHeight))
 			}
 		default:
-			return refuse("two-images-need-a-calibration", "two images need a calibration — --scale <B px per A px>, or --ref-a and --ref-b boxes already known correct in both images")
+			return refuse("calibration-missing", "two images need a calibration — --scale <B px per A px>, or --ref-a and --ref-b boxes already known correct in both images")
 		}
 	} else if a.scale != nil || a.refA != nil || a.refB != nil || a.regionB != nil {
-		return refuse("scale-ref-region-b-need", "--scale/--ref-*/--region-b need a second image")
+		return refuse("second-image-missing", "--scale/--ref-*/--region-b need a second image")
 	}
 
 	if slices.Contains(props, "matrix") {
 		if len(props) > 1 || imageB == "" || a.regionA != nil || a.regionB != nil {
-			return refuse("props-matrix-stands-alone-and", "--props matrix stands alone and reads two whole images: drop the other props and any --region-*")
+			return refuse("props-matrix-not-alone", "--props matrix stands alone and reads two whole images: drop the other props and any --region-*")
 		}
 		out, err := mvpMatrix(env, a, scale)
 		if err != nil {

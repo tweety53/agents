@@ -57,7 +57,7 @@ func checkNoBash(_ []string, env Env, stdout, stderr io.Writer) int {
 	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
 	if err != nil {
 		fmt.Fprintf(stderr, "check-no-bash: %s is not a git worktree: %v\n", root, err)
-		Reason(env, "not-a-git-worktree")
+		Reason(env, "not-a-worktree")
 		return 2
 	}
 	n := 0
