@@ -126,7 +126,11 @@ import (
 //	    shared-file conflict KAN-339's self-review recorded. The serial
 //	    default notes nothing and `none` declares independence, not an
 //	    order. Reported once per unordered pair at the LATER task's Files
-//	    line; a task whose fence never closes is no owner.
+//	    line; a task whose fence never closes is no owner. A file is its
+//	    path under its task's `## <repository>` heading (pdgRepositories):
+//	    one path under two headings is two repositories' files, never a
+//	    shared one (kan-1112 self-review); a task under no heading is
+//	    under "", one repository as before.
 //	F12 A plan whose tasks declare Baseline while no non-fenced line opens
 //	    the blockquote `> **Baseline convention:**` (psBaselineConventionRE)
 //	    -- the plan states no counting convention, so later tasks drift
@@ -825,11 +829,14 @@ func (p *psPlan) baselineChain() []string {
 }
 
 // fileOwnership is F11. Owners come from tcfParseTask's files, one task at a
-// time in plan order, each id once; an ordering is a gating declared After
-// edge between the pair in either direction.
+// time in plan order, each id once, keyed by the task's repository heading
+// and the path; an ordering is a gating declared After edge between the pair
+// in either direction.
 func (p *psPlan) fileOwnership() []string {
-	owners := map[string][]string{}
-	var order []string
+	type file struct{ repo, name string }
+	owners := map[file][]string{}
+	var order []file
+	repoAt := pdgRepositories(p.lines)
 	filesLines := map[string]int{}
 	declared := map[string][]string{}
 	seen := map[string]bool{}
@@ -843,13 +850,14 @@ func (p *psPlan) fileOwnership() []string {
 		}
 		fields := p.parse(task.id)
 		for _, name := range fields.files {
-			if _, ok := owners[name]; !ok {
-				order = append(order, name)
+			f := file{repoAt[task.taskLine], name}
+			if _, ok := owners[f]; !ok {
+				order = append(order, f)
 			}
 			// A repeated token within one task's own list is one owner: a
 			// pair needs two tasks.
-			if !slices.Contains(owners[name], task.id) {
-				owners[name] = append(owners[name], task.id)
+			if !slices.Contains(owners[f], task.id) {
+				owners[f] = append(owners[f], task.id)
 			}
 		}
 		if a := tcfSelectAfter(task.lines); a != nil && a.gates {
@@ -860,8 +868,8 @@ func (p *psPlan) fileOwnership() []string {
 		}
 	}
 	var v []string
-	for _, name := range order {
-		ids := owners[name]
+	for _, f := range order {
+		ids := owners[f]
 		for i := 1; i < len(ids); i++ {
 			later := ids[i]
 			for _, earlier := range ids[:i] {
@@ -871,7 +879,7 @@ func (p *psPlan) fileOwnership() []string {
 					if line == 0 {
 						line = 1
 					}
-					v = append(v, p.at(line, "task "+later+"'s **Files:** also names `"+name+"`, first named by task "+earlier+", and no **After:** ordering is declared between the two — two tasks editing one file is the shared-file conflict this check exists to make explicit"))
+					v = append(v, p.at(line, "task "+later+"'s **Files:** also names `"+f.name+"`, first named by task "+earlier+", and no **After:** ordering is declared between the two — two tasks editing one file is the shared-file conflict this check exists to make explicit"))
 				}
 			}
 		}

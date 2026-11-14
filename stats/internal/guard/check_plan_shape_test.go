@@ -618,6 +618,25 @@ func TestCheckPlanShapeF11Reachability(t *testing.T) {
 	}
 }
 
+// TestCheckPlanShapeF11PerRepository pins F11's owner key (kan-1112
+// self-review): one path under two `## <repository>` headings is two files,
+// and two tasks under one heading still share it.
+func TestCheckPlanShapeF11PerRepository(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	task := func(n string) string {
+		return "- [ ] " + n + ". Task " + n + "\n\n**Files:** `README.md`\n**Tests:** `scripts/test-" + n + ".sh`\n**Commit:** `fix: task " + n + "`\n**After:** none\n\n"
+	}
+	r := runGuard("check-plan-shape", []string{psFixture(t, "## gymie\n\n"+task("1")+"## gymie-frontend\n\n"+task("2"))}, env)
+	if r.rc != 0 || strings.Contains(r.out, "also names") {
+		t.Errorf("one path in two repositories is two files: rc=%d out=%q", r.rc, r.out)
+	}
+	r = runGuard("check-plan-shape", []string{psFixture(t, "## gymie\n\n"+task("1")+task("2"))}, env)
+	if r.rc != 1 || !strings.Contains(r.out, "task 2's **Files:** also names `README.md`, first named by task 1") {
+		t.Errorf("one path twice in one repository is F11: rc=%d out=%q", r.rc, r.out)
+	}
+}
+
 // TestPlanShapeDesignSections pins F19: a plan-mode plan needs the four
 // design.md sections; a plan without the header line is not checked.
 // smoke: core — check-plan-shape on a plan-mode plan's design sections
