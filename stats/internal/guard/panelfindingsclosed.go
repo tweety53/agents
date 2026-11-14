@@ -76,7 +76,10 @@ import (
 //      holds for that round and role; or a report's `Unread:` line names a
 //      section no written per-repository report
 //      panel-report-<round>-<id>-<repo>.md of its round and role read
-//      (kan-1096 self-review, F2); or a re-run answered without writing its
+//      (kan-1096 self-review, F2); or a role's store rows of a round,
+//      slot exactly the role and not joined, outnumber what its reports
+//      count -- every severity when each report carries a Minor: <n> line,
+//      Critical and Important otherwise (kan-1096 self-review, F3); or a re-run answered without writing its
 //      panel-report-<round>-<id>[-<repo>].md (absent, empty, the parent's
 //      `no verbatim report captured` placeholder, or an `Unread:` line
 //      naming a section), named on stderr (KAN-915); a dispatch keyed
@@ -486,13 +489,20 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	// whose slot's `+`-components include the report's id, any status, a
 	// finding the slot raised never reached the store -- kan-1000's round 11.
 	// A report missing either line predates the paragraph and is not compared.
-	uncounted, err := cfcUncounted(worktree, findings)
+	uncounted, undercounted, err := cfcUncounted(worktree, findings)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", cfcPrefix, err)
 		return 2
 	}
 	if len(uncounted) > 0 {
 		fmt.Fprintf(stderr, "%sfinding(s) a slot's report counts that the store does not hold: %s\n", cfcPrefix, strings.Join(uncounted, " "))
+		violated = true
+	}
+	// THE STORE MAY NOT HOLD MORE THAN A ROLE'S REPORTS COUNT (kan-1096
+	// self-review, F3): round-0 rows F23, F31, F34 and F35 stood with no
+	// report on disk counting them, their four reports lost.
+	if len(undercounted) > 0 {
+		fmt.Fprintf(stderr, "%sstore row(s) a slot's reports do not count: %s\n", cfcPrefix, strings.Join(undercounted, " "))
 		violated = true
 	}
 	// AN UNREAD SECTION NEVER COUNTS AS READ (kan-1096 self-review, F2): a
@@ -576,21 +586,34 @@ func cfcReports(worktree string, findings []cfcFindingRow) ([]cfcReport, error) 
 	return out, nil
 }
 
-// cfcUncounted answers each round and role whose summed panel reports count
-// more Critical and Important findings than the store's rows of that round
-// whose slot's `+`-components include the role, each as
-// `panel-report-<round>-<role>.md (report <n>, recorded <m>)`. A report
-// missing either count line predates the paragraph and is not summed.
-func cfcUncounted(worktree string, findings []cfcFindingRow) ([]string, error) {
+// cfcUncounted answers, in the label `panel-report-<round>-<role>.md
+// (report <n>, recorded <m>)`, first each round and role whose summed panel
+// reports count more findings than the store's rows of that round whose
+// slot's `+`-components include the role, then (decision f3-reverse-count,
+// kan-1096 self-review F3) each whose store rows of that round with slot
+// exactly the role -- any status, joined slots left out, since the
+// joined-slot rule re-records them per role -- outnumber what its reports
+// count. Only reports carrying both count lines are summed, and a group with
+// none is not compared. When every summed report of a group carries a
+// `Minor: <n>` line, both directions compare all-severity totals, so a
+// severity the parent re-grades moves a row between counts without changing
+// the comparison; otherwise both compare Critical plus Important.
+func cfcUncounted(worktree string, findings []cfcFindingRow) (over, under []string, err error) {
 	reports, err := cfcReports(worktree, findings)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	type group struct {
 		round int
 		role  string
 	}
-	sums := map[group]int{}
+	// ci counts Critical plus Important, all adds Minor; allMinor is false
+	// once a report of the group carries no Minor: line.
+	type sum struct {
+		ci, all  int
+		allMinor bool
+	}
+	sums := map[group]*sum{}
 	var order []group
 	for _, r := range reports {
 		c, i := cfcCriticalRE.FindSubmatch(r.body), cfcImportantRE.FindSubmatch(r.body)
@@ -600,24 +623,48 @@ func cfcUncounted(worktree string, findings []cfcFindingRow) ([]string, error) {
 		nc, _ := strconv.Atoi(string(c[1]))
 		ni, _ := strconv.Atoi(string(i[1]))
 		g := group{r.round, r.role}
-		if _, seen := sums[g]; !seen {
+		if sums[g] == nil {
+			sums[g] = &sum{allMinor: true}
 			order = append(order, g)
 		}
-		sums[g] += nc + ni
+		sums[g].ci += nc + ni
+		sums[g].all += nc + ni
+		if m := cfcMinorRE.FindSubmatch(r.body); m != nil {
+			nm, _ := strconv.Atoi(string(m[1]))
+			sums[g].all += nm
+		} else {
+			sums[g].allMinor = false
+		}
 	}
-	var uncounted []string
 	for _, g := range order {
-		recorded := 0
+		s := sums[g]
+		n := s.ci
+		if s.allMinor {
+			n = s.all
+		}
+		counted := func(f cfcFindingRow) bool {
+			return f.round == g.round && (s.allMinor || strings.EqualFold(f.severity, "critical") || strings.EqualFold(f.severity, "important"))
+		}
+		recorded, exact := 0, 0
 		for _, f := range findings {
-			if f.round == g.round && (strings.EqualFold(f.severity, "critical") || strings.EqualFold(f.severity, "important")) && slices.Contains(strings.Split(f.slot, "+"), g.role) {
+			if !counted(f) {
+				continue
+			}
+			if slices.Contains(strings.Split(f.slot, "+"), g.role) {
 				recorded++
 			}
+			if f.slot == g.role {
+				exact++
+			}
 		}
-		if sums[g] > recorded {
-			uncounted = append(uncounted, fmt.Sprintf("panel-report-%d-%s.md (report %d, recorded %d)", g.round, g.role, sums[g], recorded))
+		if n > recorded {
+			over = append(over, fmt.Sprintf("panel-report-%d-%s.md (report %d, recorded %d)", g.round, g.role, n, recorded))
+		}
+		if exact > n {
+			under = append(under, fmt.Sprintf("panel-report-%d-%s.md (report %d, recorded %d)", g.round, g.role, n, exact))
 		}
 	}
-	return uncounted, nil
+	return over, under, nil
 }
 
 // cfcUnreadSections answers each section a report's `Unread:` line names
@@ -709,6 +756,7 @@ var (
 	cfcReportNameRE = regexp.MustCompile(`^panel-report-([0-9]+)-(.+)\.md$`)
 	cfcCriticalRE   = regexp.MustCompile(`(?m)^Critical: ([0-9]+)\s*$`)
 	cfcImportantRE  = regexp.MustCompile(`(?m)^Important: ([0-9]+)\s*$`)
+	cfcMinorRE      = regexp.MustCompile(`(?m)^Minor: ([0-9]+)\s*$`)
 )
 
 // cfcRegressionRE reads a fix report's `regression-test: F<n> — <path> — …`

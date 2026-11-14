@@ -72,7 +72,11 @@ import (
 // <anchor>` before landing. Each `.superpowers/sdd/panel-report-<round>-<slot>.md`
 // whose `Critical:` plus `Important:` exceeds the store's rows of that round
 // and slot is listed as `<file> (report <n>, recorded <m>)`, the count
-// flow-guard check-panel-findings-closed makes.
+// flow-guard check-panel-findings-closed makes. It adds a reason of its own
+// for the store-side direction (kan-1096 self-review, F3): <n> slot(s) whose
+// store rows outnumber their reports (<list>) — restore or write each
+// missing panel report before landing; the list is the same count's second
+// half, `panel-report-<round>-<role>.md (report <n>, recorded <m>)`.
 //
 // SIGNAL THREE: A DISPATCH ROW WITH NO OUTCOME IS OPEN (kan-929). `flow record
 // dispatches -change <name> -C <anchor>` is read the way signal two reads
@@ -552,13 +556,18 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
 			return 2
 		}
-		uncounted, err := cfcUncounted(anchor, rows)
+		uncounted, undercounted, err := cfcUncounted(anchor, rows)
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", uwPrefix, err)
 			return 2
 		}
 		if len(uncounted) > 0 {
 			reasons = append(reasons, strconv.Itoa(len(uncounted))+" panel report(s) count findings the store does not hold ("+strings.Join(uncounted, " ")+") — record each with `flow record finding -change "+name+" -C "+anchor+"` before landing")
+		}
+		// The store-side direction (kan-1096 self-review, F3): store rows no
+		// report counts mean a report was lost.
+		if len(undercounted) > 0 {
+			reasons = append(reasons, strconv.Itoa(len(undercounted))+" slot(s) whose store rows outnumber their reports ("+strings.Join(undercounted, " ")+") — restore or write each missing panel report before landing")
 		}
 	}
 

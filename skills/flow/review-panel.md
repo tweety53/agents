@@ -665,8 +665,8 @@ slot's resolved id substituted:
 > finding with its `file:line`, severity, the sentence naming the defect, its reproducer, and the
 > id of the task whose `Task-Id:` commit its `file:line` falls in — none where it spans tasks or
 > falls in none. Your return message is the findings summary, each finding naming its task id
-> too; the file is the record. Open the file with one `Critical: <n>` and one `Important: <n>` line
-> counting the findings it raises at each severity, then one `Unread: none` line, or
+> too; the file is the record. Open the file with one `Critical: <n>`, one `Important: <n>` and one
+> `Minor: <n>` line counting the findings it raises at each severity, then one `Unread: none` line, or
 > `Unread: <repository>[, <repository>…]` naming each `# worktree:` section you did not read in
 > full.
 
@@ -1210,6 +1210,8 @@ fires on the class **Panel re-runs**' ordering above added: a Critical or Import
 none. It fires as well when a slot's report counts more Critical and Important findings on its
 `Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. It fires as well when a report's `Unread:` line
 names a section that no per-repository report of the same round and role read in full. It fires too
+when a role's store rows of a round outnumber what its reports count — every severity when each
+of its reports carries a `Minor:` line, Critical and Important otherwise. It fires too
 when a completed reviewer dispatch left one of its roles' `panel-report-<round>-<id>.md` absent or
 empty, or when a `fixed` finding's runnable reproducer resolves in no worktree of the change, or when
 a `fixed` Critical or Important finding has no `regression-test:` line in any

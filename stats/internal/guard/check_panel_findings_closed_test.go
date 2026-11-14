@@ -783,3 +783,50 @@ func TestCheckPanelFindingsClosedFlagsAnUnreadSection(t *testing.T) {
 		t.Errorf("a re-run leaving a section unread covers nothing: %s", errs)
 	}
 }
+
+// A role's store rows may not outnumber what its reports count: kan-1096's
+// round-0 F23, F31, F34 and F35 stood in the store with no report on disk
+// counting them, and the close passed (kan-1096 self-review, F3).
+func TestCheckPanelFindingsClosedFlagsRowsNoReportCounts(t *testing.T) {
+	t.Parallel()
+	const line = "store row(s) a slot's reports do not count: "
+	named := func(errs, label string) bool {
+		_, rest, ok := strings.Cut(errs, line)
+		l, _, _ := strings.Cut(rest, "\n")
+		return ok && strings.Contains(l, label)
+	}
+	f1 := cfcFinding{Ref: "F1", Severity: "Important", Status: "withdrawn dup", Round: 0, Slot: "primary"}
+	zero := "Critical: 0\nImportant: 0\n"
+	const label = "panel-report-0-primary.md (report 0, recorded 1)"
+	if rc, errs := cfcCase(t, cfcJSON(f1), "[]", map[string]string{"panel-report-0-primary.md": zero}); rc != 1 || !named(errs, label) {
+		t.Errorf("a row no report counts: rc %d\n%s", rc, errs)
+	}
+	if _, errs := cfcCase(t, cfcJSON(f1), "[]", map[string]string{"panel-report-0-primary.md": zero, "panel-report-0-primary-fe.md": "Critical: 0\nImportant: 1\n"}); strings.Contains(errs, line) {
+		t.Errorf("a per-repository report counts it: %s", errs)
+	}
+	if _, errs := cfcCase(t, cfcJSON(f1), "[]", map[string]string{"panel-report-0-primary.md": "Critical: 0\nImportant: 0\nMinor: 1\n"}); strings.Contains(errs, line) {
+		t.Errorf("a re-graded row counted as Minor: %s", errs)
+	}
+	f2 := cfcFinding{Ref: "F2", Severity: "Important", Status: "withdrawn dup", Round: 0, Slot: "test-sanity", Supersedes: "F1"}
+	if _, errs := cfcCase(t, cfcJSON(f1, f2), "[]", map[string]string{"panel-report-0-primary.md": zero, "panel-report-0-test-sanity.md": "Critical: 0\nImportant: 1\n"}); named(errs, "test-sanity") {
+		t.Errorf("a superseding row counts against its own role: %s", errs)
+	}
+	joined := cfcFinding{Ref: "F1", Severity: "Important", Status: "withdrawn dup", Round: 0, Slot: "primary+principles"}
+	if _, errs := cfcCase(t, cfcJSON(joined), "[]", map[string]string{"panel-report-0-primary.md": zero}); strings.Contains(errs, line) {
+		t.Errorf("a joined-slot row: %s", errs)
+	}
+	if _, errs := cfcCase(t, cfcJSON(f1), "[]", nil); strings.Contains(errs, line) {
+		t.Errorf("a role with no report file: %s", errs)
+	}
+
+	t.Run("check-unfinished-work", func(t *testing.T) {
+		t.Parallel()
+		f := newUW(t)
+		f.findings = []byte(cfcJSON(f1))
+		writeFile(t, f.wt+"/.superpowers/sdd/panel-report-0-primary.md", zero)
+		r := f.run(t, f.wt, "demo")
+		if !strings.HasPrefix(r.out, "OUTSTANDING:") || !strings.Contains(r.out, "store rows outnumber their reports ("+label+")") {
+			t.Fatalf("exit %d stdout %q stderr %q", r.rc, r.out, r.err)
+		}
+	})
+}
