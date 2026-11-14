@@ -26,3 +26,18 @@ func TestReDecideCarriesAnUnmovedClass(t *testing.T) {
 		}
 	}
 }
+
+func TestDocumentFixClosesInOneCall(t *testing.T) {
+	t.Parallel()
+	text := repoText(t, "skills/flow/document-fix.md")
+	for _, want := range []string{
+		"The count, `flow-guard check-plan-shape`, the project's plan-provenance guard and the snapshot command run as one Bash call, joined with `&&` in that order",
+		"flow tasks count -C <worktree> <name>",
+		"flow-guard check-plan-shape <changeRoot>/tasks.md",
+		"before any implementer is dispatched",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("skills/flow/document-fix.md lacks %q", want)
+		}
+	}
+}
