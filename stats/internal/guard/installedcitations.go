@@ -290,7 +290,7 @@ func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]boo
 			tmp = "/tmp"
 		}
 		fmt.Fprintf(stderr, "%s: mktemp -d failed under %s — cannot create a scratch directory\n", cicName, tmp)
-		Reason(env, "mktemp-d-failed-under")
+		Reason(env, "mktemp-failed")
 		return nil, 2
 	}
 	// An interrupt removes the sandbox, then dies of that SIGINT (exit 130
@@ -329,7 +329,7 @@ func cicInstalledSources(env Env, repo string, stderr io.Writer) (map[string]boo
 			return nil, 2
 		case err != nil:
 			fmt.Fprintf(stderr, "%s: cannot run the sandboxed `setup.sh %s` — %v\n", cicName, run.mode, err)
-			Reason(env, "cannot-run-the-sandboxed")
+			Reason(env, "sandboxed-setup-failed")
 			return nil, 2
 		case res.code != 0:
 			fmt.Fprintf(stderr, "%s: sandboxed `setup.sh %s` exited %d — cannot derive the installed set\n", cicName, run.mode, res.code)

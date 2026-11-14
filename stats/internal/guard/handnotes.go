@@ -115,7 +115,7 @@ func checkHandNotesInStep(_ []string, env Env, stdout, stderr io.Writer) int {
 	if homeDir == "" {
 		h, ok := env.LookupEnv("HOME")
 		if !ok {
-			return refuse("home-is-unset-and-check", "HOME is unset and CHECK_HAND_NOTES_HOME is not set — cannot locate the install")
+			return refuse("home-unset", "HOME is unset and CHECK_HAND_NOTES_HOME is not set — cannot locate the install")
 		}
 		homeDir = h
 	}

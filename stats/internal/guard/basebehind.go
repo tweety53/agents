@@ -56,7 +56,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, wt := range args {
 		if _, ok := capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); !ok {
 			fmt.Fprintf(stderr, "%s: not a git worktree: %s\n", prog, wt)
-			Reason(env, "not-a-git-worktree")
+			Reason(env, "not-a-worktree")
 			return 2
 		}
 		branch, _ := capture(git("-C", wt, "symbolic-ref", "--short", "-q", "HEAD"))
@@ -84,7 +84,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		n, err := strconv.Atoi(count)
 		if !ok || err != nil {
 			fmt.Fprintf(stderr, "%s: %s: git rev-list --count origin/%s..origin/%s failed\n", prog, wt, base, tracked)
-			Reason(env, "git-rev-list-count-origin")
+			Reason(env, "rev-list-failed")
 			return 2
 		}
 		if n == 0 {
@@ -94,7 +94,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		mb, ok := capture(git("-C", wt, "merge-base", "HEAD", "origin/"+base))
 		if !ok {
 			fmt.Fprintf(stderr, "%s: %s: git merge-base HEAD origin/%s failed\n", prog, wt, base)
-			Reason(env, "git-merge-base-head-origin")
+			Reason(env, "merge-base-failed")
 			return 2
 		}
 		rc = 1

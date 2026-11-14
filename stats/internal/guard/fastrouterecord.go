@@ -78,7 +78,7 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	git := envGit(env)
 	if git("-C", wt, "rev-parse", "--git-dir").Run() != nil {
-		return die("not-a-git-worktree", "%s is not a git worktree", args[0])
+		return die("not-a-worktree", "%s is not a git worktree", args[0])
 	}
 	// <base> is the bare name resolve-base-branch.sh prints: origin/<base>
 	// first — the fetched base a fast route lands against — the name itself
@@ -93,11 +93,11 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 		resolved, ok = capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "--end-of-options", args[1]+"^{commit}"))
 	}
 	if !ok {
-		return die("resolves-neither-as-origin-nor", "%s resolves neither as origin/%s nor as a revision", args[1], args[1])
+		return die("ref-unresolved", "%s resolves neither as origin/%s nor as a revision", args[1], args[1])
 	}
 	mergeBase, ok := capture(git("-C", wt, "merge-base", "HEAD", resolved))
 	if !ok {
-		return die("cannot-merge-base-head-with", "cannot merge-base HEAD with %s", resolved)
+		return die("merge-base-failed", "cannot merge-base HEAD with %s", resolved)
 	}
 	branch, _ := capture(git("-C", wt, "branch", "--show-current"))
 	series, ok := capture(git("-C", wt, "rev-list", "--reverse", mergeBase+"..HEAD"))

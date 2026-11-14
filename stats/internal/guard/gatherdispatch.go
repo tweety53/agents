@@ -388,7 +388,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		last := len(b.found) - 1
 		if last < 0 || b.found[last].label != "tasks.md"+suffix {
 			fmt.Fprintln(stderr, "gather-dispatch-context: task ids given but tasks.md is absent or refused")
-			Reason(env, "task-ids-given-but-tasks")
+			Reason(env, "tasks-md-missing")
 			return 2
 		}
 		body, ok := scopeTasks(b.found[last].path, taskIDs, stderr)

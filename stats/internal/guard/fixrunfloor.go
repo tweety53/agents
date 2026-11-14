@@ -246,7 +246,7 @@ func fixRunFloor(args []string, env Env, stdout, stderr io.Writer) int {
 	v.Roster, v.Verify, v.Reasons = in.Roster, in.Verify, in.Reasons
 	if class != "prose" {
 		fmt.Fprintf(stderr, "%s: class %s has no room above its floor — no verdict is admitted\n", frProg, class)
-		Reason(env, "class-has-no-room-above")
+		Reason(env, "class-at-ceiling")
 		return 1
 	}
 	if why := frBelowFloor(v); why != "" {

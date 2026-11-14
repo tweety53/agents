@@ -118,10 +118,10 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		// The parent is resolved before anything rewrites the task commit.
 		var ok bool
 		if parent, ok = capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", task+"^")); !ok {
-			return refuse("has-no-parent-in", "%s has no parent in %s — cannot fold into a root commit", task, wt)
+			return refuse("root-commit", "%s has no parent in %s — cannot fold into a root commit", task, wt)
 		}
 		if !quiet(append([]string{"-C", wt, "commit", "-q", "--fixup=" + task, "--"}, paths...)...) {
-			return refuse("git-commit-fixup-refused-in", "git commit --fixup=%s refused in %s", task, wt)
+			return refuse("fixup-commit-refused", "git commit --fixup=%s refused in %s", task, wt)
 		}
 		// A non-interactive --autosquash is ignored by git; -i with a no-op
 		// sequence editor runs the autosquashed todo as written.
@@ -139,7 +139,7 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 	} else {
 		var ok bool
 		if parent, ok = capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", task+"^")); !ok {
-			return refuse("has-no-parent-in", "%s has no parent in %s", task, wt)
+			return refuse("root-commit", "%s has no parent in %s", task, wt)
 		}
 	}
 
@@ -159,7 +159,7 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	head, ok := capture(git("-C", wt, "rev-parse", "HEAD"))
 	if !ok {
-		return refuse("head-does-not-resolve-in", "HEAD does not resolve in %s", wt)
+		return refuse("head-unresolved", "HEAD does not resolve in %s", wt)
 	}
 	if dropped {
 		fmt.Fprintf(stdout, "DROPPED: %s — the fold emptied %s; HEAD %s\n", wt, task, head)

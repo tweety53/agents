@@ -64,12 +64,12 @@ func ignoreScratch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fail := func(step, out string) int {
 		fmt.Fprintf(stderr, "ignore-scratch: %s failed in %s: %s\n", step, wt, out)
-		Reason(env, "failed-in")
+		Reason(env, "git-step-failed")
 		return 1
 	}
 	if _, ok := run("diff", "--cached", "--quiet"); !ok {
 		fmt.Fprintf(stderr, "ignore-scratch: the staged index in %s is not empty — commit or unstage it first; nothing committed\n", wt)
-		Reason(env, "staged-index-in-is-not")
+		Reason(env, "staged-index-not-empty")
 		return 1
 	}
 	p := filepath.Join(wt, ".gitignore")

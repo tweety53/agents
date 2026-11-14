@@ -96,7 +96,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	git := envGit(env)
 	if git("-C", root, "rev-parse", "--is-inside-work-tree").Run() != nil {
-		return die("not-a-git-worktree", "%s is not a git worktree", root)
+		return die("not-a-worktree", "%s is not a git worktree", root)
 	}
 	// One listing is both the scan set (its .md entries) and the index the
 	// named paths are checked against — the same tracked set, so a named
@@ -145,7 +145,7 @@ func checkDoneWhenPaths(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, file := range markdown {
 		b, err := os.ReadFile(root + "/" + file)
 		if err != nil {
-			return die("cannot-read-tracked-file-in", "cannot read tracked file %s in %s: %v", file, root, err)
+			return die("cannot-read-tracked-file", "cannot read tracked file %s in %s: %v", file, root, err)
 		}
 		inSection := false
 		fence := false

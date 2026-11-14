@@ -63,7 +63,7 @@ func awaitSubAgents(args []string, env Env, stdout, stderr io.Writer) int {
 	capN, err := strconv.Atoi(capS)
 	if !asaCapRe.MatchString(capS) || err != nil || capN > 240 {
 		fmt.Fprintf(stderr, "await-sub-agents: AWAIT_SUB_AGENTS_SECONDS must be 0-240, got %s\n", capS)
-		Reason(env, "await-sub-agents-seconds-must")
+		Reason(env, "bad-seconds")
 		return 2
 	}
 

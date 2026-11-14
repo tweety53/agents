@@ -70,7 +70,7 @@ func commitSplit(args []string, env Env, stdout, stderr io.Writer) int {
 	changes := specRootLeaf(worktree, stderr) + "/changes/"
 	if exitCode(git("-C", worktree, "check-ignore", "-q", "--no-index", changes).Run()) != 0 {
 		fmt.Fprintf(stderr, "commit-split: %s is not gitignored in %s — add it to .gitignore before integrating\n", changes, worktree)
-		Reason(env, "not-gitignored-in")
+		Reason(env, "changes-dir-not-gitignored")
 		return 2
 	}
 	// An ignore rule never removes a path the index already tracks, and a

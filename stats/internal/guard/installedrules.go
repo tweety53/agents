@@ -148,7 +148,7 @@ func checkInstalledRules(_ []string, env Env, stdout, stderr io.Writer) int {
 		// on an unset HOME, so the port refuses rather than read it as empty.
 		h, ok := env.LookupEnv("HOME")
 		if !ok {
-			return refuse("home-is-unset-and-check", "HOME is unset and CHECK_INSTALLED_RULES_HOME is not set — cannot locate the install")
+			return refuse("home-unset", "HOME is unset and CHECK_INSTALLED_RULES_HOME is not set — cannot locate the install")
 		}
 		homeDir = h
 	}
@@ -307,7 +307,7 @@ func cirManagedFiles(setup, setupSh string, refuse func(id, format string, a ...
 		return nil, refuse("no-managed-files-declaration", "no 'local managed_files=(' declaration in %s — cannot resolve the managed-block targets", setupSh)
 	}
 	if !strings.HasSuffix(decl, ")") {
-		return nil, refuse("managed-files-declaration-in-does", "the managed_files declaration in %s does not close on its own line — this guard parses a single-line declaration only, and a truncated set must be refused, never silently served", setupSh)
+		return nil, refuse("managed-files-unclosed", "the managed_files declaration in %s does not close on its own line — this guard parses a single-line declaration only, and a truncated set must be refused, never silently served", setupSh)
 	}
 	_, rest, _ := strings.Cut(decl, "managed_files=(")
 	files := []string{}

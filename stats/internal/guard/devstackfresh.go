@@ -104,12 +104,12 @@ func checkDevStackFresh(args []string, env Env, stdout, stderr io.Writer) int {
 	fpr, found := dsfFingerprint(string(text))
 	if !found {
 		fmt.Fprintf(stderr, "check-dev-stack-fresh: %s declares no readable `fingerprint` row under `## visual verification` — freshness cannot be checked\n", cfg)
-		Reason(env, "declares-no-readable")
+		Reason(env, "fingerprint-row-missing")
 		return 2
 	}
 	if fpr == "" {
 		fmt.Fprintf(stderr, "check-dev-stack-fresh: the fingerprint row in %s resolves to an empty command — freshness cannot be checked\n", cfg)
-		Reason(env, "fingerprint-row-in-resolves")
+		Reason(env, "fingerprint-command-empty")
 		return 2
 	}
 

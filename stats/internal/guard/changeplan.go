@@ -254,12 +254,12 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 		for j := range matches {
 			fmt.Fprintf(stderr, "change-plan: ambiguous state-record resolution for '%s': project %s resolves to %s\n", key, projects[j], matches[j])
 		}
-		Reason(env, "ambiguous-state-record-resolution-for")
+		Reason(env, "ambiguous-change-plan")
 		return "", 3
 	case len(matches) == 1:
 		return matches[0], 0
 	}
-	Reason(env, "ambiguous-state-record-resolution-for")
+	Reason(env, "no-change-plan")
 	return "", 1
 }
 

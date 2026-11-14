@@ -41,7 +41,7 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 	}
 	common, ok := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 	if !ok {
-		return die("cannot-resolve-the-common-git", "cannot resolve the common git dir of: %s", wt)
+		return die("cannot-resolve-common-git-dir", "cannot resolve the common git dir of: %s", wt)
 	}
 
 	// symbolic-ref exits 1 on a detached HEAD, which is an answer here, not an

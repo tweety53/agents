@@ -316,7 +316,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		sed := exec.Command("sed", "-e", value, r.file)
 		sed.Dir, sed.Stdout, sed.Stderr = r.root, &mutated, r.stderr
 		if rc := exitCode(sed.Run()); rc != 0 {
-			return refuse("sed-failed-with-exit", fmt.Sprintf("sed failed with exit %d: %s", rc, value))
+			return refuse("sed-failed", fmt.Sprintf("sed failed with exit %d: %s", rc, value))
 		}
 		if bytes.Equal(mutated.Bytes(), r.snap) {
 			return refuse("sed-expression-changes-nothing", "sed expression changes nothing — the mutation must alter the file: "+value)
@@ -370,7 +370,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	}
 	if rc == 0 {
 		fmt.Fprintln(r.stderr, "break-and-prove: run 1 exited 0 — the proof did not hold: the mutation did not break the test")
-		Reason(env, "run-1-exited-0")
+		Reason(env, "mutation-not-caught")
 		return 1
 	}
 
@@ -398,7 +398,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	}
 	if rc != 0 {
 		fmt.Fprintf(r.stderr, "break-and-prove: run 2 exited %d — the proof did not hold: the test fails on the restored file\n", rc)
-		Reason(env, "run-2-exited")
+		Reason(env, "restored-run-failed")
 		return 1
 	}
 

@@ -158,7 +158,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	for _, a := range pos[3:] {
 		id, commit, ok := strings.Cut(a, ":")
 		if id == "" || (ok && commit == "") {
-			return usage("task-argument-is-not-task", "task argument is not <task-id>[:<sha|map>]: "+a)
+			return usage("bad-task-argument", "task argument is not <task-id>[:<sha|map>]: "+a)
 		}
 		if !ok {
 			if commit = ctTrailerCommit(envGit(env), canonical, mergeBase, id); commit == "" {

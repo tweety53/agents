@@ -106,7 +106,7 @@ func installerSandboxDiff(args []string, env Env, stdout, stderr io.Writer) int 
 			return die("not-a-directory", arg+" is not a directory")
 		}
 		if st, err := os.Stat(filepath.Join(tree, "setup.sh")); err != nil || !st.Mode().IsRegular() {
-			return die("has-no-setup-sh-at", tree+" has no setup.sh at its root — the installer cannot be run from it")
+			return die("no-setup-sh", tree+" has no setup.sh at its root — the installer cannot be run from it")
 		}
 		trees[i] = tree
 	}
@@ -119,7 +119,7 @@ func installerSandboxDiff(args []string, env Env, stdout, stderr io.Writer) int 
 	work, err := os.MkdirTemp(tmp, "installer-sandbox-diff.")
 	if err != nil {
 		fmt.Fprintln(stderr, "mktemp:", err)
-		return die("cannot-create-the-sandbox-work", "cannot create the sandbox work directory under "+tmp)
+		return die("cannot-create-sandbox-work-dir", "cannot create the sandbox work directory under "+tmp)
 	}
 	rc := isdRun(env, trees, work, stdout, stderr)
 	if rc == 0 {

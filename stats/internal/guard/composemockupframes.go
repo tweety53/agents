@@ -193,7 +193,7 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 
 	if fi, err := os.Stat(at(mockupsRoot)); err != nil || !fi.IsDir() {
 		fmt.Fprintf(stderr, cmfPrefix+"mockups root is not a directory: %s\n", mockupsRoot)
-		Reason(env, "mockups-root-is-not")
+		Reason(env, "mockups-root-missing")
 		return 2
 	}
 

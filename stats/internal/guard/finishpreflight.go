@@ -98,7 +98,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	git := envGit(env)
 	if git("-C", worktree, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is not a git worktree — cannot determine anything\n", worktree)
-		Reason(env, "not-a-git-worktree")
+		Reason(env, "not-a-worktree")
 		return 2
 	}
 
@@ -114,7 +114,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	headSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve HEAD in %s\n", worktree)
-		Reason(env, "cannot-resolve-head-in")
+		Reason(env, "head-unresolved")
 		return 2
 	}
 	recordedSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", recorded+"^{commit}"))
@@ -153,7 +153,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		return 0
 	} else if rc != 0 {
 		fmt.Fprintf(stderr, "check-finish-preflight: merge-base failed in %s (exit %d) — cannot determine anything\n", worktree, rc)
-		Reason(env, "merge-base-failed-in")
+		Reason(env, "merge-base-failed")
 		return 2
 	}
 
