@@ -4,6 +4,8 @@ package guard
 
 import (
 	"io"
+	"slices"
+	"sync"
 	"time"
 )
 
@@ -57,6 +59,40 @@ type Env struct {
 	// repository root's stats module; nil means exec it, as the bash guard
 	// does.
 	StageKeys func() (string, error)
+	// Reasons is the run's reason collector (see Reason); nil, as in every
+	// test's Env{…} literal, makes Reason a no-op.
+	Reasons *Reasons
+}
+
+// Reasons collects the reason ids one guard run records: distinct ids in
+// first-seen order, safe under concurrent calls.
+type Reasons struct {
+	mu  sync.Mutex
+	ids []string
+}
+
+// IDs returns a copy of the recorded ids, in first-seen order.
+func (r *Reasons) IDs() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.ids)
+}
+
+// Reason records id as a reason the guard refuses or cannot answer. A guard
+// calls it once at each refusal and cannot-answer exit, before returning;
+// the collector keeps distinct ids in first-seen order and is safe under
+// concurrent calls. An in-process sub-guard gets the same env, so it records
+// into the same run. flow-guard posts the ids with the run's telemetry.
+func Reason(env Env, id string) {
+	r := env.Reasons
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !slices.Contains(r.ids, id) {
+		r.ids = append(r.ids, id)
+	}
 }
 
 // Func is one guard's entry point: args exclude the guard name; the return

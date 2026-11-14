@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -123,7 +124,7 @@ func TestRecordRunPostsTheRun(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	recordRun(func(k string) string { return env[k] }, dir, "check-plan-shape", 1, "", 1500*time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, dir, "check-plan-shape", 1, "", nil, 1500*time.Millisecond, srv.Client())
 
 	if gotPath != "/api/v1/guard-runs/"+key {
 		t.Errorf("path = %q, want the project's guard-runs route", gotPath)
@@ -143,7 +144,7 @@ func TestRecordRunHonoursTheOptOut(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_TELEMETRY": "off"}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", nil, time.Millisecond, srv.Client())
 	if called.Load() {
 		t.Fatal("FLOW_GUARD_TELEMETRY=off still posted a run")
 	}
@@ -160,7 +161,7 @@ func TestRecordRunIsBoundedByItsTimeout(t *testing.T) {
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
 	start := time.Now()
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", 0, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", nil, 0, srv.Client())
 	if elapsed := time.Since(start); elapsed > 3*telemetryTimeout {
 		t.Fatalf("recordRun took %v against a hung daemon, want it bounded near %v", elapsed, telemetryTimeout)
 	}
@@ -202,5 +203,52 @@ func TestRunAndRecordPassesTheFirstLine(t *testing.T) {
 	code := runAndRecord([]string{name}, &stdout, io.Discard, func(k string) string { return env[k] }, func() string { return dir }, srv.Client())
 	if code != 0 || got.Guard != name || got.Outcome != "fired" {
 		t.Errorf("exit %d, body %+v; want exit 0 recorded fired", code, got)
+	}
+}
+
+// TestRunAndRecordPostsTheReasons pins clear-run-drops-reasons: a fired run
+// posts its distinct reason ids in first-seen order, a clear run posts none.
+// Not parallel: it swaps a registry entry.
+func TestRunAndRecordPostsTheReasons(t *testing.T) {
+	dir := gitRepo(t)
+	const name = "check-plan-shape"
+	orig := registry[name]
+	defer func() { registry[name] = orig }()
+	var body []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	getenv := func(k string) string { return env[k] }
+
+	registry[name] = func(_ []string, e guard.Env, _, _ io.Writer) int {
+		guard.Reason(e, "F6")
+		guard.Reason(e, "F2")
+		guard.Reason(e, "F6")
+		return 1
+	}
+	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir }, srv.Client())
+	var fired guardRun
+	if err := json.Unmarshal(body, &fired); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	if fired.Outcome != "fired" || !slices.Equal(fired.Reasons, []string{"F6", "F2"}) {
+		t.Errorf("fired run posted %s; want outcome fired, reasons [F6 F2]", body)
+	}
+
+	registry[name] = func(_ []string, e guard.Env, _, _ io.Writer) int {
+		guard.Reason(e, "x")
+		return 0
+	}
+	body = nil
+	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir }, srv.Client())
+	var clear map[string]any
+	if err := json.Unmarshal(body, &clear); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	if _, ok := clear["reasons"]; ok {
+		t.Errorf("clear run posted %s; want no reasons key", body)
 	}
 }
