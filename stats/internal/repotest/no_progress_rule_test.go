@@ -40,6 +40,11 @@ func TestNoProgressRule(t *testing.T) {
 	loops := []struct{ file, phrase string }{
 		{"skills/flow/implement.md", "A fourth `full-suite-fix-<n>` after three failed ones is the fresh dispatch of **Three failed rounds**"},
 		{"skills/flow/gated-review-fix.md", "after three failed re-reviews of one task is the fresh dispatch of **Three failed rounds**"},
+		{"skills/flow/review-panel-fix-round.md", "as does a fourth round after three failed ones (**Three failed rounds**, there)"},
+		{"skills/flow/review-panel.md", "the slot is re-dispatched fresh as **Three failed rounds**"},
+	}
+	if strings.Contains(repoText(t, "skills/flow/review-panel.md"), "a third breach of the same slot is asked") {
+		t.Error("skills/flow/review-panel.md still asks on a slot's third breach")
 	}
 	for _, l := range loops {
 		if !strings.Contains(repoText(t, l.file), l.phrase) {
