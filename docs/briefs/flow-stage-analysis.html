@@ -305,7 +305,11 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Candidate — the three costliest runs; <code>minor-triage-policy</code> lasted 17,161 s → ANSWER-ONLY → The window is not kickoff's work. <code>minor-triage-policy</code> has one stage run in the whole store — <code>flow.kickoff</code>, 13:28:59 to 18:15:00 on 2026-11-12 — and no recorded dispatch. Its metrics show the session's whole change inside it: 7 main turns on sonnet, 3 Agent launches, 149 subagent tool calls (20 Edit, 8 Write) on opus and fable, $10.73. The next two runs, $0.92 and $0.53, are 9 s and 6 s windows.</li>
+        <li>Open — what happened in the 17,161 s window → ANSWER-ONLY → The run marked <code>flow.kickoff</code> begin, then did the entire change — planning, three unrecorded agents, the edits — without making another stage mark, and ended kickoff at the end. The stage was left open; nothing in kickoff ran long.</li>
+        <li>Open — should the store close a kickoff window that outlasts its worktree setup → WON'T-FIX → One run in 31 days, and the store has no measure of "the setup is over": the mark's end is the only signal. A store-side timeout would hide a run that skipped every later mark rather than correct it, and the other 100-odd kickoff windows are seconds long.</li>
+      </ul>
     </div>
   </section>
 
@@ -441,7 +445,26 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Instruction — remove the CORE special-case (brainstorm.md:113, brainstorm-planner.md:131); explicit allow only → FIX (tasks 10, 11) → The <code>core</code> argument of <code>flow-guard plan-agent-pair</code>, the <code>CORE change</code> prompt line, the <code>CORE change</code> row <code>policyTable</code> appends under an open experiment and every sentence naming <code><strong>Agents (CORE):</strong></code> for a planning role are deleted. A pair outside a planning role's base pairs is reached one way: the opt-in tier — <code>flow policy grant -change &lt;name&gt; -roles &lt;role&gt;</code> plus the prompt line <code>Operator pair: &lt;role&gt;</code>. In the store today <code>fable</code> sits only in the opt-in tier of <code>planner</code> and <code>plan-designer</code>, so no base pair changes.</li>
+        <li>Instruction — the planner pair is an appropriate one for the task, not the row's first → FIX (tasks 10, 11) → Every planner dispatch names an effort and <code>flow-guard plan-agent-pair &lt;name&gt; &lt;n&gt; planner &lt;effort&gt;</code> prints the row's first admitted pair at that effort. Round 1: <code>low</code> when the ask arrives as a seeded note or a <code>/flow-plan</code> capture that already carries the design, else <code>medium</code>. Every later planner dispatch of the run — design rounds, the two final dispatches, a plan-review triage — takes the effort the latest round file's <code><strong>Scope:</strong></code> line names: <code>small</code> → <code>low</code>, <code>regular</code> → <code>medium</code>, <code>large</code> → <code>high</code>. <code>xhigh</code> and every opt-in pair are never selected by the run; only an operator grant reaches them.</li>
+        <li>Instruction — elaborate the await-sub-agents wait (brainstorm-planner.md:161) → FIX (task 14) + answer → What it is: a subagent's prompt cache lives 5 minutes; a planner that ended its turn to wait woke 13 minutes later and rewrote 206k tokens (kan-1061). So the planner stays in its turn and calls <code>flow-guard await-sub-agents &lt;ids&gt;</code>: the guard polls each agent's <code>agent-&lt;id&gt;.meta.json</code> every 2 s and returns at 110 s — exit 0 when all carry <code>"finished": true</code>, exit 1 naming those still running. Each exit-1 return costs one cache read of the planner's context and re-arms the 5-minute window. The <code>await-own-agents</code> SubagentStop hook refuses a turn end while a child runs, and takes a child whose transcript has been silent 30 minutes as dead. The gap found: the guard has no such rule, so a crashed child made the planner call it for ever while the hook would already have let it stop. Fixed: the guard takes a child silent for 30 minutes as ended, prints <code>stale: &lt;id&gt;</code> and counts it finished; and the contract now has the planner wait 240 s a call (inside the cache window, half the wake-ups) and states both exits.</li>
+        <li>Instruction — fewer brainstorm questions; a classifier → FIX (task 12) → A question is asked only when it is <code>[architectural]</code> or <code>[impactful: &lt;criterion&gt;]</code>. Architectural questions are always asked, up to four in one <strong>AskUserQuestion</strong> call (no longer one call each). Any other ambiguity takes its recommended option, is recorded under <code>## Decisions</code> and is listed one line each under the round file's <code>## Auto-taken</code>, where the operator sees it beside the convergence confirm and can revise it. It is asked — headed <code>[impactful: &lt;criterion&gt;]</code>, at most four a round, the rest held for the next round — only when it meets one of four criteria: no honest recommended option; costly to reverse once landed (persisted or migrated data, a public API, file format, CLI or cross-repository contract, a deletion, permissions, security, privacy, money); it adds or drops something the ticket or mockup states; or its options differ by a task or more of plan and the ticket gives no lead. The convergence confirm is still asked.</li>
+        <li>Instruction — "prepare now or later" is never asked → FIX (task 12) → A choice between doing work the design needs in this change and deferring it to a later change is never a question: now is taken and recorded under <code>## Decisions</code>.</li>
+        <li>Instruction / Candidate — Explore and Plan agents per round are uncapped → FIX (task 13) → A soft cap per planner dispatch: round 1 at most three Explore and three Plan agents (the numbers <strong>Explore and design agents</strong> already gives per step, now per round); a later round at most two agents in all, each named for a gap <code>findings.md</code> does not cover. A planner that needs more writes one line, <code>Over cap: &lt;n&gt; agents — &lt;reason&gt;</code>, into the round file's <code>## Summary</code> and goes on; nothing refuses it. Measured: no planner dispatch in the window launched more than 6 agents (median 3), so the cap binds repeats, not the job. The $118.50 run is not 14 agents in one round — see the kan-1088 row.</li>
+        <li>Instruction / Candidate — every round re-reads every earlier round and answer file → FIX (task 13) → The latest round file is the rolling state: its design draft now carries <code>### Settled</code>, every answer so far folded in with the operator's words verbatim and the round it came from. A planner dispatch reads the ticket, <code>findings.md</code>, the latest <code>round-&lt;r&gt;.md</code> and the latest <code>answers-&lt;r&gt;.md</code>, whose paths the parent's prompt names — never an earlier round or answers file. On this change's own planner directory that is 13 kB in place of 57 kB by round 5. No separate summary file is added: it would store what the latest round file already holds.</li>
+        <li>Instruction / Candidate — an explorer's findings reach the next round only through the round file → FIX (task 13) → The planner appends each Explore and Plan hand-back verbatim to <code>.superpowers/sdd/planner/findings.md</code> under <code>## &lt;key&gt; — &lt;scope&gt;</code>. Every later planner reads that file first and dispatches an agent only for ground no section of it covers.</li>
+        <li>Instruction / Candidate — 40 of 145 runs are a second or later attempt ($52.22) — EXPLAIN → FIX (task 15) + answer → They are not re-entries and not resumes after <code>/clear</code>: every one carries its change's first session token. 39 of the 42 rows with attempt above 1 are rows the store opened itself (<code>auto_opened</code>). <code>flow record dispatch begin</code> for a <code>plan-&lt;n&gt;</code> key with no stage open makes the store open a <code>flow.brainstorm</code> run for it (<code>autoStageFor</code>, stats/internal/store/records.go). That happens twice a change: the first final planner is recorded after <code>flow.design-approval</code> ended and before the planner makes its own <code>flow.create-artifacts</code> begin mark, and the second after <code>flow.plan-review</code> ended and before its <code>flow.writing-plans</code> begin. The planner's begin mark then closes the row as <code>superseded</code>, 18–250 s later — which is the 33 superseded rows ($36.73). The dollars are the final planner's start-up, booked to brainstorm. Fixed by having the parent make each begin mark before it records the dispatch, so no stage-less dispatch exists.</li>
+        <li>Candidate — the planner's pair is the row's first for every non-CORE change → FIX (tasks 10, 11) → Same as the pair-selection row above.</li>
+        <li>Instruction / Candidate — each dispatch reads the whole planner/ directory → FIX (task 13) → Same as the re-reading row above.</li>
+        <li>Candidate — the number of design rounds has no limit and no warning → WON'T-FIX → A design round ends on the operator's answer, not on a retry, so the three-round reconsider rule does not apply and a cap would end a conversation the operator is still having. Of the 29 planner-role runs in the window the median is 2 rounds and the highest 6. The classifier removes the commonest cause of a further round — a held small question.</li>
+        <li>Open — should a round count or a dollar figure warn before the next round → WON'T-FIX → The operator is the one answering each round and already sees its number in every relayed path (<code>round-&lt;r&gt;.md</code>); a warning adds a line and stops nothing.</li>
+        <li>Open — should a round's exploration be saved for the next round's planner → FIX (task 13) → Yes — <code>findings.md</code>, above.</li>
+        <li>Open — what does an attempt above 1 stand for; 35 superseded → ANSWER-ONLY → The explain row above: store-opened rows around the two final planner dispatches, each superseded by the planner's own begin mark.</li>
+        <li>Open — what did kan-1088's 14 dispatches do, and which repeated → ANSWER-ONLY → Five planner rounds (<code>plan-1</code>…<code>plan-5</code>, 14:53–18:16), five explorers and four plan-designers. Round 1: <code>explore-1/2/3</code>, then <code>design-4/5</code>. Round 2: <code>explore-6/7</code>, then <code>design-8/9</code> — the same explore-then-two-designs shape over the answered design, the repeat. Rounds 3–5 dispatched nothing. Every planner and plan-designer ran on <code>fable xhigh</code> (the CORE rule): the $118.50 is nine fable-xhigh agents, two of them 55 minutes long, not the agent count. Tasks 10–11 take the pair away and task 13 the round-2 repeat.</li>
+        <li>Open — is there a signal before flow.decide for a cheaper planner pair → FIX (task 11) → Two. Before round 1: whether the ask is a seeded note or <code>/flow-plan</code> capture that already carries the design. From round 1's return on: the planner's own <code><strong>Scope:</strong></code> line, written after it explored.</li>
+        <li>Loop — Dig-deeper quiz, uncapped → WON'T-FIX → Runs only when the operator picks it, and ends when the operator stops picking it.</li>
+      </ul>
     </div>
   </section>
 
@@ -519,7 +542,9 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Open — the median window is 0.02 s yet carries $7.64 and 4 dispatches → FIX (task 15) + answer → The cost is the parent's own turn between the approve answer and the first final planner's dispatch — reading the answer, writing <code>answers-&lt;r&gt;.md</code>, composing the prompt (55.7k main-session output tokens over 104 runs). Those messages fall after the window closed and in no other window, and the store gives such a message to the window that began last before it (stats/internal/harvest/attribute.go:18) — this one. The four dispatches are agents launched in that same gap. With the parent beginning <code>flow.create-artifacts</code> straight after this stage's end, the gap no longer exists and the window carries only the boundary message.</li>
+      </ul>
     </div>
   </section>
 
@@ -621,7 +646,14 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Instruction / Candidate — the final planner re-reads every round and answer file → FIX (task 13) → It reads the approved round file, that round's answers and <code>findings.md</code>, by path from its prompt. The second final planner (section D) reads the three artifacts and <code>findings.md</code> and nothing else under <code>planner/</code>.</li>
+        <li>Instruction / Candidate — the final planner runs on the design round's pair whatever the size; 2 of 105 are a second attempt → FIX (tasks 11, 15) → The pair follows the approved round's <code><strong>Scope:</strong></code> line: <code>low</code> for small, <code>medium</code> for regular, <code>high</code> for large. The second attempts (one completed, $3.82) are a fresh final dispatch after a <code>QUESTIONS</code> return making the begin mark again; the parent now makes that mark once.</li>
+        <li>Open — could the approved design be handed over as one summary file → FIX (task 13) → Yes, and it already exists: the approved round file, whose design draft carries every settled answer.</li>
+        <li>Open — do the 64 recorded dispatches include the planner itself → ANSWER-ONLY → Yes. The stage's dispatch map is keyed by harvested agent id and holds every agent launched inside the window: the final planner (the fable and larger opus entries, up to $13.39) and the explorers it launched (the sonnet and small opus entries).</li>
+        <li>Loop — guard redispatch, uncapped → FIX (task 16) → Never a stop; after three failed redispatches the next is a fresh dispatch on the planner's own pair carrying all three reports and naming the approach that failed, per the shared retry rule in <code>skills/flow-contracts/pipeline.md</code>.</li>
+        <li>Loop — QUESTIONS rounds after approval, uncapped → WON'T-FIX → An operator round, not a retry: it ends on the operator's answer. The classifier applies to it, so only an architectural or impactful ambiguity returns <code>QUESTIONS</code>.</li>
+      </ul>
     </div>
   </section>
 
@@ -721,7 +753,14 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Candidate — big changes take $139.92 of $179.49; the pair does not depend on class → FIX (tasks 10, 11) → The pair follows the <code><strong>Scope:</strong></code> line, as for create-artifacts. Class itself stays a Decide output; scope is the planner's own earlier estimate of it.</li>
+        <li>Candidate — a redispatch is a fresh planner re-reading design and planner directory to fix one guard line → FIX (task 16) → A guard redispatch runs on the planner row's <code>low</code> pair and is handed the guard's output and the three artifacts only.</li>
+        <li>Open — should the parent or a cheaper dispatch fix a guard failure → FIX (task 16) → A cheaper dispatch. The parent never writes the plan (decision <code>planner-role</code>), so it stays a planner dispatch, at <code>low</code>.</li>
+        <li>Open — the two costliest runs ($34.14, $33.23), 5 dispatches each → ANSWER-ONLY → kan-1087: one final planner on <code>fable</code> for the hour, $28.67, plus four opus explorers at $0.88–$1.40. kan-1088: a <code>fable</code> final planner, $25.38, a second <code>fable</code> dispatch, $5.03, and three opus explorers under $0.80. Both are the CORE pair writing the plan; the explorers are 13% of either run.</li>
+        <li>Loop — guard redispatch, uncapped → FIX (task 16) → As create-artifacts.</li>
+        <li>Loop — QUESTIONS rounds, uncapped → WON'T-FIX → As create-artifacts.</li>
+      </ul>
     </div>
   </section>
 
@@ -817,7 +856,14 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Candidate: only 16 runs over 8 changes against about 100 planned; most planners return the skip line → ANSWER-ONLY (observed further under KAN-1113) → The stage first ran on 2026-11-11 (<code>feat(flow): review the plan twice before implementation and record the design</code>). Every one of the 9 changes planned since was reviewed, twice each — 18 runs, no skip. The "about 100 changes" are the 30-day window, which predates the stage; no planner has returned the skip line yet.</li>
+        <li>Candidate: the triage planner is a fresh planner dispatch on the planner pair, re-reading the design to apply a handful of findings — elaborate → FIX (task 17) → A <code>PLAN-REVIEW-FINDINGS</code> verdict redispatches a fresh final planner "as for guard output it could not clear" (<code>skills/flow/brainstorm.md</code> step 3), so it starts from an empty context on the change's planner pair and, as any final planner, reads the whole <code>planner/</code> directory before it touches a finding. 13 of the 18 reviews had findings and so a triage. Recorded triages: 9 on <code>opus medium</code> cost $7.78 (context at end 53k tokens after review 1, 90k after review 2), 1 on <code>fable medium</code> $0.86, 3 on <code>fable xhigh</code> $10.70 — the CORE pin; one of those read 8.3M cached tokens over 78 tool calls for $5.64 (kan-1087). Review 2's triage also re-runs <code>spectre validate</code>, <code>check-plan-shape</code>, the configured guards and <code>flow tasks count</code> and writes each standing finding into <code>## Risks</code>. Fix: a triage dispatch reads the report and the artifacts, and opens a <code>planner/</code> file only for a finding whose fix turns on a round's answer. The pair itself is session 1's decision for <code>flow.brainstorm</code> and is not re-decided here.</li>
+        <li>Open: why does review 2 cost twice review 1 — the reviewer, or the triage planner? → ANSWER-ONLY → Both, the triage planner more. Review 1: reviewers $3.82 over 9, triage $6.74 over 6. Review 2: reviewers $6.19 over 10, triage $12.60 over 7. The reviewer reads <code>tasks.md</code> as well on review 2 (context at end 82k against 57k); the triage edits three artifacts, re-runs the plan guards and records accepted risks. One change, kan-1107, also ran a third review inside its review-2 stage — see the next row.</li>
+        <li>Found while answering: kan-1107 ran <code>plan-review-3</code> after review 2's triage, though "nothing is reviewed a third time" → FIX (task 18) → The parent judged review 2's report too narrow and dispatched a third reviewer and a third triage (436 s). <code>flow record dispatch begin</code> now refuses a third completed plan review under one session token; a reviewer that errored or returned no verdict is closed <code>aborted</code> and does not count, so step 4's single redispatch still passes.</li>
+        <li>Open: is the skip judgment being made where a review would have found something? → ANSWER-ONLY → Not measurable yet: no run has skipped. Where reviews ran, 13 of 18 returned findings; the two <code>small</code> changes (kan-1106, kan-1110) cost $0.91 and $1.86 for both reviews, and kan-1106's were both clean. KAN-1113 carries the observation.</li>
+        <li>KAN-1113 tracks the plan-review recheck with more data.</li>
+      </ul>
     </div>
   </section>
 
@@ -932,7 +978,36 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Candidate: highest attempt 12 — every fix run and in-run fix round records a new decision row, though the rolls come out identical → FIX (task 19) → The row itself is needed: <code>plan-dispatch-bundles</code> skips ticked tasks, so each re-decide's <code>groups</code> hold only the appended tasks and the run dispatches from the newest row. What repeats needlessly is the choosing: with the class unchanged, every pair, the roster, the rerun pair and both extra dispatches come out as before. Fix: when <code>flow-guard plan-class</code> prints the newest row's mechanical class, the row is carried — only <code>inputs</code>, the groups and a <code>visual</code> raise are rewritten, and the Decide section is not read. A moved class re-decides in full as today.</li>
+        <li>Candidate: one run of kan-1017 carries $59.28 and 47 dispatches in a 0 s window → WON'T-FIX (already cured; evidence in the next row) → That re-decide's next stage mark was <code>flow.write-in-progress</code>, 14,574 s later: a whole fix run ran with no stage open, and the store's fallback (decision <code>gap-spend-to-last-begun-stage</code>, <code>stats/internal/harvest/attribute.go</code>) gave it to the window that began last. Since 2026-11-02 every re-decide is followed by <code>flow.sdd-tdd</code> or <code>flow.load-context</code> within a minute, so nothing lands there now. The fallback rule stays: dropping the spend would lose it from the record.</li>
+        <li>Open: where does the $191.29 come from? → ANSWER-ONLY → Almost all of it is fix-run implementation billed to a closed window. First decisions: 103 runs, $27.41, median $0.20 — the decision print, the gate, the plan snapshot and the handoff. Re-decides: 101 runs, $163.30, of which 47 between 2026-10-12 and 2026-11-01 were followed directly by <code>flow.review-panel</code> (median gap 1,121 s in the heaviest week) and carry $91.67, and two kan-1017 runs carry $67.32. Since 2026-11-02, 19 re-decides cost $1.20 in total.</li>
+        <li>Open: should a fix run that leaves the class unchanged skip the re-decide? → FIX (task 19) → It cannot skip the row — the groups differ — but it skips every choice: task 19's carried row.</li>
+        <li>Operator: nothing mentioned about grouping/rolls — what else like that does the report omit? → ANSWER-ONLY (list below, a recommended addition to the per-key template) → See <strong>What the page omits</strong> below.
+          <p>What the page omits for <code>flow.decide</code>:</p>
+          <ol>
+            <li><strong>The four rolls</strong> — <code>compact</code>, <code>experimental</code>, <code>bundle</code>, <code>effort</code>, each <code>sha256(&lt;name&gt;[suffix]) mod 100</code>, fixed per change name: compact panel when <code>compact &lt; 90</code>, static panel grouping when <code>bundle &lt; 30</code>, an experimental slot when <code>experimental &lt; 30</code>, implementer/fixer/group effort <code>low</code> when <code>effort &lt; 90</code> (<code>medium</code> on a hard seam), every pass-1 panel dispatch <code>low</code> when <code>effort &lt; 60</code> and <code>medium</code> otherwise.</li>
+            <li><strong>The class inputs and thresholds</strong> — tasks, files, repos, migration, spec, <code>red</code>, <code>unverified</code>; <code>small</code> at ≤8 tasks and ≤19 files in one repository, <code>big</code> at ≥22 tasks or ≥60 files, <code>micro</code> at ≤2 documentation-only tasks and ≤20 changed lines.</li>
+            <li><strong>Implementer groups</strong> — <code>plan-dispatch-bundles</code> then <code>plan-dispatch-groups</code>, at most two implementer dispatches in flight per wave, the planner may split a mechanical group and never merges two, verification-only bundles split one group each, a per-group pair.</li>
+            <li><strong>Panel grouping</strong> — static or free, one to two pass-1 dispatches of one to three slots, the pair a property of the dispatch and never of a slot.</li>
+            <li><strong>The two extra dispatches</strong> — <code>test-sanity+call-efficiency</code> and <code>mutation+failure-modes</code>, each on its own rolled pair, recorded on every class.</li>
+            <li><strong>The fixer pair and the rerun pair</strong> — chosen apart from the implementer pair; the rerun pair's effort fixed at <code>low</code>.</li>
+            <li><strong>The visual-verification judgement</strong> — <code>required</code>, <code>skipped</code> or <code>not configured</code>, made on every class and only ever raised by a fix run.</li>
+            <li><strong>The model and effort bounds</strong> — <code>opus</code> by default, <code>sonnet</code> only for simple work, a hard seam always <code>opus</code>, never <code>high</code> except by the operator's Yes; the open-experiment overlay; <code>session_cap</code> and <code>overrides</code>.</li>
+            <li><strong>Who decides</strong> — the page says the planner works the decision out inside <code>flow.writing-plans</code>; the parent runs Decide after that stage closes (<code>skills/flow/brainstorm.md</code>, "runs <strong>Decide</strong>, the record sequence and the gate"), so its thinking is billed to the stage open before the <code>flow.decide</code> begin mark.</li>
+            <li><strong>What <code>flow record decision</code> refuses</strong> — a pair outside the role's admitted pairs, any model but <code>opus</code>/<code>sonnet</code> (<code>fable</code> on panel dispatches only), an implementer, fixer or group pair at <code>high</code>.</li>
+            <li><strong>What follows the record</strong> — <code>flow decision render</code>, the high-raise question, the plan snapshot and the <code>STARTED</code> handoff, all billed to this window.</li>
+          </ol>
+          <p>Five recommended headings for the per-key template:</p>
+          <ul>
+            <li><strong>Recorded choices and their inputs</strong> — what the stage decides or derives, and from what: a roll, a class, a config section, a stored setting.</li>
+            <li><strong>Model and effort of each dispatch</strong> — the role row it comes from, who picks the pair and when, what overrides it.</li>
+            <li><strong>Parallelism and grouping</strong> — in-flight caps, waves, bundling of slots or tasks into one dispatch.</li>
+            <li><strong>Files and contracts loaded per attempt</strong> — which phase files, contract files and artifacts the stage reads, and whether a repeat attempt reads them again.</li>
+            <li><strong>Operator asks and taken defaults</strong> — every question the stage can ask, and which are auto-taken under <code>/flow</code> or the recommended mode.</li>
+          </ul>
+        </li>
+      </ul>
     </div>
   </section>
 
@@ -1024,7 +1099,13 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Candidate: the plan is validated again on every implementation run → FIX (task 20), narrowed → The guards are cheap — on this change's 586-line plan <code>check-plan-shape</code> takes 0.35 s and <code>spectre validate</code> 0.12 s, and both print nothing when green — so on a first implementation run, which opens a new session on a plan the operator may have edited since the gate, they stay. On a fix run <code>document-fix.md</code> ran <code>check-plan-shape</code> on the same file minutes earlier in the same run: that second run is dropped. <code>spectre validate</code> and <code>spectre list --json</code> stay, since <code>document-fix.md</code> runs neither and the checkbox count comes from the list.</li>
+        <li>Candidate: <code>proposal.md</code>, <code>design.md</code>, <code>tasks.md</code> and the capability specs are read into the parent on every attempt → FIX (task 20) → Repeat attempts are rare and cheap — 9 of 113 runs, $0.48 against $25.37 for first attempts — but the read is avoidable: a file of the list this session already read, as the fix run's planning pass reads <code>proposal.md</code> and <code>tasks.md</code>, is not read again unless it was edited since.</li>
+        <li>Open: what did kan-1084's 2,619 s load-context ($3.95) spend its time on? → ANSWER-ONLY → The base-behind relay, neither a rebase conflict of the change branch nor the learning note. Its base <code>feature/templates</code> lacked 16 backend and 10 frontend commits of <code>develop</code>, and merging <code>develop</code> into it conflicted in both repositories; the parent resolved both merges by hand, ran lint and targeted tests on each — one desktop UI test run took 18 minutes — and re-numbered the plan's migration twice after a peer change claimed the same number.</li>
+        <li>Open: could the learning note be composed once at the plan gate? → WON'T-FIX → It is already composed once per change: only the first run past the plan gate writes one (<code>skills/flow-contracts/learning.md</code>). Moving it to the gate would write notes for plans that are then changed or withdrawn.</li>
+        <li>Found while answering: <code>implement.md</code> tells the run to print the note's path, <code>learning.md</code> says no handoff or progress line before Finished prints it → FIX (task 20) → <code>learning.md</code> is canonical; the print clause is cut from <code>implement.md</code>.</li>
+      </ul>
     </div>
   </section>
 
@@ -1102,7 +1183,10 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Candidate: 77 of 115 runs uncosted, median $0.11, yet the stage re-reads <code>worktree-resolution.md</code> and <code>## apps</code> on every attempt → FIX (task 20) → The uncosted runs are windows closed in the Bash call that opened them, so no message falls inside. Repeat attempts cost $0.48 over 8 runs. On a fix run the state record's <code>worktrees</code> map already is the resolved set — <code>document-fix.md</code> has just worked from it — so the stage records nothing again, does not load <code>worktree-resolution.md</code> and reads <code>## apps</code> only when an appended task's <code><strong>Files:</strong></code> name a path outside every recorded worktree's repository. <code>flow workspace-id</code> still runs once per run.</li>
+        <li>Open: could a fix run skip this stage when the state record already holds the resolved set and <code>## apps</code> has not moved? → FIX (task 20) → Its body, yes, as above; the begin and end marks and <code>flow workspace-id</code> stay, so the stage record and the workspace id are unchanged.</li>
+      </ul>
     </div>
   </section>
 
@@ -1197,7 +1281,12 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Candidate (operator: need to fix): 33 of 59 runs are a second or later attempt; each re-runs the whole-plan guards and snapshots the whole plan → FIX (tasks 19 and 21) → The guards and the snapshot themselves cost under a second and no tokens when green; what a repeat pays for is parent turns — the count, two guards, the snapshot, then a full re-decide, each its own call. Fix: the count, both guards and the snapshot run as one chained Bash call, and a re-decide whose class did not move carries the row (task 19). The guards stay whole-plan: they share one parser with the commit guard, and they are what caught a ticked task's untagged figure in this change's own plan (see <strong>For the dispatcher</strong>).</li>
+        <li>Candidate: highest attempt 11, no cap on fix runs, the re-plan budget is a prompt → WON'T-FIX → Not in the operator's instruction for this key, and a cap would contradict the in-run loop's own <code>## No cap</code> (<code>skills/flow/verify-fix-loop.md</code>), which escalates on two no-progress rounds instead.</li>
+        <li>Open: which changes reached attempt 6 and above, and whose fix runs were they? → ANSWER-ONLY → Two. kan-1026: 11 runs in one session, attempts 6–11 each preceded by a <code>flow.visual-verify</code> or <code>flow.verify</code> run — in-run verify fix rounds, $2.15 for all 11. kan-1044: attempt 6 followed its self-review, 667 s and $8.36 — an operator fix run.</li>
+        <li>Open: should the stage stop and ask once fix runs pass a count? → WON'T-FIX → No. The high counts are in-run verify rounds, which the loop already bounds by progress; an operator's fix run is the operator's own act; and a count is never a reason to stop (<code>rules/work-end-to-end.mdc</code>).</li>
+      </ul>
     </div>
   </section>
 
