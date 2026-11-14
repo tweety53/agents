@@ -762,7 +762,7 @@ dispatch, whose row `flow-guard check-loop-dispatch` opens, carries the line `Pa
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `-opus-only`, which drops every candidate not on `opus` unless that
   leaves none — an open experiment's override on another model then stands;
-- **every other pass-1 panel dispatch** — the `panel-reviewer` role's base pairs, all `opus`; a pair
+- **every other pass-1 panel dispatch** — the `panel-reviewer` role's base pairs; a pair
   outside them only under an operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
 - **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each judged on its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`);
 - **every gated per-task reviewer bundle** — `flow-guard pair-judge gated-reviewer` at dispatch, since no decision pair records it, and a fix re-review bundle `flow-guard pair-judge gated-re-reviewer`;
