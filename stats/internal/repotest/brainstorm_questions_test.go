@@ -24,6 +24,12 @@ func TestBrainstormAsksOnlyClassifiedQuestions(t *testing.T) {
 			t.Errorf("brainstorm-planner.md section B lacks %q", want)
 		}
 	}
+	if !strings.Contains(checklist, "The Summary names no auto-taken decision") {
+		t.Error("brainstorm-planner.md section B lets the relayed Summary name auto-taken decisions")
+	}
+	if strings.Contains(checklist, "overturns one by answering **Revise**") {
+		t.Error("brainstorm-planner.md section B still has the operator overturn an unseen auto-taken pick")
+	}
 	if strings.Contains(checklist, "Every ambiguity is asked, however small") {
 		t.Error("brainstorm-planner.md section B still asks every ambiguity")
 	}
