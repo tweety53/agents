@@ -276,7 +276,9 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > `## lint` list — and the build tool's own selector for each `**Tests:**` entry (`--tests
 > '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t '<name>'` for vitest), never the bare
 > module or repository suite: that run belongs to the parent's test-list run after the last
-> group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
+> group (`skills/flow/implement.md`) and to `flow.verify`. A `go test` command passes `-count=1`:
+> Go's test cache never rechecks a file outside the module root, so a cached run reads an edited
+> Markdown file as a pass (`flow-guard check-plan-shape` F29). A task whose `**Tests:**` is `none` names
 > lint alone and no test command. A task whose `**Files:**` holds a Markdown file under `skills/` or
 > `rules/` is the exception: its verify step runs the whole list, `flow-guard run-verify-list <worktree>
 > lint`, because the prose guards that list carries are too many to hand-pick and the one a subset

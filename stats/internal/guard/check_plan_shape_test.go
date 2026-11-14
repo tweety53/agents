@@ -942,6 +942,44 @@ func TestCheckPlanShapeF26(t *testing.T) {
 	}
 }
 
+// TestCheckPlanShapeF29 pins F29: a planned go test command passes -count=,
+// since the test cache never rechecks a file outside the module root
+// (self-review-kan-1110 F6).
+func TestCheckPlanShapeF29(t *testing.T) {
+	t.Parallel()
+	gt := "go" + " test"
+	step := func(cmd string) string {
+		return psFixture(t, psTasks("a")+"\n```bash\n"+cmd+"\n```\n")
+	}
+	for _, cmd := range []string{
+		"cd stats && " + gt + " ./internal/repotest -run TestX",
+		"go -C stats test ./...",
+		gt + " -run TestX ./internal/guard",
+		gt + " github.com/x/y/...",
+		"cd stats && " + gt,
+		"cd stats && " + gt + " && echo ok",
+	} {
+		p := step(cmd)
+		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, "(F29)") != 1 {
+			t.Errorf("%s refused nothing: rc=%d out=%q", cmd, r.rc, r.out)
+		}
+		if m := psMutant(p, "F29"); m.rc != 0 {
+			t.Errorf("the mutation disabling F29 still refused %s: rc=%d out=%q", cmd, m.rc, m.out)
+		}
+	}
+	for _, cmd := range []string{
+		"cd stats && " + gt + " -count=1 ./internal/repotest -run TestX",
+		"go -C stats test -race -count=1 ./...",
+	} {
+		if r := psMutant(step(cmd), ""); r.rc != 0 {
+			t.Errorf("%s refused: rc=%d out=%q", cmd, r.rc, r.out)
+		}
+	}
+	if r := psMutant(psFixture(t, psTasks("a")+"\nthe build tool's selector for `"+gt+"` is -run\n"), ""); strings.Contains(r.out, "(F29)") {
+		t.Errorf("prose naming go test refused: rc=%d out=%q", r.rc, r.out)
+	}
+}
+
 // TestCheckPlanShapeF27 pins F27: a plan is refused while its sibling
 // design.md's `## Open questions` holds an entry or item still open --
 // planning leaves nothing open (skills/spectre-planning/SKILL.md).

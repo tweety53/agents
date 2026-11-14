@@ -35,10 +35,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-seven
-// findings, F1-F28 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-eight
+// findings, F1-F29 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F28's are the rows below).
+// design.md -- not restated here; F7-F29's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -250,6 +250,12 @@ import (
 //	    tasks.md: the plan writes that file, `#` comment lines alone when
 //	    it only moves text verbatim (.flow/project.md; kan-1103
 //	    self-review, F9). Reported once per task at its task line.
+//	F29 Any line, fenced or not, running `go test` (`go test` or
+//	    `go -C <dir> test` followed by a flag or a `.`-path argument) with
+//	    no `-count=` flag: the test cache never rechecks a file outside the
+//	    module root, so a cached run passes an edited Markdown file the
+//	    tests read (skills/flow/brainstorm-planner.md; self-review-kan-1110
+//	    F6). Reported at the line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -462,6 +468,7 @@ func (p *psPlan) check() []string {
 	v = append(v, p.inRunOpeners(ids)...)
 	v = append(v, p.parentActions()...)
 	v = append(v, p.npxFetch()...)
+	v = append(v, p.goTestCache()...)
 	v = append(v, p.openQuestions()...)
 	v = append(v, p.verbatimMoves()...)
 	return append(v, p.designSections()...)
@@ -660,6 +667,27 @@ func (p *psPlan) npxFetch() []string {
 		loc := psNpxRE.FindStringIndex(l)
 		if psNpxYesRE.MatchString(l) || loc != nil && !psNpxNoRE.MatchString(l[loc[1]-1:]) {
 			v = append(v, p.at(i+1, "this line runs npx without --no-install, which fetches and runs a package not installed here — run a tool already installed or declared in .flow/project.md, a cached package as `npx --no-install <bin>` (skills/flow/brainstorm-planner.md) (F26)"))
+		}
+	}
+	return v
+}
+
+// psGoTestRE is a go test command — its next token a flag, a relative or
+// import path, or none at the line's end — psCountRE its -count flag (F29).
+var (
+	psGoTestRE = regexp.MustCompile(`\bgo(?:\s+-C\s+\S+)?\s+test(?:\s+(?:[-.]|[\w.-]+/)|\s*(?:$|&&|;|\|))`)
+	psCountRE  = regexp.MustCompile(`(?:^|\s)-count[= ]?[0-9]`)
+)
+
+// goTestCache is F29: a planned go test command disables the test cache.
+func (p *psPlan) goTestCache() []string {
+	if !p.on("F29") {
+		return nil
+	}
+	var v []string
+	for i, l := range p.lines {
+		if psGoTestRE.MatchString(l) && !psCountRE.MatchString(l) {
+			v = append(v, p.at(i+1, "this line runs go test without -count=, so a cached result can pass a file the run never re-read — the test cache never rechecks a file outside the module root; pass -count=1 (skills/flow/brainstorm-planner.md) (F29)"))
 		}
 	}
 	return v
