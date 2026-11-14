@@ -65,3 +65,24 @@ func TestNoProgressRule(t *testing.T) {
 		}
 	}
 }
+
+// TestCapsNeverStop pins that a cap bounds an approach, never the run: it is
+// defined once, in pipeline.md's **Caps never stop the run**, and implement.md's
+// session_cap refusal retries under the cap instead of stopping.
+func TestCapsNeverStop(t *testing.T) {
+	t.Parallel()
+	pipeline := repoText(t, "skills/flow-contracts/pipeline.md")
+	for _, want := range []string{
+		"### Caps never stop the run",
+		"**Every cap, ceiling, budget or count limit this pipeline names bounds an approach, never the run**",
+		"the next attempt differs",
+		"It is never a stop and never an ask, and it counts toward **Three failed rounds** above.",
+	} {
+		if !strings.Contains(pipeline, want) {
+			t.Errorf("pipeline.md lacks %q", want)
+		}
+	}
+	if want := "the refused dispatch is made again on the highest pair its row admits at or under the cap, never a stop"; !strings.Contains(repoText(t, "skills/flow/implement.md"), want) {
+		t.Errorf("implement.md lacks %q", want)
+	}
+}

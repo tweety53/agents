@@ -189,6 +189,16 @@ its prompt opening with the line `No-progress escalation`, carrying every earlie
 verbatim and naming the approach that failed; a role with no marked pair runs it on its base
 pair. It is never a stop and never an ask.
 
+### Caps never stop the run
+
+**Every cap, ceiling, budget or count limit this pipeline names bounds an approach, never the
+run** — a planner's agent cap, a dispatch's wall-clock ceiling, the re-plan budget, the two plan
+reviews a session token admits, a decision's `session_cap`, a read or git budget. Meeting or being
+refused by one is a failed round of that approach: the next attempt differs — a smaller scope, a
+split dispatch, the highest pair the row admits at or under the bound, another route — and where
+no different approach exists the work goes past the bound with the fact recorded. It is never a
+stop and never an ask, and it counts toward **Three failed rounds** above.
+
 ## Unanswered mid-run asks
 
 **An operator ask that goes unanswered — the operator absent, the prompt stalled — resolves to
