@@ -101,7 +101,7 @@ func TestPlanAgentPairReadsOverride(t *testing.T) {
 // each raise it one step, never past high, and no file or no Scope line is
 // medium; auto for another role, or without a round file, is a usage error.
 func TestPlanAgentPairAuto(t *testing.T) {
-	env := policyFlowEnv(t, `{"planner":{"base":["opus/flow-planner-medium","opus/flow-planner-low","opus/flow-planner-high","opus/flow-planner-xhigh"],"optin":[],"marked":[]}}`)
+	env := policyFlowEnv(t, `{"planner":{"base":["opus/flow-planner-medium","opus/flow-planner-low","opus/flow-planner-high","opus/flow-planner-xhigh"],"optin":[],"marked":[]},"explorer":{"base":["opus/Explore@low"],"optin":[],"marked":[]}}`)
 	dir := t.TempDir()
 	arch := func(n int) string {
 		s := ""
@@ -118,18 +118,28 @@ func TestPlanAgentPairAuto(t *testing.T) {
 		}
 		return s
 	}
+	linePaths := func(n int) string {
+		s := ""
+		for i := range n {
+			s += fmt.Sprintf("see `skills/b%d/f.md:%d`\n", i, i+1)
+		}
+		return s
+	}
 	for name, tc := range map[string]struct{ body, want string }{
-		"small, no signals is low":                      {"**Scope:** small — one file\n", "low"},
-		"regular is medium":                             {"**Scope:** regular — two areas\n", "medium"},
-		"large is high":                                 {"**Scope:** large — spans repos\n", "high"},
-		"no scope line is medium":                       {"# Round 2\n", "medium"},
-		"two architectural questions stay":              {"**Scope:** small — x\n" + arch(2), "low"},
-		"three architectural questions raise":           {"**Scope:** small — x\n" + arch(3), "medium"},
-		"nine distinct paths stay":                      {"**Scope:** small — x\n" + paths(9), "low"},
-		"ten distinct paths raise":                      {"**Scope:** small — x\n" + paths(10), "medium"},
-		"both signals raise two steps":                  {"**Scope:** small — x\n" + arch(3) + paths(10), "high"},
-		"never above high":                              {"**Scope:** large — x\n" + arch(4) + paths(12), "high"},
-		"a slashless or extensionless token is no path": {"**Scope:** small — x\n" + "`a.md` `b/c` `d.go`\n" + paths(9), "low"},
+		"small, no signals is low":                        {"**Scope:** small — one file\n", "low"},
+		"regular is medium":                               {"**Scope:** regular — two areas\n", "medium"},
+		"large is high":                                   {"**Scope:** large — spans repos\n", "high"},
+		"no scope line is medium":                         {"# Round 2\n", "medium"},
+		"two architectural questions stay":                {"**Scope:** small — x\n" + arch(2), "low"},
+		"three architectural questions raise":             {"**Scope:** small — x\n" + arch(3), "medium"},
+		"nine distinct paths stay":                        {"**Scope:** small — x\n" + paths(9), "low"},
+		"ten distinct paths raise":                        {"**Scope:** small — x\n" + paths(10), "medium"},
+		"both signals raise two steps":                    {"**Scope:** small — x\n" + arch(3) + paths(10), "high"},
+		"never above high":                                {"**Scope:** large — x\n" + arch(4) + paths(12), "high"},
+		"ten paths cited only with a line suffix raise":   {"**Scope:** small — x\n" + linePaths(10), "medium"},
+		"a mid-line architectural heading is no question": {"**Scope:** small — x\n" + arch(2) + "quoted `### Q3. [architectural] which way?` text\n", "low"},
+		"a mid-line Scope mention is not read":            {"see the `**Scope:** large` line\n**Scope:** small — x\n", "low"},
+		"a slashless or extensionless token is no path":   {"**Scope:** small — x\n" + "`a.md` `b/c` `d.go`\n" + paths(9), "low"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := filepath.Join(t.TempDir(), "round-2.md")
