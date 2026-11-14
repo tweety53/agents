@@ -75,7 +75,9 @@ states.
 
 - **A round file opens with `## Summary`** — at most ten lines: the decisions the round settled
   and what is still open. The parent relays that section and the file's absolute path, and the
-  design draft stays in the file. The section ends with `**Scope:** small|regular|large — <one-line
+  design draft stays in the file. The design draft carries `### Settled` — every answer given so
+  far, the operator's words verbatim beside the question and its round — so the latest round file
+  alone is the design's whole state. The section ends with `**Scope:** small|regular|large — <one-line
   reason>`, the planner's estimate after exploring: `small` a change confined to one known area
   with one obvious approach, `large` one that spans repositories or apps, changes a data model or
   a public contract, or needed competing designs; `regular` otherwise.
@@ -169,6 +171,17 @@ and session token the planner's own prompt names. A Plan agent's row records the
 **Allowed pairs** role, which the stats derive from that key, and `flow record` refuses it. A
 recording command's stderr is never hidden — never redirected away or piped through `tail` — and a
 row is never back-filled with instants not read from its agent's transcript.
+
+**Findings outlive the round.** Append each Explore and Plan hand-back verbatim to
+`<abs-worktree>/.superpowers/sdd/planner/findings.md` under `## <explore-<n>|design-<n>> — <the
+scope it was given>` as it arrives; read that file before dispatching, and dispatch an agent only
+for ground no section covers.
+
+**The cap.** One planner dispatch launches at most three Explore and three Plan agents in round 1
+and at most two agents in all in a later round or a final dispatch; a fresh dispatch **Three failed
+rounds** (`skills/flow-contracts/pipeline.md`) starts counts as a later round. A planner that needs
+more writes `Over cap: <n> agents — <reason>` in the round file's `## Summary` (a final dispatch:
+in its return) and dispatches them.
 
 Each Explore or Plan agent's `description` names its row's key, `explore-<n>` or `design-<n>` — the
 word the harvester stamps the launch's agent id onto.
