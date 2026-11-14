@@ -106,7 +106,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// stderr text.
 	if git("-C", dir, "remote", "get-url", "origin").Run() != nil {
 		fmt.Fprintf(stderr, "resolve-base-branch: no 'origin' remote configured in %s\n", dir)
-		Reason(env, "no")
+		Reason(env, "no-origin-remote")
 		return 3
 	}
 
@@ -165,7 +165,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if base == cur {
 		fmt.Fprintf(stderr, "resolve-base-branch: base branch '%s' is the same as the current branch — refusing to compare a branch with itself\n", base)
-		Reason(env, "base-branch")
+		Reason(env, "base-is-current-branch")
 		return 1
 	}
 
@@ -193,7 +193,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		err := envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "-c", "core.askpass=true", "ls-remote", "--exit-code", "--heads", "origin", "refs/heads/"+base).Run()
 		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 2 {
 			fmt.Fprintf(stderr, "resolve-base-branch: recorded base '%s' is not on origin — re-point the change (skills/flow/SKILL.md)\n", base)
-			Reason(env, "recorded-base")
+			Reason(env, "recorded-base-gone")
 			return 1
 		}
 	}

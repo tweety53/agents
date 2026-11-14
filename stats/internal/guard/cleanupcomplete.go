@@ -304,7 +304,7 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	// anything.
 	if !plainChangeName(name) {
 		fmt.Fprint(stderr, ccSanitize(fmt.Sprintf("check-cleanup-complete: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)))
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	git := "git"

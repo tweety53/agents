@@ -258,7 +258,7 @@ func fixRunFloor(args []string, env Env, stdout, stderr io.Writer) int {
 	sha, ok := capture(panelGit(env, gitBin, wt, "rev-parse", "--verify", "--end-of-options", base+"^{commit}"))
 	if !ok {
 		fmt.Fprintf(stderr, "%s: merge base '%s' does not resolve in %s\n", frProg, base, wt)
-		Reason(env, "merge-base")
+		Reason(env, "merge-base-unresolved")
 		return 2
 	}
 	v.Base = sha

@@ -279,7 +279,7 @@ func ChangeDir(changes, name string) string {
 func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) (string, int) {
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "change-plan: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return "", 1
 	}
 	specRoot := specRootLeaf(worktree, stderr)
@@ -314,7 +314,7 @@ func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) 
 	}
 	if !plainChangeName(peer) {
 		fmt.Fprintf(stderr, "change-plan: peer name '%s' in %s is not a plain peer name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", peer, link)
-		Reason(env, "peer-name")
+		Reason(env, "peer-name-not-plain")
 		return "", 1
 	}
 	if !plainChangeName(changeID) {
@@ -327,7 +327,7 @@ func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) 
 		if isFile(canonDir + "/tasks.md") {
 			return canonDir, 0
 		}
-		Reason(env, "tasks-md")
+		Reason(env, "canonical-tasks-missing")
 		return "", 1
 	}
 	peerRoot, ok := changePlanPeerRoot(env, worktree, specRoot, peer)

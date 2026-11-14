@@ -83,7 +83,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name\n", vgPrefix, name)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	raw, err := pfdRead(env, env.Dispatches, "dispatches", name, pcAbs(env, wt))

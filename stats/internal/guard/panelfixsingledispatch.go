@@ -202,7 +202,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	// `export LC_ALL=C` made its enumeration do.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", pfdPrefix, name)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 

@@ -457,7 +457,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: flow-guard pipeline-fix start creates it\n", self)
-		Reason(env, "loop")
+		Reason(env, "loop-begin-failed")
 		return 2
 	}
 	fmt.Fprintf(stdout, "LOOP-DISPATCH-OK %s\n", key)

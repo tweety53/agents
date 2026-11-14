@@ -269,12 +269,12 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		return 1
 	default:
 		fmt.Fprintln(stderr, "close-task: STOP — a commit guard could not judge; nothing was ticked or pushed")
-		Reason(env, "stop")
+		Reason(env, "commit-guard-cannot-judge")
 		return 2
 	}
 	if len(undispatched) > 0 {
 		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row carrying its commit; nothing was ticked or pushed")
-		Reason(env, "record")
+		Reason(env, "appended-task-undispatched")
 		return 1
 	}
 
@@ -284,7 +284,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		rc := Registry["check-review-gate"](append([]string{canonical, t.id, t.commit, canonical, name}, undeclared[t.id]...), env, io.MultiWriter(stdout, &verdict), stderr)
 		if rc != 0 {
 			fmt.Fprintln(stderr, "close-task: STOP — the review gate could not judge; nothing was ticked or pushed")
-			Reason(env, "stop")
+			Reason(env, "review-gate-cannot-judge")
 			return 2
 		}
 		if strings.HasPrefix(verdict.String(), "QUIET:") {

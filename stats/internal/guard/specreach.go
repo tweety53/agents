@@ -134,7 +134,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	switch n := vvHeadingCount(string(text)); {
 	case n > 1:
 		fmt.Fprintf(stderr, "check-spec-reach: %s declares %d '## visual verification' sections — a second declaration is ambiguous, so neither was read\n", cfg, n)
-		Reason(env, "declares")
+		Reason(env, "visual-section-declared-twice")
 		return 2
 	case n == 0:
 		fmt.Fprintln(stdout, "Spec reach: not configured")

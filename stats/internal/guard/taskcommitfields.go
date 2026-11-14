@@ -314,7 +314,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 		switch {
 		case errors.As(err, &crash):
 			fmt.Fprintln(stderr, crash.Error())
-			Reason(env, "crash")
+			Reason(env, "check-crashed")
 			return 1
 		case err != nil:
 			return refuse("cannot-judge", err.Error())

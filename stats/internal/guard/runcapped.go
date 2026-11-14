@@ -89,7 +89,7 @@ func runCapped(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if capMB == "" {
 		var body, errb bytes.Buffer
-		switch Registry["project-get"]([]string{env.Dir, "resource cap"}, env, &body, &errb) {
+		switch Registry["project-get"]([]string{env.Dir, "resource cap"}, quietReasons(env), &body, &errb) {
 		case 0:
 			capMB = strings.Join(strings.Fields(body.String()), " ")
 		case 1:

@@ -492,7 +492,7 @@ func (v *vvp) markEnd(outcome string) {
 
 // guard runs a registered guard in process: its exit, stdout and stderr.
 func (v *vvp) guard(name string, stdin io.Reader, args ...string) (int, string, string) {
-	env := v.env
+	env := quietReasons(v.env)
 	env.Stdin = stdin
 	var out, errb bytes.Buffer
 	rc := Registry[name](args, env, &out, &errb)

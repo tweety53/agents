@@ -634,7 +634,7 @@ func (p *psPlan) prototypeCapture() []psFinding {
 			if strings.HasSuffix(f, ".md") {
 				continue
 			}
-			if uiPath == "" && visualTrigger(p.env, root, func() ([]string, error) { return []string{f}, nil }, io.Discard, io.Discard) == 0 {
+			if uiPath == "" && visualTrigger(quietReasons(p.env), root, func() ([]string, error) { return []string{f}, nil }, io.Discard, io.Discard) == 0 {
 				uiPath, first = f, *tcfSelectTask(p.lines, id)
 			}
 		}

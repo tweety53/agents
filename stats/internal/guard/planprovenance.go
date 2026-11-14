@@ -3727,7 +3727,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		// here told an operator to go re-read prose when the actual fix
 		// was a filesystem permission or an encoding issue.
 		fmt.Fprintf(stderr, "\n%d file(s) could not be read (environment failure — a permission, encoding or size problem on disk, see above) — refusing to report a clean run\n", len(fileErrors))
-		Reason(env, "file")
+		Reason(env, "unreadable-files")
 		return 2
 	}
 

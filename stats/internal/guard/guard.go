@@ -95,6 +95,14 @@ func Reason(env Env, id string) {
 	}
 }
 
+// quietReasons is env with no collector, for a guard run in process as a
+// probe: its non-zero exit is an answer to the caller, not the caller's
+// refusal, so it records nothing; the caller tags its own exit.
+func quietReasons(env Env) Env {
+	env.Reasons = nil
+	return env
+}
+
 // Func is one guard's entry point: args exclude the guard name; the return
 // value is the process exit code.
 type Func func(args []string, env Env, stdout, stderr io.Writer) int

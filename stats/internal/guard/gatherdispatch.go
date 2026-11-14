@@ -274,7 +274,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	}
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 
@@ -282,12 +282,12 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	worktreeReal, mismatch := validatePath(env, worktree)
 	if worktreeReal == "" || !isDir(worktreeReal) {
 		fmt.Fprintf(stderr, "gather-dispatch-context: worktree '%s' does not resolve to an existing directory\n", worktree)
-		Reason(env, "worktree")
+		Reason(env, "worktree-not-a-directory")
 		return 2
 	}
 	if mismatch {
 		fmt.Fprintf(stderr, "gather-dispatch-context: worktree '%s' resolves through a symlink somewhere between the repository root and the leaf\n", worktree)
-		Reason(env, "worktree")
+		Reason(env, "worktree-through-symlink")
 		return 2
 	}
 	// --- change-root: must resolve to an existing, non-symlinked directory
@@ -295,12 +295,12 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	changeRootReal, mismatch := validatePath(env, changeRoot)
 	if changeRootReal == "" || !isDir(changeRootReal) {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' does not resolve to an existing directory\n", changeRoot)
-		Reason(env, "change-root")
+		Reason(env, "change-root-not-a-directory")
 		return 2
 	}
 	if mismatch {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves through a symlink somewhere between the repository root and the leaf\n", changeRoot)
-		Reason(env, "change-root")
+		Reason(env, "change-root-through-symlink")
 		return 2
 	}
 	// An ## apps worktree created without a spectre link
@@ -318,7 +318,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 		} else {
 			fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves outside the worktree '%s'\n", changeRoot, worktree)
 		}
-		Reason(env, "change-root")
+		Reason(env, "change-root-outside-worktree")
 		return 2
 	}
 	// --- principles-path: normalized and resolved the same way, but never

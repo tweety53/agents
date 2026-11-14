@@ -218,7 +218,7 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 		highest, ok := pfHighestK(env, pe)
 		if !ok {
 			fmt.Fprintf(stderr, "%s: flowd's change records could not be read in full (flow state list answered from no store, or incompletely) — <k> cannot be checked\n", self)
-			Reason(env, "flowd")
+			Reason(env, "change-records-unreadable")
 			return 2
 		}
 		if want := highest + 1; k != want {

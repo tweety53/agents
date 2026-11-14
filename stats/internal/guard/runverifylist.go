@@ -438,7 +438,7 @@ func rvlGuardSkip(env Env, wt, cmd string) string {
 	for i, p := range specs {
 		specs[i] = strings.Trim(p, "'")
 	}
-	e := env
+	e := quietReasons(env)
 	e.Dir = wt
 	var out bytes.Buffer
 	if Registry["unchanged"](specs, e, &out, io.Discard) != 0 {
@@ -560,7 +560,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		mb = bases[r]
 		if mb == "" {
 			var base bytes.Buffer
-			if Registry["resolve-base-branch"]([]string{wt}, env, &base, io.Discard) != 0 {
+			if Registry["resolve-base-branch"]([]string{wt}, quietReasons(env), &base, io.Discard) != 0 {
 				return nil, fmt.Errorf("no base branch")
 			}
 			ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
@@ -577,7 +577,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		}
 		return strings.Split(names, "\n"), nil
 	}
-	own := visualTrigger(env, wt, changed, io.Discard, io.Discard) != 1
+	own := visualTrigger(quietReasons(env), wt, changed, io.Discard, io.Discard) != 1
 	bases[wt] = mb
 	siblings := slices.DeleteFunc(worktrees, func(w string) bool { return w == wt })
 	root, base := siblingFrontend(wt, siblings, bases, func(s string) bool {
@@ -586,7 +586,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		if !ok || !ok2 {
 			return false
 		}
-		e := env
+		e := quietReasons(env)
 		e.Stdin = strings.NewReader(names + "\n")
 		return Registry["check-visual-trigger"]([]string{"--repo", filepath.Base(filepath.Dir(common)), wt}, e, io.Discard, io.Discard) == 0
 	})
@@ -809,7 +809,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			b, err := os.ReadFile(abs(args[1]))
 			if err != nil {
 				fmt.Fprintf(stderr, "run-verify-list: -only: %v\n", err)
-				Reason(env, "only")
+				Reason(env, "only-list-unreadable")
 				return 2
 			}
 			if only = strings.Fields(string(b)); len(only) == 0 {

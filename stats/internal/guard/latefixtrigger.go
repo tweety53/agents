@@ -123,7 +123,7 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 	change, tasks, triples := args[0], args[1], args[2:]
 	if !plainChangeName(change) {
 		fmt.Fprintf(stderr, "check-late-fix-trigger: change name '%s' is not a plain change name\n", change)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	gitBin, ok := panelResolveGit(env, "check-late-fix-trigger", stderr)

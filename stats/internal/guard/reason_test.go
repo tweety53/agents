@@ -39,3 +39,21 @@ func TestReasonKeepsDistinctIDsInFirstSeenOrder(t *testing.T) {
 	}
 	Reason(Env{}, "x")
 }
+
+// TestProbeRecordsNoReasonIntoTheCaller: run-verify-list's unchanged probe
+// answers "do not skip" with a non-zero exit, which is not run-verify-list's
+// refusal, so the parent run's collector stays empty.
+func TestProbeRecordsNoReasonIntoTheCaller(t *testing.T) {
+	t.Parallel()
+	r := &Reasons{}
+	env := Env{Getenv: func(k string) string {
+		if k == "FLOW_VERIFY_FULL" {
+			return "1"
+		}
+		return ""
+	}, Reasons: r}
+	rvlGuardSkip(env, t.TempDir(), "flow-guard unchanged a/ || go test -count=1 ./...")
+	if ids := r.IDs(); len(ids) != 0 {
+		t.Fatalf("probe recorded %v into the parent run's reasons", ids)
+	}
+}

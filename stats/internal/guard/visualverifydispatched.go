@@ -248,7 +248,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// canonical for the reasoning.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", vvdPrefix, name)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 
@@ -306,7 +306,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// ask is the trigger's answer for paths: 0, 1 or 2, or -1 when git
 	// cannot name the satellite's repository (reported, exit 2).
 	ask := func(paths []string) int {
-		exit := visualTrigger(env, worktree, func() ([]string, error) { return paths, nil }, io.Discard, io.Discard)
+		exit := visualTrigger(quietReasons(env), worktree, func() ([]string, error) { return paths, nil }, io.Discard, io.Discard)
 		if canonical == "" || exit == 0 {
 			return exit
 		}
@@ -323,7 +323,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 			}
 			prefixed[i] = p
 		}
-		switch visualTrigger(env, canonical, func() ([]string, error) { return prefixed, nil }, io.Discard, io.Discard) {
+		switch visualTrigger(quietReasons(env), canonical, func() ([]string, error) { return prefixed, nil }, io.Discard, io.Discard) {
 		case 0:
 			return 0
 		case 1:

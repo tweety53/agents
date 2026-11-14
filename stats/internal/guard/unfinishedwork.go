@@ -344,7 +344,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// is what makes the paths this guard reads the ones it was asked about.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", uwPrefix, name)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	if !isDir(worktree) {

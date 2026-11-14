@@ -165,7 +165,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 		return 2
 	case n > 1:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares %d '## visual verification' sections — a second declaration is ambiguous, so neither was read\n", cfg, n)
-		Reason(env, "declares")
+		Reason(env, "visual-section-declared-twice")
 		return 2
 	}
 

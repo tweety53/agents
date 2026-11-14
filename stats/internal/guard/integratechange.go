@@ -277,7 +277,7 @@ func (c *ic) parse(args []string) {
 	}
 	c.main = m
 	if !changeNamePlain(name) {
-		c.die("change-name", "change name '%s' is not a plain change name", name)
+		c.die("change-name-not-plain", "change name '%s' is not a plain change name", name)
 	}
 	c.name = name
 	c.harness, c.token = c.env.Getenv("FLOW_HARNESS"), c.env.Getenv("FLOW_SESSION_TOKEN")

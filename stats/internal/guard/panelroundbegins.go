@@ -98,7 +98,7 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 			for _, role := range strings.Split(s.name, "+") {
 				if !slices.Contains(v.Roster, role) {
 					fmt.Fprintf(stderr, "panel-round-begins: slot %s carries %s, which this fix run's judged roster (%s) omits — no begin recorded (flow-guard fix-run-floor)\n", s.name, role, strings.Join(v.Roster, ","))
-					Reason(env, "slot-carries")
+					Reason(env, "slot-role-off-roster")
 					return 3
 				}
 			}

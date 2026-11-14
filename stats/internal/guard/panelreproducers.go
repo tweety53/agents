@@ -117,7 +117,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	// compares bytes, as the bash's `export LC_ALL=C` made its enumeration do.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", cprPrefix, name)
-		Reason(env, "change-name")
+		Reason(env, "change-name-not-plain")
 		return 2
 	}
 	// Canonicalised to an absolute path before it is ever passed to `flow`
@@ -247,7 +247,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	if len(empty) > 0 {
 		fmt.Fprintf(stderr, "%sfinding(s) %s carry no reproducer field at all — cannot determine anything\n", cprPrefix, strings.Join(empty, " "))
-		Reason(env, "finding")
+		Reason(env, "reproducer-field-missing")
 		return 2
 	}
 	// A finding whose ref is not a JSON string -- absent, null, a number --
