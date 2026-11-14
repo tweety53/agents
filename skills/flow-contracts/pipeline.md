@@ -290,7 +290,8 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
 2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
    `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.
 3. **Fix the findings** — a fresh `pipeline-fix-<k>-fix-<r>`, as item 3 there states, under
-   **Fewest operator actions** above. A defect whose commit the review drops is re-planned: the
+   **Fewest operator actions** above. As `skills/flow-self-review/SKILL.md` states for its own loop,
+   three failed review or verify rounds take **Three failed rounds** above. A defect whose commit the review drops is re-planned: the
    parent runs `<agents repo>/scripts/flow-guard pipeline-fix drop <worktree>`, landing nothing, and opens
    a fresh loop on it, its planner carrying the review's objection.
 4. **Land** — once the parent has ticked the plan and run the lint lines and tests, as

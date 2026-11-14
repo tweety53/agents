@@ -36,6 +36,10 @@ func TestNoProgressRule(t *testing.T) {
 			t.Errorf("pipeline.md's Fewest operator actions lacks %q", want)
 		}
 	}
+	fix := strings.Join(strings.Fields(section(t, "skills/flow-contracts/pipeline.md", "Pipeline defects found mid-run")), " ")
+	if want := "As `skills/flow-self-review/SKILL.md` states for its own loop, three failed review or verify rounds take **Three failed rounds** above."; !strings.Contains(fix, want) {
+		t.Errorf("pipeline.md's Pipeline defects found mid-run lacks %q", want)
+	}
 	// Every loop's own file cites the rule.
 	loops := []struct{ file, phrase string }{
 		{"skills/flow/implement.md", "A fourth `full-suite-fix-<n>` after three failed ones is the fresh dispatch of **Three failed rounds**"},
