@@ -158,14 +158,26 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    `flow.brainstorm` end, `flow.design-approval` begin and end, as **Convergence**
    (`skills/flow/brainstorm-planner.md`) marks them; any other answer dispatches round `<r+1>`. An
    operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way.
-3. **Artifacts and plan.** Two final planner dispatches, under the run's session token:
+3. **Artifacts and plan.** Two final planner dispatches, under the run's session token. The parent
+   begins `flow.create-artifacts` in the same call that ends `flow.design-approval`, before
+   `flow record dispatch begin` of the first final planner, and `flow.writing-plans` before
+   recording the second — after **Plan review** #1 ends, or straight after the `ARTIFACTS-WRITTEN`
+   return when that review is skipped:
+
+   ```bash
+   flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
+   flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
+   ```
+
+   A `/flow-plan` capture makes both under `-command '/flow-plan'`. Each mark is made once per run:
+   a fresh final dispatch after `QUESTIONS` or a guard failure finds it made. The planner still
+   makes both end marks.
    - the first runs section **C** of `skills/flow/brainstorm-planner.md` — its <!-- refs-guard:allow -->
-     `flow.create-artifacts` marks, `spectre new` and the three artifacts from the approved design,
+     `flow.create-artifacts` end mark, `spectre new` and the three artifacts from the approved design,
      read from the approved round file, its answers and `findings.md` under
      `<abs-worktree>/.superpowers/sdd/planner/` — and returns `ARTIFACTS-WRITTEN`; the parent then runs **Plan review** #1 below;
    - a fresh one then runs section **D** up to, not including, **Decide** — reading `proposal.md`,
-     `design.md`, `tasks.md` and `findings.md` — its
-     `flow.writing-plans` begin mark, writing-plans, `spectre validate`, `flow-guard
+     `design.md`, `tasks.md` and `findings.md` — writing-plans, `spectre validate`, `flow-guard
      check-plan-shape`, the configured guards and `flow tasks count` — and returns `PLAN-WRITTEN`.
 
    A dispatch returning the guard output it could not clear is redispatched fresh with that output

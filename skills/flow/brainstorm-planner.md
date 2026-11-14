@@ -237,6 +237,9 @@ flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness
 spectre new "<name>"   # working directory: the worktree flow.kickoff created
 ```
 
+In a `planner` dispatch of `/flow` or `/flow-plan` the parent has made this begin mark; the
+self-review and in-run fix planners, which no parent marks for, make it themselves.
+
 `STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
 `STARTED` handoff prints at the end of the run, so its `Open questions` line shows what this section holds
 (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
@@ -259,6 +262,9 @@ fresh dispatch's, after **Plan review** (`skills/flow/brainstorm.md`) #1.
 ```bash
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
+
+In a `planner` dispatch of `/flow` or `/flow-plan` the parent has made this begin mark; the
+self-review and in-run fix planners, which no parent marks for, make it themselves.
 
 **Tell it the task shape, because it is spectre's and not writing-plans' own.** A task is a
 column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's steps are
