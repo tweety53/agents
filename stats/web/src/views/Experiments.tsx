@@ -67,6 +67,7 @@ const SHORT_DOES: Record<string, string> = {
   "pipeline-fix-fix": "Makes a tooling fix",
   "pipeline-fix-review-1": "Reviews that fix",
   "pipeline-fix-review-r": "Re-reviews that fix",
+  "pair-judge": "Picks each dispatch's pair",
 };
 const shortDoes = (r: RoleEntry) => SHORT_DOES[r.role] ?? r.does.split(" ").slice(0, 4).join(" ");
 
