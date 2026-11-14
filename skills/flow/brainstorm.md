@@ -140,14 +140,15 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    most ten lines, the decisions the round settled and what is still open, which is the settled
    prose the convergence confirm shows — the design draft, then `## Questions` — each question with two to
    four options, one marked recommended where one honestly is, the convergence confirm last when
-   nothing else is open.
+   nothing else is open. `## Questions` holds only questions headed `[architectural]` or
+   `[impactful: <criterion>]`; the round's auto-taken ones sit under `## Auto-taken`.
    It asks the operator nothing.
 2. **Relay.** The parent first publishes the prototype
    (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's `## Summary` verbatim and
    the round file's absolute path — the design draft stays in the file — with the
-   prototype's Artifact URL beside them whenever a prototype exists, asks its questions verbatim, four to
-   an **AskUserQuestion** call and each question headed `[architectural]` in a call of its own, in
-   round-file order — the URL appended to the text of the question that depends on the
+   prototype's Artifact URL beside them whenever a prototype exists, asks its `## Questions` verbatim and no other —
+   the `[architectural]` ones together, up to four in one **AskUserQuestion** call, the
+   `[impactful: <criterion>]` ones in a second, the convergence confirm last, in round-file order — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the

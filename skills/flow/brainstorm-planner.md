@@ -25,32 +25,47 @@ states.
   lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived
   narratives for it.
 
-- **Every ambiguity is asked, however small — never settled by you — in `/flow`'s planning up to
-  its plan gate and in a `/flow-plan` session, and nowhere else.** An ambiguity is any
-  requirement, scenario, name, format, state, edge case, ordering, error behaviour or scope
-  boundary of the change that the request, the ticket, a mockup and the code leave open — any
-  point two competent implementers could read differently. Each one is a question to the user,
-  with a recommended option where one honestly exists, asked until the user's own answer closes
-  it (**Convergence**, `skills/spectre-planning/SKILL.md`); none is settled as your own call,
-  assumed away, or left for the plan or the implementer to settle. Silence answers nothing: the
-  question stays held and is asked again in the next round. Ask every pending question whose
-  wording does not depend on another pending answer at once, four to an **AskUserQuestion** call
-  and in as many calls as they need — every one you hold up front in the first round, and each
-  new one in the round it appears: from an answer, an agent's findings or the builder check, or,
-  once the design is approved, from writing the artifacts or the plan, then asked before the plan
-  review gate and its answer revising the design. This is a scoped override of every call
-  `brainstorming` makes for the user — its **Minor** pile, settled without asking, among them —
-  of the single round of questions its builder check allows, and of **The checklist**'s
-  display-only-formatting bullet and one-call batching (`skills/spectre-planning/SKILL.md`). The
-  self-review and in-run fix planners never apply it: they take the recommendation
-  (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+- **Every ambiguity is classified, and only an `[architectural]` or `[impactful: <criterion>]` one
+  is asked — in `/flow`'s planning up to its plan gate and in a `/flow-plan` session, and nowhere
+  else.** An ambiguity is any requirement, scenario, name, format, state, edge case, ordering,
+  error behaviour or scope boundary of the change that the request, the ticket, a mockup and the
+  code leave open — any point two competent implementers could read differently. One is
+  impactful when one of four criteria holds, named in its heading: `no-recommendation` — no
+  option can honestly be recommended, an answer contradicting an earlier one included;
+  `irreversible` — a wrong pick is costly to undo once landed: persisted or migrated data, a
+  public API, file format, CLI or cross-repository contract, a deletion, permissions, security,
+  privacy, money; `scope` — the pick adds or drops something the ticket or a mockup states;
+  `plan-size` — the options differ by a task or more and the ticket gives no lead. An asked
+  question carries a recommended option where one honestly exists and is asked until the user's
+  own answer closes it (**Convergence**, `skills/spectre-planning/SKILL.md`). Silence answers
+  nothing: the question stays held and is asked again in the next round. Any other ambiguity
+  takes its recommended option: it is recorded as a `## Decisions` entry and as one line,
+  `<decision id>: <chosen> — <what it was chosen over>`, under the round file's `## Auto-taken`,
+  and in `answers-<r>.md`; the parent's relay never prints, asks or mentions it, and the next
+  planner and the final planner read it from the file. The operator overturns one by answering
+  **Revise** at the confirm. At most four `[architectural]` and at most four `[impactful: …]`
+  questions are asked a round; beyond four, the four whose wrong pick costs most are asked and the
+  rest are held for the next round, never auto-taken. Each question is asked in the round it
+  appears: from an answer, an agent's findings or the builder check, or, once the design is
+  approved, from writing the artifacts or the plan, then asked before the plan review gate and its
+  answer revising the design. This is a scoped override of every call `brainstorming` makes for
+  the user — its **Minor** pile among them — of the single round of questions its builder check
+  allows, and of **The checklist**'s display-only-formatting bullet and one-call batching
+  (`skills/spectre-planning/SKILL.md`). The self-review and in-run fix planners never apply it:
+  they take the recommendation (**Auto-resolution**,
+  `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+
+- **Now or later is never asked.** Where the options are doing work the design needs in this
+  change or deferring it to a later change or ticket, now is taken and recorded under
+  `## Decisions`.
 
 - **An architectural question is marked, and each of its options says what it fails under**. A question whose options are approaches — the alternatives the competing-designs
   step produces, each becoming a `**Considered:**` line — and not a name, a format, a wording or
   a scope detail is headed `### Q<n>. [architectural] <question>` in the round file, and each of
   its options closes with `Fails under: <the condition this option stops working in>`. The
-  recommended mark stays. The parent asks each such question in an **AskUserQuestion** call of
-  its own, in round-file order; every other question stays four to a call.
+  recommended mark stays. The parent asks the architectural questions together, up to four in one
+  **AskUserQuestion** call, in round-file order; the impactful ones in a second call; the
+  convergence confirm last, in the impactful call when it has room.
 
 - **An answer that contradicts an earlier one is asked about, never applied**. When
   an answer in `answers-<r>.md` contradicts an earlier answer or a decision the design draft
