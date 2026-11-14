@@ -845,7 +845,7 @@ The first line is the file's own answer to the reviewer who reads it as anything
 
 ### review-panel.md — Bundled dispatch (KAN-857)
 
-The same plan-tree discipline rides every round, re-run rounds included: before the launches the parent runs `flow-guard check-plan-unchanged snapshot <worktree> <name> <snapshot-file>`, and once every report file exists it runs `flow-guard check-plan-unchanged verify <worktree> <name> <snapshot-file>` before any report is read or finding recorded — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
+The same plan-tree discipline rides every round, re-run rounds included: `flow-guard panel-round-begins` takes the round's snapshot itself, to `<abs-worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt`, overwriting a file an earlier invocation left, pass 1's `mutation+failure-modes` call keeping the round's — never by hand — and once every report file exists the parent runs `flow-guard check-plan-unchanged verify <worktree> <name> <that file>` before any report is read or finding recorded — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
 
 Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this verify is the assertion that a breach cannot slide past as a clean report.
 

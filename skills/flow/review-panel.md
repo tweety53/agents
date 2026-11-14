@@ -468,17 +468,19 @@ from the merge base the way **Live check** (`skills/flow/verify-and-handoff.md`)
 it to `<abs-worktree>/.superpowers/sdd/live-before.md` with the merge-base sha it was measured at — never into the change's directory, a
 tracked path the suite's tree gate reads.
 
-The same plan-tree discipline rides every round, re-run rounds included: before the launches the
-parent runs
-`flow-guard check-plan-unchanged snapshot <worktree> <name> <snapshot-file>`, and once every report file
-exists it runs `flow-guard check-plan-unchanged verify <worktree> <name> <snapshot-file>` before any
+The same plan-tree discipline rides every round, re-run rounds included: `flow-guard
+panel-round-begins` takes the round's snapshot itself, to
+`<abs-worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt`, overwriting a file an earlier
+invocation left, pass 1's `mutation+failure-modes` call keeping the round's — never by hand — and once every report file exists the parent runs
+`flow-guard check-plan-unchanged verify <worktree> <name> <that file>` before any
 report is read or finding recorded. Exit 1 or 2 stops the round the same way the per-task
 reviewer's stop works (the plan-tree rule of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`). The round brackets
 itself with content markers beside that guard (the content-marker rule of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`): the marker list names the plan
 artifacts and working notes the round reads, `flow-guard check-tree-markers snapshot <worktree>
-<markers-file> <snapshot-file>` runs with the plan-tree guard's own snapshot, and
+<markers-file> <snapshot-file>` runs in the Bash call before the round's first
+`panel-round-begins`, and
 `flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file>` runs before any report
 is read or finding recorded. `verify` also compares the worktree's `git status --porcelain` with the one `snapshot`
 recorded, paths under `<project>/.superpowers/` aside, and fails naming every path a slot left changed or

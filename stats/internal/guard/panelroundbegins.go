@@ -3,6 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -24,8 +26,15 @@ import (
 // begin writes that slot's `dispatched:` pass row itself (kan-1086
 // self-review, F8).
 //
+// Before any begin it snapshots the plan tree to
+// <worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt
+// (flow-guard check-plan-unchanged snapshot), overwriting a file an earlier
+// invocation left; pass 1's later call, recording mutation+failure-modes
+// alone, keeps the round's file (self-review-kan-1110 F16).
+//
 // Exit codes: 0 every begin recorded; 1 a begin failed (its output relayed,
-// the later slots still recorded); 2 usage, or no flow binary on PATH; 3 a
+// the later slots still recorded); 2 usage, no flow binary on PATH, or the
+// plan-tree snapshot failed, no begin recorded; 3 a
 // slot carries a role the fix run's judged roster omits -- in the round
 // <worktree>/.superpowers/sdd/fix-run.json governs (flow-guard fix-run-floor,
 // whose header is canonical for that file), stderr names the slot and role
@@ -44,9 +53,14 @@ import (
 // <model>/<effort>[ over <diff-base>]` pass row (`flow record dispatch
 // begin`), so this guard writes none (kan-1086 self-review, F8; kan-1033
 // self-review moved the row out of hand-recording first).
+// It first snapshots the plan tree to
+// <worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt, overwriting
+// a stale one; a mutation+failure-modes-only call keeps the round's file
+// (self-review-kan-1110 F16).
 // Exit 0 every begin recorded; 1 a begin failed (its output relayed, the
-// rest still recorded); 2 usage, or no flow binary on PATH; 3 a slot off the
-// fix run's judged roster, no begin recorded.
+// rest still recorded); 2 usage, no flow binary on PATH, or a failed
+// snapshot, no begin recorded; 3 a slot off the fix run's judged roster, no
+// begin recorded.
 func init() {
 	Registry["panel-round-begins"] = panelRoundBegins
 }
@@ -85,6 +99,22 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 					return 3
 				}
 			}
+		}
+	}
+	// THE ROUND'S PLAN-TREE SNAPSHOT is taken here by the round's first call,
+	// overwriting any file an earlier invocation left under the same round
+	// number. Pass 1's later call, recording mutation+failure-modes alone,
+	// keeps it, so a tree the first wave's slots changed is never
+	// re-snapshotted (self-review-kan-1110 F16).
+	snap := filepath.Join(smcAbs(env, wt), ".superpowers", "sdd", "plan-snapshot-panel-"+round+".txt")
+	later := true
+	for _, s := range slots {
+		later = later && s.name == "mutation+failure-modes"
+	}
+	if _, err := os.Stat(snap); err != nil || !later {
+		if os.MkdirAll(filepath.Dir(snap), 0o755) != nil || checkPlanUnchanged([]string{"snapshot", wt, change, snap}, env, io.Discard, stderr) != 0 {
+			fmt.Fprintln(stderr, "panel-round-begins: plan-tree snapshot failed — no begin recorded")
+			return 2
 		}
 	}
 	flow, ok := lookPath(env, "flow")
