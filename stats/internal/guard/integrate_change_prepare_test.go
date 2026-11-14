@@ -68,7 +68,7 @@ sut prepare "$WORK/a" demo
 check "staged work in a main checkout stops prepare with exit 1" '[ "$RC" -eq 1 ]'
 check "the stop is STOP: foreign-staged" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: foreign-staged"'
 check "the guard's own STAGED-FOREIGN line is relayed" 'printf "%s" "$OUT" | grep -q "^STAGED-FOREIGN: $WORK/b"'
-check "no preflight ran" '! grep -q flow.preflight "$WORK/stages.log" 2>/dev/null'`},
+check "the preflight closed stopped" 'grep -q "stage end .*-stage flow.preflight -outcome stopped" "$WORK/stages.log"'`},
 		{"untasked", `# --- untasked ---
 fixture
 printf 'stray\n' >"$WORK/b-worktrees/demo/stray.txt"
@@ -267,7 +267,7 @@ sut prepare "$WORK/a" demo
 check "base_mismatch: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "base_mismatch: the stop is STOP: base-mismatch naming b's worktree and feature/x" \
   'printf "%s" "$OUT" | tail -1 | grep "^STOP: base-mismatch — " | grep -F "$WORK/b-worktrees/demo" | grep -q feature/x'
-check "base_mismatch: no preflight ran" '! grep -q flow.preflight "$WORK/stages.log" 2>/dev/null'
+check "base_mismatch: the preflight closed stopped" 'grep -q "stage end .*-stage flow.preflight -outcome stopped" "$WORK/stages.log"'
 g -C "$WORK/b-worktrees/demo" config branch.spectre/demo.flowBase feature/x
 sut prepare "$WORK/a" demo
 check "base_mismatch: b recording feature/x too passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'

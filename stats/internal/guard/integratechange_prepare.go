@@ -46,6 +46,7 @@ func (c *ic) switchBack(m string) {
 
 func (c *ic) prepare() {
 	c.loadSet()
+	c.markBegin("flow.preflight")
 	if len(c.wt) == 0 {
 		c.stop("preflight", "the resolved worktree set is empty — report it and ask the operator")
 	}
@@ -90,6 +91,7 @@ func (c *ic) prepare() {
 		}
 	}
 	if !run1 {
+		c.markEnd("flow.preflight", "completed")
 		c.say("NEXT: run 2 — flow-guard integrate-change cleanup " + c.main + " " + c.name + " " + c.flags())
 		panic(icExit(0))
 	}
@@ -133,7 +135,6 @@ func (c *ic) prepare() {
 		}
 	}
 
-	c.markBegin("flow.preflight")
 	c.markEnd("flow.preflight", "completed")
 	c.markBegin("flow.unfinished-work-gate")
 	if !c.findCanonical() {

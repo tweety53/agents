@@ -305,6 +305,12 @@ check "run 2 keeps a's pre-reshape pin, locally and on origin" \
   'git -C "$WORK/a" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null && git --git-dir="$WORK/a-origin.git" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null'
 check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
 check "the NEXT line names the template and its never-omitted lines" 'printf "%s" "$OUT" | tail -1 | grep -qF "(skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included"'`},
+		{"run2_preflight", `# --- run2_preflight ---
+fixture
+for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q origin HEAD:main; done
+sut prepare "$WORK/a" demo
+check "run2_preflight: a merged branch sends prepare to run 2" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run 2"'
+check "run2_preflight: the preflight closed completed" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.preflight -outcome completed"'`},
 	})
 }
 
