@@ -257,8 +257,11 @@ flow-guard check-panel-docs-only <worktree> <merge-base>
 **Every pass 1 dispatches two more bundles, each on its own pair: `test-sanity+call-efficiency` on
 the decision's `extra_dispatch` pair, and `mutation+failure-modes` on its
 `extra_dispatch_mutation` pair** — on a decided and a `default` panel alike, beside the dispatches
-the roster resolves, and outside their `≤2 × ≤3` cap. No automatic reduction removes either: the
-docs-only reduction, the late-fix reduction and the small append each still dispatch both. A
+the roster resolves, and outside their `≤2 × ≤3` cap. The docs-only reduction drops
+`test-sanity+call-efficiency` — an `.md`/`.mdc`-only diff adds no test and no call — recorded
+`flow record pass -round 0 -note 'not dispatched — docs-only reduction:
+test-sanity+call-efficiency'`. No other reduction removes either: the late-fix reduction and the
+small append each still dispatch both. A
 decision with no such key dispatches that bundle on `opus`
 at `low`. A fix run's judged roster alone may drop a role of either (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`).
 
@@ -279,7 +282,7 @@ raised a finding re-runs like any other role (**Panel re-runs**,
 
 **Exit 0 from
 every worktree in the resolved set — every path this branch touched, committed since the merge
-base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus **The always-on extra dispatches** and every
+base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus `mutation+failure-modes` and every
 slot the operator's per-run instruction
 named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
