@@ -285,12 +285,13 @@ it returns. The `self-review-fix` row carries no no-progress escalation: a self-
 dispatch off, a key's suffix naming its row — `pass`, `plan`, `fix`, `review-1` and `review-r` for
 every re-review.
 
-**The planner pair** is the `plan` row — `flow-planner-medium` by default, `flow-planner-low` when
-every finding the plan carries is mechanical, this session recording the one-line reason with the
-dispatch; the `flow-planner-<effort>` definitions are the `flow-<effort>` ones plus `Agent`
-(decision `planner-carries-agent`) — **the fixer pair** the `fix` row, `opus` by default and `sonnet` only for a fix that is simple and predictable, this session recording the one-line reason with the dispatch — and **the review pair**
-the two `review` rows: the first review on `flow-medium` or `flow-low` as the planner recorded —
-`flow-medium` when it recorded none, a type the role's allowed pairs do not admit standing aside for the pair they do — and every re-review after a fix on `flow-low` and `sonnet`.
+**Each loop dispatch runs on the pair `flow-guard pair-judge <role> <prompt file>` prints for its
+row's role**, per **Model and effort** (`skills/flow/brainstorm-planner.md`), its prompt carrying
+the line `Pair pick: <source>: <reason>` — **the planner pair** on the `plan` row, the
+`flow-planner-<effort>` definitions being the `flow-<effort>` ones plus `Agent` (decision
+`planner-carries-agent`); **the fixer pair** on the `fix` row; and **the review pair** on the two
+`review` rows, save the first review, which runs on the pair the planner recorded — `flow-medium`
+when it recorded none, a type the role's allowed pairs do not admit standing aside for the pair they do.
 
 **Every loop dispatch is admitted and recorded mechanically.**
 `<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
@@ -342,8 +343,10 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `flow-guard check-plan-provenance` and `flow-guard check-task-build-green` — pass before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no
    `flow tasks count`, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
    review gate**. `design.md`'s decisions record instead this pass's dynamic choices: the first
-   review's effort, `medium` or `low`, and the grouping of tasks into fixer dispatches. The effort is the entry `**ID:** first-review-effort`,
-   its `**Chosen:**` line naming `flow-low` or `flow-medium`, whichever the `review-1` row's allowed pairs admit — the ID `flow-guard check-loop-dispatch` parses;
+   review's pair and the grouping of tasks into fixer dispatches. The pair is the entry `**ID:** first-review-effort`,
+   its `**Chosen:**` line the pair `flow-guard pair-judge self-review-review-1 <changeRoot>/tasks.md`
+   prints (`pipeline-fix-review-1` in a pipeline-fix loop), written `` `flow-<effort>` on `<model>` ``
+   beside the guard's source and reason — the ID `flow-guard check-loop-dispatch` parses;
    under any other ID the guard sees no decision and wants `flow-medium`. It commits
    none of the artifacts — `<agents repo>/spectre/changes/` is gitignored — and never merges or pushes.
    A run-1 re-run never folds the loop's fix commits: the newest commit a `fixed` row names is its
@@ -354,8 +357,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    > **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
    > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
    > `fork`, and never an agent that edits files or commits. Each dispatch's model and effort come
-   > from `flow-guard plan-agent-pair <your Key> <n> <role>`, `<n>` counting your planning dispatches from
-   > 1 and `<role>` that dispatch's own Role, and every dispatch prompt carries the line
+   > from `flow-guard pair-judge <role> <prompt file>`, `<role>` that dispatch's own Role and
+   > `<prompt file>` its prompt written first to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, and every dispatch prompt carries the line
    > `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
    > (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
    > decide, and every choice is auto-resolved to its recommended option. Fixing, implementing and
