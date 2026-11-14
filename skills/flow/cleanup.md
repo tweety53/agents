@@ -61,6 +61,9 @@ and a kill partway leaves it down.
   (`skills/flow-contracts/finish-contract-run2.md`): print the incomplete block below.
 - **`STOP: state`** → report it; the change stays at `IN_PROGRESS`.
 
+Three stops in a row of `cleanup` take **Three failed rounds** (`skills/flow-contracts/pipeline.md`),
+applied inline from every earlier stop's lines.
+
 A `WORKSPACE-REMOVE-FAILED:` line is **the one exception to the stop-at-the-first-failure rule**:
 the script carries on to the cleanup check, which decides the verdict from the project's survivor
 report, never from this command's exit code. Relay every clause a `COMPLETE:` line carries after
