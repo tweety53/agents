@@ -131,6 +131,10 @@ Then take a plan snapshot of the appended plan (**Plan snapshots**, `skills/flow
 after the plan guards pass and before any implementer is dispatched; the change directory is still
 on disk, since cleanup runs only after the merge. **Every appended task is written unticked**: the task is ticked only once its commit passes `flow-guard check-task-commit-fields`.
 
+The count, `flow-guard check-plan-shape`, the project's plan-provenance guard and the snapshot
+command run as one Bash call, joined with `&&` in that order; the first non-zero exit is handled as
+its own paragraph above states, and the call is repeated from the start once it is repaired.
+
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
 ```
