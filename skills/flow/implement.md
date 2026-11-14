@@ -253,6 +253,9 @@ Exit `0` from `flow-guard check-plan-shape` proceeds. Exit `1` names a shape def
 and before any code is touched, exactly as an exit-1 from `spectre validate` already is. Exit `2`
 stops the run.
 
+On a fix run `flow-guard check-plan-shape` is not run here — `skills/flow/document-fix.md` ran it on
+this plan in this run; `spectre validate` and `spectre list --json` run on every run.
+
 **The change root is the change's directory** (**A change's directory**,
 `skills/flow-contracts/pipeline.md`). Read:
 
@@ -260,6 +263,9 @@ stops the run.
 - `<changeRoot>/tasks.md` — the plan
 - `<changeRoot>/design.md` — how, when the change carries one
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
+
+A file of this list this session has already read — the fix run's planning pass reads
+`proposal.md` and `tasks.md` — is not read again unless it was edited since.
 
 **Every recorded base is compared with the branch it tracks before task 1 runs.** Run
 `flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
@@ -321,8 +327,7 @@ Extract the **Global constraints** verbatim from the capability specs the propos
 `design.md` for the reviewers.
 
 On an implementation run, not a fix run, compose the learning note per **Learning**
-(`skills/flow-contracts/learning.md`) once the plan validates, write its file and print its
-absolute path then.
+(`skills/flow-contracts/learning.md`) once the plan validates, and write its file.
 
 ```bash
 flow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
@@ -351,11 +356,18 @@ flow state add-worktree <name> <abs-path> <merge-base-sha>
 
 It exits 2 on a relative path or a malformed sha, and 1 when no `STARTED` record exists yet,
 writing nothing either way. Do this once per worktree, immediately after
-`spectre link` succeeds for it (or immediately after resuming it, on a fix or resumed run), not
+`spectre link` succeeds for it (or immediately after resuming it, on a resumed run; a fix run
+records only an entry the `worktrees` map lacks), not
 batched at the end. The kickoff worktree's own entry never waits for this stage: it is recorded
 where the worktree is created — `skills/flow/brainstorm.md` step 2 — so on a first creating run
 this stage finds it already present, and the paragraph's rule above keeps governing each
 additional worktree.
+
+On a fix run whose state record's `worktrees` map is not empty, that map is this run's resolved
+set — no `flow state add-worktree` call repeats an entry it holds, the worktree-resolution
+contract below is not loaded, and `## apps` is read only when an appended task's `**Files:**` name
+a path outside every recorded worktree's repository. `flow workspace-id` and both stage marks run
+as on any run.
 
 **Load `skills/flow-contracts/worktree-resolution.md`** — it derives this run's resolved worktree
 set.
