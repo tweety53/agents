@@ -757,6 +757,39 @@ func TestCheckPlanShapePrototypeNeedsACapture(t *testing.T) {
 	}
 }
 
+// TestCheckPlanShapeF22SkipsMarkdown pins that a Markdown path under a
+// `ui paths` glob is no view a prototype draws (self-review-kan-1110 F4).
+func TestCheckPlanShapeF22SkipsMarkdown(t *testing.T) {
+	t.Parallel()
+	task := func(n int, file string) string {
+		return fmt.Sprintf("- [ ] %d. Task %d\n\n**Files:** `%s`\n**Tests:** `test_%d`\n**Commit:** add %d\n**After:** none\n\n", n, n, file, n, n)
+	}
+	section := "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**`, `docs/policy.md` |\n| `screenshots` | `web/tests/visual` |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `true` |\n| `capture` | `true <spec>` |\n"
+	for _, tc := range []struct {
+		name, tasks string
+		want        int
+	}{
+		{"markdown only", task(1, "docs/policy.md"), 0},
+		{"markdown and a view", task(1, "docs/policy.md") + task(2, "web/src/App.tsx"), 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			if out, err := exec.Command("git", "init", "-q", root).CombinedOutput(); err != nil {
+				t.Fatalf("git init: %v\n%s", err, out)
+			}
+			writeFile(t, root+"/.flow/project.md", "# p\n\n"+section)
+			writeFile(t, root+"/spectre/changes/x/design.md", "## Context\n\nsee `.superpowers/sdd/x-prototype.html`\n")
+			p := root + "/spectre/changes/x/tasks.md"
+			writeFile(t, p, tc.tasks)
+			r := runGuard("check-plan-shape", []string{p}, Env{Getenv: os.Getenv})
+			if r.rc != tc.want || (tc.want == 1 && (!strings.Contains(r.out, "F22") || !strings.Contains(r.out, "web/src/App.tsx"))) {
+				t.Errorf("rc=%d want %d out=%s", r.rc, tc.want, r.out)
+			}
+		})
+	}
+}
+
 // TestCheckPlanShapeRefusesAPlanningPathEntry pins F23 (kan-1048 self-review,
 // 1-E): a planning path in a task's Files or Allowed-collateral fails the task
 // commit, so the plan gate refuses it — visual-verification.md included.

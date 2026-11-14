@@ -200,7 +200,8 @@ import (
 //	    `ui paths` glob and no task's **Files:** path lies under
 //	    `screenshots`: the capture spec is planned with the UI change
 //	    (skills/flow/brainstorm-planner.md; kan-1047). Reported at the first
-//	    such task's title line.
+//	    such task's title line. A Markdown path never counts — prose an app
+//	    embeds, not a view a prototype draws (self-review-kan-1110 F4).
 //	F23 A Files or Allowed-collateral entry under the planning paths
 //	    (psPlanning): such a path rides a
 //	    planning or `Flow-Key: flow.visual-verify` commit, never a task
@@ -541,6 +542,9 @@ func (p *psPlan) prototypeCapture() []string {
 		for _, f := range p.parse(id).files {
 			if strings.HasPrefix(f, shots+"/") {
 				return nil
+			}
+			if strings.HasSuffix(f, ".md") {
+				continue
 			}
 			if uiPath == "" && visualTrigger(p.env, root, func() ([]string, error) { return []string{f}, nil }, io.Discard, io.Discard) == 0 {
 				uiPath, first = f, *tcfSelectTask(p.lines, id)

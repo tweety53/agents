@@ -119,7 +119,7 @@ states.
   spec the implementation and `flow.visual-verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
   hover, focus, pressed — so `flow.visual-verify` renders and compares that state too. `flow-guard check-plan-shape` F22 refuses a plan whose design cites the prototype and whose
-  tasks touch a `ui paths` glob while no task's `**Files:**` names a file under `screenshots`. A change with nothing visible builds none. Where the confirm is not asked — the
+  tasks touch a `ui paths` glob with a file other than Markdown while no task's `**Files:**` names a file under `screenshots`. A change with nothing visible builds none. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
