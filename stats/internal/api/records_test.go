@@ -1793,7 +1793,7 @@ func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
 }
 
 // TestRecordDecisionAcceptsFableReviewer pins that a panel.dispatches[]
-// pair, and only that, may name fable (a CORE change's reviewers).
+// pair, and only that, may name fable (an operator-granted opt-in panel-reviewer pair).
 func TestRecordDecisionAcceptsFableReviewer(t *testing.T) {
 	_, fs := recordTestServer(t, "proj", "kan-1")
 	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
