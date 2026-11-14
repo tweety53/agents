@@ -46,7 +46,9 @@ import (
 // dispatch begin` under the loop's change, its session token the loop's
 // branch name — except a `pass`, which is opened under the change <name>
 // itself in the caller's project, its token self-review-<name>, the parent
-// closing it when the pass hands back. A
+// closing it when the pass hands back. A prompt line `Pair pick: <source>:
+// <reason>` is recorded as the row's -pair-pick (KAN-1119, decision
+// loop-pair-pick-prompt-line). A
 // self-review on the change's own branch (no self-review-<name> branch in
 // <agents-repo>) reads and records in the flowd project of the working
 // directory it runs in — the hook runs it in the payload's cwd.
@@ -77,6 +79,7 @@ var (
 	lpDigits      = regexp.MustCompile(`^[0-9]+$`)
 	lpBundlePath  = regexp.MustCompile("(?:^|[\\s`(])(/[^\\s`]*/bundle\\.md)")
 	lpSuffix      = regexp.MustCompile(`^(?:pass|plan(?:-[0-9]+)?|fix(?:-[0-9]+|-g[0-9]+|-v[0-9]+)?|review-[0-9]+)$`)
+	lpPairPick    = regexp.MustCompile(`(?m)^Pair pick: (.+)$`)
 )
 
 // lpRole is the allowed-pairs role id (skills/flow-contracts/model-policy.md)
@@ -366,6 +369,10 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
+	var pairPick []string
+	if m := lpPairPick.FindSubmatch(prompt); m != nil {
+		pairPick = []string{"-pair-pick", strings.TrimSpace(string(m[1]))}
+	}
 	lp, suffix, role, msg, ok := lpFromKey(env, git, main, key)
 	if !ok {
 		if msg == "" {
@@ -427,8 +434,8 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		if msg := lpNarrative(env, git, key, change, string(prompt)); msg != "" {
 			return refuse("narrative-refused", msg)
 		}
-		if out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", change,
-			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token); rc != 0 {
+		if out, _, rc := pcFlow(env, true, append([]string{"record", "dispatch", "begin", "-C", main, "-change", change,
+			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token}, pairPick...)...); rc != 0 {
 			fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 			Reason(env, "flow-record-dispatch-begin-failed")
 			return 2
@@ -452,8 +459,8 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("plan-dispatch-incomplete", fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
 	}
 	recordRole := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
-	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
-		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token)
+	out, _, rc := pcFlow(env, true, append([]string{"record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
+		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token}, pairPick...)...)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: flow-guard pipeline-fix start creates it\n", self)

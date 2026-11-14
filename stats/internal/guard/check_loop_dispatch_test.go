@@ -237,6 +237,42 @@ func TestCheckLoopDispatch(t *testing.T) {
 	}
 }
 
+// TestCheckLoopDispatchForwardsPairPick: a loop dispatch's prompt line
+// `Pair pick: <source>: <reason>` is recorded as its row's -pair-pick, on a
+// loop row and on the pass's own begin alike; no such line, no -pair-pick
+// (KAN-1119, decision loop-pair-pick-prompt-line).
+func TestCheckLoopDispatchForwardsPairPick(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	const line = "Pair pick: judge: two mechanical findings\n"
+	const want = "-pair-pick judge: two mechanical findings"
+	for _, tc := range []struct {
+		name, key, typ, prompt string
+		branches               []string
+		forwarded              bool
+	}{
+		{"a plan carrying the line", "pipeline-fix-6-plan", "flow-planner-medium", "Key: x\n" + line, []string{lpBranch}, true},
+		{"a plan without it", "pipeline-fix-6-plan", "flow-planner-medium", "Key: x\n", []string{lpBranch}, false},
+		{"a pass carrying the line", "self-review-kan-1-demo-pass", "flow-medium", line, nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fx := lpNew(t, `[]`, tc.branches...)
+			fx.prompt = tc.prompt
+			if rc, out := fx.run(t, tc.key, tc.typ, "opus"); rc != 0 || !strings.Contains(out, "LOOP-DISPATCH-OK") {
+				t.Fatalf("rc %d, output %q, want LOOP-DISPATCH-OK", rc, out)
+			}
+			calls := fx.calls(t)
+			if !strings.Contains(calls, "dispatch begin") {
+				t.Fatalf("no begin was recorded:\n%s", calls)
+			}
+			if got := strings.Contains(calls, "-pair-pick"); got != tc.forwarded || (tc.forwarded && !strings.Contains(calls, want)) {
+				t.Fatalf("flow calls %q: -pair-pick forwarded %v, want %v (%q)", calls, got, tc.forwarded, want)
+			}
+		})
+	}
+}
+
 // TestLoopDispatchPlannerTypes pins the plan row's planner definitions
 // (kan-1033, decision planner-carries-agent): flow-planner-medium and
 // flow-planner-low are admitted, a leaf flow-medium is refused, and
