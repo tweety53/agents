@@ -54,7 +54,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    made at the human gate. The appended task carries the field family the verification-change
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
-   this run's round, counted across both stages, so no two rounds share a `-fix-<k>` key. On a `flow.visual-verify` round the task rewrites, beside the
+   this run's round, counted across both stages, so no two rounds share a `-fix-<k>` key. Run `flow-guard check-plan-shape -rules` before writing the task, and meet every rule it prints. On a `flow.visual-verify` round the task rewrites, beside the
    fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
    CHECK (`skills/flow/implement.md`) requires; the record is never in its `**Files:**`
    — it is written on disk only, the change directory gitignored, and flow-guard stage-task-files refuses
@@ -65,8 +65,8 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    `check-task-commit-planning-paths` sweeps it — and is written on disk only. The re-decide runs as
    that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
-   round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`,
-   and `check-plan-shape` F24 refuses an `In-run fix` task with none and two naming the same opener. Before the append, the stage's failing row is closed with `flow record dispatch
+   round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`.
+   Before the append, the stage's failing row is closed with `flow record dispatch
    end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this
    round's rows open. The failing stage's mark — `flow.verify` or `flow.visual-verify` — is closed beside that row, `flow stage end -command '/flow' -stage <that stage> -outcome stopped <name>`, save a `flow.visual-verify` mark whose `flow-guard visual-verify-pass close` printed `STAGE:`, which that close already ended, and a run that re-enters this loop while `flow.write-in-progress` is open closes that mark the same way first, so the round's next `flow stage begin` supersedes no open run.
    On `NEXT: loop`, `flow-guard visual-verify-pass close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).

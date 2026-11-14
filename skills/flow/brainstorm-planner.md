@@ -118,8 +118,7 @@ states.
   or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
   spec the implementation and `flow.visual-verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
-  hover, focus, pressed — so `flow.visual-verify` renders and compares that state too. `flow-guard check-plan-shape` F22 refuses a plan whose design cites the prototype and whose
-  tasks touch a `ui paths` glob with a file other than Markdown while no task's `**Files:**` names a file under `screenshots`. A change with nothing visible builds none. Where the confirm is not asked — the
+  hover, focus, pressed — so `flow.visual-verify` renders and compares that state too. A change with nothing visible builds none. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
@@ -243,12 +242,10 @@ self-review and in-run fix planners, which no parent marks for, make it themselv
 `STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
 `STARTED` handoff prints at the end of the run, so its `Open questions` line shows what this section holds
 (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
-`flow-guard check-plan-shape` F27 refuses a plan whose `design.md` records a question still open
-(**Open questions**, `skills/spectre-planning/SKILL.md`).
 
 **`design.md` also carries `## Non-goals` and `## Risks`**: what the change
 deliberately does not do, and what can go wrong and what limits it. Each may be the one line
-`none — <reason>`. `flow-guard check-plan-shape` F19 refuses a plan-mode design missing either.
+`none — <reason>`.
 
 ```bash
 flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
@@ -266,6 +263,10 @@ flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -
 In a `planner` dispatch of `/flow` or `/flow-plan` the parent has made this begin mark; the
 self-review and in-run fix planners, which no parent marks for, make it themselves.
 
+**Load the plan-shape rules before writing `tasks.md`.** Run `flow-guard check-plan-shape -rules`:
+it prints every rule the guard holds a plan to, one `<id>  <sentence>` line each, and the plan meets
+every one. A refusal line, `path:line: <id> <message>`, names the rule it broke by that id.
+
 **Tell it the task shape, because it is spectre's and not writing-plans' own.** A task is a
 column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's steps are
 `  - [ ] **Step N: …**` lines indented two columns beneath it. The rule in full is the `Placement`
@@ -276,9 +277,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > `## lint` list — and the build tool's own selector for each `**Tests:**` entry (`--tests
 > '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t '<name>'` for vitest), never the bare
 > module or repository suite: that run belongs to the parent's test-list run after the last
-> group (`skills/flow/implement.md`) and to `flow.verify`. A `go test` command passes `-count=1`:
-> Go's test cache never rechecks a file outside the module root, so a cached run reads an edited
-> Markdown file as a pass (`flow-guard check-plan-shape` F29). A task whose `**Tests:**` is `none` names
+> group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
 > lint alone and no test command. A task whose `**Files:**` holds a Markdown file under `skills/` or
 > `rules/` is the exception: its verify step runs the whole list, `flow-guard run-verify-list <worktree>
 > lint`, because the prose guards that list carries are too many to hand-pick and the one a subset
@@ -289,7 +288,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > or bare in an agent's shell, where no TTY makes npm assume it, npx fetches and runs a package
 > the machine lacks: the external code auto mode denies. A package in npx's cache runs as
 > `npx --no-install <bin>`; one nowhere on the machine is a dependency a task adds
-> (`rules/dependency-versions.mdc`). `flow-guard check-plan-shape` F26 refuses any other npx.
+> (`rules/dependency-versions.mdc`).
 
 > **Plan the record a feature needs as its own task.** A field, a column, an endpoint, a stage or a
 > recorded event the feature reads and the system does not keep yet is a task of the plan, never a
@@ -535,9 +534,7 @@ same way and no later task can drift between conventions:
 > command naming no ref of its own.
 ```
 
-A plan that declares `**Baseline:**` fields and carries no such line fails `flow-guard check-plan-shape`
-(F12). A plan whose tasks declare no Baselines states no convention and writes no line.
-Tasks whose Baselines carry the same `measured:` command form one chain in plan order: a task whose `before` is below the previous such task's `after` fails `flow-guard check-plan-shape` (F17), save the later task of a `**Squash-with:**` pair, which shares its partner's commit.
+A plan whose tasks declare no Baselines states no convention and writes no line.
 
 Before continuing, run `spectre validate "<name>"` — implementation's entry check (section **1**,
 `skills/flow/implement.md`), run here so a capture it would refuse never reaches the gate — and
