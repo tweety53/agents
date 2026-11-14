@@ -150,6 +150,8 @@ text after it is the passage, verbatim.
 - ***The seeded-note path is legitimate, never a bypass to prevent.*** — gymie kan-468's run converged its plan this way; this paragraph preserves the path.
 - ***The note is the research, never the plan's form.*** — gymie kan-485's run corrected every `Files:` field by hand before task 1's guard ran clean, and gymie kan-468's fixed the seeded H1 at load-context; this requirement is both corrections, applied where the note is consumed.
 
+- ***Every ambiguity is classified, and only an `[architectural]` or `[impactful: <criterion>]` one is asked.*** — KAN-1110's analysis sessions: asking every ambiguity, however small, filled planning rounds with questions whose recommended option the operator took every time; the classifier keeps the ones whose wrong pick is costly or that no option can honestly settle.
+
 ### brainstorm-planner.md — Decisions
 
 - ***ID** is assigned once, at creation, and is **immutable** — the match key a later round uses to **supersede** a decision.* — The same key is what let gymie kan-459's review panel name the specific decision a finding found stale instead of re-arguing the design.
