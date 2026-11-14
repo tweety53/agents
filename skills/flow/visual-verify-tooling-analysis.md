@@ -50,10 +50,11 @@ this task, as written:
 
 `<n>` is this fix run's ordinal, the one `flow.document-fix` recorded.
 
-**Recording.** The parent records the dispatch `-role planner`, `-task` omitted, `-model
-opus -effort medium`, `-key tooling-analysis-<n>`, suffixed `-<repository name>` under
+**Recording.** The parent records the dispatch `-role planner`, `-task` omitted, `-model`
+and `-effort` the pair its row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`)
+admits, `-key tooling-analysis-<n>`, suffixed `-<repository name>` under
 the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here,
-not restated. **Handshake** as **The verifier dispatch** (`skills/flow/visual-verify.md`) states it, compared against `opus`.
+not restated. **Handshake** as **The verifier dispatch** (`skills/flow/visual-verify.md`) states it, compared against that pair's model.
 
 **The re-run.** The verifier's prompt then carries `sweeps-<n>.md`'s path, and the verifier runs
 its sweeps in step 10 beside the sweeps listed there, on every view and frame the change touches
