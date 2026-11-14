@@ -55,10 +55,6 @@ var (
 	mpWorktree = regexp.MustCompile(`(?m)^Worktree: (\S+)$`)
 )
 
-// mpCoreMarker is the line a CORE change's planning prompt carries: it admits
-// the base pairs an open experiment's override replaced.
-const mpCoreMarker = "CORE change"
-
 // mpOperatorMarker is the line an opt-in dispatch of role carries.
 func mpOperatorMarker(role string) string { return "Operator pair: " + role }
 
@@ -89,11 +85,8 @@ type policyWire struct {
 // experiment overrides`' {role: [pairs]} replaces the base row's pairs;
 // roles without pairs and `main` -- the parent agent, never a dispatch --
 // are left alone, and a failed or unparsable overrides read leaves the
-// pairs alone (decision overrides-via-flow-cli). For a planning role
-// (explorer, plan-designer, planner -- papCoreModel's) the replaced pairs
-// are appended as a row marked `CORE change`, so a CORE change's planning
-// dispatch, its prompt carrying that line, keeps its base pairs while the
-// experiment is open (kan-1102 self-review, F4). No answer at all is an
+// pairs alone (decision overrides-via-flow-cli). A planning role's base
+// pairs are replaced exactly as any other role's. No answer at all is an
 // error naming flowd and the cache.
 func policyTable(env Env) (map[string][]policyRow, error) {
 	out, errb, rc := pcFlow(env, false, "policy", "get")
@@ -125,11 +118,7 @@ func policyTable(env Env) (map[string][]policyRow, error) {
 		if role == "main" || len(pairs) == 0 || len(rows[role]) == 0 {
 			continue
 		}
-		base := rows[role][0].Pairs
 		rows[role][0].Pairs = pairs
-		if papCoreModel[role] != "" {
-			rows[role] = append(rows[role], policyRow{Pairs: base, Marker: mpCoreMarker})
-		}
 	}
 	return rows, nil
 }

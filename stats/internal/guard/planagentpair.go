@@ -5,40 +5,38 @@ import (
 	"io"
 	"regexp"
 	"strconv"
-	"strings"
 )
 
 // The contract below moved here from the header of the deleted
 // scripts/plan-agent-pair.sh shim (KAN-1058).
 //
-// flow-guard plan-agent-pair — the model and effort of a planning session's Explore or
-// Plan dispatch.
+// flow-guard plan-agent-pair — the model and effort of a planning session's Explore,
+// Plan or planner dispatch.
 //
-// Usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [core]
-//
-// With the optional fourth argument `core` (a CORE change, whose Jira issue's
-// `Agents (CORE)` section names fable for planning), it prints the role's first
-// CORE pair instead -- `opus/` for explorer, `fable/` for plan-designer and
-// planner -- searching every row of the role in order, so the `CORE change`
-// row an open experiment's override leaves (policyTable) still answers
-// (kan-1102 self-review, F4); exit 2 when no row carries one. The planner row's pairs are
-// `<model>/flow-planner-<effort>`, printed as `<model> <effort>`.
+// Usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [<effort>]
 //
 // Prints one line, `<model> <effort>` — the first base pair of <role>,
-// `explorer` for an Explore dispatch and `plan-designer` for a Plan one, read
-// with `flow policy get`, an open experiment's override of it applied. <seed> is the change name — in
-// /flow-plan before capture, the session token; <n> counts the session's
-// planning dispatches from 1. Exit 0 on the printed line, exit 2 on a usage
-// error (<n> not a positive integer, a role other than the two, or an
-// argument count other than 3) or no pairs to read.
+// `explorer` for an Explore dispatch, `plan-designer` for a Plan one and
+// `planner` for the planner, read with `flow policy get`, an open
+// experiment's override of it applied. With <effort> — one of
+// low|medium|high|xhigh, the task's effort — it prints the row's first pair
+// at that effort instead, and the row's first pair when the row holds none
+// at it. The planner row's pairs are `<model>/flow-planner-<effort>`,
+// printed as `<model> <effort>`. <seed> is the change name — in /flow-plan
+// before capture, the session token; <n> counts the session's planning
+// dispatches from 1. Exit 0 on the printed line, exit 2 on a usage error
+// (<n> not a positive integer, a role other than the three, a fourth
+// argument other than an effort, or an argument count other than 3 or 4) or
+// no pairs to read.
 //
 // The logic is the Go port in stats/internal/guard/planagentpair.go.
 
 // planAgentPair is `flow-guard plan-agent-pair`: the model and effort of a
-// planning session's <n>th Explore or Plan dispatch -- the first pair of the
-// <role>'s base pairs, explorer or plan-designer, read with `flow policy
+// planning session's <n>th Explore, Plan or planner dispatch -- the first pair of the
+// <role>'s base pairs, explorer, plan-designer or planner, read with `flow policy
 // get`, with an open experiment's override of them applied (policyTable), as
-// the agent-baseline hook admits it.
+// the agent-baseline hook admits it; with an <effort>, the row's first pair
+// at that effort, else its first pair.
 // <seed> is the change name, or the session token in /flow-plan before
 // capture; <n> counts the session's planning dispatches from 1. Exit 0 on the
 // printed line, exit 2 on a usage error or an unreadable table.
@@ -48,16 +46,19 @@ func init() {
 
 var papPair = regexp.MustCompile(`^([a-z0-9.-]+)/(?:[A-Za-z]+@|flow-planner-)([a-z]+)$`)
 
-// papCoreModel is the model a CORE change's pair names, per role.
-var papCoreModel = map[string]string{"explorer": "opus", "plan-designer": "fable", "planner": "fable"}
+// papRoles are the planning roles plan-agent-pair answers for.
+var papRoles = map[string]bool{"explorer": true, "plan-designer": true, "planner": true}
+
+// papEfforts are the efforts an optional fourth argument may name.
+var papEfforts = map[string]bool{"low": true, "medium": true, "high": true, "xhigh": true}
 
 func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) != 3 && !(len(args) == 4 && args[3] == "core") {
-		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [core]")
+	if len(args) != 3 && !(len(args) == 4 && papEfforts[args[3]]) {
+		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [low|medium|high|xhigh]")
 		return 2
 	}
 	role := args[2]
-	if papCoreModel[role] == "" {
+	if !papRoles[role] {
 		fmt.Fprintf(stderr, "plan-agent-pair: <role> must be explorer, plan-designer or planner, got %q\n", role)
 		return 2
 	}
@@ -71,20 +72,16 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	var m []string
-	if rs := rows[role]; len(args) == 4 {
-		// Every row in order: an open override leaves the CORE pairs on the
-		// appended `CORE change` row (policyTable).
-	core:
-		for _, r := range rs {
-			for _, p := range r.Pairs {
-				if strings.HasPrefix(p, papCoreModel[role]+"/") {
-					m = papPair.FindStringSubmatch(p)
-					break core
+	if rs := rows[role]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
+		m = papPair.FindStringSubmatch(rs[0].Pairs[0])
+		if len(args) == 4 {
+			for _, p := range rs[0].Pairs {
+				if e := papPair.FindStringSubmatch(p); e != nil && e[2] == args[3] {
+					m = e
+					break
 				}
 			}
 		}
-	} else if len(rs) > 0 && len(rs[0].Pairs) > 0 {
-		m = papPair.FindStringSubmatch(rs[0].Pairs[0])
 	}
 	if m == nil {
 		fmt.Fprintf(stderr, "plan-agent-pair: %s names no `<model>/<agent>@<effort>` %s pair\n", mpFile, role)
