@@ -366,8 +366,8 @@ func checkDecisionModels(body json.RawMessage) error {
 // checkPairModel checks one recorded pair: absent, null or a JSON string
 // passes; an object's model must be a store.ValidModels member, and its
 // effort must not be "high" when noHigh is set. allowFable additionally
-// admits "fable", for a panel.dispatches[] pair only: a CORE change's
-// first-pass reviewers (operator, 2026-11-09).
+// admits "fable", for a panel.dispatches[] pair only: an operator-granted
+// opt-in panel-reviewer pair (operator, 2026-11-09).
 func checkPairModel(path string, raw json.RawMessage, noHigh, allowFable bool) error {
 	if !isObject(raw) {
 		return nil
