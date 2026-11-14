@@ -76,6 +76,8 @@ func TestCapsNeverStop(t *testing.T) {
 		"### Caps never stop the run",
 		"**Every cap, ceiling, budget or count limit this pipeline names bounds an approach, never the run**",
 		"the next attempt differs",
+		"the highest pair the row admits at or under the bound",
+		"where no different approach exists the work goes past the bound with the fact recorded.",
 		"It is never a stop and never an ask, and it counts toward **Three failed rounds** above.",
 	} {
 		if !strings.Contains(pipeline, want) {
