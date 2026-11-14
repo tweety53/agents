@@ -72,13 +72,15 @@ govern both:
   > If this change's verification compares against a recorded baseline, recapture it now — a
   > proof taken against the pre-rebase base is void.
 
-- **Conflict** (exit 1): never auto-abort, and never resolve the conflict — by editing the
-  conflicting files or otherwise. An automatic rebase lands here too — no reported overlap does
-  not rule out two commits touching one file incompatibly outside this change's own touched paths
-  — and is handled identically. The worktree is left mid-rebase exactly as `git rebase` left it;
-  report the conflicting file(s) the `CONFLICT:` line names, and hand off `git -C <worktree> rebase
-  --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the
-  next manual step. State stays as it was; this stage stops here and closes the mark `stopped`.
+- **Conflict** (exit 1): resolved in place, without asking, per the **Conflict** bullet of **Sync
+  the branch onto the base** (`skills/flow/sync-onto-base.md`), whose resolution rule, stop-and-ask
+  cases and handoff line apply as written. An automatic rebase lands here too — no reported overlap
+  does not rule out two commits touching one file incompatibly outside this change's own touched
+  paths — and is handled identically. Once `git rebase --continue` finishes,
+  `flow-guard sync-panel-base <worktree> <onto-sha>` runs again with the `CONFLICT:` line's sha and
+  its exits are read as the first call's; the new base is recorded and pushed as the Clean bullet
+  states, and the whole `## lint` list runs. Only those stop-and-ask cases close the stage
+  `stopped`.
 
 **Everything from the citation pre-check to the throwaway worktrees and the `[PRINCIPLES_PATH]`
 and `[STANDARDS_PATHS]` resolution below is one Bash call**, under the turn discipline of **4. Execute (SDD + TDD)**
