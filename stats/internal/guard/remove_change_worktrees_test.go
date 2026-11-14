@@ -494,8 +494,29 @@ func TestRemoveChangeWorktreesDisclose(t *testing.T) {
 		}
 	})
 
-	// Only an entry at the worktree root is preserved: a nested file that
-	// differs from the main checkout's (a local DB, IDE state) still stops.
+	// KAN-1110: a nested ignored file byte-identical to the main checkout's
+	// file at that path (a regenerated build copy) is preserved at any depth.
+	t.Run("a nested entry identical in the main checkout proceeds", func(t *testing.T) {
+		t.Parallel()
+		fx := rcwNewFx(t)
+		for _, d := range []string{fx.wt + "/data", fx.repo + "/data"} {
+			if err := os.Mkdir(d, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		fx.g.write(fx.wt+"/data/.env", "same")
+		fx.g.write(fx.repo+"/data/.env", "same")
+		code, out, errb := fx.run(t, nil)
+		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
+			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+		}
+		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — data/.env — preserved: identical in ") {
+			t.Errorf("UNCLASSIFIED lines %q, want data/.env shown as preserved", l)
+		}
+	})
+
+	// A nested file that differs from the main checkout's (a local DB, IDE
+	// state) still stops.
 	t.Run("a nested entry that differs from the main checkout's stops", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
