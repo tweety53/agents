@@ -96,10 +96,12 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
   under `## Incomplete attempt`. A remainder completes its dispatch rather than adding one, so it
   counts toward no re-dispatch and no fix round. No count ends these either; a remainder that leaves
   the same steps undone on the same evidence takes **Fewest operator actions**
-  (`skills/flow-contracts/pipeline.md`), and one whose blocker only the operator can cure ends your
+  (`skills/flow-contracts/pipeline.md`), as do three remainders of one dispatch that each close
+  `NEXT: rest` (**Three failed rounds**, there), and one whose blocker only the operator can cure ends your
   turn with `## Question` naming that blocker and the undone steps.
 - `NEXT: redispatch <key>` — **a complete report carrying any non-zero exit is re-dispatched, and no
-  count ends the re-dispatches.** `close` closed the stage's first such report `-outcome blocked`;
+  count ends the re-dispatches.** Three re-dispatches that each close `NEXT: redispatch` take
+  **Three failed rounds** (`skills/flow-contracts/pipeline.md`). `close` closed the stage's first such report `-outcome blocked`;
   run `prepare --continue` for the key it names — `visual-verify-<n>`, `<n>` counting from 2, under
   the same `-<repository name>` suffix rule — and dispatch again, its bundle carrying every earlier
   report's path under `## Previous attempt`, so the verifier can tell an environmental failure (a
