@@ -109,6 +109,9 @@ type Dispatch struct {
 	// RoundBase is the fix round's base sha a scoped visual-verify re-run
 	// was begun with (-round-base); empty on every unscoped dispatch.
 	RoundBase string `json:"roundBase,omitempty"`
+	// PairPick is the pair judge's `<source>: <reason>` the dispatch was
+	// begun with (-pair-pick); empty on a dispatch no judge picked (KAN-1119).
+	PairPick string `json:"pairPick,omitempty"`
 	// Request is the /flow-interactive request an operator-asked dispatch
 	// ran for (-request); nil on every other row (kan-1081 self-review, F5).
 	Request      *int            `json:"request,omitempty"`
