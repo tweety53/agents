@@ -118,7 +118,7 @@ func (v *vvp) kickoff() {
 		}
 	}
 	if len(missing) > 0 {
-		v.stop("kickoff", "", "kickoff "+strings.Join(missing, " "))
+		v.stop("kickoff-missing", "", "kickoff "+strings.Join(missing, " "))
 	}
 }
 
@@ -242,7 +242,7 @@ func (v *vvp) captureRoot(w string) string {
 // then one `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
 	var fails []string
-	fail := func(guard, out, errs string) {
+	collect := func(guard, out, errs string) {
 		ev := strings.TrimSpace(out + "\n" + errs)
 		fails = append(fails, guard+": "+strings.Join(strings.Fields(strings.ReplaceAll(ev, "\n", " | ")), " "))
 	}
@@ -253,15 +253,15 @@ func (v *vvp) preflight(survivors []string) {
 	case 1:
 		v.stop("verify-not-green", "stopped", "verify-not-green — "+out)
 	default:
-		fail("check-verify-green", out, errs)
+		collect("check-verify-green", out, errs)
 	}
 	for _, w := range survivors {
 		if rc, kv, errs := v.guard("prepare-workspace", nil, w); rc != 0 {
-			fail("prepare-workspace", kv, errs)
+			collect("prepare-workspace", kv, errs)
 		} else if v.declaredApps(w, kv); len(v.apps[w]) == 0 {
-			fail("check-visual-preflight", "", "no --app passed for "+w)
+			collect("check-visual-preflight", "", "no --app passed for "+w)
 		} else if rc, out, errs := v.guard("check-visual-preflight", strings.NewReader(kv+"\n"), append([]string{w}, v.apps[w]...)...); rc != 0 {
-			fail("check-visual-preflight", out, errs)
+			collect("check-visual-preflight", out, errs)
 		}
 		if c := v.cells(w)["mockups"]; c != "" {
 			root := v.captureRoot(w)
@@ -269,7 +269,7 @@ func (v *vvp) preflight(survivors []string) {
 			if cmd := v.specsCommand(w); cmd != "" {
 				rc, out := kwRun(v.env, root, "sh", "-c", cmd)
 				if rc != 0 {
-					fail("specs", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
+					collect("specs", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
 					continue
 				}
 				targets = nil
@@ -281,18 +281,18 @@ func (v *vvp) preflight(survivors []string) {
 			}
 			if v.cells(w)["design repo"] != "" {
 				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, v.frameFiles(targets)...)...); rc != 0 {
-					fail("render-frames", out, errs)
+					collect("render-frames", out, errs)
 				}
 			}
 			for _, tgt := range targets {
 				if rc, out, errs := v.guard("check-sidecar-reach", nil, tgt, cellPath(w, c)); rc != 0 {
-					fail("check-sidecar-reach", out, errs)
+					collect("check-sidecar-reach", out, errs)
 				}
 			}
 		}
 	}
 	if len(fails) > 0 {
-		v.stop("preflight", "stopped", "preflight — "+strings.Join(fails, "; "))
+		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
 }
 
@@ -422,7 +422,7 @@ func (v *vvp) probe(survivors []string) string {
 			continue
 		}
 		if v.started {
-			v.stop("stack", "stopped", "stack — "+strings.Join(urls, " ")+" answers nothing after the stack was started, for "+w)
+			v.stop("stack-unreachable", "stopped", "stack — "+strings.Join(urls, " ")+" answers nothing after the stack was started, for "+w)
 		}
 		v.next("start-stack")
 	}
@@ -444,7 +444,7 @@ func (v *vvp) fingerprint(survivors []string) map[string]string {
 			got[w] = "exit 0 — the served bundle is the worktree's build"
 		case 1:
 			if v.started {
-				v.stop("fingerprint", "stopped", "fingerprint — "+vvpOneLine(out+"\n"+errs))
+				v.stop("fingerprint-failed", "stopped", "fingerprint — "+vvpOneLine(out+"\n"+errs))
 			}
 			v.next("restart-stack")
 		default:
@@ -477,14 +477,14 @@ var vvpPairRe = regexp.MustCompile(`^([a-z0-9.-]+)/flow-([a-z]+)$`)
 func (v *vvp) pair() (model, effort string) {
 	rows, err := policyTable(v.env)
 	if err != nil {
-		v.stop("pair", "stopped", "pair — "+err.Error())
+		v.stop("policy-unreadable", "stopped", "pair — "+err.Error())
 	}
 	var m []string
 	if rs := rows["visual-verifier"]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
 		m = vvpPairRe.FindStringSubmatch(rs[0].Pairs[0])
 	}
 	if m == nil {
-		v.stop("pair", "stopped", "pair — the allowed pairs name no `<model>/flow-<effort>` visual-verifier pair")
+		v.stop("visual-pair-missing", "stopped", "pair — the allowed pairs name no `<model>/flow-<effort>` visual-verifier pair")
 	}
 	return m[1], m[2]
 }
@@ -547,7 +547,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 				v.flow("record", "dispatch", "end", "-C", v.canon, "-change", v.name, "-key", b,
 					"-session-token", v.token, "-outcome", "aborted")
 			}
-			v.stop("row", "stopped", "row — flow record dispatch begin refused for "+r.key+": "+vvpOneLine(out))
+			v.stop("dispatch-begin-refused", "stopped", "row — flow record dispatch begin refused for "+r.key+": "+vvpOneLine(out))
 		}
 		begun = append(begun, r.key)
 		v.appendStage("row " + r.key + " " + r.w)

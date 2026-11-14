@@ -219,7 +219,7 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 	ref := "refs/tags/" + tag
 	if vvGitClean(env, "-C", clone, "rev-parse", "-q", "--verify", ref).Run() != nil {
 		if b, err := vvGitClean(env, "-C", clone, "fetch", "-q", remote, ref+":"+ref).CombinedOutput(); err != nil {
-			return refuse("tag", "tag `%s` is not in %s and cannot be fetched from %s: %s", tag, clone, remote, strings.TrimSpace(string(b)))
+			return refuse("tag-unfetchable", "tag `%s` is not in %s and cannot be fetched from %s: %s", tag, clone, remote, strings.TrimSpace(string(b)))
 		}
 	}
 	tree, err := os.MkdirTemp("", "render-frames-")

@@ -3261,7 +3261,7 @@ func (g *ppGuard) checkFile(path, repoRoot string) string {
 // before-the-scan call naturally reports zeroes for channels that never
 // had a chance to accumulate anything.
 func (g *ppGuard) reportContainmentRefusal(env Env, fileErrors []string) int {
-	Reason(env, "containment")
+	Reason(env, "containment-refused")
 	if g.failures != 0 {
 		fmt.Fprintf(g.stderr, "\n%d plan-provenance violation(s) found.\n", g.failures)
 	}

@@ -386,22 +386,22 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if err := policyAllows(rows, role, typ, model, "", "", false); err != nil {
 		// Off the unmarked rows: only the role's marked escalation row can admit it.
 		if lpEscalation(rows, role, policyPair(typ, model, "")) == "" {
-			return refuse("pair", "PAIR — "+err.Error())
+			return refuse("pair-not-allowed", "PAIR — "+err.Error())
 		}
 		if !lpEscalated(env, git, lp.main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
-			return refuse("escalation", fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: flow-guard pipeline-fix escalate %s", key, typ, key))
+			return refuse("escalation-not-recorded", fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: flow-guard pipeline-fix escalate %s", key, typ, key))
 		}
 		if err := policyAllows(rows, role, typ, model, "", string(prompt), false); err != nil {
-			return refuse("pair", "PAIR — "+err.Error())
+			return refuse("pair-not-allowed", "PAIR — "+err.Error())
 		}
 	} else if suffix == "review-1" {
 		want, ok := lpFirstReviewType(env, git, lp.main, lp)
 		if !ok {
-			return refuse("effort", fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
+			return refuse("first-review-effort-missing", fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
 		}
 		// The allowed pairs decide: a recorded type they do not admit never refuses one they do.
 		if typ != want && policyAllows(rows, role, want, model, "", "", false) == nil {
-			return refuse("pair", fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
+			return refuse("pair-off-recorded-effort", fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
 		}
 	}
 	if family == "pass" {
@@ -449,7 +449,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if family != "plan" && !planDone {
-		return refuse("plan", fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
+		return refuse("plan-dispatch-incomplete", fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
 	}
 	recordRole := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
 	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,

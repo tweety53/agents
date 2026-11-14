@@ -622,7 +622,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintf(stderr, "run-reproducer: refused — ambiguous reproducer: '%s' exited %d here, the same verdict it produced against the defect-present code (pre-fix verdict %s) — a reproducer must exit non-zero while the defect is present and 0 once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention\n", cmdText, rc, preFix)
 		}
-		Reason(env, "refused")
+		Reason(env, "ambiguous-reproducer")
 		return 2
 	}
 

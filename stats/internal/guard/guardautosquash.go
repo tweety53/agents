@@ -157,7 +157,7 @@ func guardAutosquash(args []string, env Env, stdout, stderr io.Writer) int {
 
 	if violations > 0 {
 		fmt.Fprintf(stderr, "%s: %d violation(s)\n", prog, violations)
-		Reason(env, "violation")
+		Reason(env, "autosquash-violation")
 		return 1
 	}
 	fmt.Fprintf(stdout, "%s: %s ok\n", prog, sub)

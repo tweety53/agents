@@ -510,7 +510,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if s.violations > 0 {
 		fmt.Fprintf(stderr, "check-stage-mark-calls: %d violation(s) across %d call site(s) checked\n", s.violations, s.checked)
-		Reason(env, "violation")
+		Reason(env, "stage-mark-violation")
 		return 1
 	}
 	fmt.Fprintf(stdout, "✓ Stage-mark-calls guard: clean (%d call site(s) checked)\n", s.checked)

@@ -102,7 +102,7 @@ func (c *ic) cleanup() {
 		}
 	}
 	if len(disclose) > 0 {
-		c.stop("disclose", "relay the UNCLASSIFIED and DISCLOSE lines of "+strings.Join(disclose, ", ")+", ask only what they ask, then re-run flow-guard integrate-change cleanup "+c.main+" "+c.name+" adding --proceed "+strings.Join(disclose, " --proceed ")+" to every --proceed already given "+c.flags())
+		c.stopAs("disclosure-pending", "disclose", "relay the UNCLASSIFIED and DISCLOSE lines of "+strings.Join(disclose, ", ")+", ask only what they ask, then re-run flow-guard integrate-change cleanup "+c.main+" "+c.name+" adding --proceed "+strings.Join(disclose, " --proceed ")+" to every --proceed already given "+c.flags())
 	}
 	id, rc := c.capture(c.cmd("/", "flow", "workspace-id", c.name))
 	if rc != 0 {
@@ -171,7 +171,7 @@ func (c *ic) cleanup() {
 	}
 	c.stopOutcome = "leftover"
 	if leftover {
-		c.stop("leftover", "name what remains; FINISHED is not written — re-run cleanup once the operator clears it")
+		c.stopAs("worktree-leftover", "leftover", "name what remains; FINISHED is not written — re-run cleanup once the operator clears it")
 	}
 	c.stopOutcome = "stopped"
 	c.markEnd("flow.verify-cleanup", "completed")
@@ -184,7 +184,7 @@ func (c *ic) cleanup() {
 		}
 	}
 	if !c.writeState("FINISHED", keep, "") {
-		c.stop("state", "the FINISHED write failed — report it")
+		c.stopAs("state-write-failed", "state", "the FINISHED write failed — report it")
 	}
 	c.markEnd("flow.write-finished", "completed")
 	if c.jiraKey != "" {

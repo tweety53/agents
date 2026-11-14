@@ -490,12 +490,16 @@ func (c *ic) markEnd(stage, outcome string, reason ...string) {
 	c.openStage = ""
 }
 
-func (c *ic) stop(kind, text string) {
+func (c *ic) stop(kind, text string) { c.stopAs(kind, kind, text) }
+
+// stopAs is stop for a printed STOP kind the skills name that is not itself a
+// reason: id is the reason id recorded, kind the word printed after STOP:.
+func (c *ic) stopAs(id, kind, text string) {
 	if c.openStage != "" {
 		c.markEnd(c.openStage, c.stopOutcome, "STOP: "+kind)
 	}
 	c.say("STOP: " + kind + " — " + text)
-	Reason(c.env, kind)
+	Reason(c.env, id)
 	panic(icExit(1))
 }
 
@@ -818,7 +822,7 @@ func (c *ic) baseOf(i int) {
 		c.stop("no-remote", c.wt[i]+": this repository has no remote, so there is nothing to push to or merge into")
 	}
 	if rc != 0 {
-		c.stop("base", fmt.Sprintf("%s: no base branch resolved (resolve-base-branch exit %d) — ask the operator", c.wt[i], rc))
+		c.stopAs("base-unresolved", "base", fmt.Sprintf("%s: no base branch resolved (resolve-base-branch exit %d) — ask the operator", c.wt[i], rc))
 	}
 }
 
@@ -1029,7 +1033,7 @@ func (c *ic) pushPin(w string) {
 	}
 	rem, ok := c.git("-C", w, "ls-remote", "origin", r)
 	if !ok {
-		c.stop("push", "reading origin's "+r+" from "+w+" failed — report git's output; the change stays IN_PROGRESS")
+		c.stopAs("remote-unreadable", "push", "reading origin's "+r+" from "+w+" failed — report git's output; the change stays IN_PROGRESS")
 	}
 	if k := strings.IndexAny(rem, " \t\n"); k >= 0 {
 		rem = rem[:k]
@@ -1043,13 +1047,13 @@ func (c *ic) pushPin(w string) {
 		}
 	}
 	if !c.gitPass("-C", w, "push", "-q", "origin", r+":"+r) {
-		c.stop("push", "the push of "+r+" from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
+		c.stopAs("push-rejected", "push", "the push of "+r+" from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
 	}
 }
 
 func (c *ic) pushBranch(w string) {
 	if !c.gitPass("-C", w, "push", "--force-with-lease", "-u", "origin", "spectre/"+c.name) {
-		c.stop("push", "the branch push from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
+		c.stopAs("push-rejected", "push", "the branch push from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
 	}
 }
 

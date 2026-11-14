@@ -256,7 +256,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 			if err := r.checkFile(f); err != nil {
 				if ref, ok := err.(crRefusal); ok {
 					fmt.Fprintln(stderr, string(ref))
-					Reason(env, "refused")
+					Reason(env, "reference-refused")
 					return 2
 				}
 				fmt.Fprintf(stderr, "%v\ncheck-references: coverage_record failed for %s (see stderr above)\n", err, r.rel(f))

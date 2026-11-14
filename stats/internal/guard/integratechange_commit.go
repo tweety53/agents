@@ -54,7 +54,7 @@ func (c *ic) commit() {
 			c.pinPreReshape(c.wt[o])
 			c.run("reshape-branch", c.wt[o], c.name, rb)
 			if c.rc != 0 {
-				c.stop("reshape", fmt.Sprintf("reshape-branch exit %d in %s — report its lines", c.rc, c.wt[o]))
+				c.stopAs("reshape-failed", "reshape", fmt.Sprintf("reshape-branch exit %d in %s — report its lines", c.rc, c.wt[o]))
 			}
 		}
 		render := c.cmd("/", "flow", "record", "render", "-C", c.main, "-change", c.name, "-kind", "ledger", "-repo", c.canon)
@@ -148,7 +148,7 @@ func (c *ic) checkNarrative(nf string) {
 				// Only a `big` fix -- 60 files or more -- is ever deferred
 				// (Pipeline defects found mid-run, pipeline.md).
 				if r, _ := strconv.Atoi(m[2]); m[1] == "deferred" && r < 60 {
-					c.stop("narrative", fmt.Sprintf("%s:%d defers an in-run fix of blast radius %d — only a fix of 60 files or more is deferred; fix and land it in this run, then re-run commit", nf, n+1, r))
+					c.stopAs("deferred-fix-under-floor", "narrative", fmt.Sprintf("%s:%d defers an in-run fix of blast radius %d — only a fix of 60 files or more is deferred; fix and land it in this run, then re-run commit", nf, n+1, r))
 				}
 				named = append(named, m[1])
 			} else {
@@ -156,10 +156,10 @@ func (c *ic) checkNarrative(nf string) {
 			}
 		}
 		if len(bad) > 0 {
-			c.stop("narrative", nf+" holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': "+strings.Join(bad, "; ")+" — rewrite each to it, then re-run commit")
+			c.stopAs("fix-line-off-format", "narrative", nf+" holds in-run fix line(s) off the format 'In-run pipeline fix: <agents sha | deferred> — <the defect> (blast radius <N> files)': "+strings.Join(bad, "; ")+" — rewrite each to it, then re-run commit")
 		}
 		if len(open) > 0 {
-			c.stop("narrative", nf+" leaves a failing or flaky test open: "+strings.Join(open, "; ")+" — fix it (The loop, or an in-run pipeline fix for a flow-tooling test, skills/flow/verify-and-handoff.md) and rewrite each line to say how, then re-run commit")
+			c.stopAs("open-failing-test", "narrative", nf+" leaves a failing or flaky test open: "+strings.Join(open, "; ")+" — fix it (The loop, or an in-run pipeline fix for a flow-tooling test, skills/flow/verify-and-handoff.md) and rewrite each line to say how, then re-run commit")
 		}
 	}
 	c.requireFixLines(named, nf)
@@ -171,7 +171,7 @@ func (c *ic) checkNarrative(nf string) {
 	c.out = strings.TrimRight(b.String(), "\n")
 	if c.rc != 0 {
 		lines := strings.Split(c.out, "\n")
-		c.stop("narrative", lines[len(lines)-1]+" — append each missing run's section (skills/flow/verify-and-handoff.md, Write IN_PROGRESS), then re-run commit")
+		c.stopAs("narrative-run-missing", "narrative", lines[len(lines)-1]+" — append each missing run's section (skills/flow/verify-and-handoff.md, Write IN_PROGRESS), then re-run commit")
 	}
 }
 
@@ -239,7 +239,7 @@ func (c *ic) requireFixLines(named []string, nf string) {
 		c.say("narrative: appended " + line)
 	}
 	if len(missing) > 0 {
-		c.stop("narrative", "no in-run fix line names the fixed flow-fix row(s) "+strings.Join(missing, ", ")+", and the row carries no one-line note or blast radius to derive it from — append 'In-run pipeline fix: <agents sha> — <the defect> (blast radius <N> files)' for each, then re-run commit")
+		c.stopAs("fix-line-underivable", "narrative", "no in-run fix line names the fixed flow-fix row(s) "+strings.Join(missing, ", ")+", and the row carries no one-line note or blast radius to derive it from — append 'In-run pipeline fix: <agents sha> — <the defect> (blast radius <N> files)' for each, then re-run commit")
 	}
 }
 

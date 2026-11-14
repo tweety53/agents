@@ -158,7 +158,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		for _, c := range strings.Split(path, "/") {
 			if c == ".." {
-				return fail("path", "path '%s' carries a '..' component -- refused", path)
+				return fail("dotdot-path", "path '%s' carries a '..' component -- refused", path)
 			}
 		}
 		if marker == "" {

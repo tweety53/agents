@@ -271,7 +271,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			}
 		}
 		fmt.Fprintln(stdout, "DISCLOSE: stopped before removal — relay the entries above, then re-run with --proceed")
-		Reason(env, "disclose")
+		Reason(env, "disclosure-pending")
 		return 3
 	}
 

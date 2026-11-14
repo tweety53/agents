@@ -139,7 +139,7 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 					fmt.Fprintf(stdout, "RECAPTURE: %s\n", u)
 				}
 			}
-			Reason(env, "recapture")
+			Reason(env, "rebase-conflict")
 			return 1
 		case "refused":
 			return refuse("git-refused-to-rebase-onto", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
