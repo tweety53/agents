@@ -832,7 +832,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintln(stderr, fullUsage)
 		}
-		Reason(env, "full-takes-the-test-or")
+		Reason(env, "full-needs-test-or-visual")
 		return 2
 	}
 	// change and canon name the state record the kickoff base is read from.

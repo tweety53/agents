@@ -66,7 +66,7 @@ func refreshPlanBase(args []string, env Env, stdout, stderr io.Writer) int {
 	git := envGit(env)
 
 	if _, ok := capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "--end-of-options", mb+"^{commit}")); !ok {
-		return refuse("not-a-commit-in", "%s is not a commit in %s", mb, wt)
+		return refuse("not-a-commit", "%s is not a commit in %s", mb, wt)
 	}
 	plan, err := os.ReadFile(pcAbs(env, tasks))
 	if err != nil {
@@ -90,7 +90,7 @@ func refreshPlanBase(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	changed, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb, ref))
 	if !ok {
-		return refuse("cannot-diff-in", "cannot diff %s %s in %s", mb, ref, wt)
+		return refuse("diff-failed", "cannot diff %s %s in %s", mb, ref, wt)
 	}
 
 	fmt.Fprintf(stdout, "MOVED: %s — %s commits on %s since %s\n", wt, n, ref, mb)

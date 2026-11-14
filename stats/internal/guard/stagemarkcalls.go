@@ -457,7 +457,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, z := range smcExpectedZero {
 			if err := cov.declare(z.file, z.reason); err != nil {
 				fmt.Fprintln(stderr, err)
-				return die("coverage-declare-failed-for", "coverage_declare failed for '%s' (see stderr above)", z.file)
+				return die("coverage-declare-failed", "coverage_declare failed for '%s' (see stderr above)", z.file)
 			}
 		}
 	}
@@ -494,7 +494,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 			// against its own contradictory breakdown.
 			if err := cov.record(strings.TrimPrefix(f, root+"/"), n); err != nil {
 				fmt.Fprintln(stderr, err)
-				return die("coverage-record-failed-for", "coverage_record failed for '%s' (see stderr above)", f)
+				return die("coverage-record-failed", "coverage_record failed for '%s' (see stderr above)", f)
 			}
 		}
 	}

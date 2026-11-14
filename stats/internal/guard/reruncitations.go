@@ -84,7 +84,7 @@ func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, ref := range refs {
 		if !rcRef.MatchString(ref) {
 			fmt.Fprintf(stderr, "%s: not a finding ref shaped F<n>: '%s'\n", prog, ref)
-			Reason(env, "not-a-finding-ref-shaped")
+			Reason(env, "bad-finding-ref")
 			return 2
 		}
 	}

@@ -103,7 +103,7 @@ func runCapped(args []string, env Env, stdout, stderr io.Writer) int {
 	limit, err := strconv.Atoi(capMB)
 	if err != nil || strings.TrimLeft(capMB, "0123456789") != "" {
 		fmt.Fprintf(stderr, "run-capped: cap must be a plain integer of MB: %s\n", capMB)
-		Reason(env, "cap-must-be-a-plain")
+		Reason(env, "bad-cap")
 		return 2
 	}
 

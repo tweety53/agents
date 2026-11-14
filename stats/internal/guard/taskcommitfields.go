@@ -257,7 +257,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	var repos []tcfRepoCommit
 	if strings.Contains(commit, "=") {
 		if parent != "" {
-			return refuse("per-repository-commit-map-derives", "the per-repository commit map derives each commit's parent itself — pass the fourth argument empty")
+			return refuse("parent-with-commit-map", "the per-repository commit map derives each commit's parent itself — pass the fourth argument empty")
 		}
 		for _, entry := range strings.Split(commit, ",") {
 			entry = strings.TrimSpace(entry)
@@ -266,7 +266,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 				return refuse("bad-map-entry", fmt.Sprintf("map entry is not <worktree>=<sha>: %q", entry))
 			}
 			if slices.ContainsFunc(repos, func(r tcfRepoCommit) bool { return r.worktree == wt }) {
-				return refuse("worktree-named-twice-in", "worktree named twice in the commit map: "+wt)
+				return refuse("worktree-named-twice", "worktree named twice in the commit map: "+wt)
 			}
 			if !isDir(wt) {
 				return refuse("worktree-not-found", "worktree not found: "+wt)

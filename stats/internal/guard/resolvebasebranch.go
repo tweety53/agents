@@ -98,7 +98,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if git("-C", dir, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "resolve-base-branch: %s is not a git worktree\n", dir)
-		Reason(env, "not-a-git-worktree")
+		Reason(env, "not-a-worktree")
 		return 2
 	}
 	// Exit 3 stays separate from exit 2: the finish contract requires a
@@ -140,13 +140,13 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	cur, ok := capture(git("-C", dir, "branch", "--show-current"))
 	if !ok {
 		fmt.Fprintf(stderr, "resolve-base-branch: could not read the current branch in %s\n", dir)
-		Reason(env, "could-not-read-the-current")
+		Reason(env, "cannot-read-current-branch")
 		return 2
 	}
 	cur = strings.TrimRight(strings.ReplaceAll(cur, "\x00", ""), "\n")
 	if cur == "" {
 		fmt.Fprintf(stderr, "resolve-base-branch: HEAD is detached in %s\n", dir)
-		Reason(env, "head-is-detached-in")
+		Reason(env, "head-detached")
 		return 1
 	}
 	// A base recorded on this branch when its worktree was created

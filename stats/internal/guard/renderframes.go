@@ -102,16 +102,16 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	cells := vvCells(string(cfg))
 	design := strings.Fields(strings.ReplaceAll(cells["design repo"], "`", ""))
 	if len(design) != 2 {
-		return refuse("flow-project-md-declares-no", "%s/.flow/project.md declares no `design repo` row of `<clone> <remote>` under `## visual verification`", args[0])
+		return refuse("design-repo-row-missing", "%s/.flow/project.md declares no `design repo` row of `<clone> <remote>` under `## visual verification`", args[0])
 	}
 	clone, remote := cellPath(root, design[0]), design[1]
 	mockups := strings.TrimSuffix(strings.Trim(cells["mockups"], "`"), "/")
 	if mockups == "" {
-		return refuse("flow-project-md-declares-no", "%s/.flow/project.md declares no `mockups` row — there is no root to render into", args[0])
+		return refuse("mockups-row-missing", "%s/.flow/project.md declares no `mockups` row — there is no root to render into", args[0])
 	}
 	checkout := cellPath(root, cells["regression checkout"])
 	if checkout == "" {
-		return refuse("flow-project-md-declares-no", "%s/.flow/project.md declares no `regression checkout` row — there is no Playwright to render with", args[0])
+		return refuse("regression-checkout-row-missing", "%s/.flow/project.md declares no `regression checkout` row — there is no Playwright to render with", args[0])
 	}
 	if vvGitClean(env, "-C", clone, "rev-parse", "--git-dir").Run() != nil {
 		return refuse("design-repo-clone-missing", "the `design repo` clone %s is missing or not a git checkout", clone)
@@ -157,7 +157,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		rel := mockups + "/" + tag
 		tracked, ok := capture(vvGitClean(env, "-C", root, "ls-files", "--", rel))
 		if !ok {
-			return refuse("cannot-tell-whether-is-committed", "cannot tell whether %s is committed in %s", rel, args[0])
+			return refuse("commit-state-unknown", "cannot tell whether %s is committed in %s", rel, args[0])
 		}
 		if tracked != "" {
 			// A tracked directory whose tag the design repo does not hold is the

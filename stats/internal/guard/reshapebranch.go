@@ -73,7 +73,7 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	own, ok2 := capture(git("-C", wt, "rev-list", "--first-parent", baseSHA+"..HEAD"))
 	if !ok1 || !ok2 {
 		fmt.Fprintf(stderr, "reshape-branch: git cannot list %s..HEAD in %s\n", baseSHA[:12], wt)
-		Reason(env, "git-cannot-list-head-in")
+		Reason(env, "cannot-list-head")
 		return 2
 	}
 	mine := map[string]bool{}
@@ -93,7 +93,7 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "  %s %s\n", c[:12], sanitizeDisplay(strings.TrimSpace(subj)))
 		}
 		fmt.Fprintln(stdout, "  merge that branch into the change's base first, or rebase the change branch onto a base that holds them, then re-run")
-		Reason(env, "merge-that-branch-into")
+		Reason(env, "base-missing-commits")
 		return 1
 	}
 	reset := git("-C", wt, "reset", "-q", "--soft", baseSHA)

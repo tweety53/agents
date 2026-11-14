@@ -189,7 +189,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	switch {
 	case set && root == "":
 		fmt.Fprint(stderr, "CHECK_REFERENCES_ROOT is set but empty\n")
-		Reason(env, "check-references-root-is-set")
+		Reason(env, "root-set-but-empty")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
@@ -268,7 +268,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if scanned == 0 {
 		fmt.Fprintf(stderr, "no Markdown files found under %s — refusing to report a clean run\n", root)
-		Reason(env, "no-markdown-files-found-under")
+		Reason(env, "no-markdown-files")
 		return 2
 	}
 

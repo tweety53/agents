@@ -93,7 +93,7 @@ func checkTaskCommitPlanningPaths(args []string, env Env, stdout, stderr io.Writ
 		return cmd.Run() == nil
 	}
 	if !verify("HEAD") {
-		return refuse("head-does-not-resolve-in", "HEAD does not resolve in: "+wt)
+		return refuse("head-unresolved", "HEAD does not resolve in: "+wt)
 	}
 	if !verify(base + "^{commit}") {
 		return refuse("base-does-not-resolve", "base does not resolve to a commit: "+base)

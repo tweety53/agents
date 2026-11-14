@@ -153,7 +153,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if !isDir(smcAbs(env, checkout)) {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: `regression checkout` names `%s`, which is not an existing directory\n", checkout)))
-		Reason(env, "regression-checkout-names")
+		Reason(env, "regression-checkout-not-a-directory")
 		return 2
 	}
 	checkout = filepath.Clean(pcAbs(env, checkout))
@@ -199,12 +199,12 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	scripts, rc := run(env.Dir, "", "node", "-e", srScripts, checkout+"/package.json")
 	if rc != 0 {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: could not read scripts from `%s/package.json`: %s\n", checkout, scripts)))
-		Reason(env, "could-not-read-scripts-from")
+		Reason(env, "cannot-read-package-json")
 		return 2
 	}
 	if scripts == "" {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: no script in `%s/package.json` contains `playwright test` — nothing can reach its specs\n", checkout)))
-		Reason(env, "no-script-in")
+		Reason(env, "no-playwright-script")
 		return 2
 	}
 	reached := map[string]bool{}
@@ -215,13 +215,13 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 		listing, rc := run(checkout, "", "npm", "run", "-s", script, "--", "--list", "--reporter=json")
 		if rc != 0 {
 			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: `npm run -s %s -- --list --reporter=json` exited %d in `%s`:\n%s\n", script, rc, checkout, listing)))
-			Reason(env, "npm-run-s-list-reporter")
+			Reason(env, "spec-list-failed")
 			return 2
 		}
 		files, rc := run(env.Dir, listing, "node", "-e", srFiles)
 		if rc != 0 {
 			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: `npm run -s %s -- --list --reporter=json` printed no parsable JSON in `%s`: %s\n", script, checkout, files)))
-			Reason(env, "npm-run-s-list-reporter")
+			Reason(env, "spec-list-failed")
 			return 2
 		}
 		for _, f := range strings.Split(files, "\n") {

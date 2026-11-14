@@ -370,7 +370,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		if id == "mutation" {
 			brief := rspSection(panel, "### The mutation-testing brief")
 			if brief == "" {
-				return refuse("review-panel-md-carries-no", "review-panel.md carries no mutation-testing brief")
+				return refuse("mutation-brief-missing", "review-panel.md carries no mutation-testing brief")
 			}
 			copies := make([]string, len(wts))
 			for i, wt := range wts {

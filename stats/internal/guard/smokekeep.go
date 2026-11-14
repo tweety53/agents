@@ -66,7 +66,7 @@ func smokeKeep(args []string, env Env, stdout, stderr io.Writer) int {
 		out, err := cmd.Output()
 		if err != nil {
 			fmt.Fprintf(stderr, "smoke-keep: git rev-parse --show-toplevel failed: %v\n", err)
-			Reason(env, "git-rev-parse-show-toplevel")
+			Reason(env, "toplevel-unresolved")
 			return 2
 		}
 		top = strings.TrimSpace(string(out))

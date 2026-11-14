@@ -102,14 +102,14 @@ func stageTaskFiles(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, step := range append(steps, unstage) {
 		if out, err := panelGit(env, gitBin, wt, step...).CombinedOutput(); err != nil {
 			fmt.Fprintf(stderr, "stage-task-files: git %s failed in %s:\n%s", step[0], wt, out)
-			Reason(env, "git-failed-in")
+			Reason(env, "git-step-failed")
 			return 2
 		}
 	}
 	out, err := panelGit(env, gitBin, wt, append([]string{"status", "--porcelain", "-z", "--untracked-files=all", "--"}, files...)...).Output()
 	if err != nil {
 		fmt.Fprintf(stderr, "stage-task-files: git status failed in %s\n", wt)
-		Reason(env, "git-status-failed-in")
+		Reason(env, "git-status-failed")
 		return 2
 	}
 	var left []string
@@ -129,7 +129,7 @@ func stageTaskFiles(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(left) > 0 {
 		fmt.Fprintf(stderr, "stage-task-files: git add exited 0 and left %d task path(s) unstaged — commit nothing, report this:\n%s\n", len(left), strings.Join(left, "\n"))
-		Reason(env, "git-add-exited-0-and")
+		Reason(env, "paths-left-unstaged")
 		return 1
 	}
 	return 0

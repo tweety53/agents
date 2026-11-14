@@ -150,7 +150,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	if err != nil {
 		// The bash's grep exiting 2 here: a failure to look, not an absence.
 		fmt.Fprintf(stderr, rvsPrefix+"grep exited 2 while looking for the '## visual verification' heading in %s — that is a failure to look, not an absence\n", cfg)
-		Reason(env, "grep-exited-2-while-looking")
+		Reason(env, "grep-failed")
 		return 2
 	}
 	// A leading UTF-8 BOM is stripped before either heading read or the table
@@ -161,7 +161,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	switch n := vvHeadingCount(text); {
 	case n == 0:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares no '## visual verification' section — cannot resolve where screenshots live\n", cfg)
-		Reason(env, "declares-no")
+		Reason(env, "visual-verification-section-missing")
 		return 2
 	case n > 1:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares %d '## visual verification' sections — a second declaration is ambiguous, so neither was read\n", cfg, n)
@@ -232,7 +232,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	sort.Strings(matches)
 	if len(matches) == 0 {
 		fmt.Fprintf(stderr, rvsPrefix+"zero PNGs under %s matched `%s`\n", searchRoot, spec)
-		Reason(env, "zero-pngs-under-matched")
+		Reason(env, "no-matching-pngs")
 		return 1
 	}
 	for _, m := range matches {

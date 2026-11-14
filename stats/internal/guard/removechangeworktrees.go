@@ -136,10 +136,10 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	repo, name, mergeBase := pcAbs(env, args[0]), args[1], args[2]
 	if !plainChangeName(name) {
-		return refuse("change-name-is-not", "change name %q is not a plain change name", name)
+		return refuse("bad-change-name", "change name %q is not a plain change name", name)
 	}
 	if mergeBase != "-" && strings.HasPrefix(mergeBase, "-") {
-		return refuse("merge-base-is-not", "merge base %q is not a revision", mergeBase)
+		return refuse("bad-merge-base", "merge base %q is not a revision", mergeBase)
 	}
 	// LC_ALL=C keeps the remote delete's "remote ref does not exist" in
 	// English, the one git message this guard reads.
@@ -188,10 +188,10 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			case 0:
 			case 1:
 				fmt.Fprintf(stderr, "remove-change-worktrees: flow change save %s has not run — %s holds the only copy of its %s\n", name, wt, f.on)
-				Reason(env, "flow-change-save-has-not")
+				Reason(env, "change-not-saved")
 				return 1
 			default:
-				return refuse("cannot-tell-whether-flow-change", "cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
+				return refuse("change-save-unknown", "cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
 			}
 		}
 	}

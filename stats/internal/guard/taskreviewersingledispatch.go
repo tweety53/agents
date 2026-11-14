@@ -182,7 +182,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	}
 	if token == "" {
 		fmt.Fprintf(stderr, "%ssession token is required and must be this run's own literal token\n", trsdPrefix)
-		Reason(env, "session-token-is-required-and")
+		Reason(env, "session-token-required")
 		return 2
 	}
 
@@ -207,7 +207,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	tasksMD := ChangeDir(worktree+"/spectre/changes", name) + "/tasks.md"
 	if fi, err := os.Stat(tasksMD); err != nil || !fi.Mode().IsRegular() {
 		fmt.Fprintf(stderr, "%sno tasks.md at %s -- cannot answer\n", trsdPrefix, tasksMD)
-		Reason(env, "no-tasks-md-at-cannot")
+		Reason(env, "no-tasks-md")
 		return 2
 	}
 
@@ -216,7 +216,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, worktree)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", trsdPrefix, name)
-		Reason(env, "flow-record-dispatches-failed-for")
+		Reason(env, "record-dispatches-failed")
 		return 2
 	}
 
@@ -255,7 +255,7 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		c, ok := trsdNewestClass(out)
 		if !ok {
 			fmt.Fprintf(stderr, "%sdecision output was JSON but not an array of decision rows -- cannot answer\n", trsdPrefix)
-			Reason(env, "decision-output-was-json-but")
+			Reason(env, "bad-decision-output")
 			return 2
 		}
 		if c != "" {

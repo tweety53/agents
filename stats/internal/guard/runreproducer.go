@@ -253,7 +253,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	worktree, err := filepath.EvalSymlinks(filepath.Clean(wt))
 	if err != nil {
 		fmt.Fprintf(stderr, "run-reproducer: worktree vanished before it could be resolved: %s\n", worktreeArg)
-		Reason(env, "worktree-vanished-before-it-could")
+		Reason(env, "worktree-vanished")
 		return 4
 	}
 
@@ -266,7 +266,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// cmdText as one line, and a second line hidden inside the argument would
 	// ride along unchecked by every one of them.
 	if strings.Contains(cmdText, "\n") {
-		return refuse("command-line-carries-an-embedded", "the command line carries an embedded newline")
+		return refuse("embedded-newline", "the command line carries an embedded newline")
 	}
 	// Split on space AND tab, as check-panel-reproducers.sh's own tokenizer
 	// does, and the path token is the split's first element. The bash guard
@@ -351,7 +351,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// ponytail: lexical — a later `set +e`, or an edit inside `if`/`||`,
 	// escapes it; a runner-side landing proof if that ever bites.
 	if body, _ := os.ReadFile(resolved); mutation && !rrErrexit.Match(body) {
-		return refuse("mutation-reproducer-has-no", "the mutation reproducer has no `set -e` line — add `set -e` so an edit that fails exits non-zero instead of reading as a surviving mutant")
+		return refuse("reproducer-missing-set-e", "the mutation reproducer has no `set -e` line — add `set -e` so an edit that fails exits non-zero instead of reading as a surviving mutant")
 	}
 	// The reproducer's identity, taken from the same resolved file every
 	// containment check above passed, and taken before execution so a
@@ -368,7 +368,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		return 4
 	}
 	if expectSHA != "" && expectSHA != sha {
-		return refuse("reproducer-file-is-not", fmt.Sprintf("the reproducer file is not the one the dispatch-time run read (pinned sha %s, found %s) — a reproducer re-authored between rounds, its mutation-convention declaration included, is a different reproducer answering in a vocabulary the pre-fix verdict never carried; re-run it against the defect-present code and carry its fresh verdict and sha", expectSHA, sha))
+		return refuse("reproducer-changed", fmt.Sprintf("the reproducer file is not the one the dispatch-time run read (pinned sha %s, found %s) — a reproducer re-authored between rounds, its mutation-convention declaration included, is a different reproducer answering in a vocabulary the pre-fix verdict never carried; re-run it against the defect-present code and carry its fresh verdict and sha", expectSHA, sha))
 	}
 
 	// Every argument after the path token is resolved and checked the same way,
