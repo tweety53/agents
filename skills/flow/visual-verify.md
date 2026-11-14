@@ -8,23 +8,24 @@ here. A run whose diff touches no UI path never reads this file.
 
 ## The verifier dispatch
 
-**`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
+**The verifier's pair governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
-and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `opus`, dispatched on its
-**Allowed pairs** row (`skills/flow-contracts/model-policy.md`), read from neither the settings store nor
-`<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
-never falls back, because it is never resolved — the point is a predictable model for mechanical
-verification runs regardless of what the decision chose for any other dispatch. **The verifier is
-never dispatched on another model, whatever any other rule — a project's, an operator's global
+and dispatches no verifier. The pair is the first base pair of the **Allowed pairs** row
+`visual-verifier` (`skills/flow-contracts/model-policy.md`), an open experiment's in its place,
+mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`); `prepare` reads it and
+names it on its `DISPATCH:` line. It is not a decision pair and not a session override: read from
+neither the settings store nor `<project>/.flow/project.md`, and a plain-language session
+instruction does not override it — the point is a predictable model for mechanical verification
+runs regardless of what the decision chose for any other dispatch. **The verifier is never
+dispatched on any pair but that one, whatever any other rule — a project's, an operator's global
 instructions — says about browser-driving agents.**
 
 `flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
-tooling analysis** below. `subagent_type: flow-low` (`agents/flow-low.md`, effort `low`), the Agent tool's
-`model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
-literal `opus`, never a decision pair and never a session override — mapped on harnesses `zcode`
-and `muse` per
+tooling analysis** below. `subagent_type` and the Agent tool's `model` parameter are the ones the
+`DISPATCH:` line names — `flow-<effort>` and the model of the verifier's pair, never a decision
+pair and never a session override — mapped on harnesses `zcode` and `muse` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
 compares against. Its prompt opens with the line `Role: visual-verifier` and carries, verbatim:
 
@@ -68,8 +69,8 @@ own system prompt>`.
 > found are none. Report every departure you see in this one pass.
 
 **Recording.** `flow-guard visual-verify-pass prepare` records each dispatch's `begin` and `close` its `end`,
-`-role verifier`, `-task` omitted, `-model
-opus -effort low`, `-key visual-verify`, suffixed `-<repository name>` when this run's resolved set holds
+`-role verifier`, `-task` omitted, `-model`
+and `-effort` the `DISPATCH:` line's pair, `-key visual-verify`, suffixed `-<repository name>` when this run's resolved set holds
 more than one worktree — the worktree's main checkout's basename, the name
 `flow-guard check-visual-trigger --repo` takes, since every worktree's own basename is the change name — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
@@ -139,10 +140,10 @@ failed; `missing-fixture` — a fixture or baseline the verify needed and the wo
 carry. A report with every exit zero still
 closes `-outcome completed`.
 
-**Handshake.** Compare the `Model:` line against `opus` (never a decision pair or a session
-override) and apply **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**),
-unchanged — its first- and second-mismatch course and its single-model-harness case alike, `opus`
-the requested model it names.
+**Handshake.** Compare the `Model:` line against the `DISPATCH:` line's model (never a decision
+pair or a session override) and apply **The handshake** (`skills/flow/implement.md`, **The parent
+orchestrates directly**), unchanged — its first- and second-mismatch course and its
+single-model-harness case alike, that model the requested model it names.
 
 A verifier that ends without writing its report file, or whose agent dies, is closed by `close`
 `-outcome aborted` with `STOP: no report`, and blocks this handoff exactly as a failed command would,

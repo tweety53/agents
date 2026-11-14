@@ -37,7 +37,6 @@ A recorded base gone from origin — merged and deleted — is refused by name b
 ```bash
 SETTINGS_JSON="$(flow settings get || true)"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
-VERIFY_MODEL=opus
 ```
 
 **An open main-agent experiment is checked, never enforced.** Right after resolving the above, run
@@ -67,8 +66,9 @@ is canonical for what dispatching it means):
 
 **Every other dispatch runs on its decision pair** — the implementer, every panel slot and the
 panel-fix subagent — or, with no pair recorded, on the literal `opus`. **Model and effort**
-(`skills/flow/brainstorm-planner.md`) is canonical for that no-pair `opus`, the tooling analyst's
-included, and for how each pair's model is chosen.
+(`skills/flow/brainstorm-planner.md`) is canonical for that no-pair `opus` and for how each pair's
+model is chosen. The verifier and the tooling analyst run on their own **Allowed pairs** rows
+(`skills/flow-contracts/model-policy.md`).
 
 **A plain-language session instruction overrides the pair(s) it names for this run only** —
 "use opus for the panel", "implement on sonnet" — per **Model policy**
