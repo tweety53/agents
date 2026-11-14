@@ -26,9 +26,9 @@ guidance.
 review on the most capable model, and escalating the model in fix rounds 4-5.** flow fixes every
 panel slot at its dispatch's decision pair instead.
 
-**The planner makes the choice.** The implementer, the fixer and each panel dispatch run on the
-model and effort the Decide step chose for them, per **Model and effort**
-(`skills/flow/brainstorm-planner.md`), canonical for the choice's bounds. The fixer's pair is its
+**The pair judge makes the choice.** The implementer, the fixer and each panel dispatch run on the
+model and effort the Decide step recorded for them from `flow-guard pair-judge`, per **Model and effort**
+(`skills/flow/brainstorm-planner.md`), canonical for the choice and its bounds. The fixer's pair is its
 own, not the implementer's; a fix-round re-run runs on the decision's `panel.rerun_dispatch` pair.
 Which model a dispatch with no recorded pair runs on — a micro panel, the no-decision dispatch —
 is **Model and effort** (`skills/flow/brainstorm-planner.md`) as well.
@@ -48,8 +48,8 @@ exactly as above.
 ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
 slot is a prompt-driven role
 (**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every
-other slot does. The findings merger, which reviews nothing, and every gated per-task reviewer
-bundle and its fix re-review run on their roles' fixed **Allowed pairs** below.
+other slot does. The findings merger, which reviews nothing, runs on its role's **Allowed pairs** below, and every
+gated per-task reviewer bundle and its fix re-review on the pair `flow-guard pair-judge` prints for its role.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 
@@ -154,11 +154,17 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | `pipeline-fix-review-1` | First review of the tooling fix. |
 | `pipeline-fix-review-r` | Re-review once that fix is corrected. |
 
+### Pair choice
+
+| Role | Does |
+|---|---|
+| `pair-judge` | Picks each dispatch's model and effort from its role's allowed pairs. |
+
 ## Experiments
 
 **An open experiment overrides roles' base pairs.** `flow experiment open -name <n>
 -cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the pairs
-(check-dispatch-pair, check-loop-dispatch, plan-agent-pair, plan-class, pipeline-fix) admits the
+(check-dispatch-pair, check-loop-dispatch, pair-judge, plan-agent-pair, pipeline-fix) admits the
 experiment's pairs in place of that role's base pairs, and marked and opt-in pairs are never
 overridden. `flow record decision` reads the same overlay: it refuses a decision whose implementer, fixer or group pair the role's admitted pairs do not admit. One
 experiment may carry several roles; a role is in at most one open experiment. Role `main` names
