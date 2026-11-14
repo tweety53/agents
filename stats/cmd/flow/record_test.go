@@ -924,6 +924,22 @@ func TestRecordDispatchBeginAcceptsDiffBase(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBeginSendsPairPick pins KAN-1119's CLI half: a begin
+// carries the pair judge's `<source>: <reason>` given with -pair-pick, and
+// a begin no judge picked for sends no pairPick key at all -- absence, not
+// an empty value.
+func TestRecordDispatchBeginSendsPairPick(t *testing.T) {
+	sent := dispatchBeginBody(t, "-pair-pick", "judge: a docs-only plan")
+	if sent["pairPick"] != "judge: a docs-only plan" {
+		t.Errorf("pairPick = %v, want %q", sent["pairPick"], "judge: a docs-only plan")
+	}
+
+	sent = dispatchBeginBody(t)
+	if v, ok := sent["pairPick"]; ok {
+		t.Errorf("pairPick = %v, want the key absent when no -pair-pick is given", v)
+	}
+}
+
 // TestRecordDispatchBeginSendsTheSessionID pins KAN-967's CLI half: a
 // begin carries the harness session it ran in, so the store can bind a row
 // no stage run's token reaches.
