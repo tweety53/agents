@@ -113,7 +113,7 @@ func proveReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		return die("not-a-directory", "not a directory: %s", wt)
 	}
 	if git("rev-parse", "--is-inside-work-tree").Run() != nil {
-		return die("not-a-git-worktree", "not a git worktree: %s", wt)
+		return die("not-a-worktree", "not a git worktree: %s", wt)
 	}
 	resolve := git("rev-parse", "--verify", "--quiet", ref+"^{commit}")
 	resolve.Stderr = stderr

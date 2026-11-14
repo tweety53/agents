@@ -195,7 +195,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	cannotRead := func() int {
 		fmt.Fprintf(stderr, "check-plan-unchanged: the plan tree under %s could not be read, or its content "+
 			"could not be written -- cannot answer\n", wt)
-		Reason(env, "plan-tree-under-could-not")
+		Reason(env, "cannot-read-plan-tree")
 		return 2
 	}
 	snapPath := smcAbs(env, snap)
@@ -227,7 +227,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	want, err := os.ReadFile(snapPath)
 	if fi, serr := os.Stat(snapPath); serr != nil || !fi.Mode().IsRegular() || err != nil {
 		fmt.Fprintf(stderr, "check-plan-unchanged: no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it\n", snap)
-		Reason(env, "no-readable-snapshot-at-cannot")
+		Reason(env, "no-readable-snapshot")
 		return 2
 	}
 	var got bytes.Buffer
@@ -258,7 +258,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	cur, err := os.CreateTemp(tmpdir, "check-plan-unchanged-verify.")
 	if err != nil {
 		fmt.Fprintln(stderr, "check-plan-unchanged: mktemp failed -- cannot answer")
-		Reason(env, "mktemp-failed-cannot-answer")
+		Reason(env, "mktemp-failed")
 		return 2
 	}
 	defer os.Remove(cur.Name())
@@ -268,7 +268,7 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if werr != nil {
 		fmt.Fprintln(stderr, "check-plan-unchanged: mktemp failed -- cannot answer")
-		Reason(env, "mktemp-failed-cannot-answer")
+		Reason(env, "mktemp-failed")
 		return 2
 	}
 	diffBin := "diff"

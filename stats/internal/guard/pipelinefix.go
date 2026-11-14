@@ -195,7 +195,7 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	name := rest[0]
 	if !plainChangeName(name) || (len(rest) == 2 && !lpDigits.MatchString(rest[1])) {
 		fmt.Fprintf(stderr, "%s: <name> must be a plain change name and <k> a number\n", self)
-		Reason(env, "name-must-be-a-plain")
+		Reason(env, "bad-name")
 		return 2
 	}
 	branch := "self-review-" + name
@@ -210,7 +210,7 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	base, ok := pfBase(env, pe.git, pe.main)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
-		Reason(env, "refs-remotes-origin-head")
+		Reason(env, "origin-head-unresolved")
 		return 2
 	}
 	if len(rest) == 2 {
@@ -626,7 +626,7 @@ func pfRemove(env Env, pe pfEnv, wt, branch string, force bool, stderr io.Writer
 				out = fmt.Sprintf("git %s exited %d\n", strings.Join(a, " "), rc)
 			}
 			fmt.Fprint(stderr, out)
-			Reason(env, "git-exited")
+			Reason(env, "git-failed")
 			return 1
 		}
 	}
@@ -664,7 +664,7 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 	base, ok := pfBase(env, pe.git, pe.main)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: refs/remotes/origin/HEAD is unset\n", self)
-		Reason(env, "refs-remotes-origin-head")
+		Reason(env, "origin-head-unresolved")
 		return 2
 	}
 	if rc, out := kwRun(env, "", pe.git, "-C", wt, "fetch", "origin"); rc != 0 {
@@ -683,7 +683,7 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 	// The lint lines and tests run on what is about to land, moved base or not.
 	if rc := pfVerify(env, pe, wt, stdout, stderr); rc != 0 {
 		fmt.Fprintf(stderr, "%s: red against %s — nothing pushed\n", self, base)
-		Reason(env, "red-against")
+		Reason(env, "checks-red")
 		return 1
 	}
 	rows, ok := lpRows(env, pe.main, lp)

@@ -309,7 +309,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if repos == "" || strings.Trim(repos, "0123456789") != "" {
 		fmt.Fprintf(stderr, "plan-class: <repos> must be a non-negative integer, got: %s\n", repos)
-		Reason(env, "repos-must-be-a-non")
+		Reason(env, "bad-repos")
 		return 2
 	}
 	b, err := os.ReadFile(smcAbs(env, tasksFile))
@@ -435,7 +435,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		step := slices.Index(pcClasses, override) - slices.Index(pcClasses, class)
 		if step != 0 && step != 1 {
 			fmt.Fprintf(stderr, "plan-class: -class %s must be %s or one step above it\n", override, class)
-			Reason(env, "class-must-be-or-one")
+			Reason(env, "unknown-class")
 			return 2
 		}
 		effective = override
@@ -456,7 +456,7 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, role := range []string{"panel-sanity-efficiency", "panel-mutation-failure"} {
 		if err != nil || len(policy[role]) == 0 {
 			fmt.Fprintf(stderr, "plan-class: the allowed-pairs table names no %s row (%v)\n", role, err)
-			Reason(env, "allowed-pairs-table-names-no")
+			Reason(env, "allowed-pairs-row-missing")
 			return 2
 		}
 	}

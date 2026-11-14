@@ -189,7 +189,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	}
 	if token == "" {
 		fmt.Fprintf(stderr, "%ssession token is required and must be this run's own literal token\n", pfdPrefix)
-		Reason(env, "session-token-is-required-and")
+		Reason(env, "session-token-required")
 		return 2
 	}
 
@@ -229,7 +229,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, worktree)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", pfdPrefix, name)
-		Reason(env, "flow-record-dispatches-failed-for")
+		Reason(env, "record-dispatches-failed")
 		return 2
 	}
 
@@ -239,7 +239,7 @@ func checkPanelFixSingleDispatch(args []string, env Env, stdout, stderr io.Write
 	findings, err := pfdRead(env, env.Findings, "findings", name, worktree)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record findings failed for '%s' -- cannot answer\n", pfdPrefix, name)
-		Reason(env, "flow-record-findings-failed-for")
+		Reason(env, "record-findings-failed")
 		return 2
 	}
 

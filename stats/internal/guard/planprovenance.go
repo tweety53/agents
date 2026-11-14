@@ -3341,7 +3341,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		repoRoot = env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if repoRoot == "" {
 			fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT and FLOW_GUARD_REPO_ROOT are unset — run flow-guard check-plan-provenance, which sets the latter")
-			Reason(env, "check-plan-provenance-root-and")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
@@ -3623,7 +3623,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 		// anywhere.
 		fmt.Fprintf(stderr, "none of %s found at all, in any of %d in-flight change(s) under %s — refusing to report a clean run\n",
 			strings.Join(ppScannedFilenames, ", "), len(changeDirs), changesDir)
-		Reason(env, "none-of-found-at-all")
+		Reason(env, "no-plan-files-found")
 		return 2
 	}
 

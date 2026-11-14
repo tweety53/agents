@@ -82,7 +82,7 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 		f := strings.Split(spec, ":")
 		if len(f) < 3 || len(f) > 4 || f[0] == "" || f[1] == "" || f[2] == "" {
 			fmt.Fprintf(stderr, "panel-round-begins: slot %q is not <slot>:<model>:<effort>[:<diff-base>]\n%s", spec, prbUsage)
-			Reason(env, "slot-is-not-slot")
+			Reason(env, "bad-slot")
 			return 2
 		}
 		s := slot{name: f[0], model: f[1], effort: f[2]}

@@ -110,7 +110,7 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if n, err := strconv.Atoi(args[1]); err != nil || n < 1 {
 		fmt.Fprintf(stderr, "plan-agent-pair: <n> must be a positive integer, got %q\n", args[1])
-		Reason(env, "n-must-be-a-positive")
+		Reason(env, "bad-n")
 		return 2
 	}
 	rows, err := policyTable(env)

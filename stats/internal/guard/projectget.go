@@ -98,7 +98,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 			tmp, err := pgHead(git("-C", root, "show", obj))
 			if err != nil {
 				fmt.Fprintf(stderr, "project-get: cannot read %s in %s: %v\n", obj, root, err)
-				Reason(env, "cannot-read-in")
+				Reason(env, "cannot-read-config")
 				return 2
 			}
 			defer os.Remove(tmp)
@@ -125,7 +125,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	switch count {
 	case 0:
 		fmt.Fprintf(stderr, "project-get: %s declares no '## %s' section\n", cfg, key)
-		Reason(env, "declares-no")
+		Reason(env, "section-missing")
 		return 1
 	case 1:
 		body := projectSection(src, key)

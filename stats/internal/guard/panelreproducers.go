@@ -139,7 +139,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished before it could be resolved: %s\n", cprPrefix, worktreeArg)
-		Reason(env, "worktree-vanished-before-it-could")
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
@@ -211,7 +211,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 	findingsText := strings.TrimRight(string(findingsJSON), "\n")
 	if err != nil {
 		fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", cprPrefix, name, findingsText)
-		Reason(env, "cannot-read-findings-for")
+		Reason(env, "cannot-read-findings")
 		return 2
 	}
 	findings, ok := pcParseFindings([]byte(findingsText))

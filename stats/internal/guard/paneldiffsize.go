@@ -87,7 +87,7 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	git := envGit(env)
 	if git("-C", worktree, "rev-parse", "--git-dir").Run() != nil {
-		return fail("not-a-directory-containing", "%s is not a directory containing a git repository", worktree)
+		return fail("not-a-git-repository", "%s is not a directory containing a git repository", worktree)
 	}
 	if mergePoint == "" {
 		return fail("merge-base-argument-is-required", "merge base argument is required")
@@ -99,7 +99,7 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 		return fail("merge-base-does-not-resolve", "merge base does not resolve in %s: '%s'", worktree, mergePoint)
 	}
 	if !pdsDecimal.MatchString(capArg) {
-		return fail("cap-is-not-a-non", "cap is not a non-negative decimal integer: '%s'", capArg)
+		return fail("bad-cap", "cap is not a non-negative decimal integer: '%s'", capArg)
 	}
 
 	// `git diff <commit>` (no second ref) compares the named commit against
@@ -119,7 +119,7 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 	cmd.Stderr = stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return fail("git-diff-failed-in-cannot", "git diff failed in %s -- cannot answer", worktree)
+		return fail("git-diff-failed", "git diff failed in %s -- cannot answer", worktree)
 	}
 	shortstat := strings.TrimRight(string(out), "\n")
 	total := 0

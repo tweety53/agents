@@ -237,7 +237,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished before it could be resolved: %s\n", pcPrefix, worktreeArg)
-		Reason(env, "worktree-vanished-before-it-could")
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
@@ -347,7 +347,7 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	findingsText := strings.TrimRight(string(findingsJSON), "\n")
 	if err != nil {
 		fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", pcPrefix, name, findingsText)
-		Reason(env, "cannot-read-findings-for")
+		Reason(env, "cannot-read-findings")
 		return 2
 	}
 	findings, ok := pcParseFindings([]byte(findingsText))
