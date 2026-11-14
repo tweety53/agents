@@ -1326,9 +1326,9 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 
 	// Nothing is reviewed a third time (skills/flow/brainstorm.md, Plan
 	// review): a live plan-review-<n> reviewer begins only while its session
-	// token holds fewer than two completed plan-review rows; a failed
-	// reviewer's row ends aborted and does not count. A failed read refuses
-	// nothing.
+	// token holds fewer than two plan-review rows completed or still open; a
+	// failed reviewer's row ends aborted and does not count. A failed read
+	// refuses nothing, and a back-filled row is admitted.
 	if *role == "reviewer" && planReviewKeyRE.MatchString(*key) && *startedAt == "" {
 		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
 			return cl.GetRunRecord(ctx, projectKey, f.change)
@@ -1336,12 +1336,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		if err == nil {
 			var done []string
 			for _, d := range run.Dispatches {
-				if d.Role == "reviewer" && d.Outcome == "completed" && d.SessionToken == *sessionToken && planReviewKeyRE.MatchString(d.Key) {
+				if d.Role == "reviewer" && (d.Outcome == "completed" || d.Outcome == "") && d.SessionToken == *sessionToken && planReviewKeyRE.MatchString(d.Key) {
 					done = append(done, d.Key)
 				}
 			}
 			if len(done) >= 2 {
-				fmt.Fprintf(stderr, "flow: -key %q is a third plan review under session token %s, which already completed %s -- nothing is reviewed a third time (skills/flow/brainstorm.md)\n", *key, *sessionToken, strings.Join(done, " and "))
+				fmt.Fprintf(stderr, "flow: -key %q is a third plan review under session token %s, which already began or completed %s -- nothing is reviewed a third time (skills/flow/brainstorm.md)\n", *key, *sessionToken, strings.Join(done, " and "))
 				return 2
 			}
 		}

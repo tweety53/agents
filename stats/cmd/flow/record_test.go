@@ -7928,8 +7928,8 @@ func TestRecordDispatchBeginRefusesACompletedTask(t *testing.T) {
 
 // TestDispatchBeginRefusesAThirdPlanReview pins KAN-1110: a live
 // plan-review-<n> begin is refused once its session token holds two
-// completed plan-review rows; an aborted row, another token and a failed
-// record read are admitted.
+// plan-review rows completed or still open; an aborted row, another token, a
+// failed record read and a back-filled row (-started-at given) are admitted.
 func TestDispatchBeginRefusesAThirdPlanReview(t *testing.T) {
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	repo := recordRepo(t, "kan-258")
@@ -7942,18 +7942,22 @@ func TestDispatchBeginRefusesAThirdPlanReview(t *testing.T) {
 	for _, tc := range []struct {
 		name, record, token string
 		want                int
+		extra               []string
 	}{
-		{"two completed under the token", rows("completed", "mf-T"), "mf-T", 2},
-		{"one of the two aborted", rows("aborted", "mf-T"), "mf-T", 0},
-		{"another token", rows("completed", "mf-T"), "mf-U", 0},
-		{"two completed, one under another token", rows("completed", "mf-U"), "mf-T", 0},
-		{"a failed record read", "", "mf-T", 0},
+		{"two completed under the token", rows("completed", "mf-T"), "mf-T", 2, nil},
+		{"one of the two aborted", rows("aborted", "mf-T"), "mf-T", 0, nil},
+		{"the second begun and still open", rows("", "mf-T"), "mf-T", 2, nil},
+		{"a back-filled third row", rows("completed", "mf-T"), "mf-T", 0, []string{"-started-at", "2026-11-14T11:00:00Z"}},
+		{"another token", rows("completed", "mf-T"), "mf-U", 0, nil},
+		{"two completed, one under another token", rows("completed", "mf-U"), "mf-T", 0, nil},
+		{"a failed record read", "", "mf-T", 0, nil},
 	} {
 		record := tc.record
 		srv, bodies := recordServer(t, &record)
 		args := []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-effort", "low", "-key", "plan-review-3",
 			"-session-token", tc.token}
+		args = append(args, tc.extra...)
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want || (tc.want == 2 && (len(*bodies) != 0 || !strings.Contains(stderr.String(), "plan-review-1 and plan-review-2"))) {
