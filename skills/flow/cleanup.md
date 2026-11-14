@@ -52,7 +52,7 @@ and a kill partway leaves it down.
   nothing**.
 - **`STOP: disclose`** → relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the
   wave-group copies of **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), ask
-  only what they ask, then re-run `cleanup` adding `--proceed <main-checkout>` for the repository
+  only what they ask, then re-run `cleanup` adding `--proceed <main-checkout>` for each repository
   the stop names, every earlier `--proceed` kept.
 - **`STOP: worktree-cleanup`** → a `REFUSED:` or `HELD:` line, or the guard's exit 2: stop at
   `IN_PROGRESS`, leave every worktree alone, and report each line per **Worktree cleanup**

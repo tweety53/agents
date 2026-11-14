@@ -65,15 +65,11 @@ for r in a b; do
 done
 to_land "disclose: "
 sut land "$WORK/a" demo
-check "disclose: land's run 2 stops at STOP: disclose for a" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: disclose — relay $WORK/a.s .*--proceed $WORK/a "'
-sut cleanup "$WORK/a" demo --proceed "$WORK/a"
-check "disclose: --proceed a removes a" '[ ! -d "$WORK/a-worktrees/demo" ]'
-check "disclose: b is not removed on a's answer" '[ -f "$WORK/b-worktrees/demo/secret.txt" ]'
-check "disclose: the re-run stops at STOP: disclose for b" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: disclose — relay $WORK/b.s "'
+check "disclose: land's run 2 stops once, naming a and b" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: disclose — relay the UNCLASSIFIED and DISCLOSE lines of $WORK/a, $WORK/b, .*--proceed $WORK/a --proceed $WORK/b "'
+check "disclose: b is not removed before its answer" '[ -f "$WORK/b-worktrees/demo/secret.txt" ]'
 sut cleanup "$WORK/a" demo --proceed "$WORK/a" --proceed "$WORK/b"
-check "disclose: --proceed for both finishes" '[ "$RC" -eq 0 ] && [ ! -d "$WORK/b-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
+check "disclose: one re-run with --proceed for both finishes" '[ "$RC" -eq 0 ] && [ ! -d "$WORK/a-worktrees/demo" ] && [ ! -d "$WORK/b-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
 		{"rerun_leftover", `# --- rerun_leftover ---
 fixture
 to_land "rerun_leftover: "
