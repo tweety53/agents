@@ -192,7 +192,7 @@ pair. It is never a stop and never an ask.
 ### Caps never stop the run
 
 **Every cap, ceiling, budget or count limit this pipeline names bounds an approach, never the
-run** — a planner's agent cap, a dispatch's wall-clock ceiling, the re-plan budget, the two plan
+run** — a planner's agent cap, a dispatch's wall-clock ceiling, the two plan
 reviews a session token admits, a decision's `session_cap`, a read or git budget. Meeting or being
 refused by one is a failed round of that approach: the next attempt differs — a smaller scope, a
 split dispatch, the highest pair the row admits at or under the bound, another route — and where

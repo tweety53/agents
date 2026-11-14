@@ -88,3 +88,21 @@ func TestCapsNeverStop(t *testing.T) {
 		t.Errorf("implement.md lacks %q", want)
 	}
 }
+
+// TestCapsNeverStopListsNoAsk pins that **Caps never stop the run** lists no
+// bound another contract asks about: document-fix.md asks Re-plan / Append
+// anyway at the re-plan budget (self-review-kan-1110 F2).
+func TestCapsNeverStopListsNoAsk(t *testing.T) {
+	t.Parallel()
+	text := repoText(t, "skills/flow-contracts/pipeline.md")
+	_, caps, ok := strings.Cut(text, "### Caps never stop the run")
+	if !ok {
+		t.Fatal("pipeline.md has no ### Caps never stop the run")
+	}
+	if i := strings.Index(caps, " ## "); i >= 0 {
+		caps = caps[:i]
+	}
+	if strings.Contains(caps, "re-plan budget") {
+		t.Error("pipeline.md's Caps never stop the run lists the re-plan budget, which document-fix.md asks about")
+	}
+}
