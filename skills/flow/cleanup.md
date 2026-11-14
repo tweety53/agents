@@ -62,7 +62,9 @@ and a kill partway leaves it down.
 - **`STOP: state`** → report it; the change stays at `IN_PROGRESS`.
 
 Three stops in a row of `cleanup` take **Three failed rounds** (`skills/flow-contracts/pipeline.md`),
-applied inline from every earlier stop's lines.
+applied inline from every earlier stop's lines — only stops the parent can cure itself. A stop
+that exists to ask or to hand to the operator — `STOP: disclose`, `STOP: worktree-cleanup`,
+`STOP: not-merged` — is never counted toward it: it is handled as its bullet above says, every time.
 
 A `WORKSPACE-REMOVE-FAILED:` line is **the one exception to the stop-at-the-first-failure rule**:
 the script carries on to the cleanup check, which decides the verdict from the project's survivor

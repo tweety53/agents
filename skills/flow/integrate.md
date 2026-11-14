@@ -47,7 +47,9 @@ missing beside the script, whose steps then run by hand from
 header (`<agents repo>/scripts/flow-guard integrate-change`) is canonical for each subcommand's steps and
 the exit contract. A stop closes the stage mark it was in `stopped`; the parent re-runs the call
 that stopped once the stop is handled. Three stops in a row of one call take **Three failed
-rounds** (`skills/flow-contracts/pipeline.md`), applied inline from every earlier `STOP:` line.
+rounds** (`skills/flow-contracts/pipeline.md`), applied inline from every earlier `STOP:` line — only
+stops the parent can cure itself. A stop that exists to ask the operator — `STOP: foreign-staged`,
+`STOP: base-mismatch` — is never counted toward it: it is asked as its bullet below says, every time.
 
 - **`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
 - **`STOP: foreign-staged`** → ask the question of **Surface foreign staged work before the
