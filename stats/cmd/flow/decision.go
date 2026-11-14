@@ -112,7 +112,6 @@ type dDecision struct {
 		Compact      int `json:"compact"`
 		Experimental int `json:"experimental"`
 		Bundle       int `json:"bundle"`
-		Effort       int `json:"effort"`
 	} `json:"rolls"`
 	Execution   string          `json:"execution"`
 	Implementer dPair           `json:"implementer"`
@@ -202,7 +201,7 @@ type dPanel struct {
 var dRequired = []string{
 	"class", "classMechanical", "override", "inputs", "rolls", "execution", "implementer", "fixer", "panel", "groups",
 	"inputs.tasks", "inputs.files", "inputs.repos", "inputs.migration", "inputs.spec", "inputs.red", "inputs.unverified",
-	"rolls.compact", "rolls.experimental", "rolls.bundle", "rolls.effort",
+	"rolls.compact", "rolls.experimental", "rolls.bundle",
 	"panel.compact", "panel.rerun", "panel.grouping", "panel.dispatches", "panel.rerun_dispatch",
 	"groups_reason",
 }

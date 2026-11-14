@@ -125,6 +125,24 @@ func TestDecisionRenderGolden(t *testing.T) {
 	}
 }
 
+// TestDecisionRenderWithoutEffortRoll: a decision whose rolls carry no
+// effort renders, exactly as the same decision carrying one does -- the
+// effort roll is gone, and an older file still holding it still renders
+// (KAN-1119, decision delete-dead-rolls).
+func TestDecisionRenderWithoutEffortRoll(t *testing.T) {
+	with := `{"class":"micro","classMechanical":"micro","override":null,
+		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
+		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
+		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
+	without := strings.Replace(with, `,"effort":50`, "", 1)
+	args := []string{"render", "-file", "<file>", "-session-model", "m", "-reviewers", "r"}
+	rcWith, outWith, errWith := decisionRun(t, with, args...)
+	rc, out, errs := decisionRun(t, without, args...)
+	if rc != 0 || errs != "" || rcWith != 0 || errWith != "" || out != outWith {
+		t.Fatalf("without effort: rc=%d stderr=%q stdout=%q\nwith effort: rc=%d stderr=%q stdout=%q", rc, errs, out, rcWith, errWith, outWith)
+	}
+}
+
 // TestDecisionRenderRefusals pins exit 2 with nothing on stdout for a usage
 // error, an unreadable file, a body that is not a decision, a decision
 // missing a required field, and a malformed visual.
