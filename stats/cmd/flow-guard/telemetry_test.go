@@ -31,6 +31,7 @@ func TestOutcomeForUsesTheGuardsOwnCannotAnswerCode(t *testing.T) {
 		// KAN-1110: check-unfinished-work exits 0 on its OUTSTANDING verdict.
 		{"check-unfinished-work", 0, "OUTSTANDING: task 3 has no implementer row", "fired"},
 		{"check-unfinished-work", 0, "CLEAR: nothing outstanding", "clear"},
+		{"check-plan-shape", 0, "OUTSTANDING: not this guard's verdict", "clear"},
 	} {
 		if got := outcomeFor(tc.name, tc.code, tc.first); got != tc.want {
 			t.Errorf("outcomeFor(%q, %d, %q) = %q, want %q", tc.name, tc.code, tc.first, got, tc.want)
