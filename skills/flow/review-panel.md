@@ -675,7 +675,8 @@ slot's resolved id substituted:
 > too; the file is the record. Open the file with one `Critical: <n>`, one `Important: <n>` and one
 > `Minor: <n>` line counting the findings it raises at each severity, then one `Unread: none` line, or
 > `Unread: <repository>[, <repository>…]` naming each `# worktree:` section you did not read in
-> full.
+> full. Write this file's own text, never one derived from another role's report or from a shared
+> text by substitution: a substitution rewrites every match in the findings as well.
 
 **Every slot's dispatch prompt also carries the WORKTREES paragraph**, listing the resolved set
 and, when it holds more than one worktree, the qualification rule:
