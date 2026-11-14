@@ -155,9 +155,12 @@ flow-guard check-rerun-citations <report> <diff> F<n> [F<n>…]
 
 Exit 0 proceeds. Exit 1 sends the re-run dispatch back **once**, on the same model and effort — one
 send-back per failing re-run dispatch, not one per role: its key is the failed re-run's own key
-plus `-cite`, `-key panel-<round>-<slot|slot+slot+slot>-cite`, and its prompt carries every
-`UNCITED:` line of every role in that dispatch; it sits outside the panel bundle's two-per-round
-cap, at most one per re-run dispatch. A second exit 1 counts that re-run as not clean, and each
+plus `-cite`, `-key panel-<round>-<slot|slot+slot+slot>-cite`, the send-back resumes the failed
+re-run's agent with `SendMessage`, and its `begin` passes `-agent-id <that re-run row's agentId>`
+(`flow record dispatches`) — a resume has no launch for the daemon to stamp, and a row with no id
+settles inline on the parent's tokens; and its prompt carries every `UNCITED:` line of every role
+in that dispatch; it sits outside the panel bundle's two-per-round cap, at most one per re-run
+dispatch. A second exit 1 counts that re-run as not clean, and each
 finding still `UNCITED` goes to the handback below. Exit 2 stops the run.
 **A pending send-back holds the stage:** the round neither closes nor hands to `flow.verify` until
 the `-cite` dispatch has returned and `flow-guard check-rerun-citations` has been run on its report.

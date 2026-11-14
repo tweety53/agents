@@ -2370,3 +2370,25 @@ func TestAttributeGapsSkipsRecordsPastAnAbandonedWindow(t *testing.T) {
 		t.Errorf("deltas = %v, want run 2 alone when no window was abandoned", deltas)
 	}
 }
+
+// TestBestDispatchWindowSplitsAResumedAgentByTime pins the timestamp split a
+// -cite send-back's row relies on: two windows sharing one resumed agent's
+// id are told apart by when the record falls (self-review-kan-1110 F17).
+func TestBestDispatchWindowSplitsAResumedAgentByTime(t *testing.T) {
+	t0 := mustParse(t, "2026-11-14T12:00:00Z")
+	at := func(m int) time.Time { return t0.Add(time.Duration(m) * time.Minute) }
+	e1, e2 := at(10), at(14)
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 1, AgentID: "a1", StartedAt: t0, EndedAt: &e1},
+		{DispatchID: 2, AgentID: "a1", StartedAt: at(12), EndedAt: &e2},
+	}
+	for _, tc := range []struct {
+		m    int
+		want int64
+	}{{13, 2}, {5, 1}} {
+		w, ok, _ := harvest.BestDispatchWindow(windows, "a1", at(tc.m))
+		if !ok || w.DispatchID != tc.want {
+			t.Errorf("record at t0+%dm: window %d ok=%v, want %d", tc.m, w.DispatchID, ok, tc.want)
+		}
+	}
+}

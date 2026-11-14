@@ -29,3 +29,4 @@ var (
 	JudgeInvocationsForTest                 = judgeInvocations
 	RunVerifyListBeginFromInvocationForTest = runVerifyListBeginFromInvocation
 )
+var BestDispatchWindow = bestDispatchWindow
