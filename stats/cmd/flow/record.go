@@ -1813,11 +1813,11 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr)
 }
 
-// recordModelFamilyRe matches every Claude model spelling: the family, with
-// or without the claude- prefix, and any numeric version suffix.
 // planReviewKeyRE matches a plan reviewer's key, plan-review-<n>.
 var planReviewKeyRE = regexp.MustCompile(`^plan-review-[0-9]+$`)
 
+// recordModelFamilyRe matches every Claude model spelling: the family, with
+// or without the claude- prefix, and any numeric version suffix.
 var recordModelFamilyRe = regexp.MustCompile(`^(claude-)?(opus|sonnet|fable|haiku)(-[0-9]+)*$`)
 
 // recordModelAlias maps a Claude model spelling to the family dispatches are
