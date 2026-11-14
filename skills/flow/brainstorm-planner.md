@@ -617,7 +617,10 @@ the word and, on the next line, `Plan review: skip — <reason>`, the reason bei
 one-approach reason `design.md` records under `## Recommended approach`. The self-review and in-run fix planners and a fix run's
 re-plan never write that line and are never reviewed.
 
-**A dispatch whose prompt names a plan-review report triages it.** Append `## Triage` to the
+**A dispatch whose prompt names a plan-review report triages it.** It reads the report,
+`proposal.md` and `design.md`, and `tasks.md` when triaging `plan-review-2`; it opens a file under
+`<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer,
+naming that file in the finding's `## Triage` line. Append `## Triage` to the
 report, one line per finding: `F<k> fixed — <what changed>`, `F<k> contested — <the repository
 path:line or artifact line the reviewer could have read>`, `F<k> escalated`, or, for an
 `advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding with one obvious
