@@ -7,7 +7,8 @@ name resolves to a change already recorded at `STARTED`.
 a missing worktree runs its steps 1–4, and a resume at **B** or **D** runs under its **Run
 brainstorming and planning through the planner role**: a resume at **B** re-enters the planner loop
 at the round after the last `round-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — its
-relay first when that round has no `answers-<r>.md` — and a resume at **D** dispatches the final
+relay first when that round has no `answers-<r>.md`, the resumed round reading `findings.md`, that
+latest round file and its answers — and a resume at **D** dispatches the final
 planner.
 
 **Load `skills/flow/withdrawal.md`** only when `total == 0` below.

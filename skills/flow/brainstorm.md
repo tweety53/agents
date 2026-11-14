@@ -130,7 +130,9 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 ```
 
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
-   plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`,
+   plan mode, reading the ticket, `findings.md`, the latest `round-<r>.md` and the latest
+   `answers-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
+   prompt, never an earlier round or answers file —
    dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
    `-key explore-<n>|design-<n>`, each pair from `flow-guard plan-agent-pair <name> <n> explorer|plan-designer`, `<n>` continuing
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
@@ -159,9 +161,10 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 3. **Artifacts and plan.** Two final planner dispatches, under the run's session token:
    - the first runs section **C** of `skills/flow/brainstorm-planner.md` — its <!-- refs-guard:allow -->
      `flow.create-artifacts` marks, `spectre new` and the three artifacts from the approved design,
-     read from every file under `<abs-worktree>/.superpowers/sdd/planner/`, where the approved
-     design lives — and returns `ARTIFACTS-WRITTEN`; the parent then runs **Plan review** #1 below;
-   - a fresh one then runs section **D** up to, not including, **Decide** — its
+     read from the approved round file, its answers and `findings.md` under
+     `<abs-worktree>/.superpowers/sdd/planner/` — and returns `ARTIFACTS-WRITTEN`; the parent then runs **Plan review** #1 below;
+   - a fresh one then runs section **D** up to, not including, **Decide** — reading `proposal.md`,
+     `design.md`, `tasks.md` and `findings.md` — its
      `flow.writing-plans` begin mark, writing-plans, `spectre validate`, `flow-guard
      check-plan-shape`, the configured guards and `flow tasks count` — and returns `PLAN-WRITTEN`.
 
