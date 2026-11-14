@@ -243,7 +243,11 @@ never an exit code the command did not return.
    worktree of the repository that holds specs; start the stack there from `start` when declared, else `## run` — on its own
    derived workspace, never the change's running stack — and run `capture` from there with
    `<spec>` substituted. Measure the same element on the PNG it writes and judge it as above. Whether
-   or not the capture ran, stop that stack, remove the workspace it derived with the project's declared removal command
+   or not the capture ran, stop that stack with the project's `## stop` command run from the
+   merge-base worktree, else by each port it started (`lsof -ti tcp:<port> -sTCP:LISTEN | xargs kill`)
+   — never by a tool-wide daemon stop such as `gradle --stop`, run bare or through the Gradle
+   wrapper, which stops every daemon of that tool, the change's own running stack among them
+   (kan-1096 self-review, F4) — remove the workspace it derived with the project's declared removal command
    (**Creation and cleanup**, `skills/flow-contracts/workspace-isolation.md`),
    and remove those worktrees before the report is written: nothing the merge-base capture writes
    is committed or stands as this change's baseline. A merge-base capture that cannot run — the
