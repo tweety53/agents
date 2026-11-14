@@ -748,12 +748,16 @@ type cfcDispatchRow struct {
 	round                    int
 }
 
-// cfcRetryRE is a handshake retry's trailing -retry or -retry-<n>.
-var cfcRetryRE = regexp.MustCompile(`-retry(-[0-9]+)?$`)
+// cfcRetryRE is a handshake retry's trailing -retry or -retry-<n>, and a
+// -cite send-back's trailing -cite (skills/flow/review-panel-fix-round.md),
+// alone or after a retry (self-review-kan-1110 F1).
+var cfcRetryRE = regexp.MustCompile(`(-retry(-[0-9]+)?)?(-cite)?$`)
 
 // report is the file a dispatch owes for component c:
 // panel-report-<round>-<c>[-<repo>].md, <repo> the key's remainder after
-// panel-<round>-<slot>, a trailing retry dropped (kan-1096 self-review, F2).
+// panel-<round>-<slot>, a trailing retry dropped (kan-1096 self-review, F2)
+// and a trailing -cite dropped: a -cite send-back rewrites the re-run's own
+// reports (skills/flow/review-panel-fix-round.md; self-review-kan-1110 F1).
 func (d cfcDispatchRow) report(c string) string {
 	rest, ok := strings.CutPrefix(d.key, fmt.Sprintf("panel-%d-%s", d.round, d.slot))
 	if !ok {

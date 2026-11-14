@@ -851,3 +851,24 @@ func TestCheckPanelFindingsClosedFlagsRowsNoReportCounts(t *testing.T) {
 		}
 	})
 }
+
+// A -cite send-back rewrites the failed re-run's own reports, so its row owes
+// those files and no -cite one (self-review-kan-1110 F1).
+func TestCheckPanelFindingsClosedCiteRowOwesTheRerunReport(t *testing.T) {
+	t.Parallel()
+	const left = "completed reviewer dispatch(es) left no report file: "
+	cite := cfcDispatchJSON(cfcDispatch{Key: "panel-4-primary+principles-cite", Role: "reviewer", Slot: "primary+principles", Outcome: "completed"})
+	rc, errs := cfcCase(t, "[]", cite, nil)
+	if rc != 1 || !strings.Contains(errs, left) || !strings.Contains(errs, "panel-report-4-primary.md") ||
+		!strings.Contains(errs, "panel-report-4-principles.md") || strings.Contains(errs, "-cite.md") {
+		t.Errorf("cite row, no files: rc %d\n%s", rc, errs)
+	}
+	clean := "Critical: 0\nImportant: 0\n"
+	if _, errs := cfcCase(t, "[]", cite, map[string]string{"panel-report-4-primary.md": clean, "panel-report-4-principles.md": clean}); strings.Contains(errs, "left no report file") {
+		t.Errorf("cite row, re-run reports written: %s", errs)
+	}
+	retry := cfcDispatchJSON(cfcDispatch{Key: "panel-4-primary-retry-2-cite", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	if _, errs := cfcCase(t, "[]", retry, nil); !strings.Contains(errs, "panel-report-4-primary.md\n") {
+		t.Errorf("retried cite row owes the unsplit report: %s", errs)
+	}
+}
