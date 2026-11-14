@@ -1432,6 +1432,73 @@ func TestDispatchRoundBaseRoundTrips(t *testing.T) {
 	}
 }
 
+// TestDispatchPairPickRoundTrips: the pair judge's `<source>: <reason>` a
+// dispatch was begun with (-pair-pick) reads back from both the insert's
+// return and RunRecord; a dispatch no judge picked reads back empty
+// (KAN-1119).
+func TestDispatchPairPickRoundTrips(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-pair-pick-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	judged := baseDispatch("explorer", "sonnet")
+	judged.Key = "explore-1"
+	judged.PairPick = "judge: a mass rename is mechanical"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", judged)
+	if err != nil {
+		t.Fatalf("RecordDispatch (judged): %v", err)
+	}
+	if got.PairPick != judged.PairPick {
+		t.Errorf("RecordDispatch returned PairPick %q, want %q", got.PairPick, judged.PairPick)
+	}
+	unjudged := baseDispatch("explorer", "opus")
+	unjudged.Key = "explore-2"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", unjudged); err != nil {
+		t.Fatalf("RecordDispatch (unjudged): %v", err)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	picks := map[string]string{}
+	for _, d := range rec.Dispatches {
+		picks[d.Key] = d.PairPick
+	}
+	if picks["explore-1"] != judged.PairPick || picks["explore-2"] != "" {
+		t.Errorf("RunRecord pair picks = %v, want explore-1=%q and explore-2 empty", picks, judged.PairPick)
+	}
+}
+
+// TestDispatchReBeginReplacesPairPick: a dispatch re-begun on the same key
+// on another pair records the new pick, never the first begin's.
+func TestDispatchReBeginReplacesPairPick(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-pair-pick-rebegin-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first := baseDispatch("implementer", "opus")
+	first.Key = "impl-1"
+	first.SessionToken = "tok-1"
+	first.PairPick = "judge: needs care"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", first); err != nil {
+		t.Fatalf("RecordDispatch (first): %v", err)
+	}
+	again := baseDispatch("implementer", "sonnet")
+	again.Key = "impl-1"
+	again.SessionToken = "tok-1"
+	again.PairPick = "override: cap"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", again)
+	if err != nil {
+		t.Fatalf("RecordDispatch (re-begin): %v", err)
+	}
+	if got.PairPick != again.PairPick {
+		t.Errorf("re-begin PairPick = %q, want %q", got.PairPick, again.PairPick)
+	}
+}
+
 // TestRecordDispatchOmitsAbsentDiffBase pins the other half: a dispatch
 // that recorded no base reads back with none, and the rest of its row is
 // untouched by the column's addition.

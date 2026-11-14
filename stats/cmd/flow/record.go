@@ -306,7 +306,8 @@ func validateFindingRef(flagName, ref string) error {
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] [-request n] -role role [-slot name]
                              -model model -effort level [-agent-id id|none]
-                             [-diff-base sha[,sha...]] [-round-base sha] [-started-at instant]
+                             [-diff-base sha[,sha...]] [-round-base sha] [-pair-pick text]
+                             [-started-at instant]
                              -key key -session-token token
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
@@ -1092,6 +1093,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, recorded intent the daemon never overwrites -- optional: omitted, the daemon stamps it from the transcript's launch result; the literal \"none\" records that the harness exposes none")
 	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta, or a comma-joined list of shas where it was given one delta per worktree -- optional, since an implementer and a slot reading the whole diff record none")
 	roundBase := fset.String("round-base", "", "the fix round's base sha a scoped visual-verify re-run verifies from -- optional: omitted on every unscoped dispatch, the loop's closing run included")
+	pairPick := fset.String("pair-pick", "", "the pair judge's `<source>: <reason>` for this dispatch's pair -- optional: omitted where no judge picked the pair (skills/flow/brainstorm-planner.md, Model and effort)")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")
@@ -1508,6 +1510,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		Effort:       *effort,
 		DiffBase:     *diffBase,
 		RoundBase:    *roundBase,
+		PairPick:     *pairPick,
 		SessionToken: *sessionToken,
 		SessionID:    sessionID,
 		StartedAt:    started,
@@ -1895,7 +1898,7 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	registerRecordIdentityFlags(fset, &f)
-	beginOnly := []string{"task", "request", "role", "slot", "model", "effort", "agent-id", "diff-base", "round-base", "started-at"}
+	beginOnly := []string{"task", "request", "role", "slot", "model", "effort", "agent-id", "diff-base", "round-base", "pair-pick", "started-at"}
 	endOnly := []string{"commit", "outcome", "cause", "tokens", "ended-at"}
 	v := map[string]*string{}
 	for _, n := range append(append([]string{"key", "session-token"}, beginOnly...), endOnly...) {

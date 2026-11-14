@@ -151,15 +151,18 @@ Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), a
 
 ### Deciding how to implement (`flow.decide`)
 
-**The class and rolls decide execution, effort and panel; nothing in a project configures them.**
+**The class, the rolls and the pair judge decide execution, pairs and panel; nothing in a project configures them.**
 The planner prints a `## Decision` table and proceeds without asking.
 
 - **Classify.** `scripts/flow-guard plan-class` counts tasks, files and repositories, flags
   migrations, spec edits, red tasks and `unverified:` claims, and prints `micro`, `small`, `regular`
   or `big`. The planner may raise it one step with a reason, never lower it.
 - **Roll.** Hashed from the change name, so they repeat: `compact` (smaller roster), `experimental`
-  (one prompt from `skills/flow/experimental/`), `bundle` (reviewer grouping), `effort` (below 80,
-  every dispatch at `medium`, a hard-seam reviewer at `high`), plus each always-on extra dispatch's.
+  (one prompt from `skills/flow/experimental/`), `bundle` (reviewer grouping).
+- **Judge.** `scripts/flow-guard pair-judge <role> <digest-file>` picks a dispatch's model and
+  effort from its role's allowed pairs: a headless `claude -p` call, on the `pair-judge` role's own
+  pair, reads the role, the candidates and a digest of the work; any failure falls back to the
+  role's first pair.
 - **Decide.** Per the table; saved to `.superpowers/sdd/decision.json` and `flowd`, with every
   dispatch's model.
 
@@ -168,7 +171,7 @@ The planner prints a `## Decision` table and proceeds without asking.
 | `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
 | `small` | inline | — | `primary`+`principles`, delta re-runs |
 | `regular` | inline | — | `primary`+`principles`, delta re-runs |
-| `big` | `sdd`: subagent implementers, one per task group | `medium` on an `effort` roll below 80, else `low`/`medium` per group, from how hard its tasks are; a verification-only group (end-to-end specs, fidelity captures) always `low` | same roster as `regular`, full re-runs |
+| `big` | `sdd`: subagent implementers, one per task group | judged per group by `pair-judge`, never `high` | same roster as `regular`, full re-runs |
 
 - **Rosters.** `compact` shrinks any roster but `micro`'s to `primary`+`principles`; a round runs at
   most two review dispatches of up to three roles, beside the always-on

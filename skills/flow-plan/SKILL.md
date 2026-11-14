@@ -32,7 +32,7 @@ a Jira key, an existing change's name, a bare topic, or nothing at all. Before a
 the session reads the tree, runs the investigate-then-ask rounds and the convergence check below,
 and may dispatch the fresh Explore and Plan agents **Explore and design agents**
 (`skills/flow/brainstorm-planner.md`) allows — its pair from
-`flow-guard plan-agent-pair <session-token> <n> <role>`, seeded with this session's token — never
+`flow-guard pair-judge <role> <prompt file>` — never
 a `fork`. Once a capture has created the change, the session never brainstorms or writes the plan
 itself: `planner` dispatches do, exactly as in `/flow`'s creating run (**Capturing a new change**,
 below; decision `flow-plan-plans-through-planner`). The session still writes an addition to an
@@ -210,8 +210,8 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
 Every guard those sections invoke runs per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`): `flow-guard kickoff-worktree <project> <name>` with its siblings
 `flow-guard check-worktree-location <project>` and `flow-guard project-get <project> <key>` (kickoff), `flow-guard check-plan-shape <tasks.md>` (D and the gate),
-`flow-guard plan-class <tasks.md> <repos>`, `flow-guard plan-dispatch-bundles <tasks.md>` and
-`flow-guard plan-dispatch-groups <tasks.md>` (Decide).
+`flow-guard plan-class <tasks.md> <repos>`, `flow-guard plan-dispatch-bundles <tasks.md>`,
+`flow-guard plan-dispatch-groups <tasks.md>` and `flow-guard pair-judge <role> <digest-file>` (Decide).
 
 **On Yes, take the plan snapshot** (**Plan snapshots**, `skills/flow/brainstorm.md`) — nothing is
 staged, committed or pushed: a capture leaves the change on disk at `STARTED` in its worktree,

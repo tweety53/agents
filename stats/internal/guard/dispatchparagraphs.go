@@ -446,7 +446,7 @@ var dpEntries = map[string]dpEntry{
 		[]string{"from its file", "on Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/"},
 		map[string]string{"tdd": "skills/test-driven-development/SKILL.md`", "debugging": "skills/systematic-debugging/SKILL.md`"}},
 	"planning": {"**PLANNING DELEGATION:**",
-		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "flow-guard plan-agent-pair"}, nil},
+		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "flow-guard pair-judge"}, nil},
 	"proofruns": {"**PROOF RUNS:**",
 		[]string{"flow-guard run-capped", "bounded worker count", "at most 5 capped runs", "straight to code", "shows the check failing with the mechanism removed"}, nil},
 	"cappedrepro": {"is allowed only under flow-guard run-capped", []string{"bounded worker count"}, nil},

@@ -395,7 +395,7 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
 	          cause, session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-	          diff_base, effort, round_base, request`
+	          diff_base, effort, round_base, pair_pick, request`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
 // alias, for the one statement that needs it -- an UPDATE ... FROM, where
@@ -439,12 +439,13 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 		dispatchKey  *string
 		diffBase     *string
 		roundBase    *string
+		pairPick     *string
 		bag          []byte
 	)
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&cause, &sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
-		&diffBase, &d.Effort, &roundBase, &d.Request,
+		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request,
 	); err != nil {
 		return records.Dispatch{}, err
 	}
@@ -459,6 +460,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	d.Key = derefOrEmpty(dispatchKey)
 	d.DiffBase = derefOrEmpty(diffBase)
 	d.RoundBase = derefOrEmpty(roundBase)
+	d.PairPick = derefOrEmpty(pairPick)
 	d.Metrics = bag
 	return d, nil
 }
@@ -630,12 +632,12 @@ func insertDispatch(ctx context.Context, q interface {
 		INSERT INTO dispatches (
 			change_id, stage_run_id, seq, task_id, role, slot, model, commit_sha, outcome,
 			session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-			diff_base, effort, session_id, round_base, request
+			diff_base, effort, session_id, round_base, pair_pick, request
 		)
 		SELECT
 			c.id, $3,
 			COALESCE((SELECT MAX(d.seq) FROM dispatches d WHERE d.change_id = c.id), 0) + 1,
-			$4, $5, canonical_slot($6), $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18, $19, $20, $21
+			$4, $5, canonical_slot($6), $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18, $19, $20, $21, $22
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
@@ -648,6 +650,7 @@ func insertDispatch(ctx context.Context, q interface {
 			slot = EXCLUDED.slot,
 			model = EXCLUDED.model,
 			effort = EXCLUDED.effort,
+			pair_pick = EXCLUDED.pair_pick,
 			request = COALESCE(EXCLUDED.request, dispatches.request)
 		RETURNING `+dispatchColumns+`
 	`,
@@ -655,7 +658,7 @@ func insertDispatch(ctx context.Context, q interface {
 		in.Model, nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), nullIfEmpty(in.SessionToken),
 		in.StartedAt, in.EndedAt, metrics, nullIfEmpty(in.Notes), nullIfEmpty(in.AgentID),
 		nullIfEmpty(in.Key), nullIfEmpty(in.DiffBase), effort, nullIfEmpty(in.SessionID),
-		nullIfEmpty(in.RoundBase), in.Request,
+		nullIfEmpty(in.RoundBase), nullIfEmpty(in.PairPick), in.Request,
 	))
 }
 

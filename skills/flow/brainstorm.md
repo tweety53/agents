@@ -108,14 +108,10 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
 `planner-role`). A `/flow-plan` capture runs this section too, with the differences
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states. Every planner dispatch is fresh and one-shot, on `subagent_type:
-flow-planner-<effort>` with `model` and effort from `flow-guard plan-agent-pair <name> <n> planner
-<effort>`, read off the **Allowed pairs** row `planner` (`skills/flow-contracts/model-policy.md`).
-Round 1's effort is `low` when the ask is a seeded note or a `/flow-plan` capture that already
-carries the design (`skills/flow/seeded-note.md`), else `medium`; every later planner dispatch of
-the run takes its pair from `flow-guard plan-agent-pair <name> <n> planner auto <latest round
-file>`, which computes the effort from that file — its `**Scope:**` line, its `[architectural]`
-question count and its distinct cited repo paths — never above `high`; a guard redispatch takes
-the effort the guard redispatch rule below names. `xhigh` and an opt-in pair are used only under an
+flow-planner-<effort>` with `model` and effort from `flow-guard pair-judge planner <digest>`, per
+**Model and effort** (`skills/flow/brainstorm-planner.md`): `<digest>` is the latest round file, and in round 1
+the ticket or seeded note written to `<abs-worktree>/.superpowers/sdd/pair-judge/plan-1.md`; a
+guard redispatch takes the pair the guard redispatch rule below names. `xhigh` and an opt-in pair are used only under an
 operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`): the parent's prompt
 then carries `Operator pair: planner`, and one line `Granted: <role> <model> <effort>` for each
 granted `explorer` or `plan-designer` role. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
@@ -127,7 +123,7 @@ this run's planner dispatches from 1, and the Agent-tool `description` opens wit
 `plan-2 design round` — the row `hooks/enforce-agent-baseline.py` admits:
 
 ```bash
-flow record dispatch begin -change <name> -role planner -model <m> -effort <e> -key plan-<n> -session-token mf-<literal-token>
+flow record dispatch begin -change <name> -role planner -model <m> -effort <e> -key plan-<n> -session-token mf-<literal-token> -pair-pick '<source>: <reason>'
 flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal-token> -outcome completed
 ```
 
@@ -136,7 +132,7 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    `answers-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
    prompt, never an earlier round or answers file —
    dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
-   `-key explore-<n>|design-<n>`, each pair from `flow-guard plan-agent-pair <name> <n> explorer|plan-designer`, `<n>` continuing
+   `-key explore-<n>|design-<n>`, each pair from `flow-guard pair-judge explorer|plan-designer <prompt file>`, `<n>` continuing
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
    a reused key restarts the earlier round's row), writing or
    updating the prototype file a visible change needs and never publishing it, and writes
@@ -249,7 +245,7 @@ in-run fix planners and `/flow-fast` never run it.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.plan-review -harness <harness> -session-token mf-<literal-token> <name>
-flow record dispatch begin -change <name> -role reviewer -model opus -effort low -key plan-review-<n> -session-token mf-<literal-token>
+flow record dispatch begin -change <name> -role reviewer -model <m> -effort <e> -key plan-review-<n> -session-token mf-<literal-token> -pair-pick '<source>: <reason>'
 flow record dispatch end -change <name> -key plan-review-<n> -session-token mf-<literal-token> -outcome completed
 flow stage end -command '/flow' -stage flow.plan-review -outcome completed <name>
 ```
@@ -257,8 +253,8 @@ flow stage end -command '/flow' -stage flow.plan-review -outcome completed <name
 `flow.plan-review` is begun and ended around each review, and steps 1–4 apply to each; every
 dispatch, planner redispatch and question round of a review sits inside its stage.
 
-1. **Dispatch.** One Agent call, `subagent_type: flow-low`, `model: opus` — the **Allowed pairs**
-   row `design-reviewer` (`skills/flow-contracts/model-policy.md`) — its `description` opening
+1. **Dispatch.** One Agent call on the pair `flow-guard pair-judge design-reviewer <prompt file>`
+   prints (**Model and effort**, `skills/flow/brainstorm-planner.md`) — its `description` opening
    with `plan-review-<n>`, `<n>` counting this run's plan-review dispatches from 1. The prompt is
    the lines `Role: design-reviewer` and `Key: plan-review-<n>`, the two agent-baseline
    sentences, the report-tersely line, the paragraph below, and six absolute paths:

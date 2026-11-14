@@ -143,11 +143,10 @@ criterion nothing satisfies — enforced by `flow-guard check-done-when-paths`.
 
 ### Explore and design agents
 
-**Every planning dispatch** takes its pair from `flow-guard plan-agent-pair <seed> <n> <role>` — `<seed>` the
-change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
-planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1, `<role>` the
-dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on — passing the
-printed model as the Agent tool's `model` and the effort as its `effort` — the row's first pair.
+**Every planning dispatch** takes its pair from `flow-guard pair-judge <role> <prompt file>` per **Model and effort** below — `<role>` the
+dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on, and `<prompt file>` the dispatch's prompt, written first to
+`<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md` (in `/flow-plan` before capture, under the directory `flow state dir` prints) — passing the
+printed model as the Agent tool's `model` and the effort as its `effort`.
 Where the planner's own prompt carries `Granted: <role> <model> <effort>` for the dispatch's role,
 the dispatch takes that pair instead, its prompt carrying the lines `Operator pair: <role>` and
 `Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`). Its prompt carries the
@@ -160,11 +159,11 @@ planning dispatch's row is opened before its Agent call and ended when its agent
 `flow stage end` of `flow.brainstorm` refuses while one is open:
 
 ```bash
-flow record dispatch begin -change <change> -role explorer|planner -model <m> -effort <e> -key explore-<n>|design-<n> -session-token <token>
+flow record dispatch begin -change <change> -role explorer|planner -model <m> -effort <e> -key explore-<n>|design-<n> -session-token <token> -pair-pick '<pick>'
 flow record dispatch end -change <change> -key explore-<n>|design-<n> -session-token <token> -outcome completed
 ```
 
-`<m>` and `<e>` are the pair `flow-guard plan-agent-pair` printed, and `<change>` and `<token>` the change
+`<m>` and `<e>` are the pair `flow-guard pair-judge` printed, `<pick>` its source and reason, `<n>` counting the session's planning dispatches from 1, and `<change>` and `<token>` the change
 and session token the planner's own prompt names. A Plan agent's row records the ledger role
 `planner` under its `design-<n>` key, whatever its `Role:` line says — `plan-designer` is the
 **Allowed pairs** role, which the stats derive from that key, and `flow record` refuses it. A
@@ -648,7 +647,7 @@ table; `1` when every path is in this one), `<abs-worktree>` the worktree `flow.
 `<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the
 script classify `micro` (**Micro** below), and the two-argument form stays valid and never
 classifies `micro`. Its `inputs:`, `class:` and `rolls:` lines carry `class_mechanical` and the
-four rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that
+three rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that
 class — execution, implementer, roster, rerun policy, grouping, dispatches and the experimental
 slot, printed rather than derived by hand (the rules are the script's header).
 **You may raise `class_mechanical` one step, never lower it** — `micro`→`small`, `small`→`regular`
@@ -667,28 +666,28 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 
 1. **execution mode** — `inline` (`class` micro) or `sdd` (`class` small, regular or big).
 2. **implementer and fixer model + effort** — only when step 1 came out `sdd`; two pairs, each
-   chosen per **Model and effort** below. The implementer pair is every implementer group's
-   default (step 5). The fixer pair is the panel-fix subagent's own and is chosen from what a fix
-   round does — repair named findings against their reproducers, usually a narrower job than the
-   implementation — so it may differ from the implementer pair, its `reason` saying why. Both
+   printed by `flow-guard pair-judge` per **Model and effort** below over the plan's tasks and the
+   `inputs:` line: the implementer as role `implementer`, `-opus-only` when the plan carries a
+   hard seam, and the fixer as role `panel-fix`. Both
    recorded `skipped — inline` when step 1 is inline, where the parent applies panel fixes on its
    own model (`skills/flow/implement.md`).
 3. **review panel** — roster, compact/experimental, rerun policy, the **rerun pair**, and its
    **grouping** — as the script's `panel:`, `grouping:` and `experimental:` lines print them, a
    free grouping with a one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
    slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
-   static and a free grouping alike assign each dispatch its own pair per **Model and effort**
-   below. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
+   static and a free grouping alike assign each dispatch its own pair, printed by `flow-guard
+   pair-judge panel-reviewer` over the plan's tasks, the `inputs:` line and that dispatch's
+   slots, `-opus-only` when the plan carries a hard seam. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
    fix-round re-run dispatch runs on — one bundled dispatch carrying the round's re-running roles,
    each targeted at the findings its role raised, the full-roster fallback separating them when
-   the bundled findings need separation (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): its `model` is
-   chosen per **Model and effort** below, and its `effort` is `low`, fixed, since a re-run reads a
-   delta to confirm a fix and must be short and fast.
-4. **extra dispatches** — on every class, `micro` included: record `flow-guard plan-class`'s two `extra:`
-   lines, each `{slots, model, effort, reason}` — the first as `extra_dispatch`, `slots`
-   `["test-sanity", "call-efficiency"]`, the second as `extra_dispatch_mutation`, `slots`
-   `["mutation", "failure-modes"]` — `model` and `effort` each line's pair, `reason` naming its
-   roll. Neither is chosen: the roll decides the model and the effort is `low`, always.
+   the bundled findings need separation (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): `flow-guard
+   pair-judge panel-rerun` prints it over the plan's tasks and the `inputs:` line.
+4. **extra dispatches** — on every class, `micro` included: record one pair for each of
+   `flow-guard plan-class`'s two `extra:` lines, each `{slots, model, effort, reason}` — the first
+   as `extra_dispatch`, `slots` `["test-sanity", "call-efficiency"]`, printed by `flow-guard
+   pair-judge panel-sanity-efficiency`, the second as `extra_dispatch_mutation`, `slots`
+   `["mutation", "failure-modes"]`, printed by `flow-guard pair-judge panel-mutation-failure` —
+   each over the plan's tasks and the `inputs:` line.
 5. **implementer groups** — on every run whose step 1 came out `sdd`: run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md`, then
    `flow-guard plan-dispatch-groups <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
@@ -703,10 +702,10 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    wave, since the chain merge joins each to the group holding the feature task it waits on and
    runs them in series. `groups_override` is `null` when the mechanical grouping is
    taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
-   reason when `groups_override` is set. **Each group carries its own `model` and `effort`**:
-   step 2's implementer value by default, or a different pair the planner picks for that group
-   alone per **Model and effort** (a group of mechanical, well-specified tasks at a lower effort; a
-   group carrying the change's hardest seam one step up, never past `medium`), the reason in that group's own `reason`.
+   reason when `groups_override` is set. **Each group carries its own `model` and `effort`**,
+   printed by `flow-guard pair-judge implementer` over that group's own tasks and the `inputs:`
+   line, `-opus-only` when the group carries a hard seam; a plan of one group takes step 2's
+   implementer pair without a second call.
    `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
 6. **visual verification** — on every class, `micro` included: it judges what the change can
@@ -732,45 +731,60 @@ itself, the extra dispatches, step 6's visual judgement, the verify stage, or th
 
 #### Model and effort
 
-**This section is canonical for how a dispatch's model is chosen.** Every pair a Decide step
-assigns — the implementer, the fixer, each panel dispatch, the rerun pair, each implementer group
-— carries a planner-chosen `model`, one of `opus` or `sonnet`, within these bounds:
+**This section is canonical for how a dispatch's model is chosen.** A dispatch whose role the pair
+judge covers — the roles `<agents repo>/stats/internal/guard/pairjudge.go`'s contract lists — takes its pair
+from:
 
-- **implementer, fixer and each implementer group** — `opus` by default; `sonnet` only for simple,
-  predictable work near-certain to succeed on the first try, the pair's `reason` saying so; at
-  effort `medium` or `low`, never `high`;
+```bash
+flow-guard pair-judge <role> <digest-file> [-opus-only]
+```
+
+It prints one line, `<model> <effort> <source> <reason>`, `<source>` one of `judge`, `fallback`
+or `single`, and exits 2 on a role it does not judge; every other role keeps the rule its own site
+states. The digest is what the dispatcher already holds, written to a file first: a dispatch's
+prompt goes to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, `<key>` the dispatch's key,
+and each Decide call's digest to `<abs-worktree>/.superpowers/sdd/pair-judge/decide-<field>.md`,
+`<field>` naming the pair it picks — `implementer`, `fixer`, `group-<g>`, `dispatch-<i>`, `rerun`,
+`extra` or `extra-mutation`. The dispatch runs on the printed model and effort — `subagent_type`
+`flow-<effort>`, `flow-planner-<effort>` for a planner, the Agent tool's `effort` for Explore and
+Plan — and its `flow record dispatch begin` carries `-pair-pick '<source>: <reason>'`; a loop
+dispatch, whose row `flow-guard check-loop-dispatch` opens, carries the line `Pair pick: <source>:
+<reason>` in its prompt instead. A dispatch on a recorded decision pair passes neither: the pair's
+`reason` in the decision row is its record.
+
+**The guard picks inside these bounds**, each applied before the judge sees a candidate:
+
+- **the candidates** — the role's base pairs, an open allowed-pairs experiment's override applied
+  (**Experiments**, `skills/flow-contracts/model-policy.md`); marked and opt-in pairs are never
+  candidates, and no candidate runs at `xhigh` or `max`;
+- **implementer, fixer and each implementer group** — never `high`: the guard drops it from
+  `implementer`, `panel-fix`, `self-review-fix` and `pipeline-fix-fix`;
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
-  performance-sensitive code — `opus`, always;
-- **every other pass-1 panel dispatch** — `opus`, always; a pair outside the `panel-reviewer` role's
-  base pairs only under an operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
-- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`);
-- **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
-- **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
+  performance-sensitive code — `-opus-only`, which drops every candidate not on `opus` unless that
+  leaves none — an open experiment's override on another model then stands;
+- **every other pass-1 panel dispatch** — the `panel-reviewer` role's base pairs; a pair
+  outside them only under an operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
+- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each judged on its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`);
+- **every gated per-task reviewer bundle** — `flow-guard pair-judge gated-reviewer` at dispatch, since no decision pair records it, and a fix re-review bundle `flow-guard pair-judge gated-re-reviewer`;
+- **the rerun pair and the extra dispatches' effort** — `low`, held by their rows, every pair of
+  which is at `low`.
 
-**A role an open allowed-pairs experiment overrides takes one of that experiment's pairs** (**Experiments**, `skills/flow-contracts/model-policy.md`), whatever the effort roll or a hard seam would pick, its `reason` naming the experiment: the implementer and every implementer group are role `implementer`, the fixer is role `panel-fix`, and `flow experiment overrides` lists each overridden role's pairs. `flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit.
+**A judge that cannot answer never blocks a run**: the guard prints the role's first candidate
+with source `fallback`, the reason naming the cause, and exits 0. **A `session_cap` or a session
+override applies on top of the printed pair**: a pair above the cap is replaced by the highest
+pair the role's row admits at or under it (**`session_cap`**, `skills/flow-contracts/pipeline.md`), and an override by the pair it names, the `reason` reading
+`override: <the instruction>` in either case.
+
+`flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
 **review-panel.md**'s no-decision dispatch — runs on the literal `opus`. `flow record
-decision` refuses a decision whose pairs name any other model. Pairs may repeat — two dispatches,
-or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. The rerun
-pair's effort is fixed at `low` (step 3). **A verification-only implementer group is `opus` at `low`, fixed, whatever the
-roll** — a group whose every task only adds end-to-end specs, fidelity captures or baselines
-against design frames of an already-built feature, and changes no
-production code. **No implementer, fixer or implementer group runs at `high`**, on either side of
-the roll: a hard seam takes `medium`. The one `high` fix is the no-progress escalation of **Fewest
+decision` refuses a decision whose pairs name a model other than `opus` or `sonnet`. Pairs may repeat — two dispatches,
+or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. **No implementer, fixer or implementer group runs at `high`.** The one `high` fix is the no-progress escalation of **Fewest
 operator actions** (`skills/flow-contracts/pipeline.md`), a dispatch no decision records. `flow
-record decision` refuses a decision whose implementer, fixer or group pair names `high`. **When
-`effort_roll < 90`, the implementer, the fixer and every implementer group take `low` — `medium` where
-the pair carries a hard seam.** **Every pass-1 panel dispatch takes `low` when `effort_roll < 60` and `medium` otherwise, whatever the band** — 60/40 per
-change. **`high` reaches a pass-1 panel dispatch — a `panel.dispatches` entry, never a gated bundle — one way only:** the operator's explicit **Yes** at the plan
+record decision` refuses a decision whose implementer, fixer or group pair names `high`. **`high` reaches a pass-1 panel dispatch — a `panel.dispatches` entry, never a gated bundle — one way only:** the operator's explicit **Yes** at the plan
 gate (**Plan review gate** below), and that dispatch's prompt opens with the line `Operator-approved high`.
-When `effort_roll ≥ 90`, the implementer, fixer and group efforts are the planner's own choice,
-one of `low`/`medium` — decided from what that dispatch will actually
-do: the complexity of its tasks, the time and space
-complexity of the code it writes or reviews, and the scalability the change has to hold up under.
-A mechanical, well-specified dispatch sits at the cheap end; a dispatch carrying a concurrency
-seam, a data-model change or a performance-sensitive path sits at the expensive end; nothing in
-between is a default. Each pair carries a one-line `reason` beside it in the JSON; the `## Decision`
+Each pair's `reason` in the JSON is the guard's `<source>: <reason>`; the `## Decision`
 block prints it only for a group whose pair departs from the implementer's. **On harnesses `zcode` and `muse` the chosen pair is recorded as chosen and
 replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
 
@@ -783,7 +797,7 @@ Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — o
 run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
 (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `class`, `classMechanical`,
 `override`, `inputs` (the four `flow-guard plan-class` booleans plus `tasks`/`files`/`repos`), `rolls`
-(`compact`, `experimental`, `bundle`, `effort`), `execution`, `implementer` and `fixer` (each an object
+(`compact`, `experimental`, `bundle`), `execution`, `implementer` and `fixer` (each an object
 `{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
 [{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
 `dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster
@@ -834,11 +848,11 @@ not asked and takes **No**, and the run continues to the plan snapshot and the `
 handoff. An operator who wants the plan changed says so before running the handoff's `/flow
 <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is still asked.
 
-**A `panel.dispatches` entry the planner judges worth `high`** — a hard seam the roll's effort may not carry —
+**A `panel.dispatches` entry the planner judges worth `high`** — a hard seam its judged effort may not carry —
 adds one question per such dispatch to the same AskUserQuestion call: **Raise `<dispatch>` to
 `high` — `<seam>`?**, **No** *(default, recommended)* / **Yes**. Only an explicit **Yes**
 re-records that pair at `high` through the `flow.decide` record sequence before implementation;
-anything else leaves the roll's effort. Under the `## decisions: recommended` mode the question is
+anything else leaves its judged effort. Under the `## decisions: recommended` mode the question is
 not asked and **No** is taken.
 
 On **No**,

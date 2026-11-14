@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPlanAgentPair pins plan-agent-pair: every seed and both Explore and
-// Plan roles to `opus low`, an effort's pick, and every usage refusal.
+// Plan roles at low to `opus low`, an effort's pick, and every usage refusal.
 func TestPlanAgentPair(t *testing.T) {
 	smoke.Heavy(t)
 	root, err := filepath.Abs("../../..")
@@ -21,7 +22,7 @@ func TestPlanAgentPair(t *testing.T) {
 	t.Run("every seed gets the row's first pair", func(t *testing.T) {
 		for i := range 100 {
 			for role, want := range map[string]string{"explorer": "opus low\n", "plan-designer": "opus low\n"} {
-				if r := runGuard("plan-agent-pair", []string{fmt.Sprintf("s%d", i), "1", role}, env); r.rc != 0 || r.stdout != want {
+				if r := runGuard("plan-agent-pair", []string{fmt.Sprintf("s%d", i), "1", role, "low"}, env); r.rc != 0 || r.stdout != want {
 					t.Fatalf("s%d 1 %s: rc=%d out=%q, want %q", i, role, r.rc, r.out, want)
 				}
 			}
@@ -30,9 +31,6 @@ func TestPlanAgentPair(t *testing.T) {
 	t.Run("an effort picks the row's first pair at it", func(t *testing.T) {
 		if r := runGuard("plan-agent-pair", []string{"demo", "1", "planner", "high"}, env); r.rc != 0 || r.stdout != "opus high\n" {
 			t.Fatalf("planner high: rc=%d out=%q, want opus high", r.rc, r.out)
-		}
-		if r := runGuard("plan-agent-pair", []string{"demo", "1", "planner"}, env); r.rc != 0 || r.stdout != "opus medium\n" {
-			t.Fatalf("planner: rc=%d out=%q, want opus medium", r.rc, r.out)
 		}
 		// explorer's row holds no xhigh pair: its first pair answers.
 		if r := runGuard("plan-agent-pair", []string{"demo", "1", "explorer", "xhigh"}, env); r.rc != 0 || r.stdout != "opus low\n" {
@@ -46,7 +44,7 @@ func TestPlanAgentPair(t *testing.T) {
 			}
 		})
 	}
-	for _, args := range [][]string{{"demo", "0", "explorer"}, {"demo", "x", "explorer"}, {"demo", "1"}, {"demo"}} {
+	for _, args := range [][]string{{"demo", "0", "explorer", "low"}, {"demo", "x", "explorer", "low"}, {"demo", "1", "critic", "low"}, {"demo", "1"}, {"demo"}, {"demo", "1", "planner", "low", "x"}} {
 		t.Run(fmt.Sprintf("refuses %v", args), func(t *testing.T) {
 			if r := runGuard("plan-agent-pair", args, env); r.rc != 2 || r.stdout != "" {
 				t.Errorf("rc=%d out=%q, want 2 and no stdout", r.rc, r.out)
@@ -56,14 +54,15 @@ func TestPlanAgentPair(t *testing.T) {
 }
 
 // TestPlanAgentPairFollowsPolicy: the pair is the plan-designer base
-// pairs' first, read through `flow policy get`, and no answer exits 2.
+// pairs' first at the effort, read through `flow policy get`, and no answer
+// exits 2.
 // smoke: core — a planning dispatch's pair, read from the policy
 func TestPlanAgentPairFollowsPolicy(t *testing.T) {
 	env := policyFlowEnv(t, `{"plan-designer":{"base":["opus/Plan@medium","opus/Plan@low"],"optin":[],"marked":[]}}`)
-	if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer"}, env); r.rc != 0 || r.stdout != "opus medium\n" {
+	if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "medium"}, env); r.rc != 0 || r.stdout != "opus medium\n" {
 		t.Fatalf("rc=%d out=%q, want opus medium", r.rc, r.out)
 	}
-	if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer"}, fakeFlowEnvBare(t, "exit 1\n")); r.rc != 2 {
+	if r := runGuard("plan-agent-pair", []string{"demo", "1", "plan-designer", "medium"}, fakeFlowEnvBare(t, "exit 1\n")); r.rc != 2 {
 		t.Fatalf("rc=%d out=%q, want 2 with no pairs", r.rc, r.out)
 	}
 }
@@ -75,18 +74,19 @@ printf '%s\n' '{"plan-designer":["opus/Plan@max","sonnet/Plan@high"],"explorer":
 `
 
 // TestPlanAgentPairReadsOverride: an open override of the named role's row
-// decides its pair, xhigh included, and never the other role's -- the pair
-// the agent-baseline hook admits for that Role line; an effort is looked up
-// in the overriding pairs, never the replaced base row.
+// decides its pair, max included when the effort names none of its pairs,
+// and never the other role's -- the pair the agent-baseline hook admits for
+// that Role line; an effort is looked up in the overriding pairs, never the
+// replaced base row.
 func TestPlanAgentPairReadsOverride(t *testing.T) {
 	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
 	env := fakeFlowEnv(t, experimentOneFlow, "FLOW_GUARD_REPO_ROOT="+root)
-	for role, want := range map[string]string{"plan-designer": "opus max\n", "explorer": "sonnet low\n"} {
-		if r := runGuard("plan-agent-pair", []string{"demo", "1", role}, env); r.rc != 0 || r.stdout != want {
-			t.Fatalf("%s: rc=%d out=%q, want %q", role, r.rc, r.out, want)
+	for role, c := range map[string]struct{ effort, want string }{"plan-designer": {"medium", "opus max\n"}, "explorer": {"low", "sonnet low\n"}} {
+		if r := runGuard("plan-agent-pair", []string{"demo", "1", role, c.effort}, env); r.rc != 0 || r.stdout != c.want {
+			t.Fatalf("%s %s: rc=%d out=%q, want %q", role, c.effort, r.rc, r.out, c.want)
 		}
 	}
 	// The base row's opus/Plan@high would print `opus high`.
@@ -95,72 +95,29 @@ func TestPlanAgentPairReadsOverride(t *testing.T) {
 	}
 }
 
-// TestPlanAgentPairAuto: `planner auto <round-file>` prints the planner row's
-// pair at the effort the round file's own signals call for — Scope sets the
-// start, three architectural questions or ten distinct cited repo paths
-// each raise it one step, never past high, and no file or no Scope line is
-// medium; auto for another role, or without a round file, is a usage error.
-func TestPlanAgentPairAuto(t *testing.T) {
-	env := policyFlowEnv(t, `{"planner":{"base":["opus/flow-planner-medium","opus/flow-planner-low","opus/flow-planner-high","opus/flow-planner-xhigh"],"optin":[],"marked":[]},"explorer":{"base":["opus/Explore@low"],"optin":[],"marked":[]}}`)
-	dir := t.TempDir()
-	arch := func(n int) string {
-		s := ""
-		for i := 1; i <= n; i++ {
-			s += fmt.Sprintf("### Q%d. [architectural] which way?\n\n", i)
-		}
-		return s
+// TestPlanAgentPairRefusesTheNoEffortForm: plan-agent-pair keeps only its
+// explicit-effort form; the no-effort form and planner auto are usage errors,
+// every planning pair outside the guard redispatches coming from
+// flow-guard pair-judge (KAN-1119, decisions delete-planner-auto-scorer,
+// plan-agent-pair-keeps-effort-form).
+func TestPlanAgentPairRefusesTheNoEffortForm(t *testing.T) {
+	t.Parallel()
+	round := filepath.Join(t.TempDir(), "round-1.md")
+	if err := os.WriteFile(round, []byte("**Scope:** small\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	paths := func(n int) string {
-		s := ""
-		for i := range n {
-			// each path cited twice, once with a line suffix: distinct count is n
-			s += fmt.Sprintf("see `skills/a%d/f.md` and `skills/a%d/f.md:12-14`\n", i, i)
-		}
-		return s
-	}
-	linePaths := func(n int) string {
-		s := ""
-		for i := range n {
-			s += fmt.Sprintf("see `skills/b%d/f.md:%d`\n", i, i+1)
-		}
-		return s
-	}
-	for name, tc := range map[string]struct{ body, want string }{
-		"small, no signals is low":                        {"**Scope:** small — one file\n", "low"},
-		"regular is medium":                               {"**Scope:** regular — two areas\n", "medium"},
-		"large is high":                                   {"**Scope:** large — spans repos\n", "high"},
-		"no scope line is medium":                         {"# Round 2\n", "medium"},
-		"two architectural questions stay":                {"**Scope:** small — x\n" + arch(2), "low"},
-		"three architectural questions raise":             {"**Scope:** small — x\n" + arch(3), "medium"},
-		"nine distinct paths stay":                        {"**Scope:** small — x\n" + paths(9), "low"},
-		"ten distinct paths raise":                        {"**Scope:** small — x\n" + paths(10), "medium"},
-		"both signals raise two steps":                    {"**Scope:** small — x\n" + arch(3) + paths(10), "high"},
-		"never above high":                                {"**Scope:** large — x\n" + arch(4) + paths(12), "high"},
-		"ten paths cited only with a line suffix raise":   {"**Scope:** small — x\n" + linePaths(10), "medium"},
-		"a mid-line architectural heading is no question": {"**Scope:** small — x\n" + arch(2) + "quoted `### Q3. [architectural] which way?` text\n", "low"},
-		"a mid-line Scope mention is not read":            {"see the `**Scope:** large` line\n**Scope:** small — x\n", "low"},
-		"a slashless or extensionless token is no path":   {"**Scope:** small — x\n" + "`a.md` `b/c` `d.go`\n" + paths(9), "low"},
+	env := noFlowEnv(t)
+	for _, args := range [][]string{
+		{"demo", "1", "planner"},
+		{"demo", "1", "explorer"},
+		{"demo", "1", "plan-designer"},
+		{"demo", "2", "planner", "auto", round},
 	} {
-		t.Run(name, func(t *testing.T) {
-			f := filepath.Join(t.TempDir(), "round-2.md")
-			if err := os.WriteFile(f, []byte(tc.body), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if r := runGuard("plan-agent-pair", []string{"demo", "2", "planner", "auto", f}, env); r.rc != 0 || r.stdout != "opus "+tc.want+"\n" {
-				t.Fatalf("rc=%d out=%q, want opus %s", r.rc, r.out, tc.want)
-			}
-		})
-	}
-	t.Run("a missing round file is medium", func(t *testing.T) {
-		if r := runGuard("plan-agent-pair", []string{"demo", "2", "planner", "auto", filepath.Join(dir, "absent.md")}, env); r.rc != 0 || r.stdout != "opus medium\n" {
-			t.Fatalf("rc=%d out=%q, want opus medium", r.rc, r.out)
+		reasons := &Reasons{}
+		env.Reasons = reasons
+		r := runGuard("plan-agent-pair", args, env)
+		if r.rc != 2 || r.stdout != "" || !slices.Equal(reasons.IDs(), []string{"usage"}) {
+			t.Errorf("%v: rc=%d out=%q reasons=%v, want 2, no stdout and reason usage", args, r.rc, r.out, reasons.IDs())
 		}
-	})
-	for _, args := range [][]string{{"demo", "2", "explorer", "auto", "r.md"}, {"demo", "2", "planner", "auto"}, {"demo", "2", "planner", "high", "r.md"}} {
-		t.Run(fmt.Sprintf("refuses %v", args), func(t *testing.T) {
-			if r := runGuard("plan-agent-pair", args, env); r.rc != 2 || r.stdout != "" {
-				t.Errorf("rc=%d out=%q, want 2 and no stdout", r.rc, r.out)
-			}
-		})
 	}
 }
