@@ -56,13 +56,14 @@ type guardRun struct {
 }
 
 // outcomeFor classifies guard name's exit code and the first line it printed
-// on stdout: 0 is clear -- save a first line opening `OUTSTANDING:`, a
-// verdict check-unfinished-work prints on exit 0, which is the guard firing --
+// on stdout: 0 is clear -- save check-unfinished-work's first line opening
+// `OUTSTANDING:`, the verdict it prints on exit 0, which is the guard firing;
+// any other guard printing that prefix on exit 0 is clear --
 // the guard's own could-not-answer code is cannot-answer, and anything else
 // -- a violation, a refusal -- is the guard firing.
 func outcomeFor(name string, code int, first string) string {
 	switch {
-	case code == 0 && strings.HasPrefix(first, "OUTSTANDING:"):
+	case code == 0 && name == "check-unfinished-work" && strings.HasPrefix(first, "OUTSTANDING:"):
 		return "fired"
 	case code == 0:
 		return "clear"

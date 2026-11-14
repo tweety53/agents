@@ -29,7 +29,8 @@ import (
 // ended -- the rule and figure of hooks/await-own-agents.py's STALE_SECONDS --
 // and named on a `stale: <id>...` stdout line; a missing transcript is not
 // stale. Exit 0 once every named agent is finished or stale; exit 1 at the
-// cap with one line naming those still running — call again; exit 2 on no
+// cap with a line naming those still running, after the `stale:` line when
+// any agent went stale — call again; exit 2 on no
 // argument, an agent id with no meta.json, or a cap
 // ($AWAIT_SUB_AGENTS_SECONDS) above 240.
 
