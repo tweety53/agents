@@ -160,8 +160,9 @@ the `Stop` hook allows that turn end while any agent the transcript launched has
 end.
 
 **No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
-per-task re-review, a verify stage's fix loop and a verifier re-dispatch each repeat until their
-own clean close. **A round that makes no progress — the same defect identity, on the same
+per-task re-review, a verify stage's fix loop, a verifier re-dispatch, the implement phase's
+full-suite fix and a guard or integrate call re-run after a stop each repeat until their own clean
+close. **A round that makes no progress — the same defect identity, on the same
 evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix
 is a fresh dispatch of that loop's own fixer row on the marked pair of its fixer role (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`, recorded with that pair, mapped on harnesses
@@ -178,6 +179,15 @@ without progress too.** When two narrowed visual re-runs in a row fail only in s
 batched fixer whose prompt opens with `No-progress escalation` and carries every earlier round's
 report (`skills/flow/verify-fix-loop.md`). When the diff touches shared rendering code every spec is
 in that output, so only the same-defect rule above applies.
+
+### Three failed rounds
+
+**Three failed rounds of one loop are a round without progress too, whatever their defects.** A
+failed round is one that ends without the loop's own clean close. The fourth round, and each
+later one, is the fresh dispatch above — the loop's planner where it has one, else its fixer —
+its prompt opening with the line `No-progress escalation`, carrying every earlier round's report
+verbatim and naming the approach that failed; a role with no marked pair runs it on its base
+pair. It is never a stop and never an ask.
 
 ## Unanswered mid-run asks
 
