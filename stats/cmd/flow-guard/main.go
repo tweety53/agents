@@ -43,10 +43,11 @@ func main() {
 		}
 	}
 	start := time.Now()
-	code := run(os.Args[1:], os.Stdout, os.Stderr)
+	out := &firstLine{w: os.Stdout}
+	code := run(os.Args[1:], out, os.Stderr)
 	if name, ok := dispatched(os.Args[1:]); ok {
 		if dir := workingDir(); dir != "" {
-			recordRun(os.Getenv, dir, name, code, time.Since(start), http.DefaultClient)
+			recordRun(os.Getenv, dir, name, code, string(out.line), time.Since(start), http.DefaultClient)
 		}
 	}
 	os.Exit(code)

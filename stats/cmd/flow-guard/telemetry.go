@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -54,14 +55,18 @@ type guardRun struct {
 	RecordedAt time.Time `json:"recordedAt"`
 }
 
-// outcomeFor classifies guard name's exit code: 0 is clear, the guard's own
-// could-not-answer code is cannot-answer, and anything else -- a violation,
-// a refusal -- is the guard firing.
-func outcomeFor(name string, code int) string {
-	switch code {
-	case 0:
+// outcomeFor classifies guard name's exit code and the first line it printed
+// on stdout: 0 is clear -- save a first line opening `OUTSTANDING:`, a
+// verdict check-unfinished-work prints on exit 0, which is the guard firing --
+// the guard's own could-not-answer code is cannot-answer, and anything else
+// -- a violation, a refusal -- is the guard firing.
+func outcomeFor(name string, code int, first string) string {
+	switch {
+	case code == 0 && strings.HasPrefix(first, "OUTSTANDING:"):
+		return "fired"
+	case code == 0:
 		return "clear"
-	case guard.CannotAnswer(name):
+	case code == guard.CannotAnswer(name):
 		return "cannot-answer"
 	default:
 		return "fired"
@@ -103,9 +108,32 @@ func projectKey(ctx context.Context, dir string) (string, error) {
 	return filepath.Base(mainCheckout) + "-" + hex.EncodeToString(sum[:])[:8], nil
 }
 
+// firstLine is an io.Writer tee that keeps the first line written through it,
+// up to firstLineMax bytes -- what outcomeFor reads.
+type firstLine struct {
+	w    io.Writer
+	line []byte
+	done bool
+}
+
+const firstLineMax = 256
+
+func (f *firstLine) Write(p []byte) (int, error) {
+	if !f.done {
+		rest := p
+		if i := bytes.IndexByte(rest, '\n'); i >= 0 {
+			rest, f.done = rest[:i], true
+		}
+		if room := firstLineMax - len(f.line); room > 0 {
+			f.line = append(f.line, rest[:min(len(rest), room)]...)
+		}
+	}
+	return f.w.Write(p)
+}
+
 // recordRun records one dispatched guard's run, and reports nothing: every
 // failure is swallowed, per this file's header.
-func recordRun(getenv func(string) string, dir, name string, code int, elapsed time.Duration, client *http.Client) {
+func recordRun(getenv func(string) string, dir, name string, code int, first string, elapsed time.Duration, client *http.Client) {
 	if telemetryOff[strings.ToLower(getenv("FLOW_GUARD_TELEMETRY"))] {
 		return
 	}
@@ -117,7 +145,7 @@ func recordRun(getenv func(string) string, dir, name string, code int, elapsed t
 		return
 	}
 	body, err := json.Marshal(guardRun{
-		Guard: name, Worktree: dir, ExitCode: code, Outcome: outcomeFor(name, code),
+		Guard: name, Worktree: dir, ExitCode: code, Outcome: outcomeFor(name, code, first),
 		DurationMS: int(elapsed.Milliseconds()), RecordedAt: time.Now().UTC(),
 	})
 	if err != nil {
