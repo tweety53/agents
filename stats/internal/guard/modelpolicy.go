@@ -40,8 +40,8 @@ import (
 
 // The allowed pairs as mechanics: policyTable reads them, policyAllows judges
 // one dispatch against them, and check-dispatch-pair wraps both for
-// hooks/enforce-agent-baseline.py. check-loop-dispatch, plan-agent-pair,
-// plan-class and pipeline-fix read the same pairs, every one with open
+// hooks/enforce-agent-baseline.py. check-loop-dispatch, pair-judge,
+// plan-agent-pair and pipeline-fix read the same pairs, every one with open
 // experiment overrides applied.
 func init() {
 	Registry["check-dispatch-pair"] = checkDispatchPair

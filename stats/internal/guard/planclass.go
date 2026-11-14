@@ -24,13 +24,13 @@ import (
 // Prints exactly nine lines to stdout:
 //   inputs: tasks=N files=N repos=N migration=yes|no spec=yes|no red=yes|no unverified=yes|no
 //   class: micro|small|regular|big
-//   rolls: compact N · experimental N · bundle N · effort N
+//   rolls: compact N · experimental N · bundle N
 //   tree: class <c> · execution inline|sdd · implementer skipped — inline|chosen
 //   panel: default|compact|full · roster <slot; …> · rerun delta
 //   grouping: static|free · dispatches primary+principles[+exp-<name>]
 //   experimental: no slot|none available|exp-<name> · skills/flow/experimental/<name>.md · <description>[ · skipped — bundle cap]
-//   extra: test-sanity+call-efficiency · roll N · sonnet|opus low
-//   extra: mutation+failure-modes · roll N · sonnet|opus low
+//   extra: test-sanity+call-efficiency
+//   extra: mutation+failure-modes
 //
 // The first three lines are the mechanical answer. The four tree lines are
 // brainstorm-planner.md's Decide tree for the effective class — the -class
@@ -44,8 +44,8 @@ import (
 // panel and is otherwise `skipped — bundle cap`. On
 // micro, panel is `default` and grouping/experimental read `not
 // consulted — micro`.
-// The extra line is printed on every class, micro included: the always-on test-sanity+call-efficiency dispatch's pair, sonnet when roll(<name>extra) < 50, else opus, always at low (kan-959).
-// The second extra line is the always-on mutation+failure-modes dispatch's pair, rolled the same way on roll(<name>extramf) (kan-1028).
+// The extra line is printed on every class, micro included: it names the always-on test-sanity+call-efficiency bundle (kan-959), whose pair Decide's `flow-guard pair-judge` call picks (KAN-1119).
+// The second extra line names the always-on mutation+failure-modes bundle (kan-1028), whose pair Decide's `flow-guard pair-judge` call picks the same way.
 //
 // -class may equal class_mechanical or sit one step above it
 // (micro→small→regular→big) — the planner's recorded raise; the class: line
@@ -107,9 +107,8 @@ import (
 //
 // Rolls are reproducible per change name (basename of the directory holding
 // <tasks.md>): compact_roll = sha256("<name>") mod 100, experimental_roll =
-// sha256("<name>exp") mod 100, bundle_roll = sha256("<name>bundle") mod 100,
-// effort_roll = sha256("<name>effort") mod 100 (added by
-// medium-effort-default), each over the first 8 hex digits of the digest read as an integer —
+// sha256("<name>exp") mod 100 and bundle_roll = sha256("<name>bundle") mod 100,
+// each over the first 8 hex digits of the digest read as an integer —
 // hashed by stats/internal/guard/sha256.go's sha256Hex.
 //
 // The logic is the Go port in stats/internal/guard/planclass.go. FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports, is the root the experimental directory is read under.
@@ -134,7 +133,7 @@ var (
 )
 
 // pcRoll is one reproducible roll: the first 8 hex digits of sha256(s) read
-// as an integer, mod 100. plan-agent-pair rolls with it too.
+// as an integer, mod 100.
 func pcRoll(s string) uint64 {
 	v, _ := strconv.ParseUint(sha256Hex(s)[:8], 16, 64)
 	return v % 100
@@ -175,27 +174,6 @@ var pcClasses = []string{"micro", "small", "regular", "big"}
 // pcExp is one experimental-prompt candidate: its basename without .md and
 // its line-1 description: value.
 type pcExp struct{ name, desc string }
-
-// pcExtra is an always-on extra dispatch's line — test-sanity+call-efficiency
-// (kan-959) or mutation+failure-modes (kan-1028): its bundle, its roll and
-// the pair it picks from pairs, the bundle's own row of the allowed-pairs
-// table — its sonnet pair below 50, its opus pair otherwise, either one when
-// the row names only the other. Printed on every class, micro included.
-func pcExtra(bundle string, roll uint64, pairs []string) string {
-	want := "opus/"
-	if roll < 50 {
-		want = "sonnet/"
-	}
-	pick := pairs[0]
-	for _, p := range pairs {
-		if strings.HasPrefix(p, want) {
-			pick = p
-			break
-		}
-	}
-	model, typ, _ := strings.Cut(pick, "/")
-	return fmt.Sprintf("extra: %s · roll %d · %s %s\n", bundle, roll, model, lpEffort(typ))
-}
 
 // pcTree is the decision tree brainstorm-planner.md's Decide reads, for the
 // effective class and the three rolls: execution and implementer, the panel
@@ -452,14 +430,6 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "cannot-list-candidates")
 		return 2
 	}
-	policy, err := policyTable(env)
-	for _, role := range []string{"panel-sanity-efficiency", "panel-mutation-failure"} {
-		if err != nil || len(policy[role]) == 0 {
-			fmt.Fprintf(stderr, "plan-class: the allowed-pairs table names no %s row (%v)\n", role, err)
-			Reason(env, "allowed-pairs-row-missing")
-			return 2
-		}
-	}
 
 	// Rolls are reproducible per change name (the directory holding
 	// <tasks.md>): each the first 8 hex digits of a SHA-256, mod 100.
@@ -474,9 +444,9 @@ func planClass(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "inputs: tasks=%d files=%d repos=%s migration=%s spec=%s red=%s unverified=%s\n",
 		tasks, len(files), repos, yn(migration), yn(spec), yn(red), yn(unverified))
 	fmt.Fprintf(stdout, "class: %s\n", class)
-	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d · effort %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"), roll(name+"effort"))
+	fmt.Fprintf(stdout, "rolls: compact %d · experimental %d · bundle %d\n", roll(name), roll(name+"exp"), roll(name+"bundle"))
 	fmt.Fprint(stdout, pcTree(effective, roll(name), roll(name+"exp"), roll(name+"bundle"), cands))
-	fmt.Fprint(stdout, pcExtra("test-sanity+call-efficiency", roll(name+"extra"), policy["panel-sanity-efficiency"][0].Pairs))
-	fmt.Fprint(stdout, pcExtra("mutation+failure-modes", roll(name+"extramf"), policy["panel-mutation-failure"][0].Pairs))
+	fmt.Fprint(stdout, "extra: test-sanity+call-efficiency\n")
+	fmt.Fprint(stdout, "extra: mutation+failure-modes\n")
 	return 0
 }

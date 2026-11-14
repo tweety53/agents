@@ -165,13 +165,13 @@ func TestPlanClass(t *testing.T) {
 				t.Fatalf("first=%s second=%s", first, second)
 			}
 		}},
-		{"rolls line carries compact, experimental, bundle and effort", func(t *testing.T) {
+		{"rolls line carries compact, experimental and bundle", func(t *testing.T) {
 			r := run(pcTasks(t, "bundle-shape", pcMake(4, false)), "1")
-			if r.rc != 0 || !regexp.MustCompile(`(?m)^rolls: compact [0-9]+ · experimental [0-9]+ · bundle [0-9]+ · effort [0-9]+$`).MatchString(r.out) {
+			if r.rc != 0 || !regexp.MustCompile(`(?m)^rolls: compact [0-9]+ · experimental [0-9]+ · bundle [0-9]+$`).MatchString(r.out) {
 				t.Fatalf("rc=%d out=%s", r.rc, r.out)
 			}
 		}},
-		{"all four rolls are reproducible for a fixed change name", func(t *testing.T) {
+		{"all three rolls are reproducible for a fixed change name", func(t *testing.T) {
 			p := pcTasks(t, "roll-stability-name-three", pcMake(4, false))
 			first, second := rolls(run(p, "1")), rolls(run(p, "1"))
 			if first == "" || first != second {
@@ -181,14 +181,14 @@ func TestPlanClass(t *testing.T) {
 		// sha256("bundle-static-2bundle") mod 100 = 26.
 		{"bundle-static-2 rolls bundle 26 (<30 -> static)", func(t *testing.T) {
 			r := run(pcTasks(t, "bundle-static-2", pcMake(4, false)), "1")
-			if r.rc != 0 || !strings.Contains(rolls(r), "bundle 26 ·") {
+			if r.rc != 0 || !strings.HasSuffix(rolls(r), "bundle 26") {
 				t.Fatalf("rc=%d out=%s", r.rc, r.out)
 			}
 		}},
 		// sha256("bundle-free-1bundle") mod 100 = 46.
 		{"bundle-free-1 rolls bundle 46 (>=30 -> free)", func(t *testing.T) {
 			r := run(pcTasks(t, "bundle-free-1", pcMake(4, false)), "1")
-			if r.rc != 0 || !strings.Contains(rolls(r), "bundle 46 ·") {
+			if r.rc != 0 || !strings.HasSuffix(rolls(r), "bundle 46") {
 				t.Fatalf("rc=%d out=%s", r.rc, r.out)
 			}
 		}},
@@ -280,8 +280,7 @@ func TestPlanClass(t *testing.T) {
 		}},
 
 		// Pins: each expected value is what the bash printed at c5379c0a for
-		// the same fixture, plus the effort roll the bash never printed --
-		// sha256("<name>effort") mod 100, added by medium-effort-default.
+		// the same fixture.
 		{"pin: every input, class and rolls byte for byte against the bash at c5379c0a", func(t *testing.T) {
 			p := pcTasks(t, "plan-class-pin", "- [ ] 1. First\n"+
 				"**Files:** `docs/a.md`, `spectre/specs/x/spec.md`, `src/b.go`\n"+
@@ -292,7 +291,7 @@ func TestPlanClass(t *testing.T) {
 			r := run(p, "1")
 			want := "inputs: tasks=2 files=4 repos=1 migration=yes spec=yes red=yes unverified=yes\n" +
 				"class: regular\n" +
-				"rolls: compact 71 · experimental 0 · bundle 75 · effort 21\n"
+				"rolls: compact 71 · experimental 0 · bundle 75\n"
 			if r.rc != 0 || !strings.HasPrefix(r.stdout, want) || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}
@@ -301,13 +300,13 @@ func TestPlanClass(t *testing.T) {
 			r := run(pcTasks(t, "plan-class-micro-pin", "- [ ] 1. Docs\n**Files:** `docs/note.md`\n"), "1", newRepo(t).dir, mb)
 			want := "inputs: tasks=1 files=1 repos=1 migration=no spec=no red=no unverified=no\n" +
 				"class: micro\n" +
-				"rolls: compact 65 · experimental 0 · bundle 43 · effort 96\n" +
+				"rolls: compact 65 · experimental 0 · bundle 43\n" +
 				"tree: class micro · execution inline · implementer skipped — inline\n" +
 				"panel: default\n" +
 				"grouping: not consulted — micro\n" +
 				"experimental: not consulted — micro\n" +
-				"extra: test-sanity+call-efficiency · roll 25 · sonnet low\n" +
-				"extra: mutation+failure-modes · roll 2 · sonnet low\n"
+				"extra: test-sanity+call-efficiency\n" +
+				"extra: mutation+failure-modes\n"
 			if r.rc != 0 || r.stdout != want || r.err != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
 			}
@@ -478,14 +477,14 @@ func TestPlanClassTree(t *testing.T) {
 		"unverified: maybe\n"
 	pinHead := "inputs: tasks=2 files=4 repos=1 migration=yes spec=yes red=yes unverified=yes\n" +
 		"class: regular\n" +
-		"rolls: compact 71 · experimental 0 · bundle 75 · effort 21\n"
+		"rolls: compact 71 · experimental 0 · bundle 75\n"
 	pinTree := func(experimental string) string {
 		return "tree: class regular · execution sdd · implementer chosen\n" +
 			"panel: compact · roster primary; principles · rerun delta\n" +
 			"grouping: free · dispatches primary+principles\n" +
 			"experimental: " + experimental + "\n" +
-			"extra: test-sanity+call-efficiency · roll 17 · sonnet low\n" +
-			"extra: mutation+failure-modes · roll 90 · opus low\n"
+			"extra: test-sanity+call-efficiency\n" +
+			"extra: mutation+failure-modes\n"
 	}
 	expDir := func(t *testing.T, files map[string]string) string {
 		root := pcRoot(t)
@@ -515,13 +514,13 @@ func TestPlanClassTree(t *testing.T) {
 		{"two candidates, joins the first dispatch", "tree-192", pcMake(9, false), twoFiles,
 			"inputs: tasks=9 files=9 repos=1 migration=no spec=no red=no unverified=no\n" +
 				"class: regular\n" +
-				"rolls: compact 91 · experimental 4 · bundle 16 · effort 93\n" +
+				"rolls: compact 91 · experimental 4 · bundle 16\n" +
 				"tree: class regular · execution sdd · implementer chosen\n" +
 				"panel: full · roster primary; principles; exp-a · rerun delta\n" +
 				"grouping: static · dispatches primary+principles+exp-a\n" +
 				"experimental: exp-a · skills/flow/experimental/a.md · first probe\n" +
-				"extra: test-sanity+call-efficiency · roll 71 · opus low\n" +
-				"extra: mutation+failure-modes · roll 97 · opus low\n"},
+				"extra: test-sanity+call-efficiency\n" +
+				"extra: mutation+failure-modes\n"},
 	} {
 		t.Run(c.label, func(t *testing.T) {
 			t.Parallel()
@@ -602,41 +601,6 @@ func TestPlanClassOverrideFlag(t *testing.T) {
 	}
 }
 
-// TestPlanClassExtra pins the always-on test-sanity+call-efficiency
-// dispatch's line (kan-959, decision extra-roll-own-line): sonnet below 50,
-// opus from 50, always low, its roll printed — on every class, micro
-// included, since the line is printed beside the tree, never inside it.
-func TestPlanClassExtra(t *testing.T) {
-	t.Parallel()
-	for roll, want := range map[uint64]string{
-		0:  "extra: test-sanity+call-efficiency · roll 0 · sonnet low\n",
-		49: "extra: test-sanity+call-efficiency · roll 49 · sonnet low\n",
-		50: "extra: test-sanity+call-efficiency · roll 50 · opus low\n",
-		99: "extra: test-sanity+call-efficiency · roll 99 · opus low\n",
-	} {
-		if got := pcExtra("test-sanity+call-efficiency", roll, pcExtraPairs(t, "panel-sanity-efficiency")); got != want {
-			t.Errorf("pcExtra(%d) = %q, want %q", roll, got, want)
-		}
-	}
-}
-
-// TestPlanClassExtraBundles pins both always-on bundles' lines (kan-1028,
-// decision mf-own-roll): each its own roll, sonnet below 50, opus from 50,
-// always low.
-func TestPlanClassExtraBundles(t *testing.T) {
-	t.Parallel()
-	for _, roll := range []uint64{0, 49, 50, 99} {
-		model := "opus"
-		if roll < 50 {
-			model = "sonnet"
-		}
-		want := fmt.Sprintf("extra: mutation+failure-modes · roll %d · %s low\n", roll, model)
-		if got := pcExtra("mutation+failure-modes", roll, pcExtraPairs(t, "panel-mutation-failure")); got != want {
-			t.Errorf("pcExtra(mutation+failure-modes, %d) = %q, want %q", roll, got, want)
-		}
-	}
-}
-
 // pcRoot is a FLOW_GUARD_REPO_ROOT carrying the real allowed-pairs table.
 func pcRoot(t *testing.T) string {
 	t.Helper()
@@ -649,37 +613,23 @@ func pcRoot(t *testing.T) string {
 	return root
 }
 
-// pcExtraPairs is the real table's pairs for one extra bundle's role.
-func pcExtraPairs(t *testing.T, role string) []string {
-	t.Helper()
-	rows, err := policyTable(noFlowEnv(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return rows[role][0].Pairs
-}
-
-// TestPlanClassExtraFollowsPolicy: each extra dispatch's pair comes from its
-// bundle's own row; rows naming only opus/flow-low print opus below 50 too,
-// and a table missing either row, or no table, exits 2.
-func TestPlanClassExtraFollowsPolicy(t *testing.T) {
+// TestPlanClassExtraLinesNameTheBundleAlone: plan-class reads no allowed
+// pairs -- it runs with no `flow` answering at all -- its rolls line carries
+// no effort roll, and its two extra lines name their bundle alone, the pair
+// being Decide's flow-guard pair-judge call (KAN-1119, decision
+// delete-dead-rolls).
+func TestPlanClassExtraLinesNameTheBundleAlone(t *testing.T) {
 	t.Parallel()
-	if got, want := pcExtra("test-sanity+call-efficiency", 10, []string{"opus/flow-low"}), "extra: test-sanity+call-efficiency · roll 10 · opus low\n"; got != want {
-		t.Errorf("pcExtra = %q, want %q", got, want)
-	}
-	root := pcRoot(t)
 	tasks := pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n")
-	opusOnly := `{"base":["opus/flow-low"],"optin":[],"marked":[]}`
-	env := policyFlowEnv(t, `{"panel-sanity-efficiency":`+opusOnly+`,"panel-mutation-failure":`+opusOnly+`}`, "FLOW_GUARD_REPO_ROOT="+root)
-	r := runGuard("plan-class", []string{tasks, "1"}, env)
-	if r.rc != 0 || strings.Contains(r.stdout, "sonnet low") || !strings.Contains(r.stdout, "· opus low\n") {
-		t.Fatalf("rc=%d out=%q, want both extra lines on opus low", r.rc, r.out)
+	r := runGuard("plan-class", []string{tasks, "1"}, fakeFlowEnvBare(t, "exit 1\n", "FLOW_GUARD_REPO_ROOT="+pcRoot(t)))
+	if r.rc != 0 {
+		t.Fatalf("rc=%d out=%q, want 0 with no allowed pairs to read", r.rc, r.out)
 	}
-	if r := runGuard("plan-class", []string{tasks, "1"}, fakeFlowEnvBare(t, "exit 1\n", "FLOW_GUARD_REPO_ROOT="+root)); r.rc != 2 {
-		t.Fatalf("rc=%d out=%q, want 2 with no pairs", r.rc, r.out)
+	lines := strings.Split(strings.TrimSuffix(r.stdout, "\n"), "\n")
+	if got := lines[len(lines)-2:]; got[0] != "extra: test-sanity+call-efficiency" || got[1] != "extra: mutation+failure-modes" {
+		t.Errorf("last two lines = %q, want the two bundles alone", got)
 	}
-	noMF := policyFlowEnv(t, `{"panel-sanity-efficiency":`+opusOnly+`}`, "FLOW_GUARD_REPO_ROOT="+root)
-	if r := runGuard("plan-class", []string{tasks, "1"}, noMF); r.rc != 2 || !strings.Contains(r.out, "panel-mutation-failure") {
-		t.Fatalf("rc=%d out=%q, want 2 naming panel-mutation-failure", r.rc, r.out)
+	if !regexp.MustCompile(`(?m)^rolls: compact [0-9]+ · experimental [0-9]+ · bundle [0-9]+$`).MatchString(r.stdout) {
+		t.Errorf("stdout %q carries no rolls line without an effort roll", r.stdout)
 	}
 }
