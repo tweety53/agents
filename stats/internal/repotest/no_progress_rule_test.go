@@ -52,6 +52,8 @@ func TestNoProgressRule(t *testing.T) {
 		{"skills/flow/integrate.md", "Three stops in a row of one call take **Three failed rounds**"},
 		{"skills/flow-self-review/SKILL.md", "Three failed rounds of the review loop or of the verify loop are answered the same way, by the next re-plan (**Three failed rounds**"},
 		{"skills/flow/cleanup.md", "Three stops in a row of `cleanup` take **Three failed rounds**"},
+		{"skills/flow/integrate.md", "only stops the parent can cure itself. A stop that exists to ask the operator — `STOP: foreign-staged`, `STOP: base-mismatch` — is never counted toward it"},
+		{"skills/flow/cleanup.md", "only stops the parent can cure itself. A stop that exists to ask or to hand to the operator — `STOP: disclose`, `STOP: worktree-cleanup`, `STOP: not-merged` — is never counted toward it"},
 		{"skills/flow/verify-fix-loop.md", "and for **Three failed rounds** of this loop — a round being one `In-run fix <k>` task"},
 	}
 	if strings.Contains(repoText(t, "skills/flow/review-panel.md"), "a third breach of the same slot is asked") {
