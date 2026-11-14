@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -532,7 +533,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		emit(stderr)
 		pids := strings.Trim(fmt.Sprint(res.survivors), "[]")
 		if res.timedOut {
-			fmt.Fprintf(stderr, "run-reproducer: unverifiable — '%s' was still running at the %ss bound and was killed, and a detached child survived the process-group kill; surviving process pid(s): %s — find and kill it manually, and re-check the worktree again when you resume\n", cmdText, boundLabel, pids)
+			fmt.Fprintf(stderr, "run-reproducer: unverifiable — '%s' was still running at the %ss bound and was killed, and a detached child survived the process-group kill; surviving process pid(s): %s — find and kill it manually, and re-check the worktree again when you resume%s\n", cmdText, boundLabel, pids, rrLoadNote(env))
 		} else {
 			fmt.Fprintf(stderr, "run-reproducer: unverifiable — '%s' exited %d inside the %ss bound, but it forked a detached child that outlived it and survived the kill retry; surviving process pid(s): %s — find and kill it manually, and re-check the worktree again when you resume\n", cmdText, rc, boundLabel, pids)
 		}
@@ -541,7 +542,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	if res.timedOut {
 		rrGitStatusNote(worktree, stderr)
 		emit(stderr)
-		fmt.Fprintf(stderr, "run-reproducer: unverifiable — '%s' was still running at the %ss bound and was killed; its exit status is read as neither a pass nor a fail\n", cmdText, boundLabel)
+		fmt.Fprintf(stderr, "run-reproducer: unverifiable — '%s' was still running at the %ss bound and was killed; its exit status is read as neither a pass nor a fail%s\n", cmdText, boundLabel, rrLoadNote(env))
 		return 3
 	}
 	// A process-table read that failed may have missed a detached child, so
@@ -1187,4 +1188,43 @@ func rrRestoreDirty(worktree string, snap map[string]rrSnap, stderr io.Writer) [
 		fmt.Fprintf(stderr, "run-reproducer: restored %s\n", p)
 	}
 	return restored
+}
+
+// rrLoadAvg reads the one-minute load average: /proc/loadavg's first field,
+// else `sysctl -n vm.loadavg`'s second token (`{ 2.82 2.97 5.40 }`).
+func rrLoadAvg() (float64, error) {
+	if b, err := os.ReadFile("/proc/loadavg"); err == nil {
+		if f := strings.Fields(string(b)); len(f) > 0 {
+			return strconv.ParseFloat(f[0], 64)
+		}
+	}
+	out, err := exec.Command("sysctl", "-n", "vm.loadavg").Output()
+	if err != nil {
+		return 0, err
+	}
+	f := strings.Fields(string(out))
+	if len(f) < 2 {
+		return 0, fmt.Errorf("unreadable vm.loadavg %q", out)
+	}
+	return strconv.ParseFloat(f[1], 64)
+}
+
+// rrLoadNote is a timeout line's load suffix: over the core count the
+// timeout is outside load and waits before one re-run; at or under it the
+// bound is the reproducer's own (skills/flow/review-panel-fix-round.md;
+// self-review-kan-1110 F7).
+func rrLoadNote(env Env) string {
+	read := env.LoadAvg
+	if read == nil {
+		read = rrLoadAvg
+	}
+	l, err := read()
+	if err != nil {
+		return "; load average unreadable"
+	}
+	n := runtime.NumCPU()
+	if l > float64(n) {
+		return fmt.Sprintf("; load average %.2f over %d cores — outside load: re-run once the load average is at or under %d, never with a raised bound", l, n, n)
+	}
+	return fmt.Sprintf("; load average %.2f at or under %d cores — the bound is the reproducer's own: re-measure it", l, n)
 }

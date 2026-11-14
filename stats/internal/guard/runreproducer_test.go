@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -477,6 +478,57 @@ func TestRunReproducerEnforcesDeclaredBound(t *testing.T) {
 	env.ReproducerBound = 0
 	got, out := rrRun(t, env, wt, "scripts/declares-bound.sh")
 	rrExpect(t, got, out, 3, "at the 1s bound")
+}
+
+// rrLoadCases are F7's load readings and the note each one yields.
+func rrLoadCases() []struct {
+	name   string
+	load   func() (float64, error)
+	needle string
+} {
+	n := runtime.NumCPU()
+	return []struct {
+		name   string
+		load   func() (float64, error)
+		needle string
+	}{
+		{"outside load", func() (float64, error) { return float64(n + 1), nil },
+			fmt.Sprintf("over %d cores — outside load: re-run once the load average is at or under %d, never with a raised bound", n, n)},
+		{"idle", func() (float64, error) { return 0.5, nil },
+			fmt.Sprintf("at or under %d cores — the bound is the reproducer's own: re-measure it", n)},
+		{"unreadable", func() (float64, error) { return 0, errors.New("x") }, "load average unreadable"},
+	}
+}
+
+// TestRunReproducerLoadNote pins F7 in the default suite: each load reading
+// yields its note, with no reproducer run (self-review-kan-1110 F7).
+func TestRunReproducerLoadNote(t *testing.T) {
+	t.Parallel()
+	for _, tc := range rrLoadCases() {
+		if got := rrLoadNote(Env{LoadAvg: tc.load}); !strings.Contains(got, tc.needle) {
+			t.Errorf("%s: note %q lacks %q", tc.name, got, tc.needle)
+		}
+	}
+}
+
+// TestRunReproducerTimeoutNamesTheLoad: a timeout line names the one-minute
+// load average against the core count, so the parent never re-runs it blind
+// (self-review-kan-1110 F7).
+func TestRunReproducerTimeoutNamesTheLoad(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, tc := range rrLoadCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			wt := rrWorktree(t)
+			rrFixture(t, wt, "scripts/declares-bound.sh", "# reproducer-bound: 1\nsleep 30")
+			env := rrEnv(t)
+			env.ReproducerBound = 0
+			env.LoadAvg = tc.load
+			got, out := rrRun(t, env, wt, "scripts/declares-bound.sh")
+			rrExpect(t, got, out, 3, tc.needle)
+		})
+	}
 }
 
 // TestRunReproducerChildPWDIsWorktree: the bash guard's `cd -- "$WORKTREE"`

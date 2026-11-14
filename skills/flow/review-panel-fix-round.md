@@ -249,7 +249,14 @@ parent corrects the line number in the reproducer in place, re-runs the audit, a
 correction, old line and new, in that round's `flow record pass`. Exit 2 — any
 reproducer the runner could not verdict: a timeout, a surviving process, a plumbing failure, the
 state record absent or unreadable, an ambiguous worktree — stops
-the run, the same as the lexical guard's exit 2.
+the run, the same as the lexical guard's exit 2. A timeout is the one exit 2
+that does not stop it: the runner's line names the one-minute load average against the core
+count. Over the core count, the parent waits on a Monitor until-loop until `uptime`'s load
+average is at or under the core count and runs the guard once more — never a blind re-run, and
+never with a raised bound (`rules/fix-determinism-at-the-source.mdc`); a second timeout stops
+the run. At or under the core count, the bound is the reproducer's own: the finding is bounced
+once to the raising slot, which re-measures the reproducer and re-declares its bound as
+**The mutation-testing brief** (`skills/flow/review-panel.md`) states.
 
 **For each open finding whose record carries a runnable `finding-reproducer:` command**, the
 parent runs it — every finding's run in one Bash call (each throwaway copy is already
@@ -272,7 +279,8 @@ timeout covers it (600000 max), so it reaches a verdict rather than a timeout.
 
 Read its exit code: **0** dispatches the finding; **1** bounces it once, back to the raising slot,
 carrying the reproducer's passing output; **2** is a refusal — recorded **unverifiable**, put to the
-round's one batched operator ask; **3** is a timeout or a detached survivor — recorded
+round's one batched operator ask; **3** is a timeout or a detached survivor — a timeout under
+outside load first waited out and re-run once as the guard's exit 2 above, then recorded
 **unverifiable**, put to the same ask, with a surviving pid named when the script names one; **4** stops this finding's dispatch
 decision entirely — a finding recorded `none — <reason>` is dispatched without a run.
 

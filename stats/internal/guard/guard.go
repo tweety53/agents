@@ -22,6 +22,9 @@ type Env struct {
 	// Deadlines override the guards' integer-second env knobs in tests only;
 	// zero means "parse the env knob as the bash guard does".
 	ReproducerBound, ReproducerGrace, SurvivorsTimeout, SurvivorsKillGrace time.Duration
+	// LoadAvg returns the one-minute load average run-reproducer names on a
+	// timeout; nil reads it from the machine.
+	LoadAvg func() (float64, error)
 	// SurvivorsExpire, when non-nil, replaces the survivors bound's timer:
 	// the bound fires when it receives, so a test decides when (or never).
 	SurvivorsExpire <-chan time.Time
