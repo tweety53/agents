@@ -46,3 +46,26 @@ func TestReviewersNeverAddAWorktree(t *testing.T) {
 		}
 	}
 }
+
+// TestDocsOnlyReductionDropsSanityEfficiency pins KAN-1110: a docs-only panel
+// drops the test-sanity+call-efficiency bundle and keeps mutation+failure-modes.
+func TestDocsOnlyReductionDropsSanityEfficiency(t *testing.T) {
+	t.Parallel()
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), "skills/flow/review-panel.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	panel := string(b)
+	i := strings.Index(panel, "### The always-on extra dispatches")
+	if i < 0 {
+		t.Fatal("skills/flow/review-panel.md: no always-on extra dispatches section")
+	}
+	extras := panel[i:]
+	if j := strings.Index(extras[4:], "\n### "); j >= 0 {
+		extras = extras[:j+4]
+	}
+	extras = strings.Join(strings.Fields(extras), " ")
+	if want := "The docs-only reduction drops `test-sanity+call-efficiency`"; !strings.Contains(extras, want) {
+		t.Errorf("The always-on extra dispatches lacks %q", want)
+	}
+}
