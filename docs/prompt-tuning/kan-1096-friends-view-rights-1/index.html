@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kan-1096-friends-view-rights-1</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0 auto;max-width:1100px;padding:16px;line-height:1.45}
+pre{background:#f4f4f4;padding:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.ab{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.ab{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>kan-1096-friends-view-rights-1</h1>
+<h2>Type</h2>
+<p>implementer · scope generic</p>
+<h2>Defect class</h2>
+<p>A test asserting that something is absent, refused or not found is fed inputs under which it could never be present or allowed, so it passes whether or not the code under test works.</p>
+<h2>Finding</h2>
+<pre># F27 — test-sanity, round 0, Important
+
+Location: src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt:179 (gymie)
+
+&gt; The on-any-by-id-route test claims more than it checks: child path variables are random UUIDs so those routes 404 whether or not the ownership check works, with no positive control under ownerId=b.
+
+Same class, same round (F26, test-sanity, Important, src/app/workout/src/test/kotlin/com/gymie/workout/core/services/week/WeekServiceImplTest.kt:92):
+
+&gt; an owner whose grant was revoked produces no group can&#39;t fail: no input supplies ownerAId; it appears only in the assertion that she is absent.
+
+Fixed by panel-fix-1, a9c56081 (gymie): real child ids, plus a control that the same routes do not 404 under the row&#39;s own owner.
+</pre>
+<pre><code>commit aceb401989c53b4f6ac988d15244cd0ede21027e
+Author: Yuriy Aleksandrov &lt;yatweety@gmail.com&gt;
+Date:   Fri Nov 13 11:29:55 2026 &#43;0200
+
+    test(app): every friend-data handler is rights-checked
+    
+    Task-Id: 7
+
+diff --git a/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt b/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
+new file mode 100644
+index 00000000..2da57aae
+--- /dev/null
+&#43;&#43;&#43; b/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
+@@ -0,0 &#43;1,268 @@
+&#43;package com.gymie
+&#43;
+&#43;import com.gymie.common.domain.access.AccessLevel
+&#43;import com.gymie.common.domain.access.AccessScope
+&#43;import com.gymie.common.domain.access.Owner
+&#43;import com.gymie.common.web.owner.OwnerAccess
+&#43;import com.gymie.invite.core.ports.persistence.invite.InviteRepository
+&#43;import com.gymie.invite.core.ports.security.InviteTokenCodec
+&#43;import com.gymie.invite.core.services.invite.InviteService
+&#43;import com.gymie.support.AuthIntegrationTestSupport
+&#43;import com.jayway.jsonpath.JsonPath
+&#43;import org.assertj.core.api.Assertions.assertThat
+&#43;import org.junit.jupiter.api.AfterEach
+&#43;import org.junit.jupiter.api.BeforeEach
+&#43;import org.junit.jupiter.api.Test
+&#43;import org.springframework.beans.factory.annotation.Autowired
+&#43;import org.springframework.beans.factory.annotation.Qualifier
+&#43;import org.springframework.boot.test.context.SpringBootTest
+&#43;import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+&#43;import org.springframework.data.redis.core.StringRedisTemplate
+&#43;import org.springframework.http.HttpHeaders
+&#43;import org.springframework.http.HttpMethod
+&#43;import org.springframework.http.MediaType
+&#43;import org.springframework.jdbc.core.JdbcTemplate
+&#43;import org.springframework.test.context.ActiveProfiles
+&#43;import org.springframework.test.web.servlet.MockMvc
+&#43;import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request
+&#43;import org.springframework.web.method.HandlerMethod
+&#43;import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
+&#43;import java.util.UUID
+&#43;
+&#43;/**
+&#43; * The rights check over the assembled application (decisions `owner-argument-resolver`,
+&#43; * `by-id-names-the-owner`): every route that takes an `Owner` refuses a stranger and a friend one level
+&#43; * too low with `403 grant_revoked` before it reads anything, and a by-id route named under friend A
+&#43; * answers `404` for friend B&#39;s row although A gives the caller Training Edit.
+&#43; */
+&#43;@SpringBootTest
+&#43;@AutoConfigureMockMvc
+&#43;@ActiveProfiles(&#34;test&#34;)
+&#43;class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+&#43;    @Autowired lateinit var mockMvc: MockMvc
+&#43;
+&#43;    @Autowired lateinit var jdbc: JdbcTemplate
+&#43;
+&#43;    @Autowired lateinit var redis: StringRedisTemplate
+&#43;
+&#43;    @Autowired lateinit var inviteService: InviteService
+&#43;
+&#43;    @Autowired lateinit var inviteRepository: InviteRepository
+&#43;
+&#43;    @Autowired lateinit var inviteTokenCodec: InviteTokenCodec
+&#43;
+&#43;    @Autowired
+&#43;    @Qualifier(&#34;requestMappingHandlerMapping&#34;)
+&#43;    lateinit var mapping: RequestMappingHandlerMapping
+&#43;
+&#43;    private lateinit var support: AuthIntegrationTestSupport
+&#43;
+&#43;    @BeforeEach
+&#43;    fun setUp() {
+&#43;        support = AuthIntegrationTestSupport(jdbc, redis, inviteService, inviteRepository, inviteTokenCodec)
+&#43;        support.cleanup()
+&#43;    }
+&#43;
+&#43;    @AfterEach
+&#43;    fun tearDown() {
+&#43;        support.cleanup()
+&#43;    }
+&#43;
+&#43;    @Test
+&#43;    fun `a stranger and a friend one level too low get 403 on every Owner route`() {
+&#43;        val (viewer, token) = registerAccount(&#34;viewer&#34;)
+&#43;        // a: Training Edit, Body Read, Training setup Read. b: Training Edit, Body none.
+&#43;        // d: Body Edit, Training none. c: a stranger who gives nothing.
+&#43;        val a = registerAccount(&#34;friend-a&#34;).first
+&#43;        val b = registerAccount(&#34;friend-b&#34;).first
+&#43;        val d = registerAccount(&#34;friend-d&#34;).first
+&#43;        val c = registerAccount(&#34;stranger-c&#34;).first
+&#43;        grant(a, viewer, workouts = &#34;EDIT&#34;, body = &#34;READ&#34;, setup = &#34;READ&#34;)
+&#43;        grant(b, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+&#43;        grant(d, viewer, workouts = &#34;NONE&#34;, body = &#34;EDIT&#34;, setup = &#34;NONE&#34;)
+&#43;        val oneLevelTooLow =
+&#43;            mapOf(
+&#43;                (AccessScope.WORKOUTS to AccessLevel.EDIT) to d,
+&#43;                (AccessScope.BODY to AccessLevel.READ) to b,
+&#43;                (AccessScope.BODY to AccessLevel.EDIT) to a,
+&#43;                (AccessScope.TRAINING_SETUP to AccessLevel.READ) to d,
+&#43;                (AccessScope.TRAINING_SETUP to AccessLevel.EDIT) to a,
+&#43;            )
+&#43;
+&#43;        val routes = ownerRoutes()
+&#43;        assertThat(routes).hasSizeGreaterThan(OWNER_ROUTES_AT_LEAST)
+&#43;        val refusals =
+&#43;            routes.flatMap { route -&gt;
+&#43;                val access = route.access
+&#43;                val tooLow = oneLevelTooLow.getValue(access.scope to access.level)
+&#43;                listOf(c, tooLow).map { ownerId -&gt;
+&#43;                    &#34;${route.describe()} ownerId=$ownerId&#34; to call(route, token, ownerId, UUID.randomUUID())
+&#43;                }
+&#43;            }
+&#43;
+&#43;        assertThat(refusals.filterNot { (_, answer) -&gt; answer.status == FORBIDDEN &amp;&amp; answer.body.contains(&#34;grant_revoked&#34;) })
+&#43;            .describedAs(&#34;routes that did not refuse with 403 grant_revoked&#34;)
+&#43;            .isEmpty()
+&#43;    }
+&#43;
+&#43;    @Test
+&#43;    fun `friend A&#39;s Edit does not reach friend B&#39;s workout on any by-id route`() {
+&#43;        val (viewer, token) = registerAccount(&#34;viewer&#34;)
+&#43;        val a = registerAccount(&#34;friend-a&#34;).first
+&#43;        val (b, bToken) = registerAccount(&#34;friend-b&#34;)
+&#43;        grant(a, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+&#43;        grant(b, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+&#43;        val hers = create(bToken, &#34;/api/workouts&#34;, WORKOUT_BODY)
+&#43;
+&#43;        assertNotFoundOnEveryByIdRoute(&#34;/api/workouts&#34;, token, a, hers)
+&#43;    }
+&#43;
+&#43;    @Test
+&#43;    fun `friend A&#39;s Edit does not reach friend B&#39;s cardio by id`() {
+&#43;        val (viewer, token) = registerAccount(&#34;viewer&#34;)
+&#43;        val a = registerAccount(&#34;friend-a&#34;).first
+&#43;        val (b, bToken) = registerAccount(&#34;friend-b&#34;)
+&#43;        grant(a, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+&#43;        grant(b, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+&#43;        val hers = create(bToken, &#34;/api/cardio-workouts&#34;, CARDIO_BODY)
+&#43;
+&#43;        assertNotFoundOnEveryByIdRoute(&#34;/api/cardio-workouts&#34;, token, a, hers)
+&#43;    }
+&#43;
+&#43;    private fun assertNotFoundOnEveryByIdRoute(
+&#43;        prefix: String,
+&#43;        token: String,
+&#43;        ownerId: UUID,
+&#43;        id: UUID,
+&#43;    ) {
+&#43;        val byId = ownerRoutes().filter { it.pattern.startsWith(&#34;$prefix/{id}&#34;) }
+&#43;        assertThat(byId).isNotEmpty
+&#43;        val answers = byId.map { route -&gt; route.describe() to call(route, token, ownerId, id) }
+&#43;
+&#43;        assertThat(answers.filterNot { (_, answer) -&gt; answer.status == NOT_FOUND })
+&#43;            .describedAs(&#34;by-id routes that did not answer 404 for another friend&#39;s row&#34;)
+&#43;            .isEmpty()
+&#43;    }
+&#43;
+&#43;    private data class Route(
+&#43;        val method: HttpMethod,
+&#43;        val pattern: String,
+&#43;        val access: OwnerAccess,
+&#43;    ) {
+&#43;        fun describe() = &#34;$method $pattern&#34;
+&#43;    }
+&#43;
+&#43;    private data class Answer(
+&#43;        val status: Int,
+&#43;        val body: String,
+&#43;    )
+&#43;
+&#43;    /** Every handler taking an `Owner`, with the access its `@OwnerAccess` asks for. */
+&#43;    private fun ownerRoutes(): List&lt;Route&gt; =
+&#43;        mapping.handlerMethods.flatMap { (info, handler) -&gt;
+&#43;            val access = handler.ownerAccess() ?: return@flatMap emptyList()
+&#43;            info.patternValues.flatMap { pattern -&gt;
+&#43;                info.methodsCondition.methods.map { Route(HttpMethod.valueOf(it.name), pattern, access) }
+&#43;            }
+&#43;        }
+&#43;
+&#43;    private fun HandlerMethod.ownerAccess(): OwnerAccess? =
+&#43;        methodParameters.firstOrNull { it.parameterType == Owner::class.java }?.getParameterAnnotation(OwnerAccess::class.java)
+&#43;
+&#43;    /** [route] with `{id}` as [id] and any other path variable a fresh id, a body the route accepts, and `?ownerId=`. */
+&#43;    private fun call(
+&#43;        route: Route,
+&#43;        token: String,
+&#43;        ownerId: UUID,
+&#43;        id: UUID,
+&#43;    ): Answer {
+&#43;        val path = route.pattern.replace(&#34;{id}&#34;, id.toString()).replace(Regex(&#34;\\{[^}]&#43;}&#34;), UUID.randomUUID().toString())
+&#43;        val result =
+&#43;            mockMvc
+&#43;                .perform(
+&#43;                    request(route.method, path)
+&#43;                        .param(&#34;ownerId&#34;, ownerId.toString())
+&#43;                        .param(&#34;from&#34;, &#34;2026-11-09&#34;)
+&#43;                        .param(&#34;to&#34;, &#34;2026-11-15&#34;)
+&#43;                        .param(&#34;preset&#34;, &#34;4W&#34;)
+&#43;                        .header(HttpHeaders.AUTHORIZATION, &#34;Bearer $token&#34;)
+&#43;                        .header(HttpHeaders.IF_MATCH, &#34;\&#34;2026-11-13T08:00:00Z\&#34;&#34;)
+&#43;                        .contentType(MediaType.APPLICATION_JSON)
+&#43;                        .content(BODIES[route.describe()] ?: &#34;{}&#34;),
+&#43;                ).andReturn()
+&#43;        return Answer(result.response.status, result.response.contentAsString)
+&#43;    }
+&#43;
+&#43;    private fun create(
+&#43;        token: String,
+&#43;        path: String,
+&#43;        body: String,
+&#43;    ): UUID {
+&#43;        val result =
+&#43;            mockMvc
+&#43;                .perform(
+&#43;                    request(HttpMethod.POST, path)
+&#43;                        .header(HttpHeaders.AUTHORIZATION, &#34;Bearer $token&#34;)
+&#43;                        .contentType(MediaType.APPLICATION_JSON)
+&#43;                        .content(body),
+&#43;                ).andReturn()
+&#43;        assertThat(result.response.status).describedAs(result.response.contentAsString).isEqualTo(CREATED)
+&#43;        return UUID.fromString(JsonPath.read(result.response.contentAsString, &#34;$.id&#34;))
+&#43;    }
+&#43;
+&#43;    private fun registerAccount(slug: String): Pair&lt;UUID, String&gt; {
+&#43;        val email = &#34;$slug@example.com&#34;
+&#43;        val token = support.readAccessToken(support.registerVerified(mockMvc, email, nickname = slug))
+&#43;        val userId = UUID.fromString(jdbc.queryForObject(&#34;&#34;&#34;SELECT id FROM &#34;user&#34; WHERE email = ?&#34;&#34;&#34;, String::class.java, email))
+&#43;        return userId to token
+&#43;    }
+&#43;
+&#43;    /** Grants are seeded directly: the matrix is about the read side of a grant, not the rights UI. */
+&#43;    private fun grant(
+&#43;        grantorId: UUID,
+&#43;        granteeId: UUID,
+&#43;        workouts: String,
+&#43;        body: String,
+&#43;        setup: String,
+&#43;    ) {
+&#43;        jdbc.update(
+&#43;            &#34;INSERT INTO access_grant (grantor_id, grantee_id, workouts_level, body_level, training_setup_level) VALUES (?, ?, ?, ?, ?)&#34;,
+&#43;            grantorId,
+&#43;            granteeId,
+&#43;            workouts,
+&#43;            body,
+&#43;            setup,
+&#43;        )
+&#43;    }
+&#43;
+&#43;    private companion object {
+&#43;        const val CREATED = 201
+&#43;        const val FORBIDDEN = 403
+&#43;        const val NOT_FOUND = 404
+&#43;
+&#43;        /** Workouts, cardio, body and Training setup together take far more than this many `Owner` routes. */
+&#43;        const val OWNER_ROUTES_AT_LEAST = 20
+&#43;
+&#43;        const val WORKOUT_BODY = &#34;&#34;&#34;{&#34;scheduledDate&#34;:&#34;2026-11-13&#34;,&#34;blocks&#34;:[{&#34;type&#34;:&#34;TEXT&#34;,&#34;text&#34;:&#34;Warm up&#34;}]}&#34;&#34;&#34;
+&#43;        const val CARDIO_BODY =
+&#43;            &#34;&#34;&#34;{&#34;scheduledDate&#34;:&#34;2026-11-13&#34;,&#34;activity&#34;:&#34;OUTDOOR_RUN&#34;,&#34;kind&#34;:&#34;EASY&#34;,&#34;&#34;&#34; &#43;
+&#43;                &#34;&#34;&#34;&#34;steps&#34;:[{&#34;type&#34;:&#34;WORK&#34;,&#34;length&#34;:{&#34;kind&#34;:&#34;TIME&#34;,&#34;seconds&#34;:1800}}]}&#34;&#34;&#34;
+&#43;
+&#43;        /** A body each by-id route accepts, so its answer is the ownership check&#39;s and not validation&#39;s. */
+&#43;        val BODIES =
+&#43;            mapOf(
+&#43;                &#34;PUT /api/workouts/{id}&#34; to WORKOUT_BODY,
+&#43;                &#34;PATCH /api/workouts/{id}&#34; to &#34;&#34;&#34;{&#34;notes&#34;:null}&#34;&#34;&#34;,
+&#43;                &#34;PATCH /api/workouts/{id}/blocks/{blockId}&#34; to &#34;&#34;&#34;{&#34;collapsed&#34;:false,&#34;completed&#34;:true}&#34;&#34;&#34;,
+&#43;                &#34;PATCH /api/workouts/{id}/exercises/{exerciseId}&#34; to &#34;&#34;&#34;{&#34;note&#34;:&#34;x&#34;,&#34;evaluation&#34;:null,&#34;evaluationNote&#34;:null}&#34;&#34;&#34;,
+&#43;                &#34;PATCH /api/workouts/{id}/sets/{setId}&#34; to
+&#43;                    &#34;&#34;&#34;{&#34;weight&#34;:{&#34;kind&#34;:&#34;MEASURED&#34;,&#34;value&#34;:42.5},&#34;effort&#34;:{&#34;kind&#34;:&#34;COUNT&#34;,&#34;value&#34;:8},&#34;confirmed&#34;:true}&#34;&#34;&#34;,
+&#43;                &#34;POST /api/workouts/{id}/copy&#34; to &#34;&#34;&#34;{&#34;targetDate&#34;:&#34;2026-11-14&#34;}&#34;&#34;&#34;,
+&#43;                &#34;PUT /api/workouts/{id}/exercises/{rowId}/evaluation&#34; to &#34;&#34;&#34;{&#34;move&#34;:&#34;KEEP&#34;}&#34;&#34;&#34;,
+&#43;                &#34;PUT /api/cardio-workouts/{id}&#34; to CARDIO_BODY,
+&#43;                &#34;PATCH /api/cardio-workouts/{id}&#34; to &#34;&#34;&#34;{&#34;notes&#34;:null}&#34;&#34;&#34;,
+&#43;                &#34;POST /api/cardio-workouts/{id}/copy&#34; to &#34;&#34;&#34;{&#34;targetDate&#34;:&#34;2026-11-14&#34;}&#34;&#34;&#34;,
+&#43;                &#34;PUT /api/cardio-workouts/{id}/log&#34; to &#34;&#34;&#34;{&#34;durationSeconds&#34;:1800}&#34;&#34;&#34;,
+&#43;            )
+&#43;    }
+&#43;}
+</code></pre>
+<h2>Fix</h2>
+<pre><code>diff --git a/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt b/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
+index 2da57aae..32c2a2f9 100644
+--- a/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
+&#43;&#43;&#43; b/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
+@@ -96,7 &#43;96,7 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+                 val access = route.access
+                 val tooLow = oneLevelTooLow.getValue(access.scope to access.level)
+                 listOf(c, tooLow).map { ownerId -&gt;
+-                    &#34;${route.describe()} ownerId=$ownerId&#34; to call(route, token, ownerId, UUID.randomUUID())
+&#43;                    &#34;${route.describe()} ownerId=$ownerId&#34; to call(route, token, ownerId, ANY_IDS)
+                 }
+             }
+ 
+@@ -112,9 &#43;112,27 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         val (b, bToken) = registerAccount(&#34;friend-b&#34;)
+         grant(a, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+         grant(b, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+-        val hers = create(bToken, &#34;/api/workouts&#34;, WORKOUT_BODY)
+&#43;        val exerciseId = UUID.randomUUID()
+&#43;        jdbc.update(
+&#43;            &#34;INSERT INTO exercise (id, key, name, target_muscle_group, movement_pattern) VALUES (?, ?, ?, ?, ?)&#34;,
+&#43;            exerciseId,
+&#43;            &#34;rights_matrix_${System.nanoTime()}&#34;,
+&#43;            &#34;Rights matrix exercise&#34;,
+&#43;            &#34;Full body&#34;,
+&#43;            &#34;Compound&#34;,
+&#43;        )
+&#43;        val detail = createBody(bToken, &#34;/api/workouts&#34;, exerciseWorkoutBody(exerciseId))
+&#43;        // Every child variable is a real row of her workout, so a 404 can only come from the owner gate.
+&#43;        val ids =
+&#43;            mapOf(
+&#43;                &#34;id&#34; to idAt(detail, &#34;$.id&#34;),
+&#43;                &#34;blockId&#34; to idAt(detail, &#34;$.blocks[0].id&#34;),
+&#43;                &#34;exerciseId&#34; to idAt(detail, &#34;$.blocks[0].exercises[0].id&#34;),
+&#43;                &#34;rowId&#34; to idAt(detail, &#34;$.blocks[0].exercises[0].id&#34;),
+&#43;                &#34;setId&#34; to idAt(detail, &#34;$.blocks[0].exercises[0].sets[0].id&#34;),
+&#43;            )
+ 
+-        assertNotFoundOnEveryByIdRoute(&#34;/api/workouts&#34;, token, a, hers)
+&#43;        assertNotFoundOnEveryByIdRoute(&#34;/api/workouts&#34;, token, a, b, ids)
+     }
+ 
+     @Test
+@@ -124,24 &#43;142,38 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         val (b, bToken) = registerAccount(&#34;friend-b&#34;)
+         grant(a, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+         grant(b, viewer, workouts = &#34;EDIT&#34;, body = &#34;NONE&#34;, setup = &#34;EDIT&#34;)
+-        val hers = create(bToken, &#34;/api/cardio-workouts&#34;, CARDIO_BODY)
+&#43;        val hers = idAt(createBody(bToken, &#34;/api/cardio-workouts&#34;, CARDIO_BODY), &#34;$.id&#34;)
+ 
+-        assertNotFoundOnEveryByIdRoute(&#34;/api/cardio-workouts&#34;, token, a, hers)
+&#43;        assertNotFoundOnEveryByIdRoute(&#34;/api/cardio-workouts&#34;, token, a, b, mapOf(&#34;id&#34; to hers))
+     }
+ 
+&#43;    /**
+&#43;     * Each by-id route under [ownerId] answers 404 for [realOwnerId]&#39;s row, and -- the control that the
+&#43;     * ids are real -- does not under [realOwnerId] herself. The controls run after the refusals, with
+&#43;     * the row&#39;s own `DELETE` last, so no control removes the row a later call names.
+&#43;     */
+     private fun assertNotFoundOnEveryByIdRoute(
+         prefix: String,
+         token: String,
+         ownerId: UUID,
+-        id: UUID,
+&#43;        realOwnerId: UUID,
+&#43;        ids: Map&lt;String, UUID&gt;,
+     ) {
+-        val byId = ownerRoutes().filter { it.pattern.startsWith(&#34;$prefix/{id}&#34;) }
+&#43;        val byId =
+&#43;            ownerRoutes().filter { it.pattern.startsWith(&#34;$prefix/{id}&#34;) }.sortedBy {
+&#43;                it.method == HttpMethod.DELETE &amp;&amp;
+&#43;                    it.pattern == &#34;$prefix/{id}&#34;
+&#43;            }
+         assertThat(byId).isNotEmpty
+-        val answers = byId.map { route -&gt; route.describe() to call(route, token, ownerId, id) }
+&#43;        val answers = byId.map { route -&gt; route.describe() to call(route, token, ownerId, ids) }
+&#43;        val controls = byId.map { route -&gt; route.describe() to call(route, token, realOwnerId, ids) }
+ 
+         assertThat(answers.filterNot { (_, answer) -&gt; answer.status == NOT_FOUND })
+             .describedAs(&#34;by-id routes that did not answer 404 for another friend&#39;s row&#34;)
+             .isEmpty()
+&#43;        assertThat(controls.filter { (_, answer) -&gt; answer.status == NOT_FOUND })
+&#43;            .describedAs(&#34;by-id routes that answered 404 under the row&#39;s own owner: their ids are not real&#34;)
+&#43;            .isEmpty()
+     }
+ 
+     private data class Route(
+@@ -169,14 &#43;201,14 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+     private fun HandlerMethod.ownerAccess(): OwnerAccess? =
+         methodParameters.firstOrNull { it.parameterType == Owner::class.java }?.getParameterAnnotation(OwnerAccess::class.java)
+ 
+-    /** [route] with `{id}` as [id] and any other path variable a fresh id, a body the route accepts, and `?ownerId=`. */
+&#43;    /** [route] with each path variable taken from [ids] by name, a body the route accepts, and `?ownerId=`. */
+     private fun call(
+         route: Route,
+         token: String,
+         ownerId: UUID,
+-        id: UUID,
+&#43;        ids: Map&lt;String, UUID&gt;,
+     ): Answer {
+-        val path = route.pattern.replace(&#34;{id}&#34;, id.toString()).replace(Regex(&#34;\\{[^}]&#43;}&#34;), UUID.randomUUID().toString())
+&#43;        val path = route.pattern.replace(Regex(&#34;\\{([^}]&#43;)}&#34;)) { ids.getValue(it.groupValues[1]).toString() }
+         val result =
+             mockMvc
+                 .perform(
+@@ -193,11 &#43;225,16 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         return Answer(result.response.status, result.response.contentAsString)
+     }
+ 
+-    private fun create(
+&#43;    private fun idAt(
+&#43;        json: String,
+&#43;        path: String,
+&#43;    ): UUID = UUID.fromString(JsonPath.read(json, path))
+&#43;
+&#43;    private fun createBody(
+         token: String,
+         path: String,
+         body: String,
+-    ): UUID {
+&#43;    ): String {
+         val result =
+             mockMvc
+                 .perform(
+@@ -207,7 &#43;244,7 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+                         .content(body),
+                 ).andReturn()
+         assertThat(result.response.status).describedAs(result.response.contentAsString).isEqualTo(CREATED)
+-        return UUID.fromString(JsonPath.read(result.response.contentAsString, &#34;$.id&#34;))
+&#43;        return result.response.contentAsString
+     }
+ 
+     private fun registerAccount(slug: String): Pair&lt;UUID, String&gt; {
+@@ -243,6 &#43;280,13 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         /** Workouts, cardio, body and Training setup together take far more than this many `Owner` routes. */
+         const val OWNER_ROUTES_AT_LEAST = 20
+ 
+&#43;        /** Any path variable a fresh id: the refusal comes before any row is looked up. */
+&#43;        val ANY_IDS = emptyMap&lt;String, UUID&gt;().withDefault { UUID.randomUUID() }
+&#43;
+&#43;        fun exerciseWorkoutBody(exerciseId: UUID) =
+&#43;            &#34;&#34;&#34;{&#34;scheduledDate&#34;:&#34;2026-11-13&#34;,&#34;blocks&#34;:[{&#34;type&#34;:&#34;SINGLE&#34;,&#34;exercises&#34;:[{&#34;exerciseId&#34;:&#34;$exerciseId&#34;,&#34;&#34;&#34; &#43;
+&#43;                &#34;&#34;&#34;&#34;sets&#34;:[{&#34;weight&#34;:{&#34;kind&#34;:&#34;MEASURED&#34;,&#34;value&#34;:80.0},&#34;effort&#34;:{&#34;kind&#34;:&#34;COUNT&#34;,&#34;value&#34;:8}}]}]}]}&#34;&#34;&#34;
+&#43;
+         const val WORKOUT_BODY = &#34;&#34;&#34;{&#34;scheduledDate&#34;:&#34;2026-11-13&#34;,&#34;blocks&#34;:[{&#34;type&#34;:&#34;TEXT&#34;,&#34;text&#34;:&#34;Warm up&#34;}]}&#34;&#34;&#34;
+         const val CARDIO_BODY =
+             &#34;&#34;&#34;{&#34;scheduledDate&#34;:&#34;2026-11-13&#34;,&#34;activity&#34;:&#34;OUTDOOR_RUN&#34;,&#34;kind&#34;:&#34;EASY&#34;,&#34;&#34;&#34; &#43;
+</code></pre>
+<h2>Why picked</h2>
+<pre>1. Defect class: a test of an absence (not found, refused, filtered out) is fed inputs that can never produce the thing, so it is green with the rule under test removed. 2. No current rule covers it: engineering-principles.md&#39;s Testing principles carry &#34;A test of a choice is fed inputs that separate the alternatives&#34; (quoted as `before`), which governs which of several rules applies, not whether an absence is reachable at all; implementer-brief.md, implement.md and sdd-dispatch.md say nothing on negative assertions. 3. It generalises: the same run raised it twice in independent files of one round — F27, a by-id route matrix whose child path variables were random ids, so every route answered 404 whether or not the ownership check ran, and F26, a week test asserting an owner absent while no input gave that owner any workout — and the shape recurs in every authorization, visibility-filter, deletion and not-found test in any language or layer. 4. It is a principle, not a patch: &#34;an absence is asserted beside a positive control&#34; names no route, id scheme or framework; it is the negative-assertion counterpart of the existing choice rule.</pre>
+<h2>Prompt update</h2>
+<p>Target: <code>skills/flow/engineering-principles.md</code> at <code>57b40c2186807ee29973c4e3b012c09556620a91</code></p>
+<div class="ab">
+<div><h3>Before</h3><pre>**A test of a choice is fed inputs that separate the alternatives.** When a test pins which
+rule the code applies (an order, a precedence, a grouping, which of two sources wins), its
+inputs make every plausible alternative rule produce a different result. Inputs on which the
+alternatives agree leave the choice unpinned and the test green against its mutants: the
+busiest item also first by name, a single group where the rule groups, two sources holding
+one value.</pre></div>
+<div><h3>After</h3><pre>**A test of a choice is fed inputs that separate the alternatives.** When a test pins which
+rule the code applies (an order, a precedence, a grouping, which of two sources wins), its
+inputs make every plausible alternative rule produce a different result. Inputs on which the
+alternatives agree leave the choice unpinned and the test green against its mutants: the
+busiest item also first by name, a single group where the rule groups, two sources holding
+one value.
+
+**A test of an absence carries its positive control.** When a test asserts that something is
+absent, refused or not found — a row filtered out, a request answered 404 or 403, an item missing
+from a list — its inputs make that thing present or allowed once the rule under test is taken
+away: ids that resolve to real rows, the excluded item holding data that would otherwise show.
+The test asserts that control beside the absence — the same call under the rightful owner finds
+the row, the unfiltered read lists the item — so inputs that could never produce the thing fail
+the control instead of passing the absence.</pre></div>
+</div>
+</body>
+</html>

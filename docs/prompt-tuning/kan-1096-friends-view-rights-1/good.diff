@@ -1,0 +1,147 @@
+diff --git a/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt b/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
+index 2da57aae..32c2a2f9 100644
+--- a/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
++++ b/src/app/src/test/kotlin/com/gymie/FriendRightsMatrixIntegrationTest.kt
+@@ -96,7 +96,7 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+                 val access = route.access
+                 val tooLow = oneLevelTooLow.getValue(access.scope to access.level)
+                 listOf(c, tooLow).map { ownerId ->
+-                    "${route.describe()} ownerId=$ownerId" to call(route, token, ownerId, UUID.randomUUID())
++                    "${route.describe()} ownerId=$ownerId" to call(route, token, ownerId, ANY_IDS)
+                 }
+             }
+ 
+@@ -112,9 +112,27 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         val (b, bToken) = registerAccount("friend-b")
+         grant(a, viewer, workouts = "EDIT", body = "NONE", setup = "EDIT")
+         grant(b, viewer, workouts = "EDIT", body = "NONE", setup = "EDIT")
+-        val hers = create(bToken, "/api/workouts", WORKOUT_BODY)
++        val exerciseId = UUID.randomUUID()
++        jdbc.update(
++            "INSERT INTO exercise (id, key, name, target_muscle_group, movement_pattern) VALUES (?, ?, ?, ?, ?)",
++            exerciseId,
++            "rights_matrix_${System.nanoTime()}",
++            "Rights matrix exercise",
++            "Full body",
++            "Compound",
++        )
++        val detail = createBody(bToken, "/api/workouts", exerciseWorkoutBody(exerciseId))
++        // Every child variable is a real row of her workout, so a 404 can only come from the owner gate.
++        val ids =
++            mapOf(
++                "id" to idAt(detail, "$.id"),
++                "blockId" to idAt(detail, "$.blocks[0].id"),
++                "exerciseId" to idAt(detail, "$.blocks[0].exercises[0].id"),
++                "rowId" to idAt(detail, "$.blocks[0].exercises[0].id"),
++                "setId" to idAt(detail, "$.blocks[0].exercises[0].sets[0].id"),
++            )
+ 
+-        assertNotFoundOnEveryByIdRoute("/api/workouts", token, a, hers)
++        assertNotFoundOnEveryByIdRoute("/api/workouts", token, a, b, ids)
+     }
+ 
+     @Test
+@@ -124,24 +142,38 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         val (b, bToken) = registerAccount("friend-b")
+         grant(a, viewer, workouts = "EDIT", body = "NONE", setup = "EDIT")
+         grant(b, viewer, workouts = "EDIT", body = "NONE", setup = "EDIT")
+-        val hers = create(bToken, "/api/cardio-workouts", CARDIO_BODY)
++        val hers = idAt(createBody(bToken, "/api/cardio-workouts", CARDIO_BODY), "$.id")
+ 
+-        assertNotFoundOnEveryByIdRoute("/api/cardio-workouts", token, a, hers)
++        assertNotFoundOnEveryByIdRoute("/api/cardio-workouts", token, a, b, mapOf("id" to hers))
+     }
+ 
++    /**
++     * Each by-id route under [ownerId] answers 404 for [realOwnerId]'s row, and -- the control that the
++     * ids are real -- does not under [realOwnerId] herself. The controls run after the refusals, with
++     * the row's own `DELETE` last, so no control removes the row a later call names.
++     */
+     private fun assertNotFoundOnEveryByIdRoute(
+         prefix: String,
+         token: String,
+         ownerId: UUID,
+-        id: UUID,
++        realOwnerId: UUID,
++        ids: Map<String, UUID>,
+     ) {
+-        val byId = ownerRoutes().filter { it.pattern.startsWith("$prefix/{id}") }
++        val byId =
++            ownerRoutes().filter { it.pattern.startsWith("$prefix/{id}") }.sortedBy {
++                it.method == HttpMethod.DELETE &&
++                    it.pattern == "$prefix/{id}"
++            }
+         assertThat(byId).isNotEmpty
+-        val answers = byId.map { route -> route.describe() to call(route, token, ownerId, id) }
++        val answers = byId.map { route -> route.describe() to call(route, token, ownerId, ids) }
++        val controls = byId.map { route -> route.describe() to call(route, token, realOwnerId, ids) }
+ 
+         assertThat(answers.filterNot { (_, answer) -> answer.status == NOT_FOUND })
+             .describedAs("by-id routes that did not answer 404 for another friend's row")
+             .isEmpty()
++        assertThat(controls.filter { (_, answer) -> answer.status == NOT_FOUND })
++            .describedAs("by-id routes that answered 404 under the row's own owner: their ids are not real")
++            .isEmpty()
+     }
+ 
+     private data class Route(
+@@ -169,14 +201,14 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+     private fun HandlerMethod.ownerAccess(): OwnerAccess? =
+         methodParameters.firstOrNull { it.parameterType == Owner::class.java }?.getParameterAnnotation(OwnerAccess::class.java)
+ 
+-    /** [route] with `{id}` as [id] and any other path variable a fresh id, a body the route accepts, and `?ownerId=`. */
++    /** [route] with each path variable taken from [ids] by name, a body the route accepts, and `?ownerId=`. */
+     private fun call(
+         route: Route,
+         token: String,
+         ownerId: UUID,
+-        id: UUID,
++        ids: Map<String, UUID>,
+     ): Answer {
+-        val path = route.pattern.replace("{id}", id.toString()).replace(Regex("\\{[^}]+}"), UUID.randomUUID().toString())
++        val path = route.pattern.replace(Regex("\\{([^}]+)}")) { ids.getValue(it.groupValues[1]).toString() }
+         val result =
+             mockMvc
+                 .perform(
+@@ -193,11 +225,16 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         return Answer(result.response.status, result.response.contentAsString)
+     }
+ 
+-    private fun create(
++    private fun idAt(
++        json: String,
++        path: String,
++    ): UUID = UUID.fromString(JsonPath.read(json, path))
++
++    private fun createBody(
+         token: String,
+         path: String,
+         body: String,
+-    ): UUID {
++    ): String {
+         val result =
+             mockMvc
+                 .perform(
+@@ -207,7 +244,7 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+                         .content(body),
+                 ).andReturn()
+         assertThat(result.response.status).describedAs(result.response.contentAsString).isEqualTo(CREATED)
+-        return UUID.fromString(JsonPath.read(result.response.contentAsString, "$.id"))
++        return result.response.contentAsString
+     }
+ 
+     private fun registerAccount(slug: String): Pair<UUID, String> {
+@@ -243,6 +280,13 @@ class FriendRightsMatrixIntegrationTest : AppIntegrationTest() {
+         /** Workouts, cardio, body and Training setup together take far more than this many `Owner` routes. */
+         const val OWNER_ROUTES_AT_LEAST = 20
+ 
++        /** Any path variable a fresh id: the refusal comes before any row is looked up. */
++        val ANY_IDS = emptyMap<String, UUID>().withDefault { UUID.randomUUID() }
++
++        fun exerciseWorkoutBody(exerciseId: UUID) =
++            """{"scheduledDate":"2026-11-13","blocks":[{"type":"SINGLE","exercises":[{"exerciseId":"$exerciseId",""" +
++                """"sets":[{"weight":{"kind":"MEASURED","value":80.0},"effort":{"kind":"COUNT","value":8}}]}]}]}"""
++
+         const val WORKOUT_BODY = """{"scheduledDate":"2026-11-13","blocks":[{"type":"TEXT","text":"Warm up"}]}"""
+         const val CARDIO_BODY =
+             """{"scheduledDate":"2026-11-13","activity":"OUTDOOR_RUN","kind":"EASY",""" +

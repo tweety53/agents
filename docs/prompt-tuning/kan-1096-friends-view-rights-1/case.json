@@ -1,0 +1,22 @@
+{
+  "id": "kan-1096-friends-view-rights-1",
+  "type": "implementer",
+  "scope": "generic",
+  "source": {
+    "project": "gymie",
+    "change": "kan-1096-friends-view-rights",
+    "jira": "KAN-1096",
+    "repo": "gymie",
+    "fix_sha": "a9c56081c3cb97d2342ba961b9ccbf081dc44678",
+    "finding_ref": "F27",
+    "round": 0,
+    "slot": "test-sanity",
+    "severity": "Important"
+  },
+  "target": "skills/flow/engineering-principles.md",
+  "target_sha": "57b40c2186807ee29973c4e3b012c09556620a91",
+  "defect_class": "A test asserting that something is absent, refused or not found is fed inputs under which it could never be present or allowed, so it passes whether or not the code under test works.",
+  "why_picked": "1. Defect class: a test of an absence (not found, refused, filtered out) is fed inputs that can never produce the thing, so it is green with the rule under test removed. 2. No current rule covers it: engineering-principles.md's Testing principles carry \"A test of a choice is fed inputs that separate the alternatives\" (quoted as `before`), which governs which of several rules applies, not whether an absence is reachable at all; implementer-brief.md, implement.md and sdd-dispatch.md say nothing on negative assertions. 3. It generalises: the same run raised it twice in independent files of one round — F27, a by-id route matrix whose child path variables were random ids, so every route answered 404 whether or not the ownership check ran, and F26, a week test asserting an owner absent while no input gave that owner any workout — and the shape recurs in every authorization, visibility-filter, deletion and not-found test in any language or layer. 4. It is a principle, not a patch: \"an absence is asserted beside a positive control\" names no route, id scheme or framework; it is the negative-assertion counterpart of the existing choice rule.",
+  "before": "**A test of a choice is fed inputs that separate the alternatives.** When a test pins which\nrule the code applies (an order, a precedence, a grouping, which of two sources wins), its\ninputs make every plausible alternative rule produce a different result. Inputs on which the\nalternatives agree leave the choice unpinned and the test green against its mutants: the\nbusiest item also first by name, a single group where the rule groups, two sources holding\none value.",
+  "after": "**A test of a choice is fed inputs that separate the alternatives.** When a test pins which\nrule the code applies (an order, a precedence, a grouping, which of two sources wins), its\ninputs make every plausible alternative rule produce a different result. Inputs on which the\nalternatives agree leave the choice unpinned and the test green against its mutants: the\nbusiest item also first by name, a single group where the rule groups, two sources holding\none value.\n\n**A test of an absence carries its positive control.** When a test asserts that something is\nabsent, refused or not found — a row filtered out, a request answered 404 or 403, an item missing\nfrom a list — its inputs make that thing present or allowed once the rule under test is taken\naway: ids that resolve to real rows, the excluded item holding data that would otherwise show.\nThe test asserts that control beside the absence — the same call under the rightful owner finds\nthe row, the unfiltered read lists the item — so inputs that could never produce the thing fail\nthe control instead of passing the absence."
+}
