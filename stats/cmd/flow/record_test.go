@@ -8591,3 +8591,73 @@ func TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows(t *testing.T) {
 		t.Errorf("exit %d, dispatch posts %d; want 0 and 1; stderr:\n%s", code, posts, stderr.String())
 	}
 }
+
+// TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit pins that a live
+// begin refuses a pair its derived role's allowed pairs do not admit, before
+// anything is sent or journalled; that a policy read which fails is fail-open;
+// and that a role's marked pair is admitted, since only the Agent hook sees
+// the marker line (kan-1112 self-review, F2).
+func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
+	cases := []struct {
+		name, role, key, effort string
+		policyDown              bool
+		wantCode                int
+	}{
+		{name: "gated reviewer off its pairs", role: "reviewer", key: "task-2+3-reviewer", effort: "medium", wantCode: 2},
+		{name: "gated reviewer on its pair", role: "reviewer", key: "task-2+3-reviewer", effort: "low", wantCode: 0},
+		{name: "policy unreachable fails open", role: "reviewer", key: "task-2+3-reviewer", effort: "medium", policyDown: true, wantCode: 0},
+		{name: "marked pair admitted", role: "implementer", key: "task-1-implementer-fix-1", effort: "high", wantCode: 0},
+		{name: "implementer off its pairs", role: "implementer", key: "task-1-implementer", effort: "medium", wantCode: 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := recordRepo(t, "kan-258")
+			isolatedStateRoot(t)
+
+			posts := 0
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.URL.Path == "/api/v1/experiments/overrides":
+					_, _ = w.Write([]byte(`{}`))
+				case r.URL.Path == "/api/v1/policy/grants":
+					_, _ = w.Write([]byte(`{"roles":[]}`))
+				case r.URL.Path == "/api/v1/policy" && !tc.policyDown:
+					_, _ = w.Write([]byte(`{"gated-reviewer":{"base":["opus/flow-low"],"optin":[],"marked":[]},"implementer":{"base":["opus/flow-low"],"optin":[],"marked":[{"pair":"opus/flow-high","marker":"No-progress escalation"}]}}`))
+				case r.Method == http.MethodPost:
+					posts++
+					w.WriteHeader(http.StatusCreated)
+					_, _ = w.Write([]byte(`{"id":1,"seq":7}`))
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-role", tc.role, "-model", "opus", "-effort", tc.effort,
+					"-key", tc.key, "-session-token", "mf-record-pair-admitted"},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != tc.wantCode {
+				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.wantCode, stderr.String())
+			}
+			if tc.wantCode != 2 {
+				return
+			}
+			roleID := map[string]string{"reviewer": "gated-reviewer", "implementer": "implementer"}[tc.role]
+			for _, want := range []string{roleID, "opus/flow-medium"} {
+				if !strings.Contains(stderr.String(), want) {
+					t.Errorf("stderr does not name %q:\n%s", want, stderr.String())
+				}
+			}
+			if posts != 0 {
+				t.Errorf("a refused begin sent %d POST(s)", posts)
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Error("a refused begin wrote a record journal")
+			}
+		})
+	}
+}

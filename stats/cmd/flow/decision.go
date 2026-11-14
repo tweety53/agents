@@ -394,6 +394,30 @@ func dRange(raws []json.RawMessage) string {
 	return dIDs(raws)
 }
 
+// policyRole is one role's entry in flowd's policy (`flow policy get`).
+type policyRole struct {
+	Base, Optin []string
+	Marked      []struct{ Pair string }
+}
+
+// roleAdmitted is the pairs role admits -- the open experiments' overrides,
+// else the policy's base pairs, plus the opt-in pairs when the change holds a
+// grant for it -- and whether the role is judged at all: a role neither the
+// overrides nor the policy list is not.
+func roleAdmitted(role string, overrides map[string][]string, policy map[string]policyRole, granted []string) (admitted []string, judged bool) {
+	p, judged := policy[role]
+	admitted = slices.Clone(overrides[role])
+	if len(admitted) == 0 {
+		admitted = slices.Clone(p.Base)
+	} else {
+		judged = true
+	}
+	if slices.Contains(granted, role) {
+		admitted = append(admitted, p.Optin...)
+	}
+	return admitted, judged
+}
+
 // decisionPairsAdmitted refuses a decision whose implementer, fixer or
 // group pair, spelled <model>/flow-<effort>, its role's admitted pairs do
 // not admit (kan-1103 self-review, F3): implementer and every groups[i] are
@@ -402,7 +426,7 @@ func dRange(raws []json.RawMessage) string {
 // plus its opt-in pairs when granted lists the role -- an override replaces
 // only the base pairs (Experiments, model-policy.md). A role neither names is
 // not judged, and a string or null pair always passes.
-func decisionPairsAdmitted(body []byte, overrides map[string][]string, policy map[string]struct{ Base, Optin []string }, granted []string) error {
+func decisionPairsAdmitted(body []byte, overrides map[string][]string, policy map[string]policyRole, granted []string) error {
 	// Only the pairs are read, so a body render would refuse elsewhere is
 	// not refused here.
 	var d struct {
@@ -426,16 +450,7 @@ func decisionPairsAdmitted(body []byte, overrides map[string][]string, policy ma
 		}
 	}
 	for _, c := range checks {
-		p, judged := policy[c.role]
-		admitted := slices.Clone(overrides[c.role])
-		if len(admitted) == 0 {
-			admitted = slices.Clone(p.Base)
-		} else {
-			judged = true
-		}
-		if slices.Contains(granted, c.role) {
-			admitted = append(admitted, p.Optin...)
-		}
+		admitted, judged := roleAdmitted(c.role, overrides, policy, granted)
 		pair := c.model + "/flow-" + c.effort
 		if judged && !slices.Contains(admitted, pair) {
 			return fmt.Errorf("record decision: %s pair %s is not admitted for role %s, whose admitted pairs are [%s]", c.path, pair, c.role, strings.Join(admitted, " "))

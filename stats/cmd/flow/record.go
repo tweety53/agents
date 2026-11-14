@@ -1427,6 +1427,23 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 				}
 			}
 		}
+		// A live row begun on a pair its derived role does not admit is
+		// refused here rather than by the Agent hook after the row is
+		// written (kan-1112 self-review, F2). A marked pair is admitted,
+		// since only the hook sees its marker line; an unstated default
+		// effort and an inline row are not judged; every policy read that
+		// fails counts as absent, so with flowd's policy unreachable the
+		// row is begun unchecked.
+		if roleID := launchRoleID(*role, *key); *agentID != "inline" && *effort != "default" && roleID != "" {
+			overrides, policy, granted := readPairPolicy(ctx, f)
+			admitted, judged := roleAdmitted(roleID, overrides, policy, granted)
+			pair := *model + "/flow-" + *effort
+			marked := slices.ContainsFunc(policy[roleID].Marked, func(m struct{ Pair string }) bool { return m.Pair == pair })
+			if judged && !marked && !slices.Contains(admitted, pair) {
+				fmt.Fprintf(stderr, "flow: -model %s -effort %s, pair %s, is not admitted for role %s, whose admitted pairs are [%s] (`flow policy get`) — begin the row on an admitted pair (skills/flow-contracts/model-policy.md, Allowed pairs)\n", *model, *effort, pair, roleID, strings.Join(admitted, " "))
+				return 2
+			}
+		}
 	}
 
 	// StartedAt is sent as nothing at all: the daemon stamps it at the
@@ -1506,7 +1523,6 @@ var launchTaskKey = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-(implementer
 // sr3-begin-prints-launch-lines). A task key's opening needs the plan's task
 // count, so an unreadable plan omits it.
 func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
-	roleID := ""
 	if m := launchTaskKey.FindStringSubmatch(key); m != nil {
 		if p, err := planPath(dir, change); err == nil {
 			if plan, err := os.ReadFile(p); err == nil {
@@ -1517,34 +1533,42 @@ func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
 				fmt.Fprintf(stdout, "description: %s %s/%d\n", word, m[1], countPlanLines(plan, taskLinePattern))
 			}
 		}
-		switch {
-		case m[2] == "implementer":
-			roleID = "implementer"
-		case strings.HasPrefix(m[3], "-fix-"):
-			roleID = "gated-re-reviewer"
-		default:
-			roleID = "gated-reviewer"
-		}
 	} else {
 		fmt.Fprintf(stdout, "description: %s\n", key)
-		switch {
-		case role == "merger":
-			roleID = "panel-merger"
-		case role == "panel-fix":
-			roleID = "panel-fix"
-		case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
-			roleID = "visual-verifier"
-		case role == "planner" && strings.HasPrefix(key, "tooling-analysis-"):
-			roleID = "tooling-analyst"
-		case role == "planner" && strings.HasPrefix(key, "fix-run-judge-"):
-			roleID = "fix-run-judge"
-		case role == "implementer" && strings.HasPrefix(key, "operator-"):
-			roleID = "operator-asked"
-		}
 	}
-	if roleID != "" {
+	if roleID := launchRoleID(role, key); roleID != "" {
 		fmt.Fprintf(stdout, "Role: %s\n", roleID)
 	}
+}
+
+// launchRoleID is the policy role a dispatch's -role and -key derive, or ""
+// where they derive none -- a self-review or pipeline-fix key among them.
+func launchRoleID(role, key string) string {
+	if m := launchTaskKey.FindStringSubmatch(key); m != nil {
+		switch {
+		case m[2] == "implementer":
+			return "implementer"
+		case strings.HasPrefix(m[3], "-fix-"):
+			return "gated-re-reviewer"
+		default:
+			return "gated-reviewer"
+		}
+	}
+	switch {
+	case role == "merger":
+		return "panel-merger"
+	case role == "panel-fix":
+		return "panel-fix"
+	case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
+		return "visual-verifier"
+	case role == "planner" && strings.HasPrefix(key, "tooling-analysis-"):
+		return "tooling-analyst"
+	case role == "planner" && strings.HasPrefix(key, "fix-run-judge-"):
+		return "fix-run-judge"
+	case role == "implementer" && strings.HasPrefix(key, "operator-"):
+		return "operator-asked"
+	}
+	return ""
 }
 
 // roundBeyondNext refuses a -round past the run's next round,
@@ -3550,6 +3574,27 @@ func runRecordIncidents(ctx context.Context, args []string, stdout, stderr io.Wr
 	return 0
 }
 
+// readPairPolicy reads the open experiments' overrides, flowd's policy and
+// the change's grants -- what roleAdmitted judges a pair against.
+func readPairPolicy(ctx context.Context, f recordIdentityFlags) (overrides map[string][]string, policy map[string]policyRole, granted []string) {
+	// ponytail: each read that fails -- flowd down, or a flowd predating
+	// /api/v1/policy answering 404 -- counts as absent, so with flowd down a
+	// decision is journalled unchecked; Experiments in model-policy.md reads
+	// the same "flowd unreachable -> no experiment applies".
+	overrides, _ = callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
+		return cl.ExperimentOverrides(ctx)
+	})
+	if raw, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
+		return cl.Policy(ctx)
+	}); err == nil {
+		_ = json.Unmarshal(raw, &policy)
+	}
+	granted, _ = callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]string, error) {
+		return cl.Grants(ctx, f.change)
+	})
+	return overrides, policy, granted
+}
+
 // runRecordDecision implements `flow record decision`: one run's dynamic
 // decision, recorded once per -session-token so a resumed run can read it
 // back rather than re-rolling. -file names the whole JSON body -- a path,
@@ -3612,22 +3657,7 @@ func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdo
 		return 1
 	}
 
-	// ponytail: each read that fails -- flowd down, or a flowd predating
-	// /api/v1/policy answering 404 -- counts as absent, so with flowd down a
-	// decision is journalled unchecked; Experiments in model-policy.md reads
-	// the same "flowd unreachable -> no experiment applies".
-	overrides, _ := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
-		return cl.ExperimentOverrides(ctx)
-	})
-	var policy map[string]struct{ Base, Optin []string }
-	if raw, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
-		return cl.Policy(ctx)
-	}); err == nil {
-		_ = json.Unmarshal(raw, &policy)
-	}
-	granted, _ := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]string, error) {
-		return cl.Grants(ctx, f.change)
-	})
+	overrides, policy, granted := readPairPolicy(ctx, f)
 	if err := decisionPairsAdmitted(body, overrides, policy, granted); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
