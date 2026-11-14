@@ -1446,7 +1446,17 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>uncapped: full-suite fix loop reads "until it passes" (<code>implement.md:596-597</code>) → FIX (task 9, task 22) → Stays uncapped; takes the three-failed-rounds rule. A round is the <code>&lt;n&gt;</code> of <code>full-suite-fix-&lt;n&gt;</code>; <code>&lt;n&gt;</code> reached 14 on one change.</li>
+        <li>uncapped: gated fix and re-review (<code>gated-review-fix.md:44-45</code>) → FIX (task 9, task 22) → Same rule. A round is the <code>&lt;k&gt;</code> of <code>task-&lt;ids&gt;-implementer-fix-&lt;k&gt;</code>; <code>&lt;k&gt;</code> reached 20; 140 such dispatches over 27 changes.</li>
+        <li>repeated: 87 of 194 runs are later attempts; one change reached 28 → ANSWER-ONLY → Not resumes and not fix runs. After a marked run is abandoned at about 6 h, every later dispatch opens its own one-dispatch <code>auto_opened</code> run (<code>stats/internal/store/records.go:542-556</code>, by design since KAN-1071): 70 such <code>/flow</code> runs; kan-1083's attempts 4-28 are one dispatch each. Real marked later runs (resume or fix run): 34, $306. <code>/flow-interactive</code> adds a run per request (kan-1080: 75).</li>
+        <li>unselected: every task of a group runs on the group's pair → WON'T-FIX → The planner can already lower a mechanical group's pair (<code>brainstorm-planner.md:658-661</code>, bounds <code>:688ff</code>). It rarely does: 1,323 opus implementer dispatches against 27 sonnet. A per-task pair means one dispatch per task and more bundle reads.</li>
+        <li>repeated: a fresh fixer re-reads the bundle for a one-line repair → WON'T-FIX → The one-line case is the recommit row: 3 dispatches, $0.16 average. Real fixers average $1.61 (full-suite) and $2.24 (gated) and need the bundle.</li>
+        <li>Q: what drives attempts above 10 → ANSWER-ONLY → The per-dispatch auto-opened runs above.</li>
+        <li>Q: same cap as KAN-1107 for the full-suite loop → FIX (task 9, task 22) → No cap; the uniform rule. KAN-1107 itself added no cap either — only the two-rounds-outside-the-specs escalation.</li>
+        <li>Q: kan-938's 31 dispatches → ANSWER-ONLY → Stage run 15203, $87.98: 12 opus implementers ($30.75, one a handshake retry), 7 gated reviewers ($8.56), 6 implementer fixers ($26.27: tasks 17-21 fix 1-3 and visual-fix 1-3), 4 re-reviews, 1 panel bundle billed here by the window rule, 1 unrecorded agent. Six fixers.</li>
+        <li>Q: is opus right for every group of a big change → ANSWER-ONLY → By contract opus is required only for a hard-seam group. Sonnet groups averaged $1.32 against $3.69. Moving the planner toward sonnet is an allowed-pairs experiment, not a contract edit.</li>
+      </ul>
     </div>
   </section>
 
@@ -1590,7 +1600,20 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Operator: "a conflict stops for the operator" should not → FIX (task 30) → The panel's base-sync conflict is resolved in place by the run, as <code>sync-onto-base.md</code>'s <strong>Conflict</strong> bullet already does at integrate; only that bullet's stop-and-ask cases stop. Same for the pre-task-1 sync (<code>implement.md:305</code>).</li>
+        <li>Operator: "REVIEWERS from the settings store" outdated? → ANSWER-ONLY + FIX (task 31) → Not outdated for a <code>default</code> (micro) panel: <code>REVIEWERS</code> is read from <code>flow settings get</code> (<code>skills/flow/SKILL.md:37-39</code>), <code>flow decision render -reviewers</code> requires it, and the store holds <code>["primary","principles"]</code>. Outdated is the index sentence "the review panel resolved from the settings store" — every other class runs its decided roster. Six files carry it.</li>
+        <li>uncapped: fix rounds (<code>review-panel-fix-round.md:490</code>) → FIX (task 9, task 23) → Stays uncapped; the uniform rule. A round is the number <code>flow record next-round</code> prints.</li>
+        <li>loop: slot re-dispatch on a ceiling breach (<code>review-panel.md:741</code>) → FIX (task 9, task 23) → The third breach is no longer asked: it re-dispatches fresh under the rule.</li>
+        <li>repeated: 127 of 230 runs are later attempts → ANSWER-ONLY → 126 are later marked panel runs (fix runs or resumes), 8 auto-opened. The store has no field that tells a fix run from a resume.</li>
+        <li>unselected: two extras on a docs-only and a late-fix pass 1 → FIX (task 32), docs-only only → Docs-only: <code>test-sanity+call-efficiency</code> found 0 Critical/Important in 6 dispatches, <code>mutation+failure-modes</code> 4 in 8 — the first is dropped there, the second kept. Late-fix keeps both: 38 in 97 and 15 in 130.</li>
+        <li>unselected: an over-cap diff is read whole by every slot → WON'T-FIX → Deliberate (<code>review-panel.md:236-240</code>): a slot given part of the diff loses cross-file seams. The primary bundle yields 146 Critical/Important in 251 opus dispatches.</li>
+        <li>repeated: re-run slots read the delta; the test list runs again at flow.verify → WON'T-FIX → Already handled: the green-sha skip rule (<code>implement.md:592</code>, <code>runverifylist.go:92-116</code>) skips a worktree no later commit touched.</li>
+        <li>Q: fix rounds on a typical big change; dollars after pass 1 → ANSWER-ONLY → 34 big changes: one round with findings on 11, two on 11, three or more on 12, at most 8. Big: $330.74 on attempt 1, $181.05 later (35%).</li>
+        <li>Q: should docs-only still run mutation and failure-modes → ANSWER-ONLY → Yes (4 Critical/Important in 8). It is the other extra that is dropped (task 32).</li>
+        <li>Q: should a fix-round count prompt the operator → WON'T-FIX → No prompt: the uniform rule replaces it (work end to end).</li>
+        <li>Q: which opus slots could run on sonnet → ANSWER-ONLY → Keep the primary bundle on opus ($1.29 per Critical/Important; sonnet found 3 in 79). <code>mutation+failure-modes</code> is cheaper on sonnet ($0.31 against $0.46 per Critical/Important). <code>test-sanity+call-efficiency</code> yields little on either ($2.23, $2.63). Both extras already roll opus or sonnet; pinning one is an experiment.</li>
+      </ul>
     </div>
   </section>
 
@@ -1718,7 +1741,15 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>uncapped: "No round count ends the loop" (<code>verify-fix-loop.md:227</code>) → FIX (task 9, task 24) → Stays uncapped; the uniform rule. A round is the <code>&lt;k&gt;</code> of <code>In-run fix &lt;k&gt;</code>. Highest attempt 12; kan-1086 ran 21,622 s.</li>
+        <li>repeated: the test list runs at sdd-tdd, on pass 1 and here → WON'T-FIX → Already handled: at the last clean-tree green sha every command is skipped; otherwise each command whose <code># inputs:</code> pathspecs are untouched. What still runs is a command with no <code># inputs:</code> line, or a dirty tree.</li>
+        <li>repeated: 153 of 257 runs are later attempts → ANSWER-ONLY → Of 150 later attempts: in-run fix rounds 90 ($74.31), same-session re-verify 44 ($13.38), a new session (fix run or resume) 7 ($2.81), other 16 ($5.98).</li>
+        <li>unselected: lists run on a diff no suite reads → WON'T-FIX → <code>flow-guard unchanged</code> and <code># inputs:</code> are the mechanism; opting a suite in is the project's <code>## test</code> line, not a contract change.</li>
+        <li>Q: which loops still lack a bound after KAN-1107 → ANSWER-ONLY → KAN-1107 bounded only the narrowed visual re-runs (two rounds failing outside the specs escalate). The in-run fix rounds had none; task 24 gives them the uniform rule.</li>
+        <li>Q: is the test-list run needed on the same HEAD → ANSWER-ONLY → It does not run on the same HEAD — see the green-sha row.</li>
+        <li>Q: share of in-run fix rounds against fix runs → ANSWER-ONLY → 60% in-run fix rounds, about 5% fix runs or resumes, the rest same-session re-verifies.</li>
+      </ul>
     </div>
   </section>
 
@@ -1855,7 +1886,19 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Operator: "one opus verifier" — managed through allowed pairs now → FIX (task 33) → The verifier's pair is read from its <code>visual-verifier</code> row (first base pair, an open experiment's in its place) by <code>visual-verify-pass prepare</code>; the literal <code>opus</code> and <code>VERIFY_MODEL</code> go. Today's row order keeps opus; a reorder or an experiment switches it with no code change.</li>
+        <li>uncapped: remainders, re-dispatches, fix rounds; attempt 18 → FIX (task 9, task 24, task 25) → Stay uncapped; each takes the uniform rule.</li>
+        <li>repeated: 183 of 287 runs are later attempts ($452.38) → ANSWER-ONLY → First runs 106 ($265.70); scoped in-run fix rounds 63 ($247.81); closing full runs 48 ($141.93); no verifier (prepare stop or skip) 56 ($18.81); re-dispatch 7 ($8.03); other 17 ($53.15).</li>
+        <li>repeated: every clean scoped re-run is followed by a full run → WON'T-FIX → 41 of 83 closing full runs were followed by another fix round — half of them found something the scoped run missed.</li>
+        <li>unselected: the verifier is always opus → FIX (task 33) → As the operator instruction.</li>
+        <li>unselected: 83 stopped, 69 superseded → ANSWER-ONLY → 88 stopped now. 53 dispatched no verifier ($6.15 in all): prepare stops on pre-flight, stack or fingerprint, 31 of them retried within 10 s. 32 are the verifier closing <code>blocked/test-failure</code> ($123.27) — the stage closing into the fix loop, as designed.</li>
+        <li>Q: why do 83 runs end stopped → ANSWER-ONLY → Row above: the costly stops are fix-loop rounds, the cheap ones environment.</li>
+        <li>Q: drop the closing full run when no shared source is touched → WON'T-FIX → Row above; and <code>check-visual-verify-dispatched</code> refuses a scoped newest row (<code>visualverifydispatched.go:486</code>).</li>
+        <li>Q: is fixed opus right for a capture-only round → ANSWER-ONLY → After task 33 it is the row's order in flowd, the operator's to change.</li>
+        <li>Q: kan-1038's fifth attempt, $20.23 in 218 s → ANSWER-ONLY → Stage run 17707 holds 13 dispatches; the verifier is $0.95. The rest is the self-review loop — planner $5.48, fixers $7.42, reviews, 4 Explore agents — which runs in the background (<code>pipeline.md:295</code>) and is billed to whichever window is open (<code>attribute.go:18</code>). A data caveat, not this stage's cost.</li>
+        <li>loop: stack rebuilt at run-instructions after the verifier built it → FIX (task 34) → See flow.run-instructions.</li>
+      </ul>
     </div>
   </section>
 
@@ -1924,7 +1967,9 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Q: redundant with <code>check-task-commit-fields</code>? → ANSWER-ONLY → Largely, and kept. The task-close guard covers each commit's Files/Tests/Commit fields and <code>check-unfinished-work</code> the unticked tasks. Only this stage looks for a stray <code>fixup!</code> commit and a <code>spectre/changes/</code> path inside a task commit, and it hosts the <code>prUrl</code> commit-split and push. 111 runs, $3.16.</li>
+      </ul>
     </div>
   </section>
 
@@ -2005,7 +2050,10 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: the stack is rebuilt after the verifier built it → FIX (task 34) → Cause: step 13 of <code>visual-verify.md</code> stops the stack the verification started, so the "already serving this build" skip can never apply. The stack is now left up unless the run lands straight away.</li>
+        <li>Q: how often is the start skipped → ANSWER-ONLY → Not recorded. Proxies: 81 of 111 runs take under 1 s (a skip or a land-straight-away run); 14 take 10 s or more.</li>
+      </ul>
     </div>
   </section>
 
@@ -2095,7 +2143,13 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: the narrative per run; 50-minute costliest runs → WON'T-FIX → The long windows are fix loops inside the guard loop, not prose: kan-1010 is an unaddressed verify failure plus five loop dispatches. The stage's median is 19 s.</li>
+        <li>repeated: the same guard runs again at integrate's gate → WON'T-FIX → The guard is tooling: 421 runs, median 204 ms. The second run is not idle — 14 of the gate's 41 stops came straight after this stage (open dispatch rows, a missing pass row, a missing trailer).</li>
+        <li>loops: unfinished-work guard and visual guard, uncapped → FIX (task 9, task 26) → Stay uncapped; the uniform rule, applied inline by the parent.</li>
+        <li>Q: kan-1010's 3,071 s → ANSWER-ONLY → Not a visual re-run (the visual guard printed OK): <code>OUTSTANDING</code> on two unaddressed spec failures, then a verify fix loop.</li>
+        <li>Q: a shorter narrative, or once per change → WON'T-FIX → One section per run is what <code>check-narrative-runs</code> and the self-review read; the text already excludes what the ledger holds. task 35 removes the one real duplicate, the second section of a single invocation.</li>
+      </ul>
     </div>
   </section>
 
@@ -2187,7 +2241,12 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: the mark is zero-width → FIX (task 36) → The mark begins before the checks and a preflight stop closes it <code>stopped</code>. Today a preflight stop leaves no row: 0 stopped of 195.</li>
+        <li>Q: move the mark → FIX (task 36) → Yes.</li>
+        <li>Q: what sends prepare back nine times → ANSWER-ONLY → Never preflight. kan-1084's nine: a landing-question stop, a missing visual verify, two re-runs, an unverified commit, two unclosed dispatch rows, a scoped verifier row with no closing full run, then clear.</li>
+        <li>loop: prepare re-run after each stop → FIX (task 9, task 26) → The uniform rule, applied inline.</li>
+      </ul>
     </div>
   </section>
 
@@ -2287,7 +2346,13 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: the guard re-runs on the same HEAD; 45 stopped → WON'T-FIX → As under flow.write-in-progress.</li>
+        <li>uncapped: finish and re-run; attempt 9 → FIX (task 9, task 26) → Stays uncapped; the uniform rule, applied inline.</li>
+        <li>Q: what the gate catches that write-in-progress missed → ANSWER-ONLY → Work done after it (self-review re-plans, visual fix loops); <code>check-untasked-commits</code>, which only the gate runs; rows that stage left open.</li>
+        <li>Q: kan-1044's third attempt, $17.62 and 19 dispatches → ANSWER-ONLY → <code>prepare</code> was run while task 11's implementer was in flight, so the gate stopped on it; the implementer and panel round 12 then ran for 2.5 h under no mark and were billed to the stopped gate window. The gate did its job.</li>
+        <li>Found: <code>guard_runs</code> shows 0 fired for <code>check-unfinished-work</code> against 153 <code>OUTSTANDING</code> verdicts → FIX (task 40) → The guard exits 0 on <code>OUTSTANDING</code> and the telemetry classifies by exit code alone.</li>
+      </ul>
     </div>
   </section>
 
@@ -2369,7 +2434,10 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>unselected: a clean rebase lints the whole tree → WON'T-FIX → The rule exists for a rebase that drops an import — a cross-file break a path-scoped lint misses. 24 syncs in 30 days.</li>
+        <li>Q: 139 of 150 uncosted → ANSWER-ONLY → Yes: 24 syncs over 154 runs, median 0.27 s. The mark wraps <code>check-base-moved</code> (11 ms) and the route line.</li>
+      </ul>
     </div>
   </section>
 
@@ -2451,7 +2519,10 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: the narrative is appended again → FIX (task 35) → 82 of 143 runs share a session with a write-in-progress run. Such an invocation now extends its section — heading <code>… — fix run — integrate run</code>, which the guard already counts for both — rather than writing a second one.</li>
+        <li>Q: is the second append needed in one invocation → FIX (task 35) → No.</li>
+      </ul>
     </div>
   </section>
 
@@ -2523,7 +2594,9 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Q: anything needing attention → ANSWER-ONLY → No. 123 completed, 6 stopped; the whole $1.42 sits on the 6 stopped runs.</li>
+      </ul>
     </div>
   </section>
 
@@ -2652,7 +2725,15 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>uncapped: review, verify and re-plan loops → FIX (task 9, task 27) → Stay uncapped; the uniform rule. The fresh dispatch is the next re-plan on the planner pair — the <code>self-review-fix</code> row carries no escalation pair (<code>SKILL.md:278</code>).</li>
+        <li>repeated: 101 of 213 runs are later attempts → ANSWER-ONLY → 53 are loop dispatches on <code>self-review-*</code> changes, each auto-opening its own run; 47 are <code>/flow</code> passes re-run after a stop or a product-defect fix run; 4 <code>/flow-interactive</code>.</li>
+        <li>unselected: one opus pass on a micro change → WON'T-FIX → Micro passes find real defects: 4 changes, 55 findings, about 28 fixed (kan-1040 alone 17 pipeline defects). Median by this query $4.79 against regular $5.87 and big $7.72.</li>
+        <li>repeated: the bundle is rebuilt for every run → WON'T-FIX → It is written once per pass (<code>integrate.md:166</code>); the repeated "runs" are loop dispatch rows.</li>
+        <li>Q: what micro passes find → ANSWER-ONLY → Row above.</li>
+        <li>Q: a round cap as KAN-1107 gave flow.verify → FIX (task 9, task 27) → The uniform rule, no cap.</li>
+        <li>Q: the 60 runs under no decision → ANSWER-ONLY → 76 now: 64 on <code>self-review-*</code> loop changes, 8 <code>/flow-interactive</code>, 4 other. They carry <code>/flow</code> because the loop runs inside <code>/flow</code>'s integrate; the label stays.</li>
+      </ul>
     </div>
   </section>
 
@@ -2753,7 +2834,12 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>uncapped: loops; 3.57 runs per loop change → FIX (task 9, task 28) → Stay uncapped; the uniform rule. No loop ran long: at most 3 review rounds and one re-plan in the window.</li>
+        <li>repeated: every loop runs full lint and tests → WON'T-FIX → It does not: <code>pfChecks</code> (<code>pipelinefix.go:434-505</code>) runs <code>go test</code> per touched package, vitest per touched file, and <code>cd stats</code> lint only when Go or web files moved. Only path-free <code>## lint</code> guard lines always run.</li>
+        <li>Q: which defects took 6 runs → ANSWER-ONLY → One: <code>pipeline-fix-kan-1061-…-46</code>, a single defect — plan, fix, review 1, fix 1, a verify fix, review 2. A run here is one dispatch.</li>
+        <li>Q: should verify select the touched suites → WON'T-FIX → Already does.</li>
+      </ul>
     </div>
   </section>
 
@@ -2842,7 +2928,11 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: 22 stopped, 27 re-runs of land → FIX (task 37) → The store does not record why a land stopped. <code>stop()</code> now writes the stop kind as the stage's <code>reason</code>.</li>
+        <li>Q: which stops send land back → ANSWER-ONLY → Of 23 stops: none is <code>self-review-report</code> (the pass had completed before all 23); 5 are <code>visual-verify</code>; 17 are unrecorded — hence task 37.</li>
+        <li>loop: land re-run after a stop → FIX (task 9, task 26) → The uniform rule, applied inline. The rejected-push retry stays capped at one.</li>
+      </ul>
     </div>
   </section>
 
@@ -2918,7 +3008,10 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: about two runs per change → ANSWER-ONLY → Yes — every <code>cleanup</code> call opens it, so each cleanup stop adds one. task 38 and task 39 remove most cleanup stops, and these runs with them.</li>
+        <li>Q: skip a merge check that already passed → WON'T-FIX → It is the only gate for "not merged, remove nothing", the worktree can gain commits between calls, and the same loop resolves the base the refresh needs. 2-15 s, no tokens.</li>
+      </ul>
     </div>
   </section>
 
@@ -3010,7 +3103,12 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: 100 of 202 runs end stopped → FIX (task 38, task 39) → Two causes. One disclose stop per repository, in sequence — a three-repository change stops three times. And every agents change stops on an ignored build copy, <code>stats/internal/modelpolicy/embedded/model-policy.md</code> (115 <code>UNCLASSIFIED:</code> lines), because only a root-level counterpart is preserved.</li>
+        <li>Q: which stop → ANSWER-ONLY → Mostly <code>disclose</code>; <code>worktree-cleanup</code> and <code>leftover</code> occur. agents: 59 stops over 29 changes; gymie: 52 over 37. From transcripts — the store keeps no stop kind until task 37.</li>
+        <li>Q: where the $19.32 comes from → ANSWER-ONLY → The session answering the stops — relays, the ask, Jira calls — billed to the stopped window by the last-window rule. $21.50 on stopped runs against $1.66 on completed ones.</li>
+        <li>loop: cleanup re-run after a stop → FIX (task 9, task 29) → The uniform rule, applied inline.</li>
+      </ul>
     </div>
   </section>
 
@@ -3078,7 +3176,9 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Q: the one leftover outcome → ANSWER-ONLY → Stage run 17303, kan-1033, 2026-10-25: no <code>LEFTOVER:</code> line — the check gave no verdict because a self-hosting change ran it on stale tooling. A <code>git pull --ff-only</code> and a re-run 30 s later completed. The refresh-before-save rule (<code>cleanup.md:14-28</code>, 2026-11-01) covers it; none since.</li>
+      </ul>
     </div>
   </section>
 
@@ -3138,7 +3238,9 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>Q: anything to discuss → ANSWER-ONLY → No: 113 of 113 completed, $0.03.</li>
+      </ul>
     </div>
   </section>
 
@@ -3205,7 +3307,10 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>repeated: a second refresh on a self-hosting change → WON'T-FIX → A no-op of about 2 s (median 2.1 s over the 14 agents runs since 2026-11-01).</li>
+        <li>Q: micro 16 s against 6 s → ANSWER-ONLY → Project mix and dates, not class: 4 micro runs, 3 of them agents runs from before 2026-11-01, when this stage still restarted flowd. agents is about 13 s in every class, gymie about 6 s.</li>
+      </ul>
     </div>
   </section>
 
@@ -3291,7 +3396,11 @@ GROUP  BY s.stage;</pre>
 
     <div class="outcome">
       <h3>Session outcome</h3>
-      <p>not yet held</p>
+      <ul>
+        <li>unselected: dispatches before capture are never recorded → WON'T-FIX → The spend is in the store — the harvester puts subagent tokens in the open window's <code>sidechain</code> bucket (<code>attribute.go:190-211</code>; run 7192 carries $15.75). Only per-dispatch rows are absent, by decision <code>flow-plan-records-nothing</code> and because <code>dispatches.change_id</code> is <code>NOT NULL</code>. A back-fill for about 5 runs a month is speculative.</li>
+        <li>Q: is 4 runs enough to analyse → ANSWER-ONLY → No: 5 runs over 4 changes, 3 of them before the 2026-11-11 rewrite.</li>
+        <li>Q: three runs end superseded → ANSWER-ONLY → Each was closed by a <code>flow.kickoff</code> begin on the same token — the session ran brainstorm's section A as then written. <code>skills/flow-plan/SKILL.md:65</code> ("<code>flow.kickoff</code> is not marked", 2026-11-11) fixed it; the one run since ended <code>started</code>.</li>
+      </ul>
     </div>
   </section>
 </main>
