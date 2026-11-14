@@ -46,6 +46,7 @@ func TestNoProgressRule(t *testing.T) {
 		{"skills/flow/visual-verify.md", "Three re-dispatches that each close `NEXT: redispatch` take **Three failed rounds**"},
 		{"skills/flow/unfinished-work-gate.md", "take **Three failed rounds** (`skills/flow-contracts/pipeline.md`), applied inline by the parent from every earlier verdict"},
 		{"skills/flow/integrate.md", "Three stops in a row of one call take **Three failed rounds**"},
+		{"skills/flow-self-review/SKILL.md", "Three failed rounds of the review loop or of the verify loop are answered the same way, by the next re-plan (**Three failed rounds**"},
 		{"skills/flow/verify-fix-loop.md", "and for **Three failed rounds** of this loop — a round being one `In-run fix <k>` task"},
 	}
 	if strings.Contains(repoText(t, "skills/flow/review-panel.md"), "a third breach of the same slot is asked") {
