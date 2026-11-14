@@ -81,6 +81,9 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    a test that drives the real composable or component, never a hand-copied constant, and asserts
    the value the verifier measured against the frame — so a later change that moves it again fails
    a test instead of waiting for the next visual verification.
+   The appended task's `**Tests:**` names one probe per departure its Step lists, and the
+   implementer hands back a listed departure with no probe it watched fail before the fix and pass
+   after it as unfixed, never as fixed (kan-1096 self-review, F15).
    A departure seen in motion or over time — a frame range, a gesture, a delay — is probed
    under the input the verifier recorded, its pace, distance and step timing, and sampled inside
    the window the verifier saw it in, never with instantaneous steps or a settle wait that outlasts
