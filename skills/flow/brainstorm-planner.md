@@ -388,6 +388,12 @@ and a run moment — `before the first task`, `at flow.<stage>` — and carries 
 naming no run moment designs the parent's role and needs none. The line sits in `design.md`, never `tasks.md`, where `spectre validate`
 refuses a checkbox line that is not a numbered task.
 
+**A parent action never writes a main checkout.** `hooks/protect-main-checkout.py` denies every
+write there — an `rm`, a redirect, a commit — and no approval reaches the hook, so a
+`- [ ] Parent:` line that writes one can never be performed. A step that must write a main
+checkout is an operator handoff line instead, naming the exact command for the operator to run
+(kan-1112 self-review, F3).
+
 **Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
 with `**Build:**` per **The build-green tag**
 (`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
