@@ -159,7 +159,7 @@ sut prepare "$WORK/a" demo --accept-outstanding
 check "visual_stop: --accept-outstanding does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
 check "visual_stop: no worktree is judged after the MISSING one, whose row stays the newest to flag" \
   '! printf "%s\n" "$OUT" | sed -n "/^VISUAL-VERIFY-MISSING:/,\$p" | sed 1d | grep -q "^VISUAL-VERIFY-"'
-check "visual_stop: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped"'
+check "visual_stop: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped -reason STOP: visual-verify demo$"'
 flag "$A" "$(git -C "$A" rev-parse HEAD~1)"
 sut prepare "$WORK/a" demo --accept-outstanding
 check "visual_stop: a false-positive flag on an earlier HEAD does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'

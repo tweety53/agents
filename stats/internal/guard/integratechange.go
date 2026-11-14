@@ -197,7 +197,8 @@ type ic struct {
 // Exit 0 the subcommand ran to its end; 1 a stop — a guard verdict, a
 // refusal or a failed git step needs the parent or the operator, and the
 // stage mark open at that point is closed `stopped` (`not-run-2` and
-// `leftover` where run 2's contract names those); 2 usage, a guard it
+// `leftover` where run 2's contract names those), its end carrying
+// `-reason "STOP: <kind>"`; 2 usage, a guard it
 // sequences missing beside it (named on stderr, nothing run), or the state
 // record cannot be read.
 //
@@ -474,8 +475,14 @@ func (c *ic) markBegin(stage string) {
 	}
 }
 
-func (c *ic) markEnd(stage, outcome string) {
-	cmd := c.cmd("/", "flow", "stage", "end", "-C", c.main, "-command", "/flow", "-stage", stage, "-outcome", outcome, c.name)
+// markEnd ends stage with outcome; a reason, when given, is the end's
+// -reason (metrics.reason).
+func (c *ic) markEnd(stage, outcome string, reason ...string) {
+	args := []string{"stage", "end", "-C", c.main, "-command", "/flow", "-stage", stage, "-outcome", outcome}
+	for _, r := range reason {
+		args = append(args, "-reason", r)
+	}
+	cmd := c.cmd("/", "flow", append(args, c.name)...)
 	if cmd.Run() != nil {
 		fmt.Fprintf(c.stderr, "integrate-change: warning: flow stage end %s failed\n", stage)
 	}
@@ -484,7 +491,7 @@ func (c *ic) markEnd(stage, outcome string) {
 
 func (c *ic) stop(kind, text string) {
 	if c.openStage != "" {
-		c.markEnd(c.openStage, c.stopOutcome)
+		c.markEnd(c.openStage, c.stopOutcome, "STOP: "+kind)
 	}
 	c.say("STOP: " + kind + " — " + text)
 	panic(icExit(1))
