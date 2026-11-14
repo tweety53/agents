@@ -228,4 +228,5 @@ change's specs and the specs outside the `specs` row's output. Two consecutive r
 ## No cap
 
 **No round count ends the loop.** **Fewest operator actions** (`skills/flow-contracts/pipeline.md`)
-is canonical for that, and for a round that makes no progress.
+is canonical for that, for a round that makes no progress, and for **Three failed rounds** of this
+loop — a round being one `In-run fix <k>` task.
