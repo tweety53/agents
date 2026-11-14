@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -11,25 +14,47 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/guard"
 )
 
 func TestOutcomeForUsesTheGuardsOwnCannotAnswerCode(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name string
-		code int
-		want string
+		name  string
+		code  int
+		first string
+		want  string
 	}{
-		{"check-plan-shape", 0, "clear"},
-		{"check-plan-shape", 1, "fired"},
-		{"check-plan-shape", 2, "cannot-answer"},
-		{"run-reproducer", 2, "fired"},
-		{"run-reproducer", 4, "cannot-answer"},
-		{"mutate-and-verify", 4, "cannot-answer"},
+		{"check-plan-shape", 0, "", "clear"},
+		{"check-plan-shape", 1, "", "fired"},
+		{"check-plan-shape", 2, "", "cannot-answer"},
+		{"run-reproducer", 2, "", "fired"},
+		{"run-reproducer", 4, "", "cannot-answer"},
+		{"mutate-and-verify", 4, "", "cannot-answer"},
+		// KAN-1110: check-unfinished-work exits 0 on its OUTSTANDING verdict.
+		{"check-unfinished-work", 0, "OUTSTANDING: task 3 has no implementer row", "fired"},
+		{"check-unfinished-work", 0, "CLEAR: nothing outstanding", "clear"},
+		{"check-plan-shape", 0, "OUTSTANDING: not this guard's verdict", "clear"},
 	} {
-		if got := outcomeFor(tc.name, tc.code); got != tc.want {
-			t.Errorf("outcomeFor(%q, %d) = %q, want %q", tc.name, tc.code, got, tc.want)
+		if got := outcomeFor(tc.name, tc.code, tc.first); got != tc.want {
+			t.Errorf("outcomeFor(%q, %d, %q) = %q, want %q", tc.name, tc.code, tc.first, got, tc.want)
 		}
+	}
+}
+
+// TestFirstLineKeepsTheFirstLine pins the tee main.go reads the verdict
+// through: the first line, across writes, and every byte passed on.
+func TestFirstLineKeepsTheFirstLine(t *testing.T) {
+	t.Parallel()
+	var sink bytes.Buffer
+	f := &firstLine{w: &sink}
+	for _, p := range []string{"OUTST", "ANDING: x\nsecond\n", "third\n"} {
+		if _, err := f.Write([]byte(p)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if string(f.line) != "OUTSTANDING: x" || sink.String() != "OUTSTANDING: x\nsecond\nthird\n" {
+		t.Errorf("line %q, passed on %q", f.line, sink.String())
 	}
 }
 
@@ -98,7 +123,7 @@ func TestRecordRunPostsTheRun(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	recordRun(func(k string) string { return env[k] }, dir, "check-plan-shape", 1, 1500*time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, dir, "check-plan-shape", 1, "", 1500*time.Millisecond, srv.Client())
 
 	if gotPath != "/api/v1/guard-runs/"+key {
 		t.Errorf("path = %q, want the project's guard-runs route", gotPath)
@@ -118,7 +143,7 @@ func TestRecordRunHonoursTheOptOut(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_TELEMETRY": "off"}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", time.Millisecond, srv.Client())
 	if called.Load() {
 		t.Fatal("FLOW_GUARD_TELEMETRY=off still posted a run")
 	}
@@ -135,7 +160,7 @@ func TestRecordRunIsBoundedByItsTimeout(t *testing.T) {
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
 	start := time.Now()
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, 0, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", 0, srv.Client())
 	if elapsed := time.Since(start); elapsed > 3*telemetryTimeout {
 		t.Fatalf("recordRun took %v against a hung daemon, want it bounded near %v", elapsed, telemetryTimeout)
 	}
@@ -151,5 +176,31 @@ func TestDispatchedOnlyNamesRegisteredGuards(t *testing.T) {
 	}
 	if name, ok := dispatched([]string{"check-cleanup-complete", "x"}); !ok || name != "check-cleanup-complete" {
 		t.Errorf("dispatched = %q, %v", name, ok)
+	}
+}
+
+// TestRunAndRecordPassesTheFirstLine pins KAN-1110: the first line a guard
+// prints reaches recordRun, so check-unfinished-work's exit-0 OUTSTANDING
+// verdict is recorded fired. Not parallel: it swaps a registry entry.
+func TestRunAndRecordPassesTheFirstLine(t *testing.T) {
+	dir := gitRepo(t)
+	const name = "check-unfinished-work"
+	orig := registry[name]
+	registry[name] = func(_ []string, _ guard.Env, stdout, _ io.Writer) int {
+		fmt.Fprintln(stdout, "OUTSTANDING: task 3 has no implementer row")
+		return 0
+	}
+	defer func() { registry[name] = orig }()
+	var got guardRun
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	var stdout bytes.Buffer
+	code := runAndRecord([]string{name}, &stdout, io.Discard, func(k string) string { return env[k] }, func() string { return dir }, srv.Client())
+	if code != 0 || got.Guard != name || got.Outcome != "fired" {
+		t.Errorf("exit %d, body %+v; want exit 0 recorded fired", code, got)
 	}
 }

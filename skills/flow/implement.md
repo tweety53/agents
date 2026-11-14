@@ -147,7 +147,7 @@ fixer's summary head opens with it (`skills/flow/implementer-brief.md`), and so 
 reviewer bundle's (`skills/flow/gated-reviewer-brief.md`). Compare the line against the model this dispatch
 requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or
 the run's session override, mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`)
-on harnesses `zcode` and `muse`. Effort is not handshaken; a decision's `session_cap` holds it instead, `flow record dispatch begin` refusing a row above the cap (exit 2). A match proceeds. A reply that opens with no `Model:` line is a mismatch too, counted as a first or a second like any other. A **first** mismatch
+on harnesses `zcode` and `muse`. Effort is not handshaken; a decision's `session_cap` holds it instead, `flow record dispatch begin` refusing a row above the cap (exit 2), and the refused dispatch is made again on the highest pair its row admits at or under the cap, never a stop (**Caps never stop the run**, `skills/flow-contracts/pipeline.md`). A match proceeds. A reply that opens with no `Model:` line is a mismatch too, counted as a first or a second like any other. A **first** mismatch
 closes the open dispatch row `-outcome fallback` and re-dispatches once, on the same requested
 model and `subagent_type`, under `<key>-retry`:
 
@@ -253,6 +253,9 @@ Exit `0` from `flow-guard check-plan-shape` proceeds. Exit `1` names a shape def
 and before any code is touched, exactly as an exit-1 from `spectre validate` already is. Exit `2`
 stops the run.
 
+On a fix run `flow-guard check-plan-shape` is not run here — `skills/flow/document-fix.md` ran it on
+this plan in this run; `spectre validate` and `spectre list --json` run on every run.
+
 **The change root is the change's directory** (**A change's directory**,
 `skills/flow-contracts/pipeline.md`). Read:
 
@@ -260,6 +263,9 @@ stops the run.
 - `<changeRoot>/tasks.md` — the plan
 - `<changeRoot>/design.md` — how, when the change carries one
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
+
+A file of this list this session has already read — the fix run's planning pass reads
+`proposal.md` and `tasks.md` — is not read again unless it was edited since.
 
 **Every recorded base is compared with the branch it tracks before task 1 runs.** Run
 `flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
@@ -303,8 +309,8 @@ git -C <worktree> push --force-with-lease origin spectre/<name>
 **Run the push as its own Bash call, never chained, with the lease pinned to the remote's pre-rebase sha** —
 `--force-with-lease=spectre/<name>:<old-remote-sha>`, `<old-remote-sha>` read from `git -C <worktree> ls-remote --heads origin spectre/<name>` before the push — <!-- citations-guard:allow --> so the permission layer sees a bounded overwrite of the change's own branch. A denial of that form is a defect to cure by retrying in that form, never a question to the operator (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
 
-Exit 1 is a `CONFLICT`, handled as the **Conflict** bullet of **Check base movement first**
-(`skills/flow/review-panel.md`) states, and the run stops for the operator. Exit 2 or 3 stops the
+Exit 1 is a `CONFLICT`, which is resolved in place as **Check base movement first**
+(`skills/flow/review-panel.md`) states; only its stop-and-ask cases stop the run. Exit 2 or 3 stops the
 run with its output named.
 
 **Whether there is anything left to implement is read off the task checkboxes**, from
@@ -321,8 +327,7 @@ Extract the **Global constraints** verbatim from the capability specs the propos
 `design.md` for the reviewers.
 
 On an implementation run, not a fix run, compose the learning note per **Learning**
-(`skills/flow-contracts/learning.md`) once the plan validates, write its file and print its
-absolute path then.
+(`skills/flow-contracts/learning.md`) once the plan validates, and write its file.
 
 ```bash
 flow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
@@ -351,11 +356,18 @@ flow state add-worktree <name> <abs-path> <merge-base-sha>
 
 It exits 2 on a relative path or a malformed sha, and 1 when no `STARTED` record exists yet,
 writing nothing either way. Do this once per worktree, immediately after
-`spectre link` succeeds for it (or immediately after resuming it, on a fix or resumed run), not
+`spectre link` succeeds for it (or immediately after resuming it, on a resumed run; a fix run
+records only an entry the `worktrees` map lacks), not
 batched at the end. The kickoff worktree's own entry never waits for this stage: it is recorded
 where the worktree is created — `skills/flow/brainstorm.md` step 2 — so on a first creating run
 this stage finds it already present, and the paragraph's rule above keeps governing each
 additional worktree.
+
+On a fix run whose state record's `worktrees` map is not empty, that map is this run's resolved
+set — no `flow state add-worktree` call repeats an entry it holds, the worktree-resolution
+contract below is not loaded, and `## apps` is read only when an appended task's `**Files:**` name
+a path outside every recorded worktree's repository. `flow workspace-id` and both stage marks run
+as on any run.
 
 **Load `skills/flow-contracts/worktree-resolution.md`** — it derives this run's resolved worktree
 set.
@@ -595,7 +607,8 @@ once per worktree in this run's resolved set, one worktree after another, in the
 — by hand, in the order the context bundle carries it, only where that exits 3 — its output
 through `tail`; the green sha each run records in its own worktree is what lets **Inline verify**
 (`skills/flow/verify-and-handoff.md`) skip what no later commit touched. Every failure, wherever it lies, is fixed at its root
-cause and the list re-run until it passes. Under `sdd` the fix is a fresh one-shot, the
+cause and the list re-run until it passes. A fourth `full-suite-fix-<n>` after three failed ones
+is the fresh dispatch of **Three failed rounds** (`skills/flow-contracts/pipeline.md`). Under `sdd` the fix is a fresh one-shot, the
 `full-suite-fix-<n>` row of **Every fix is a fresh one-shot** below, its `FIX INPUT:` the failing
 block, and a failing visual `verify` row in it is re-run narrowed as **Narrowed visual re-runs** states (`skills/flow/verify-fix-loop.md`). Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
 the route the branch's push state dictates (**Panel re-runs**,

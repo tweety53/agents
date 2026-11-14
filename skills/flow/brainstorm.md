@@ -108,10 +108,17 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
 `planner-role`). A `/flow-plan` capture runs this section too, with the differences
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states. Every planner dispatch is fresh and one-shot, on `subagent_type:
-flow-planner-<effort>` with `model` and effort from the **Allowed pairs** row `planner`
-(`skills/flow-contracts/model-policy.md`) — its first pair unless an open experiment overrides
-it; a CORE change (its Jira issue carries an `**Agents (CORE):**` section) takes `flow-guard plan-agent-pair
-<name> <n> planner core` instead, `fable xhigh`, and its prompt carries the line `CORE change`. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
+flow-planner-<effort>` with `model` and effort from `flow-guard plan-agent-pair <name> <n> planner
+<effort>`, read off the **Allowed pairs** row `planner` (`skills/flow-contracts/model-policy.md`).
+Round 1's effort is `low` when the ask is a seeded note or a `/flow-plan` capture that already
+carries the design (`skills/flow/seeded-note.md`), else `medium`; every later planner dispatch of
+the run takes its pair from `flow-guard plan-agent-pair <name> <n> planner auto <latest round
+file>`, which computes the effort from that file — its `**Scope:**` line, its `[architectural]`
+question count and its distinct cited repo paths — never above `high`; a guard redispatch takes
+the effort the guard redispatch rule below names. `xhigh` and an opt-in pair are used only under an
+operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`): the parent's prompt
+then carries `Operator pair: planner`, and one line `Granted: <role> <model> <effort>` for each
+granted `explorer` or `plan-designer` role. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
 report-tersely line, the PLANNING DELEGATION paragraph (`skills/flow-self-review/SKILL.md`) — its
 auto-resolution sentence replaced by "every choice is written as a question of the round file" —
 the change name, the absolute worktree, the session token and `REVIEWERS` (**Model resolution**,
@@ -125,7 +132,9 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 ```
 
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
-   plan mode, reading the ticket and every file under `<abs-worktree>/.superpowers/sdd/planner/`,
+   plan mode, reading the ticket, `findings.md`, the latest `round-<r>.md` and the latest
+   `answers-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
+   prompt, never an earlier round or answers file —
    dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
    `-key explore-<n>|design-<n>`, each pair from `flow-guard plan-agent-pair <name> <n> explorer|plan-designer`, `<n>` continuing
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
@@ -135,14 +144,15 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    most ten lines, the decisions the round settled and what is still open, which is the settled
    prose the convergence confirm shows — the design draft, then `## Questions` — each question with two to
    four options, one marked recommended where one honestly is, the convergence confirm last when
-   nothing else is open.
+   nothing else is open. `## Questions` holds only questions headed `[architectural]` or
+   `[impactful: <criterion>]`; the round's auto-taken ones sit under `## Auto-taken`.
    It asks the operator nothing.
 2. **Relay.** The parent first publishes the prototype
    (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's `## Summary` verbatim and
    the round file's absolute path — the design draft stays in the file — with the
-   prototype's Artifact URL beside them whenever a prototype exists, asks its questions verbatim, four to
-   an **AskUserQuestion** call and each question headed `[architectural]` in a call of its own, in
-   round-file order — the URL appended to the text of the question that depends on the
+   prototype's Artifact URL beside them whenever a prototype exists, asks its `## Questions` verbatim and no other —
+   the `[architectural]` ones together, up to four in one **AskUserQuestion** call, the
+   `[impactful: <criterion>]` ones in a second, the convergence confirm last, in round-file order — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the
@@ -150,18 +160,37 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    `flow.brainstorm` end, `flow.design-approval` begin and end, as **Convergence**
    (`skills/flow/brainstorm-planner.md`) marks them; any other answer dispatches round `<r+1>`. An
    operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way.
-3. **Artifacts and plan.** Two final planner dispatches, under the run's session token:
+3. **Artifacts and plan.** Two final planner dispatches, under the run's session token. The parent
+   begins `flow.create-artifacts` in the same call that ends `flow.design-approval`, before
+   `flow record dispatch begin` of the first final planner, and `flow.writing-plans` before
+   recording the second — after **Plan review** #1 ends, or straight after the `ARTIFACTS-WRITTEN`
+   return when that review is skipped:
+
+   ```bash
+   flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
+   flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
+   ```
+
+   A `/flow-plan` capture makes both under `-command '/flow-plan'`. Each mark is made once per run:
+   a fresh final dispatch after `QUESTIONS` or a guard failure finds it made. The planner still
+   makes both end marks.
    - the first runs section **C** of `skills/flow/brainstorm-planner.md` — its <!-- refs-guard:allow -->
-     `flow.create-artifacts` marks, `spectre new` and the three artifacts from the approved design,
-     read from every file under `<abs-worktree>/.superpowers/sdd/planner/`, where the approved
-     design lives — and returns `ARTIFACTS-WRITTEN`; the parent then runs **Plan review** #1 below;
-   - a fresh one then runs section **D** up to, not including, **Decide** — its
-     `flow.writing-plans` begin mark, writing-plans, `spectre validate`, `flow-guard
+     `flow.create-artifacts` end mark, `spectre new` and the three artifacts from the approved design,
+     read from the approved round file, its answers and `findings.md` under
+     `<abs-worktree>/.superpowers/sdd/planner/` — and returns `ARTIFACTS-WRITTEN`; the parent then runs **Plan review** #1 below;
+   - a fresh one then runs section **D** up to, not including, **Decide** — reading `proposal.md`,
+     `design.md`, `tasks.md` and `findings.md` — writing-plans, `spectre validate`, `flow-guard
      check-plan-shape`, the configured guards and `flow tasks count` — and returns `PLAN-WRITTEN`.
 
-   A dispatch returning the guard output it could not clear is redispatched fresh with that output
-   until it returns its word; a redispatch skips each mark already made and resumes at the guard
-   that failed. Either dispatch returns
+   A dispatch returning the guard output it could not clear is redispatched fresh on `flow-guard
+   plan-agent-pair <name> <n> planner low`, its prompt carrying that output and the absolute paths
+   of `proposal.md`, `design.md` and `tasks.md` — no round, answers or findings file; a redispatch
+   skips each mark already made and resumes at the guard that failed. A second failure of the same
+   guard is redispatched the same way on `flow-guard plan-agent-pair <name> <n> planner medium`. No
+   round count stops this loop: the third failure of the same guard is **Three failed rounds**
+   (`skills/flow-contracts/pipeline.md`) — the next is a fresh dispatch on the run's own planner
+   pair, its prompt carrying all three returns verbatim and naming the approach that failed, within the
+   later-round agent cap (**Explore and design agents**, `skills/flow/brainstorm-planner.md`). Either dispatch returns
    `QUESTIONS` instead the moment writing the artifacts or the plan surfaces an ambiguity (**The
    checklist**, `skills/flow/brainstorm-planner.md`), the next `round-<r>.md` holding it: the parent
    relays that round as step 2 does, and a fresh final dispatch — never a design round — takes its
@@ -251,7 +280,9 @@ dispatch, planner redispatch and question round of a review sits inside its stag
    the answers. Its `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return ends `flow.plan-review`;
    nothing is reviewed a third time.
 4. **A failed reviewer.** A dispatch that errors, or returns neither verdict line, is
-   redispatched once under the next `<n>`. Failing again, the plan review is `not run`, never
+   redispatched once under the next `<n>`, its row first ended `-outcome aborted` so it does not
+   count toward the two reviews `flow record dispatch begin` admits under one session token.
+   Failing again, the plan review is `not run`, never
    clean: end the stage with `-outcome failed -reason 'plan review not run'` and go on.
 
 A `/flow-plan` capture marks the stage under `-command '/flow-plan'`.

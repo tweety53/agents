@@ -266,8 +266,7 @@ printf '%s\n' '{"plan-designer":["opus/Plan@max"],"main":["opus@medium"],"nobody
 `
 
 // TestPolicyTableOverlaysOpenOverrides: an open experiment's cell replaces
-// its role's unmarked row whole, a planning role's replaced pairs appended as
-// a row marked `CORE change`; marked rows, roles the table lacks and main
+// its role's unmarked row whole, a planning role's as any other's; marked rows, roles the table lacks and main
 // never change the table; a failed or unparsable overrides read, or no flow
 // at all, leaves the table alone.
 func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
@@ -286,8 +285,6 @@ func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 		want[role] = slices.Clone(rs)
 	}
 	want["plan-designer"][0].Pairs = []string{"opus/Plan@max"}
-	// A planning row keeps its own pairs on an appended `CORE change` row (kan-1102 self-review, F4).
-	want["plan-designer"] = append(want["plan-designer"], policyRow{Pairs: alone["plan-designer"][0].Pairs, Marker: "CORE change"})
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("overlaid table differs beyond plan-designer's unmarked row:\n got %v\nwant %v", got, want)
 	}
@@ -299,7 +296,7 @@ func TestPolicyTableOverlaysOpenOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A non-planning role gets no `CORE change` row: len unchanged.
+	// The marked row stays, and no row is added.
 	if rs := marked["panel-fix"]; len(rs) != len(alone["panel-fix"]) || rs[0].Marker != "" || !reflect.DeepEqual(rs[0].Pairs, []string{"opus/flow-max"}) ||
 		rs[1].Marker == "" || !reflect.DeepEqual(rs[1], alone["panel-fix"][1]) {
 		t.Fatalf("panel-fix rows = %v; want the unmarked row replaced and the marked row untouched", rs)
@@ -363,34 +360,22 @@ func TestCheckDispatchPairAdmitsPlanner(t *testing.T) {
 	}
 }
 
-// TestCorePairsSurviveOverride pins decision f4-core-pairs-survive-override
-// (kan-1102 self-review, F4): an open experiment overriding a planning row
-// keeps the row's own pairs admitted for a prompt carrying the line
-// `CORE change`, and plan-agent-pair … core still finds the CORE pair.
-func TestCorePairsSurviveOverride(t *testing.T) {
-	root, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
+// TestOverrideReplacesPlanningPairs: an open experiment overriding a
+// planning row replaces its base pairs for every dispatch -- a prompt
+// carrying the line `CORE change` included, which no longer admits a
+// replaced base pair.
+func TestOverrideReplacesPlanningPairs(t *testing.T) {
 	env := fakeFlowEnv(t, `[ "$1 $2" = "experiment overrides" ] || exit 9
-printf '%s\n' '{"explorer":["sonnet/Explore@low"],"plan-designer":["opus/Plan@medium"]}'
-`, "FLOW_GUARD_REPO_ROOT="+root)
+printf '%s\n' '{"explorer":["sonnet/Explore@low"]}'
+`)
 	rows, err := policyTable(env)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := policyAllows(rows, "explorer", "Explore", "opus", "low", "Role: explorer\nCORE change\n", false); err != nil {
-		t.Errorf("opus/Explore@low with the CORE change line refused: %v", err)
-	}
-	if err := policyAllows(rows, "explorer", "Explore", "opus", "low", "Role: explorer\n", false); err == nil {
-		t.Error("opus/Explore@low admitted without the CORE change line: the experiment silently lifted")
+	if err := policyAllows(rows, "explorer", "Explore", "opus", "low", "Role: explorer\nCORE change\n", false); err == nil {
+		t.Error("opus/Explore@low admitted with the CORE change line: the replaced base pair survived the override")
 	}
 	if err := policyAllows(rows, "explorer", "Explore", "sonnet", "low", "Role: explorer\n", false); err != nil {
 		t.Errorf("the override's sonnet/Explore@low refused: %v", err)
-	}
-	for role, want := range map[string]string{"explorer": "opus low\n", "plan-designer": "fable xhigh\n"} {
-		if r := runGuard("plan-agent-pair", []string{"demo", "1", role, "core"}, env); r.rc != 0 || r.stdout != want {
-			t.Errorf("%s core: rc=%d out=%q, want %q", role, r.rc, r.out, want)
-		}
 	}
 }

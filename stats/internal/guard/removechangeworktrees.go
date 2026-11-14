@@ -52,8 +52,9 @@ import (
 //     a per-worktree copy of a main-checkout local config, identical or
 //     not — and so is a symlink there resolving to that regular file
 //     (a link the project's dev tooling made; removal drops the link
-//     alone); an entry with no such counterpart, or below the root,
-//     stays unpreserved.
+//     alone). Below the root, an entry is preserved only when its bytes
+//     equal the main checkout's regular file at that path; an entry with
+//     no such counterpart, or a nested one that differs, stays unpreserved.
 //   the disclosure stop — without --proceed, an unpreserved unclassified
 //     entry or any wave-group copy stops here, before check 5 runs anything;
 //     preserved entries alone are shown and the removal proceeds.
@@ -240,6 +241,8 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 					how = "identical in"
 				}
 				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: %s %s\n", wt, rcwFlat(p), how, rcwFlat(mainCheckout))
+			case wt != mainCheckout && rcwCounterpart(wt+"/"+p, mainCheckout+"/"+p) && rcwSameBytes(wt+"/"+p, mainCheckout+"/"+p):
+				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: identical in %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
 			case wt != mainCheckout && !strings.Contains(p, "/") && rcwLinkToCounterpart(wt+"/"+p, mainCheckout+"/"+p):
 				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: linked to %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
 			default:
@@ -458,7 +461,8 @@ func rcwPlaywrightCheckout(wt string) bool {
 }
 
 // rcwCounterpart reports whether a and b are two distinct regular files —
-// check 4's "preserved", for an entry at the worktree root: the entry has a
+// check 4's "preserved", for an entry at the worktree root (below it, with
+// rcwSameBytes as well): the entry has a
 // counterpart in the main checkout, a per-worktree copy of a main-checkout
 // local config (kan-999: a worktree's .env with its own ports). One file reached by both paths (a symlinked
 // directory in the main checkout pointing into the worktree) is not a

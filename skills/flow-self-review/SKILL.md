@@ -266,7 +266,10 @@ as a forward-only fix with the repair an operator's option.
 A finding a re-plan
 did not solve — the same finding back on the same evidence — never leaves the loop: the next re-plan, key
 `self-review-<name>-plan-<n>`, stays on the planner pair and changes approach under **Fewest operator actions**
-(`skills/flow-contracts/pipeline.md`) — never a stop and never an ask. Every planning dispatch runs on
+(`skills/flow-contracts/pipeline.md`) — never a stop and never an ask. Three failed rounds of the
+review loop or of the verify loop are answered the same way, by the next re-plan (**Three failed
+rounds**, `skills/flow-contracts/pipeline.md`), its prompt carrying every `review-<r>.md` and
+`verify-<v>.log` of those rounds. Every planning dispatch runs on
 `opus` at effort `low` or `medium` only: no planner here escalates to `flow-planner-high` or `flow-planner-xhigh`. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE

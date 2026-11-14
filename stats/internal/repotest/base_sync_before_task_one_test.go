@@ -50,6 +50,16 @@ func TestBaseSyncBeforeTaskOne(t *testing.T) {
 	if strings.Contains(impl, "it never rebases") {
 		t.Errorf("skills/flow/implement.md section 1 still defers the rebase to integrate")
 	}
+	if strings.Contains(impl, "the run stops for the operator") {
+		t.Errorf("skills/flow/implement.md section 1 still stops on a base-sync conflict")
+	}
+	panel := strings.Join(strings.Fields(section(t, "skills/flow/review-panel.md", "Check base movement first")), " ")
+	if want := "per the **Conflict** bullet of **Sync the branch onto the base**"; !strings.Contains(panel, want) {
+		t.Errorf("skills/flow/review-panel.md's Check base movement first lacks %q", want)
+	}
+	if strings.Contains(panel, "never resolve the conflict") {
+		t.Errorf("skills/flow/review-panel.md's Check base movement first still forbids resolving a conflict")
+	}
 	const cite = "rebased onto its base before task 1 runs, as the base-sync step of **1. Load context and validate the plan** (`skills/flow/implement.md`)"
 	fast := strings.Join(strings.Fields(section(t, "skills/flow-fast/SKILL.md", "4. Implement")), " ")
 	if !strings.Contains(fast, cite) {

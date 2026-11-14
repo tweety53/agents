@@ -76,6 +76,29 @@ func TestAwaitSubAgents(t *testing.T) {
 			t.Fatalf("no arg: rc=%d stderr=%q", r.rc, r.err)
 		}
 	})
+	t.Run("f a child silent for 30 minutes is taken as ended", func(t *testing.T) {
+		t.Parallel()
+		sdir := filepath.Join(tmp, "stale", "sess", "subagents")
+		mkdir(t, sdir)
+		writeFile(t, filepath.Join(sdir, "agent-old.meta.json"), `{"agentType":"Plan"}`+"\n")
+		writeFile(t, filepath.Join(sdir, "agent-old.jsonl"), "{}\n")
+		past := time.Now().Add(-31 * time.Minute)
+		if err := os.Chtimes(filepath.Join(sdir, "agent-old.jsonl"), past, past); err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(sdir, "agent-new.meta.json"), `{"agentType":"Plan"}`+"\n")
+		writeFile(t, filepath.Join(sdir, "agent-new.jsonl"), "{}\n")
+		writeFile(t, filepath.Join(sdir, "agent-bare.meta.json"), `{"agentType":"Plan"}`+"\n")
+		if r, _ := timed("0", "old", "aaa"); r.rc != 0 || r.stdout != "stale: old\n" {
+			t.Fatalf("stale: rc=%d stdout=%q", r.rc, r.stdout)
+		}
+		if r, _ := timed("0", "new"); r.rc != 1 || r.stdout != "still running: new\n" {
+			t.Fatalf("fresh: rc=%d stdout=%q", r.rc, r.stdout)
+		}
+		if r, _ := timed("0", "bare"); r.rc != 1 || r.stdout != "still running: bare\n" {
+			t.Fatalf("no transcript: rc=%d stdout=%q", r.rc, r.stdout)
+		}
+	})
 	t.Run("e a cap above 240 is refused", func(t *testing.T) {
 		t.Parallel()
 		for _, c := range []string{"300", "241", "x", "-1"} {

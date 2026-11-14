@@ -65,15 +65,20 @@ for r in a b; do
 done
 to_land "disclose: "
 sut land "$WORK/a" demo
-check "disclose: land's run 2 stops at STOP: disclose for a" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: disclose — relay $WORK/a.s .*--proceed $WORK/a "'
-sut cleanup "$WORK/a" demo --proceed "$WORK/a"
-check "disclose: --proceed a removes a" '[ ! -d "$WORK/a-worktrees/demo" ]'
-check "disclose: b is not removed on a's answer" '[ -f "$WORK/b-worktrees/demo/secret.txt" ]'
-check "disclose: the re-run stops at STOP: disclose for b" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: disclose — relay $WORK/b.s "'
+check "disclose: land's run 2 stops once, naming a and b" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: disclose — relay the UNCLASSIFIED and DISCLOSE lines of $WORK/a, $WORK/b, .*--proceed $WORK/a --proceed $WORK/b "'
+check "disclose: b is not removed before its answer" '[ -f "$WORK/b-worktrees/demo/secret.txt" ]'
 sut cleanup "$WORK/a" demo --proceed "$WORK/a" --proceed "$WORK/b"
-check "disclose: --proceed for both finishes" '[ "$RC" -eq 0 ] && [ ! -d "$WORK/b-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
+check "disclose: one re-run with --proceed for both finishes" '[ "$RC" -eq 0 ] && [ ! -d "$WORK/a-worktrees/demo" ] && [ ! -d "$WORK/b-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
+		{"disclose_then_failure", `# --- disclose_then_failure ---
+fixture
+printf 'secret.txt\n' >>"$WORK/a/.git/info/exclude"
+printf 'irreplaceable\n' >"$WORK/a-worktrees/demo/secret.txt"
+to_land "disclose_then_failure: "
+printf 'dirty\n' >>"$WORK/b-worktrees/demo/base.txt"
+sut land "$WORK/a" demo
+check "disclose_then_failure: b's failure stop also names a's pending disclosure" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: worktree-cleanup — remove-change-worktrees exit 1 for $WORK/b .*; also pending disclosure for $WORK/a — "'`},
 		{"rerun_leftover", `# --- rerun_leftover ---
 fixture
 to_land "rerun_leftover: "
@@ -159,7 +164,7 @@ sut prepare "$WORK/a" demo --accept-outstanding
 check "visual_stop: --accept-outstanding does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'
 check "visual_stop: no worktree is judged after the MISSING one, whose row stays the newest to flag" \
   '! printf "%s\n" "$OUT" | sed -n "/^VISUAL-VERIFY-MISSING:/,\$p" | sed 1d | grep -q "^VISUAL-VERIFY-"'
-check "visual_stop: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped"'
+check "visual_stop: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped -reason STOP: visual-verify demo$"'
 flag "$A" "$(git -C "$A" rev-parse HEAD~1)"
 sut prepare "$WORK/a" demo --accept-outstanding
 check "visual_stop: a false-positive flag on an earlier HEAD does not pass it" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: visual-verify — "'

@@ -25,32 +25,46 @@ states.
   lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived
   narratives for it.
 
-- **Every ambiguity is asked, however small — never settled by you — in `/flow`'s planning up to
-  its plan gate and in a `/flow-plan` session, and nowhere else.** An ambiguity is any
-  requirement, scenario, name, format, state, edge case, ordering, error behaviour or scope
-  boundary of the change that the request, the ticket, a mockup and the code leave open — any
-  point two competent implementers could read differently. Each one is a question to the user,
-  with a recommended option where one honestly exists, asked until the user's own answer closes
-  it (**Convergence**, `skills/spectre-planning/SKILL.md`); none is settled as your own call,
-  assumed away, or left for the plan or the implementer to settle. Silence answers nothing: the
-  question stays held and is asked again in the next round. Ask every pending question whose
-  wording does not depend on another pending answer at once, four to an **AskUserQuestion** call
-  and in as many calls as they need — every one you hold up front in the first round, and each
-  new one in the round it appears: from an answer, an agent's findings or the builder check, or,
-  once the design is approved, from writing the artifacts or the plan, then asked before the plan
-  review gate and its answer revising the design. This is a scoped override of every call
-  `brainstorming` makes for the user — its **Minor** pile, settled without asking, among them —
-  of the single round of questions its builder check allows, and of **The checklist**'s
-  display-only-formatting bullet and one-call batching (`skills/spectre-planning/SKILL.md`). The
-  self-review and in-run fix planners never apply it: they take the recommendation
-  (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+- **Every ambiguity is classified, and only an `[architectural]` or `[impactful: <criterion>]` one
+  is asked — in `/flow`'s planning up to its plan gate and in a `/flow-plan` session, and nowhere
+  else.** An ambiguity is any requirement, scenario, name, format, state, edge case, ordering,
+  error behaviour or scope boundary of the change that the request, the ticket, a mockup and the
+  code leave open — any point two competent implementers could read differently. One is
+  impactful when one of four criteria holds, named in its heading: `no-recommendation` — no
+  option can honestly be recommended, an answer contradicting an earlier one included;
+  `irreversible` — a wrong pick is costly to undo once landed: persisted or migrated data, a
+  public API, file format, CLI or cross-repository contract, a deletion, permissions, security,
+  privacy, money; `scope` — the pick adds or drops something the ticket or a mockup states;
+  `plan-size` — the options differ by a task or more and the ticket gives no lead. An asked
+  question carries a recommended option where one honestly exists and is asked until the user's
+  own answer closes it (**Convergence**, `skills/spectre-planning/SKILL.md`). Silence answers
+  nothing: the question stays held and is asked again in the next round. Any other ambiguity
+  takes its recommended option: it is recorded as a `## Decisions` entry and as one line,
+  `<decision id>: <chosen> — <what it was chosen over>`, under the round file's `## Auto-taken`,
+  and in `answers-<r>.md`; the parent's relay never prints, asks or mentions it, and the next
+  planner and the final planner read it from the file. At most four `[architectural]` and at most four `[impactful: …]`
+  questions are asked a round; beyond four, the four whose wrong pick costs most are asked and the
+  rest are held for the next round, never auto-taken. Each question is asked in the round it
+  appears: from an answer, an agent's findings or the builder check, or, once the design is
+  approved, from writing the artifacts or the plan, then asked before the plan review gate and its
+  answer revising the design. This is a scoped override of every call `brainstorming` makes for
+  the user — its **Minor** pile among them — of the single round of questions its builder check
+  allows, and of **The checklist**'s display-only-formatting bullet and one-call batching
+  (`skills/spectre-planning/SKILL.md`). The self-review and in-run fix planners never apply it:
+  they take the recommendation (**Auto-resolution**,
+  `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+
+- **Now or later is never asked.** Where the options are doing work the design needs in this
+  change or deferring it to a later change or ticket, now is taken and recorded under
+  `## Decisions`.
 
 - **An architectural question is marked, and each of its options says what it fails under**. A question whose options are approaches — the alternatives the competing-designs
   step produces, each becoming a `**Considered:**` line — and not a name, a format, a wording or
   a scope detail is headed `### Q<n>. [architectural] <question>` in the round file, and each of
   its options closes with `Fails under: <the condition this option stops working in>`. The
-  recommended mark stays. The parent asks each such question in an **AskUserQuestion** call of
-  its own, in round-file order; every other question stays four to a call.
+  recommended mark stays. The parent asks the architectural questions together, up to four in one
+  **AskUserQuestion** call, in round-file order; the impactful ones in a second call; the
+  convergence confirm last, in the impactful call when it has room.
 
 - **An answer that contradicts an earlier one is asked about, never applied**. When
   an answer in `answers-<r>.md` contradicts an earlier answer or a decision the design draft
@@ -58,9 +72,15 @@ states.
   which stands, with no recommended option — so it is asked under the `## decisions:
   recommended` mode too. This holds in planning only; past the plan gate nothing changes.
 
-- **A round file opens with `## Summary`** — at most ten lines: the decisions the round settled
-  and what is still open. The parent relays that section and the file's absolute path, and the
-  design draft stays in the file.
+- **A round file opens with `## Summary`** — at most ten lines: the decisions the operator's answers settled
+  and what is still open. The Summary names no auto-taken decision — an auto-taken pick lives only
+  under `## Auto-taken` and in `answers-<r>.md`. The parent relays that section and the file's absolute path, and the
+  design draft stays in the file. The design draft carries `### Settled` — every answer given so
+  far, the operator's words verbatim beside the question and its round — so the latest round file
+  alone is the design's whole state. The section ends with `**Scope:** small|regular|large — <one-line
+  reason>`, the planner's estimate after exploring: `small` a change confined to one known area
+  with one obvious approach, `large` one that spans repositories or apps, changes a data model or
+  a public contract, or needed competing designs; `regular` otherwise.
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
@@ -128,13 +148,10 @@ criterion nothing satisfies — enforced by `flow-guard check-done-when-paths`.
 change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
 planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1, `<role>` the
 dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on — passing the
-printed model as the Agent tool's `model` and the effort as its `effort`. **A CORE change** — its Jira issue carries an `**Agents (CORE):**` section — has its parent's planner prompt
-carry the line `CORE change`; the planner then passes `core` as a fourth argument on every Explore and Plan
-dispatch (`flow-guard plan-agent-pair <seed> <n> explorer|plan-designer core`), which prints the row's first
-CORE pair: `opus low` for an explorer, `fable xhigh` for a plan-designer. On a CORE change every Explore
-and Plan dispatch prompt carries the line `CORE change` as well, the marker an open experiment's override
-leaves the row's own pairs admitted under (`skills/flow-contracts/model-policy.md`). Every other change
-omits it and gets the row's first pair. Its prompt carries the
+printed model as the Agent tool's `model` and the effort as its `effort` — the row's first pair.
+Where the planner's own prompt carries `Granted: <role> <model> <effort>` for the dispatch's role,
+the dispatch takes that pair instead, its prompt carrying the lines `Operator pair: <role>` and
+`Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`). Its prompt carries the
 line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
@@ -155,15 +172,29 @@ and session token the planner's own prompt names. A Plan agent's row records the
 recording command's stderr is never hidden — never redirected away or piped through `tail` — and a
 row is never back-filled with instants not read from its agent's transcript.
 
+**Findings outlive the round.** Append each Explore and Plan hand-back verbatim to
+`<abs-worktree>/.superpowers/sdd/planner/findings.md` under `## <explore-<n>|design-<n>> — <the
+scope it was given>` as it arrives; read that file before dispatching, and dispatch an agent only
+for ground no section covers.
+
+**The cap.** One planner dispatch launches at most three Explore and three Plan agents in round 1
+and at most two agents in all in a later round or a final dispatch; a fresh dispatch **Three failed
+rounds** (`skills/flow-contracts/pipeline.md`) starts counts as a later round. A planner that needs
+more writes `Over cap: <n> agents — <reason>` in the round file's `## Summary` (a final dispatch:
+in its return) and dispatches them.
+
 Each Explore or Plan agent's `description` names its row's key, `explore-<n>` or `design-<n>` — the
 word the harvester stamps the launch's agent id onto.
 
 **Never end your turn while one of your agents runs.** A turn that ends to wait for a hand-back
 loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
-whole context. Once your own work is done, call
-`<agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with the agent ids your launches returned:
-each call returns within two minutes — exit 0 once every agent finished, exit 1 naming those still
-running — so call it again on exit 1, and read each hand-back as it arrives. The
+whole context; each exit-1 return of the wait below is one cache read, and re-arms the cache.
+Once your own work is done, call
+`AWAIT_SUB_AGENTS_SECONDS=240 <agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with
+the agent ids your launches returned and the Bash tool's `timeout` at 250000, so a call returns
+within four minutes. Exit 0: every agent finished or is stale — silent for 30 minutes — so read
+each hand-back, treat a `stale:` agent as returning nothing and say so in the round file. Exit 1:
+call again at once, doing nothing between calls. Exit 2: a usage error, reported. The
 `await-own-agents` SubagentStop hook refuses your turn end while one runs.
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
@@ -206,6 +237,9 @@ flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness
 spectre new "<name>"   # working directory: the worktree flow.kickoff created
 ```
 
+In a `planner` dispatch of `/flow` or `/flow-plan` the parent has made this begin mark; the
+self-review and in-run fix planners, which no parent marks for, make it themselves.
+
 `STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
 `STARTED` handoff prints at the end of the run, so its `Open questions` line shows what this section holds
 (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
@@ -228,6 +262,9 @@ fresh dispatch's, after **Plan review** (`skills/flow/brainstorm.md`) #1.
 ```bash
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
+
+In a `planner` dispatch of `/flow` or `/flow-plan` the parent has made this begin mark; the
+self-review and in-run fix planners, which no parent marks for, make it themselves.
 
 **Tell it the task shape, because it is spectre's and not writing-plans' own.** A task is a
 column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's steps are
@@ -589,7 +626,10 @@ the word and, on the next line, `Plan review: skip — <reason>`, the reason bei
 one-approach reason `design.md` records under `## Recommended approach`. The self-review and in-run fix planners and a fix run's
 re-plan never write that line and are never reviewed.
 
-**A dispatch whose prompt names a plan-review report triages it.** Append `## Triage` to the
+**A dispatch whose prompt names a plan-review report triages it.** It reads the report,
+`proposal.md` and `design.md`, and `tasks.md` when triaging `plan-review-2`; it opens a file under
+`<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer,
+naming that file in the finding's `## Triage` line. Append `## Triage` to the
 report, one line per finding: `F<k> fixed — <what changed>`, `F<k> contested — <the repository
 path:line or artifact line the reviewer could have read>`, `F<k> escalated`, or, for an
 `advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding with one obvious
@@ -702,10 +742,8 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
   effort `medium` or `low`, never `high`;
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
-- **every other pass-1 panel dispatch** — `opus`, always; except a CORE change whose Jira `**Agents (CORE):**`
-  section's `reviewers` line names `fable 5.2 · medium`, whose primary and principles dispatches record
-  `fable` at `medium` — `flow record decision` admits `fable` on `panel.dispatches[]` pairs and nowhere
-  else, and the dispatch runs on a pair the `panel-reviewer` role admits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
+- **every other pass-1 panel dispatch** — `opus`, always; a pair outside the `panel-reviewer` role's
+  base pairs only under an operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
 - **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`);
 - **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
@@ -713,7 +751,7 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
 **A role an open allowed-pairs experiment overrides takes one of that experiment's pairs** (**Experiments**, `skills/flow-contracts/model-policy.md`), whatever the effort roll or a hard seam would pick, its `reason` naming the experiment: the implementer and every implementer group are role `implementer`, the fixer is role `panel-fix`, and `flow experiment overrides` lists each overridden role's pairs. `flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit.
 
 A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
-**review-panel.md**'s no-decision dispatch, the tooling analyst — runs on the literal `opus`. `flow record
+**review-panel.md**'s no-decision dispatch — runs on the literal `opus`. `flow record
 decision` refuses a decision whose pairs name any other model. Pairs may repeat — two dispatches,
 or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. The rerun
 pair's effort is fixed at `low` (step 3). **A verification-only implementer group is `opus` at `low`, fixed, whatever the

@@ -1212,7 +1212,8 @@ func tcfTaskIDCommits(env Env, worktree, commit, taskID string) ([]string, error
 	}
 	// A commit carrying a Flow-Key: joins only commits of the same key: a
 	// self-review change riding another change's branch shares its task
-	// numbers, never its tasks.
+	// numbers, never its tasks. A task-keyed fix commit's key
+	// (task-<ids>-implementer-fix-<k>) is this change's own, so it joins.
 	key, err := tcfRunGit(env, worktree, "log", "-1", "--format=%(trailers:key=Flow-Key,valueonly,separator=%x2C)", commit)
 	if err != nil {
 		return nil, err
@@ -1221,11 +1222,15 @@ func tcfTaskIDCommits(env Env, worktree, commit, taskID string) ([]string, error
 	if err != nil {
 		return nil, err
 	}
+	ownKey := tcfStrip(key)
+	if strings.HasPrefix(ownKey, "task-") {
+		ownKey = ""
+	}
 	var shas []string
 	for _, line := range tcfSplitLines(out) {
 		sha, rest, _ := strings.Cut(line, " ")
 		lineKey, ids, _ := strings.Cut(rest, " ")
-		if sha == "" || sha == tcfStrip(self) || (tcfStrip(key) != "" && lineKey != tcfStrip(key)) {
+		if sha == "" || sha == tcfStrip(self) || (ownKey != "" && lineKey != ownKey) {
 			continue
 		}
 		// the task numbers in the value, as ctTaskNumberRE reads them at close: `Task-Id: 2+3` is task 2's too

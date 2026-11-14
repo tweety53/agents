@@ -52,7 +52,7 @@ and a kill partway leaves it down.
   nothing**.
 - **`STOP: disclose`** → relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the
   wave-group copies of **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), ask
-  only what they ask, then re-run `cleanup` adding `--proceed <main-checkout>` for the repository
+  only what they ask, then re-run `cleanup` adding `--proceed <main-checkout>` for each repository
   the stop names, every earlier `--proceed` kept.
 - **`STOP: worktree-cleanup`** → a `REFUSED:` or `HELD:` line, or the guard's exit 2: stop at
   `IN_PROGRESS`, leave every worktree alone, and report each line per **Worktree cleanup**
@@ -60,6 +60,11 @@ and a kill partway leaves it down.
 - **`STOP: leftover`** → the verdict rows of step 4 of **Run 2 — the branch is merged**
   (`skills/flow-contracts/finish-contract-run2.md`): print the incomplete block below.
 - **`STOP: state`** → report it; the change stays at `IN_PROGRESS`.
+
+Three stops in a row of `cleanup` take **Three failed rounds** (`skills/flow-contracts/pipeline.md`),
+applied inline from every earlier stop's lines — only stops the parent can cure itself. A stop
+that exists to ask or to hand to the operator — `STOP: disclose`, `STOP: worktree-cleanup`,
+`STOP: not-merged` — is never counted toward it: it is handled as its bullet above says, every time.
 
 A `WORKSPACE-REMOVE-FAILED:` line is **the one exception to the stop-at-the-first-failure rule**:
 the script carries on to the cleanup check, which decides the verdict from the project's survivor

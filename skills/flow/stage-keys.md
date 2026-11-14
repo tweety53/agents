@@ -10,8 +10,8 @@ The full key list, in the order each phase file marks them:
 
 | Phase file | Keys |
 |------------|------|
-| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm` (begin), `flow.plan-review`, `flow.decide` |
-| `skills/flow/brainstorm-planner.md` | `flow.brainstorm` (end), `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
+| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm` (begin), `flow.create-artifacts` (begin), `flow.writing-plans` (begin), `flow.plan-review`, `flow.decide` |
+| `skills/flow/brainstorm-planner.md` | `flow.brainstorm` (end), `flow.design-approval`, `flow.create-artifacts` (end; begin in a self-review or in-run fix planner), `flow.writing-plans` (end; begin in a self-review or in-run fix planner) |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
 | `skills/flow/document-fix.md` | `flow.document-fix`, `flow.decide` (fix runs) — loaded only on a fix run |
 | `skills/flow/cross-repo-worktrees.md` | `flow.isolate-workspace` — loaded only when the change links a peer, an `## apps` entry names a repository holding no worktree for it, `## visual verification` names a `regression checkout`, or the resolved set spans more than one repository |

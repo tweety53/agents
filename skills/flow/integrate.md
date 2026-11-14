@@ -46,7 +46,10 @@ missing beside the script, whose steps then run by hand from
 `skills/flow-contracts/finish-contract-run1.md` and `skills/flow-contracts/finish-contract-run2.md`. The script's
 header (`<agents repo>/scripts/flow-guard integrate-change`) is canonical for each subcommand's steps and
 the exit contract. A stop closes the stage mark it was in `stopped`; the parent re-runs the call
-that stopped once the stop is handled.
+that stopped once the stop is handled. Three stops in a row of one call take **Three failed
+rounds** (`skills/flow-contracts/pipeline.md`), applied inline from every earlier `STOP:` line — only
+stops the parent can cure itself. A stop that exists to ask the operator — `STOP: foreign-staged`,
+`STOP: base-mismatch` — is never counted toward it: it is asked as its bullet below says, every time.
 
 - **`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
 - **`STOP: foreign-staged`** → ask the question of **Surface foreign staged work before the
@@ -133,7 +136,9 @@ when one is usable — say so, open or closed-unmerged, before the operator answ
 **Append this run's own narrative first**, the same append `flow.write-in-progress` <!-- refs-guard:allow -->
 (`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering
 this run's preflight, the unfinished-work gate and the rebase — into the `narrative.md` the
-`NEXT:` line names.
+`NEXT:` line names. An invocation that already appended its section at `flow.write-in-progress`
+extends it instead: ` — integrate run` is appended to that section's heading and the preflight,
+gate and rebase lines go under it.
 
 ```bash
 flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --harness <harness> --session-token mf-<literal-token>

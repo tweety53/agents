@@ -39,4 +39,6 @@ the task back through this file's fix path.
 A clean re-review pass closes each finding its task's earlier pass raised, `flow record status
 -change <name> -ref F<n> -status fixed`, and ticks its task; a finding a re-review pass raises is
 recorded as "The gated per-task reviewer" (`skills/flow/implement.md`) records a first pass's, and
-a `fix` sends its task through this file again under the next `<k>`.
+a `fix` sends its task through this file again under the next `<k>`. A fourth `<k>` after three
+failed re-reviews of one task is the fresh dispatch of **Three failed rounds**
+(`skills/flow-contracts/pipeline.md`).

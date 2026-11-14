@@ -1,6 +1,6 @@
 ---
 model: opus
-description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, and integrate, pausing only at the human gates
+description: Single-command pipeline — brainstorm, implement behind the decided review panel (a micro change's from the settings store), and integrate, pausing only at the human gates
 ---
 
 Use the **flow** skill — installed globally, so let your harness resolve it by name rather than

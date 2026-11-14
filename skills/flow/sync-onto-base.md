@@ -2,7 +2,8 @@
 
 **Loaded by `skills/flow/integrate.md` only when** `flow-guard integrate-change` stops on `sync-conflict` or
 `sync` — in its base-moved sync, or the merge-and-push route's re-sync after a rejected push; the
-script runs the clean sync itself. `/flow-fast` and the review panel's fix round cite its **Conflict** bullet.
+script runs the clean sync itself. `/flow-fast`, the review panel's fix round, the panel's base sync
+and the implement phase's pre-task-1 sync cite its **Conflict** bullet.
 
 **Runs after the base-moved check and before the landing question, on every route — so what
 lands is what was verified, and neither a merge nor a PR ever meets a conflict.** Once per

@@ -72,13 +72,15 @@ govern both:
   > If this change's verification compares against a recorded baseline, recapture it now — a
   > proof taken against the pre-rebase base is void.
 
-- **Conflict** (exit 1): never auto-abort, and never resolve the conflict — by editing the
-  conflicting files or otherwise. An automatic rebase lands here too — no reported overlap does
-  not rule out two commits touching one file incompatibly outside this change's own touched paths
-  — and is handled identically. The worktree is left mid-rebase exactly as `git rebase` left it;
-  report the conflicting file(s) the `CONFLICT:` line names, and hand off `git -C <worktree> rebase
-  --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the
-  next manual step. State stays as it was; this stage stops here and closes the mark `stopped`.
+- **Conflict** (exit 1): resolved in place, without asking, per the **Conflict** bullet of **Sync
+  the branch onto the base** (`skills/flow/sync-onto-base.md`), whose resolution rule, stop-and-ask
+  cases and handoff line apply as written. An automatic rebase lands here too — no reported overlap
+  does not rule out two commits touching one file incompatibly outside this change's own touched
+  paths — and is handled identically. Once `git rebase --continue` finishes,
+  `flow-guard sync-panel-base <worktree> <onto-sha>` runs again with the `CONFLICT:` line's sha and
+  its exits are read as the first call's; the new base is recorded and pushed as the Clean bullet
+  states, and the whole `## lint` list runs. Only those stop-and-ask cases close the stage
+  `stopped`.
 
 **Everything from the citation pre-check to the throwaway worktrees and the `[PRINCIPLES_PATH]`
 and `[STANDARDS_PATHS]` resolution below is one Bash call**, under the turn discipline of **4. Execute (SDD + TDD)**
@@ -255,8 +257,11 @@ flow-guard check-panel-docs-only <worktree> <merge-base>
 **Every pass 1 dispatches two more bundles, each on its own pair: `test-sanity+call-efficiency` on
 the decision's `extra_dispatch` pair, and `mutation+failure-modes` on its
 `extra_dispatch_mutation` pair** — on a decided and a `default` panel alike, beside the dispatches
-the roster resolves, and outside their `≤2 × ≤3` cap. No automatic reduction removes either: the
-docs-only reduction, the late-fix reduction and the small append each still dispatch both. A
+the roster resolves, and outside their `≤2 × ≤3` cap. The docs-only reduction drops
+`test-sanity+call-efficiency` — an `.md`/`.mdc`-only diff adds no test and no call — recorded
+`flow record pass -round 0 -note 'not dispatched — docs-only reduction:
+test-sanity+call-efficiency'`. No other reduction removes either: the late-fix reduction and the
+small append each still dispatch both. A
 decision with no such key dispatches that bundle on `opus`
 at `low`. A fix run's judged roster alone may drop a role of either (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`).
 
@@ -277,7 +282,7 @@ raised a finding re-runs like any other role (**Panel re-runs**,
 
 **Exit 0 from
 every worktree in the resolved set — every path this branch touched, committed since the merge
-base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus **The always-on extra dispatches** and every
+base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus `mutation+failure-modes` and every
 slot the operator's per-run instruction
 named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
@@ -751,8 +756,10 @@ its round is never clean.
 
 A second breach of the same slot is a prompt, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
-its recommended **Re-dispatch it again**; a third breach of the same slot is asked, under that
-contract's never-repeats clause.
+its recommended **Re-dispatch it again**; a third breach of the same slot is not asked: the slot
+is re-dispatched fresh as **Three failed rounds** (`skills/flow-contracts/pipeline.md`) states,
+its prompt carrying each breached attempt's output and naming the failed approach — a bundle that
+breached is split one role per dispatch.
 
 > **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
 > - **Re-dispatch it again** *(default, recommended)*
