@@ -115,11 +115,13 @@ const srFiles = `
 func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-spec-reach <project-root>")
+		Reason(env, "usage")
 		return 2
 	}
 	root := args[0]
 	if !isDir(smcAbs(env, root)) {
 		fmt.Fprintf(stderr, "check-spec-reach: %s is not a directory\n", root)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	rootAbs := filepath.Clean(pcAbs(env, root))
@@ -132,6 +134,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	switch n := vvHeadingCount(string(text)); {
 	case n > 1:
 		fmt.Fprintf(stderr, "check-spec-reach: %s declares %d '## visual verification' sections — a second declaration is ambiguous, so neither was read\n", cfg, n)
+		Reason(env, "declares")
 		return 2
 	case n == 0:
 		fmt.Fprintln(stdout, "Spec reach: not configured")
@@ -150,6 +153,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if !isDir(smcAbs(env, checkout)) {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: `regression checkout` names `%s`, which is not an existing directory\n", checkout)))
+		Reason(env, "regression-checkout-names")
 		return 2
 	}
 	checkout = filepath.Clean(pcAbs(env, checkout))
@@ -171,6 +175,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if !isFile(checkout + "/package.json") {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: `%s` holds no package.json — nothing declares what reaches its specs\n", checkout)))
+		Reason(env, "holds-no-package-json")
 		return 2
 	}
 	tools := map[string]string{}
@@ -178,6 +183,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 		p, ok := lookPath(env, tool)
 		if !ok {
 			fmt.Fprintf(stderr, "check-spec-reach: %s is not on PATH — cannot ask Playwright what the scripts reach\n", tool)
+			Reason(env, "not-on-path")
 			return 2
 		}
 		tools[tool] = p
@@ -193,10 +199,12 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	scripts, rc := run(env.Dir, "", "node", "-e", srScripts, checkout+"/package.json")
 	if rc != 0 {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: could not read scripts from `%s/package.json`: %s\n", checkout, scripts)))
+		Reason(env, "could-not-read-scripts-from")
 		return 2
 	}
 	if scripts == "" {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: no script in `%s/package.json` contains `playwright test` — nothing can reach its specs\n", checkout)))
+		Reason(env, "no-script-in")
 		return 2
 	}
 	reached := map[string]bool{}
@@ -207,11 +215,13 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 		listing, rc := run(checkout, "", "npm", "run", "-s", script, "--", "--list", "--reporter=json")
 		if rc != 0 {
 			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: `npm run -s %s -- --list --reporter=json` exited %d in `%s`:\n%s\n", script, rc, checkout, listing)))
+			Reason(env, "npm-run-s-list-reporter")
 			return 2
 		}
 		files, rc := run(env.Dir, listing, "node", "-e", srFiles)
 		if rc != 0 {
 			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-spec-reach: `npm run -s %s -- --list --reporter=json` printed no parsable JSON in `%s`: %s\n", script, checkout, files)))
+			Reason(env, "npm-run-s-list-reporter")
 			return 2
 		}
 		for _, f := range strings.Split(files, "\n") {
@@ -243,6 +253,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if orphans != 0 {
 		fmt.Fprintf(stderr, "Spec reach: %d of %d spec(s) reached by no package.json script\n", orphans, len(specs))
+		Reason(env, "spec-reach")
 		return 1
 	}
 	fmt.Fprintf(stdout, "Spec reach: %d spec(s), all reached\n", len(specs))

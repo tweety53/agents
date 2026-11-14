@@ -48,12 +48,14 @@ func smokeKeep(args []string, env Env, stdout, stderr io.Writer) int {
 		prefix, kept, found := strings.Cut(a, "=")
 		if !found || prefix == "" || kept == "" {
 			fmt.Fprintln(stderr, "usage: flow-guard smoke-keep [<path prefix>=<kept path>]...")
+			Reason(env, "usage")
 			return 2
 		}
 		rows = append(rows, row{prefix, kept})
 	}
 	_, paths, ok := changedSinceBase(env, "smoke-keep", stderr)
 	if !ok {
+		Reason(env, "changes-unresolved")
 		return 2
 	}
 	top := ""
@@ -64,6 +66,7 @@ func smokeKeep(args []string, env Env, stdout, stderr io.Writer) int {
 		out, err := cmd.Output()
 		if err != nil {
 			fmt.Fprintf(stderr, "smoke-keep: git rev-parse --show-toplevel failed: %v\n", err)
+			Reason(env, "git-rev-parse-show-toplevel")
 			return 2
 		}
 		top = strings.TrimSpace(string(out))

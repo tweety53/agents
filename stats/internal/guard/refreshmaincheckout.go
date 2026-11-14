@@ -78,6 +78,7 @@ func init() {
 func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 || !isDir(pcAbs(env, args[0])) {
 		fmt.Fprintln(stderr, "usage: flow-guard refresh-main-checkout <main-checkout> <base>")
+		Reason(env, "usage")
 		return 2
 	}
 	repo, base := args[0], args[1]
@@ -90,6 +91,7 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	refuse := func(reason string) int {
 		fmt.Fprintf(stdout, "REFRESH-REFUSED: %s %s — nothing touched\n", repo, reason)
+		Reason(env, "refresh-refused")
 		return 1
 	}
 
@@ -110,10 +112,12 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 	// untracked files are git's own concern.
 	status, ok := g("status", "--porcelain", "--untracked-files=no")
 	if !ok {
+		Reason(env, "git-failed")
 		return 2
 	}
 	tip, ok := g("rev-parse", "--short", "HEAD")
 	if !ok {
+		Reason(env, "git-failed")
 		return 2
 	}
 	remote, _ := capture(git("-C", repo, "rev-parse", "-q", "--verify", "--short", "refs/remotes/origin/"+base))
@@ -144,15 +148,18 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 		if _, ok := g(append([]string{"--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree", "--"}, paths...)...); !ok {
+			Reason(env, "restore-failed")
 			return 2
 		}
 		fmt.Fprintf(stdout, "REFRESH-DISCARDED: %s %d tracked paths identical to origin/%s\n", repo, len(paths), base)
 	}
 	if _, ok := g("merge", "--ff-only", "-q", "refs/remotes/origin/"+base); !ok {
+		Reason(env, "fast-forward-failed")
 		return 2
 	}
 	fmt.Fprintf(stdout, "REFRESH-DONE: %s fast-forwarded %s -> %s\n", repo, tip, remote)
 	if restartFlowdIfStatsMoved(env, repo, tip, remote, stdout, stderr) != 0 {
+		Reason(env, "flowd-restart-failed")
 		return 2
 	}
 	return 0

@@ -117,12 +117,14 @@ var (
 func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
 		fmt.Fprintln(stderr, "usage: flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>")
+		Reason(env, "usage")
 		return 2
 	}
 	worktree, base, tasksPath := args[0], args[2], args[1]+"/tasks.md"
 	lines, err := tcfReadPlan(env, tasksPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "%scannot read %s: %v\n", grcLabel, tasksPath, err)
+		Reason(env, "cannot-read")
 		return 2
 	}
 	if !grcRelocates(lines) {
@@ -134,6 +136,7 @@ func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writ
 	}
 	if _, _, code, err := tcfExec(env.Dir, nil, "git", "-C", worktree, "cat-file", "-e", base+"^{commit}"); err != nil || code != 0 {
 		fmt.Fprintf(stderr, "%smerge-base %s does not resolve to a commit in %s\n", grcLabel, tcfRepr(base), worktree)
+		Reason(env, "merge-base-does-not-resolve")
 		return 2
 	}
 	var before, after []grcPassage
@@ -149,6 +152,7 @@ func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writ
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", grcLabel, err)
+			Reason(env, "cannot-read-file")
 			return 2
 		}
 		beforeText, err := grcGitShow(env, worktree, base, p)
@@ -158,6 +162,7 @@ func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writ
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", grcLabel, err)
+			Reason(env, "cannot-read-file")
 			return 2
 		}
 		before = append(before, grcPassages(beforeText, p)...)
@@ -171,10 +176,12 @@ func generateRelocationComparison(args []string, env Env, stdout, stderr io.Writ
 	dir := psAbs(env, grcJoin(worktree, ".superpowers/sdd"))
 	if err := os.MkdirAll(dir, 0o777); err != nil {
 		fmt.Fprintf(stderr, "%scannot write the comparison: %v\n", grcLabel, err)
+		Reason(env, "cannot-write-the-comparison")
 		return 2
 	}
 	if err := os.WriteFile(dir+"/relocation-comparison.md", []byte(out.String()), 0o666); err != nil {
 		fmt.Fprintf(stderr, "%scannot write the comparison: %v\n", grcLabel, err)
+		Reason(env, "cannot-write-the-comparison")
 		return 2
 	}
 	return 0

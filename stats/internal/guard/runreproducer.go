@@ -176,8 +176,9 @@ const (
 )
 
 func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
-	usage := func() int { fmt.Fprintln(stderr, rrUsage); return 4 }
-	refuse := func(msg string) int {
+	usage := func() int { fmt.Fprintln(stderr, rrUsage); Reason(env, "usage"); return 4 }
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "run-reproducer: refused — %s — never executed\n", msg)
 		return 2
 	}
@@ -237,6 +238,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if !isDir(wt) {
 		fmt.Fprintf(stderr, "run-reproducer: not a directory: %s\n", worktreeArg)
+		Reason(env, "not-a-directory")
 		return 4
 	}
 	// `cd -- "$WORKTREE" && pwd -P`: `..` taken logically, then physical.
@@ -251,6 +253,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	worktree, err := filepath.EvalSymlinks(filepath.Clean(wt))
 	if err != nil {
 		fmt.Fprintf(stderr, "run-reproducer: worktree vanished before it could be resolved: %s\n", worktreeArg)
+		Reason(env, "worktree-vanished-before-it-could")
 		return 4
 	}
 
@@ -263,7 +266,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// cmdText as one line, and a second line hidden inside the argument would
 	// ride along unchecked by every one of them.
 	if strings.Contains(cmdText, "\n") {
-		return refuse("the command line carries an embedded newline")
+		return refuse("command-line-carries-an-embedded", "the command line carries an embedded newline")
 	}
 	// Split on space AND tab, as check-panel-reproducers.sh's own tokenizer
 	// does, and the path token is the split's first element. The bash guard
@@ -277,14 +280,14 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// nothing.)
 	tokens := strings.FieldsFunc(cmdText, func(r rune) bool { return r == ' ' || r == '\t' })
 	if len(tokens) == 0 {
-		return refuse("the command line names no path token")
+		return refuse("command-line-names-no-path", "the command line names no path token")
 	}
 	pathToken := tokens[0]
 	if strings.HasPrefix(pathToken, "-") {
-		return refuse(fmt.Sprintf("the path token '%s' begins with '-' — a reproducer names a path, never an option", pathToken))
+		return refuse("path-token", fmt.Sprintf("the path token '%s' begins with '-' — a reproducer names a path, never an option", pathToken))
 	}
 	if strings.Contains(cmdText, "://") {
-		return refuse("the command names a URL — a reproducer is a bare path inside the worktree, never a network location")
+		return refuse("command-names-a-url", "the command names a URL — a reproducer is a bare path inside the worktree, never a network location")
 	}
 	// The same banned-character set check-panel-reproducers.sh enforces,
 	// including both quote characters: a direct exec never expands any of
@@ -294,15 +297,15 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// two scripts twice.
 	for _, c := range reproducerMetachars {
 		if strings.ContainsRune(cmdText, c) {
-			return refuse(fmt.Sprintf("the command carries the shell metacharacter '%c' — a reproducer is a bare path optionally followed by plain arguments, never a shell command line", c))
+			return refuse("command-carries-the-shell-metacharacter", fmt.Sprintf("the command carries the shell metacharacter '%c' — a reproducer is a bare path optionally followed by plain arguments, never a shell command line", c))
 		}
 	}
 	for _, tok := range tokens {
 		if strings.HasPrefix(tok, "/") {
-			return refuse(fmt.Sprintf("the token '%s' is an absolute path — a reproducer names a path relative to the worktree, on the path token or any argument", tok))
+			return refuse("absolute-token", fmt.Sprintf("the token '%s' is an absolute path — a reproducer names a path relative to the worktree, on the path token or any argument", tok))
 		}
 		if hasDotDotSegment(tok) {
-			return refuse(fmt.Sprintf("the token '%s' carries a '..' path segment — a reproducer must stay inside the worktree, on the path token or any argument", tok))
+			return refuse("dotdot-token", fmt.Sprintf("the token '%s' carries a '..' path segment — a reproducer must stay inside the worktree, on the path token or any argument", tok))
 		}
 	}
 
@@ -315,20 +318,20 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	inside := func(p string) bool { return p == worktree || strings.HasPrefix(p, worktree+"/") }
 	candidate := worktree + "/" + pathToken
 	if _, err := os.Stat(candidate); err != nil {
-		return refuse(fmt.Sprintf("the path token '%s' does not exist inside the worktree", pathToken))
+		return refuse("path-token", fmt.Sprintf("the path token '%s' does not exist inside the worktree", pathToken))
 	}
 	resolved, err := filepath.EvalSymlinks(candidate)
 	if err != nil {
-		return refuse(fmt.Sprintf("the path token '%s' could not be resolved", pathToken))
+		return refuse("path-token", fmt.Sprintf("the path token '%s' could not be resolved", pathToken))
 	}
 	if !inside(resolved) {
-		return refuse(fmt.Sprintf("the path token '%s' resolves to '%s', outside the worktree — a symlink escape", pathToken, resolved))
+		return refuse("path-token", fmt.Sprintf("the path token '%s' resolves to '%s', outside the worktree — a symlink escape", pathToken, resolved))
 	}
 	if !isFile(resolved) {
-		return refuse(fmt.Sprintf("the path token '%s' does not resolve to a regular file", pathToken))
+		return refuse("path-token", fmt.Sprintf("the path token '%s' does not resolve to a regular file", pathToken))
 	}
 	if syscall.Access(resolved, rrExecOK) != nil {
-		return refuse(fmt.Sprintf("the path token '%s' resolves to a file with no execute permission", pathToken))
+		return refuse("path-token", fmt.Sprintf("the path token '%s' resolves to a file with no execute permission", pathToken))
 	}
 
 	// The declaration of the mutation-reproducer convention (KAN-568), read from
@@ -340,7 +343,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// second path around them.
 	mutation := declaresMutation(resolved)
 	if near := nearMissMarker(resolved); !mutation && near != "" {
-		return refuse(fmt.Sprintf("the line '%s' within the first 10 lines is a near-miss of the mutation-reproducer marker — the declaration is the exact line '%s' alone; write it exactly, or drop the marker", near, rrMarker))
+		return refuse("marker-near-miss", fmt.Sprintf("the line '%s' within the first 10 lines is a near-miss of the mutation-reproducer marker — the declaration is the exact line '%s' alone; write it exactly, or drop the marker", near, rrMarker))
 	}
 	// A mutation reproducer whose edit fails must exit non-zero, never 0 —
 	// which the mutation convention reads as a surviving mutant (kan-1048
@@ -348,7 +351,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// ponytail: lexical — a later `set +e`, or an edit inside `if`/`||`,
 	// escapes it; a runner-side landing proof if that ever bites.
 	if body, _ := os.ReadFile(resolved); mutation && !rrErrexit.Match(body) {
-		return refuse("the mutation reproducer has no `set -e` line — add `set -e` so an edit that fails exits non-zero instead of reading as a surviving mutant")
+		return refuse("mutation-reproducer-has-no", "the mutation reproducer has no `set -e` line — add `set -e` so an edit that fails exits non-zero instead of reading as a surviving mutant")
 	}
 	// The reproducer's identity, taken from the same resolved file every
 	// containment check above passed, and taken before execution so a
@@ -361,10 +364,11 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	sha, err := sha256HexFile(resolved)
 	if err != nil {
 		fmt.Fprintf(stderr, "run-reproducer: cannot take a sha of '%s' — no SHA-256 tool on this machine\n", resolved)
+		Reason(env, "cannot-take-a-sha")
 		return 4
 	}
 	if expectSHA != "" && expectSHA != sha {
-		return refuse(fmt.Sprintf("the reproducer file is not the one the dispatch-time run read (pinned sha %s, found %s) — a reproducer re-authored between rounds, its mutation-convention declaration included, is a different reproducer answering in a vocabulary the pre-fix verdict never carried; re-run it against the defect-present code and carry its fresh verdict and sha", expectSHA, sha))
+		return refuse("reproducer-file-is-not", fmt.Sprintf("the reproducer file is not the one the dispatch-time run read (pinned sha %s, found %s) — a reproducer re-authored between rounds, its mutation-convention declaration included, is a different reproducer answering in a vocabulary the pre-fix verdict never carried; re-run it against the defect-present code and carry its fresh verdict and sha", expectSHA, sha))
 	}
 
 	// Every argument after the path token is resolved and checked the same way,
@@ -379,10 +383,10 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		r, err := filepath.EvalSymlinks(c)
 		if err != nil {
-			return refuse(fmt.Sprintf("the argument '%s' could not be resolved", arg))
+			return refuse("argument-unresolved", fmt.Sprintf("the argument '%s' could not be resolved", arg))
 		}
 		if !inside(r) {
-			return refuse(fmt.Sprintf("the argument '%s' resolves to '%s', outside the worktree — a symlink escape", arg, r))
+			return refuse("argument-escapes-worktree", fmt.Sprintf("the argument '%s' resolves to '%s', outside the worktree — a symlink escape", arg, r))
 		}
 	}
 
@@ -428,6 +432,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	outF, err := os.CreateTemp(tmpdir, "run-reproducer-out.*")
 	if err != nil {
 		fmt.Fprintf(stderr, "run-reproducer: no writable temporary directory — cannot run '%s' at all\n", pathToken)
+		Reason(env, "no-writable-temporary-directory")
 		return 4
 	}
 	defer os.Remove(outF.Name())
@@ -435,6 +440,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	errF, err := os.CreateTemp(tmpdir, "run-reproducer-err.*")
 	if err != nil {
 		fmt.Fprintf(stderr, "run-reproducer: no writable temporary directory — cannot run '%s' at all\n", pathToken)
+		Reason(env, "no-writable-temporary-directory")
 		return 4
 	}
 	defer os.Remove(errF.Name())
@@ -498,6 +504,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		// read as "cannot answer" rather than as a pass or a fail.
 		if !isDir(worktree) {
 			fmt.Fprintf(stderr, "run-reproducer: cannot answer — the worktree vanished before '%s' could be started\n", cmdText)
+			Reason(env, "cannot-answer")
 			return 4
 		}
 		// The child started but the exec itself failed — the reproducer's
@@ -510,6 +517,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		// reproducer's, so the answer is "cannot answer", never a pass or a fail.
 		emit(stderr)
 		fmt.Fprintf(stderr, "run-reproducer: cannot answer — exec could not run '%s' (interpreter missing or the exec refused); its exit status was never the reproducer's\n", resolved)
+		Reason(env, "cannot-answer")
 		return 4
 	}
 	table := env.ProcTable
@@ -537,12 +545,14 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintf(stderr, "run-reproducer: unverifiable — '%s' exited %d inside the %ss bound, but it forked a detached child that outlived it and survived the kill retry; surviving process pid(s): %s — find and kill it manually, and re-check the worktree again when you resume\n", cmdText, rc, boundLabel, pids)
 		}
+		Reason(env, "unverifiable")
 		return 3
 	}
 	if res.timedOut {
 		rrGitStatusNote(worktree, stderr)
 		emit(stderr)
 		fmt.Fprintf(stderr, "run-reproducer: unverifiable — '%s' was still running at the %ss bound and was killed; its exit status is read as neither a pass nor a fail%s\n", cmdText, boundLabel, rrLoadNote(env))
+		Reason(env, "unverifiable")
 		return 3
 	}
 	// A process-table read that failed may have missed a detached child, so
@@ -551,6 +561,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		rrGitStatusNote(worktree, stderr)
 		emit(stderr)
 		fmt.Fprintf(stderr, "run-reproducer: cannot answer — the process table could not be read (%v), so a detached child of '%s' could not be ruled out; its exit status is read as neither a pass nor a fail\n", res.tableErr, cmdText)
+		Reason(env, "cannot-answer")
 		return 4
 	}
 	// A reproducer that leaves the worktree changed answered over a tree that
@@ -559,6 +570,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		if after, ok := rrGitStatus(worktree); ok && (after != before || len(restored) > 0) {
 			emit(stderr)
 			fmt.Fprintf(stderr, "run-reproducer: the run left the worktree changed — before:\n%s\nafter:\n%s\n", before, after)
+			Reason(env, "run-left-the-worktree-changed")
 			return 5
 		}
 	}
@@ -574,6 +586,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	// nothing.
 	if rc == 126 || rc == 127 {
 		fmt.Fprintf(stderr, "run-reproducer: cannot answer — exec of '%s' itself failed (exit %d), which is never read as the reproducer's own exit status\n", resolved, rc)
+		Reason(env, "cannot-answer")
 		return 4
 	}
 
@@ -609,6 +622,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintf(stderr, "run-reproducer: refused — ambiguous reproducer: '%s' exited %d here, the same verdict it produced against the defect-present code (pre-fix verdict %s) — a reproducer must exit non-zero while the defect is present and 0 once it is fixed; one that answers identically pre-fix and post-fix demonstrates nothing under either convention\n", cmdText, rc, preFix)
 		}
+		Reason(env, "refused")
 		return 2
 	}
 
@@ -625,6 +639,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	default:
 		fmt.Fprintf(stdout, "run-reproducer: defect not demonstrated — '%s' exited 0\n", cmdText)
 	}
+	Reason(env, "defect-demonstrated")
 	return 1
 }
 

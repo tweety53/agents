@@ -124,31 +124,32 @@ func init() { Registry["remove-change-worktrees"] = removeChangeWorktrees }
 var rcwRegenDirs = []string{"build", ".gradle", ".kotlin", "node_modules", "dist", ".next", "target", "out", "coverage", "test-results", "__pycache__"}
 
 func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "remove-change-worktrees: "+format+"\n", a...)
 		return 2
 	}
 	proceed := slices.Contains(args, "--proceed")
 	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--proceed" })
 	if len(args) != 3 {
-		return refuse("usage: flow-guard remove-change-worktrees <repo> <name> <merge-base|-> [--proceed]")
+		return refuse("usage", "usage: flow-guard remove-change-worktrees <repo> <name> <merge-base|-> [--proceed]")
 	}
 	repo, name, mergeBase := pcAbs(env, args[0]), args[1], args[2]
 	if !plainChangeName(name) {
-		return refuse("change name %q is not a plain change name", name)
+		return refuse("change-name-is-not", "change name %q is not a plain change name", name)
 	}
 	if mergeBase != "-" && strings.HasPrefix(mergeBase, "-") {
-		return refuse("merge base %q is not a revision", mergeBase)
+		return refuse("merge-base-is-not", "merge base %q is not a revision", mergeBase)
 	}
 	// LC_ALL=C keeps the remote delete's "remote ref does not exist" in
 	// English, the one git message this guard reads.
 	git := envGit(env, "LC_ALL=C")
 	if !isDir(repo) || git("-C", repo, "rev-parse", "--git-dir").Run() != nil {
-		return refuse("%s is not a git repository", repo)
+		return refuse("not-a-git-repository", "%s is not a git repository", repo)
 	}
 	porcelain, err := git("-C", repo, "worktree", "list", "--porcelain").Output()
 	if err != nil {
-		return refuse("cannot list the worktrees of %s", repo)
+		return refuse("cannot-list-the-worktrees", "cannot list the worktrees of %s", repo)
 	}
 	listed, copies := changeWorktrees(porcelain, name)
 	// The main checkout is the porcelain's first entry, whatever <repo> named:
@@ -187,9 +188,10 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			case 0:
 			case 1:
 				fmt.Fprintf(stderr, "remove-change-worktrees: flow change save %s has not run — %s holds the only copy of its %s\n", name, wt, f.on)
+				Reason(env, "flow-change-save-has-not")
 				return 1
 			default:
-				return refuse("cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
+				return refuse("cannot-tell-whether-flow-change", "cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
 			}
 		}
 	}
@@ -253,6 +255,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		fmt.Fprintf(stdout, "REGENERATABLE: %s — %d\n", wt, regen)
 	}
 	if failed {
+		Reason(env, "removal-failed")
 		return 1
 	}
 
@@ -268,6 +271,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			}
 		}
 		fmt.Fprintln(stdout, "DISCLOSE: stopped before removal — relay the entries above, then re-run with --proceed")
+		Reason(env, "disclose")
 		return 3
 	}
 
@@ -313,6 +317,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		}
 	}
 	if failed {
+		Reason(env, "removal-failed")
 		return 1
 	}
 
@@ -379,6 +384,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		fmt.Fprintf(stdout, "REMOTE-REFUSED: origin/%s — %s\n", branch, rcwFlat(string(out)))
 	}
 	if failed {
+		Reason(env, "remote-removal-failed")
 		return 1
 	}
 	return 0

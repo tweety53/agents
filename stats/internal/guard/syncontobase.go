@@ -71,7 +71,8 @@ const (
 )
 
 func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, sobPrefix+format+"\n", a...)
 		return 2
 	}
@@ -80,7 +81,7 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 		args = args[1:]
 	}
 	if len(args) != 3 || args[0] == "" || args[1] == "" || args[2] == "" {
-		return refuse("usage: flow-guard sync-onto-base [--resume] <worktree> <base-ref> <merge-base|onto>")
+		return refuse("usage", "usage: flow-guard sync-onto-base [--resume] <worktree> <base-ref> <merge-base|onto>")
 	}
 	wt, baseRef, base := args[0], args[1], args[2]
 
@@ -98,18 +99,20 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 	var ok bool
 	if resume {
 		if envGit(env)("-C", wt, "merge-base", "--is-ancestor", "--end-of-options", base, "HEAD").Run() != nil {
-			return refuse("%s is not an ancestor of HEAD in %s — the rebase it resumes did not finish onto it", base, wt)
+			return refuse("not-an-ancestor-of-head", "%s is not an ancestor of HEAD in %s — the rebase it resumes did not finish onto it", base, wt)
 		}
 		if busy, err := inProgress(env, wt, "rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD"); err != nil {
-			return refuse("%v", err)
+			return refuse("cannot-read-rebase-state", "%v", err)
 		} else if busy {
-			return refuse("resume refused — a rebase/merge/cherry-pick is still in progress in: %s", wt)
+			return refuse("resume-refused", "resume refused — a rebase/merge/cherry-pick is still in progress in: %s", wt)
 		}
 		if v, ok = check(base); !ok {
+			Reason(env, "base-check-failed")
 			return 2
 		}
 	} else {
 		if v, ok = check(base); !ok {
+			Reason(env, "base-check-failed")
 			return 2
 		}
 		if v.kind == "CLEAR" {
@@ -122,11 +125,11 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 	onto := base
 	for n := 0; v.kind == "MOVED"; n++ {
 		if n == sobMaxRebases {
-			return refuse("%s moved again after %d rebases of %s — stop and ask", v.ref, n, wt)
+			return refuse("moved-again-after-rebases", "%s moved again after %d rebases of %s — stop and ask", v.ref, n, wt)
 		}
 		o, err := rebaseOntoTip(env, wt, v.ref, stderr)
 		if err != nil {
-			return refuse("%v", err)
+			return refuse("rebase-failed", "%v", err)
 		}
 		switch o.kind {
 		case "conflict":
@@ -136,12 +139,14 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 					fmt.Fprintf(stdout, "RECAPTURE: %s\n", u)
 				}
 			}
+			Reason(env, "recapture")
 			return 1
 		case "refused":
-			return refuse("git refused to rebase %s onto %s — nothing changed", wt, o.sha)
+			return refuse("git-refused-to-rebase-onto", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
 		}
 		onto = o.sha
 		if v, ok = check(onto); !ok {
+			Reason(env, "base-check-failed")
 			return 2
 		}
 	}

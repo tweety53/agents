@@ -60,7 +60,8 @@ func init() {
 }
 
 func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "sync-panel-base: "+format+"\n", a...)
 		return 2
 	}
@@ -69,13 +70,13 @@ func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
 		args = args[1:]
 	}
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		return refuse("usage: flow-guard sync-panel-base [--rebase] <worktree> <working-notes-merge-base>")
+		return refuse("usage", "usage: flow-guard sync-panel-base [--rebase] <worktree> <working-notes-merge-base>")
 	}
 	wt, mb := args[0], args[1]
 
 	var name bytes.Buffer
 	if rc := resolveBaseBranch([]string{wt}, env, &name, stderr); rc != 0 {
-		return refuse("could not resolve the base branch of %s (resolve-base-branch exit %d)", wt, rc)
+		return refuse("could-not-resolve-the-base", "could not resolve the base branch of %s (resolve-base-branch exit %d)", wt, rc)
 	}
 	base := strings.TrimSpace(name.String())
 	fmt.Fprintf(stdout, "BASE: %s\n", base)
@@ -91,31 +92,35 @@ func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
 	last := "" // the last rebase's merge base
 	v, ok := check(mb)
 	if !ok {
+		Reason(env, "base-check-failed")
 		return 2
 	}
 	// Rebase while MOVED: the first time on no overlap or --rebase, after
 	// that only on no overlap -- a fresh overlap re-offers the prompt.
 	for n := 0; v.kind == "MOVED"; n++ {
 		if len(v.overlap) > 0 && (n > 0 || !rebase) {
+			Reason(env, "overlap")
 			return 3
 		}
 		if n == sobMaxRebases {
-			return refuse("%s moved again after %d rebases of %s — stop and ask", ref, n, wt)
+			return refuse("moved-again-after-rebases", "%s moved again after %d rebases of %s — stop and ask", ref, n, wt)
 		}
 		o, err := rebaseOntoTip(env, wt, ref, stderr)
 		if err != nil {
-			return refuse("%v", err)
+			return refuse("rebase-failed", "%v", err)
 		}
 		switch o.kind {
 		case "conflict":
 			fmt.Fprintf(stdout, "CONFLICT: %s — onto %s; unmerged: %s\n", wt, o.sha, strings.Join(o.unmerged, ", "))
+			Reason(env, "conflict")
 			return 1
 		case "refused":
-			return refuse("git refused to rebase %s onto %s — nothing changed", wt, o.sha)
+			return refuse("git-refused-to-rebase-onto", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
 		}
 		fmt.Fprintf(stdout, "REBASED: %s — merge base %s\n", wt, o.sha)
 		last = o.sha
 		if v, ok = check(o.sha); !ok {
+			Reason(env, "base-check-failed")
 			return 2
 		}
 	}

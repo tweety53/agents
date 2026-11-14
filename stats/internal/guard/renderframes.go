@@ -89,31 +89,32 @@ var (
 type rfRef struct{ tag, id string }
 
 func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "render-frames: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) < 2 {
-		return refuse("usage: flow-guard render-frames <project root> <file>...")
+		return refuse("usage", "usage: flow-guard render-frames <project root> <file>...")
 	}
 	root := wiAbs(env, args[0])
 	cfg, _ := os.ReadFile(filepath.Join(root, ".flow", "project.md"))
 	cells := vvCells(string(cfg))
 	design := strings.Fields(strings.ReplaceAll(cells["design repo"], "`", ""))
 	if len(design) != 2 {
-		return refuse("%s/.flow/project.md declares no `design repo` row of `<clone> <remote>` under `## visual verification`", args[0])
+		return refuse("flow-project-md-declares-no", "%s/.flow/project.md declares no `design repo` row of `<clone> <remote>` under `## visual verification`", args[0])
 	}
 	clone, remote := cellPath(root, design[0]), design[1]
 	mockups := strings.TrimSuffix(strings.Trim(cells["mockups"], "`"), "/")
 	if mockups == "" {
-		return refuse("%s/.flow/project.md declares no `mockups` row — there is no root to render into", args[0])
+		return refuse("flow-project-md-declares-no", "%s/.flow/project.md declares no `mockups` row — there is no root to render into", args[0])
 	}
 	checkout := cellPath(root, cells["regression checkout"])
 	if checkout == "" {
-		return refuse("%s/.flow/project.md declares no `regression checkout` row — there is no Playwright to render with", args[0])
+		return refuse("flow-project-md-declares-no", "%s/.flow/project.md declares no `regression checkout` row — there is no Playwright to render with", args[0])
 	}
 	if vvGitClean(env, "-C", clone, "rev-parse", "--git-dir").Run() != nil {
-		return refuse("the `design repo` clone %s is missing or not a git checkout", clone)
+		return refuse("design-repo-clone-missing", "the `design repo` clone %s is missing or not a git checkout", clone)
 	}
 
 	cite := regexp.MustCompile(`(^|[^A-Za-z0-9_./-])` + regexp.QuoteMeta(mockups) + `/([A-Za-z0-9][A-Za-z0-9_.-]*)/([A-Za-z0-9_-]+)\.png`)
@@ -128,7 +129,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, file := range args[1:] {
 		data, err := os.ReadFile(wiAbs(env, file))
 		if err != nil {
-			return refuse("cannot read %s: %v", file, err)
+			return refuse("cannot-read", "cannot read %s: %v", file, err)
 		}
 		for _, line := range strings.Split(string(data), "\n") {
 			for _, m := range cite.FindAllStringSubmatch(line, -1) {
@@ -151,12 +152,12 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	var findings []string
 	for _, tag := range tags {
 		if tag == "." || tag == ".." || strings.Contains(tag, "..") {
-			return refuse("`%s` is not a tag name", tag)
+			return refuse("not-a-tag-name", "`%s` is not a tag name", tag)
 		}
 		rel := mockups + "/" + tag
 		tracked, ok := capture(vvGitClean(env, "-C", root, "ls-files", "--", rel))
 		if !ok {
-			return refuse("cannot tell whether %s is committed in %s", rel, args[0])
+			return refuse("cannot-tell-whether-is-committed", "cannot tell whether %s is committed in %s", rel, args[0])
 		}
 		if tracked != "" {
 			// A tracked directory whose tag the design repo does not hold is the
@@ -164,11 +165,11 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			// existed): its committed frames stand, and a cited frame missing
 			// from it is the refusal.
 			if vvGitClean(env, "-C", clone, "rev-parse", "-q", "--verify", "refs/tags/"+tag).Run() == nil {
-				return refuse("tag `%s` names a committed sub-directory %s — its frames would be the committed ones, not the tag's", tag, rel)
+				return refuse("tag-names-committed-dir", "tag `%s` names a committed sub-directory %s — its frames would be the committed ones, not the tag's", tag, rel)
 			}
 			for _, id := range byTag[tag] {
 				if !isFile(filepath.Join(root, rel, id+".png")) {
-					return refuse("tag `%s` is committed in %s and not in the design repo, and frame %s is missing from it", tag, rel, id)
+					return refuse("frame-missing-from-tag", "tag `%s` is committed in %s and not in the design repo, and frame %s is missing from it", tag, rel, id)
 				}
 				present++
 			}
@@ -198,6 +199,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(findings) > 0 {
 		fmt.Fprintf(stdout, "FRAMES-MISSING: %d reference(s) not rendered\n", len(findings))
+		Reason(env, "frames-missing")
 		return 1
 	}
 	fmt.Fprintf(stdout, "FRAMES-RENDERED: %d rendered, %d already present\n", rendered, present)
@@ -209,32 +211,33 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 // It returns the references rendered, the findings, and a non-zero exit when
 // it cannot answer (the reason already on stderr).
 func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out string, pending []string) (int, []string, int) {
-	refuse := func(format string, a ...any) (int, []string, int) {
+	refuse := func(id, format string, a ...any) (int, []string, int) {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "render-frames: "+format+"\n", a...)
 		return 0, nil, 2
 	}
 	ref := "refs/tags/" + tag
 	if vvGitClean(env, "-C", clone, "rev-parse", "-q", "--verify", ref).Run() != nil {
 		if b, err := vvGitClean(env, "-C", clone, "fetch", "-q", remote, ref+":"+ref).CombinedOutput(); err != nil {
-			return refuse("tag `%s` is not in %s and cannot be fetched from %s: %s", tag, clone, remote, strings.TrimSpace(string(b)))
+			return refuse("tag", "tag `%s` is not in %s and cannot be fetched from %s: %s", tag, clone, remote, strings.TrimSpace(string(b)))
 		}
 	}
 	tree, err := os.MkdirTemp("", "render-frames-")
 	if err != nil {
-		return refuse("cannot make a temp directory: %v", err)
+		return refuse("cannot-make-a-temp-directory", "cannot make a temp directory: %v", err)
 	}
 	defer os.RemoveAll(tree)
 	if err := rfExport(env, clone, ref, tree); err != nil {
-		return refuse("cannot export tag `%s` from %s: %v", tag, clone, err)
+		return refuse("cannot-export-tag", "cannot export tag `%s` from %s: %v", tag, clone, err)
 	}
 	pages, err := filepath.Glob(filepath.Join(tree, "*.html"))
 	if err != nil {
-		return refuse("cannot list the pages of tag `%s`: %v", tag, err)
+		return refuse("cannot-list-the-pages", "cannot list the pages of tag `%s`: %v", tag, err)
 	}
 	texts := map[string][]byte{}
 	for _, p := range pages {
 		if texts[p], err = os.ReadFile(p); err != nil {
-			return refuse("cannot read %s at tag `%s`: %v", filepath.Base(p), tag, err)
+			return refuse("cannot-read-at-tag", "cannot read %s at tag `%s`: %v", filepath.Base(p), tag, err)
 		}
 	}
 
@@ -272,13 +275,13 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 
 	node, ok := lookPath(env, "node")
 	if !ok {
-		return refuse("node is not on PATH — cannot render")
+		return refuse("node-is-not-on-path", "node is not on PATH — cannot render")
 	}
 	if err := os.MkdirAll(out, 0o755); err != nil {
-		return refuse("cannot create %s: %v", out, err)
+		return refuse("cannot-create", "cannot create %s: %v", out, err)
 	}
 	if err := os.WriteFile(filepath.Join(out, ".gitignore"), []byte("*\n"), 0o644); err != nil {
-		return refuse("cannot write %s/.gitignore: %v", out, err)
+		return refuse("cannot-write-gitignore", "cannot write %s/.gitignore: %v", out, err)
 	}
 	spec, _ := json.Marshal(jobs)
 	cmd := exec.Command(node, "-e", rfProgram, checkout, tree, out, string(spec))
@@ -288,9 +291,9 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 	switch rc := exitCode(err); rc {
 	case 0:
 	case 3:
-		return refuse("@playwright/test does not resolve from the regression checkout %s: %s", checkout, strings.TrimSpace(errb.String()))
+		return refuse("playwright-test-does-not-resolve", "@playwright/test does not resolve from the regression checkout %s: %s", checkout, strings.TrimSpace(errb.String()))
 	default:
-		return refuse("the renderer exited %d: %s", rc, strings.TrimSpace(errb.String()))
+		return refuse("renderer-exited", "the renderer exited %d: %s", rc, strings.TrimSpace(errb.String()))
 	}
 	phones := map[string]int{}
 	sc := bufio.NewScanner(bytes.NewReader(stdout))

@@ -46,6 +46,7 @@ func init() { Registry["reshape-branch"] = reshapeBranch }
 func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
 		fmt.Fprintln(stderr, "usage: flow-guard reshape-branch <worktree> <name> <merge-base>")
+		Reason(env, "usage")
 		return 2
 	}
 	wt, name, base := args[0], args[1], args[2]
@@ -58,6 +59,7 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	cmd.Stdout, cmd.Stderr = &b, stderr
 	if exitCode(cmd.Run()) != 0 {
 		fmt.Fprintf(stderr, "reshape-branch: base does not resolve to a commit: %s\n", base)
+		Reason(env, "base-does-not-resolve")
 		return 2
 	}
 	baseSHA := strings.TrimRight(b.String(), "\n")
@@ -71,6 +73,7 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	own, ok2 := capture(git("-C", wt, "rev-list", "--first-parent", baseSHA+"..HEAD"))
 	if !ok1 || !ok2 {
 		fmt.Fprintf(stderr, "reshape-branch: git cannot list %s..HEAD in %s\n", baseSHA[:12], wt)
+		Reason(env, "git-cannot-list-head-in")
 		return 2
 	}
 	mine := map[string]bool{}
@@ -90,11 +93,13 @@ func reshapeBranch(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "  %s %s\n", c[:12], sanitizeDisplay(strings.TrimSpace(subj)))
 		}
 		fmt.Fprintln(stdout, "  merge that branch into the change's base first, or rebase the change branch onto a base that holds them, then re-run")
+		Reason(env, "merge-that-branch-into")
 		return 1
 	}
 	reset := git("-C", wt, "reset", "-q", "--soft", baseSHA)
 	reset.Stdout, reset.Stderr = stderr, stderr
 	if rc := exitCode(reset.Run()); rc != 0 {
+		Reason(env, "reset-failed")
 		return rc
 	}
 	fmt.Fprintf(stdout, "RESHAPED: %s — reset to %s\n", wt, baseSHA[:12])

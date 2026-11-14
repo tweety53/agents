@@ -66,6 +66,7 @@ func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-rerun-citations"
 	if len(args) < 3 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard check-rerun-citations <report> <diff> F<n> [F<n>…]\n", prog)
+		Reason(env, "usage")
 		return 2
 	}
 	var files [2]string
@@ -73,6 +74,7 @@ func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 		b, err := os.ReadFile(rcPath(env, p))
 		if err != nil {
 			fmt.Fprintf(stderr, "%s: cannot read %s\n", prog, p)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		files[i] = string(b)
@@ -82,6 +84,7 @@ func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, ref := range refs {
 		if !rcRef.MatchString(ref) {
 			fmt.Fprintf(stderr, "%s: not a finding ref shaped F<n>: '%s'\n", prog, ref)
+			Reason(env, "not-a-finding-ref-shaped")
 			return 2
 		}
 	}
@@ -105,6 +108,7 @@ func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if line == "" {
 			fmt.Fprintf(stdout, "UNCITED: %s — no `verdict: %s — …` line in the report\n", ref, ref)
+			Reason(env, "uncited")
 			status = 1
 			continue
 		}
@@ -117,6 +121,7 @@ func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 			m := rcCite.FindStringSubmatch(cite)
 			if m == nil {
 				fmt.Fprintf(stdout, "UNCITED: %s — fixed — '%s' is not <path>:<line>\n", ref, cite)
+				Reason(env, "uncited")
 				status = 1
 				continue
 			}
@@ -127,10 +132,12 @@ func checkRerunCitations(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stdout, "CITED: %s — fixed — %s\n", ref, cite)
 			} else {
 				fmt.Fprintf(stdout, "UNCITED: %s — fixed — %s lands in no hunk of %s\n", ref, cite, args[1])
+				Reason(env, "uncited")
 				status = 1
 			}
 		default:
 			fmt.Fprintf(stdout, "UNCITED: %s — '%s' is neither `fixed — <path>:<line>` nor `not fixed — <citation>`\n", ref, line)
+			Reason(env, "uncited")
 			status = 1
 		}
 	}

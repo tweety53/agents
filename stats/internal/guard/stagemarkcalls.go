@@ -399,7 +399,8 @@ func (s *smcScan) finding(format string, a ...any) {
 }
 
 func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-stage-mark-calls: "+format+"\n", a...)
 		return 2
 	}
@@ -407,7 +408,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 	// BASH_SOURCE; scripts/flow-guard exports FLOW_GUARD_REPO_ROOT, derived the same way.
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
-		return die("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-stage-mark-calls, which sets it")
+		return die("repo-root-unset", "FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-stage-mark-calls, which sets it")
 	}
 	targets := args
 	if len(targets) == 0 {
@@ -415,7 +416,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	for _, t := range targets {
 		if _, err := os.Stat(smcAbs(env, t)); t == "" || err != nil {
-			return die("no such file or directory: %s", t)
+			return die("no-such-file-or-directory", "no such file or directory: %s", t)
 		}
 	}
 
@@ -435,10 +436,10 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	keys, err := serve()
 	if err != nil {
-		return die("the served stage-key source failed: (cd %s/stats && go run ./cmd/flow stage keys)", root)
+		return die("served-stage-key-source-failed", "the served stage-key source failed: (cd %s/stats && go run ./cmd/flow stage keys)", root)
 	}
 	if keys = strings.TrimRight(keys, "\n"); keys == "" {
-		return die("the served stage-key source (flow stage keys) printed no keys")
+		return die("served-stage-key-source", "the served stage-key source (flow stage keys) printed no keys")
 	}
 
 	s := &smcScan{root: root, keys: keys, utf8: smcUTF8(env), stdout: stdout}
@@ -456,7 +457,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, z := range smcExpectedZero {
 			if err := cov.declare(z.file, z.reason); err != nil {
 				fmt.Fprintln(stderr, err)
-				return die("coverage_declare failed for '%s' (see stderr above)", z.file)
+				return die("coverage-declare-failed-for", "coverage_declare failed for '%s' (see stderr above)", z.file)
 			}
 		}
 	}
@@ -474,7 +475,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 				// undeclared, it is now a violation naming itself.
 				if err := cov.record(strings.TrimPrefix(target, root+"/"), 0); err != nil {
 					fmt.Fprintln(stderr, err)
-					return die("coverage_record failed for target '%s' (see stderr above)", target)
+					return die("coverage-record-failed-for-target", "coverage_record failed for target '%s' (see stderr above)", target)
 				}
 				continue
 			}
@@ -493,7 +494,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 			// against its own contradictory breakdown.
 			if err := cov.record(strings.TrimPrefix(f, root+"/"), n); err != nil {
 				fmt.Fprintln(stderr, err)
-				return die("coverage_record failed for '%s' (see stderr above)", f)
+				return die("coverage-record-failed-for", "coverage_record failed for '%s' (see stderr above)", f)
 			}
 		}
 	}
@@ -509,6 +510,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if s.violations > 0 {
 		fmt.Fprintf(stderr, "check-stage-mark-calls: %d violation(s) across %d call site(s) checked\n", s.violations, s.checked)
+		Reason(env, "violation")
 		return 1
 	}
 	fmt.Fprintf(stdout, "✓ Stage-mark-calls guard: clean (%d call site(s) checked)\n", s.checked)

@@ -52,6 +52,7 @@ const rgMaxLines = 40
 func checkReviewGate(args []string, env Env, stdout, stderr io.Writer) int {
 	refuse := func(detail string) int {
 		fmt.Fprintln(stderr, "check-review-gate: COULD NOT JUDGE — "+detail)
+		Reason(env, "could-not-judge")
 		return 2
 	}
 	if len(args) < 5 {
@@ -77,6 +78,7 @@ func checkReviewGate(args []string, env Env, stdout, stderr io.Writer) int {
 	tasksMD, detail := tcfResolveTasksMD(env, stderr, "check-review-gate", worktree, name, canonical)
 	if tasksMD == "" {
 		if detail == "" {
+			Reason(env, "tasks-md-unresolved")
 			return 2
 		}
 		return refuse(detail)

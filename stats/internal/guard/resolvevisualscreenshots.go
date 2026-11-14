@@ -113,15 +113,18 @@ const rvsPrefix = "resolve-visual-screenshots: "
 func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
 		fmt.Fprint(stderr, rvsPrefix+"usage: flow-guard resolve-visual-screenshots <project root> <capture spec basename>\n")
+		Reason(env, "usage")
 		return 2
 	}
 	root, spec := args[0], args[1]
 	if spec == "" {
 		fmt.Fprint(stderr, rvsPrefix+"the capture spec basename argument is empty\n")
+		Reason(env, "capture-spec-basename-argument")
 		return 2
 	}
 	if !isDir(rvsAt(env, root)) {
 		fmt.Fprintf(stderr, rvsPrefix+"%s is not a directory — cannot resolve what it declares\n", root)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	rootAbs := rvsLogical(env, root)
@@ -130,20 +133,24 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	fi, err := os.Stat(cfg)
 	if _, lerr := os.Lstat(cfg); err != nil && lerr != nil {
 		fmt.Fprintf(stderr, rvsPrefix+"%s has no .flow/project.md — cannot resolve where screenshots live\n", rootAbs)
+		Reason(env, "has-no-flow-project-md")
 		return 2
 	}
 	if err != nil || !fi.Mode().IsRegular() {
 		fmt.Fprintf(stderr, rvsPrefix+"%s is not a regular file — cannot resolve what it declares\n", cfg)
+		Reason(env, "not-a-regular-file")
 		return 2
 	}
 	if syscall.Access(cfg, 4) != nil {
 		fmt.Fprintf(stderr, rvsPrefix+"%s exists but is not readable — cannot resolve what it declares\n", cfg)
+		Reason(env, "exists-but-is-not-readable")
 		return 2
 	}
 	data, err := os.ReadFile(cfg)
 	if err != nil {
 		// The bash's grep exiting 2 here: a failure to look, not an absence.
 		fmt.Fprintf(stderr, rvsPrefix+"grep exited 2 while looking for the '## visual verification' heading in %s — that is a failure to look, not an absence\n", cfg)
+		Reason(env, "grep-exited-2-while-looking")
 		return 2
 	}
 	// A leading UTF-8 BOM is stripped before either heading read or the table
@@ -154,9 +161,11 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	switch n := vvHeadingCount(text); {
 	case n == 0:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares no '## visual verification' section — cannot resolve where screenshots live\n", cfg)
+		Reason(env, "declares-no")
 		return 2
 	case n > 1:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares %d '## visual verification' sections — a second declaration is ambiguous, so neither was read\n", cfg, n)
+		Reason(env, "declares")
 		return 2
 	}
 
@@ -186,6 +195,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	// holding an escape sequence would otherwise write it to the terminal.
 	if screenshots == "" {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf(rvsPrefix+"`screenshots` is absent or empty in %s — cannot resolve where captures land\n", cfg)))
+		Reason(env, "screenshots-unset")
 		return 2
 	}
 
@@ -194,6 +204,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 		// Relative to the caller's cwd, as the bash's `[ -d ]` and `cd` read it.
 		if !isDir(rvsAt(env, checkout)) {
 			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf(rvsPrefix+"`regression checkout` names `%s`, which is not an existing directory — cannot resolve `screenshots` relative to it\n", checkout)))
+			Reason(env, "regression-checkout-missing")
 			return 2
 		}
 		base = rvsLogical(env, checkout)
@@ -221,6 +232,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	sort.Strings(matches)
 	if len(matches) == 0 {
 		fmt.Fprintf(stderr, rvsPrefix+"zero PNGs under %s matched `%s`\n", searchRoot, spec)
+		Reason(env, "zero-pngs-under-matched")
 		return 1
 	}
 	for _, m := range matches {
