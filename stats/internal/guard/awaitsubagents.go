@@ -24,7 +24,11 @@ import (
 //
 // An agent is finished when its subagents/agent-<id>.meta.json, under any
 // session of $CLAUDE_PROJECTS_DIR (default ~/.claude/projects), carries
-// "finished": true. Exit 0 once every named agent is finished; exit 1 at the
+// "finished": true. An unfinished agent whose transcript, agent-<id>.jsonl
+// beside its meta.json, was last written more than 30 minutes ago is taken as
+// ended -- the rule and figure of hooks/await-own-agents.py's STALE_SECONDS --
+// and named on a `stale: <id>...` stdout line; a missing transcript is not
+// stale. Exit 0 once every named agent is finished or stale; exit 1 at the
 // cap with one line naming those still running — call again; exit 2 on no
 // argument, an agent id with no meta.json, or a cap
 // ($AWAIT_SUB_AGENTS_SECONDS) above 240.
@@ -37,6 +41,9 @@ var (
 	asaCapRe      = regexp.MustCompile(`^[0-9]+$`)
 	asaFinishedRe = regexp.MustCompile(`"finished"\s*:\s*true`)
 )
+
+// asaStaleAfter is hooks/await-own-agents.py's STALE_SECONDS.
+const asaStaleAfter = 30 * time.Minute
 
 func awaitSubAgents(args []string, env Env, stdout, stderr io.Writer) int {
 	root := env.Getenv("CLAUDE_PROJECTS_DIR")
@@ -68,22 +75,37 @@ func awaitSubAgents(args []string, env Env, stdout, stderr io.Writer) int {
 
 	deadline := time.Now().Add(time.Duration(capN) * time.Second)
 	for {
-		var running []string
+		var running, stale []string
 		for i, m := range metas {
 			b, _ := os.ReadFile(m)
-			if !asaFinishedRe.Match(b) {
+			switch {
+			case asaFinishedRe.Match(b):
+			case asaStale(strings.TrimSuffix(m, ".meta.json") + ".jsonl"):
+				stale = append(stale, args[i])
+			default:
 				running = append(running, args[i])
 			}
 		}
-		if len(running) == 0 {
-			return 0
-		}
-		if !time.Now().Before(deadline) {
+		done := len(running) == 0
+		if done || !time.Now().Before(deadline) {
+			if len(stale) > 0 {
+				fmt.Fprintln(stdout, "stale: "+strings.Join(stale, " "))
+			}
+			if done {
+				return 0
+			}
 			fmt.Fprintln(stdout, "still running: "+strings.Join(running, " "))
 			return 1
 		}
 		time.Sleep(2 * time.Second)
 	}
+}
+
+// asaStale reports whether transcript exists and was last written more than
+// asaStaleAfter ago.
+func asaStale(transcript string) bool {
+	fi, err := os.Stat(transcript)
+	return err == nil && time.Since(fi.ModTime()) > asaStaleAfter
 }
 
 // asaFindMeta is `find root -path "*/subagents/<name>" -print -quit`: the

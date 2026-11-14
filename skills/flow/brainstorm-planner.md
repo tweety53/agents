@@ -188,10 +188,13 @@ word the harvester stamps the launch's agent id onto.
 
 **Never end your turn while one of your agents runs.** A turn that ends to wait for a hand-back
 loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
-whole context. Once your own work is done, call
-`<agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with the agent ids your launches returned:
-each call returns within two minutes — exit 0 once every agent finished, exit 1 naming those still
-running — so call it again on exit 1, and read each hand-back as it arrives. The
+whole context; each exit-1 return of the wait below is one cache read, and re-arms the cache.
+Once your own work is done, call
+`AWAIT_SUB_AGENTS_SECONDS=240 <agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with
+the agent ids your launches returned and the Bash tool's `timeout` at 250000, so a call returns
+within four minutes. Exit 0: every agent finished or is stale — silent for 30 minutes — so read
+each hand-back, treat a `stale:` agent as returning nothing and say so in the round file. Exit 1:
+call again at once, doing nothing between calls. Exit 2: a usage error, reported. The
 `await-own-agents` SubagentStop hook refuses your turn end while one runs.
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
