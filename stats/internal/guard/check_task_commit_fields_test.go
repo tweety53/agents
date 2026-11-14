@@ -3036,6 +3036,20 @@ func TestCheckTaskCommitFields(t *testing.T) {
 			res := r.run("1", fix)
 			ok(t, "case 159b: an on-top fix commit's undeclared path is refused", res.rc == 1 && has(res.out, "file gamma2.txt is not declared in Files:"), res)
 		}},
+		{"case 159c", func(t *testing.T) {
+			// A self-review change's commit riding another change's branch
+			// carries its own Flow-Key:; the host change's commits with the
+			// same task number belong to a different plan and never join.
+			r := fx.repo(t, "change-a")
+			r.plan(tcfPlans["159"])
+			r.git("branch", "-M", "main")
+			r.commit("base", "base.txt", "x\n")
+			r.git("checkout", "-q", "-b", "spectre/change-a")
+			r.commit("host task\n\nTask-Id: 1\nFlow-Key: host-change", "gamma.txt", "g\n")
+			own := r.commit("add alpha\n\nFlow-Key: change-a", "alpha.txt", "def test_alpha(): pass\n", "beta.txt", "b\n")
+			res := r.run("1", own)
+			ok(t, "case 159c: another Flow-Key's Task-Id: commit does not join", res.rc == 0, res)
+		}},
 		{"case 158", func(t *testing.T) {
 			// KAN-972: each repository's commit names its own module.
 			commit := func(b1Subject, b2Subject string) tcfRes {

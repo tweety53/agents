@@ -1210,14 +1210,22 @@ func tcfTaskIDCommits(env Env, worktree, commit, taskID string) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-	out, err := tcfRunGit(env, worktree, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+".."+commit)
+	// A commit carrying a Flow-Key: joins only commits of the same key: a
+	// self-review change riding another change's branch shares its task
+	// numbers, never its tasks.
+	key, err := tcfRunGit(env, worktree, "log", "-1", "--format=%(trailers:key=Flow-Key,valueonly,separator=%x2C)", commit)
+	if err != nil {
+		return nil, err
+	}
+	out, err := tcfRunGit(env, worktree, "log", "--no-merges", "--format=%H %(trailers:key=Flow-Key,valueonly,separator=%x2C) %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+".."+commit)
 	if err != nil {
 		return nil, err
 	}
 	var shas []string
 	for _, line := range tcfSplitLines(out) {
-		sha, ids, _ := strings.Cut(line, " ")
-		if sha == "" || sha == tcfStrip(self) {
+		sha, rest, _ := strings.Cut(line, " ")
+		lineKey, ids, _ := strings.Cut(rest, " ")
+		if sha == "" || sha == tcfStrip(self) || (tcfStrip(key) != "" && lineKey != tcfStrip(key)) {
 			continue
 		}
 		// the task numbers in the value, as ctTaskNumberRE reads them at close: `Task-Id: 2+3` is task 2's too
