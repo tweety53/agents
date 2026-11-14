@@ -38,6 +38,7 @@ func TestCheckNarrativeRuns(t *testing.T) {
 		{"a fix run with no section exits 1", fx{fix: s("1"), integrate: s("0"), narrative: s("## 2026-10-19 — implement run"), rc: 1, prefix: "NARRATIVE-RUNS-MISSING:"}},
 		{"an integrate run with no section exits 1", fx{fix: s("1"), integrate: s("1"), narrative: s("## 2026-10-19 — fix run"), rc: 1, prefix: "NARRATIVE-RUNS-MISSING:"}},
 		{"every run with its section exits 0", fx{fix: s("2"), integrate: s("1"), narrative: s("## 2026-10-18 — fix run\n## 2026-10-19 — fix run\n## 2026-10-19 — integrate run"), rc: 0, prefix: "NARRATIVE-RUNS-OK:"}},
+		{"one section counts a fix run and its integrate run", fx{fix: s("1"), integrate: s("1"), narrative: s("## 2026-10-19 — fix run — integrate run"), rc: 0, prefix: "NARRATIVE-RUNS-OK:"}},
 		{"an absent narrative with no runs exits 0", fx{fix: s("0"), integrate: s("0"), rc: 0, prefix: "NARRATIVE-RUNS-OK:"}},
 		{"a failed store read exits 2", fx{fix: s("0"), narrative: s("## x"), rc: 2, prefix: "check-narrative-runs: flow stage sessions -stage flow.preserve-sessions failed"}},
 		{"a non-integer store read exits 2", fx{fix: s("two"), integrate: s("0"), rc: 2, prefix: "check-narrative-runs: flow stage sessions -stage flow.document-fix printed 'two', not one integer"}},
@@ -100,5 +101,19 @@ func TestCheckNarrativeRuns(t *testing.T) {
 				t.Errorf("port rc=%d stdout=%q stderr=%q\nbash rc=%d stdout=%q stderr=%q", grc, gout.String(), gerr.String(), brc, bout.String(), bashUsage(berr.String()))
 			}
 		})
+	}
+}
+
+// TestIntegrateExtendsTheNarrativeSection pins KAN-1110: an invocation that
+// already wrote its section at flow.write-in-progress extends it at integrate
+// -- the heading TestCheckNarrativeRuns counts for both runs.
+func TestIntegrateExtendsTheNarrativeSection(t *testing.T) {
+	t.Parallel()
+	b, err := os.ReadFile("../../../skills/flow/integrate.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "extends it instead: ` — integrate run` is appended to that section's heading"; !strings.Contains(strings.Join(strings.Fields(string(b)), " "), want) {
+		t.Errorf("skills/flow/integrate.md lacks %q", want)
 	}
 }

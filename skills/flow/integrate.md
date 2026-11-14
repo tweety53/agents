@@ -134,7 +134,9 @@ when one is usable — say so, open or closed-unmerged, before the operator answ
 **Append this run's own narrative first**, the same append `flow.write-in-progress` <!-- refs-guard:allow -->
 (`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering
 this run's preflight, the unfinished-work gate and the rebase — into the `narrative.md` the
-`NEXT:` line names.
+`NEXT:` line names. An invocation that already appended its section at `flow.write-in-progress`
+extends it instead: ` — integrate run` is appended to that section's heading and the preflight,
+gate and rebase lines go under it.
 
 ```bash
 flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --harness <harness> --session-token mf-<literal-token>
