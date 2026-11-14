@@ -38,6 +38,9 @@ type Env struct {
 	// Dispatches returns `flow record dispatches -change <name>`'s JSON; nil
 	// means exec the `flow` CLI on PATH, as the bash guard does.
 	Dispatches func(change string) ([]byte, error)
+	// Passes returns `flow record passes -change <name>`'s JSON; nil means
+	// exec the `flow` CLI on PATH.
+	Passes func(change string) ([]byte, error)
 	// Decisions returns `flow record decisions -change <name>`'s JSON; nil
 	// means exec the `flow` CLI on PATH.
 	Decisions func(change string) ([]byte, error)

@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -92,14 +93,18 @@ import (
 //      a path untracked in every worktree of the change or under
 //      .superpowers/ (kan-1019); or a round holding a `fixed` Critical or
 //      Important finding has no `flow record mutations` row of that round or
-//      the next — check-unfinished-work's predicate (kan-1039)
+//      the next — check-unfinished-work's predicate (kan-1039); or a
+//      panel-<round>- reviewer row closed completed or clean whose stored
+//      endedAt - startedAt passes 15 minutes while no `flow record passes`
+//      row's note opens `breach: <key>` (self-review-kan-1110 F5)
 //   2  cannot answer at all — no worktree, no change name, a change name
 //      outside the allowlist, a worktree that is not a directory, the store
 //      unreachable, its answer unreadable (empty output included), or an
 //      unreadable panel report, or the state record unreadable when a
 //      `fixed` finding's reproducer token is absent from the worktree or its
 //      regression test untracked there, or an unreadable panel-fix report,
-//      or the fix-mutation rows unreadable
+//      or the fix-mutation rows unreadable, or the passes unreadable when
+//      a row passes the slot ceiling
 // Ported to Go: the body's reasoning for every branch is in
 // stats/internal/guard/panelfindingsclosed.go.
 
@@ -357,6 +362,61 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	if len(unwritten) > 0 {
 		fmt.Fprintf(stderr, "%scompleted reviewer dispatch(es) left no report file: %s\n", cfcPrefix, strings.Join(unwritten, " "))
 		violated = true
+	}
+
+	// A SLOT PAST THE 15-MINUTE CEILING IS A RECORDED BREACH: a panel
+	// reviewer row closed completed or clean whose stored span passes 15
+	// minutes needs a pass row noted `breach: <key> <span>`
+	// (skills/flow/review-panel.md; self-review-kan-1110 F5). The passes are
+	// read only when some row breaches, with the dispatches read's posture.
+	var breached []cfcDispatchRow
+	for _, d := range dispatches {
+		if d.role == "reviewer" && d.round >= 0 && (d.outcome == "completed" || d.outcome == "clean") &&
+			!d.started.IsZero() && !d.ended.IsZero() && d.ended.Sub(d.started) > 15*time.Minute {
+			breached = append(breached, d)
+		}
+	}
+	if len(breached) > 0 {
+		var passesJSON []byte
+		if env.Passes != nil {
+			passesJSON, err = env.Passes(name)
+			if err != nil {
+				fmt.Fprintf(stderr, "%scannot read passes for '%s' from the store — cannot determine anything: %v\n", cfcPrefix, name, err)
+				return 2
+			}
+		} else {
+			var errOut []byte
+			var rc int
+			passesJSON, errOut, rc = pcFlow(env, false, "record", "passes", "-change", name, "-C", worktree)
+			if rc != 0 {
+				fmt.Fprintf(stderr, "%scannot read passes for '%s' from the store — cannot determine anything: %s\n", cfcPrefix, name, strings.TrimRight(string(errOut), "\n"))
+				return 2
+			}
+		}
+		var passes []struct {
+			Note string `json:"note"`
+		}
+		if json.Unmarshal(passesJSON, &passes) != nil || passes == nil {
+			fmt.Fprintln(stderr, cfcJQFailed)
+			return 2
+		}
+		var over []string
+		for _, d := range breached {
+			covered := false
+			for _, p := range passes {
+				covered = covered || strings.HasPrefix(p.Note, "breach: "+d.key+" ") || p.Note == "breach: "+d.key
+			}
+			if covered {
+				continue
+			}
+			span := d.ended.Sub(d.started)
+			s := fmt.Sprintf("%dm%02ds", int(span/time.Minute), int(span%time.Minute/time.Second))
+			over = append(over, fmt.Sprintf("%s (%s)", d.key, s))
+		}
+		if len(over) > 0 {
+			fmt.Fprintf(stderr, "%sreviewer dispatch(es) ran past the 15-minute slot ceiling with no breach recorded: %s — record each with flow record pass -round <round> -note 'breach: <key> <span>' (skills/flow/review-panel.md)\n", cfcPrefix, strings.Join(over, ", "))
+			violated = true
+		}
 	}
 
 	// A FIXED FINDING'S RUNNABLE REPRODUCER STILL EXISTS: its path token,
@@ -746,6 +806,7 @@ type cfcFindingRow struct {
 type cfcDispatchRow struct {
 	key, role, slot, outcome string
 	round                    int
+	started, ended           time.Time
 }
 
 // cfcRetryRE is a handshake retry's trailing -retry or -retry-<n>, and a
@@ -859,6 +920,17 @@ func cfcParseDispatches(b []byte) ([]cfcDispatchRow, bool) {
 		}{{"key", &d.key}, {"role", &d.role}, {"slot", &d.slot}, {"outcome", &d.outcome}} {
 			if pcIsString(o[pair.field]) {
 				_ = json.Unmarshal(o[pair.field], pair.dest)
+			}
+		}
+		for _, pair := range []struct {
+			field string
+			dest  *time.Time
+		}{{"startedAt", &d.started}, {"endedAt", &d.ended}} {
+			var v string
+			if pcIsString(o[pair.field]) && json.Unmarshal(o[pair.field], &v) == nil {
+				if t, err := time.Parse(time.RFC3339Nano, v); err == nil {
+					*pair.dest = t
+				}
 			}
 		}
 		d.round = -1

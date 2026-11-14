@@ -55,12 +55,20 @@ func cfcJSON(fs ...cfcFinding) string {
 // cfcDispatch is one row of `flow record dispatches`' JSON.
 type cfcDispatch struct {
 	Key, Role, Slot, Outcome string
+	Started, Ended           string
 }
 
 func cfcDispatchJSON(ds ...cfcDispatch) string {
 	out := []map[string]any{}
 	for _, d := range ds {
-		out = append(out, map[string]any{"key": d.Key, "role": d.Role, "slot": d.Slot, "outcome": d.Outcome})
+		row := map[string]any{"key": d.Key, "role": d.Role, "slot": d.Slot, "outcome": d.Outcome}
+		if d.Started != "" {
+			row["startedAt"] = d.Started
+		}
+		if d.Ended != "" {
+			row["endedAt"] = d.Ended
+		}
+		out = append(out, row)
 	}
 	b, _ := json.Marshal(out)
 	return string(b)
@@ -91,6 +99,7 @@ func cfcBinDispatches(t *testing.T, body, dispatches, stderrLine string, rc int)
 	writeFile(t, filepath.Join(bin, "findings.json"), body)
 	writeFile(t, filepath.Join(bin, "dispatches.json"), dispatches)
 	writeFile(t, filepath.Join(bin, "state.json"), `{"worktrees":{}}`)
+	writeFile(t, filepath.Join(bin, "passes.json"), "[]")
 	script := "#!/usr/bin/env bash\ndir=\"$(dirname -- \"$0\")\"\n"
 	if stderrLine != "" {
 		script += "echo '" + stderrLine + "' >&2\n"
@@ -99,6 +108,7 @@ func cfcBinDispatches(t *testing.T, body, dispatches, stderrLine string, rc int)
 	script += "  *\"record dispatches\"*) cat \"$dir/dispatches.json\" ;;\n"
 	script += "  *\"record mutations\"*) [ -f \"$dir/mutations.fail\" ] && exit 1; if [ -f \"$dir/mutations.json\" ]; then cat \"$dir/mutations.json\"; else cat \"$dir/findings.json\"; fi ;;\n"
 	script += "  *\"state get\"*) cat \"$dir/state.json\" ;;\n"
+	script += "  *\"record passes\"*) cat \"$dir/passes.json\" ;;\n"
 	script += "  *) cat \"$dir/findings.json\" ;;\n"
 	script += "esac\nexit " + strconv.Itoa(rc) + "\n"
 	writeExec(t, filepath.Join(bin, "flow"), script)
@@ -708,9 +718,17 @@ func TestCheckPanelFindingsClosedSkipsGatedRows(t *testing.T) {
 // files under .superpowers/sdd, with the given findings and dispatches.
 func cfcCase(t *testing.T, findings, dispatches string, files map[string]string) (int, string) {
 	t.Helper()
+	return cfcCasePasses(t, findings, dispatches, "[]", files)
+}
+
+// cfcCasePasses is cfcCase with the `record passes` body spelled.
+func cfcCasePasses(t *testing.T, findings, dispatches, passes string, files map[string]string) (int, string) {
+	t.Helper()
 	wt := t.TempDir()
 	cfcSDD(t, wt, files)
-	rc, _, errs := cfcRun(t, cfcBinDispatches(t, findings, dispatches, "", 0), wt, "demo")
+	bin := cfcBinDispatches(t, findings, dispatches, "", 0)
+	writeFile(t, filepath.Join(bin, "passes.json"), passes)
+	rc, _, errs := cfcRun(t, bin, wt, "demo")
 	return rc, errs
 }
 
@@ -870,5 +888,39 @@ func TestCheckPanelFindingsClosedCiteRowOwesTheRerunReport(t *testing.T) {
 	retry := cfcDispatchJSON(cfcDispatch{Key: "panel-4-primary-retry-2-cite", Role: "reviewer", Slot: "primary", Outcome: "completed"})
 	if _, errs := cfcCase(t, "[]", retry, nil); !strings.Contains(errs, "panel-report-4-primary.md\n") {
 		t.Errorf("retried cite row owes the unsplit report: %s", errs)
+	}
+}
+
+// A panel row closed completed past the 15-minute slot ceiling needs a
+// `breach:` pass row naming its key (self-review-kan-1110 F5).
+func TestCheckPanelFindingsClosedFlagsAnUnrecordedCeilingBreach(t *testing.T) {
+	t.Parallel()
+	const key = "panel-3-mutation+failure-modes"
+	files := map[string]string{
+		"panel-report-3-mutation.md":      "Critical: 0\nImportant: 0\n",
+		"panel-report-3-failure-modes.md": "Critical: 0\nImportant: 0\n",
+	}
+	row := func(outcome, ended string) string {
+		return cfcDispatchJSON(cfcDispatch{Key: key, Role: "reviewer", Slot: "mutation+failure-modes", Outcome: outcome, Started: "2026-11-14T12:00:00Z", Ended: ended})
+	}
+	long := row("completed", "2026-11-14T12:21:47Z")
+	want := "reviewer dispatch(es) ran past the 15-minute slot ceiling with no breach recorded: " + key + " (21m47s)"
+	if rc, errs := cfcCasePasses(t, "[]", long, "[]", files); rc != 1 || !strings.Contains(errs, want) {
+		t.Errorf("unrecorded breach: rc %d\n%s", rc, errs)
+	}
+	if _, errs := cfcCasePasses(t, "[]", long, `[{"id":1,"round":3,"note":"breach: `+key+` 21m47s"}]`, files); strings.Contains(errs, "slot ceiling") {
+		t.Errorf("recorded breach: %s", errs)
+	}
+	for name, d := range map[string]string{
+		"under the ceiling": row("completed", "2026-11-14T12:14:59Z"),
+		"timed-out":         row("timed-out", "2026-11-14T12:20:00Z"),
+		"still open":        row("completed", ""),
+	} {
+		if _, errs := cfcCasePasses(t, "[]", d, "[]", files); strings.Contains(errs, "slot ceiling") {
+			t.Errorf("%s: %s", name, errs)
+		}
+	}
+	if _, errs := cfcCasePasses(t, "[]", long, `[{"id":1,"round":3,"note":"breach: panel-3-primary 20m"}]`, files); !strings.Contains(errs, want) {
+		t.Errorf("another key's breach: %s", errs)
 	}
 }
