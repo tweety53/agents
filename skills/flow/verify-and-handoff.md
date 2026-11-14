@@ -415,7 +415,7 @@ Resolve the run instructions the start below uses, the handoff's `**Running:**` 
   `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
   own `## run` names that service, the prohibition wins over this start rule, never the reverse.
   This is separate from the visual-verification procedure's own start/stop rule (step 13, `skills/flow/visual-verify.md`): that stage
-  stops only the stack it started for its own probe, and that rule is not restated here. This rule
+  stops the stack it started only on a run that lands straight away, and that rule is not restated here. This rule
   starts whatever the run instructions name, on every run, regardless of whether that stage ran
   or started anything.
 

@@ -327,8 +327,11 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
     lands in. Last, `close` prints `git -C <abs-worktree> rev-parse HEAD` as
     `ROUND-BASE: <worktree>=<sha>` — a later fix round's base (**The loop**,
     `skills/flow/verify-fix-loop.md`).
-13. **Stop the stack only if step 5 or step 6 started it** — the parent, once the verifier's report is in. A stack the operator already had running is left
-    alone.
+13. **Stop the stack only if step 5 or step 6 started it and the run will land straight away**
+    (**A run that will land straight away starts nothing**, under **Resolve the run instructions**,
+    `skills/flow/verify-and-handoff.md`) — the parent, once the verifier's report is in. Otherwise
+    it is left for **Resolve the run instructions**, whose `flow-guard check-dev-stack-fresh`
+    decides skip or restart. A stack the operator already had running is left alone.
 
 The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
 per-frame lines, with its reason. The matrix rides `visual-verification.md` (step 11) under the

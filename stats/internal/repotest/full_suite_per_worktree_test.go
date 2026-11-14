@@ -27,3 +27,16 @@ func TestFullSuiteRunsPerWorktree(t *testing.T) {
 		}
 	}
 }
+
+// TestVerifiedStackLeftForHandoff pins KAN-1110: flow.visual-verify stops the
+// stack it started only on a run that lands straight away; otherwise the run
+// instructions' freshness check reuses or restarts it.
+func TestVerifiedStackLeftForHandoff(t *testing.T) {
+	t.Parallel()
+	if want := "and the run will land straight away"; !strings.Contains(repoText(t, "skills/flow/visual-verify.md"), want) {
+		t.Errorf("skills/flow/visual-verify.md lacks %q", want)
+	}
+	if want := "stops the stack it started only on a run that lands straight away"; !strings.Contains(repoText(t, "skills/flow/verify-and-handoff.md"), want) {
+		t.Errorf("skills/flow/verify-and-handoff.md lacks %q", want)
+	}
+}
