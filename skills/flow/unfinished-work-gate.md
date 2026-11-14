@@ -11,7 +11,10 @@ for the guards.
 On `OUTSTANDING` or `UNTASKED` — from either guard — **nothing is asked: the parent finishes the
 unfinished work itself and re-runs the guard**, at integrate as at **Write `IN_PROGRESS`**
 (`skills/flow/verify-and-handoff.md`). An
-unfinished-work verdict is work to do, never a stop and never a question.
+unfinished-work verdict is work to do, never a stop and never a question. Three re-runs of one
+guard that each print `OUTSTANDING`, `UNTASKED` or `VISUAL-VERIFY-MISSING` take **Three failed
+rounds** (`skills/flow-contracts/pipeline.md`), applied inline by the parent from every earlier
+verdict.
 
 - A missing dispatch, review, pass row or inline verify is run and recorded — never recorded after
   the fact for work that did not run.
