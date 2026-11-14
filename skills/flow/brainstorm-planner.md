@@ -416,8 +416,11 @@ with `**Build:**` per **The build-green tag**
   not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
   underscore swallows it.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
-  Every `## Decisions` entry whose `**Chosen:**` states runtime behaviour — a deadline, a
-  cancellation path, a retry, a sweep — is pinned by a test some task names in `**Tests:**`.
+  Every `## Decisions` entry whose `**Chosen:**` states behaviour — runtime behaviour such as a
+  deadline, a cancellation path, a retry or a sweep, and build or configuration logic such as a
+  selection, a filter or a default — is pinned by a test some task names in `**Tests:**`. Logic
+  with no test seam where it lives moves, in that task, to a seam the repository already has
+  (kan-1112 self-review, F4).
 - `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, on ONE convention the
   plan states in its own header (`> **Baseline convention:**`, seeded below), so later tasks
   cannot drift between counting methods: **chain-position absolutes against each commit's
