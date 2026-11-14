@@ -154,7 +154,8 @@ var (
 //   - awk -v processed backslash escapes in the configuration's path before
 //     quoting it in a violation line; the path is quoted here as given.
 func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(msg string) int {
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintln(stderr, "check-workspace-isolation: "+msg)
 		return 2
 	}
@@ -179,7 +180,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 	if len(args) == 0 {
 		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if root == "" {
-			return refuse("FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-workspace-isolation, which sets it")
+			return refuse("repo-root-unset", "FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-workspace-isolation, which sets it")
 		}
 		args = []string{root}
 	}
@@ -188,7 +189,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 	total := 0
 	for _, root := range args {
 		if !isDir(wiAbs(env, root)) {
-			return refuse(root + " is not a directory — cannot tell whether it declares a workspace isolation section")
+			return refuse("not-a-directory", root+" is not a directory — cannot tell whether it declares a workspace isolation section")
 		}
 		cfg := root + "/.flow/project.md"
 		path := wiAbs(env, cfg)
@@ -212,13 +213,13 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// a directory, a fifo (which a read would block on forever), a device
 		// and a dangling link.
 		if !isFile(path) {
-			return refuse(cfg + " is not a regular file — cannot validate what it declares")
+			return refuse("not-a-regular-file", cfg+" is not a regular file — cannot validate what it declares")
 		}
 		// A file that exists but cannot be read is NOT "declares no
 		// isolation". Reading absence out of a path that was never readable
 		// is the false pass this guard exists to prevent.
 		if syscall.Access(path, 4) != nil {
-			return refuse(cfg + " exists but is not readable — cannot validate what it declares")
+			return refuse("exists-but-is-not-readable", cfg+" exists but is not readable — cannot validate what it declares")
 		}
 		// A COMMAND'S FAILURE IS NEVER READ AS ITS NEGATIVE ANSWER. The bash
 		// read each grep's status as three outcomes — matched, did not match,
@@ -226,7 +227,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// with the message the bash gave it.
 		body, err := os.ReadFile(path)
 		if err != nil {
-			return refuse("grep exited 2 while looking for the '## workspace isolation' heading in " + cfg + " — that is a failure to look rather than an absence, so nothing was validated")
+			return refuse("grep-exited-2-while-looking", "grep exited 2 while looking for the '## workspace isolation' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
 		}
 		// grep and awk alike ended a line at its first NUL.
 		recs := lines(body)
@@ -296,6 +297,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		}
 	}
 	if total != 0 {
+		Reason(env, "isolation-findings")
 		return 1
 	}
 	return 0

@@ -131,16 +131,17 @@ func init() { Registry["check-visual-verification"] = checkVisualVerification }
 // interpolated into a message afterwards, passes through sanitizeDisplay
 // before it reaches the terminal.
 func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(msg string) int {
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintln(stderr, "check-visual-verification: "+msg)
 		return 2
 	}
 	if len(args) != 1 {
-		return refuse("usage: flow-guard check-visual-verification <project root>")
+		return refuse("usage", "usage: flow-guard check-visual-verification <project root>")
 	}
 	root := args[0]
 	if !isDir(wiAbs(env, root)) {
-		return refuse(root + " is not a directory — cannot tell whether it declares a visual verification section")
+		return refuse("not-a-directory", root+" is not a directory — cannot tell whether it declares a visual verification section")
 	}
 	cfg := root + "/.flow/project.md"
 	path := wiAbs(env, cfg)
@@ -157,17 +158,17 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	// about a DIRECTORY too, and the bash's `grep` then failed with "Is a
 	// directory" while its exit status was indistinguishable from "no match".
 	if !isFile(path) {
-		return refuse(cfg + " is not a regular file — cannot validate what it declares")
+		return refuse("not-a-regular-file", cfg+" is not a regular file — cannot validate what it declares")
 	}
 	if syscall.Access(path, 4) != nil {
-		return refuse(cfg + " exists but is not readable — cannot validate what it declares")
+		return refuse("exists-but-is-not-readable", cfg+" exists but is not readable — cannot validate what it declares")
 	}
 	// A READ THAT FAILS IS A FAILURE TO LOOK, never an absence: the bash read
 	// grep's three answers as three (matched, did not match, could not look),
 	// and this is the third, refused with the message the bash gave it.
 	body, err := os.ReadFile(path)
 	if err != nil {
-		return refuse("grep exited 2 while looking for the '## visual verification' heading in " + cfg + " — that is a failure to look rather than an absence, so nothing was validated")
+		return refuse("grep-exited-2-while-looking", "grep exited 2 while looking for the '## visual verification' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
 	}
 	// Every read below runs on vvLines — BOM stripped, each line ended at its
 	// first NUL as grep and awk ended it.
@@ -186,6 +187,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	if count > 1 {
 		fmt.Fprint(stdout, sanitizeDisplay(fmt.Sprintf("%s:0: the file declares %d `## visual verification` sections — a second declaration is an ambiguous declaration rather than a merge, so neither was validated\n", cfg, count)))
 		fmt.Fprintf(stdout, "VISUAL-INVALID: %s — 1 violation(s) in the `## visual verification` section\n", cfg)
+		Reason(env, "visual-invalid")
 		return 1
 	}
 
@@ -274,6 +276,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	// Every other combination already has its own finding above, so running
 	// this too would report the same misconfiguration twice.
 	if valid && hasRepo && !v.originIs(env, stderr, checkout.line, checkout.val, repo.val, "regression repo") {
+		Reason(env, "origin-check-failed")
 		return 2
 	}
 
@@ -291,6 +294,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 		case vvGitClean(env, "-C", f[0], "rev-parse", "--git-dir").Run() != nil:
 			v.addv(d.line, "`design repo` names `"+f[0]+"`, which is not a git checkout")
 		case !v.originIs(env, stderr, d.line, f[0], f[1], "design repo"):
+			Reason(env, "origin-check-failed")
 			return 2
 		}
 	}
@@ -298,6 +302,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	if len(v.viol) != 0 {
 		fmt.Fprint(stdout, sanitizeDisplay(strings.Join(v.viol, "")))
 		fmt.Fprintf(stdout, "VISUAL-INVALID: %s — %d violation(s) in the `## visual verification` section\n", cfg, len(v.viol))
+		Reason(env, "visual-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "VISUAL-OK: %s — the `## visual verification` section validated\n", cfg)

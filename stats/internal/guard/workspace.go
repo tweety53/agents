@@ -95,32 +95,35 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return ""
 	}
-	fail := func(msg string, rc int) int {
+	fail := func(id, msg string, rc int) int {
+		Reason(env, id)
 		fmt.Fprintln(stderr, msg)
 		return rc
 	}
 	cmd, id, forceFlag := arg(0), arg(1), arg(2)
 	if cmd == "" {
 		fmt.Fprint(stderr, wsUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	if id == "" {
-		return fail("ERROR: a workspace id is required (refusing to operate on the shared "+wsSuperuser+" database)", 2)
+		return fail("id-required", "ERROR: a workspace id is required (refusing to operate on the shared "+wsSuperuser+" database)", 2)
 	}
 	if strings.Trim(id, "abcdefghijklmnopqrstuvwxyz0123456789-") != "" {
-		return fail("ERROR: workspace id '"+id+"' is not [a-z0-9-]; refusing to build a database name from it", 2)
+		return fail("bad-id", "ERROR: workspace id '"+id+"' is not [a-z0-9-]; refusing to build a database name from it", 2)
 	}
 	force := false
 	if forceFlag != "" {
 		if cmd != "remove" || forceFlag != "--force" {
 			fmt.Fprintf(stderr, "ERROR: unrecognized argument '%s'\n%s", forceFlag, wsUsage)
+			Reason(env, "unrecognized-argument")
 			return 2
 		}
 		force = true
 	}
 	db := "flow_" + strings.ReplaceAll(id, "-", "_")
 	if force && !strings.HasSuffix(db, "_uitest") {
-		return fail("ERROR: --force refused: database '"+db+"' does not end in _uitest", 2)
+		return fail("force-refused", "ERROR: --force refused: database '"+db+"' does not end in _uitest", 2)
 	}
 
 	docker := "docker"
@@ -137,22 +140,22 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 		var out bytes.Buffer
 		if rc := run(&out, wsContainer, "psql", "-U", wsSuperuser, "-d", wsSuperuser, "-tAc",
 			"select 1 from pg_database where datname = '"+db+"'"); rc != 0 {
-			return fail("ERROR: could not reach "+wsContainer+" to check for "+db, rc)
+			return fail("container-unreachable", "ERROR: could not reach "+wsContainer+" to check for "+db, rc)
 		}
 		if strings.TrimRight(out.String(), "\n") == "1" {
 			return 0
 		}
 		if rc := run(stdout, wsContainer, "createdb", "-U", wsSuperuser, db); rc != 0 {
-			return fail("ERROR: createdb failed for "+db, rc)
+			return fail("createdb-failed", "ERROR: createdb failed for "+db, rc)
 		}
 		fmt.Fprintln(stdout, "created "+db)
 	case "remove":
 		if force {
 			if rc := run(stdout, wsContainer, "dropdb", "-U", wsSuperuser, "--if-exists", "--force", db); rc != 0 {
-				return fail("ERROR: dropdb --force failed for "+db, rc)
+				return fail("dropdb-failed", "ERROR: dropdb --force failed for "+db, rc)
 			}
 		} else if rc := run(stdout, wsContainer, "dropdb", "-U", wsSuperuser, "--if-exists", db); rc != 0 {
-			return fail("ERROR: dropdb failed for "+db, rc)
+			return fail("dropdb-failed", "ERROR: dropdb failed for "+db, rc)
 		}
 	case "survivors":
 		var out bytes.Buffer
@@ -164,9 +167,13 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintln(stdout, strings.TrimRight(line, "\n"))
 			}
 		}
+		if rc != 0 {
+			Reason(env, "survivors-query-failed")
+		}
 		return rc
 	default:
 		fmt.Fprint(stderr, wsUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	return 0

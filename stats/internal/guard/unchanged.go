@@ -37,16 +37,20 @@ func unchanged(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "unchanged"
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: flow-guard unchanged <pathspec>...")
+		Reason(env, "usage")
 		return 2
 	}
 	if env.Getenv("FLOW_VERIFY_FULL") != "" {
+		Reason(env, "full-run-forced")
 		return 1
 	}
 	base, paths, ok := changedSinceBase(env, prog, stderr, args...)
 	if !ok {
+		Reason(env, "changes-unresolved")
 		return 2
 	}
 	if len(paths) > 0 {
+		Reason(env, "changed")
 		return 1
 	}
 	fmt.Fprintf(stdout, "unchanged: nothing under %s changed since %s — suite skipped\n", strings.Join(args, " "), base)

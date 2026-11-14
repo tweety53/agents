@@ -27,17 +27,17 @@ func (v *vvp) close() {
 		}
 	}
 	if w == "" {
-		v.die("the stage file %s has no row %s — close names a key prepare began", v.stagePath(), v.key)
+		v.die("stage-file-has-no-row", "the stage file %s has no row %s — close names a key prepare began", v.stagePath(), v.key)
 	}
 	v.stageOpen = true
 	report := filepath.Join(w, ".superpowers", "sdd", "verify-report-"+v.key+".md")
 	body, err := os.ReadFile(report)
 	if os.IsNotExist(err) {
 		v.endRow("aborted")
-		v.stop("stopped", "no report — "+report+" was never written: the verifier ended without its report or its agent died")
+		v.stop("no-report", "stopped", "no report — "+report+" was never written: the verifier ended without its report or its agent died")
 	}
 	if err != nil {
-		v.die("cannot read %s: %v", report, err)
+		v.die("cannot-read", "cannot read %s: %v", report, err)
 	}
 	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
 	design := filepath.Join(changeRoot, "design.md")
@@ -51,7 +51,7 @@ func (v *vvp) close() {
 	case 1:
 		verdicts = append(verdicts, out)
 	default:
-		v.die("check-verify-report cannot answer: %s", errs)
+		v.die("check-verify-report-cannot-answer", "check-verify-report cannot answer: %s", errs)
 	}
 	if m := v.cells(w)["mockups"]; m != "" {
 		rc, out, errs := v.guard("check-frame-list", nil, design, cellPath(w, m), report)
@@ -62,7 +62,7 @@ func (v *vvp) close() {
 		case rc == 1:
 			verdicts = append(verdicts, out)
 		default:
-			v.die("check-frame-list cannot answer: %s", errs)
+			v.die("check-frame-list-cannot-answer", "check-frame-list cannot answer: %s", errs)
 		}
 	}
 	if len(verdicts) > 0 {
@@ -225,7 +225,7 @@ func (v *vvp) endRow(outcome string, flags ...string) {
 	argv := append([]string{"record", "dispatch", "end", "-C", v.canon, "-change", v.name, "-key", v.key,
 		"-session-token", v.token, "-outcome", outcome}, flags...)
 	if out, rc := v.flow(argv...); rc != 0 {
-		v.die("flow record dispatch end failed for %s: %s", v.key, out)
+		v.die("flow-record-dispatch-end-failed", "flow record dispatch end failed for %s: %s", v.key, out)
 	}
 	v.appendStage("closed " + v.key + " " + outcome)
 }
@@ -322,14 +322,14 @@ func (v *vvp) commit(w string, report []byte) {
 	for _, top := range tops {
 		paths := byTop[top]
 		if out, ok := v.gitChild(top, append([]string{"add", "--"}, paths...)...); !ok {
-			v.die("git add in %s failed: %s", top, out)
+			v.die("git-add-in-failed", "git add in %s failed: %s", top, out)
 		}
 		if _, ok := v.gitChild(top, append([]string{"diff", "--cached", "--quiet", "--"}, paths...)...); ok {
 			continue
 		}
 		if out, ok := v.gitChild(top, append([]string{"commit", "-q", "-m", "test: record the " + v.key + " visual verification",
 			"-m", "Flow-Key: flow.visual-verify", "--"}, paths...)...); !ok {
-			v.die("git commit in %s failed: %s", top, out)
+			v.die("git-commit-in-failed", "git commit in %s failed: %s", top, out)
 		}
 		if branch, _ := v.gitChild(top, "branch", "--show-current"); branch != "spectre/"+v.name {
 			v.say("PUSH: git -C %s push", top)
@@ -337,7 +337,7 @@ func (v *vvp) commit(w string, report []byte) {
 	}
 	head, ok := v.git("-C", w, "rev-parse", "HEAD")
 	if !ok {
-		v.die("cannot resolve HEAD in %s", w)
+		v.die("cannot-resolve-head-in", "cannot resolve HEAD in %s", w)
 	}
 	v.say("ROUND-BASE: %s=%s", w, head)
 }

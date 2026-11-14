@@ -75,12 +75,13 @@ func init() { Registry["check-worktree-location"] = checkWorktreeLocation }
 var wlScratchpad = regexp.MustCompile(`/claude-[0-9]+/[^/]+/([^/]+)/scratchpad(/|$)`)
 
 func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int {
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-worktree-location: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 1 {
-		return die("usage: flow-guard check-worktree-location <project>")
+		return die("usage", "usage: flow-guard check-worktree-location <project>")
 	}
 
 	// PATHS ARE COMPARED IN PHYSICAL FORM. The project root is resolved as
@@ -92,11 +93,11 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 	// and refuses an empty operand rather than staying put.
 	root, err := filepath.EvalSymlinks(pcAbs(env, args[0]))
 	if args[0] == "" || err != nil || !isDir(root) || syscall.Access(root, 1) != nil {
-		return die("%s is not a directory", args[0])
+		return die("not-a-directory", "%s is not a directory", args[0])
 	}
 	porcelain, ok := capture(envGit(env)("-C", root, "worktree", "list", "--porcelain"))
 	if !ok {
-		return die("cannot list the worktrees of %s", root)
+		return die("cannot-list-the-worktrees", "cannot list the worktrees of %s", root)
 	}
 
 	// THE FIRST `worktree` ENTRY IS ALWAYS THE MAIN CHECKOUT. `git worktree
@@ -159,6 +160,7 @@ func checkWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int
 
 	if count > 0 {
 		fmt.Fprintf(stdout, "LOCATION-STRAY: %s — %d\n", root, count)
+		Reason(env, "location-stray")
 		return 1
 	}
 	fmt.Fprintf(stdout, "LOCATION-OK: %s\n", root)

@@ -69,6 +69,7 @@ var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+(-|$)`)
 func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || args[1] == "" || args[2] == "" {
 		fmt.Fprintf(stderr, "%susage: flow-guard check-verify-green <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
+		Reason(env, "usage")
 		return 2
 	}
 	wt, name, token := args[0], args[1], args[2]
@@ -76,11 +77,13 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, w := range worktrees {
 		if !isDir(pcAbs(env, w)) {
 			fmt.Fprintf(stderr, "%snot a directory: %s\n", vgPrefix, w)
+			Reason(env, "not-a-directory")
 			return 2
 		}
 	}
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name\n", vgPrefix, name)
+		Reason(env, "change-name")
 		return 2
 	}
 	raw, err := pfdRead(env, env.Dispatches, "dispatches", name, pcAbs(env, wt))
@@ -90,6 +93,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", vgPrefix, name)
+		Reason(env, "flow-record-dispatches-failed-for")
 		return 2
 	}
 	// No row at all is a store read that resolved no change, never a run
@@ -97,6 +101,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	// change's rows are not recorded under (kan-1008's self-review).
 	if len(rows) == 0 {
 		fmt.Fprintf(stderr, "%sflow record dispatches returned no row for '%s' from %s -- pass the change's canonical worktree, the one its rows are recorded from\n", vgPrefix, name, wt)
+		Reason(env, "flow-record-dispatches-returned-no")
 		return 2
 	}
 	// Rows come back in seq order; only the latest row per worktree is
@@ -138,9 +143,11 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	switch {
 	case seen == 0:
 		fmt.Fprintf(stdout, "VERIFY-NOT-GREEN: %s — this run recorded no inline verify\n", name)
+		Reason(env, "verify-not-green")
 		return 1
 	case len(open) > 0:
 		fmt.Fprintf(stdout, "VERIFY-NOT-GREEN: %s — %s\n", name, strings.Join(open, ", "))
+		Reason(env, "verify-not-green")
 		return 1
 	}
 	fmt.Fprintf(stdout, "VERIFY-GREEN: %s — %d inline verify row(s) green: %s\n", name, seen, strings.Join(green, ", "))

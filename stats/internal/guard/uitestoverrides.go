@@ -124,12 +124,14 @@ func checkUitestOverrides(args []string, env Env, stdout, stderr io.Writer) int 
 		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if root == "" {
 			fmt.Fprintln(stderr, "check-uitest-overrides: FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-uitest-overrides, which sets it")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 		makefile = root + "/stats/Makefile"
 	}
 	if !isFile(smcAbs(env, makefile)) {
 		fmt.Fprintf(stderr, "check-uitest-overrides: %s not found\n", makefile)
+		Reason(env, "not-found")
 		return 2
 	}
 
@@ -213,10 +215,12 @@ func checkUitestOverrides(args []string, env Env, stdout, stderr io.Writer) int 
 	scan(makefile)
 
 	if unread {
+		Reason(env, "unreadable")
 		return 2
 	}
 	if violations != 0 {
 		fmt.Fprintf(stdout, "UITEST-OVERRIDES-FAIL: %d UITEST_* variable(s) assigned without override\n", violations)
+		Reason(env, "uitest-overrides-fail")
 		return 1
 	}
 	fmt.Fprintln(stdout, "UITEST-OVERRIDES-OK: every UITEST_* variable is override")

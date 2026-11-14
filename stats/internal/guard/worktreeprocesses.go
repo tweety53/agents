@@ -109,12 +109,13 @@ func wpAtOrUnder(path, root string) bool {
 // explicitly through die, so the exit-2 refusals are deliberate rather than
 // inherited.
 func worktreeProcesses(args []string, env Env, stdout, stderr io.Writer, atOrUnder func(path, root string) bool) int {
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-worktree-processes: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 1 {
-		return die("usage: flow-guard check-worktree-processes <worktree>")
+		return die("usage", "usage: flow-guard check-worktree-processes <worktree>")
 	}
 	wt := args[0]
 
@@ -123,12 +124,12 @@ func worktreeProcesses(args []string, env Env, stdout, stderr io.Writer, atOrUnd
 	// because "the check failed" leaves the operator nothing to install.
 	lsof, ok := lookPath(env, "lsof")
 	if !ok {
-		return die("lsof is not on PATH — this guard has no other way to read the process table")
+		return die("lsof-is-not-on-path", "lsof is not on PATH — this guard has no other way to read the process table")
 	}
 
 	abs := smcAbs(env, wt)
 	if wt == "" || !isDir(abs) {
-		return die("not a directory, so it cannot be scanned: %s", wt)
+		return die("not-a-directory", "not a directory, so it cannot be scanned: %s", wt)
 	}
 
 	// The bash's `cd -- "$WT" && pwd -P`: cd fails on a directory the caller
@@ -142,7 +143,7 @@ func worktreeProcesses(args []string, env Env, stdout, stderr io.Writer, atOrUnd
 		}
 	}
 	if phys == "" {
-		return die("cannot resolve the worktree to a physical path — unreadable directory: %s", wt)
+		return die("cannot-resolve-the-worktree", "cannot resolve the worktree to a physical path — unreadable directory: %s", wt)
 	}
 
 	// One pass over every process's working directory. -Fp emits `p<pid>`,
@@ -155,7 +156,7 @@ func worktreeProcesses(args []string, env Env, stdout, stderr io.Writer, atOrUnd
 	cmd.Dir = env.Dir
 	out, err := cmd.Output()
 	if rc := exitCode(err); rc != 0 {
-		return die("lsof -d cwd -Fpn exited %d — the process table could not be read, which is not the same as finding nothing", rc)
+		return die("lsof-d-cwd-fpn-exited", "lsof -d cwd -Fpn exited %d — the process table could not be read, which is not the same as finding nothing", rc)
 	}
 
 	var held []string

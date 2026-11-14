@@ -1476,6 +1476,31 @@ func TestCheckUnfinishedWorkParentAction(t *testing.T) {
 	})
 }
 
+// TestCheckUnfinishedWorkOutstandingRecordsItsReason pins decisions
+// outstanding-is-a-fire and unfinished-work-per-signal: the exit-0
+// OUTSTANDING verdict records the id of the signal that held it open, and a
+// CLEAR verdict records nothing.
+func TestCheckUnfinishedWorkOutstandingRecordsItsReason(t *testing.T) {
+	for _, tc := range []struct {
+		name, design, verdict string
+		want                  []string
+	}{
+		{"unticked", "### A\n\n- [ ] Parent: delete the dead entries\n", "OUTSTANDING:", []string{"unticked-parent-actions"}},
+		{"ticked", "### A\n\n- [x] Parent: delete the dead entries\n", "CLEAR:", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newUW(t)
+			r := &Reasons{}
+			f.env.Reasons = r
+			writeFile(t, f.wt+"/spectre/changes/demo/design.md", tc.design)
+			res := f.run(t, f.wt, "demo")
+			if res.rc != 0 || !strings.HasPrefix(res.out, tc.verdict) || !slices.Equal(r.IDs(), tc.want) {
+				t.Errorf("rc=%d out=%q recorded %q; want 0, %s and %q", res.rc, res.out, r.IDs(), tc.verdict, tc.want)
+			}
+		})
+	}
+}
+
 // TestUnfinishedWorkSkipsVisualVerifierCommit pins decision
 // f5-verifier-key-excepted (kan-1102 self-review, F5): a capture commit whose
 // Flow-Key is a `visual-verify…` verifier row's key carries screenshots and a

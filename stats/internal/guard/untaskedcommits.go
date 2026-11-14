@@ -76,6 +76,7 @@ var ucPipelineFixBranchRE = regexp.MustCompile(`^pipeline-fix-.+-[0-9]+$`)
 func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" || (len(args) == 3 && args[2] != "--not-remotes") {
 		fmt.Fprintf(stderr, "%s usage: flow-guard check-untasked-commits <worktree> <base> [--not-remotes]\n", ucPrefix)
+		Reason(env, "usage")
 		return 2
 	}
 	worktree, base := args[0], args[1]
@@ -88,6 +89,7 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	if !isDir(worktree) {
 		fmt.Fprintf(stderr, "%s worktree not found: %s\n", ucPrefix, worktree)
+		Reason(env, "worktree-not-found")
 		return 2
 	}
 	git := envGit(env)
@@ -98,6 +100,7 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		rng...)...))
 	if !ok {
 		fmt.Fprintf(stderr, "%s git cannot read %s..HEAD in %s\n", ucPrefix, base, worktree)
+		Reason(env, "git-cannot-read-head-in")
 		return 2
 	}
 	// Empty on a detached HEAD, which is judged as a change branch.
@@ -134,6 +137,7 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		paths, ok := capture(git("-C", worktree, "diff-tree", "--no-commit-id", "--no-renames", "--name-only", "-r", "--root", sha))
 		if !ok {
 			fmt.Fprintf(stderr, "%s git cannot list the paths of %s\n", ucPrefix, sha)
+			Reason(env, "git-cannot-list-the-paths")
 			return 2
 		}
 		if ucPlanningOnly(paths, planning) {
@@ -149,6 +153,7 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 	for _, l := range listed {
 		fmt.Fprintln(stdout, l)
 	}
+	Reason(env, "untasked")
 	return 1
 }
 

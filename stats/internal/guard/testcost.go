@@ -42,11 +42,13 @@ func testCost(args []string, env Env, stdout, stderr io.Writer) int {
 		v, err := strconv.ParseFloat(args[1], 64)
 		if err != nil {
 			fmt.Fprintln(stderr, "usage: flow-guard test-cost [-min <seconds>]")
+			Reason(env, "usage")
 			return 2
 		}
 		min = v
 	default:
 		fmt.Fprintln(stderr, "usage: flow-guard test-cost [-min <seconds>]")
+		Reason(env, "usage")
 		return 2
 	}
 

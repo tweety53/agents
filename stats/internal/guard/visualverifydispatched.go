@@ -229,14 +229,17 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 			shown = "<missing>"
 		}
 		fmt.Fprintf(stderr, "%snot a directory: %s\n", vvdPrefix, shown)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if name == "" {
 		fmt.Fprintf(stderr, "%susage: flow-guard check-visual-verify-dispatched <worktree> <change-name> <merge-base> [<canonical-worktree>]\n", vvdPrefix)
+		Reason(env, "usage")
 		return 2
 	}
 	if base == "" {
 		fmt.Fprintf(stderr, "%sa merge-base is required — pass the state file's recorded value for this worktree\n", vvdPrefix)
+		Reason(env, "merge-base-is-required")
 		return 2
 	}
 
@@ -245,6 +248,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	// canonical for the reasoning.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", vvdPrefix, name)
+		Reason(env, "change-name")
 		return 2
 	}
 
@@ -254,6 +258,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil || strings.HasPrefix(worktreeArg, "-") || syscall.Access(pcAbs(env, worktreeArg), 1) != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished: \n", vvdPrefix)
+		Reason(env, "worktree-vanished")
 		return 2
 	}
 
@@ -267,6 +272,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	changed := strings.TrimRight(strings.ReplaceAll(string(combined), "\x00", ""), "\n")
 	if gitErr != nil {
 		fmt.Fprintf(stderr, "%sgit diff failed against merge-base '%s' in %s — cannot answer: %s\n", vvdPrefix, base, worktree, changed)
+		Reason(env, "git-diff-failed-against-merge")
 		return 2
 	}
 
@@ -290,6 +296,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		c, err := filepath.EvalSymlinks(pcAbs(env, canonicalArg))
 		if err != nil || !isDir(c) {
 			fmt.Fprintf(stderr, "%scanonical worktree is not a directory: %s\n", vvdPrefix, canonicalArg)
+			Reason(env, "canonical-worktree-is-not")
 			return 2
 		}
 		if c != worktree {
@@ -320,6 +327,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		case 0:
 			return 0
 		case 1:
+			Reason(env, "visual-verify-required")
 			return 1
 		}
 		return exit
@@ -343,6 +351,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	}
 	triggerExit := ask(paths)
 	if triggerExit < 0 {
+		Reason(env, "visual-trigger-failed")
 		return 2
 	}
 	switch triggerExit {
@@ -362,11 +371,13 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, anchor)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' — cannot answer\n", vvdPrefix, name)
+		Reason(env, "flow-record-dispatches-failed-for")
 		return 2
 	}
 	verifiers, ok := vvdCompletedVerifiers(rows)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdispatch rows were not readable JSON — cannot answer\n", vvdPrefix)
+		Reason(env, "dispatch-rows-were-not-readable")
 		return 2
 	}
 	// A VERIFIER COUNTS ONLY FOR THE HEAD IT VERIFIED (kan-939 self-review):
@@ -422,6 +433,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		since, ok := capture(envGit(env, "LC_ALL=C")("-C", worktree, "diff", "--no-renames", "--name-only", head, "HEAD"))
 		if !ok {
 			fmt.Fprintf(stderr, "%sgit diff failed against verified HEAD '%s' in %s — cannot answer\n", vvdPrefix, head, worktree)
+			Reason(env, "git-diff-failed-against-verified")
 			return 2
 		}
 		var changedSince []string
@@ -436,6 +448,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		}
 		exit := ask(changedSince)
 		if exit < 0 {
+			Reason(env, "visual-trigger-failed")
 			return 2
 		}
 		if exit != 0 {
@@ -481,11 +494,13 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
 		if !ok {
 			fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
+			Reason(env, "git-cannot-name-head-in")
 			return 2
 		}
 		verdict := "VISUAL-VERIFY-MISSING: the newest verifier row '" + newestKey + "' ran scoped to round base " + newestRoundBase + " — the loop's closing unscoped run is not recorded (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD " + headSHA
 		record(verdict)
 		fmt.Fprintln(stdout, verdict)
+		Reason(env, "closing-run-missing")
 		return 1
 	}
 	if found {
@@ -502,11 +517,13 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	decisions, err := pfdRead(env, env.Decisions, "decisions", name, anchor)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record decisions failed for '%s' — cannot answer\n", vvdPrefix, name)
+		Reason(env, "flow-record-decisions-failed-for")
 		return 2
 	}
 	reason, skipped, ok := vvdSkippedAtDecide(decisions)
 	if !ok {
 		fmt.Fprintf(stderr, "%sdecision rows were not readable JSON — cannot answer\n", vvdPrefix)
+		Reason(env, "decision-rows-were-not-readable")
 		return 2
 	}
 	if skipped && missingRecord == "" {
@@ -529,6 +546,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
+		Reason(env, "git-cannot-name-head-in")
 		return 2
 	}
 	if lastHead != "" {
@@ -551,6 +569,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		}
 	}
 	fmt.Fprintln(stdout, verdict)
+	Reason(env, "prior-false-positives-for")
 	return 1
 }
 

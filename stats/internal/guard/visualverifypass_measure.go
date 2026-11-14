@@ -85,7 +85,7 @@ func (v *vvp) measure(args []string) {
 	matrixDir := filepath.Join(vvDir, "matrix")
 	for _, d := range []string{bandsDir, matrixDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
-			v.die("cannot create output directory %s: %v", d, err)
+			v.die("cannot-create-output-directory", "cannot create output directory %s: %v", d, err)
 		}
 	}
 
@@ -225,10 +225,10 @@ func (v *vvp) measure(args []string) {
 func (v *vvp) writeOut(path, body string) {
 	// A frame id carries a directory (`kan-1083/SE1`), so its output file sits below the key's directory.
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		v.die("cannot write %s: %v", path, err)
+		v.die("cannot-write", "cannot write %s: %v", path, err)
 	}
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		v.die("cannot write %s: %v", path, err)
+		v.die("cannot-write", "cannot write %s: %v", path, err)
 	}
 }
 
@@ -258,6 +258,7 @@ func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool
 	v.writeOut(path, string(b)+"\n")
 	v.say("MANIFEST: %s", path)
 	if failed {
+		Reason(v.env, "measure-failed")
 		panic(vvpExit(1))
 	}
 	panic(vvpExit(0))

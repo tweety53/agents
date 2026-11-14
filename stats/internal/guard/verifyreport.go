@@ -192,6 +192,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	if i := slices.Index(args, "--design"); i >= 0 {
 		if i+1 == len(args) {
 			fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
+			Reason(env, "usage")
 			return 2
 		}
 		design = args[i+1]
@@ -199,16 +200,19 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(args) != 2 {
 		fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
+		Reason(env, "usage")
 		return 2
 	}
 	motions, err := strconv.Atoi(args[1])
 	if err != nil || motions < 0 {
 		fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[1])
+		Reason(env, "usage")
 		return 2
 	}
 	data, err := os.ReadFile(args[0])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[0], err)
+		Reason(env, "cannot-read")
 		return 2
 	}
 	status := map[string]string{}
@@ -297,6 +301,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		body, err := os.ReadFile(design)
 		if err != nil {
 			fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, design, err)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
@@ -402,6 +407,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
+		Reason(env, "verify-report-incomplete")
 		return 1
 	}
 	fmt.Fprintf(stdout, "VERIFY-REPORT-COMPLETE: %s\n", args[0])
