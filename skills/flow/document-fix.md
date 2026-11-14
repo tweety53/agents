@@ -137,14 +137,28 @@ flow stage end -command '/flow' -stage flow.document-fix -outcome completed <nam
 
 **The appended plan is re-decided before load-context.** Appended tasks can move the plan's
 class, and the run executes by the newest decision row, so on every fix run — **Re-plan** and
-**Append anyway** alike — the decision follows the plan here. Read **Decide**
-(`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from
-`flow-guard plan-class` on over the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry
-in the state file's `worktrees` map. The rolls are name-derived, so they come out identical to the
+**Append anyway** alike — the decision follows the plan here. Run `flow-guard plan-class` over
+the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry in the state file's
+`worktrees` map.
+
+When the `class:` line it prints equals the newest recorded row's `classMechanical`, the row is
+carried: `decision.json` is that row's file with three things rewritten and nothing else
+re-chosen — `inputs` from the `inputs:` line; `groups_mechanical` and `groups` from
+`flow-guard plan-dispatch-bundles` and `flow-guard plan-dispatch-groups` over the appended plan,
+each group on the row's implementer pair (`opus` at `medium` for a group carrying a hard seam),
+`groups_override` `null` and `groups_reason` `mechanical`, all left `null` where the row's
+`execution` is `inline`; and `visual` raised to `required` when the append can change what a user
+sees, never lowered. **Decide** is not read on this path.
+
+When the printed class differs from the row's `classMechanical`, read **Decide**
+(`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from that
+`flow-guard plan-class` output. The rolls are name-derived, so they come out identical to the
 first row's; everything else Decide outputs is recomputed — `class`, `execution`, the implementer
 and fixer pairs, `groups`, the panel roster (a class move can add or drop slots, and `micro` makes it
 the string `default`) and a free grouping's shape — and the run follows the new row, never the
-first row's panel or pairs. Write the
+first row's panel or pairs.
+
+On either path, write the
 decision JSON and print the `## Decision` block, then record the second
 row below. The section's closing `flow.writing-plans` mark belongs to the planning run and never
 runs here, and **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
