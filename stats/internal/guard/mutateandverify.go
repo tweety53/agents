@@ -82,11 +82,13 @@ func init() {
 }
 
 func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
-	cannotAnswer := func(msg string) int {
+	cannotAnswer := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "mutate-and-verify: cannot answer — %s\n", msg)
 		return 4
 	}
-	refuse := func(msg string) int {
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "mutate-and-verify: refused — %s — nothing was mutated\n", msg)
 		return 2
 	}
@@ -99,11 +101,13 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 		rest, cmdArgv = args[:i], args[i+1:]
 		if len(cmdArgv) == 0 {
 			fmt.Fprintln(stderr, "mutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]")
+			Reason(env, "usage")
 			return 4
 		}
 	}
 	if len(rest) < 1 || (len(rest) < 2 && len(cmdArgv) == 0) {
 		fmt.Fprintln(stderr, "mutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]")
+		Reason(env, "usage")
 		return 4
 	}
 	args = rest
@@ -131,13 +135,13 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	// runs from it, as the bash's `cd -- "$REPO_ROOT"` made them.
 	top, rc := gitExec(origPwd, nil, io.Discard, "rev-parse", "--show-toplevel")
 	if rc != 0 {
-		return cannotAnswer("not inside a git worktree: " + origPwd)
+		return cannotAnswer("not-inside-a-git-worktree", "not inside a git worktree: "+origPwd)
 	}
 	root := strings.TrimRight(top, "\n")
 
 	// Step 2: the patch file must exist and be readable.
 	if !isFile(patch) || syscall.Access(patch, 4) != nil {
-		return cannotAnswer("cannot read patch file: " + patchArg)
+		return cannotAnswer("cannot-read-patch-file", "cannot read patch file: "+patchArg)
 	}
 
 	// Step 3: git apply --check — refuse (exit 2) without touching anything.
@@ -146,7 +150,7 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	if out, err := check.CombinedOutput(); err != nil {
 		fmt.Fprintln(stderr, "mutate-and-verify: git apply --check failed:")
 		fmt.Fprintln(stderr, strings.TrimRight(string(out), "\n"))
-		return refuse(patchArg + " does not apply cleanly")
+		return refuse("does-not-apply-cleanly", patchArg+" does not apply cleanly")
 	}
 
 	// Step 4: the touched file list is git apply --numstat's third column
@@ -164,16 +168,16 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if len(touched) == 0 {
-		return cannotAnswer(patchArg + " names no touched file")
+		return cannotAnswer("names-no-touched-file", patchArg+" names no touched file")
 	}
 
 	// Step 5: every named harness must exist and be executable.
 	for _, h := range harnesses {
 		if !isFile(h) {
-			return refuse("harness does not exist: " + h)
+			return refuse("harness-does-not-exist", "harness does not exist: "+h)
 		}
 		if syscall.Access(h, 1) != nil {
-			return refuse("harness is not executable: " + h)
+			return refuse("harness-is-not-executable", "harness is not executable: "+h)
 		}
 	}
 
@@ -189,13 +193,13 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 		if strings.Contains(exe, "/") {
 			resolved = toAbs(exe)
 			if !isFile(resolved) {
-				return refuse("command does not exist: " + resolved)
+				return refuse("command-does-not-exist", "command does not exist: "+resolved)
 			}
 			if syscall.Access(resolved, 1) != nil {
-				return refuse("command is not executable: " + resolved)
+				return refuse("command-is-not-executable", "command is not executable: "+resolved)
 			}
 		} else if p, ok := lookPath(env, exe); !ok {
-			return refuse("command does not exist: " + exe)
+			return refuse("command-does-not-exist", "command does not exist: "+exe)
 		} else {
 			resolved = p
 		}
@@ -210,12 +214,13 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	status := append([]string{"status", "--porcelain", "--untracked-files=normal", "--"}, touched...)
 	dirty, rc := gitExec(root, nil, stderr, status...)
 	if rc != 0 {
+		Reason(env, "git-status-failed")
 		return rc
 	}
 	if dirty = strings.TrimRight(dirty, "\n"); dirty != "" {
 		fmt.Fprintln(stderr, "mutate-and-verify: touched files already have uncommitted changes:")
 		fmt.Fprintln(stderr, dirty)
-		return refuse("a file the patch touches is not clean")
+		return refuse("file-the-patch-touches", "a file the patch touches is not clean")
 	}
 
 	// Step 6b: snapshot the tree the mutation starts from — status and stash
@@ -223,6 +228,7 @@ func mutateAndVerify(args []string, env Env, stdout, stderr io.Writer) int {
 	// the run actually left.
 	snapshot, rc := snapshotTreeState(root, stderr)
 	if rc != 0 {
+		Reason(env, "snapshot-failed")
 		return rc
 	}
 
@@ -279,7 +285,7 @@ type mvRun struct {
 
 // main is steps 8-14: the baseline pass, the mutation, the mutated pass and
 // the verdict. It returns the exit code the trap starts from.
-func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout io.Writer, cannotAnswer func(string) int) int {
+func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout io.Writer, cannotAnswer func(id, msg string) int) int {
 	fmt.Fprintf(stdout, "mutate-and-verify: patch %s touches:\n", patchArg)
 	for _, t := range r.touched {
 		fmt.Fprintf(stdout, "  %s\n", t)
@@ -292,10 +298,10 @@ func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout
 		name := t.name
 		ok, fails, answered, timedOut := t.run(r.root, r.timeout, r.expire)
 		if timedOut {
-			return cannotAnswer(fmt.Sprintf("harness %s timed out after %s on the baseline pass", name, r.timeout))
+			return cannotAnswer("harness-timed-out-after-on", fmt.Sprintf("harness %s timed out after %s on the baseline pass", name, r.timeout))
 		}
 		if !answered {
-			return cannotAnswer("harness " + name + " produced no ok:/FAIL: line on the baseline pass")
+			return cannotAnswer("harness-produced-no-ok", "harness "+name+" produced no ok:/FAIL: line on the baseline pass")
 		}
 		base[i] = fails
 		fmt.Fprintf(stdout, "  %s: baseline ok=%d fail=%d\n", name, ok, len(fails))
@@ -336,7 +342,7 @@ func (r *mvRun) main(patchArg, patch string, targets []mvTarget, env Env, stdout
 			continue
 		}
 		if !answered {
-			return cannotAnswer("harness " + name + " produced no ok:/FAIL: line on the mutated pass")
+			return cannotAnswer("harness-produced-no-ok", "harness "+name+" produced no ok:/FAIL: line on the mutated pass")
 		}
 		mut[i] = fails
 		fmt.Fprintf(stdout, "  %s: mutated ok=%d fail=%d\n", name, ok, len(fails))

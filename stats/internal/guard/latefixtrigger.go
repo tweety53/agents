@@ -117,15 +117,18 @@ func lftTaskNumbers(plan string) map[string]bool {
 func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 5 || (len(args)-2)%3 != 0 {
 		fmt.Fprint(stderr, lftUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	change, tasks, triples := args[0], args[1], args[2:]
 	if !plainChangeName(change) {
 		fmt.Fprintf(stderr, "check-late-fix-trigger: change name '%s' is not a plain change name\n", change)
+		Reason(env, "change-name")
 		return 2
 	}
 	gitBin, ok := panelResolveGit(env, "check-late-fix-trigger", stderr)
 	if !ok {
+		Reason(env, "git-unresolved")
 		return 2
 	}
 	gitOut := func(wt string, a ...string) (string, bool) {
@@ -163,6 +166,7 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 		why = append(why, reason)
 	default:
 		fmt.Fprint(stderr, closedErr.String())
+		Reason(env, "closed-findings-unreadable")
 		return 2
 	}
 	var noClose []string
@@ -198,10 +202,12 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		if !panelValidateWorktree(env, "check-late-fix-trigger", wt, since, gitBin, stderr) {
+			Reason(env, "invalid-worktree")
 			return 2
 		}
 		numstat, ok := gitOut(wt, "diff", "--no-renames", "--numstat", since)
 		if !ok {
+			Reason(env, "git-diff-failed")
 			return 2
 		}
 		for _, l := range strings.Split(numstat, "\n") {
@@ -217,12 +223,14 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 			del, err2 := strconv.Atoi(f[1])
 			if err1 != nil || err2 != nil {
 				fmt.Fprintf(stderr, "check-late-fix-trigger: unreadable numstat line in %s: %q\n", wt, l)
+				Reason(env, "unreadable-numstat-line-in")
 				return 2
 			}
 			lines += add + del
 		}
 		names, ok := gitOut(wt, "diff", "--no-renames", "--name-only", since)
 		if !ok {
+			Reason(env, "git-diff-failed")
 			return 2
 		}
 		for _, p := range strings.Split(names, "\n") {
@@ -247,6 +255,7 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 			cur, err := os.ReadFile(tasksPath)
 			if err != nil {
 				fmt.Fprintf(stderr, "check-late-fix-trigger: cannot read %s: %v\n", tasksPath, err)
+				Reason(env, "cannot-read")
 				return 2
 			}
 			atClose := lftTaskNumbers(string(closed))
@@ -276,14 +285,17 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 
 	if len(failed) > 0 && appendScope && len(binary) == 0 && lines <= lftSmallAppendLines {
 		fmt.Fprintf(stdout, "small append: %d changed lines since %s\n", lines, triples[1])
+		Reason(env, "small-append")
 		return 4
 	}
 	if len(failed) > 0 && appendScope {
 		fmt.Fprintf(stdout, "append scope: %d changed lines since %s\n", lines, triples[1])
+		Reason(env, "append-scope")
 		return 3
 	}
 	if len(failed) > 0 {
 		fmt.Fprintln(stdout, strings.Join(failed, "\n"))
+		Reason(env, "late-fix-required")
 		return 1
 	}
 	fmt.Fprintf(stdout, "late-fix reduction: %d changed lines since %s\n", lines, triples[1])

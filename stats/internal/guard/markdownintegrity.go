@@ -783,15 +783,18 @@ func checkMarkdownIntegrity(args []string, env Env, stdout, stderr io.Writer) in
 	switch {
 	case len(args) > 1:
 		fmt.Fprint(stderr, mdiName+": unknown argument"+usage)
+		Reason(env, "unknown-argument")
 		return 2
 	case len(args) == 1 && strings.HasPrefix(args[0], "-"):
 		fmt.Fprintf(stderr, mdiName+": unknown argument '%s'"+usage, args[0])
+		Reason(env, "unknown-argument")
 		return 2
 	case len(args) == 1:
 		root = args[0]
 	default:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {
 			fmt.Fprint(stderr, mdiName+": FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-markdown-integrity, which sets it\n")
+			Reason(env, "repo-root-unset")
 			return 2
 		}
 	}
@@ -808,6 +811,7 @@ func checkMarkdownIntegrity(args []string, env Env, stdout, stderr io.Writer) in
 	}
 	if !isDir(root) {
 		fmt.Fprintf(stderr, mdiName+": cannot answer — scope root does not exist: %s\n", root)
+		Reason(env, "cannot-answer")
 		return 2
 	}
 
@@ -838,6 +842,7 @@ func checkMarkdownIntegrity(args []string, env Env, stdout, stderr io.Writer) in
 		ents, err := os.ReadDir(fsPath(rules))
 		if err != nil {
 			fmt.Fprintf(stderr, mdiName+": cannot read %s: %s\n", rules, mdiOSError(err, rules))
+			Reason(env, "cannot-read")
 			return 2
 		}
 		for _, e := range ents {
@@ -854,10 +859,12 @@ func checkMarkdownIntegrity(args []string, env Env, stdout, stderr io.Writer) in
 		b, err := os.ReadFile(fsPath(p))
 		if err != nil {
 			fmt.Fprintf(stderr, mdiName+": cannot read %s: %s\n", p, mdiOSError(err, p))
+			Reason(env, "cannot-read")
 			return 2
 		}
 		if msg := mdiDecodeError(b); msg != "" {
 			fmt.Fprintf(stderr, mdiName+": cannot read %s: %s\n", p, msg)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		for _, f := range mdiScan(string(b)) {
@@ -868,6 +875,7 @@ func checkMarkdownIntegrity(args []string, env Env, stdout, stderr io.Writer) in
 		fmt.Fprint(stdout, line)
 	}
 	if len(report) > 0 {
+		Reason(env, "markdown-findings")
 		return 1
 	}
 	return 0

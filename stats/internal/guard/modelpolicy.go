@@ -186,6 +186,7 @@ func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 	roleOnly := len(args) == 2 && args[1] == "--role-only"
 	if !roleOnly && (len(args) < 3 || len(args) > 4) || args[0] == "" {
 		fmt.Fprint(stderr, "usage: flow-guard check-dispatch-pair <agents-repo> (<subagent_type> <model> [<effort>] | --role-only) < prompt\n")
+		Reason(env, "usage")
 		return 2
 	}
 	effort := ""
@@ -195,24 +196,28 @@ func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 	rows, err := policyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
+		Reason(env, "policy-unreadable")
 		return 2
 	}
 	var prompt []byte
 	if env.Stdin != nil {
 		if prompt, err = io.ReadAll(env.Stdin); err != nil {
 			fmt.Fprintf(stderr, "%s: reading the prompt: %v\n", self, err)
+			Reason(env, "reading-the-prompt")
 			return 2
 		}
 	}
 	m := mpRole.FindSubmatch(prompt)
 	if m == nil {
 		fmt.Fprintf(stdout, "DISPATCH-PAIR-REFUSED: no `Role:` line — a flow dispatch's prompt names its role as a line `Role: <role id>` of the allowed-pairs table (%s)\n", mpFile)
+		Reason(env, "dispatch-pair-refused")
 		return 1
 	}
 	role := string(m[1])
 	if roleOnly {
 		if _, ok := rows[role]; !ok {
 			fmt.Fprintf(stdout, "DISPATCH-PAIR-REFUSED: unknown role %q — no allowed pairs in flowd (`flow policy get`)\n", role)
+			Reason(env, "dispatch-pair-refused")
 			return 1
 		}
 		fmt.Fprintf(stdout, "DISPATCH-PAIR-OK %s\n", role)
@@ -224,6 +229,7 @@ func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err := policyAllows(rows, role, args[1], args[2], effort, string(prompt), granted); err != nil {
 		fmt.Fprintf(stdout, "DISPATCH-PAIR-REFUSED: %v\n", err)
+		Reason(env, "dispatch-pair-refused")
 		return 1
 	}
 	fmt.Fprintf(stdout, "DISPATCH-PAIR-OK %s\n", role)

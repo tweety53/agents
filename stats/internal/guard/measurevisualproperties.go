@@ -325,11 +325,12 @@ type mvpArgs struct {
 }
 
 func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) int {
-	a, code := mvpParse(args, stdout, stderr)
+	a, code := mvpParse(args, env, stdout, stderr)
 	if code >= 0 {
 		return code
 	}
-	refuse := func(msg string) int {
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintln(stderr, mvpPrefix+msg)
 		return 2
 	}
@@ -348,7 +349,7 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 		for i, s := range unknown {
 			quoted[i] = ppRepr(s)
 		}
-		return refuse(fmt.Sprintf("unknown --props [%s]; choose from %s", strings.Join(quoted, ", "), strings.Join(mvpAllProps, ",")))
+		return refuse("unknown-props", fmt.Sprintf("unknown --props [%s]; choose from %s", strings.Join(quoted, ", "), strings.Join(mvpAllProps, ",")))
 	}
 
 	// An empty second image is argparse's falsy image_b: one image.
@@ -360,32 +361,32 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 	if imageB != "" {
 		switch {
 		case a.scale != nil && (a.refA != nil || a.refB != nil):
-			return refuse("give --scale or the --ref-a/--ref-b pair, not both")
+			return refuse("give-scale-or-the-ref", "give --scale or the --ref-a/--ref-b pair, not both")
 		case a.scale != nil:
 			if *a.scale <= 0 {
-				return refuse("--scale must be positive")
+				return refuse("scale-must-be-positive", "--scale must be positive")
 			}
 			scale = *a.scale
 		case a.refA != nil && a.refB != nil:
 			scale = float64(a.refB[2]) / float64(a.refA[2])
 			byHeight := float64(a.refB[3]) / float64(a.refA[3])
 			if math.Abs(byHeight-scale)/scale > 0.05 {
-				return refuse(fmt.Sprintf("--ref boxes disagree: width factor %.4f, height factor %.4f", scale, byHeight))
+				return refuse("ref-boxes-disagree", fmt.Sprintf("--ref boxes disagree: width factor %.4f, height factor %.4f", scale, byHeight))
 			}
 		default:
-			return refuse("two images need a calibration — --scale <B px per A px>, or --ref-a and --ref-b boxes already known correct in both images")
+			return refuse("two-images-need-a-calibration", "two images need a calibration — --scale <B px per A px>, or --ref-a and --ref-b boxes already known correct in both images")
 		}
 	} else if a.scale != nil || a.refA != nil || a.refB != nil || a.regionB != nil {
-		return refuse("--scale/--ref-*/--region-b need a second image")
+		return refuse("scale-ref-region-b-need", "--scale/--ref-*/--region-b need a second image")
 	}
 
 	if slices.Contains(props, "matrix") {
 		if len(props) > 1 || imageB == "" || a.regionA != nil || a.regionB != nil {
-			return refuse("--props matrix stands alone and reads two whole images: drop the other props and any --region-*")
+			return refuse("props-matrix-stands-alone-and", "--props matrix stands alone and reads two whole images: drop the other props and any --region-*")
 		}
 		out, err := mvpMatrix(env, a, scale)
 		if err != nil {
-			return refuse(err.Error())
+			return refuse("matrix-failed", err.Error())
 		}
 		fmt.Fprintln(stdout, pyDump(out))
 		return 0
@@ -421,10 +422,11 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 	var unresolved mvpUnresolved
 	if errors.As(err, &unresolved) {
 		fmt.Fprintf(stderr, "%simage %s: %s\n", mvpPrefix, which, unresolved)
+		Reason(env, "image-unresolved")
 		return 1
 	}
 	if err != nil {
-		return refuse(err.Error())
+		return refuse("cannot-load-image", err.Error())
 	}
 	fmt.Fprintln(stdout, pyDump(result))
 	return 0
@@ -438,10 +440,11 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 // order: an option's missing or bad value and -h act where they stand; a
 // missing image and an unrecognized argument are reported after the scan.
 // code is -1 when the arguments parsed.
-func mvpParse(args []string, stdout, stderr io.Writer) (a mvpArgs, code int) {
+func mvpParse(args []string, env Env, stdout, stderr io.Writer) (a mvpArgs, code int) {
 	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, edgeText: "24"}
 	usage := func(msg string) (mvpArgs, int) {
 		fmt.Fprintln(stderr, mvpPrefix+msg)
+		Reason(env, "usage")
 		return a, 2
 	}
 	var extras []string

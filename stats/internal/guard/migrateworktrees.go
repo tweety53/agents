@@ -75,12 +75,13 @@ import (
 func init() { Registry["migrate-worktrees"] = migrateWorktrees }
 
 func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
-	refuse := func(format string, a ...any) int {
+	refuse := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "migrate-worktrees: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) == 0 {
-		return refuse("usage: flow-guard migrate-worktrees <main-checkout> [<main-checkout>...]")
+		return refuse("usage", "usage: flow-guard migrate-worktrees <main-checkout> [<main-checkout>...]")
 	}
 	git := envGit(env)
 	// Every repository is moved and its records read in one run: a
@@ -93,7 +94,7 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 		// Physical form, as git reports every worktree path.
 		main, err := filepath.EvalSymlinks(pcAbs(env, a))
 		if err != nil || !isDir(main) || git("-C", main, "rev-parse", "--git-dir").Run() != nil {
-			return refuse("%s is not a git repository", a)
+			return refuse("not-a-git-repository", "%s is not a git repository", a)
 		}
 		if !seen[main] {
 			seen[main] = true
@@ -104,13 +105,13 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, r := range repos {
 		porcelain, ok := capture(git("-C", r.main, "worktree", "list", "--porcelain"))
 		if !ok {
-			return refuse("cannot list the worktrees of %s", r.main)
+			return refuse("cannot-list-the-worktrees", "cannot list the worktrees of %s", r.main)
 		}
 		all[r.main] = mwWorktrees(porcelain)
 	}
 	flow, ok := lookPath(env, "flow")
 	if !ok {
-		return refuse("no flow binary on PATH — the state records naming a moved worktree could not be rewritten, so nothing is moved")
+		return refuse("no-flow-binary-on-path", "no flow binary on PATH — the state records naming a moved worktree could not be rewritten, so nothing is moved")
 	}
 
 	// Every record is read before anything moves: a store that cannot
@@ -121,7 +122,7 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, r := range repos {
 		rs, msg := mwRecords(env, flow, r.main)
 		if msg != "" {
-			return refuse("%s", msg)
+			return refuse("cannot-read-records", "%s", msg)
 		}
 		records = append(records, rs...)
 	}
@@ -181,6 +182,7 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 		porcelain, ok := capture(git("-C", r.main, "worktree", "list", "--porcelain"))
 		if !ok {
 			fmt.Fprintf(stdout, "FAILED: %s — cannot list its worktrees after the moves\n", r.main)
+			Reason(env, "cannot-list-worktrees")
 			return 1
 		}
 		for _, w := range mwWorktrees(porcelain) {
@@ -229,6 +231,7 @@ func migrateWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 		_ = os.Remove(r.oldRoot) // only when empty
 	}
 	if failed {
+		Reason(env, "migration-failed")
 		return 1
 	}
 	return 0

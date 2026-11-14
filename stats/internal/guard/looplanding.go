@@ -155,6 +155,7 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-landing"
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
 		fmt.Fprint(stderr, "usage: flow-guard check-loop-landing <repo> <branch>\n")
+		Reason(env, "usage")
 		return 2
 	}
 	lp, ok := lpFromBranch(args[1])
@@ -164,11 +165,13 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	git, ok := panelResolveGit(env, self, stderr)
 	if !ok {
+		Reason(env, "git-unresolved")
 		return 2
 	}
 	main, ok := lpMain(env, git, smcAbs(env, args[0]))
 	if !ok {
 		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, args[0])
+		Reason(env, "not-a-git-checkout")
 		return 2
 	}
 	if strings.HasPrefix(args[1], "self-review-") && lpPromptTuningOnly(env, git, smcAbs(env, args[0]), args[1]) {
@@ -184,6 +187,7 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if !ok {
 		fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer (is flowd up?)\n", self, lp.change)
+		Reason(env, "flow-record-dispatches-change-failed")
 		return 2
 	}
 	// A loop run from the agents checkout files every row under that checkout's
@@ -220,6 +224,7 @@ func checkLoopLanding(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "LOOP-LANDING-REFUSED: %s\n", r)
 	}
 	if len(refusals) > 0 {
+		Reason(env, "landing-refused")
 		return 1
 	}
 	fmt.Fprintf(stdout, "LOOP-LANDING-OK %s\n", args[1])

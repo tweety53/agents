@@ -332,24 +332,29 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-dispatch"
 	if len(args) != 4 || args[0] == "" || args[1] == "" {
 		fmt.Fprint(stderr, "usage: flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model>\n")
+		Reason(env, "usage")
 		return 2
 	}
 	repo, key, typ, model := smcAbs(env, args[0]), args[1], args[2], args[3]
 	git, ok := panelResolveGit(env, self, stderr)
 	if !ok {
+		Reason(env, "git-unresolved")
 		return 2
 	}
 	rows, err := policyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
+		Reason(env, "policy-unreadable")
 		return 2
 	}
 	main, ok := lpMain(env, git, repo)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, repo)
+		Reason(env, "not-a-git-checkout")
 		return 2
 	}
-	refuse := func(msg string) int {
+	refuse := func(id, msg string) int {
+		Reason(env, id)
 		fmt.Fprintf(stdout, "LOOP-DISPATCH-REFUSED: %s\n", msg)
 		return 1
 	}
@@ -357,6 +362,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if env.Stdin != nil {
 		if prompt, err = io.ReadAll(env.Stdin); err != nil {
 			fmt.Fprintf(stderr, "%s: reading the prompt: %v\n", self, err)
+			Reason(env, "reading-the-prompt")
 			return 2
 		}
 	}
@@ -366,35 +372,36 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "LOOP-DISPATCH-NA %s\n", key)
 			return 0
 		}
-		return refuse(msg)
+		return refuse("key-unresolved", msg)
 	}
 	family := lpFamily(suffix)
 	var mine []lpDispatch
 	if family != "pass" {
 		if mine, ok = lpRows(env, lp.main, lp); !ok {
 			fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer (is flowd up?)\n", self, lp.change)
+			Reason(env, "flow-record-dispatches-change-failed")
 			return 2
 		}
 	}
 	if err := policyAllows(rows, role, typ, model, "", "", false); err != nil {
 		// Off the unmarked rows: only the role's marked escalation row can admit it.
 		if lpEscalation(rows, role, policyPair(typ, model, "")) == "" {
-			return refuse("PAIR — " + err.Error())
+			return refuse("pair", "PAIR — "+err.Error())
 		}
 		if !lpEscalated(env, git, lp.main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
-			return refuse(fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: flow-guard pipeline-fix escalate %s", key, typ, key))
+			return refuse("escalation", fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: flow-guard pipeline-fix escalate %s", key, typ, key))
 		}
 		if err := policyAllows(rows, role, typ, model, "", string(prompt), false); err != nil {
-			return refuse("PAIR — " + err.Error())
+			return refuse("pair", "PAIR — "+err.Error())
 		}
 	} else if suffix == "review-1" {
 		want, ok := lpFirstReviewType(env, git, lp.main, lp)
 		if !ok {
-			return refuse(fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
+			return refuse("effort", fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
 		}
 		// The allowed pairs decide: a recorded type they do not admit never refuses one they do.
 		if typ != want && policyAllows(rows, role, want, model, "", "", false) == nil {
-			return refuse(fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
+			return refuse("pair", fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
 		}
 	}
 	if family == "pass" {
@@ -410,18 +417,20 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			done, ok := lpRows(env, main, lpLoop{change: change, token: lp.token, prefix: lp.prefix})
 			if !ok {
 				fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer (is flowd up?)\n", self, change)
+				Reason(env, "flow-record-dispatches-change-failed")
 				return 2
 			}
 			if slices.ContainsFunc(done, func(d lpDispatch) bool { return d.Key == key && d.Outcome == "completed" }) {
-				return refuse(fmt.Sprintf("PASS-DONE — %s already completed and its loop branch %s exists: resume the loop at step 3 from <sr-dir>/findings.md (skills/flow-self-review/SKILL.md step 2)", key, lp.token))
+				return refuse("pass-done", fmt.Sprintf("PASS-DONE — %s already completed and its loop branch %s exists: resume the loop at step 3 from <sr-dir>/findings.md (skills/flow-self-review/SKILL.md step 2)", key, lp.token))
 			}
 		}
 		if msg := lpNarrative(env, git, key, change, string(prompt)); msg != "" {
-			return refuse(msg)
+			return refuse("narrative-refused", msg)
 		}
 		if out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", change,
 			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token); rc != 0 {
 			fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
+			Reason(env, "flow-record-dispatch-begin-failed")
 			return 2
 		}
 		fmt.Fprintf(stdout, "LOOP-DISPATCH-OK %s\n", key)
@@ -430,17 +439,17 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	planDone := false
 	for _, d := range mine {
 		if d.Key == key && d.Outcome != "aborted" {
-			return refuse(fmt.Sprintf("KEY-REUSED — %s already ran; the next dispatch takes the next key", key))
+			return refuse("key-reused", fmt.Sprintf("KEY-REUSED — %s already ran; the next dispatch takes the next key", key))
 		}
 		if d.EndedAt == nil {
-			return refuse(fmt.Sprintf("OPEN — %s has not been closed: flow-guard pipeline-fix end %s <outcome>", d.Key, d.Key))
+			return refuse("dispatch-open", fmt.Sprintf("OPEN — %s has not been closed: flow-guard pipeline-fix end %s <outcome>", d.Key, d.Key))
 		}
 		if lpFamily(strings.TrimPrefix(d.Key, lp.prefix)) == "plan" {
 			planDone = d.Outcome == "completed"
 		}
 	}
 	if family != "plan" && !planDone {
-		return refuse(fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
+		return refuse("plan", fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
 	}
 	recordRole := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
 	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
@@ -448,6 +457,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: flow-guard pipeline-fix start creates it\n", self)
+		Reason(env, "loop")
 		return 2
 	}
 	fmt.Fprintf(stdout, "LOOP-DISPATCH-OK %s\n", key)

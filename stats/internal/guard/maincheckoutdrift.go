@@ -79,12 +79,14 @@ func init() {
 
 func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-main-checkout-drift"
-	die := func(format string, a ...any) int {
+	die := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, self+": "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-main-checkout-drift <main-checkout>")
+		Reason(env, "usage")
 		return 2
 	}
 
@@ -93,30 +95,30 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 	// `cd` also needs search permission, which a bare stat does not test.
 	root, err := filepath.EvalSymlinks(pcAbs(env, args[0]))
 	if err != nil || !isDir(root) || syscall.Access(root, 1) != nil {
-		return die("%s is not a directory", args[0])
+		return die("not-a-directory", "%s is not a directory", args[0])
 	}
 	git := envGit(env)
 	if git("-C", root, "rev-parse", "--git-dir").Run() != nil {
-		return die("%s is not a git repository", root)
+		return die("not-a-git-repository", "%s is not a git repository", root)
 	}
 
 	// THE DEFAULT BRANCH is what refs/remotes/origin/HEAD points at; with no
 	// such ref the guard cannot answer rather than guessing `main`.
 	def, ok := capture(git("-C", root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"))
 	if !ok {
-		return die("%s has no resolvable refs/remotes/origin/HEAD — the default branch cannot be named", root)
+		return die("has-no-resolvable-refs-remotes", "%s has no resolvable refs/remotes/origin/HEAD — the default branch cannot be named", root)
 	}
 	def = strings.TrimPrefix(def, "refs/remotes/origin/")
 	// A symbolic ref can dangle -- `git update-ref -d` on the branch it
 	// points at leaves the symref behind -- and a name that resolves to
 	// nothing is not an answer. Verify the target before trusting it.
 	if git("-C", root, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/"+def+"^{commit}").Run() != nil {
-		return die("%s's refs/remotes/origin/HEAD dangles — %s does not resolve", root, def)
+		return die("origin-head-dangles", "%s's refs/remotes/origin/HEAD dangles — %s does not resolve", root, def)
 	}
 
 	branch, ok := capture(git("-C", root, "branch", "--show-current"))
 	if !ok {
-		return die("cannot read the current branch of %s", root)
+		return die("cannot-read-the-current-branch", "cannot read the current branch of %s", root)
 	}
 	if branch == "" {
 		branch = "(detached HEAD)"
@@ -126,7 +128,7 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 	// files hidden exactly as the KAN-546 guard's identical read hides them.
 	status, ok := capture(git("-C", root, "status", "--porcelain", "--untracked-files=no"))
 	if !ok {
-		return die("cannot read the status of %s", root)
+		return die("cannot-read-the-status", "cannot read the status of %s", root)
 	}
 	entries := 0
 	if status != "" {

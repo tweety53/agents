@@ -113,12 +113,12 @@ func (c *ic) land() {
 	c.canonBase = ""
 	c.loadSet()
 	if !c.findCanonical() {
-		c.die("no worktree in the set holds %s's tasks.md", c.name)
+		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
 	}
 	c.mergeOrder()
 	done, ok := c.selfReviewCompleted()
 	if !ok {
-		c.die("flowd cannot say whether flow.self-review completed for %s — nothing was pushed", c.name)
+		c.die("flowd-cannot-say-whether-flow", "flowd cannot say whether flow.self-review completed for %s — nothing was pushed", c.name)
 	}
 	if !done {
 		c.stop("self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run land; nothing was pushed")

@@ -51,11 +51,13 @@ func checkNoBash(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if root == "" {
 		fmt.Fprint(stderr, "check-no-bash: no repository root — run flow-guard check-no-bash, which sets FLOW_GUARD_REPO_ROOT\n")
+		Reason(env, "no-repository-root")
 		return 2
 	}
 	out, err := exec.Command("git", "-C", root, "ls-files", "-z").Output()
 	if err != nil {
 		fmt.Fprintf(stderr, "check-no-bash: %s is not a git worktree: %v\n", root, err)
+		Reason(env, "not-a-git-worktree")
 		return 2
 	}
 	n := 0
@@ -68,6 +70,7 @@ func checkNoBash(_ []string, env Env, stdout, stderr io.Writer) int {
 			var err error
 			if bash, err = nbShebang(filepath.Join(root, p)); err != nil {
 				fmt.Fprintf(stderr, "check-no-bash: cannot read %s: %v\n", p, err)
+				Reason(env, "cannot-read")
 				return 2
 			}
 		}
@@ -78,6 +81,7 @@ func checkNoBash(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if n > 0 {
 		fmt.Fprintf(stdout, "NO-BASH-INVALID: %s — %d bash script(s)\n", root, n)
+		Reason(env, "no-bash-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "NO-BASH-OK: %s\n", root)

@@ -224,7 +224,7 @@ func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int
 	if env.Dir != "/" {
 		// The process's own cwd: an in-process caller already runs in `/`.
 		if err := os.Chdir("/"); err != nil {
-			c.die("cannot cd /: %v", err)
+			c.die("cannot-cd", "cannot cd /: %v", err)
 		}
 	}
 	switch args[0] {
@@ -237,7 +237,7 @@ func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int
 	case "cleanup":
 		c.cleanup()
 	default:
-		c.die("unknown subcommand '%s'", args[0])
+		c.die("unknown-subcommand", "unknown subcommand '%s'", args[0])
 	}
 	return 0
 }
@@ -251,7 +251,8 @@ func icChildEnv(env Env) []string {
 	return os.Environ()
 }
 
-func (c *ic) die(format string, a ...any) {
+func (c *ic) die(id, format string, a ...any) {
+	Reason(c.env, id)
 	fmt.Fprintf(c.stderr, "integrate-change: "+format+"\n", a...)
 	panic(icExit(2))
 }
@@ -267,16 +268,16 @@ func (c *ic) parse(args []string) {
 	}
 	sub, mainArg, name := arg(0), arg(1), arg(2)
 	if sub == "" || mainArg == "" || name == "" {
-		c.die("usage: flow-guard integrate-change prepare|commit|land|cleanup <main-checkout> <name> [flags]")
+		c.die("usage", "usage: flow-guard integrate-change prepare|commit|land|cleanup <main-checkout> <name> [flags]")
 	}
 	// A relative argument resolves against the directory it was called from.
 	m, ok := icPhys(c.env.Dir, mainArg)
 	if !ok {
-		c.die("%s is not a directory", mainArg)
+		c.die("not-a-directory", "%s is not a directory", mainArg)
 	}
 	c.main = m
 	if !changeNamePlain(name) {
-		c.die("change name '%s' is not a plain change name", name)
+		c.die("change-name", "change name '%s' is not a plain change name", name)
 	}
 	c.name = name
 	c.harness, c.token = c.env.Getenv("FLOW_HARNESS"), c.env.Getenv("FLOW_SESSION_TOKEN")
@@ -306,7 +307,7 @@ func (c *ic) parse(args []string) {
 			// never its subject, so a text with no Conventional Commits subject
 			// never reaches a commit-msg hook as one.
 			if next() == "" {
-				c.die("--outstanding takes the outstanding work's text")
+				c.die("outstanding-takes-the-outstanding-work", "--outstanding takes the outstanding work's text")
 			}
 			c.outstanding = next()
 			i++
@@ -315,26 +316,26 @@ func (c *ic) parse(args []string) {
 			i++
 		case "--pr-url":
 			if !icPairArg(next()) {
-				c.die("--pr-url takes <worktree>=<url|none>")
+				c.die("pr-url-takes-worktree-url", "--pr-url takes <worktree>=<url|none>")
 			}
 			c.prArgs = append(c.prArgs, next())
 			i++
 		case "--proceed":
 			p, ok := icPhys(c.env.Dir, next())
 			if !ok {
-				c.die("--proceed takes the main checkout its disclosure stop named")
+				c.die("proceed-takes-the-main-checkout", "--proceed takes the main checkout its disclosure stop named")
 			}
 			c.proceed = append(c.proceed, p)
 			i++
 		default:
 			if !strings.Contains(a, "=") {
-				c.die("unknown argument '%s'", a)
+				c.die("unknown-argument", "unknown argument '%s'", a)
 			}
 			c.subjects = append(c.subjects, a)
 		}
 	}
 	if c.harness == "" || c.token == "" {
-		c.die("--harness and --session-token are required (or FLOW_HARNESS / FLOW_SESSION_TOKEN)")
+		c.die("harness-and-session-token", "--harness and --session-token are required (or FLOW_HARNESS / FLOW_SESSION_TOKEN)")
 	}
 }
 
@@ -494,6 +495,7 @@ func (c *ic) stop(kind, text string) {
 		c.markEnd(c.openStage, c.stopOutcome, "STOP: "+kind)
 	}
 	c.say("STOP: " + kind + " — " + text)
+	Reason(c.env, kind)
 	panic(icExit(1))
 }
 
@@ -660,7 +662,7 @@ func icJQText(v any) string {
 func (c *ic) loadSet() {
 	state, rc := c.capture(c.cmd("/", "flow", "state", "get", "-C", c.main, c.name))
 	if rc != 0 {
-		c.die("flow state get %s failed", c.name)
+		c.die("flow-state-get-failed", "flow state get %s failed", c.name)
 	}
 	st := icParseState(state)
 	c.prURLState, c.jiraKey = st.prURL, st.jira

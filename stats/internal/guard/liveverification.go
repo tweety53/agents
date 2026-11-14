@@ -60,6 +60,7 @@ func checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int
 	const prog = "check-live-verification"
 	if len(args) != 1 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard check-live-verification <live-verification.md | changeRoot>\n", prog)
+		Reason(env, "usage")
 		return 2
 	}
 	record := args[0]
@@ -69,6 +70,7 @@ func checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int
 		design := record + "/design.md"
 		if !isFile(design) {
 			fmt.Fprintf(stderr, "%s: cannot read %s\n", prog, design)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		if !icLiveCheckNamed(design) {
@@ -78,12 +80,14 @@ func checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int
 		record += "/live-verification.md"
 		if !isFile(record) {
 			fmt.Fprintf(stdout, "%s: missing — design.md names a live check\n", record)
+			Reason(env, "live-check-missing")
 			return 1
 		}
 	}
 	data, err := os.ReadFile(record)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, record, err)
+		Reason(env, "cannot-read")
 		return 2
 	}
 	named := false
@@ -99,9 +103,11 @@ func checkLiveVerification(args []string, env Env, stdout, stderr io.Writer) int
 	switch {
 	case len(bad) > 0:
 		fmt.Fprintln(stdout, strings.Join(bad, "\n"))
+		Reason(env, "live-verification-findings")
 		return 1
 	case !named:
 		fmt.Fprintf(stdout, "%s: no before figure — no line names one\n", record)
+		Reason(env, "no-before-figure")
 		return 1
 	}
 	fmt.Fprintf(stdout, "LIVE-VERIFICATION-OK: %s\n", record)

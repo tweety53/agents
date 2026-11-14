@@ -28,7 +28,7 @@ var (
 func (c *ic) commit() {
 	c.loadSet()
 	if !c.findCanonical() {
-		c.die("no worktree in the set holds %s's tasks.md", c.name)
+		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
 	}
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
 	c.checkNarrative(live + "/narrative.md")

@@ -57,6 +57,7 @@ var (
 func checkNarrativeRuns(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-narrative-runs <worktree> <change> <narrative.md>")
+		Reason(env, "usage")
 		return 2
 	}
 	wt, change, nf := args[0], args[1], args[2]
@@ -82,10 +83,12 @@ func checkNarrativeRuns(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	f, ok := sessions("flow.document-fix")
 	if !ok {
+		Reason(env, "sessions-unreadable")
 		return 2
 	}
 	i, ok := sessions("flow.preserve-sessions")
 	if !ok {
+		Reason(env, "sessions-unreadable")
 		return 2
 	}
 
@@ -98,6 +101,7 @@ func checkNarrativeRuns(args []string, env Env, stdout, stderr io.Writer) int {
 		body, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(stderr, "check-narrative-runs: cannot read %s\n", nf)
+			Reason(env, "cannot-read")
 			return 2
 		}
 		for _, line := range strings.Split(string(body), "\n") {
@@ -114,6 +118,7 @@ func checkNarrativeRuns(args []string, env Env, stdout, stderr io.Writer) int {
 	in, _ := strconv.Atoi(i)
 	if hf < fn || hi < in {
 		fmt.Fprintf(stdout, "NARRATIVE-RUNS-MISSING: %s holds %d '— fix run' section(s) for %s fix run(s) and %d '— integrate run' section(s) for %s integrate run(s) the store marked\n", nf, hf, f, hi, i)
+		Reason(env, "narrative-runs-missing")
 		return 1
 	}
 	fmt.Fprintf(stdout, "NARRATIVE-RUNS-OK: %s fix run(s), %s integrate run(s), each with its section\n", f, i)
