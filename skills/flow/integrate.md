@@ -46,7 +46,8 @@ missing beside the script, whose steps then run by hand from
 `skills/flow-contracts/finish-contract-run1.md` and `skills/flow-contracts/finish-contract-run2.md`. The script's
 header (`<agents repo>/scripts/flow-guard integrate-change`) is canonical for each subcommand's steps and
 the exit contract. A stop closes the stage mark it was in `stopped`; the parent re-runs the call
-that stopped once the stop is handled.
+that stopped once the stop is handled. Three stops in a row of one call take **Three failed
+rounds** (`skills/flow-contracts/pipeline.md`), applied inline from every earlier `STOP:` line.
 
 - **`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
 - **`STOP: foreign-staged`** → ask the question of **Surface foreign staged work before the
