@@ -227,7 +227,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// with the message the bash gave it.
 		body, err := os.ReadFile(path)
 		if err != nil {
-			return refuse("grep-exited-2-while-looking", "grep exited 2 while looking for the '## workspace isolation' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
+			return refuse("grep-failed", "grep exited 2 while looking for the '## workspace isolation' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
 		}
 		// grep and awk alike ended a line at its first NUL.
 		recs := lines(body)

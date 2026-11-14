@@ -116,7 +116,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	git := envGit(env, gitEnv...)
 	if git("-C", root, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: %s is not a git worktree\n", root)
-		Reason(env, "not-a-git-worktree")
+		Reason(env, "not-a-worktree")
 		return 2
 	}
 

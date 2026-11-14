@@ -168,7 +168,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	// and this is the third, refused with the message the bash gave it.
 	body, err := os.ReadFile(path)
 	if err != nil {
-		return refuse("grep-exited-2-while-looking", "grep exited 2 while looking for the '## visual verification' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
+		return refuse("grep-failed", "grep exited 2 while looking for the '## visual verification' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
 	}
 	// Every read below runs on vvLines — BOM stripped, each line ended at its
 	// first NUL as grep and awk ended it.

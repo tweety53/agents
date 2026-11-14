@@ -296,7 +296,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		c, err := filepath.EvalSymlinks(pcAbs(env, canonicalArg))
 		if err != nil || !isDir(c) {
 			fmt.Fprintf(stderr, "%scanonical worktree is not a directory: %s\n", vvdPrefix, canonicalArg)
-			Reason(env, "canonical-worktree-is-not")
+			Reason(env, "canonical-worktree-not-a-directory")
 			return 2
 		}
 		if c != worktree {
@@ -371,7 +371,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	rows, err := pfdRead(env, env.Dispatches, "dispatches", name, anchor)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' — cannot answer\n", vvdPrefix, name)
-		Reason(env, "flow-record-dispatches-failed-for")
+		Reason(env, "record-dispatches-failed")
 		return 2
 	}
 	verifiers, ok := vvdCompletedVerifiers(rows)
@@ -494,7 +494,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
 		if !ok {
 			fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
-			Reason(env, "git-cannot-name-head-in")
+			Reason(env, "cannot-name-head")
 			return 2
 		}
 		verdict := "VISUAL-VERIFY-MISSING: the newest verifier row '" + newestKey + "' ran scoped to round base " + newestRoundBase + " — the loop's closing unscoped run is not recorded (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD " + headSHA
@@ -517,7 +517,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	decisions, err := pfdRead(env, env.Decisions, "decisions", name, anchor)
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record decisions failed for '%s' — cannot answer\n", vvdPrefix, name)
-		Reason(env, "flow-record-decisions-failed-for")
+		Reason(env, "record-decisions-failed")
 		return 2
 	}
 	reason, skipped, ok := vvdSkippedAtDecide(decisions)
@@ -546,7 +546,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
-		Reason(env, "git-cannot-name-head-in")
+		Reason(env, "cannot-name-head")
 		return 2
 	}
 	if lastHead != "" {
@@ -569,7 +569,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 		}
 	}
 	fmt.Fprintln(stdout, verdict)
-	Reason(env, "prior-false-positives-for")
+	Reason(env, "visual-verify-missing")
 	return 1
 }
 

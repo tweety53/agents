@@ -337,7 +337,7 @@ func (v *vvp) commit(w string, report []byte) {
 	}
 	head, ok := v.git("-C", w, "rev-parse", "HEAD")
 	if !ok {
-		v.die("cannot-resolve-head-in", "cannot resolve HEAD in %s", w)
+		v.die("head-unresolved", "cannot resolve HEAD in %s", w)
 	}
 	v.say("ROUND-BASE: %s=%s", w, head)
 }

@@ -93,7 +93,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "%sflow record dispatches failed for '%s' -- cannot answer\n", vgPrefix, name)
-		Reason(env, "flow-record-dispatches-failed-for")
+		Reason(env, "record-dispatches-failed")
 		return 2
 	}
 	// No row at all is a store read that resolved no change, never a run
@@ -101,7 +101,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	// change's rows are not recorded under (kan-1008's self-review).
 	if len(rows) == 0 {
 		fmt.Fprintf(stderr, "%sflow record dispatches returned no row for '%s' from %s -- pass the change's canonical worktree, the one its rows are recorded from\n", vgPrefix, name, wt)
-		Reason(env, "flow-record-dispatches-returned-no")
+		Reason(env, "no-dispatch-rows")
 		return 2
 	}
 	// Rows come back in seq order; only the latest row per worktree is

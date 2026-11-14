@@ -555,7 +555,7 @@ func (v *vvp) writeStage(survivors []string) {
 func (v *vvp) appendStage(line string) {
 	f, err := os.OpenFile(v.stagePath(), os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		v.die("cannot-append-to-the-stage", "cannot append to the stage file: %v", err)
+		v.die("cannot-append-stage-file", "cannot append to the stage file: %v", err)
 	}
 	defer f.Close()
 	fmt.Fprintln(f, line)

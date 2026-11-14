@@ -524,14 +524,14 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		var err error
 		if findingsJSON, err = env.Findings(name); err != nil {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(findingsJSON), "\n"))
-			Reason(env, "cannot-read-findings-for")
+			Reason(env, "cannot-read-findings")
 			return 2
 		}
 	} else {
 		out, errOut, rc := pcFlow(env, false, "record", "findings", "-change", name, "-C", anchor)
 		if rc != 0 {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(errOut), "\n"))
-			Reason(env, "cannot-read-findings-for")
+			Reason(env, "cannot-read-findings")
 			return 2
 		}
 		findingsJSON = out
@@ -604,7 +604,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		dispOut, dispErr, dispRC := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", anchor)
 		if dispRC != 0 {
 			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(dispErr), "\n"))
-			Reason(env, "cannot-read-dispatches-for")
+			Reason(env, "cannot-read-dispatches")
 			return 2
 		}
 		var dispatches []struct {
@@ -664,7 +664,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
 			if passRC != 0 {
 				fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
-				Reason(env, "cannot-read-pass-rows-for")
+				Reason(env, "cannot-read-pass-rows")
 				return 2
 			}
 			var passes []struct {
@@ -672,7 +672,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			if json.Unmarshal(passOut, &passes) != nil || passes == nil {
 				fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
-				Reason(env, "pass-rows-for")
+				Reason(env, "pass-rows-not-json")
 				return 2
 			}
 			for _, p := range passes {
@@ -703,7 +703,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		bundleOut, bundleErr, bundleRC := pcFlow(env, false, "self-review", "bundle", "-change", name, "-C", anchor)
 		if bundleRC != 0 {
 			fmt.Fprintf(stderr, "%scannot read the self-review bundle for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(bundleErr), "\n"))
-			Reason(env, "cannot-read-the-self-review")
+			Reason(env, "cannot-read-bundle")
 			return 2
 		}
 		var headerLines []string
@@ -715,7 +715,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if !slices.ContainsFunc(headerLines, func(l string) bool { return strings.HasPrefix(l, "found: ") }) {
 			fmt.Fprintf(stderr, "%sthe self-review bundle for '%s' carries no found: line — cannot determine anything\n", uwPrefix, name)
-			Reason(env, "self-review-bundle-for")
+			Reason(env, "bundle-missing-found-line")
 			return 2
 		}
 		if slices.Contains(headerLines, "skipped: change summary (absent)") {
@@ -786,13 +786,13 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
 				if passRC != 0 {
 					fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
-					Reason(env, "cannot-read-pass-rows-for")
+					Reason(env, "cannot-read-pass-rows")
 					return 2
 				}
 				var passes []json.RawMessage
 				if json.Unmarshal(passOut, &passes) != nil || passes == nil {
 					fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
-					Reason(env, "pass-rows-for")
+					Reason(env, "pass-rows-not-json")
 					return 2
 				}
 				if len(passes) == 0 {

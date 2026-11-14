@@ -148,7 +148,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 		dir := filepath.Join(wtAbs, root)
 		if !isDir(dir) {
-			return refuse("app-root-is-not", "app root %s is not a directory under %s", root, wt)
+			return refuse("app-root-not-a-directory", "app root %s is not a directory under %s", root, wt)
 		}
 		base := wtAbs
 		if r := vpRepoRoot(dir); r != "" && r != vpRepoRoot(wtAbs) {
@@ -171,7 +171,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 			}
 			k, v, ok := strings.Cut(line, "=")
 			if !ok || !wiVariable.MatchString(k) {
-				return refuse("stdin-line-is-not-key", "stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
+				return refuse("bad-stdin-line", "stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
 			}
 			exported[k] = v
 		}
@@ -257,7 +257,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		case err == nil, errors.As(err, &ee) && ee.ExitCode() == 1:
 			continue // free
 		default:
-			return refuse("lsof-np-itcp", "lsof -nP -iTCP:%s -sTCP:LISTEN failed (%v) — cannot tell whether the port is held", p.port, err)
+			return refuse("lsof-failed", "lsof -nP -iTCP:%s -sTCP:LISTEN failed (%v) — cannot tell whether the port is held", p.port, err)
 		}
 		if vpAnswers(p.port, p.url) {
 			continue // the already-running stack steps 5 and 6 probe

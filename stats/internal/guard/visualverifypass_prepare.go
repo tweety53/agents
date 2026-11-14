@@ -126,7 +126,7 @@ func (v *vvp) kickoff() {
 func (v *vvp) changed(w, base, dots string) []string {
 	out, ok := v.git("-C", w, "diff", "--no-renames", "--name-only", base+dots+"HEAD")
 	if !ok {
-		v.die("git-diff-head-failed-in", "git diff %s%sHEAD failed in %s", base, dots, w)
+		v.die("git-diff-failed", "git diff %s%sHEAD failed in %s", base, dots, w)
 	}
 	if out == "" {
 		return nil
@@ -385,7 +385,7 @@ func (v *vvp) continueSet() []string {
 		}
 	}
 	if len(survivors) == 0 {
-		v.die("stage-file-names-no-surviving", "the stage file %s names no surviving worktree", v.stagePath())
+		v.die("no-surviving-worktree", "the stage file %s names no surviving worktree", v.stagePath())
 	}
 	return survivors
 }
@@ -532,7 +532,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 		for _, w := range append([]string{r.w}, v.siblings[r.w]...) {
 			h, ok := v.git("-C", w, "rev-parse", "HEAD")
 			if !ok {
-				v.die("cannot-resolve-head-in", "cannot resolve HEAD in %s", w)
+				v.die("head-unresolved", "cannot resolve HEAD in %s", w)
 			}
 			heads = append(heads, h)
 		}
@@ -562,7 +562,7 @@ func (v *vvp) relayContract() string {
 	root := v.env.Getenv("FLOW_GUARD_REPO_ROOT")
 	b, err := os.ReadFile(filepath.Join(root, "skills", "flow", "visual-verify.md"))
 	if root == "" || err != nil {
-		v.die("cannot-read-skills-flow-visual", "cannot read skills/flow/visual-verify.md under FLOW_GUARD_REPO_ROOT '%s' — run flow-guard visual-verify-pass, which sets it", root)
+		v.die("cannot-read-visual-verify-md", "cannot read skills/flow/visual-verify.md under FLOW_GUARD_REPO_ROOT '%s' — run flow-guard visual-verify-pass, which sets it", root)
 	}
 	var para []string
 	for _, l := range strings.Split(string(b), "\n") {
@@ -589,7 +589,7 @@ func (v *vvp) greenRows() []struct{ Key, DiffBase string } {
 		err = json.Unmarshal(raw, &rows)
 	}
 	if err != nil {
-		v.die("flow-record-dispatches-failed-for", "flow record dispatches failed for '%s'", v.name)
+		v.die("record-dispatches-failed", "flow record dispatches failed for '%s'", v.name)
 	}
 	var out []struct{ Key, DiffBase string }
 	for _, r := range rows {

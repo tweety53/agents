@@ -160,7 +160,7 @@ func writePanelDiff(args []string, env Env, stdout, stderr io.Writer) int {
 			out, err := panelGit(env, gitBin, wt, append(append(append([]string{"diff"}, o.flags...), rng...), excludes...)...).Output()
 			if err != nil {
 				fmt.Fprintf(stderr, "write-panel-diff: git diff %v failed in %s\n", append(o.flags, rng...), wt)
-				Reason(env, "git-diff-failed-in")
+				Reason(env, "git-diff-failed")
 				return 2
 			}
 			o.buf.WriteString(header)

@@ -100,7 +100,7 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		rng...)...))
 	if !ok {
 		fmt.Fprintf(stderr, "%s git cannot read %s..HEAD in %s\n", ucPrefix, base, worktree)
-		Reason(env, "git-cannot-read-head-in")
+		Reason(env, "cannot-read-head")
 		return 2
 	}
 	// Empty on a detached HEAD, which is judged as a change branch.

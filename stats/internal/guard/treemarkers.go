@@ -162,7 +162,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 		if marker == "" {
-			return fail("empty-marker-for", "empty marker for '%s' in markers file", path)
+			return fail("empty-marker", "empty marker for '%s' in markers file", path)
 		}
 		specs = append(specs, spec{path, marker})
 	}
@@ -182,13 +182,13 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		// directory, so the promised path would hold nothing while exit 0
 		// claimed a snapshot -- refused before anything is written.
 		if isDir(snapAbs) {
-			return fail("snapshot-path-is-an-existing", "snapshot path is an existing directory: %s", snap)
+			return fail("snapshot-path-is-directory", "snapshot path is an existing directory: %s", snap)
 		}
 	} else {
 		var err error
 		recorded, err = os.ReadFile(snapAbs)
 		if err != nil || !isFile(snapAbs) {
-			return fail("no-readable-snapshot-at-cannot", "no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it", snap)
+			return fail("no-readable-snapshot", "no readable snapshot at %s -- cannot answer; snapshot runs before the dispatch, never after it", snap)
 		}
 	}
 
@@ -214,7 +214,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		out, err := cmd.Output()
 		var exit *exec.ExitError
 		if err != nil && (!errors.As(err, &exit) || exit.ExitCode() > 1) {
-			return fail("grep-failed-on-cannot-answer", "grep failed on %s -- cannot answer", file)
+			return fail("grep-failed", "grep failed on %s -- cannot answer", file)
 		}
 		count := strings.TrimRight(string(out), "\n")
 		if count == "" {
@@ -269,7 +269,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, l := range strays {
 			fmt.Fprintln(stderr, "check-tree-markers:   "+l)
 		}
-		Reason(env, "dispatch-left-paths-changed-or")
+		Reason(env, "dispatch-left-stray-paths")
 		return 1
 	}
 	fmt.Fprintln(stderr, "check-tree-markers: the tree's recorded markers changed across the dispatch -- the dispatch's own clean-or-restored claim is not evidence; stop and recover by hand from before the dispatch")

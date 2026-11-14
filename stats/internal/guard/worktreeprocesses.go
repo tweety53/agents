@@ -156,7 +156,7 @@ func worktreeProcesses(args []string, env Env, stdout, stderr io.Writer, atOrUnd
 	cmd.Dir = env.Dir
 	out, err := cmd.Output()
 	if rc := exitCode(err); rc != 0 {
-		return die("lsof-d-cwd-fpn-exited", "lsof -d cwd -Fpn exited %d — the process table could not be read, which is not the same as finding nothing", rc)
+		return die("lsof-failed", "lsof -d cwd -Fpn exited %d — the process table could not be read, which is not the same as finding nothing", rc)
 	}
 
 	var held []string
