@@ -1,6 +1,6 @@
 ---
 name: flow
-description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, then integrate and clean up across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
+description: Single-command pipeline — brainstorm, implement behind the decided review panel (a micro change's from the settings store), then integrate and clean up across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
 allowed-tools: Bash(spectre:*), Bash(flow:*)
 license: MIT
 ---
