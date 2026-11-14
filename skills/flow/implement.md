@@ -309,8 +309,8 @@ git -C <worktree> push --force-with-lease origin spectre/<name>
 **Run the push as its own Bash call, never chained, with the lease pinned to the remote's pre-rebase sha** —
 `--force-with-lease=spectre/<name>:<old-remote-sha>`, `<old-remote-sha>` read from `git -C <worktree> ls-remote --heads origin spectre/<name>` before the push — <!-- citations-guard:allow --> so the permission layer sees a bounded overwrite of the change's own branch. A denial of that form is a defect to cure by retrying in that form, never a question to the operator (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
 
-Exit 1 is a `CONFLICT`, handled as the **Conflict** bullet of **Check base movement first**
-(`skills/flow/review-panel.md`) states, and the run stops for the operator. Exit 2 or 3 stops the
+Exit 1 is a `CONFLICT`, which is resolved in place as **Check base movement first**
+(`skills/flow/review-panel.md`) states; only its stop-and-ask cases stop the run. Exit 2 or 3 stops the
 run with its output named.
 
 **Whether there is anything left to implement is read off the task checkboxes**, from

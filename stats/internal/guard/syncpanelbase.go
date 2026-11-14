@@ -38,8 +38,8 @@ import (
 //          this with --rebase and the newest merge base.
 // A rebase that stops on a conflict prints
 //   CONFLICT: <worktree> — onto <sha>; unmerged: <paths>
-// and exits 1, the worktree left mid-rebase exactly as git left it — never
-// resolve it; hand it off.
+// and exits 1, the worktree left mid-rebase exactly as git left it — the
+// caller resolves it in place and re-runs this with the CONFLICT line's sha.
 //
 // Exit 0 settled (CLEAR, or REBASED then CLEAR); 1 CONFLICT; 3 an overlap
 // awaiting the operator; 2 everything else — usage, a base branch
