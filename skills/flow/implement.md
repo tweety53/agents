@@ -419,6 +419,10 @@ description sync and plan growth, and a first run marks nothing there.
 flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+`flow record dispatch begin` refuses an implementer row keyed `task-…` or `operator-…` while no
+`flow.sdd-tdd` run of the change is open, under any of `/flow`, `/flow-fast` and
+`/flow-interactive`.
+
 **The parent performs every `- [ ] Parent:` line in `design.md`** (**An action a decision gives the
 parent is a tracked line, never prose alone**, in **D. Basic Workflow #3 — Writing plans**,
 `skills/flow/brainstorm-planner.md`) at the stage the line names — before the first task dispatch when it names none — and ticks it `- [x]` in place once

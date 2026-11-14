@@ -7813,6 +7813,10 @@ func recordServer(t *testing.T, record *string) (*httptest.Server, *[]map[string
 			_, _ = w.Write([]byte("[]"))
 			return
 		}
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/stage-runs") {
+			_, _ = w.Write([]byte(`{"stageRuns":[{"startedAt":"2026-01-01T00:00:00Z"}]}`))
+			return
+		}
 		if r.Method == http.MethodGet {
 			if *record == "" {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -8478,6 +8482,8 @@ func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
 			switch {
 			case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions"):
 				_, _ = w.Write([]byte("[]"))
+			case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/stage-runs"):
+				_, _ = w.Write([]byte(`{"stageRuns":[{"startedAt":"2026-01-01T00:00:00Z"}]}`))
 			case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/changes/"):
 				body, _ := json.Marshal(map[string]any{"worktrees": map[string]string{clone: "abc123"}})
 				_, _ = w.Write(body)
@@ -8541,6 +8547,8 @@ func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
 			switch {
 			case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions"):
 				_, _ = w.Write([]byte("[]"))
+			case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/stage-runs"):
+				_, _ = w.Write([]byte(`{"stageRuns":[{"startedAt":"2026-01-01T00:00:00Z"}]}`))
 			case r.Method == http.MethodGet:
 				_, _ = w.Write([]byte(`{"dispatches":[{"seq":1,"key":"panel-3-merger","role":"merger","model":"opus","outcome":"completed","startedAt":"2026-01-02T03:04:05Z","endedAt":"2026-01-02T03:05:05Z"}]}`))
 			case strings.HasSuffix(r.URL.Path, "/passes"):
@@ -8697,6 +8705,72 @@ func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
 			}
 			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
 				t.Error("a refused begin wrote a record journal")
+			}
+		})
+	}
+}
+
+// TestRecordDispatchBeginRefusesImplementationOutsideSddTdd pins that a live
+// task- or operator- implementer row begins only while some flow.sdd-tdd run
+// of the change is open, and a failed stage-runs read never refuses
+// (self-review-kan-1110 F8).
+func TestRecordDispatchBeginRefusesImplementationOutsideSddTdd(t *testing.T) {
+	ended := `{"stageRuns":[{"startedAt":"2026-11-14T10:00:00Z","endedAt":"2026-11-14T11:00:00Z"}]}`
+	open := `{"stageRuns":[{"startedAt":"2026-11-14T10:00:00Z"}]}`
+	cases := []struct {
+		name    string
+		runs    map[string]string // command -> body; "" answers 500
+		args    []string
+		code    int
+		refused bool
+	}{
+		{"task, none open", map[string]string{"/flow": ended, "/flow-fast": ended, "/flow-interactive": ended},
+			[]string{"-role", "implementer", "-key", "task-1-implementer"}, 2, true},
+		{"task, flow-fast open", map[string]string{"/flow": ended, "/flow-fast": open, "/flow-interactive": ended},
+			[]string{"-role", "implementer", "-key", "task-1-implementer"}, 0, false},
+		{"operator, none open", map[string]string{"/flow": ended, "/flow-fast": ended, "/flow-interactive": ended},
+			[]string{"-role", "implementer", "-key", "operator-1"}, 2, true},
+		{"self-review fixer", map[string]string{"/flow": ended, "/flow-fast": ended, "/flow-interactive": ended},
+			[]string{"-role", "implementer", "-key", "self-review-x-fix"}, 0, false},
+		{"panel-fix", map[string]string{"/flow": ended, "/flow-fast": ended, "/flow-interactive": ended},
+			[]string{"-role", "panel-fix", "-key", "panel-fix-1"}, 0, false},
+		{"read fails", map[string]string{"/flow": "", "/flow-fast": "", "/flow-interactive": ""},
+			[]string{"-role", "implementer", "-key", "task-1-implementer"}, 0, false},
+		{"back-fill", map[string]string{"/flow": ended, "/flow-fast": ended, "/flow-interactive": ended},
+			[]string{"-role", "implementer", "-key", "task-1-implementer", "-started-at", "2026-11-14T12:00:00Z"}, -1, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := recordRepo(t, "kan-327")
+			isolatedStateRoot(t)
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasSuffix(r.URL.Path, "/stage-runs") {
+					body := tc.runs[r.URL.Query().Get("command")]
+					if body == "" {
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte(body))
+					return
+				}
+				if strings.HasSuffix(r.URL.Path, "/decisions") {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus","startedAt":"2026-01-02T03:04:05Z"}`))
+			}))
+			defer srv.Close()
+			args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-327", "-session-token", "mf-record-inline", "-agent-id", "none", "-model", "opus", "-effort", "low"}, tc.args...)
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			if tc.code >= 0 && code != tc.code {
+				t.Errorf("exit %d, want %d\n%s", code, tc.code, stderr.String())
+			}
+			if got := strings.Contains(stderr.String(), "no open flow.sdd-tdd run"); got != tc.refused {
+				t.Errorf("refused=%v, want %v\n%s", got, tc.refused, stderr.String())
 			}
 		})
 	}

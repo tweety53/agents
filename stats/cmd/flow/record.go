@@ -1424,6 +1424,17 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	// brainstorm-planner.md, Decide), and so is a model the cap cannot rank.
 	// The cap limits dispatches, not the parent: an inline row is exempt.
 	// One read serves both checks.
+	// Implementation begins only inside an open flow.sdd-tdd: a live task-
+	// or operator- implementer row is refused while every flow.sdd-tdd run
+	// of the change under /flow, /flow-fast and /flow-interactive is ended
+	// (skills/flow/implement.md; self-review-kan-1110 F8). Any failed read
+	// skips the check.
+	if *startedAt == "" && *role == "implementer" && (strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "operator-")) &&
+		!sddTddOpen(ctx, f, projectKey) {
+		fmt.Fprintf(stderr, "flow: -key %q begins implementation while the change has no open flow.sdd-tdd run — begin the stage first (skills/flow/implement.md)\n", *key)
+		return 2
+	}
+
 	if *startedAt == "" {
 		if d, ok := latestDecision(ctx, f, projectKey); ok {
 			var execution string
@@ -3761,6 +3772,26 @@ func runRecordSummary(ctx context.Context, args []string, stdin io.Reader, stdou
 		fmt.Fprintf(stdout, "recorded: summary %d\n", out.ID)
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "summary", in, stderr)
+}
+
+// sddTddOpen is false only when the change's flow.sdd-tdd runs under
+// /flow, /flow-fast and /flow-interactive were all read and none is open; a
+// failed read answers true, so it never refuses.
+func sddTddOpen(ctx context.Context, f recordIdentityFlags, projectKey string) bool {
+	for _, cmd := range []string{"/flow", "/flow-fast", "/flow-interactive"} {
+		runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
+			return cl.ListStageRuns(ctx, projectKey, f.change, cmd, "flow.sdd-tdd")
+		})
+		if err != nil {
+			return true
+		}
+		for _, r := range runs {
+			if r.EndedAt == nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // latestDecision is the change's newest recorded decision (highest ID) as
