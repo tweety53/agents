@@ -39,6 +39,45 @@ func TestRecordGuardRunRefusesAnInvalidRun(t *testing.T) {
 	}
 }
 
+// TestRecordGuardRunStoresReasons pins guard_runs.reasons: the run's ids
+// come back in the order recorded, an absent or empty list is stored NULL
+// (read back nil, never an empty slice), and an empty id is refused
+// (decisions reasons-array, reason-nullable).
+func TestRecordGuardRunStoresReasons(t *testing.T) {
+	st := newTestStore(t)
+	projectKey := fmt.Sprintf("proj-grrsn-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	ctx := context.Background()
+
+	in := guardRun("check-plan-shape", "fired", 1, 1, time.Now())
+	in.Reasons = []string{"F2", "plan-step-files"}
+	got, err := st.RecordGuardRun(ctx, projectKey, in)
+	if err != nil {
+		t.Fatalf("RecordGuardRun: %v", err)
+	}
+	if !slices.Equal(got.Reasons, []string{"F2", "plan-step-files"}) {
+		t.Errorf("reasons = %q, want [F2 plan-step-files]", got.Reasons)
+	}
+
+	for name, reasons := range map[string][]string{"nil": nil, "empty": {}} {
+		in := guardRun("check-plan-shape", "clear", 0, 1, time.Now())
+		in.Reasons = reasons
+		got, err := st.RecordGuardRun(ctx, projectKey, in)
+		if err != nil {
+			t.Fatalf("%s: RecordGuardRun: %v", name, err)
+		}
+		if got.Reasons != nil {
+			t.Errorf("%s: reasons = %#v, want nil (stored NULL)", name, got.Reasons)
+		}
+	}
+
+	in = guardRun("check-plan-shape", "fired", 1, 1, time.Now())
+	in.Reasons = []string{"F2", ""}
+	if _, err := st.RecordGuardRun(ctx, projectKey, in); !errors.Is(err, store.ErrInvalidGuardRun) {
+		t.Errorf("empty id: err = %v, want ErrInvalidGuardRun", err)
+	}
+}
+
 func recordGuardRuns(t *testing.T, st *store.Store, projectKey string, runs ...records.GuardRun) {
 	t.Helper()
 	for _, r := range runs {

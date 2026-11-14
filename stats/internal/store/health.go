@@ -26,7 +26,8 @@ var ErrProjectNotFound = errors.New("store: project not found")
 
 // ErrInvalidGuardRun is returned by RecordGuardRun for a run outside what
 // 0032_guard_runs.sql accepts -- an empty guard or worktree, an outcome
-// outside records.GuardRunOutcomes, or a negative duration -- checked here
+// outside records.GuardRunOutcomes, a negative duration, or an empty
+// reason id (0064_guard_run_reasons.sql) -- checked here
 // so the caller gets a 400 naming the field rather than a constraint
 // violation.
 var ErrInvalidGuardRun = errors.New("store: invalid guard run")
@@ -45,6 +46,14 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 	if in.DurationMS < 0 {
 		return records.GuardRun{}, fmt.Errorf("%w: durationMs must not be negative", ErrInvalidGuardRun)
 	}
+	if slices.Contains(in.Reasons, "") {
+		return records.GuardRun{}, fmt.Errorf("%w: reasons must not hold an empty id", ErrInvalidGuardRun)
+	}
+	// An absent or empty list is stored NULL, never '{}' (decision reason-nullable).
+	var reasons []string
+	if len(in.Reasons) > 0 {
+		reasons = in.Reasons
+	}
 	recordedAt := in.RecordedAt
 	if recordedAt.IsZero() {
 		recordedAt = time.Now()
@@ -52,12 +61,12 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 
 	out := in
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at)
-		SELECT p.project_key, $2, $3, $4, $5, $6, $7
+		INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons)
+		SELECT p.project_key, $2, $3, $4, $5, $6, $7, $8
 		FROM projects p
 		WHERE p.project_key = $1
-		RETURNING id, recorded_at
-	`, projectKey, in.Guard, in.Worktree, in.ExitCode, in.Outcome, in.DurationMS, recordedAt).Scan(&out.ID, &out.RecordedAt)
+		RETURNING id, recorded_at, reasons
+	`, projectKey, in.Guard, in.Worktree, in.ExitCode, in.Outcome, in.DurationMS, recordedAt, reasons).Scan(&out.ID, &out.RecordedAt, &out.Reasons)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return records.GuardRun{}, fmt.Errorf("%w: %s", ErrProjectNotFound, projectKey)

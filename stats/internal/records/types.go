@@ -634,7 +634,10 @@ func CostStatusOf(r Run) CostStatus {
 // answer that does not depend on each guard remembering to record one.
 //
 // Outcome is one of GuardRunOutcomes. RecordedAt is the caller's own
-// timestamp, as Verdict.RecordedAt is.
+// timestamp, as Verdict.RecordedAt is. Reasons is the guard_runs.reasons
+// column (0064_guard_run_reasons.sql): the distinct reason ids the run
+// recorded, in first-seen order; nil (stored NULL) on a clear run and on a
+// post from a binary that predates the column.
 type GuardRun struct {
 	ID         int64     `json:"id"`
 	Guard      string    `json:"guard"`
@@ -643,6 +646,7 @@ type GuardRun struct {
 	Outcome    string    `json:"outcome"`
 	DurationMS int       `json:"durationMs"`
 	RecordedAt time.Time `json:"recordedAt"`
+	Reasons    []string  `json:"reasons,omitempty"`
 }
 
 // GuardRunOutcomes is the closed set GuardRun.Outcome accepts -- the same
