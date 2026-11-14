@@ -70,6 +70,15 @@ check "disclose: land's run 2 stops once, naming a and b" \
 check "disclose: b is not removed before its answer" '[ -f "$WORK/b-worktrees/demo/secret.txt" ]'
 sut cleanup "$WORK/a" demo --proceed "$WORK/a" --proceed "$WORK/b"
 check "disclose: one re-run with --proceed for both finishes" '[ "$RC" -eq 0 ] && [ ! -d "$WORK/a-worktrees/demo" ] && [ ! -d "$WORK/b-worktrees/demo" ] && [ "$(jq -r .state "$WORK/state.json")" = FINISHED ]'`},
+		{"disclose_then_failure", `# --- disclose_then_failure ---
+fixture
+printf 'secret.txt\n' >>"$WORK/a/.git/info/exclude"
+printf 'irreplaceable\n' >"$WORK/a-worktrees/demo/secret.txt"
+to_land "disclose_then_failure: "
+printf 'dirty\n' >>"$WORK/b-worktrees/demo/base.txt"
+sut land "$WORK/a" demo
+check "disclose_then_failure: b's failure stop also names a's pending disclosure" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: worktree-cleanup — remove-change-worktrees exit 1 for $WORK/b .*; also pending disclosure for $WORK/a — "'`},
 		{"rerun_leftover", `# --- rerun_leftover ---
 fixture
 to_land "rerun_leftover: "

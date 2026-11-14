@@ -94,7 +94,11 @@ func (c *ic) cleanup() {
 		case 3:
 			disclose = append(disclose, m)
 		default:
-			c.stop("worktree-cleanup", fmt.Sprintf("remove-change-worktrees exit %d for %s — report its lines; every worktree it refused is left alone", c.rc, m))
+			pending := ""
+			if len(disclose) > 0 {
+				pending = "; also pending disclosure for " + strings.Join(disclose, ", ") + " — relay its UNCLASSIFIED and DISCLOSE lines and ask only what they ask"
+			}
+			c.stop("worktree-cleanup", fmt.Sprintf("remove-change-worktrees exit %d for %s — report its lines; every worktree it refused is left alone%s", c.rc, m, pending))
 		}
 	}
 	if len(disclose) > 0 {
