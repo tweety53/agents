@@ -211,10 +211,12 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 			shown = "<missing>"
 		}
 		fmt.Fprintf(stderr, "%snot a directory: %s\n", pcPrefix, shown)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	if name == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard check-panel-reproducer-exit-contract <worktree> <change-name>")
+		Reason(env, "usage")
 		return 2
 	}
 	// CONTAINMENT, the same allowlist check-panel-reproducers and
@@ -229,11 +231,13 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	// symlinked-TMPDIR reasons both siblings record.
 	if !plainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", pcPrefix, name)
+		Reason(env, "change-name")
 		return 2
 	}
 	worktree, err := filepath.EvalSymlinks(pcAbs(env, worktreeArg))
 	if err != nil {
 		fmt.Fprintf(stderr, "%sworktree vanished before it could be resolved: %s\n", pcPrefix, worktreeArg)
+		Reason(env, "worktree-vanished-before-it-could")
 		return 2
 	}
 
@@ -274,16 +278,19 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 		} else {
 			fmt.Fprintf(stderr, "%sthe store has no record of change '%s' under this worktree's project (flow exit %d%s) — a cross-repo change's guards answer only through its canonical worktree\n", pcPrefix, name, stateRC, flowSaid)
 		}
+		Reason(env, "cannot-run-the-flow-cli")
 		return 2
 	}
 	var state map[string]json.RawMessage
 	if json.Unmarshal(bytes.TrimRight(stateOut, "\n"), &state) != nil || state == nil {
 		fmt.Fprintf(stderr, "%scannot read the state record for '%s' — cannot determine anything%s\n", pcPrefix, name, flowSaid)
+		Reason(env, "cannot-read-the-state-record")
 		return 2
 	}
 	recorded, ok := pcWorktreeKeys(state["worktrees"])
 	if !ok {
 		fmt.Fprintln(stderr, pcJQFailed)
+		Reason(env, "records-unparseable")
 		return 2
 	}
 	// THE PREFIX INDEX (KAN-795). A cross-repo change's panel prefixes a
@@ -340,11 +347,13 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	findingsText := strings.TrimRight(string(findingsJSON), "\n")
 	if err != nil {
 		fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", pcPrefix, name, findingsText)
+		Reason(env, "cannot-read-findings-for")
 		return 2
 	}
 	findings, ok := pcParseFindings([]byte(findingsText))
 	if !ok {
 		fmt.Fprintln(stderr, pcJQFailed)
+		Reason(env, "records-unparseable")
 		return 2
 	}
 
@@ -498,12 +507,14 @@ func checkPanelReproducerExitContract(args []string, env Env, stdout, stderr io.
 	// partial verdict printed at exit 1 would read as a completed check.
 	if cannotAnswer != "" {
 		fmt.Fprintf(stderr, "%scannot determine anything — %s\n", pcPrefix, cannotAnswer)
+		Reason(env, "cannot-determine-anything")
 		return 2
 	}
 	if len(violations) > 0 {
 		for _, v := range violations {
 			fmt.Fprintf(stderr, "%s%s\n", pcPrefix, v)
 		}
+		Reason(env, "exit-contract-violations")
 		return 1
 	}
 	// The count is what the loop above actually ran and credited — never a

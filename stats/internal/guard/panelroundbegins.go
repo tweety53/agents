@@ -72,6 +72,7 @@ var prbRound = regexp.MustCompile(`^[0-9]+$`)
 func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 5 || !prbRound.MatchString(args[2]) {
 		fmt.Fprint(stderr, prbUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	wt, change, round, token := args[0], args[1], args[2], args[3]
@@ -81,6 +82,7 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 		f := strings.Split(spec, ":")
 		if len(f) < 3 || len(f) > 4 || f[0] == "" || f[1] == "" || f[2] == "" {
 			fmt.Fprintf(stderr, "panel-round-begins: slot %q is not <slot>:<model>:<effort>[:<diff-base>]\n%s", spec, prbUsage)
+			Reason(env, "slot-is-not-slot")
 			return 2
 		}
 		s := slot{name: f[0], model: f[1], effort: f[2]}
@@ -96,6 +98,7 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 			for _, role := range strings.Split(s.name, "+") {
 				if !slices.Contains(v.Roster, role) {
 					fmt.Fprintf(stderr, "panel-round-begins: slot %s carries %s, which this fix run's judged roster (%s) omits — no begin recorded (flow-guard fix-run-floor)\n", s.name, role, strings.Join(v.Roster, ","))
+					Reason(env, "slot-carries")
 					return 3
 				}
 			}
@@ -114,12 +117,14 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 	if _, err := os.Stat(snap); err != nil || !later {
 		if os.MkdirAll(filepath.Dir(snap), 0o755) != nil || checkPlanUnchanged([]string{"snapshot", wt, change, snap}, env, io.Discard, stderr) != 0 {
 			fmt.Fprintln(stderr, "panel-round-begins: plan-tree snapshot failed — no begin recorded")
+			Reason(env, "plan-tree-snapshot-failed")
 			return 2
 		}
 	}
 	flow, ok := lookPath(env, "flow")
 	if !ok {
 		fmt.Fprintln(stderr, "panel-round-begins: no flow binary on PATH")
+		Reason(env, "no-flow-binary-on-path")
 		return 2
 	}
 	code := 0
@@ -134,6 +139,7 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 		rc, out := kwRun(env, "", flow, argv...)
 		fmt.Fprintf(stdout, "%s: %s\n", key, strings.TrimSpace(out))
 		if rc != 0 {
+			Reason(env, "dispatch-begin-failed")
 			code = 1
 		}
 	}

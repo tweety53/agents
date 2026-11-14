@@ -74,31 +74,32 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 	if capArg == "" { // ${3:-5000}: unset or empty reads as the default
 		capArg = "5000"
 	}
-	fail := func(format string, a ...any) int {
+	fail := func(id, format string, a ...any) int {
+		Reason(env, id)
 		fmt.Fprintf(stderr, "check-panel-diff-size: "+format+"\n", a...)
 		return 2
 	}
 	if worktree == "" {
-		return fail("usage: flow-guard check-panel-diff-size <worktree> <merge-base> [cap]")
+		return fail("usage", "usage: flow-guard check-panel-diff-size <worktree> <merge-base> [cap]")
 	}
 	if !isDir(smcAbs(env, worktree)) {
-		return fail("%s is not a directory", worktree)
+		return fail("not-a-directory", "%s is not a directory", worktree)
 	}
 	git := envGit(env)
 	if git("-C", worktree, "rev-parse", "--git-dir").Run() != nil {
-		return fail("%s is not a directory containing a git repository", worktree)
+		return fail("not-a-directory-containing", "%s is not a directory containing a git repository", worktree)
 	}
 	if mergePoint == "" {
-		return fail("merge base argument is required")
+		return fail("merge-base-argument-is-required", "merge base argument is required")
 	}
 	// Every ref this guard did not choose itself arrives from a caller, so a
 	// value beginning with `-` is read as a ref and rejected rather than
 	// parsed as a git option.
 	if git("-C", worktree, "rev-parse", "--verify", "--end-of-options", mergePoint).Run() != nil {
-		return fail("merge base does not resolve in %s: '%s'", worktree, mergePoint)
+		return fail("merge-base-does-not-resolve", "merge base does not resolve in %s: '%s'", worktree, mergePoint)
 	}
 	if !pdsDecimal.MatchString(capArg) {
-		return fail("cap is not a non-negative decimal integer: '%s'", capArg)
+		return fail("cap-is-not-a-non", "cap is not a non-negative decimal integer: '%s'", capArg)
 	}
 
 	// `git diff <commit>` (no second ref) compares the named commit against
@@ -118,7 +119,7 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 	cmd.Stderr = stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return fail("git diff failed in %s -- cannot answer", worktree)
+		return fail("git-diff-failed-in-cannot", "git diff failed in %s -- cannot answer", worktree)
 	}
 	shortstat := strings.TrimRight(string(out), "\n")
 	total := 0
@@ -138,5 +139,6 @@ func checkPanelDiffSize(args []string, env Env, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintln(stdout, "over cap")
+	Reason(env, "over-cap")
 	return 1
 }

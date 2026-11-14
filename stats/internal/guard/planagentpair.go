@@ -99,20 +99,24 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	auto := len(args) == 5 && args[3] == "auto" && args[2] == "planner"
 	if len(args) != 3 && !(len(args) == 4 && papEfforts[args[3]]) && !auto {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-agent-pair <seed> <n> <explorer|plan-designer|planner> [low|medium|high|xhigh]\n       flow-guard plan-agent-pair <seed> <n> planner auto <round-file>")
+		Reason(env, "usage")
 		return 2
 	}
 	role := args[2]
 	if !papRoles[role] {
 		fmt.Fprintf(stderr, "plan-agent-pair: <role> must be explorer, plan-designer or planner, got %q\n", role)
+		Reason(env, "role-must-be-explorer")
 		return 2
 	}
 	if n, err := strconv.Atoi(args[1]); err != nil || n < 1 {
 		fmt.Fprintf(stderr, "plan-agent-pair: <n> must be a positive integer, got %q\n", args[1])
+		Reason(env, "n-must-be-a-positive")
 		return 2
 	}
 	rows, err := policyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "plan-agent-pair: %v\n", err)
+		Reason(env, "policy-unreadable")
 		return 2
 	}
 	var m []string
@@ -133,6 +137,7 @@ func planAgentPair(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if m == nil {
 		fmt.Fprintf(stderr, "plan-agent-pair: %s names no `<model>/<agent>@<effort>` %s pair\n", mpFile, role)
+		Reason(env, "no-agent-pair")
 		return 2
 	}
 	fmt.Fprintln(stdout, m[1]+" "+m[2])

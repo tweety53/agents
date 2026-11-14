@@ -100,6 +100,7 @@ type pwRow struct{ res, variable, def, cell, value string }
 func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprint(stderr, "Usage: flow-guard prepare-workspace <worktree>\n")
+		Reason(env, "usage")
 		return 2
 	}
 	worktree := args[0]
@@ -110,6 +111,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// `[ -d "" ]` is false: an empty argument is never the cwd.
 	if st, err := os.Stat(abs); worktree == "" || err != nil || !st.IsDir() {
 		fmt.Fprintf(stderr, "prepare-workspace: %s is not a directory\n", worktree)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 
@@ -124,6 +126,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	if guard := env.Getenv("FLOW_GUARD_WORKSPACE_ISOLATION"); guard != "" {
 		if st, err := os.Stat(guard); err != nil || !st.Mode().IsRegular() || syscall.Access(guard, 1) != nil {
 			fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation in %s\n", filepath.Dir(guard))
+			Reason(env, "cannot-find-a-runnable-check")
 			return 2
 		}
 	}
@@ -150,6 +153,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		if guardOut != "" {
 			fmt.Fprintf(stdout, "%s\n", guardOut)
 		}
+		Reason(env, "isolation-refused")
 		return rc
 	}
 
@@ -194,6 +198,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 			got = "detached HEAD"
 		}
 		fmt.Fprintf(stderr, "prepare-workspace: %s is not on a spectre/<name>, self-review-<name> or pipeline-fix-<name>-<k> branch (got '%s') — cannot derive a workspace id without the change name\n", worktree, got)
+		Reason(env, "not-on-a-spectre-name")
 		return 2
 	}
 
@@ -260,6 +265,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 			n, err := strconv.ParseInt(r.def, 10, 64)
 			if err != nil {
 				fmt.Fprintf(stderr, "prepare-workspace: `%s` (port) default %q is not a base-10 integer\n", r.variable, r.def)
+				Reason(env, "port-default-not-integer")
 				return 1
 			}
 			r.value = strconv.FormatInt(n+offset, 10)
@@ -277,6 +283,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		v, err := pwResolveValueRefs(substituteID(rows[i].cell), rows)
 		if err != nil {
 			fmt.Fprintf(stderr, "prepare-workspace: %v\n", err)
+			Reason(env, "value-ref-unresolved")
 			return 2
 		}
 		rows[i].value = v

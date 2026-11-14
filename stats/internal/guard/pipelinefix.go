@@ -120,20 +120,24 @@ func pipelineFix(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "pipeline-fix"
 	if len(args) == 0 {
 		fmt.Fprint(stderr, pfUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if repo == "" {
 		fmt.Fprintf(stderr, "%s: FLOW_GUARD_REPO_ROOT is unset — run flow-guard pipeline-fix, which sets it\n", self)
+		Reason(env, "repo-root-unset")
 		return 2
 	}
 	git, ok := panelResolveGit(env, self, stderr)
 	if !ok {
+		Reason(env, "git-unresolved")
 		return 2
 	}
 	main, ok := lpMain(env, git, repo)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, repo)
+		Reason(env, "not-a-git-checkout")
 		return 2
 	}
 	pe := pfEnv{git: git, main: main}
@@ -157,6 +161,7 @@ func pipelineFix(args []string, env Env, stdout, stderr io.Writer) int {
 		return pfDrop(env, pe, smcAbs(env, rest[0]), stdout, stderr)
 	}
 	fmt.Fprint(stderr, pfUsage)
+	Reason(env, "usage")
 	return 2
 }
 
@@ -190,6 +195,7 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	name := rest[0]
 	if !plainChangeName(name) || (len(rest) == 2 && !lpDigits.MatchString(rest[1])) {
 		fmt.Fprintf(stderr, "%s: <name> must be a plain change name and <k> a number\n", self)
+		Reason(env, "name-must-be-a-plain")
 		return 2
 	}
 	branch := "self-review-" + name
@@ -198,11 +204,13 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	}
 	if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "fetch", "origin"); rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "fetch-failed")
 		return 1
 	}
 	base, ok := pfBase(env, pe.git, pe.main)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
+		Reason(env, "refs-remotes-origin-head")
 		return 2
 	}
 	if len(rest) == 2 {
@@ -210,21 +218,25 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 		highest, ok := pfHighestK(env, pe)
 		if !ok {
 			fmt.Fprintf(stderr, "%s: flowd's change records could not be read in full (flow state list answered from no store, or incompletely) — <k> cannot be checked\n", self)
+			Reason(env, "flowd")
 			return 2
 		}
 		if want := highest + 1; k != want {
 			fmt.Fprintf(stderr, "%s: <k> is %d — one more than the highest <n> of any pipeline-fix-*-<n> branch, flowd change record or worktree — not %d\n", self, want, k)
+			Reason(env, "wrong-k")
 			return 1
 		}
 	}
 	physical, err := filepath.EvalSymlinks(pe.main)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
+		Reason(env, "cannot-resolve-main")
 		return 2
 	}
 	wt := filepath.Join(siblingRoot(physical), branch)
 	if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "worktree", "add", "-b", branch, wt, base); rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "worktree-add-failed")
 		return 1
 	}
 	// The loop's change must have a checkout before its first row: flow
@@ -232,15 +244,18 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	// only exists once the planner commits.
 	if err := os.MkdirAll(filepath.Join(wt, ".superpowers", "sdd", branch), 0o755); err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", self, err)
+		Reason(env, "cannot-create-sdd-dir")
 		return 1
 	}
 	rc, out := kwRun(env, "", pe.git, "-C", wt, "rev-parse", "HEAD")
 	if rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "head-unresolved")
 		return 1
 	}
 	if rc, out := pfState(env, wt, branch, pfRecord("STARTED", branch, map[string]string{wt: strings.TrimSpace(out)})); rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "state-write-failed")
 		return 1
 	}
 	if rc := kwSetup(env, wt, self, stderr); rc != 0 {
@@ -306,6 +321,7 @@ func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix 
 	rows, err := policyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "pipeline-fix: %v\n", err)
+		Reason(env, "policy-unreadable")
 		return lpLoop{}, "", false, 2
 	}
 	lp, suffix, role, msg, ok := lpFromKey(env, pe.git, pe.main, key)
@@ -314,6 +330,7 @@ func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix 
 			msg = key + " is no loop key"
 		}
 		fmt.Fprintf(stderr, "pipeline-fix: %s\n", msg)
+		Reason(env, "not-a-loop-key")
 		return lpLoop{}, "", false, 1
 	}
 	return lp, suffix, lpEscalatable(rows, role), 0
@@ -351,11 +368,13 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 		o, err := pfReviewOutcome(outcome)
 		if err != nil {
 			fmt.Fprintf(stderr, "pipeline-fix end: %s takes its reviewer's report file, or aborted: %v\n", key, err)
+			Reason(env, "pipeline-fix-end")
 			return 2
 		}
 		outcome = o
 	} else if want := []string{"completed", "aborted"}; lpFamily(suffix) != "review" && !slices.Contains(want, outcome) {
 		fmt.Fprintf(stderr, "pipeline-fix end: %s takes outcome %s\n", key, strings.Join(want, " or "))
+		Reason(env, "pipeline-fix-end")
 		return 2
 	}
 	main, change := lp.main, lp.change
@@ -366,6 +385,7 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 		"-key", key, "-session-token", lp.token, "-outcome", outcome)
 	fmt.Fprint(stdout, string(out))
 	if frc != 0 {
+		Reason(env, "dispatch-end-failed")
 		return 1
 	}
 	// An own-branch self-review has no loop worktree for pfRemove to clear
@@ -383,20 +403,24 @@ func pfEscalate(env Env, pe pfEnv, key string, stdout, stderr io.Writer) int {
 	}
 	if !escalatable {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: the allowed-pairs table admits no escalation for %s\n", key)
+		Reason(env, "pipeline-fix-escalate")
 		return 1
 	}
 	rows, ok := lpRows(env, lp.main, lp)
 	if !ok {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: flow record dispatches -change %s failed -- cannot answer\n", lp.change)
+		Reason(env, "pipeline-fix-escalate")
 		return 2
 	}
 	// No progress needs an earlier round of the same kind to have made none.
 	if !lpEarlierRound(lp, suffix, rows) {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: %s has no completed earlier round to escalate from\n", key)
+		Reason(env, "pipeline-fix-escalate")
 		return 1
 	}
 	if rc, out := kwRun(env, "", pe.git, "-C", lp.main, "config", "--add", "flow.escalation", lp.token+":"+key); rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "config-write-failed")
 		return 1
 	}
 	fmt.Fprintf(stdout, "escalated: %s\n", key)
@@ -436,6 +460,7 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	var body bytes.Buffer
 	get.Stdout = &body
 	if rc := exitCode(get.Run()); rc != 0 {
+		Reason(env, "project-get-failed")
 		return nil, 2
 	}
 	has := func(pred func(string) bool) bool { return slices.ContainsFunc(touched, pred) }
@@ -514,16 +539,19 @@ func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	base, ok := pfBase(env, pe.git, wt)
 	if !ok {
 		fmt.Fprint(stderr, "pipeline-fix verify: refs/remotes/origin/HEAD is unset\n")
+		Reason(env, "pipeline-fix-verify")
 		return 2
 	}
 	touched, ok := pfTouched(env, pe, wt, base)
 	if !ok {
 		fmt.Fprintf(stderr, "pipeline-fix verify: cannot diff %s against %s\n", wt, base)
+		Reason(env, "pipeline-fix-verify")
 		return 2
 	}
 	cmds, rc := pfChecks(env, pe, wt, touched)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "pipeline-fix verify: project-get cannot read %s's ## lint\n", wt)
+		Reason(env, "pipeline-fix-verify")
 		return 2
 	}
 	red := 0
@@ -566,6 +594,7 @@ func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		}
 	}
 	if red > 0 {
+		Reason(env, "checks-red")
 		return 1
 	}
 	return 0
@@ -597,6 +626,7 @@ func pfRemove(env Env, pe pfEnv, wt, branch string, force bool, stderr io.Writer
 				out = fmt.Sprintf("git %s exited %d\n", strings.Join(a, " "), rc)
 			}
 			fmt.Fprint(stderr, out)
+			Reason(env, "git-exited")
 			return 1
 		}
 	}
@@ -613,11 +643,13 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 	const self = "pipeline-fix land"
 	branch, lp, ok := pfLoopWorktree(env, pe, wt, self, stderr)
 	if !ok {
+		Reason(env, "not-a-loop-worktree")
 		return 2
 	}
 	pipeline := lpPipelineBranch.FindStringSubmatch(branch)
 	if (pipeline != nil && grade != "important" && grade != "minor") || (pipeline == nil && grade != "") {
 		fmt.Fprint(stderr, pfUsage)
+		Reason(env, "usage")
 		return 2
 	}
 	get := siblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "default landing route")
@@ -626,38 +658,45 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 	_ = get.Run()
 	if first, _, _ := strings.Cut(strings.TrimSpace(route.String()), "\n"); strings.TrimSpace(first) != "merge and push" {
 		fmt.Fprintf(stderr, "%s: the default landing route is %q, not merge and push — land it by that route\n", self, first)
+		Reason(env, "default-landing-route")
 		return 1
 	}
 	base, ok := pfBase(env, pe.git, pe.main)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: refs/remotes/origin/HEAD is unset\n", self)
+		Reason(env, "refs-remotes-origin-head")
 		return 2
 	}
 	if rc, out := kwRun(env, "", pe.git, "-C", wt, "fetch", "origin"); rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "fetch-failed")
 		return 1
 	}
 	if rc, _ := kwRun(env, "", pe.git, "-C", wt, "merge-base", "--is-ancestor", base, "HEAD"); rc != 0 {
 		if rc, out := kwRun(env, "", pe.git, "-C", wt, "rebase", base); rc != 0 {
 			kwRun(env, "", pe.git, "-C", wt, "rebase", "--abort")
 			fmt.Fprintf(stderr, "%s: rebase onto %s stopped — resolve it in %s, then land again\n%s", self, base, wt, out)
+			Reason(env, "rebase-onto-stopped")
 			return 1
 		}
 	}
 	// The lint lines and tests run on what is about to land, moved base or not.
 	if rc := pfVerify(env, pe, wt, stdout, stderr); rc != 0 {
 		fmt.Fprintf(stderr, "%s: red against %s — nothing pushed\n", self, base)
+		Reason(env, "red-against")
 		return 1
 	}
 	rows, ok := lpRows(env, pe.main, lp)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer\n", self, lp.change)
+		Reason(env, "flow-record-dispatches-change-failed")
 		return 2
 	}
 	if refusals := lpLandingRefusals(lp, rows); len(refusals) > 0 {
 		for _, r := range refusals {
 			fmt.Fprintf(stdout, "LOOP-LANDING-REFUSED: %s\n", r)
 		}
+		Reason(env, "loop-landing-refused")
 		return 1
 	}
 	if rc := pfUnfolded(env, pe, lp, rows, wt, base, stdout, stderr); rc != 0 {
@@ -671,6 +710,7 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 	target := strings.TrimPrefix(base, "origin/")
 	if rc, out := kwRun(env, "", pe.git, "-C", wt, "push", "origin", branch+":"+target); rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "push-failed")
 		return 1
 	}
 	_, sha := kwRun(env, "", pe.git, "-C", wt, "rev-parse", "HEAD")
@@ -700,10 +740,12 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 	if pulled {
 		_, now := kwRun(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
 		if restartFlowdIfStatsMoved(env, pe.main, strings.TrimSpace(old), strings.TrimSpace(now), stdout, stderr) != 0 {
+			Reason(env, "flowd-restart-failed")
 			return 1
 		}
 	}
 	if !recorded {
+		Reason(env, "dispatch-unrecorded")
 		return 1
 	}
 	return 0
@@ -727,6 +769,7 @@ func pfUnfolded(env Env, pe pfEnv, lp lpLoop, rows []lpDispatch, wt, base string
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "pipeline-fix land: cannot read tasks.md for %s -- cannot answer\n", lp.change)
+		Reason(env, "pipeline-fix-land")
 		return 2
 	}
 	subjects := map[string]bool{}
@@ -772,6 +815,7 @@ func restartFlowdIfStatsMoved(env Env, main, old, new string, stdout, stderr io.
 	if rc, out := kwRun(env, "", mk, "-C", dir, "restart"); rc != 0 {
 		fmt.Fprint(stderr, out)
 		fmt.Fprintf(stdout, "FLOWD-RESTART-FAILED: make -C %s restart exited %d — run it by hand\n", dir, rc)
+		Reason(env, "flowd-restart-failed")
 		return 1
 	}
 	fmt.Fprintf(stdout, "FLOWD-RESTARTED: %s\n", dir)
@@ -785,11 +829,13 @@ func pfDrop(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	const self = "pipeline-fix drop"
 	branch, lp, ok := pfLoopWorktree(env, pe, wt, self, stderr)
 	if !ok {
+		Reason(env, "not-a-loop-worktree")
 		return 2
 	}
 	if m := pfNumbered.FindStringSubmatch(branch); m != nil {
 		if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "config", "--add", "flow.loop-k-used", m[1]); rc != 0 {
 			fmt.Fprint(stderr, out)
+			Reason(env, "config-write-failed")
 			return 1
 		}
 	}
@@ -797,6 +843,7 @@ func pfDrop(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	rec["withdrawn"] = true
 	if rc, out := pfState(env, pe.main, lp.change, rec); rc != 0 {
 		fmt.Fprint(stderr, out)
+		Reason(env, "state-write-failed")
 		return 1
 	}
 	if rc := pfRemove(env, pe, wt, branch, true, stderr); rc != 0 {

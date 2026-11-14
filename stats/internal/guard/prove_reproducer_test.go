@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -659,5 +660,25 @@ func TestPRReleaseFIFOWithNoReaderReturns(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("prReleaseFIFO blocked past 5s on a FIFO with no reader")
+	}
+}
+
+// TestProveReproducerRecordsItsReason pins prove-reproducer's reason ids
+// (decision reason-id-shape): a run with no arguments records usage, and a
+// worktree naming no directory records not-a-directory -- each alone.
+func TestProveReproducerRecordsItsReason(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "usage"},
+		{[]string{filepath.Join(t.TempDir(), "absent"), "HEAD", "r.sh"}, "not-a-directory"},
+	} {
+		r := &Reasons{}
+		res := runGuard("prove-reproducer", c.args, Env{Getenv: os.Getenv, Reasons: r})
+		if res.rc != 2 || !slices.Equal(r.IDs(), []string{c.want}) {
+			t.Errorf("args %q: rc=%d recorded %q; want 2 and [%s]", c.args, res.rc, r.IDs(), c.want)
+		}
 	}
 }

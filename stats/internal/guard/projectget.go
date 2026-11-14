@@ -75,11 +75,13 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	enum := len(args) > 3 && args[2] == "--enum"
 	if len(args) != 2 && !enum {
 		fmt.Fprintln(stderr, "usage: flow-guard project-get <project-root> <key>")
+		Reason(env, "usage")
 		return 2
 	}
 	root, key := args[0], args[1]
 	if !isDir(smcAbs(env, root)) {
 		fmt.Fprintf(stderr, "project-get: %s is not a directory\n", root)
+		Reason(env, "not-a-directory")
 		return 2
 	}
 	cfg := root + "/.flow/project.md"
@@ -96,6 +98,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 			tmp, err := pgHead(git("-C", root, "show", obj))
 			if err != nil {
 				fmt.Fprintf(stderr, "project-get: cannot read %s in %s: %v\n", obj, root, err)
+				Reason(env, "cannot-read-in")
 				return 2
 			}
 			defer os.Remove(tmp)
@@ -110,6 +113,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	found := err == nil
 	if !found {
 		fmt.Fprintf(stderr, "project-get: %s does not exist\n", cfg)
+		Reason(env, "does-not-exist")
 		return 1
 	}
 	count := 0
@@ -121,11 +125,12 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	switch count {
 	case 0:
 		fmt.Fprintf(stderr, "project-get: %s declares no '## %s' section\n", cfg, key)
+		Reason(env, "declares-no")
 		return 1
 	case 1:
 		body := projectSection(src, key)
 		if enum {
-			return pgEnum(body, key, args[3:], stdout, stderr)
+			return pgEnum(env, body, key, args[3:], stdout, stderr)
 		}
 		if body != "" {
 			fmt.Fprintln(stdout, body)
@@ -133,6 +138,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintf(stderr, "project-get: %s declares %d '## %s' sections — a second declaration is ambiguous, so neither was read\n", cfg, count, key)
+	Reason(env, "section-declared-twice")
 	return 2
 }
 
@@ -145,7 +151,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 // literal on the head line is for the reader, never read (kan-716). When
 // several literals match, the longest wins, so a literal that word-boundedly
 // opens a longer one never shadows it.
-func pgEnum(body, key string, literals []string, stdout, stderr io.Writer) int {
+func pgEnum(env Env, body, key string, literals []string, stdout, stderr io.Writer) int {
 	head, _, _ := strings.Cut(body, "\n")
 	head = strings.TrimSpace(strings.Trim(strings.TrimSpace(head), "`"))
 	best, found := "", false
@@ -156,6 +162,7 @@ func pgEnum(body, key string, literals []string, stdout, stderr io.Writer) int {
 	}
 	if !found {
 		fmt.Fprintf(stderr, "project-get: '## %s' head '%s' matches none of: '%s'\n", key, head, strings.Join(literals, "' '"))
+		Reason(env, "no-literal-matches")
 		return 3
 	}
 	fmt.Fprintln(stdout, best)
