@@ -751,8 +751,10 @@ its round is never clean.
 
 A second breach of the same slot is a prompt, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
-its recommended **Re-dispatch it again**; a third breach of the same slot is asked, under that
-contract's never-repeats clause.
+its recommended **Re-dispatch it again**; a third breach of the same slot is not asked: the slot
+is re-dispatched fresh as **Three failed rounds** (`skills/flow-contracts/pipeline.md`) states,
+its prompt carrying each breached attempt's output and naming the failed approach — a bundle that
+breached is split one role per dispatch.
 
 > **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
 > - **Re-dispatch it again** *(default, recommended)*
