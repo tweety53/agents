@@ -1471,6 +1471,34 @@ func TestDispatchPairPickRoundTrips(t *testing.T) {
 	}
 }
 
+// TestDispatchReBeginReplacesPairPick: a dispatch re-begun on the same key
+// on another pair records the new pick, never the first begin's.
+func TestDispatchReBeginReplacesPairPick(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-pair-pick-rebegin-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first := baseDispatch("implementer", "opus")
+	first.Key = "impl-1"
+	first.SessionToken = "tok-1"
+	first.PairPick = "judge: needs care"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", first); err != nil {
+		t.Fatalf("RecordDispatch (first): %v", err)
+	}
+	again := baseDispatch("implementer", "sonnet")
+	again.Key = "impl-1"
+	again.SessionToken = "tok-1"
+	again.PairPick = "override: cap"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", again)
+	if err != nil {
+		t.Fatalf("RecordDispatch (re-begin): %v", err)
+	}
+	if got.PairPick != again.PairPick {
+		t.Errorf("re-begin PairPick = %q, want %q", got.PairPick, again.PairPick)
+	}
+}
+
 // TestRecordDispatchOmitsAbsentDiffBase pins the other half: a dispatch
 // that recorded no base reads back with none, and the rest of its row is
 // untouched by the column's addition.

@@ -229,6 +229,46 @@ func TestPairJudgeTakesThePick(t *testing.T) {
 	}
 }
 
+// TestPairJudgeRunsInEnvDir: the judge runs in the guard's working directory.
+func TestPairJudgeRunsInEnvDir(t *testing.T) {
+	t.Parallel()
+	stub := newPJStub(t, "pwd -P > '"+"DIR/pwd'\n"+pjAnswer)
+	writeExec(t, stub.cmd(), strings.ReplaceAll(mustRead(t, stub.cmd()), "DIR", stub.dir))
+	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
+	env.Dir = t.TempDir()
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
+		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+	}
+	want, _ := filepath.EvalSymlinks(env.Dir)
+	if got := strings.TrimSpace(mustRead(t, stub.dir+"/pwd")); got != want {
+		t.Errorf("judge ran in %q, want %q", got, want)
+	}
+}
+
+// TestPairJudgeOrphanHoldingPipes: a judge that exits leaving a child holding
+// its stdout returns promptly instead of waiting on the child.
+func TestPairJudgeOrphanHoldingPipes(t *testing.T) {
+	t.Parallel()
+	stub := newPJStub(t, "/bin/sleep 15 &\n"+pjAnswer)
+	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
+	start := time.Now()
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
+		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+	}
+	if d := time.Since(start); d > 8*time.Second {
+		t.Errorf("an orphaned child held the guard for %v", d)
+	}
+}
+
+func mustRead(t *testing.T, p string) string {
+	t.Helper()
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
 // TestPairJudgeFallsBack: every judge failure prints the first candidate as
 // `fallback` with its cause and exits 0.
 func TestPairJudgeFallsBack(t *testing.T) {

@@ -650,6 +650,7 @@ func insertDispatch(ctx context.Context, q interface {
 			slot = EXCLUDED.slot,
 			model = EXCLUDED.model,
 			effort = EXCLUDED.effort,
+			pair_pick = EXCLUDED.pair_pick,
 			request = COALESCE(EXCLUDED.request, dispatches.request)
 		RETURNING `+dispatchColumns+`
 	`,

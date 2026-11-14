@@ -771,8 +771,8 @@ dispatch, whose row `flow-guard check-loop-dispatch` opens, carries the line `Pa
 
 **A judge that cannot answer never blocks a run**: the guard prints the role's first candidate
 with source `fallback`, the reason naming the cause, and exits 0. **A `session_cap` or a session
-override applies on top of the printed pair**: a pair above the cap is replaced by the role's
-first base pair at or under it, and an override by the pair it names, the `reason` reading
+override applies on top of the printed pair**: a pair above the cap is replaced by the highest
+pair the role's row admits at or under it (**`session_cap`**, `skills/flow-contracts/pipeline.md`), and an override by the pair it names, the `reason` reading
 `override: <the instruction>` in either case.
 
 `flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit.
