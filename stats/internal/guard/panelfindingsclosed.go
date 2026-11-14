@@ -668,8 +668,11 @@ func cfcUncounted(worktree string, findings []cfcFindingRow) (over, under []stri
 }
 
 // cfcUnreadSections answers each section a report's `Unread:` line names
-// that no written per-repository report of the same round and role read,
-// each as `<file> (<repo>)`.
+// that no written per-repository report of the same role read in that round
+// or any later one, each as `<file> (<repo>)`: a round cannot be reopened, so
+// a section left unread in round r can only be read in a later round.
+// Reports of role `mutation` are exempt: a mutation pass probes behaviours by
+// mutating them, it is not a section read, and it is never re-dispatched.
 func cfcUnreadSections(worktree string, findings []cfcFindingRow) ([]string, error) {
 	reports, err := cfcReports(worktree, findings)
 	if err != nil {
@@ -677,13 +680,31 @@ func cfcUnreadSections(worktree string, findings []cfcFindingRow) ([]string, err
 	}
 	var out []string
 	for _, r := range reports {
+		if r.role == "mutation" {
+			continue
+		}
 		for _, repo := range cfcUnread(r.body) {
-			if !cfcReportWritten(worktree, fmt.Sprintf("panel-report-%d-%s-%s.md", r.round, r.role, repo)) {
+			if !cfcReadInRoundOrLater(worktree, r.round, r.role, repo) {
 				out = append(out, r.name+" ("+repo+")")
 			}
 		}
 	}
 	return out, nil
+}
+
+// cfcReadInRoundOrLater reports whether a written per-repository report
+// panel-report-<n>-<role>-<repo>.md exists for some round n >= round.
+func cfcReadInRoundOrLater(worktree string, round int, role, repo string) bool {
+	suffix := "-" + role + "-" + repo + ".md"
+	names, _ := filepath.Glob(filepath.Join(worktree, ".superpowers", "sdd", "panel-report-*"+suffix))
+	for _, path := range names {
+		name := filepath.Base(path)
+		n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(name, "panel-report-"), suffix))
+		if err == nil && n >= round && cfcReportWritten(worktree, name) {
+			return true
+		}
+	}
+	return false
 }
 
 // cfcUnread is the sections a report's `Unread:` line names; none for

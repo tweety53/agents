@@ -784,6 +784,27 @@ func TestCheckPanelFindingsClosedFlagsAnUnreadSection(t *testing.T) {
 	}
 }
 
+// A later round's full per-repository read covers an earlier round's unread
+// section; an earlier round's never covers a later one; mutation is exempt.
+func TestCheckPanelFindingsClosedUnreadAcrossRounds(t *testing.T) {
+	t.Parallel()
+	const line = "report(s) leaving a section unread with no per-repository report of it: "
+	unread := "Critical: 0\nImportant: 0\nUnread: gymie\n"
+	read := "Critical: 0\nImportant: 0\nUnread: none\n"
+	if rc, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-primary.md": unread, "panel-report-1-primary.md": read, "panel-report-1-primary-gymie.md": read}); rc != 0 || strings.Contains(errs, line) {
+		t.Errorf("a later round's read covers it: rc %d\n%s", rc, errs)
+	}
+	if rc, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-primary.md": unread, "panel-report-1-primary.md": read, "panel-report-1-primary-gymie.md": unread}); rc != 1 || !strings.Contains(errs, line) {
+		t.Errorf("a later round leaving it unread covers nothing: rc %d\n%s", rc, errs)
+	}
+	if rc, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-primary.md": read, "panel-report-0-primary-gymie.md": read, "panel-report-1-primary.md": unread}); rc != 1 || !strings.Contains(errs, line+"panel-report-1-primary.md (gymie)") {
+		t.Errorf("an earlier round covers nothing: rc %d\n%s", rc, errs)
+	}
+	if _, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-mutation.md": unread}); strings.Contains(errs, line) {
+		t.Errorf("mutation is exempt: %s", errs)
+	}
+}
+
 // A role's store rows may not outnumber what its reports count: kan-1096's
 // round-0 F23, F31, F34 and F35 stood in the store with no report on disk
 // counting them, and the close passed (kan-1096 self-review, F3).
