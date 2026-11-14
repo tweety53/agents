@@ -607,7 +607,8 @@ once per worktree in this run's resolved set, one worktree after another, in the
 — by hand, in the order the context bundle carries it, only where that exits 3 — its output
 through `tail`; the green sha each run records in its own worktree is what lets **Inline verify**
 (`skills/flow/verify-and-handoff.md`) skip what no later commit touched. Every failure, wherever it lies, is fixed at its root
-cause and the list re-run until it passes. Under `sdd` the fix is a fresh one-shot, the
+cause and the list re-run until it passes. A fourth `full-suite-fix-<n>` after three failed ones
+is the fresh dispatch of **Three failed rounds** (`skills/flow-contracts/pipeline.md`). Under `sdd` the fix is a fresh one-shot, the
 `full-suite-fix-<n>` row of **Every fix is a fresh one-shot** below, its `FIX INPUT:` the failing
 block, and a failing visual `verify` row in it is re-run narrowed as **Narrowed visual re-runs** states (`skills/flow/verify-fix-loop.md`). Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
 the route the branch's push state dictates (**Panel re-runs**,

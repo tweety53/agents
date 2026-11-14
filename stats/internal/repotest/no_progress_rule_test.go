@@ -37,7 +37,10 @@ func TestNoProgressRule(t *testing.T) {
 		}
 	}
 	// Every loop's own file cites the rule.
-	loops := []struct{ file, phrase string }{}
+	loops := []struct{ file, phrase string }{
+		{"skills/flow/implement.md", "A fourth `full-suite-fix-<n>` after three failed ones is the fresh dispatch of **Three failed rounds**"},
+		{"skills/flow/gated-review-fix.md", "after three failed re-reviews of one task is the fresh dispatch of **Three failed rounds**"},
+	}
 	for _, l := range loops {
 		if !strings.Contains(repoText(t, l.file), l.phrase) {
 			t.Errorf("%s lacks %q", l.file, l.phrase)
