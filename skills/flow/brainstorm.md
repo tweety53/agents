@@ -180,9 +180,14 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
      `design.md`, `tasks.md` and `findings.md` — writing-plans, `spectre validate`, `flow-guard
      check-plan-shape`, the configured guards and `flow tasks count` — and returns `PLAN-WRITTEN`.
 
-   A dispatch returning the guard output it could not clear is redispatched fresh with that output
-   until it returns its word; a redispatch skips each mark already made and resumes at the guard
-   that failed. Either dispatch returns
+   A dispatch returning the guard output it could not clear is redispatched fresh on `flow-guard
+   plan-agent-pair <name> <n> planner low`, its prompt carrying that output and the absolute paths
+   of `proposal.md`, `design.md` and `tasks.md` — no round, answers or findings file; a redispatch
+   skips each mark already made and resumes at the guard that failed. No round count stops this
+   loop: after three failed redispatches on the same guard the next is a fresh dispatch on the
+   run's own planner pair under **Three failed rounds** (`skills/flow-contracts/pipeline.md`), its
+   prompt carrying all three returns verbatim and naming the approach that failed, within the
+   later-round agent cap (**Explore and design agents**, `skills/flow/brainstorm-planner.md`). Either dispatch returns
    `QUESTIONS` instead the moment writing the artifacts or the plan surfaces an ambiguity (**The
    checklist**, `skills/flow/brainstorm-planner.md`), the next `round-<r>.md` holding it: the parent
    relays that round as step 2 does, and a fresh final dispatch — never a design round — takes its
