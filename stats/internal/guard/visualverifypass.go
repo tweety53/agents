@@ -138,14 +138,16 @@ import (
 //      `visual-verify-<n>` key adds `## Previous attempt`: every earlier
 //      report path of the worktree (decision redispatch-bundle-by-path).
 //  11. one `flow record dispatch begin -C <canonical-worktree> -change <name>
-//      -role verifier -model opus -effort low -key <key> -session-token <t>
-//      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor
-//      (decision verifier-stays-opus) — a sibling is a worktree whose diff
+//      -role verifier -model <model> -effort <effort> -key <key> -session-token <t>
+//      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor,
+//      the pair the first base pair of the `visual-verifier` allowed-pairs row
+//      (an open experiment's in its place; a failed read or an unusable row
+//      ends the stage `stopped` with `STOP: pair — <why>`, exit 1) — a sibling is a worktree whose diff
 //      the survivor's `ui paths` matched under --repo; keys suffixed
 //      `-<repository name>` when the set holds more than one worktree — each
 //      appending `row <key> <worktree>` to the stage file and printing
 //      `DISPATCH: <key> <bundle> — description "<key>", subagent_type
-//      flow-low, model opus, prompt opens "Role: visual-verifier"`, the
+//      flow-<effort>, model <model>, prompt opens "Role: visual-verifier"`, the
 //      Agent call's four fields (kan-1086 self-review, F9); then
 //      `NEXT: dispatch <n>`, exit 0. A
 //      refused begin ends the stage `stopped` with `STOP: row — flow record

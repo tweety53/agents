@@ -466,14 +466,33 @@ func vvpLastLine(s string) string {
 // vvpRedispatch is a re-dispatch's key, `visual-verify-<n>[-…]`.
 var vvpRedispatch = regexp.MustCompile(`^visual-verify-[0-9]+(-|$)`)
 
-// vvpModel and vvpEffort are the pair every verifier row begins on
-// (decision verifier-stays-opus); the DISPATCH line names the Agent call
-// from them (kan-1086 self-review, F9).
-const vvpModel, vvpEffort = "opus", "low"
+// vvpPairRe is a `<model>/flow-<effort>` allowed pair.
+var vvpPairRe = regexp.MustCompile(`^([a-z0-9.-]+)/flow-([a-z]+)$`)
+
+// pair is the model and effort every verifier row begins on: the first base
+// pair of the `visual-verifier` allowed-pairs row, an open experiment's
+// override in its place (policyTable); the DISPATCH line names the Agent
+// call from it (kan-1086 self-review, F9). A failed read or an empty or
+// unparsable row stops prepare.
+func (v *vvp) pair() (model, effort string) {
+	rows, err := policyTable(v.env)
+	if err != nil {
+		v.stop("stopped", "pair — "+err.Error())
+	}
+	var m []string
+	if rs := rows["visual-verifier"]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
+		m = vvpPairRe.FindStringSubmatch(rs[0].Pairs[0])
+	}
+	if m == nil {
+		v.stop("stopped", "pair — the allowed pairs name no `<model>/flow-<effort>` visual-verifier pair")
+	}
+	return m[1], m[2]
+}
 
 // dispatch writes each verifier's bundle, begins its row and prints
 // `DISPATCH: <key> <bundle> — description "<key>", subagent_type
-// flow-low, model opus, prompt opens "Role: visual-verifier"` per row, then `NEXT: dispatch <n>`. A set of
+// flow-<effort>, model <model>, prompt opens "Role: visual-verifier"` per row,
+// the pair read by pair(), then `NEXT: dispatch <n>`. A set of
 // more than one worktree suffixes each key `-<repository name>`; a
 // --continue key already ending in a survivor's suffix runs that worktree
 // alone.
@@ -505,6 +524,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 	if v.cont {
 		stage = v.readStage()
 	}
+	model, effort := v.pair()
 	begun := []string{}
 	for _, r := range rows {
 		bundle := v.bundle(r.key, r.w, stack, fingerprints[r.w], relay, green, stage)
@@ -517,7 +537,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 			heads = append(heads, h)
 		}
 		argv := []string{"record", "dispatch", "begin", "-C", v.canon, "-change", v.name, "-role", "verifier",
-			"-model", vvpModel, "-effort", vvpEffort, "-key", r.key, "-session-token", v.token, "-diff-base", strings.Join(heads, ",")}
+			"-model", model, "-effort", effort, "-key", r.key, "-session-token", v.token, "-diff-base", strings.Join(heads, ",")}
 		if rb := v.roundBase[r.w]; rb != "" {
 			argv = append(argv, "-round-base", rb)
 		}
@@ -531,7 +551,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 		}
 		begun = append(begun, r.key)
 		v.appendStage("row " + r.key + " " + r.w)
-		v.say("DISPATCH: %s %s — description %q, subagent_type flow-%s, model %s, prompt opens \"Role: visual-verifier\"", r.key, bundle, r.key, vvpEffort, vvpModel)
+		v.say("DISPATCH: %s %s — description %q, subagent_type flow-%s, model %s, prompt opens \"Role: visual-verifier\"", r.key, bundle, r.key, effort, model)
 	}
 	v.next(fmt.Sprintf("dispatch %d", len(rows)))
 }

@@ -45,7 +45,10 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 	f.mb = vgHead(t, f.wt)
 	f.commit("src/ui/app.tsx")
 	f.green()
-	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(root, "rows.json")+";; esac\n")
+	// `policy get` answers policy.json when a test wrote one, else the
+	// seeded pairs of the next `flow` on PATH (TestMain's stub).
+	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(root, "rows.json")+";;\n"+
+		"\"policy get\") if [ -f "+filepath.Join(root, "policy.json")+" ]; then cat "+filepath.Join(root, "policy.json")+"; else PATH=${PATH#*:} exec flow \"$@\"; fi;; esac\n")
 	f.app = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) }))
 	t.Cleanup(f.app.Close)
 	repo, err := filepath.Abs("../../..")
@@ -406,6 +409,26 @@ func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
 	}
 }
 
+// TestVisualVerifyPassPrepareReadsThePair pins KAN-1110: the verifier's pair
+// is the first base pair of its allowed-pairs row, not a constant; an empty
+// row stops prepare.
+func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
+	smoke.Heavy(t)
+	f := vvpFixture(t, "")
+	policy := filepath.Join(filepath.Dir(f.log), "policy.json")
+	writeFile(t, policy, `{"visual-verifier":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}}`)
+	rc, out, calls := f.prepare()
+	if rc != 0 || !strings.Contains(calls, "-role verifier -model sonnet -effort low -key visual-verify ") || !strings.Contains(out, "subagent_type flow-low, model sonnet,") {
+		t.Fatalf("sonnet row: exit %d\n%s\n%s", rc, out, calls)
+	}
+	g := vvpFixture(t, "")
+	writeFile(t, filepath.Join(filepath.Dir(g.log), "policy.json"), `{"visual-verifier":{"base":[],"optin":[],"marked":[]}}`)
+	rc, out, calls = g.prepare()
+	if rc != 1 || !strings.Contains(out, "STOP: pair — ") || strings.Contains(calls, "record dispatch begin") || !strings.Contains(calls, "-outcome stopped") {
+		t.Fatalf("empty row: exit %d\n%s\n%s", rc, out, calls)
+	}
+}
+
 func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	smoke.Heavy(t)
 	f := vvpFixture(t, "")
@@ -427,7 +450,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	}
 
 	h := vvpFixture(t, "")
-	writeExec(t, filepath.Join(h.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+h.log+"\ncase \"$1 $2 $3\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(h.log), "rows.json")+";; \"record dispatch begin\") echo dirty tree; exit 1;; esac\n")
+	writeExec(t, filepath.Join(h.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+h.log+"\ncase \"$1 $2 $3\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(h.log), "rows.json")+";; \"record dispatch begin\") echo dirty tree; exit 1;; \"policy get \") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
 	rc, out, calls = h.prepare()
 	if rc != 1 || !strings.Contains(out, "STOP: row — flow record dispatch begin refused for visual-verify: dirty tree") || !strings.Contains(calls, "-outcome stopped") || strings.Contains(out, "DISPATCH:") {
 		t.Fatalf("a refused begin: exit %d\n%s\n%s", rc, out, calls)
@@ -436,7 +459,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	// A begin refused for the second row ends the first row it already began.
 	i := vvpFixture(t, "")
 	w, mb = i.sibling("gymie-frontend")
-	writeExec(t, filepath.Join(i.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+i.log+"\ncase \"$*\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(i.log), "rows.json")+";; *\"-key visual-verify-gymie-frontend \"*) echo dirty tree; exit 1;; esac\n")
+	writeExec(t, filepath.Join(i.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+i.log+"\ncase \"$*\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(i.log), "rows.json")+";; *\"-key visual-verify-gymie-frontend \"*) echo dirty tree; exit 1;; \"policy get\") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
 	rc, out, calls = i.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+i.app.URL)
 	if rc != 1 || !strings.Contains(calls, "record dispatch end -C "+i.wt+" -change demo -key visual-verify-demo -session-token mf-tok -outcome aborted\n") || !strings.Contains(calls, "-outcome stopped") {
 		t.Fatalf("a refused second begin: exit %d\n%s\n%s", rc, out, calls)

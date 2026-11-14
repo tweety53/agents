@@ -30,8 +30,8 @@ panel slot at its dispatch's decision pair instead.
 model and effort the Decide step chose for them, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`), canonical for the choice's bounds. The fixer's pair is its
 own, not the implementer's; a fix-round re-run runs on the decision's `panel.rerun_dispatch` pair.
-Which model a dispatch with no recorded pair runs on — a micro panel, the no-decision dispatch,
-the tooling analyst — is **Model and effort** (`skills/flow/brainstorm-planner.md`) as well.
+Which model a dispatch with no recorded pair runs on — a micro panel, the no-decision dispatch —
+is **Model and effort** (`skills/flow/brainstorm-planner.md`) as well.
 
 **An explicit operator instruction overrides a decision's pair, in either direction** — raising
 the implementer to Opus for a change that warrants it, or lowering it to Sonnet for genuinely
@@ -175,8 +175,9 @@ inline row.** Where the session does not state one, `<parent model>` is `unknown
 `<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
 
 **On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
-`VERIFY_MODEL`, the literal `opus` of a dispatch with no recorded pair, a decision's implementer,
-fixer, group and panel pairs, and an operator override alike resolve and are recorded as they would be on Claude Code,
+The verifier's and the tooling analyst's **Allowed pairs** rows, the literal `opus` of a dispatch
+with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an operator
+override alike resolve and are recorded as they would be on Claude Code,
 and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
 `subagent_type` is `general-purpose` (or the site's own non-flow type, unchanged) — ZCode's Agent tool offers no
 `flow-<effort>` type, `<agents repo>/setup.sh` installing those definitions into `~/.claude/agents/` alone, so the NO
@@ -188,8 +189,8 @@ the same value the run's `-harness` marks carry (**Stage marks**,
 
 **On harness `muse`, every dispatch inherits the session's own model and effort.** The harness
 offers no per-dispatch model parameter and no `flow-<effort>` definitions, so the dispatch names
-neither — no `model` parameter, no `subagent_type`. `VERIFY_MODEL`, the literal `opus` of a
-dispatch with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an
+neither — no `model` parameter, no `subagent_type`. The verifier's and the tooling analyst's
+**Allowed pairs** rows, the literal `opus` of a dispatch with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an
 operator override alike resolve and are recorded as they would be on Claude Code, and are replaced
 at the dispatch: the dispatch runs the session's pair, and its ledger line records `-model <parent
 model> -effort <parent effort>` — the model the dispatch actually ran on, never the pre-mapping
