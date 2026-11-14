@@ -703,3 +703,83 @@ func TestCheckPanelFindingsClosedSkipsGatedRows(t *testing.T) {
 		t.Fatalf("rc %d stdout %q stderr %q, want 0 FINDINGS-CLOSED", rc, out.String(), errb.String())
 	}
 }
+
+// cfcCase runs check-panel-findings-closed over a fresh worktree holding
+// files under .superpowers/sdd, with the given findings and dispatches.
+func cfcCase(t *testing.T, findings, dispatches string, files map[string]string) (int, string) {
+	t.Helper()
+	wt := t.TempDir()
+	cfcSDD(t, wt, files)
+	rc, _, errs := cfcRun(t, cfcBinDispatches(t, findings, dispatches, "", 0), wt, "demo")
+	return rc, errs
+}
+
+// Over the cap a multi-repository pass splits by repository, its reports
+// named panel-report-<round>-<id>-<repo>.md (kan-1096 self-review, F2).
+func TestCheckPanelFindingsClosedReadsPerRepositoryReports(t *testing.T) {
+	t.Parallel()
+	const left = "completed reviewer dispatch(es) left no report file: "
+	split := cfcDispatchJSON(cfcDispatch{Key: "panel-0-primary-gymie-frontend", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	if rc, errs := cfcCase(t, "[]", split, map[string]string{"panel-report-0-primary-gymie-frontend.md": "Critical: 0\nImportant: 0\n"}); rc != 0 {
+		t.Errorf("written per-repository report: rc %d\n%s", rc, errs)
+	}
+	if rc, errs := cfcCase(t, "[]", split, nil); rc != 1 || !strings.Contains(errs, left+"panel-report-0-primary-gymie-frontend.md") {
+		t.Errorf("missing per-repository report: rc %d\n%s", rc, errs)
+	}
+	retry := cfcDispatchJSON(cfcDispatch{Key: "panel-0-primary-retry-2", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	if rc, errs := cfcCase(t, "[]", retry, nil); rc != 1 || !strings.Contains(errs, left+"panel-report-0-primary.md\n") {
+		t.Errorf("a retry key owes the unsplit report: rc %d\n%s", rc, errs)
+	}
+	fixed := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 0, Slot: "primary"})
+	rerun := cfcDispatchJSON(cfcDispatch{Key: "panel-1-primary-gymie-frontend", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	files := map[string]string{
+		"panel-report-0-primary.md":                "Critical: 0\nImportant: 1\n",
+		"panel-report-1-primary-gymie-frontend.md": "Critical: 0\nImportant: 0\n",
+		"panel-fix-report-0.md":                    "regression-test: F1 — none — fixture\n",
+	}
+	if rc, errs := cfcCase(t, fixed, rerun, files); strings.Contains(errs, "no clean re-run") || strings.Contains(errs, "without writing") {
+		t.Errorf("a per-repository re-run covers the fixed finding: rc %d\n%s", rc, errs)
+	}
+	const exceeds = "finding(s) a slot's report counts that the store does not hold"
+	row := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "withdrawn dup", Round: 0, Slot: "primary"})
+	if _, errs := cfcCase(t, row, "[]", map[string]string{
+		"panel-report-0-primary.md":                "Critical: 0\nImportant: 0\n",
+		"panel-report-0-primary-gymie-frontend.md": "Critical: 0\nImportant: 1\n",
+	}); strings.Contains(errs, exceeds) {
+		t.Errorf("summed reports equal the store: %s", errs)
+	}
+	ts := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "withdrawn dup", Round: 0, Slot: "test-sanity"})
+	if _, errs := cfcCase(t, ts, "[]", map[string]string{"panel-report-0-test-sanity.md": "Critical: 0\nImportant: 1\n"}); strings.Contains(errs, exceeds) {
+		t.Errorf("test-sanity resolves to its own role: %s", errs)
+	}
+}
+
+// A report whose Unread: line names a section is no read of that section
+// (kan-1096 self-review, F2).
+func TestCheckPanelFindingsClosedFlagsAnUnreadSection(t *testing.T) {
+	t.Parallel()
+	const line = "report(s) leaving a section unread with no per-repository report of it: "
+	unread := "Critical: 0\nImportant: 0\nUnread: gymie-frontend\n"
+	read := "Critical: 0\nImportant: 0\nUnread: none\n"
+	if rc, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-primary.md": unread}); rc != 1 || !strings.Contains(errs, line+"panel-report-0-primary.md (gymie-frontend)") {
+		t.Errorf("unread section: rc %d\n%s", rc, errs)
+	}
+	if _, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-primary.md": unread, "panel-report-0-primary-gymie-frontend.md": read}); strings.Contains(errs, line) {
+		t.Errorf("a per-repository read covers it: %s", errs)
+	}
+	if _, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-primary.md": unread, "panel-report-0-primary-gymie-frontend.md": unread}); !strings.Contains(errs, line) || !strings.Contains(errs, " panel-report-0-primary.md (gymie-frontend)") {
+		t.Errorf("a per-repository report leaving it unread covers nothing: %s", errs)
+	}
+	if _, errs := cfcCase(t, "[]", "[]", map[string]string{"panel-report-0-primary.md": read}); strings.Contains(errs, line) {
+		t.Errorf("Unread: none: %s", errs)
+	}
+	fixed := cfcJSON(cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 0, Slot: "primary"})
+	rerun := cfcDispatchJSON(cfcDispatch{Key: "panel-1-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"})
+	if _, errs := cfcCase(t, fixed, rerun, map[string]string{
+		"panel-report-0-primary.md": "Critical: 0\nImportant: 1\n",
+		"panel-report-1-primary.md": unread,
+		"panel-fix-report-0.md":     "regression-test: F1 — none — fixture\n",
+	}); !strings.Contains(errs, "no clean re-run") {
+		t.Errorf("a re-run leaving a section unread covers nothing: %s", errs)
+	}
+}

@@ -466,3 +466,60 @@ func TestRenderSlotPromptPrintsTheDispatchHead(t *testing.T) {
 		})
 	}
 }
+
+// Over the cap, a multi-repository pass is dispatched once per repository
+// section: -repo renders its SECTION block, per-repository report files, its
+// own prompt file and DISPATCH description (kan-1096 self-review, F2).
+func TestRenderSlotPromptSplitsByRepository(t *testing.T) {
+	t.Parallel()
+	skill := rspSkillDir(t)
+	panel := skill + "/review-panel.md"
+	fx := rspNewFx(t)
+	sdd := fx.canon + "/.superpowers/sdd/"
+	section := strings.ReplaceAll(rspTestBlock(t, panel, "SECTION"), "<repo>", "gymie-frontend")
+
+	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+principles", "-diff", "final", "-repo", "gymie-frontend", "--", fx.canon, fx.peer)
+	if r.rc != 0 {
+		t.Fatalf("exit %d\n%s", r.rc, r.out)
+	}
+	lines := strings.Split(r.stdout, "\n")
+	if want := sdd + "slot-prompt-0-primary+principles-gymie-frontend.md"; lines[0] != want {
+		t.Errorf("stdout %q, want %q", r.stdout, want)
+	}
+	if len(lines) < 2 || !strings.Contains(lines[1], `description "panel-0-primary+principles-gymie-frontend"`) {
+		t.Errorf("DISPATCH line %q", r.stdout)
+	}
+	for _, want := range []string{"`" + sdd + "panel-report-0-primary-gymie-frontend.md`", "`" + sdd + "panel-report-0-principles-gymie-frontend.md`"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("render lacks %q", want)
+		}
+	}
+	if strings.Count(got, section) != 1 {
+		t.Errorf("the SECTION block is not carried exactly once")
+	}
+
+	_, plain := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary", "-diff", "final", "--", fx.canon, fx.peer)
+	if strings.Contains(plain, "**SECTION:**") {
+		t.Errorf("a render without -repo carries a SECTION block")
+	}
+
+	for _, bad := range [][]string{{"-repo", "../x"}, {"-repo"}} {
+		dir := t.TempDir()
+		f := rspNewFx(t)
+		f.canon = dir + "/canon"
+		mkdir(t, f.canon+"/.superpowers/sdd")
+		writeFile(t, f.canon+"/.superpowers/sdd/final-review.diff.touched", "M\tx.go\n")
+		args := append([]string{skill, "0", f.canon, f.plan, "primary", "-diff", "final"}, bad...)
+		args = append(args, "--", f.canon)
+		r, _ := f.run(t, skill, args...)
+		if r.rc != 2 {
+			t.Errorf("%v: exit %d, want 2", bad, r.rc)
+		}
+		if _, err := os.Stat(f.canon + "/.superpowers/sdd/slot-prompt-0-primary.md"); err == nil {
+			t.Errorf("%v: a prompt was written", bad)
+		}
+		if m, _ := filepath.Glob(f.canon + "/.superpowers/sdd/slot-prompt-*"); len(m) > 0 {
+			t.Errorf("%v: wrote %v", bad, m)
+		}
+	}
+}

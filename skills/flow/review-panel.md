@@ -234,9 +234,13 @@ once per worktree in the resolved set, unchanged. **The gating count is the sum 
 worktrees** — one slot now reads every section — and the over-cap report names the sum and each
 worktree's own count.
 
-Exit 0 proceeds. Exit 1 proceeds too, unasked: the panel dispatches reading the whole diff
-regardless of its size, and the over-cap fact is reported, never put to the operator as a
-question. Exit 2 — the guard could not measure, not an over-cap verdict — stops the run. Record
+Exit 0 proceeds. Exit 1 proceeds too, unasked, and the over-cap fact is reported, never put to
+the operator as a question: with one worktree in the resolved set the panel dispatches reading the
+whole diff regardless of its size, and with more than one each `panel.dispatches` entry not
+carrying `mutation` is dispatched once per worktree section — rendered with
+`flow-guard render-slot-prompt` `-repo <repo>`, `<repo>` the repository name the WORKTREES
+paragraph defines, keyed `panel-<round>-<slots>-<repo>`, reading only that section, and each of
+its roles writing `panel-report-<round>-<id>-<repo>.md` (kan-1096 self-review, F2). Exit 2 — the guard could not measure, not an over-cap verdict — stops the run. Record
 the measured count, the cap in force, and the automatic proceed decision where the cap was
 exceeded with `flow record pass -round <round>` on **every** run, including exit-0 runs.
 
@@ -313,7 +317,7 @@ Its header (`<agents repo>/scripts/flow-guard write-panel-diff`) is canonical fo
 prints the two paths; exit 2 — it cannot answer, and nothing was written — stops the run with its
 stderr. Then dispatch the round's
 `panel.dispatches` in the canonical worktree, each reading the whole combined file; a role is
-never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view. **Bundled dispatch** below states how the roster is
+never dispatched once per worktree, save over the cap as the over-cap paragraph above splits it: one pass reads every worktree's section, so a seam between two repositories is in one pass's view. **Bundled dispatch** below states how the roster is
 grouped into those dispatches.
 
 ### The late-fix reduction
@@ -359,7 +363,7 @@ dispatch included, once the round's diff is written:
 
 ```bash
 flow-guard render-slot-prompt <skill-dir> <round> <abs-worktree> <plan-dir> <slot>[+<slot>…] \
-  -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>…] [-fix-report <path>…] -- <worktree> …
+  -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>…] [-fix-report <path>…] [-repo <repo>] -- <worktree> …
 ```
 
 `<skill-dir>` is the directory this file was read from and `<plan-dir>` the plan directory the
@@ -662,7 +666,9 @@ slot's resolved id substituted:
 > id of the task whose `Task-Id:` commit its `file:line` falls in — none where it spans tasks or
 > falls in none. Your return message is the findings summary, each finding naming its task id
 > too; the file is the record. Open the file with one `Critical: <n>` and one `Important: <n>` line
-> counting the findings it raises at each severity.
+> counting the findings it raises at each severity, then one `Unread: none` line, or
+> `Unread: <repository>[, <repository>…]` naming each `# worktree:` section you did not read in
+> full.
 
 **Every slot's dispatch prompt also carries the WORKTREES paragraph**, listing the resolved set
 and, when it holds more than one worktree, the qualification rule:
@@ -676,6 +682,13 @@ and, when it holds more than one worktree, the qualification rule:
 > reproducer rule states: it executes from the canonical worktree the parent passes the runner,
 > never from the worktree its own prefix names, and resolves that worktree by absolute path inside
 > itself.
+
+**A per-repository dispatch's prompt also carries the SECTION paragraph**, with `<repo>`
+substituted:
+
+> **SECTION:** this dispatch reads only the `# worktree:` section of `<repo>` in its diff file —
+> the panel's diff is over its cap, and each other section has a dispatch of its own. Follow a
+> seam into another section only as far as judging this section needs.
 
 **Every slot's dispatch prompt also carries the CITATION CHECK paragraph, present for every
 worktree whose citation pre-check above wrote `<abs-worktree>/.superpowers/sdd/citation-check.md`,
@@ -875,7 +888,9 @@ its prompt carries — `<round>` the same value that round's findings carry on `
 `flow record dispatch end` is recorded, run **The throwaway worktree**'s (`skills/flow/review-panel-optional-slots.md`) fold-back for that slot's
 copies first, then confirm the file exists and is non-empty (`test -s`); when it is not, write it
 yourself carrying the single line `no verbatim report captured — <reason>`.
-Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
+Every dispatched slot ends up with one, a slot that raised nothing included. A per-repository
+dispatch's `panel-report-<round>-<id>-<repo>.md` is its role's report like any other, for the
+merger and for this paragraph alike. **Never re-emit a
 slot's report from this context** — record its `F<n>` rows and cite the file, per **Read
 discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 Confirm likewise that each runnable reproducer path a slot supplies exists in the worktree before
@@ -1193,7 +1208,8 @@ in the store — nothing is deferred (**Panel re-runs** above); the line names t
 fires on the class **Panel re-runs**' ordering above added: a Critical or Important recorded
 `fixed` whose slot has no clean re-run dispatch of it in any later round — a fixed Minor needs
 none. It fires as well when a slot's report counts more Critical and Important findings on its
-`Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. It fires too
+`Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. It fires as well when a report's `Unread:` line
+names a section that no per-repository report of the same round and role read in full. It fires too
 when a completed reviewer dispatch left one of its roles' `panel-report-<round>-<id>.md` absent or
 empty, or when a `fixed` finding's runnable reproducer resolves in no worktree of the change, or when
 a `fixed` Critical or Important finding has no `regression-test:` line in any

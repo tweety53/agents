@@ -70,12 +70,17 @@ import (
 //      later round — the ordering review-panel.md's **Recording findings**
 //      requires, violated, the store's only witness of that re-run being
 //      the slot's own dispatch row (KAN-770); each still-open ref and each
-//      unverified ref with its slot is named on stderr; or a slot's
-//      panel-report-<round>-<id>.md counts on its Critical: <n> and
-//      Important: <n> lines more findings than the store holds for that
-//      round and slot; or a re-run answered without writing its
-//      panel-report-<round>-<id>.md (absent, empty or the parent's
-//      `no verbatim report captured` placeholder), named on stderr (KAN-915);
+//      unverified ref with its slot is named on stderr; or a role's
+//      panel-report-<round>-<id>[-<repo>].md files, summed, count on their
+//      Critical: <n> and Important: <n> lines more findings than the store
+//      holds for that round and role; or a report's `Unread:` line names a
+//      section no written per-repository report
+//      panel-report-<round>-<id>-<repo>.md of its round and role read
+//      (kan-1096 self-review, F2); or a re-run answered without writing its
+//      panel-report-<round>-<id>[-<repo>].md (absent, empty, the parent's
+//      `no verbatim report captured` placeholder, or an `Unread:` line
+//      naming a section), named on stderr (KAN-915); a dispatch keyed
+//      panel-<round>-<slot>-<repo> owes the -<repo> name;
 //      or a completed reviewer dispatch left a role's
 //      panel-report-<round>-<id>.md absent or empty (the placeholder
 //      accepted); or a `fixed` finding's runnable reproducer resolves in no
@@ -273,8 +278,8 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 					all = false
 					break
 				}
-				if !cfcReportWritten(worktree, d.round, r) {
-					lacking = append(lacking, fmt.Sprintf("panel-report-%d-%s.md", d.round, r))
+				if f := d.report(r); !cfcReportWritten(worktree, f) {
+					lacking = append(lacking, f)
 				}
 			}
 			if !all {
@@ -337,7 +342,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 			continue
 		}
 		for _, id := range strings.Split(d.slot, "+") {
-			f := fmt.Sprintf("panel-report-%d-%s.md", d.round, id)
+			f := d.report(id)
 			if st, err := os.Stat(filepath.Join(worktree, ".superpowers", "sdd", f)); err == nil && st.Size() > 0 {
 				continue
 			}
@@ -490,6 +495,19 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		fmt.Fprintf(stderr, "%sfinding(s) a slot's report counts that the store does not hold: %s\n", cfcPrefix, strings.Join(uncounted, " "))
 		violated = true
 	}
+	// AN UNREAD SECTION NEVER COUNTS AS READ (kan-1096 self-review, F2): a
+	// report whose `Unread:` line names a `# worktree:` section needs a
+	// written per-repository report of that section, same round and role,
+	// whose own `Unread:` is `none` or absent.
+	unread, err := cfcUnreadSections(worktree, findings)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", cfcPrefix, err)
+		return 2
+	}
+	if len(unread) > 0 {
+		fmt.Fprintf(stderr, "%sreport(s) leaving a section unread with no per-repository report of it: %s\n", cfcPrefix, strings.Join(unread, " "))
+		violated = true
+	}
 	// A fixed round with no fix-mutation row is check-unfinished-work's
 	// predicate, applied here so the omission surfaces while the fix round
 	// is still open (kan-1039: it surfaced only at the landing gate).
@@ -509,46 +527,140 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 	return 0
 }
 
-// cfcUncounted answers the slot reports under <worktree>'s
-// .superpowers/sdd whose Critical and Important sum exceeds the store's rows
-// of that round and slot, each as `<file> (report <n>, recorded <m>)`.
-func cfcUncounted(worktree string, findings []cfcFindingRow) ([]string, error) {
-	reports, _ := filepath.Glob(filepath.Join(worktree, ".superpowers", "sdd", "panel-report-*.md"))
-	var uncounted []string
-	for _, p := range reports {
+// cfcReport is one panel-report-<round>-<rest>.md under .superpowers/sdd,
+// resolved to its role.
+type cfcReport struct {
+	name, role string
+	round      int
+	body       []byte
+}
+
+// cfcReports reads every panel report under <worktree>'s .superpowers/sdd,
+// each resolved to its role per decision f2-report-role (kan-1096
+// self-review, F2): <rest> itself when it is a known id, else the longest
+// known id <k> with <rest> = <k>-<suffix>, else <rest>. The known ids are
+// every store row's slot and each of its `+`-components.
+func cfcReports(worktree string, findings []cfcFindingRow) ([]cfcReport, error) {
+	var known []string
+	for _, f := range findings {
+		for _, k := range append(strings.Split(f.slot, "+"), f.slot) {
+			if k != "" && !slices.Contains(known, k) {
+				known = append(known, k)
+			}
+		}
+	}
+	slices.SortFunc(known, func(a, b string) int { return len(b) - len(a) })
+	paths, _ := filepath.Glob(filepath.Join(worktree, ".superpowers", "sdd", "panel-report-*.md"))
+	var out []cfcReport
+	for _, p := range paths {
 		m := cfcReportNameRE.FindStringSubmatch(filepath.Base(p))
 		if m == nil {
 			continue
 		}
-		round, _ := strconv.Atoi(m[1])
 		body, err := os.ReadFile(p)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read panel report %s — cannot determine anything: %v", p, err)
 		}
-		c, i := cfcCriticalRE.FindSubmatch(body), cfcImportantRE.FindSubmatch(body)
+		round, _ := strconv.Atoi(m[1])
+		role := m[2]
+		if !slices.Contains(known, role) {
+			for _, k := range known {
+				if strings.HasPrefix(role, k+"-") {
+					role = k
+					break
+				}
+			}
+		}
+		out = append(out, cfcReport{name: filepath.Base(p), role: role, round: round, body: body})
+	}
+	return out, nil
+}
+
+// cfcUncounted answers each round and role whose summed panel reports count
+// more Critical and Important findings than the store's rows of that round
+// whose slot's `+`-components include the role, each as
+// `panel-report-<round>-<role>.md (report <n>, recorded <m>)`. A report
+// missing either count line predates the paragraph and is not summed.
+func cfcUncounted(worktree string, findings []cfcFindingRow) ([]string, error) {
+	reports, err := cfcReports(worktree, findings)
+	if err != nil {
+		return nil, err
+	}
+	type group struct {
+		round int
+		role  string
+	}
+	sums := map[group]int{}
+	var order []group
+	for _, r := range reports {
+		c, i := cfcCriticalRE.FindSubmatch(r.body), cfcImportantRE.FindSubmatch(r.body)
 		if c == nil || i == nil {
 			continue
 		}
 		nc, _ := strconv.Atoi(string(c[1]))
 		ni, _ := strconv.Atoi(string(i[1]))
+		g := group{r.round, r.role}
+		if _, seen := sums[g]; !seen {
+			order = append(order, g)
+		}
+		sums[g] += nc + ni
+	}
+	var uncounted []string
+	for _, g := range order {
 		recorded := 0
 		for _, f := range findings {
-			if f.round == round && (strings.EqualFold(f.severity, "critical") || strings.EqualFold(f.severity, "important")) && slices.Contains(strings.Split(f.slot, "+"), m[2]) {
+			if f.round == g.round && (strings.EqualFold(f.severity, "critical") || strings.EqualFold(f.severity, "important")) && slices.Contains(strings.Split(f.slot, "+"), g.role) {
 				recorded++
 			}
 		}
-		if nc+ni > recorded {
-			uncounted = append(uncounted, fmt.Sprintf("%s (report %d, recorded %d)", filepath.Base(p), nc+ni, recorded))
+		if sums[g] > recorded {
+			uncounted = append(uncounted, fmt.Sprintf("panel-report-%d-%s.md (report %d, recorded %d)", g.round, g.role, sums[g], recorded))
 		}
 	}
 	return uncounted, nil
 }
 
-// cfcReportWritten reports whether a re-run wrote its report: the file is
-// non-empty and does not begin with the parent's placeholder.
-func cfcReportWritten(worktree string, round int, id string) bool {
-	b, err := os.ReadFile(filepath.Join(worktree, ".superpowers", "sdd", fmt.Sprintf("panel-report-%d-%s.md", round, id)))
-	return err == nil && len(b) > 0 && !bytes.HasPrefix(b, []byte("no verbatim report captured"))
+// cfcUnreadSections answers each section a report's `Unread:` line names
+// that no written per-repository report of the same round and role read,
+// each as `<file> (<repo>)`.
+func cfcUnreadSections(worktree string, findings []cfcFindingRow) ([]string, error) {
+	reports, err := cfcReports(worktree, findings)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, r := range reports {
+		for _, repo := range cfcUnread(r.body) {
+			if !cfcReportWritten(worktree, fmt.Sprintf("panel-report-%d-%s-%s.md", r.round, r.role, repo)) {
+				out = append(out, r.name+" ("+repo+")")
+			}
+		}
+	}
+	return out, nil
+}
+
+// cfcUnread is the sections a report's `Unread:` line names; none for
+// `Unread: none` or no such line.
+func cfcUnread(body []byte) []string {
+	m := cfcUnreadRE.FindSubmatch(body)
+	if m == nil || strings.TrimSpace(string(m[1])) == "none" {
+		return nil
+	}
+	var out []string
+	for _, s := range strings.Split(string(m[1]), ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// cfcReportWritten reports whether a dispatch wrote its report <name>: the
+// file is non-empty, does not begin with the parent's placeholder, and its
+// `Unread:` line, if any, names no section.
+func cfcReportWritten(worktree, name string) bool {
+	b, err := os.ReadFile(filepath.Join(worktree, ".superpowers", "sdd", name))
+	return err == nil && len(b) > 0 && !bytes.HasPrefix(b, []byte("no verbatim report captured")) && len(cfcUnread(b)) == 0
 }
 
 type cfcFindingRow struct {
@@ -568,6 +680,21 @@ type cfcDispatchRow struct {
 	round                    int
 }
 
+// cfcRetryRE is a handshake retry's trailing -retry or -retry-<n>.
+var cfcRetryRE = regexp.MustCompile(`-retry(-[0-9]+)?$`)
+
+// report is the file a dispatch owes for component c:
+// panel-report-<round>-<c>[-<repo>].md, <repo> the key's remainder after
+// panel-<round>-<slot>, a trailing retry dropped (kan-1096 self-review, F2).
+func (d cfcDispatchRow) report(c string) string {
+	rest, ok := strings.CutPrefix(d.key, fmt.Sprintf("panel-%d-%s", d.round, d.slot))
+	if !ok {
+		rest = ""
+	}
+	rest = cfcRetryRE.ReplaceAllString(rest, "")
+	return fmt.Sprintf("panel-report-%d-%s%s.md", d.round, c, rest)
+}
+
 // cfcPanelRoundRE is the dispatch-key shape the correlation reads. A
 // handshake retry's key carries a trailing -retry after the slot, which this
 // regexp's prefix match tolerates; panel-fix-<round> and task keys never
@@ -576,8 +703,9 @@ var cfcPanelRoundRE = regexp.MustCompile(`^panel-([0-9]+)-`)
 
 // cfcReportNameRE matches a slot's panel-report-<round>-<slot>.md file name,
 // and cfcCriticalRE / cfcImportantRE read the Critical: / Important: count
-// lines of that report.
+// lines of that report, cfcUnreadRE its `Unread:` line.
 var (
+	cfcUnreadRE     = regexp.MustCompile(`(?m)^Unread: (.*)$`)
 	cfcReportNameRE = regexp.MustCompile(`^panel-report-([0-9]+)-(.+)\.md$`)
 	cfcCriticalRE   = regexp.MustCompile(`(?m)^Critical: ([0-9]+)\s*$`)
 	cfcImportantRE  = regexp.MustCompile(`(?m)^Important: ([0-9]+)\s*$`)

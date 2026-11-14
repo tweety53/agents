@@ -18,14 +18,19 @@ import (
 //
 // Usage: flow-guard render-slot-prompt <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \
 //          -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>...] \
-//          [-fix-report <path>...] -- <worktree>...
+//          [-fix-report <path>...] [-repo <repo>] -- <worktree>...
 //
 // <skill-dir> is the directory review-panel.md was read from; <worktree>...
 // is the change's resolved set, the canonical worktree first. Every path is
 // absolute: the subagent resolves what it is given from its own directory.
 //
-// Writes <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slot>[+<slot>...].md,
-// atomically, and prints its path. In order:
+// Writes <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slot>[+<slot>...][-<repo>].md,
+// atomically, and prints its path. -repo <repo> renders one per-repository
+// dispatch of an over-cap multi-repository panel (review-panel.md's over-cap
+// paragraph, kan-1096 self-review F2): the SECTION block, `<repo>` filled in,
+// follows WORKTREES; every REPORT FILE names panel-report-<round>-<id>-<repo>.md;
+// the file name and the DISPATCH description gain `-<repo>`. A <repo> that is
+// not a plain name (plainChangeName) is exit 2. In order:
 //   1. the shared blocks, each extracted verbatim by its `> **<LABEL>:**`
 //      blockquote from <skill-dir>/review-panel.md (the first one — the
 //      slot's): TOOLS, FOREGROUND BUILDS, NO DELEGATION, REPRODUCE, DON'T
@@ -63,7 +68,7 @@ import (
 // stay typed in the Agent call.
 //
 // After the path, one line names the Agent call that launches the brief:
-// `DISPATCH: description "panel-<round>-<slots>" — prompt opens "Role: <role>"`,
+// `DISPATCH: description "panel-<round>-<slots>[-<repo>]" — prompt opens "Role: <role>"`,
 // <role> panel-mutation-failure for a dispatch carrying mutation and
 // panel-sanity-efficiency for test-sanity+call-efficiency under -diff final,
 // panel-reviewer for any other final dispatch, panel-rerun under delta and
@@ -89,12 +94,12 @@ func init() {
 
 const rspUsage = "usage: flow-guard render-slot-prompt <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \\\n" +
 	"         -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>...] [-fix-report <path>...] \\\n" +
-	"         -- <worktree>...\n"
+	"         [-repo <repo>] -- <worktree>...\n"
 
 var (
 	// rspUnfilled is what a render must no longer carry: a template
 	// placeholder, or a block's own path/round/id/report placeholder.
-	rspUnfilled = regexp.MustCompile(`\[[A-Z][A-Z0-9_]*\]|<abs-worktree[^>]*>|<fix report>|<round>|<id>`)
+	rspUnfilled = regexp.MustCompile(`\[[A-Z][A-Z0-9_]*\]|<abs-worktree[^>]*>|<fix report>|<round>|<id>|<repo>`)
 )
 
 func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
@@ -110,7 +115,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		return usage()
 	}
 	skill, round, canon, plan, slotArg := args[0], args[1], args[2], args[3], args[4]
-	var kind string
+	var kind, repo string
 	var noBundle bool
 	var standards, reports, wts []string
 	rest := args[5:]
@@ -133,6 +138,11 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 				return usage()
 			}
 			kind, rest = rest[0], rest[1:]
+		case "-repo":
+			if len(rest) == 0 || !plainChangeName(rest[0]) {
+				return refuse("-repo needs a plain repository name")
+			}
+			repo, rest = rest[0], rest[1:]
 		case "-no-bundle":
 			noBundle = true
 		case "-standard":
@@ -249,6 +259,16 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		emit(named(b))
 	}
+	// suffix names the per-repository dispatch's files; "" unsplit.
+	suffix := ""
+	if repo != "" {
+		suffix = "-" + repo
+		b, ok := block(panel, "review-panel.md", "SECTION")
+		if !ok {
+			return 2
+		}
+		emit(strings.ReplaceAll(b, "<repo>", repo))
+	}
 	for _, wt := range wts {
 		if isFile(wt + "/.superpowers/sdd/citation-check.md") {
 			b, ok := block(panel, "review-panel.md", "CITATION CHECK")
@@ -347,7 +367,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			emit(brief)
 			emit("Mutate and run the tests only in your throwaway copies, one per repository — `" +
 				strings.Join(copies, "`, `") + "` — never in the shared worktrees above.")
-			emit(strings.NewReplacer("<abs-worktree>", canon, "<round>", round, "<id>", id).Replace(report))
+			emit(strings.NewReplacer("<abs-worktree>", canon, "<round>", round, "<id>", id+suffix).Replace(report))
 			continue
 		}
 		tmplPath := skill + "/" + id + "-reviewer-prompt.md"
@@ -376,7 +396,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		emit("## PASS " + id)
 		emit(strings.TrimRight(body, "\n"))
-		r := strings.NewReplacer("<abs-worktree>", canon, "<round>", round, "<id>", id).Replace(report)
+		r := strings.NewReplacer("<abs-worktree>", canon, "<round>", round, "<id>", id+suffix).Replace(report)
 		emit(r)
 	}
 
@@ -385,7 +405,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "render-slot-prompt: unresolved placeholder(s): %s\n", strings.Join(left, ", "))
 		return 1
 	}
-	path := sdd + "slot-prompt-" + round + "-" + slotArg + ".md"
+	path := sdd + "slot-prompt-" + round + "-" + slotArg + suffix + ".md"
 	if err := os.MkdirAll(sdd, 0o755); err != nil {
 		return refuse("%v", err)
 	}
@@ -393,7 +413,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("%v", err)
 	}
 	fmt.Fprintln(stdout, path)
-	fmt.Fprintf(stdout, "DISPATCH: description %q — prompt opens \"Role: %s\"\n", "panel-"+round+"-"+slotArg, rspRole(slotArg, kind, sdd))
+	fmt.Fprintf(stdout, "DISPATCH: description %q — prompt opens \"Role: %s\"\n", "panel-"+round+"-"+slotArg+suffix, rspRole(slotArg, kind, sdd))
 	return 0
 }
 
