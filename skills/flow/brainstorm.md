@@ -108,10 +108,15 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
 `planner-role`). A `/flow-plan` capture runs this section too, with the differences
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states. Every planner dispatch is fresh and one-shot, on `subagent_type:
-flow-planner-<effort>` with `model` and effort from the **Allowed pairs** row `planner`
-(`skills/flow-contracts/model-policy.md`) — its first pair unless an open experiment overrides
-it; a CORE change (its Jira issue carries an `**Agents (CORE):**` section) takes `flow-guard plan-agent-pair
-<name> <n> planner core` instead, `fable xhigh`, and its prompt carries the line `CORE change`. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
+flow-planner-<effort>` with `model` and effort from `flow-guard plan-agent-pair <name> <n> planner
+<effort>`, read off the **Allowed pairs** row `planner` (`skills/flow-contracts/model-policy.md`).
+Round 1's effort is `low` when the ask is a seeded note or a `/flow-plan` capture that already
+carries the design (`skills/flow/seeded-note.md`), else `medium`; every later planner dispatch of
+the run takes the latest round file's `**Scope:**` line — `small` → `low`, `regular` → `medium`,
+`large` → `high` — and a guard redispatch `low`. `xhigh` and an opt-in pair are used only under an
+operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`): the parent's prompt
+then carries `Operator pair: planner`, and one line `Granted: <role> <model> <effort>` for each
+granted `explorer` or `plan-designer` role. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
 report-tersely line, the PLANNING DELEGATION paragraph (`skills/flow-self-review/SKILL.md`) — its
 auto-resolution sentence replaced by "every choice is written as a question of the round file" —
 the change name, the absolute worktree, the session token and `REVIEWERS` (**Model resolution**,

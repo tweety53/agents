@@ -60,7 +60,10 @@ states.
 
 - **A round file opens with `## Summary`** — at most ten lines: the decisions the round settled
   and what is still open. The parent relays that section and the file's absolute path, and the
-  design draft stays in the file.
+  design draft stays in the file. The section ends with `**Scope:** small|regular|large — <one-line
+  reason>`, the planner's estimate after exploring: `small` a change confined to one known area
+  with one obvious approach, `large` one that spans repositories or apps, changes a data model or
+  a public contract, or needed competing designs; `regular` otherwise.
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
@@ -128,13 +131,10 @@ criterion nothing satisfies — enforced by `flow-guard check-done-when-paths`.
 change name (in `/flow-plan` before capture, the session token; for the self-review and in-run fix
 planners, their own `Key:`), `<n>` counting the session's planning dispatches from 1, `<role>` the
 dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on — passing the
-printed model as the Agent tool's `model` and the effort as its `effort`. **A CORE change** — its Jira issue carries an `**Agents (CORE):**` section — has its parent's planner prompt
-carry the line `CORE change`; the planner then passes `core` as a fourth argument on every Explore and Plan
-dispatch (`flow-guard plan-agent-pair <seed> <n> explorer|plan-designer core`), which prints the row's first
-CORE pair: `opus low` for an explorer, `fable xhigh` for a plan-designer. On a CORE change every Explore
-and Plan dispatch prompt carries the line `CORE change` as well, the marker an open experiment's override
-leaves the row's own pairs admitted under (`skills/flow-contracts/model-policy.md`). Every other change
-omits it and gets the row's first pair. Its prompt carries the
+printed model as the Agent tool's `model` and the effort as its `effort` — the row's first pair.
+Where the planner's own prompt carries `Granted: <role> <model> <effort>` for the dispatch's role,
+the dispatch takes that pair instead, its prompt carrying the lines `Operator pair: <role>` and
+`Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`). Its prompt carries the
 line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
@@ -693,10 +693,8 @@ assigns — the implementer, the fixer, each panel dispatch, the rerun pair, eac
   effort `medium` or `low`, never `high`;
 - **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
   performance-sensitive code — `opus`, always;
-- **every other pass-1 panel dispatch** — `opus`, always; except a CORE change whose Jira `**Agents (CORE):**`
-  section's `reviewers` line names `fable 5.2 · medium`, whose primary and principles dispatches record
-  `fable` at `medium` — `flow record decision` admits `fable` on `panel.dispatches[]` pairs and nowhere
-  else, and the dispatch runs on a pair the `panel-reviewer` role admits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
+- **every other pass-1 panel dispatch** — `opus`, always; a pair outside the `panel-reviewer` role's
+  base pairs only under an operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
 - **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each its own rolled pair off its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`);
 - **every gated per-task reviewer bundle** — its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), whatever the roll, since no decision pair records it, and a fix re-review bundle its own;
 - **the rerun pair** — `opus` or `sonnet`; nothing requires it to differ from a pass-1 dispatch.
