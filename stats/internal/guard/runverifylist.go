@@ -823,7 +823,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if full && mode != "plain" {
 		fmt.Fprintln(stderr, "run-verify-list: -full runs the whole list — not with -only or -detect-flaky")
-		Reason(env, "full-runs-the-whole-list")
+		Reason(env, "full-with-only-refused")
 		return 2
 	}
 	if full && (len(args) < 2 || (args[1] != "test" && args[1] != "visual")) {

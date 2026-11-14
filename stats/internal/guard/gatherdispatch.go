@@ -262,7 +262,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 			hint = " — " + gdcUnsplitTaskIDsHint
 		}
 		fmt.Fprintf(stderr, "gather-dispatch-context: task ids '%s' must be a comma-separated list of integers%s\n", taskIDs, hint)
-		Reason(env, "task-ids")
+		Reason(env, "task-ids-malformed")
 		return 2
 	}
 	switch shape {
@@ -287,7 +287,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	}
 	if mismatch {
 		fmt.Fprintf(stderr, "gather-dispatch-context: worktree '%s' resolves through a symlink somewhere between the repository root and the leaf\n", worktree)
-		Reason(env, "worktree-through-symlink")
+		Reason(env, "worktree-not-direct")
 		return 2
 	}
 	// --- change-root: must resolve to an existing, non-symlinked directory
@@ -300,7 +300,7 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	}
 	if mismatch {
 		fmt.Fprintf(stderr, "gather-dispatch-context: change-root '%s' resolves through a symlink somewhere between the repository root and the leaf\n", changeRoot)
-		Reason(env, "change-root-through-symlink")
+		Reason(env, "change-root-not-direct")
 		return 2
 	}
 	// An ## apps worktree created without a spectre link

@@ -319,7 +319,7 @@ func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) 
 	}
 	if !plainChangeName(changeID) {
 		fmt.Fprintf(stderr, "change-plan: canonical change id '%s' in %s is not a plain change id — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", changeID, link)
-		Reason(env, "canonical-change-id")
+		Reason(env, "canonical-id-not-plain")
 		return "", 1
 	}
 	if canonical != "" {

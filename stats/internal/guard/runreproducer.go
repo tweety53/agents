@@ -284,7 +284,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	pathToken := tokens[0]
 	if strings.HasPrefix(pathToken, "-") {
-		return refuse("path-token", fmt.Sprintf("the path token '%s' begins with '-' — a reproducer names a path, never an option", pathToken))
+		return refuse("path-token-is-option", fmt.Sprintf("the path token '%s' begins with '-' — a reproducer names a path, never an option", pathToken))
 	}
 	if strings.Contains(cmdText, "://") {
 		return refuse("command-names-a-url", "the command names a URL — a reproducer is a bare path inside the worktree, never a network location")
@@ -305,7 +305,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("absolute-token", fmt.Sprintf("the token '%s' is an absolute path — a reproducer names a path relative to the worktree, on the path token or any argument", tok))
 		}
 		if hasDotDotSegment(tok) {
-			return refuse("dotdot-token", fmt.Sprintf("the token '%s' carries a '..' path segment — a reproducer must stay inside the worktree, on the path token or any argument", tok))
+			return refuse("dotdot-token-refused", fmt.Sprintf("the token '%s' carries a '..' path segment — a reproducer must stay inside the worktree, on the path token or any argument", tok))
 		}
 	}
 
@@ -318,20 +318,20 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	inside := func(p string) bool { return p == worktree || strings.HasPrefix(p, worktree+"/") }
 	candidate := worktree + "/" + pathToken
 	if _, err := os.Stat(candidate); err != nil {
-		return refuse("path-token", fmt.Sprintf("the path token '%s' does not exist inside the worktree", pathToken))
+		return refuse("path-token-missing", fmt.Sprintf("the path token '%s' does not exist inside the worktree", pathToken))
 	}
 	resolved, err := filepath.EvalSymlinks(candidate)
 	if err != nil {
-		return refuse("path-token", fmt.Sprintf("the path token '%s' could not be resolved", pathToken))
+		return refuse("path-token-unresolved", fmt.Sprintf("the path token '%s' could not be resolved", pathToken))
 	}
 	if !inside(resolved) {
-		return refuse("path-token", fmt.Sprintf("the path token '%s' resolves to '%s', outside the worktree — a symlink escape", pathToken, resolved))
+		return refuse("path-token-escapes", fmt.Sprintf("the path token '%s' resolves to '%s', outside the worktree — a symlink escape", pathToken, resolved))
 	}
 	if !isFile(resolved) {
-		return refuse("path-token", fmt.Sprintf("the path token '%s' does not resolve to a regular file", pathToken))
+		return refuse("path-token-not-file", fmt.Sprintf("the path token '%s' does not resolve to a regular file", pathToken))
 	}
 	if syscall.Access(resolved, rrExecOK) != nil {
-		return refuse("path-token", fmt.Sprintf("the path token '%s' resolves to a file with no execute permission", pathToken))
+		return refuse("path-token-not-executable", fmt.Sprintf("the path token '%s' resolves to a file with no execute permission", pathToken))
 	}
 
 	// The declaration of the mutation-reproducer convention (KAN-568), read from

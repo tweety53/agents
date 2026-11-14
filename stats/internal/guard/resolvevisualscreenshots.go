@@ -119,7 +119,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	root, spec := args[0], args[1]
 	if spec == "" {
 		fmt.Fprint(stderr, rvsPrefix+"the capture spec basename argument is empty\n")
-		Reason(env, "capture-spec-basename-argument")
+		Reason(env, "spec-argument-empty")
 		return 2
 	}
 	if !isDir(rvsAt(env, root)) {

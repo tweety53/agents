@@ -3347,7 +3347,7 @@ func checkPlanProvenance(_ []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if repoRoot == "" {
 		fmt.Fprintln(stderr, "CHECK_PLAN_PROVENANCE_ROOT is set but empty")
-		Reason(env, "check-plan-provenance-root")
+		Reason(env, "root-env-empty")
 		return 2
 	}
 	g := &ppGuard{stdout: stdout, stderr: stderr, dir: env.Dir}

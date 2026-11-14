@@ -118,7 +118,7 @@ func checkMutationReproducerPin(_ []string, env Env, stdout, stderr io.Writer) i
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "%s: CHECK_MUTATION_REPRODUCER_PIN_ROOT is set but empty\n", mrpName)
-		Reason(env, "check-mutation-reproducer-pin-root")
+		Reason(env, "root-env-empty")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {

@@ -123,7 +123,7 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 			l.die("sdd-exists", 2, "%s exists -- pick another name", sdd)
 		}
 		if l.answers() {
-			l.die("port-in-use", 2, "port %s already answers", l.port)
+			l.die("port-not-free", 2, "port %s already answers", l.port)
 		}
 		probe := l.pg("psql", "-U", "flow", "-d", "flow", "-tAc", "select 1 from pg_database where datname='"+l.db+"'")
 		if out, _ := probe.Output(); strings.TrimRight(string(out), "\n") != "" {

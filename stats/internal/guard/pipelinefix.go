@@ -368,13 +368,13 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 		o, err := pfReviewOutcome(outcome)
 		if err != nil {
 			fmt.Fprintf(stderr, "pipeline-fix end: %s takes its reviewer's report file, or aborted: %v\n", key, err)
-			Reason(env, "pipeline-fix-end")
+			Reason(env, "review-outcome-invalid")
 			return 2
 		}
 		outcome = o
 	} else if want := []string{"completed", "aborted"}; lpFamily(suffix) != "review" && !slices.Contains(want, outcome) {
 		fmt.Fprintf(stderr, "pipeline-fix end: %s takes outcome %s\n", key, strings.Join(want, " or "))
-		Reason(env, "pipeline-fix-end")
+		Reason(env, "outcome-invalid")
 		return 2
 	}
 	main, change := lp.main, lp.change
@@ -403,19 +403,19 @@ func pfEscalate(env Env, pe pfEnv, key string, stdout, stderr io.Writer) int {
 	}
 	if !escalatable {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: the allowed-pairs table admits no escalation for %s\n", key)
-		Reason(env, "pipeline-fix-escalate")
+		Reason(env, "escalation-not-admitted")
 		return 1
 	}
 	rows, ok := lpRows(env, lp.main, lp)
 	if !ok {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: flow record dispatches -change %s failed -- cannot answer\n", lp.change)
-		Reason(env, "pipeline-fix-escalate")
+		Reason(env, "dispatches-unreadable")
 		return 2
 	}
 	// No progress needs an earlier round of the same kind to have made none.
 	if !lpEarlierRound(lp, suffix, rows) {
 		fmt.Fprintf(stderr, "pipeline-fix escalate: %s has no completed earlier round to escalate from\n", key)
-		Reason(env, "pipeline-fix-escalate")
+		Reason(env, "earlier-round-missing")
 		return 1
 	}
 	if rc, out := kwRun(env, "", pe.git, "-C", lp.main, "config", "--add", "flow.escalation", lp.token+":"+key); rc != 0 {
@@ -539,19 +539,19 @@ func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	base, ok := pfBase(env, pe.git, wt)
 	if !ok {
 		fmt.Fprint(stderr, "pipeline-fix verify: refs/remotes/origin/HEAD is unset\n")
-		Reason(env, "pipeline-fix-verify")
+		Reason(env, "origin-head-unset")
 		return 2
 	}
 	touched, ok := pfTouched(env, pe, wt, base)
 	if !ok {
 		fmt.Fprintf(stderr, "pipeline-fix verify: cannot diff %s against %s\n", wt, base)
-		Reason(env, "pipeline-fix-verify")
+		Reason(env, "diff-failed")
 		return 2
 	}
 	cmds, rc := pfChecks(env, pe, wt, touched)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "pipeline-fix verify: project-get cannot read %s's ## lint\n", wt)
-		Reason(env, "pipeline-fix-verify")
+		Reason(env, "lint-unreadable")
 		return 2
 	}
 	red := 0
@@ -658,7 +658,7 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 	_ = get.Run()
 	if first, _, _ := strings.Cut(strings.TrimSpace(route.String()), "\n"); strings.TrimSpace(first) != "merge and push" {
 		fmt.Fprintf(stderr, "%s: the default landing route is %q, not merge and push — land it by that route\n", self, first)
-		Reason(env, "default-landing-route")
+		Reason(env, "landing-route-not-merge")
 		return 1
 	}
 	base, ok := pfBase(env, pe.git, pe.main)
@@ -769,7 +769,7 @@ func pfUnfolded(env Env, pe pfEnv, lp lpLoop, rows []lpDispatch, wt, base string
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "pipeline-fix land: cannot read tasks.md for %s -- cannot answer\n", lp.change)
-		Reason(env, "pipeline-fix-land")
+		Reason(env, "tasks-md-unreadable")
 		return 2
 	}
 	subjects := map[string]bool{}

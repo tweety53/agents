@@ -142,7 +142,7 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 			Reason(env, "rebase-conflict")
 			return 1
 		case "refused":
-			return refuse("git-refused-to-rebase-onto", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
+			return refuse("rebase-refused", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
 		}
 		onto = o.sha
 		if v, ok = check(onto); !ok {

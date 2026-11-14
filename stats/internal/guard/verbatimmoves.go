@@ -205,7 +205,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 			ack = fast + "/" + vmAckFile
 		}
 		fmt.Fprintf(stderr, "Restore the sentence, move it verbatim, or — when the change means it — list it in %s.\n", ack)
-		Reason(env, "restore-the-sentence")
+		Reason(env, "sentence-moved")
 		return 1
 	}
 	return 0

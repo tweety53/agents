@@ -257,7 +257,7 @@ func checkTaskCommitFields(args []string, env Env, stdout, stderr io.Writer) int
 	var repos []tcfRepoCommit
 	if strings.Contains(commit, "=") {
 		if parent != "" {
-			return refuse("parent-with-commit-map", "the per-repository commit map derives each commit's parent itself — pass the fourth argument empty")
+			return refuse("parent-given-with-commit-map", "the per-repository commit map derives each commit's parent itself — pass the fourth argument empty")
 		}
 		for _, entry := range strings.Split(commit, ",") {
 			entry = strings.TrimSpace(entry)

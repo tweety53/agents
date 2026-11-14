@@ -217,7 +217,7 @@ func (c *ic) prepare() {
 		c.rebaseLint(c.wt[i], "")
 		// The rebase made a HEAD no verifier saw: the gate again.
 		if !c.visualOK(c.wt[i], c.bases[i]) {
-			c.stop("visual-verify", "rebased onto origin/"+c.bases[i]+" after the gate: "+visualStopText(c.wt[i], "prepare"))
+			c.stopAs("visual-verify-missing", "visual-verify", "rebased onto origin/"+c.bases[i]+" after the gate: "+visualStopText(c.wt[i], "prepare"))
 		}
 	}
 
@@ -298,13 +298,13 @@ func (c *ic) liveCheckGate(dir string) {
 	}
 	rec := dir + "/live-verification.md"
 	if !isFile(rec) {
-		c.stop("live-check", dir+"/design.md names a live check and "+rec+" is missing — run Live check (skills/flow/verify-and-handoff.md), through the stand-in its section states wherever a step would write this change's integrate state, then re-run prepare; --accept-outstanding does not pass this")
+		c.stopAs("live-record-missing", "live-check", dir+"/design.md names a live check and "+rec+" is missing — run Live check (skills/flow/verify-and-handoff.md), through the stand-in its section states wherever a step would write this change's integrate state, then re-run prepare; --accept-outstanding does not pass this")
 	}
 	c.run("check-live-verification", rec)
 	if c.rc == 2 {
-		c.stop("live-check", fmt.Sprintf("check-live-verification could not answer on %s (exit 2) — correct the input it names, then re-run prepare; --accept-outstanding does not pass this", rec))
+		c.stopAs("live-check-cannot-answer", "live-check", fmt.Sprintf("check-live-verification could not answer on %s (exit 2) — correct the input it names, then re-run prepare; --accept-outstanding does not pass this", rec))
 	}
 	if c.rc != 0 {
-		c.stop("live-check", fmt.Sprintf("check-live-verification exit %d on %s — measure what it names, rewrite the record, then re-run prepare; --accept-outstanding does not pass this", c.rc, rec))
+		c.stopAs("live-check-failed", "live-check", fmt.Sprintf("check-live-verification exit %d on %s — measure what it names, rewrite the record, then re-run prepare; --accept-outstanding does not pass this", c.rc, rec))
 	}
 }

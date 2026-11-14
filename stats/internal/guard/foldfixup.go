@@ -118,7 +118,7 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 		// The parent is resolved before anything rewrites the task commit.
 		var ok bool
 		if parent, ok = capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", task+"^")); !ok {
-			return refuse("root-commit", "%s has no parent in %s — cannot fold into a root commit", task, wt)
+			return refuse("no-parent", "%s has no parent in %s — cannot fold into a root commit", task, wt)
 		}
 		if !quiet(append([]string{"-C", wt, "commit", "-q", "--fixup=" + task, "--"}, paths...)...) {
 			return refuse("fixup-commit-refused", "git commit --fixup=%s refused in %s", task, wt)
@@ -133,13 +133,13 @@ func foldFixup(args []string, env Env, stdout, stderr io.Writer) int {
 				return refuse("cannot-read-rebase-state", "%v", err)
 			}
 			if !in {
-				return refuse("git-refused-to-rebase-onto", "git refused to rebase %s onto %s — the fixup commit stands unfolded", wt, parent)
+				return refuse("rebase-refused", "git refused to rebase %s onto %s — the fixup commit stands unfolded", wt, parent)
 			}
 		}
 	} else {
 		var ok bool
 		if parent, ok = capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", task+"^")); !ok {
-			return refuse("root-commit", "%s has no parent in %s", task, wt)
+			return refuse("no-parent", "%s has no parent in %s", task, wt)
 		}
 	}
 

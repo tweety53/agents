@@ -144,11 +144,11 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		return 2
 	}
 	if len(endCommits) != 0 && len(endCommits) != len(endKeys) {
-		return usage("end-commit-for-end-key", fmt.Sprintf("%d -end-commit for %d -end-key: give one per key, in order, or none", len(endCommits), len(endKeys)))
+		return usage("end-commits-mismatch", fmt.Sprintf("%d -end-commit for %d -end-key: give one per key, in order, or none", len(endCommits), len(endKeys)))
 	}
 	pos := fset.Args()
 	if len(pos) < 4 {
-		return usage("got-positional-argument", fmt.Sprintf("got %d positional argument(s)", len(pos)))
+		return usage("positional-arguments-wrong", fmt.Sprintf("got %d positional argument(s)", len(pos)))
 	}
 	canonical, name, mergeBase := pos[0], pos[1], pos[2]
 	type task struct{ id, commit string }
@@ -265,7 +265,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	case 0:
 	case 1:
 		fmt.Fprintln(stderr, "close-task: RE-COMMIT — a commit guard refused; nothing was ticked or pushed")
-		Reason(env, "re-commit")
+		Reason(env, "commit-guard-refused")
 		return 1
 	default:
 		fmt.Fprintln(stderr, "close-task: STOP — a commit guard could not judge; nothing was ticked or pushed")

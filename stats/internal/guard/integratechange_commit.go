@@ -85,7 +85,7 @@ func (c *ic) commit() {
 				subj = "chore(spectre): merge order"
 			}
 			if subj == "" && len(c.implPaths(c.wt[o], rb)) > 0 {
-				c.stop("commit-split", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
+				c.stopAs("subject-not-given", "commit-split", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
 			}
 			if subj != "" && c.outstanding != "" {
 				subj += "\n\nOutstanding: " + c.outstanding
@@ -93,7 +93,7 @@ func (c *ic) commit() {
 			before, _ := c.git("-C", c.wt[o], "rev-parse", "HEAD")
 			c.run("commit-split", append([]string{c.wt[o], c.name, subj, c.planMsg}, c.squashed[o]...)...)
 			if c.rc != 0 {
-				c.stop("commit-split", fmt.Sprintf("commit-split exit %d in %s — report its lines", c.rc, c.wt[o]))
+				c.stopAs("commit-split-failed", "commit-split", fmt.Sprintf("commit-split exit %d in %s — report its lines", c.rc, c.wt[o]))
 			}
 			if after, _ := c.git("-C", c.wt[o], "rev-parse", "HEAD"); subj != "" && c.outstanding != "" && after != before {
 				carried = true
@@ -111,7 +111,7 @@ func (c *ic) commit() {
 	for _, o := range c.order {
 		c.baseOf(o)
 		if !c.visualOK(c.wt[o], c.base) {
-			c.stop("visual-verify", "spectre/"+c.name+" not pushed from "+c.wt[o]+". "+visualStopText(c.wt[o], "commit"))
+			c.stopAs("visual-verify-missing", "visual-verify", "spectre/"+c.name+" not pushed from "+c.wt[o]+". "+visualStopText(c.wt[o], "commit"))
 		}
 		c.pushBranch(c.wt[o])
 		c.pushPin(c.wt[o])
@@ -148,7 +148,7 @@ func (c *ic) checkNarrative(nf string) {
 				// Only a `big` fix -- 60 files or more -- is ever deferred
 				// (Pipeline defects found mid-run, pipeline.md).
 				if r, _ := strconv.Atoi(m[2]); m[1] == "deferred" && r < 60 {
-					c.stopAs("deferred-fix-under-floor", "narrative", fmt.Sprintf("%s:%d defers an in-run fix of blast radius %d — only a fix of 60 files or more is deferred; fix and land it in this run, then re-run commit", nf, n+1, r))
+					c.stopAs("deferred-fix-too-small", "narrative", fmt.Sprintf("%s:%d defers an in-run fix of blast radius %d — only a fix of 60 files or more is deferred; fix and land it in this run, then re-run commit", nf, n+1, r))
 				}
 				named = append(named, m[1])
 			} else {
@@ -256,7 +256,7 @@ func icReadTrimmed(f string) string {
 func (c *ic) writeDesignRecord(design string) {
 	body, err := os.ReadFile(design)
 	if err != nil {
-		c.stop("design-record", "cannot read "+design+": "+err.Error())
+		c.stopAs("design-unreadable", "design-record", "cannot read "+design+": "+err.Error())
 	}
 	key := ""
 	if c.jiraKey != "" {
@@ -266,9 +266,9 @@ func (c *ic) writeDesignRecord(design string) {
 		", written at landing. Each decision's own **Status:** line is the status.\n\n"
 	out := c.canon + "/docs/designs/" + c.name + ".md"
 	if err := os.MkdirAll(c.canon+"/docs/designs", 0o755); err != nil {
-		c.stop("design-record", "cannot create the directory of "+out+": "+err.Error())
+		c.stopAs("record-not-writable", "design-record", "cannot create the directory of "+out+": "+err.Error())
 	}
 	if err := os.WriteFile(out, append([]byte(head), body...), 0o644); err != nil {
-		c.stop("design-record", "cannot write "+out+": "+err.Error())
+		c.stopAs("record-not-writable", "design-record", "cannot write "+out+": "+err.Error())
 	}
 }

@@ -103,6 +103,6 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 	// "identical: <dir>: <first name> …" sorts by directory, then first name.
 	sort.Strings(lines)
 	fmt.Fprintln(stdout, strings.Join(lines, "\n"))
-	Reason(env, "identical-none")
+	Reason(env, "baselines-duplicate")
 	return 1
 }

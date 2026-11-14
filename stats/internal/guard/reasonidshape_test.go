@@ -13,16 +13,27 @@ import (
 // fragmentIDRE matches a reason id that ends on a function word — a message
 // prefix cut mid-phrase (`failed-in`, `change-name-is-not`) rather than a name
 // for the reason (tagging rule 2, decision reason-id-shape).
-var fragmentIDRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*-(for|with|is|the|a|to|of|in|on|at|and|or|from|by|its|no|not|than|after|under|must|but|into|an|whether|while|cannot)$`)
+var fragmentIDRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*-(for|with|is|the|a|to|of|in|on|at|and|or|from|by|its|no|not|than|after|under|must|but|into|an|whether|while|cannot|onto|outside|via|as|against|through|over)$`)
 
-// fragmentIDExempt holds ids that end on such a word and still name a reason.
-var fragmentIDExempt = map[string]string{}
+// reasonIDExempt holds multi-word ids the rule would flag that still name a
+// reason, each with why (decision sub-guard-names-exempt).
+var reasonIDExempt = map[string]string{
+	"plan-files-paths":  "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
+	"plan-script-paths": "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
+	"plan-step-files":   "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
+	"plan-suite-steps":  "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
+	"plan-task-id-rule": "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
+}
 
-// bareSubjectIDs are multi-word ids that name only the subject of a message —
-// its first words cut off before the verb (`change-name`) — and so no reason.
-var bareSubjectIDs = map[string]bool{
-	"change-root": true, "slot-carries": true, "change-name": true, "peer-name": true,
-	"tasks-md": true, "merge-base": true, "base-branch": true, "recorded-base": true,
+// reasonVerdictWords are the state, verdict and predicate words: a multi-word
+// id names a reason only when one of its words is among them; without one it
+// names only a subject (`change-name`, `setup-sh`).
+var reasonVerdictWords = map[string]bool{}
+
+func init() {
+	for _, w := range strings.Fields(`aborted absent absolute ambiguous appended bad behind cannot capped carries changed changes clean conflict crashed current dangles demonstrated denied detached differs dirty disagree done dotted drift duplicate embedded empty escapes executable exist exists exited fail failed failing failure findings flaky forced foreign found gap given gone green hit incomplete inside interrupted invalid is joined late leftover lost malformed mismatch mismatched miss misses missing moved must names needs no not nothing off ok only open outside outstanding over overlap pending positive readable red refused refusing rejected relative required reused runnable running sandboxed stale still stopped stray swept timed too touched touches twice unaddressed unchecked uncited unclassifiable unclosed uncommitted uncounted undercounted underivable undispatched unfetchable unfinished unknown unnarrowable unparseable unproved unreachable unreadable unrecognized unrecorded unresolved unreviewed unset unstaged untasked unticked untracked unusable unverifiable unverified vanished violation violations without writable wrong zero`) {
+		reasonVerdictWords[w] = true
+	}
 }
 
 // reasonIDAllowed is the whole set of single-word ids: one word names a
@@ -45,8 +56,9 @@ var reasonIDAllowed = map[string]string{
 var idShapeRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // badReasonID reports whether id is a fragment or a bare subject rather than
-// a reason name: any single-word id outside reasonIDAllowed, a known
-// multi-word subject, or an id ending on a function word.
+// a reason name: any single-word id outside reasonIDAllowed, and any
+// multi-word id outside reasonIDExempt that ends on a function word or
+// carries no word of reasonVerdictWords.
 func badReasonID(id string) bool {
 	if !idShapeRE.MatchString(id) {
 		return false // a message argument of a same-named helper, not an id
@@ -54,7 +66,18 @@ func badReasonID(id string) bool {
 	if !strings.Contains(id, "-") {
 		return reasonIDAllowed[id] == ""
 	}
-	return (fragmentIDRE.MatchString(id) && fragmentIDExempt[id] == "") || bareSubjectIDs[id]
+	if reasonIDExempt[id] != "" {
+		return false
+	}
+	if fragmentIDRE.MatchString(id) {
+		return true
+	}
+	for _, w := range strings.Split(id, "-") {
+		if reasonVerdictWords[w] {
+			return false
+		}
+	}
+	return true
 }
 
 // reasonIDCallees are the functions and methods whose first argument is a
@@ -99,15 +122,15 @@ func reasonIDLiterals(t *testing.T, fset *token.FileSet, name, src string) map[s
 	return ids
 }
 
-// TestReasonIDsNameTheReason fails on any reason id in the package that is a
-// truncated message fragment.
+// TestReasonIDsNameTheReason fails on any reason id in the package that ends on
+// a function word or, multi-word, carries no verdict word.
 func TestReasonIDsNameTheReason(t *testing.T) {
 	t.Parallel()
 	fset := token.NewFileSet()
 	for name, src := range reasonPinRange(t, func(string) bool { return true }) {
 		for pos, id := range reasonIDLiterals(t, fset, name, src) {
 			if badReasonID(id) {
-				t.Errorf("%s: reason id %q is a message fragment, not a name for the reason", pos, id)
+				t.Errorf("%s: reason id %q names no reason: it ends on a function word or carries no verdict word (reasonVerdictWords)", pos, id)
 			}
 		}
 	}
@@ -136,6 +159,24 @@ func f(env Env, v *x) int {
 	for id, frag := range want {
 		if f, ok := got[id]; !ok || f != frag {
 			t.Errorf("id %q: found=%v fragment=%v, want found fragment=%v", id, ok, f, frag)
+		}
+	}
+}
+
+// TestMultiWordReasonIDsCarryAVerdict pins both halves of the multi-word rule:
+// a verdict word somewhere in the id, and no function word at its end.
+func TestMultiWordReasonIDsCarryAVerdict(t *testing.T) {
+	t.Parallel()
+	for id, want := range map[string]bool{
+		"visual-verify": true, "path-token": true, "setup-sh": true, "review-panel-md": true,
+		"reading-the-prompt": true, "fix-the-reference": true, "identical-none": true,
+		"git-refused-to-rebase-onto": true, "target-file-is-outside": true, "change-name": true,
+		"not-a-worktree": false, "cannot-read-file": false, "line-is-a-template": false,
+		"worktree-vanished": false, "bundle-violations": false, "base-behind": false,
+		"usage": false, "plan-files-paths": false,
+	} {
+		if got := badReasonID(id); got != want {
+			t.Errorf("badReasonID(%q) = %v, want %v", id, got, want)
 		}
 	}
 }

@@ -138,7 +138,7 @@ func checkNormativeInventory(_ []string, env Env, stdout, stderr io.Writer) int 
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "CHECK_NORMATIVE_INVENTORY_ROOT is set but empty\n")
-		Reason(env, "check-normative-inventory-root")
+		Reason(env, "root-env-empty")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {

@@ -329,7 +329,7 @@ func cirManagedFiles(setup, setupSh string, refuse func(id, format string, a ...
 		files = append(files, rel)
 	}
 	if len(files) == 0 {
-		return nil, refuse("setup-sh", "setup.sh's managed_files declaration is empty in %s — refusing to scan nothing and call it clean", setupSh)
+		return nil, refuse("managed-files-empty", "setup.sh's managed_files declaration is empty in %s — refusing to scan nothing and call it clean", setupSh)
 	}
 	return files, 0
 }

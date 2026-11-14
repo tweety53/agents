@@ -19,7 +19,7 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 		return 2
 	}
 	if len(args) != 2 || args[0] == "" || args[1] == "" {
-		return die("worktree-name", "usage: <worktree> <name>")
+		return die("usage", "usage: <worktree> <name>")
 	}
 	wt, name := args[0], args[1]
 	if !isDir(smcAbs(env, wt)) {

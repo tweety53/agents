@@ -121,7 +121,7 @@ func (c *ic) land() {
 		c.die("self-review-state-unknown", "flowd cannot say whether flow.self-review completed for %s — nothing was pushed", c.name)
 	}
 	if !done {
-		c.stop("self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run land; nothing was pushed")
+		c.stopAs("self-review-not-done", "self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run land; nothing was pushed")
 	}
 	if c.route == "" {
 		c.route = c.defaultRoute()
@@ -129,7 +129,7 @@ func (c *ic) land() {
 	switch c.route {
 	case "pull request", "merge and push", "manual":
 	default:
-		c.stop("landing-route", "no route — ask the landing question, then flow-guard integrate-change land "+c.main+" "+c.name+" --route <route> "+c.flags())
+		c.stopAs("landing-route-not-given", "landing-route", "no route — ask the landing question, then flow-guard integrate-change land "+c.main+" "+c.name+" --route <route> "+c.flags())
 	}
 	c.markBegin("flow.landing-routes")
 	pr, pushed := "", ""
@@ -143,7 +143,7 @@ func (c *ic) land() {
 		w := c.wt[o]
 		c.baseOf(o)
 		if !c.visualOK(w, c.base) {
-			c.stop("visual-verify", "spectre/"+c.name+" not pushed from "+w+"; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))
+			c.stopAs("visual-verify-missing", "visual-verify", "spectre/"+c.name+" not pushed from "+w+"; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))
 		}
 		c.pushBranch(w)
 		if w == c.canon {
@@ -154,7 +154,7 @@ func (c *ic) land() {
 			// An own-branch self-review loop lands only once its rows admit it (NA passes).
 			c.run("check-loop-landing", c.canon, "spectre/"+c.name)
 			if c.rc != 0 {
-				c.stop("loop-landing", fmt.Sprintf("flow-guard check-loop-landing exit %d — finish the self-review loop its LOOP-LANDING-REFUSED lines name, then re-run land; nothing landed from %s", c.rc, w))
+				c.stopAs("loop-landing-refused", "loop-landing", fmt.Sprintf("flow-guard check-loop-landing exit %d — finish the self-review loop its LOOP-LANDING-REFUSED lines name, then re-run land; nothing landed from %s", c.rc, w))
 			}
 			if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
 				c.say("PUSH-REJECTED: " + w + " — re-syncing onto origin/" + c.base + " once")
@@ -170,7 +170,7 @@ func (c *ic) land() {
 				}
 				c.rebaseLint(w, "already pushed: "+alreadyPushed()+"; ")
 				if !c.visualOK(w, c.base) {
-					c.stop("visual-verify", "re-synced onto origin/"+c.base+" after its push was rejected, so it was not pushed there; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))
+					c.stopAs("visual-verify-missing", "visual-verify", "re-synced onto origin/"+c.base+" after its push was rejected, so it was not pushed there; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))
 				}
 				c.refreshFixedRefs(w)
 				c.pushBranch(w)

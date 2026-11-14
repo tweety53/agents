@@ -178,7 +178,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	for i := 0; i < len(base); i++ {
 		if !rbbNameByte(base[i], i > 0) {
 			fmt.Fprintln(stderr, "resolve-base-branch: the resolved base branch name is invalid")
-			Reason(env, "resolved-base-branch-name")
+			Reason(env, "base-name-invalid")
 			return 1
 		}
 	}

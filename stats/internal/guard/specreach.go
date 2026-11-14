@@ -253,7 +253,7 @@ func checkSpecReach(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if orphans != 0 {
 		fmt.Fprintf(stderr, "Spec reach: %d of %d spec(s) reached by no package.json script\n", orphans, len(specs))
-		Reason(env, "spec-reach")
+		Reason(env, "spec-not-reached")
 		return 1
 	}
 	fmt.Fprintf(stdout, "Spec reach: %d spec(s), all reached\n", len(specs))

@@ -115,7 +115,7 @@ func syncPanelBase(args []string, env Env, stdout, stderr io.Writer) int {
 			Reason(env, "conflict")
 			return 1
 		case "refused":
-			return refuse("git-refused-to-rebase-onto", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
+			return refuse("rebase-refused", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
 		}
 		fmt.Fprintf(stdout, "REBASED: %s — merge base %s\n", wt, o.sha)
 		last = o.sha

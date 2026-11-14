@@ -286,7 +286,7 @@ func checkReferences(_ []string, env Env, stdout, stderr io.Writer) int {
 	if r.failures != 0 {
 		fmt.Fprintf(stderr, "\n%d stale reference(s) found.\n", r.failures)
 		fmt.Fprint(stderr, "Fix the reference, or mark the line refs-guard:allow if the bold text is emphasis.\n")
-		Reason(env, "fix-the-reference")
+		Reason(env, "reference-stale")
 		return 1
 	}
 	fmt.Fprint(stdout, "check-references: all referenced sections resolve\n")

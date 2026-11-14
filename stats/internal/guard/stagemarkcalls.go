@@ -439,7 +439,7 @@ func checkStageMarkCalls(args []string, env Env, stdout, stderr io.Writer) int {
 		return die("served-stage-key-source-failed", "the served stage-key source failed: (cd %s/stats && go run ./cmd/flow stage keys)", root)
 	}
 	if keys = strings.TrimRight(keys, "\n"); keys == "" {
-		return die("served-stage-key-source", "the served stage-key source (flow stage keys) printed no keys")
+		return die("stage-keys-empty", "the served stage-key source (flow stage keys) printed no keys")
 	}
 
 	s := &smcScan{root: root, keys: keys, utf8: smcUTF8(env), stdout: stdout}

@@ -562,7 +562,7 @@ func (c *ic) visualOK(w, base string) bool {
 func (c *ic) visualGate() {
 	for i := range c.wt {
 		if !c.visualOK(c.wt[i], c.bases[i]) {
-			c.stop("visual-verify", visualStopText(c.wt[i], "prepare"))
+			c.stopAs("visual-verify-missing", "visual-verify", visualStopText(c.wt[i], "prepare"))
 		}
 	}
 }
@@ -968,7 +968,7 @@ func (c *ic) rebaseLint(w, prefix string) {
 	out, rc := c.capture(c.sibling("prepare-workspace", w))
 	if rc != 0 {
 		fmt.Fprintln(c.stdout, out)
-		c.stop("rebase-lint", prefix+"flow-guard prepare-workspace failed on "+w+" after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS")
+		c.stopAs("rebase-workspace-failed", "rebase-lint", prefix+"flow-guard prepare-workspace failed on "+w+" after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS")
 	}
 	cmd := c.sibling("run-verify-list", w, "lint")
 	cmd.Env = append([]string{}, c.childEnv...)
@@ -984,14 +984,14 @@ func (c *ic) rebaseLint(w, prefix string) {
 	switch rc {
 	case 0:
 		if after, _ := c.git("-C", w, "diff", "--no-renames", "HEAD"); after != before {
-			c.stop("rebase-lint", prefix+"the ## lint list rewrote tracked files on "+w+" after its rebase — commit or revert them; the change stays IN_PROGRESS")
+			c.stopAs("rebase-lint-changed-files", "rebase-lint", prefix+"the ## lint list rewrote tracked files on "+w+" after its rebase — commit or revert them; the change stays IN_PROGRESS")
 		}
 		c.say("REBASE-LINT-PASSED: " + w)
 	case 3:
 		c.say("REBASE-LINT-NONE: " + w + " — its project declares no ## lint list")
 	default:
 		fmt.Fprintln(c.stdout, strings.TrimRight(b.String(), "\n"))
-		c.stop("rebase-lint", fmt.Sprintf("%sthe ## lint list failed on %s after its rebase (run-verify-list exit %d) — report its output above; the change stays IN_PROGRESS", prefix, w, rc))
+		c.stopAs("rebase-lint-failed", "rebase-lint", fmt.Sprintf("%sthe ## lint list failed on %s after its rebase (run-verify-list exit %d) — report its output above; the change stays IN_PROGRESS", prefix, w, rc))
 	}
 }
 
@@ -1019,7 +1019,7 @@ func (c *ic) pinPreReshape(w string) {
 	} else if _, ok := c.git("-C", w, "update-ref", r, "HEAD"); ok {
 		return
 	}
-	c.stop("pre-reshape", "pinning "+w+"'s HEAD as "+r+" failed — report git's output; this worktree was not reshaped")
+	c.stopAs("pin-failed", "pre-reshape", "pinning "+w+"'s HEAD as "+r+" failed — report git's output; this worktree was not reshaped")
 }
 
 // pushPin: the pin to origin, plain, when the worktree has one; origin's is
@@ -1043,7 +1043,7 @@ func (c *ic) pushPin(w string) {
 	}
 	if rem != "" {
 		if _, ok := c.gitQuiet("-C", w, "merge-base", "--is-ancestor", rem, l); !ok {
-			c.stop("pre-reshape", "origin's "+r+" is "+rem+", not an ancestor of "+w+"'s pin "+l+" — report it; neither was overwritten")
+			c.stopAs("remote-not-ancestor", "pre-reshape", "origin's "+r+" is "+rem+", not an ancestor of "+w+"'s pin "+l+" — report it; neither was overwritten")
 		}
 	}
 	if !c.gitPass("-C", w, "push", "-q", "origin", r+":"+r) {

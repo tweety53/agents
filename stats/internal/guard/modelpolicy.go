@@ -203,7 +203,7 @@ func checkDispatchPair(args []string, env Env, stdout, stderr io.Writer) int {
 	if env.Stdin != nil {
 		if prompt, err = io.ReadAll(env.Stdin); err != nil {
 			fmt.Fprintf(stderr, "%s: reading the prompt: %v\n", self, err)
-			Reason(env, "reading-the-prompt")
+			Reason(env, "prompt-unreadable")
 			return 2
 		}
 	}

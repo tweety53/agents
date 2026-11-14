@@ -575,7 +575,7 @@ func (v *vvp) relayContract() string {
 		para = append(para, l)
 	}
 	if len(para) == 0 {
-		v.die("skills-flow-visual-verify-md", "skills/flow/visual-verify.md carries no paragraph opening **The relay contract.**")
+		v.die("relay-paragraph-missing", "skills/flow/visual-verify.md carries no paragraph opening **The relay contract.**")
 	}
 	return strings.Join(para, "\n")
 }
@@ -621,7 +621,7 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	line("## Workspace")
 	line("")
 	if rc, kv, errs := v.guard("prepare-workspace", nil, w); rc != 0 {
-		v.die("prepare-workspace", "prepare-workspace %s: %s", w, errs)
+		v.die("prepare-workspace-failed", "prepare-workspace %s: %s", w, errs)
 	} else if kv == "" {
 		line("(no `## workspace isolation` value exported)")
 	} else {

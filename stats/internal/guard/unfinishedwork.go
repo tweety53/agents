@@ -399,7 +399,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	if planRC == 3 {
 		_, _ = stderr.Write(planErr.Bytes())
 		fmt.Fprintf(stderr, "%sthe state record resolves '%s' to more than one project's plan — cannot determine anything\n", uwPrefix, name)
-		Reason(env, "state-record-resolves")
+		Reason(env, "plan-ambiguous")
 		return 2
 	}
 	planOpen, parentOpen := 0, 0

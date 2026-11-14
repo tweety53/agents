@@ -163,7 +163,7 @@ func checkInstalledCitations(_ []string, env Env, stdout, stderr io.Writer) int 
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "%s: CHECK_INSTALLED_CITATIONS_ROOT is set but empty\n", cicName)
-		Reason(env, "check-installed-citations-root")
+		Reason(env, "root-env-empty")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {

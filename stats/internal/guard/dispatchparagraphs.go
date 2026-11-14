@@ -526,7 +526,7 @@ func checkDispatchParagraphs(_ []string, env Env, stdout, stderr io.Writer) int 
 	switch {
 	case set && root == "":
 		fmt.Fprintf(stderr, "%s: CHECK_DISPATCH_PARAGRAPHS_ROOT is set but empty\n", dpName)
-		Reason(env, "check-dispatch-paragraphs-root")
+		Reason(env, "root-env-empty")
 		return 2
 	case !set:
 		if root = env.Getenv("FLOW_GUARD_REPO_ROOT"); root == "" {

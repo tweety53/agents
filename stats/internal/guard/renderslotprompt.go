@@ -253,7 +253,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			const phrase = "`<round>` this round's number"
 			if !strings.Contains(b, phrase) {
 				fmt.Fprintf(stderr, "render-slot-prompt: review-panel.md's REPRODUCER block no longer carries %q — cannot state the round\n", phrase)
-				Reason(env, "review-panel-md")
+				Reason(env, "round-phrase-missing")
 				return 2
 			}
 			b = strings.Replace(b, phrase, phrase+" — `"+round+"` here", 1)

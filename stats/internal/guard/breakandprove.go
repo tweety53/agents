@@ -237,7 +237,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 		repoCanon, _ := filepath.EvalSymlinks(root)
 		rel, inside := strings.CutPrefix(dir+"/"+filepath.Base(file), repoCanon+"/")
 		if !inside {
-			return refuse("target-file-is-outside", "target file is outside the repository: "+fileArg)
+			return refuse("target-outside-repo", "target file is outside the repository: "+fileArg)
 		}
 		if touched != rel {
 			return refuse("patch-touches", fmt.Sprintf("patch touches %s, not %s", touched, rel))

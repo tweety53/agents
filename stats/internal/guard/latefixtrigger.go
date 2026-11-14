@@ -285,12 +285,12 @@ func checkLateFixTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 
 	if len(failed) > 0 && appendScope && len(binary) == 0 && lines <= lftSmallAppendLines {
 		fmt.Fprintf(stdout, "small append: %d changed lines since %s\n", lines, triples[1])
-		Reason(env, "small-append")
+		Reason(env, "small-append-failed")
 		return 4
 	}
 	if len(failed) > 0 && appendScope {
 		fmt.Fprintf(stdout, "append scope: %d changed lines since %s\n", lines, triples[1])
-		Reason(env, "append-scope")
+		Reason(env, "append-scope-failed")
 		return 3
 	}
 	if len(failed) > 0 {
