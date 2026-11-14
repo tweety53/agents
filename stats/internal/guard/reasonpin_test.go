@@ -6,7 +6,9 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -369,5 +371,75 @@ type holder struct{ env Env }
 		if got := exitSiteViolations(map[string]string{"f.go": prelude + src}, exempt); len(got) != 0 {
 			t.Errorf("clean %s: violations %q, want none", name, got)
 		}
+	}
+}
+
+// reasonPinExempt names every function whose integers are not its guard's
+// exit code, with why; its callers record at their own exits.
+var reasonPinExempt = map[string]string{
+	"psWorse":               "combines exit codes its callers recorded",
+	"psPlan.afterFieldLine": "returns a line number",
+	"bpRunArgv":             "returns a child process's exit status",
+	"exitCode":              "returns a child process's exit status",
+	"pcFlow":                "returns the flow CLI's exit status",
+	"changePlanStoreDir":    "returns a lookup status (0 found, 1 none, 3 ambiguous), not an exit code",
+	"changePlanDir":         "returns a lookup status (0 found, 1 none, 3 ambiguous), not an exit code",
+	"ccRunSurvivors":        "returns the survivors command's exit status",
+	"rcOf":                  "returns a child process's exit status",
+	"mvRunCommand":          "returns a child process's exit status",
+	"mvpStep":               "returns a step, not an exit code",
+	"ownedCorpus":           "returns a cannot-answer its callers record",
+	"checkTreeRestored":     "returns a status post-mutation-check records at its own exit",
+	"gitExec":               "returns a child process's exit status",
+	"ppListMarkerEnd":       "returns a position",
+	"ppCheckboxEnd":         "returns a position",
+	"ppResolveExitCode":     "combines codes recorded where each finding is found",
+	"pwExitCode":            "returns a child process's exit status",
+	"pfState":               "returns a status its callers record at their own exits",
+	"CannotAnswer":          "is the cannot-answer code table",
+	"rgiRun":                "returns a child process's exit status",
+	"rcInHunk":              "counts lines",
+	"wsExitCode":            "returns a child process's exit status",
+}
+
+// reasonIDRE is a reason id outside check-plan-shape: local kebab-case
+// (decision reason-id-shape).
+var reasonIDRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// TestEveryExitSiteRecordsAReason is the package-wide reason pin (decisions
+// refusal-site-pin, pin-per-range): every non-zero exit site of every
+// non-test file records a reason first, and every literal id is kebab-case
+// or a check-plan-shape rule id.
+func TestEveryExitSiteRecordsAReason(t *testing.T) {
+	t.Parallel()
+	files := reasonPinRange(t, func(string) bool { return true })
+	for _, v := range exitSiteViolations(files, reasonPinExempt) {
+		t.Error(v)
+	}
+	rules := map[string]bool{}
+	for _, r := range psRules {
+		rules[r.id] = true
+	}
+	fset := token.NewFileSet()
+	for name, src := range files {
+		f, err := parser.ParseFile(fset, name, src, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			c, ok := n.(*ast.CallExpr)
+			if !ok || !pinIdent(c.Fun, "Reason") || len(c.Args) != 2 {
+				return true
+			}
+			lit, ok := c.Args[1].(*ast.BasicLit)
+			if !ok || lit.Kind != token.STRING {
+				return true
+			}
+			id, _ := strconv.Unquote(lit.Value)
+			if !reasonIDRE.MatchString(id) && !rules[id] {
+				t.Errorf("%s: reason id %q is neither kebab-case nor a check-plan-shape rule id", fset.Position(lit.Pos()), id)
+			}
+			return true
+		})
 	}
 }
