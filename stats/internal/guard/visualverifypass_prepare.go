@@ -185,22 +185,25 @@ func (v *vvp) decidedSkip() (string, bool) {
 // one touching only each worktree's `mockups` root composes only.
 func (v *vvp) roundDiff(survivors []string) {
 	some, onlyMockups, empty := false, true, true
-	for _, w := range survivors {
-		rb := v.roundBase[w]
-		if rb == "" {
-			continue
-		}
-		some = true
-		mock := ""
-		if c := v.cells(w)["mockups"]; c != "" {
-			if rel, err := filepath.Rel(w, cellPath(w, c)); err == nil {
-				mock = filepath.ToSlash(rel) + "/"
+	for _, sv := range survivors {
+		// A survivor stands for its siblings too: a sibling's diff is what made it survive.
+		for _, w := range append([]string{sv}, v.siblings[sv]...) {
+			rb := v.roundBase[w]
+			if rb == "" {
+				continue
 			}
-		}
-		for _, p := range v.changed(w, rb, "..") {
-			empty = false
-			if mock == "" || !strings.HasPrefix(p, mock) {
-				onlyMockups = false
+			some = true
+			mock := ""
+			if c := v.cells(w)["mockups"]; c != "" {
+				if rel, err := filepath.Rel(w, cellPath(w, c)); err == nil {
+					mock = filepath.ToSlash(rel) + "/"
+				}
+			}
+			for _, p := range v.changed(w, rb, "..") {
+				empty = false
+				if mock == "" || !strings.HasPrefix(p, mock) {
+					onlyMockups = false
+				}
 			}
 		}
 	}

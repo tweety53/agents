@@ -673,3 +673,22 @@ func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
 		}
 	})
 }
+
+// TestVisualVerifyPassPrepareRoundDiffReadsTheSiblings: the canonical worktree
+// survives on a sibling's diff, so a --round-base on the sibling decides
+// "round diff empty" too, never the canonical's own empty diff alone.
+func TestVisualVerifyPassPrepareRoundDiffReadsTheSiblings(t *testing.T) {
+	section := strings.NewReplacer("`src/ui/**`", "`src/ui/**, gymie-frontend/**`").Replace(vvpSection)
+	f := vvpFixture(t, "")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section)
+	gitRun(t, f.wt, "commit", "-qam", "cfg")
+	f.green()
+	w, mb := f.sibling("gymie-frontend")
+	writeFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
+	gitRun(t, w, "commit", "-qam", "no visual verification")
+	rc, out, calls := f.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+f.app.URL,
+		"--round-base", f.wt+"="+vgHead(t, f.wt), "--round-base", w+"="+mb)
+	if rc != 0 || strings.Contains(out, "round diff empty") || !strings.Contains(calls, "dispatch begin") {
+		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+	}
+}
