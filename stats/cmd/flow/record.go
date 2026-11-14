@@ -1450,6 +1450,14 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 				fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
 				return 2
 			}
+			// One implementer per decision group: a live key whose ids
+			// are not one group's tasks is refused (kan-1123 self-review, F2).
+			if *role == "implementer" && *agentID != "inline" {
+				if why := offDecisionGroups(d, *key); why != "" {
+					fmt.Fprintf(stderr, "flow: %s\n", why)
+					return 2
+				}
+			}
 			var c *sessionCap
 			if *agentID != "inline" && json.Unmarshal(d["session_cap"], &c) == nil && c != nil {
 				m := *model
@@ -3700,6 +3708,7 @@ func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdo
 		return 2
 	}
 
+	body = stampGroupTasks(body, f)
 	in := records.Decision{SessionToken: *sessionToken, Decision: json.RawMessage(body)}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Decision, error) {
 		d, _, err := cl.RecordDecision(ctx, projectKey, f.change, in)
@@ -3796,6 +3805,88 @@ func sddTddOpen(ctx context.Context, f recordIdentityFlags, projectKey string) b
 
 // latestDecision is the change's newest recorded decision (highest ID) as
 // its top-level fields, or false when the read fails or none is recorded.
+// stampGroupTasks sets each decision group's `tasks` to the task ids its
+// `bundles` resolve to through the plan's plan-dispatch-bundles output, so
+// `flow record dispatch begin` can hold an implementer key to one group
+// (kan-1123 self-review, F2). Any group naming a bundle the plan lacks, an
+// unreadable plan or a body without groups leaves the body unchanged.
+func stampGroupTasks(body []byte, f recordIdentityFlags) []byte {
+	var d map[string]json.RawMessage
+	var groups []map[string]json.RawMessage
+	if json.Unmarshal(body, &d) != nil || json.Unmarshal(d["groups"], &groups) != nil || groups == nil {
+		return body
+	}
+	plan, err := planPath(f.dir, f.change)
+	if err != nil {
+		return body
+	}
+	var out bytes.Buffer
+	if guard.Registry["plan-dispatch-bundles"]([]string{plan}, guard.Env{Getenv: os.Getenv}, &out, io.Discard) != 0 {
+		return body
+	}
+	bundles := map[string][]string{}
+	for line := range strings.Lines(out.String()) {
+		if k, ids, ok := strings.Cut(strings.TrimPrefix(strings.TrimSpace(line), "bundle "), ": "); ok && strings.HasPrefix(line, "bundle ") {
+			bundles[k] = strings.Fields(ids)
+		}
+	}
+	for _, g := range groups {
+		var bs []json.RawMessage
+		if json.Unmarshal(g["bundles"], &bs) != nil {
+			return body
+		}
+		tasks := []string{}
+		for _, b := range bs {
+			ids, ok := bundles[dScalar(b)]
+			if !ok {
+				return body
+			}
+			tasks = append(tasks, ids...)
+		}
+		raw, _ := json.Marshal(tasks)
+		g["tasks"] = raw
+	}
+	raw, _ := json.Marshal(groups)
+	d["groups"] = raw
+	stamped, err := json.Marshal(d)
+	if err != nil {
+		return body
+	}
+	return stamped
+}
+
+var groupImplementerKeyRE = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-implementer(?:-retry)?$`)
+
+// offDecisionGroups reports why key's task ids are not one decision group's
+// tasks, or "" when they are or the decision does not say: an sdd decision
+// whose every group carries a non-empty `tasks` is the only one judged.
+func offDecisionGroups(d map[string]json.RawMessage, key string) string {
+	m := groupImplementerKeyRE.FindStringSubmatch(key)
+	var execution string
+	var groups []struct {
+		Tasks []string `json:"tasks"`
+	}
+	if m == nil || json.Unmarshal(d["execution"], &execution) != nil || execution != "sdd" ||
+		json.Unmarshal(d["groups"], &groups) != nil || len(groups) == 0 {
+		return ""
+	}
+	ids := strings.Split(m[1], "+")
+	slices.Sort(ids)
+	var sets []string
+	for _, g := range groups {
+		if len(g.Tasks) == 0 {
+			return ""
+		}
+		ts := slices.Clone(g.Tasks)
+		slices.Sort(ts)
+		if slices.Equal(ts, ids) {
+			return ""
+		}
+		sets = append(sets, "["+strings.Join(g.Tasks, " ")+"]")
+	}
+	return fmt.Sprintf("-key %s names tasks [%s], which are not one of the change's recorded decision groups %s — dispatch one implementer per group (skills/flow/sdd-dispatch.md)", key, strings.Join(ids, " "), strings.Join(sets, " "))
+}
+
 func latestDecision(ctx context.Context, f recordIdentityFlags, projectKey string) (map[string]json.RawMessage, bool) {
 	ds, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.Decision, error) {
 		return cl.ListDecisions(ctx, projectKey, f.change)

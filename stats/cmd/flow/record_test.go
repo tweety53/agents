@@ -8775,3 +8775,118 @@ func TestRecordDispatchBeginRefusesImplementationOutsideSddTdd(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups pins the group
+// refusal (kan-1123 self-review, F2): under an sdd decision whose groups
+// carry their tasks, a live task-<ids>-implementer row whose ids are not one
+// group's tasks is refused; a fix key, a back-fill, a decision without
+// tasks and a failed decisions read all begin.
+func TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups(t *testing.T) {
+	g := decisionsBody(`{"execution":"sdd","groups":[{"bundles":[1],"tasks":["1","3"]},{"bundles":["2"],"tasks":["2"]}]}`)
+	row := func(key string, extra ...string) []string {
+		return append([]string{"-agent-id", "none", "-role", "implementer", "-key", key, "-model", "opus", "-effort", "low"}, extra...)
+	}
+	cases := []struct {
+		name, decisions string
+		args            []string
+		code            int
+	}{
+		{"one group", g, row("task-1+3-implementer"), 0},
+		{"other group", g, row("task-2-implementer"), 0},
+		{"two groups joined", g, row("task-1+2+3-implementer"), 2},
+		{"part of a group", g, row("task-1-implementer"), 2},
+		{"retry off the groups", g, row("task-1+2+3-implementer-retry"), 2},
+		{"fix key", g, row("task-1+2+3-implementer-fix-1"), 0},
+		{"back-fill", g, row("task-1+2+3-implementer", "-started-at", "2026-01-02T03:04:05Z"), 0},
+		{"groups without tasks", decisionsBody(`{"execution":"sdd","groups":[{"bundles":[1]}]}`), row("task-1+2+3-implementer"), 0},
+		{"decisions read fails", "", row("task-1+2+3-implementer"), 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
+			}
+			if tc.code == 2 && !strings.Contains(stderr, "sdd-dispatch.md") {
+				t.Errorf("stderr %q does not name sdd-dispatch.md", stderr)
+			}
+		})
+	}
+}
+
+// TestRecordDecisionStampsEachGroupsTasks pins the stamp `flow record
+// decision` puts on each group: the task ids its bundles resolve to through
+// the plan's own plan-dispatch-bundles output, and no stamp at all when the
+// plan is absent or a group names a bundle the plan does not have.
+func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
+	plan := "- [ ] 1. One\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n\n" +
+		"- [ ] 2. Two\n\n**Files:**\n- Modify: `b.go`\n\n  - [ ] **Step 1: do it**\n\n" +
+		"- [ ] 3. Three\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n"
+	cases := []struct {
+		name, groups string
+		plan         bool
+		want         [][]string
+	}{
+		{"stamped", `[{"bundles":[1],"slots":[]},{"bundles":["2"],"slots":[]}]`, true, [][]string{{"1", "3"}, {"2"}}},
+		{"no plan", `[{"bundles":[1]},{"bundles":["2"]}]`, false, [][]string{nil, nil}},
+		{"unknown bundle", `[{"bundles":[1]},{"bundles":[9]}]`, true, [][]string{nil, nil}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := recordRepo(t, "kan-472")
+			isolatedStateRoot(t)
+			if tc.plan {
+				if err := os.WriteFile(filepath.Join(repo, "spectre", "changes", "kan-472", "tasks.md"), []byte(plan), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			file := filepath.Join(t.TempDir(), "decision.json")
+			if err := os.WriteFile(file, []byte(`{"execution":"sdd","groups":`+tc.groups+`}`), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			var posted []byte
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					posted, _ = io.ReadAll(r.Body)
+					w.WriteHeader(http.StatusCreated)
+					_, _ = w.Write([]byte(`{}`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != 0 {
+				t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
+			}
+			var got struct {
+				Decision struct {
+					Groups []map[string]json.RawMessage `json:"groups"`
+				} `json:"decision"`
+			}
+			if err := json.Unmarshal(posted, &got); err != nil {
+				t.Fatalf("posted body %q: %v", posted, err)
+			}
+			if len(got.Decision.Groups) != len(tc.want) {
+				t.Fatalf("posted groups %s, want %d", posted, len(tc.want))
+			}
+			for i, w := range tc.want {
+				raw, has := got.Decision.Groups[i]["tasks"]
+				if w == nil {
+					if has {
+						t.Errorf("group %d carries tasks %s, want none", i, raw)
+					}
+					continue
+				}
+				var tasks []string
+				if err := json.Unmarshal(raw, &tasks); err != nil || !slices.Equal(tasks, w) {
+					t.Errorf("group %d tasks = %s, want %v", i, raw, w)
+				}
+			}
+		})
+	}
+}
