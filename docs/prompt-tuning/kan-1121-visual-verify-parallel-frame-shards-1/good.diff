@@ -1,0 +1,48 @@
+diff --git a/stats/internal/guard/visual_verify_pass_close_test.go b/stats/internal/guard/visual_verify_pass_close_test.go
+index 40e2baf4..bf2d34c3 100644
+--- a/stats/internal/guard/visual_verify_pass_close_test.go
++++ b/stats/internal/guard/visual_verify_pass_close_test.go
+@@ -588,7 +588,7 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
+ 	if rc != 0 || !strings.Contains(out, "STAGE: completed") || !strings.Contains(calls, "stage end -C "+g.wt+" -command /flow -stage flow.visual-verify -outcome completed demo") {
+ 		t.Fatalf("every index closed: exit %d\n%s\n%s", rc, out, calls)
+ 	}
+-	if b, _ := os.ReadFile(filepath.Join(vv, "visual-verification.md")); string(b) != "# s1\n\n# s2\n" {
++	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(vv), "visual-verification.md")); string(b) != "# s1\n\n# s2\n" {
+ 		t.Fatalf("visual-verification.md = %q, want the parts joined in shard order", b)
+ 	}
+ }
+diff --git a/stats/internal/guard/visualverifypass_close.go b/stats/internal/guard/visualverifypass_close.go
+index 1ba7dcd7..2c6974fa 100644
+--- a/stats/internal/guard/visualverifypass_close.go
++++ b/stats/internal/guard/visualverifypass_close.go
+@@ -362,8 +362,7 @@ func vvpSlice(stage [][2]string, key string) string {
+ // (decision redispatch-key-keeps-round).
+ var vvcFixRound = regexp.MustCompile(`-fix-[0-9]+(-full)?`)
+ 
+-// joinRecords rewrites <changeRoot>/visual-verification/visual-verification.md
+-// as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a
++// joinRecords rewrites <changeRoot>/visual-verification.md as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a
+ // shard's close (decision record-parts-merged-by-close).
+ func (v *vvp) joinRecords(changeRoot string) {
+ 	m := vvpShardSeg.FindStringSubmatch(v.key)
+@@ -374,11 +373,17 @@ func (v *vvp) joinRecords(changeRoot string) {
+ 	vvDir := filepath.Join(changeRoot, "visual-verification")
+ 	var parts []string
+ 	for i := 1; i <= n; i++ {
+-		if b, err := os.ReadFile(filepath.Join(vvDir, fmt.Sprintf("record-s%dof%d.md", i, n))); err == nil {
+-			parts = append(parts, strings.TrimRight(string(b), "\n"))
++		part := filepath.Join(vvDir, fmt.Sprintf("record-s%dof%d.md", i, n))
++		b, err := os.ReadFile(part)
++		if os.IsNotExist(err) {
++			continue
++		}
++		if err != nil {
++			v.die("cannot-read", "cannot read %s: %v", part, err)
+ 		}
++		parts = append(parts, strings.TrimRight(string(b), "\n"))
+ 	}
+-	v.writeOut(filepath.Join(vvDir, "visual-verification.md"), strings.Join(parts, "\n\n")+"\n")
++	v.writeOut(filepath.Join(changeRoot, "visual-verification.md"), strings.Join(parts, "\n\n")+"\n")
+ }
+ 
+ var vvcRest = regexp.MustCompile(`-rest(?:-([0-9]+))?$`)

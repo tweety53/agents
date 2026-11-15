@@ -1,0 +1,23 @@
+{
+  "id": "kan-1121-visual-verify-parallel-frame-shards-1",
+  "type": "reviewer",
+  "reviewer_kind": "miss",
+  "scope": "generic",
+  "source": {
+    "project": "agents",
+    "change": "kan-1121-visual-verify-parallel-frame-shards",
+    "jira": "KAN-1121",
+    "repo": "agents",
+    "fix_sha": "f14b54be6ef0037ce94053ed59bc6ac1500a0741",
+    "finding_ref": "F1",
+    "round": 0,
+    "slot": "primary",
+    "severity": "Critical"
+  },
+  "target": "skills/flow/plan-review-rubric.md",
+  "target_sha": "e376b26495d831d90fd166631f4d6d57d9820537",
+  "defect_class": "A plan's task writes data an existing component reads at a path or in a shape that component does not read, and the task's own test pins the writer's choice, so the plan verifies green while every reader is broken.",
+  "why_picked": "1. Defect class: a plan's task writes a file, key or record that existing code reads, at a path or in a shape the reader does not read, and the task's own test asserts the writer's choice, so the plan's verified diff runs green while every reader sees nothing. 2. No current rule covers it: the plan-review rubric's Codebase details lens (quoted as `before`) checks statements about existing code and that named paths exist, which a reviewer reads as excusing every path a task newly creates; no lens of plan-review-rubric.md or plan-reviewer-prompt.md asks for a new write to be compared with its existing reader. In this run both plan reviews read the design's named reader and recorded it as checked, and neither compared it with the path the task's code wrote; the code panel's primary slot raised it as round 0's Critical, a later slot, from the same reader. 3. It generalises: every plan that adds a producer for an existing consumer carries the class — a record file a gate and a report read, an environment variable a script reads, a JSON field a client decodes, a stage-file line another subcommand parses, a store key a query selects — in any language or layer; and a plan's self-verification by its own tests cannot catch it, because the test pins the writer, so only a reader comparison at plan review does, before an implementer spends a task and a panel spends a Critical on it. 4. It is a principle, not a patch: \"every new write is checked against its existing reader\" names no file, path, tool or change, and extends the lens's existing rule from claims about code to writes into it.",
+  "before": "Check every statement the artifacts make about existing code, a guard's behaviour or a file's\ncontent against the repository, and check that every path and symbol they name exists. A\nstatement the code refutes is a `blocker`: quote the statement and the code line.",
+  "after": "Check every statement the artifacts make about existing code, a guard's behaviour or a file's\ncontent against the repository, and check that every path and symbol they name exists. A\nstatement the code refutes is a `blocker`: quote the statement and the code line.\n\nA path, key, record or line format a task's code writes that existing code reads is checked the\nsame way: find each reader in the repository and compare what the task writes — path, name,\nshape — with what the reader reads. A task test that asserts the writer's own output proves\nnothing about the reader; a mismatch is a `blocker` quoting the task line and the reader's line."
+}
