@@ -1694,6 +1694,59 @@ func TestEndDispatchRecordsCause(t *testing.T) {
 	}
 }
 
+// TestEndDispatchRecordsClosesLoop: `flow record dispatch end -closes-loop`
+// stores closesLoop on the row and RunRecord reads it back; a re-end without
+// it, as a transcript restamp sends, keeps it; a row ended without it reads
+// false (KAN-1122).
+func TestEndDispatchRecordsClosesLoop(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-dispatch-closes-loop-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "mf-kan1122-closes-loop"
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	begin.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	for _, key := range []string{"visual-verify-fix-1", "visual-verify-fix-2"} {
+		d := baseDispatch("verifier", "sonnet")
+		d.SessionToken, d.Key, d.RoundBase = token, key, "abc1234"
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+	}
+	start := baseDispatch("verifier", "sonnet").StartedAt
+	end := func(key string, closes bool, after time.Duration) records.Dispatch {
+		t.Helper()
+		out, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+			SessionToken: token, Key: key, Outcome: "completed", ClosesLoop: closes, EndedAt: start.Add(after),
+		})
+		if err != nil {
+			t.Fatalf("EndDispatch %s: %v", key, err)
+		}
+		return out
+	}
+	if got := end("visual-verify-fix-1", true, time.Minute); !got.ClosesLoop {
+		t.Errorf("EndDispatch's own returned row: ClosesLoop false, want true")
+	}
+	end("visual-verify-fix-1", false, 2*time.Minute)
+	end("visual-verify-fix-2", false, time.Minute)
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	got := map[string]bool{}
+	for _, d := range rec.Dispatches {
+		got[d.Key] = d.ClosesLoop
+	}
+	if !got["visual-verify-fix-1"] || got["visual-verify-fix-2"] {
+		t.Errorf("stored closesLoop = %v, want visual-verify-fix-1 true, kept across a re-end without it, and visual-verify-fix-2 false", got)
+	}
+}
+
 // TestRenderedLedgerCallsAStoredDispatchWithNoMetricsNotMeasured renders a
 // dispatch that came OUT OF THE STORE, rather than one built as a Go
 // composite literal in the test, and pins that an unmeasured one still

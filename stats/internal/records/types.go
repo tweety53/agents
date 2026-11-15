@@ -112,6 +112,12 @@ type Dispatch struct {
 	// PairPick is the pair judge's `<source>: <reason>` the dispatch was
 	// begun with (-pair-pick); empty on a dispatch no judge picked (KAN-1119).
 	PairPick string `json:"pairPick,omitempty"`
+	// ClosesLoop says this scoped visual-verify verifier row closed the fix
+	// loop with no -fix-<k>-full run behind it; set by `flow record dispatch
+	// end -closes-loop`, which flow-guard visual-verify-pass close passes,
+	// and read by inRunFixRefusal (stats/cmd/flow/record.go) and
+	// flow-guard check-visual-verify-dispatched (KAN-1122).
+	ClosesLoop bool `json:"closesLoop,omitempty"`
 	// Request is the /flow-interactive request an operator-asked dispatch
 	// ran for (-request); nil on every other row (kan-1081 self-review, F5).
 	Request      *int            `json:"request,omitempty"`
@@ -193,6 +199,10 @@ type DispatchEnd struct {
 	// reads; empty leaves begin's value (kan-1008's self-review: a wrong
 	// visual-verify base could only be patched by a second, agentless row).
 	DiffBase string `json:"diffBase,omitempty"`
+	// ClosesLoop asks the store to set Dispatch.ClosesLoop on the row; false
+	// leaves a value an earlier end set, so a re-end without it never clears
+	// it (KAN-1122).
+	ClosesLoop bool `json:"closesLoop,omitempty"`
 	// CommitAt is the commit's committer time, as the CLI read it.
 	CommitAt *time.Time `json:"commitAt,omitempty"`
 	// EndedAtJournalled says the CLI stamped EndedAt with its attempt
