@@ -173,6 +173,7 @@ esac
 			"docker exec -i flow-postgres pg_dump -U flow --no-owner --no-acl flow",
 			"postgres://flow:flow@localhost:5433/" + db + "?sslmode=disable",
 			"TRANSCRIPTS=" + dir + "/transcripts",
+			"go build -o " + dir + "/flow ./cmd/flow",
 			"flow state set -C " + repo + " " + name,
 			"FLOW_ADDR=http://127.0.0.1:" + port,
 		} {
@@ -322,6 +323,19 @@ func TestLiveStoreCopyRefusesAnotherCheckout(t *testing.T) {
 		if lscExists(dir) {
 			t.Errorf("%s from another checkout: created %s", args[0], dir)
 		}
+	}
+}
+
+// TestLiveStoreCopyExportsPutFlowOnPath pins decision flow-on-path-export:
+// the export line `up` and `restart` print puts the copy's own `flow` first
+// on PATH (kan-1122 self-review, F2).
+func TestLiveStoreCopyExportsPutFlowOnPath(t *testing.T) {
+	var out bytes.Buffer
+	l := &lsc{stdout: &out, port: "4175", dir: "/tmp/flow-live-x"}
+	l.printAddr()
+	want := "export FLOW_ADDR=http://127.0.0.1:4175 FLOW_RECORDS_ADDR=http://127.0.0.1:4175 PATH=/tmp/flow-live-x:$PATH\n"
+	if !strings.HasSuffix(out.String(), want) {
+		t.Errorf("printAddr printed %q, want it to end %q", out.String(), want)
 	}
 }
 

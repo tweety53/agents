@@ -22,9 +22,11 @@ import (
 //
 //	up    copies the dev `flow` database, read-only on the source, into a
 //	      scratch database flow_<name, - as _>_live (pg_dump | psql inside the
-//	      flow-postgres container), builds flowd from this checkout and starts
-//	      it on <port> (default 4175) against the copy, then prints the address
-//	      and the FLOW_ADDR / FLOW_RECORDS_ADDR exports that point a session at it.
+//	      flow-postgres container), builds flowd and flow from this checkout and
+//	      starts flowd on <port> (default 4175) against the copy, then prints the
+//	      address and the FLOW_ADDR / FLOW_RECORDS_ADDR exports, with PATH led by
+//	      the copy's own directory so that flow is the one a session runs, that
+//	      point a session at it.
 //	      It registers a scratch change <name> in the copy -- a STARTED state
 //	      record and .superpowers/sdd/<name>/ in this checkout, refused when
 //	      that directory already exists -- so `flow record -change <name>` works.
@@ -143,7 +145,7 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 		if !l.copyStore() {
 			l.die("copy-failed", 1, "copy into %s failed", l.db)
 		}
-		for _, c := range [][]string{{"make", "-s", "web-dist"}, {"go", "build", "-o", l.dir + "/flowd", "./cmd/flowd"}} {
+		for _, c := range [][]string{{"make", "-s", "web-dist"}, {"go", "build", "-o", l.dir + "/flowd", "./cmd/flowd"}, {"go", "build", "-o", l.dir + "/flow", "./cmd/flow"}} {
 			build := l.cmd(c[0], c[1:]...)
 			build.Dir = repo + "/stats"
 			l.step(build)
@@ -364,7 +366,7 @@ func (l *lsc) launch(transcripts string) {
 
 func (l *lsc) printAddr() {
 	fmt.Fprintf(l.stdout, "http://127.0.0.1:%s\n", l.port)
-	fmt.Fprintf(l.stdout, "export FLOW_ADDR=http://127.0.0.1:%s FLOW_RECORDS_ADDR=http://127.0.0.1:%s\n", l.port, l.port)
+	fmt.Fprintf(l.stdout, "export FLOW_ADDR=http://127.0.0.1:%s FLOW_RECORDS_ADDR=http://127.0.0.1:%s PATH=%s:$PATH\n", l.port, l.port, l.dir)
 }
 
 // lscExists is `[ -e ]`.

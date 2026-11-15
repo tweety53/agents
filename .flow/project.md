@@ -58,8 +58,8 @@ single, main-checkout-only fixture instead.
 
 **A live check against real data runs on a copy of the dev store**, never on the store itself:
 `scripts/flow-guard live-store-copy up <name> [<port>]` copies the dev `flow` database into
-`flow_<name>_live`, builds `flowd` from the checkout it runs from and starts it on `<port>`
-(default 4175) against the copy, printing the `FLOW_ADDR`/`FLOW_RECORDS_ADDR` exports that point a
+`flow_<name>_live`, builds `flowd` and `flow` from the checkout it runs from and starts it on `<port>`
+(default 4175) against the copy, printing the `FLOW_ADDR`/`FLOW_RECORDS_ADDR` exports and a `PATH` led by the copy's directory, so its `flow` is the one run, that point a
 session at it and registers a scratch change named `<name>` in the copy — a STARTED state record and `.superpowers/sdd/<name>/` in that checkout — so `flow record -change <name>` writes there; `scripts/flow-guard live-store-copy down <name>` stops that daemon and drops only that copy.
 It refuses ports 4173 and 4174, and its Go file's leading comment (`stats/internal/guard/livestorecopy.go`) carries its exit codes. A design's `## Live check`
 names it rather than re-specifying the copy.
