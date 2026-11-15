@@ -23,8 +23,8 @@ import (
 //   - the kept path of every argument whose path prefix the changed path starts with;
 //   - a changed `_test.go` file itself;
 //   - for any other changed `.go` file, every `_test.go` file of its directory, in the working
-//     tree, whose name pairs with it — and, when none does, one stderr line naming it, with
-//     nothing kept for it; a directory that exists but cannot be read gets one stderr line naming
+//     tree, whose name pairs with it — and, when none does, its directory with a trailing `/`,
+//     which smoke.Heavy matches as a prefix, and one stderr line naming both; a directory that exists but cannot be read gets one stderr line naming
 //     the read error instead.
 //
 // Two names pair when one normal form is a prefix of the other and neither is empty: lowercased,
@@ -95,7 +95,9 @@ func smokeKeep(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 			if !paired {
-				fmt.Fprintf(stderr, "smoke-keep: %s pairs with no test file — nothing kept for it\n", p)
+				dir := path.Dir(p) + "/"
+				kept[dir] = true
+				fmt.Fprintf(stderr, "smoke-keep: %s pairs with no test file — keeping its directory %s\n", p, dir)
 			}
 		}
 	}

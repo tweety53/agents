@@ -113,7 +113,7 @@ of test run in it:
   `flow-guard unchanged` reads and prints the paths `FLOW_SMOKE_KEEP` carries to `smoke.Heavy`: a
   changed `_test.go` file, the test files paired by name with a changed Go source, and the kept
   path of each `<path prefix>=<kept path>` argument a changed path falls under — the rows on the
-  two Go lines. A changed Go source that pairs with no test file keeps nothing and is named on
+  two Go lines. A changed Go source that pairs with no test file keeps its package directory and is named on
   stderr, at the top of its suite's block.
 
 **A core test is gathered by one rubric.** Keep a heavy test only when it is the cheapest

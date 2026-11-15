@@ -44,11 +44,11 @@ func TestSmokeKeep(t *testing.T) {
 	}
 	env := Env{Getenv: os.Getenv, Dir: repo}
 	// A rename keeps its old name's tests; a path holding a space stays one path.
-	const tests = "pkg/a b_test.go pkg/check_plan_shape_test.go pkg/integrate_change_test.go pkg/new_test.go pkg/old_test.go pkg/run_verify_list_test.go"
-	// pkg/_.go has an empty normal form, so it pairs with nothing.
-	const unpaired = "smoke-keep: pkg/_.go pairs with no test file — nothing kept for it\n" +
-		"smoke-keep: pkg/exec.go pairs with no test file — nothing kept for it\n" +
-		"smoke-keep: pkg/moved.go pairs with no test file — nothing kept for it\n"
+	const tests = "pkg/ pkg/a b_test.go pkg/check_plan_shape_test.go pkg/integrate_change_test.go pkg/new_test.go pkg/old_test.go pkg/run_verify_list_test.go"
+	// pkg/_.go has an empty normal form, so it pairs with nothing and keeps pkg/.
+	const unpaired = "smoke-keep: pkg/_.go pairs with no test file — keeping its directory pkg/\n" +
+		"smoke-keep: pkg/exec.go pairs with no test file — keeping its directory pkg/\n" +
+		"smoke-keep: pkg/moved.go pairs with no test file — keeping its directory pkg/\n"
 
 	r := runGuard("smoke-keep", []string{"hooks/=t/repotest/", "hooks/=t/setuptest/", "setup.sh=t/setuptest/", "a.py=t/mid/"}, env)
 	if want := tests + " t/repotest/ t/setuptest/\n"; r.rc != 0 || r.stdout != want || r.err != unpaired {
@@ -71,6 +71,22 @@ func TestSmokeKeep(t *testing.T) {
 	r = runGuard("smoke-keep", []string{"pkg/=t/x/"}, Env{Getenv: os.Getenv, Dir: clean})
 	if r.rc != 0 || r.stdout != "\n" || r.err != "" {
 		t.Errorf("nothing changed: rc=%d stdout=%q stderr=%q, want 0 and one empty line", r.rc, r.stdout, r.err)
+	}
+}
+
+func TestSmokeKeepUnpairedKeepsItsDirectory(t *testing.T) {
+	t.Parallel()
+	var g fxGit
+	repo := smokeKeepRepo(t, &g, "a/b/x.go", "a/b/other_test.go")
+	g.write(repo+"/a/b/x.go", "edited")
+	g.git(repo, "commit", "-q", "-am", "change")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	r := runGuard("smoke-keep", nil, Env{Getenv: os.Getenv, Dir: repo})
+	const wantErr = "smoke-keep: a/b/x.go pairs with no test file — keeping its directory a/b/\n"
+	if r.rc != 0 || r.stdout != "a/b/\n" || r.err != wantErr {
+		t.Errorf("rc=%d stdout=%q stderr=%q, want 0, %q and %q", r.rc, r.stdout, r.err, "a/b/\n", wantErr)
 	}
 }
 
