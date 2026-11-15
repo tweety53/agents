@@ -46,8 +46,9 @@ implements**, `skills/flow/implement.md`).
 > **Check your own commit before you hand back.** Once a task's commit exists, run
 > `flow-guard check-task-commit-fields <abs-worktree> <n> HEAD` and
 > `flow-guard check-task-commit-planning-paths <abs-worktree> HEAD~1` on it, `<n>` the task's
-> `Task-Id:`. On an exit 1, fix what they name, re-stage through `flow-guard stage-task-files` and
-> amend with `git -C <abs-worktree> commit --amend --no-edit -- <this task's files>`, until both
+> `Task-Id:`. On an exit 1, fix what they name, undo the commit with
+> `git -C <abs-worktree> reset --soft HEAD~1`, re-stage through `flow-guard stage-task-files` and
+> recommit with the task's declared `**Commit:**` subject and `Task-Id: <n>` trailer, until both
 > exit 0: the parent's `flow-guard close-task` runs them again, and a refusal there costs a
 > recommit dispatch. An exit 2 is reported, never worked around.
 
