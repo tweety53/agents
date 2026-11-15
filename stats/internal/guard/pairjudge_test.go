@@ -2,6 +2,7 @@ package guard
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -191,6 +192,50 @@ func TestPairJudgeSingle(t *testing.T) {
 	}
 	if stub.ran() {
 		t.Error("the judge ran for a single candidate")
+	}
+}
+
+// TestPairJudgeSavesThePickBesideTheDigest: the printed line is saved, byte
+// for byte, as <key>.pick beside the <key>.md digest, and a later run under
+// the same key overwrites it (decision pair-pick-file).
+func TestPairJudgeSavesThePickBesideTheDigest(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join(t.TempDir(), "pair-judge")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	digest := filepath.Join(dir, "task-1-implementer.md")
+	if err := os.WriteFile(digest, []byte("a plan"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pick := filepath.Join(dir, "task-1-implementer.pick")
+	stub := newPJStub(t, pjAnswer)
+	for _, pair := range []string{"opus/flow-low", "sonnet/flow-medium"} {
+		policy := pjPolicy(`"panel-fix":{"base":["` + pair + `"],"optin":[],"marked":[]}`)
+		r := runGuard("pair-judge", []string{"panel-fix", digest}, pjEnv(t, policy, stub))
+		if r.rc != 0 {
+			t.Fatalf("%s: rc=%d out=%q, want 0", pair, r.rc, r.out)
+		}
+		if got := mustRead(t, pick); got != r.stdout {
+			t.Errorf("%s: %s = %q, want the printed line %q", pair, pick, got, r.stdout)
+		}
+	}
+}
+
+// TestPairJudgeRefusalSavesNoPick: a refused call (exit 2) writes no .pick.
+func TestPairJudgeRefusalSavesNoPick(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	digest := filepath.Join(dir, "x.md")
+	if err := os.WriteFile(digest, []byte("a plan"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stub := newPJStub(t, pjAnswer)
+	if r := runGuard("pair-judge", []string{"visual-verifier", digest}, pjEnv(t, testPolicy, stub)); r.rc != 2 {
+		t.Fatalf("rc=%d out=%q, want 2", r.rc, r.out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "x.pick")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("x.pick: stat err = %v, want not exist", err)
 	}
 }
 
