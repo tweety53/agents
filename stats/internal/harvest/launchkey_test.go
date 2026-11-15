@@ -7,6 +7,7 @@ import "testing"
 // names, even behind the planner's own plan-<n> prefix (kan-1061's
 // explore-1..3 kept no agent id, so their cost stayed unattributed).
 func TestLaunchKeyNamesAPlannersAgentRow(t *testing.T) {
+	t.Parallel()
 	for desc, want := range map[string]string{
 		"plan-1 design round — explore-1 store and CLI":  "explore-1",
 		"plan-1 design round — design-4 simplest design": "design-4",

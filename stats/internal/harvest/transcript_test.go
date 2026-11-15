@@ -50,6 +50,7 @@ func readFixture(t *testing.T, path string) []byte {
 // original wording ("LiveFixture") because it is one of the eight test
 // names tasks.md commits to by name; only the fixture's content changed.
 func TestParseUsageFromLiveFixture(t *testing.T) {
+	t.Parallel()
 	complete, tail := harvest.SplitCompleteLines(readFixture(t, mainThreadFixture))
 	if len(tail) != 0 {
 		t.Fatalf("main-thread fixture should have no partial trailing line, got %d trailing bytes", len(tail))
@@ -113,6 +114,7 @@ func TestParseUsageFromLiveFixture(t *testing.T) {
 // file-history-snapshot, user, ai-title, file-history-delta) is present
 // in the file yet contributes no Record and causes no error.
 func TestNonAssistantAndUnknownTypesAreSkipped(t *testing.T) {
+	t.Parallel()
 	complete, _ := harvest.SplitCompleteLines(readFixture(t, mainThreadFixture))
 	records := harvest.ParseAssistantRecords(complete)
 	if len(records) != 7 {
@@ -134,6 +136,7 @@ func TestNonAssistantAndUnknownTypesAreSkipped(t *testing.T) {
 // main-thread.jsonl with its final record's bytes cut in half and no
 // trailing newline -- a genuine partial write, not a corrupt file.
 func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
+	t.Parallel()
 	raw := readFixture(t, truncatedFixture)
 	complete, tail := harvest.SplitCompleteLines(raw)
 	if len(tail) == 0 {
@@ -196,6 +199,7 @@ func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
 // distinct fact this line does not actually report); it must say the
 // split is unknown, per Usage.CacheSplitKnown's own doc comment.
 func TestCacheCreationSplitAbsentIsRecordedAsUnknown(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","message":{"model":"claude-opus-5","usage":{"input_tokens":2,"cache_creation_input_tokens":900,"cache_read_input_tokens":10,"output_tokens":5}}}` + "\n")
 	records := harvest.ParseAssistantRecords(line)
 	if len(records) != 1 {
@@ -218,6 +222,7 @@ func TestCacheCreationSplitAbsentIsRecordedAsUnknown(t *testing.T) {
 // (task 23's third defect) must decode both, alongside the same
 // collapsed total.
 func TestCacheCreationSplitAndFastSpeedAreParsed(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","message":{"model":"claude-opus-5","usage":{"input_tokens":2,"cache_creation_input_tokens":900,"cache_creation":{"ephemeral_5m_input_tokens":300,"ephemeral_1h_input_tokens":600},"cache_read_input_tokens":10,"output_tokens":5,"speed":"fast"}}}` + "\n")
 	records := harvest.ParseAssistantRecords(line)
 	if len(records) != 1 {
@@ -242,6 +247,7 @@ func TestCacheCreationSplitAndFastSpeedAreParsed(t *testing.T) {
 // re-reading a rotated or truncated file from byte 0, which would
 // re-attribute usage this package already reported as consumed.
 func TestReadNewRecordsOffsetBeyondEOFIsReported(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "short.jsonl")
 	if err := os.WriteFile(path, []byte(`{"type":"user"}`+"\n"), 0o644); err != nil {
@@ -262,6 +268,7 @@ func TestReadNewRecordsOffsetBeyondEOFIsReported(t *testing.T) {
 // writing this fixture, not assumed). ParseCommandRecords must recover
 // that literal string, alongside the session it was recorded under.
 func TestParseCommandRecordsFindsBashToolUse(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"text","text":"running the mark"},{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -stage do.tests -session-token mf-abc123 -harness claude-code","description":"begin stage"}}]}}` + "\n")
 
 	got := harvest.ParseCommandRecords(line)
@@ -284,6 +291,7 @@ func TestParseCommandRecordsFindsBashToolUse(t *testing.T) {
 // ParseAssistantRecords already extends to shapes this package does not
 // recognise.
 func TestParseCommandRecordsSkipsNonBashToolsAndTextBlocks(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"text","text":"hello"},{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/foo"}},{"type":"tool_use","name":"Bash","input":{"description":"no command key here"}}]}}` + "\n")
 
 	got := harvest.ParseCommandRecords(line)
@@ -299,6 +307,7 @@ func TestParseCommandRecordsSkipsNonBashToolsAndTextBlocks(t *testing.T) {
 // parser should depend on to find a session token) must still yield its
 // command.
 func TestParseCommandRecordsIgnoresMissingUsage(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-xyz"}}]}}` + "\n")
 
 	got := harvest.ParseCommandRecords(line)
@@ -314,6 +323,7 @@ func TestParseCommandRecordsIgnoresMissingUsage(t *testing.T) {
 // into Record.AgentID -- the same one-line addition IsSidechain already
 // has.
 func TestParseAssistantRecordsCarriesAgentID(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","agentId":"abc123","isSidechain":true,"message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n")
 	records := harvest.ParseAssistantRecords(line)
 	if len(records) != 1 {
@@ -330,6 +340,7 @@ func TestParseAssistantRecordsCarriesAgentID(t *testing.T) {
 // once, and that a line carrying no id at all is never collapsed into a
 // neighbour (design.md's harvest-dedupe-by-message-id).
 func TestParseAssistantRecordsDeduplicatesByMessageID(t *testing.T) {
+	t.Parallel()
 	complete, _ := harvest.SplitCompleteLines(readFixture(t, multiBlockFixture))
 	records := harvest.ParseAssistantRecords(complete)
 	if len(records) != 3 {
@@ -352,6 +363,7 @@ func TestParseAssistantRecordsDeduplicatesByMessageID(t *testing.T) {
 // ledger rows stored 28 and 178 output tokens for reviewers that wrote
 // whole reports.
 func TestParseAssistantRecordsTakesLargestOutputPerMessage(t *testing.T) {
+	t.Parallel()
 	line := func(output, thinking int) string {
 		return fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"id":"msg_a","model":"m","usage":{"input_tokens":5,"output_tokens":%d,"output_tokens_details":{"thinking_tokens":%d}}}}`+"\n", output, thinking)
 	}
@@ -370,6 +382,7 @@ func TestParseAssistantRecordsTakesLargestOutputPerMessage(t *testing.T) {
 // not measured. One line carrying a stop_reason measures the message; a line
 // with no stop_reason key is an older shape and stays measured.
 func TestParseAssistantRecordsMarksStreamingOutputUnmeasured(t *testing.T) {
+	t.Parallel()
 	line := func(id, stop string) string {
 		return fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"id":%q,"model":"m",%s"usage":{"input_tokens":5,"output_tokens":28}}}`+"\n", id, stop)
 	}
@@ -392,6 +405,7 @@ func TestParseAssistantRecordsMarksStreamingOutputUnmeasured(t *testing.T) {
 // AgentID == "" -- never a placeholder, per this change's own
 // absence-is-never-a-value rule.
 func TestParseAssistantRecordsAgentIDAbsent(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n")
 	records := harvest.ParseAssistantRecords(line)
 	if len(records) != 1 {
@@ -411,6 +425,7 @@ func TestParseAssistantRecordsAgentIDAbsent(t *testing.T) {
 // must be silently dropped, the same tolerance rawLine's own doc comment
 // commits to for the transcript format.
 func TestReadDispatchMeta(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "subagents")
 	if err := os.MkdirAll(sub, 0o755); err != nil {
@@ -448,6 +463,7 @@ func TestReadDispatchMeta(t *testing.T) {
 // to it -- proving the parent-directory guard governs, not merely
 // whichever file happens to exist on disk.
 func TestReadDispatchMetaAbsent(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "subagents")
 	if err := os.MkdirAll(sub, 0o755); err != nil {
@@ -482,6 +498,7 @@ func TestReadDispatchMetaAbsent(t *testing.T) {
 // decode as JSON -- also false, never an error, per the same rule: a
 // dispatch's tokens must still be attributable without its descriptors.
 func TestReadDispatchMetaMalformed(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "subagents")
 	if err := os.MkdirAll(sub, 0o755); err != nil {
@@ -507,6 +524,7 @@ func TestReadDispatchMetaMalformed(t *testing.T) {
 // byte range, so Watcher.RunOnce's session-token resolution (KAN-172,
 // task 2) never needs a second read of the file.
 func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	content := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-abc123"}}]}}` + "\n"
@@ -541,6 +559,7 @@ func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
 // within complete, so the watcher can pair it with the dispatch begin
 // command that precedes it in file order.
 func TestParseAgentLaunchesExtractsAsyncLaunches(t *testing.T) {
+	t.Parallel()
 	complete := []byte(
 		`{"type":"user","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a68cee7239419a7e7"}}` + "\n" +
 			`{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"session-x","message":{"content":[{"type":"tool_result","tool_use_id":"u1","content":"plain result"}]}}` + "\n" +
@@ -568,6 +587,7 @@ func TestParseAgentLaunchesExtractsAsyncLaunches(t *testing.T) {
 // re-stamped onto whatever begin happens to precede it), an assistant
 // line, and a line that is not JSON at all must all contribute nothing.
 func TestParseAgentLaunchesIgnoresNonLaunchResults(t *testing.T) {
+	t.Parallel()
 	complete := []byte(
 		`{"type":"user","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"content":[{"type":"tool_result","tool_use_id":"u1","is_error":true,"content":"PreToolUse hook denied"}]}}` + "\n" +
 			`{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","toolUseResult":{"status":"async_launched"}}` + "\n" +
@@ -586,6 +606,7 @@ func TestParseAgentLaunchesIgnoresNonLaunchResults(t *testing.T) {
 // each carry one yield two launches, one per line -- and a single line
 // never yields more than one.
 func TestParseAgentLaunchesOnePerLine(t *testing.T) {
+	t.Parallel()
 	line := `{"type":"user","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"a68cee7239419a7e7"}}` + "\n"
 	got := harvest.ParseAgentLaunches([]byte(line + line))
 	if len(got) != 2 {
@@ -601,6 +622,7 @@ func TestParseAgentLaunchesOnePerLine(t *testing.T) {
 // at a smaller line, which needs each command's index within complete,
 // not just its text.
 func TestParseCommandRecordsCarriesLineNumbers(t *testing.T) {
+	t.Parallel()
 	complete := []byte(
 		`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"text","text":"thinking"}]}}` + "\n" +
 			`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow record dispatch begin -key task-1-implementer -session-token mf-abc123 -started-at 2026-01-01T00:00:00Z"}}]}}` + "\n" +
@@ -625,6 +647,7 @@ func TestParseCommandRecordsCarriesLineNumbers(t *testing.T) {
 // dispatch and yields nothing; a successful agent result resolves its
 // call without a denial.
 func TestParseDispatchEventsJoinsDeniedAgentCall(t *testing.T) {
+	t.Parallel()
 	complete := []byte(
 		`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uA","name":"Agent","input":{}}]}}` + "\n" +
 			`{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uB","name":"Bash","input":{"command":"ls"}}]}}` + "\n" +
@@ -651,6 +674,7 @@ func TestParseDispatchEventsJoinsDeniedAgentCall(t *testing.T) {
 // a dispatch denied across a batch boundary would leave its begin
 // pending and free to steal a later launch.
 func TestParseDispatchEventsCarriesOpenCallsAcrossBatches(t *testing.T) {
+	t.Parallel()
 	batch1 := []byte(
 		`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uA","name":"Agent","input":{}}]}}` + "\n")
 
@@ -678,6 +702,7 @@ func TestParseDispatchEventsCarriesOpenCallsAcrossBatches(t *testing.T) {
 // flowd closes a stamped row at (api.WithAgentEnds): the latest timestamp
 // in <root>/<project>/<session>/subagents/agent-<id>.jsonl.
 func TestAgentTranscriptEndReadsTheAgentsLastWrite(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	dir := filepath.Join(root, "-proj", "sess", "subagents")
 	if err := os.MkdirAll(dir, 0o755); err != nil {

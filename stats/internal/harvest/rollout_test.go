@@ -31,6 +31,7 @@ const rolloutCacheWriteLine = `{"type":"model_io","sessionId":"sess_244b7722-d7d
 	`"response":{"usage":{"inputTokens":100,"outputTokens":5,"totalTokens":105,"cacheReadTokens":0,"cacheWriteTokens":3000}}}`
 
 func TestParseRolloutRecords(t *testing.T) {
+	t.Parallel()
 	t.Run("full line yields one record with usage and model", func(t *testing.T) {
 		records := ParseRolloutRecords([]byte(rolloutFullLine + "\n"))
 		if len(records) != 1 {
@@ -102,6 +103,7 @@ func TestParseRolloutRecords(t *testing.T) {
 }
 
 func TestParseRolloutCommandRecords(t *testing.T) {
+	t.Parallel()
 	t.Run("request-side tool calls", func(t *testing.T) {
 		got := ParseRolloutCommandRecords([]byte(rolloutFullLine + "\n"))
 		var found []string

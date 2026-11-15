@@ -35,6 +35,7 @@ func rolloutSubagentLineFor(uuid string) string {
 }
 
 func TestParseRolloutRecordsSubagentSessionMarksSidechainAndAgentID(t *testing.T) {
+	t.Parallel()
 	records := harvest.ParseRolloutRecords([]byte(rolloutSubagentLine + "\n"))
 	if len(records) != 1 {
 		t.Fatalf("got %d records, want 1", len(records))
@@ -84,6 +85,7 @@ const rolloutMainLineForSubagentTest = `{"type":"model_io","sessionId":"sess_fa0
 	`"response":{"usage":{"inputTokens":51338,"outputTokens":187,"totalTokens":51525,"cacheReadTokens":10176,"cacheWriteTokens":42}}}`
 
 func TestAgentIDFromRolloutPath(t *testing.T) {
+	t.Parallel()
 	t.Run("subagent rollout file names its own dispatch", func(t *testing.T) {
 		id, ok := harvest.AgentIDFromRolloutPath("/home/u/.zcode/cli/rollout/model-io-sess_subagent_agent_541a9582-890b-417e-a3c3-419047bb4ee6.jsonl")
 		if !ok || id != "agent_541a9582-890b-417e-a3c3-419047bb4ee6" {
@@ -143,6 +145,7 @@ func (d *rolloutDispatchDeps) MergeDispatchMetrics(_ context.Context, dispatchID
 // "matched more than one dispatch".
 // smoke: core — a data-race test of concurrent subagent batches
 func TestRolloutSubagentBatchesCreditTheirOwnDispatchUnderConcurrency(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	const uuid1 = "11111111-1111-4111-8111-111111111111"
 	const uuid2 = "22222222-2222-4222-8222-222222222222"
@@ -199,6 +202,7 @@ func TestRolloutSubagentBatchesCreditTheirOwnDispatchUnderConcurrency(t *testing
 // main-session rollout batch has no dispatch to name, and inventing one
 // would be exactly the guess attribution refuses.
 func TestMainRolloutBatchNeverReachesTheAgentPass(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "model-io-sess_fa015a84-16a9-4a47-8d9c-113ed8da1a2a.jsonl"), []byte(rolloutMainLineForSubagentTest+"\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)

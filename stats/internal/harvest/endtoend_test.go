@@ -212,6 +212,7 @@ func writeLines(t *testing.T, path string, lines ...[]byte) {
 // catch, seen directly rather than reasoned about.
 // smoke: core — transcript to harvest to attribution to store
 func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
+	t.Parallel()
 	st := newEndToEndStore(t)
 	ctx := context.Background()
 
@@ -367,6 +368,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 // with no transcript at all takes on every mark, and the
 // half most likely to rot unnoticed since it produces no error anywhere.
 func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
+	t.Parallel()
 	st := newEndToEndStore(t)
 	ctx := context.Background()
 
@@ -485,6 +487,7 @@ type rolloutWireUsage struct {
 // produces.
 // smoke: core — the watcher harvests a rollout source
 func TestWatcherHarvestsRolloutSource(t *testing.T) {
+	t.Parallel()
 	st := newEndToEndStore(t)
 	ctx := context.Background()
 
@@ -710,6 +713,7 @@ func mainTokens(t *testing.T, st *store.Store, id int64) (input, output float64)
 // them. One RunOnce over a real store records every line from the first mark
 // on against some run, and nothing for the line before it.
 func TestBurstMarkedSessionCostsItsWholeSpan(t *testing.T) {
+	t.Parallel()
 	st := newEndToEndStore(t)
 	ctx := context.Background()
 	const sessionID = "session-e2e-burst"
@@ -755,6 +759,7 @@ func TestBurstMarkedSessionCostsItsWholeSpan(t *testing.T) {
 // nothing; and the watcher then resumes from the stored offsets, adding an
 // appended line alone.
 func TestStageGapBackfillAddsOnlyDroppedRecordsOnce(t *testing.T) {
+	t.Parallel()
 	st := newEndToEndStore(t)
 	ctx := context.Background()
 	const sessionID = "session-e2e-backfill"

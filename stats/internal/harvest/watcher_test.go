@@ -250,6 +250,7 @@ var _ harvest.HarvestSink = (*fakeHarvestSink)(nil)
 // than reach RunOnce and silently price nothing, bind nothing and charge
 // no dispatch, the exact failure shape KAN-16 and KAN-172 both were.
 func TestNewWatcherPanicsOnNilDeps(t *testing.T) {
+	t.Parallel()
 	sink := newFakeHarvestSink()
 
 	var recovered any
@@ -276,6 +277,7 @@ func TestNewWatcherPanicsOnNilDeps(t *testing.T) {
 // through fakeWindowSource/fakeHarvestSink -- no *store.Store, no
 // PostgreSQL, nothing that could fail because a database is unreachable.
 func TestHarvestNeedsNoDatabase(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 
@@ -304,6 +306,7 @@ func TestHarvestNeedsNoDatabase(t *testing.T) {
 // commits under the top-level "tokens" key -- proving encodePatches
 // actually reaches HarvestSink with both, not just Total.
 func TestRunOnceCommitsPerModelBucketAlongsideTotal(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 
@@ -332,6 +335,7 @@ func TestRunOnceCommitsPerModelBucketAlongsideTotal(t *testing.T) {
 // first named test: two RunOnce calls with no new bytes between them
 // must not add anything on the second call.
 func TestConsecutiveRunsOverUnchangedFileAddNothing(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 
@@ -375,6 +379,7 @@ func TestConsecutiveRunsOverUnchangedFileAddNothing(t *testing.T) {
 // (never having called RunOnce before) but pointed at a sink that
 // already has this file's true end offset committed, must add nothing.
 func TestFreshWatcherOverAlreadyHarvestedTranscriptAddsNothing(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	windows := func() *fakeWindowSource { return &fakeWindowSource{bySession: openWindowForMainSession(1)} }
@@ -421,6 +426,7 @@ func TestFreshWatcherOverAlreadyHarvestedTranscriptAddsNothing(t *testing.T) {
 // and attempts the identical batch again -- and once the sink recovers,
 // applies it exactly once.
 func TestFailedCommitLeavesOffsetUnadvancedAndIsRetried(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 
@@ -492,6 +498,7 @@ func TestFailedCommitLeavesOffsetUnadvancedAndIsRetried(t *testing.T) {
 // accidental cancellation (a lost batch and a doubled batch of equal
 // size) implausible.
 func TestOutageAcrossSeveralCyclesThenRecoveryMatchesCleanRun(t *testing.T) {
+	t.Parallel()
 	windows := func() *fakeWindowSource { return &fakeWindowSource{bySession: openWindowForMainSession(1)} }
 
 	// The clean run: one uninterrupted RunOnce over the full, already-grown
@@ -608,6 +615,7 @@ func appendFixture(t *testing.T, path, fixturePath string) {
 // <session>/subagents/agent-*.jsonl beside it, both ending in .jsonl and
 // both required for sidechain usage to ever be attributed.
 func TestDiscoverTranscriptsFindsNestedSubagentFiles(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -639,6 +647,7 @@ func TestDiscoverTranscriptsFindsNestedSubagentFiles(t *testing.T) {
 // figures -- descriptors and tokens travel together through one commit,
 // even though they are read from two different files on disk.
 func TestEncodePatchesCarriesDispatchDescriptors(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -694,6 +703,7 @@ func TestEncodePatchesCarriesDispatchDescriptors(t *testing.T) {
 // signals.sidechain.tool_calls_total, signals.main.context_end (a JSON
 // string, not a number), and dispatches.<agentId>.signals.turns.
 func TestEncodePatchesCarriesSignals(t *testing.T) {
+	t.Parallel()
 	deltas := map[int64]harvest.Delta{
 		1: {
 			Signals: harvest.SignalsDelta{
@@ -769,6 +779,7 @@ func TestEncodePatchesCarriesSignals(t *testing.T) {
 // bucket at all (TokenDelta's own doc comment: a dispatch is sidechain
 // spend only), so its signals belong entirely under signals.sidechain.
 func TestEncodePatchesDispatchMergePathCarriesSidechainSignals(t *testing.T) {
+	t.Parallel()
 	dd := harvest.DispatchDelta{
 		Tokens:  harvest.TokenDelta{Sidechain: harvest.Bucket{Input: 5}},
 		Signals: harvest.Signals{Turns: 1, ToolCallsTotal: 1},
@@ -800,6 +811,7 @@ func TestEncodePatchesDispatchMergePathCarriesSidechainSignals(t *testing.T) {
 // genuine 0 and an absent value both encoded to nothing -- indistinguishable
 // on the wire and, downstream, in the stored metrics bag.
 func TestEncodePatchesPreservesGenuineSpawnDepthZero(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -856,6 +868,7 @@ func TestEncodePatchesPreservesGenuineSpawnDepthZero(t *testing.T) {
 // cycles is only meaningful alongside a call-count signal (F18, pass 4
 // of this change's own review panel) -- see the cross-check below.
 func TestSpawnDepthStaysConstantAcrossOrdinaryReSends(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -919,6 +932,7 @@ func TestSpawnDepthStaysConstantAcrossOrdinaryReSends(t *testing.T) {
 // ReadDispatchMeta's own doc comment states and DispatchBucket's absence
 // case (attribute.go) requires.
 func TestEncodePatchesOmitsAbsentDescriptors(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -957,6 +971,7 @@ func TestEncodePatchesOmitsAbsentDescriptors(t *testing.T) {
 // fix, a "nothing new to read" cycle never called ReadDispatchMeta again
 // for that path, so hasMeta=false was permanent.
 func TestBackfillsDispatchMetaWhenSidecarArrivesLate(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -1037,6 +1052,7 @@ func TestBackfillsDispatchMetaWhenSidecarArrivesLate(t *testing.T) {
 // never called Pricer.Price, so that dispatch's cost_usd stayed absent
 // forever even after its model became known.
 func TestBackfillDispatchMetaPricesStageRunAfterCommit(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -1118,6 +1134,7 @@ func TestBackfillDispatchMetaPricesStageRunAfterCommit(t *testing.T) {
 // descriptors were lost permanently, even though the sidecar was sitting
 // right there the whole time.
 func TestBackfillSurvivesAnInterveningBatchWithNoDispatchDescriptors(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -1306,6 +1323,7 @@ func (d sessionBinderAndDispatchDeps) MergeDispatchMetrics(ctx context.Context, 
 // instructions require, and a stronger signal than a runtime failure
 // would have been: the wiring this test guards did not exist in any form.
 func TestRunOncePricesTouchedStageRunsAfterCommit(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 
@@ -1351,6 +1369,7 @@ func TestRunOncePricesTouchedStageRunsAfterCommit(t *testing.T) {
 // them ever put the fake sink into forceLoseRace -- this is the one that
 // must fail without it.
 func TestLostRaceSkipsCountAndPricing(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 
@@ -1381,6 +1400,7 @@ func TestLostRaceSkipsCountAndPricing(t *testing.T) {
 // exactly as before -- pricing is additive, not a new requirement on
 // every caller.
 func TestRunOnceWithNoPricerConfiguredStillCommits(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 
@@ -1404,6 +1424,7 @@ func TestRunOnceWithNoPricerConfiguredStillCommits(t *testing.T) {
 // has by the time Price is ever called -- Price runs strictly after
 // CommitHarvestBatch reports applied).
 func TestPricingFailureIsNotFatal(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
@@ -1553,6 +1574,7 @@ var (
 // tokens -- proving neither run received the other's usage, not merely
 // that BindSession was called with the right arguments.
 func TestCrossedSessionTokensBindEachRunToItsOwnSession(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	started := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
 
@@ -1738,6 +1760,7 @@ var _ harvest.SessionTokenBinder = (*countingSessionTokenBinder)(nil)
 // exists to cap wasted work on a sessionToken that will never appear, not to
 // shrink the window a live but slow-flushing transcript has to land in.
 func TestSessionTokenResolvesOnALaterCycleWithinTheBound(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	binder := &countingSessionTokenBinder{sessionToken: "mf-later-cycle", stageRunID: 42}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
@@ -1778,6 +1801,7 @@ func TestSessionTokenResolvesOnALaterCycleWithinTheBound(t *testing.T) {
 // itself by waiting, so it is treated as terminal exactly like the
 // bounded give-up.
 func TestSessionTokenMatchedByTwoSessionsRecordsNoSessionAndStopsRetrying(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	binder := &countingSessionTokenBinder{sessionToken: "mf-ambiguous", stageRunID: 7}
 
@@ -1825,6 +1849,7 @@ func TestSessionTokenMatchedByTwoSessionsRecordsNoSessionAndStopsRetrying(t *tes
 // merely stops *logging* rather than stops *looking* -- must not bind
 // even if its transcript line shows up afterward.
 func TestSessionTokenStopsBeingScannedAfterBoundedGiveUp(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	binder := &countingSessionTokenBinder{sessionToken: "mf-never-appears", stageRunID: 99}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
@@ -1872,6 +1897,7 @@ func TestSessionTokenStopsBeingScannedAfterBoundedGiveUp(t *testing.T) {
 // read. Binding is one-way (design.md); this is what "never" means in
 // practice, one layer up from the store's own WHERE-guarded UPDATE.
 func TestAlreadyBoundRunIsNeverReconsidered(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	binder := &countingSessionTokenBinder{sessionToken: "mf-already-bound", stageRunID: 5}
 	binder.bound = map[int64]string{5: "session-original"}
@@ -1916,6 +1942,7 @@ func TestAlreadyBoundRunIsNeverReconsidered(t *testing.T) {
 // the sessionToken, and the second must show the usage that batch carried, not
 // zero.
 func TestBindMarkAndFirstUsageInSameBatchAreBothAttributed(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	started := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
 	sessionStore := &fakeSessionTokenStore{runs: map[int64]*crossedTokenRun{
@@ -1966,6 +1993,7 @@ func TestBindMarkAndFirstUsageInSameBatchAreBothAttributed(t *testing.T) {
 // UnresolvedSessionTokens at all, and RunOnce never has a reason to
 // withhold its batch.
 func TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	started := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
 	boundSessionID := "session-shared"
@@ -2062,6 +2090,7 @@ var _ harvest.SessionTokenBinder = (*togglableSessionTokenBinder)(nil)
 // occurrence anywhere is a grep's argument. A correct matcher must never
 // bind on that alone.
 func TestCommandMerelyMentioningTokenDoesNotBind(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	binder := &togglableSessionTokenBinder{sessionToken: "mf-mention-only", stageRunID: 101, pending: true}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
@@ -2094,6 +2123,7 @@ func TestCommandMerelyMentioningTokenDoesNotBind(t *testing.T) {
 // that matches by bare substring has nothing else to bind to and silently
 // attributes A's stage run to B; the fix must leave it unbound instead.
 func TestMentionAfterOwnMarkIsConsumedDoesNotMisattribute(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	token := "mf-k172-silent-misattribution"
 	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: 202, pending: false}
@@ -2181,6 +2211,7 @@ func runMarkCommand(t *testing.T, token string, stageRunID int64, sessionID, com
 // the multi-line and variable-assignment cases in particular are the
 // defect this change repairs, not incidental coverage.
 func TestMarkRecognizedWhereverItSitsInTheCommand(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		command string
@@ -2254,6 +2285,7 @@ func TestMarkRecognizedWhereverItSitsInTheCommand(t *testing.T) {
 // `-session-token`-value check (requirement 2 of sessionTokensInMark)
 // must still refuse every one of them.
 func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		command string
@@ -2309,6 +2341,7 @@ func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
 // where two sessions match it, the ambiguity rule already refuses to bind
 // rather than choosing.
 func TestEchoedMarkExampleIsAnAcceptedResidual(t *testing.T) {
+	t.Parallel()
 	token := "mf-k174-echoed-example"
 	binder := runMarkCommand(t, token, 404, "session-echoer",
 		`echo "flow stage begin -stage do.tests -session-token `+token+` -harness claude-code"`)
@@ -2357,6 +2390,7 @@ var _ harvest.DispatchMetricsSink = (*fakeDispatchMetricsSink)(nil)
 // RecordSessionTokenGiveUp assertion has anything to pass against, since
 // nothing in watcher.go calls it yet.
 func TestGiveUpIsPersisted(t *testing.T) {
+	t.Parallel()
 	var exhaustedReason, ambiguousReason string
 
 	t.Run("bounded window exhausted", func(t *testing.T) {
@@ -2452,6 +2486,7 @@ func TestGiveUpIsPersisted(t *testing.T) {
 // session that never bound leaves every one of its dispatches uncosted,
 // which the token form expresses.
 func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
+	t.Parallel()
 	t.Run("bounded window exhausted", func(t *testing.T) {
 		dir := t.TempDir()
 		const token = "mf-never-appears-stamped"
@@ -2581,6 +2616,7 @@ func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
 // fully consumed" directly rather than driving 60+ real RunOnce cycles
 // to get there.
 func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
+	t.Parallel()
 	t.Run("binds", func(t *testing.T) {
 		dir := t.TempDir()
 		const token = "mf-consumed-retry"
@@ -2742,6 +2778,7 @@ func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
 // fails the call-count assertion first, because nothing in watcher.go
 // calls PersistedGiveUps at all.
 func TestPersistedGiveUpIsRetriedOnStart(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	const token = "mf-recovered"
 	binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 601}
@@ -2779,6 +2816,7 @@ func TestPersistedGiveUpIsRetriedOnStart(t *testing.T) {
 // give-up's retries figure must rise from whatever the persisted state
 // already recorded.
 func TestRetryStillBounded(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	const token = "mf-retried-and-still-missing"
 	binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 701}
@@ -2857,6 +2895,7 @@ func TestRetryStillBounded(t *testing.T) {
 // and apportioned records 1, and dispatch 2's carries input 2 and
 // apportioned records 1.
 func TestWatcherMergesApportionedDispatchMetrics(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	binder := &countingSessionTokenBinder{}
 
@@ -2920,6 +2959,7 @@ func TestWatcherMergesApportionedDispatchMetrics(t *testing.T) {
 // zcode rollout file under another are both read and committed in the same
 // pass, each through its own source's parser.
 func TestRunOnceIteratesAllSources(t *testing.T) {
+	t.Parallel()
 	dirA := t.TempDir()
 	dirB := t.TempDir()
 
@@ -2965,6 +3005,7 @@ func TestRunOnceIteratesAllSources(t *testing.T) {
 // an offset already at that file's EOF, binds on the retry scan -- and the
 // scan still attributes nothing and moves no offset (property 1).
 func TestScanRetriedTokensReadsRolloutCommands(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	const token = "mf-rollout-retry"
 	const stageRunID = int64(911)
@@ -3049,6 +3090,7 @@ func runCycles(t *testing.T, w *harvest.Watcher, n int) {
 }
 
 func TestRetriedTokenScanReadsEachTranscriptOnce(t *testing.T) {
+	t.Parallel()
 	w, reads := newRetriedScanCounter(t, nil)
 	runCycles(t, w, 5)
 	if *reads != 1 {
@@ -3057,6 +3099,7 @@ func TestRetriedTokenScanReadsEachTranscriptOnce(t *testing.T) {
 }
 
 func TestRetriedTokenScanRerunsAfterReadError(t *testing.T) {
+	t.Parallel()
 	t.Run("transient error reruns", func(t *testing.T) {
 		w, reads := newRetriedScanCounter(t, func(string) error { return errors.New("transient") })
 		runCycles(t, w, 3)
@@ -3103,6 +3146,7 @@ func (f *flakyStoreBinder) RecordSessionTokenGiveUp(ctx context.Context, token, 
 // retried from an empty match set, since its marks sit in bytes only the
 // scan reads.
 func TestRetriedTokenScanRerunsAfterFailedResolve(t *testing.T) {
+	t.Parallel()
 	const token = "mf-flaky-resolve"
 	markLine := func(sessionID string) string {
 		return `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"` + sessionID + `","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token ` + token + `"}}]}}` + "\n"
@@ -3147,6 +3191,7 @@ func TestRetriedTokenScanRerunsAfterFailedResolve(t *testing.T) {
 }
 
 func TestManyPendingTokensEachBindToTheirOwnMark(t *testing.T) {
+	t.Parallel()
 	pending := make(map[int64]string, 200)
 	for i := range 200 {
 		pending[int64(i)] = fmt.Sprintf("mf-t%d", i)
@@ -3201,6 +3246,7 @@ func newLookupCountingWatcher(t *testing.T) (*harvest.Watcher, *lookupCountingSi
 }
 
 func TestUnchangedTranscriptSkipsOffsetLookup(t *testing.T) {
+	t.Parallel()
 	w, sink, path := newLookupCountingWatcher(t)
 	runCycles(t, w, 1)
 	if sink.lookups[path] != 1 {
@@ -3213,6 +3259,7 @@ func TestUnchangedTranscriptSkipsOffsetLookup(t *testing.T) {
 }
 
 func TestGrownTranscriptIsReadAfterSkip(t *testing.T) {
+	t.Parallel()
 	w, sink, path := newLookupCountingWatcher(t)
 	runCycles(t, w, 2)
 
@@ -3291,6 +3338,7 @@ const stampLaunchLine = `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sess
 // through deps' DispatchAgentStamper, once the batch has actually
 // committed.
 func TestWatcherStampsLaunchAgainstPrecedingBegin(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine, stampLaunchLine), 0o644); err != nil {
@@ -3340,6 +3388,7 @@ func (d *keyStampDeps) StampDispatchAgent(ctx context.Context, sessionToken, key
 // pairing rotated every row by one. A launch whose description's first word
 // names its row stamps that row, and the begins it used claim nothing later.
 func TestWatcherStampsALaunchByItsDescriptionKey(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	keys := []string{"panel-9-primary+principles", "panel-9-test-sanity+call-efficiency", "visual-verify-fixrun1-final-gymie"}
@@ -3397,6 +3446,7 @@ func TestWatcherStampsALaunchByItsDescriptionKey(t *testing.T) {
 // "task-13-" instead of the key "Task", and two denied Agent calls nearer
 // its begin never pair the begin by time.
 func TestWatcherStampsATaskDescribedLaunchByItsPrefix(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		desc, key, prefix string
 	}{
@@ -3467,6 +3517,7 @@ func (d *rowStampDeps) StampDispatchAgent(ctx context.Context, sessionToken, key
 // one batch before that call had written the rows. The pairs stamp in the
 // next batch, once the rows exist, instead of being spent on rows not there.
 func TestWatcherRetriesAPairWhoseRowIsNotWrittenYet(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	keys := []string{"panel-0-primary+principles", "panel-0-test-sanity+call-efficiency"}
@@ -3519,6 +3570,7 @@ func TestWatcherRetriesAPairWhoseRowIsNotWrittenYet(t *testing.T) {
 // Focus: a begin whose row never appears stays pending, and a later round's
 // begin and launch stamp only the later round's own row.
 func TestWatcherNeverPairsARowlessBeginWithALaterLaunch(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	launch := func(at, desc, agent string) string {
@@ -3566,6 +3618,7 @@ func TestWatcherNeverPairsARowlessBeginWithALaterLaunch(t *testing.T) {
 // begin is only read in a later batch, leaves that begin unable to claim a
 // following unkeyed launch by time.
 func TestWatcherDropsALateBeginAKeyedStampUsed(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	key := "panel-9-primary+principles"
@@ -3611,6 +3664,7 @@ func TestWatcherDropsALateBeginAKeyedStampUsed(t *testing.T) {
 // with a begin that happens to sit in reach, which belongs to another
 // dispatch.
 func TestWatcherStampsLoopLaunchByItsKey(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	loopLaunch := `{"type":"user","timestamp":"2026-01-01T00:00:01Z","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"aloop1","prompt":"Before anything else, read the baseline.\n\nKey: self-review-kan-1-plan\n\nPlan it."}}`
@@ -3639,6 +3693,7 @@ func TestWatcherStampsLoopLaunchByItsKey(t *testing.T) {
 // per path carried forward, exactly as the watcher's own pending lists'
 // states.
 func TestWatcherCarriesBeginAcrossBatchBoundary(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	if err := os.WriteFile(path, stampFixtureLines(stampBeginLine), 0o644); err != nil {
@@ -3680,6 +3735,7 @@ func TestWatcherCarriesBeginAcrossBatchBoundary(t *testing.T) {
 // nothing -- there is no row to name, and guessing one would be exactly
 // the misattribution the pairing exists to avoid.
 func TestWatcherLeavesLaunchWithoutBeginUnstamped(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	if err := os.WriteFile(path, stampFixtureLines(stampLaunchLine), 0o644); err != nil {
@@ -3704,6 +3760,7 @@ func TestWatcherLeavesLaunchWithoutBeginUnstamped(t *testing.T) {
 // begin precedes it; time-nearest pairing gives each launch the begin
 // that names it, which is the whole point of stamping panel slots.
 func TestWatcherPairsPanelRoundBeginsRecordedAfterTheLaunches(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	launch2 := strings.Replace(stampLaunchLine, "a68cee7239419a7e7", "a8884ead3c626d980", 1)
@@ -3782,6 +3839,7 @@ func appendLine(t *testing.T, path, line string) {
 // one begin per slot, key panel-<round>-<slot>, token its fourth argument,
 // and both launches stamp a slot row.
 func TestWatcherReadsPanelRoundBeginsScript(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	launch2 := strings.Replace(stampLaunchLine, "a68cee7239419a7e7", "a8884ead3c626d980", 1)
@@ -3824,6 +3882,7 @@ func TestWatcherReadsPanelRoundBeginsScript(t *testing.T) {
 // launch's true begin arrives. The later launch waits and pairs with the
 // begin that actually names it.
 func TestWatcherDeniedBeginNeverClaimsLaterLaunch(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	agentUse := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","id":"uA","name":"Agent","input":{}}]}}`
@@ -3877,6 +3936,7 @@ func TestWatcherDeniedBeginNeverClaimsLaterLaunch(t *testing.T) {
 // its empty stages with it, and where CLAUDE_CODE_SESSION_ID is unset the
 // token search is the only thing that attributes those runs to a session.
 func TestWatcherMatchesStageMark(t *testing.T) {
+	t.Parallel()
 	const token = "ff-kan860-stage-mark"
 	command := "flow stage mark -command '/flow-fast' -stages flow.preflight,flow.unfinished-work-gate -harness claude-code -session-token " + token + " kan-860"
 	binder := runMarkCommand(t, token, 860, "session-stage-mark", command)
@@ -3895,6 +3955,7 @@ func TestWatcherMatchesStageMark(t *testing.T) {
 // whose key order differs from their text order, and an inline begin that
 // must not claim a launch it will never own.
 func TestWatcherStampsKan964BeginShapes(t *testing.T) {
+	t.Parallel()
 	bash := func(ts, command string) string {
 		c, err := json.Marshal(command)
 		if err != nil {
@@ -3994,6 +4055,7 @@ func TestWatcherStampsKan964BeginShapes(t *testing.T) {
 // and a key or token still carrying an unresolvable `$` names no row and
 // claims no launch.
 func TestWatcherStampsKan925LoopBegins(t *testing.T) {
+	t.Parallel()
 	bash := func(ts, command string) string {
 		c, err := json.Marshal(command)
 		if err != nil {
@@ -4124,6 +4186,7 @@ func TestWatcherStampsKan925LoopBegins(t *testing.T) {
 // not let the next read count the response a second time -- kan-964's
 // stored dispatch totals ran ~1.6x the transcript's on exactly this.
 func TestMessageStraddlingTwoReadsCountsOnce(t *testing.T) {
+	t.Parallel()
 	line := func(id, ts string, input int) string {
 		return fmt.Sprintf(`{"type":"assistant","timestamp":"%s","sessionId":"%s","message":{"id":"%s","model":"m","usage":{"input_tokens":%d}}}`+"\n", ts, mainSessionID, id, input)
 	}
@@ -4160,6 +4223,7 @@ func TestMessageStraddlingTwoReadsCountsOnce(t *testing.T) {
 // adds over the count already counted is counted -- never dropped as a
 // repeat (kan-988), never counted twice.
 func TestMessageStraddlingTwoReadsCountsFinalOutput(t *testing.T) {
+	t.Parallel()
 	line := func(id, ts string, output int) string {
 		return fmt.Sprintf(`{"type":"assistant","timestamp":"%s","sessionId":"%s","message":{"id":"%s","model":"m","usage":{"input_tokens":100,"output_tokens":%d}}}`+"\n", ts, mainSessionID, id, output)
 	}
@@ -4197,6 +4261,7 @@ func TestMessageStraddlingTwoReadsCountsFinalOutput(t *testing.T) {
 // assistant message still carries the last message counted, so that
 // message's repeat in the next read adds nothing a second time.
 func TestMessageCarryOutlivesUserLine(t *testing.T) {
+	t.Parallel()
 	line := func(id, ts string, output int) string {
 		return fmt.Sprintf(`{"type":"assistant","timestamp":"%s","sessionId":"%s","message":{"id":"%s","model":"m","usage":{"input_tokens":100,"output_tokens":%d}}}`+"\n", ts, mainSessionID, id, output)
 	}
@@ -4287,6 +4352,7 @@ func writeLateStampFixture(t *testing.T, dir string) string {
 // forever: every batch of the file was committed against no window, and
 // nothing re-reads bytes the offset has moved past.
 func TestLateStampCreditsTheAgentFileAlreadyHarvested(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	parent := writeLateStampFixture(t, dir)
 	deps := &lateStampDeps{}
@@ -4316,6 +4382,7 @@ func TestLateStampCreditsTheAgentFileAlreadyHarvested(t *testing.T) {
 // launcher's own path names (the panel orchestrator launches the panel's
 // reviewers, skills/flow/review-panel.md).
 func TestLateStampCreditsANestedAgentsFile(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	parent := writeLateStampFixture(t, dir)
 	launcher := filepath.Join(strings.TrimSuffix(parent, ".jsonl"), "subagents", "agent-a1f2e3d4c5b6a7980.jsonl")
@@ -4338,6 +4405,7 @@ func TestLateStampCreditsANestedAgentsFile(t *testing.T) {
 // credited to it, and crediting them again to the new row would count
 // them twice.
 func TestLateStampLeavesAResumedAgentsFileAlone(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	parent := writeLateStampFixture(t, dir)
 	deps := &lateStampDeps{prior: []harvest.DispatchWindow{{DispatchID: 3, AgentID: "a68cee7239419a7e7", StartedAt: mustParse(t, "2025-12-31T00:00:00Z")}}}
@@ -4370,6 +4438,7 @@ func (d *anchoredStampDeps) DispatchStartedAt(ctx context.Context, sessionToken,
 // sat 42 s from another dispatch's launch made before the call and 3m14s
 // from its own. Anchored at the row's started_at, the begin takes its own.
 func TestWatcherAnchorsALoneBeginAtItsRowsStartedAt(t *testing.T) {
+	t.Parallel()
 	bash := func(ts, command string) string {
 		c, err := json.Marshal(command)
 		if err != nil {
@@ -4409,6 +4478,7 @@ func TestWatcherAnchorsALoneBeginAtItsRowsStartedAt(t *testing.T) {
 // denied lines must decode, so both panel begins retire and only the
 // flake begin stamps -- its own launch.
 func TestWatcherRetiresBeginsOfHookDeniedLaunches(t *testing.T) {
+	t.Parallel()
 	bash := func(ts, command string) string {
 		c, err := json.Marshal(command)
 		if err != nil {
@@ -4534,6 +4604,7 @@ func mainOutput(t *testing.T, patch json.RawMessage) int64 {
 // offset, since no later batch carries those records again -- and never
 // past it, where a record written after the watcher's read sits.
 func TestWatcherMeasuresABackfilledInlineRow(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	if err := os.WriteFile(path, stampFixtureLines(mainThreadLine("00:01:00", 7)), 0o644); err != nil {
@@ -4577,6 +4648,7 @@ func TestWatcherMeasuresABackfilledInlineRow(t *testing.T) {
 // only the main-thread records inside the row's window count, and a row no
 // window carries is ErrNoInlineShare.
 func TestInlineDispatchPatchCreditsOnlyTheRowsWindow(t *testing.T) {
+	t.Parallel()
 	raw := stampFixtureLines(mainThreadLine("00:00:10", 1), mainThreadLine("00:01:00", 2), mainThreadLine("00:03:00", 4))
 	deps := &inlineBackfillDeps{windows: []harvest.DispatchWindow{inlineWindow()}}
 	patch, err := harvest.InlineDispatchPatch(context.Background(), deps, raw, 7)
@@ -4668,6 +4740,7 @@ func (d *settleDeps) RestampInlineDispatch(ctx context.Context, dispatchID int64
 // zero tokens; an open row, and one ended after the batch's newest record,
 // settle in a later batch.
 func TestWatcherSettlesClosedRows(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	at := func(hms string) time.Time {
@@ -4759,6 +4832,7 @@ func TestWatcherSettlesClosedRows(t *testing.T) {
 // row id DispatchEndedAt read: an older agentless row reusing the key,
 // which a launch ran, keeps its empty agent.
 func TestWatcherSettleStampsOnlyTheCheckedRow(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	c, err := json.Marshal("flow record dispatch begin -change c -role implementer -key fix-a -session-token mf-s")
@@ -4824,6 +4898,7 @@ func runVerifyListSettleFixture(t *testing.T, call string, turns ...string) *set
 // TestSettleClosedRowsMeasuresARunVerifyListRow: every parent turn inside a
 // script-begun row's window is summed into its restamp.
 func TestSettleClosedRowsMeasuresARunVerifyListRow(t *testing.T) {
+	t.Parallel()
 	for _, call := range []string{
 		"scripts/run-verify-list.sh /wt test c verify mf-s opus medium",
 		"scripts/run-verify-list.sh /wt test c verify mf-s opus medium > /tmp/x 2>&1",
@@ -4839,6 +4914,7 @@ func TestSettleClosedRowsMeasuresARunVerifyListRow(t *testing.T) {
 // TestSettleClosedRowsZeroesAnEmptyRunVerifyListRow: a script-begun row
 // with no turn inside its window is restamped zero.
 func TestSettleClosedRowsZeroesAnEmptyRunVerifyListRow(t *testing.T) {
+	t.Parallel()
 	deps := runVerifyListSettleFixture(t, "scripts/run-verify-list.sh /wt test c verify mf-s opus medium")
 	var zero map[string]json.RawMessage
 	if p, ok := deps.restamps[7]; !ok || json.Unmarshal(p, &zero) != nil || zero["tokens"] == nil || mainOutput(t, p) != 0 {
@@ -4851,6 +4927,7 @@ func TestSettleClosedRowsZeroesAnEmptyRunVerifyListRow(t *testing.T) {
 // end, first reads that stale end -- before its own begin -- and must wait
 // for the second run's end rather than settle a zero patch against it.
 func TestSettleClosedRowsWaitsOutAStaleEnd(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	call := func(at string) string {
@@ -4912,6 +4989,7 @@ func (s *recordingBackfillSink) CommitHarvestBackfill(_ context.Context, _ strin
 // offset is passed over, never sliced past its end, and the back-fill
 // commits nothing for it.
 func TestStageGapBackfillSkipsATranscriptShorterThanItsOffset(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
 	if err := os.WriteFile(path, []byte("{}\n"), 0o644); err != nil {
@@ -4935,6 +5013,7 @@ func TestStageGapBackfillSkipsATranscriptShorterThanItsOffset(t *testing.T) {
 // `flow pricing reprice` prices it -- a reprice does not price a run whose
 // failure is still in place (live-verification.md's output_unmeasured runs).
 func TestBackfillPricingWarningNamesTheCause(t *testing.T) {
+	t.Parallel()
 	st := newEndToEndStore(t)
 	ctx := context.Background()
 	const sessionID = "session-backfill-price-warning"
@@ -4979,6 +5058,7 @@ func TestBackfillPricingWarningNamesTheCause(t *testing.T) {
 // never expanded, so its row stayed unmeasured. `&&` inside a body, and a
 // quoted `& done`, never end it.
 func TestJudgeInvocationsEndsLoopBodyAtAnyTerminator(t *testing.T) {
+	t.Parallel()
 	const call = `( set -a; $S/run-verify-list.sh $W $g $N verify-5 mf-x opus default </dev/null > l 2>&1 )`
 	cases := map[string]string{
 		"amp":       `for g in lint test; do ` + call + ` & done`,

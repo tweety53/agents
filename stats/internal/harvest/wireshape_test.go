@@ -87,6 +87,7 @@ func spaMetricsFixturePath(t *testing.T) string {
 // which writes the current marshalled shape of spaMetricsFixturePatch and
 // always passes; run again without the env var to confirm it now matches.
 func TestSPAMetricsFixtureMatchesTheWireShape(t *testing.T) {
+	t.Parallel()
 	want, err := json.MarshalIndent(spaMetricsFixturePatch, "", "  ")
 	if err != nil {
 		t.Fatalf("marshal MetricsPatch: %v", err)
@@ -188,6 +189,7 @@ func sortedKeys(m map[string]bool) []string {
 // package's own discipline, see spaMetricsFixturePatch's doc comment)
 // closes it.
 func TestSPAFixtureBucketsCoverEveryBucketField(t *testing.T) {
+	t.Parallel()
 	path := spaMetricsFixturePath(t)
 	data, err := os.ReadFile(path)
 	if err != nil {
