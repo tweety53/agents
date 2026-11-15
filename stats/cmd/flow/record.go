@@ -313,7 +313,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause]
                              [-agent-id id] [-tokens k=v,...] [-ended-at instant]
-                             [-diff-base sha[,sha...]]
+                             [-diff-base sha[,sha...]] [-closes-loop]
        flow record dispatch backfill [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model [-effort level] [-agent-id id|none]
@@ -1766,6 +1766,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
 	endedAt := fset.String("ended-at", "", "a back-filled row's real end instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it closes the row")
 	diffBase := fset.String("diff-base", "", "corrects the sha (or comma-joined shas) begin recorded as the HEAD this dispatch verified -- optional: omitted, begin's value stands")
+	closesLoop := fset.Bool("closes-loop", false, "this scoped visual-verify verifier row closed the fix loop -- passed by flow-guard visual-verify-pass close alone, and only with -outcome completed (skills/flow/verify-fix-loop.md)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
@@ -1789,6 +1790,10 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	}
 	report, ok := checkDispatchEndFields(*outcome, *cause, *tokens, stderr)
 	if !ok {
+		return 2
+	}
+	if *closesLoop && *outcome != "completed" {
+		fmt.Fprintf(stderr, "flow: -closes-loop is only valid with -outcome completed, not -outcome %q\n", *outcome)
 		return 2
 	}
 	if err := validateSessionToken(*sessionToken); err != nil {
@@ -1865,6 +1870,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		EndedAt:      ended,
 		CommitAt:     commitAt,
 		DiffBase:     *diffBase,
+		ClosesLoop:   *closesLoop,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)
@@ -4639,9 +4645,11 @@ func tickedInRunFixes(plan []byte) []string {
 // inRunFixRefusal names why a visual-verify key may not begin after the
 // ticked in-run fixes ks, or returns "". A -fix-<k>-full key begun with a
 // round base is refused, since the full run is unscoped. A completed
-// -fix-<j>-full verifier row closes every fix up to j; only the highest
-// unclosed k is checked, since a scoped re-run that finds a defect opens the
-// next fix without closing its own.
+// -fix-<j>-full verifier row closes every fix up to j, and so does a
+// completed -fix-<j> verifier row carrying closesLoop -- a scoped round
+// flow-guard visual-verify-pass close found closed the loop (KAN-1122); only
+// the highest unclosed k is checked, since a scoped re-run that finds a
+// defect opens the next fix without closing its own.
 func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string {
 	if roundBase != "" && fullRunKey.MatchString(key) {
 		return "is a -full run, which is unscoped: begin it with no -round-base"
@@ -4651,7 +4659,11 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 	}
 	maxFull := -1
 	for _, d := range run.Dispatches {
-		if m := fullRunKey.FindStringSubmatch(d.Key); completed(d) && m != nil {
+		m := fullRunKey.FindStringSubmatch(d.Key)
+		if m == nil && d.ClosesLoop {
+			m = fixRoundKey.FindStringSubmatch(d.Key)
+		}
+		if completed(d) && m != nil {
 			if j, _ := strconv.Atoi(m[1]); j > maxFull {
 				maxFull = j
 			}

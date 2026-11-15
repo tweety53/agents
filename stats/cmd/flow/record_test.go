@@ -1095,7 +1095,7 @@ func TestDispatchEndCauseRequired(t *testing.T) {
 // cause is meaningful only beside a blocked outcome, so carrying one with
 // any other outcome is a caller mistake.
 func TestDispatchEndCauseRejectedWithoutBlocked(t *testing.T) {
-	for _, outcome := range []string{"completed", "stopped", "aborted", ""} {
+	for _, outcome := range []string{"completed", "timed-out", "aborted", ""} {
 		t.Run("outcome="+outcome, func(t *testing.T) {
 			extra := []string{}
 			if outcome != "" {
@@ -1109,6 +1109,31 @@ func TestDispatchEndCauseRejectedWithoutBlocked(t *testing.T) {
 			}
 			if contacted {
 				t.Error("the store was contacted for a cause with no blocked outcome -- it must be refused first")
+			}
+		})
+	}
+}
+
+// TestDispatchEndClosesLoopRefusedOffCompleted pins that -closes-loop is
+// meaningful only beside a completed outcome: with aborted, timed-out or no
+// outcome it is refused before the store is contacted (KAN-1122).
+func TestDispatchEndClosesLoopRefusedOffCompleted(t *testing.T) {
+	for _, outcome := range []string{"aborted", "timed-out", ""} {
+		t.Run("outcome="+outcome, func(t *testing.T) {
+			outcomeArgs := []string{}
+			if outcome != "" {
+				outcomeArgs = append(outcomeArgs, "-outcome", outcome)
+			}
+			code, _, stderr, contacted, _ := causeEndRun(t, append(outcomeArgs, "-closes-loop")...)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for -closes-loop off a completed outcome -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), "-closes-loop") {
+				t.Errorf("stderr does not name -closes-loop:\n%s", stderr.String())
 			}
 		})
 	}
@@ -6801,6 +6826,45 @@ func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
 	}
 }
 
+// TestDispatchEndClosesLoopCarriedOnWire pins `dispatch end -closes-loop`:
+// the flag reaches the daemon as closesLoop true, and an end without it
+// sends no closesLoop key (KAN-1122).
+func TestDispatchEndClosesLoopCarriedOnWire(t *testing.T) {
+	send := func(t *testing.T, extra ...string) map[string]any {
+		t.Helper()
+		repo := recordRepo(t, "kan-1122")
+		isolatedStateRoot(t)
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			gotBody, err = readAll(r)
+			if err != nil {
+				t.Errorf("read request body: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":7,"seq":48,"role":"verifier","model":"opus","endedAt":"2026-11-15T00:55:20Z"}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		args := append([]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-1122", "-key", "visual-verify-fix-3-gymie", "-session-token", "mf-k1122", "-outcome", "completed"}, extra...)
+		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		var sent map[string]any
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+		}
+		return sent
+	}
+	if sent := send(t, "-closes-loop"); sent["closesLoop"] != true {
+		t.Errorf("closesLoop = %v, want true", sent["closesLoop"])
+	}
+	if sent := send(t); sent["closesLoop"] != nil {
+		t.Errorf("closesLoop = %v, want no key when -closes-loop is omitted", sent["closesLoop"])
+	}
+}
+
 // dispatchCall runs one `flow record dispatch <verb>` against a fake daemon
 // and returns its exit code, stderr and how many requests the daemon saw.
 func dispatchCall(t *testing.T, verb string, extra ...string) (int, string, int) {
@@ -7219,6 +7283,36 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 			code, stderr, posts := begin(t, c.plan, c.dispatches, c.key, c.extra...)
 			if code != c.want || (posts == 1) != (c.want == 0) {
 				t.Fatalf("exit %d, posts %d; want exit %d; stderr:\n%s", code, posts, c.want, stderr)
+			}
+		})
+	}
+}
+
+// TestInRunFixRefusalCountsAClosingScopedRow pins that a completed -fix-<j>
+// verifier row carrying closesLoop closes every In-run fix up to <j>, as a
+// completed -fix-<j>-full row does, and that a scoped row without it, or an
+// aborted one with it, closes nothing (KAN-1122).
+func TestInRunFixRefusalCountsAClosingScopedRow(t *testing.T) {
+	scoped := records.Dispatch{Key: "visual-verify-fix-2-gymie", Role: "verifier", Outcome: "completed", RoundBase: "abc1234"}
+	closing := scoped
+	closing.ClosesLoop = true
+	aborted := closing
+	aborted.Outcome = "aborted"
+	for _, c := range []struct {
+		name    string
+		ks      []string
+		rows    []records.Dispatch
+		refused bool
+	}{
+		{"a completed closing row closes its fix", []string{"2"}, []records.Dispatch{closing}, false},
+		{"a scoped row without the field leaves its fix open", []string{"2"}, []records.Dispatch{scoped}, true},
+		{"an aborted closing row leaves its fix open", []string{"2"}, []records.Dispatch{aborted}, true},
+		{"a closing row of a lower fix leaves a higher one open", []string{"2", "3"}, []records.Dispatch{closing}, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			why := inRunFixRefusal(c.ks, records.Run{Dispatches: c.rows}, "visual-verify-4-gymie", "")
+			if (why != "") != c.refused {
+				t.Fatalf("inRunFixRefusal = %q, want refused %v", why, c.refused)
 			}
 		})
 	}
