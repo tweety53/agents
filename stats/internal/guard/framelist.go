@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,7 +21,7 @@ import (
 // (KAN-549: design.md declared 22 frames, two rounds reported 15/17 composed,
 // and nothing compared the two).
 //
-// Usage: flow-guard check-frame-list <design.md> <mockups dir> <report file>
+// Usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]
 //
 // <design.md> is the change's <changeRoot>/design.md; <mockups dir> the
 // resolved `mockups` root (skills/flow-contracts/project-configuration-visual.md);
@@ -60,6 +61,10 @@ import (
 // frame by that id anywhere. So is an id in citation position — letters then
 // digits written directly after `round <n>, `, `answer-<n> ` or the word `question `, any case
 // (`round 1, Q1`, `answer-2 Q1`, `question Q4`) — kan-1102 self-review, F1.
+//
+// With --frames, a shard's slice (skills/flow/visual-verify.md), the declared
+// list is the declared frames in the slice, and the frames line's <m> is
+// compared with that count (decision manifest-per-shard).
 //
 // Every report line below is read from the report's `## Report` heading to
 // the next `## ` heading alone: a `## Verdict` departure line never stands in
@@ -126,8 +131,18 @@ func flToken(id string) *regexp.Regexp {
 
 func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-frame-list"
+	var slice []string // --frames: the shard's slice, nil for every frame
+	if i := slices.Index(args, "--frames"); i >= 0 {
+		if i+1 == len(args) || args[i+1] == "" {
+			fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]\n", prog)
+			Reason(env, "usage")
+			return 2
+		}
+		slice = strings.Split(args[i+1], ",")
+		args = slices.Delete(slices.Clone(args), i, i+2)
+	}
 	if len(args) != 3 {
-		fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file>\n", prog)
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]\n", prog)
 		Reason(env, "usage")
 		return 2
 	}
@@ -151,6 +166,9 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	declared := flDeclared(design, args[1], entries)
+	if slice != nil {
+		declared = slices.DeleteFunc(declared, func(id string) bool { return !slices.Contains(slice, id) })
+	}
 
 	lines := flReportLines(report)
 	sidecar := map[string]bool{}

@@ -366,3 +366,38 @@ func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing
 		t.Errorf("(d) range with no sub-directory: rc=%d out=%q; want 0 with 2 declared", res.rc, res.out)
 	}
 }
+
+// TestCheckFrameListFrames pins decision manifest-per-shard's guard half
+// (KAN-1121): with --frames a shard's report owes only the declared frames of
+// its slice, its frames line counted against them alone.
+func TestCheckFrameListFrames(t *testing.T) {
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	for _, f := range []string{"Q1.png", "Q2.png", "M1.png"} {
+		writeFile(t, filepath.Join(mockups, f), "")
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	writeFile(t, spec+".mockups", "q1 Q1\nq2 Q2\nm1 M1\n")
+	design := filepath.Join(dir, "design.md")
+	writeFile(t, design, "Frames Q1, Q2 and M1.\n")
+	report := filepath.Join(dir, "verify-report-visual-verify-s1of2.md")
+	for _, tc := range []struct {
+		name, body string
+		args       []string
+		rc         int
+		want       string
+	}{
+		{"the slice reported", "- Q1: x\n- Q2: x\n- frames: 2/2\n", []string{"--frames", "Q1,Q2"}, 0, "FRAME-LIST-COMPLETE: " + report + " — 2 declared"},
+		{"a slice frame unreported", "- Q1: x\n- frames: 1/2 — none absent\n", []string{"--frames", "Q1,Q2"}, 1, "no report line: Q2"},
+		{"the whole list without --frames", "- Q1: x\n- Q2: x\n- frames: 2/2\n", nil, 1, "frames 2/2 below 3 declared; no report line: M1"},
+	} {
+		writeFile(t, report, "## Report\n- spec: "+spec+"\n"+tc.body)
+		r := runGuard("check-frame-list", append([]string{design, mockups, report}, tc.args...), Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+	if r := runGuard("check-frame-list", []string{design, mockups, report, "--frames"}, Env{Getenv: os.Getenv}); r.rc != 2 {
+		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.rc, r.out)
+	}
+}

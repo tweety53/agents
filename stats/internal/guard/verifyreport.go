@@ -21,7 +21,7 @@ import (
 // its prose (KAN-870: two verifiers ran the tests and the capture, listed
 // steps 9-11 under "Not done", and both reports were accepted).
 //
-// Usage: flow-guard check-verify-report <report file> <motions named> [--design <design.md>]
+// Usage: flow-guard check-verify-report <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]
 //
 // Given --design, the report, or the `visual-verification.md` beside
 // <design.md>, reading `no mockup source` while <design.md> cites a
@@ -119,7 +119,12 @@ import (
 // capture is unchanged (skills/flow/visual-verify-verifier.md step 9). No
 // `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
 // than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
-// reports named only the prototype-framed captures).
+// reports named only the prototype-framed captures). With --frames, a shard's
+// slice, a capture the spec's `<spec>.mockups` maps only to frames outside the
+// slice is owed no line, and a capture no sidecar line maps is owed only by a
+// report whose key — its file name less `verify-report-`, `.md` and any
+// `-rest[-<n>]` — carries `-s1of` (decisions manifest-per-shard,
+// lead-shard-owns-shared).
 //
 // Prints ONE verdict line to stdout:
 //   VERIFY-REPORT-COMPLETE: <report file>
@@ -195,8 +200,18 @@ var (
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
-	const usage = "flow-guard check-verify-report <report file> <motions named> [--design <design.md>]"
+	const usage = "flow-guard check-verify-report <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]"
 	design := ""
+	var slice []string // --frames: the shard's slice, nil for every frame
+	if i := slices.Index(args, "--frames"); i >= 0 {
+		if i+1 == len(args) || args[i+1] == "" {
+			fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
+			Reason(env, "usage")
+			return 2
+		}
+		slice = strings.Split(args[i+1], ",")
+		args = slices.Delete(slices.Clone(args), i, i+2)
+	}
 	if i := slices.Index(args, "--design"); i >= 0 {
 		if i+1 == len(args) {
 			fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
@@ -392,7 +407,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if spec != "" && !noView {
 		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
-		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr))...)
+		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr), slice, strings.Contains(key, "-s1of"))...)
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
@@ -411,14 +426,18 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 // view. A resolver exit other than 0 is not checked: step 9 blocks on it.
 // A `capture unchanged since` line accounts only for a capture in scoped, the
 // captures a scoped row may leave unread (vrScopedCaptures).
-func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped []string) []string {
+func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped, slice []string, lead bool) []string {
 	var buf strings.Builder
 	if resolveVisualScreenshots([]string{wt, filepath.Base(spec)}, env, &buf, io.Discard) != 0 {
 		return nil
 	}
 	report := strings.Join(lines, "\n")
 	var gaps []string
+	sidecar, _ := os.ReadFile(spec + ".mockups")
 	for _, png := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		if slice != nil && !vrOwed(png, sidecar, slice, lead) {
+			continue
+		}
 		m := regexp.MustCompile(`(?m)^\s*- (\S+): ` + regexp.QuoteMeta(png) + `(\s.*)?$`).FindStringSubmatch(report)
 		switch {
 		case m == nil:
@@ -646,4 +665,22 @@ func vrCells(f string, cells []map[string]any, over map[int]vrOverRow, spot map[
 		bad = append(bad, fmt.Sprintf("%s spot-check checks %d rows, needs %d", f, len(named), need))
 	}
 	return bad
+}
+
+// vrOwed reports whether a shard's report owes png (decisions
+// manifest-per-shard, lead-shard-owns-shared): a capture the sidecar maps to a
+// frame of slice, or one it maps to no frame when the report is the lead
+// shard's.
+func vrOwed(png string, sidecar []byte, slice []string, lead bool) bool {
+	mapped := false
+	for _, l := range mockupsLines(sidecar) {
+		if len(cmfMatchCapture(l[0], []string{png})) == 0 {
+			continue
+		}
+		if slices.Contains(slice, l[1]) {
+			return true
+		}
+		mapped = true
+	}
+	return !mapped && lead
 }
