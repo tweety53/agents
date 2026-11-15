@@ -546,8 +546,8 @@ verified HEAD and the paths changed since it, that re-run is scoped as a round o
 (`skills/flow/verify-fix-loop.md`): the named HEAD is its round base, its `motions:` names only the
 motions `git diff <that HEAD>..HEAD` adds, changes or removes, and its clean report is followed by the
 closing unscoped run of the **One full run closes the loop** paragraph of **The loop**
-(`skills/flow/verify-fix-loop.md`), since the guard refuses a worktree whose newest verifier row
-ran scoped. Integrate stops on
+(`skills/flow/verify-fix-loop.md`) unless its `close` printed `CLOSES-LOOP: yes`, since the guard
+refuses a worktree whose newest verifier row ran scoped and did not close the loop. Integrate stops on
 the same verdict and no operator course there passes it. An exit 2 is reported and stops the run
 at the state it read.
 

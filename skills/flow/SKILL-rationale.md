@@ -1309,6 +1309,7 @@ attribution; the text after it is the passage, verbatim.
 - *task's PNGs — so the zip never trails the baselines it archives* — (kan-1003: two rounds left it stale)
 - *— `completed` when clean, `stopped` when a leftover opens the next round* — (kan-1007: a mockups-only round re-ran the whole suite, 18m28s)
 - *`-full` run follows only a clean scoped re-run, never another round's fix* — (KAN-1000: three rounds in a row re-ran unscoped)
+- *`close` has ended its row `-closes-loop` and no `-fix-<k>-full` run follows* — (KAN-1122: 48 closing full runs cost $141.93, `<agents repo>/docs/briefs/flow-stage-analysis.html`; a frame the scoped run leaves unjudged holds a capture byte-identical to one an earlier verifier judged, and freshness by mtime keeps a spec the verifier skipped from reading as unchanged)
 
 ### document-fix.md — Documenting a fix, before implementing it
 

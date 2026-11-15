@@ -116,6 +116,12 @@ never an exit code the command did not return.
    filename: its exit 1 (zero matches) in the manifest blocks, indistinguishable from a view that
    never rendered, and its exit 2 (cannot answer) blocks the same way. **Read every capture** — no
    script can do that — and state, per view, `clean` or the defect seen.
+   In a scoped fix round `measure` also prints `changed: <frame id> … — round base <sha>`, or
+   `changed: none — round base <sha>`, before its `MANIFEST:` line: read only the views of the
+   frames it names and of the prompt's `moved:` frames, and every view no frame is composed for,
+   and at step 10 only those frames' composites. Every other view's line reads
+   `- <view>: <absolute PNG path> — capture unchanged since <round base>`, with no frame, sweeps,
+   spot-check or over-tolerance line for its frame. With no `changed:` line, every view is read.
    Each captured PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
    composed for its `per view, no frame composed: <view> sweeps:` line — `flow-guard check-verify-report`
    refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
@@ -302,11 +308,15 @@ never an exit code the command did not return.
    shared fix's recapture moved (**The loop**, `skills/flow/verify-fix-loop.md`); a frame reached only by inference from another (already
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
    still gets named, with the reason. The list also carries every frame the `<spec>.mockups` sidecar of each capture spec this change edits maps, whether or not its baseline has moved yet, and two frame ids are never read as one. **The list is the change's, never the round's**: a fix run
-   re-verifies the same list, not the views its fix touched, and the specs `capture` runs are
+   re-captures the same list, not the views its fix touched, and the specs `capture` runs are
    chosen to reach every frame on it, never the other way round — a denominator the verifier
    derives from the specs it happened to run is the partial pass wearing a fraction. The report's
    `frames:` line counts against that list and names every declared frame absent from the
    per-frame lines, with its reason.
+   In a scoped fix round, a frame that neither step 9's `changed:` line nor the prompt's `moved:`
+   names is not read again: an earlier verifier judged that same capture. The `frames:` line names
+   it with the reason `capture unchanged since <round base>`, and its view line carries the same
+   reason.
 
    **Exercise the states below and capture each one; a state nobody drove into is a state nobody
    verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
@@ -705,7 +715,7 @@ names, each then on a line of its own with its cause or attribution beside it.
 - spec reach: exit <n>
 - identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
 - spec: <absolute spec path>
-- <view>: <absolute PNG path> — clean | <the defect seen>
+- <view>: <absolute PNG path> — clean | <the defect seen> | capture unchanged since <round base>
 - measure: exit <n> — <absolute manifest path>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or each departure seen — a band, a seam or a spot-check `mismeasure` included — with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>

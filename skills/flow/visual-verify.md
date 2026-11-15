@@ -122,6 +122,10 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
   below. What blocks takes **The loop**, whose step 1 closes both; when nothing does, end the row
   with `flow record dispatch end … -outcome completed` and the stage, for every worktree of the set, with the `end` mark below, then render the ledger with `flow record render -change <name> -kind ledger`.
 - `NEXT: done` — every exit zero and no departure: `close` closed the row `-outcome completed`.
+  On a scoped row that is not a `-rest` remainder, `close` printed `CLOSES-LOOP: yes` before it —
+  the row ended `-closes-loop` and the loop closed with no `-full` run — or
+  `CLOSES-LOOP: no — <why>`, which keeps the closing unscoped run of the **One full run closes the
+  loop** paragraph of **The loop** (`skills/flow/verify-fix-loop.md`).
 
 **Except after `rest`, `redispatch` and `cure-environment`, `close` has run step 12** and printed
 `ROUND-BASE:`; and once every surviving worktree's newest row of the stage is closed it has ended the
