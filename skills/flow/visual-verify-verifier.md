@@ -8,6 +8,29 @@ motion step and the `## Verdict` and `## Report` templates, run as written.
 <the denial text, verbatim>` where `exit <n>` would stand, and the step's status is `blocked` —
 never an exit code the command did not return.
 
+**A sharded dispatch judges its own slice.** A bundle carrying a `slice: s<i>of<n> <frame,…>` line
+is shard i of n of one pass, the others running at once against the same stack
+(`skills/flow/visual-verify.md`). `prepare` has already run step 4's `setup` and step 8's `capture`
+of every spec, so a shard runs neither, edits no capture spec or sidecar, and reports both
+`exit 0 — run by prepare`. Only `-s1of<n>` updates the full app suite, rebuilds its zip and runs
+`flow-guard check-spec-reach`, and it alone owns every view no frame is composed for — the
+prototype render and `measure --prototype` included — the motions and the `identical` lines; every
+other shard reports `full app suite: not run` and `spec reach: not run`. Step 9 runs the `measure`
+call the bundle names, `--frames` included, and reads only the views its slice's frames map,
+`-s1of<n>` also every view no sidecar line maps. Step 10 composes and judges the slice's frames
+alone, and its `- frames:` line counts the slice's declared frames. A shard never captures at the
+merge base: it reads the PNG the parent copied under
+`<changeRoot>/visual-verification/merge-base/` and cites it as `merge-base capture: <its absolute
+path>`, and with a bundle line `merge-base capture failed — <reason>` a departure no baseline PNG
+attributes is this change's, its line naming that failure. A step-10 state check that writes to
+the stack — a submitted form, data seeded to reach a comparison branch — runs signed in as an
+account the shard registers fresh for it, as a capture spec that registers fresh does, never the
+seeded account the other shards' captures read; a check that only reads, or types without
+submitting, stays on the seeded account. Step 11 writes
+`<changeRoot>/visual-verification/record-s<i>of<n>.md`, never `visual-verification.md`, which
+`close` rebuilds from every shard's part. The `exits:` line never names the shard's key: `close`
+reads every number on it as an exit.
+
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
 8. **Capture** — when `specs` is declared, run it first from the `regression checkout`, with
    `<frontend-root>` substituted for the worktree and `<merge-base>` for the merge base the bundle
@@ -242,21 +265,8 @@ never an exit code the command did not return.
    change's. **A view the merge base already draws but carries no baseline PNG for is captured at
    the merge base before any departure on it is attributed — never counted as this change's for
    want of a baseline**. One
-   capture per spec serves every departure on its views. In each repository the stack and the
-   capture run from, add a detached worktree `<name>-merge-base` beside the change's own, at that
-   repository's merge base (`git worktree add --detach ../<name>-merge-base <merge-base>`); copy
-   this change's capture spec, its `<spec>.mockups` sidecar and its fixtures into the merge-base
-   worktree of the repository that holds specs; start the stack there from `start` when declared, else `## run` — on its own
-   derived workspace, never the change's running stack — and run `capture` from there with
-   `<spec>` substituted. Measure the same element on the PNG it writes and judge it as above. Whether
-   or not the capture ran, stop that stack with the project's `## stop` command run from the
-   merge-base worktree, else by each port it started (`lsof -ti tcp:<port> -sTCP:LISTEN | xargs kill`)
-   — never by a tool-wide daemon stop such as `gradle --stop`, run bare or through the Gradle
-   wrapper, which stops every daemon of that tool, the change's own running stack among them
-   (kan-1096 self-review, F4) — remove the workspace it derived with the project's declared removal command
-   (**Creation and cleanup**, `skills/flow-contracts/workspace-isolation.md`),
-   and remove those worktrees before the report is written: nothing the merge-base capture writes
-   is committed or stands as this change's baseline. A merge-base capture that cannot run — the
+   capture per spec serves every departure on its views, taken as **The merge-base capture**
+   (`skills/flow/visual-verify.md`) states. Measure the same element on the PNG it writes and judge it as above. A merge-base capture that cannot run — the
    spec reaches a route or control the merge base lacks, the stack does not start — leaves the
    departure this change's, its line naming `merge-base capture failed — <reason>` beside it.
    A line attributing a departure as present at the merge base names its evidence beside it —

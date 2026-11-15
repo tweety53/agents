@@ -63,7 +63,7 @@ These nine rows are **every** Agent-tool dispatch the parent may make, across se
 | panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-reviewer` on pass 1; `panel-sanity-efficiency` for the `test-sanity+call-efficiency` extra dispatch and `panel-mutation-failure` for the `mutation+failure-modes` one; `panel-rerun` for a re-run, its send-back and a decided panel's late-fix pass; `late-fix` for a `default` panel's late-fix pass | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
-| verifier, one per worktree | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+| verifier, one per worktree, or one per shard of a sharded pass | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analyst` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
 | fix-run judge, one per fix run whose floor is prose | `planner` | `fix-run-judge` | `fix-run-judge-<n>` | `skills/flow/review-panel-late-fix.md`, **The fix-run judge** |
 | in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
@@ -458,7 +458,9 @@ Dispatches into different worktrees remain free to run concurrently. A visual ve
 mutator here too — it builds the stack from the tree and writes `<changeRoot>/visual-verification/`
 — and `flow record dispatch begin` refuses a `visual-verify` row while an `implementer`,
 `panel-fix` or `red-partner` row of the change is open, and any of those while a `visual-verify`
-row is open. This explicitly overrides
+row is open. The shards of one sharded `flow.visual-verify` pass (`skills/flow/visual-verify.md`)
+are the one exception: up to four verifiers of that pass run at once in one worktree, each writing
+only its own slice's files. This explicitly overrides
 `superpowers:subagent-driven-development`'s parallel dispatch guidance and
 `superpowers:dispatching-parallel-agents` for same-worktree tasks. The invariant is the working
 tree, not the build tool, and it holds however file-disjoint two tasks look on paper. **A mutating dispatch's

@@ -191,6 +191,14 @@ text after it is the passage, verbatim.
 
 - ***A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never `completed`.*** — The cause is what makes three environment-caused blocks in one run a query the store answers instead of a footnote in one run's ledger (KAN-510).
 
+### visual-verify.md — A pass over more than 25 frames runs as up to four shards at once
+
+- *…up to four shards at once* — (KAN-1121) one verifier worked through every frame of a large change before a serial `-rest` remainder could even start. Only an unscoped pass of a single-worktree set shards: sharding every pass and set meant a `CLOSES-LOOP` verdict aggregated across shards and per-(worktree, shard) state in `close`, about 600 lines of Go against 350, and the aggregated verdict was the most error-prone part.
+- *`prepare` runs step 8's `setup` and `capture` itself* — concurrent Playwright runs of one spec race on its PNGs, spec and sidecar, and a serial capture verifier ahead of the shards costs a dispatch of latency on every sharded pass.
+- *The parent takes the merge-base capture once, before any shard starts* — one merge-base stack per shard would start up to four stacks beside the change's own; it runs after the change's capture because the PNG list it tests for a missing merge-base baseline exists only then.
+- *The parent runs each shard's `close` one after another* — the parent never runs two at once, so a stage-file lock in `close` would guard a concurrency that never occurs.
+- *A shard's writing state check signs in as an account it registers fresh* — a write on the seeded account another shard's hand captures read disturbs them, and the disturbed capture reads as a departure that becomes a fix task against a defect that does not exist.
+
 ### verify-and-handoff.md — Resolve the run instructions
 
 - ***The stack behind the URLs is checked, not trusted.** … the project's declared `fingerprint` row … proves what the stack serves is the worktree's own build* — the check KAN-334's handoff lacked when it printed a URL backed by a bundle eleven commits stale.

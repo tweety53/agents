@@ -128,9 +128,36 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
   loop** paragraph of **The loop** (`skills/flow/verify-fix-loop.md`).
 
 **Except after `rest`, `redispatch` and `cure-environment`, `close` has run step 12** and printed
-`ROUND-BASE:`; and once every surviving worktree's newest row of the stage is closed it has ended the
+`ROUND-BASE:`; and once the newest row of every surviving worktree, and of every shard index on a sharded pass, is closed it has ended the
 stage — `stopped` when any is `blocked`, else `completed` — and rendered the ledger, printing
 `STAGE:`. An exit 2 is a usage error or an unreadable input, corrected and `close` run again.
+
+**A pass over more than 25 frames runs as up to four shards at once.** On an unscoped pass — the
+first, or a `-fix-<k>-full` run — of a set of one worktree, with `mockups` declared and more than
+25 frames on the change's list, `prepare` cuts the frames into n = min(4, ⌈F/25⌉) slices, runs
+step 8's `setup` and each capture spec's `capture` itself, and begins one row per slice, keyed
+`<stage key>-s<i>of<n>` — `visual-verify-s2of4`, `visual-verify-fix-3-full-s1of3`;
+`flow-guard visual-verify-pass`'s header is canonical for the cut. Every other pass runs one
+verifier per worktree, as above. The `DISPATCH:` lines go out in one message, the shards running at
+once against one stack. A shard's bundle names its slice on a `slice:` line and passes it to the
+`measure` call as `--frames <slice>`. Only `-s1of<n>`'s prompt names the change's motions; every
+other shard's reads `motions: none`, and its `close` is passed `0`. A non-zero `setup` or `capture`
+exit prints `SHARDS: none — <command> exit <n>` and begins one unsharded row instead, whose
+verifier runs step 8 and reports the failure.
+The parent runs each shard's `close` as its own Bash call, one after another, never two at once.
+It acts on a shard's `rest`, `redispatch` or `cure-environment` at once, and on `loop` or `judge`
+only once every shard of the pass has closed; on `judge`, every shard row still open is ended by its
+own key. One fix round transcribes every shard report that names a defect (**The loop**,
+`skills/flow/verify-fix-loop.md`).
+
+**`NEXT: merge-base-capture` — the parent takes the merge-base capture once, before any shard
+starts.** `prepare` prints one `MERGE-BASE-SPEC: <spec>` line per capture spec with a PNG absent at
+the merge base, and begins no row. For every spec named, the parent runs **The merge-base capture**
+below in its own Bash calls, copies every PNG it wrote to
+`<changeRoot>/visual-verification/merge-base/<its path below the screenshots root>`, and runs
+`prepare --continue --merge-base-captured`, adding `--started` again when it started the stack. A
+merge-base capture that cannot run is passed as `prepare --continue --merge-base-failed "<reason>"`,
+and every shard's bundle carries `merge-base capture failed — <reason>`.
 
 **An environment cure that changes what the stack serves — a served root switched, a worktree added
 to the set — voids every earlier pass**, so the next re-dispatch runs unscoped: its `prepare` is
@@ -152,6 +179,24 @@ single-model-harness case alike, that model the requested model it names.
 A verifier that ends without writing its report file, or whose agent dies, is closed by `close`
 `-outcome aborted` with `STOP: no report`, and blocks this handoff exactly as a failed command would,
 naming the death.
+
+## The merge-base capture
+
+In each repository the stack and the
+capture run from, add a detached worktree `<name>-merge-base` beside the change's own, at that
+repository's merge base (`git worktree add --detach ../<name>-merge-base <merge-base>`); copy
+this change's capture spec, its `<spec>.mockups` sidecar and its fixtures into the merge-base
+worktree of the repository that holds specs; start the stack there from `start` when declared, else `## run` — on its own
+derived workspace, never the change's running stack — and run `capture` from there with
+`<spec>` substituted. Whether
+or not the capture ran, stop that stack with the project's `## stop` command run from the
+merge-base worktree, else by each port it started (`lsof -ti tcp:<port> -sTCP:LISTEN | xargs kill`)
+— never by a tool-wide daemon stop such as `gradle --stop`, run bare or through the Gradle
+wrapper, which stops every daemon of that tool, the change's own running stack among them
+(kan-1096 self-review, F4) — remove the workspace it derived with the project's declared removal command
+(**Creation and cleanup**, `skills/flow-contracts/workspace-isolation.md`),
+and remove those worktrees before the report is written: nothing the merge-base capture writes
+is committed or stands as this change's baseline.
 
 ## A missed defect — the tooling analysis
 
