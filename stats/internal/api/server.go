@@ -84,12 +84,12 @@ const (
 	// statsWriteTimeout.
 	statsTimeoutMessage = "flowd: statistics query timed out"
 
-	// maxRequestBodyBytes caps a request body -- PUT's whole-object change
-	// record today. A few KB is realistic for the largest record this
-	// change's own field vocabulary can produce (a handful of repos, a
-	// metrics-shaped models blob); 1 MiB leaves generous headroom above
-	// that without leaving the cap effectively unbounded.
-	maxRequestBodyBytes = 1 << 20 // 1 MiB
+	// maxRequestBodyBytes caps every JSON request body -- a change record
+	// PUT and a change file save. The largest is the self-review bundle of a
+	// large change (self-review-context.md), which runs past 2 MiB (1,913,933
+	// bytes observed); 16 MiB matches the client's response cap in
+	// stats/internal/client/client.go and still bounds the read.
+	maxRequestBodyBytes = 16 << 20 // 16 MiB
 )
 
 // ChangeStore is the store dependency the change endpoints need, defined

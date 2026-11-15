@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,6 +87,28 @@ func TestChangeFilePutThenGetServesBody(t *testing.T) {
 	}
 	if !saved() {
 		t.Error("saved = false after a PUT")
+	}
+}
+
+// TestChangeFilePutAcceptsABodyOverTwoMiB pins the request-body cap above
+// the largest change file observed: a self-review bundle past 2 MiB saves.
+func TestChangeFilePutAcceptsABodyOverTwoMiB(t *testing.T) {
+	st := newIntegrationStore(t)
+	projectKey := fmt.Sprintf("proj-change-files-big-%d", time.Now().UnixNano())
+	mustPutIntegrationChange(t, st, projectKey, "kan-1087", nil)
+	ts := newChangeFilesServer(t, st)
+	url := ts.URL + "/api/v1/changes/" + projectKey + "/kan-1087/files/self-review-context.md"
+
+	raw, _ := json.Marshal(map[string]string{"body": strings.Repeat("x", 3<<20)})
+	if status, _, body := doRequest(t, http.MethodPut, url, raw); status != http.StatusNoContent {
+		t.Fatalf("PUT status %d, body %.200s", status, body)
+	}
+	status, _, body := doRequest(t, http.MethodGet, url, nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET status %d, body %.200s", status, body)
+	}
+	if len(body) != 3<<20 {
+		t.Errorf("GET body length = %d, want %d", len(body), 3<<20)
 	}
 }
 
