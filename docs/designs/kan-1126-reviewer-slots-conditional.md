@@ -282,6 +282,8 @@ store, a shared service or the change's own state.
 - **What failure looks like.** A combined skip on a finding's own slot: a missing rule, added to
   the guard before landing and the backtest run again. A guard exit 2 on most ranges, or the same
   three lines for every range, is a check that never read the diffs, not a pass.
+- **Measured.** Gated dispatches skipped by the combination: over the 26 scored changes, each change's full range from the parent of its earliest recorded implementer commit to its latest, the combination skips 0 of the 78 gated dispatches (26 changes × 3 slots). Per slot, guard-only skips / judge-only skips / both: test-sanity 3 / 0 / 0, call-efficiency 8 / 0 / 0, failure-modes 4 / 0 / 0. The judge read an archived `tasks.md` for 10 of the 26 changes and answered `run` for all 30 of their slots; the other 16 count as `run`. Guard exit 0 on all 26 ranges.
+  <!-- measured: python3 -I backtest_perchange.py (scratchpad, guard + slot-judge per change over the kan-1126-live store copy) on 2026-11-15; a scratch run against a store copy, not re-runnable to a ref -->
 
 ## Non-goals
 
