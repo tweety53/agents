@@ -70,3 +70,54 @@ func TestCheckBaseBehind(t *testing.T) {
 		t.Fatalf("(f) synced: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
 	}
 }
+
+// TestCheckBaseBehindRefusesAnEmptyC pins kan-1087 self-review F4: the push half of the
+// printed sync line, run with an empty C, must abort rather than push an empty refspec
+// that deletes the remote base.
+func TestCheckBaseBehindRefusesAnEmptyC(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var g fxGit
+	seed, origin, wt := root+"/seed", root+"/origin.git", root+"/wt"
+	g.git("", "init", "-q", "-b", "main", seed)
+	g.git(seed, "commit", "-q", "--allow-empty", "-m", "one")
+	g.git(seed, "branch", "feature/x")
+	g.git("", "clone", "-q", "--bare", seed, origin)
+	g.git("", "clone", "-q", origin, wt)
+	g.git(wt, "checkout", "-q", "-b", "spectre/c", "origin/feature/x")
+	g.git(wt, "config", "branch.spectre/c.flowBase", "feature/x")
+	g.git(seed, "commit", "-q", "--allow-empty", "-m", "two")
+	g.git(seed, "push", "-q", origin, "main")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	r := runGuard("check-base-behind", []string{wt}, Env{Getenv: os.Getenv})
+	lines := strings.Split(strings.TrimRight(r.stdout, "\n"), "\n")
+	if r.rc != 1 || len(lines) != 3 {
+		t.Fatalf("base behind: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	}
+	i := strings.LastIndex(lines[1], " && git -C ")
+	if i < 0 {
+		t.Fatalf("line 1 has no push command: %q", lines[1])
+	}
+	push := strings.TrimPrefix(lines[1][i:], " && ")
+	shells := []string{"bash"}
+	if _, err := exec.LookPath("zsh"); err == nil {
+		shells = append(shells, "zsh")
+	}
+	for _, sh := range shells {
+		cmd := exec.Command(sh, "-c", "C=; "+push)
+		cmd.Env = append(os.Environ(), fixtureGitEnv...)
+		if out, err := cmd.CombinedOutput(); err == nil {
+			t.Fatalf("%s: empty-C push exited 0\n%s", sh, out)
+		}
+		if _, err := exec.Command("git", "-C", origin, "rev-parse", "--verify", "-q", "refs/heads/feature/x").Output(); err != nil {
+			t.Fatalf("%s: empty-C push deleted feature/x from origin", sh)
+		}
+	}
+	if !strings.Contains(lines[1], `"${C:?}:refs/heads/feature/x"`) {
+		t.Fatalf("line 1 lacks the required-C refspec: %q", lines[1])
+	}
+}

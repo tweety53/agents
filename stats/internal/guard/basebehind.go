@@ -27,7 +27,7 @@ import (
 //   BASE-CURRENT: <wt> — <base> is the tracked branch
 //   BASE-CURRENT: <wt> — origin/<base> holds every commit of origin/<tracked>
 //   BASE-BEHIND: <wt> — origin/<base> lacks <n> commits of origin/<tracked>; sync the base, never merge <tracked> into the change branch (kan-1007):
-//     T=$(git -C <wt> merge-tree --write-tree origin/<base> origin/<tracked>) && C=$(git -C <wt> commit-tree "$T" -p origin/<base> -p origin/<tracked> -m 'Merge <tracked> into <base>') && git -C <wt> push origin "${C}:refs/heads/<base>"
+//     T=$(git -C <wt> merge-tree --write-tree origin/<base> origin/<tracked>) && C=$(git -C <wt> commit-tree "$T" -p origin/<base> -p origin/<tracked> -m 'Merge <tracked> into <base>') && git -C <wt> push origin "${C:?}:refs/heads/<base>"
 //     git -C <wt> fetch -q origin && flow-guard sync-onto-base <wt> origin/<base> <merge-base>
 // where <merge-base> is the sha `git merge-base HEAD origin/<base>` prints. The
 // first command line syncs the base with no checkout (merge-tree exits 1 on a
@@ -100,7 +100,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		rc = 1
 		Reason(env, "base-behind")
 		fmt.Fprintf(&out, "BASE-BEHIND: %s — origin/%s lacks %d commits of origin/%s; sync the base, never merge %s into the change branch (kan-1007):\n", wt, base, n, tracked, tracked)
-		fmt.Fprintf(&out, "  T=$(git -C %s merge-tree --write-tree origin/%s origin/%s) && C=$(git -C %s commit-tree \"$T\" -p origin/%s -p origin/%s -m 'Merge %s into %s') && git -C %s push origin \"${C}:refs/heads/%s\"\n",
+		fmt.Fprintf(&out, "  T=$(git -C %s merge-tree --write-tree origin/%s origin/%s) && C=$(git -C %s commit-tree \"$T\" -p origin/%s -p origin/%s -m 'Merge %s into %s') && git -C %s push origin \"${C:?}:refs/heads/%s\"\n",
 			wt, base, tracked, wt, base, tracked, tracked, base, wt, base)
 		fmt.Fprintf(&out, "  git -C %s fetch -q origin && flow-guard sync-onto-base %s origin/%s %s\n", wt, wt, base, mb)
 	}
