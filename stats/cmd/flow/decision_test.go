@@ -236,6 +236,47 @@ func TestDecisionRenderExtraDispatchMutation(t *testing.T) {
 	}
 }
 
+// TestDecisionRenderSlotTriggers pins kan-1126's slot_triggers: present, one
+// Slot judge line follows the Extra dispatch lines, each gated slot in a fixed
+// order and a slot the map leaves out rendered run (decision
+// slot-judge-fail-open); absent (a decision written before kan-1126), no Slot
+// judge line and the render still exits 0.
+func TestDecisionRenderSlotTriggers(t *testing.T) {
+	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
+		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
+		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
+		`"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",` +
+		`"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,` +
+		`"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"},` +
+		`"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"opus","effort":"low","reason":"extramf roll 70"}`
+	render := func(body string) (int, string, string) {
+		return decisionRun(t, body, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+	}
+	for _, c := range []struct{ name, triggers, want string }{
+		{"every slot", `{"test-sanity":{"verdict":"skip","reason":"r"},"call-efficiency":{"verdict":"run","reason":"r"},"failure-modes":{"verdict":"skip","reason":"r"}}`,
+			"- **Extra dispatch:** mutation+failure-modes opus/low\n- **Slot judge:** test-sanity skip · call-efficiency run · failure-modes skip\n"},
+		{"a slot left out", `{"test-sanity":{"verdict":"skip","reason":"r"},"call-efficiency":{"verdict":"skip","reason":"r"}}`,
+			"- **Slot judge:** test-sanity skip · call-efficiency skip · failure-modes run\n"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rc, out, errOut := render(micro + `,"slot_triggers":` + c.triggers + `}`)
+			if rc != 0 {
+				t.Fatalf("exit %d: %s", rc, errOut)
+			}
+			if !strings.Contains(out, c.want) {
+				t.Errorf("render lacks %q:\n%s", c.want, out)
+			}
+		})
+	}
+	rc, out, errOut := render(micro + "}")
+	if rc != 0 {
+		t.Fatalf("a decision without slot_triggers: exit %d: %s", rc, errOut)
+	}
+	if strings.Contains(out, "Slot judge") {
+		t.Errorf("a decision without slot_triggers renders a Slot judge line:\n%s", out)
+	}
+}
+
 // TestDecisionRenderSessionCap pins session_cap's shape: a well-formed cap,
 // null or absent renders; a value outside the sets refuses naming it.
 func TestDecisionRenderSessionCap(t *testing.T) {
