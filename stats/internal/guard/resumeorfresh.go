@@ -55,7 +55,7 @@ func resumeOrFresh(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	worktree, name, key := args[0], args[1], args[2]
 	fresh := func(format string, a ...any) int {
-		Reason(env, "fresh")
+		Reason(env, "agent-not-resumable")
 		fmt.Fprintf(stdout, "fresh: "+format+"\n", a...)
 		return 1
 	}
