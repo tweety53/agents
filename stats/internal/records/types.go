@@ -710,6 +710,7 @@ var GuardHelpers = []string{
 	"plan-class",
 	"plan-dispatch-bundles",
 	"plan-dispatch-groups",
+	"plan-group-tasks",
 	"prepare-workspace",
 	"project-get",
 	"rebuild-full-app-suite-zip",

@@ -43,9 +43,15 @@ members, queued groups and already-ready later waves are unaffected. A copy is r
 `flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g> --fold-back`, which first copies the group's context bundle and implementer reports back into `<worktree>` for its gated review — its own Bash call with literal absolute paths, never chained into a compound command, which the harness's rm safety check refuses. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
+**Map every group to its tasks once, before the first group goes out.** Run
+`flow-guard plan-group-tasks <changeRoot>/tasks.md <abs-worktree>/.superpowers/sdd/decision.json` right
+after the `flow-guard plan-dispatch-bundles` run (`skills/flow/implement.md`), while no task is
+ticked yet and the decision's bundle ids still number the plan's open tasks. It prints one
+`tasks <g>: <id>,<id>…` line per recorded group — the task ids its `bundles` name — and exits 2 on
+a bundle id the plan does not carry.
+
 **Gather one context bundle per group, immediately before that group's implementer goes out.**
-Take `<g>` and the union of the ids from the `bundle <k>: <ids>` lines `flow-guard plan-dispatch-bundles`
-printed for every bundle in the group, comma-separated:
+Take `<g>` and the ids its `tasks <g>:` line printed, verbatim:
 
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
