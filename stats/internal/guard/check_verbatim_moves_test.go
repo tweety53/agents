@@ -338,6 +338,89 @@ func TestCheckVerbatimMovesFailLineCopiesIntoAcks(t *testing.T) {
 	}
 }
 
+// TestCheckVerbatimMovesAckAppendsFailLines pins the kan-1120 self-review
+// fix, F1: -ack <change> -reason <text> appends every FAIL sentence, as
+// printed after "::", under one `# <text>` line to the change's own
+// verbatim-moves.txt — the spectre change directory first, else the
+// .superpowers/sdd/ change root — and exits 0, so a fix round's rewording is
+// acknowledged by one guard call, never a hand append; a clean run appends
+// nothing, and a malformed call or a change with no directory refuses, exit 2.
+func TestCheckVerbatimMovesAckAppendsFailLines(t *testing.T) {
+	t.Parallel()
+	const reason = "panel-fix-1: F1 rewords the table sentence"
+	reworded := "# Pipeline\n\n**This table is canonical.** Every row is a transition.\n\n" + vmMark + "\n\n" + vmWhy + "\n"
+	t.Run("a spectre change directory takes the FAIL lines and the run passes after", func(t *testing.T) {
+		t.Parallel()
+		root := vmRepo(t, vmBase)
+		writeFile(t, filepath.Join(root, vmPipe), reworded)
+		ack := filepath.Join(root, "spectre/changes/demo", vmAckFile)
+		writeFile(t, ack, "# planned\n")
+		rc, out, errb := vmRun(root, "-ack", "demo", "-reason", reason)
+		if rc != 0 || !strings.Contains(out, "acknowledged 2 sentence(s) in "+ack) {
+			t.Fatalf("rc = %d, want 0 and the acknowledged count\nstdout:\n%s\nstderr:\n%s", rc, out, errb)
+		}
+		b, err := os.ReadFile(ack)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "# planned\n# " + reason + "\n**This table is authoritative.\n**This table is canonical.\n"
+		if string(b) != want {
+			t.Errorf("%s = %q, want %q", ack, b, want)
+		}
+		if rc, out, _ := vmRun(root); rc != 0 {
+			t.Errorf("rc = %d after the -ack run, want 0\n%s", rc, out)
+		}
+	})
+	t.Run("a .superpowers/sdd change root takes them when no spectre change exists", func(t *testing.T) {
+		t.Parallel()
+		root := vmRepo(t, vmBase)
+		writeFile(t, filepath.Join(root, vmPipe), reworded)
+		if err := os.MkdirAll(filepath.Join(root, ".superpowers/sdd/demo"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if rc, out, errb := vmRun(root, "-ack", "demo", "-reason", reason); rc != 0 {
+			t.Fatalf("rc = %d, want 0\nstdout:\n%s\nstderr:\n%s", rc, out, errb)
+		}
+		if b, err := os.ReadFile(filepath.Join(root, ".superpowers/sdd/demo", vmAckFile)); err != nil || !strings.Contains(string(b), "# "+reason+"\n") {
+			t.Errorf("flow-fast acknowledgement file = %q, %v; want the reason line", b, err)
+		}
+	})
+	t.Run("a clean run appends nothing", func(t *testing.T) {
+		t.Parallel()
+		root := vmRepo(t, vmBase)
+		ack := filepath.Join(root, "spectre/changes/demo", vmAckFile)
+		writeFile(t, ack, "# planned\n")
+		if rc, out, _ := vmRun(root, "-ack", "demo", "-reason", reason); rc != 0 || strings.Contains(out, "acknowledged") {
+			t.Fatalf("rc = %d, want 0 and no acknowledgement\n%s", rc, out)
+		}
+		if b, _ := os.ReadFile(ack); string(b) != "# planned\n" {
+			t.Errorf("%s = %q, want it untouched", ack, b)
+		}
+	})
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"no -reason", []string{"-ack", "demo"}},
+		{"an empty reason", []string{"-ack", "demo", "-reason", " "}},
+		{"a change name with a path", []string{"-ack", "../demo", "-reason", reason}},
+		{"a change with no directory", []string{"-ack", "missing", "-reason", reason}},
+	} {
+		t.Run("refuses "+tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := vmRepo(t, vmBase)
+			writeFile(t, filepath.Join(root, vmPipe), reworded)
+			writeFile(t, filepath.Join(root, "spectre/changes/demo", vmAckFile), "# planned\n")
+			if rc, out, errb := vmRun(root, tc.args...); rc != 2 {
+				t.Errorf("rc = %d, want 2\nstdout:\n%s\nstderr:\n%s", rc, out, errb)
+			}
+			if b, _ := os.ReadFile(filepath.Join(root, "spectre/changes/demo", vmAckFile)); string(b) != "# planned\n" {
+				t.Errorf("acknowledgement file = %q, want it untouched", b)
+			}
+		})
+	}
+}
+
 // TestCheckVerbatimMovesSymlinkSkipped pins the prototype's `not
 // p.is_symlink()`: skills/flow/scripts/ holds symlinks into scripts/, and a
 // symlinked Markdown file is the same text counted twice.

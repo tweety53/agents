@@ -245,6 +245,9 @@ guard's FAIL line prints it after `::`; a reworded sentence is listed in both it
 gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
 review panel. `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone.
+A panel fix round that adds or rewords such a sentence is acknowledged by the parent, never the fixer, with
+`flow-guard check-verbatim-moves -ack <change> -reason <text>` before the re-review
+(`skills/flow/review-panel-fix-round.md`).
 
 **`flow-guard check-workspace-isolation` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question

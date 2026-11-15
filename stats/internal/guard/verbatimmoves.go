@@ -20,8 +20,9 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-verbatim-moves.sh shim (KAN-1058).
 //
-// flow-guard check-verbatim-moves [<base-ref>] — prove a prompt trim moved or
-// de-duplicated text and never reworded it (KAN-852).
+// flow-guard check-verbatim-moves [-ack <change> -reason <text>] [<base-ref>] —
+// prove a prompt trim moved or de-duplicated text and never reworded it
+// (KAN-852).
 //
 // Compares the sentences of the run-loaded corpus — skills/**/*.md,
 // commands-claude/*.md, rules/*.md and rules/*.mdc, symlinks skipped — at
@@ -49,6 +50,14 @@ import (
 // prints a sentence opening with `#` or `\` behind one `\`, so a heading is
 // listed as `\## …`, exactly as printed.
 // Only in-flight changes count: a live change directory's list is read.
+//
+// -ack <change> -reason <text> writes that list for a fix round, whose fixer
+// never writes the change directory (kan-1120 self-review, F1): the check runs
+// as usual, then every FAIL sentence, exactly as printed after "::", is
+// appended under one `# <text>` line to <change>'s own file — under
+// <spec-root>/changes/<change>/ when that directory exists, else under
+// <worktree>/.superpowers/sdd/<change>/ — and the run exits 0. A run with no
+// FAIL appends nothing; a FAIL with neither directory present is exit 2.
 // A change directory the branch itself removed since the base is read from the commit before its removal (kan-1072 self-review).
 //
 // It cannot judge whether a lazily loaded file's "Load X only when Y"
@@ -98,10 +107,15 @@ var (
 const vmAckFile = "verbatim-moves.txt"
 
 func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
+	var ackChange, ackReason string
+	if len(args) > 0 && args[0] == "-ack" {
+		if len(args) < 4 || args[1] == "" || args[1] != filepath.Base(args[1]) || args[2] != "-reason" || strings.TrimSpace(args[3]) == "" {
+			return vmUsage(env, stderr)
+		}
+		ackChange, ackReason, args = args[1], args[3], args[4:]
+	}
 	if len(args) > 1 {
-		fmt.Fprintln(stderr, "usage: flow-guard check-verbatim-moves [<base-ref>]")
-		Reason(env, "usage")
-		return 2
+		return vmUsage(env, stderr)
 	}
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
@@ -165,7 +179,8 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	bad, review := 0, 0
+	review := 0
+	var fails []string
 	for _, s := range vmKeys(baseRun) {
 		n := baseRun[s] - headRun[s]
 		switch {
@@ -182,7 +197,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		case acks[s]:
 			fmt.Fprintf(stdout, "ok   acknowledged removal :: %s\n", vmShort(s))
 		default:
-			bad++
+			fails = append(fails, vmAckLine(s))
 			fmt.Fprintf(stdout, "FAIL deleted or reworded :: %s\n", vmAckLine(s))
 		}
 	}
@@ -194,11 +209,21 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "ok   acknowledged new text :: %s\n", vmShort(s))
 			continue
 		}
-		bad++
+		fails = append(fails, vmAckLine(s))
 		fmt.Fprintf(stdout, "FAIL new run-loaded text (paraphrase?) :: %s\n", vmAckLine(s))
 	}
-	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", bad, review, label)
-	if bad != 0 {
+	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", len(fails), review, label)
+	if len(fails) != 0 && ackChange != "" {
+		path, err := vmAckAppend(root, ackChange, ackReason, fails)
+		if err != nil {
+			fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
+			Reason(env, "cannot-write-acks")
+			return 2
+		}
+		fmt.Fprintf(stdout, "check-verbatim-moves: acknowledged %d sentence(s) in %s\n", len(fails), path)
+		return 0
+	}
+	if len(fails) != 0 {
 		ack := "<spec-root>/changes/<change>/" + vmAckFile
 		branch, _ := capture(git("-C", root, "branch", "--show-current"))
 		if fast := vmFastChangeRoot(root, strings.TrimSpace(branch)); fast != "" {
@@ -209,6 +234,42 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// vmUsage is the usage refusal, exit 2.
+func vmUsage(env Env, stderr io.Writer) int {
+	fmt.Fprintln(stderr, "usage: flow-guard check-verbatim-moves [-ack <change> -reason <text>] [<base-ref>]")
+	Reason(env, "usage")
+	return 2
+}
+
+// vmAckAppend appends lines under one `# <reason>` comment to change's
+// acknowledgement file — its spectre change directory when present, else
+// its .superpowers/sdd/ change root — and returns the file's path.
+func vmAckAppend(root, change, reason string, lines []string) (string, error) {
+	var dir string
+	for _, d := range []string{
+		filepath.Join(root, specRootLeaf(root, io.Discard), "changes", change),
+		filepath.Join(root, ".superpowers", "sdd", change),
+	} {
+		if fi, err := os.Stat(d); err == nil && fi.IsDir() {
+			dir = d
+			break
+		}
+	}
+	if dir == "" {
+		return "", fmt.Errorf("no change directory for %q to acknowledge in", change)
+	}
+	path := filepath.Join(dir, vmAckFile)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return "", err
+	}
+	_, werr := fmt.Fprintf(f, "# %s\n%s\n", vmSpace.ReplaceAllString(strings.TrimSpace(reason), " "), strings.Join(lines, "\n"))
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	return path, werr
 }
 
 // vmFastChangeRoot detects the run shape by the one artifact only a flow-fast
