@@ -24,7 +24,7 @@ func fsRepo(t *testing.T, g *fxGit) string {
 		t.Fatal(err)
 	}
 	repo := dir + "/repo"
-	g.git("", "init", "-q", "-b", "main", repo)
+	g.copyShape(repo, repoShape{Branch: "main"})
 	g.write(repo+"/base.txt", "base")
 	g.git(repo, "add", "base.txt")
 	g.git(repo, "commit", "-qm", "base")

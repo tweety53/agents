@@ -637,7 +637,7 @@ func TestCheckPanelFindingsClosedFixedNeedsARegressionTest(t *testing.T) {
 	rerun := cfcDispatchJSON(cfcDispatch{Key: "panel-2-primary", Role: "reviewer", Slot: "primary", Outcome: "completed"})
 	// peer is a recorded worktree whose only tracked file is peer_test.go.
 	peer := t.TempDir()
-	gitRun(t, "", "init", "-q", peer)
+	fixtureRepo(t, peer, repoShape{})
 	writeFile(t, filepath.Join(peer, "peer_test.go"), "package foo\n")
 	gitRun(t, peer, "add", "peer_test.go")
 	cases := []struct {
@@ -664,7 +664,7 @@ func TestCheckPanelFindingsClosedFixedNeedsARegressionTest(t *testing.T) {
 		t.Run(c.label, func(t *testing.T) {
 			t.Parallel()
 			wt := t.TempDir()
-			gitRun(t, "", "init", "-q", wt)
+			fixtureRepo(t, wt, repoShape{})
 			writeFile(t, filepath.Join(wt, "pkg", "foo_test.go"), "package foo\n")
 			writeFile(t, filepath.Join(wt, "untracked_test.go"), "package foo\n")
 			files := map[string]string{"panel-report-2-primary.md": "Critical: 0\nImportant: 0\n", "reproducers/r.sh": ""}

@@ -31,7 +31,7 @@ func TestCheckPanelDocsOnly(t *testing.T) {
 	// modification `git diff` detects.
 	tmpl := t.TempDir() + "/repo"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", tmpl)
+	g.copyShape(tmpl, repoShape{Branch: "main"})
 	g.write(tmpl+"/base.go", "base")
 	g.write(tmpl+"/tracked.md", "# tracked")
 	g.git(tmpl, "add", "base.go", "tracked.md")

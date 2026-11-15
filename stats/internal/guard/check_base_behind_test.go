@@ -19,8 +19,7 @@ func TestCheckBaseBehind(t *testing.T) {
 	}
 	var g fxGit
 	seed, origin, wt := root+"/seed", root+"/origin.git", root+"/wt"
-	g.git("", "init", "-q", "-b", "main", seed)
-	g.git(seed, "commit", "-q", "--allow-empty", "-m", "one")
+	g.copyShape(seed, repoShape{Branch: "main", Commit: "one"})
 	g.git(seed, "branch", "feature/x")
 	g.git("", "clone", "-q", "--bare", seed, origin)
 	g.git("", "clone", "-q", origin, wt)
@@ -81,8 +80,7 @@ func TestCheckBaseBehindRefusesAnEmptyC(t *testing.T) {
 	}
 	var g fxGit
 	seed, origin, wt := root+"/seed", root+"/origin.git", root+"/wt"
-	g.git("", "init", "-q", "-b", "main", seed)
-	g.git(seed, "commit", "-q", "--allow-empty", "-m", "one")
+	g.copyShape(seed, repoShape{Branch: "main", Commit: "one"})
 	g.git(seed, "branch", "feature/x")
 	g.git("", "clone", "-q", "--bare", seed, origin)
 	g.git("", "clone", "-q", origin, wt)

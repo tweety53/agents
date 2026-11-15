@@ -2,7 +2,6 @@ package guard
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -169,15 +168,9 @@ func TestCheckDispatchPairOptinNeedsLineAndGrant(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	wt := t.TempDir()
-	for _, args := range [][]string{{"init", "-q", "-b", "spectre/kan-9"}, {"commit", "-q", "--allow-empty", "-m", "x"}} {
-		if out, err := exec.Command("git", append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v %s", args, err, out)
-		}
-	}
+	fixtureRepo(t, wt, repoShape{Branch: "spectre/kan-9", Commit: "x"})
 	off := t.TempDir()
-	if out, err := exec.Command("git", "-C", off, "init", "-q", "-b", "main").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
+	fixtureRepo(t, off, repoShape{Branch: "main"})
 	policy := `{"planner":{"base":["opus/flow-planner-low"],"optin":["fable/flow-planner-xhigh"],"marked":[]}}`
 	stub := func(grants string) Env {
 		return fakeFlowEnvBare(t, `case "$1 $2" in

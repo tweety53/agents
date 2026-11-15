@@ -24,7 +24,7 @@ func newDriftRepo(t *testing.T) string {
 		t.Fatal(err)
 	}
 	repo := dir + "/repo"
-	gitRun(t, "", "init", "-q", "-b", "main", repo)
+	fixtureRepo(t, repo, repoShape{Branch: "main"})
 	writeFile(t, repo+"/base.txt", "base\n")
 	gitRun(t, repo, "add", "base.txt")
 	gitRun(t, repo, "commit", "-qm", "base")

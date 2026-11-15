@@ -77,7 +77,7 @@ type ccResult struct {
 // "demo", built once and copied by every case.
 func ccTemplate(t *testing.T) string {
 	dir := t.TempDir() + "/repo"
-	gitRun(t, "", "init", "-q", "-b", "main", dir)
+	fixtureRepo(t, dir, repoShape{Branch: "main"})
 	gitRun(t, dir, "config", "user.email", "test@example.invalid")
 	gitRun(t, dir, "config", "user.name", "Test")
 	mkdir(t, dir+"/spectre/changes/archive/2026-01-01-demo")

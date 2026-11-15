@@ -122,8 +122,7 @@ func TestCheckLoopLandingSatellite(t *testing.T) {
 			}
 			fx := lpNew(t, own)
 			sat := filepath.Dir(fx.repo) + "/gymie"
-			gitRun(t, "", "init", "-q", "-b", "main", sat)
-			gitRun(t, sat, "commit", "-q", "--allow-empty", "-m", "init")
+			fixtureRepo(t, sat, repoShape{Branch: "main", Commit: "init"})
 			writeFile(t, fx.rows+".agents", tc.agentsRows)
 			bin := filepath.Dir(fx.repo) + "/bin"
 			writeExec(t, bin+"/flow", `#!/usr/bin/env bash

@@ -617,14 +617,9 @@ func TestCheckPanelReproducerExitContract(t *testing.T) {
 		root := t.TempDir()
 		main := filepath.Join(root, "gymie-frontend")
 		peer := filepath.Join(root, "gymie-frontend-worktrees", filepath.Base(s.wt))
-		for _, args := range [][]string{
-			{"init", "-q", main},
-			{"-C", main, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"},
-			{"-C", main, "worktree", "add", "-q", peer},
-		} {
-			if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
-				t.Fatalf("git %v: %v\n%s", args, err, out)
-			}
+		fixtureRepo(t, main, repoShape{Commit: "x"})
+		if out, err := exec.Command("git", "-C", main, "worktree", "add", "-q", peer).CombinedOutput(); err != nil {
+			t.Fatalf("git worktree add: %v\n%s", err, out)
 		}
 		withPeers(t, s, true, peer)
 		writeFile(t, filepath.Join(s.wt, "target.txt"), "line one\ncanonical content\nline three\n")
