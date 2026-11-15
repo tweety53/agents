@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 )
@@ -13,8 +12,9 @@ import (
 // answers completed, 1 when it answers not, 2 when it cannot be reached,
 // and the request names the project, change and stage.
 func TestStageCompletedCLI(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	answer := `{"completed":true}`
 	var gotPath string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +26,7 @@ func TestStageCompletedCLI(t *testing.T) {
 	call := func(addr string) int {
 		var stdout, stderr strings.Builder
 		return run(context.Background(), []string{"stage", "completed", "-addr", addr, "-timeout", "300ms", "-C", repo, "-stage", "flow.self-review", "demo"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 	}
 	if code := call(srv.URL); code != 0 {
 		t.Errorf("completed: exit = %d, want 0", code)
