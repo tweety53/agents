@@ -1964,3 +1964,35 @@ func TestRunVerifyListFullUsage(t *testing.T) {
 		}
 	}
 }
+
+// TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves pins kan-1087 self-review F7: the visual
+// row's green keys on every sibling worktree's HEAD, since its specs read the siblings' code.
+func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL", "docs/a.md", "", "", false, false, false)
+	sib := filepath.Join(t.TempDir(), "web")
+	writeFile(t, filepath.Join(sib, "README"), "x\n")
+	rvlGit(t, filepath.Dir(sib), "init", "-q", "-b", "main", sib)
+	rvlGit(t, sib, "add", "-A")
+	rvlGit(t, sib, "commit", "-q", "-m", "base")
+	sibBase := rvlGit(t, sib, "rev-parse", "HEAD")
+	writeFile(t, filepath.Join(sib, "src/a.tsx"), "x\n")
+	rvlGit(t, sib, "add", "-A")
+	rvlGit(t, sib, "commit", "-q", "-m", "ui")
+	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
+	ran := "`echo VISUAL` — exit 0"
+	args := []string{wt, "test", "demo", "verify", "mf-test", "opus", "low"}
+	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || !strings.Contains(out, ran) {
+		t.Fatalf("run 1: exit %d, the visual row did not run:\n%s", rc, out)
+	}
+	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || strings.Contains(out, ran) {
+		t.Fatalf("run 2: exit %d, the visual row ran with nothing moved:\n%s", rc, out)
+	}
+	writeFile(t, filepath.Join(sib, "src/b.tsx"), "x\n")
+	rvlGit(t, sib, "add", "-A")
+	rvlGit(t, sib, "commit", "-q", "-m", "more ui")
+	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || !strings.Contains(out, ran) {
+		t.Fatalf("run 3: exit %d, the visual row was skipped after the sibling moved:\n%s", rc, out)
+	}
+}

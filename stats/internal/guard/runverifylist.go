@@ -116,6 +116,12 @@
 // A failing run still runs every other command, and the whole-list sha above
 // and its skip are unchanged.
 //
+// The visual row's coverage also keys on every sibling worktree's HEAD in the
+// change's state record, since its specs read the siblings' code (kan-1087
+// self-review, F7): `flow-test-green` carries a second line `siblings
+// <path>=<HEAD> …`, and the row is covered, or skipped as passed at HEAD, only
+// while that line equals the current one.
+//
 // VERIFY FAST. A `test` run in a worktree whose
 // `.superpowers/sdd/fix-run.json` -- the fix-run judge's verdict, written by
 // flow-guard fix-run-floor, whose header is canonical for it -- says verify
@@ -490,6 +496,30 @@ func rvlKickoffBases(env Env, change, canon string) (worktrees []string, bases m
 		}
 	}
 	return worktrees, bases
+}
+
+// rvlSiblingStamp is `<path>=<HEAD>` of each worktree rvlKickoffBases returns
+// for change (canon defaulting to wt), less wt itself, sorted and space-joined:
+// "" when none, or when wt's project declares no visual `verify` row.
+func rvlSiblingStamp(env Env, wt, change, canon string) string {
+	if b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md")); err != nil || vvCells(string(b))["verify"] == "" {
+		return ""
+	}
+	if canon == "" {
+		canon = wt
+	}
+	worktrees, _ := rvlKickoffBases(env, change, canon)
+	self, _ := filepath.EvalSymlinks(wt)
+	var stamp []string
+	for _, p := range worktrees {
+		if r, _ := filepath.EvalSymlinks(p); p == wt || p == self || r == wt || r == self {
+			continue
+		}
+		head, _ := capture(envGit(env)("-C", p, "rev-parse", "HEAD"))
+		stamp = append(stamp, p+"="+head)
+	}
+	slices.Sort(stamp)
+	return strings.Join(stamp, " ")
 }
 
 // rvlVisualVerifyFor is rvlVisualVerify with the change's name and its
@@ -958,14 +988,18 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		st, ok := gitOut("status", "--porcelain", "--untracked-files=all")
 		return ok && st == ""
 	}
-	headSHA, since, greenFile := "", "", ""
+	headSHA, since, greenFile, sibRecorded := "", "", "", ""
 	cmdsFile, greenAt := "", []string{} // THE GREEN COMMANDS: those passed at headSHA
 	if list == "test" {
 		if h, ok := gitOut("rev-parse", "-q", "--verify", "HEAD"); ok && clean() {
 			if g, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-test-green"); ok {
 				headSHA, greenFile = h, g
 				b, _ := os.ReadFile(g)
-				since = strings.TrimRight(string(b), "\n")
+				l := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+				since = l[0]
+				if len(l) > 1 {
+					sibRecorded = strings.TrimPrefix(l[1], "siblings ")
+				}
 			}
 			if g, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", "flow-test-green-cmds"); ok && headSHA != "" {
 				cmdsFile = g
@@ -1185,13 +1219,15 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	visualRan := false
+	visualRan, sibStamp := false, ""
 	if list != "lint" && !fast {
 		if change == "" {
 			branch, _ := gitOut("branch", "--show-current")
 			change = strings.TrimPrefix(branch, "spectre/")
 		}
-		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged(""), full, change, canon, stdout); !ok && list == "visual" {
+		sibStamp = rvlSiblingStamp(env, abs(wt), change, canon)
+		sibSame := sibRecorded == sibStamp
+		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged("") && sibSame, full, change, canon, stdout); !ok && list == "visual" {
 			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
 		} else if ok && list == "visual" && fallback != "" {
 			// /flow-fast and /flow-interactive set up no regression-checkout
@@ -1240,7 +1276,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			switch {
 			case cmd == "":
-			case list == "test" && !full && slices.Contains(greenAt, cmd):
+			case list == "test" && !full && sibSame && slices.Contains(greenAt, cmd):
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", cmd, headSHA)
 			default:
 				// A plain run's runtime reaches the store as suite `visual`; a
@@ -1273,7 +1309,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// A fast run ran no command, so it stamps no green a later run could skip on.
 	if headSHA != "" && failed == 0 && !fast && clean() {
-		os.WriteFile(greenFile, []byte(headSHA+"\n"), 0o666)
+		green := headSHA + "\n"
+		if sibStamp != "" {
+			green += "siblings " + sibStamp + "\n"
+		}
+		os.WriteFile(greenFile, []byte(green), 0o666)
 	}
 	if cmdsFile != "" && !fast && clean() {
 		var lines []string
