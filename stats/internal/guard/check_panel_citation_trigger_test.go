@@ -218,7 +218,7 @@ func TestCheckPanelCitationTrigger(t *testing.T) {
 			if _, err := os.Stat(fx.dir + "/shadow/.fired"); err == nil {
 				t.Fatal("the shadow git ran")
 			}
-			want := "-C " + fx.repo + " rev-parse --verify --end-of-options " + mb + "^{commit}"
+			want := "-C " + fx.repo + " -c core.quotePath=false rev-parse --verify --end-of-options " + mb + "^{commit}"
 			if !strings.Contains(strings.Join(calls(t, fx.dir+"/rec"), "\n"), want) {
 				t.Fatalf("no call %q", want)
 			}
@@ -226,7 +226,7 @@ func TestCheckPanelCitationTrigger(t *testing.T) {
 		{"F3/F9/F10: the guard's own rev-parse gate traces carrying the flag for this run's merge base", func(t *testing.T) {
 			fx, r := recorded(t, false)
 			rcIs(t, r, 0)
-			want := "-C " + fx.repo + " rev-parse --verify --end-of-options " + mb + "^{commit}"
+			want := "-C " + fx.repo + " -c core.quotePath=false rev-parse --verify --end-of-options " + mb + "^{commit}"
 			if got := calls(t, fx.dir+"/rec"); len(got) < 2 || got[1] != want {
 				t.Fatalf("want the gate call %q, got %q", want, got)
 			}
@@ -234,7 +234,7 @@ func TestCheckPanelCitationTrigger(t *testing.T) {
 		{"F2/F9/F10: the guard's own COMMITTED collection traces carrying the flag for this run's merge base", func(t *testing.T) {
 			fx, r := recorded(t, false)
 			rcIs(t, r, 0)
-			want := "-C " + fx.repo + " diff --no-renames --name-only --end-of-options " + mb + "..HEAD"
+			want := "-C " + fx.repo + " -c core.quotePath=false diff --no-renames --name-only --end-of-options " + mb + "..HEAD"
 			if got := calls(t, fx.dir+"/rec"); len(got) < 3 || got[2] != want {
 				t.Fatalf("want the committed-paths call %q, got %q", want, got)
 			}
