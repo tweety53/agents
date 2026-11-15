@@ -665,8 +665,7 @@ func (f *gdcFx) runArgs(args ...string) gdcResult {
 // copied by every case.
 func gdcTemplate(t *testing.T) string {
 	dir := t.TempDir() + "/repo"
-	gitRun(t, "", "init", "-q", dir)
-	gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", "init")
+	fixtureRepo(t, dir, repoShape{Commit: "init"})
 	return dir
 }
 

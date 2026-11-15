@@ -31,7 +31,7 @@ func newFrFx(t *testing.T) *frFx {
 		t.Fatal(err)
 	}
 	fx := &frFx{t: t, repo: dir + "/repo", log: dir + "/ran"}
-	fx.g.git("", "init", "-q", "-b", "main", fx.repo)
+	fx.g.copyShape(fx.repo, repoShape{Branch: "main"})
 	writeFile(t, fx.repo+"/.flow/project.md", "## test\n\n```bash\necho all >> "+fx.log+"\n# inputs: go/\necho go >> "+fx.log+"\n```\n\n"+
 		"## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**`, `policy.md` |\n")
 	writeFile(t, fx.repo+"/.gitignore", ".superpowers/\n")

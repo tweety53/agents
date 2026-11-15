@@ -51,12 +51,12 @@ type ctFx struct {
 func ctRepo(t *testing.T, dir string, origin bool) {
 	t.Helper()
 	mkdir(t, dir)
-	gitRun(t, dir, "init", "-q", "-b", "spectre/demo")
+	fixtureRepo(t, dir, repoShape{Branch: "spectre/demo"})
 	writeFile(t, dir+"/base.txt", "base\n")
 	gitRun(t, dir, "add", "-A")
 	gitRun(t, dir, "commit", "-q", "-m", "base")
 	if origin {
-		gitRun(t, "", "init", "-q", "--bare", dir+".origin")
+		fixtureRepo(t, dir+".origin", repoShape{Bare: true})
 		gitRun(t, dir, "remote", "add", "origin", dir+".origin")
 	}
 }

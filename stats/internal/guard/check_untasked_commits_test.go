@@ -43,7 +43,7 @@ func TestCheckUntaskedCommits(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			g := &fxGit{}
-			g.git(dir, "init", "-q", "-b", "main")
+			g.copyShape(dir, repoShape{Branch: "main"})
 			writeFile(t, filepath.Join(dir, "README"), "base\n")
 			g.git(dir, "add", "-A")
 			g.git(dir, "commit", "-qm", "base")
@@ -88,8 +88,7 @@ func TestCheckUntaskedCommitsSkipsAMergedBranch(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	g := &fxGit{}
-	g.git(dir, "init", "-q", "-b", "main")
-	g.git(dir, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(dir, repoShape{Branch: "main", Commit: "base"})
 	base := g.git(dir, "rev-parse", "HEAD")
 	g.git(dir, "checkout", "-q", "-b", "develop")
 	writeFile(t, filepath.Join(dir, "y.kt"), "y\n")
@@ -115,8 +114,7 @@ func TestCheckUntaskedCommitsCannotAnswer(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	g := &fxGit{}
-	g.git(dir, "init", "-q", "-b", "main")
-	g.git(dir, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(dir, repoShape{Branch: "main", Commit: "base"})
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
@@ -149,7 +147,7 @@ func TestCheckUntaskedCommitsRefusesAPipelineFixKey(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			g := &fxGit{}
-			g.git(dir, "init", "-q", "-b", "main")
+			g.copyShape(dir, repoShape{Branch: "main"})
 			writeFile(t, filepath.Join(dir, "README"), "base\n")
 			g.git(dir, "add", "-A")
 			g.git(dir, "commit", "-qm", "base")
@@ -199,7 +197,7 @@ func TestCheckUntaskedCommitsListsASuitePNGWithoutItsZip(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			g := &fxGit{}
-			g.git(dir, "init", "-q", "-b", "main")
+			g.copyShape(dir, repoShape{Branch: "main"})
 			writeFile(t, filepath.Join(dir, "README"), "base\n")
 			g.git(dir, "add", "-A")
 			g.git(dir, "commit", "-qm", "base")

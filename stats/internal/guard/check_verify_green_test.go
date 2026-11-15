@@ -19,7 +19,7 @@ func vgRepo(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(wt, "src/a.go"), "package a\n")
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	gitRun(t, wt, "add", "-A")
 	gitRun(t, wt, "commit", "-qm", "a")
 	return wt, vgHead(t, wt)

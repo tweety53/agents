@@ -54,8 +54,7 @@ type uwFix struct {
 // stay untracked -- and returns `<dir>=<base sha>`, a range argument.
 func uwCommits(t *testing.T, dir, baseMsg, msg string) string {
 	t.Helper()
-	gitRun(t, "", "init", "-q", dir)
-	gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", baseMsg)
+	fixtureRepo(t, dir, repoShape{Commit: baseMsg})
 	base := tcfGit(t, dir, "rev-parse", "HEAD")
 	gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", msg)
 	return dir + "=" + base
@@ -402,7 +401,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f := newUW(t)
 		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
 		f.setFile(t, "dispatches.json", covered+"\n")
-		gitRun(t, "", "init", "-q", f.wt)
+		fixtureRepo(t, f.wt, repoShape{})
 		gitRun(t, f.wt, "add", "spectre/changes/demo/tasks.md")
 		gitRun(t, f.wt, "commit", "-q", "-m", "chore(spectre): drop demo")
 		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
@@ -413,7 +412,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f := newUW(t)
 		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
 		f.setFile(t, "dispatches.json", covered+"\n")
-		gitRun(t, "", "init", "-q", f.wt)
+		fixtureRepo(t, f.wt, repoShape{})
 		gitRun(t, f.wt, "add", "spectre/changes/demo/tasks.md")
 		gitRun(t, f.wt, "commit", "-q", "-m", "fix: the appended task, squashed")
 		gitRun(t, f.wt, "rm", "-q", "--cached", "spectre/changes/demo/tasks.md")
@@ -449,8 +448,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	// later commit, dated 11:00, touches path; f.ranges is its range.
 	coded := func(path string) func(t *testing.T, f *uwFix) {
 		return func(t *testing.T, f *uwFix) {
-			gitRun(t, "", "init", "-q", f.wt)
-			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 			writeFile(t, f.wt+"/"+path, "x\n")
 			gitRun(t, f.wt, "add", path)
@@ -469,11 +467,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
 		f.setFile(t, "dispatches.json", `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-1-primary","role":"reviewer","outcome":"clean"},`+verifyRow(after)+"]\n")
 		origin := t.TempDir() + "/origin.git"
-		gitRun(t, "", "init", "-q", "--bare", "-b", "main", origin)
-		gitRun(t, "", "init", "-q", "-b", "main", f.wt)
-		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
-		gitRun(t, f.wt, "remote", "add", "origin", origin)
-		gitRun(t, f.wt, "push", "-q", "origin", "main")
+		fixtureRepoWithOrigin(t, f.wt, origin, repoShape{Branch: "main", Commit: "base"})
 		gitRun(t, f.wt, "checkout", "-q", "-b", "feature")
 		writeFile(t, f.wt+"/src/a.go", "package a\n")
 		gitRun(t, f.wt, "add", "src/a.go")
@@ -974,8 +968,7 @@ func TestCheckUnfinishedWorkNoPanelPassRecorded(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			f := newUW(t)
-			gitRun(t, "", "init", "-q", f.wt)
-			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 			writeFile(t, f.wt+"/"+c.path, "x\n")
 			gitRun(t, f.wt, "add", c.path)
@@ -1071,7 +1064,7 @@ func TestCheckUnfinishedWorkVerifyFailureNotAddressed(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			f := newUW(t)
-			gitRun(t, "", "init", "-q", f.wt)
+			fixtureRepo(t, f.wt, repoShape{})
 			base := commitAt(t, f.wt, before, "")
 			if body := c.setup(t, f.wt, base); body != "" {
 				writeFile(t, f.wt+"/spectre/changes/demo/narrative.md", body)
@@ -1111,8 +1104,7 @@ func TestCheckUnfinishedWorkVerifyFailureRerunPassed(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			f := newUW(t)
-			gitRun(t, "", "init", "-q", f.wt)
-			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 			for _, r := range []struct {
 				name, body string
@@ -1161,8 +1153,7 @@ func TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			f := newUW(t)
-			gitRun(t, "", "init", "-q", f.wt)
-			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 			writeFile(t, f.wt+"/.superpowers/sdd/verify-report-visual-verify.md",
 				"# Verify\n\n- verify: exit 1\n  1) [functional] screenshots.spec.ts:52 sweep every reachable screen — test timeout\n")
@@ -1328,8 +1319,7 @@ func TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow(t *testing.T) {
 // row started at 12:00 with outcome, a recorded panel pass beside it.
 func uwVerifyCase(t *testing.T, outcome, startedAt string) uwResult {
 	f := newUW(t)
-	gitRun(t, "", "init", "-q", f.wt)
-	gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+	fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 	base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 	writeFile(t, f.wt+"/src/a.go", "x\n")
 	gitRun(t, f.wt, "add", "src/a.go")
@@ -1383,8 +1373,7 @@ func TestUnfinishedWorkFlagsAPanelFixCommitWithNoRow(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			f := newUW(t)
-			gitRun(t, "", "init", "-q", f.wt)
-			gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 			writeFile(t, f.wt+"/src/a.go", "x\n")
 			gitRun(t, f.wt, "add", "src/a.go")
@@ -1411,8 +1400,7 @@ func TestUnfinishedWorkFlagsAPanelFixCommitWithNoRow(t *testing.T) {
 func TestUnfinishedWorkReadsHeadBesideThePin(t *testing.T) {
 	t.Parallel()
 	f := newUW(t)
-	gitRun(t, "", "init", "-q", f.wt)
-	gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+	fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 	base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 	gitRun(t, f.wt, "update-ref", "refs/flow/pre-reshape/demo", "HEAD")
 	writeFile(t, f.wt+"/src/a.go", "x\n")
@@ -1510,8 +1498,7 @@ func TestUnfinishedWorkSkipsVisualVerifierCommit(t *testing.T) {
 	smoke.Heavy(t)
 	run := func(t *testing.T, key, role string) uwResult {
 		f := newUW(t)
-		gitRun(t, "", "init", "-q", f.wt)
-		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "base")
+		fixtureRepo(t, f.wt, repoShape{Commit: "base"})
 		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
 		writeFile(t, f.wt+"/src/a.go", "x\n")
 		gitRun(t, f.wt, "add", "src/a.go")

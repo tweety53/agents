@@ -26,8 +26,7 @@ func TestIgnoreScratch(t *testing.T) {
 			t.Fatal(err)
 		}
 		var g fxGit
-		g.git(dir, "init", "-q")
-		g.git(dir, "commit", "-q", "--allow-empty", "-m", "init")
+		g.copyShape(dir, repoShape{Commit: "init"})
 		if g.err != nil {
 			t.Fatal(g.err)
 		}

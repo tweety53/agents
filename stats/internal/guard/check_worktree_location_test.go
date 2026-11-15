@@ -27,8 +27,7 @@ func newLocationRepo(t *testing.T) string {
 		t.Fatal(err)
 	}
 	repo := dir + "/repo"
-	gitRun(t, "", "init", "-q", repo)
-	gitRun(t, repo, "commit", "-q", "--allow-empty", "-m", "init")
+	fixtureRepo(t, repo, repoShape{Commit: "init"})
 	return repo
 }
 

@@ -26,7 +26,7 @@ var gaRepo = sync.OnceValues(func() (string, error) {
 		return "", err
 	}
 	g := &fxGit{}
-	g.git(dir, "init", "-q")
+	g.copyShape(dir, repoShape{})
 	g.write(dir+"/one.txt", "one")
 	g.git(dir, "add", "one.txt")
 	g.git(dir, "commit", "-qm", "one")
@@ -150,7 +150,7 @@ func TestGuardAutosquash(t *testing.T) {
 			}},
 		{label: "targets exits 2 in a repository with no resolvable HEAD", want: 2,
 			setup: func(g *fxGit, _, sandbox string) ([]string, string) {
-				g.git(sandbox, "init", "-q")
+				g.copyShape(sandbox, repoShape{})
 				return []string{"targets", sandbox, "deadbeefcafe1234"}, "no resolvable HEAD"
 			}},
 		{label: "targets with no sha exits 2", want: 2,

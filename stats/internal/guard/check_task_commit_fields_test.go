@@ -1389,7 +1389,7 @@ func tcfMapRepos(t *testing.T, planKey string) (b1, b2, a string) {
 	b1, b2, a = t.TempDir()+"/map-b1", t.TempDir()+"/map-b2", t.TempDir()+"/map-canon"
 	for _, dir := range []string{b1, b2} {
 		mkdir(t, dir)
-		tcfGit(t, dir, "init", "-q")
+		fixtureRepo(t, dir, repoShape{})
 		tcfGit(t, dir, "config", "user.email", "test@example.com")
 		tcfGit(t, dir, "config", "user.name", "Test")
 		writeFile(t, dir+"/root.txt", "root\n")
@@ -1421,7 +1421,7 @@ func tcfNewFixture(t *testing.T) *tcfFixture {
 	fx := &tcfFixture{base: dir + "/base", inert: dir + "/flow-inert"}
 	writeExec(t, fx.inert+"/flow", "#!/usr/bin/env bash\nexit 1\n")
 	mkdir(t, fx.base)
-	tcfGit(t, fx.base, "init", "-q")
+	fixtureRepo(t, fx.base, repoShape{})
 	tcfGit(t, fx.base, "config", "user.email", "test@example.com")
 	tcfGit(t, fx.base, "config", "user.name", "Test")
 	writeFile(t, fx.base+"/root.txt", "root\n")
@@ -1576,7 +1576,7 @@ func tcfCounter(t *testing.T, fx *tcfFixture, key string) (*tcfRepo, string) {
 func tcfXRepos(t *testing.T) (b, a, sha, parent string) {
 	b, a = t.TempDir()+"/xrepo-b", t.TempDir()+"/xcanon-a"
 	mkdir(t, b)
-	tcfGit(t, b, "init", "-q")
+	fixtureRepo(t, b, repoShape{})
 	tcfGit(t, b, "config", "user.email", "test@example.com")
 	tcfGit(t, b, "config", "user.name", "Test")
 	writeFile(t, b+"/root.txt", "root\n")
@@ -1690,7 +1690,7 @@ func TestCheckTaskCommitFields(t *testing.T) {
 		{"case sibling", func(t *testing.T) {
 			sib := t.TempDir() + "/gymie"
 			mkdir(t, sib)
-			tcfGit(t, sib, "init", "-q")
+			fixtureRepo(t, sib, repoShape{})
 			writeFile(t, sib+"/src/group/Group.kt", "x\n")
 			tcfGit(t, sib, "add", "-A")
 			tcfGit(t, sib, "-c", "user.email=t@e", "-c", "user.name=T", "commit", "-q", "-m", "base")

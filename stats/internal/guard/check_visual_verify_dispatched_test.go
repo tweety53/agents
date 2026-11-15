@@ -112,7 +112,7 @@ var vvdMasters = sync.OnceValues(func() (map[string]vvdMaster, error) {
 	masters := map[string]vvdMaster{}
 	for _, s := range shapes {
 		dir := top + "/" + s.name
-		if _, err := git(top, "init", "-q", dir); err != nil {
+		if err := copyShape(dir, repoShape{}); err != nil {
 			return nil, err
 		}
 		if err := write(dir+"/.flow/project.md", s.project); err != nil {

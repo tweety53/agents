@@ -16,7 +16,7 @@ import (
 func vmRepo(t *testing.T, base map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
-	gitRun(t, root, "init", "-q", "-b", "main")
+	fixtureRepo(t, root, repoShape{Branch: "main"})
 	for rel, body := range base {
 		writeFile(t, filepath.Join(root, rel), body)
 	}
