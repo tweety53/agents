@@ -7,6 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -124,7 +125,11 @@ import (
 // never delivered a report that was read — and a still-open row (no
 // `endedAt`) is not evidence either: the guard cannot tell a running
 // verifier from a dead one. See **The return** (skills/flow/implement.md)
-// for why only `completed` closes a dispatch's own story.
+// for why only `completed` closes a dispatch's own story. A row keyed
+// `-s<i>of<n>` counts only while the newest row of every index 1..n, n the
+// newest shard row's, is completed, and then only those rows; otherwise no
+// shard row counts. An unsharded row is never part of a shard set and is
+// judged as before (KAN-1121).
 //
 // A VERIFIER COUNTS ONLY FOR THE HEAD IT VERIFIED (kan-939 self-review: a
 // completed row answered OK however many UI commits landed after it). Such a
@@ -721,7 +726,8 @@ func vvdLastLine(v json.RawMessage) (string, bool) {
 // evidence, end instant or not, and a still-open row (no endedAt) is not
 // either: the guard cannot tell a running verifier from a dead one. jq's
 // `and` short-circuits, so the key is only read on a verifier row; a null
-// row selects nothing.
+// row selects nothing. A shard row (`-s<i>of<n>`) of any outcome is collected
+// too, and vvdShardSet then keeps a whole completed set or none of it.
 //
 // !ok is the header's cannot-answer, for every payload the verb never
 // prints: not one JSON array (the bash's `jq empty` passed an empty answer
@@ -771,8 +777,10 @@ func vvdCompletedVerifiers(raw []byte) (rows []vvdVerifier, ok bool) {
 		if outcome == nil || outcome == false {
 			outcome = ""
 		}
-		if strings.HasPrefix(key, "visual-verify") && (outcome == "completed" || (row["endedAt"] != nil && outcome == "")) {
-			v := vvdVerifier{key: key}
+		done := outcome == "completed" || (row["endedAt"] != nil && outcome == "")
+		// A shard row of any outcome is kept for vvdShardSet's whole-set rule.
+		if strings.HasPrefix(key, "visual-verify") && (done || vvdShardSeg.MatchString(key)) {
+			v := vvdVerifier{key: key, done: done}
 			v.head, _ = row["diffBase"].(string)
 			v.start, _ = row["startedAt"].(string)
 			v.roundBase, _ = row["roundBase"].(string)
@@ -780,7 +788,51 @@ func vvdCompletedVerifiers(raw []byte) (rows []vvdVerifier, ok bool) {
 			rows = append(rows, v)
 		}
 	}
-	return rows, true
+	return vvdShardSet(rows), true
+}
+
+// vvdShardSeg is a sharded pass's `-s<i>of<n>` key segment (KAN-1121).
+var vvdShardSeg = regexp.MustCompile(`-s([0-9]+)of([0-9]+)$`)
+
+// vvdShardSet applies the whole-set rule to rows, in seq order: of the shard
+// rows it keeps only the newest row of each index 1..n, n the newest shard
+// row's, and only when every one of them is completed -- else none. An
+// unsharded row is never part of a set and is kept when completed.
+func vvdShardSet(rows []vvdVerifier) []vvdVerifier {
+	n, newest := "", -1
+	for i, v := range rows {
+		if m := vvdShardSeg.FindStringSubmatch(v.key); m != nil && (newest < 0 || v.start >= rows[newest].start) {
+			n, newest = m[2], i
+		}
+	}
+	last := map[string]int{}
+	for i, v := range rows {
+		if m := vvdShardSeg.FindStringSubmatch(v.key); m != nil && m[2] == n {
+			if j, ok := last[m[1]]; !ok || v.start >= rows[j].start {
+				last[m[1]] = i
+			}
+		}
+	}
+	whole := newest >= 0
+	if c, _ := strconv.Atoi(n); len(last) != c {
+		whole = false
+	}
+	for _, i := range last {
+		whole = whole && rows[i].done
+	}
+	var out []vvdVerifier
+	for i, v := range rows {
+		if !vvdShardSeg.MatchString(v.key) {
+			if v.done {
+				out = append(out, v)
+			}
+			continue
+		}
+		if m := vvdShardSeg.FindStringSubmatch(v.key); whole && m[2] == n && last[m[1]] == i {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // vvdResolving is the first of a comma-joined diffBase's heads this worktree
@@ -799,7 +851,7 @@ func vvdResolving(heads string, resolves func(string) bool) string {
 // `visual-verify-pass close` ended it `-closes-loop` (closesLoop).
 type vvdVerifier struct {
 	key, head, start, roundBase string
-	closesLoop                  bool
+	closesLoop, done            bool
 }
 
 // vvdSHA is a commit id as `git rev-parse HEAD` prints it, abbreviated or
