@@ -1,0 +1,30 @@
+{"Action":"run","Package":"ex/a","Test":"TestSeq"}
+{"Action":"run","Package":"ex/a","Test":"TestSeq/one"}
+{"Action":"pass","Package":"ex/a","Test":"TestSeq/one","Elapsed":0.25}
+{"Action":"pass","Package":"ex/a","Test":"TestSeq","Elapsed":0.5}
+{"Action":"run","Package":"ex/a","Test":"TestPar"}
+{"Action":"run","Package":"ex/a","Test":"TestPar/x"}
+{"Action":"pause","Package":"ex/a","Test":"TestPar/x"}
+{"Action":"run","Package":"ex/a","Test":"TestPar/y"}
+{"Action":"pause","Package":"ex/a","Test":"TestPar/y"}
+{"Action":"pass","Package":"ex/a","Test":"TestPar","Elapsed":0.25}
+{"Action":"cont","Package":"ex/a","Test":"TestPar/x"}
+{"Action":"cont","Package":"ex/a","Test":"TestPar/y"}
+{"Action":"run","Package":"ex/a","Test":"TestPar/y/deep"}
+{"Action":"pause","Package":"ex/a","Test":"TestPar/y/deep"}
+{"Action":"cont","Package":"ex/a","Test":"TestPar/y/deep"}
+{"Action":"pass","Package":"ex/a","Test":"TestPar/y/deep","Elapsed":0.25}
+{"Action":"pass","Package":"ex/a","Test":"TestPar/x","Elapsed":1.25}
+{"Action":"pass","Package":"ex/a","Test":"TestPar/y","Elapsed":0.5}
+{"Action":"run","Package":"ex/a","Test":"TestParallel"}
+{"Action":"pause","Package":"ex/a","Test":"TestParallel"}
+{"Action":"cont","Package":"ex/a","Test":"TestParallel"}
+{"Action":"pass","Package":"ex/a","Test":"TestParallel","Elapsed":1}
+{"Action":"run","Package":"ex/b","Test":"TestSkipped"}
+{"Action":"skip","Package":"ex/b","Test":"TestSkipped","Elapsed":0}
+{"Action":"run","Package":"ex/b","Test":"TestFails"}
+{"Action":"output","Package":"ex/b","Test":"TestFails","Output":"--- FAIL: TestFails (2.25s)\n"}
+{"Action":"fail","Package":"ex/b","Test":"TestFails","Elapsed":2.25}
+FAIL	ex/b [build failed]
+{"Action":"fail","Package":"ex/b","Elapsed":2.5}
+{"Action":"pass","Package":"ex/a","Elapsed":3}

@@ -2,13 +2,12 @@ package guard
 
 import (
 	"bufio"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 	"strconv"
-	"strings"
+
+	"github.com/tweety53/agents/stats/internal/testcost"
 )
 
 // flow-guard test-cost — the per-test cost of a `go test -json` run.
@@ -16,12 +15,10 @@ import (
 // Usage: flow-guard test-cost [-min <seconds>]
 //
 // Reads `go test -json` output on stdin and prints, for every top-level test (no `/` in its
-// name), what that test costs the run: its own Elapsed plus the Elapsed of every descendant, at
-// any depth, that paused — a parallel subtest runs after its parent reported, so its time is not
-// in the parent's Elapsed. A sequential subtest adds nothing: its time is already the parent's.
-// A test's Elapsed is the one on its pass, fail or skip event. A top-level test whose terminal
-// event is skip, or that has none, prints no row; an event with no Test, and a line that is not
-// JSON, are ignored.
+// name), what that test costs the run, by the rule package internal/testcost states: its own
+// Elapsed plus the Elapsed of every descendant, at any depth, that paused. A top-level test whose
+// terminal event is skip, or that has none, prints no row; an event with no Test, and a line that
+// is not a test2json event, are ignored.
 //
 // Each row is `<cost to two decimals>` tab `<package>` tab `<test>`, heaviest first, equal costs
 // ordered by package then test. -min prints only the rows whose cost is at least <seconds>. The
@@ -52,37 +49,13 @@ func testCost(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	type key struct{ pkg, test string }
-	type state struct {
-		elapsed  float64
-		paused   bool
-		terminal string
-	}
-	tests := map[key]*state{}
-	get := func(k key) *state {
-		s := tests[k]
-		if s == nil {
-			s = &state{}
-			tests[k] = s
-		}
-		return s
-	}
+	var fold testcost.Fold
 	if env.Stdin != nil {
 		r := bufio.NewReader(env.Stdin)
 		for {
-			line, err := r.ReadString('\n')
-			var ev struct {
-				Action, Package, Test string
-				Elapsed               float64
-			}
-			if json.Unmarshal([]byte(line), &ev) == nil && ev.Test != "" {
-				s := get(key{ev.Package, ev.Test})
-				switch ev.Action {
-				case "pause":
-					s.paused = true
-				case "pass", "fail", "skip":
-					s.elapsed, s.terminal = ev.Elapsed, ev.Action
-				}
+			line, err := r.ReadBytes('\n')
+			if ev, ok := testcost.ParseEvent(line); ok {
+				fold.Add(ev)
 			}
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
@@ -92,38 +65,10 @@ func testCost(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-
-	type row struct {
-		cost float64
-		key
-	}
-	var rows []row
-	for k, s := range tests {
-		if strings.Contains(k.test, "/") || s.terminal == "" || s.terminal == "skip" {
-			continue
+	for _, r := range fold.Rows() {
+		if r.Cost >= min {
+			fmt.Fprintf(stdout, "%.2f\t%s\t%s\n", r.Cost, r.Package, r.Test)
 		}
-		cost := s.elapsed
-		for d, ds := range tests {
-			if ds.paused && d.pkg == k.pkg && strings.HasPrefix(d.test, k.test+"/") {
-				cost += ds.elapsed
-			}
-		}
-		if cost >= min {
-			rows = append(rows, row{cost, k})
-		}
-	}
-	sort.Slice(rows, func(i, j int) bool {
-		a, b := rows[i], rows[j]
-		if a.cost != b.cost {
-			return a.cost > b.cost
-		}
-		if a.pkg != b.pkg {
-			return a.pkg < b.pkg
-		}
-		return a.test < b.test
-	})
-	for _, r := range rows {
-		fmt.Fprintf(stdout, "%.2f\t%s\t%s\n", r.cost, r.pkg, r.test)
 	}
 	return 0
 }
