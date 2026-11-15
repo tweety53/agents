@@ -69,10 +69,11 @@ func TestSlotJudgeFallsBack(t *testing.T) {
 		cause   string
 	}{
 		{name: "non-zero exit", answer: "exit 1\n", policy: pjPolicy(), cause: "exit 1"},
-		{name: "timeout", answer: "exec sleep 5\n", policy: pjPolicy(), timeout: 200 * time.Millisecond, cause: "timed out"},
+		{name: "timeout", answer: "exec sleep 5\n", policy: pjPolicy(), timeout: 200 * time.Millisecond, cause: "timed out after 200ms (judge "},
 		{name: "non-JSON", answer: "echo not json\n", policy: pjPolicy(), cause: "not JSON"},
 		{name: "missing command", missing: true, policy: pjPolicy(), cause: "not runnable"},
 		{name: "no pair-judge row", answer: pjJSON(full, ""), policy: "{}", cause: "no pair-judge pair"},
+		{name: "unreadable policy", answer: pjJSON(full, ""), policy: "not json", cause: "policy unreadable: "},
 		{name: "a slot missing", answer: pjJSON("test-sanity: run — a\ncall-efficiency: skip — b", ""), policy: pjPolicy(), cause: "malformed"},
 		{name: "a slot twice", answer: pjJSON(full+"\ntest-sanity: skip — d", ""), policy: pjPolicy(), cause: "malformed"},
 		{name: "a verdict outside run|skip", answer: pjJSON("test-sanity: maybe — a\ncall-efficiency: skip — b\nfailure-modes: skip — c", ""), policy: pjPolicy(), cause: "malformed"},
@@ -141,5 +142,20 @@ func TestSlotJudgeRefuses(t *testing.T) {
 	}
 	if stub.ran() {
 		t.Error("a refused call ran the judge")
+	}
+}
+
+// TestSlotJudgeCapsTheDigest: a digest over 200 KB reaches the judge as its
+// first 204800 bytes and a truncation line. Not parallel: run beside
+// TestPairJudgeOrphanHoldingPipes its 300 KB pipe pushes that test past its
+// wall-clock bound.
+func TestSlotJudgeCapsTheDigest(t *testing.T) {
+	big := strings.Repeat("0123456789abcdef", 300*1024/16)
+	stub := newPJStub(t, pjJSON("test-sanity: run — a\ncall-efficiency: skip — b\nfailure-modes: skip — c", ""))
+	if r := runGuard("slot-judge", []string{pjDigest(t, big)}, pjEnv(t, pjPolicy(), stub)); r.rc != 0 {
+		t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
+	}
+	if got, want := stub.stdin(t), big[:204800]+"\n[digest truncated at 200 KB]\n"; got != want {
+		t.Errorf("a %d-byte digest reached the judge as %d bytes, want %d", len(big), len(got), len(want))
 	}
 }

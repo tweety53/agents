@@ -202,4 +202,10 @@ func TestPanelRoundBeginsHoldsALoneMutation(t *testing.T) {
 	if again, _ := os.ReadFile(snap); bytes.Equal(again, first) {
 		t.Error("a call carrying primary beside mutation kept the stale snapshot")
 	}
+	second, _ := os.ReadFile(snap)
+	writeFile(t, tasks, "- [ ] 1. rewritten again\n")
+	begins("failure-modes:opus:low")
+	if again, _ := os.ReadFile(snap); bytes.Equal(again, second) {
+		t.Error("a call carrying failure-modes without mutation kept the stale snapshot")
+	}
 }
