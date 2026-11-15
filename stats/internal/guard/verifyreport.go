@@ -437,7 +437,7 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped []string) []s
 // has a round file — a scoped row's verifier may leave those unread; an
 // unscoped row, or a view no frame is composed for, is always read (KAN-1122).
 func vrScopedCaptures(sdd, key string, body []byte, rerr error) []string {
-	if _, _, ok := readRound(sdd, key); !ok {
+	if _, _, _, ok := readRound(sdd, key); !ok {
 		return nil
 	}
 	var m vvmManifestOut

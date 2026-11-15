@@ -180,7 +180,8 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    base>..HEAD` adds, changes or removes, plus every motion this round's defects name. Its verifier still captures every
    frame on the change's list and judges only the frames step 9's `measure` names on its `changed:`
    line, beside the `moved:` frames and every frame this round's defects name, which its prompt names under `defects:` (`skills/flow/visual-verify-verifier.md`). Its
-   `prepare` is passed each such worktree's `--round-base`, which the verifier row records. A worktree
+   `prepare` is passed each such worktree's `--round-base`, which the verifier row records, and `--defects <worktree>=<frame>[,<frame>…]` naming that
+   worktree's `defects:` frames. A worktree
    whose round diff is empty is not dispatched. A worktree with no round base — no verifier of
    this run has verified it, or the parent no longer holds the sha — runs the stage unscoped. **A round whose diff touches only the mockups root composes instead of verifying.** When `git diff <round base>..HEAD` matches no `ui paths` entry in any worktree and touches nothing outside the mockups root, `prepare` prints `NEXT: compose-only` and no `visual-verify` verifier is dispatched: for each capture spec whose `<spec>.mockups` sidecar has a line naming a changed `<frame id>.png`, the parent runs step 9's `flow-guard visual-verify-pass measure` (`skills/flow/visual-verify-verifier.md`) under the round's key and reads each manifest's flagged bands, seams and `over` rows; a leftover is a defect that opens the next round, and clean composites close the round with no `-full` run, the last verifier's report standing for every path outside the mockups root; either way the parent ends the stage with the `end` mark of **Steps 3–13** (`skills/flow/visual-verify.md`) — `completed` when clean, `stopped` when a leftover opens the next round.
    The confirming re-run
@@ -202,7 +203,7 @@ like any round's, its round base the HEAD this full run verified: a `-full` run 
 clean scoped re-run, never another round's fix.
 **A scoped re-run that judged every changed frame closes the loop itself.** When its `close`
 prints `CLOSES-LOOP: yes` — every frame on the change's list was re-captured after its row
-began, every frame whose capture changed since its round base has a line of its own in the
+began, every frame whose capture changed since its round base, and every `--defects` frame, has a line of its own in the
 report, and no mockup or sidecar changed since that round base (`flow-guard visual-verify-pass`'s
 header) — `close` has ended its row `-closes-loop` and no `-fix-<k>-full` run follows.
 `CLOSES-LOOP: no — <why>`, a `NEXT: judge` whose row the parent ends, or no `CLOSES-LOOP:` line

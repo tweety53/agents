@@ -23,7 +23,8 @@ import (
 //   flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> \
 //     --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... \
 //     [--worktree <worktree>]... [--since <worktree>=<sha>]... \
-//     [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... \
+//     [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... \
+//     [--app <worktree>:<app-root>=<url>]... \
 //     [--miss] [--continue [--started]]
 //   flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> \
 //     --session-token mf-<t>
@@ -42,6 +43,7 @@ import (
 //   --since               a fix run's since-close sha for a worktree: its
 //                         diff for steps 1–2 runs from it instead
 //   --round-base          a scoped round's base for a worktree
+//   --defects             a scoped round's defects: frames for a worktree, given with its --round-base
 //   --app                 an app the stage may probe and pre-flight, the
 //                         `<app-root>=<url>` argument flow-guard check-visual-preflight
 //                         takes, prefixed with its worktree (decision
@@ -154,7 +156,7 @@ import (
 //      dispatch begin refused for <key>: <its output>`, exit 1. Before each
 //      begin of a row with a round base and a key with no `-rest[-<n>]`
 //      segment it writes <worktree>/.superpowers/sdd/visual-round-<key>.txt
-//      holding `<round base> <RFC3339Nano instant>`, the instant read right
+//      holding `<round base> <RFC3339Nano instant>[ <frame>,…]`, the frames that worktree's --defects named, the instant read right
 //      before that begin (decision round-file-per-row); a row begun with no
 //      round base, or a `-rest` key, removes that file (decision
 //      no-round-file-for-rest).
@@ -205,7 +207,9 @@ import (
 //      <changeRoot>/visual-verification/prototype.mockups, and every frame of
 //      visual-manifest-<key>.json's pairs — has a pair whose capture's mtime
 //      is after the file's instant, every pair whose capture differs from the
-//      round base has its frame's own per-frame line in the report, no pair's
+//      round base has its frame's own per-frame line in the report, every
+//      frame the round file names under --defects has its own per-frame line
+//      in the report, no pair's
 //      `<spec>.mockups` differs from the round base and `git diff --name-only
 //      <round base> -- <mockups root>` in <worktree> names nothing, and, when
 //      <changeRoot>/visual-verification/prototype.mockups exists,
@@ -312,7 +316,8 @@ import (
 // Exit 0 on a NEXT: line; 1 on a STOP: line; 2 a usage error (a missing or
 // unknown subcommand or argument, a token not mf-<t>, no --harness, a
 // --merge-base, --since or --round-base not <worktree>=<sha>, an --app not
-// <worktree>:<app-root>=<url>, --started without --continue, a <motions
+// <worktree>:<app-root>=<url>, a --defects not <worktree>=<frame>[,<frame>…]
+// or with no --round-base for its worktree, --started without --continue, a <motions
 // named> that is not a count) or an unreadable input — the cause on stderr,
 // nothing recorded for a usage error.
 
@@ -323,7 +328,7 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
+const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
 	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
 	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
 
@@ -340,6 +345,7 @@ type vvp struct {
 	worktrees                        []string          // canonical first, then each --worktree
 	mergeBase, since, roundBase      map[string]string // by worktree
 	apps                             map[string][]string
+	defects                          map[string][]string // by worktree, --defects
 	miss, cont, started              bool
 	siblings                         map[string][]string // a worktree's siblings whose diff its `ui paths` matched
 	setSize                          int
@@ -349,7 +355,7 @@ type vvp struct {
 
 func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code int) {
 	v := &vvp{env: env, stdout: stdout, stderr: stderr,
-		mergeBase: map[string]string{}, since: map[string]string{}, roundBase: map[string]string{}, apps: map[string][]string{}}
+		mergeBase: map[string]string{}, since: map[string]string{}, roundBase: map[string]string{}, defects: map[string][]string{}, apps: map[string][]string{}}
 	defer func() {
 		if r := recover(); r != nil {
 			e, ok := r.(vvpExit)
@@ -464,6 +470,19 @@ func (v *vvp) parse(args []string, prepare bool) {
 			w, sha := pair(f, val(i))
 			map[string]map[string]string{"--merge-base": v.mergeBase, "--since": v.since, "--round-base": v.roundBase}[f][w] = sha
 			i++
+		case prepare && f == "--defects":
+			d := val(i)
+			w, frames, _ := strings.Cut(d, "=")
+			if w == "" || frames == "" {
+				v.usage("--defects '" + d + "' is not <worktree>=<frame>[,<frame>…]")
+			}
+			for _, fr := range strings.Split(frames, ",") {
+				if fr == "" || strings.ContainsAny(fr, " \t\n") {
+					v.usage("--defects '" + d + "' is not <worktree>=<frame>[,<frame>…]")
+				}
+				v.defects[v.abs(w)] = append(v.defects[v.abs(w)], fr)
+			}
+			i++
 		case prepare && f == "--app":
 			a := val(i)
 			w, app, ok := strings.Cut(a, ":")
@@ -481,6 +500,11 @@ func (v *vvp) parse(args []string, prepare bool) {
 			v.started = true
 		default:
 			v.usage("unknown argument '" + f + "'")
+		}
+	}
+	for w := range v.defects {
+		if v.roundBase[w] == "" {
+			v.usage("--defects for " + w + " without --round-base")
 		}
 	}
 	if !strings.HasPrefix(v.token, "mf-") || len(v.token) == 3 {
@@ -624,19 +648,23 @@ func roundFile(sdd, key string) string {
 	return filepath.Join(sdd, "visual-round-"+key+".txt")
 }
 
-// readRound is key's round file: its round base and instant, ok false when
-// the file is absent or not `<sha> <RFC3339Nano instant>`.
-func readRound(sdd, key string) (base string, at time.Time, ok bool) {
+// readRound is key's round file: its round base, instant and defects:
+// frames, ok false when the file is absent or not
+// `<sha> <RFC3339Nano instant>[ <frame>,…]`.
+func readRound(sdd, key string) (base string, at time.Time, defects []string, ok bool) {
 	b, err := os.ReadFile(roundFile(sdd, key))
 	if err != nil {
-		return "", time.Time{}, false
+		return "", time.Time{}, nil, false
 	}
 	f := strings.Fields(string(b))
-	if len(f) != 2 {
-		return "", time.Time{}, false
+	if len(f) != 2 && len(f) != 3 {
+		return "", time.Time{}, nil, false
+	}
+	if len(f) == 3 {
+		defects = strings.Split(f[2], ",")
 	}
 	at, err = time.Parse(time.RFC3339Nano, f[1])
-	return f[0], at, err == nil
+	return f[0], at, defects, err == nil
 }
 
 // captureChanged reports whether a file differs from its blob at base

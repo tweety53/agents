@@ -269,7 +269,7 @@ and 2 below in the parent's own Bash call** — never these steps by hand, and n
 ```bash
 flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <harness> --session-token mf-<literal-token> \
   --merge-base <worktree>=<sha> [--worktree <worktree>] [--since <worktree>=<sha>] \
-  [--round-base <worktree>=<sha>] [--app <worktree>:<app-root>=<resolved-url>] [--miss]
+  [--round-base <worktree>=<sha>] [--defects <worktree>=<frame>[,<frame>…]] [--app <worktree>:<app-root>=<resolved-url>] [--miss]
 ```
 
 Its header (`<agents repo>/scripts/flow-guard visual-verify-pass`) is canonical for every argument, each step it

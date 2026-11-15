@@ -546,7 +546,11 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 			argv = append(argv, "-round-base", rb)
 		}
 		if rb != "" && !vrRestSegment.MatchString(r.key) {
-			v.writeOut(rf, rb+" "+time.Now().UTC().Format(time.RFC3339Nano)+"\n")
+			line := rb + " " + time.Now().UTC().Format(time.RFC3339Nano)
+			if d := v.defects[r.w]; len(d) > 0 {
+				line += " " + strings.Join(d, ",")
+			}
+			v.writeOut(rf, line+"\n")
 		} else if err := os.Remove(rf); err != nil && !os.IsNotExist(err) {
 			// A stale round file would let close read this row as scoped.
 			v.die("cannot-write", "cannot remove %s: %v", rf, err)

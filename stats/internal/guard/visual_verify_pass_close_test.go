@@ -368,6 +368,45 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 	}
 }
 
+// TestVisualVerifyPassCloseDemandsDefectLines pins decision
+// defects-close-check: a frame the round file names under defects: needs a
+// per-frame line of its own before close ends the row -closes-loop, even when
+// its capture is unchanged since the round base (kan-1122 self-review, F1).
+func TestVisualVerifyPassCloseDemandsDefectLines(t *testing.T) {
+	smoke.Heavy(t)
+	for _, c := range []struct {
+		name, lines, want string
+		closes            bool
+	}{
+		{"no line of its own", "", "CLOSES-LOOP: no — f1: named under defects: and the report has no line of its own for it", false},
+		{"a line of its own", "- f1 sweeps: text done\n", "CLOSES-LOOP: yes", true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := vvcFixture(t, "")
+			// The capture committed at the round base: unchanged, so only defects: asks for its line.
+			gitRun(t, f.wt, "add", "tests/visual/home.spec.ts-home.png")
+			gitRun(t, f.wt, "commit", "-qm", "capture")
+			base := vgHead(t, f.wt)
+			at := time.Now().Add(-time.Minute)
+			capture := filepath.Join(f.wt, "tests/visual/home.spec.ts-home.png")
+			now := time.Now()
+			if err := os.Chtimes(capture, now, now); err != nil {
+				t.Fatal(err)
+			}
+			sdd := filepath.Join(f.wt, ".superpowers/sdd")
+			writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), base+" "+at.UTC().Format(time.RFC3339Nano)+" f1")
+			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"),
+				`{"pairs":[{"spec":"`+filepath.Join(f.wt, "tests/visual/home.spec.ts")+`","frame":"f1","capture":"`+capture+`"}]}`)
+			f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n"+c.lines)
+			rc, out, calls := f.close("visual-verify")
+			if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: done") || !strings.Contains(out, c.want) ||
+				strings.Contains(calls, "-closes-loop") != c.closes {
+				t.Fatalf("exit %d, want 0 with %q and -closes-loop %v\n%s\n%s", rc, c.want, c.closes, out, calls)
+			}
+		})
+	}
+}
+
 func TestVisualVerifyPassCloseNoReport(t *testing.T) {
 	f := vvcFixture(t, "")
 	rc, out, calls := f.close("visual-verify")

@@ -238,7 +238,7 @@ func (v *vvp) writeOut(path, body string) {
 func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool) {
 	path := filepath.Join(sdd, "visual-manifest-"+key+".json")
 	// Only this call's pairs count, so the line is read before the merge.
-	if base, _, ok := readRound(sdd, key); ok {
+	if base, _, _, ok := readRound(sdd, key); ok {
 		var changed []string
 		for _, p := range m.Pairs {
 			if !slices.Contains(changed, p.Frame) && v.captureChanged(p.Capture, base) {

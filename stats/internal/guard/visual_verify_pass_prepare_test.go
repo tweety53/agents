@@ -128,6 +128,9 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 		{"--started without --continue", append(append(append([]string{"prepare"}, base...), ok...), "--started"), ""},
 		{"an app not <wt>:<root>=<url>", append(append(append([]string{"prepare"}, base...), ok...), "--app", ".="+f.app.URL), "${W}"},
 		{"a zsh-mangled app", append(append(append([]string{"prepare"}, base...), ok...), "--app", "/s/web=h/btp://x"), "${W}"},
+		{"defects not <wt>=<frames>", append(append(append([]string{"prepare"}, base...), ok...), "--round-base", f.wt+"="+f.mb, "--defects", "f1"), ""},
+		{"an empty defect frame", append(append(append([]string{"prepare"}, base...), ok...), "--round-base", f.wt+"="+f.mb, "--defects", f.wt+"=f1,"), ""},
+		{"defects with no round base", append(append(append([]string{"prepare"}, base...), ok...), "--defects", f.wt+"=f1"), ""},
 	} {
 		os.Remove(f.log)
 		var out, errb bytes.Buffer
@@ -514,6 +517,22 @@ func TestVisualVerifyPassPrepareWritesTheRoundFile(t *testing.T) {
 	cont("visual-verify-rest", "--round-base", f.wt+"="+f.mb)
 	if _, err := os.Stat(filepath.Join(sdd, "visual-round-visual-verify-rest.txt")); !os.IsNotExist(err) {
 		t.Fatalf("a -rest key got a round file (stat err %v)", err)
+	}
+}
+
+// TestVisualVerifyPassPrepareWritesTheDefects pins decisions defects-flag and
+// defects-in-round-file: a scoped row's --defects frames are the round
+// file's third field, comma-joined (kan-1122 self-review, F1).
+func TestVisualVerifyPassPrepareWritesTheDefects(t *testing.T) {
+	smoke.Heavy(t)
+	f := vvpFixture(t, "")
+	if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb, "--defects", f.wt+"=f1,f2"); rc != 0 {
+		t.Fatalf("scoped prepare with --defects: exit %d\n%s", rc, out)
+	}
+	b, err := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-round-visual-verify.txt"))
+	fields := strings.Fields(string(b))
+	if err != nil || len(fields) != 3 || fields[0] != f.mb || fields[2] != "f1,f2" {
+		t.Fatalf("round file %q (%v), want `%s <instant> f1,f2`", b, err, f.mb)
 	}
 }
 

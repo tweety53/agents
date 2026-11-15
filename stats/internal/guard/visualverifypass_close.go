@@ -143,7 +143,7 @@ func (v *vvp) close() {
 // else the first that fails.
 func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped bool, why string) {
 	sdd := filepath.Join(w, ".superpowers", "sdd")
-	base, at, ok := readRound(sdd, v.key)
+	base, at, defects, ok := readRound(sdd, v.key)
 	if !ok {
 		return false, ""
 	}
@@ -199,6 +199,11 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 	for _, p := range m.Pairs {
 		if v.captureChanged(p.Capture, base) && !flPerFrame(p.Frame, lines) {
 			return true, p.Frame + ": its capture changed since " + base + " and the report has no line of its own for it"
+		}
+	}
+	for _, id := range defects {
+		if !flPerFrame(id, lines) {
+			return true, id + ": named under defects: and the report has no line of its own for it"
 		}
 	}
 	var specs []string
