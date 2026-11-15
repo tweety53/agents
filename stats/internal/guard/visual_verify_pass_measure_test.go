@@ -402,3 +402,127 @@ func TestVisualVerifyPassMeasureMergesSpecs(t *testing.T) {
 	}
 	capturesKept("after re-measuring spec A")
 }
+
+// TestVvmCells pins decisions cells-in-measure, text-stretch-from-element-insets
+// and content-cell-for-text: each matrix row's 11 columns are read from the
+// leaves its class names, n/a exactly where vrNAColumns lists the column, and a
+// missing or extra row's absent side and delta are null.
+func TestVvmCells(t *testing.T) {
+	var matrix []map[string]any
+	if err := json.Unmarshal([]byte(`[
+	{"kind": "text/control", "class": "text run", "status": "paired",
+	 "a": {"top": 20, "height": 10, "left": 30, "width": 60, "right": 110, "colour": "#222222", "kind": "text/control", "gap": 20},
+	 "b": {"top": 24, "height": 10, "left": 50, "width": 60, "right": 90, "colour": "#222222", "kind": "text/control", "gap": 24},
+	 "gap": {"a": 20, "b": 24, "abs": 4}, "height": {"a": 10, "b": 10, "abs": 0}, "colour": {"a": "#222222", "b": "#222222", "distance": 0},
+	 "measured": {"a": {"background": "#ffffff", "ink": {"left": 4, "top": 4, "width": 60, "height": 10, "colour": "#222222"}},
+	              "b": {"background": "#ffffff", "ink": {"left": 4, "top": 4, "width": 60, "height": 9, "colour": "#333333"}},
+	              "delta": {"ink.height": {"a": 10, "b": 9, "abs": -1}, "ink.colour": {"a": "#222222", "b": "#333333", "distance": 29.4}}}},
+	{"kind": "text/control", "class": "control", "status": "paired",
+	 "a": {"top": 50, "height": 40, "left": 20, "width": 160, "right": 20, "colour": "#888888", "kind": "text/control", "gap": 20},
+	 "b": {"top": 54, "height": 40, "left": 20, "width": 160, "right": 20, "colour": "#888888", "kind": "text/control", "gap": 20},
+	 "measured": {"a": {"background": "#ffffff", "clipped": "left", "box": {"left": 4, "top": 4, "width": 160, "height": 40},
+	                    "border": {"left": "clipped", "top": 1, "colour": "#888888"}, "radius": {"top_left": "clipped", "top_right": 0},
+	                    "gap": {"left": null, "right": 12}, "content": {"padding": {"left": 8, "right": 8}}},
+	              "b": {"background": "#ffffff", "clipped": "left", "box": {"left": 4, "top": 4, "width": 158, "height": 40},
+	                    "border": {"left": "clipped", "top": 1, "colour": "#888888"}, "radius": {"top_left": "clipped", "top_right": 0},
+	                    "gap": {"left": null, "right": 14}, "content": {"padding": {"left": 8, "right": 6}}},
+	              "delta": {"box.width": {"a": 160, "b": 158, "abs": -2}, "border.left": {"a": "clipped", "b": "clipped", "abs": null}}}},
+	{"kind": "rule", "class": "rule", "status": "paired",
+	 "a": {"top": 140, "height": 1, "left": 10, "width": 180, "right": 10, "colour": "#cccccc", "kind": "rule", "gap": 50},
+	 "b": {"top": 144, "height": 1, "left": 10, "width": 170, "right": 20, "colour": "#cccccc", "kind": "rule", "gap": 50},
+	 "height": {"a": 1, "b": 1, "abs": 0},
+	 "measured": {"a": {"background": "#ffffff", "runs": {"row": []}}, "b": {"background": "#ffffff", "runs": {"row": []}}, "delta": {}}},
+	{"kind": "fill band", "class": "unresolved", "status": "paired",
+	 "a": {"top": 180, "height": 20, "left": 10, "width": 180, "right": 10, "colour": "#444444", "kind": "fill band", "gap": 39},
+	 "b": {"top": 184, "height": 20, "left": 10, "width": 180, "right": 10, "colour": "#444444", "kind": "fill band", "gap": 39},
+	 "unresolved": "no edge on the centre scan line from the top"},
+	{"class": "missing", "status": "missing",
+	 "a": {"top": 230, "height": 10, "left": 20, "width": 41, "right": 139, "colour": "#222222", "kind": "text/control", "gap": 30}, "b": null},
+	{"class": "extra", "status": "extra", "a": null,
+	 "b": {"top": 300, "height": 30, "left": 20, "width": 41, "right": 139, "colour": "#222222", "kind": "text/control", "gap": 96}}
+	]`), &matrix); err != nil {
+		t.Fatal(err)
+	}
+	cells := vvmCells(matrix)
+	got := func(row int, col string) string {
+		b, _ := json.Marshal(cells[row-1].(map[string]any)[col])
+		return string(b)
+	}
+	for _, tc := range []struct {
+		row  int
+		col  string
+		want string
+	}{
+		{1, "content", `"n/a — transcribed by sweep 5"`},
+		{1, "border", `"n/a — does not apply to a text run row"`},
+		{1, "colour", `{"a":{"ink.colour":"#222222"},"b":{"ink.colour":"#333333"},"delta":{"ink.colour":{"a":"#222222","b":"#333333","distance":29.4}}}`},
+		{1, "stretch", `{"a":{"element.left":30,"element.right":110},"b":{"element.left":50,"element.right":90},"delta":{}}`},
+		{1, "position", `{"a":{"element.gap":20,"element.left":30,"element.top":20},"b":{"element.gap":24,"element.left":50,"element.top":24},"delta":{"element.gap":{"a":20,"abs":4,"b":24}}}`},
+		{2, "size", `{"a":{"box.height":40,"box.width":160},"b":{"box.height":40,"box.width":158},"delta":{"box.width":{"a":160,"abs":-2,"b":158}}}`},
+		{2, "border", `{"a":{"border.colour":"#888888","border.left":"clipped","border.top":1},"b":{"border.colour":"#888888","border.left":"clipped","border.top":1},"delta":{"border.left":{"a":"clipped","abs":null,"b":"clipped"}}}`},
+		{2, "alignment", `{"a":{"content.padding.left":8,"content.padding.right":8},"b":{"content.padding.left":8,"content.padding.right":6},"delta":{}}`},
+		{3, "alignment", `"n/a — does not apply to a rule row"`},
+		{3, "size", `{"a":{"element.height":1,"element.width":180},"b":{"element.height":1,"element.width":170},"delta":{"element.height":{"a":1,"abs":0,"b":1}}}`},
+		{4, "kind", `{"a":{"element.kind":"fill band"},"b":{"element.kind":"fill band"},"delta":{}}`},
+		{4, "size", `"unresolved — no edge on the centre scan line from the top"`},
+		{5, "size", `{"a":{"element.height":10,"element.width":41},"b":null,"delta":null}`},
+		{5, "radius", `"n/a — does not apply to a missing row"`},
+		{6, "stretch", `{"a":null,"b":{"element.left":20,"element.right":139},"delta":null}`},
+	} {
+		if g := got(tc.row, tc.col); g != tc.want {
+			t.Errorf("row %d %s = %s, want %s", tc.row, tc.col, g, tc.want)
+		}
+	}
+	for i, c := range cells {
+		e := c.(map[string]any)
+		if e["row"] != i+1 || len(e) != len(vrColumns)+2 {
+			t.Errorf("entry %d: row %v, %d keys, want row %d and %d keys", i, e["row"], len(e), i+1, len(vrColumns)+2)
+		}
+	}
+}
+
+// TestVisualVerifyPassMeasureCells pins decision cells-in-measure end to end:
+// `measure` writes one cells entry per matrix row of each composed frame, and
+// check-verify-report admits every one of them, wanting only the spot-check line.
+func TestVisualVerifyPassMeasureCells(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	if rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts"); rc != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q", rc, stdout, stderr)
+	}
+	var m struct {
+		Pairs []struct {
+			Frame      string           `json:"frame"`
+			MatrixFile string           `json:"matrix_file"`
+			Over       []vrOverRow      `json:"over"`
+			Cells      []map[string]any `json:"cells"`
+		} `json:"pairs"`
+	}
+	body, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-visual-verify.json"))
+	if err := json.Unmarshal(body, &m); err != nil || len(m.Pairs) != 1 {
+		t.Fatalf("manifest %s: %v", body, err)
+	}
+	p := m.Pairs[0]
+	var mx struct {
+		Matrix []map[string]any `json:"matrix"`
+	}
+	mb, _ := os.ReadFile(p.MatrixFile)
+	if err := json.Unmarshal(mb, &mx); err != nil || len(mx.Matrix) == 0 {
+		t.Fatalf("matrix %s: %v", mb, err)
+	}
+	if len(p.Cells) != len(mx.Matrix) {
+		t.Fatalf("%d cells entries for %d matrix rows", len(p.Cells), len(mx.Matrix))
+	}
+	for i, c := range p.Cells {
+		if c["row"] != float64(i+1) || c["class"] != mx.Matrix[i]["class"] {
+			t.Errorf("entry %d: row %v class %v, want row %d class %v", i, c["row"], c["class"], i+1, mx.Matrix[i]["class"])
+		}
+	}
+	over := map[int]vrOverRow{}
+	for _, r := range p.Over {
+		over[r.Row] = r
+	}
+	if bad := vrCells(p.Frame, p.Cells, over, map[string]string{}); len(bad) != 1 || bad[0] != p.Frame+" has no spot-check: line" {
+		t.Errorf("vrCells = %q, want only the missing spot-check line", bad)
+	}
+}

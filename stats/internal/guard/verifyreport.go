@@ -72,11 +72,7 @@ import (
 // does not leaves step 10 undone (kan-1057 self-review, F6).
 //
 // With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
-// line names needs its own `- <frame id> matrix:` line; each that has none is
-// undone as `<frame id> has no matrix: line — step 10 is done only with every
-// frame's matrix` (kan-1016: one matrix line covered nine frames).
-// Each such frame needs its `- <frame id> bands:` and `- <frame id> seams:`
-// lines too, and its `- <frame id> over-tolerance: <n> — #<row>: <cause>; …`
+// line names needs its `- <frame id> over-tolerance: <n> — #<row>: <cause>; …`
 // line (decisions over-tolerance-line, by-hand-check-automated): <n> must
 // equal the `over` count the frame's pairs carry in this dispatch's manifest,
 // `visual-manifest-<key>.json` beside <report file>, <key> the report's own
@@ -91,20 +87,25 @@ import (
 // Each item whose manifest row carries figures quotes one as <key> a=<a> b=<b>;
 // an item quoting none of its row's figures is undone (kan-1057 self-review, F20).
 //
+// The same manifest pair's `cells` (decision cells-in-measure) are checked
+// for every such frame: absent cells, an empty cell — null, an empty string,
+// or a cell whose `a` and `b` are both empty — and a string cell other than
+// an `n/a — <why>` in a column vrNAColumns lists for the row's `class`, or an
+// `unresolved — <reason>` on an `unresolved` row, are undone. The frame's
+// `- <frame id> spot-check: #<row> <column> script <x> hand <y>; …` line
+// (decision spot-check-shape) must name at least 3 rows, or every row when
+// fewer of its cells rows are off the frame's `over` list; each named row is
+// a cells row off that list, and each <x> is one of the `b` figures of that
+// row's <column> cell, written as the over list's figures are — a number
+// shortest-exact, a colour as its hex. A missing line, an item of another
+// shape, a row short, a row off the cells or on the `over` list, or an <x>
+// the cell does not carry is undone (kan-1120: the script fills the matrix,
+// and the line is what shows the verifier compared it with the pixels).
+// Where no cells row is off the `over` list, the line reads exactly
+// `none — no row off the over list`, and that form is undone anywhere else.
+//
 // Every `sweeps:` line's ` | `-separated items each read `<sweep> done…` or
 // `<sweep> n/a — <why>`; any other leaves step 10 undone.
-//
-// Given --design, every matrix table in the `visual-verification.md` beside
-// <design.md> — a table whose header's first cell opens `element` — is read
-// cell by cell (decision matrix-kind-opens-with-class). The row's class is its
-// `kind` cell's opening; a cell reading `n/a…` or `—` stands only in a column
-// that does not apply to the class — `border`, `fill`, `radius`, `shadow` for
-// a `text run`; none for a `control`, `row` or `card`; `content`,
-// `alignment`, `border`, `radius`, `shadow` for a `rule`, `divider` or
-// `fill band` — or when it reads `no mockup source`; an unknown class admits
-// only `no mockup source`. An empty cell, or any other n/a cell (kan-938: a
-// control's `border` left `n/a — measure failed`), leaves step 10 undone,
-// naming `visual-verification.md:<line>`.
 //
 // Given a `## Report` line `- spec: <path>`, the PNGs
 // `flow-guard resolve-visual-screenshots <worktree> <spec basename>` prints, the
@@ -158,30 +159,33 @@ var (
 	vrWireContract = regexp.MustCompile(`^\s*- wire contract:\s*(.*)$`)
 	// A backticked HTML or CSS path design.md cites (kan-1017).
 	vrMockupSource = regexp.MustCompile("`([^`\\s]+\\.(?:html|htm|css))`")
-	// A composed frame's `- <frame id>: <composite> diff=` line, and its own
-	// `- <frame id> matrix:` line (kan-1016: one matrix line covered nine frames).
+	// A composed frame's `- <frame id>: <composite> diff=` line.
 	vrPlatformSuffix = regexp.MustCompile(`-(darwin|linux|win32)$`)
 	vrFrameLine      = regexp.MustCompile(`^\s*- (\S+): (\S+) diff=`)
-	vrMatrixLine     = regexp.MustCompile(`^\s*- (\S+) matrix:`)
 	// The capture spec a `## Report` names: every PNG the resolver prints for
 	// it needs its own view line (group-allowed-pairs-roles self-review).
 	vrSpecLine = regexp.MustCompile(`^\s*- spec:\s*(\S+)`)
-	// A composed frame's `bands:`, `seams:` and `over-tolerance:` lines, and
-	// any `sweeps:` line (decisions over-tolerance-line, by-hand-check-automated).
-	vrBandsLine = regexp.MustCompile(`^\s*- (\S+) bands:`)
-	vrSeamsLine = regexp.MustCompile(`^\s*- (\S+) seams:`)
-	vrOverLine  = regexp.MustCompile(`^\s*- (\S+) over-tolerance:\s*(.*)$`)
-	vrSweeps    = regexp.MustCompile(`\bsweeps:\s*(.*)$`)
-	vrOverItem  = regexp.MustCompile(`^#(\d+):\s*(.*)$`)
+	// A composed frame's `over-tolerance:` and `spot-check:` lines, and any
+	// `sweeps:` line (decisions over-tolerance-line, spot-check-shape).
+	vrOverLine = regexp.MustCompile(`^\s*- (\S+) over-tolerance:\s*(.*)$`)
+	vrSpotLine = regexp.MustCompile(`^\s*- (\S+) spot-check:\s*(.*)$`)
+	vrSpotItem = regexp.MustCompile(`^#(\d+) (\S+) script (\S+) hand \S`)
+	vrSweeps   = regexp.MustCompile(`\bsweeps:\s*(.*)$`)
+	vrOverItem = regexp.MustCompile(`^#(\d+):\s*(.*)$`)
 	// A `-rest` or `-rest-<n>` segment of a report's key: its manifest is the key's without it.
 	vrRestSegment = regexp.MustCompile(`-rest(-\d+)?\b`)
-	// The n/a columns per row class (decision matrix-kind-opens-with-class).
+	// Step 10's matrix columns (skills/flow/visual-verify-verifier.md), in order.
+	vrColumns = []string{"kind", "content", "colour", "size", "position", "stretch", "alignment", "border", "fill", "radius", "shadow"}
+	// The n/a columns per matrix row class (decisions matrix-row-class,
+	// content-cell-for-text): `visual-verify-pass measure` writes n/a in
+	// exactly these, and the cells check admits n/a nowhere else.
 	vrNAColumns = map[string][]string{
-		"text run": {"border", "fill", "radius", "shadow"},
-		"control":  {}, "row": {}, "card": {},
-		"rule":      {"content", "alignment", "border", "radius", "shadow"},
-		"divider":   {"content", "alignment", "border", "radius", "shadow"},
+		"text run":  {"content", "border", "fill", "radius", "shadow"},
+		"control":   {},
 		"fill band": {"content", "alignment", "border", "radius", "shadow"},
+		"rule":      {"content", "alignment", "border", "radius", "shadow"},
+		"missing":   {"content", "border", "fill", "radius", "shadow"},
+		"extra":     {"content", "border", "fill", "radius", "shadow"},
 	}
 )
 
@@ -220,10 +224,9 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	inReport, unevidenced := false, ""
 	noView := false
 	var frames, framed []string
-	matrix := map[string]bool{}
 	spec := ""
 	var reportLines []string
-	bands, seams, over := map[string]bool{}, map[string]bool{}, map[string]string{}
+	over, spot := map[string]string{}, map[string]string{}
 	var badSweeps, cites []string
 	for _, line := range strings.Split(string(data), "\n") {
 		// Every line is read from `## Report` to the next `## ` heading alone:
@@ -263,17 +266,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			frames = append(frames, m[1])
 			framed = append(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(m[2]), ".png"), ""))
 		}
-		if m := vrMatrixLine.FindStringSubmatch(line); m != nil {
-			matrix[m[1]] = true
-		}
-		if m := vrBandsLine.FindStringSubmatch(line); m != nil {
-			bands[m[1]] = true
-		}
-		if m := vrSeamsLine.FindStringSubmatch(line); m != nil {
-			seams[m[1]] = true
-		}
 		if m := vrOverLine.FindStringSubmatch(line); m != nil {
 			over[m[1]] = m[2]
+		}
+		if m := vrSpotLine.FindStringSubmatch(line); m != nil {
+			spot[m[1]] = m[2]
 		}
 		if m := vrSweeps.FindStringSubmatch(line); m != nil {
 			for _, item := range strings.Split(m[1], " | ") {
@@ -332,9 +329,6 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// Every step-10 defect is named in one run, never only the last.
 	step10 := badSweeps
-	if design != "" {
-		step10 = append(step10, vrMatrixCells(filepath.Join(filepath.Dir(design), "visual-verification.md"))...)
-	}
 	if unevidenced != "" {
 		step10 = append(step10, "pre-existing attribution with no merge-base evidence: "+unevidenced)
 	}
@@ -386,21 +380,8 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			undone = append(undone, strings.TrimSpace(id+" "+s))
 		}
 	}
-	if status["10"] == "done" {
-		for _, f := range frames {
-			if !matrix[f] {
-				undone = append(undone, f+" has no matrix: line — step 10 is done only with every frame's matrix")
-			}
-			if !bands[f] {
-				undone = append(undone, f+" has no bands: line")
-			}
-			if !seams[f] {
-				undone = append(undone, f+" has no seams: line")
-			}
-		}
-		if len(frames) > 0 {
-			undone = append(undone, vrOverTolerance(args[0], frames, over, string(designBody))...)
-		}
+	if status["10"] == "done" && len(frames) > 0 {
+		undone = append(undone, vrOverTolerance(args[0], frames, over, spot, string(designBody))...)
 	}
 	if spec != "" && !noView {
 		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines)...)
@@ -447,17 +428,19 @@ type vrOverRow struct {
 }
 
 // vrOverTolerance reconciles each composed frame's `over-tolerance:` line with
-// the `over` rows this dispatch's manifest carries for it — never the
+// the `over` rows this dispatch's manifest carries for it, and checks the
+// frame's `cells` and its `spot-check:` line against the same pair — never the
 // committed matrix JSON, so a pass that skipped `measure` cannot stand on last
 // round's numbers. The manifest sits beside the report as
 // visual-manifest-<key>.json, <key> the report's own less any `-rest[-<n>]`.
-func vrOverTolerance(report string, frames []string, lines map[string]string, design string) []string {
+func vrOverTolerance(report string, frames []string, lines, spot map[string]string, design string) []string {
 	key := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(report), "verify-report-"), ".md")
 	path := filepath.Join(filepath.Dir(report), "visual-manifest-"+vrRestSegment.ReplaceAllString(key, "")+".json")
 	var m struct {
 		Pairs []struct {
-			Frame string      `json:"frame"`
-			Over  []vrOverRow `json:"over"`
+			Frame string           `json:"frame"`
+			Over  []vrOverRow      `json:"over"`
+			Cells []map[string]any `json:"cells"`
 		} `json:"pairs"`
 	}
 	body, err := os.ReadFile(path)
@@ -470,19 +453,23 @@ func vrOverTolerance(report string, frames []string, lines map[string]string, de
 	var undone []string
 	for _, f := range frames {
 		rows, seen := map[int]vrOverRow{}, false
+		var cells []map[string]any
 		for _, p := range m.Pairs {
 			if p.Frame == f {
 				seen = true
 				for _, r := range p.Over {
 					rows[r.Row] = r
 				}
+				cells = p.Cells
 			}
 		}
-		line, ok := lines[f]
-		switch {
-		case !seen:
+		if !seen {
 			undone = append(undone, f+" is in no pair of the manifest")
 			continue
+		}
+		undone = append(undone, vrCells(f, cells, rows, spot)...)
+		line, ok := lines[f]
+		switch {
 		case !ok:
 			undone = append(undone, f+" has no over-tolerance: line")
 			continue
@@ -548,66 +535,87 @@ func vrCauseAdmitted(cause string, row vrOverRow, design string) bool {
 	return false
 }
 
-// vrMatrixCells checks every matrix table in visual-verification.md — a table
-// whose header's first cell opens `element` — cell by cell: an empty cell, or
-// an n/a (or `—`) cell in a column that applies to its row's class, not
-// reading `no mockup source`, is refused by its line. The class is the
-// `kind` cell's opening; an unknown class admits n/a only as `no mockup source`.
-func vrMatrixCells(path string) []string {
-	body, err := os.ReadFile(path)
-	if err != nil {
-		return nil
+// vrSpotNone is the spot-check: line of a frame with no cells row off its
+// `over` list — nothing left to measure by hand.
+const vrSpotNone = "none — no row off the over list"
+
+// vrCells checks one composed frame's manifest cells (decision
+// cells-in-measure) and its spot-check: line (decision spot-check-shape)
+// against them and the frame's over rows.
+func vrCells(f string, cells []map[string]any, over map[int]vrOverRow, spot map[string]string) []string {
+	if cells == nil {
+		return []string{f + " has no cells in the manifest — run step 9's measure"}
 	}
-	cells := func(l string) []string {
-		parts := strings.Split(strings.Trim(strings.TrimSpace(l), "|"), "|")
-		for i := range parts {
-			parts[i] = strings.TrimSpace(parts[i])
+	var bad []string
+	byRow := map[int]map[string]any{}
+	eligible := 0
+	for _, c := range cells {
+		n, _ := c["row"].(float64)
+		row := int(n)
+		byRow[row] = c
+		if _, on := over[row]; !on {
+			eligible++
 		}
-		return parts
-	}
-	var bad, header []string
-	for i, l := range strings.Split(string(body), "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(l), "|") {
-			header = nil
-			continue
-		}
-		c := cells(l)
-		switch {
-		case header == nil:
-			if strings.HasPrefix(c[0], "element") {
-				header = c
-			} else {
-				header = []string{}
-			}
-			continue
-		case len(header) == 0 || strings.Trim(strings.Join(c, ""), "-: ") == "":
-			continue
-		}
-		kind := ""
-		if k := slices.Index(header, "kind"); k >= 0 && k < len(c) {
-			kind = c[k]
-		}
-		var na []string
-		known := false
-		for class, cols := range vrNAColumns {
-			if strings.HasPrefix(kind, class) {
-				na, known = cols, true
-			}
-		}
-		for j, col := range header {
-			v := ""
-			if j < len(c) {
-				v = c[j]
-			}
-			// `— / 14px` names one side missing: a measurement, not an n/a.
-			isNA := strings.HasPrefix(v, "n/a") || (strings.HasPrefix(v, "—") && !strings.Contains(v, "/"))
+		class, _ := c["class"].(string)
+		for _, col := range vrColumns {
+			v := c[col]
+			s, isStr := v.(string)
+			cell, _ := v.(map[string]any)
+			a, _ := cell["a"].(map[string]any)
+			b, _ := cell["b"].(map[string]any)
 			switch {
-			case v == "":
-				bad = append(bad, fmt.Sprintf("visual-verification.md:%d: %s.%s is empty", i+1, c[0], col))
-			case isNA && !strings.Contains(v, "no mockup source") && !(known && slices.Contains(na, col)):
-				bad = append(bad, fmt.Sprintf("visual-verification.md:%d: %s.%s reads %q — the column applies to `%s`", i+1, c[0], col, v, kind))
+			case v == nil || isStr && s == "" || !isStr && len(a) == 0 && len(b) == 0:
+				bad = append(bad, fmt.Sprintf("%s cells #%d %s is empty", f, row, col))
+			case isStr && !(strings.HasPrefix(s, "n/a — ") && slices.Contains(vrNAColumns[class], col)) &&
+				!(class == "unresolved" && strings.HasPrefix(s, "unresolved — ")):
+				bad = append(bad, fmt.Sprintf("%s cells #%d %s reads %q — the column applies to `%s`", f, row, col, s, class))
 			}
 		}
+	}
+	line, ok := spot[f]
+	if !ok {
+		return append(bad, f+" has no spot-check: line")
+	}
+	if line == vrSpotNone {
+		if eligible > 0 {
+			bad = append(bad, fmt.Sprintf("%s spot-check reads %q but %d rows are off the over list", f, line, eligible))
+		}
+		return bad
+	}
+	named := map[int]bool{}
+	for _, item := range strings.Split(line, "; ") {
+		mm := vrSpotItem.FindStringSubmatch(strings.TrimSpace(item))
+		if mm == nil {
+			bad = append(bad, fmt.Sprintf("%s spot-check item %q is not `#<row> <column> script <x> hand <y>`", f, strings.TrimSpace(item)))
+			continue
+		}
+		row, _ := strconv.Atoi(mm[1])
+		c, inCells := byRow[row]
+		_, onOver := over[row]
+		switch {
+		case !inCells:
+			bad = append(bad, fmt.Sprintf("%s spot-check #%d is no row of the manifest's cells", f, row))
+			continue
+		case onOver:
+			bad = append(bad, fmt.Sprintf("%s spot-check #%d is on the over list", f, row))
+			continue
+		}
+		cell, _ := c[mm[2]].(map[string]any)
+		b, _ := cell["b"].(map[string]any)
+		var figures []string
+		for _, k := range slices.Sorted(maps.Keys(b)) {
+			if v, ok := vvmFigure(b[k]); ok {
+				figures = append(figures, v)
+			}
+		}
+		if !slices.Contains(figures, mm[3]) {
+			bad = append(bad, fmt.Sprintf("%s spot-check #%d %s: script %s is none of the manifest's b figures (%s)", f, row, mm[2], mm[3], strings.Join(figures, ", ")))
+			continue
+		}
+		named[row] = true
+	}
+	if need := min(3, eligible); len(named) < need {
+		bad = append(bad, fmt.Sprintf("%s spot-check checks %d rows, needs %d", f, len(named), need))
 	}
 	return bad
 }

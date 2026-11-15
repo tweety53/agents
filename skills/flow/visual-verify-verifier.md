@@ -115,7 +115,7 @@ never an exit code the command did not return.
    sitting under the same `screenshots` root, rather than joining `screenshots` with a guessed
    filename: its exit 1 (zero matches) in the manifest blocks, indistinguishable from a view that
    never rendered, and its exit 2 (cannot answer) blocks the same way. **Read every capture** — no
-   script can do that — and state, per view, what was seen.
+   script can do that — and state, per view, `clean` or the defect seen.
    Each captured PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
    composed for its `per view, no frame composed: <view> sweeps:` line — `flow-guard check-verify-report`
    refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
@@ -428,41 +428,49 @@ never an exit code the command did not return.
       `flow-guard measure-visual-properties --props matrix`, which finds each image's app surface — a sheet's
       top edge on a scrim frame — lists every ink run inside it paired in order, and fills every
       column below for every paired element, each region clipped to its image; every element it
-      merges or misses is added by hand, and a row it does not pair
-      takes the per-element calls. That file is the one copy, overwritten every pass — never a second copy under another name.
-   2. **Fill every column for every row from the script's own output**, one call per element:
+      merges or misses is measured by hand with the per-element calls, and a departure that
+      shows goes on the frame's line with its cause. That file is the one copy, overwritten every pass — never a second copy under another name.
+   2. **Read the matrix `measure` filled — never transcribe it.** `measure` fills the 11
+      columns — kind, content, colour, size, position, stretch, alignment, border, fill, radius,
+      shadow — for every row of the frame's matrix into the pair's `cells` in the manifest.
+      `vvmColumnLeaves` (`<agents repo>/stats/internal/guard/visualverifypass_measure.go`) is canonical for
+      which leaves each column reads per row class. A row is measured by hand with the call of
+      its class:
 
-      | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |
-      |---|---|---|---|
-      | kind | the run's role (heading, figure, caption…) | the control's kind, per sweep 1 | rule / fill band |
-      | content | the transcription, per sweep 5 | `content` size and `content.colour` | — |
-      | colour | `ink.colour` | `fill.colour`, `border.colour`, `content.colour` | the run's `colour` |
-      | size | `ink.height` — the cap-height, the font-size stand-in — and `ink.width` | `box.width` × `box.height` | the run's `length` — a rule's thickness |
-      | position | `ink.left`, `ink.top` in the container crop | `gap` on all four sides; `box.left`/`box.top` | the run's `from` |
-      | stretch | `ink.left` and the container width minus `ink.left + ink.width` — the insets from each container edge | `gap.left` and `gap.right` to the image edge, or to the neighbour, and `box.width` against the container's | the run's extent on the crossing scan line |
-      | alignment | the two insets above, compared: equal is centred; for a line inside a boxed band's cell, its `offset`, `left` and `right` from the seam pairing | `content.padding`, all four sides | — |
-      | border | — | `border` per side and its colour | — |
-      | fill | — | `fill.colour` and `share` | the run's `colour` |
-      | radius | — | `radius` per corner | — |
-      | shadow | — | `shadow` per side | — |
+      | row class | hand call |
+      |---|---|
+      | text run | `--props ink`, the crop spanning the run's container's full width |
+      | control, fill band | `--props box,radius,border,fill,shadow,content,gap` |
+      | rule, missing, extra | the row's element obj in the matrix JSON; `--props runs` on the region crossing it |
 
-      The matrix table's header opens with `element` and names the columns above, and each row's
-      `kind` cell opens with the row's class — `text run`; `control`, `row` or `card`; `rule`,
-      `divider` or `fill band` — then its role, so `flow-guard check-verify-report` can read which columns
-      may be n/a for it.
-      Every cell holds the frame's number, the capture's and the `delta` — or n/a — `<why>`
-      where the column does not apply to the row's class (the dashes above). **A cell the pixels
-      cannot answer is measured from the mockup's source, never left n/a**: where the script
-      exits 1 on a region no widening resolved, or reads a side `clipped` (the element runs off
-      the image there), the frame's number is the value the mockup's source declares for that
-      element — the CSS of the HTML the frame was drawn from (`box-shadow`, `border-radius`,
-      `border`, a colour), found beside the mockups or cited by `design.md` — and the capture's
-      is the script's where its own image measures, else the value the app's source draws the
-      element with; the cell names its source. Only a frame with no source in the tree reads
-      n/a — `no mockup source`, with the region tried. A cell left empty, or a cell filled by
-      eye, is the sweep-name report again. The matrix rides `visual-verification.md` (step 11)
-      under the frame's entry, and the report's `matrix:` line counts its rows and its n/a
-      cells.
+      An `element.` leaf is in the full image's coordinates and `box.left`/`box.top` relative
+      to the row's padded matrix region, so a hand figure for one is measured in that frame of
+      reference, never the crop's.
+
+      Each cell holds the frame's figures, the capture's and their `delta`; n/a — `<why>` where
+      the column does not apply to the row's class (`vrNAColumns`, `<agents repo>/stats/internal/guard/verifyreport.go`); or `unresolved — <reason>`
+      on a row whose region no measurement resolved. Write no matrix
+      table: `visual-verification.md` (step 11) cites
+      `<changeRoot>/visual-verification/matrix/<frame id>.json` under the frame's entry. Read every composite, and every row's cells against it.
+      **Spot-check the script on every frame**: measure by hand, with the call of each row's class,
+      at least 3 rows of the frame's cells — every row when it has fewer — none of them on the
+      `over` list and at least one a `control` or `fill band` row where the frame has one, and
+      write the frame's `- <frame id> spot-check: #<row> <column> script <x> hand <y>; …` line,
+      `<x>` one of the cell's `b` figures as the manifest writes it — a number as written, a
+      colour as its hex — and `<y>` your own measurement of the same figure. A hand figure that
+      differs from the script's by more than step 10's length or colour tolerance goes on the
+      frame's line as a departure with cause `mismeasure`; the parent fixes it as a pipeline
+      defect in the measuring tool, which no re-run of this pass can fix. Where no cells row is
+      off the `over` list, the line reads exactly `- <frame id> spot-check: none — no row off
+      the over list`.
+      **A cell the pixels cannot answer is measured from the mockup's source, never left
+      unexplained**: where a row reads `unresolved` — the script exits 1 on a region no widening
+      resolved — or a leaf reads `clipped` (the element runs off the image there), the frame's
+      number is the value the mockup's source declares for that element — the CSS of the HTML
+      the frame was drawn from (`box-shadow`, `border-radius`, `border`, a colour), found beside
+      the mockups or cited by `design.md` — and the capture's is the script's where its own
+      image measures, else the value the app's source draws the element with; the row's
+      `over-tolerance:` item names its source.
    3. **Explain every row the matrix's `over` list names.** The manifest carries each composed
       frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or
       `unresolved`, or paired over the length or colour tolerance. The report's `- <frame id>
@@ -620,9 +628,9 @@ sampling skipped that instant is no departure.
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's path in `<changeRoot>/visual-verification/`, the frame id, its `diff=`
     ratio, what was seen, its
-    band pairing's unpaired and over-tolerance bands with their causes, its seam pairing's
-    unpaired seams and off-centre lines with theirs, and the
-    frame's element × property matrix from step 10. **Every evidence file the record cites is in
+    band and seam departures with their causes, and
+    `<changeRoot>/visual-verification/matrix/<frame id>.json`, the frame's element × property
+    matrix, cited in place of a table. **Every evidence file the record cites is in
     the repository when the record is written.** A cited file the change has not itself placed in
     the repository — a step-9 capture — is copied into
     `<changeRoot>/visual-verification/evidence/` first, and the entry cites
@@ -654,14 +662,18 @@ Run it on your own report before handing back: an exit 1 names the steps still o
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
 **A departure found never shortens the pass:** every step still runs to its end in the same
 dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it.
-**Step 10 is `done` only when every frame's matrix and sweeps are**: a row for every element the
-frame draws, every cell filled as step 10 states, and every sweep on each `sweeps:` and `added
-sweep` line `done` or `n/a — <why it does not apply>` — a sweep or a cell left for time, context
-or a measurement the pixels could not give is step 10 undone.
-Each composed frame carries its own `- <frame id> matrix:` line, never one line for a range of frames: `flow-guard check-verify-report` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none.
-It refuses one the same way for a missing `bands:`, `seams:` or `over-tolerance:` line, an empty
-matrix cell, an n/a cell in a column that applies to its row's class and not reading
-`no mockup source`, and a sweep item reading neither `done` nor n/a — `<why it does not apply>`.
+**Step 10 is `done` only when every frame's matrix and sweeps are**: every composite read, every
+`over` row given its cause, every element the matrix merges or misses measured by hand, the
+frame's spot-check written, and every sweep on each `sweeps:` and `added sweep` line `done` or
+n/a — `<why it does not apply>` — a sweep or a spot-check left for time, context or a
+measurement the pixels could not give is step 10 undone.
+Each composed frame carries its own `- <frame id> spot-check:` line, never one line for a range of frames: `flow-guard check-verify-report` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none.
+It refuses one the same way for a missing `over-tolerance:` line, a manifest cell left empty or
+n/a in a column that applies to its row's class, a spot-check row short, off the cells or on the
+`over` list, a `script` figure its cell does not carry, and a sweep item reading neither `done`
+nor n/a — `<why it does not apply>`.
+The `sweeps:` lines and the per-view `- <view>: <PNG>` lines are status lines: `done`,
+n/a — `<why it does not apply>`, `clean` or the defect, never a narration of what was read.
 
 **Hand back the `## Verdict` alone.** Write the report file as a `## Verdict` block with the full
 `## Report` under it, and end your turn with the `## Verdict` block alone — the parent reads nothing
@@ -693,19 +705,16 @@ names, each then on a line of its own with its cause or attribution beside it.
 - spec reach: exit <n>
 - identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
 - spec: <absolute spec path>
-- <view>: <absolute PNG path> — <what was seen, including any defect>
+- <view>: <absolute PNG path> — clean | <the defect seen>
 - measure: exit <n> — <absolute manifest path>
 - mockups: <not declared | no map for <spec> | exit <n>>
-- <frame id>: <absolute composite path> diff=<ratio> — <match, or the departure seen>
-- <frame id> bands: <paired>/<frame's band count> paired, <missing> missing, <extra> extra — <every missing and extra band by `top` and `height`, and every pair over the tolerance by its delta, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
-- <frame id> seams: <paired>/<frame's seam count> paired, <missing> missing, <extra> extra, <lines paired> lines — <every missing and extra seam by its band's `top` and its `left`, every seam pair over the tolerance by its delta, every cell whose line count differs, and every line whose `offset` delta is over the length tolerance with its `left` and `right` deltas, each with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
-- <frame id> sweeps: text | order | reach | derived | rows | ink — <each `done`, or `n/a — <why it does not apply>`; `rows` names each bounded row and its four gaps per image; `ink` names every non-text run the frame draws and its counterpart in the capture, or the one absent>
+- <frame id>: <absolute composite path> diff=<ratio> — <match, or each departure seen — a band, a seam or a spot-check `mismeasure` included — with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
+- <frame id> sweeps: text | order | reach | derived | rows | ink — <each `done`, or `n/a — <why it does not apply>`>
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's
   outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
-- per view, no frame composed: <view id> bands | seams | matrix — n/a — no frame
 - added sweep <name> (sweeps-<n>.md): <`done`, or `n/a — <why it does not apply>` — every view and frame it read, and each departure it found>
-- <frame id> matrix: <n> elements × 11 columns, <k> n/a — <each n/a cell as `<element>.<column>: <why>`; the matrix itself is in visual-verification.md>
+- <frame id> spot-check: #<row> <column> script <x> hand <y>; … <at least 3 rows off the `over` list, or every one when fewer, one a `control` or `fill band` row where the frame has one>
 - <frame id> over-tolerance: <n> — #<row>: <cause>; … <every row the manifest's `over` list names for the frame, each with one cause from step 10's closed list>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named

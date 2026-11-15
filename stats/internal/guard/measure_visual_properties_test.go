@@ -644,6 +644,45 @@ func TestMeasureVisualPropertiesMatrix(t *testing.T) {
 	}
 }
 
+// Decision matrix-row-class: every `--props matrix` row carries its class —
+// a text/control element is a `control` only when its box columns resolve,
+// and an unpaired or unresolved row is classed by that.
+func TestMeasureVisualPropertiesMatrixClass(t *testing.T) {
+	t.Parallel()
+	page := func(only func(x, y int) bool) func(x, y int) color.RGBA {
+		return func(x, y int) color.RGBA {
+			switch {
+			case x >= 20 && x < 80 && y >= 20 && y < 30:
+				return color.RGBA{0x22, 0x22, 0x22, 0xff} // a solid block: its box resolves
+			case (x >= 20 && x <= 22 || x >= 40 && x <= 42) && y >= 50 && y < 60:
+				return color.RGBA{0x22, 0x22, 0x22, 0xff} // two strokes: the centre column misses both
+			case x >= 20 && x <= 180 && y >= 80 && y <= 120:
+				if x == 20 || x == 180 || y == 80 || y == 120 {
+					return color.RGBA{0x88, 0x88, 0x88, 0xff}
+				}
+				return color.RGBA{0xf0, 0xf0, 0xf0, 0xff}
+			case x >= 10 && x < 190 && y == 150:
+				return color.RGBA{0xcc, 0xcc, 0xcc, 0xff}
+			case (x >= 10 && x <= 90 || x >= 110 && x < 190) && y >= 180 && y < 200:
+				return color.RGBA{0x44, 0x44, 0x44, 0xff} // a band split at its centre column: unresolved
+			case only(x, y):
+				return color.RGBA{0x22, 0x22, 0x22, 0xff}
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		}
+	}
+	a := mvpPNG(t, 200, 400, page(func(x, y int) bool { return x >= 20 && x <= 60 && y >= 230 && y < 240 }))
+	b := mvpPNG(t, 200, 400, page(func(x, y int) bool { return x >= 20 && x <= 60 && y >= 300 && y < 330 }))
+	var got []string
+	for _, row := range mvpList(mvpDig(mvpJSON(t, "", a, b, "--scale", "1", "--props", "matrix"), "matrix")) {
+		got = append(got, mvpSp(mvpDig(row, "class")))
+	}
+	want := []string{"control", "text run", "fill band", "rule", "unresolved", "missing", "extra"}
+	if strings.Join(got, ", ") != strings.Join(want, ", ") {
+		t.Fatalf("classes %q, want %q", got, want)
+	}
+}
+
 // kan-1017 (sr13): a band's colour is its darkest ink holding at least 2% of
 // the band, not its modal colour, and `share` is the top two colours' share.
 func TestMeasureVisualPropertiesBandColourDarkestInk(t *testing.T) {

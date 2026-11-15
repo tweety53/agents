@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -38,6 +39,7 @@ type vvmPair struct {
 	Bands      []any             `json:"bands"`
 	Seams      []any             `json:"seams"`
 	Over       []any             `json:"over"`
+	Cells      []any             `json:"cells"`
 }
 
 type vvmManifestOut struct {
@@ -216,6 +218,7 @@ func (v *vvp) measure(args []string) {
 				r["figures"] = vvmFigures(mx.Matrix, r)
 				p.Over = append(p.Over, r)
 			}
+			p.Cells = vvmCells(mx.Matrix)
 		}
 		m.Pairs = append(m.Pairs, p)
 	}
@@ -315,6 +318,152 @@ func vvmFigures(matrix []map[string]any, over map[string]any) map[string]map[str
 		}
 	}
 	return figures
+}
+
+// vvmBoxLeaves is the leaves each column reads for a row measured with the box
+// columns, a `control` or a `fill band`; vvmElementLeaves those a row read from its element
+// obj alone reads — a `rule`, whose `runs` stay in the matrix JSON, and a
+// `missing` or `extra` row. A leaf names itself and every leaf under it.
+var (
+	vvmBoxLeaves = map[string][]string{
+		"kind":      {"element.kind"},
+		"content":   {"content.width", "content.height", "content.colour"},
+		"colour":    {"fill.colour", "border.colour", "content.colour"},
+		"size":      {"box.width", "box.height"},
+		"position":  {"gap", "box.left", "box.top"},
+		"stretch":   {"gap.left", "gap.right", "box.width"},
+		"alignment": {"content.padding"},
+		"border":    {"border"},
+		"fill":      {"fill"},
+		"radius":    {"radius"},
+		"shadow":    {"shadow"},
+	}
+	vvmElementLeaves = map[string][]string{
+		"kind":      {"element.kind"},
+		"colour":    {"element.colour"},
+		"size":      {"element.height", "element.width"},
+		"position":  {"element.left", "element.top", "element.gap"},
+		"stretch":   {"element.left", "element.right"},
+		"alignment": {"element.left", "element.right"},
+		"fill":      {"element.colour"},
+	}
+	// vvmColumnLeaves is, per matrix row class, the leaves each column reads —
+	// the one source of that mapping; skills/flow/visual-verify-verifier.md
+	// step 10 cites it by name and keeps no copy. An `element.` leaf comes from
+	// the row's own element obj, in the image's coordinates; any other from the
+	// side's `measured`, `box.left`/`box.top` relative to the row's padded
+	// matrix region (decisions cells-in-measure, text-stretch-from-element-insets).
+	// A column absent for a class reads no leaf, and vrNAColumns
+	// (verifyreport.go) marks it n/a.
+	vvmColumnLeaves = map[string]map[string][]string{
+		"text run": {
+			"kind":      {"element.kind"},
+			"colour":    {"ink.colour"},
+			"size":      {"ink.height", "ink.width"},
+			"position":  {"element.left", "element.top", "element.gap"},
+			"stretch":   {"element.left", "element.right"},
+			"alignment": {"element.left", "element.right"},
+		},
+		"control":    vvmBoxLeaves,
+		"fill band":  vvmBoxLeaves,
+		"rule":       vvmElementLeaves,
+		"missing":    vvmElementLeaves,
+		"extra":      vvmElementLeaves,
+		"unresolved": vvmElementLeaves,
+	}
+)
+
+// vvmCells is a composed frame's `cells` (decision cells-in-measure): one
+// entry per `--props matrix` row, `row` its 1-based index and `class` its
+// class, and each of vrColumns either `n/a — <why>` where vrNAColumns lists
+// the column for the class, `unresolved — <reason>` on an unresolved row's
+// every column but `kind`, or a cell from vvmCell.
+func vvmCells(matrix []map[string]any) []any {
+	cells := []any{}
+	for i, row := range matrix {
+		class, _ := row["class"].(string)
+		reason, unresolved := row["unresolved"].(string)
+		entry := map[string]any{"row": i + 1, "class": class}
+		for _, col := range vrColumns {
+			switch {
+			case slices.Contains(vrNAColumns[class], col):
+				why := "does not apply to a " + class + " row"
+				if class == "text run" && col == "content" {
+					why = "transcribed by sweep 5" // decision content-cell-for-text
+				}
+				entry[col] = "n/a — " + why
+			case unresolved && col != "kind":
+				entry[col] = "unresolved — " + reason
+			default:
+				entry[col] = vvmCell(row, vvmColumnLeaves[class][col])
+			}
+		}
+		cells = append(cells, entry)
+	}
+	return cells
+}
+
+// vvmCell is one column's `{a, b, delta}`: per side, each leaf the column
+// reads, keyed by its name; per leaf, the delta the row already carries —
+// `measured.delta`'s, or for an `element.` leaf the pairing's own (`gap`,
+// `height`, `colour`). A side the row lacks, a missing or extra row's, is
+// null, and so is its delta.
+func vvmCell(row map[string]any, leaves []string) map[string]any {
+	measured, _ := row["measured"].(map[string]any)
+	side := func(s string) map[string]any {
+		elem, ok := row[s].(map[string]any)
+		if !ok {
+			return nil
+		}
+		flat := map[string]any{}
+		vvmFlatten(measured[s], "", flat)
+		out := map[string]any{}
+		for _, l := range leaves {
+			if k, ok := strings.CutPrefix(l, "element."); ok {
+				if v, ok := elem[k]; ok {
+					out[l] = v
+				}
+				continue
+			}
+			for k, v := range flat {
+				if k == l || strings.HasPrefix(k, l+".") {
+					out[k] = v
+				}
+			}
+		}
+		return out
+	}
+	a, b := side("a"), side("b")
+	if a == nil || b == nil {
+		return map[string]any{"a": a, "b": b, "delta": nil}
+	}
+	md, _ := measured["delta"].(map[string]any)
+	delta := map[string]any{}
+	for l := range a {
+		if k, ok := strings.CutPrefix(l, "element."); ok {
+			if d, ok := row[k].(map[string]any); ok {
+				delta[l] = d
+			}
+		} else if d, ok := md[l]; ok {
+			delta[l] = d
+		}
+	}
+	return map[string]any{"a": a, "b": b, "delta": delta}
+}
+
+// vvmFlatten writes every non-object leaf under v into out, keyed by its dotted path.
+func vvmFlatten(v any, prefix string, out map[string]any) {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return
+	}
+	for k, sub := range m {
+		if _, nested := sub.(map[string]any); nested {
+			vvmFlatten(sub, prefix+k+".", out)
+		} else {
+			out[prefix+k] = sub
+		}
+	}
 }
 
 // vvmFigure formats a number shortest-exact and keeps a string as written.
