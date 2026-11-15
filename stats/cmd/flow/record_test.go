@@ -1147,13 +1147,15 @@ func TestDispatchEndCauseRejectedWithoutBlocked(t *testing.T) {
 // meaningful only beside a completed outcome: with aborted, timed-out or no
 // outcome it is refused before the store is contacted (KAN-1122).
 func TestDispatchEndClosesLoopRefusedOffCompleted(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, outcome := range []string{"aborted", "timed-out", ""} {
 		t.Run("outcome="+outcome, func(t *testing.T) {
 			outcomeArgs := []string{}
 			if outcome != "" {
 				outcomeArgs = append(outcomeArgs, "-outcome", outcome)
 			}
-			code, _, stderr, contacted, _ := causeEndRun(t, append(outcomeArgs, "-closes-loop")...)
+			code, _, stderr, contacted, _ := causeEndRun(t, env, append(outcomeArgs, "-closes-loop")...)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -7002,10 +7004,11 @@ func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
 // the flag reaches the daemon as closesLoop true, and an end without it
 // sends no closesLoop key (KAN-1122).
 func TestDispatchEndClosesLoopCarriedOnWire(t *testing.T) {
+	t.Parallel()
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
 		repo := recordRepo(t, "kan-1122")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			var err error
@@ -7020,7 +7023,7 @@ func TestDispatchEndClosesLoopCarriedOnWire(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		args := append([]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-1122", "-key", "visual-verify-fix-3-gymie", "-session-token", "mf-k1122", "-outcome", "completed"}, extra...)
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
 		var sent map[string]any
