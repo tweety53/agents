@@ -191,7 +191,7 @@ func runSuiteRecord(ctx context.Context, args []string, getenv func(string) stri
 
 // copyDecodingGoTestJSON copies the child's stdout to out line by line, with
 // no line-length limit (decision json-stream-line-detection), as go test
-// prints without -v: a go test -json event with no Test writes its Output at
+// prints without -v (a failing test's held log keeps test2json's === lines): a go test -json event with no Test writes its Output at
 // once; a test's Output is held until its terminal event and written only
 // when that is fail -- or at EOF, for a test that never ended. Every event is
 // folded into the per-test costs; every other line -- a last one without a
