@@ -243,13 +243,20 @@ import (
 //      `captures`, `identical` (the group lines), `steps` (resolve, identical
 //      and compose, each {exit, stderr}) and `pairs[]` of {spec, frame, capture,
 //      mockup, composite, diff, exits{resolve, identical, compose, bands,
-//      matrix}, stderr, bands_file, matrix_file, bands, seams, over} —
+//      matrix}, stderr, bands_file, matrix_file, bands, seams, over, cells} —
 //      `bands` and `seams` the entries flagged by mvpOverLength and
 //      mvpOverColour (measurevisualproperties.go) or missing/extra, `over`
 //      the matrix's summary.over, each row carrying `figures`, `{<key>: {a,
 //      b}}` per over key other than `unresolved`, read from the matrix row it
-//      indexes (kan-1057 self-review, F20); an exit is null for a step not
-//      run. `spec` is the resolved spec path the pair was measured from. A
+//      indexes (kan-1057 self-review, F20); `cells` step 10's matrix filled
+//      from the matrix JSON (decision cells-in-measure), one `{row, class,
+//      <column>…}` entry per matrix row, each of the 11 columns `n/a — <why>`
+//      where vrNAColumns (verifyreport.go) lists it for the class,
+//      `unresolved — <reason>` on an unresolved row, else `{a, b, delta}` —
+//      per side each leaf the column reads, null for the side a missing or
+//      extra row lacks, and per leaf the delta the matrix row carries
+//      (vvmCells, visualverifypass_measure.go), null when the matrix did not
+//      parse; an exit is null for a step not run. `spec` is the resolved spec path the pair was measured from. A
 //      call merges into an existing manifest of its key, replacing only its
 //      own spec's pairs (and any pair of a frame it measured): `captures` and
 //      `identical` are unioned, existing lines first, and `steps` are this
