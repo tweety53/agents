@@ -27,11 +27,13 @@ func writePlan(t *testing.T, dir, changesLeaf, change, body string) {
 }
 
 func TestTasksTickWritesFile(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n\n  - [ ] **Step 1: a**\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
@@ -48,11 +50,13 @@ func TestTasksTickWritesFile(t *testing.T) {
 }
 
 func TestTasksTickAlreadyTickedExitsNonZero(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	writePlan(t, dir, "spectre", "c", "- [x] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, env.get, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stderr = %s", stderr.String())
 	}
@@ -62,47 +66,56 @@ func TestTasksTickAlreadyTickedExitsNonZero(t *testing.T) {
 }
 
 func TestTasksTickTaskNotFoundExitsNonZero(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "9"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "9"}, env.get, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stderr = %s", stderr.String())
 	}
 }
 
 func TestTasksTickInvalidIDExitsTwo(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1.1"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1.1"}, env.get, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("code = %d, want 2; stderr = %s", code, stderr.String())
 	}
 }
 
 func TestTasksTickMissingPlanExitsNonZero(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, env.get, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stderr = %s", stderr.String())
 	}
 }
 
 func TestTasksTickBadArgCountExitsTwo(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c"}, env.get, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("code = %d, want 2; stderr = %s", code, stderr.String())
 	}
 }
 
 func TestPlanPathRejectsContainmentEscapes(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	for _, change := range []string{"../escape", ".hidden", "-flag", "_underscore", ""} {
 		if _, err := planPath(dir, change); err == nil {
@@ -112,6 +125,7 @@ func TestPlanPathRejectsContainmentEscapes(t *testing.T) {
 }
 
 func TestPlanPathAcceptsValidName(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	got, err := planPath(dir, "valid-name-123")
 	if err != nil {
@@ -124,10 +138,12 @@ func TestPlanPathAcceptsValidName(t *testing.T) {
 }
 
 func TestTasksTickRejectsContainmentEscapesEndToEnd(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	for _, change := range []string{"../escape", ".hidden", "-flag", "_underscore"} {
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), []string{"tasks", "tick", "-C", dir, change, "1"}, os.Getenv, nil, &stdout, &stderr)
+		code := run(context.Background(), []string{"tasks", "tick", "-C", dir, change, "1"}, env.get, nil, &stdout, &stderr)
 		if code != 2 {
 			t.Errorf("change %q: code = %d, want 2; stderr = %s", change, code, stderr.String())
 		}
@@ -135,6 +151,7 @@ func TestTasksTickRejectsContainmentEscapesEndToEnd(t *testing.T) {
 }
 
 func TestSpecRootLeafPrefersSpectre(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "spectre", "changes"), 0o755); err != nil {
 		t.Fatal(err)
@@ -148,6 +165,7 @@ func TestSpecRootLeafPrefersSpectre(t *testing.T) {
 }
 
 func TestSpecRootLeafFallsBackToOpenspec(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "openspec", "changes"), 0o755); err != nil {
 		t.Fatal(err)
@@ -158,6 +176,7 @@ func TestSpecRootLeafFallsBackToOpenspec(t *testing.T) {
 }
 
 func TestSpecRootLeafDefaultsToSpectreWhenNeitherExists(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if got := specRootLeaf(dir); got != "spectre" {
 		t.Errorf("specRootLeaf = %q, want spectre", got)
@@ -165,6 +184,7 @@ func TestSpecRootLeafDefaultsToSpectreWhenNeitherExists(t *testing.T) {
 }
 
 func TestSpecRootLeafIgnoresFileAtSpectrePath(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "spectre"), 0o755); err != nil {
 		t.Fatal(err)
@@ -185,25 +205,30 @@ func TestSpecRootLeafIgnoresFileAtSpectrePath(t *testing.T) {
 }
 
 func TestTasksTickHelpExitsZero(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-h"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-h"}, env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, want 0; stderr = %s", code, stderr.String())
 	}
 }
 
 func TestTasksTickExtraPositionalArgExitsTwo(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1", "bogus-extra-arg"}, os.Getenv, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1", "bogus-extra-arg"}, env.get, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("code = %d, want 2; stderr = %s", code, stderr.String())
 	}
 }
 
 func TestPlanPathRejectsTrailingCharsAfterValidPrefix(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	for _, change := range []string{"valid/x", "valid/../../etc/passwd"} {
 		if _, err := planPath(dir, change); err == nil {
@@ -219,8 +244,9 @@ func TestPlanPathRejectsTrailingCharsAfterValidPrefix(t *testing.T) {
 // stdout.
 // smoke: core — flow tasks count records the plan's size
 func TestTasksCountRecordsThePlanTaskCount(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	writePlan(t, repo, "spectre", "c",
 		"- [ ] 1. First\n\n  - [ ] **Step 1: a**\n\n- [ ] 2. Second\n"+
 			"```text\n- [ ] 9. Fenced example is documentation\n```\n")
@@ -243,7 +269,7 @@ func TestTasksCountRecordsThePlanTaskCount(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "c"},
-		os.Getenv, nil, &stdout, &stderr)
+		env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -270,8 +296,9 @@ func TestTasksCountRecordsThePlanTaskCount(t *testing.T) {
 // (KAN-1067). A Correction line shown inside a fenced example is
 // documentation, never counted, the same fence rule the task count keeps.
 func TestTasksCountPostsCorrections(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	writePlan(t, repo, "spectre", "c",
 		"- [ ] 1. First\n\n  Correction (2026-10-29): the path was wrong.\n\n"+
 			"- [ ] 2. Second\n\nCorrection (2026-10-30): the test name was wrong.\n\n"+
@@ -288,7 +315,7 @@ func TestTasksCountPostsCorrections(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "c"},
-		os.Getenv, nil, &stdout, &stderr)
+		env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -307,14 +334,15 @@ func TestTasksCountPostsCorrections(t *testing.T) {
 // record` rule -- a plan-counting stage must not fail because flowd is
 // down.
 func TestTasksCountUnreachableStoreExitsZero(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	writePlan(t, repo, "spectre", "c", "- [ ] 1. First\n- [ ] 2. Second\n")
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", deadPortURL(t), "-timeout", "500ms", "-C", repo, "c"},
-		os.Getenv, nil, &stdout, &stderr)
+		env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -327,13 +355,14 @@ func TestTasksCountUnreachableStoreExitsZero(t *testing.T) {
 // containment allowlist is a caller mistake refused before the file
 // system or the store is touched, exactly as tasks tick refuses it.
 func TestTasksCountBadChangeNameExitsTwo(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-C", repo, "../escape"},
-		os.Getenv, nil, &stdout, &stderr)
+		env.get, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("tasks count exit = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -342,8 +371,9 @@ func TestTasksCountBadChangeNameExitsTwo(t *testing.T) {
 // TestTasksCountTakesFlagsAfterTheChangeName: `tasks count <name> -C <dir>`
 // parses the trailing flag rather than refusing it as a second argument.
 func TestTasksCountTakesFlagsAfterTheChangeName(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	writePlan(t, repo, "spectre", "c", "- [ ] 1. First\n\n- [ ] 2. Second\n")
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -355,7 +385,7 @@ func TestTasksCountTakesFlagsAfterTheChangeName(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "c", "-C", repo},
-		os.Getenv, nil, &stdout, &stderr)
+		env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -369,6 +399,8 @@ func TestTasksCountTakesFlagsAfterTheChangeName(t *testing.T) {
 // deduped, never another task's identical line nor a fenced one, and leaves
 // every other byte as it was.
 func TestTasksFilesAddWidensOneTask(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	const plan = "# p\n\n" +
 		"- [ ] 1. One\n  - [ ] **Step 1: a**\n\n```markdown\n**Files:** `fenced.go`\n```\n\n**Files:** `x.go`\n**Commit:** one\n\n" +
 		"- [ ] 2. Two\n\n**Files:** none — no code\n\n" +
@@ -378,7 +410,7 @@ func TestTasksFilesAddWidensOneTask(t *testing.T) {
 	path := filepath.Join(dir, "spectre", "changes", "c", "tasks.md")
 	files := func(args ...string) int {
 		var stdout, stderr bytes.Buffer
-		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), os.Getenv, nil, &stdout, &stderr)
+		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), env.get, nil, &stdout, &stderr)
 	}
 	read := func() string {
 		b, err := os.ReadFile(path)
@@ -410,6 +442,8 @@ func TestTasksFilesAddWidensOneTask(t *testing.T) {
 }
 
 func TestTasksFilesRemoveNarrowsOneTask(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	const plan = "# p\n\n" +
 		"- [ ] 1. One\n  - [ ] **Step 1: a**\n\n```markdown\n**Files:** `x.go`, `a.go`, `b.go`\n```\n\n**Files:** `x.go`, `a.go`, `b.go`\n**Commit:** one\n\n" +
 		"- [ ] 3. Three\n\n**Files:** `x.go`, `a.go`, `b.go`\n"
@@ -418,7 +452,7 @@ func TestTasksFilesRemoveNarrowsOneTask(t *testing.T) {
 	path := filepath.Join(dir, "spectre", "changes", "c", "tasks.md")
 	files := func(args ...string) int {
 		var stdout, stderr bytes.Buffer
-		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), os.Getenv, nil, &stdout, &stderr)
+		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), env.get, nil, &stdout, &stderr)
 	}
 	read := func() string {
 		b, err := os.ReadFile(path)
@@ -455,6 +489,7 @@ func TestTasksFilesRemoveNarrowsOneTask(t *testing.T) {
 // TestSpecRootLeafFrozenOpenspecIsSpectre is the cmd twin of the guard's
 // TestSpecRootFrozenOpenspecIsSpectre (kan-1086 self-review, F5).
 func TestSpecRootLeafFrozenOpenspecIsSpectre(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, want string
 		trees      []string

@@ -16,6 +16,8 @@ import (
 )
 
 func TestPromptTuningRenderWritesIndex(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 	c := prompttuning.Case{ID: "x-1", Type: "implementer", Scope: "generic", Target: "skills/flow/implement.md"}
 	data, err := json.Marshal(c)
@@ -31,7 +33,7 @@ func TestPromptTuningRenderWritesIndex(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), []string{"prompt-tuning", "render", dir}, os.Getenv, nil, &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), []string{"prompt-tuning", "render", dir}, env.get, nil, &stdout, &stderr); code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
 	if stdout.Len() != 0 {
@@ -54,14 +56,14 @@ func TestPromptTuningRenderWritesIndex(t *testing.T) {
 	}
 
 	stderr.Reset()
-	if code := run(context.Background(), []string{"prompt-tuning", "render"}, os.Getenv, nil, &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"prompt-tuning", "render"}, env.get, nil, &stdout, &stderr); code != 2 {
 		t.Errorf("missing argument: code = %d, want 2", code)
 	}
-	if code := run(context.Background(), []string{"prompt-tuning", "rendr", dir}, os.Getenv, nil, &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"prompt-tuning", "rendr", dir}, env.get, nil, &stdout, &stderr); code != 2 {
 		t.Errorf("unknown subcommand: code = %d, want 2", code)
 	}
 	stderr.Reset()
-	if code := run(context.Background(), []string{"prompt-tuning", "render", filepath.Join(dir, "absent")}, os.Getenv, nil, &stdout, &stderr); code != 1 {
+	if code := run(context.Background(), []string{"prompt-tuning", "render", filepath.Join(dir, "absent")}, env.get, nil, &stdout, &stderr); code != 1 {
 		t.Errorf("absent folder: code = %d, want 1", code)
 	}
 }
@@ -105,6 +107,8 @@ func writeCase(t *testing.T, c prompttuning.Case) string {
 // per applied case, its area from prompt-area-map or, off the map, from
 // the case's type.
 func TestPromptTuningRecord(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	srv, rows := promptChangeSink(t)
 	reviewer := writeCase(t, prompttuning.Case{ID: "kan-1-x-1", Type: "reviewer", Scope: "generic",
 		Target: "skills/flow/test-sanity-reviewer-prompt.md", DefectClass: "unasserted branch"})
@@ -114,7 +118,7 @@ func TestPromptTuningRecord(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	for _, dir := range []string{reviewer, impl} {
 		if code := run(context.Background(), []string{"prompt-tuning", "record", dir, "-sha", "abc123",
-			"-at", "2026-10-27T10:00:00Z", "-addr", srv.URL}, os.Getenv, nil, &stdout, &stderr); code != 0 {
+			"-at", "2026-10-27T10:00:00Z", "-addr", srv.URL}, env.get, nil, &stdout, &stderr); code != 0 {
 			t.Fatalf("record %s: code %d, stderr %s", dir, code, stderr.String())
 		}
 	}
@@ -134,7 +138,7 @@ func TestPromptTuningRecord(t *testing.T) {
 		t.Errorf("implementer row = %v, want area impl, no slot", r)
 	}
 
-	if code := run(context.Background(), []string{"prompt-tuning", "record", reviewer, "-addr", srv.URL}, os.Getenv, nil, &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"prompt-tuning", "record", reviewer, "-addr", srv.URL}, env.get, nil, &stdout, &stderr); code != 2 {
 		t.Errorf("missing -sha: code %d, want 2", code)
 	}
 
@@ -157,7 +161,7 @@ func TestPromptTuningRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code := run(context.Background(), []string{"prompt-tuning", "record", caseDir, "-sha", strings.TrimSpace(string(head)), "-addr", srv.URL}, os.Getenv, nil, &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), []string{"prompt-tuning", "record", caseDir, "-sha", strings.TrimSpace(string(head)), "-addr", srv.URL}, env.get, nil, &stdout, &stderr); code != 0 {
 		t.Fatalf("record without -at: code %d, stderr %s", code, stderr.String())
 	}
 	if got := (*rows)[len(*rows)-1]["at"]; got != "2026-10-20T08:30:00Z" {
@@ -169,6 +173,8 @@ func TestPromptTuningRecord(t *testing.T) {
 // (commit, mapped file), keyed <sha>:<target>, with the commit time and
 // subject; an unmapped file yields none and -since drops older commits.
 func TestPromptTuningImport(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	repo := gitRepo(t)
 	git := func(env []string, args ...string) string {
 		t.Helper()
@@ -204,7 +210,7 @@ func TestPromptTuningImport(t *testing.T) {
 
 	srv, rows := promptChangeSink(t)
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), []string{"prompt-tuning", "import", "-C", repo, "-addr", srv.URL}, os.Getenv, nil, &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), []string{"prompt-tuning", "import", "-C", repo, "-addr", srv.URL}, env.get, nil, &stdout, &stderr); code != 0 {
 		t.Fatalf("import: code %d, stderr %s", code, stderr.String())
 	}
 	if got := strings.TrimSpace(stdout.String()); got != "imported: 4" {
@@ -228,7 +234,7 @@ func TestPromptTuningImport(t *testing.T) {
 
 	*rows = nil
 	stdout.Reset()
-	if code := run(context.Background(), []string{"prompt-tuning", "import", "-C", repo, "-since", "2026-08-15", "-addr", srv.URL}, os.Getenv, nil, &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), []string{"prompt-tuning", "import", "-C", repo, "-since", "2026-08-15", "-addr", srv.URL}, env.get, nil, &stdout, &stderr); code != 0 {
 		t.Fatalf("import -since: code %d, stderr %s", code, stderr.String())
 	}
 	if len(*rows) != 3 || strings.TrimSpace(stdout.String()) != "imported: 3" {

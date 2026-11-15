@@ -78,16 +78,6 @@ func newTestEnv(t *testing.T) testEnv {
 	return testEnv{"FLOW_STATE_DIR": t.TempDir()}
 }
 
-// isolatedStateRoot points FLOW_STATE_DIR at a fresh temp directory for
-// the duration of the test, so a test never touches the real
-// /Users/tweety53/Agents/flow/state tree.
-func isolatedStateRoot(t *testing.T) string {
-	t.Helper()
-	root := t.TempDir()
-	t.Setenv("FLOW_STATE_DIR", root)
-	return root
-}
-
 func deadPortAddr(t *testing.T) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

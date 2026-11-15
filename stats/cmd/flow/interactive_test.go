@@ -21,6 +21,8 @@ import (
 // rebased HEAD, and pushes, marking flow.landing-routes around the push.
 func TestInteractiveLand(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	type post struct {
 		path string
 		body map[string]any
@@ -33,7 +35,6 @@ func TestInteractiveLand(t *testing.T) {
 	}
 	newFixture := func(t *testing.T) fixture {
 		t.Helper()
-		isolatedStateRoot(t)
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -96,7 +97,7 @@ func TestInteractiveLand(t *testing.T) {
 			extra = []string{"-change", "kan-1-x", "-n", "3", "-harness", "claude-code", "-session-token", "fi-k1-20261109T100000Z"}
 		}
 		var o, e bytes.Buffer
-		code := run(context.Background(), append(args, extra...), os.Getenv, strings.NewReader(""), &o, &e)
+		code := run(context.Background(), append(args, extra...), env.get, strings.NewReader(""), &o, &e)
 		return code, o.String(), e.String()
 	}
 	originMain := func(fx fixture) string { return fx.git(fx.origin, "rev-parse", "main") }
@@ -212,7 +213,7 @@ func TestInteractiveLand(t *testing.T) {
 			}
 		}
 		var o, e bytes.Buffer
-		if code := run(context.Background(), []string{"interactive"}, os.Getenv, strings.NewReader(""), &o, &e); code != 2 {
+		if code := run(context.Background(), []string{"interactive"}, env.get, strings.NewReader(""), &o, &e); code != 2 {
 			t.Errorf("no verb: exit=%d, want 2", code)
 		}
 	})

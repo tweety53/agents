@@ -12,7 +12,7 @@ import (
 
 // decisionRun drives `flow decision <args>` through run, the way the CLI
 // dispatches it, with body written to a decision.json when non-empty.
-func decisionRun(t *testing.T, body string, args ...string) (int, string, string) {
+func decisionRun(t *testing.T, body string, env testEnv, args ...string) (int, string, string) {
 	t.Helper()
 	full := []string{"decision"}
 	for _, a := range args {
@@ -26,7 +26,7 @@ func decisionRun(t *testing.T, body string, args ...string) (int, string, string
 		full = append(full, a)
 	}
 	var out, errb bytes.Buffer
-	rc := run(context.Background(), full, os.Getenv, strings.NewReader(""), &out, &errb)
+	rc := run(context.Background(), full, env.get, strings.NewReader(""), &out, &errb)
 	return rc, out.String(), errb.String()
 }
 
@@ -39,6 +39,8 @@ func decisionRun(t *testing.T, body string, args ...string) (int, string, string
 // experimental slot was skipped for the bundle cap.
 // smoke: core — the Decision block every run prints
 func TestDecisionRenderGolden(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	inputs := func(tasks, files int, red string) string {
 		return `"inputs":{"tasks":` + strconv.Itoa(tasks) + `,"files":` + strconv.Itoa(files) + `,"repos":1,"migration":false,"spec":false,"red":` + red + `,"unverified":` + red + `}`
 	}
@@ -116,7 +118,7 @@ func TestDecisionRenderGolden(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rc, out, errs := decisionRun(t, c.body, "render", "-file", "<file>",
+			rc, out, errs := decisionRun(t, c.body, env, "render", "-file", "<file>",
 				"-session-model", "claude-opus-5-5", "-reviewers", "primary=opus, principles=opus")
 			if rc != 0 || out != c.want || errs != "" {
 				t.Fatalf("rc=%d stderr=%q\ngot:\n%s\nwant:\n%s", rc, errs, out, c.want)
@@ -130,14 +132,16 @@ func TestDecisionRenderGolden(t *testing.T) {
 // effort roll is gone, and an older file still holding it still renders
 // (KAN-1119, decision delete-dead-rolls).
 func TestDecisionRenderWithoutEffortRoll(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	with := `{"class":"micro","classMechanical":"micro","override":null,
 		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
 		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
 		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
 	without := strings.Replace(with, `,"effort":50`, "", 1)
 	args := []string{"render", "-file", "<file>", "-session-model", "m", "-reviewers", "r"}
-	rcWith, outWith, errWith := decisionRun(t, with, args...)
-	rc, out, errs := decisionRun(t, without, args...)
+	rcWith, outWith, errWith := decisionRun(t, with, env, args...)
+	rc, out, errs := decisionRun(t, without, env, args...)
 	if rc != 0 || errs != "" || rcWith != 0 || errWith != "" || out != outWith {
 		t.Fatalf("without effort: rc=%d stderr=%q stdout=%q\nwith effort: rc=%d stderr=%q stdout=%q", rc, errs, out, rcWith, errWith, outWith)
 	}
@@ -147,6 +151,8 @@ func TestDecisionRenderWithoutEffortRoll(t *testing.T) {
 // error, an unreadable file, a body that is not a decision, a decision
 // missing a required field, and a malformed visual.
 func TestDecisionRenderRefusals(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	good := `{"class":"micro","classMechanical":"micro","override":null,
 		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
 		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
@@ -173,7 +179,7 @@ func TestDecisionRenderRefusals(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rc, out, errs := decisionRun(t, c.body, c.args...)
+			rc, out, errs := decisionRun(t, c.body, env, c.args...)
 			if rc != 2 || out != "" || errs != c.stderr {
 				t.Fatalf("rc=%d stdout=%q\nstderr=%q\nwant  =%q", rc, out, errs, c.stderr)
 			}
@@ -186,20 +192,22 @@ func TestDecisionRenderRefusals(t *testing.T) {
 // decision too; absent (a decision written before kan-959), the render is
 // unchanged and still exits 0.
 func TestDecisionRenderExtraDispatch(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
 		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
 		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
 		`"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",` +
 		`"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null`
 	with := micro + `,"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"}}`
-	rc, out, errOut := decisionRun(t, with, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+	rc, out, errOut := decisionRun(t, with, env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
 	if rc != 0 {
 		t.Fatalf("exit %d: %s", rc, errOut)
 	}
 	if want := "- **Extra dispatch:** test-sanity+call-efficiency sonnet/low\n"; !strings.Contains(out, want) {
 		t.Errorf("render lacks %q:\n%s", want, out)
 	}
-	rc, out, errOut = decisionRun(t, micro+"}", "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+	rc, out, errOut = decisionRun(t, micro+"}", env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
 	if rc != 0 {
 		t.Fatalf("a decision without extra_dispatch: exit %d: %s", rc, errOut)
 	}
@@ -213,6 +221,8 @@ func TestDecisionRenderExtraDispatch(t *testing.T) {
 // first; absent (a decision written before kan-1028), nothing is printed for
 // it and the render still exits 0.
 func TestDecisionRenderExtraDispatchMutation(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
 		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
 		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
@@ -220,14 +230,14 @@ func TestDecisionRenderExtraDispatchMutation(t *testing.T) {
 		`"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,` +
 		`"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"}`
 	with := micro + `,"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"opus","effort":"low","reason":"extramf roll 70"}}`
-	rc, out, errOut := decisionRun(t, with, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+	rc, out, errOut := decisionRun(t, with, env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
 	if rc != 0 {
 		t.Fatalf("exit %d: %s", rc, errOut)
 	}
 	if want := "- **Extra dispatch:** test-sanity+call-efficiency sonnet/low\n- **Extra dispatch:** mutation+failure-modes opus/low\n"; !strings.Contains(out, want) {
 		t.Errorf("render lacks %q:\n%s", want, out)
 	}
-	rc, out, errOut = decisionRun(t, micro+"}", "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+	rc, out, errOut = decisionRun(t, micro+"}", env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
 	if rc != 0 {
 		t.Fatalf("a decision without extra_dispatch_mutation: exit %d: %s", rc, errOut)
 	}
@@ -242,6 +252,8 @@ func TestDecisionRenderExtraDispatchMutation(t *testing.T) {
 // slot-judge-fail-open); absent (a decision written before kan-1126), no Slot
 // judge line and the render still exits 0.
 func TestDecisionRenderSlotTriggers(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
 		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
 		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
@@ -250,7 +262,7 @@ func TestDecisionRenderSlotTriggers(t *testing.T) {
 		`"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"},` +
 		`"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"opus","effort":"low","reason":"extramf roll 70"}`
 	render := func(body string) (int, string, string) {
-		return decisionRun(t, body, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
+		return decisionRun(t, body, env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
 	}
 	for _, c := range []struct{ name, triggers, want string }{
 		{"every slot", `{"test-sanity":{"verdict":"skip","reason":"r"},"call-efficiency":{"verdict":"run","reason":"r"},"failure-modes":{"verdict":"skip","reason":"r"}}`,
@@ -280,6 +292,8 @@ func TestDecisionRenderSlotTriggers(t *testing.T) {
 // TestDecisionRenderSessionCap pins session_cap's shape: a well-formed cap,
 // null or absent renders; a value outside the sets refuses naming it.
 func TestDecisionRenderSessionCap(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	good := `{"class":"micro","classMechanical":"micro","override":null,
 		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
 		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
@@ -300,7 +314,7 @@ func TestDecisionRenderSessionCap(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rc, _, errs := decisionRun(t, c.body, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
+			rc, _, errs := decisionRun(t, c.body, env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
 			if rc != c.rc {
 				t.Fatalf("rc=%d, want %d; stderr=%q", rc, c.rc, errs)
 			}
@@ -315,6 +329,8 @@ func TestDecisionRenderSessionCap(t *testing.T) {
 // parent.effort as <model>@<effort>, an effort of xhigh or max is accepted
 // (a main-agent experiment's pair), and one outside the set is refused.
 func TestDecisionParentModel(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	good := `{"class":"micro","classMechanical":"micro","override":null,
 		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
 		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
@@ -326,16 +342,16 @@ func TestDecisionParentModel(t *testing.T) {
 		{"effort only", withParent(`{"effort":"default"}`), "- **Parent:** default\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			rc, out, errs := decisionRun(t, c.body, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
+			rc, out, errs := decisionRun(t, c.body, env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
 			if rc != 0 || !strings.HasSuffix(out, c.line) {
 				t.Fatalf("rc=%d stderr=%q out=%q, want it to end with %q", rc, errs, out, c.line)
 			}
 		})
 	}
-	if rc, out, _ := decisionRun(t, good, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r"); rc != 0 || strings.Contains(out, "Parent") {
+	if rc, out, _ := decisionRun(t, good, env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r"); rc != 0 || strings.Contains(out, "Parent") {
 		t.Fatalf("no parent: rc=%d out=%q, want no Parent line", rc, out)
 	}
-	rc, _, errs := decisionRun(t, withParent(`{"model":"opus","effort":"ultra"}`), "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
+	rc, _, errs := decisionRun(t, withParent(`{"model":"opus","effort":"ultra"}`), env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
 	if rc != 2 || !strings.Contains(errs, `parent.effort "ultra" is not one of: low, medium, high, default, xhigh, max`) {
 		t.Fatalf("effort ultra: rc=%d stderr=%q, want 2 naming the set", rc, errs)
 	}

@@ -37,6 +37,8 @@ func newTestStoreDSN(t *testing.T) string {
 // the store directly (journal.go's own doc comment).
 // smoke: core — the journal replays into a real store
 func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	dsn := newTestStoreDSN(t)
 	root := t.TempDir()
 
@@ -49,7 +51,7 @@ func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := runJournal(context.Background(),
 		[]string{"flush", "-root", root, "-dsn", dsn},
-		os.Getenv, &stdout, &stderr)
+		env.get, &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("runJournal flush exit code = %d, want 0; stderr=%q", code, stderr.String())
@@ -85,8 +87,10 @@ func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 // TestJournalFlushCommandUnknownSubcommand asserts `flow journal <bogus>`
 // is rejected with usage rather than silently doing nothing.
 func TestJournalFlushCommandUnknownSubcommand(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	code := runJournal(context.Background(), []string{"bogus"}, os.Getenv, &stdout, &stderr)
+	code := runJournal(context.Background(), []string{"bogus"}, env.get, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
@@ -101,11 +105,13 @@ func TestJournalFlushCommandUnknownSubcommand(t *testing.T) {
 // doc comment: there is nothing to fall back *to* for an explicit
 // "reconcile now" request).
 func TestJournalFlushCommandConnectFailure(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	root := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	code := runJournal(context.Background(),
 		[]string{"flush", "-root", root, "-dsn", "postgres://flow:flow@127.0.0.1:1/flow?sslmode=disable", "-timeout", "200ms"},
-		os.Getenv, &stdout, &stderr)
+		env.get, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}

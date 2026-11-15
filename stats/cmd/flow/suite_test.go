@@ -36,8 +36,9 @@ func wantHost(t *testing.T) string {
 // child's own code.
 // smoke: core — flow suite record runs its child and records one row
 func TestSuiteRecordRunsChildAndRecordsRow(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotMethod, gotPath string
 	var gotBody []byte
@@ -53,7 +54,7 @@ func TestSuiteRecordRunsChildAndRecordsRow(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "echo child-stdout"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -112,8 +113,9 @@ func goTestJSONChild(t *testing.T) []string {
 // without a newline included -- and each non-skipped top-level test's cost is
 // sent with the run.
 func TestSuiteRecordDecodesGoTestJSON(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +128,7 @@ func TestSuiteRecordDecodesGoTestJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	args := append([]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-suite", "probe", "--"},
 		goTestJSONChild(t)...)
-	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	if want := "plain before\n=== RUN   TestA\n{\"x\":1}\ntail"; stdout.String() != want {
@@ -145,8 +147,9 @@ func TestSuiteRecordDecodesGoTestJSON(t *testing.T) {
 // status is both recorded and returned: the caller's tooling sees the
 // suite's real verdict, and the store holds the duration that came with it.
 func TestSuiteRecordPassesChildExitThrough(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +163,7 @@ func TestSuiteRecordPassesChildExitThrough(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "exit 3"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 3 {
 		t.Fatalf("suite record exit = %d, want the child's 3", code)
 	}
@@ -177,15 +180,16 @@ func TestSuiteRecordPassesChildExitThrough(t *testing.T) {
 // rule: the store being unreachable costs one warning line and nothing else
 // -- the child still runs and its exit code is still the command's exit.
 func TestSuiteRecordWarnsWithoutAlteringExitWhenStoreDown(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	dead := deadPortURL(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "exit 5"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 5 {
 		t.Fatalf("suite record exit = %d, want the child's 5 despite the store being down", code)
 	}
@@ -197,15 +201,16 @@ func TestSuiteRecordWarnsWithoutAlteringExitWhenStoreDown(t *testing.T) {
 // TestSuiteRecordJournalsWhenStoreDown pins kan-1040's lost suite row: a run
 // the store could not take is journalled for replay, stamped with its start.
 func TestSuiteRecordJournalsWhenStoreDown(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	dead := deadPortURL(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "exit 5"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 5 {
 		t.Fatalf("suite record exit = %d, want 5", code)
 	}
@@ -213,7 +218,7 @@ func TestSuiteRecordJournalsWhenStoreDown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), key, "_suite-runs") + ".record")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), key, "_suite-runs") + ".record")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -236,21 +241,22 @@ func TestSuiteRecordJournalsWhenStoreDown(t *testing.T) {
 // the per-test costs (decision per-test-costs-in-flowd): the journalled entry
 // carries them for replay.
 func TestSuiteRecordJournalsTestsWhenStoreDown(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	dead := deadPortURL(t)
 
 	var stdout, stderr bytes.Buffer
 	args := append([]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo, "-suite", "probe", "--"},
 		goTestJSONChild(t)...)
-	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	key, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), key, "_suite-runs") + ".record")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), key, "_suite-runs") + ".record")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -273,8 +279,9 @@ func TestSuiteRecordJournalsTestsWhenStoreDown(t *testing.T) {
 // -suite, or no -- and command words after it, is a usage error -- exit 2,
 // nothing executed, nothing recorded.
 func TestSuiteRecordRefusesMissingSuiteOrCommand(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		t.Errorf("a refused record must not reach the store")
@@ -287,7 +294,7 @@ func TestSuiteRecordRefusesMissingSuiteOrCommand(t *testing.T) {
 		"no -- and command": {"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-suite", "probe"},
 	} {
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 {
 			t.Errorf("%s: exit = %d, want 2", name, code)
 		}
@@ -302,8 +309,9 @@ func TestSuiteRecordRefusesMissingSuiteOrCommand(t *testing.T) {
 // recorded -- a duration for a run that did not happen would be a figure
 // with no run behind it.
 func TestSuiteRecordReportsUnstartableChild(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		t.Errorf("an unstartable child must not reach the store")
@@ -315,7 +323,7 @@ func TestSuiteRecordReportsUnstartableChild(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/nonexistent-binary-kan252"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 127 {
 		t.Fatalf("unstartable child exit = %d, want 127", code)
 	}
@@ -330,8 +338,9 @@ func TestSuiteRecordReportsUnstartableChild(t *testing.T) {
 // as a row but never enters a median.
 // smoke: core — the rows and medians the default list is watched by
 func TestSuiteListRendersRowsAndSummary(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -347,7 +356,7 @@ func TestSuiteListRendersRowsAndSummary(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"suite", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("suite list exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -375,8 +384,9 @@ func TestSuiteListRendersRowsAndSummary(t *testing.T) {
 // TestSuiteListJSON pins the machine-readable read: -json emits exactly the
 // store's array and nothing else -- no rows, no summaries.
 func TestSuiteListJSON(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -387,7 +397,7 @@ func TestSuiteListJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"suite", "list", "-json", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("suite list -json exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -407,8 +417,9 @@ func TestSuiteListJSON(t *testing.T) {
 // rides the request, -json prints the response alone, and -tests with -suite
 // is a usage error.
 func TestSuiteListTestsReadsTheNewestRunWithTests(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	const body = `{"id":7,"suite":"guard-tests","host":"h","durationMs":61000,"exitCode":0,"ranAt":"2026-09-09T12:00:00Z",` +
 		`"tests":[{"package":"ex/a","test":"TestSlow","costMs":2500},{"package":"ex/b","test":"TestFast","costMs":40}]}`
@@ -426,7 +437,7 @@ func TestSuiteListTestsReadsTheNewestRunWithTests(t *testing.T) {
 	list := func(extra ...string) (int, string, string) {
 		var stdout, stderr bytes.Buffer
 		args := append([]string{"suite", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, extra...)
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
 
@@ -456,8 +467,9 @@ func TestSuiteListTestsReadsTheNewestRunWithTests(t *testing.T) {
 // edges: no run with recorded costs is a plain line and exit 0, and an
 // unreachable store is a read failure, exit 1.
 func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -468,7 +480,7 @@ func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(),
 		[]string{"suite", "list", "-tests", "guard-tests", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || stdout.String() != "no test costs recorded for guard-tests\n" {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || stdout.String() != "no test costs recorded for guard-tests\n" {
 		t.Errorf("no run: exit %d stdout %q, want 0 and the no-costs line; stderr:\n%s", code, stdout.String(), stderr.String())
 	}
 
@@ -476,7 +488,7 @@ func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
 	stderr.Reset()
 	if code := run(context.Background(),
 		[]string{"suite", "list", "-tests", "guard-tests", "-addr", deadPortURL(t), "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "flow: suite list:") {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "flow: suite list:") {
 		t.Errorf("dead store: exit %d stderr %q, want 1 and flow: suite list:", code, stderr.String())
 	}
 }
@@ -486,8 +498,9 @@ func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
 // its own short-lived daemon, and runtime rows recorded there would never
 // reach the cross-run median the persistent store serves.
 func TestSuiteResolvesTheRecordsAddress(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var recorded, listed bool
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -502,18 +515,18 @@ func TestSuiteResolvesTheRecordsAddress(t *testing.T) {
 		_, _ = w.Write([]byte(`[]`))
 	}))
 	defer srv.Close()
-	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
-	t.Setenv("FLOW_ADDR", deadPortURL(t))
+	env["FLOW_RECORDS_ADDR"] = srv.URL
+	env["FLOW_ADDR"] = deadPortURL(t)
 
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(),
 		[]string{"suite", "record", "-timeout", "500ms", "-C", repo, "-suite", "probe", "--", "/bin/sh", "-c", "true"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || !recorded {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || !recorded {
 		t.Fatalf("suite record exit = %d, recorded at FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, recorded, stderr.String())
 	}
 	if code := run(context.Background(),
 		[]string{"suite", "list", "-json", "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || !listed {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || !listed {
 		t.Fatalf("suite list exit = %d, read from FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, listed, stderr.String())
 	}
 }

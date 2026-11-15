@@ -7,6 +7,7 @@ import (
 )
 
 func TestTickTaskFlipsOwnCheckboxAndSteps(t *testing.T) {
+	t.Parallel()
 	plan := "# c\n\n- [ ] 1. First\n\n  - [ ] **Step 1: do a thing**\n\n  - [ ] **Step 2: do another**\n\n**Files:** `x`\n"
 	out, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -28,6 +29,7 @@ func TestTickTaskFlipsOwnCheckboxAndSteps(t *testing.T) {
 }
 
 func TestTickTaskZeroSteps(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\nno steps here.\n\n**Files:** `x`\n"
 	out, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -42,6 +44,7 @@ func TestTickTaskZeroSteps(t *testing.T) {
 }
 
 func TestTickTaskStopsAtNextTaskLine(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n  - [ ] **Step 1: a**\n\n- [ ] 2. Second\n\n  - [ ] **Step 1: b**\n"
 	out, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -63,6 +66,7 @@ func TestTickTaskStopsAtNextTaskLine(t *testing.T) {
 }
 
 func TestTickTaskStopsAtNextHeading(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n  - [ ] **Step 1: a**\n\n## Part 2\n\n- [ ] 2. Second\n\n  - [ ] **Step 1: b**\n"
 	_, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -74,6 +78,7 @@ func TestTickTaskStopsAtNextHeading(t *testing.T) {
 }
 
 func TestTickTaskAlreadyTickedRefuses(t *testing.T) {
+	t.Parallel()
 	plan := "- [x] 1. First\n\n  - [ ] **Step 1: a**\n"
 	_, _, err := tickTask([]byte(plan), "1")
 	if !errors.Is(err, ErrTaskAlreadyTicked) {
@@ -82,6 +87,7 @@ func TestTickTaskAlreadyTickedRefuses(t *testing.T) {
 }
 
 func TestTickTaskNotFound(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n"
 	_, _, err := tickTask([]byte(plan), "2")
 	if !errors.Is(err, ErrTaskNotFound) {
@@ -90,6 +96,7 @@ func TestTickTaskNotFound(t *testing.T) {
 }
 
 func TestTickTaskInvalidID(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n"
 	for _, id := range []string{"1.1", "one", "-1", "", "1 "} {
 		if _, _, err := tickTask([]byte(plan), id); !errors.Is(err, ErrTaskIDInvalid) {
@@ -99,6 +106,7 @@ func TestTickTaskInvalidID(t *testing.T) {
 }
 
 func TestFenceTruncatesBody(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n  - [ ] **Step 1: real a**\n\n```\n- [ ] 99. fake, inside a fence\n```\n\n  - [ ] **Step 2: real b, should be ticked**\n"
 	out, steps, _ := tickTask([]byte(plan), "1")
 	if steps != 2 {
@@ -107,6 +115,7 @@ func TestFenceTruncatesBody(t *testing.T) {
 }
 
 func TestTickTaskStopsAtBareHeadingWithNoFollowingTask(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n  - [ ] **Step 1: a**\n\n## Part 2\n\nsome prose, no more tasks\n"
 	_, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -118,6 +127,7 @@ func TestTickTaskStopsAtBareHeadingWithNoFollowingTask(t *testing.T) {
 }
 
 func TestTickTaskStopsAtHeadingWithNothingAfterTheHashes(t *testing.T) {
+	t.Parallel()
 	// "##" with nothing following it (no space, no text) is a heading
 	// BODY_BOUNDARY_RE closes on too -- the old headingPattern required a
 	// literal trailing space and would have missed this line entirely.
@@ -136,6 +146,7 @@ func TestTickTaskStopsAtHeadingWithNothingAfterTheHashes(t *testing.T) {
 }
 
 func TestTickTaskRequiresSpaceAfterDot(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1.NoSpace\n"
 	_, _, err := tickTask([]byte(plan), "1")
 	if !errors.Is(err, ErrTaskNotFound) {
@@ -144,6 +155,7 @@ func TestTickTaskRequiresSpaceAfterDot(t *testing.T) {
 }
 
 func TestFenceSuppressesStepTicking(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n  - [ ] **Step 1: real**\n\n```\n  - [ ] fake step inside fence\n```\n"
 	out, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -158,6 +170,7 @@ func TestFenceSuppressesStepTicking(t *testing.T) {
 }
 
 func TestFourSpaceIndentIsNotAFence(t *testing.T) {
+	t.Parallel()
 	// A "```" indented by four or more spaces is CommonMark's own
 	// fence-indent boundary -- an indented code block, not a fence -- so
 	// it must not toggle fence state. If it wrongly did, step 2 (which
@@ -177,6 +190,7 @@ func TestFourSpaceIndentIsNotAFence(t *testing.T) {
 }
 
 func TestLevelOneHeadingDoesNotCloseBody(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n  - [ ] **Step 1: a**\n\n# Not a boundary\n\n  - [ ] **Step 2: b**\n"
 	_, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -188,6 +202,7 @@ func TestLevelOneHeadingDoesNotCloseBody(t *testing.T) {
 }
 
 func TestTickTaskLeavesRestByteIdentical(t *testing.T) {
+	t.Parallel()
 	plan := "# Title\n\nprose before.\n\n- [ ] 1. First\n\n  - [ ] **Step 1: a**\n\n- [ ] 2. Second\n\nprose after.\n"
 	out, _, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -200,6 +215,7 @@ func TestTickTaskLeavesRestByteIdentical(t *testing.T) {
 }
 
 func TestStepCheckboxRequiresExactlyTwoSpaceIndent(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n - [ ] wrong indent, not a step\n\n  - [ ] **Step 1: real**\n"
 	out, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {
@@ -214,6 +230,7 @@ func TestStepCheckboxRequiresExactlyTwoSpaceIndent(t *testing.T) {
 }
 
 func TestStepCheckboxIgnoresAlreadyTickedSteps(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. First\n\n  - [x] **Step 1: already done**\n\n  - [ ] **Step 2: new**\n"
 	out, steps, err := tickTask([]byte(plan), "1")
 	if err != nil {

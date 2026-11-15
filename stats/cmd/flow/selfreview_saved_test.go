@@ -35,8 +35,9 @@ func linkedWorktree(t *testing.T, repo, name string) string {
 // the bundle and writes the same bytes to
 // .superpowers/sdd/<change>/self-review-context.md.
 func TestSelfReviewBundleWritesTheContextFile(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	wt := linkedWorktree(t, repo, "demo")
 	writeChangeFile(t, wt, "spectre/changes/demo/design.md", "# demo design, never committed\n")
 
@@ -60,7 +61,7 @@ func TestSelfReviewBundleWritesTheContextFile(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", ts.URL, "-C", wt, "-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "## spectre/changes/demo/design.md\n\n# demo design, never committed") {
@@ -79,8 +80,9 @@ func TestSelfReviewBundleWritesTheContextFile(t *testing.T) {
 // path: run from the main checkout, the CLI asks for the saved bundle --
 // never the assembly route -- and prints it; flowd holding none is exit 1.
 func TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	saved := true
 	var paths []string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +97,7 @@ func TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", srv.URL, "-C", repo, "-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
 	if stdout.String() != "# Self-review context bundle for demo (saved)\n" {
@@ -109,7 +111,7 @@ func TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle(t *testing.T) {
 	stdout.Reset()
 	paths = nil
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", srv.URL, "-C", other, "-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || len(paths) != 1 || !strings.HasSuffix(paths[0], "/demo/files/self-review-context.md") {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || len(paths) != 1 || !strings.HasSuffix(paths[0], "/demo/files/self-review-context.md") {
 		t.Errorf("another change's worktree: exit = %d requests = %v, want the saved bundle only", code, paths)
 	}
 	if _, err := os.Stat(filepath.Join(other, ".superpowers/sdd/demo/self-review-context.md")); err == nil {
@@ -119,7 +121,7 @@ func TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle(t *testing.T) {
 	saved = false
 	stdout.Reset()
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", srv.URL, "-C", repo, "-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
 		t.Errorf("no saved bundle: exit = %d stdout = %q, want 1 and nothing", code, stdout.String())
 	}
 }

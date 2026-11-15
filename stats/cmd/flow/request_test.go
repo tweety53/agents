@@ -88,7 +88,6 @@ type requestFixture struct {
 
 func newRequestFixture(t *testing.T) requestFixture {
 	t.Helper()
-	isolatedStateRoot(t)
 	root := t.TempDir()
 	peer, origin := filepath.Join(root, "peer"), filepath.Join(root, "origin.git")
 	run := func(dir string, args ...string) string {
@@ -160,10 +159,10 @@ func (fx requestFixture) commit(t *testing.T, path string, push bool) string {
 	return fx.git("rev-parse", "HEAD")
 }
 
-func runRequest(addr, dir string, args ...string) (int, string, string) {
+func runRequest(addr, dir string, env testEnv, args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
 	full := append([]string{"record", "request", args[0], "-addr", addr, "-timeout", "2s", "-C", dir}, args[1:]...)
-	code := run(context.Background(), full, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), full, env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -171,12 +170,14 @@ func runRequest(addr, dir string, args ...string) (int, string, string) {
 // and usage (KAN-1061): what each half posts, every usage error, and the
 // journal a dead store leaves.
 func TestRecordRequestBeginEnd(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	fx := newRequestFixture(t)
 	d := &requestDaemon{runs: "[]"}
 	srv := httptest.NewServer(d.handler(t))
 	defer srv.Close()
 
-	code, stdout, stderr := runRequest(srv.URL, fx.peer, "begin", "-change", fx.name, "-n", "1", "-title", "Fix the pill")
+	code, stdout, stderr := runRequest(srv.URL, fx.peer, env, "begin", "-change", fx.name, "-n", "1", "-title", "Fix the pill")
 	if code != 0 || !strings.Contains(stdout, "recorded: request 1") {
 		t.Fatalf("begin exit=%d stdout=%q stderr=%q, want 0 printing recorded: request 1", code, stdout, stderr)
 	}
@@ -192,7 +193,7 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 	}
 
 	d.reset()
-	if code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "1", "-outcome", "answered"); code != 0 {
+	if code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "1", "-outcome", "answered"); code != 0 {
 		t.Fatalf("end answered exit=%d stderr=%q, want 0", code, stderr)
 	}
 	if err := json.Unmarshal(d.bodies[0], &got); err != nil {
@@ -212,7 +213,7 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 		"an unknown outcome":            {"end", "-change", fx.name, "-n", "1", "-outcome", "merged"},
 		"landed without -base":          {"end", "-change", fx.name, "-n", "1", "-outcome", "landed", "-commit", sha},
 	} {
-		if code, _, stderr := runRequest(srv.URL, fx.peer, args...); code != 2 {
+		if code, _, stderr := runRequest(srv.URL, fx.peer, env, args...); code != 2 {
 			t.Errorf("%s: exit=%d stderr=%q, want 2", name, code, stderr)
 		}
 	}
@@ -221,11 +222,11 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 	}
 
 	dead := deadPortAddr(t)
-	code, _, stderr = runRequest(dead, fx.peer, "begin", "-change", fx.name, "-n", "2", "-title", "Queued")
+	code, _, stderr = runRequest(dead, fx.peer, env, "begin", "-change", fx.name, "-n", "2", "-title", "Queued")
 	if code != 0 || !strings.Contains(stderr, "wrote local journal") {
 		t.Fatalf("begin on a dead store exit=%d stderr=%q, want 0 with the journal warning", code, stderr)
 	}
-	entries, err := fallback.ReadJournalEntries(recordJournalPath(mustProjectKey(t, fx.peer), fx.name, os.Getenv))
+	entries, err := fallback.ReadJournalEntries(recordJournalPath(mustProjectKey(t, fx.peer), fx.name, env.get))
 	if err != nil || len(entries) != 1 || !strings.Contains(string(entries[0].Body), `"kind":"request-begin"`) {
 		t.Fatalf("journal entries = %v (%v), want one request-begin", entries, err)
 	}
@@ -237,6 +238,8 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 // flow.visual-verify run ended completed.
 func TestRecordRequestEndLandedGuard(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	fx := newRequestFixture(t)
 	base := fx.git("rev-parse", "HEAD")
 	docs := fx.commit(t, "docs/a.md", true)
@@ -251,7 +254,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 		t.Helper()
 		d.reset()
 		fx.stamp(t, commit)
-		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", from)
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", from)
 		return code, stderr
 	}
 	refused := func(t *testing.T, code int, stderr string, want string) {
@@ -319,11 +322,11 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 	t.Run("the store down", func(t *testing.T) {
 		dead := deadPortAddr(t)
 		fx.stamp(t, ui)
-		code, _, stderr := runRequest(dead, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", unpushed, "-base", docs)
+		code, _, stderr := runRequest(dead, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", unpushed, "-base", docs)
 		if code != 1 || !strings.Contains(stderr, "origin/main") {
 			t.Errorf("an unpushed commit on a dead store: exit=%d stderr=%q, want 1", code, stderr)
 		}
-		code, _, stderr = runRequest(dead, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
+		code, _, stderr = runRequest(dead, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 		if code != 0 || !strings.Contains(stderr, "wrote local journal") {
 			t.Fatalf("a UI end on a dead store: exit=%d stderr=%q, want 0 journalled", code, stderr)
 		}
@@ -352,7 +355,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 		}))
 		defer flaky.Close()
 		fx.stamp(t, ui)
-		code, _, stderr := runRequest(flaky.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
+		code, _, stderr := runRequest(flaky.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 		if code != 0 || !strings.Contains(stderr, "skipped request 3's UI check read") {
 			t.Errorf("exit=%d stderr=%q, want 0 with the ⚠ skip line", code, stderr)
 		}
@@ -372,7 +375,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 				_, _ = w.Write([]byte(`{"n":3}`))
 			}))
 			fx.stamp(t, ui)
-			code, _, stderr := runRequest(bad.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
+			code, _, stderr := runRequest(bad.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 			bad.Close()
 			if code != 1 || !strings.Contains(stderr, "verify runs") || writes != 0 {
 				t.Errorf("exit=%d writes=%d stderr=%q, want 1 refusing with no write", code, writes, stderr)
@@ -395,7 +398,7 @@ func TestRecordRequestEndLandedGuard(t *testing.T) {
 	})
 	t.Run("no checkout carrying the change", func(t *testing.T) {
 		d.reset()
-		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", "interactive-other", "-n", "1", "-outcome", "landed", "-commit", docs, "-base", base)
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", "interactive-other", "-n", "1", "-outcome", "landed", "-commit", docs, "-base", base)
 		refused(t, code, stderr, ".superpowers/sdd/interactive-other")
 	})
 }
@@ -430,6 +433,8 @@ func mustProjectKey(t *testing.T, dir string) string {
 // request's latest flow.verify run ended completed.
 func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	fx := newRequestFixture(t)
 	base := fx.git("rev-parse", "HEAD")
 	docs := fx.commit(t, "docs/a.md", true)
@@ -442,7 +447,7 @@ func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 		t.Helper()
 		d.reset()
 		fx.stamp(t, commit)
-		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", from)
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", from)
 		return code, stderr
 	}
 	row := func(stage string, id int, started, ended, outcome string) string {
@@ -487,6 +492,8 @@ func TestRecordRequestEndLandedNeedsVerify(t *testing.T) {
 // run carrying none, the sleep-padded mark, is refused.
 func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	fx := newRequestFixture(t)
 	docs := fx.commit(t, "docs/a.md", true)
 	ui := fx.commit(t, "web/x.ts", true)
@@ -502,7 +509,7 @@ func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
 		t.Helper()
 		d.reset()
 		d.runs = "[" + verify + `,{"stageRunId":2,"command":"/flow-interactive","stage":"flow.visual-verify","request":3,"startedAt":"` + started.Format(time.RFC3339Nano) + `","endedAt":"` + ended.Format(time.RFC3339Nano) + `","outcome":"completed"` + metrics + `}]`
-		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", ui, "-base", docs)
 		return code, stderr
 	}
 	refused := func(t *testing.T, code int, stderr, want string) {
@@ -536,6 +543,8 @@ func TestRecordRequestEndRefusesChainedUICheck(t *testing.T) {
 // no lint list.
 func TestRecordRequestEndNeedsLintGreen(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	fx := newRequestFixture(t)
 	base := fx.git("rev-parse", "HEAD")
 	docs := fx.commit(t, "docs/a.md", true)
@@ -546,7 +555,7 @@ func TestRecordRequestEndNeedsLintGreen(t *testing.T) {
 	end := func() (int, string) {
 		t.Helper()
 		d.reset()
-		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", docs, "-base", base)
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", docs, "-base", base)
 		return code, stderr
 	}
 	t.Run("no stamp", func(t *testing.T) {
@@ -575,7 +584,7 @@ func TestRecordRequestEndNeedsLintGreen(t *testing.T) {
 		base := fx.git("rev-parse", "HEAD")
 		docs := fx.commit(t, "docs/a.md", true)
 		d.reset()
-		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", docs, "-base", base)
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", docs, "-base", base)
 		if code != 0 || d.count("POST") != 1 {
 			t.Errorf("exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
 		}
@@ -588,6 +597,8 @@ func TestRecordRequestEndNeedsLintGreen(t *testing.T) {
 // tracks a path under it, before the store is written.
 func TestRecordRequestEndRefusesSuperpowers(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	d := &requestDaemon{runs: `[{"stageRunId":99,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T09:00:00Z","outcome":"completed"}]`}
 	srv := httptest.NewServer(d.handler(t))
 	defer srv.Close()
@@ -595,7 +606,7 @@ func TestRecordRequestEndRefusesSuperpowers(t *testing.T) {
 		t.Helper()
 		d.reset()
 		fx.stamp(t, commit)
-		code, _, stderr := runRequest(srv.URL, fx.peer, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", base)
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "3", "-outcome", "landed", "-commit", commit, "-base", base)
 		if code == 1 && d.count("POST") != 0 {
 			t.Errorf("a refused end reached the daemon")
 		}

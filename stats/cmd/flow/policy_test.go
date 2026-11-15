@@ -14,9 +14,9 @@ import (
 	"testing"
 )
 
-func runPolicyArgs(args ...string) (int, string, string) {
+func runPolicyArgs(env testEnv, args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append([]string{"policy"}, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append([]string{"policy"}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -25,8 +25,10 @@ func runPolicyArgs(args ...string) (int, string, string) {
 // exits 1 naming both.
 // smoke: core — flow policy get, cached and falling back
 func TestPolicyGetCachesAndFallsBack(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	state := t.TempDir()
-	t.Setenv("FLOW_STATE_DIR", state)
+	env["FLOW_STATE_DIR"] = state
 	const policy = `{"planner":{"base":["opus/flow-planner-low"],"optin":["fable/flow-planner-xhigh"],"marked":[]}}`
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/policy" {
@@ -36,7 +38,7 @@ func TestPolicyGetCachesAndFallsBack(t *testing.T) {
 		}
 		_, _ = w.Write([]byte(policy))
 	}))
-	code, out, errOut := runPolicyArgs("get", "-addr", srv.URL, "-timeout", "2s")
+	code, out, errOut := runPolicyArgs(env, "get", "-addr", srv.URL, "-timeout", "2s")
 	if code != 0 || out != policy+"\n" || errOut != "" {
 		t.Fatalf("get = %d %q %q, want the daemon's pairs", code, out, errOut)
 	}
@@ -46,7 +48,7 @@ func TestPolicyGetCachesAndFallsBack(t *testing.T) {
 	}
 	srv.Close()
 
-	code, out, errOut = runPolicyArgs("get", "-addr", srv.URL, "-timeout", "2s")
+	code, out, errOut = runPolicyArgs(env, "get", "-addr", srv.URL, "-timeout", "2s")
 	if code != 0 || out != policy+"\n" || !strings.Contains(errOut, "answering from the cache at "+cache) {
 		t.Fatalf("get with flowd down = %d %q %q, want the cache and one warning", code, out, errOut)
 	}
@@ -54,7 +56,7 @@ func TestPolicyGetCachesAndFallsBack(t *testing.T) {
 	if err := os.Remove(cache); err != nil {
 		t.Fatal(err)
 	}
-	code, out, errOut = runPolicyArgs("get", "-addr", srv.URL, "-timeout", "2s")
+	code, out, errOut = runPolicyArgs(env, "get", "-addr", srv.URL, "-timeout", "2s")
 	if code != 1 || out != "" || !strings.Contains(errOut, "flowd unreachable") || !strings.Contains(errOut, "no usable cache at "+cache) {
 		t.Fatalf("get with neither = %d %q %q, want 1 naming flowd and the cache", code, out, errOut)
 	}
@@ -63,6 +65,8 @@ func TestPolicyGetCachesAndFallsBack(t *testing.T) {
 // TestPolicyGrantCommands: grant, grants and revoke send what they name and
 // print their outcome; a refused revoke exits 1; usage errors exit 2.
 func TestPolicyGrantCommands(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var got []string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -88,23 +92,23 @@ func TestPolicyGrantCommands(t *testing.T) {
 	}))
 	defer srv.Close()
 	addr := []string{"-addr", srv.URL, "-timeout", "2s"}
-	if code, out, errOut := runPolicyArgs(append([]string{"grant", "-change", "kan-1", "-roles", "planner,plan-designer"}, addr...)...); code != 0 || out != "policy grant kan-1 planner,plan-designer\n" {
+	if code, out, errOut := runPolicyArgs(env, append([]string{"grant", "-change", "kan-1", "-roles", "planner,plan-designer"}, addr...)...); code != 0 || out != "policy grant kan-1 planner,plan-designer\n" {
 		t.Fatalf("grant = %d %q %q", code, out, errOut)
 	}
-	if code, out, _ := runPolicyArgs(append([]string{"grants", "-change", "kan-1"}, addr...)...); code != 0 || out != "[\"planner\"]\n" {
+	if code, out, _ := runPolicyArgs(env, append([]string{"grants", "-change", "kan-1"}, addr...)...); code != 0 || out != "[\"planner\"]\n" {
 		t.Fatalf("grants = %d %q", code, out)
 	}
-	if code, _, _ := runPolicyArgs(append([]string{"revoke", "-change", "kan-1", "-roles", "planner"}, addr...)...); code != 0 {
+	if code, _, _ := runPolicyArgs(env, append([]string{"revoke", "-change", "kan-1", "-roles", "planner"}, addr...)...); code != 0 {
 		t.Fatalf("revoke = %d", code)
 	}
-	if code, _, errOut := runPolicyArgs(append([]string{"revoke", "-change", "kan-2", "-roles", "planner"}, addr...)...); code != 1 || !strings.Contains(errOut, "grant not found") {
+	if code, _, errOut := runPolicyArgs(env, append([]string{"revoke", "-change", "kan-2", "-roles", "planner"}, addr...)...); code != 1 || !strings.Contains(errOut, "grant not found") {
 		t.Fatalf("revoke unknown = %d %q, want 1", code, errOut)
 	}
 	if want := []string{"PUT kan-1 planner,plan-designer", "DELETE kan-1 planner", "DELETE kan-2 planner"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("requests = %q, want %q", got, want)
 	}
 	for _, args := range [][]string{{}, {"bogus"}, {"grant", "-change", "kan-1"}, {"grants"}, {"get", "-change", "x"}, {"get", "extra"}} {
-		if code, _, _ := runPolicyArgs(args...); code != 2 {
+		if code, _, _ := runPolicyArgs(env, args...); code != 2 {
 			t.Errorf("%q = %d, want 2", args, code)
 		}
 	}

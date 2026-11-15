@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 )
@@ -13,7 +12,8 @@ import (
 // end: the topic rides as the query parameter and the rendered answer is
 // printed verbatim on stdout with exit 0.
 func TestRunLessonResolvePrintsAnswer(t *testing.T) {
-	isolatedStateRoot(t)
+	t.Parallel()
+	env := newTestEnv(t)
 
 	var gotPath, gotQuery string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +27,7 @@ func TestRunLessonResolvePrintsAnswer(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-topic", "flake-bisection"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
@@ -45,12 +45,13 @@ func TestRunLessonResolvePrintsAnswer(t *testing.T) {
 // TestRunLessonResolveRequiresTopic pins the caller mistake: no -topic is
 // exit 2 and a stderr line, never a request.
 func TestRunLessonResolveRequiresTopic(t *testing.T) {
-	isolatedStateRoot(t)
+	t.Parallel()
+	env := newTestEnv(t)
 
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", "http://127.0.0.1:1"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
@@ -66,12 +67,13 @@ func TestRunLessonResolveRequiresTopic(t *testing.T) {
 // topic empty after normalization: a caller mistake is exit 2, never a
 // read that rides to the daemon and comes back as a store failure.
 func TestRunLessonResolveRefusesWhitespaceTopic(t *testing.T) {
-	isolatedStateRoot(t)
+	t.Parallel()
+	env := newTestEnv(t)
 
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-topic", " -_ "},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2 (stderr: %s)", code, stderr.String())
 	}
@@ -86,12 +88,13 @@ func TestRunLessonResolveRefusesWhitespaceTopic(t *testing.T) {
 // TestRunLessonResolveRefusesPositional pins the same rule for a stray
 // positional: a mistyped flag is reported as one, never dropped.
 func TestRunLessonResolveRefusesPositional(t *testing.T) {
-	isolatedStateRoot(t)
+	t.Parallel()
+	env := newTestEnv(t)
 
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", "http://127.0.0.1:1", "-topic", "t", "extra"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
@@ -105,7 +108,8 @@ func TestRunLessonResolveRefusesPositional(t *testing.T) {
 // stderr and exits non-zero -- never a partial answer on stdout a caller
 // could mistake for the workspace's own.
 func TestRunLessonResolveUnreachableStoreExitsNonZero(t *testing.T) {
-	isolatedStateRoot(t)
+	t.Parallel()
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -115,7 +119,7 @@ func TestRunLessonResolveUnreachableStoreExitsNonZero(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-topic", "flake"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("exit = 0, want non-zero (stderr: %s)", stderr.String())
 	}
@@ -131,7 +135,8 @@ func TestRunLessonResolveUnreachableStoreExitsNonZero(t *testing.T) {
 // the answer spans every registered project, so a -C would be a flag that
 // does nothing. Exit 2, the refusal on stderr, and no store call made.
 func TestRunLessonResolveRefusesDirFlag(t *testing.T) {
-	isolatedStateRoot(t)
+	t.Parallel()
+	env := newTestEnv(t)
 
 	called := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +150,7 @@ func TestRunLessonResolveRefusesDirFlag(t *testing.T) {
 		var stdout, stderr strings.Builder
 		code := run(context.Background(),
 			[]string{"lesson", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-topic", "x", "-C", dir},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 {
 			t.Fatalf("-C %q: exit = %d, want 2 (stderr: %s)", dir, code, stderr.String())
 		}
