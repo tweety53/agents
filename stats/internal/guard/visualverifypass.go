@@ -198,7 +198,24 @@ import (
 //      prints the `## Verdict` block (and the gap line), commits, and prints
 //      `NEXT: judge` — the row and the stage left open for **Blocking**.
 //   5. otherwise the row ends `-outcome completed`, commits, ends the stage,
-//      and prints `NEXT: done`.
+//      and prints `NEXT: done`. For a row with
+//      <worktree>/.superpowers/sdd/visual-round-<key>.txt, the end carries
+//      `-closes-loop` when every frame of the closing list — the frames
+//      check-frame-list declares (with `mockups` declared), every frame of
+//      <changeRoot>/visual-verification/prototype.mockups, and every frame of
+//      visual-manifest-<key>.json's pairs — has a pair whose capture's mtime
+//      is after the file's instant, every pair whose capture differs from the
+//      round base has its frame's own per-frame line in the report, no pair's
+//      `<spec>.mockups` differs from the round base and `git diff --name-only
+//      <round base> -- <mockups root>` in <worktree> names nothing, and, when
+//      <changeRoot>/visual-verification/prototype.mockups exists,
+//      <worktree>/.superpowers/sdd/visual-prototype.txt equals the
+//      `<sha-256 hex> <name>` lines of that map and each prototype/*.png now;
+//      before `NEXT: done` it prints `CLOSES-LOOP: yes`, or
+//      `CLOSES-LOOP: no — <the first failing frame or path and why>`; a row
+//      with no such file prints neither. Every `completed` close, scoped or
+//      not, then rewrites visual-prototype.txt with those lines when the map
+//      exists.
 // Every commit is step 12 (decision close-commits-final-reports), never made
 // after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
 // path, every PNG it names, the full app suite's spec and zip its `- full app

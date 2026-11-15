@@ -150,6 +150,62 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
+	declared := flDeclared(design, args[1], entries)
+
+	lines := flReportLines(report)
+	sidecar := map[string]bool{}
+	framesLine := []string(nil)
+	for _, line := range lines {
+		if m := flSpecLine.FindStringSubmatch(line); m != nil {
+			data, err := os.ReadFile(m[1] + ".mockups")
+			if err != nil {
+				continue
+			}
+			for _, l := range strings.Split(string(data), "\n") {
+				f := strings.Fields(l)
+				if len(f) >= 2 && !strings.HasPrefix(f[0], "#") && f[0] != "frame" {
+					sidecar[f[1]] = true
+				}
+			}
+		}
+		if m := flFramesLine.FindStringSubmatch(line); m != nil {
+			framesLine = m
+		}
+	}
+
+	var gaps []string
+	if len(declared) > 0 {
+		if framesLine == nil {
+			gaps = append(gaps, "no frames line")
+		} else if m, _ := strconv.Atoi(framesLine[2]); m < len(declared) {
+			gaps = append(gaps, fmt.Sprintf("frames %s/%s below %d declared", framesLine[1], framesLine[2], len(declared)))
+		}
+	}
+	for _, id := range declared {
+		// A frame the frames line names absent with its reason had no capture, so no sidecar line either.
+		// Only an entry's leading id counts — `<id>: <reason>` after the `—` or a `;`/`,` separator —
+		// never an id the reason text cites.
+		absent := framesLine != nil && regexp.MustCompile(`(^|[—;,])\s*`+regexp.QuoteMeta(id)+`\s*:`).MatchString(framesLine[3])
+		if !sidecar[id] && !absent {
+			gaps = append(gaps, "no sidecar line: "+id)
+		}
+		if !absent && !flPerFrame(id, lines) {
+			gaps = append(gaps, "no report line: "+id)
+		}
+	}
+	if len(gaps) > 0 {
+		fmt.Fprintf(stdout, "FRAME-LIST-GAP: %s — %s\n", args[2], strings.Join(gaps, "; "))
+		Reason(env, "frame-list-gap")
+		return 1
+	}
+	fmt.Fprintf(stdout, "FRAME-LIST-COMPLETE: %s — %d declared\n", args[2], len(declared))
+	return 0
+}
+
+// flDeclared is the frames design declares among the mockups in dir (its
+// entries): the answered and cited sets, the `**Considered:**` strip, the
+// ranges, the sub-directory holders and the declared list, sorted.
+func flDeclared(design []byte, dir string, entries []os.DirEntry) []string {
 	answered := map[string]bool{}
 	for _, m := range flAnswered.FindAllSubmatch(design, -1) {
 		answered[string(m[2])] = true
@@ -193,7 +249,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		subCited = true
-		pngs, _ := filepath.Glob(filepath.Join(args[1], sub, "*.png"))
+		pngs, _ := filepath.Glob(filepath.Join(dir, sub, "*.png"))
 		for _, p := range pngs {
 			if id := strings.TrimSuffix(filepath.Base(p), ".png"); id != "" {
 				holders[id] = append(holders[id], sub)
@@ -210,7 +266,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	base := filepath.Base(args[1]) + "/"
+	base := filepath.Base(dir) + "/"
 	for id := range frames {
 		if len(holders[id]) > 0 || answered[id] {
 			continue
@@ -221,7 +277,11 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	sort.Strings(declared)
+	return declared
+}
 
+// flReportLines is report's lines from `## Report` to the next `## ` heading.
+func flReportLines(report []byte) []string {
 	// Every line is read from `## Report` to the next `## ` heading alone: a
 	// `## Verdict` departure line never stands in for a per-frame line.
 	var lines []string
@@ -234,61 +294,19 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 			lines = append(lines, line)
 		}
 	}
-	sidecar := map[string]bool{}
-	framesLine := []string(nil)
-	for _, line := range lines {
-		if m := flSpecLine.FindStringSubmatch(line); m != nil {
-			data, err := os.ReadFile(m[1] + ".mockups")
-			if err != nil {
-				continue
-			}
-			for _, l := range strings.Split(string(data), "\n") {
-				f := strings.Fields(l)
-				if len(f) >= 2 && !strings.HasPrefix(f[0], "#") && f[0] != "frame" {
-					sidecar[f[1]] = true
-				}
-			}
-		}
-		if m := flFramesLine.FindStringSubmatch(line); m != nil {
-			framesLine = m
-		}
-	}
+	return lines
+}
 
-	var gaps []string
-	if len(declared) > 0 {
-		if framesLine == nil {
-			gaps = append(gaps, "no frames line")
-		} else if m, _ := strconv.Atoi(framesLine[2]); m < len(declared) {
-			gaps = append(gaps, fmt.Sprintf("frames %s/%s below %d declared", framesLine[1], framesLine[2], len(declared)))
+// flPerFrame reports whether one of lines is id's own per-frame line. A
+// per-frame line may name several frames joined by ` / ` — `- LM-L9 / LM-L11 …:`
+// names both (kan-1008's self-review: LM-L11 read as unreported and blocked
+// the dispatch).
+func flPerFrame(id string, lines []string) bool {
+	perFrame := regexp.MustCompile(`^\s*- ([^\s:]+ / )*` + regexp.QuoteMeta(id) + `( [^:]*)?:`)
+	for _, line := range lines {
+		if perFrame.MatchString(line) {
+			return true
 		}
 	}
-	for _, id := range declared {
-		// A frame the frames line names absent with its reason had no capture, so no sidecar line either.
-		// Only an entry's leading id counts — `<id>: <reason>` after the `—` or a `;`/`,` separator —
-		// never an id the reason text cites.
-		absent := framesLine != nil && regexp.MustCompile(`(^|[—;,])\s*`+regexp.QuoteMeta(id)+`\s*:`).MatchString(framesLine[3])
-		if !sidecar[id] && !absent {
-			gaps = append(gaps, "no sidecar line: "+id)
-		}
-		// A per-frame line may name several frames joined by ` / ` — `- LM-L9 / LM-L11 …:` names both
-		// (kan-1008's self-review: LM-L11 read as unreported and blocked the dispatch).
-		perFrame := regexp.MustCompile(`^\s*- ([^\s:]+ / )*` + regexp.QuoteMeta(id) + `( [^:]*)?:`)
-		named := absent
-		for _, line := range lines {
-			if perFrame.MatchString(line) {
-				named = true
-				break
-			}
-		}
-		if !named {
-			gaps = append(gaps, "no report line: "+id)
-		}
-	}
-	if len(gaps) > 0 {
-		fmt.Fprintf(stdout, "FRAME-LIST-GAP: %s — %s\n", args[2], strings.Join(gaps, "; "))
-		Reason(env, "frame-list-gap")
-		return 1
-	}
-	fmt.Fprintf(stdout, "FRAME-LIST-COMPLETE: %s — %d declared\n", args[2], len(declared))
-	return 0
+	return false
 }
