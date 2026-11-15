@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -79,7 +80,7 @@ func (s pjStub) candidates(t *testing.T) []string {
 	return out
 }
 
-const pjAnswer = "printf 'PAIR: sonnet/flow-low\\nREASON: renames only\\n'\n"
+var pjAnswer = pjJSON("PAIR: sonnet/flow-low\nREASON: renames only", "")
 
 // pjRepoRoot is the agents checkout these tests run in, whose roles table
 // the guard reads the Does line from.
@@ -134,7 +135,7 @@ func TestPairJudgeCandidates(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			stub := newPJStub(t, "printf 'PAIR: %s\\nREASON: r\\n' '"+c.want[0]+"'\n")
+			stub := newPJStub(t, pjJSON("PAIR: "+c.want[0]+"\nREASON: r", ""))
 			args := append([]string{c.args[0], pjDigest(t, "a plan")}, c.args[1:]...)
 			if r := runGuard("pair-judge", args, pjEnv(t, c.policy, stub)); r.rc != 0 {
 				t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
@@ -161,16 +162,16 @@ func TestPairJudgeCandidates(t *testing.T) {
 	})
 
 	for pair, want := range map[string]string{
-		"opus/flow-low":            "opus low judge r\n",
-		"opus/flow-planner-medium": "opus medium judge r\n",
-		"sonnet/Explore@low":       "sonnet low judge r\n",
+		"opus/flow-low":            "opus low judge r (judge ",
+		"opus/flow-planner-medium": "opus medium judge r (judge ",
+		"sonnet/Explore@low":       "sonnet low judge r (judge ",
 	} {
 		t.Run("prints "+pair+" parsed", func(t *testing.T) {
 			t.Parallel()
-			stub := newPJStub(t, "printf 'PAIR: %s\\nREASON: r\\n' '"+pair+"'\n")
+			stub := newPJStub(t, pjJSON("PAIR: "+pair+"\nREASON: r", ""))
 			policy := pjPolicy(`"explorer":{"base":["` + pair + `","opus/Explore@high"],"optin":[],"marked":[]}`)
-			if r := runGuard("pair-judge", []string{"explorer", pjDigest(t, "a plan")}, pjEnv(t, policy, stub)); r.rc != 0 || r.stdout != want {
-				t.Errorf("rc=%d stdout=%q, want 0 and %q", r.rc, r.stdout, want)
+			if r := runGuard("pair-judge", []string{"explorer", pjDigest(t, "a plan")}, pjEnv(t, policy, stub)); r.rc != 0 || !strings.HasPrefix(r.stdout, want) {
+				t.Errorf("rc=%d stdout=%q, want 0 opening %q", r.rc, r.stdout, want)
 			}
 		})
 	}
@@ -202,13 +203,13 @@ func TestPairJudgeTakesThePick(t *testing.T) {
 	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","opus/flow-medium","sonnet/flow-low"],"optin":[],"marked":[]}`)
 	const digest = "Task 1: rename foo to bar across 40 Markdown files.\n"
 	r := runGuard("pair-judge", []string{"implementer", pjDigest(t, digest)}, pjEnv(t, policy, stub))
-	if r.rc != 0 || r.stdout != "sonnet low judge renames only\n" {
-		t.Fatalf("rc=%d stdout=%q, want 0 and `sonnet low judge renames only`", r.rc, r.stdout)
+	if r.rc != 0 || !strings.HasPrefix(r.stdout, "sonnet low judge renames only (judge ") {
+		t.Fatalf("rc=%d stdout=%q, want 0 opening `sonnet low judge renames only (judge `", r.rc, r.stdout)
 	}
 	argv := strings.Join(stub.argv(t), "\x00")
 	for _, want := range [][]string{
 		{"-p"}, {"--model", "sonnet"}, {"--effort", "low"}, {"--tools", ""}, {"--setting-sources", ""},
-		{"--strict-mcp-config"}, {"--no-session-persistence"},
+		{"--strict-mcp-config"}, {"--no-session-persistence"}, {"--output-format", "json"},
 	} {
 		if !strings.Contains("\x00"+argv+"\x00", "\x00"+strings.Join(want, "\x00")+"\x00") {
 			t.Errorf("argv %q lacks %q", stub.argv(t), want)
@@ -285,8 +286,8 @@ func TestPairJudgeFallsBack(t *testing.T) {
 		{name: "missing command", missing: true, policy: pjPolicy(row), cause: "not runnable"},
 		{name: "non-zero exit", answer: "exit 1\n", policy: pjPolicy(row), cause: "exit 1"},
 		{name: "timeout", answer: "exec sleep 5\n", policy: pjPolicy(row), timeout: 200 * time.Millisecond, cause: "timed out"},
-		{name: "no PAIR line", answer: "printf 'REASON: r\\n'\n", policy: pjPolicy(row), cause: "no PAIR"},
-		{name: "pick outside the candidates", answer: "printf 'PAIR: opus/flow-high\\nREASON: r\\n'\n", policy: pjPolicy(row), cause: "outside the candidates"},
+		{name: "no PAIR line", answer: pjJSON("REASON: r", ""), policy: pjPolicy(row), cause: "no PAIR"},
+		{name: "pick outside the candidates", answer: pjJSON("PAIR: opus/flow-high\nREASON: r", ""), policy: pjPolicy(row), cause: "outside the candidates"},
 		{name: "no pair-judge row", answer: pjAnswer, policy: "{" + row + "}", cause: "no pair-judge pair"},
 	}
 	for _, c := range cases {
@@ -370,5 +371,51 @@ func TestPairJudgeRefuses(t *testing.T) {
 	}
 	if stub.ran() {
 		t.Error("the judge ran on a refused call")
+	}
+}
+
+// pjJSON is a stub answer printing the judge's text as `claude -p
+// --output-format json` does, with extra JSON fields (a cost) appended.
+func pjJSON(text, extra string) string {
+	b, _ := json.Marshal(text)
+	return "printf '%s\\n' '{\"type\":\"result\",\"result\":" + string(b) + extra + "}'\n"
+}
+
+// TestPairJudgeRecordsItsSpend pins kan-1119's self-review F12: a judged
+// line's reason ends with the call's time and, when the answer carries it,
+// its cost; an answer that is not JSON falls back naming that.
+func TestPairJudgeRecordsItsSpend(t *testing.T) {
+	t.Parallel()
+	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
+	cases := []struct {
+		name, answer, prefix, suffix string
+		has, lacks                   []string
+	}{
+		{"cost", pjJSON("PAIR: sonnet/flow-low\nREASON: renames only", `,"total_cost_usd":0.0123`),
+			"sonnet low judge renames only (judge ", "s, $0.0123)\n", nil, nil},
+		{"no cost", pjJSON("PAIR: sonnet/flow-low\nREASON: renames only", ""),
+			"sonnet low judge renames only (judge ", "s)\n", nil, []string{"$"}},
+		{"not JSON", "printf 'PAIR: sonnet/flow-low\\nREASON: r\\n'\n",
+			"opus low fallback ", "\n", []string{"not JSON", "(judge "}, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			stub := newPJStub(t, c.answer)
+			r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, pjEnv(t, policy, stub))
+			if r.rc != 0 || !strings.HasPrefix(r.stdout, c.prefix) || !strings.HasSuffix(r.stdout, c.suffix) {
+				t.Fatalf("rc=%d stdout=%q, want 0, opening %q and ending %q", r.rc, r.stdout, c.prefix, c.suffix)
+			}
+			for _, s := range c.has {
+				if !strings.Contains(r.stdout, s) {
+					t.Errorf("stdout %q lacks %q", r.stdout, s)
+				}
+			}
+			for _, s := range c.lacks {
+				if strings.Contains(r.stdout, s) {
+					t.Errorf("stdout %q carries %q", r.stdout, s)
+				}
+			}
+		})
 	}
 }

@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -49,7 +50,7 @@ import (
 //     `REASON: <one line>`; the pick and that reason are printed;
 //   - fallback: the first candidate, the reason naming the cause -- no
 //     pair-judge pair to run on, the command missing or not runnable, a
-//     non-zero exit, the deadline, no PAIR or REASON line, or a pick outside
+//     non-zero exit, the deadline, an answer that is not JSON, no PAIR or REASON line, or a pick outside
 //     the candidates (decisions fallback-first-candidate,
 //     missing-judge-row-falls-back).
 //
@@ -59,10 +60,19 @@ import (
 // FLOW_GUARD_REPO_ROOT (left out when unreadable), the candidates and the
 // answer format; its stdin is the digest and nothing else. Measured live
 // from a Claude Code Bash call on 2026-11-15, claude 2.1.325, exit 0 in
-// 2.5 s with a PAIR and a REASON line:
+// 2.5 s with a PAIR and a REASON line; --output-format json spiked the same
+// day on the same version: one JSON object with `result` (the PAIR and
+// REASON text), `total_cost_usd` and `duration_ms`:
 //
 //	claude -p --model <m> --effort <e> --tools "" --setting-sources ""
-//	  --strict-mcp-config --no-session-persistence --system-prompt <prompt>
+//	  --strict-mcp-config --no-session-persistence --output-format json
+//	  --system-prompt <prompt>
+//
+// Whenever the command ran, the printed reason -- the judge's, or a
+// fallback's cause -- ends with its spend, ` (judge <seconds, one
+// decimal>s, $<total_cost_usd, four decimals>)`, the cost part left out when
+// the answer carries none; an answer that is not that JSON falls back with
+// the cause `judge answer is not JSON: <stdout>` (kan-1119 self-review, F12).
 //
 // FLOW_PAIR_JUDGE_CMD, when set, names the command run in place of `claude`
 // (decision judge-command-seam). Bounds (decision
@@ -235,31 +245,44 @@ func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidat
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "-p", "--model", judge.model, "--effort", judge.effort,
 		"--tools", "", "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
-		"--system-prompt", pjSystemPrompt(env, role, cands))
+		"--output-format", "json", "--system-prompt", pjSystemPrompt(env, role, cands))
 	cmd.Dir = env.Dir
 	cmd.Stdin = bytes.NewReader(digest)
 	cmd.WaitDelay = time.Second // an orphaned child holding the pipes cannot outlast the deadline by more
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
+	start := time.Now()
 	err := cmd.Run()
+	var ans struct {
+		Result string   `json:"result"`
+		Cost   *float64 `json:"total_cost_usd"`
+	}
+	jerr := json.Unmarshal(out.Bytes(), &ans)
+	spend := fmt.Sprintf(" (judge %.1fs", time.Since(start).Seconds())
+	if jerr == nil && ans.Cost != nil {
+		spend += fmt.Sprintf(", $%.4f", *ans.Cost)
+	}
+	spend += ")"
 	var ee *exec.ExitError
 	switch {
 	case ctx.Err() != nil:
-		return pjCandidate{}, "", fmt.Sprintf("judge timed out after %v", limit)
+		return pjCandidate{}, "", fmt.Sprintf("judge timed out after %v", limit) + spend
 	case errors.As(err, &ee):
-		return pjCandidate{}, "", fmt.Sprintf("judge %s exit %d: %s", filepath.Base(bin), ee.ExitCode(), strings.TrimSpace(errb.String()))
+		return pjCandidate{}, "", fmt.Sprintf("judge %s exit %d: %s", filepath.Base(bin), ee.ExitCode(), strings.TrimSpace(errb.String())) + spend
 	case err != nil:
-		return pjCandidate{}, "", fmt.Sprintf("judge command %s not runnable: %v", bin, err)
+		return pjCandidate{}, "", fmt.Sprintf("judge command %s not runnable: %v", bin, err) + spend
+	case jerr != nil:
+		return pjCandidate{}, "", "judge answer is not JSON: " + strings.TrimSpace(out.String()) + spend
 	}
-	pm, wm := pjPick.FindSubmatch(out.Bytes()), pjWhy.FindSubmatch(out.Bytes())
+	pm, wm := pjPick.FindStringSubmatch(ans.Result), pjWhy.FindStringSubmatch(ans.Result)
 	if pm == nil || wm == nil {
-		return pjCandidate{}, "", "judge answer has no PAIR or REASON line: " + strings.TrimSpace(out.String())
+		return pjCandidate{}, "", "judge answer has no PAIR or REASON line: " + strings.TrimSpace(ans.Result) + spend
 	}
-	i := slices.IndexFunc(cands, func(c pjCandidate) bool { return c.pair == string(pm[1]) })
+	i := slices.IndexFunc(cands, func(c pjCandidate) bool { return c.pair == pm[1] })
 	if i < 0 {
-		return pjCandidate{}, "", fmt.Sprintf("judge pick %s is outside the candidates", pm[1])
+		return pjCandidate{}, "", fmt.Sprintf("judge pick %s is outside the candidates", pm[1]) + spend
 	}
-	return cands[i], string(wm[1]), ""
+	return cands[i], wm[1] + spend, ""
 }
 
 // pjSystemPrompt fills pjPrompt for role.
