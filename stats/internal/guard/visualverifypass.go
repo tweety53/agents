@@ -253,7 +253,8 @@ import (
 //      <column>…}` entry per matrix row, each of the 11 columns `n/a — <why>`
 //      where vrNAColumns (verifyreport.go) lists it for the class,
 //      `unresolved — <reason>` on an unresolved row, else `{a, b, delta}` —
-//      per side each leaf the column reads, null for the side a missing or
+//      per side each leaf the column reads — vvmColumnLeaves
+//      (visualverifypass_measure.go) is canonical for which, per class — null for the side a missing or
 //      extra row lacks, and per leaf the delta the matrix row carries
 //      (vvmCells, visualverifypass_measure.go), null when the matrix did not
 //      parse; an exit is null for a step not run. `spec` is the resolved spec path the pair was measured from. A

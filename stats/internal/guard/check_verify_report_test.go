@@ -431,8 +431,8 @@ func TestCheckVerifyReportOverToleranceCauses(t *testing.T) {
 
 // TestCheckVerifyReportNoMatrixBandsSeamsLines pins decisions
 // bands-seams-lines-dropped and keep-status-only-lines: a composed frame's
-// report carries no matrix:, bands: or seams: line and step 10 is still done,
-// while its sweeps: line is still read item by item.
+// report carries no matrix:, bands: or seams: line and step 10 is still done
+// (TestCheckVerifyReportSweepItems pins the sweeps: line's items).
 func TestCheckVerifyReportNoMatrixBandsSeamsLines(t *testing.T) {
 	for _, tc := range []struct {
 		name, sweeps string
@@ -440,7 +440,6 @@ func TestCheckVerifyReportNoMatrixBandsSeamsLines(t *testing.T) {
 		want         string
 	}{
 		{"status-only sweeps", "text done | order n/a — one column", 0, "COMPLETE"},
-		{"a sweep skipped", "text done | order skipped", 1, "sweep item `order skipped` reads neither"},
 	} {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		vrtManifest(t, sdd, "visual-verify", "W1")
@@ -517,6 +516,8 @@ func TestCheckVerifyReportSpotCheck(t *testing.T) {
 		{"script figure off the manifest", "#10 size script 50 hand 50; #11 size script 51 hand 51; #12 size script 53 hand 53", "0", nil, 1, "W1 spot-check #12 size: script 53 is none of the manifest's b figures (52)"},
 		{"script figure from the a side", "#10 size script 40 hand 40; #11 size script 51 hand 51; #12 size script 52 hand 52", "0", nil, 1, "W1 spot-check #10 size: script 40 is none"},
 		{"item of another shape", "#10 size 50; #11 size script 51 hand 51; #12 size script 52 hand 52", "0", nil, 1, "W1 spot-check item \"#10 size 50\" is not"},
+		{"none, every row on the over list", "none — no row off the over list", "3 — #10: departure; #11: departure; #12: departure", []any{vrtOver(10, "paired", "box.width"), vrtOver(11, "paired", "box.width"), vrtOver(12, "paired", "box.width")}, 0, "COMPLETE"},
+		{"none, a row off the over list", "none — no row off the over list", "1 — #11: departure", []any{vrtOver(11, "paired", "box.width")}, 1, "W1 spot-check reads \"none — no row off the over list\" but 2 rows are off the over list"},
 	} {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		vrtManifest(t, sdd, "visual-verify", "W1", tc.over...)

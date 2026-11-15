@@ -430,31 +430,29 @@ never an exit code the command did not return.
       column below for every paired element, each region clipped to its image; every element it
       merges or misses is measured by hand with the per-element calls, and a departure that
       shows goes on the frame's line with its cause. That file is the one copy, overwritten every pass — never a second copy under another name.
-   2. **Read the matrix `measure` filled — never transcribe it.** `measure` fills these 11
-      columns for every row of the frame's matrix into the pair's `cells` in the manifest; the
-      table names what each column reads and the call that measures it by hand:
+   2. **Read the matrix `measure` filled — never transcribe it.** `measure` fills the 11
+      columns — kind, content, colour, size, position, stretch, alignment, border, fill, radius,
+      shadow — for every row of the frame's matrix into the pair's `cells` in the manifest.
+      `vvmColumnLeaves` (`<agents repo>/stats/internal/guard/visualverifypass_measure.go`) is canonical for
+      which leaves each column reads per row class. A row is measured by hand with the call of
+      its class:
 
-      | column | text run (`--props ink`, the crop spanning the run's container's full width) | control, row, card (`--props box,radius,border,fill,shadow,content,gap`) | rule, divider, fill band (`--props runs`, the region crossing it) |
-      |---|---|---|---|
-      | kind | the run's role (heading, figure, caption…) | the control's kind, per sweep 1 | rule / fill band |
-      | content | the transcription, per sweep 5 | `content` size and `content.colour` | — |
-      | colour | `ink.colour` | `fill.colour`, `border.colour`, `content.colour` | the run's `colour` |
-      | size | `ink.height` — the cap-height, the font-size stand-in — and `ink.width` | `box.width` × `box.height` | the run's `length` — a rule's thickness |
-      | position | `ink.left`, `ink.top` in the container crop | `gap` on all four sides; `box.left`/`box.top` | the run's `from` |
-      | stretch | `ink.left` and the container width minus `ink.left + ink.width` — the insets from each container edge | `gap.left` and `gap.right` to the image edge, or to the neighbour, and `box.width` against the container's | the run's extent on the crossing scan line |
-      | alignment | the two insets above, compared: equal is centred; for a line inside a boxed band's cell, its `offset`, `left` and `right` from the seam pairing | `content.padding`, all four sides | — |
-      | border | — | `border` per side and its colour | — |
-      | fill | — | `fill.colour` and `share` | the run's `colour` |
-      | radius | — | `radius` per corner | — |
-      | shadow | — | `shadow` per side | — |
+      | row class | hand call |
+      |---|---|
+      | text run | `--props ink`, the crop spanning the run's container's full width |
+      | control, fill band | `--props box,radius,border,fill,shadow,content,gap` |
+      | rule, missing, extra | the row's element obj in the matrix JSON; `--props runs` on the region crossing it |
+
+      An `element.` leaf is in the full image's coordinates and `box.left`/`box.top` relative
+      to the row's padded matrix region, so a hand figure for one is measured in that frame of
+      reference, never the crop's.
 
       Each cell holds the frame's figures, the capture's and their `delta`; n/a — `<why>` where
-      the column does not apply to the row's class (the dashes above); or `unresolved — <reason>`
-      on a row whose region no measurement resolved. The header of `flow-guard
-      visual-verify-pass` is canonical for which leaves each column reads. Write no matrix
+      the column does not apply to the row's class (`vrNAColumns`, `<agents repo>/stats/internal/guard/verifyreport.go`); or `unresolved — <reason>`
+      on a row whose region no measurement resolved. Write no matrix
       table: `visual-verification.md` (step 11) cites
       `<changeRoot>/visual-verification/matrix/<frame id>.json` under the frame's entry. Read every composite, and every row's cells against it.
-      **Spot-check the script on every frame**: measure by hand, with the calls the table names,
+      **Spot-check the script on every frame**: measure by hand, with the call of each row's class,
       at least 3 rows of the frame's cells — every row when it has fewer — none of them on the
       `over` list and at least one a `control` or `fill band` row where the frame has one, and
       write the frame's `- <frame id> spot-check: #<row> <column> script <x> hand <y>; …` line,
@@ -462,7 +460,9 @@ never an exit code the command did not return.
       colour as its hex — and `<y>` your own measurement of the same figure. A hand figure that
       differs from the script's by more than step 10's length or colour tolerance goes on the
       frame's line as a departure with cause `mismeasure`; the parent fixes it as a pipeline
-      defect in the measuring tool, which no re-run of this pass can fix.
+      defect in the measuring tool, which no re-run of this pass can fix. Where no cells row is
+      off the `over` list, the line reads exactly `- <frame id> spot-check: none — no row off
+      the over list`.
       **A cell the pixels cannot answer is measured from the mockup's source, never left
       unexplained**: where a row reads `unresolved` — the script exits 1 on a region no widening
       resolved — or a leaf reads `clipped` (the element runs off the image there), the frame's

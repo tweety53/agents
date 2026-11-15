@@ -101,6 +101,8 @@ import (
 // shape, a row short, a row off the cells or on the `over` list, or an <x>
 // the cell does not carry is undone (kan-1120: the script fills the matrix,
 // and the line is what shows the verifier compared it with the pixels).
+// Where no cells row is off the `over` list, the line reads exactly
+// `none — no row off the over list`, and that form is undone anywhere else.
 //
 // Every `sweeps:` line's ` | `-separated items each read `<sweep> done…` or
 // `<sweep> n/a — <why>`; any other leaves step 10 undone.
@@ -533,6 +535,10 @@ func vrCauseAdmitted(cause string, row vrOverRow, design string) bool {
 	return false
 }
 
+// vrSpotNone is the spot-check: line of a frame with no cells row off its
+// `over` list — nothing left to measure by hand.
+const vrSpotNone = "none — no row off the over list"
+
 // vrCells checks one composed frame's manifest cells (decision
 // cells-in-measure) and its spot-check: line (decision spot-check-shape)
 // against them and the frame's over rows.
@@ -569,6 +575,12 @@ func vrCells(f string, cells []map[string]any, over map[int]vrOverRow, spot map[
 	line, ok := spot[f]
 	if !ok {
 		return append(bad, f+" has no spot-check: line")
+	}
+	if line == vrSpotNone {
+		if eligible > 0 {
+			bad = append(bad, fmt.Sprintf("%s spot-check reads %q but %d rows are off the over list", f, line, eligible))
+		}
+		return bad
 	}
 	named := map[int]bool{}
 	for _, item := range strings.Split(line, "; ") {

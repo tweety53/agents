@@ -321,8 +321,7 @@ func vvmFigures(matrix []map[string]any, over map[string]any) map[string]map[str
 }
 
 // vvmBoxLeaves is the leaves each column reads for a row measured with the box
-// columns, a `control` or a `fill band` (skills/flow/visual-verify-verifier.md
-// step 10's column table); vvmElementLeaves those a row read from its element
+// columns, a `control` or a `fill band`; vvmElementLeaves those a row read from its element
 // obj alone reads — a `rule`, whose `runs` stay in the matrix JSON, and a
 // `missing` or `extra` row. A leaf names itself and every leaf under it.
 var (
@@ -348,9 +347,14 @@ var (
 		"alignment": {"element.left", "element.right"},
 		"fill":      {"element.colour"},
 	}
-	// vvmColumnLeaves is, per matrix row class, the leaves each column reads:
-	// an `element.` leaf from the row's own element obj, any other from the
-	// side's `measured` (decisions cells-in-measure, text-stretch-from-element-insets).
+	// vvmColumnLeaves is, per matrix row class, the leaves each column reads —
+	// the one source of that mapping; skills/flow/visual-verify-verifier.md
+	// step 10 cites it by name and keeps no copy. An `element.` leaf comes from
+	// the row's own element obj, in the image's coordinates; any other from the
+	// side's `measured`, `box.left`/`box.top` relative to the row's padded
+	// matrix region (decisions cells-in-measure, text-stretch-from-element-insets).
+	// A column absent for a class reads no leaf, and vrNAColumns
+	// (verifyreport.go) marks it n/a.
 	vvmColumnLeaves = map[string]map[string][]string{
 		"text run": {
 			"kind":      {"element.kind"},
