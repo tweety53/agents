@@ -409,7 +409,7 @@ func TestProtectMainCheckout(t *testing.T) {
 	// 104-107: a push of a change branch runs check-untasked-commits over its
 	// unpushed commits (kan-941); a stub stands in for the guard.
 	untaskedRC, untaskedLog := root+"/untasked-rc", root+"/untasked-log"
-	f.write(root+"/untaskedcheck", "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" >\""+untaskedLog+"\"\necho \"UNTASKED: 1 commit(s) carry no Task-Id: or Flow-Key: trailer\"\nexit \"$(cat \""+untaskedRC+"\")\"\n")
+	f.write(root+"/untaskedcheck", "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" >\""+untaskedLog+"\"\necho \"UNTASKED: 1 commit(s) sit outside every task\"\nexit \"$(cat \""+untaskedRC+"\")\"\n")
 	f.env = []string{"UNTASKED_COMMITS_CHECK=" + root + "/untaskedcheck"}
 	cwt := root + "/main-worktrees/chg2"
 	f.vars["CWT"] = cwt
@@ -423,6 +423,12 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.check("104 checker args", func(t *testing.T) {
 		if got := f.readLog(untaskedLog); got != cwt+" refs/remotes/origin/spectre/chg2 --not-remotes " {
 			t.Errorf("checker args: %s", got)
+		}
+	})
+	f.check("104 deny reason names no missing trailer", func(t *testing.T) {
+		out := f.run(t, root, "Bash", map[string]string{"command": "git -C " + cwt + " push origin spectre/chg2"})
+		if !strings.Contains(out, "sits outside every task") || strings.Contains(out, "neither") {
+			t.Errorf("deny reason: %s", out)
 		}
 	})
 	f.bash("160 a bare change-branch push with its output redirected and piped", "deny", "{ROOT}", `git -C {CWT} push -q 2>&1 | tail -1`)

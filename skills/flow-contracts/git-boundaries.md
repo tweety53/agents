@@ -97,6 +97,10 @@ never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contr
 Nor does an implementer's own key, `Flow-Key: task-<ids>-implementer`, on a commit with no
 `Task-Id:`: an implementer's commits are task commits, so such a commit is an inline fix outside
 every task.
+Nor does a `flow.<stage>` key outside the stage keys above, `flow.kickoff`, which `flow-guard
+ignore-scratch` writes, and `flow.self-review`, which the self-review pass writes on its prompt-tuning
+cases commit (`skills/flow-self-review/SKILL.md`), on a commit with no `Task-Id:`: a fix at any other stage is a task's commit
+— at `flow.verify` an `In-run fix <k>` task's (`skills/flow/verify-fix-loop.md`).
 Run 1's unfinished-work gate lists
 every other non-`chore` commit with `flow-guard check-untasked-commits`
 (`skills/flow-contracts/finish-contract-run1.md`).

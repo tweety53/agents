@@ -190,7 +190,7 @@ func TestCloseTaskOrder(t *testing.T) {
 		gitRun(t, fx.wt, "commit", "-q", "-m", "fix(app): review Minors")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
 		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-		if r.rc != 1 || !strings.Contains(r.stdout, "UNTASKED: 1 commit(s) carry no Task-Id: or Flow-Key: trailer") {
+		if r.rc != 1 || !strings.Contains(r.stdout, "UNTASKED: 1 commit(s) sit outside every task") {
 			t.Fatalf("exit %d, want 1 and the UNTASKED verdict\n%s", r.rc, r.out)
 		}
 		ctEqual(t, fx.calls(t), nil)

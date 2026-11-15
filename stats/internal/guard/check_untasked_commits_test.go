@@ -30,7 +30,7 @@ func TestCheckUntaskedCommits(t *testing.T) {
 		{"trailerless code commit is listed", []commit{
 			{"src/a.kt", "feat(app): a", "Task-Id: 1"},
 			{"src/b.kt", "test(update): drop checks", ""},
-		}, 1, []string{"UNTASKED: 1 commit(s) carry no Task-Id: or Flow-Key: trailer", "test(update): drop checks"}, []string{"feat(app): a"}},
+		}, 1, []string{"UNTASKED: 1 commit(s) sit outside every task", "test(update): drop checks"}, []string{"feat(app): a"}},
 		{"planning plus code is listed", []commit{{"spectre/changes/demo/tasks.md\nsrc/c.kt", "docs(spectre): note", ""}}, 1, []string{"docs(spectre): note"}, nil},
 		{"implementer key without Task-Id is listed", []commit{{"stats/a.go", "fix(guard): inline", "Flow-Key: task-1+2-implementer"}}, 1,
 			[]string{"UNTASKED: 1 commit(s)", "fix(guard): inline — Flow-Key: task-1+2-implementer with no Task-Id:"}, nil},
@@ -168,6 +168,57 @@ func TestCheckUntaskedCommitsRefusesAPipelineFixKey(t *testing.T) {
 				if !strings.Contains(out.String(), w) {
 					t.Errorf("stdout lacks %q:\n%s", w, out.String())
 				}
+			}
+		})
+	}
+}
+
+// TestCheckUntaskedCommitsListsAnUnsanctionedStageKey pins kan-1117's
+// self-review F2: a commit with no Task-Id: whose Flow-Key: is a flow.<stage>
+// key no contract writes is listed; the five sanctioned stage keys, a stray
+// stage key beside a Task-Id:, and a panel-fix key pass.
+func TestCheckUntaskedCommitsListsAnUnsanctionedStageKey(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, trailer string
+		code          int
+		want          string
+	}{
+		{"flow.verify alone", "Flow-Key: flow.verify", 1, "fix(app): a — Flow-Key: flow.verify is no stage key a contract writes"},
+		{"flow.implement alone", "Flow-Key: flow.implement", 1, "fix(app): a — Flow-Key: flow.implement is no stage key a contract writes"},
+		{"flow.brainstorm", "Flow-Key: flow.brainstorm", 0, "UNTASKED-OK"},
+		{"flow.commit-two", "Flow-Key: flow.commit-two", 0, "UNTASKED-OK"},
+		{"flow.kickoff", "Flow-Key: flow.kickoff", 0, "UNTASKED-OK"},
+		{"flow.review-panel", "Flow-Key: flow.review-panel", 0, "UNTASKED-OK"},
+		{"flow.self-review", "Flow-Key: flow.self-review", 0, "UNTASKED-OK"},
+		{"flow.visual-verify", "Flow-Key: flow.visual-verify", 0, "UNTASKED-OK"},
+		{"flow.verify beside a Task-Id", "Flow-Key: flow.verify\nTask-Id: 3", 0, "UNTASKED-OK"},
+		{"panel-fix key", "Flow-Key: panel-fix-1", 0, "UNTASKED-OK"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			g := &fxGit{}
+			g.copyShape(dir, repoShape{Branch: "main"})
+			writeFile(t, filepath.Join(dir, "README"), "base\n")
+			g.git(dir, "add", "-A")
+			g.git(dir, "commit", "-qm", "base")
+			base := g.git(dir, "rev-parse", "HEAD")
+			g.git(dir, "checkout", "-qb", "spectre/demo")
+			writeFile(t, filepath.Join(dir, "src/a.kt"), "a\n")
+			g.git(dir, "add", "-A")
+			g.git(dir, "commit", "-qm", "fix(app): a", "-m", tc.trailer)
+			if g.err != nil {
+				t.Fatal(g.err)
+			}
+			var out, errb bytes.Buffer
+			code := checkUntaskedCommits([]string{dir, base}, Env{Getenv: os.Getenv, Dir: dir}, &out, &errb)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d\nstdout:\n%s\nstderr:\n%s", code, tc.code, out.String(), errb.String())
+			}
+			if !strings.Contains(out.String(), tc.want) {
+				t.Errorf("stdout lacks %q:\n%s", tc.want, out.String())
 			}
 		})
 	}

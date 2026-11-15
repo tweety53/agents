@@ -5,6 +5,7 @@ import (
 	"io"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -49,6 +50,14 @@ import (
 // run 1's reshape squashed it unrecorded). Its line reads `<sha12>
 // <subject> — Flow-Key: <key> with no Task-Id:`.
 //
+// A `Flow-Key: flow.<stage>` trailer on a commit with no `Task-Id:` is listed
+// unless the key is one a contract writes — `flow.brainstorm`,
+// `flow.commit-two`, `flow.kickoff`, `flow.review-panel`, `flow.self-review`
+// or `flow.visual-verify`: a fix at any other stage is a task's commit
+// (kan-1117 self-review, F2: `Flow-Key: flow.verify` on an inline verify fix
+// passed). Its line reads `<sha12> <subject> — Flow-Key: <key> is no stage
+// key a contract writes`.
+//
 // A commit changing a `.png` under a `full-app-suite.spec.ts-snapshots`
 // directory without changing a `full-app-suite.zip` is listed whatever its
 // trailers: the suite's baselines and their archive land together (kan-1119
@@ -57,8 +66,8 @@ import (
 //
 // Prints one verdict line to stdout:
 //   UNTASKED-OK: <n> commit(s) checked                      nothing listed — exit 0
-//   UNTASKED: <k> commit(s) carry no Task-Id: or Flow-Key: trailer
-//     <sha12> <subject>                                      one line per commit — exit 1
+//   UNTASKED: <k> commit(s) sit outside every task
+//     <sha12> <subject>[ — <reason>]                         one line per commit — exit 1
 // Exit 2 with no verdict line when it cannot answer: a usage error, a
 // worktree that is not a directory, or a range git cannot read.
 //
@@ -148,6 +157,10 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 			listed = append(listed, fmt.Sprintf("  %s %s — Flow-Key: %s with no Task-Id:", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n"), key))
 			continue
 		}
+		if key := ucUnsanctionedStageKey(f[3]); key != "" && strings.TrimSpace(f[2]) == "" {
+			listed = append(listed, fmt.Sprintf("  %s %s — Flow-Key: %s is no stage key a contract writes", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n"), key))
+			continue
+		}
 		if strings.TrimSpace(f[2]) != "" || strings.TrimSpace(f[3]) != "" || ucChoreRE.MatchString(subject) {
 			continue
 		}
@@ -160,7 +173,7 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stdout, "UNTASKED-OK: %d commit(s) checked\n", checked)
 		return 0
 	}
-	fmt.Fprintf(stdout, "UNTASKED: %d commit(s) carry no Task-Id: or Flow-Key: trailer\n", len(listed))
+	fmt.Fprintf(stdout, "UNTASKED: %d commit(s) sit outside every task\n", len(listed))
 	for _, l := range listed {
 		fmt.Fprintln(stdout, l)
 	}
@@ -190,6 +203,21 @@ func ucHasPipelineFixKey(keys string) bool {
 		}
 	}
 	return false
+}
+
+// ucStageKeys are the flow.<stage> Flow-Key values a contract writes on a
+// commit outside every task (skills/flow-contracts/git-boundaries.md).
+var ucStageKeys = []string{"flow.brainstorm", "flow.commit-two", "flow.kickoff", "flow.review-panel", "flow.self-review", "flow.visual-verify"}
+
+// ucUnsanctionedStageKey is the first Flow-Key value opening flow. that is not
+// in ucStageKeys, "" when none is.
+func ucUnsanctionedStageKey(keys string) string {
+	for _, k := range strings.Split(keys, ",") {
+		if k = strings.TrimSpace(k); strings.HasPrefix(k, "flow.") && !slices.Contains(ucStageKeys, k) {
+			return k
+		}
+	}
+	return ""
 }
 
 // ucImplementerKeyRE is an implementer dispatch's own key — never a fix,

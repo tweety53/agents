@@ -42,8 +42,7 @@ flow-guard check-loop-landing, in the agents checkout this hook is installed fro
 check fails closed: a checker that cannot answer or cannot run denies the push.
 
 It also denies a push of a `/flow` change branch (`spectre/<name>`) whose unpushed commits —
-`origin/spectre/<name>..HEAD` — hold one outside every task with neither a `Task-Id:` nor a
-`Flow-Key:` trailer, as flow-guard check-untasked-commits judges them (**Commits outside every
+`origin/spectre/<name>..HEAD` — hold one outside every task, as flow-guard check-untasked-commits judges them (**Commits outside every
 task**, skills/flow-contracts/git-boundaries.md; kan-941 pushed four such commits). It checks only a
 push of HEAD's commit to a branch origin already holds, and fails open: a checker that cannot
 answer, cannot run or times out lets the push through, and run 1's gate still lists the commit.
@@ -894,9 +893,9 @@ def untasked_push(args, target):
             return None
         if r.returncode == 1:
             return (
-                f"Blocked: a commit this push sends to {dst} sits outside every task with neither a "
-                f"`Task-Id:` nor a `Flow-Key:` trailer:\n{r.stdout}\n"
-                "Each listed commit is on no origin ref. Add `-m \"Flow-Key: <key>\"` to it — `git commit "
+                f"Blocked: a commit this push sends to {dst} sits outside every task — each listed line "
+                f"names why:\n{r.stdout}\n"
+                "Each listed commit is on no origin ref. Give it a `Flow-Key: <key>` it may carry — `git commit "
                 "--amend` for HEAD, a reword for an earlier listed one, never a commit outside this list — `<key>` its round's dispatch key or stage key (**Commits outside every "
                 "task**, skills/flow-contracts/git-boundaries.md), then push again."
             )
