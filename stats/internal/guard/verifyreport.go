@@ -112,7 +112,11 @@ import (
 // worktree three directories above <report file>, each need a
 // `- <view>: <absolute PNG path>` line, and each such view that no
 // `- <view>: <composite> diff=` line names needs a
-// `per view, no frame composed: <view> sweeps:` line; each gap is undone. No
+// `per view, no frame composed: <view> sweeps:` line; each gap is undone. A
+// view whose own line reads
+// `- <view>: <absolute PNG path> — capture unchanged since <round base>` needs
+// neither line — a scoped fix round's verifier does not read a view whose
+// capture is unchanged (skills/flow/visual-verify-verifier.md step 9). No
 // `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
 // than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
 // reports named only the prototype-framed captures).
@@ -409,10 +413,13 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines []string) []string {
 	report := strings.Join(lines, "\n")
 	var gaps []string
 	for _, png := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
-		m := regexp.MustCompile(`(?m)^\s*- (\S+): ` + regexp.QuoteMeta(png) + `(\s|$)`).FindStringSubmatch(report)
+		m := regexp.MustCompile(`(?m)^\s*- (\S+): ` + regexp.QuoteMeta(png) + `(\s.*)?$`).FindStringSubmatch(report)
 		switch {
 		case m == nil:
 			gaps = append(gaps, filepath.Base(png)+` is on no "- <view>: <path>" line — step 9 states every capture`)
+		case strings.HasPrefix(strings.TrimSpace(m[2]), "— capture unchanged since "):
+			// A scoped fix round's verifier does not read a view whose capture is
+			// unchanged since its round base (KAN-1122): its line says so.
 		case !slices.Contains(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(png), ".png"), "")) && !strings.Contains(report, "per view, no frame composed: "+m[1]+" sweeps:"):
 			gaps = append(gaps, m[1]+` has no frame and no "per view, no frame composed: `+m[1]+` sweeps:" line`)
 		}
