@@ -38,7 +38,8 @@
 # <cache>/<key>/flow-guard, where <cache> is FLOW_GUARD_CACHE_DIR if set (the
 # test suites point it at a temporary directory, so no test writes into the
 # operator's real cache), else ${XDG_CACHE_HOME:-$HOME/.cache}/flow-guard.
-# Old keys are never pruned: each is one binary of a few MB, and removing the
+# Each source edit adds one key of a few MB; the binary itself prunes keys
+# unused for a week (stats/cmd/flow-guard/prune.go), and removing the
 # directory is always safe.
 #
 # THE BUILD. A missing key is built with `go build` to a pid-named temporary

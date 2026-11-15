@@ -32,6 +32,9 @@ const usage = "usage: flow-guard <name> [arguments]\n\nruns guard <name>; its co
 var registry = guard.Registry
 
 func main() {
+	if exe, err := os.Executable(); err == nil {
+		pruneCache(exe, time.Now())
+	}
 	if len(os.Args) > 1 {
 		if cwd, err := os.Getwd(); err == nil {
 			env := guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd}
