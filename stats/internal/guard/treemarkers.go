@@ -47,7 +47,9 @@ import (
 // and the group's edits are not the reviewer's to be blamed for, so a
 // porcelain line whose path is one of them is not a stray. An untracked path
 // no `**Files:**` names, such as a reproducer's scratch copy, and every
-// marker change still fail (kan-1107 self-review F3).
+// marker change still fail (kan-1107 self-review F3). The stray refusal
+// names that form and never advises removing a running group's edits
+// (kan-1124 self-review, F4).
 //
 // <markers-file> carries one <path><TAB><ERE> line per artifact the
 // dispatch must not damage, each ERE a string the artifact is known to
@@ -265,7 +267,7 @@ func checkTreeMarkers(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stdout, "TREE-MARKERS-OK: every recorded marker matches its pre-dispatch snapshot")
 			return 0
 		}
-		fmt.Fprintln(stderr, "check-tree-markers: the dispatch left paths changed or untracked that the snapshot did not hold -- the dispatch's own clean-or-restored claim is not evidence; remove them or recover by hand from before the dispatch:")
+		fmt.Fprintln(stderr, "check-tree-markers: the dispatch left paths changed or untracked that the snapshot did not hold -- the dispatch's own clean-or-restored claim is not evidence; when an implementer group runs beside this dispatch, verify again with that group's **Files:** as trailing <path>… arguments and never remove its edits; otherwise remove them or recover by hand from before the dispatch:")
 		for _, l := range strays {
 			fmt.Fprintln(stderr, "check-tree-markers:   "+l)
 		}

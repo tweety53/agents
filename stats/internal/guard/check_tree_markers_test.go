@@ -381,3 +381,21 @@ func TestCheckTreeMarkersIgnoresTheConcurrentGroupsFiles(t *testing.T) {
 		}
 	})
 }
+
+// TestCheckTreeMarkersStrayRefusalKeepsTheGroupsEdits: the stray refusal names
+// the trailing <path>… form and never advises removing a running implementer
+// group's edits (kan-1124 self-review, F4).
+func TestCheckTreeMarkersStrayRefusalKeepsTheGroupsEdits(t *testing.T) {
+	t.Parallel()
+	fx := tmNew(t)
+	if r := fx.run("snapshot", fx.wt, fx.markers, fx.snap); r.rc != 0 {
+		t.Fatalf("snapshot: %d\n%s", r.rc, r.out)
+	}
+	writeFile(t, fx.wt+"/components/X.tsx.x", "scratch")
+	r := fx.run("verify", fx.wt, fx.markers, fx.snap)
+	for _, want := range []string{"components/X.tsx.x", "trailing <path>… arguments", "never remove its edits"} {
+		if r.rc != 1 || !strings.Contains(r.out, want) {
+			t.Errorf("want exit 1 naming %q, got %d\n%s", want, r.rc, r.out)
+		}
+	}
+}

@@ -921,7 +921,7 @@ a string that artifact is known to contain (a decision ID, a task title, a secti
 runs `flow-guard check-tree-markers snapshot <worktree> <markers-file> <snapshot-file>`. The marker list
 is written once, before the stage's first dispatch, and every later dispatch reuses it with a
 snapshot of its own. Once the dispatch's completion notification arrives, the parent runs `flow-guard check-tree-markers verify <worktree>
-<markers-file> <snapshot-file>` before the report is read or acted on. Exit 1 is the dispatch
+<markers-file> <snapshot-file>` before the report is read or acted on. A gated bundle's verify carries the `<path>…` arguments **A returning bundle is one Bash call** above names, and on any exit 1 the parent never removes a path an implementer group still running may own (kan-1124 self-review, F4). Exit 1 is the dispatch
 having mutated the tree, whatever its report claims — the same `## Question` stop as the
 plan-tree guard's, with the guard's lines verbatim; exit 2, the same stop. The markers sit beside
 the plan-tree guard, never in its place.
