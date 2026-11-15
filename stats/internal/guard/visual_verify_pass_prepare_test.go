@@ -977,6 +977,19 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		if rc != 0 || len(vvpLines(out, "DISPATCH: ")) != 3 || strings.Count(runLog(f), "capture ") != 1 || !strings.Contains(bundle(f, "visual-verify-s3of3"), "merge-base capture failed — stack down\n") {
 			t.Fatalf("--merge-base-failed: exit %d, run log %q\n%s", rc, runLog(f), out)
 		}
+		args = args[:len(args)-2]
+		args[2] = "visual-verify-2-s3of3"
+		if rc, out, _ = f.run("prepare", args...); rc != 0 || !strings.Contains(bundle(f, "visual-verify-2-s3of3"), "merge-base capture failed — stack down\n") {
+			t.Fatalf("a later shard bundle lost the recorded merge-base failure: exit %d\n%s\n%s", rc, out, bundle(f, "visual-verify-2-s3of3"))
+		}
+		args[2] = "visual-verify-2-s2of3"
+		if rc, out, _ = f.run("prepare", args...); rc != 0 {
+			t.Fatalf("s2 redispatch: exit %d\n%s", rc, out)
+		}
+		report := func(k string) string { return filepath.Join(f.wt, ".superpowers/sdd/verify-report-"+k+".md") }
+		if b := bundle(f, "visual-verify-2-s2of3"); !strings.Contains(b, report("visual-verify-s2of3")) || strings.Contains(b, report("visual-verify-s1of3")) {
+			t.Fatalf("the s2 redispatch's previous attempt is not its own index's alone:\n%s", b)
+		}
 	})
 
 	t.Run("a scoped pass and a two-worktree set never shard", func(t *testing.T) {

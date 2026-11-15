@@ -588,7 +588,7 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 	if rc != 0 || !strings.Contains(out, "STAGE: completed") || !strings.Contains(calls, "stage end -C "+g.wt+" -command /flow -stage flow.visual-verify -outcome completed demo") {
 		t.Fatalf("every index closed: exit %d\n%s\n%s", rc, out, calls)
 	}
-	if b, _ := os.ReadFile(filepath.Join(vv, "visual-verification.md")); string(b) != "# s1\n\n# s2\n" {
+	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(vv), "visual-verification.md")); string(b) != "# s1\n\n# s2\n" {
 		t.Fatalf("visual-verification.md = %q, want the parts joined in shard order", b)
 	}
 }

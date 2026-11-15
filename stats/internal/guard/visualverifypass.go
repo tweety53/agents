@@ -106,8 +106,7 @@ import (
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
 //      No verifier row is begun on any STOP.
 //  6a. with no failing check, an unscoped pass (no --round-base) of a set of
-//      one worktree with `mockups` declared, whose stage file has no `row`
-//      line yet, counts F, the distinct frame ids of the capture specs'
+//      one worktree with `mockups` declared counts F, the distinct frame ids of the capture specs'
 //      sidecar lines plus the declared frames no line maps (decision
 //      shard-unscoped-single-worktree). Above 25 it writes one `spec <abs>`
 //      line per capture spec and one `slice s<i>of<n> <frame,…>` line per
@@ -136,7 +135,8 @@ import (
 //      lines and continues unsharded (decision
 //      capture-failure-falls-back-serial). Then, without
 //      --merge-base-captured or --merge-base-failed, each spec with a PNG
-//      `git cat-file -e <merge-base>:<png>` refuses prints
+//      `git cat-file -e <merge-base>:<png>` refuses, or whose
+//      resolve-visual-screenshots exits 2, prints
 //        MERGE-BASE-SPEC: <spec>
 //      and then `NEXT: merge-base-capture`, exit 0, no row begun (decisions
 //      capture-before-merge-base, merge-base-capture-when-baseline-missing).
@@ -170,8 +170,8 @@ import (
 //      report path of the worktree (decision redispatch-bundle-by-path) — of
 //      its own shard index only, on a shard key. Every bundle carries a
 //      `## Measure` section (decision bundle-names-measure-call): on a shard
-//      key `slice: s<i>of<n> <slice>` and, under --merge-base-failed,
-//      `merge-base capture failed — <reason>`, then
+//      key `slice: s<i>of<n> <slice>` and, under --merge-base-failed or a
+//      stage `merge-base-failed` line, `merge-base capture failed — <reason>`, then
 //        measure: flow-guard visual-verify-pass measure <worktree> <name> <key less any -rest[-<n>]> <spec path>[ --frames <slice>]
 //  11. one `flow record dispatch begin -C <canonical-worktree> -change <name>
 //      -role verifier -model <model> -effort <effort> -key <key> -session-token <t>
@@ -264,7 +264,7 @@ import (
 //      not, then rewrites visual-prototype.txt with those lines when the map
 //      exists.
 // On the `loop`, `judge` and `done` paths (steps 3–5) a shard's close rewrites
-// <changeRoot>/visual-verification/visual-verification.md as the
+// <changeRoot>/visual-verification.md as the
 // `record-s<i>of<n>.md` parts that exist, joined in shard order by one blank
 // line (decision record-parts-merged-by-close).
 // Every commit is step 12 (decision close-commits-final-reports), never made
@@ -365,6 +365,8 @@ import (
 //   spec <absolute capture spec path>        prepare, on a sharded pass
 //   slice s<i>of<n> <frame>[,<frame>…]       prepare, on a sharded pass
 //   captured                                 prepare, once a sharded pass's capture ran
+//   merge-base-failed <reason>               prepare, under --merge-base-failed; every
+//                                            later shard bundle reads its reason
 //   row <key> <worktree>
 //   verdict <key> <guard verdict line>       close, on a remainder
 //   blocked <key>                            close, on a report with a non-zero exit

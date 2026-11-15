@@ -281,7 +281,8 @@ func (v *vvp) preflight(survivors []string) {
 					}
 				}
 			}
-			for _, p := range v.frameFiles(targets) {
+			files := v.frameFiles(targets)
+			for _, p := range files {
 				if strings.HasSuffix(p, ".mockups") {
 					sidecars = append(sidecars, p)
 				}
@@ -292,7 +293,7 @@ func (v *vvp) preflight(survivors []string) {
 				}
 			}
 			if v.cells(w)["design repo"] != "" {
-				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, v.frameFiles(targets)...)...); rc != 0 {
+				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, files...)...); rc != 0 {
 					collect("render-frames", out, errs)
 				}
 			}
@@ -318,11 +319,6 @@ func (v *vvp) shard(specs, sidecars []string) {
 	mock := v.cells(v.canon)["mockups"]
 	if len(v.worktrees) != 1 || mock == "" || len(v.roundBase) > 0 {
 		return
-	}
-	for _, l := range v.readStage() {
-		if l[0] == "row" {
-			return
-		}
 	}
 	var lines [][3]string
 	listed := map[string]bool{}
@@ -476,13 +472,22 @@ func (v *vvp) captureShards(survivors []string) {
 		}
 		v.appendStage("captured")
 	}
+	if v.mbFailed != "" {
+		v.appendStage("merge-base-failed " + v.mbFailed)
+	}
 	if v.mbCaptured || v.mbFailed != "" {
 		return
 	}
 	missing := false
 	for _, s := range specs {
 		var out bytes.Buffer
-		resolveVisualScreenshots([]string{w, filepath.Base(s)}, quietReasons(v.env), &out, io.Discard)
+		// Exit 1 is zero PNGs, nothing to compare; exit 2 cannot answer, so the
+		// spec fails closed.
+		if resolveVisualScreenshots([]string{w, filepath.Base(s)}, quietReasons(v.env), &out, io.Discard) == 2 {
+			v.say("MERGE-BASE-SPEC: %s", s)
+			missing = true
+			continue
+		}
 		for _, png := range strings.Fields(out.String()) {
 			if _, ok := v.git("-C", filepath.Dir(png), "cat-file", "-e", v.mergeBase[w]+":./"+filepath.Base(png)); !ok {
 				v.say("MERGE-BASE-SPEC: %s", s)
@@ -900,8 +905,14 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	if slice := vvpSlice(stage, key); slice != "" {
 		line("slice: %s %s", strings.TrimPrefix(vvpShardSeg.FindString(key), "-"), slice)
 		measure += " --frames " + slice
-		if v.mbFailed != "" {
-			line("merge-base capture failed — %s", v.mbFailed)
+		mbFailed := v.mbFailed
+		for _, l := range stage {
+			if l[0] == "merge-base-failed" {
+				mbFailed = l[1]
+			}
+		}
+		if mbFailed != "" {
+			line("merge-base capture failed — %s", mbFailed)
 		}
 	}
 	line("%s", measure)

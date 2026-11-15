@@ -362,8 +362,7 @@ func vvpSlice(stage [][2]string, key string) string {
 // (decision redispatch-key-keeps-round).
 var vvcFixRound = regexp.MustCompile(`-fix-[0-9]+(-full)?`)
 
-// joinRecords rewrites <changeRoot>/visual-verification/visual-verification.md
-// as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a
+// joinRecords rewrites <changeRoot>/visual-verification.md as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a
 // shard's close (decision record-parts-merged-by-close).
 func (v *vvp) joinRecords(changeRoot string) {
 	m := vvpShardSeg.FindStringSubmatch(v.key)
@@ -374,11 +373,17 @@ func (v *vvp) joinRecords(changeRoot string) {
 	vvDir := filepath.Join(changeRoot, "visual-verification")
 	var parts []string
 	for i := 1; i <= n; i++ {
-		if b, err := os.ReadFile(filepath.Join(vvDir, fmt.Sprintf("record-s%dof%d.md", i, n))); err == nil {
-			parts = append(parts, strings.TrimRight(string(b), "\n"))
+		part := filepath.Join(vvDir, fmt.Sprintf("record-s%dof%d.md", i, n))
+		b, err := os.ReadFile(part)
+		if os.IsNotExist(err) {
+			continue
 		}
+		if err != nil {
+			v.die("cannot-read", "cannot read %s: %v", part, err)
+		}
+		parts = append(parts, strings.TrimRight(string(b), "\n"))
 	}
-	v.writeOut(filepath.Join(vvDir, "visual-verification.md"), strings.Join(parts, "\n\n")+"\n")
+	v.writeOut(filepath.Join(changeRoot, "visual-verification.md"), strings.Join(parts, "\n\n")+"\n")
 }
 
 var vvcRest = regexp.MustCompile(`-rest(?:-([0-9]+))?$`)

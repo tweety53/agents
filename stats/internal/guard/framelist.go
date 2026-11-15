@@ -95,6 +95,8 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/framelist.go).
 
+const frameListUsage = "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]\n"
+
 // checkFrameList is `flow-guard check-frame-list`: the comment above is the contract. It derives the frames design.md declares from the mockups
 // directory and reconciles them against the capture specs' sidecars and the
 // verifier report's per-frame and `- frames:` lines.
@@ -134,7 +136,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	var slice []string // --frames: the shard's slice, nil for every frame
 	if i := slices.Index(args, "--frames"); i >= 0 {
 		if i+1 == len(args) || args[i+1] == "" {
-			fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]\n", prog)
+			fmt.Fprintf(stderr, frameListUsage, prog)
 			Reason(env, "usage")
 			return 2
 		}
@@ -142,7 +144,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 		args = slices.Delete(slices.Clone(args), i, i+2)
 	}
 	if len(args) != 3 {
-		fmt.Fprintf(stderr, "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]\n", prog)
+		fmt.Fprintf(stderr, frameListUsage, prog)
 		Reason(env, "usage")
 		return 2
 	}
