@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -661,8 +662,14 @@ check "design_record_no_design: exits 2" '[ "$RC" -eq 2 ]'
 check "design_record_no_design: writes no record" '[ ! -e "$rec" ]'`},
 	})
 	// design-record marks no stage, so it needs no --harness or --session-token.
+	// Dir "/" keeps the in-process call from cd-ing the test process away
+	// from under the package's parallel tests.
 	var out, errb bytes.Buffer
-	Registry["integrate-change"]([]string{"design-record", t.TempDir(), "demo"}, Env{Getenv: func(string) string { return "" }}, &out, &errb)
+	before, _ := os.Getwd()
+	Registry["integrate-change"]([]string{"design-record", t.TempDir(), "demo"}, Env{Dir: "/", Getenv: func(string) string { return "" }}, &out, &errb)
+	if after, _ := os.Getwd(); after != before {
+		t.Errorf("design-record moved the test process's cwd: %s -> %s", before, after)
+	}
 	if strings.Contains(errb.String(), "--harness") {
 		t.Errorf("design-record asks for a harness: %s", errb.String())
 	}
