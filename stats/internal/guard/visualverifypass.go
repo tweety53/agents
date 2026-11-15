@@ -28,7 +28,7 @@ import (
 //     [--miss] [--continue [--started]]
 //   flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> \
 //     --session-token mf-<t>
-//   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]
+//   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]
 //
 // Arguments:
 //   <canonical-worktree>  the change's canonical worktree, where its rows are
@@ -258,7 +258,13 @@ import (
 //      piped into flow-guard compose-mockup-frames <sidecar> <mockups root>
 //      <changeRoot>/visual-verification [<mockup frame>] (no fourth argument
 //      under --prototype or without a declared `mockup frame`). Neither: the
-//      manifest carries no pairs.
+//      manifest carries no pairs. With --frames, only the sidecar's lines
+//      whose frame is in the slice — every `frame`, comment and blank line
+//      kept — copied to
+//      <worktree>/.superpowers/sdd/visual-measure-<key>/<spec basename>.mockups
+//      and composed from there; a frame outside the slice is neither composed
+//      nor measured, and its `.frame.png` is left alone (decision
+//      manifest-per-shard).
 //   3. per sidecar line (a pair), with the cropped `<stem>.frame.png` as the
 //      frame when compose wrote one, else the mockup itself:
 //      flow-guard measure-visual-properties <frame> <capture> --scale 1 --props
@@ -330,7 +336,7 @@ func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
 const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
 	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
-	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
+	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]"
 
 // vvpExit unwinds a step to visualVerifyPass with its exit code.
 type vvpExit int
