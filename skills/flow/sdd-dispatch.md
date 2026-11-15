@@ -13,6 +13,7 @@ implements**, `skills/flow/implement.md`).
 inline runs bundles in plan order with no implementer dispatch at all. A group's implementer works
 its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task is bundled with, and
 commits with, the partner its `**Squash-with:**` field names.
+`flow-guard plan-dispatch-groups` caps a group at weight 3 — a `**Size:** big` task weighs 3, every other task 1 — so an implementer receives a `big` task alone or at most three others, save one `**Squash-with:**` bundle heavier than that, which stays whole.
 `flow record dispatch begin` refuses a live `task-<ids>-implementer` row whose `+`-joined ids are not one group's tasks, which `flow record decision` resolves from each group's `bundles` when it records the decision.
 
 **Waves — concurrent dispatch of ready groups.** A group is ready when every id in the union of

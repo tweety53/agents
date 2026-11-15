@@ -494,6 +494,16 @@ older plan parses unchanged — the planner never relies on that inference. Name
 tasks this one's own files depend on, `none` when there are none, and write it consistently
 across a `**Squash-with:**` pair (union semantics merge the pair into one bundle).
 
+A `**Size:**` field — `small`, `medium` or `big` — states how much of an implementer's context the
+task's work is expected to take, and is optional: a task without one is `medium`. Write `big` on a
+task expected to fill most of an implementer's context alone — a wide change across interacting
+parts, a new subsystem, a task whose own verification iterates — and leave a narrow or mechanical
+task unmarked or `small`. `flow-guard plan-dispatch-groups` weighs a `big` task 3 and every other
+task 1 and cuts every group to a weight of at most 3, so a `big` task runs alone and at most three
+other tasks share one implementer. A value other than those three fails `flow-guard
+check-plan-shape` (F30) and `flow-guard plan-dispatch-bundles`; a second `**Size:**` line in one
+task, or an indented one, fails `flow-guard check-plan-shape` (F1, F3a).
+
 Add this header to `tasks.md`:
 
 ```markdown
@@ -691,8 +701,9 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    step 7 and the panel's slot triggers later skip.
 5. **implementer groups** — on every run whose step 1 came out `sdd`: run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md`, then
    `flow-guard plan-dispatch-groups <changeRoot>/tasks.md` for the mechanical default — a deterministic
-   grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
-   most two implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
+   grouping that caps every group at weight 3 — a `**Size:** big` task weighs 3, every other task 1,
+   and a single bundle heavier than that stays one group (no roll, no static table; at most two
+   implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
    is `groups_mechanical` verbatim unless the planner **splits** a mechanical group into more
    groups — a chain judged too long for one implementer's context, or a real parallel-wave benefit
    the mechanical grouping's fold pass declined — with a one-line `groups_override` reason;
