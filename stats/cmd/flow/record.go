@@ -1181,7 +1181,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		return 2
 	}
 	if *role == "implementer" && !implementerKey.MatchString(*key) && !fixerKey.MatchString(*key) && !operatorKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
-		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry], task-<ids>-implementer-recommit-<k>, task-<ids>-implementer-pick-<k>, full-suite-fix-<n> or operator-<n>: ids are +-joined\n", *key)
+		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry], task-<ids>-implementer-recommit-<k>, task-<ids>-implementer-pick-<k>, full-suite-fix-<n>[-retry] or operator-<n>: ids are +-joined\n", *key)
 		return 2
 	}
 	if !slices.Contains(recordEfforts, *effort) {
@@ -1670,7 +1670,7 @@ var implementerKey = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer(-fi
 // a re-commit, a wave pick and a full-suite fix (skills/flow/implement.md,
 // Every fix is a fresh one-shot). It widens the -role implementer shape
 // check only; implementerTask still reads implementerKey alone.
-var fixerKey = regexp.MustCompile(`^(task-[0-9]+(\+[0-9]+)*-implementer-(recommit|pick)-[0-9]+|full-suite-fix-[0-9]+)$`)
+var fixerKey = regexp.MustCompile(`^(task-[0-9]+(\+[0-9]+)*-implementer-(recommit|pick)-[0-9]+|full-suite-fix-[0-9]+(-retry)?)$`)
 
 // implementerTask returns the "task-<ids>" part of a task implementer key,
 // "" for any other key.

@@ -8906,3 +8906,31 @@ func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
 		})
 	}
 }
+
+// TestRecordAdmitsAFullSuiteFixRetryKey pins kan-1087 self-review F8: a full-suite fixer's
+// fallback row is retried under `full-suite-fix-<n>-retry`, which the key check admits.
+func TestRecordAdmitsAFullSuiteFixRetryKey(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"implementer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct {
+		key     string
+		refused bool
+	}{{"full-suite-fix-1-retry", false}, {"full-suite-fix-1-retry-x", true}} {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "low", "-key", tc.key,
+			"-session-token", "mf-record-fsf-retry"}, strings.NewReader(""), &stdout, &stderr)
+		refused := strings.Contains(stderr.String(), "is not task-<ids>-implementer")
+		if refused != tc.refused || tc.refused && code != 2 {
+			t.Errorf("%s: exit %d, refused %v, want %v; stderr:\n%s", tc.key, code, refused, tc.refused, stderr.String())
+		}
+	}
+}

@@ -2635,3 +2635,69 @@ func TestStageEndVerifyFindsTheChangeWorktree(t *testing.T) {
 		})
 	}
 }
+
+// TestStageEndRefusesAFallbackWithoutItsRetry pins kan-1087 self-review F8: a completed /flow
+// end of flow.sdd-tdd, flow.review-panel or flow.verify refuses while a fallback row has no retry.
+func TestStageEndRefusesAFallbackWithoutItsRetry(t *testing.T) {
+	smoke.Heavy(t)
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	bin := t.TempDir()
+	script := "#!/usr/bin/env bash\ncase \"$*\" in\n" +
+		"  *\"record dispatches\"*) echo '[]' ;;\n" +
+		"  *\"state get\"*) echo '{\"worktrees\":{}}' ;;\n" +
+		"  *) echo '[]' ;;\nesac\n"
+	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	row := func(key, outcome string) string {
+		return `{"key":"` + key + `","role":"reviewer","outcome":"` + outcome + `","startedAt":"2026-11-02T15:00:00Z","endedAt":"2026-11-02T15:01:00Z"}`
+	}
+	record := func(rows ...string) string {
+		return `{"change":"kan-1","dispatches":[` + strings.Join(rows, ",") + `]}`
+	}
+	unretried := record(row("task-55-reviewer", "fallback"))
+	root := filepath.Join(repo, "spectre", "changes", "kan-1")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{"design.md": "## Live check\n\nRun the daemon.\n", "live-verification.md": "- Before: 3\n- After: 0\n"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		name, record, stage, outcome string
+		want                         int
+	}{
+		{"an unretried fallback", unretried, "flow.sdd-tdd", "completed", 1},
+		{"a retried fallback", record(row("task-55-reviewer", "fallback"), row("task-55-reviewer-retry", "completed")), "flow.sdd-tdd", "completed", 0},
+		{"a retry's own fallback", record(row("task-55-reviewer-retry", "fallback")), "flow.sdd-tdd", "completed", 0},
+		{"review-panel", unretried, "flow.review-panel", "completed", 1},
+		{"verify", unretried, "flow.verify", "completed", 1},
+		{"a failed end", unretried, "flow.sdd-tdd", "failed", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					_, _ = w.Write([]byte(tc.record))
+					return
+				}
+				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
+					"-command", "/flow", "-stage", tc.stage, "-outcome", tc.outcome, "kan-1"},
+				strings.NewReader(""), &stdout, &stderr)
+			if code != tc.want {
+				t.Fatalf("exit=%d, want %d; stderr:\n%s", code, tc.want, stderr.String())
+			}
+			if tc.want == 1 && (!strings.Contains(stderr.String(), "task-55-reviewer ") || !strings.Contains(stderr.String(), "task-55-reviewer-retry")) {
+				t.Fatalf("stderr does not name task-55-reviewer and its retry:\n%s", stderr.String())
+			}
+		})
+	}
+}

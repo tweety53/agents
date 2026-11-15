@@ -631,6 +631,9 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gateVisualVerifyTrailers(ctx, f, *outcome, stderr); code != 0 {
 		return code
 	}
+	if code := gateFallbackRetried(ctx, f, *outcome, stderr); code != 0 {
+		return code
+	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -760,6 +763,47 @@ func verifyKeyRepository(key string) string {
 	}
 	return rest
 }
+
+// gateFallbackRetried refuses a completed /flow end of flow.sdd-tdd,
+// flow.review-panel or flow.verify while a dispatch row ended `fallback` --
+// a key not itself ending `-retry` or `-retry-<n>` -- has no `<key>-retry`
+// row: skills/flow/implement.md (The handshake) retries a first mismatch
+// under that key, and a stage ended without it shipped the mismatched work
+// (kan-1087 self-review, F8). A failed record read refuses nothing.
+func gateFallbackRetried(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
+	if f.command != "/flow" || outcome != "completed" ||
+		f.stage != "flow.sdd-tdd" && f.stage != "flow.review-panel" && f.stage != "flow.verify" {
+		return 0
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		return 0
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.name)
+	})
+	if err != nil {
+		return 0
+	}
+	keys := map[string]bool{}
+	for _, d := range run.Dispatches {
+		keys[d.Key] = true
+	}
+	var unretried []string
+	for _, d := range run.Dispatches {
+		if d.Outcome == "fallback" && !retryKey.MatchString(d.Key) && !keys[d.Key+"-retry"] {
+			unretried = append(unretried, fmt.Sprintf("%s (retry under %s-retry, skills/flow/implement.md, The handshake)", d.Key, d.Key))
+		}
+	}
+	if len(unretried) == 0 {
+		return 0
+	}
+	fmt.Fprintf(stderr, "flow: stage end refused: %s ends with fallback row(s) never retried: %s\n", f.stage, strings.Join(unretried, "; "))
+	return 1
+}
+
+// retryKey is a dispatch key that is itself a retry: its fallback needs no further row.
+var retryKey = regexp.MustCompile(`-retry(-[0-9]+)?$`)
 
 // gateBrainstormDispatchesClosed refuses a /flow or /flow-plan flow.brainstorm end, of any
 // outcome, while a dispatch row of the change has no end: brainstorm hands
