@@ -238,6 +238,28 @@ func TestPanelSlotTriggersFailureModes(t *testing.T) {
 	}
 }
 
+// git C-quotes a name holding `"` or `\` whatever core.quotePath says; its
+// changed lines are still read under the decoded name.
+func TestPanelSlotTriggersQuotedNames(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	newFx, mb := pstTemplate(t)
+	for name, p := range map[string]string{
+		"double quote in the name": `cmd/we"ird.go`,
+		"backslash in the name":    `cmd/back\slash.go`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			fx := newFx(t)
+			fx.put(t, p, "go func() {}()")
+			fx.commit()
+			if fx.g.err != nil {
+				t.Fatal(fx.g.err)
+			}
+			pstIs(t, pstRun(t, fx.env, fx.repo, mb), pstWant("", "", p+":1 goroutine"))
+		})
+	}
+}
+
 // One worktree's run wins over another's skip, in either order, and the
 // first pair's reason wins when both run; a path the worktree's `## panel
 // diff exclude` leaves out is never scanned. The code worktree's change is

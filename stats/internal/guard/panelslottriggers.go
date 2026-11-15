@@ -207,6 +207,9 @@ func panelSlotTriggers(args []string, env Env, stdout, stderr io.Writer) int {
 			Reason(env, "cannot-read-diff")
 			return 2
 		}
+		for i, q := range paths {
+			paths[i] = pstUnquote(q)
+		}
 		lines := pstChangedLines(diff)
 		for slot, r := range pstDecide(paths, lines) {
 			if _, seen := reasons[slot]; !seen {
@@ -283,12 +286,26 @@ func pstIsLockfile(p string) bool {
 	return strings.HasSuffix(base, ".lockfile")
 }
 
+// pstUnquote decodes a name git C-quoted; a name not opening with `"`, or
+// one strconv.Unquote refuses, is returned as written.
+func pstUnquote(s string) string {
+	if !strings.HasPrefix(s, `"`) {
+		return s
+	}
+	if u, err := strconv.Unquote(s); err == nil {
+		return u
+	}
+	return s
+}
+
 // pstChangedLines parses a -U0 diff into each path's changed lines. A
 // `diff --git` line opens a file header, which ends at its first `@@`; in
 // it `--- a/<p>` and `+++ b/<p>` name the path (`---` for a deletion, whose
 // `+++` is /dev/null), less the tab git ends a header with when the name
 // holds a space; panelGit's core.quotePath=false leaves a non-ASCII name
-// unquoted. Each hunk header sets the old and new counters; a
+// unquoted, and a name holding `"`, `\` or a control character, which git
+// C-quotes whatever core.quotePath says (`--- "a/<p>"`), is decoded by
+// pstUnquote before the prefix is dropped. Each hunk header sets the old and new counters; a
 // `+` line is added at the new one, a `-` line removed at the old one.
 func pstChangedLines(diff string) map[string][]pstLine {
 	out := map[string][]pstLine{}
@@ -303,6 +320,10 @@ func pstChangedLines(diff string) map[string][]pstLine {
 			p = strings.TrimSuffix(strings.TrimPrefix(l, "--- a/"), "\t")
 		case header && strings.HasPrefix(l, "+++ b/"):
 			p = strings.TrimSuffix(strings.TrimPrefix(l, "+++ b/"), "\t")
+		case header && strings.HasPrefix(l, `--- "`):
+			p = strings.TrimPrefix(pstUnquote(l[4:]), "a/")
+		case header && strings.HasPrefix(l, `+++ "`):
+			p = strings.TrimPrefix(pstUnquote(l[4:]), "b/")
 		case strings.HasPrefix(l, "@@"):
 			header = false
 			if m := pstHunk.FindStringSubmatch(l); m != nil {
