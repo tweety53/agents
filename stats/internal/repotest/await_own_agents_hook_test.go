@@ -151,3 +151,65 @@ func TestAwaitOwnAgentsHookWaitsOnBackgroundBash(t *testing.T) {
 		t.Errorf("(e) launches only quoted: out %q; want allow", out)
 	}
 }
+
+// TestAwaitOwnAgentsHookTaskStopEndsBackground pins decision
+// taskstop-ends-background: a TaskStop result paired with the agent's own
+// TaskStop call ends the background command it names; the same sentence in a
+// Read or a Bash result ends nothing.
+func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
+	smoke.Heavy(t)
+	dir := filepath.Join(t.TempDir(), "sess", "subagents")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tr := filepath.Join(dir, "agent-impl.jsonl")
+	appendEntry := func(role string, content any) {
+		t.Helper()
+		b, _ := json.Marshal(map[string]any{"type": role, "message": map[string]any{"role": role, "content": content}})
+		f, err := os.OpenFile(tr, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		if _, err := f.Write(append(b, '\n')); err != nil {
+			t.Fatal(err)
+		}
+	}
+	call := func(id, tool string) {
+		t.Helper()
+		appendEntry("assistant", []any{map[string]any{"type": "tool_use", "id": id, "name": tool, "input": map[string]any{}}})
+	}
+	resultOf := func(id, text string) {
+		t.Helper()
+		appendEntry("user", []any{map[string]any{"type": "tool_result", "tool_use_id": id, "content": text}})
+	}
+	run := func() string {
+		t.Helper()
+		p, _ := json.Marshal(map[string]any{"hook_event_name": "SubagentStop", "agent_id": "impl", "stop_hook_active": false, "agent_transcript_path": tr})
+		out, _, rc := runHook(t, "await-own-agents.py", p)
+		if rc != 0 {
+			t.Fatalf("rc %d, out %q", rc, out)
+		}
+		return out
+	}
+
+	call("b1", "Bash")
+	resultOf("b1", "Command running in background with ID: bg1. Output is being written to: /x/bg1.output.")
+	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg1") {
+		t.Errorf("(a) running bg1: out %q; want a block naming bg1", out)
+	}
+	call("s1", "TaskStop")
+	resultOf("s1", "{\"message\":\"Successfully stopped task: bg1 (sleep 3000)\",\"task_id\":\"bg1\",\"task_type\":\"local_bash\",\"command\":\"sleep 3000\"}")
+	if out := run(); out != "" {
+		t.Errorf("(b) bg1 stopped with TaskStop: out %q; want allow", out)
+	}
+	call("b2", "Bash")
+	resultOf("b2", "Command running in background with ID: bg2.")
+	call("r1", "Read")
+	resultOf("r1", "Successfully stopped task: bg2 (sleep 3000)")
+	call("b3", "Bash")
+	resultOf("b3", "Successfully stopped task: bg2")
+	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg2") {
+		t.Errorf("(c) stop only quoted: out %q; want a block naming bg2", out)
+	}
+}

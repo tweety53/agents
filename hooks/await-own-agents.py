@@ -17,7 +17,8 @@ A subagent may not stop while a Bash command it moved to the background still ru
 tool_result of one of its own Bash tool_use calls that opens with "Command running in background
 with ID: <id>", or has a line opening with "Command [did not complete within its Ns timeout and ]was
 moved to the background (ID: <id>)" -- partial output may precede it --, launches <id>, and a `<task-id><id></task-id>` task-notification anywhere in
-its transcript ends it. Pairing by tool_use_id and anchoring the sentence keep a launch the agent
+its transcript ends it, as does a TaskStop result "Successfully stopped task: <id>" paired with one of
+the agent's own TaskStop calls. Pairing by tool_use_id and anchoring the sentence keep a launch the agent
 merely read -- a Read of a transcript, a diff of a test, a grep of a JSONL line -- from trapping it. A child that ended with such a command out
 woke again after its parent had moved on -- kan-1085's fixer left a build running in the background
 and its parent waited 44 minutes on it.
@@ -60,10 +61,11 @@ MOVED_TO_BACKGROUND = re.compile(
     re.MULTILINE,
 )
 TASK_ID = re.compile(r"<task-id>([A-Za-z0-9]+)</task-id>")
+STOPPED = re.compile(r"Successfully stopped task: ([A-Za-z0-9]+)")
 
 
 def running_background(transcript: str) -> "list[str]":
-    launched, done, bash_calls = [], set(), set()
+    launched, done, bash_calls, stop_calls = [], set(), set(), set()
     with open(transcript, encoding="utf-8", errors="replace") as f:
         for line in f:
             done.update(TASK_ID.findall(line))
@@ -83,12 +85,18 @@ def running_background(transcript: str) -> "list[str]":
                     continue
                 if kind == "assistant" and block.get("type") == "tool_use" and block.get("name") == "Bash":
                     bash_calls.add(block.get("id"))
-                if kind != "user" or block.get("type") != "tool_result" or block.get("tool_use_id") not in bash_calls:
+                if kind == "assistant" and block.get("type") == "tool_use" and block.get("name") == "TaskStop":
+                    stop_calls.add(block.get("id"))
+                use_id = block.get("tool_use_id")
+                if kind != "user" or block.get("type") != "tool_result" or use_id not in bash_calls | stop_calls:
                     continue
                 text = block.get("content")
                 if isinstance(text, list):
                     text = " ".join(b.get("text", "") for b in text if isinstance(b, dict))
                 if not isinstance(text, str):
+                    continue
+                if use_id in stop_calls:
+                    done.update(STOPPED.findall(text))
                     continue
                 started = RUN_IN_BACKGROUND.match(text) or MOVED_TO_BACKGROUND.search(text)
                 if started and started.group(1) not in launched:
