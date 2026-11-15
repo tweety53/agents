@@ -36,6 +36,12 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 > **GO CHANGES:** When a reviewed diff includes a `*.go` file, read and follow the `go-code-review` skill
 > first. A diff with no `.go` file skips this.
 
+> **FRAME DEPARTURES:** a part of a capture that departs from the mockup frame or approved
+> prototype it is compared with is an Important finding, unless a `## Decisions` entry of the
+> change or a sidecar `#` comment naming the sibling ticket that builds that part excuses it.
+> Its fix changes the app until the capture matches the frame, never a sidecar comment that
+> names the departure (kan-1087 self-review, F17).
+
 > **INDEPENDENT PASSES:** each pass reviews its own task's diff range and the code, never an
 > earlier pass's report or conclusions; a defect that sits in two passes' ranges is raised under
 > each. Write each pass's report file before beginning the next pass.
