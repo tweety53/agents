@@ -1080,8 +1080,8 @@ dispatch begin` and `end` as a group's implementer is — its `-model` and `-eff
 table names, the end's `-commit` its last commit — and launched with `run_in_background: true` like
 every child. `<k>` counts that key's fixes from 1. A fixer is a mutator: it goes out only while no
 implementer writes its worktree. `flow record dispatch begin` refuses an `implementer` or
-`panel-fix` row begun `-agent-id inline` on a `task-*` or `full-suite-fix-*` key under an `sdd`
-decision (exit 2), so the record never carries the parent's own fix under `sdd`.
+`panel-fix` row begun `-agent-id inline` on a `task-*`, `full-suite-fix-*` or `panel-fix-*` key
+under an `sdd` decision, a back-fill included (exit 2), so the record never carries the parent's own fix under `sdd`.
 
 **The parent keeps every judgement**, and delegates none: whether a correction or an undeclared
 path is legitimate — an undeclared path transcribed with `flow tasks files` is a plan edit, never a

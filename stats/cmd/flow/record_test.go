@@ -7230,9 +7230,12 @@ func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
 		{"inline full-suite implementer", sdd, row("inline", "implementer", "full-suite-fix-1"), 2, "execution: sdd"},
 		{"inline full-suite panel-fix", sdd, row("inline", "panel-fix", "full-suite-fix-1"), 2, "execution: sdd"},
 		{"inline self-review fixer", sdd, row("inline", "implementer", "self-review-x-fix"), 0, ""},
-		{"inline panel-fix round", sdd, row("inline", "panel-fix", "panel-fix-1"), 0, ""},
+		{"inline panel-fix round", sdd, row("inline", "panel-fix", "panel-fix-1"), 2, "execution: sdd"},
+		{"inline panel-fix chunk", sdd, row("inline", "panel-fix", "panel-fix-1-2"), 2, "execution: sdd"},
+		{"inline panel-fix under inline", decisionsBody(`{"execution":"inline"}`), row("inline", "panel-fix", "panel-fix-1"), 0, ""},
 		{"subagent implementer", sdd, row("none", "implementer", "task-1-implementer"), 0, ""},
-		{"back-fill", sdd, row("inline", "implementer", "task-1-implementer", "-started-at", "2026-01-02T03:04:05Z"), 0, ""},
+		{"back-fill", sdd, row("inline", "implementer", "task-1-implementer", "-started-at", "2026-01-02T03:04:05Z"), 2, "execution: sdd"},
+		{"inline self-review back-fill", sdd, row("inline", "implementer", "self-review-x-fix", "-started-at", "2026-01-02T03:04:05Z"), 0, ""},
 		{"decisions read fails", "", row("inline", "implementer", "task-1-implementer"), 0, ""},
 		// Every fixer key an sdd parent dispatches is an implementer key
 		// (skills/flow/implement.md, Every fix is a fresh one-shot).
@@ -7253,6 +7256,60 @@ func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
 				t.Errorf("stderr %q does not name %q", stderr, tc.want)
 			}
 		})
+	}
+}
+
+// TestRecordDispatchBackfillRefusesInlinePanelFixUnderSdd pins kan-1117
+// self-review F1: an inline panel-fix back-fill under an execution: sdd
+// decision is refused before any store write, while an inline self-review
+// fixer's back-fill under the same decision is still recorded.
+func TestRecordDispatchBackfillRefusesInlinePanelFixUnderSdd(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	repo := recordRepo(t, "kan-258")
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
+	record := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:10:00Z","endedAt":"2026-10-23T09:15:00Z"},` +
+		`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-23T09:15:00Z","endedAt":"2026-10-23T09:16:00Z","outcome":"completed"}]}`
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/decisions") {
+			_, _ = w.Write([]byte(decisionsBody(`{"execution":"sdd"}`)))
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct {
+		role, key string
+		code      int
+	}{
+		{"panel-fix", "panel-fix-1", 2},
+		{"implementer", "self-review-x-fix", 0},
+	} {
+		posts = 0
+		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", tc.role, "-model", "opus", "-key", tc.key,
+			"-session-token", "mf-record-sdd-backfill", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.code {
+			t.Fatalf("%s: exit %d, want %d; stderr:\n%s", tc.key, code, tc.code, stderr.String())
+		}
+		if tc.code == 2 && (!strings.Contains(stderr.String(), "execution: sdd") || posts != 0) {
+			t.Errorf("%s: stderr %q, %d POSTs; want execution: sdd named and no POST", tc.key, stderr.String(), posts)
+		}
 	}
 }
 

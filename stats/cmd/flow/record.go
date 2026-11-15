@@ -1436,10 +1436,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	// (skills/flow/implement.md, Inline -- the parent implements). The
 	// mirror: an sdd decision has every task and every fix go to a fresh
 	// one-shot, so an implementer or panel-fix row begun -agent-id inline on
-	// a task- or full-suite-fix- key is the parent's own work and breaches it
-	// (skills/flow/implement.md, Every fix is a fresh one-shot). Either way a
-	// self-review or pipeline fixer is exempt, and a decisions read that
-	// fails skips the check.
+	// a task-, full-suite-fix- or panel-fix- key is the parent's own work and
+	// breaches it (skills/flow/implement.md, Every fix is a fresh one-shot) --
+	// a back-fill (-started-at) is judged by this sdd check too (kan-1117
+	// self-review, F1); the other decision checks judge live rows only.
+	// Either way a self-review or pipeline fixer is exempt, and a decisions
+	// read that fails skips the check.
 	//
 	// A decision's session_cap is the run's model and effort ceiling: a row
 	// above it, an unstated default effort included, is refused (skills/flow/
@@ -1457,19 +1459,20 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		return 2
 	}
 
+	d, decided := latestDecision(ctx, f, projectKey)
+	var execution string
+	if decided && (*role == "implementer" || *role == "panel-fix") && *agentID == "inline" &&
+		(strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "full-suite-fix-") || strings.HasPrefix(*key, "panel-fix-")) &&
+		json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" {
+		fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
+		return 2
+	}
 	if *startedAt == "" {
-		if d, ok := latestDecision(ctx, f, projectKey); ok {
-			var execution string
+		if decided {
 			if (*role == "implementer" || *role == "panel-fix") && *agentID != "inline" &&
 				!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") &&
 				json.Unmarshal(d["execution"], &execution) == nil && execution == "inline" {
 				fmt.Fprintf(stderr, "flow: -role %s -key %s dispatches a subagent, but the change's recorded decision is execution: inline — the parent implements and fixes itself, beginning the row with -agent-id inline (skills/flow/implement.md, Inline — the parent implements)\n", *role, *key)
-				return 2
-			}
-			if (*role == "implementer" || *role == "panel-fix") && *agentID == "inline" &&
-				(strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "full-suite-fix-")) &&
-				json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" {
-				fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
 				return 2
 			}
 			// One implementer per decision group: a live key whose ids
