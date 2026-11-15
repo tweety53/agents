@@ -30,8 +30,11 @@ cd stats && make -s web-dist && cd web && npx tsc -b      # must exit clean befo
 
 Every new script, and any new logic added to an existing one, is Go in `flow-guard`:
 `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as
-`flow-guard <name>`. `setup.sh` and `scripts/flow-guard` are the only bash files in this
-repository and stay that way; `flow-guard check-no-bash`, in `<project>/.flow/project.md`'s
+`flow-guard <name>`. Every non-zero exit of a guard first records `guard.Reason(env, <id>)`,
+`<id>` a kebab-case name of the verdict, never of its subject (`untasked`, not `fresh`) —
+`TestEveryExitSiteRecordsAReason` and `TestReasonIDsNameTheReason` (`stats/internal/guard/`) fail
+on a missing or subject-named id. `setup.sh` and `scripts/flow-guard` are the only bash files in
+this repository and stay that way; `flow-guard check-no-bash`, in `<project>/.flow/project.md`'s
 `## lint`, fails on any other tracked `.sh` file or file whose first line runs bash. The full rule
 is `rules/no-bash-scripts.mdc`.
 
