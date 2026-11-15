@@ -353,3 +353,36 @@ func TestThrowawayWorktreeRemoveFoldBackFailureStillRemoves(t *testing.T) {
 		t.Errorf("git still lists the copy:\n%s", list)
 	}
 }
+
+// TestThrowawayWorktreeFoldBackMovesARootReport pins kan-1119's self-review
+// F2: a non-empty panel report written at the copy's root or the worktree's
+// root is folded into <worktree>/.superpowers/sdd/ — copied from the copy,
+// moved from the worktree — and an empty one is left where it is.
+func TestThrowawayWorktreeFoldBackMovesARootReport(t *testing.T) {
+	t.Parallel()
+	wt, cp := twFoldFixture(t)
+	for p, body := range map[string]string{
+		cp + "/panel-report-0-mutation.md":      "copy root\n",
+		wt + "/panel-report-0-failure-modes.md": "wt root\n",
+		wt + "/panel-report-0-primary.md":       "",
+	} {
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	twGuard(t, "remove", wt, cp, "--fold-back")
+	for name, want := range map[string]string{"panel-report-0-mutation.md": "copy root\n", "panel-report-0-failure-modes.md": "wt root\n"} {
+		if b, err := os.ReadFile(wt + "/.superpowers/sdd/" + name); err != nil || string(b) != want {
+			t.Errorf("%s folded = %q (%v), want %q", name, b, err, want)
+		}
+	}
+	if _, err := os.Stat(wt + "/panel-report-0-failure-modes.md"); err == nil {
+		t.Errorf("the worktree-root report was copied, not moved")
+	}
+	if _, err := os.Stat(wt + "/panel-report-0-primary.md"); err != nil {
+		t.Errorf("the empty root report was not left in place: %v", err)
+	}
+	if _, err := os.Stat(wt + "/.superpowers/sdd/panel-report-0-primary.md"); err == nil {
+		t.Errorf("an empty root report was folded")
+	}
+}

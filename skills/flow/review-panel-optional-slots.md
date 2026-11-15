@@ -49,6 +49,7 @@ each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md`,
 `<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh`,
 `<worktree>-<slot>-<round>/.superpowers/sdd/dispatch-context-group-*.md` and
 `<worktree>-<slot>-<round>/.superpowers/sdd/implementer-report-*.md` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
+It also folds a non-empty `panel-report-*.md` found at the root of the copy or of `<worktree>` — a report a slot wrote by a relative path after a `cd` — into the directory the copy's own reports fold back to, by the same rule, moving the one at `<worktree>`'s root, so a misplaced report is never moved by hand (kan-1119 self-review, F2).
 
 The fold-back runs inside the removal step itself — on every path that removes a copy,
 completed, timed out or run stopped — because a report the slot resolved onto its dispatched root

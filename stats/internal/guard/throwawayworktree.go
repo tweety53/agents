@@ -33,7 +33,10 @@ import (
 //   `.superpowers/sdd/reproducers/*.sh`, `.superpowers/sdd/dispatch-context-group-*.md`
 //   and `.superpowers/sdd/implementer-report-*.md` from the copy back into the worktree,
 //   unless the worktree already holds a non-empty file the copy's is not
-//   newer than.
+//   newer than. By the same rule it also folds each non-empty
+//   `panel-report-*.md` at the copy's root (copied) and at the worktree's root
+//   (moved) into `<worktree>/.superpowers/sdd/` — a report a slot wrote by a
+//   relative path after a `cd` (kan-1119 self-review, F2).
 //
 // Prints nothing on success.
 // Exit 0 done; exit 2 usage, or a step failed — one stderr line names it, and
@@ -183,6 +186,16 @@ func twRemove(env Env, wt, cp string, foldBack bool) error {
 // twFoldBack copies a slot's report or reproducer back into the worktree
 // unless the worktree already holds a non-empty file the copy's is not newer
 // than.
+// twHeld reports whether c already holds a non-empty file that f is not newer than.
+func twHeld(f, c string) bool {
+	if !twNonEmpty(c) {
+		return false
+	}
+	fs, _ := os.Stat(f)
+	cs, _ := os.Stat(c)
+	return !fs.ModTime().After(cs.ModTime())
+}
+
 func twFoldBack(env Env, wt, cp string) error {
 	var found []string
 	for _, pat := range []string{"/.superpowers/sdd/panel-report-*.md", "/.superpowers/sdd/reproducers/*.sh",
@@ -200,15 +213,36 @@ func twFoldBack(env Env, wt, cp string) error {
 			return err
 		}
 		c := smcAbs(env, wt+"/.superpowers/sdd/"+b)
-		if twNonEmpty(c) {
-			fs, _ := os.Stat(f)
-			cs, _ := os.Stat(c)
-			if !fs.ModTime().After(cs.ModTime()) {
-				continue
-			}
+		if twHeld(f, c) {
+			continue
 		}
 		if _, err := twRun(env, nil, "cp", "-a", f, c); err != nil {
 			return err
+		}
+	}
+	for _, root := range []string{cp, wt} {
+		m, _ := filepath.Glob(smcAbs(env, root) + "/panel-report-*.md")
+		for _, f := range m {
+			if !twNonEmpty(f) {
+				continue
+			}
+			sdd := smcAbs(env, wt+"/.superpowers/sdd")
+			if err := os.MkdirAll(sdd, 0o755); err != nil {
+				return err
+			}
+			c := sdd + "/" + filepath.Base(f)
+			if twHeld(f, c) {
+				continue
+			}
+			var err error
+			if root == wt {
+				err = os.Rename(f, c)
+			} else {
+				_, err = twRun(env, nil, "cp", "-a", f, c)
+			}
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
