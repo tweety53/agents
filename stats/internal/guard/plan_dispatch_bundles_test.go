@@ -225,3 +225,56 @@ func TestPlanDispatchBundlesInlineFiles(t *testing.T) {
 		}
 	}
 }
+
+// TestPlanDispatchBundlesSizeField pins the optional **Size:** task field: an
+// unknown or empty value on an unchecked task's first column-0, unfenced line
+// is a violation (exit 1) after every malformed **After:**; a known value,
+// no line, a fenced or indented line, a checked task, or a second line after
+// a valid first one bundles as usual.
+func TestPlanDispatchBundlesSizeField(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	step := "  - [ ] **Step 1: do it**\n"
+	ok := "bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1"
+	plan := func(after1, mark2, size2 string) string {
+		return "- [ ] 1. A\n\n**Files:** `a.go`\n" + after1 + "\n" + step +
+			"\n- [" + mark2 + "] 2. B\n\n**Files:** `b.go`\n\n" + size2 + step
+	}
+	for _, c := range []struct {
+		name, body string
+		rc         int
+		out, err   string
+	}{
+		{"unknown value refused", plan("", " ", "**Size:** huge\n\n"), 1, "", "task 2 has an unknown **Size:** value: huge\n"},
+		{"empty value refused", plan("", " ", "**Size:**\n\n"), 1, "", "task 2 has an unknown **Size:** value: \n"},
+		{"small", plan("", " ", "**Size:** small\n\n"), 0, ok, ""},
+		{"medium", plan("", " ", "**Size:** medium\n\n"), 0, ok, ""},
+		{"big", plan("", " ", "**Size:** big\n\n"), 0, ok, ""},
+		{"absent", plan("", " ", ""), 0, ok, ""},
+		{"fenced line never read", plan("", " ", "```\n**Size:** huge\n```\n\n"), 0, ok, ""},
+		{"indented line never read", plan("", " ", "  **Size:** huge\n\n"), 0, ok, ""},
+		{"checked task never reported", plan("", "x", "**Size:** huge\n\n"), 0, "bundle 1: 1\nafter 1: none", ""},
+		{"first line is the declaration", plan("", " ", "**Size:** big\n**Size:** huge\n\n"), 0, ok, ""},
+		{"after violation first", plan("\n**After:** soon\n", " ", "**Size:** huge\n\n"), 1, "",
+			"task 1 has a malformed **After:** value: soon\n" + "task 2 has an unknown **Size:** value: huge\n"},
+	} {
+		md := psFixture(t, c.body)
+		want := c.err
+		if want != "" {
+			task2 := strings.Count(c.body[:strings.Index(c.body, "] 2. B")], "\n") + 1
+			lines := strings.SplitAfter(strings.TrimSuffix(want, "\n"), "\n")
+			want = ""
+			for _, l := range lines {
+				ln := 1
+				if strings.HasPrefix(l, "task 2") {
+					ln = task2
+				}
+				want += fmt.Sprintf("%s:%d: %s", md, ln, strings.TrimSuffix(l, "\n")) + "\n"
+			}
+		}
+		r := runGuard("plan-dispatch-bundles", []string{md}, env)
+		if r.rc != c.rc || strings.TrimRight(r.stdout, "\n") != c.out || r.err != want {
+			t.Errorf("%s: rc=%d stdout=%q err=%q, want rc=%d out=%q err=%q", c.name, r.rc, r.stdout, r.err, c.rc, c.out, want)
+		}
+	}
+}
