@@ -40,7 +40,7 @@ func TestPlanDispatchGroups(t *testing.T) {
 
 	_, r := run(task("1", "a.txt", "") + task("2", "b.txt", "") + task("3", "c.txt", "") + task("4", "d.txt", "") + task("5", "e.txt", ""))
 	want("case 1: serial-default exits 0", r.rc == 0, r)
-	want("case 1: one group for a fully serial plan", r.out == "group 1: 1 2 3 4 5", r)
+	want("case 1: a fully serial plan capped at weight 3 per group", r.out == "group 1: 1 2 3\ngroup 2: 4 5", r)
 
 	_, r = run(task("1", "a.txt", "none") + task("2", "b.txt", "none") + task("3", "c.txt", "Task 1") + task("4", "d.txt", "Task 2") + task("5", "e.txt", "Task 3, 4"))
 	want("case 2: two chains plus a join point exits 0", r.rc == 0, r)
@@ -56,7 +56,7 @@ func TestPlanDispatchGroups(t *testing.T) {
 
 	_, r = run(task("1", "a.txt", "") + task("2", "b.txt", "Task 1") + task("3", "c.txt", "Task 1") + task("4", "d.txt", "Task 2, 3"))
 	want("case 4: the ceiling case exits 0", r.rc == 0, r)
-	want("case 4: one group, the documented ceiling", r.out == "group 1: 1 2 3 4", r)
+	want("case 4: the chain capped at weight 3 per group", r.out == "group 1: 1 2 3\ngroup 2: 4", r)
 
 	md, r := run(task("1", "a.txt", "") + "- [ ] 2. Fieldless task\n\n  - [ ] **Step 1: do it**\n")
 	want("case 5: missing Files field exits 1", r.rc == 1, r)
@@ -109,11 +109,62 @@ func TestPlanDispatchGroupsKeepsRepositoriesApart(t *testing.T) {
 	r := run("## Global constraints\n\nnone\n\n## agents\n\n" + task("1") + task("2") + task("3") +
 		"## Narrowed notes\n\n" + task("4") + "## gymie\n\n" + task("5") + task("6") +
 		"## gymie-playwright\n\n" + task("7"))
-	if r.rc != 0 || r.out != "group 1: 1 2 3 4\ngroup 2: 5 6\ngroup 3: 7" {
+	if r.rc != 0 || r.out != "group 1: 1 2 3\ngroup 2: 4\ngroup 3: 5 6\ngroup 4: 7" {
 		t.Fatalf("a: rc=%d out=%q", r.rc, r.out)
 	}
 	r = run(task("1") + task("2") + task("3") + task("4") + task("5") + task("6") + task("7"))
-	if r.rc != 0 || r.out != "group 1: 1 2 3 4 5 6 7" {
+	if r.rc != 0 || r.out != "group 1: 1 2 3\ngroup 2: 4 5 6\ngroup 3: 7" {
 		t.Fatalf("b: rc=%d out=%q", r.rc, r.out)
+	}
+}
+
+// TestPlanDispatchGroupsWeightCap pins KAN-1129's cut pass: every group is
+// cut, in plan order, into pieces of at most weight 3 -- a `big` task weighs
+// 3, every other task 1 -- and a single bundle heavier than 3 stays whole.
+func TestPlanDispatchGroupsWeightCap(t *testing.T) {
+	t.Parallel()
+	task := func(id, file, after, size string) string {
+		s := "- [ ] " + id + ". Task " + id + "\n\n**Files:** `" + file + "`\n\n"
+		if after != "" {
+			s += "**After:** " + after + "\n\n"
+		}
+		if size != "" {
+			s += "**Size:** " + size + "\n\n"
+		}
+		return s + "  - [ ] **Step 1: do it**\n\n"
+	}
+	chain := func(after string, sizes ...string) string {
+		var b strings.Builder
+		for i, sz := range sizes {
+			id := fmt.Sprint(i + 1)
+			b.WriteString(task(id, "f"+id+".txt", after, sz))
+		}
+		return b.String()
+	}
+	five, seven := make([]string, 5), make([]string, 7)
+	for _, c := range []struct {
+		name, body string
+		rc         int
+		want       string
+	}{
+		{"five unmarked", chain("", five...), 0, "group 1: 1 2 3\ngroup 2: 4 5"},
+		{"seven unmarked", chain("", seven...), 0, "group 1: 1 2 3\ngroup 2: 4 5 6\ngroup 3: 7"},
+		{"three unmarked", chain("", "", "", ""), 0, "group 1: 1 2 3"},
+		{"small medium unmarked weigh alike", chain("", "small", "medium", ""), 0, "group 1: 1 2 3"},
+		{"small big small", chain("", "small", "big", "small"), 0, "group 1: 1\ngroup 2: 2\ngroup 3: 3"},
+		{"big big big", chain("", "big", "big", "big"), 0, "group 1: 1\ngroup 2: 2\ngroup 3: 3"},
+		{"small small big small", chain("", "small", "small", "big", "small"), 0, "group 1: 1 2\ngroup 2: 3\ngroup 3: 4"},
+		{"oversized bundle stays whole", task("1", "a.txt", "", "big") + task("2", "a.txt", "", "") + task("3", "b.txt", "", ""), 0, "group 1: 1\ngroup 2: 2"},
+		{"five singletons fold at weight 3", chain("none", five...), 0, "group 1: 1 3 5\ngroup 2: 2 4"},
+		{"seven singletons fold then cut", chain("none", seven...), 0, "group 1: 1 3 5\ngroup 2: 2 4 6\ngroup 3: 7"},
+		{"unknown size passes the violation through", chain("", "", "huge"), 1, ""},
+	} {
+		r := runGuard("plan-dispatch-groups", []string{psFixture(t, c.body)}, Env{Getenv: os.Getenv})
+		if r.rc != c.rc || r.stdout != "" && strings.TrimRight(r.stdout, "\n") != c.want || c.rc == 0 && r.stdout == "" {
+			t.Errorf("%s: rc=%d out=%q, want rc=%d %q", c.name, r.rc, r.out, c.rc, c.want)
+		}
+		if c.rc == 1 && !strings.Contains(r.err, "task 2 has an unknown **Size:** value: huge") {
+			t.Errorf("%s: violation not passed through: %q", c.name, r.err)
+		}
 	}
 }
