@@ -570,12 +570,20 @@ and never re-reads past it, so a row that appears only at close is
 invisible to every harvest tick the dispatch ran through -- that usage is
 dropped or credited to an unrelated earlier dispatch -- and a row never
 closed leaves an open window that goes on claiming its successors' tokens.
+An "end" of a gated reviewer row (task-<ids>-reviewer...) or a panel merger
+row (panel-<r>-merger...) first runs flow-guard check-plan-unchanged verify
+against .superpowers/sdd/plan-snapshot-<key>.txt or
+plan-snapshot-panel-<r>.txt in the change's worktree, and refuses, writing
+nothing, on its exit 1 or 2 -- a missing snapshot included -- unless
+-outcome is aborted.
 
 A dispatch recorded only after it finished is a back-fill, and is ONE
 "backfill" call: begin's flags and end's together, with -started-at,
 -ended-at and -outcome required, so the row carries the dispatch's real
 instants rather than the moment it was recorded. It validates both
-instants before writing either half, then runs begin and end.
+instants before writing either half, then runs begin and end; a gated
+reviewer or merger back-fill runs end's plan-tree verify before the begin,
+so a refused one leaves no open row.
 
 -key names the dispatch within its run. It is what "end" closes, and what
 makes "begin" idempotent: a write whose response was lost is journalled
@@ -1606,6 +1614,48 @@ func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
 	}
 }
 
+// planSnapshotName is the plan-tree snapshot file a row's end verifies
+// against (decision plan-check-rides-row): plan-snapshot-<key>.txt for a
+// gated reviewer key, the round's plan-snapshot-panel-<r>.txt for a panel
+// merger key -- the file flow-guard panel-round-begins wrote -- and "" for
+// every other key, whose end verifies nothing.
+func planSnapshotName(key string) string {
+	if m := launchTaskKey.FindStringSubmatch(key); m != nil && m[2] == "reviewer" {
+		return "plan-snapshot-" + key + ".txt"
+	}
+	if m := mergerKeyRE.FindStringSubmatch(key); m != nil {
+		return "plan-snapshot-panel-" + m[1] + ".txt"
+	}
+	return ""
+}
+
+// verifyPlanTreeForEnd runs `flow-guard check-plan-unchanged verify`
+// in-process for a gated reviewer or panel merger row's end, against the
+// snapshot planSnapshotName names under the change's worktree
+// (<main>-worktrees/<change> when it exists, else carryingWorktree), and
+// returns the guard's exit code: 0 lets the end proceed, 1 (the tree
+// changed) or 2 (a missing or unreadable snapshot among others) refuses
+// it. -outcome aborted, a row whose dispatch never ran, skips the verify.
+func verifyPlanTreeForEnd(f recordIdentityFlags, key, outcome string, getenv func(string) string, stderr io.Writer) int {
+	name := planSnapshotName(key)
+	if name == "" || outcome == "aborted" {
+		return 0
+	}
+	wt := carryingWorktree(f.dir, f.change)
+	if main, _, err := changeCheckouts(f.dir, f.change); err == nil {
+		cand := main + "-worktrees/" + f.change
+		if fi, err := os.Stat(cand); err == nil && fi.IsDir() {
+			wt = cand
+		}
+	}
+	snap := filepath.Join(wt, ".superpowers", "sdd", name)
+	code := guard.Registry["check-plan-unchanged"]([]string{"verify", wt, f.change, snap}, guard.Env{Getenv: getenv, Dir: wt}, stderr, stderr)
+	if code != 0 {
+		fmt.Fprintf(stderr, "flow: -key %q: the plan tree check refused this end (%s) -- skills/flow/implement.md, The plan tree survives every reviewer dispatch\n", key, snap)
+	}
+	return code
+}
+
 // launchRoleID is the policy role a dispatch's -role and -key derive, or ""
 // where they derive none -- a self-review or pipeline-fix key among them.
 func launchRoleID(role, key string) string {
@@ -1812,6 +1862,9 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	}
 	if *agentID == "none" {
 		*agentID = ""
+	}
+	if code := verifyPlanTreeForEnd(f, *key, *outcome, getenv, stderr); code != 0 {
+		return code
 	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
@@ -2025,6 +2078,11 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 				}
 			}
 		}
+	}
+	// The end's plan-tree verify runs before the begin, so a refused
+	// reviewer or merger back-fill leaves no open row.
+	if code := verifyPlanTreeForEnd(f, *v["key"], *v["outcome"], getenv, stderr); code != 0 {
+		return code
 	}
 	var begin, end []string
 	fset.Visit(func(fl *flag.Flag) {
