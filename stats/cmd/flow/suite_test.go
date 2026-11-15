@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +30,7 @@ func wantHost(t *testing.T) string {
 }
 
 // TestSuiteRecordRunsChildAndRecordsRow pins the wrapper's core: the child
-// runs with its stdio passing through (its output lands on the caller's
+// runs with its output passing through (a plain line lands on the caller's
 // stdout untouched), one row is recorded with this host, a positive
 // duration and the child's exit code, and the command exits with the
 // child's own code.
@@ -77,6 +79,65 @@ func TestSuiteRecordRunsChildAndRecordsRow(t *testing.T) {
 	}
 	if sent.ExitCode != 0 {
 		t.Errorf("exitCode = %d, want the child's 0", sent.ExitCode)
+	}
+	if len(sent.Tests) != 0 {
+		t.Errorf("tests = %v, want none: a plain-text child carries no go test -json event", sent.Tests)
+	}
+}
+
+// goTestJSONChild writes a child stream mixing plain lines, test2json events
+// and a non-event JSON object, ending in a line with no newline, and returns
+// the command words that cat it.
+func goTestJSONChild(t *testing.T) []string {
+	t.Helper()
+	stream := strings.Join([]string{
+		`plain before`,
+		`{"Action":"run","Package":"ex/a","Test":"TestA"}`,
+		`{"Action":"output","Package":"ex/a","Test":"TestA","Output":"=== RUN   TestA\n"}`,
+		`{"Action":"pass","Package":"ex/a","Test":"TestA","Elapsed":1.5}`,
+		`{"Action":"skip","Package":"ex/a","Test":"TestS","Elapsed":0}`,
+		`{"x":1}`,
+		`tail`,
+	}, "\n")
+	path := filepath.Join(t.TempDir(), "stream")
+	if err := os.WriteFile(path, []byte(stream), 0o600); err != nil {
+		t.Fatalf("write child stream: %v", err)
+	}
+	return []string{"cat", path}
+}
+
+// TestSuiteRecordDecodesGoTestJSON pins the line-by-line decode (decisions
+// json-stream-line-detection, store-every-test): a go test -json event prints
+// its Output alone, every other line passes through unchanged -- a last line
+// without a newline included -- and each non-skipped top-level test's cost is
+// sent with the run.
+func TestSuiteRecordDecodesGoTestJSON(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = readAll(r)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"suite":"probe","host":"h","durationMs":10,"exitCode":0,"ranAt":"2026-09-09T12:00:00Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	args := append([]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-suite", "probe", "--"},
+		goTestJSONChild(t)...)
+	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if want := "plain before\n=== RUN   TestA\n{\"x\":1}\ntail"; stdout.String() != want {
+		t.Errorf("stdout = %q, want %q", stdout.String(), want)
+	}
+	var sent records.SuiteRun
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode record body %s: %v", gotBody, err)
+	}
+	if got := fmt.Sprint(sent.Tests); got != "[{ex/a TestA 1500}]" {
+		t.Errorf("tests = %s, want [{ex/a TestA 1500}]", got)
 	}
 }
 
@@ -168,6 +229,43 @@ func TestSuiteRecordJournalsWhenStoreDown(t *testing.T) {
 	}
 	if body.Kind != "suite" || body.Request.Suite != "probe" || body.Request.ExitCode != 5 || body.Request.RanAt.IsZero() {
 		t.Errorf("entry = %+v, want kind suite, suite probe, exit 5, a ranAt", body)
+	}
+}
+
+// TestSuiteRecordJournalsTestsWhenStoreDown pins that a store outage keeps
+// the per-test costs (decision per-test-costs-in-flowd): the journalled entry
+// carries them for replay.
+func TestSuiteRecordJournalsTestsWhenStoreDown(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	dead := deadPortURL(t)
+
+	var stdout, stderr bytes.Buffer
+	args := append([]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo, "-suite", "probe", "--"},
+		goTestJSONChild(t)...)
+	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	key, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(key, "_suite-runs") + ".record")
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("journal entries = %d, want 1", len(entries))
+	}
+	var body struct {
+		Kind    string           `json:"kind"`
+		Request records.SuiteRun `json:"request"`
+	}
+	if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+		t.Fatalf("decode entry: %v", err)
+	}
+	if got := fmt.Sprint(body.Request.Tests); body.Kind != "suite" || got != "[{ex/a TestA 1500}]" {
+		t.Errorf("entry kind %q tests %s, want kind suite, tests [{ex/a TestA 1500}]", body.Kind, got)
 	}
 }
 
@@ -300,6 +398,86 @@ func TestSuiteListJSON(t *testing.T) {
 	}
 	if len(listed) != 1 || listed[0].DurationMs != 52000 {
 		t.Errorf("json = %+v, want the store's one row", listed)
+	}
+}
+
+// TestSuiteListTestsReadsTheNewestRunWithTests pins the per-test read
+// (decision suite-tests-read): one header line in the list's row format, then
+// the run's tests heaviest first as cost seconds, package and test; -limit
+// rides the request, -json prints the response alone, and -tests with -suite
+// is a usage error.
+func TestSuiteListTestsReadsTheNewestRunWithTests(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	const body = `{"id":7,"suite":"guard-tests","host":"h","durationMs":61000,"exitCode":0,"ranAt":"2026-09-09T12:00:00Z",` +
+		`"tests":[{"package":"ex/a","test":"TestSlow","costMs":2500},{"package":"ex/b","test":"TestFast","costMs":40}]}`
+	var gotPath, gotQuery string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	key, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	list := func(extra ...string) (int, string, string) {
+		var stdout, stderr bytes.Buffer
+		args := append([]string{"suite", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, extra...)
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		return code, stdout.String(), stderr.String()
+	}
+
+	code, out, errOut := list("-tests", "guard-tests")
+	if code != 0 {
+		t.Fatalf("suite list -tests exit = %d, want 0; stderr:\n%s", code, errOut)
+	}
+	if want := "guard-tests\t2026-09-09T12:00:00Z\t1m1s\th\texit 0\n2.50\tex/a\tTestSlow\n0.04\tex/b\tTestFast\n"; out != want {
+		t.Errorf("stdout = %q, want %q", out, want)
+	}
+	if gotPath != "/api/v1/suites/"+key+"/tests" || gotQuery != "limit=20&suite=guard-tests" {
+		t.Errorf("request = %s?%s, want /api/v1/suites/%s/tests with suite=guard-tests&limit=20", gotPath, gotQuery, key)
+	}
+
+	if code, _, errOut := list("-tests", "guard-tests", "-limit", "1"); code != 0 || gotQuery != "limit=1&suite=guard-tests" {
+		t.Errorf("-limit 1: exit %d query %q, want 0 and limit=1; stderr:\n%s", code, gotQuery, errOut)
+	}
+	if code, out, _ := list("-tests", "guard-tests", "-json"); code != 0 || out != body+"\n" {
+		t.Errorf("-json: exit %d stdout %q, want 0 and the response alone", code, out)
+	}
+	if code, _, errOut := list("-tests", "guard-tests", "-suite", "x"); code != 2 || !strings.Contains(errOut, "usage") {
+		t.Errorf("-tests with -suite: exit %d stderr %q, want 2 and the usage block", code, errOut)
+	}
+}
+
+// TestSuiteListTestsReportsNoRunAndAnUnreachableStore pins the read's two
+// edges: no run with recorded costs is a plain line and exit 0, and an
+// unreachable store is a read failure, exit 1.
+func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`null`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(),
+		[]string{"suite", "list", "-tests", "guard-tests", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr); code != 0 || stdout.String() != "no test costs recorded for guard-tests\n" {
+		t.Errorf("no run: exit %d stdout %q, want 0 and the no-costs line; stderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(context.Background(),
+		[]string{"suite", "list", "-tests", "guard-tests", "-addr", deadPortURL(t), "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "flow: suite list:") {
+		t.Errorf("dead store: exit %d stderr %q, want 1 and flow: suite list:", code, stderr.String())
 	}
 }
 

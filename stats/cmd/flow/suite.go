@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"sort"
@@ -16,17 +18,19 @@ import (
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/records"
+	"github.com/tweety53/agents/stats/internal/testcost"
 )
 
 // suiteUsage is `flow suite`'s usage block, in the shape hazardUsage states
 // its verbs: flags first, then the one paragraph a caller needs about
 // failure semantics.
 var suiteUsage = `usage: flow suite record -suite name [-addr url] [-timeout dur] [-C dir] -- <command> [args...]
-flow suite list   [-suite name] [-limit n] [-json] [-addr url] [-timeout dur] [-C dir]
+flow suite list   [-suite name | -tests name] [-limit n] [-json] [-addr url] [-timeout dur] [-C dir]
 
-suite record runs <command> with its stdio passing through untouched,
-wall-times it, and records one suite_runs row: the suite's name, this
-machine's hostname, the measured duration and the command's own exit code.
+suite record runs <command> with its stdin and stderr passing through
+untouched and its stdout decoded as below, wall-times it, and records one
+suite_runs row: the suite's name, this machine's hostname, the measured
+duration, the command's own exit code and its per-test costs.
 The command's exit code is this command's exit code -- the caller's tooling
 sees the suite's real verdict. A child that cannot start is exit 127 with
 nothing recorded.
@@ -42,6 +46,15 @@ list prints rows newest first, then one summary line per (suite, host):
 the median duration of the last 10 passing runs -- a failed run's duration
 is diagnostic, never a runtime figure, and one cold-cache run must not move
 the number. -json emits the store's array alone.
+
+record turns each go test -json line of the command's stdout back into its
+output text -- every other line passes through unchanged -- and records each
+top-level test's cost with the run: its own elapsed time plus that of every
+descendant that paused for t.Parallel, a skipped test left out. list -tests
+<suite> prints the newest run of that suite that has costs, as its row line
+and then its tests heaviest first (-limit caps them), and "no test costs
+recorded for <suite>" when none has; -tests and -suite are exclusive, and
+-json prints that run alone, null for none.
 
 Both verbs resolve the store address from FLOW_RECORDS_ADDR when it is set,
 then FLOW_ADDR: the summary compares runs across changes, so a row recorded
@@ -78,7 +91,8 @@ func runSuite(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 const suiteJournalName = "_suite-runs"
 
 // runSuiteRecord implements `flow suite record`: the child runs with
-// inherited stdio, is wall-timed, and its row is recorded. The store never
+// inherited stdin and stderr, its stdout decoded by copyDecodingGoTestJSON,
+// is wall-timed, and its row is recorded. The store never
 // gates the child -- a record failure prints one warning line and changes
 // no exit code. The only non-zero exits are caller mistakes (usage, 2, a
 // child that could not start, 127, nothing recorded) and the child's own.
@@ -106,11 +120,23 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 
 	child := exec.Command(command[0], command[1:]...)
 	child.Stdin = os.Stdin
-	child.Stdout = stdout
 	child.Stderr = stderr
+	childOut, err := child.StdoutPipe()
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: suite %s could not start %s: %v\n", *suite, command[0], err)
+		return 127
+	}
 
 	start := time.Now()
-	runErr := child.Run()
+	if err := child.Start(); err != nil {
+		// The child never started: nothing was measured, so nothing is
+		// recorded -- a duration for a run that did not happen would be a
+		// figure with no run behind it.
+		fmt.Fprintf(stderr, "flow: suite %s could not start %s: %v\n", *suite, command[0], err)
+		return 127
+	}
+	costs := copyDecodingGoTestJSON(childOut, stdout)
+	runErr := child.Wait()
 	measured := time.Since(start)
 
 	exitCode := 0
@@ -118,11 +144,11 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 	if errors.As(runErr, &exitErr) {
 		exitCode = exitErr.ExitCode()
 	} else if runErr != nil {
-		// The child never started: nothing was measured, so nothing is
-		// recorded -- a duration for a run that did not happen would be a
-		// figure with no run behind it.
-		fmt.Fprintf(stderr, "flow: suite %s could not start %s: %v\n", *suite, command[0], runErr)
-		return 127
+		// Wait failed for a reason other than the child's exit status (its
+		// stdout copy broke): the run happened, so it is still recorded,
+		// but its verdict is unknown -- never a pass.
+		fmt.Fprintf(stderr, "flow: suite %s: wait for %s: %v\n", *suite, command[0], runErr)
+		exitCode = 1
 	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
@@ -131,7 +157,7 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 		return 1
 	}
 
-	in := records.SuiteRun{Suite: *suite, Host: shortHostname(), DurationMs: measured.Milliseconds(), ExitCode: exitCode}
+	in := records.SuiteRun{Suite: *suite, Host: shortHostname(), DurationMs: measured.Milliseconds(), ExitCode: exitCode, Tests: costs}
 	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.SuiteRun, error) {
 		return cl.RecordSuiteRun(ctx, projectKey, in)
 	})
@@ -149,6 +175,36 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 	return exitCode
 }
 
+// copyDecodingGoTestJSON copies the child's stdout to out line by line, with
+// no line-length limit (decision json-stream-line-detection): a line that is
+// a go test -json event writes its Output, when it has one, and is folded
+// into the per-test costs; every other line -- a last one without a newline
+// included -- is written through unchanged. It returns each non-skipped
+// top-level test's cost, by testcost's rule (decision store-every-test).
+func copyDecodingGoTestJSON(in io.Reader, out io.Writer) []records.SuiteRunTest {
+	r := bufio.NewReader(in)
+	var fold testcost.Fold
+	for {
+		line, err := r.ReadBytes('\n')
+		if len(line) > 0 {
+			if ev, ok := testcost.ParseEvent(line); ok {
+				_, _ = io.WriteString(out, ev.Output)
+				fold.Add(ev)
+			} else {
+				_, _ = out.Write(line)
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+	var tests []records.SuiteRunTest
+	for _, row := range fold.Rows() {
+		tests = append(tests, records.SuiteRunTest{Package: row.Package, Test: row.Test, CostMs: int64(math.Round(row.Cost * 1000))})
+	}
+	return tests
+}
+
 // runSuiteList implements `flow suite list`: rows newest first, then one
 // summary line per (suite, host) -- the median of the last 10 passing runs.
 // -json emits the store's array and nothing else. A failed read exits 1: it
@@ -161,15 +217,23 @@ func runSuiteList(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	suite := fset.String("suite", "", "list only this suite (optional)")
 	limit := fset.Int("limit", 20, "how many rows to read")
 	asJSON := fset.Bool("json", false, "print the store's array alone")
+	tests := fset.String("tests", "", "print this suite's newest run that has per-test costs, heaviest tests first")
 
 	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
 		return code
+	}
+	if *tests != "" && *suite != "" {
+		fmt.Fprint(stderr, suiteUsage)
+		return 2
 	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
+	}
+	if *tests != "" {
+		return printSuiteTests(ctx, f, projectKey, *tests, *limit, *asJSON, stdout, stderr)
 	}
 
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.SuiteRun, error) {
@@ -198,11 +262,50 @@ func runSuiteList(ctx context.Context, args []string, stdout, stderr io.Writer) 
 		return 0
 	}
 	for _, run := range out {
-		fmt.Fprintf(stdout, "%s\t%s\t%s\t%s\texit %d\n",
-			run.Suite, run.RanAt.Format(time.RFC3339), time.Duration(run.DurationMs)*time.Millisecond, run.Host, run.ExitCode)
+		printSuiteRunRow(stdout, run)
 	}
 	for _, line := range suiteSummaryLines(out) {
 		fmt.Fprintln(stdout, line)
+	}
+	return 0
+}
+
+// printSuiteRunRow prints one suite run as list's row line.
+func printSuiteRunRow(w io.Writer, run records.SuiteRun) {
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\texit %d\n",
+		run.Suite, run.RanAt.Format(time.RFC3339), time.Duration(run.DurationMs)*time.Millisecond, run.Host, run.ExitCode)
+}
+
+// printSuiteTests implements `flow suite list -tests <suite>` (decision
+// suite-tests-read): the newest run of that suite that has per-test costs,
+// as its row line and then one line per test, heaviest first -- cost
+// seconds, package, test, as flow-guard test-cost prints them. -json prints
+// the response alone, null for none. No such run is a fact, exit 0; a
+// failed read exits 1 as list does.
+func printSuiteTests(ctx context.Context, f recordIdentityFlags, projectKey, suite string, limit int, asJSON bool, stdout, stderr io.Writer) int {
+	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (*records.SuiteRun, error) {
+		return cl.LatestSuiteRunTests(ctx, projectKey, suite, limit)
+	})
+	if callErr != nil {
+		fmt.Fprintf(stderr, "flow: suite list: %v\n", callErr)
+		return 1
+	}
+	if asJSON {
+		body, err := json.Marshal(run)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: encode suite run: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, string(body))
+		return 0
+	}
+	if run == nil {
+		fmt.Fprintf(stdout, "no test costs recorded for %s\n", suite)
+		return 0
+	}
+	printSuiteRunRow(stdout, *run)
+	for _, test := range run.Tests {
+		fmt.Fprintf(stdout, "%.2f\t%s\t%s\n", float64(test.CostMs)/1000, test.Package, test.Test)
 	}
 	return 0
 }
