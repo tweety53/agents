@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -401,6 +402,64 @@ func TestVisualVerifyPassMeasureMergesSpecs(t *testing.T) {
 		t.Fatalf("after re-measuring spec A: pairs by frame %v; want each frame once", got)
 	}
 	capturesKept("after re-measuring spec A")
+}
+
+// TestVisualVerifyPassMeasureNamesChangedFrames pins decisions
+// changed-frames-in-measure, changed-by-blob-hash and
+// changed-line-names-round-base: with a round file for its key, measure
+// prints, before MANIFEST:, the frames whose capture differs from its blob at
+// the round base — a rewritten or an untracked one — with the base; with none
+// it prints no changed: line.
+func TestVisualVerifyPassMeasureNamesChangedFrames(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\nb.png frame-b\n")
+	gitRun(t, f.wt, "init", "-q")
+	gitRun(t, f.wt, "add", "-A")
+	gitRun(t, f.wt, "commit", "-qm", "base")
+	base := vgHead(t, f.wt)
+	measure := func(when string) []string {
+		t.Helper()
+		rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify-fix-1", "tests/visual/app.spec.ts")
+		if rc != 0 {
+			t.Fatalf("%s: exit %d, stdout %q, stderr %q", when, rc, stdout, stderr)
+		}
+		return strings.Split(stdout, "\n")
+	}
+	// changed is the changed: line, failing unless it comes before MANIFEST:.
+	changed := func(when string) string {
+		t.Helper()
+		got := ""
+		for _, l := range measure(when) {
+			if strings.HasPrefix(l, "MANIFEST:") && got == "" {
+				t.Fatalf("%s: MANIFEST: before any changed: line", when)
+			}
+			if strings.HasPrefix(l, "changed:") {
+				got = l
+			}
+		}
+		return got
+	}
+	for _, l := range measure("no round file") {
+		if strings.HasPrefix(l, "changed:") {
+			t.Fatalf("no round file: printed %q", l)
+		}
+	}
+	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/visual-round-visual-verify-fix-1.txt"), base+" "+time.Now().UTC().Format(time.RFC3339Nano)+"\n")
+	if got, want := changed("unchanged"), "changed: none — round base "+base; got != want {
+		t.Fatalf("unchanged: got %q, want %q", got, want)
+	}
+	vvmPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/a-darwin.png"), 8)
+	if got, want := changed("rewritten"), "changed: frame-a — round base "+base; got != want {
+		t.Fatalf("rewritten: got %q, want %q", got, want)
+	}
+	writeFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts.mockups"), "frame none\na.png frame-a\nb.png frame-b\nc.png frame-c\n")
+	// dy 20: a capture identical to b-darwin.png fails check-identical-baselines.
+	vvmPNG(t, filepath.Join(f.wt, "design/frames/frame-c.png"), 20)
+	vvmPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/c-darwin.png"), 20)
+	if got, want := changed("untracked"), "changed: frame-a frame-c — round base "+base; got != want {
+		t.Fatalf("untracked: got %q, want %q", got, want)
+	}
 }
 
 // TestVvmCells pins decisions cells-in-measure, text-stretch-from-element-insets

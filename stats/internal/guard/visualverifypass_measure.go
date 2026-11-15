@@ -241,6 +241,20 @@ func (v *vvp) writeOut(path, body string) {
 // identical lines ahead of m's; steps are m's alone (kan-1102 self-review, F2).
 func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool) {
 	path := filepath.Join(sdd, "visual-manifest-"+key+".json")
+	// Only this call's pairs count, so the line is read before the merge.
+	if base, _, ok := readRound(sdd, key); ok {
+		var changed []string
+		for _, p := range m.Pairs {
+			if !slices.Contains(changed, p.Frame) && v.captureChanged(p.Capture, base) {
+				changed = append(changed, p.Frame)
+			}
+		}
+		line := "none"
+		if len(changed) > 0 {
+			line = strings.Join(changed, " ")
+		}
+		v.say("changed: %s — round base %s", line, base)
+	}
 	var old vvmManifestOut
 	if b, err := os.ReadFile(path); err == nil && json.Unmarshal(b, &old) == nil {
 		mine := map[string]bool{}

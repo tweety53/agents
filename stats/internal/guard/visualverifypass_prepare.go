@@ -538,8 +538,18 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 		}
 		argv := []string{"record", "dispatch", "begin", "-C", v.canon, "-change", v.name, "-role", "verifier",
 			"-model", model, "-effort", effort, "-key", r.key, "-session-token", v.token, "-diff-base", strings.Join(heads, ",")}
-		if rb := v.roundBase[r.w]; rb != "" {
+		// The round file's instant is read right before the begin (decision
+		// round-file-per-row); a -rest key or an unscoped row has none.
+		rf := roundFile(filepath.Join(r.w, ".superpowers", "sdd"), r.key)
+		rb := v.roundBase[r.w]
+		if rb != "" {
 			argv = append(argv, "-round-base", rb)
+		}
+		if rb != "" && !vrRestSegment.MatchString(r.key) {
+			v.writeOut(rf, rb+" "+time.Now().UTC().Format(time.RFC3339Nano)+"\n")
+		} else if err := os.Remove(rf); err != nil && !os.IsNotExist(err) {
+			// A stale round file would let close read this row as scoped.
+			v.die("cannot-write", "cannot remove %s: %v", rf, err)
 		}
 		if out, rc := v.flow(argv...); rc != 0 {
 			// End the rows already begun so none is left open in the store.

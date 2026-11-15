@@ -151,7 +151,13 @@ import (
 //      Agent call's four fields (kan-1086 self-review, F9); then
 //      `NEXT: dispatch <n>`, exit 0. A
 //      refused begin ends the stage `stopped` with `STOP: row — flow record
-//      dispatch begin refused for <key>: <its output>`, exit 1.
+//      dispatch begin refused for <key>: <its output>`, exit 1. Before each
+//      begin of a row with a round base and a key with no `-rest[-<n>]`
+//      segment it writes <worktree>/.superpowers/sdd/visual-round-<key>.txt
+//      holding `<round base> <RFC3339Nano instant>`, the instant read right
+//      before that begin (decision round-file-per-row); a row begun with no
+//      round base, or a `-rest` key, removes that file (decision
+//      no-round-file-for-rest).
 //
 // --continue (decision prepare-continue-flag) begins no stage and runs no
 // step 1–3 check: it reads the survivors, their merge bases and siblings and
@@ -262,7 +268,14 @@ import (
 //      own spec's pairs (and any pair of a frame it measured): `captures` and
 //      `identical` are unioned, existing lines first, and `steps` are this
 //      call's; an absent or unparsable manifest is written fresh (kan-1102
-//      self-review, F2). Prints
+//      self-review, F2).
+//   5. with <worktree>/.superpowers/sdd/visual-round-<key>.txt present
+//      (prepare's step 11), before `MANIFEST:` it prints
+//        changed: <frame id> … — round base <sha>
+//      — each frame of this call's pairs whose capture is absent, untracked
+//      or differs from its blob at the round base (decision
+//      changed-by-blob-hash) — or `changed: none — round base <sha>`; with no
+//      such file, no `changed:` line. Then it prints
 //        MANIFEST: <path>
 //   Exit 0 when every step exited 0, 1 when any did not, 2 on a usage error
 //   or an output directory or file it cannot write.
@@ -585,6 +598,44 @@ func (v *vvp) readStage() [][2]string {
 		out = append(out, [2]string{k, rest})
 	}
 	return out
+}
+
+// roundFile is <sdd>/visual-round-<key>.txt, `<round base> <instant>`: prepare
+// writes it for a scoped row right before its begin, and measure and close
+// read it (decision round-file-per-row).
+func roundFile(sdd, key string) string {
+	return filepath.Join(sdd, "visual-round-"+key+".txt")
+}
+
+// readRound is key's round file: its round base and instant, ok false when
+// the file is absent or not `<sha> <RFC3339Nano instant>`.
+func readRound(sdd, key string) (base string, at time.Time, ok bool) {
+	b, err := os.ReadFile(roundFile(sdd, key))
+	if err != nil {
+		return "", time.Time{}, false
+	}
+	f := strings.Fields(string(b))
+	if len(f) != 2 {
+		return "", time.Time{}, false
+	}
+	at, err = time.Parse(time.RFC3339Nano, f[1])
+	return f[0], at, err == nil
+}
+
+// captureChanged reports whether a file differs from its blob at base
+// (decision changed-by-blob-hash): an empty path, a file git cannot hash, one
+// absent at base, or a checkout that cannot resolve base is changed.
+func (v *vvp) captureChanged(path, base string) bool {
+	if path == "" {
+		return true
+	}
+	dir := filepath.Dir(path)
+	now, ok := v.git("-C", dir, "hash-object", path)
+	if !ok {
+		return true
+	}
+	then, ok := v.git("-C", dir, "rev-parse", "--verify", "--quiet", base+":./"+filepath.Base(path))
+	return !ok || now != then
 }
 
 // cells is a worktree's `## visual verification` two-cell rows.
