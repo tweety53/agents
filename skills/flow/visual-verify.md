@@ -334,12 +334,13 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
     decides skip or restart. A stack the operator already had running is left alone.
 
 The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
-per-frame lines, with its reason. The matrix rides `visual-verification.md` (step 11) under the
-frame's entry, and the report's `matrix:` and `over-tolerance:` lines count its rows, its n/a cells
-and the rows `measure` flagged. **The parent reads no image.** `flow-guard check-verify-report`, which
-`close` runs, refuses a composed frame with no `bands:`, `seams:`, `matrix:` or `over-tolerance:`
-line, an empty matrix cell, an n/a cell in a column that applies to its row's class and not reading
-`no mockup source`, and a sweep its line reads neither `done` nor n/a — `<why it does not apply>`:
+per-frame lines, with its reason. `measure` fills the matrix into each pair's `cells` in the
+manifest, `visual-verification.md` (step 11) cites the frame's
+`<changeRoot>/visual-verification/matrix/<frame id>.json` under its entry, and the report's `over-tolerance:`
+line counts the rows `measure` flagged. **The parent reads no image.** `flow-guard check-verify-report`, which
+`close` runs, refuses a composed frame with no `over-tolerance:` or `spot-check:` line, a manifest
+cell left empty or n/a in a column that applies to its row's class, a spot-check its header
+refuses, and a sweep its line reads neither `done` nor n/a — `<why it does not apply>`:
 **each makes the report incomplete — never a departure, and never a gap the handoff leaves for the
 operator** — and its remainder is dispatched as `NEXT: rest` above states.
 
@@ -356,10 +357,10 @@ updated with no capture or no sidecar line, a full app suite or a `full-app-suit
 not write**, a stack that could not be started, **a `fingerprint` that still exits
 non-zero after step 6's restart**, a `flow-guard check-spec-reach` exit 1 or 2,
 an unreadable PNG, **a `flow-guard compose-mockup-frames` exit 1 or 2 and a departure from the mockup the
-verifier reports in a composite**, **a composed frame with a `missing`, `extra` or over-tolerance
-band whose line names no cause — a pre-existing attribution is not one (**the sweep**,
-`skills/flow-contracts/known-bugs.md`) — and a composed frame with a `missing`,
-`extra` or over-tolerance seam or an off-centre line whose line names no cause**, **a captured view
+verifier reports in a composite**, **a composed frame's `missing`, `extra` or over-tolerance band
+the verifier judges a departure whose line names no cause — a pre-existing attribution is not one
+(**the sweep**, `skills/flow-contracts/known-bugs.md`) — and a composed frame's `missing`,
+`extra` or over-tolerance seam or off-centre line it judges a departure whose line names no cause**, **a captured view
 no frame was composed for whose report carries no capture-scope `sweeps:` line, or one whose line
 leaves a sweep neither `done` nor n/a — `<why it does not apply>`**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** **A named motion
