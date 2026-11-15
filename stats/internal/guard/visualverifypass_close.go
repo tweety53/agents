@@ -49,7 +49,12 @@ func (v *vvp) close() {
 	// The report guards: an incomplete report is never accepted.
 	var verdicts []string
 	judgeGap := ""
-	rc, out, errs := v.guard("check-verify-report", nil, report, strconv.Itoa(v.motions), "--design", design)
+	// A shard's report owes its slice alone (decision manifest-per-shard).
+	var frames []string
+	if slice := vvpSlice(stage, v.key); slice != "" {
+		frames = []string{"--frames", slice}
+	}
+	rc, out, errs := v.guard("check-verify-report", nil, append([]string{report, strconv.Itoa(v.motions), "--design", design}, frames...)...)
 	switch rc {
 	case 0:
 	case 1:
@@ -58,7 +63,7 @@ func (v *vvp) close() {
 		v.die("check-verify-report-cannot-answer", "check-verify-report cannot answer: %s", errs)
 	}
 	if m := v.cells(w)["mockups"]; m != "" {
-		rc, out, errs := v.guard("check-frame-list", nil, design, cellPath(w, m), report)
+		rc, out, errs := v.guard("check-frame-list", nil, append([]string{design, cellPath(w, m), report}, frames...)...)
 		switch {
 		case rc == 0:
 		case rc == 1 && vvcOnlyNoSidecar(out):
@@ -83,13 +88,12 @@ func (v *vvp) close() {
 	if exits {
 		prior := 0
 		for _, l := range stage {
-			if k, _, _ := strings.Cut(l[1], " "); l[0] == "blocked" && v.rowWorktree(stage, k) == w {
+			if k, _, _ := strings.Cut(l[1], " "); l[0] == "blocked" && v.rowWorktree(stage, k) == w && vvpShardSeg.FindString(k) == vvpShardSeg.FindString(v.key) {
 				prior++
 			}
 		}
 		v.appendStage("blocked " + v.key)
-		suffix := v.suffix(w)
-		nextKey := fmt.Sprintf("visual-verify-%d%s", prior+2, suffix)
+		nextKey := fmt.Sprintf("visual-verify-%d%s%s", prior+2, vvcFixRound.FindString(v.key), v.suffix(w))
 		if cause == "" {
 			cause = "environment"
 		}
@@ -103,6 +107,7 @@ func (v *vvp) close() {
 		}
 		v.endRow("blocked", "-cause", cause)
 		v.commit(w, body)
+		v.joinRecords(changeRoot)
 		v.endStage()
 		v.next("loop")
 	}
@@ -112,6 +117,7 @@ func (v *vvp) close() {
 			v.say("%s", judgeGap)
 		}
 		v.commit(w, body)
+		v.joinRecords(changeRoot)
 		v.next("judge")
 	}
 	snap := protoSnapshot(filepath.Dir(design))
@@ -126,6 +132,7 @@ func (v *vvp) close() {
 		_ = os.WriteFile(filepath.Join(w, ".superpowers", "sdd", "visual-prototype.txt"), []byte(snap), 0o644)
 	}
 	v.commit(w, body)
+	v.joinRecords(changeRoot)
 	v.endStage()
 	switch {
 	case scoped && why == "":
@@ -328,12 +335,50 @@ func (v *vvp) rowWorktree(stage [][2]string, key string) string {
 	return w
 }
 
-// suffix is `-<repository name>` when the set holds more than one worktree.
+// suffix is the key's shard segment, `-s<i>of<n>`, then `-<repository name>`
+// when the set holds more than one worktree.
 func (v *vvp) suffix(w string) string {
 	if v.setSize > 1 {
 		return "-" + v.repoName(w)
 	}
+	return vvpShardSeg.FindString(v.key)
+}
+
+// vvpShardSeg is a shard key's `-s<i>of<n>` segment (decision shard-key-segment).
+var vvpShardSeg = regexp.MustCompile(`-s([0-9]+)of([0-9]+)$`)
+
+// vvpSlice is the stage file's `slice` of key's shard segment, "" for none.
+func vvpSlice(stage [][2]string, key string) string {
+	seg := vvpShardSeg.FindString(key)
+	for _, l := range stage {
+		if k, slice, _ := strings.Cut(l[1], " "); seg != "" && l[0] == "slice" && "-"+k == seg {
+			return slice
+		}
+	}
 	return ""
+}
+
+// vvcFixRound is a key's `-fix-<k>[-full]` segment, which a redispatch keeps
+// (decision redispatch-key-keeps-round).
+var vvcFixRound = regexp.MustCompile(`-fix-[0-9]+(-full)?`)
+
+// joinRecords rewrites <changeRoot>/visual-verification/visual-verification.md
+// as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a
+// shard's close (decision record-parts-merged-by-close).
+func (v *vvp) joinRecords(changeRoot string) {
+	m := vvpShardSeg.FindStringSubmatch(v.key)
+	if m == nil {
+		return
+	}
+	n, _ := strconv.Atoi(m[2])
+	vvDir := filepath.Join(changeRoot, "visual-verification")
+	var parts []string
+	for i := 1; i <= n; i++ {
+		if b, err := os.ReadFile(filepath.Join(vvDir, fmt.Sprintf("record-s%dof%d.md", i, n))); err == nil {
+			parts = append(parts, strings.TrimRight(string(b), "\n"))
+		}
+	}
+	v.writeOut(filepath.Join(vvDir, "visual-verification.md"), strings.Join(parts, "\n\n")+"\n")
 }
 
 var vvcRest = regexp.MustCompile(`-rest(?:-([0-9]+))?$`)
@@ -372,6 +417,7 @@ func (v *vvp) endRow(outcome string, flags ...string) {
 // ledger and prints `STAGE: <outcome>`.
 func (v *vvp) endStage() {
 	stage := v.readStage()
+	// The newest row of each worktree and shard index (decision shard-key-segment).
 	newest, closed := map[string]string{}, map[string]string{}
 	var order []string
 	for _, l := range stage {
@@ -380,19 +426,29 @@ func (v *vvp) endStage() {
 		case "worktree":
 			order = append(order, k)
 		case "row":
-			newest[rest] = k
+			newest[rest+" "+vvpShardSeg.FindString(k)] = k
 		case "closed":
 			closed[k] = rest
 		}
 	}
 	outcome := "completed"
 	for _, w := range order {
-		o, ok := closed[newest[w]]
-		if !ok {
-			return
+		seen := false
+		for lane, k := range newest {
+			if !strings.HasPrefix(lane, w+" ") {
+				continue
+			}
+			seen = true
+			o, ok := closed[k]
+			if !ok {
+				return
+			}
+			if o == "blocked" {
+				outcome = "stopped"
+			}
 		}
-		if o == "blocked" {
-			outcome = "stopped"
+		if !seen {
+			return
 		}
 	}
 	v.markEnd(outcome)

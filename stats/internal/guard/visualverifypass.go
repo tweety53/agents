@@ -180,19 +180,25 @@ import (
 //   2. flow-guard check-verify-report <report> <motions named> --design
 //      <changeRoot>/design.md and, with `mockups` declared,
 //      flow-guard check-frame-list <changeRoot>/design.md <mockups root> <report>, in
-//      process (exit 2 from either is this call's exit 2). A
-//      check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
+//      process (exit 2 from either is this call's exit 2); on a shard key both
+//      are passed `--frames` with the stage file's `slice` of the key's shard
+//      segment. A check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
 //      other than `no sidecar line`, ends the row `-outcome aborted`, appends
 //      each guard verdict line to the stage file as `verdict <key> <line>`
 //      (the remainder's bundle reads them), prints them and
 //        NEXT: rest <key>-rest[-<n>][-<repository name>]       exit 0
 //      — `-rest`, then `-rest-<n>` from 2, placed before any
-//      `-<repository name>` suffix. No commit; the stage stays open.
+//      `-<repository name>` suffix, the shard segment kept last
+//      (`visual-verify-rest-s2of4`). No commit; the stage stays open.
 //   3. the report's `## Verdict` block: `exits:` naming a non-zero exit is a
-//      block, its `cause:` (environment when absent). The stage's first such
-//      report of the worktree ends the row `blocked -cause <cause>` and prints
-//        NEXT: redispatch visual-verify-<n>[-<repository name>]   (<n> from 2)
-//      with no commit. From the second: cause `environment` ends the row the
+//      block, its `cause:` (environment when absent). The blocked count is the
+//      stage's blocked rows of the worktree and the key's shard index. The
+//      stage's first such report of the worktree and shard index ends the row
+//      `blocked -cause <cause>` and prints
+//        NEXT: redispatch visual-verify-<n>[-fix-<k>[-full]][-s<i>of<n>][-<repository name>]   (<n> from 2)
+//      — the closing key's `-fix-<k>[-full]` segment, its shard segment and its
+//      `-<repository name>` suffix kept (`visual-verify-2-fix-3`,
+//      `visual-verify-2-s2of3`) — with no commit. From the second: cause `environment` ends the row the
 //      same way and prints `NEXT: cure-environment <next key>`, no commit;
 //      `test-failure` or `missing-fixture` ends the row `blocked`, commits
 //      (step 12), ends the stage and prints `NEXT: loop`.
@@ -220,6 +226,10 @@ import (
 //      with no such file prints neither. Every `completed` close, scoped or
 //      not, then rewrites visual-prototype.txt with those lines when the map
 //      exists.
+// On the `loop`, `judge` and `done` paths (steps 3–5) a shard's close rewrites
+// <changeRoot>/visual-verification/visual-verification.md as the
+// `record-s<i>of<n>.md` parts that exist, joined in shard order by one blank
+// line (decision record-parts-merged-by-close).
 // Every commit is step 12 (decision close-commits-final-reports), never made
 // after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
 // path, every PNG it names, the full app suite's spec and zip its `- full app
@@ -233,7 +243,8 @@ import (
 //   PUSH: git -C <checkout> push
 // Nothing to commit makes no commit. Then, always:
 //   ROUND-BASE: <worktree>=<git -C <worktree> rev-parse HEAD>
-// The stage ends once every surviving worktree's newest row is closed —
+// The stage ends once the newest row of every surviving worktree and every
+// shard index is closed —
 // `stopped` when any is `blocked`, else `completed` — through `flow stage end
 // -C <canonical-worktree> -command /flow -stage flow.visual-verify`, then
 // `flow record render -change <name> -kind ledger -repo <canonical-worktree>`
@@ -315,6 +326,7 @@ import (
 //   set <worktrees in the resolved set>
 //   worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
 //   row <key> <worktree>
+//   slice s<i>of<n> <frame>[,<frame>…]       prepare, on a sharded pass
 //   verdict <key> <guard verdict line>       close, on a remainder
 //   blocked <key>                            close, on a report with a non-zero exit
 //   closed <key> <outcome>                   close, on each row end
@@ -589,6 +601,7 @@ func (v *vvp) repoName(w string) string {
 //	set <worktrees in the resolved set>
 //	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
 //	row <key> <worktree>
+//	slice s<i>of<n> <frame>[,<frame>…]
 //	verdict <key> <guard verdict line>
 //	blocked <key>
 //	closed <key> <outcome>
