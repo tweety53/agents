@@ -34,14 +34,14 @@ positional argument.
 // runLesson implements `flow lesson`. One subcommand today: `resolve`,
 // the read a run uses to resolve a practice a ticket names instead of
 // searching repositories for it.
-func runLesson(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runLesson(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, lessonUsage)
 		return 2
 	}
 	switch args[0] {
 	case "resolve":
-		return runLessonResolve(ctx, args[1:], stdout, stderr)
+		return runLessonResolve(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown lesson command %q\n", args[0])
 		fmt.Fprint(stderr, lessonUsage)
@@ -49,7 +49,7 @@ func runLesson(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	}
 }
 
-func runLessonResolve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runLessonResolve(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow lesson resolve", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var (
@@ -61,7 +61,7 @@ func runLessonResolve(ctx context.Context, args []string, stdout, stderr io.Writ
 	// -C, which resolves a project key this read never uses -- the answer
 	// spans every registered project -- so a -C given is refused below
 	// rather than accepted as a flag that does nothing.
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	fset.Lookup("C").Usage = "refused: the answer spans every registered project"
 	fset.StringVar(&topic, "topic", "", "the words a ticket uses to name the practice or brief (required)")
 
@@ -73,7 +73,7 @@ func runLessonResolve(ctx context.Context, args []string, stdout, stderr io.Writ
 		fmt.Fprint(stderr, lessonUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	cGiven := false
 	fset.Visit(func(fl *flag.Flag) { cGiven = cGiven || fl.Name == "C" })
 	if cGiven {

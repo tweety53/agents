@@ -26,7 +26,7 @@ func decisionRun(t *testing.T, body string, args ...string) (int, string, string
 		full = append(full, a)
 	}
 	var out, errb bytes.Buffer
-	rc := run(context.Background(), full, strings.NewReader(""), &out, &errb)
+	rc := run(context.Background(), full, os.Getenv, strings.NewReader(""), &out, &errb)
 	return rc, out.String(), errb.String()
 }
 

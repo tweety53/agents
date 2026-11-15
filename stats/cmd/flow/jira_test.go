@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -36,7 +37,7 @@ func (f *jiraFlowdFake) handler() http.HandlerFunc {
 func runJiraTransitionForTest(t *testing.T, ts *httptest.Server, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr strings.Builder
-	code := run(context.Background(), append([]string{"jira", "transition", "-addr", ts.URL}, args...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append([]string{"jira", "transition", "-addr", ts.URL}, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -113,13 +114,13 @@ func TestRunJiraTransitionCallerMistake(t *testing.T) {
 
 func TestRunJiraTransitionUsage(t *testing.T) {
 	var stdout, stderr strings.Builder
-	if code := run(context.Background(), []string{"jira"}, strings.NewReader(""), &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"jira"}, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("bare `flow jira` exit = %d, want 2", code)
 	}
-	if code := run(context.Background(), []string{"jira", "transition", "KAN-571"}, strings.NewReader(""), &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"jira", "transition", "KAN-571"}, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("missing target exit = %d, want 2", code)
 	}
-	if code := run(context.Background(), []string{"jira", "wat"}, strings.NewReader(""), &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"jira", "wat"}, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("unknown subcommand exit = %d, want 2", code)
 	}
 	if !strings.Contains(stderr.String(), "four-position") {
@@ -138,7 +139,7 @@ func TestJiraResolvesTheRecordsAddress(t *testing.T) {
 	t.Setenv("FLOW_ADDR", deadPortURL(t))
 
 	var stdout, stderr strings.Builder
-	code := run(context.Background(), []string{"jira", "transition", "KAN-571", "In Review"}, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), []string{"jira", "transition", "KAN-571", "In Review"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || fake.lastBody == "" {
 		t.Fatalf("jira transition exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr %s", code, fake.lastBody != "", stderr.String())
 	}

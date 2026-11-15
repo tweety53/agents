@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "get", "-addr", srv.URL, "-timeout", "2s"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
@@ -72,7 +73,7 @@ func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
 			"-reviewers", "primary,not-a-slot"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero")
@@ -113,7 +114,7 @@ func TestSettingsCmd_Set_Valid(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
 			"-reviewers", "primary,principles,mutation"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
@@ -135,7 +136,7 @@ func TestSettingsCmd_Set_RejectsModelFlag(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
 			"-model", "opus", "-reviewers", "primary"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr=%s", code, stderr.String())
@@ -151,7 +152,7 @@ func TestSettingsCmd_ModelsIsUnknown(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "models"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr=%s", code, stderr.String())
@@ -184,7 +185,7 @@ func settingsServer(t *testing.T, stored *map[string]any) *httptest.Server {
 func runSettingsArgs(addr string, extra ...string) (int, string) {
 	var stdout, stderr bytes.Buffer
 	args := append([]string{"settings", "set", "-addr", addr, "-timeout", "2s"}, extra...)
-	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String()
 }
 
@@ -250,7 +251,7 @@ func TestSettingsResolvesTheRecordsAddress(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "get", "-timeout", "2s"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("settings get exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
 	}

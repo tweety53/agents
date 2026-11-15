@@ -31,7 +31,7 @@ func TestTasksTickWritesFile(t *testing.T) {
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n\n  - [ ] **Step 1: a**\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
@@ -52,7 +52,7 @@ func TestTasksTickAlreadyTickedExitsNonZero(t *testing.T) {
 	writePlan(t, dir, "spectre", "c", "- [x] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, os.Getenv, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stderr = %s", stderr.String())
 	}
@@ -66,7 +66,7 @@ func TestTasksTickTaskNotFoundExitsNonZero(t *testing.T) {
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "9"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "9"}, os.Getenv, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stderr = %s", stderr.String())
 	}
@@ -77,7 +77,7 @@ func TestTasksTickInvalidIDExitsTwo(t *testing.T) {
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1.1"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1.1"}, os.Getenv, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("code = %d, want 2; stderr = %s", code, stderr.String())
 	}
@@ -87,7 +87,7 @@ func TestTasksTickMissingPlanExitsNonZero(t *testing.T) {
 	dir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1"}, os.Getenv, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stderr = %s", stderr.String())
 	}
@@ -96,7 +96,7 @@ func TestTasksTickMissingPlanExitsNonZero(t *testing.T) {
 func TestTasksTickBadArgCountExitsTwo(t *testing.T) {
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c"}, os.Getenv, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("code = %d, want 2; stderr = %s", code, stderr.String())
 	}
@@ -127,7 +127,7 @@ func TestTasksTickRejectsContainmentEscapesEndToEnd(t *testing.T) {
 	dir := t.TempDir()
 	for _, change := range []string{"../escape", ".hidden", "-flag", "_underscore"} {
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), []string{"tasks", "tick", "-C", dir, change, "1"}, nil, &stdout, &stderr)
+		code := run(context.Background(), []string{"tasks", "tick", "-C", dir, change, "1"}, os.Getenv, nil, &stdout, &stderr)
 		if code != 2 {
 			t.Errorf("change %q: code = %d, want 2; stderr = %s", change, code, stderr.String())
 		}
@@ -186,7 +186,7 @@ func TestSpecRootLeafIgnoresFileAtSpectrePath(t *testing.T) {
 
 func TestTasksTickHelpExitsZero(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-h"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-h"}, os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, want 0; stderr = %s", code, stderr.String())
 	}
@@ -197,7 +197,7 @@ func TestTasksTickExtraPositionalArgExitsTwo(t *testing.T) {
 	writePlan(t, dir, "spectre", "c", "- [ ] 1. First\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1", "bogus-extra-arg"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"tasks", "tick", "-C", dir, "c", "1", "bogus-extra-arg"}, os.Getenv, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("code = %d, want 2; stderr = %s", code, stderr.String())
 	}
@@ -243,7 +243,7 @@ func TestTasksCountRecordsThePlanTaskCount(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "c"},
-		nil, &stdout, &stderr)
+		os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -288,7 +288,7 @@ func TestTasksCountPostsCorrections(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "c"},
-		nil, &stdout, &stderr)
+		os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -314,7 +314,7 @@ func TestTasksCountUnreachableStoreExitsZero(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", deadPortURL(t), "-timeout", "500ms", "-C", repo, "c"},
-		nil, &stdout, &stderr)
+		os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -333,7 +333,7 @@ func TestTasksCountBadChangeNameExitsTwo(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-C", repo, "../escape"},
-		nil, &stdout, &stderr)
+		os.Getenv, nil, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("tasks count exit = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -355,7 +355,7 @@ func TestTasksCountTakesFlagsAfterTheChangeName(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"tasks", "count", "-addr", srv.URL, "-timeout", "500ms", "c", "-C", repo},
-		nil, &stdout, &stderr)
+		os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("tasks count exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -378,7 +378,7 @@ func TestTasksFilesAddWidensOneTask(t *testing.T) {
 	path := filepath.Join(dir, "spectre", "changes", "c", "tasks.md")
 	files := func(args ...string) int {
 		var stdout, stderr bytes.Buffer
-		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), nil, &stdout, &stderr)
+		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), os.Getenv, nil, &stdout, &stderr)
 	}
 	read := func() string {
 		b, err := os.ReadFile(path)
@@ -418,7 +418,7 @@ func TestTasksFilesRemoveNarrowsOneTask(t *testing.T) {
 	path := filepath.Join(dir, "spectre", "changes", "c", "tasks.md")
 	files := func(args ...string) int {
 		var stdout, stderr bytes.Buffer
-		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), nil, &stdout, &stderr)
+		return run(context.Background(), append([]string{"tasks", "files", "-C", dir, "c"}, args...), os.Getenv, nil, &stdout, &stderr)
 	}
 	read := func() string {
 		b, err := os.ReadFile(path)

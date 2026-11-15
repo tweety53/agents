@@ -59,7 +59,7 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 			"-session-token", "mf-session-token-identity-abc-20261024T000000Z",
 			"kan-16",
 		},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -123,7 +123,7 @@ func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -162,7 +162,7 @@ func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T) 
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "a stage nobody documented", "-session-token", "mf-session-token-undocumented-stage-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (an undocumented stage is a usage error); stderr:\n%s", code, stderr.String())
@@ -196,7 +196,7 @@ func TestStageBeginRequiresSessionToken(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (a missing -session-token is a usage error); stderr:\n%s", code, stderr.String())
@@ -242,7 +242,7 @@ func TestStageBeginRejectsShellSubstitutionSessionToken(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", tc.sessionToken, "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (a shell-substitution sessionToken is a usage error); stderr:\n%s", code, stderr.String())
@@ -284,7 +284,7 @@ func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-20260814-abc123-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -339,7 +339,7 @@ func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", expandedValue, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- this shape is, and must remain, indistinguishable "+
@@ -380,7 +380,7 @@ func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-env-bind-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -423,7 +423,7 @@ func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-muse-env-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -464,7 +464,7 @@ func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session", "sess-flag",
 			"-session-token", "mf-session-token-flag-wins-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -508,7 +508,7 @@ func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-no-env-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -564,7 +564,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 			"-reason", "the Findings KPI wraps",
 			"kan-16",
 		},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -638,7 +638,7 @@ func TestStageEndRecordsScreenshot(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "-screenshot", path, "kan-16"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 
@@ -685,7 +685,7 @@ func TestStageEndOmitsMetricsWhenNoFlagsGiven(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -714,7 +714,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-begin-20261024T000000Z", "kan-16"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -727,7 +727,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ProjectKey: %v", err)
 		}
-		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16") + ".stage")
+		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16") + ".stage")
 		if err != nil {
 			t.Fatalf("ReadJournalEntries: %v", err)
 		}
@@ -751,7 +751,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -764,7 +764,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ProjectKey: %v", err)
 		}
-		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16") + ".stage")
+		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16") + ".stage")
 		if err != nil {
 			t.Fatalf("ReadJournalEntries: %v", err)
 		}
@@ -795,7 +795,7 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-journal-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -804,7 +804,7 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	stateEntries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	stateEntries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries (state journal): %v", err)
 	}
@@ -838,7 +838,7 @@ func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.review-panel", "-outcome", "completed", "kan-700-demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a definitive store answer never blocks); stderr:\n%s", code, stderr.String())
@@ -854,7 +854,7 @@ func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-700-demo") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-700-demo") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -889,7 +889,7 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
 			"-session-token", "ff-session-token-wrap-noopen-20261024T000000Z", "kan-700-demo",
 			"--", "sh", "-c", "true"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (the child's own exit code); stderr:\n%s", code, stderr.String())
@@ -905,7 +905,7 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-700-demo") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-700-demo") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -927,7 +927,7 @@ func TestStageMarkJournalWarningNamesWhereTheRealCauseSurfaces(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -959,7 +959,7 @@ func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow-plan", "-stage", "plan.session", "-session-token", "fp-cli-plan-20261024T000000Z", "-jira-key", "KAN-900"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -975,7 +975,7 @@ func TestStageBeginJiraKeyAndChangeNameTogetherIsAUsageError(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-C", repo, "-command", "/flow-plan", "-stage", "plan.session",
 			"-session-token", "fp-cli-plan-20261024T000000Z", "-jira-key", "KAN-900", "kan-900-slug"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -1017,7 +1017,7 @@ func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
 			"-session-token", "ff-session-token-wrap-happy-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "sleep 0.2; echo wrapped-output"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (the child's own exit code); stderr:\n%s", code, stderr.String())
@@ -1098,7 +1098,7 @@ func TestRunStageWrapChildFailureMarksFailedOutcome(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.verify",
 			"-session-token", "ff-session-token-wrap-fail-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "exit 3"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 3 {
 		t.Fatalf("exit code = %d, want 3 (the child's own exit code); stderr:\n%s", code, stderr.String())
@@ -1122,7 +1122,7 @@ func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
 			"-session-token", "ff-session-token-wrap-dead-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "echo wrapped-anyway"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (the child's own exit code, dead store must never block); stderr:\n%s", code, stderr.String())
@@ -1138,7 +1138,7 @@ func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-323") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-323") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -1192,7 +1192,7 @@ func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				append([]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, tc.args...),
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (a usage error); stderr:\n%s", code, stderr.String())
@@ -1231,7 +1231,7 @@ func TestRunStageWrapUndocumentedStageRunsNoChild(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "a stage nobody documented",
 			"-session-token", "ff-session-token-wrap-undoc-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "echo should-not-run"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (an undocumented stage is a usage error); stderr:\n%s", code, stderr.String())
@@ -1278,7 +1278,7 @@ func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
 			"-session-token", "ff-session-token-wrap-cancel-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "sleep 30"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 143 {
 		t.Fatalf("exit code = %d, want 143 (128+SIGTERM, the wrapper's own termination convention); stderr:\n%s", code, stderr.String())
@@ -1321,7 +1321,7 @@ func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.verify",
 			"-session-token", "ff-session-token-wrap-stubborn-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "trap \"\" TERM; sleep 30 & echo $! >\"$0\"; wait", pidfile},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 143 {
 		t.Fatalf("exit code = %d, want 143; stderr:\n%s", code, stderr.String())
@@ -1377,7 +1377,7 @@ func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T
 					"-command", "/flow-fast", "-stage", "flow.brainstorm",
 					"-session-token", "ff-session-token-wrap-sigchild-20261024T000000Z", "kan-323",
 					"--", "sh", "-c", tc.kill},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != tc.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
@@ -1398,7 +1398,7 @@ func TestStageKeysSubcommandPrintsServedKeys(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "keys"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1425,7 +1425,7 @@ func TestStageKeysTakesNoPositionalArguments(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "keys", "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -1461,7 +1461,7 @@ func TestRunStageBeginWarnsOnSupersededRuns(t *testing.T) {
 			"-harness", "claude-code", "-session-token", "ff-session-token-warn-abc-20261024T000000Z",
 			"kan-618",
 		},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1509,7 +1509,7 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
 		[]string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate", "-harness", "zcode",
 			"-session-token", "ff-session-token-mark-happy-20261024T000000Z", "kan-860"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1564,7 +1564,7 @@ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 				"-command", "/flow-fast", "-harness", "zcode"}, extra...)
 			args = append(args, "kan-860")
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -1590,7 +1590,7 @@ func TestStageMarkJournalFallback(t *testing.T) {
 		[]string{"stage", "mark", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate",
 			"-session-token", "ff-session-token-mark-dead-20261024T000000Z", "kan-860"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -1599,7 +1599,7 @@ func TestStageMarkJournalFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-860") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-860") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -1643,7 +1643,7 @@ func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), append(append([]string{}, base...), "demo", "-C", repo),
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -1658,7 +1658,7 @@ func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 	code = run(context.Background(), append(append([]string{}, base...), "demo", "extra", "-C", repo),
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("two positionals exit = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -1694,7 +1694,7 @@ func TestRunStageSessions(t *testing.T) {
 		defer srv.Close()
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"stage", "sessions", "-addr", srv.URL, "-C", repo, "-stage", "flow.document-fix", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 || stdout.String() != "3\n" {
 			t.Fatalf("exit %d stdout %q, want 0 and \"3\\n\"; stderr:\n%s", code, stdout.String(), stderr.String())
 		}
@@ -1704,7 +1704,7 @@ func TestRunStageSessions(t *testing.T) {
 		isolatedStateRoot(t)
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"stage", "sessions", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-stage", "flow.document-fix", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 1 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want 1 and empty", code, stdout.String())
 		}
@@ -1714,7 +1714,7 @@ func TestRunStageSessions(t *testing.T) {
 		isolatedStateRoot(t)
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"stage", "sessions", "-addr", deadPortAddr(t), "-C", repo, "-stage", "flow.nope", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 {
 			t.Fatalf("exit %d, want 2", code)
 		}
@@ -1774,7 +1774,7 @@ func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", command, "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want || reached != (c.want == 0) {
 				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
 			}
@@ -1828,7 +1828,7 @@ func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 				"-command", "/flow", "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 	if code, stderr, reached := end(set, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-2 ended blocked") {
@@ -1879,7 +1879,7 @@ func TestStageBeginRefusesUnstampedSessionToken(t *testing.T) {
 					args = append(args, "--", "true")
 				}
 				var stdout, stderr bytes.Buffer
-				code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+				code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 				if code != 2 || contacted || !strings.Contains(stderr.String(), "UTC") {
 					t.Fatalf("exit=%d contacted=%v, want 2 and no store call; stderr:\n%s", code, contacted, stderr.String())
 				}
@@ -1929,7 +1929,7 @@ func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", c.outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want || reached != (c.want == 0) {
 				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
 			}
@@ -1987,7 +1987,7 @@ func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", tc.outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.want || reached != (tc.want == 0) {
 				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, tc.want, stderr.String())
 			}
@@ -2039,7 +2039,7 @@ func TestStageEndReviewPanelResolvesWorktreeWithoutC(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms",
 			"-command", "/flow", "-stage", "flow.review-panel", "-outcome", "completed", "kan-1"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("exit=%d reached=%v, want 0 and the daemon reached; stderr:\n%s", code, reached, stderr.String())
 	}
@@ -2070,7 +2070,7 @@ func TestStageBeginAcceptsChangeFlag(t *testing.T) {
 			"-command", "/flow", "-stage", "flow.brainstorm",
 			"-session-token", "mf-x-20261024T000000Z",
 		}, tail...)
-		return run(context.Background(), args, strings.NewReader(""), &stdout, &stderr), stderr.String()
+		return run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr), stderr.String()
 	}
 
 	if code, stderr := begin("-change", "demo"); code != 0 {
@@ -2139,7 +2139,7 @@ func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", dir,
 				"-command", "/flow", "-stage", "flow.visual-verify", "-outcome", outcome, "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 
@@ -2190,7 +2190,7 @@ func TestStageResolvesTheRecordsAddress(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("stage begin exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
 	}
@@ -2222,7 +2222,7 @@ func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 				"-command", command, "-stage", stage, "-outcome", "completed", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 	if code, stderr, reached := end(open, "/flow", "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") || !strings.Contains(stderr, "-session-token tok-9") {
@@ -2268,7 +2268,7 @@ func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow", "-stage", "flow.self-review",
 					"-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2306,7 +2306,7 @@ func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow-interactive", "-stage", "flow.self-review",
 					"-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2366,7 +2366,7 @@ func TestStageEndRefusesSelfReviewWithNoPassRow(t *testing.T) {
 							"-session-token", "sr-gate-token-20261107T000000Z", "kan-16"}
 					}
 					var stdout, stderr bytes.Buffer
-					code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+					code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 					if code != tc.code {
 						t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 					}
@@ -2406,7 +2406,7 @@ func TestStageBeginRequestFlag(t *testing.T) {
 			"-command", command, "-stage", "flow.sdd-tdd", "-request", request,
 			"-harness", "claude-code", "-session-token", "fi-request-flag-20261030T100000Z",
 			"kan-1061",
-		}, strings.NewReader(""), &stdout, &stderr)
+		}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 
@@ -2464,7 +2464,7 @@ func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 				"-command", command, "-stage", stage, "-session-token", "mf-k1-20261102T000000Z", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 	for _, tc := range []struct {
@@ -2529,7 +2529,7 @@ func TestStageEndRefusesOpenOperatorRow(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", tc.command, "-stage", tc.stage, "-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2576,7 +2576,7 @@ func TestStageEndSddTddRefusesOpenTaskDispatch(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", tc.command, "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2625,7 +2625,7 @@ func TestStageEndVerifyFindsTheChangeWorktree(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms",
 					"-command", "/flow", "-stage", "flow.verify", "-outcome", "completed", "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want {
 				t.Fatalf("exit %d, want %d; stderr:\n%s", code, c.want, stderr.String())
 			}
@@ -2691,7 +2691,7 @@ func TestStageEndRefusesAFallbackWithoutItsRetry(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 					"-command", "/flow", "-stage", tc.stage, "-outcome", tc.outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.want {
 				t.Fatalf("exit=%d, want %d; stderr:\n%s", code, tc.want, stderr.String())
 			}

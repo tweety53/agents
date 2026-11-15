@@ -44,16 +44,16 @@ var hazardAppliesSet = map[string]bool{"all": true, "cross-repo": true, "single-
 
 // runHazard routes `flow hazard`'s two verbs. add records; remove retires.
 // Neither is optional and neither is a variant of the other.
-func runHazard(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runHazard(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, hazardUsage)
 		return 2
 	}
 	switch args[0] {
 	case "add":
-		return runHazardAdd(ctx, args[1:], stdout, stderr)
+		return runHazardAdd(ctx, args[1:], getenv, stdout, stderr)
 	case "remove":
-		return runHazardRemove(ctx, args[1:], stdout, stderr)
+		return runHazardRemove(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown hazard subcommand %q\n", args[0])
 		fmt.Fprint(stderr, hazardUsage)
@@ -65,16 +65,16 @@ func runHazard(ctx context.Context, args []string, stdout, stderr io.Writer) int
 // recorded active. -applies is validated against the closed vocabulary
 // before the store is contacted -- a caller mistake a retry could never
 // fix, so it is refused outright rather than journalled.
-func runHazardAdd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runHazardAdd(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow hazard add", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, getenv)
 	name := fset.String("name", "", "a short stable identifier for the hazard (required)")
 	text := fset.String("text", "", "the warning text a dispatch bundle carries (required)")
 	applies := fset.String("applies", "", "all, cross-repo or single-repo (required)")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr,
@@ -103,21 +103,21 @@ func runHazardAdd(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	if callErr == nil {
 		fmt.Fprintln(stdout, "recorded: hazard")
 	}
-	return classifyRecordWrite(callErr, projectKey, "", "hazard", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, "", "hazard", in, stderr, getenv)
 }
 
 // runHazardRemove implements `flow hazard remove`: active=false on the
 // named row, never a delete, so the record of what warnings a project
 // carried survives. An unknown name is the store answering, reported and
 // never journalled -- a replay of it could never succeed.
-func runHazardRemove(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runHazardRemove(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow hazard remove", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, getenv)
 	name := fset.String("name", "", "the hazard's name (required)")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr, [2]string{"-name", *name}) {
@@ -136,7 +136,7 @@ func runHazardRemove(ctx context.Context, args []string, stdout, stderr io.Write
 	if callErr == nil {
 		fmt.Fprintf(stdout, "retired: hazard %s\n", *name)
 	}
-	return classifyRecordWrite(callErr, projectKey, "", "hazard remove", *name, stderr)
+	return classifyRecordWrite(callErr, projectKey, "", "hazard remove", *name, stderr, getenv)
 }
 
 // runHazards implements `flow hazards`: a project's hazards as a JSON
@@ -144,15 +144,15 @@ func runHazardRemove(ctx context.Context, args []string, stdout, stderr io.Write
 // listing; with -shape it filters to that shape plus the always-on rows;
 // -all includes retired rows. A failed read never journals and exits
 // non-zero, findings' own read contract.
-func runHazards(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runHazards(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow hazards", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, getenv)
 	shape := fset.String("shape", "", "filter to this shape plus the always-on rows (optional)")
 	all := fset.Bool("all", false, "include retired rows")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if *shape != "" && !hazardAppliesSet[*shape] {

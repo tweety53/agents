@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"os"
 	"strings"
 	"testing"
 )
@@ -46,7 +47,7 @@ func TestDeriveWorkspaceID(t *testing.T) {
 
 func TestWorkspaceIDCommandPrintsID(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id", "kan-15-parallel-flow-task-lanes"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id", "kan-15-parallel-flow-task-lanes"}, os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
@@ -57,7 +58,7 @@ func TestWorkspaceIDCommandPrintsID(t *testing.T) {
 
 func TestWorkspaceIDCommandNoArgExitsNonZero(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id"}, os.Getenv, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stdout = %s", stdout.String())
 	}
@@ -73,7 +74,7 @@ func TestWorkspaceIDCommandNoArgExitsNonZero(t *testing.T) {
 // unrecognized flag.
 func TestWorkspaceIDCommandAcceptsLeadingDashName(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id", "---"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id", "---"}, os.Getenv, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
@@ -85,7 +86,7 @@ func TestWorkspaceIDCommandAcceptsLeadingDashName(t *testing.T) {
 
 func TestWorkspaceIDCommandTooManyArgsExitsNonZero(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id", "a", "b"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id", "a", "b"}, os.Getenv, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stdout = %s", stdout.String())
 	}

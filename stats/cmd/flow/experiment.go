@@ -47,26 +47,26 @@ a malformed experiment, an unknown or closed id) or could not be reached;
 2 usage.
 `
 
-func runExperiment(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperiment(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, experimentUsage)
 		return 2
 	}
 	switch args[0] {
 	case "open":
-		return runExperimentOpen(ctx, args[1:], stdout, stderr)
+		return runExperimentOpen(ctx, args[1:], getenv, stdout, stderr)
 	case "list":
-		return runExperimentList(ctx, args[1:], stdout, stderr)
+		return runExperimentList(ctx, args[1:], getenv, stdout, stderr)
 	case "overrides":
-		return runExperimentOverrides(ctx, args[1:], stdout, stderr)
+		return runExperimentOverrides(ctx, args[1:], getenv, stdout, stderr)
 	case "close":
-		return runExperimentClose(ctx, args[1:], stdout, stderr)
+		return runExperimentClose(ctx, args[1:], getenv, stdout, stderr)
 	case "promote":
-		return runExperimentPromote(ctx, args[1:], stdout, stderr)
+		return runExperimentPromote(ctx, args[1:], getenv, stdout, stderr)
 	case "stats":
-		return runExperimentStats(ctx, args[1:], stdout, stderr)
+		return runExperimentStats(ctx, args[1:], getenv, stdout, stderr)
 	case "main-check":
-		return runExperimentMainCheck(ctx, args[1:], stdout, stderr)
+		return runExperimentMainCheck(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown experiment command %q\n", args[0])
 		fmt.Fprint(stderr, experimentUsage)
@@ -94,7 +94,7 @@ func (c cellFlags) Set(v string) error {
 // parseExperimentFlags parses args into fset, registering the store
 // connection flags first; it returns (_, true) to go on, or (code, false)
 // to stop with exit code code.
-func parseExperimentFlags(fset *flag.FlagSet, f *storeConnFlags, args []string, stderr io.Writer) (int, bool) {
+func parseExperimentFlags(fset *flag.FlagSet, f *storeConnFlags, args []string, getenv func(string) string, stderr io.Writer) (int, bool) {
 	fset.SetOutput(stderr)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -104,7 +104,7 @@ func parseExperimentFlags(fset *flag.FlagSet, f *storeConnFlags, args []string, 
 		fmt.Fprint(stderr, experimentUsage)
 		return 2, false
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 0 {
 		fmt.Fprintf(stderr, "flow: %s takes no further positional arguments\n", fset.Name())
 		fmt.Fprint(stderr, experimentUsage)
@@ -113,19 +113,19 @@ func parseExperimentFlags(fset *flag.FlagSet, f *storeConnFlags, args []string, 
 	return 0, true
 }
 
-func newExperimentFlagSet(name string, f *storeConnFlags) *flag.FlagSet {
+func newExperimentFlagSet(name string, f *storeConnFlags, getenv func(string) string) *flag.FlagSet {
 	fset := flag.NewFlagSet(name, flag.ContinueOnError)
-	registerStoreConnFlags(fset, f)
+	registerStoreConnFlags(fset, f, getenv)
 	return fset
 }
 
-func runExperimentOpen(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperimentOpen(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	var f storeConnFlags
-	fset := newExperimentFlagSet("flow experiment open", &f)
+	fset := newExperimentFlagSet("flow experiment open", &f, getenv)
 	name := fset.String("name", "", "the experiment's name")
 	cells := cellFlags{}
 	fset.Var(cells, "cell", "<role>=<pair>[,<pair>...]; repeat for each role")
-	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
+	if code, ok := parseExperimentFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if *name == "" || len(cells) == 0 {
@@ -144,11 +144,11 @@ func runExperimentOpen(ctx context.Context, args []string, stdout, stderr io.Wri
 	return 0
 }
 
-func runExperimentList(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperimentList(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	var f storeConnFlags
-	fset := newExperimentFlagSet("flow experiment list", &f)
+	fset := newExperimentFlagSet("flow experiment list", &f, getenv)
 	openOnly := fset.Bool("open", false, "list only open experiments")
-	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
+	if code, ok := parseExperimentFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	list, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]client.Experiment, error) {
@@ -173,10 +173,10 @@ func runExperimentList(ctx context.Context, args []string, stdout, stderr io.Wri
 	return 0
 }
 
-func runExperimentOverrides(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperimentOverrides(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	var f storeConnFlags
-	fset := newExperimentFlagSet("flow experiment overrides", &f)
-	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
+	fset := newExperimentFlagSet("flow experiment overrides", &f, getenv)
+	if code, ok := parseExperimentFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	o, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
@@ -215,14 +215,14 @@ func experimentIDArg(cmd string, args []string, stderr io.Writer) (int64, bool) 
 	return id, true
 }
 
-func runExperimentStats(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperimentStats(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	id, ok := experimentIDArg("stats", args, stderr)
 	if !ok {
 		return 2
 	}
 	var f storeConnFlags
-	fset := newExperimentFlagSet("flow experiment stats", &f)
-	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
+	fset := newExperimentFlagSet("flow experiment stats", &f, getenv)
+	if code, ok := parseExperimentFlags(fset, &f, args[1:], getenv, stderr); !ok {
 		return code
 	}
 	body, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
@@ -241,12 +241,12 @@ func runExperimentStats(ctx context.Context, args []string, stdout, stderr io.Wr
 // main-check-and-tag). A cell model names a family (opus), the session may
 // name a full id (claude-opus-5-5): the cell's model inside the session's
 // counts as a match.
-func runExperimentMainCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperimentMainCheck(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	var f storeConnFlags
-	fset := newExperimentFlagSet("flow experiment main-check", &f)
+	fset := newExperimentFlagSet("flow experiment main-check", &f, getenv)
 	model := fset.String("model", "", "this session's model")
 	effort := fset.String("effort", "", "this session's effort")
-	if code, ok := parseExperimentFlags(fset, &f, args, stderr); !ok {
+	if code, ok := parseExperimentFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if *model == "" || *effort == "" {
@@ -273,16 +273,16 @@ func runExperimentMainCheck(ctx context.Context, args []string, stdout, stderr i
 	return 0
 }
 
-func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperimentClose(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	id, ok := experimentIDArg("close", args, stderr)
 	if !ok {
 		return 2
 	}
 	var f storeConnFlags
-	fset := newExperimentFlagSet("flow experiment close", &f)
+	fset := newExperimentFlagSet("flow experiment close", &f, getenv)
 	verdict := fset.String("verdict", "", "positive, negative or inconclusive")
 	summary := fset.String("summary", "", "the closing summary")
-	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
+	if code, ok := parseExperimentFlags(fset, &f, args[1:], getenv, stderr); !ok {
 		return code
 	}
 	if !store.ValidVerdicts[*verdict] {
@@ -301,15 +301,15 @@ func runExperimentClose(ctx context.Context, args []string, stdout, stderr io.Wr
 	return 0
 }
 
-func runExperimentPromote(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runExperimentPromote(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	id, ok := experimentIDArg("promote", args, stderr)
 	if !ok {
 		return 2
 	}
 	var f storeConnFlags
-	fset := newExperimentFlagSet("flow experiment promote", &f)
+	fset := newExperimentFlagSet("flow experiment promote", &f, getenv)
 	summary := fset.String("summary", "", "the closing summary; a generated one when empty")
-	if code, ok := parseExperimentFlags(fset, &f, args[1:], stderr); !ok {
+	if code, ok := parseExperimentFlags(fset, &f, args[1:], getenv, stderr); !ok {
 		return code
 	}
 	_, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (struct{}, error) {

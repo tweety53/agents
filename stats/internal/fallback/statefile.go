@@ -20,26 +20,28 @@ import (
 const DefaultStateRoot = "/Users/tweety53/Agents/flow/state"
 
 // StateRoot returns the root of every project's state directory:
-// FLOW_STATE_DIR when set (a test's own isolated root), DefaultStateRoot
-// otherwise.
-func StateRoot() string {
-	if v := os.Getenv("FLOW_STATE_DIR"); v != "" {
+// FLOW_STATE_DIR when getenv answers it (a test's own isolated root),
+// DefaultStateRoot otherwise. The caller hands in its environment, so a
+// parallel test's root is its own (decision getenv-explicit-param).
+func StateRoot(getenv func(string) string) string {
+	if v := getenv("FLOW_STATE_DIR"); v != "" {
 		return v
 	}
 	return DefaultStateRoot
 }
 
-// StateFilePath returns the on-disk path for the state file recording
-// projectKey/name, per skills/flow-contracts/state-file-internals.md.
-func StateFilePath(projectKey, name string) string {
-	return filepath.Join(StateRoot(), projectKey, name+".json")
+// StateFilePath returns the on-disk path, under the state root root
+// (StateRoot), for the state file recording projectKey/name, per
+// skills/flow-contracts/state-file-internals.md.
+func StateFilePath(root, projectKey, name string) string {
+	return filepath.Join(root, projectKey, name+".json")
 }
 
 // JournalFilePath returns the path of the journal beside the state file
 // recording projectKey/name. "Beside it" is design.md's own phrase for the
 // journal's placement (see "Availability and reconciliation").
-func JournalFilePath(projectKey, name string) string {
-	return filepath.Join(StateRoot(), projectKey, name+".journal")
+func JournalFilePath(root, projectKey, name string) string {
+	return filepath.Join(root, projectKey, name+".journal")
 }
 
 // ProjectKey resolves the project key and the main checkout's absolute path
@@ -101,15 +103,15 @@ func ProjectKey(dir string) (key, mainCheckout string, err error) {
 }
 
 // ListStateFileNames returns the basenames (minus ".json") of every state
-// file directly under projectKey's state directory -- the on-disk
+// file directly under projectKey's state directory beneath root -- the on-disk
 // fallback records a failed `state set` left behind (state-file.md, "The
 // store starts empty"), never a second live source. A project with no
 // directory yet -- nothing has ever fallen back for it -- is not an
 // error: it returns a nil slice, exactly like a project with nothing
 // recorded, so a caller does not have to special-case "never written" from
 // "written and empty".
-func ListStateFileNames(projectKey string) ([]string, error) {
-	dir := filepath.Join(StateRoot(), projectKey)
+func ListStateFileNames(root, projectKey string) ([]string, error) {
+	dir := filepath.Join(root, projectKey)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {

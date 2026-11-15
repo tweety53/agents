@@ -48,14 +48,14 @@ body, an empty key, or a target that matches no pipeline position).
 // runJira routes `flow jira`'s verbs. transition is the only one today;
 // the switch keeps the shape every other multi-verb command uses, so the
 // next verb is one case, not a rewrite.
-func runJira(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runJira(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, jiraUsage)
 		return 2
 	}
 	switch args[0] {
 	case "transition":
-		return runJiraTransition(ctx, args[1:], stdout, stderr)
+		return runJiraTransition(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown jira subcommand %q\n", args[0])
 		fmt.Fprint(stderr, jiraUsage)
@@ -72,8 +72,8 @@ type jiraConnFlags struct {
 	timeout time.Duration
 }
 
-func registerJiraConnFlags(fset *flag.FlagSet, f *jiraConnFlags) {
-	registerRecordsAddrFlag(fset, &f.addr)
+func registerJiraConnFlags(fset *flag.FlagSet, f *jiraConnFlags, getenv func(string) string) {
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
 	fset.DurationVar(&f.timeout, "timeout", jiraTransitionTimeout, "HTTP budget for the one call to flowd; the daemon's retry ladder runs on its own fixed budget")
 }
 
@@ -82,11 +82,11 @@ func registerJiraConnFlags(fset *flag.FlagSet, f *jiraConnFlags) {
 // bounds the one HTTP round trip to flowd, exactly as every other
 // command's does -- a transient Atlassian outage is ridden out by the
 // daemon, not by the caller retrying the command.
-func runJiraTransition(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runJiraTransition(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow jira transition", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f jiraConnFlags
-	registerJiraConnFlags(fset, &f)
+	registerJiraConnFlags(fset, &f, getenv)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -95,7 +95,7 @@ func runJiraTransition(ctx context.Context, args []string, stdout, stderr io.Wri
 		fmt.Fprint(stderr, jiraUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 2 {
 		fmt.Fprintln(stderr, "flow: jira transition takes exactly two arguments, the issue key and the target position")
 		fmt.Fprint(stderr, jiraUsage)

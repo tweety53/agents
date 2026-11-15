@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
 
 func runLearningArgs(args ...string) (int, string, string) {
 	var stdout, stderr strings.Builder
-	code := run(context.Background(), append([]string{"learning"}, args...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append([]string{"learning"}, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 

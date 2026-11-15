@@ -40,8 +40,8 @@ const defaultAddr = "http://127.0.0.1:4173"
 // once per session instead of remembering it on every single command --
 // FLOW_ADDR is that mechanism. An explicit -addr still wins, since the
 // flag's default is all this changes.
-func resolveDefaultAddr() string {
-	if v := os.Getenv("FLOW_ADDR"); v != "" {
+func resolveDefaultAddr(getenv func(string) string) string {
+	if v := getenv("FLOW_ADDR"); v != "" {
 		return v
 	}
 	return defaultAddr
@@ -64,11 +64,11 @@ func resolveDefaultAddr() string {
 // FLOW_RECORDS_ADDR in a worktree's environment; without the row the record
 // family follows FLOW_ADDR, which keeps a main checkout and a session pointed
 // at a second daemon (the ui-test stack) exactly where they are today.
-func resolveRecordsAddr() string {
-	if v := os.Getenv("FLOW_RECORDS_ADDR"); v != "" {
+func resolveRecordsAddr(getenv func(string) string) string {
+	if v := getenv("FLOW_RECORDS_ADDR"); v != "" {
 		return v
 	}
-	return resolveDefaultAddr()
+	return resolveDefaultAddr(getenv)
 }
 
 // noteAddrUsage prints one line to stderr naming the environment variable
@@ -89,7 +89,7 @@ func resolveRecordsAddr() string {
 // signal, since a successful write exits 0 the same way whether it reached
 // the live daemon or a test one. Call this after fset.Parse succeeds, once
 // per command, so a stray or stale export is visible before its effect is.
-func noteAddrUsage(fset *flag.FlagSet, stderr io.Writer, addr string) {
+func noteAddrUsage(fset *flag.FlagSet, stderr io.Writer, addr string, getenv func(string) string) {
 	explicit := false
 	fset.Visit(func(fl *flag.Flag) {
 		if fl.Name == "addr" {
@@ -99,11 +99,11 @@ func noteAddrUsage(fset *flag.FlagSet, stderr io.Writer, addr string) {
 	if explicit {
 		return
 	}
-	if v := os.Getenv("FLOW_RECORDS_ADDR"); v != "" && addr == v {
+	if v := getenv("FLOW_RECORDS_ADDR"); v != "" && addr == v {
 		fmt.Fprintf(stderr, "flow: using FLOW_RECORDS_ADDR=%s\n", v)
 		return
 	}
-	if v := os.Getenv("FLOW_ADDR"); v != "" && addr == v {
+	if v := getenv("FLOW_ADDR"); v != "" && addr == v {
 		fmt.Fprintf(stderr, "flow: using FLOW_ADDR=%s\n", v)
 	}
 }
@@ -182,7 +182,7 @@ scripts rather than deriving the location by hand
 (skills/flow-contracts/state-file.md).
 `
 
-func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func runState(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, stateUsage)
 		return 2
@@ -190,19 +190,19 @@ func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 
 	switch args[0] {
 	case "get":
-		return runStateGet(ctx, args[1:], stdout, stderr)
+		return runStateGet(ctx, args[1:], getenv, stdout, stderr)
 	case "set":
-		return runStateSet(ctx, args[1:], stdin, stdout, stderr)
+		return runStateSet(ctx, args[1:], getenv, stdin, stdout, stderr)
 	case "add-worktree":
-		return runStateAddWorktree(ctx, args[1:], stderr)
+		return runStateAddWorktree(ctx, args[1:], getenv, stderr)
 	case "list":
-		return runStateList(ctx, args[1:], stdout, stderr)
+		return runStateList(ctx, args[1:], getenv, stdout, stderr)
 	case "find":
-		return runStateFind(ctx, args[1:], stdout, stderr)
+		return runStateFind(ctx, args[1:], getenv, stdout, stderr)
 	case "resolve":
-		return runStateResolve(ctx, args[1:], stdout, stderr)
+		return runStateResolve(ctx, args[1:], getenv, stdout, stderr)
 	case "dir":
-		return runStateDir(args[1:], stdout, stderr)
+		return runStateDir(args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown state command %q\n", args[0])
 		fmt.Fprint(stderr, stateUsage)
@@ -248,8 +248,8 @@ type stateFlags struct {
 	args []string
 }
 
-func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateFlags, error) {
-	return parseStateFlagsN(fset, args, stderr, 1, "expected exactly one argument, the change name")
+func parseStateFlags(fset *flag.FlagSet, args []string, getenv func(string) string, stderr io.Writer) (stateFlags, error) {
+	return parseStateFlagsN(fset, args, getenv, stderr, 1, "expected exactly one argument, the change name")
 }
 
 // parseInterspersed parses fset over args and returns the positionals in
@@ -272,17 +272,17 @@ func parseInterspersed(fset *flag.FlagSet, args []string) ([]string, error) {
 
 // parseStateFlagsN is parseStateFlags for a verb taking n positional
 // arguments, the first the change name; wrong names the refusal.
-func parseStateFlagsN(fset *flag.FlagSet, args []string, stderr io.Writer, n int, wrong string) (stateFlags, error) {
+func parseStateFlagsN(fset *flag.FlagSet, args []string, getenv func(string) string, stderr io.Writer, n int, wrong string) (stateFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateFlags{}
-	registerRecordsAddrFlag(fset, &f.addr)
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		return stateFlags{}, err
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if len(pos) != n {
 		return stateFlags{}, errors.New(wrong)
 	}
@@ -343,9 +343,9 @@ func markSyntheticIfNeeded(body []byte) []byte {
 // An exact-name miss (client.ErrNotFound) is not immediately reported: see
 // resolvePrefixCandidate for the one retry this command makes before
 // falling back to the plain "no state recorded" miss.
-func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runStateGet(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state get", flag.ContinueOnError)
-	f, err := parseStateFlags(fset, args, stderr)
+	f, err := parseStateFlags(fset, args, getenv, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -394,7 +394,7 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		// honest to print, and a missing fallback file is not a second
 		// error on top of the one just reported).
 		fmt.Fprintln(stderr, "⚠ flow: store unreachable — read local fallback")
-		statePath := fallback.StateFilePath(projectKey, f.name)
+		statePath := fallback.StateFilePath(fallback.StateRoot(getenv), projectKey, f.name)
 		if diskBody, readErr := fallback.ReadStateFile(statePath); readErr == nil {
 			_, _ = stdout.Write(markSyntheticIfNeeded(diskBody))
 		}
@@ -408,9 +408,9 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 // no) is reported and exits non-zero. Every other failure mode takes the
 // fallback: write the on-disk state file, append the journal entry, print
 // exactly one warning line, exit 0.
-func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr io.Writer) int {
+func runStateSet(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, _, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state set", flag.ContinueOnError)
-	f, err := parseStateFlags(fset, args, stderr)
+	f, err := parseStateFlags(fset, args, getenv, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -433,7 +433,7 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 		fmt.Fprintln(stderr, "flow: state on stdin must be a JSON object")
 		return 2
 	}
-	return writeState(ctx, f, body, stderr)
+	return writeState(ctx, f, body, stderr, getenv)
 }
 
 // gateInProgressHandoff refuses a STARTED -> IN_PROGRESS write the store
@@ -484,7 +484,7 @@ func gateInProgressHandoff(ctx context.Context, f stateFlags, projectKey string,
 // writeState is state set's write tail, shared with state add-worktree:
 // stamp, validate, put, and on a store that cannot answer the on-disk file
 // plus the journal entry.
-func writeState(ctx context.Context, f stateFlags, body []byte, stderr io.Writer) int {
+func writeState(ctx context.Context, f stateFlags, body []byte, stderr io.Writer, getenv func(string) string) int {
 	// Stamp before anything reads body: the store request, the on-disk
 	// fallback file and the journal entry are all derived from this
 	// variable further down, so one clock read reaches all three.
@@ -523,8 +523,8 @@ func writeState(ctx context.Context, f stateFlags, body []byte, stderr io.Writer
 		// could not be reached to answer at all, so the write is not lost
 		// -- it is recorded locally and journaled for task 6's reconciler,
 		// and the pipeline is never made to wait on it.
-		statePath := fallback.StateFilePath(projectKey, f.name)
-		journalPath := fallback.JournalFilePath(projectKey, f.name)
+		statePath := fallback.StateFilePath(fallback.StateRoot(getenv), projectKey, f.name)
+		journalPath := fallback.JournalFilePath(fallback.StateRoot(getenv), projectKey, f.name)
 		_ = fallback.WriteStateFile(statePath, body)
 		_ = fallback.AppendJournalEntry(journalPath, projectKey, f.name, body, time.Now())
 		fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal")
@@ -540,9 +540,9 @@ func writeState(ctx context.Context, f stateFlags, body []byte, stderr io.Writer
 // anything is read, and a missing or synthetic-only record is refused
 // before anything is written: a worktree is recorded only onto a change
 // whose STARTED write has happened.
-func runStateAddWorktree(ctx context.Context, args []string, stderr io.Writer) int {
+func runStateAddWorktree(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state add-worktree", flag.ContinueOnError)
-	f, err := parseStateFlagsN(fset, args, stderr, 3,
+	f, err := parseStateFlagsN(fset, args, getenv, stderr, 3,
 		"expected three arguments: the change name, the worktree's absolute path and its merge base")
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -574,7 +574,7 @@ func runStateAddWorktree(ctx context.Context, args []string, stderr io.Writer) i
 		body = nil
 	default:
 		fmt.Fprintln(stderr, "⚠ flow: store unreachable — read local fallback")
-		body, _ = fallback.ReadStateFile(fallback.StateFilePath(projectKey, f.name))
+		body, _ = fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(getenv), projectKey, f.name))
 	}
 	var record map[string]json.RawMessage
 	if len(body) == 0 || json.Unmarshal(body, &record) != nil || record == nil {
@@ -599,7 +599,7 @@ func runStateAddWorktree(ctx context.Context, args []string, stderr io.Writer) i
 		fmt.Fprintf(stderr, "flow: encode merged state: %v\n", err)
 		return 1
 	}
-	return writeState(ctx, f, merged, stderr)
+	return writeState(ctx, f, merged, stderr, getenv)
 }
 
 // stateListFlags is parseStateFlags' sibling for `state list`, which takes
@@ -613,16 +613,16 @@ type stateListFlags struct {
 	dir     string
 }
 
-func parseStateListFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateListFlags, error) {
+func parseStateListFlags(fset *flag.FlagSet, args []string, getenv func(string) string, stderr io.Writer) (stateListFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateListFlags{}
-	registerRecordsAddrFlag(fset, &f.addr)
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
 	if err := fset.Parse(args); err != nil {
 		return stateListFlags{}, err
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 0 {
 		return stateListFlags{}, fmt.Errorf("state list takes no positional arguments")
 	}
@@ -671,9 +671,9 @@ type stateListOutput struct {
 // source "fallback", complete false, and still exits 0: an enumeration
 // must never block the pipeline any more than a single record's read or
 // write may.
-func runStateList(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runStateList(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state list", flag.ContinueOnError)
-	f, err := parseStateListFlags(fset, args, stderr)
+	f, err := parseStateListFlags(fset, args, getenv, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -703,7 +703,7 @@ func runStateList(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	// local directory, reported as exactly what it is, never dressed up as
 	// a complete list.
 	fmt.Fprintln(stderr, "⚠ flow: store unreachable — listing local fallback files (partial: only failed writes are recorded there)")
-	records, fbErr := fallbackStateListRecords(projectKey)
+	records, fbErr := fallbackStateListRecords(projectKey, getenv)
 	if fbErr != nil {
 		fmt.Fprintf(stderr, "flow: state list: read local fallback directory: %v\n", fbErr)
 	}
@@ -758,16 +758,16 @@ type stateFindOutput struct {
 
 // parseStateFindFlags mirrors parseStateListFlags but requires exactly one
 // positional argument, the change name.
-func parseStateFindFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateListFlags, string, error) {
+func parseStateFindFlags(fset *flag.FlagSet, args []string, getenv func(string) string, stderr io.Writer) (stateListFlags, string, error) {
 	fset.SetOutput(stderr)
 	f := stateListFlags{}
-	registerRecordsAddrFlag(fset, &f.addr)
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	registerDirFlag(fset, &f.dir)
 	if err := fset.Parse(args); err != nil {
 		return stateListFlags{}, "", err
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 1 {
 		return stateListFlags{}, "", fmt.Errorf("state find takes exactly one argument, the change name")
 	}
@@ -787,9 +787,9 @@ func parseStateFindFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (s
 // then whatever the on-disk fallback directory holds for that name across
 // every project, source "fallback", complete false, and still exits 0 --
 // exactly as state list's own fallback does.
-func runStateFind(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runStateFind(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state find", flag.ContinueOnError)
-	f, name, err := parseStateFindFlags(fset, args, stderr)
+	f, name, err := parseStateFindFlags(fset, args, getenv, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -813,7 +813,7 @@ func runStateFind(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	// directory across every project, reported as exactly what it is,
 	// never dressed up as a complete answer.
 	fmt.Fprintln(stderr, "⚠ flow: store unreachable — scanning local fallback files across projects (partial: only failed writes are recorded there)")
-	fallbackRecords, fbErr := fallbackStateFindRecords(name)
+	fallbackRecords, fbErr := fallbackStateFindRecords(name, getenv)
 	if fbErr != nil {
 		fmt.Fprintf(stderr, "flow: state find: read local fallback directory: %v\n", fbErr)
 	}
@@ -880,8 +880,8 @@ func findState(ctx context.Context, addr string, timeout time.Duration, name str
 // necessarily partial: the fallback directory holds only the records a
 // failed write left behind, which is why the output it feeds is never
 // marked complete.
-func fallbackStateFindRecords(name string) ([]stateFindRecord, error) {
-	entries, err := os.ReadDir(fallback.StateRoot())
+func fallbackStateFindRecords(name string, getenv func(string) string) ([]stateFindRecord, error) {
+	entries, err := os.ReadDir(fallback.StateRoot(getenv))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []stateFindRecord{}, nil
@@ -894,7 +894,7 @@ func fallbackStateFindRecords(name string) ([]stateFindRecord, error) {
 			continue
 		}
 		projectKey := entry.Name()
-		body, readErr := fallback.ReadStateFile(fallback.StateFilePath(projectKey, name))
+		body, readErr := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(getenv), projectKey, name))
 		if readErr != nil {
 			continue
 		}
@@ -943,9 +943,9 @@ type stateResolveOutput struct {
 // falls back exactly as state list's does, and a changes-directory read
 // error is reported on stderr while the fallback candidates still print,
 // exit 0.
-func runStateResolve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runStateResolve(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state resolve", flag.ContinueOnError)
-	f, err := parseStateListFlags(fset, args, stderr)
+	f, err := parseStateListFlags(fset, args, getenv, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -975,7 +975,7 @@ func runStateResolve(ctx context.Context, args []string, stdout, stderr io.Write
 	// Every outcome other than a clean store answer takes the fallback,
 	// exactly as runStateList's own fallback branch does.
 	fmt.Fprintln(stderr, "⚠ flow: store unreachable — listing local fallback files (partial: only failed writes are recorded there)")
-	records, fbErr := fallbackStateListRecords(projectKey)
+	records, fbErr := fallbackStateListRecords(projectKey, getenv)
 	if fbErr != nil {
 		fmt.Fprintf(stderr, "flow: state resolve: read local fallback directory: %v\n", fbErr)
 	}
@@ -1078,14 +1078,14 @@ func toStateListRecords(rows []client.StateBoardRow) []stateListRecord {
 // Unreadable: true -- never silently dropped from the list, per this
 // command's own never-rebuild-by-inference rule (the same one `state get`
 // and skills/flow-status/SKILL.md already follow for a single record).
-func fallbackStateListRecords(projectKey string) ([]stateListRecord, error) {
-	names, err := fallback.ListStateFileNames(projectKey)
+func fallbackStateListRecords(projectKey string, getenv func(string) string) ([]stateListRecord, error) {
+	names, err := fallback.ListStateFileNames(fallback.StateRoot(getenv), projectKey)
 	if err != nil {
 		return nil, err
 	}
 	records := make([]stateListRecord, 0, len(names))
 	for _, name := range names {
-		body, readErr := fallback.ReadStateFile(fallback.StateFilePath(projectKey, name))
+		body, readErr := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(getenv), projectKey, name))
 		if readErr != nil {
 			records = append(records, stateListRecord{Name: name, Unreadable: true})
 			continue
@@ -1409,7 +1409,7 @@ func withMainCheckoutPath(body []byte, mainCheckout string) ([]byte, error) {
 // stderr and exit 1, the same course runStateResolve takes for its own
 // ProjectKey call -- an unresolvable directory never prints a path that
 // only looks resolved.
-func runStateDir(args []string, stdout, stderr io.Writer) int {
+func runStateDir(args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state dir", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var dir string
@@ -1438,6 +1438,6 @@ func runStateDir(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
-	fmt.Fprintln(stdout, filepath.Join(fallback.StateRoot(), projectKey))
+	fmt.Fprintln(stdout, filepath.Join(fallback.StateRoot(getenv), projectKey))
 	return 0
 }

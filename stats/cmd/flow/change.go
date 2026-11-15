@@ -45,7 +45,7 @@ func changeSavedFiles(name string) [][2]string {
 }
 
 // runChange implements `flow change save|file`.
-func runChange(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runChange(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, changeUsage)
 		return 2
@@ -65,7 +65,7 @@ func runChange(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	fset := flag.NewFlagSet("flow change "+args[0], flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	if err := fset.Parse(args[1:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -73,7 +73,7 @@ func runChange(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		fmt.Fprint(stderr, changeUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != want {
 		fmt.Fprintf(stderr, "flow: change %s takes %d argument(s), got %d\n", args[0], want, fset.NArg())
 		fmt.Fprint(stderr, changeUsage)

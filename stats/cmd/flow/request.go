@@ -30,16 +30,16 @@ import (
 var requestOutcomes = []string{"landed", "answered", "dropped"}
 
 // runRecordRequest routes `flow record request` to its two halves.
-func runRecordRequest(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordRequest(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, recordUsage)
 		return 2
 	}
 	switch args[0] {
 	case "begin":
-		return runRecordRequestBegin(ctx, args[1:], stdout, stderr)
+		return runRecordRequestBegin(ctx, args[1:], getenv, stdout, stderr)
 	case "end":
-		return runRecordRequestEnd(ctx, args[1:], stdout, stderr)
+		return runRecordRequestEnd(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record request command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -59,15 +59,15 @@ func requireRequestN(n int, stderr io.Writer) bool {
 
 // runRecordRequestBegin implements `flow record request begin`: a
 // request's receipt, or an amendment of its title or brainstorm reason.
-func runRecordRequestBegin(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordRequestBegin(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record request begin", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	n := fset.Int("n", 0, "the request's number in the session, a positive integer (required)")
 	title := fset.String("title", "", "the request in one line")
 	reason := fset.String("brainstorm-reason", "", "why the request needs a brainstorm")
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRequestN(*n, stderr) {
@@ -92,22 +92,22 @@ func runRecordRequestBegin(ctx context.Context, args []string, stdout, stderr io
 	if callErr == nil {
 		fmt.Fprintf(stdout, "recorded: request %d\n", *n)
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "request-begin", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "request-begin", in, stderr, getenv)
 }
 
 // runRecordRequestEnd implements `flow record request end`: a request's
 // outcome. landed takes -commit and -base and runs gateLandedRequest
 // before the write; answered and dropped take neither.
-func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordRequestEnd(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record request end", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	n := fset.Int("n", 0, "the request's number in the session, a positive integer (required)")
 	outcome := fset.String("outcome", "", "landed, answered or dropped (required)")
 	commit := fset.String("commit", "", "landed only: the request's last landed commit, a full sha")
 	base := fset.String("base", "", "landed only: origin/<base> right after the request's first landing rebase, a full sha")
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRequestN(*n, stderr) {
@@ -140,7 +140,7 @@ func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.W
 		return 1
 	}
 	if *outcome == "landed" {
-		if code := gateLandedRequest(ctx, f, projectKey, *n, *commit, *base, stderr); code != 0 {
+		if code := gateLandedRequest(ctx, f, projectKey, *n, *commit, *base, stderr, getenv); code != 0 {
 			return code
 		}
 	}
@@ -152,7 +152,7 @@ func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.W
 	if callErr == nil {
 		fmt.Fprintf(stdout, "recorded: request %d %s\n", *n, *outcome)
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "request-end", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "request-end", in, stderr, getenv)
 }
 
 // gateLandedRequest is design.md's Request-end guard, run in-process before
@@ -170,7 +170,7 @@ func runRecordRequestEnd(ctx context.Context, args []string, stdout, stderr io.W
 // evidence. A store that cannot be reached
 // skips both stage-run reads, with one ⚠ line. 0 passes; 1
 // refuses with one line naming the failed check.
-func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey string, n int, commit, base string, stderr io.Writer) int {
+func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey string, n int, commit, base string, stderr io.Writer, getenv func(string) string) int {
 	refuse := func(format string, a ...any) int {
 		fmt.Fprintf(stderr, "flow: record request end refused: "+format+"\n", a...)
 		return 1
@@ -194,7 +194,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("no checkout of %s carries .superpowers/sdd/%s/ — pass -C the session's worktree", f.dir, f.change)
 	}
 
-	env := guard.Env{Getenv: os.Getenv, Dir: wt}
+	env := guard.Env{Getenv: getenv, Dir: wt}
 	var out, errBuf bytes.Buffer
 	if code := guard.Registry["resolve-base-branch"]([]string{wt}, env, &out, &errBuf); code != 0 {
 		return refuse("resolve-base-branch exited %d on %s: %s", code, wt, strings.TrimSpace(errBuf.String()))
@@ -219,7 +219,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 	if first != "" {
 		return refuse("-commit %s tracks %s — untrack .superpowers/ (git rm -r --cached .superpowers), land that, and end again", commit, first)
 	}
-	if lintDeclared(wt) {
+	if lintDeclared(wt, getenv) {
 		if green := lintGreenAt(wt); green != commit {
 			return refuse("-commit %s is not the commit a green lint list stamped (flow-lint-green holds %q) — run flow-guard run-verify-list %s lint on it (step 4) and end again", commit, green, wt)
 		}
@@ -325,8 +325,8 @@ func lintGreenAt(wt string) string {
 
 // lintDeclared reports whether wt's .flow/project.md declares a `## lint`
 // list: with none, no list could stamp flow-lint-green.
-func lintDeclared(wt string) bool {
-	return guard.Registry["project-get"]([]string{wt, "lint"}, guard.Env{Getenv: os.Getenv, Dir: wt}, io.Discard, io.Discard) == 0
+func lintDeclared(wt string, getenv func(string) string) bool {
+	return guard.Registry["project-get"]([]string{wt, "lint"}, guard.Env{Getenv: getenv, Dir: wt}, io.Discard, io.Discard) == 0
 }
 
 // latestRequestRun reads the change's /flow-interactive runs of stage and

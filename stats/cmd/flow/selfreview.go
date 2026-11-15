@@ -73,18 +73,18 @@ stdout.
 // runSelfReview implements `flow self-review`: `bundle`, the read run 1's
 // bundle step fetches its reasoning input through, and `finding`/`findings`, the
 // write and read of each finding's outcome.
-func runSelfReview(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSelfReview(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, selfReviewUsage)
 		return 2
 	}
 	switch args[0] {
 	case "bundle":
-		return runSelfReviewBundle(ctx, args[1:], stdout, stderr)
+		return runSelfReviewBundle(ctx, args[1:], getenv, stdout, stderr)
 	case "finding":
-		return runSelfReviewFinding(ctx, args[1:], stderr)
+		return runSelfReviewFinding(ctx, args[1:], getenv, stderr)
 	case "findings":
-		return runSelfReviewFindings(ctx, args[1:], stdout, stderr)
+		return runSelfReviewFindings(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown self-review command %q\n", args[0])
 		fmt.Fprint(stderr, selfReviewUsage)
@@ -98,16 +98,16 @@ func runSelfReview(ctx context.Context, args []string, stdout, stderr io.Writer)
 // self-review, F3).
 const selfReviewBundleTimeout = time.Minute
 
-func runSelfReviewBundle(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSelfReviewBundle(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow self-review bundle", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	f.timeout = selfReviewBundleTimeout
 	fset.Lookup("timeout").DefValue = selfReviewBundleTimeout.String()
 	fset.StringVar(&f.change, "change", "", "the change whose bundle is served (required)")
 
-	projectKey, mainCheckout, code := parseSelfReviewFlags(fset, &f, args, stderr)
+	projectKey, mainCheckout, code := parseSelfReviewFlags(fset, &f, args, getenv, stderr)
 	if code >= 0 {
 		return code
 	}
@@ -172,7 +172,7 @@ func realPath(p string) string {
 // stray positional argument and a missing -change, and resolves the project
 // key and main checkout. It returns a non-negative exit code when the
 // caller should stop, and -1 when it should go on.
-func parseSelfReviewFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string, stderr io.Writer) (projectKey, mainCheckout string, code int) {
+func parseSelfReviewFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string, getenv func(string) string, stderr io.Writer) (projectKey, mainCheckout string, code int) {
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return "", "", 0
@@ -181,7 +181,7 @@ func parseSelfReviewFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []str
 		fmt.Fprint(stderr, selfReviewUsage)
 		return "", "", 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 0 {
 		fmt.Fprint(stderr, "flow: expected no positional arguments\n")
 		fmt.Fprint(stderr, selfReviewUsage)
@@ -208,13 +208,13 @@ func parseSelfReviewFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []str
 	return projectKey, mainCheckout, -1
 }
 
-func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) int {
+func runSelfReviewFinding(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow self-review finding", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	var in records.SelfReviewFinding
 	blastRadius := -1
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	fset.StringVar(&f.change, "change", "", "the change the finding belongs to (required)")
 	fset.StringVar(&in.Angle, "angle", "", "the finding's angle label (required)")
 	fset.StringVar(&in.Disposition, "disposition", "", "fixed, filed, declined or noted (required)")
@@ -223,7 +223,7 @@ func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) 
 	fset.IntVar(&blastRadius, "blast-radius", -1, "the finding's file count (optional)")
 	fset.StringVar(&in.Severity, "severity", "", "critical, important or minor (required for fixed and filed)")
 
-	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, stderr)
+	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, getenv, stderr)
 	if code >= 0 {
 		return code
 	}
@@ -264,14 +264,14 @@ func runSelfReviewFinding(ctx context.Context, args []string, stderr io.Writer) 
 	}
 }
 
-func runSelfReviewFindings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSelfReviewFindings(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow self-review findings", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	fset.StringVar(&f.change, "change", "", "the change whose findings are listed (required)")
 
-	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, stderr)
+	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, getenv, stderr)
 	if code >= 0 {
 		return code
 	}

@@ -357,7 +357,7 @@ func run(logger *slog.Logger) error {
 	watchCtx, stopWatch := context.WithCancel(ctx)
 	defer stopWatch()
 	if replaysSharedJournal(cfg.DSN) {
-		reconciler := reconcile.New(st, st, st, fallback.StateRoot(), logger)
+		reconciler := reconcile.New(st, st, st, fallback.StateRoot(os.Getenv), logger)
 		reconciler.AgentEnd = agentEnd
 		startupResult, startupErr := reconciler.Run(ctx)
 		logReconcileResult(logger, "startup", startupResult, startupErr)
@@ -621,7 +621,7 @@ var (
 
 // replaysSharedJournal reports whether dsn names the dev workspace's own
 // `flow` database, the one store the shared journal under
-// fallback.StateRoot() is replayed into. A workspace database
+// fallback.StateRoot(os.Getenv) is replayed into. A workspace database
 // (flow_<id>, .flow/project.md's ## workspace isolation) never is.
 func replaysSharedJournal(dsn string) bool {
 	u, err := url.Parse(dsn)

@@ -53,7 +53,7 @@ func TestSuiteRecordRunsChildAndRecordsRow(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "echo child-stdout"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -126,7 +126,7 @@ func TestSuiteRecordDecodesGoTestJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	args := append([]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-suite", "probe", "--"},
 		goTestJSONChild(t)...)
-	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	if want := "plain before\n=== RUN   TestA\n{\"x\":1}\ntail"; stdout.String() != want {
@@ -160,7 +160,7 @@ func TestSuiteRecordPassesChildExitThrough(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "exit 3"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 3 {
 		t.Fatalf("suite record exit = %d, want the child's 3", code)
 	}
@@ -185,7 +185,7 @@ func TestSuiteRecordWarnsWithoutAlteringExitWhenStoreDown(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "exit 5"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 5 {
 		t.Fatalf("suite record exit = %d, want the child's 5 despite the store being down", code)
 	}
@@ -205,7 +205,7 @@ func TestSuiteRecordJournalsWhenStoreDown(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/bin/sh", "-c", "exit 5"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 5 {
 		t.Fatalf("suite record exit = %d, want 5", code)
 	}
@@ -213,7 +213,7 @@ func TestSuiteRecordJournalsWhenStoreDown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(key, "_suite-runs") + ".record")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), key, "_suite-runs") + ".record")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -243,14 +243,14 @@ func TestSuiteRecordJournalsTestsWhenStoreDown(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	args := append([]string{"suite", "record", "-addr", dead, "-timeout", "500ms", "-C", repo, "-suite", "probe", "--"},
 		goTestJSONChild(t)...)
-	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	key, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(key, "_suite-runs") + ".record")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), key, "_suite-runs") + ".record")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestSuiteRecordRefusesMissingSuiteOrCommand(t *testing.T) {
 		"no -- and command": {"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-suite", "probe"},
 	} {
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 {
 			t.Errorf("%s: exit = %d, want 2", name, code)
 		}
@@ -315,7 +315,7 @@ func TestSuiteRecordReportsUnstartableChild(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-suite", "probe", "--", "/nonexistent-binary-kan252"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 127 {
 		t.Fatalf("unstartable child exit = %d, want 127", code)
 	}
@@ -347,7 +347,7 @@ func TestSuiteListRendersRowsAndSummary(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"suite", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("suite list exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -387,7 +387,7 @@ func TestSuiteListJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"suite", "list", "-json", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("suite list -json exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -426,7 +426,7 @@ func TestSuiteListTestsReadsTheNewestRunWithTests(t *testing.T) {
 	list := func(extra ...string) (int, string, string) {
 		var stdout, stderr bytes.Buffer
 		args := append([]string{"suite", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, extra...)
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
 
@@ -468,7 +468,7 @@ func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(),
 		[]string{"suite", "list", "-tests", "guard-tests", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr); code != 0 || stdout.String() != "no test costs recorded for guard-tests\n" {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || stdout.String() != "no test costs recorded for guard-tests\n" {
 		t.Errorf("no run: exit %d stdout %q, want 0 and the no-costs line; stderr:\n%s", code, stdout.String(), stderr.String())
 	}
 
@@ -476,7 +476,7 @@ func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
 	stderr.Reset()
 	if code := run(context.Background(),
 		[]string{"suite", "list", "-tests", "guard-tests", "-addr", deadPortURL(t), "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "flow: suite list:") {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "flow: suite list:") {
 		t.Errorf("dead store: exit %d stderr %q, want 1 and flow: suite list:", code, stderr.String())
 	}
 }
@@ -508,12 +508,12 @@ func TestSuiteResolvesTheRecordsAddress(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(),
 		[]string{"suite", "record", "-timeout", "500ms", "-C", repo, "-suite", "probe", "--", "/bin/sh", "-c", "true"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 || !recorded {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || !recorded {
 		t.Fatalf("suite record exit = %d, recorded at FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, recorded, stderr.String())
 	}
 	if code := run(context.Background(),
 		[]string{"suite", "list", "-json", "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr); code != 0 || !listed {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || !listed {
 		t.Fatalf("suite list exit = %d, read from FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, listed, stderr.String())
 	}
 }

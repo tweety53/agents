@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
@@ -80,7 +81,7 @@ func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", srv.URL, "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
@@ -98,7 +99,7 @@ func TestRunSelfReviewBundleRequiresChange(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", "http://127.0.0.1:1", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
@@ -126,7 +127,7 @@ func TestRunSelfReviewBundleUnreachableStoreExitsNonZero(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("exit = 0, want non-zero (stderr: %s)", stderr.String())
 	}
@@ -166,7 +167,7 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 	finding := func(addr string, extra ...string) (int, string, string) {
 		var stdout, stderr strings.Builder
 		args := append([]string{"self-review", "finding", "-addr", addr, "-timeout", "500ms", "-C", repo}, extra...)
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
 	full := []string{"-change", "demo", "-angle", "myflow-fix", "-disposition", "fixed", "-ref", "abc1234", "-blast-radius", "3", "-severity", "important", "-note", "guard gap"}
@@ -262,7 +263,7 @@ func TestSelfReviewFindingRefusesUngradedFixedOrFiled(t *testing.T) {
 			args = append(args, "-ref", tc.ref)
 		}
 		var stdout, stderr strings.Builder
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.wantCode {
 			t.Errorf("%s with no -severity: exit %d, want %d (stderr %q)", tc.disposition, code, tc.wantCode, stderr.String())
 		}
@@ -296,7 +297,7 @@ func TestSelfReviewFindingsCLI(t *testing.T) {
 		var stdout, stderr strings.Builder
 		code := run(context.Background(),
 			[]string{"self-review", "findings", "-addr", addr, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String()
 	}
 

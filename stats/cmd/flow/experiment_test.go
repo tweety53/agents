@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ import (
 
 func runExperimentArgs(args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append([]string{"experiment"}, args...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append([]string{"experiment"}, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 

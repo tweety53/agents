@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -26,7 +27,7 @@ func TestRunLessonResolvePrintsAnswer(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-topic", "flake-bisection"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
@@ -49,7 +50,7 @@ func TestRunLessonResolveRequiresTopic(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", "http://127.0.0.1:1"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
@@ -70,7 +71,7 @@ func TestRunLessonResolveRefusesWhitespaceTopic(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-topic", " -_ "},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2 (stderr: %s)", code, stderr.String())
 	}
@@ -90,7 +91,7 @@ func TestRunLessonResolveRefusesPositional(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", "http://127.0.0.1:1", "-topic", "t", "extra"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
@@ -114,7 +115,7 @@ func TestRunLessonResolveUnreachableStoreExitsNonZero(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"lesson", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-topic", "flake"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("exit = 0, want non-zero (stderr: %s)", stderr.String())
 	}
@@ -144,7 +145,7 @@ func TestRunLessonResolveRefusesDirFlag(t *testing.T) {
 		var stdout, stderr strings.Builder
 		code := run(context.Background(),
 			[]string{"lesson", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-topic", "x", "-C", dir},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 {
 			t.Fatalf("-C %q: exit = %d, want 2 (stderr: %s)", dir, code, stderr.String())
 		}

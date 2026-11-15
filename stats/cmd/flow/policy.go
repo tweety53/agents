@@ -34,16 +34,18 @@ and no cache exists); 2 usage.
 `
 
 // policyCachePath is where `flow policy get` keeps its last good answer.
-func policyCachePath() string { return filepath.Join(fallback.StateRoot(), "policy-cache.json") }
+func policyCachePath(getenv func(string) string) string {
+	return filepath.Join(fallback.StateRoot(getenv), "policy-cache.json")
+}
 
-func runPolicy(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runPolicy(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, policyUsage)
 		return 2
 	}
 	var f storeConnFlags
 	fset := flag.NewFlagSet("flow policy "+args[0], flag.ContinueOnError)
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	change := fset.String("change", "", "the change the grant is for")
 	roles := fset.String("roles", "", "comma-separated role ids")
 	switch args[0] {
@@ -58,7 +60,7 @@ func runPolicy(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		fmt.Fprint(stderr, policyUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	needChange := args[0] != "get"
 	needRoles := args[0] == "grant" || args[0] == "revoke"
 	if needChange && *change == "" || needRoles && *roles == "" || !needChange && (*change != "" || *roles != "") {
@@ -68,7 +70,7 @@ func runPolicy(ctx context.Context, args []string, stdout, stderr io.Writer) int
 	}
 	switch args[0] {
 	case "get":
-		return runPolicyGet(ctx, f, stdout, stderr)
+		return runPolicyGet(ctx, f, stdout, stderr, getenv)
 	case "grants":
 		list, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) ([]string, error) {
 			return cl.Grants(ctx, *change)
@@ -100,8 +102,8 @@ func runPolicy(ctx context.Context, args []string, stdout, stderr io.Writer) int
 // runPolicyGet prints the store's pairs and caches them; with the store
 // unreachable it prints the cache instead (decision policy-cache), and with
 // neither it exits 1 naming both.
-func runPolicyGet(ctx context.Context, f storeConnFlags, stdout, stderr io.Writer) int {
-	cache := policyCachePath()
+func runPolicyGet(ctx context.Context, f storeConnFlags, stdout, stderr io.Writer, getenv func(string) string) int {
+	cache := policyCachePath(getenv)
 	p, err := withFlowdClient(ctx, f, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
 		return cl.Policy(ctx)
 	})

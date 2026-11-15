@@ -60,7 +60,7 @@ func TestSelfReviewBundleWritesTheContextFile(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", ts.URL, "-C", wt, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "## spectre/changes/demo/design.md\n\n# demo design, never committed") {
@@ -95,7 +95,7 @@ func TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", srv.URL, "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
 	if stdout.String() != "# Self-review context bundle for demo (saved)\n" {
@@ -109,7 +109,7 @@ func TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle(t *testing.T) {
 	stdout.Reset()
 	paths = nil
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", srv.URL, "-C", other, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 || len(paths) != 1 || !strings.HasSuffix(paths[0], "/demo/files/self-review-context.md") {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || len(paths) != 1 || !strings.HasSuffix(paths[0], "/demo/files/self-review-context.md") {
 		t.Errorf("another change's worktree: exit = %d requests = %v, want the saved bundle only", code, paths)
 	}
 	if _, err := os.Stat(filepath.Join(other, ".superpowers/sdd/demo/self-review-context.md")); err == nil {
@@ -119,7 +119,7 @@ func TestSelfReviewBundleWithoutWorktreeReadsTheSavedBundle(t *testing.T) {
 	saved = false
 	stdout.Reset()
 	if code := run(context.Background(), []string{"self-review", "bundle", "-addr", srv.URL, "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
 		t.Errorf("no saved bundle: exit = %d stdout = %q, want 1 and nothing", code, stdout.String())
 	}
 }

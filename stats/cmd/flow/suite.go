@@ -69,16 +69,16 @@ const suiteSummaryWindow = 10
 
 // runSuite routes `flow suite`'s two verbs. record wraps; list reads.
 // Neither is optional and neither is a variant of the other.
-func runSuite(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSuite(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, suiteUsage)
 		return 2
 	}
 	switch args[0] {
 	case "record":
-		return runSuiteRecord(ctx, args[1:], stdout, stderr)
+		return runSuiteRecord(ctx, args[1:], getenv, stdout, stderr)
 	case "list":
-		return runSuiteList(ctx, args[1:], stdout, stderr)
+		return runSuiteList(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown suite subcommand %q\n", args[0])
 		fmt.Fprint(stderr, suiteUsage)
@@ -96,11 +96,11 @@ const suiteJournalName = "_suite-runs"
 // gates the child -- a record failure prints one warning line and changes
 // no exit code. The only non-zero exits are caller mistakes (usage, 2, a
 // child that could not start, 127, nothing recorded) and the child's own.
-func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSuiteRecord(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow suite record", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	suite := fset.String("suite", "", "the name this runtime figure belongs to (required)")
 
 	// Parse stops at --; everything after it is the child command, handed
@@ -170,7 +170,7 @@ func runSuiteRecord(ctx context.Context, args []string, stdout, stderr io.Writer
 		// The store could not take it: journal the run for replay, stamped
 		// with its start so the replayed row keeps when it ran (kan-1040).
 		in.RanAt = start
-		journalRecordWrite(projectKey, suiteJournalName, "suite", in, stderr)
+		journalRecordWrite(projectKey, suiteJournalName, "suite", in, stderr, getenv)
 	}
 	return exitCode
 }
@@ -209,17 +209,17 @@ func copyDecodingGoTestJSON(in io.Reader, out io.Writer) []records.SuiteRunTest 
 // summary line per (suite, host) -- the median of the last 10 passing runs.
 // -json emits the store's array and nothing else. A failed read exits 1: it
 // is a read, there is nothing to fall back to and nothing to gate.
-func runSuiteList(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSuiteList(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow suite list", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	suite := fset.String("suite", "", "list only this suite (optional)")
 	limit := fset.Int("limit", 20, "how many rows to read")
 	asJSON := fset.Bool("json", false, "print the store's array alone")
 	tests := fset.String("tests", "", "print this suite's newest run that has per-test costs, heaviest tests first")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if *tests != "" && *suite != "" {

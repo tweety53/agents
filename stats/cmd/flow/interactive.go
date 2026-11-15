@@ -47,19 +47,19 @@ const interactiveUsage = `usage: flow interactive land [-addr url] [-timeout dur
 `
 
 // runInteractive routes `flow interactive`.
-func runInteractive(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runInteractive(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] != "land" {
 		fmt.Fprint(stderr, interactiveUsage)
 		return 2
 	}
-	return runInteractiveLand(ctx, args[1:], stdout, stderr)
+	return runInteractiveLand(ctx, args[1:], getenv, stdout, stderr)
 }
 
-func runInteractiveLand(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runInteractiveLand(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow interactive land", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var addr string
-	registerRecordsAddrFlag(fset, &addr)
+	registerRecordsAddrFlag(fset, &addr, getenv)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout before falling back")
 	wt := fset.String("C", "", "the session's worktree (default: cwd)")
 	change := fset.String("change", "", "the change name (required)")
@@ -108,7 +108,7 @@ func runInteractiveLand(ctx context.Context, args []string, stdout, stderr io.Wr
 		return refuse("%s is not clean — commit or remove: %s", *wt, strings.SplitN(st, "\n", 2)[0])
 	}
 	var out, errBuf strings.Builder
-	if code := guard.Registry["resolve-base-branch"]([]string{*wt}, guard.Env{Getenv: os.Getenv, Dir: *wt}, &out, &errBuf); code != 0 {
+	if code := guard.Registry["resolve-base-branch"]([]string{*wt}, guard.Env{Getenv: getenv, Dir: *wt}, &out, &errBuf); code != 0 {
 		return refuse("resolve-base-branch exited %d on %s: %s", code, *wt, strings.TrimSpace(errBuf.String()))
 	}
 	baseBranch := strings.TrimSpace(out.String())
@@ -131,17 +131,17 @@ func runInteractiveLand(ctx context.Context, args []string, stdout, stderr io.Wr
 	} else if first != "" {
 		return refuse("HEAD %s tracks %s — untrack .superpowers/ (git rm -r --cached .superpowers), commit, and land again", head, first)
 	}
-	if lintDeclared(*wt) && lintGreenAt(*wt) != head {
+	if lintDeclared(*wt, getenv) && lintGreenAt(*wt) != head {
 		return refuse("HEAD %s is not the commit a green lint list stamped (flow-lint-green holds %q) — run flow-guard run-verify-list %s lint (step 4), then land again", head, lintGreenAt(*wt), *wt)
 	}
 
 	conn := []string{"-addr", addr, "-timeout", timeout.String(), "-C", *wt, "-command", "/flow-interactive", "-stage", "flow.landing-routes"}
 	begin := append(append([]string{}, conn...), "-request", strconv.Itoa(*n), "-harness", *harness, "-session-token", *token, *change)
-	if code := runStageBegin(ctx, begin, stderr); code != 0 {
+	if code := runStageBegin(ctx, begin, getenv, stderr); code != 0 {
 		return refuse("flow stage begin flow.landing-routes exited %d", code)
 	}
 	end := func(outcome string, extra ...string) int {
-		return runStageEnd(ctx, append(append(append([]string{}, conn...), "-outcome", outcome), append(extra, *change)...), stderr)
+		return runStageEnd(ctx, append(append(append([]string{}, conn...), "-outcome", outcome), append(extra, *change)...), getenv, stderr)
 	}
 	branch, err := git("rev-parse", "--abbrev-ref", "HEAD")
 	if err == nil {

@@ -146,7 +146,7 @@ type Reconciler struct {
 }
 
 // New builds a Reconciler that replays journal files found under root
-// (typically fallback.StateRoot()) into cs (state), ss (stage marks) and
+// (typically fallback.StateRoot(os.Getenv)) into cs (state), ss (stage marks) and
 // rs (run records). logger may be nil, in which case log output specific
 // to reconciliation (a partial trailing journal line, an unresolvable
 // stage mark, for instance) is simply not emitted -- Run and Watch still

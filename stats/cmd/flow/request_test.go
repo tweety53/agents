@@ -163,7 +163,7 @@ func (fx requestFixture) commit(t *testing.T, path string, push bool) string {
 func runRequest(addr, dir string, args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
 	full := append([]string{"record", "request", args[0], "-addr", addr, "-timeout", "2s", "-C", dir}, args[1:]...)
-	code := run(context.Background(), full, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), full, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -225,7 +225,7 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 	if code != 0 || !strings.Contains(stderr, "wrote local journal") {
 		t.Fatalf("begin on a dead store exit=%d stderr=%q, want 0 with the journal warning", code, stderr)
 	}
-	entries, err := fallback.ReadJournalEntries(recordJournalPath(mustProjectKey(t, fx.peer), fx.name))
+	entries, err := fallback.ReadJournalEntries(recordJournalPath(mustProjectKey(t, fx.peer), fx.name, os.Getenv))
 	if err != nil || len(entries) != 1 || !strings.Contains(string(entries[0].Body), `"kind":"request-begin"`) {
 		t.Fatalf("journal entries = %v (%v), want one request-begin", entries, err)
 	}

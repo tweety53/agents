@@ -49,7 +49,7 @@ func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := runJournal(context.Background(),
 		[]string{"flush", "-root", root, "-dsn", dsn},
-		&stdout, &stderr)
+		os.Getenv, &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("runJournal flush exit code = %d, want 0; stderr=%q", code, stderr.String())
@@ -86,7 +86,7 @@ func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 // is rejected with usage rather than silently doing nothing.
 func TestJournalFlushCommandUnknownSubcommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := runJournal(context.Background(), []string{"bogus"}, &stdout, &stderr)
+	code := runJournal(context.Background(), []string{"bogus"}, os.Getenv, &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
@@ -105,7 +105,7 @@ func TestJournalFlushCommandConnectFailure(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := runJournal(context.Background(),
 		[]string{"flush", "-root", root, "-dsn", "postgres://flow:flow@127.0.0.1:1/flow?sslmode=disable", "-timeout", "200ms"},
-		&stdout, &stderr)
+		os.Getenv, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}

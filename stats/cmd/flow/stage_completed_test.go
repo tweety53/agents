@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -25,7 +26,7 @@ func TestStageCompletedCLI(t *testing.T) {
 	call := func(addr string) int {
 		var stdout, stderr strings.Builder
 		return run(context.Background(), []string{"stage", "completed", "-addr", addr, "-timeout", "300ms", "-C", repo, "-stage", "flow.self-review", "demo"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	}
 	if code := call(srv.URL); code != 0 {
 		t.Errorf("completed: exit = %d, want 0", code)

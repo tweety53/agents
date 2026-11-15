@@ -32,7 +32,7 @@ func TestSpecRecordPostsAndPrintsConfirmation(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"spec", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-spec", "baseline.spec.ts"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -71,7 +71,7 @@ func TestSpecListPrintsRowsAndNeverRunSpecs(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"spec", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec list exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -98,7 +98,7 @@ func TestSpecListPrintsRowsAndNeverRunSpecs(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"spec", "list", "-dir", dir, "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec list -dir exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -130,7 +130,7 @@ func TestSpecListEmptyDirPrintsNoSpecFiles(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"spec", "list", "-dir", empty, "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec list -dir empty exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}

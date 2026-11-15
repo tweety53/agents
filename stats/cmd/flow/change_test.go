@@ -63,14 +63,14 @@ func TestChangeSaveUpsertsBothFiles(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"change", "save", "-addr", ts.URL, "-C", repo, "demo"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("save exit = %d, stderr: %s", code, stderr.String())
 	}
 	for path, want := range map[string]string{"tasks.md": tasks, "self-review-context.md": bundle} {
 		stdout.Reset()
 		stderr.Reset()
 		if code := run(context.Background(), []string{"change", "file", "-addr", ts.URL, "-C", repo, "demo", path},
-			strings.NewReader(""), &stdout, &stderr); code != 0 {
+			os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("file %s exit = %d, stderr: %s", path, code, stderr.String())
 		}
 		if stdout.String() != want {
@@ -97,7 +97,7 @@ func TestChangeSaveRefusesAMissingFileBeforeWriting(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	code := run(context.Background(), []string{"change", "save", "-addr", srv.URL, "-C", repo, "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr: %s", code, stderr.String())
 	}
@@ -146,7 +146,7 @@ func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
 			writeChangeFile(t, repo, ".superpowers/sdd/demo/self-review-context.md", "bundle")
 			var stdout, stderr strings.Builder
 			if code := run(context.Background(), []string{"change", "save", "-addr", srv.URL, "-C", repo, "demo"},
-				strings.NewReader(""), &stdout, &stderr); code != 0 {
+				os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 				t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 			}
 			if strings.Join(puts, "|") != strings.Join(tc.want, "|") {
@@ -175,7 +175,7 @@ func TestChangeFilePrintsBody(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"change", "file", "-addr", srv.URL, "-C", repo, "demo", "tasks.md"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
 	if stdout.String() != "# plan\n" {
@@ -187,11 +187,11 @@ func TestChangeFilePrintsBody(t *testing.T) {
 
 	stdout.Reset()
 	if code := run(context.Background(), []string{"change", "file", "-addr", srv.URL, "-C", repo, "demo", "missing.md"},
-		strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
 		t.Errorf("missing file: exit = %d stdout = %q, want 1 and nothing", code, stdout.String())
 	}
 	if code := run(context.Background(), []string{"change", "file", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "demo", "tasks.md"},
-		strings.NewReader(""), &stdout, &stderr); code != 2 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("unreachable store: exit = %d, want 2", code)
 	}
 }

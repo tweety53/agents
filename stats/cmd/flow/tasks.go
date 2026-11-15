@@ -58,7 +58,7 @@ and changes no exit code, exactly as ` + "`flow suite record`" + `
 treats a runtime figure.
 `
 
-func runTasks(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runTasks(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
@@ -67,7 +67,7 @@ func runTasks(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	case "tick":
 		return runTasksTick(ctx, args[1:], stdout, stderr)
 	case "count":
-		return runTasksCount(ctx, args[1:], stdout, stderr)
+		return runTasksCount(ctx, args[1:], getenv, stdout, stderr)
 	case "files":
 		return runTasksFiles(args[1:], stdout, stderr)
 	default:
@@ -273,11 +273,11 @@ var correctionPattern = regexp.MustCompile(`^\s*Correction \(\d{4}-\d{2}-\d{2}\)
 // down. The only non-zero exits are caller mistakes: usage (2), a change
 // name that fails the containment allowlist (2), and a plan that cannot
 // be read (1).
-func runTasksCount(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runTasksCount(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow tasks count", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, getenv)
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {

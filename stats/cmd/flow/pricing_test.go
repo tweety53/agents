@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -50,7 +51,7 @@ func TestPricingRepricePrintsCounts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(), append([]string{"pricing", "reprice"}, tc.args...),
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code || stdout.String() != tc.stdout || !strings.Contains(stderr.String(), tc.stderrHas) {
 				t.Errorf("exit %d stdout %q stderr %q; want exit %d stdout %q stderr containing %q",
 					code, stdout.String(), stderr.String(), tc.code, tc.stdout, tc.stderrHas)

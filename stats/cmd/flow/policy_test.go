@@ -16,7 +16,7 @@ import (
 
 func runPolicyArgs(args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append([]string{"policy"}, args...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append([]string{"policy"}, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 

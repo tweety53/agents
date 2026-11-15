@@ -36,7 +36,7 @@ func recordJournalEntries(t *testing.T, repo, change string) (entries []fallback
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	path := fallback.JournalFilePath(projectKey, change) + ".record"
+	path := fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, change) + ".record"
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, false
@@ -83,7 +83,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 				"-change", "kan-258", "-task", "6", "-role", "implementer",
 				"-model", "unknown (agent-defined)", "-key", "task-6-implementer",
 				"-session-token", "mf-record-dispatch-ok"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -159,7 +159,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 				"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 				"-severity", "major", "-location", "stats/cmd/flow/record.go:1",
 				"-status", "open", "-reproducer", "scripts/x.sh", "-note", "the note"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -195,7 +195,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-ref", "F1", "-round", "1", "-slot", "principles",
 				"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh", "-note", "restated"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -226,7 +226,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-ref", "F1", "-status", "fixed"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -310,7 +310,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 			args = append(args, tc.args[verbLen:]...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -353,8 +353,8 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 				t.Fatalf("ProjectKey: %v", err)
 			}
 			for _, other := range []struct{ what, path string }{
-				{"state journal", fallback.JournalFilePath(projectKey, "kan-258")},
-				{"stage journal", fallback.JournalFilePath(projectKey, "kan-258") + ".stage"},
+				{"state journal", fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-258")},
+				{"stage journal", fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-258") + ".stage"},
 			} {
 				otherEntries, err := fallback.ReadJournalEntries(other.path)
 				if err != nil {
@@ -392,7 +392,7 @@ func TestRecordDispatchEndJournalMarksTheAttemptInstant(t *testing.T) {
 				"-commit", "abc1234000000000000000000000000000000000", "-outcome", "completed"}
 			args = append(args, tc.extra...)
 			var stdout, stderr bytes.Buffer
-			if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 			}
 			entries, exists := recordJournalEntries(t, repo, "kan-258")
@@ -453,7 +453,7 @@ func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
 			args = append(args, tc.args[verbLen:]...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
 			}
@@ -523,7 +523,7 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 			args = append(args, tc.args[2:]...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (a caller mistake); stderr:\n%s", code, stderr.String())
@@ -556,7 +556,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "architect", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-record-unknown-role"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -595,7 +595,7 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "planner", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-record-planner-role"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -625,7 +625,7 @@ func TestRecordAcceptsExplorerRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-1033", "-role", "explorer", "-model", "sonnet", "-key", "explore-1",
 			"-session-token", "mf-record-explorer-role"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -655,7 +655,7 @@ func TestRecordAcceptsMergerRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-1050", "-role", "merger", "-model", "sonnet", "-key", "panel-0-merger",
 			"-session-token", "mf-record-merger-role"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -686,7 +686,7 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "conductor", "-model", "sonnet", "-key", "conductor",
 			"-session-token", "mf-record-conductor-role"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -717,7 +717,7 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "task-1-implementer",
 			"-session-token", "mf-record-verifier-role"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -749,7 +749,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-$(date +%s)"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -772,7 +772,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 // verb and stopped is told what it takes rather than nothing.
 func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"record"}, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), []string{"record"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -830,7 +830,7 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), dispatchArgs(repo, srv.URL, extra...),
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
@@ -896,7 +896,7 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 		"-session-token", "mf-record-diff-base"}
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append(args, extra...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append(args, extra...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -1010,7 +1010,7 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), endArgs(repo, srv.URL, extra...),
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
@@ -1070,7 +1070,7 @@ func causeEndRun(t *testing.T, extra ...string) (int, bytes.Buffer, bytes.Buffer
 	args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause"}
 	args = append(args, extra...)
-	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout, stderr, contacted, repo
 }
 
@@ -1220,7 +1220,7 @@ func TestDispatchEndCauseAccepted(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause",
 			"-outcome", "blocked", "-cause", "environment"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1339,7 +1339,7 @@ func TestRecordRenderWritesBothFilesAndPrintsRendered(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "all", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1397,7 +1397,7 @@ func TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing(t *testing.T)
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "ledger", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1441,7 +1441,7 @@ func TestRecordRenderPanelWithNoFindingsStillWritesTheRecord(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "panel", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1537,7 +1537,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "panel", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -1619,7 +1619,7 @@ func TestRecordRenderRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "../escape", "-kind", "ledger", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a refused change name; stdout:\n%s", stdout.String())
@@ -1654,7 +1654,7 @@ func TestRecordRenderRefusesADestinationOutsideTheRepo(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "ledger", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a destination outside the repository; stdout:\n%s", stdout.String())
@@ -1695,7 +1695,7 @@ func TestRecordRenderWritesTheChangeKeyedNameBesideNoLegacy(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "ledger", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1747,7 +1747,7 @@ func TestRecordRenderStopsLoudlyOnADaemonWithoutTheRoute(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "all", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero against a daemon without the render route; stdout:\n%s", stdout.String())
@@ -1801,7 +1801,7 @@ func TestRecordRenderJournalsEveryKindWhenOneKindFails(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "all", "-repo", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- an unreachable store journals, it does not fail; stderr:\n%s", code, stderr.String())
@@ -1836,7 +1836,7 @@ func recordJournalFilePath(t *testing.T, repo, change string) string {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	return fallback.JournalFilePath(projectKey, change) + ".record"
+	return fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, change) + ".record"
 }
 
 // TestRecordJournalCountAbsentJournalCountsZero pins the ordinary case,
@@ -1852,7 +1852,7 @@ func TestRecordJournalCountAbsentJournalCountsZero(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "journal-count", "-change", "kan-258", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1902,7 +1902,7 @@ func TestRecordJournalCountIgnoresPartialTrailingLine(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "journal-count", "-change", "kan-258", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1935,7 +1935,7 @@ func TestRecordJournalCountPrintsUnknownWhenItCannotCount(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "journal-count", "-change", "kan-258", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- an uncountable journal must never block the handoff; stderr:\n%s", code, stderr.String())
@@ -1970,7 +1970,7 @@ func TestCostStatusPrintsOneLine(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "cost-status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2000,7 +2000,7 @@ func TestCostStatusNeverBlocks(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "cost-status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-258"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- cost-status must never block a handoff; stderr:\n%s", code, stderr.String())
@@ -2046,7 +2046,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
 			"-key", "task-6-implementer", "-session-token", "mf-record-pair"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("begin exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -2060,7 +2060,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-pair",
 			"-commit", "abc1234000000000000000000000000000000000", "-outcome", "completed"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("end exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -2107,7 +2107,7 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-agent-id", "none", "-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
 			"-key", "task-6-implementer", "-session-token", "mf-record-end-404"},
-		strings.NewReader(""), &beginOut, &beginErr); code != 0 {
+		os.Getenv, strings.NewReader(""), &beginOut, &beginErr); code != 0 {
 		t.Fatalf("journalled begin exit = %d; stderr:\n%s", code, beginErr.String())
 	}
 
@@ -2122,7 +2122,7 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-end-404",
 			"-outcome", "completed"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- a dispatch end whose begin has not landed yet must never block; stderr:\n%s", code, stderr.String())
@@ -2165,7 +2165,7 @@ func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-other-run",
 			"-outcome", "completed"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a refused end; stderr:\n%s", stderr.String())
@@ -2195,7 +2195,7 @@ func TestRecordFindingStillRefusesAnUnknownRef(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-ref", "F99", "-status", "fixed"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero -- a ref naming nothing is refused identically forever")
@@ -2230,7 +2230,7 @@ func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
 			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 			"-severity", "major", "-status", "in-review", "-reproducer", "scripts/x.sh",
 			"-note", "the note"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2271,7 +2271,7 @@ func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
 					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 					"-severity", "major", "-status", status, "-reproducer", "scripts/x.sh",
 					"-note", "the note"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2320,7 +2320,7 @@ func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
 			[]string{"record", "verdict", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-worktree", "/wt/kan-451",
 				"-verdict", "CLEAR: /wt/kan-451 -- every plan item is checked and no finding is open"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2356,7 +2356,7 @@ func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
 			[]string{"record", "verdict", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-worktree", "/wt/kan-451",
 				"-verdict", "OUTSTANDING: /wt/kan-451 -- one item unchecked"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -2401,7 +2401,7 @@ func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *tes
 		code := run(context.Background(),
 			[]string{"record", "verdict", "false-positive", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", "verified structural"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero for a 404; stdout:\n%s", stdout.String())
@@ -2419,7 +2419,7 @@ func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *tes
 		code := run(context.Background(),
 			[]string{"record", "verdict", "false-positive", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", "verified structural"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -2455,7 +2455,7 @@ func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *tes
 		code := run(context.Background(),
 			[]string{"record", "verdict", "false-positive", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", ""},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 2 {
 			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2490,7 +2490,7 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "verdicts", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-guard", "check-unfinished-work", "-false-positive"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2519,7 +2519,7 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "verdicts", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2536,7 +2536,7 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "verdicts", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -2574,7 +2574,7 @@ func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T
 				[]string{"record", "incident", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-guard", "check-unfinished-work", "-symptom", "s", "-recovery", "r",
 					"-minutes-lost", minutes},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2606,7 +2606,7 @@ func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T
 			[]string{"record", "incident", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-guard", "check-unfinished-work", "-symptom", "s", "-recovery", "r",
 				"-minutes-lost", "5"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2634,7 +2634,7 @@ func TestRecordIncidentsPrintsArray(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "incidents", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2664,7 +2664,7 @@ func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
 			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 			"-severity", "major", "-status", "open", "-reproducer", "",
 			"-note", "the note"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2704,7 +2704,7 @@ func TestRecordFindingRejectsBareNoneReproducer(t *testing.T) {
 					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 					"-severity", "major", "-status", "open", "-reproducer", reproducer,
 					"-note", "the note"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2754,7 +2754,7 @@ func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
 					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 					"-severity", "major", "-status", c.status, "-reproducer", c.reproducer,
 					"-note", "the note"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2784,7 +2784,7 @@ func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-ref", "F1", "-status", "in-review"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2821,7 +2821,7 @@ func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-ref", "F1", "-status", status},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2871,7 +2871,7 @@ func TestRecordStatusRefusesAGreenWithdrawalWithNoRun(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-ref", "F1", "-status", c.status},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != c.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, c.want, stderr.String())
@@ -2913,7 +2913,7 @@ func TestRecordFindingsPrintsJSONArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2960,7 +2960,7 @@ func TestRecordFindingsWithNoRowsPrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2983,7 +2983,7 @@ func TestRecordFindingsStoreUnreachableExitsNonZero(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -3003,7 +3003,7 @@ func TestRecordFindingsRequiresChange(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "findings", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stdout:\n%s stderr:\n%s", code, stdout.String(), stderr.String())
@@ -3066,7 +3066,7 @@ func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testi
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3099,7 +3099,7 @@ func TestRunRecordDispatchesPrintsDispatchesAsJSONArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3145,7 +3145,7 @@ func TestRunRecordDispatchesEmptyChangePrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3167,7 +3167,7 @@ func TestRunRecordDispatchesUnreachableStoreFails(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -3199,7 +3199,7 @@ func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3236,7 +3236,7 @@ func TestRunRecordDecisionRefusesBadBody(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3266,7 +3266,7 @@ func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "decision", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -3370,7 +3370,7 @@ func TestRunRecordDecisionRefusesAPairNoPolicyAdmits(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != tc.wantCode {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.wantCode, stderr.String())
@@ -3416,7 +3416,7 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "decisions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-472"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3444,7 +3444,7 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "decisions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-472"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3463,7 +3463,7 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "decisions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-472"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero -- a read has nothing to journal; stdout:\n%s", stdout.String())
@@ -3521,7 +3521,7 @@ func TestRunRecordRolesPrintsServedVocabulary(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "roles"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3548,7 +3548,7 @@ func TestRunRecordRolesRejectsPositionalArgument(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "roles", "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -3639,7 +3639,7 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "extreme",
 			"-key", "task-1-implementer", "-session-token", "mf-record-unknown-effort"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3670,7 +3670,7 @@ func TestRunRecordDispatchBeginUnknownEffortNamesDefault(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "unknown",
 			"-key", "task-1-implementer", "-session-token", "mf-record-unknown-effort"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3733,7 +3733,7 @@ func TestRecordPassCommand(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "pass", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-round", "1", "-note", "not re-run — nothing new since its last read"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3792,7 +3792,7 @@ func TestRecordMutationCommand(t *testing.T) {
 		[]string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-round", "1", "-path", "render.go",
 			"-mutated", "none", "-test", "guard was equivalent"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3831,7 +3831,7 @@ func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
 			isolatedStateRoot(t)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), tc.args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), tc.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2", code)
 			}
@@ -3874,7 +3874,7 @@ func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				append([]string{"record", tc.verb, "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, tc.args...),
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3949,7 +3949,7 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 			args = append(args, c.args...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 			}
@@ -3989,7 +3989,7 @@ func TestRecordFindingTaskRoundTrips(t *testing.T) {
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-9", "-ref", "F1", "-slot", "principles", "-severity", "major",
 			"-status", "open", "-reproducer", "scripts/x.sh", "-note", "the note", "-task", "2"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("record finding exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -3997,7 +3997,7 @@ func TestRecordFindingTaskRoundTrips(t *testing.T) {
 	stdout.Reset()
 	code = run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-9"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("record findings exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -4047,7 +4047,7 @@ func TestRecordStatusJournalsCategory(t *testing.T) {
 		[]string{"record", "status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-258", "-ref", "F2",
 			"-status", "deferred doc wording only", "-category", "doc-only"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
 	}
@@ -4108,7 +4108,7 @@ func TestRecordFindingSendsCategory(t *testing.T) {
 			"-change", "kan-258", "-ref", "F3", "-slot", "principles", "-severity", "Minor",
 			"-status", "deferred cosmetic, not worth a fix round", "-category", "cosmetic",
 			"-reproducer", "none — cosmetic dead code", "-note", "the handler carries dead code"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -4156,7 +4156,7 @@ func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), tc.args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), tc.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (the validator must refuse before the store is contacted); stderr:\n%s", code, stderr.String())
 			}
@@ -4191,7 +4191,7 @@ func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
 				"-change", "kan-508", "-ref", "F1", "-slot", "principles", "-severity", tc.severity,
 				"-status", "deferred cosmetic dead code", "-category", "cosmetic",
 				"-reproducer", "none — wording only", "-note", "a wording finding"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (the validator must refuse before the store is contacted); stderr:\n%s", code, stderr.String())
 			}
@@ -4211,7 +4211,7 @@ func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
 				"-change", "kan-508-ok", "-ref", "F1", "-slot", "principles", "-severity", tc.severity,
 				"-status", "deferred cosmetic dead code", "-category", "cosmetic",
 				"-reproducer", "none — wording only", "-note", "a wording finding"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code == 2 {
 				t.Fatalf("exit code = 2, want the validator to pass the deferral through to the network path; stderr:\n%s", stderr.String())
 			}
@@ -4248,7 +4248,7 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 			[]string{"record", "substitution", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-417", "-guard", "gather-dispatch-context", "-shape", "cross-repo",
 				"-substitution", "composed the dispatch bundle by hand"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4284,7 +4284,7 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 			[]string{"record", "substitution", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-417", "-guard", "check-task-commit-fields", "-shape", "cross-repo",
 				"-substitution", "checked every commit message by hand"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -4317,7 +4317,7 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 			[]string{"record", "substitution", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-417", "-guard", "gather-dispatch-context", "-shape", "all",
 				"-substitution", "s"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 2 {
 			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -4352,7 +4352,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-guard", "gather-dispatch-context", "-shape", "cross-repo"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4381,7 +4381,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4399,7 +4399,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-shape", "all"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 2 {
 			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -4416,7 +4416,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -4458,7 +4458,7 @@ func TestRecordFindingPatternFlag(t *testing.T) {
 			"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh",
 			"-note", "the restyled row lost its handler",
 			"-pattern", "Restyled Row Loses its Handler!"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4489,7 +4489,7 @@ func TestRecordFindingPatternsVerb(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "finding-patterns", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4527,7 +4527,7 @@ func TestRecordFindingPatternVerb(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-name", "Restyled Row"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4551,7 +4551,7 @@ func TestRecordFindingPatternVerb(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("missing -name exit code = %d, want 2", code)
 	}
@@ -4578,7 +4578,7 @@ func TestRecordFindingPatternsEmptyRegistryPrintsEmptyArray(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "finding-patterns", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4606,7 +4606,7 @@ func TestRecordFindingPatternEmptyDetailPrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-name", "pattern-nobody-labeled"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4685,7 +4685,7 @@ func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
 		args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-525", "-key", "inline-implementer", "-session-token", "ff-kan525-tokens"}
 		args = append(args, extra...)
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
@@ -4728,7 +4728,7 @@ func TestRecordFlagsDefaultToTheRecordsAddress(t *testing.T) {
 
 	var f recordIdentityFlags
 	fset := flag.NewFlagSet("record", flag.ContinueOnError)
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, os.Getenv)
 
 	if f.addr != "http://127.0.0.1:9999" {
 		t.Fatalf("record -addr default = %q, want the records address %q", f.addr, "http://127.0.0.1:9999")
@@ -4768,7 +4768,7 @@ func TestRunRecordSummary(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "summary", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-598", "-file", file},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4809,7 +4809,7 @@ func TestRunRecordSummary(t *testing.T) {
 		"empty body":     {"record", "summary", "-addr", srv2.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-598", "-file", emptyFile},
 	} {
 		var stdout2, stderr2 bytes.Buffer
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout2, &stderr2); code != 2 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout2, &stderr2); code != 2 {
 			t.Errorf("%s: exit code = %d, want 2; stderr:\n%s", name, code, stderr2.String())
 		}
 	}
@@ -4834,7 +4834,7 @@ func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "summary", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-598", "-file", file},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -4892,7 +4892,7 @@ func writeRecordJournal(t *testing.T, dir, change string, n int) string {
 	if err != nil {
 		t.Fatalf("project key: %v", err)
 	}
-	path := recordJournalPath(key, change)
+	path := recordJournalPath(key, change, os.Getenv)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -4906,7 +4906,7 @@ func runHandoffLines(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), append([]string{"record", "handoff-lines", "-timeout", "500ms"}, args...),
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -5034,7 +5034,7 @@ func TestRunRecordNextRound(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "next-round", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
 				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
 			}
@@ -5045,7 +5045,7 @@ func TestRunRecordNextRound(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "next-round", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code == 0 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
 		}
@@ -5077,7 +5077,7 @@ func TestRunRecordPasses(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "passes", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
 				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
 			}
@@ -5087,7 +5087,7 @@ func TestRunRecordPasses(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "passes", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code == 0 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
 		}
@@ -5122,7 +5122,7 @@ func TestRunRecordNextRef(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "next-ref", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
 				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
 			}
@@ -5133,7 +5133,7 @@ func TestRunRecordNextRef(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "next-ref", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code == 0 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
 		}
@@ -5176,7 +5176,7 @@ func TestRecordFindingRejectsMalformedRef(t *testing.T) {
 				args = append(args, tc.flag, tc.value)
 			}
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -5211,7 +5211,7 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "pass", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-round", "4", "-note", note},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 			}
@@ -5240,7 +5240,7 @@ func TestRecordPassRefusesOneWordNote(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "pass", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-round", "0", "-note", note},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 			}
@@ -5299,7 +5299,7 @@ func TestRecordWriteRefusesAChangeNoCheckoutCarries(t *testing.T) {
 			defer srv.Close()
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-				"-change", "kan-7", "-key", "k", "-session-token", "mf-kan7-end", "-outcome", "completed"}, strings.NewReader(""), &stdout, &stderr)
+				"-change", "kan-7", "-key", "k", "-session-token", "mf-kan7-end", "-outcome", "completed"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want || contacted != (c.want == 0) {
 				t.Fatalf("exit %d, contacted %v; want exit %d, contacted %v\nstderr:\n%s", code, contacted, c.want, c.want == 0, stderr.String())
 			}
@@ -5408,7 +5408,7 @@ func TestRecordDispatchBackfill(t *testing.T) {
 		"-key", "task-7-implementer", "-session-token", "mf-record-backfill", "-commit", "abc1234000000000000000000000000000000000"}
 	var stdout, stderr bytes.Buffer
 	args := append(append([]string{}, base...), "-started-at", start, "-ended-at", end, "-outcome", "completed")
-	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	if len(bodies) != 2 {
@@ -5433,7 +5433,7 @@ func TestRecordDispatchBackfill(t *testing.T) {
 	} {
 		bodies = nil
 		stderr.Reset()
-		if code := run(context.Background(), append(append([]string{}, base...), extra...), strings.NewReader(""), &stdout, &stderr); code != 2 || bodies != nil {
+		if code := run(context.Background(), append(append([]string{}, base...), extra...), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || bodies != nil {
 			t.Errorf("%s: exit %d, store calls %d; want 2 and none (stderr %q)", name, code, len(bodies), stderr.String())
 		}
 	}
@@ -5461,7 +5461,7 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 	endArgs := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-key", "panel-1-primary", "-session-token", "mf-record-backfill"}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), append(endArgs, "-ended-at", end), strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), append(endArgs, "-ended-at", end), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("end exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	var sent map[string]any
@@ -5478,7 +5478,7 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 		stdout.Reset()
 		stderr.Reset()
 		gotBody = nil
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "is not an RFC 3339 instant") || gotBody != nil {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "is not an RFC 3339 instant") || gotBody != nil {
 			t.Errorf("%s: exit %d, store called %v, stderr %q; want 2, no call, an RFC 3339 refusal", args[2], code, gotBody != nil, stderr.String())
 		}
 	}
@@ -5535,14 +5535,14 @@ func TestRecordDispatchEndSendsCommitAt(t *testing.T) {
 	base := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-key", "task-1-implementer", "-session-token", "mf-record-commitat", "-outcome", "completed"}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), append(append([]string{}, base...), "-commit", sha), strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), append(append([]string{}, base...), "-commit", sha), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 1 || (*bodies)[0]["commitAt"] != "2026-10-21T11:10:31Z" {
 		t.Fatalf("bodies = %v, want one with commitAt 2026-10-21T11:10:31Z", *bodies)
 	}
 	*bodies = nil
-	if code := run(context.Background(), append(append([]string{}, base...), "-commit", "abc1234000000000000000000000000000000000"), strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), append(append([]string{}, base...), "-commit", "abc1234000000000000000000000000000000000"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("unknown sha: exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 1 {
@@ -5563,7 +5563,7 @@ func TestRecordDispatchEndAcceptsSkipped(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-key", "verify-list-lint", "-session-token", "mf-record-skipped", "-outcome", "skipped"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 1 || (*bodies)[0]["outcome"] != "skipped" {
@@ -5587,7 +5587,7 @@ func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
 		"-key", "task-1-implementer", "-session-token", "mf-record-derive", "-outcome", "completed"}
 	inline := append(append([]string{}, base...), "-agent-id", "inline", "-commit", sha)
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), inline, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), inline, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 2 || (*bodies)[0]["startedAt"] != "2026-10-21T11:02:00Z" || (*bodies)[1]["endedAt"] != "2026-10-21T11:10:31Z" {
@@ -5600,7 +5600,7 @@ func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
 	} {
 		*bodies = nil
 		stderr.Reset()
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || len(*bodies) != 0 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || len(*bodies) != 0 {
 			t.Errorf("%s: exit %d, store calls %d; want 2 and none (stderr %q)", name, code, len(*bodies), stderr.String())
 		}
 	}
@@ -5633,7 +5633,7 @@ func TestRecordDispatchBackfillRefusesAWindowMissingItsCommit(t *testing.T) {
 	} {
 		*bodies = nil
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), c.args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), c.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != c.code || len(*bodies) != c.calls {
 			t.Errorf("%s: exit %d, store calls %d; want %d and %d (stderr %q)", c.name, code, len(*bodies), c.code, c.calls, stderr.String())
 		}
@@ -5701,7 +5701,7 @@ func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T)
 			"-change", "kan-258", "-role", tc.role, "-model", "opus", "-key", tc.key,
 			"-session-token", "mf-record-panel-fix-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.key, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -5755,7 +5755,7 @@ func TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers(t *testin
 			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", tc.key,
 			"-session-token", "mf-record-full-suite-fix-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.key, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -5783,7 +5783,7 @@ func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
 		"-change", "kan-258", "-role", "implementer", "-model", "opus",
 		"-key", "task-1-implementer", "-session-token", "mf-record-requires-effort"}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -5799,7 +5799,7 @@ func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
 
 	stdout.Reset()
 	stderr.Reset()
-	code = run(context.Background(), append(args, "-effort", "default"), strings.NewReader(""), &stdout, &stderr)
+	code = run(context.Background(), append(args, "-effort", "default"), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("explicit -effort default exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -5836,7 +5836,7 @@ func TestRecordFindingRefusesALocationWithNoLine(t *testing.T) {
 				"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh",
 				"-note", "the note"}, tc.location...)
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
 			}
@@ -5885,7 +5885,7 @@ func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
 		"-change", "kan-258", "-role", "implementer", "-model", "opus", "-agent-id", "none",
 		"-key", "k", "-session-token", "mf-record-backfill-tokens",
 		"-started-at", "2026-10-15T12:08:50Z", "-ended-at", "2026-10-15T12:31:07Z", "-outcome", "completed",
-		"-tokens", "input=1,output=2"}, strings.NewReader(""), &stdout, &berr)
+		"-tokens", "input=1,output=2"}, os.Getenv, strings.NewReader(""), &stdout, &berr)
 	if bcode != 2 || contacted {
 		t.Errorf("backfill exit = %d, contacted = %v; want 2 and not contacted (stderr %q)", bcode, contacted, berr.String())
 	}
@@ -5926,7 +5926,7 @@ func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
 		"-change", "kan-258", "-role", "implementer", "-model", "opus", "-agent-id", "none",
 		"-key", "k", "-session-token", "mf-record-backfill-commit",
 		"-started-at", "2026-10-15T12:08:50Z", "-ended-at", "2026-10-15T12:31:07Z", "-outcome", "completed",
-		"-commit", "99153ab4"}, strings.NewReader(""), &stdout, &berr)
+		"-commit", "99153ab4"}, os.Getenv, strings.NewReader(""), &stdout, &berr)
 	if bcode != 2 || contacted {
 		t.Errorf("backfill exit = %d, contacted = %v; want 2 and not contacted (stderr %q)", bcode, contacted, berr.String())
 	}
@@ -5961,7 +5961,7 @@ func dispatchBeginKey(t *testing.T, role, key string) (int, string, bool) {
 		argv = append(argv, "-slot", "primary")
 	}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String(), contacted
 }
 
@@ -6031,7 +6031,7 @@ func TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot(t *testing.T) {
 			[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-role", role, "-model", "opus", "-key", key,
 				"-session-token", "mf-record-slot-required"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	code, stderr := begin("reviewer", "panel-1-primary")
@@ -6069,7 +6069,7 @@ func TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase(t *testi
 		args := append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "verifier", "-model", "opus", "-key", key,
 			"-session-token", "mf-record-vv-diff-base"}, extra...)
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	code, stderr := begin("visual-verify-gymie")
@@ -6135,7 +6135,7 @@ func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
 			append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", key, "-slot", "primary",
 				"-session-token", "mf-record-round-floor"}, extra...),
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	t.Run("below the recorded round is refused", func(t *testing.T) {
@@ -6221,7 +6221,7 @@ func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-round", "1", "-path", path, "-mutated", "m", "-test", "t"},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 
@@ -6305,7 +6305,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 				"-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-dispatch-seq", "4", "-from", file},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	write := func(s string) {
@@ -6411,7 +6411,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 			"-ref", "F7", "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
-		strings.NewReader(""), &stdout, &stderrF)
+		os.Getenv, strings.NewReader(""), &stdout, &stderrF)
 	if code != 2 || !strings.Contains(stderrF.String(), "-ref") {
 		t.Errorf("(f) -ref with -from exit %d stderr %q, want 2 naming -ref", code, stderrF.String())
 	}
@@ -6421,7 +6421,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 		code = run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 				form, "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
-			strings.NewReader(""), &stdout, &stderrF)
+			os.Getenv, strings.NewReader(""), &stdout, &stderrF)
 		if code != 2 || !strings.Contains(stderrF.String(), "-ref and -from cannot be combined") {
 			t.Errorf("(f) %s with -from exit %d stderr %q, want 2 refusing the combination", form, code, stderrF.String())
 		}
@@ -6516,7 +6516,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from", file},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("record finding -from exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -6537,7 +6537,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from=" + file},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 || !strings.Contains(stderr.String(), file+":2:") {
 		t.Errorf("malformed line 2: exit %d, stderr %q; want 2 naming %s:2", code, stderr.String(), file)
 	}
@@ -6552,7 +6552,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from", file},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 || !strings.Contains(stderr.String(), file+":2:") {
 		t.Errorf("non-scalar line 2: exit %d, stderr %q; want 2 naming %s:2", code, stderr.String(), file)
 	}
@@ -6565,7 +6565,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 			"-note", "from", "-ref", "F6", "-slot", "primary", "-severity", "Minor", "-status", "open", "-reproducer", "none — x"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || len(posted) != 5 || posted[4].Note != "from" {
 		t.Errorf("-note from: exit %d, stderr %q, posted %+v; want F6 recorded with note \"from\"", code, stderr.String(), posted)
 	}
@@ -6607,7 +6607,7 @@ func TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-5-implementer",
 			"-session-token", "mf-record-inline-dirty"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), contacted
 	}
 
@@ -6656,7 +6656,7 @@ func TestRecordDispatchBeginRefusesAPanelRoundOverAnUntickedTask(t *testing.T) {
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", key,
 			"-session-token", "mf-record-panel-unticked"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), contacted
 	}
 
@@ -6726,7 +6726,7 @@ func TestRecordDispatchBeginInlineReadsTheChangeWorktree(t *testing.T) {
 			"-change", "kan-259", "-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 			"-session-token", "mf-record-inline-dirty"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 
@@ -6782,7 +6782,7 @@ func TestRecordDispatchBeginInlineKeepsANamedCarryingWorktree(t *testing.T) {
 		"-change", "kan-259", "-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 		"-session-token", "mf-record-inline-named", "-agent-id", "inline"}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("-C a clean carrying worktree beside a dirty one: exit %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }
@@ -6809,7 +6809,7 @@ func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		args := append([]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-1008", "-key", "visual-verify-fix-3-full-gymie", "-session-token", "mf-k1008r2", "-outcome", "completed"}, extra...)
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
 		var sent map[string]any
@@ -6886,7 +6886,7 @@ func dispatchCall(t *testing.T, verb string, extra ...string) (int, string, int)
 		args = append(args, "-role", "verifier", "-model", "opus", "-effort", "default")
 	}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append(args, extra...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append(args, extra...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String(), requests
 }
 
@@ -6947,7 +6947,7 @@ func TestRecordDispatchBeginRefusesALoopKeyOffItsLoop(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", c.change, "-role", "planner", "-model", "opus", "-key", c.key, "-session-token", "mf-loop-key"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, c.want, stderr.String())
 			}
@@ -6982,7 +6982,7 @@ func beginUnderDecision(t *testing.T, decisions string, args ...string) (int, st
 	base := []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-327", "-session-token", "mf-record-inline"}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append(base, args...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append(base, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String()
 }
 
@@ -7133,7 +7133,7 @@ func TestRecordFindingRejectsAbsoluteReproducer(t *testing.T) {
 			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 			"-severity", "major", "-status", "open", "-reproducer", "/tmp/x.sh arg",
 			"-note", "the note"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -7187,7 +7187,7 @@ func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
 			args = append(args, "-diff-base", "0123456789abcdef0123456789abcdef01234567")
 		}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	cases := []struct {
@@ -7254,7 +7254,7 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 			append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-role", "verifier", "-model", "opus", "-key", key, "-session-token", "mf-record-vv-in-run-fix",
 				"-diff-base", "0123456789abcdef0123456789abcdef01234567"}, extra...),
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	cases := []struct {
@@ -7387,7 +7387,7 @@ func TestRecordDispatchBeginInlineDirtyTree(t *testing.T) {
 		argv := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "inline", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "x", "-role", role, "-model", "opus", "-key", key, "-session-token", "mf-record-inline-verifier"}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	if code, stderr := begin("verifier", "verify-x"); code != 0 {
@@ -7420,7 +7420,7 @@ func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
 		for _, key := range []string{"panel-fix-0", "panel-fix-01"} {
 			root := isolatedStateRoot(t)
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args(verb, key), strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args(verb, key), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 || !strings.Contains(stderr.String(), key) || !strings.Contains(stderr.String(), "panel-fix-1") {
 				t.Errorf("%s %s: exit %d, stderr %q; want 2 naming the key and panel-fix-1", verb, key, code, stderr.String())
 			}
@@ -7431,7 +7431,7 @@ func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
 		for _, key := range []string{"panel-fix-1", "full-suite-fix-1"} {
 			isolatedStateRoot(t)
 			var stdout, stderr bytes.Buffer
-			run(context.Background(), args(verb, key), strings.NewReader(""), &stdout, &stderr)
+			run(context.Background(), args(verb, key), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if strings.Contains(stderr.String(), refusal) {
 				t.Errorf("%s %s: refused as a round-0 key: %q", verb, key, stderr.String())
 			}
@@ -7499,7 +7499,7 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 		posts = 0
 		recordFails = tc.recordFails
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), tc.args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), tc.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -7513,7 +7513,7 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 		t.Fatalf("update-ref: %v\n%s", err, out)
 	}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), backfill("panel-fix-5", "-agent-id", "inline", "-commit", sha), strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), backfill("panel-fix-5", "-agent-id", "inline", "-commit", sha), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Errorf("a pushed commit's back-fill: exit %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }
@@ -7570,7 +7570,7 @@ func TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows(t *testing.
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-13-implementer", "-task", "13",
 			"-session-token", "mf-record-inline-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -7610,7 +7610,7 @@ func panelFixBegin(t *testing.T, record, key, token string, extra ...string) (in
 	code := run(context.Background(),
 		append([]string{"record", "dispatch", verb, "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", key, "-session-token", token}, extra...),
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String(), posts
 }
 
@@ -7725,7 +7725,7 @@ func TestRecordDispatchBackfillInlineFloorsAtVisualVerify(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-3-implementer", "-task", "3",
 			"-session-token", "mf-record-visual-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -7773,7 +7773,7 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 		"-session-token", "mf-record-open-round", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 	record = open
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 2 || len(bodies) != 0 {
+	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || len(bodies) != 0 {
 		t.Fatalf("open round: exit %d, store calls %d; want 2 and none (stderr %q)", code, len(bodies), stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "close panel round 1's reviewer rows first") {
@@ -7784,7 +7784,7 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 	}
 	record = closed
 	stderr.Reset()
-	if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("closed round: exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(bodies) != 2 || bodies[0]["startedAt"] != "2026-10-28T14:40:55Z" {
@@ -7827,7 +7827,7 @@ func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
 			"-change", "kan-258", "-round", round, "-path", "render.go", "-mutated", "x", "-test", "y"}
 	}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), args("1"), strings.NewReader(""), &stdout, &stderr); code != 2 || posts != 0 {
+	if code := run(context.Background(), args("1"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || posts != 0 {
 		t.Fatalf("round 1: exit %d, posts %d; want 2 and none (stderr %q)", code, posts, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "panel round 1's re-review began") {
@@ -7837,13 +7837,13 @@ func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
 		t.Errorf("round 1: wrote a record journal")
 	}
 	stderr.Reset()
-	if code := run(context.Background(), args("2"), strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
+	if code := run(context.Background(), args("2"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
 		t.Fatalf("round 2: exit %d, posts %d; want 0 and one (stderr %q)", code, posts, stderr.String())
 	}
 	// The late form admits round 1 and records its reason as a pass note
 	// (kan-1047 pipeline fix).
 	stderr.Reset()
-	if code := run(context.Background(), append(args("1"), "-late", "missed before re-review"), strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 3 {
+	if code := run(context.Background(), append(args("1"), "-late", "missed before re-review"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 3 {
 		t.Fatalf("late round 1: exit %d, posts %d; want 0 and three (stderr %q)", code, posts, stderr.String())
 	}
 	if !strings.Contains(lastBody, "late mutation proof for render.go: missed before re-review") {
@@ -7901,7 +7901,7 @@ func TestRecordMutationLateEdges(t *testing.T) {
 	for _, c := range cases {
 		record, failMutation, posts = c.record, c.fail, nil
 		stderr.Reset()
-		code := run(context.Background(), args("1"), strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args("1"), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if (code == 0) != c.wantZero || len(posts) != len(c.want) {
 			t.Fatalf("%s: exit %d, posts %v; want zero=%v and %v (stderr %q)", c.name, code, posts, c.wantZero, c.want, stderr.String())
 		}
@@ -7967,7 +7967,7 @@ func TestRecordDispatchEndInlineDerivesItsStart(t *testing.T) {
 			"-change", "kan-258", "-key", "task-9-implementer", "-session-token", "mf-end-derive",
 			"-outcome", "completed", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
 		}
 		got, _ := (*bodies)[0]["startedAt"].(string)
@@ -8004,7 +8004,7 @@ func TestRecordDispatchBackfillRefusesADuplicateTaskCommit(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", tc.key, "-task", "8",
 			"-session-token", "mf-record-dup", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want || (tc.want == 2 && len(*bodies) != 0) {
 			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
 		}
@@ -8033,7 +8033,7 @@ func TestRecordDispatchBeginRefusesACompletedTask(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "default", "-key", tc.key, "-task", "7",
 			"-session-token", "mf-record-done", "-agent-id", "inline"}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want || (tc.want == 2 && len(*bodies) != 0) {
 			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
 		}
@@ -8073,7 +8073,7 @@ func TestDispatchBeginRefusesAThirdPlanReview(t *testing.T) {
 			"-session-token", tc.token}
 		args = append(args, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want || (tc.want == 2 && (len(*bodies) != 0 || !strings.Contains(stderr.String(), "plan-review-1 and plan-review-2"))) {
 			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
 		}
@@ -8147,7 +8147,7 @@ func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
 			"-session-token", "mf-record-rereview", "-effort", "default"}, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8203,7 +8203,7 @@ func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
 			"-session-token", "mf-record-rereview", "-effort", "default"}, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8263,7 +8263,7 @@ func TestRecordDispatchRefusesAReReviewOverAnOpenFinding(t *testing.T) {
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
 			"-session-token", "mf-record-rereview-open", "-effort", "default"}, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8341,7 +8341,7 @@ func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", tc.key, "-slot", "primary",
-			"-session-token", "mf-record-merger", "-effort", "default"}, strings.NewReader(""), &stdout, &stderr)
+			"-session-token", "mf-record-merger", "-effort", "default"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8374,7 +8374,7 @@ func TestRecordDispatchBeginRefusesASlotOffItsPanelKey(t *testing.T) {
 		if slot != "" {
 			argv = append(argv, "-slot", slot)
 		}
-		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	for _, bad := range [][2]string{
@@ -8429,7 +8429,7 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		argv := append([]string{"record", "dispatch", "begin", "-effort", "default", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", change, "-role", role, "-model", "opus", "-key", key,
 			"-session-token", "mf-record-launch-lines"}, extra...)
-		code := run(context.Background(), argv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
 	for _, c := range []struct {
@@ -8472,7 +8472,7 @@ func TestRecordNextRoundSkipsGatedRows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "next-round", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || strings.TrimSpace(stdout.String()) != "0" {
 		t.Fatalf("exit %d stdout %q, want 0 and 0; stderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -8502,7 +8502,7 @@ func TestRecordDispatchBeginRequestFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-327", "-role", "implementer", "-model", "opus", "-key", "operator-1", "-request", "-1",
-		"-session-token", "fi-request-flag"}, strings.NewReader(""), &stdout, &stderr)
+		"-session-token", "fi-request-flag"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("-request -1: exit %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -8560,7 +8560,7 @@ func TestRecordDispatchBeginRefusesMergerBesideOpenReviewer(t *testing.T) {
 		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "merger", "-model", "sonnet", "-effort", "low", "-key", tc.key,
 			"-session-token", "mf-record-merger-open"}, tc.extra...)
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8601,13 +8601,13 @@ func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
 		"mutation": {"-path", "render.go", "-mutated", "x", "-test", "y"},
 	}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), append(append([]string{"record", "pass"}, base...), append(cmds["pass"], "-round", "0")...), strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
+	if code := run(context.Background(), append(append([]string{"record", "pass"}, base...), append(cmds["pass"], "-round", "0")...), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
 		t.Fatalf("round 0 on an empty run: exit %d, posts %d; want 0 and one (stderr %q)", code, posts, stderr.String())
 	}
 	record = `{"change":"kan-258","passes":[{"id":1,"round":0,"note":"not re-run"}]}`
 	for kind, flags := range cmds {
 		stderr.Reset()
-		code := run(context.Background(), append(append([]string{"record", kind}, base...), append(flags, "-round", "7")...), strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), append(append([]string{"record", kind}, base...), append(flags, "-round", "7")...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 || posts != 1 {
 			t.Errorf("%s -round 7: exit %d, posts %d; want 2 and no new write (stderr %q)", kind, code, posts, stderr.String())
 		}
@@ -8669,7 +8669,7 @@ func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
 		args := append([]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "2s", "-C", clone,
 			"-change", "demo", "-role", role, "-model", "opus", "-key", key, "-session-token", "mf-record-gone-base"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	for _, c := range []struct {
@@ -8740,7 +8740,7 @@ func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
 		defer srv.Close()
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), append([]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-			"-change", "kan-258", "-session-token", "mf-record-pass-row"}, args...), strings.NewReader(""), &stdout, &stderr)
+			"-change", "kan-258", "-session-token", "mf-record-pass-row"}, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String() + stderr.String(), passes
 	}
 	panel := []string{"-role", "reviewer", "-slot", "primary", "-model", "sonnet", "-effort", "low", "-diff-base", "a515c200", "-key", "panel-4-primary"}
@@ -8767,7 +8767,7 @@ func TestRecordPassRefusesAHandDispatchedNote(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "pass", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-258", "-round", "4", "-note", note},
-			strings.NewReader(""), &stdout, &stderr)
+			os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	if code, stderr := pass("  dispatched: panel-4-primary on opus/low"); code != 2 || !strings.Contains(stderr, "flow record dispatch begin") {
@@ -8804,7 +8804,7 @@ func TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-1-primary", "-slot", "primary",
-		"-session-token", "mf-record-merger", "-effort", "default"}, strings.NewReader(""), &stdout, &stderr)
+		"-session-token", "mf-record-merger", "-effort", "default"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || posts != 1 {
 		t.Errorf("exit %d, dispatch posts %d; want 0 and 1; stderr:\n%s", code, posts, stderr.String())
 	}
@@ -8856,7 +8856,7 @@ func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
 				[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-role", tc.role, "-model", "opus", "-effort", tc.effort,
 					"-key", tc.key, "-session-token", "mf-record-pair-admitted"},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 			if code != tc.wantCode {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.wantCode, stderr.String())
@@ -8935,7 +8935,7 @@ func TestRecordDispatchBeginRefusesImplementationOutsideSddTdd(t *testing.T) {
 			args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-327", "-session-token", "mf-record-inline", "-agent-id", "none", "-model", "opus", "-effort", "low"}, tc.args...)
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if tc.code >= 0 && code != tc.code {
 				t.Errorf("exit %d, want %d\n%s", code, tc.code, stderr.String())
 			}
@@ -9029,7 +9029,7 @@ func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-				strings.NewReader(""), &stdout, &stderr)
+				os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 			}
@@ -9081,7 +9081,7 @@ func TestRecordAdmitsAFullSuiteFixRetryKey(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "low", "-key", tc.key,
-			"-session-token", "mf-record-fsf-retry"}, strings.NewReader(""), &stdout, &stderr)
+			"-session-token", "mf-record-fsf-retry"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		refused := strings.Contains(stderr.String(), "is not task-<ids>-implementer")
 		if refused != tc.refused || tc.refused && code != 2 {
 			t.Errorf("%s: exit %d, refused %v, want %v; stderr:\n%s", tc.key, code, refused, tc.refused, stderr.String())
@@ -9119,7 +9119,7 @@ func TestRecordDispatchBeginRefusesMergerOverAnUnreadSection(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "merger", "-model", "sonnet", "-effort", "low", "-key", "panel-1-merger",
-			"-session-token", "mf-record-merger-unread"}, strings.NewReader(""), &stdout, &stderr)
+			"-session-token", "mf-record-merger-unread"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	if code, errs := begin(); code != 2 || posts != 0 || !strings.Contains(errs, "panel-report-1-primary.md (web)") || !strings.Contains(errs, "panel-1-primary-unread") {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestHazardCommandRoundTrip(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"hazard", "add", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-name", "probe", "-text", "b", "-applies", "all"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("hazard add exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -68,7 +69,7 @@ func TestHazardCommandRoundTrip(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"hazards", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("hazards exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -84,7 +85,7 @@ func TestHazardCommandRoundTrip(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"hazard", "remove", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-name", "probe"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("hazard remove exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -120,7 +121,7 @@ func TestHazardAddRefusesBadFlags(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), tc.args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), tc.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit = %d, want 2; stderr:\n%s", code, stderr.String())
 			}
@@ -154,7 +155,7 @@ func TestHazardsListFlags(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"hazards", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-shape", "cross-repo", "-all"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("hazards exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -49,7 +50,7 @@ func TestStateSetInProgressNeedsTheHandoffStages(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-				strings.NewReader(`{"state":"IN_PROGRESS"}`), &stdout, &stderr)
+				os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS"}`), &stdout, &stderr)
 
 			if code != tc.want {
 				t.Fatalf("exit = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())

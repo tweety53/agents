@@ -118,7 +118,7 @@ func TestStateSetFallsBackOnDeadPort(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -143,7 +143,7 @@ func TestStateSetFallsBackOnTimeout(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "20ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -166,7 +166,7 @@ func TestStateSetFallsBackOnNon2xxThatIsNotRefusal(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -190,7 +190,7 @@ func TestStateSetFallsBackOnMalformedResponse(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -208,7 +208,7 @@ func TestStateSetFallbackExitsZero(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -228,7 +228,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(body),
+		os.Getenv, strings.NewReader(body),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
@@ -239,7 +239,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 
-	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16"))
+	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadStateFile: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 		t.Errorf("on-disk state file = %s, want %s", stateBody, want)
 	}
 
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestStateSetRejectsNullBody(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader("null"),
+		os.Getenv, strings.NewReader("null"),
 		&stdout, &stderr)
 
 	if code != 2 {
@@ -290,10 +290,10 @@ func TestStateSetRejectsNullBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16")); err == nil {
 		t.Error("a null body was written to the state file -- it must be rejected before either write")
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestStateSetRejectsNonObjectJSONBody(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-				strings.NewReader(body),
+				os.Getenv, strings.NewReader(body),
 				&stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("body %s: exit code = %d, want 2; stderr:\n%s", body, code, stderr.String())
@@ -338,7 +338,7 @@ func TestMonotonicRefusalIsNotAFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"STARTED","updatedAt":"2026-08-13T10:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"STARTED","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code == 0 {
@@ -349,10 +349,10 @@ func TestMonotonicRefusalIsNotAFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16")); err == nil {
 		t.Error("state file was written on a refusal -- a refusal must not take the fallback path")
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -390,7 +390,7 @@ func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(body),
+		os.Getenv, strings.NewReader(body),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -404,10 +404,10 @@ func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err != nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16")); err != nil {
 		t.Errorf("state file was not written on the fallback path: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestStateSetSucceedsAgainstReachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(body),
+		os.Getenv, strings.NewReader(body),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -467,7 +467,7 @@ func TestStateSetSucceedsAgainstReachableStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16")); err == nil {
 		t.Error("state file was written on a successful store write -- the fallback path must be untouched")
 	}
 }
@@ -521,7 +521,7 @@ func TestStateSetStampsUpdatedAtOverBodyValue(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -567,7 +567,7 @@ func TestStateSetStampsSameInstantIntoRequestAndJournal(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a 500 is not a refusal); stderr:\n%s", code, stderr.String())
@@ -577,11 +577,11 @@ func TestStateSetStampsSameInstantIntoRequestAndJournal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16"))
+	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadStateFile: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -648,7 +648,7 @@ func TestStateSetAcceptsShaAndNullMergeBases(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/recorded":"`+sha+`","/w/unrecorded":null}}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/recorded":"`+sha+`","/w/unrecorded":null}}`),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -701,7 +701,7 @@ func TestStateSetRefusesMalformedMergeBase(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-				strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":`+string(encoded)+`}}`),
+				os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":`+string(encoded)+`}}`),
 				&stdout, &stderr)
 
 			if code != 2 {
@@ -764,7 +764,7 @@ func TestStateSetRefusalWritesNoFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":"/w/kan-16"}}`),
+		os.Getenv, strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":"/w/kan-16"}}`),
 		&stdout, &stderr)
 
 	if code != 2 {
@@ -775,10 +775,10 @@ func TestStateSetRefusalWritesNoFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16")); err == nil {
 		t.Error("a malformed merge base reached the state file -- the refusal must write nothing")
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -798,14 +798,14 @@ func TestStateGetFallsBackAndSaysSo(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	diskBody := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-16"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a get must never block either); stderr:\n%s", code, stderr.String())
@@ -836,7 +836,7 @@ func TestStateGetTreatsForeignServer404AsFallback(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	diskBody := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-16"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
@@ -850,7 +850,7 @@ func TestStateGetTreatsForeignServer404AsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a look-alike 404 must fall back, not block); stderr:\n%s", code, stderr.String())
@@ -877,7 +877,7 @@ func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -916,7 +916,7 @@ func TestStateGetMarksSyntheticRecord(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -955,7 +955,7 @@ func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1016,7 +1016,7 @@ func TestStateGetResolvesUniquePrefixMatch(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (exactly one prefix match resolves); stderr:\n%s", code, stderr.String())
@@ -1039,7 +1039,7 @@ func TestStateGetReportsAmbiguousPrefixMatch(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (ambiguous prefix must never guess); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1068,7 +1068,7 @@ func TestStateGetPrefixMatchIncludesFinishedRows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a FINISHED row is still a unique match); stderr:\n%s", code, stderr.String())
@@ -1087,7 +1087,7 @@ func TestStateGetNoPrefixMatchIsOrdinaryMiss(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1 (zero prefix matches is the ordinary miss); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1113,7 +1113,7 @@ func TestStateGetPrefixRetryNeverReadsFallback(t *testing.T) {
 	// plain miss it would otherwise replace. The result is the ordinary
 	// miss, never the fallback file's contents.
 	diskBody := []byte(`{"state":"STARTED","updatedAt":"2026-09-19T20:22:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-574-step-1-frontend-calendar-marks"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-574-step-1-frontend-calendar-marks"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
@@ -1129,7 +1129,7 @@ func TestStateGetPrefixRetryNeverReadsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1 (a failed board retry falls through to the ordinary miss, never the fallback file); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1188,7 +1188,7 @@ func TestStateListSucceedsAgainstReachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1215,7 +1215,7 @@ func TestStateListFallbackExitsZeroAndWarnsOnce(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead port must never block); stderr:\n%s", code, stderr.String())
@@ -1241,14 +1241,14 @@ func TestStateListFallbackReportsLocalRecords(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-9"), seeded); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-9"), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1341,7 +1341,7 @@ func TestStateResolveStoreDropsFinished(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1369,14 +1369,14 @@ func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-9"), seeded); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-9"), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1438,7 +1438,7 @@ func seedFallbackRecord(t *testing.T, repo, change, state string) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	seeded := []byte(`{"state":"` + state + `","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, change), seeded); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, change), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 }
@@ -1450,7 +1450,7 @@ func resolveFallback(t *testing.T, repo string) stateResolveOutputForTest {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -1470,14 +1470,14 @@ func TestStateResolveFallbackNamesUnreadable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
 		t.Fatalf("seed corrupt state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1498,7 +1498,7 @@ func TestStateResolveTakesNoPositionalArguments(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-C", repo, "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -1519,14 +1519,14 @@ func TestStateListFallbackReportsUnreadableFileByName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
 		t.Fatalf("seed corrupt state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1560,7 +1560,7 @@ func TestStateListTreatsForeignServerAsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1583,7 +1583,7 @@ func TestStateListTakesNoPositionalArguments(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-C", repo, "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -1611,7 +1611,7 @@ func TestResolveDefaultAddr(t *testing.T) {
 					t.Fatalf("unset FLOW_ADDR: %v", err)
 				}
 			}
-			if got := resolveDefaultAddr(); got != tt.want {
+			if got := resolveDefaultAddr(os.Getenv); got != tt.want {
 				t.Fatalf("resolveDefaultAddr() = %q, want %q", got, tt.want)
 			}
 		})
@@ -1633,7 +1633,7 @@ func TestResolveDefaultAddrFlagBeatsEnvironment(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-C", repo, "some-change"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1; stderr=%s", code, stderr.String())
@@ -1705,7 +1705,7 @@ func TestStateFindPrintsRecords(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-1"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1738,7 +1738,7 @@ func TestStateFindFallsBackToDiskAcrossProjects(t *testing.T) {
 	}
 	seeded := []byte(`{"state":"IN_PROGRESS","worktrees":{},"updatedAt":"2026-09-10T09:00:00Z","updatedBy":"/flow"}`)
 	for _, pk := range []string{projectKey, "other-project-12345678"} {
-		if err := fallback.WriteStateFile(fallback.StateFilePath(pk, "kan-9"), seeded); err != nil {
+		if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), pk, "kan-9"), seeded); err != nil {
 			t.Fatalf("seed state file for %s: %v", pk, err)
 		}
 	}
@@ -1746,7 +1746,7 @@ func TestStateFindFallsBackToDiskAcrossProjects(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-9"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead port must never block); stderr:\n%s", code, stderr.String())
@@ -1783,7 +1783,7 @@ func TestStateFindUnknownIsEmpty(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "absent"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1801,7 +1801,7 @@ func TestStateFindRequiresName(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 for a missing change name", code)
@@ -1843,7 +1843,7 @@ func TestResolveRecordsAddr(t *testing.T) {
 					t.Fatalf("unset FLOW_ADDR: %v", err)
 				}
 			}
-			if got := resolveRecordsAddr(); got != tt.want {
+			if got := resolveRecordsAddr(os.Getenv); got != tt.want {
 				t.Fatalf("resolveRecordsAddr() = %q, want %q", got, tt.want)
 			}
 		})
@@ -1856,7 +1856,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4173")
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4173", os.Getenv)
 
 		if !strings.Contains(stderr.String(), "flow: using FLOW_RECORDS_ADDR=http://127.0.0.1:4173") {
 			t.Errorf("stderr = %q, want the records address named", stderr.String())
@@ -1874,7 +1874,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299", os.Getenv)
 
 		if !strings.Contains(stderr.String(), "flow: using FLOW_ADDR=http://127.0.0.1:4299") {
 			t.Errorf("stderr = %q, want the run address named", stderr.String())
@@ -1886,7 +1886,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("hazard", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
+		noteAddrUsage(flag.NewFlagSet("hazard", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299", os.Getenv)
 
 		if !strings.Contains(stderr.String(), "flow: using FLOW_ADDR=http://127.0.0.1:4299") {
 			t.Errorf("stderr = %q, want the run address named", stderr.String())
@@ -1907,7 +1907,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 		}
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, defaultAddr)
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, defaultAddr, os.Getenv)
 
 		if stderr.Len() != 0 {
 			t.Errorf("stderr = %q, want empty", stderr.String())
@@ -1924,7 +1924,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 		}
 
 		var stderr bytes.Buffer
-		noteAddrUsage(fset, &stderr, "http://127.0.0.1:9999")
+		noteAddrUsage(fset, &stderr, "http://127.0.0.1:9999", os.Getenv)
 
 		if stderr.Len() != 0 {
 			t.Errorf("stderr = %q, want empty", stderr.String())
@@ -1938,7 +1938,7 @@ func TestRiderVerbsRegisterTheRunAddress(t *testing.T) {
 
 	var f recordIdentityFlags
 	fset := flag.NewFlagSet("hazard", flag.ContinueOnError)
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, os.Getenv)
 
 	if f.addr != "http://127.0.0.1:4299" {
 		t.Fatalf("rider -addr default = %q, want the run address %q", f.addr, "http://127.0.0.1:4299")
@@ -1973,7 +1973,7 @@ func TestStateDirPrintsProjectDirectory(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1996,7 +1996,7 @@ func TestStateDirNeverContactsTheStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 with the store down; stderr:\n%s", code, stderr.String())
@@ -2025,7 +2025,7 @@ func TestStateDirResolvesWorktreeToMainCheckoutKey(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", worktreeDir},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2042,7 +2042,7 @@ func TestStateDirTakesNoPositionalArguments(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", repo, "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -2067,7 +2067,7 @@ func TestStateDirRejectsNonRepository(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", dir},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a non-repository -C target")
@@ -2115,7 +2115,7 @@ func awRun(t *testing.T, addr, repo string, args ...string) (int, string, string
 	t.Helper()
 	var stdout, stderr bytes.Buffer
 	full := append([]string{"state", "add-worktree", "-addr", addr, "-timeout", "500ms", "-C", repo}, args...)
-	code := run(context.Background(), full, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), full, os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -2186,7 +2186,7 @@ func TestStateAddWorktreeFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	statePath := fallback.StateFilePath(projectKey, "kan-16")
+	statePath := fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16")
 	if err := fallback.WriteStateFile(statePath, []byte(`{"state":"STARTED","updatedBy":"/flow","worktrees":{"/abs/peer":"`+awPeer+`"}}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -2207,7 +2207,7 @@ func TestStateAddWorktreeFallback(t *testing.T) {
 	if string(m["state"]) != `"STARTED"` || len(w) != 2 || *w["/abs/peer"] != awPeer || *w["/abs/wt"] != awSha {
 		t.Errorf("fallback record = %s", body)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"))
 	if err != nil || len(entries) != 1 || !jsonEqual(t, entries[0].Body, body) {
 		t.Errorf("journal = %v, err %v", entries, err)
 	}
@@ -2266,14 +2266,14 @@ func TestStateGetAcceptsFlagsAfterTheName(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	diskBody := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-16"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-16"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "kan-16", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2301,7 +2301,7 @@ func TestStateResolvesTheRecordsAddress(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		os.Getenv, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("state get exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
 	}

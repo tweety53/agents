@@ -32,7 +32,7 @@ for an invalid one, so this prints the store's rejection reason and exits
 non-zero.
 `
 
-func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSettings(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
@@ -40,9 +40,9 @@ func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) i
 
 	switch args[0] {
 	case "get":
-		return runSettingsGet(ctx, args[1:], stdout, stderr)
+		return runSettingsGet(ctx, args[1:], getenv, stdout, stderr)
 	case "set":
-		return runSettingsSet(ctx, args[1:], stdout, stderr)
+		return runSettingsSet(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown settings command %q\n", args[0])
 		fmt.Fprint(stderr, settingsUsage)
@@ -59,8 +59,8 @@ type storeConnFlags struct {
 	timeout time.Duration
 }
 
-func registerStoreConnFlags(fset *flag.FlagSet, f *storeConnFlags) {
-	registerRecordsAddrFlag(fset, &f.addr)
+func registerStoreConnFlags(fset *flag.FlagSet, f *storeConnFlags, getenv func(string) string) {
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout")
 }
 
@@ -68,11 +68,11 @@ func registerStoreConnFlags(fset *flag.FlagSet, f *storeConnFlags) {
 // a store failure here is reported and exits non-zero rather than falling
 // back to a local file: there is no per-change on-disk fallback for a
 // harness-wide record, and this task adds none.
-func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSettingsGet(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow settings get", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f storeConnFlags
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -81,7 +81,7 @@ func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 0 {
 		fmt.Fprintln(stderr, "flow: settings get takes no positional arguments")
 		fmt.Fprint(stderr, settingsUsage)
@@ -107,11 +107,11 @@ func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer
 // unreachable, a malformed response -- is likewise reported and exits
 // non-zero: unlike `state set`, there is no fallback value to record for
 // settings that were never successfully validated.
-func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSettingsSet(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow settings set", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f storeConnFlags
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from "+strings.Join(slices.Sorted(maps.Keys(store.ValidReviewers)), ","))
 	learning := fset.String("learning", "", "print a learning note on implementation runs: on or off")
 	if err := fset.Parse(args); err != nil {
@@ -122,7 +122,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 0 {
 		fmt.Fprintln(stderr, "flow: settings set takes no positional arguments")
 		fmt.Fprint(stderr, settingsUsage)
