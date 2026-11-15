@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -250,14 +252,19 @@ func TestPairJudgeRunsInEnvDir(t *testing.T) {
 // its stdout returns promptly instead of waiting on the child.
 func TestPairJudgeOrphanHoldingPipes(t *testing.T) {
 	t.Parallel()
-	stub := newPJStub(t, "/bin/sleep 15 &\n"+pjAnswer)
+	stub := newPJStub(t, "/bin/sleep 15 & echo $! > 'DIR/orphan.pid'\n"+pjAnswer)
+	writeExec(t, stub.cmd(), strings.ReplaceAll(mustRead(t, stub.cmd()), "DIR", stub.dir))
 	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
-	start := time.Now()
 	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
 		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
 	}
-	if d := time.Since(start); d > 8*time.Second {
-		t.Errorf("an orphaned child held the guard for %v", d)
+	pid, err := strconv.Atoi(strings.TrimSpace(mustRead(t, stub.dir+"/orphan.pid")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = syscall.Kill(pid, syscall.SIGKILL) })
+	if err := syscall.Kill(pid, 0); err != nil {
+		t.Errorf("the guard waited for the orphan %d to exit: %v", pid, err)
 	}
 }
 
