@@ -45,6 +45,7 @@ func putActivity(t *testing.T, url, session, body string) int {
 // (204), an unknown state or an over-long detail is refused (400) before
 // the store is touched, and the board carries the stored value back.
 func TestSessionActivityPut(t *testing.T) {
+	t.Parallel()
 	stage := "flow.sdd-tdd"
 	started := time.Date(2026, 8, 10, 8, 0, 0, 0, time.UTC)
 	since := time.Date(2026, 8, 10, 8, 30, 0, 0, time.UTC)

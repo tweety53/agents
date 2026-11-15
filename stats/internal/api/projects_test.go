@@ -13,6 +13,7 @@ import (
 // key, in the store's key order, so the state board can name a project
 // whose changes are all finished before those changes load.
 func TestProjectsRoute(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.projectRoots = []store.ProjectRoot{
 		{ProjectKey: "alpha", MainCheckoutPath: "/a"},

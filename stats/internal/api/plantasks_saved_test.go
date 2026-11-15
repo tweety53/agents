@@ -35,6 +35,7 @@ func savedPlanStore(t *testing.T, name, tasks string) (*statsHandler, string) {
 // TestPlanTasksFinishedReadsTheSavedPlan pins that a finished change whose
 // worktrees are gone reads its plan from change_files, never git history.
 func TestPlanTasksFinishedReadsTheSavedPlan(t *testing.T) {
+	t.Parallel()
 	h, project := savedPlanStore(t, "kan-1", "- [x] 1. One\n- [ ] 2. Two\n")
 	row := store.LiveStateRow{ProjectKey: project, Name: "kan-1", State: store.StateFinished, RepoRoots: []string{filepath.Join(t.TempDir(), "gone")}}
 	got := planTasks(row, h.savedFile(context.Background()))
@@ -50,6 +51,7 @@ func TestPlanTasksFinishedReadsTheSavedPlan(t *testing.T) {
 // TestPlanTasksPrefersTheWorktreeOverTheSavedPlan pins the read order: a
 // live tasks.md on disk wins over the saved copy.
 func TestPlanTasksPrefersTheWorktreeOverTheSavedPlan(t *testing.T) {
+	t.Parallel()
 	h, project := savedPlanStore(t, "kan-1", "- [x] 1. Saved\n")
 	root := t.TempDir()
 	dir := filepath.Join(root, "spectre", "changes", "kan-1")

@@ -12,6 +12,7 @@ import (
 // holding the change's tasks.md, a task done when ticked or committed, in
 // progress when a running subagent works on it, and none for a finished change.
 func TestPlanTasks(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	dir := filepath.Join(root, "spectre", "changes", "kan-1")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -47,6 +48,7 @@ func TestPlanTasks(t *testing.T) {
 // TestSelfReviewTasks pins the self-review plan's read: self-review-<name>'s
 // tasks.md, done only when ticked.
 func TestSelfReviewTasks(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	dir := filepath.Join(root, "spectre", "changes", "self-review-kan-1")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -73,6 +75,7 @@ func TestSelfReviewTasks(t *testing.T) {
 // TestSelfReviewTasksFromSubRun pins that the plan is read from the
 // self-review sub-run's own worktree, which is not one of the change's.
 func TestSelfReviewTasksFromSubRun(t *testing.T) {
+	t.Parallel()
 	sub := t.TempDir()
 	dir := filepath.Join(sub, "spectre", "changes", "self-review-kan-1")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -91,6 +94,7 @@ func TestSelfReviewTasksFromSubRun(t *testing.T) {
 // saved in flowd once cleanup removed the worktrees -- is read for a board
 // scoped to that change and never for the whole board.
 func TestFinishedPlanReadOnlyWhenScoped(t *testing.T) {
+	t.Parallel()
 	row := store.LiveStateRow{ProjectKey: "p", Name: "kan-1", State: store.StateFinished, RepoRoots: []string{filepath.Join(t.TempDir(), "gone-worktree")}}
 	saved := savedPlans(map[string]string{"kan-1": "- [x] 1. One\n"})
 	if got := planTasks(row, saved); len(got) != 1 || got[0] != (taskDTO{N: 1, Title: "One", State: "done"}) {

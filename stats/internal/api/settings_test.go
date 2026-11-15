@@ -59,6 +59,7 @@ func newSettingsTestServer(t *testing.T, fs *fakeStore) *httptest.Server {
 // body is exactly {"reviewers":[…],"learning":…}: no model key survives the
 // removal of default_model and self_review_model.
 func TestSettingsAPI_Get(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
@@ -93,6 +94,7 @@ func TestSettingsAPI_Get(t *testing.T) {
 // what was written -- the round-trip DecodeChangeBody/put already proves
 // for a change record, proved here for settings.
 func TestSettingsAPI_Put_Valid(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
@@ -133,6 +135,7 @@ func TestSettingsAPI_Put_Valid(t *testing.T) {
 // proved by asserting flow_settings is left holding whatever it held
 // before the rejected PUT.
 func TestSettingsAPI_Put_RejectsInvalidValue(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		body        string
@@ -198,6 +201,7 @@ func TestSettingsAPI_Put_RejectsInvalidValue(t *testing.T) {
 // writes nothing -- the strict decoder fails it loudly rather than
 // dropping the key and writing a partial row.
 func TestSettingsAPI_Put_RejectsDefaultModelField(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
@@ -248,6 +252,7 @@ func putSettingsBody(t *testing.T, url, body string) {
 // TestSettingsHandler_LearningRoundTrip asserts learning off survives a
 // PUT and reads back through GET (learning-in-settings).
 func TestSettingsHandler_LearningRoundTrip(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
@@ -273,6 +278,7 @@ func TestSettingsHandler_LearningRoundTrip(t *testing.T) {
 // TestSettingsHandler_LearningAbsentReadsOn asserts a PUT without learning
 // stores it on, matching the default (settings-set-merges).
 func TestSettingsHandler_LearningAbsentReadsOn(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.settings = &store.Settings{Reviewers: []string{"primary"}, Learning: false}
 	ts := newSettingsTestServer(t, fs)

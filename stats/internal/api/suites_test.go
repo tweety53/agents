@@ -94,6 +94,7 @@ func (f *fakeStore) LatestSuiteRunTests(_ context.Context, projectKey, suite str
 // TestPostSuiteRunReturnsTheRecordedRow pins the write route: POST 201 with
 // the stored row echoed, daemon-allocated id and stamp included.
 func TestPostSuiteRunReturnsTheRecordedRow(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", map[string]any{
@@ -115,6 +116,7 @@ func TestPostSuiteRunReturnsTheRecordedRow(t *testing.T) {
 // suite filter and limit travel to the store, and absent parameters use the
 // defaults (every suite, limit 20).
 func TestGetSuiteRunsReadsTheArray(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	for _, in := range []map[string]any{
@@ -152,6 +154,7 @@ func TestGetSuiteRunsReadsTheArray(t *testing.T) {
 // cannot identify what it describes is a 400 before the store is touched,
 // the same caller-mistake shape every record handler uses.
 func TestPostSuiteRunRejectsAnEmptySuite(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", map[string]any{
@@ -178,6 +181,7 @@ func TestPostSuiteRunRejectsAnEmptySuite(t *testing.T) {
 // limit <= 0 makes a zeroed default loud), and a limit that is not a
 // positive integer is a 400 before the store is touched.
 func TestGetSuiteRunsDefaultsAndRejectsBadLimit(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", map[string]any{
@@ -229,6 +233,7 @@ func suiteRunWithTests() map[string]any {
 // TestPostSuiteRunStoresItsTests pins that the write route hands a run's
 // per-test costs to the store with the run (decision per-test-costs-in-flowd).
 func TestPostSuiteRunStoresItsTests(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", suiteRunWithTests()); resp.StatusCode != http.StatusCreated {
@@ -249,6 +254,7 @@ func TestPostSuiteRunStoresItsTests(t *testing.T) {
 // TestPostSuiteRunRejectsAnInvalidTest pins the per-test refusal: a test
 // row with no package is a 400 and never reaches the store.
 func TestPostSuiteRunRejectsAnInvalidTest(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	body := suiteRunWithTests()
@@ -267,6 +273,7 @@ func TestPostSuiteRunRejectsAnInvalidTest(t *testing.T) {
 // as given, a non-positive limit is a 400, and no run with tests is 200
 // with a null body.
 func TestGetSuiteTestsReadsTheNewestRun(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	if resp, body := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", suiteRunWithTests()); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("seed POST = %d (%s), want 201", resp.StatusCode, body)

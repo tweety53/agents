@@ -761,6 +761,7 @@ func getRaw(t *testing.T, url string) (*http.Response, []byte) {
 // landed.
 // smoke: core — the dispatch route allocates a seq
 func TestRecordDispatchRouteAllocatesSeqAndAnswers201(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus"))
@@ -805,6 +806,7 @@ func TestRecordDispatchRouteAllocatesSeqAndAnswers201(t *testing.T) {
 // internal/client would read as the store being unavailable and journal
 // for a replay that can never succeed.
 func TestRecordDispatchRouteAnswers400ForAnInvalidAgentID(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.recordDispatchErr = fmt.Errorf("%w: %q is a placeholder word, never a harness id", store.ErrAgentIDInvalid, "pending")
 
@@ -820,6 +822,7 @@ func TestRecordDispatchRouteAnswers400ForAnInvalidAgentID(t *testing.T) {
 // row names panel slots only: a gated per-task reviewer's key as its slot
 // is refused before the store, a panel bundle and an experimental slot pass.
 func TestRecordDispatchRouteAnswers400ForANonPanelSlot(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	for slot, want := range map[string]int{
 		"task-27+28-reviewer":      http.StatusBadRequest,
@@ -847,6 +850,7 @@ func TestRecordDispatchRouteAnswers400ForANonPanelSlot(t *testing.T) {
 // that internal/client would read as the store being unavailable and
 // journal for a replay that can never succeed.
 func TestRecordDispatchRouteAnswers400ForAnUnmappablePair(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.recordDispatchErr = fmt.Errorf("%w: recorded (%q, %q); harness %q runs only (%q, %q)",
 		store.ErrDispatchPairInvalid, "sonnet", "high", "zcode", "glm-5.3-flash", "high")
@@ -869,6 +873,7 @@ func TestRecordDispatchRouteAnswers400ForAnUnmappablePair(t *testing.T) {
 // instant the original attempt carried, so a non-zero startedAt is stored
 // exactly as it arrived.
 func TestRecordDispatchRouteStampsAZeroStartedAt(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	body := dispatchBody("implementer", "opus")
@@ -910,6 +915,7 @@ func TestRecordDispatchRouteStampsAZeroStartedAt(t *testing.T) {
 // instant survives untouched, the replay override the journalled end
 // carries.
 func TestEndDispatchRouteStampsAZeroEndedAt(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	beginBody := dispatchBody("implementer", "opus")
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", beginBody); resp.StatusCode != http.StatusCreated {
@@ -943,6 +949,7 @@ func TestEndDispatchRouteStampsAZeroEndedAt(t *testing.T) {
 // round closed in one call keeps each slot's own finish; a supplied
 // instant is kept, and the agent is never asked.
 func TestEndDispatchRouteTakesAStampedRowsEndFromItsAgent(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "kan-1")] = store.Change{ProjectKey: "proj", Name: "kan-1", State: store.StateInProgress}
 	finished := time.Date(2026, 8, 22, 9, 5, 0, 0, time.UTC)
@@ -990,6 +997,7 @@ func TestEndDispatchRouteTakesAStampedRowsEndFromItsAgent(t *testing.T) {
 // exactly one row for F1 either way.
 // smoke: core — the finding route creates once and updates after
 func TestRecordFindingRouteAnswers201OnCreateAnd200OnUpdate(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/findings"
 
@@ -1024,6 +1032,7 @@ func TestRecordFindingRouteAnswers201OnCreateAnd200OnUpdate(t *testing.T) {
 // classifies a 500 as the store being unavailable, which would send a
 // record write to the journal for a mistake no replay can ever fix.
 func TestSetFindingStatusRouteAnswers404ForAnUnknownRef(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
@@ -1048,6 +1057,7 @@ func TestSetFindingStatusRouteAnswers404ForAnUnknownRef(t *testing.T) {
 // ordered lexically returns F1, F10, F2, so a ten-finding panel renders
 // out of order.
 func TestRunRecordRouteReturnsDispatchesAndFindingsInOrder(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	for _, role := range []string{"implementer", "reviewer", "panel-fix"} {
@@ -1102,6 +1112,7 @@ func TestRunRecordRouteReturnsDispatchesAndFindingsInOrder(t *testing.T) {
 // (records.CostStatus's own JSON tags), so a change to any of the three
 // fails this test rather than going unnoticed.
 func TestCostStatusRouteDerivesFromTheRealRunRecord(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	seed := []struct {
@@ -1153,6 +1164,7 @@ func TestCostStatusRouteDerivesFromTheRealRunRecord(t *testing.T) {
 // partial write from a body that could not be understood would leave a
 // record nothing can correct, since a dispatch row has no update path.
 func TestRecordRouteRejectsAMalformedBodyWithoutReachingTheStore(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	for _, tc := range []struct {
@@ -1183,6 +1195,7 @@ func TestRecordRouteRejectsAMalformedBodyWithoutReachingTheStore(t *testing.T) {
 // omitted it would be classified as "not the daemon" and take the journal
 // fallback on every single call, silently, no matter what it answered.
 func TestRecordRoutesCarryTheDaemonHeader(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	base := ts.URL + recordsPath("proj", "kan-1")
 
@@ -1215,6 +1228,7 @@ func assertDaemonHeader(t *testing.T, route string, resp *http.Response, wantSta
 // session token and key its begin carried rather than by a seq the caller
 // may never have seen.
 func TestEndDispatchRouteClosesTheRowItsBeginOpened(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus"))
@@ -1251,6 +1265,7 @@ func TestEndDispatchRouteClosesTheRowItsBeginOpened(t *testing.T) {
 // harness reports it only once the dispatch has launched -- so end must be
 // able to carry it, and it must land on the very row begin opened.
 func TestDispatchEndAgentIDReachesTheStore(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus"))
@@ -1284,6 +1299,7 @@ func TestDispatchEndAgentIDReachesTheStore(t *testing.T) {
 // either fakeStore or the real handler path would have passed every other
 // test in this file.
 func TestDispatchEndOmittedAgentIDPreservesBeginsIdentifier(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	beginBody := dispatchBody("implementer", "opus")
@@ -1315,6 +1331,7 @@ func TestDispatchEndOmittedAgentIDPreservesBeginsIdentifier(t *testing.T) {
 // would be indistinguishable from a store that was never reached and the
 // distinction would be lost.
 func TestEndDispatchRouteAnswers404ForAnUnknownKey(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches/end", dispatchEndBody("task-9-nobody"))
@@ -1328,6 +1345,7 @@ func TestEndDispatchRouteAnswers404ForAnUnknownKey(t *testing.T) {
 // caller mistake it is -- a 400, judged before the store is touched, so a
 // replay of it is retired rather than queued forever.
 func TestEndDispatchRouteRefusesABodyThatNamesNothing(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	for _, tc := range []struct {
@@ -1356,6 +1374,7 @@ func TestEndDispatchRouteRefusesABodyThatNamesNothing(t *testing.T) {
 // store already holds is ordinary -- and a second row for one logical
 // dispatch would be counted twice in every cost figure derived from it.
 func TestRecordDispatchRouteIsIdempotentUnderOneKey(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	var first, replayed records.Dispatch
@@ -1412,6 +1431,7 @@ func incidentBody(guard, symptom, recovery string, minutesLost int) map[string]a
 // body missing guard, worktree or verdict is refused before the store is
 // touched at all.
 func TestRecordVerdictRouteAnswers201(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/verdicts"
 
@@ -1455,6 +1475,7 @@ func TestRecordVerdictRouteAnswers201(t *testing.T) {
 // -- not 500 -- for a guard the change holds no verdict under, the mapping
 // internal/client's classification depends on.
 func TestFlagVerdictRouteAnswers200And404(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	verdictsURL := ts.URL + recordsPath("proj", "kan-1") + "/verdicts"
 	flagURL := ts.URL + recordsPath("proj", "kan-1") + "/verdicts/false-positive"
@@ -1492,6 +1513,7 @@ func TestFlagVerdictRouteAnswers200And404(t *testing.T) {
 // to the store -- no query means ("", false); falsePositive=maybe is a
 // caller mistake, refused as 400 before the store is ever touched.
 func TestListVerdictsRouteFiltersByQuery(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	status, body := doGet(t, ts, "/api/v1/verdicts/proj")
@@ -1525,6 +1547,7 @@ func TestListVerdictsRouteFiltersByQuery(t *testing.T) {
 // minutesLost or a missing guard/symptom/recovery is refused as a caller
 // mistake before the store is touched at all.
 func TestRecordIncidentRouteAnswers201AndValidatesMinutes(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + "/api/v1/incidents/proj"
 
@@ -1572,6 +1595,7 @@ func TestRecordIncidentRouteAnswers201AndValidatesMinutes(t *testing.T) {
 // exactly the array the store returned, in the newest-first order
 // ListIncidents documents.
 func TestListIncidentsRouteReturnsNewestFirst(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	incidentsURL := ts.URL + "/api/v1/incidents/proj"
 
@@ -1608,6 +1632,7 @@ func TestListIncidentsRouteReturnsNewestFirst(t *testing.T) {
 // same token replaces the first, since it is the same run restating its
 // choice, never a second run.
 func TestRecordDecisionRouteCreatesThenReplaces(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/decisions"
 
@@ -1638,6 +1663,7 @@ func TestRecordDecisionRouteCreatesThenReplaces(t *testing.T) {
 // documents -- what a resumed run reads to recover a stopped run's own
 // choice.
 func TestListDecisionsRouteNewestFirst(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/decisions"
 
@@ -1671,6 +1697,7 @@ func TestListDecisionsRouteNewestFirst(t *testing.T) {
 // touched -- the same "caller mistake, not a store failure" contract
 // ApplyFindingRecord's checks give its own route.
 func TestRecordDecisionRejectsEmptyBody(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/decisions"
 
@@ -1712,6 +1739,7 @@ func decisionWithModels(impl, fixer, dispatch, rerun, group string) string {
 // any groups[] pair, naming the JSON path, before the store is touched,
 // while a panel dispatch keeps "high" (no-high-implementer).
 func TestRecordDecisionRejectsHighImplementerEffort(t *testing.T) {
+	t.Parallel()
 	base := decisionWithModels("opus", "opus", "opus", "sonnet", "sonnet")
 	t.Run("panel.dispatches[0].effort high accepted", func(t *testing.T) {
 		_, fs := recordTestServer(t, "proj", "kan-1")
@@ -1759,6 +1787,7 @@ func TestRecordDecisionRejectsHighImplementerEffort(t *testing.T) {
 // nested pair, naming that pair's JSON path and the value, before the
 // store is touched (refuse-off-policy-models).
 func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		path string
 		body string
@@ -1795,6 +1824,7 @@ func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
 // TestRecordDecisionAcceptsFableReviewer pins that a panel.dispatches[]
 // pair, and only that, may name fable (an operator-granted opt-in panel-reviewer pair).
 func TestRecordDecisionAcceptsFableReviewer(t *testing.T) {
+	t.Parallel()
 	_, fs := recordTestServer(t, "proj", "kan-1")
 	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
 		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(decisionWithModels("opus", "opus", "fable", "sonnet", "sonnet"))})
@@ -1808,6 +1838,7 @@ func TestRecordDecisionAcceptsFableReviewer(t *testing.T) {
 // key the stored jsonb carries, so "Implementer" never stands in for
 // "implementer".
 func TestRecordDecisionRejectsCaseVariantKeys(t *testing.T) {
+	t.Parallel()
 	_, fs := recordTestServer(t, "proj", "kan-1")
 	body := `{"implementer":{"model":"haiku","effort":"high","reason":"r"},"Implementer":"skipped — inline"}`
 	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
@@ -1823,6 +1854,7 @@ func TestRecordDecisionRejectsCaseVariantKeys(t *testing.T) {
 // TestRecordDecisionRefusalNamesValidModels pins that the refusal lists
 // store.ValidModels itself, so the message cannot drift from the set.
 func TestRecordDecisionRefusalNamesValidModels(t *testing.T) {
+	t.Parallel()
 	_, fs := recordTestServer(t, "proj", "kan-1")
 	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
 		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(decisionWithModels("haiku", "opus", "opus", "opus", "opus"))})
@@ -1837,6 +1869,7 @@ func TestRecordDecisionRefusalNamesValidModels(t *testing.T) {
 // inline", panel "default", groups null) carry no model and pass, and that
 // a full sdd body on opus and sonnet records.
 func TestRecordDecisionAcceptsRecordedStrings(t *testing.T) {
+	t.Parallel()
 	for name, body := range map[string]string{
 		"micro":    `{"class":"micro","execution":"inline","implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`,
 		"full sdd": decisionWithModels("opus", "sonnet", "opus", "sonnet", "sonnet"),
@@ -1861,6 +1894,7 @@ func TestRecordDecisionAcceptsRecordedStrings(t *testing.T) {
 // per call -- never replaces one -- answers 201, and carries the change's
 // passes back out on the run-record GET, which is what the renderer reads.
 func TestRecordPanelPassRoute(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/passes"
 
@@ -1896,6 +1930,7 @@ func TestRecordPanelPassRoute(t *testing.T) {
 // way: append-only, 201, and visible on the run-record GET beside the
 // passes.
 func TestRecordPanelMutationRoute(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/mutations"
 
@@ -1926,6 +1961,7 @@ func TestRecordPanelMutationRoute(t *testing.T) {
 // reached -- a pass-log line with a missing field records nothing, and the
 // contract's fix-mutation line has exactly three fields.
 func TestRecordPanelPassAndMutationRejectEmptyFields(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	for _, tc := range []struct {
@@ -1957,6 +1993,7 @@ func TestRecordPanelPassAndMutationRejectEmptyFields(t *testing.T) {
 // ordinary category-less write every caller that names no category still
 // makes, which also clears whatever an earlier deferral had set.
 func TestSetFindingStatusRouteAppliesCategory(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
@@ -1989,6 +2026,7 @@ func TestSetFindingStatusRouteAppliesCategory(t *testing.T) {
 // 500 that internal/client would read as the store being unavailable and
 // journal for a replay that can never succeed.
 func TestSetFindingStatusRouteAnswers409ForCategoryOffDeferral(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
@@ -2009,6 +2047,7 @@ func TestSetFindingStatusRouteAnswers409ForCategoryOffDeferral(t *testing.T) {
 // 500 that internal/client would read as the store being unavailable and
 // journal for a replay that can never succeed.
 func TestSetFindingStatusRouteAnswers409ForABareWithdrawn(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
@@ -2034,6 +2073,7 @@ func renderPath(project, change, kind string) string {
 // over the same rows GET of the whole record returns -- never a second
 // rendering that could drift from the rows behind it.
 func TestRenderRouteServesWhatRenderKindRendersFromTheSameRows(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus")); resp.StatusCode != http.StatusCreated {
@@ -2075,6 +2115,7 @@ func TestRenderRouteServesWhatRenderKindRendersFromTheSameRows(t *testing.T) {
 // 200 envelope with missing set, never an empty ledger a reader could
 // mistake for a real one.
 func TestRenderRouteLedgerWithoutDispatchesIsMissing(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	code, body := doGet(t, ts, renderPath("proj", "kan-1", "ledger"))
@@ -2096,6 +2137,7 @@ func TestRenderRouteLedgerWithoutDispatchesIsMissing(t *testing.T) {
 // check-unfinished-work.sh to read, manufacturing the outstanding state
 // the clean panel proved absent.
 func TestRenderRoutePanelWithoutFindingsStillRenders(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	code, body := doGet(t, ts, renderPath("proj", "kan-1", "panel"))
@@ -2120,6 +2162,7 @@ func TestRenderRoutePanelWithoutFindingsStillRenders(t *testing.T) {
 // ledger missing, the panel in its zero form -- so the CLI's read of this
 // route never needs a second meaning for 404.
 func TestRenderRouteAnswersAnUnknownChangeFromTheEmptyRun(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	for kind, wantMissing := range map[string]bool{"ledger": true, "panel": false} {
@@ -2142,6 +2185,7 @@ func TestRenderRouteAnswersAnUnknownChangeFromTheEmptyRun(t *testing.T) {
 // store is touched -- the route's validation, not the renderer's default
 // branch, is what keeps an unrecognised kind from ever rendering.
 func TestRenderRouteRejectsAnUnknownKindWithoutReachingTheStore(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.runRecordErr = errors.New("store must not be reached")
 
@@ -2159,6 +2203,7 @@ func TestRenderRouteRejectsAnUnknownKindWithoutReachingTheStore(t *testing.T) {
 // answers like every other read, never with an envelope that would read
 // as a real rendering of nothing.
 func TestRenderRouteMapsAStoreError(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.runRecordErr = errors.New("store is broken")
 
@@ -2173,6 +2218,7 @@ func TestRenderRouteMapsAStoreError(t *testing.T) {
 // case here runs on an empty store, so a handler that rendered the zero
 // form regardless of the rows would pass them all.
 func TestRenderRoutePanelOverAFindingHoldingChangeRendersTheRows(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/findings", findingBody("F1", 0, "open")); resp.StatusCode != http.StatusCreated {
@@ -2241,6 +2287,7 @@ func (f *fakeStore) ListTaskCounts(_ context.Context, projectKey, change string)
 // stored row comes back 201-carried with the store's own stamps, and a
 // second POST is a second observation, never a replacement.
 func TestRecordTaskCountRouteAnswers201(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/task-counts"
 
@@ -2269,6 +2316,7 @@ func TestRecordTaskCountRouteAnswers201(t *testing.T) {
 // plan is a caller mistake answered 400 before the store is reached, so
 // the refusal is the handler's own message, not a store error remapped.
 func TestRecordTaskCountRouteRejectsANonPositiveTotal(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/task-counts"
 
@@ -2287,6 +2335,7 @@ func TestRecordTaskCountRouteRejectsANonPositiveTotal(t *testing.T) {
 // the array the store returned, in the oldest-first order ListTaskCounts
 // documents -- the order planned and appended are derived in.
 func TestListTaskCountsRouteOldestFirst(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/task-counts"
 
@@ -2329,6 +2378,7 @@ func substitutionBody(guard, shape, substitution string) map[string]any {
 // is a bundle-composition wildcard, never a shape a change has -- exactly
 // as an empty guard or substitution is.
 func TestApplySubstitutionRecord(t *testing.T) {
+	t.Parallel()
 	fs := &fakeStore{changes: map[string]store.Change{}}
 	fs.changes[changeKey("proj", "kan-1")] = store.Change{Name: "kan-1"}
 	ctx := context.Background()
@@ -2368,6 +2418,7 @@ func TestApplySubstitutionRecord(t *testing.T) {
 // the store), and 404 -- not 500 -- for an unknown change, the mapping
 // internal/client's classification depends on.
 func TestRecordSubstitutionHandler(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/substitutions"
 
@@ -2424,6 +2475,7 @@ func TestRecordSubstitutionHandler(t *testing.T) {
 // from the query string and forwards exactly what it parsed to the store,
 // and that the array it hands back is the store's own newest-first order.
 func TestListSubstitutionsHandler(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/substitutions"
 
@@ -2490,6 +2542,7 @@ func (f *fakeStore) ListFindingPatternOccurrences(_ context.Context, projectKey,
 // TestListFindingPatternsEndpoint pins that the registry route forwards the
 // project it parsed and answers the store's summary rows verbatim as a 200.
 func TestListFindingPatternsEndpoint(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	want := []records.FindingPatternSummary{
 		{Pattern: "restyled-row-loses-its-handler", Occurrences: 3, Changes: 2,
@@ -2520,6 +2573,7 @@ func TestListFindingPatternsEndpoint(t *testing.T) {
 // normalizing is the store's rule -- and answers the joined occurrence rows
 // as a 200.
 func TestListFindingPatternOccurrencesEndpoint(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.findingPatternOccurrences = []records.FindingPatternOccurrence{
 		{Change: "kan-1", Ref: "F1", Severity: "major", Status: "open",
@@ -2551,6 +2605,7 @@ func TestListFindingPatternOccurrencesEndpoint(t *testing.T) {
 // answer 400, never a 500 the CLI would misread as the store being
 // unavailable and journal for a replay that can never succeed.
 func TestFindingPatternRefusalAnswersBadRequest(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	fs.upsertFindingErr = fmt.Errorf("%w: finding F1 in proj/kan-1 carries pattern %q",
@@ -2572,6 +2627,7 @@ func TestFindingPatternRefusalAnswersBadRequest(t *testing.T) {
 // the response carrying the replaced row), 400 on an empty summary before
 // the store is touched, and 404 for a change the store has never heard of.
 func TestRecordSummaryRoute(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + recordsPath("proj", "kan-1") + "/summary"
 
@@ -2612,6 +2668,7 @@ func TestRecordSummaryRoute(t *testing.T) {
 // extra_dispatch pair is checked like every other pair — an off-policy model
 // is refused naming extra_dispatch.model; sonnet and opus record.
 func TestRecordDecisionChecksExtraDispatchModel(t *testing.T) {
+	t.Parallel()
 	body := func(model string) string {
 		return `{"class":"micro","execution":"inline","implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null,` +
 			`"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"` + model + `","effort":"low","reason":"r"}}`
@@ -2648,6 +2705,7 @@ func TestRecordDecisionChecksExtraDispatchModel(t *testing.T) {
 // off-policy model is refused naming extra_dispatch_mutation.model; sonnet
 // and opus record.
 func TestRecordDecisionChecksExtraDispatchMutationModel(t *testing.T) {
+	t.Parallel()
 	body := func(model string) string {
 		return `{"class":"micro","execution":"inline","implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null,` +
 			`"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"` + model + `","effort":"low","reason":"r"}}`

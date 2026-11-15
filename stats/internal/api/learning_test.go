@@ -60,6 +60,7 @@ func postLearning(t *testing.T, url, body string) int {
 // TestLearningHandler_AddAndList asserts a POST records a topic and a GET
 // lists it with its count and newest note (topics-in-flowd).
 func TestLearningHandler_AddAndList(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
@@ -82,6 +83,7 @@ func TestLearningHandler_AddAndList(t *testing.T) {
 // TestLearningHandler_ExhaustedIs409 asserts a fourth record of one topic
 // answers 409 (cap-in-store).
 func TestLearningHandler_ExhaustedIs409(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
@@ -97,6 +99,7 @@ func TestLearningHandler_ExhaustedIs409(t *testing.T) {
 
 // TestLearningHandler_BadTopicIs400 asserts a malformed topic answers 400.
 func TestLearningHandler_BadTopicIs400(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()

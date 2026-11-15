@@ -92,6 +92,7 @@ func hazardBody(name, body, applies string) map[string]any {
 // filter the store documents, PATCH retiring rather than deleting, and the
 // retired row leaving the default listing.
 func TestHazardRoutesAddListRetire(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + "/api/v1/hazards/proj"
 
@@ -168,6 +169,7 @@ func TestHazardRoutesAddListRetire(t *testing.T) {
 // on both POST's body and GET's shape query -- a caller mistake caught
 // before the store is touched.
 func TestHazardRouteRejectsInvalidApplies(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + "/api/v1/hazards/proj"
 
@@ -189,6 +191,7 @@ func TestHazardRouteRejectsInvalidApplies(t *testing.T) {
 // TestHazardRouteDuplicateConflict pins the unique constraint's answer: a
 // second POST under the same (project, name) is a 409, not a duplicate row.
 func TestHazardRouteDuplicateConflict(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + "/api/v1/hazards/proj"
 
@@ -207,6 +210,7 @@ func TestHazardRouteDuplicateConflict(t *testing.T) {
 // TestHazardRouteRetireUnknownName pins the 404 for a retire naming no
 // hazard the project holds.
 func TestHazardRouteRetireUnknownName(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	req, err := http.NewRequest(http.MethodPatch, ts.URL+"/api/v1/hazards/proj/never-recorded", nil)
@@ -226,6 +230,7 @@ func TestHazardRouteRetireUnknownName(t *testing.T) {
 // TestHazardRouteListAllIncludesRetired pins the all=true query lifting the
 // active filter -- the operator's -all view.
 func TestHazardRouteListAllIncludesRetired(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + "/api/v1/hazards/proj"
 

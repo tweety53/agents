@@ -35,6 +35,7 @@ func lessonsRepo(t *testing.T) (*httptest.Server, *fakeStore, string) {
 // answer is assembled from the registered root's files, never from the
 // store, and renders the brief in full.
 func TestLessonsResolveServesScannedAnswer(t *testing.T) {
+	t.Parallel()
 	ts, _, _ := lessonsRepo(t)
 
 	resp, err := http.Get(ts.URL + "/api/v1/lessons/resolve?topic=flake-bisection")
@@ -62,6 +63,7 @@ func TestLessonsResolveServesScannedAnswer(t *testing.T) {
 }
 
 func TestLessonsResolveMissingTopicIsACallerMistake(t *testing.T) {
+	t.Parallel()
 	ts, _, _ := lessonsRepo(t)
 	resp, err := http.Get(ts.URL + "/api/v1/lessons/resolve")
 	if err != nil {
@@ -74,6 +76,7 @@ func TestLessonsResolveMissingTopicIsACallerMistake(t *testing.T) {
 }
 
 func TestLessonsResolveUnreadableRootIsANoteNotAnError(t *testing.T) {
+	t.Parallel()
 	ts, fs, _ := lessonsRepo(t)
 	fs.projectRoots = append(fs.projectRoots, store.ProjectRoot{ProjectKey: "gone-key", MainCheckoutPath: filepath.Join(t.TempDir(), "missing")})
 
@@ -92,6 +95,7 @@ func TestLessonsResolveUnreadableRootIsANoteNotAnError(t *testing.T) {
 }
 
 func TestLessonsResolveStoreFailureIs5xx(t *testing.T) {
+	t.Parallel()
 	ts, fs, _ := lessonsRepo(t)
 	fs.projectRootsErr = context.DeadlineExceeded
 	resp, err := http.Get(ts.URL + "/api/v1/lessons/resolve?topic=flake")

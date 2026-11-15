@@ -66,6 +66,7 @@ func happyAtlassian(w http.ResponseWriter, req *http.Request) {
 }
 
 func TestJiraTransitionHandler(t *testing.T) {
+	t.Parallel()
 	ts := jiraTestServer(t, happyAtlassian)
 
 	status, body := postTransition(t, ts, `{"key":"KAN-571","target":"In Progress"}`)
@@ -86,6 +87,7 @@ func TestJiraTransitionHandler(t *testing.T) {
 }
 
 func TestJiraTransitionUnrecognizedStatus(t *testing.T) {
+	t.Parallel()
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"fields":{"status":{"name":"Blocked"}}}`)
@@ -102,6 +104,7 @@ func TestJiraTransitionUnrecognizedStatus(t *testing.T) {
 }
 
 func TestJiraTransitionUpstreamNotFound(t *testing.T) {
+	t.Parallel()
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -114,6 +117,7 @@ func TestJiraTransitionUpstreamNotFound(t *testing.T) {
 }
 
 func TestJiraTransitionNoTransitionOffered(t *testing.T) {
+	t.Parallel()
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(req.URL.Path, "/transitions") {
@@ -134,6 +138,7 @@ func TestJiraTransitionNoTransitionOffered(t *testing.T) {
 }
 
 func TestJiraTransitionUpstreamAuthRejected(t *testing.T) {
+	t.Parallel()
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}
@@ -153,6 +158,7 @@ func TestJiraTransitionUpstreamAuthRejected(t *testing.T) {
 // may treat as "try again later".
 func TestJiraTransitionUpstreamTransientExhausted(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	h := func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
@@ -168,6 +174,7 @@ func TestJiraTransitionUpstreamTransientExhausted(t *testing.T) {
 }
 
 func TestJiraTransitionNotConfigured(t *testing.T) {
+	t.Parallel()
 	ts := jiraTestServer(t, nil)
 
 	status, body := postTransition(t, ts, `{"key":"KAN-571","target":"In Progress"}`)
@@ -180,6 +187,7 @@ func TestJiraTransitionNotConfigured(t *testing.T) {
 }
 
 func TestJiraTransitionBadBody(t *testing.T) {
+	t.Parallel()
 	ts := jiraTestServer(t, happyAtlassian)
 
 	cases := []struct {

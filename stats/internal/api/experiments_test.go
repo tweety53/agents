@@ -164,6 +164,7 @@ func doJSON(t *testing.T, method, url, body string) (int, string) {
 // TestExperimentsRoutes drives every experiments endpoint through its
 // success and refusal statuses.
 func TestExperimentsRoutes(t *testing.T) {
+	t.Parallel()
 	fe := &fakeExperiments{}
 	ts := newExperimentsTestServer(t, fe)
 	base := ts.URL + "/api/v1/experiments"
@@ -222,6 +223,7 @@ func TestExperimentsRoutes(t *testing.T) {
 // 200 with the store's figures, 404 for an unknown id, 400 for a
 // non-integer one.
 func TestExperimentStatsRoute(t *testing.T) {
+	t.Parallel()
 	fe := &fakeExperiments{}
 	ts := newExperimentsTestServer(t, fe)
 	base := ts.URL + "/api/v1/experiments"
@@ -243,6 +245,7 @@ func TestExperimentStatsRoute(t *testing.T) {
 // store and its group and Does from the table, an open experiment's cell on
 // its role and on main, never read off a closed experiment.
 func TestRolesRoute(t *testing.T) {
+	t.Parallel()
 	type override struct {
 		Pairs        []string `json:"pairs"`
 		ExperimentID int64    `json:"experimentId"`
@@ -303,6 +306,7 @@ func TestRolesRoute(t *testing.T) {
 // answers with the whole policy, which GET then serves; a malformed pair is
 // 400 and writes nothing.
 func TestPolicyPutRoundTrip(t *testing.T) {
+	t.Parallel()
 	fe := &fakeExperiments{}
 	ts := newExperimentsTestServer(t, fe)
 	status, body := doJSON(t, http.MethodPut, ts.URL+"/api/v1/policy/roles/planner", `{"base":["opus/flow-planner-low"],"optin":["fable/flow-planner-xhigh"]}`)
@@ -324,6 +328,7 @@ func TestPolicyPutRoundTrip(t *testing.T) {
 // roles' pairs, opens one experiment over their new main pairs and closes the
 // open experiment that held one of them; a refused edit writes nothing.
 func TestPolicyPostRolesOpensOneExperiment(t *testing.T) {
+	t.Parallel()
 	fe := &fakeExperiments{list: []store.Experiment{{ID: 3, Name: "old", Status: "open", Cells: map[string][]string{"planner": {"opus/flow-planner-low"}}}}}
 	ts := newExperimentsTestServer(t, fe)
 	status, body := doJSON(t, http.MethodPost, ts.URL+"/api/v1/policy/roles", `{"roles":{"planner":{"base":["opus/flow-planner-low","opus/flow-planner-high"],"optin":[]},"explorer":{"base":["opus/Explore@low"],"optin":[]}}}`)
@@ -350,6 +355,7 @@ func TestPolicyPostRolesOpensOneExperiment(t *testing.T) {
 
 // TestPolicyPutUnknownRole: a role the roles table lacks is 400, naming it.
 func TestPolicyPutUnknownRole(t *testing.T) {
+	t.Parallel()
 	fe := &fakeExperiments{}
 	ts := newExperimentsTestServer(t, fe)
 	status, body := doJSON(t, http.MethodPut, ts.URL+"/api/v1/policy/roles/plannr", `{"base":["opus/flow-low"]}`)
@@ -361,6 +367,7 @@ func TestPolicyPutUnknownRole(t *testing.T) {
 // TestPolicyGrantEndpoints: grant, read back, revoke; a revoke of a grant
 // never made is 404, a grant naming no change or an unknown role 400.
 func TestPolicyGrantEndpoints(t *testing.T) {
+	t.Parallel()
 	fe := &fakeExperiments{}
 	ts := newExperimentsTestServer(t, fe)
 	g := ts.URL + "/api/v1/policy/grants"
@@ -394,6 +401,7 @@ func TestPolicyGrantEndpoints(t *testing.T) {
 // role's base pairs, keeps the role's opt-in pairs, and closes the
 // experiment positive; a closed or unknown id is 404 and writes nothing.
 func TestPromoteWritesBaseAndCloses(t *testing.T) {
+	t.Parallel()
 	fe := &fakeExperiments{
 		list: []store.Experiment{{ID: 4, Name: "fable-planner", Status: "open", Cells: map[string][]string{
 			"planner": {"fable/flow-planner-high"}, "main": {"opus@high"},
