@@ -748,6 +748,27 @@ func TestCheckVisualVerifyDispatchedRefusesAScopedNewestVerifier(t *testing.T) {
 	}
 }
 
+// TestCheckVisualVerifyDispatchedAcceptsAClosingScopedRow pins decisions
+// closes-loop-on-verifier-row and full-run-kept-as-fallback: a newest scoped
+// row carrying closesLoop true closes the loop as an unscoped run does, and
+// one carrying closesLoop false still answers closing-run-missing.
+func TestCheckVisualVerifyDispatchedAcceptsAClosingScopedRow(t *testing.T) {
+	t.Parallel()
+	rows := func(closes string) []byte {
+		return []byte(`[` +
+			`{"key":"visual-verify","role":"verifier","outcome":"completed","diffBase":"@HEAD@","startedAt":"2026-10-24T10:00:00Z"},` +
+			`{"key":"visual-verify-fix-1","role":"verifier","outcome":"completed","diffBase":"@HEAD@","roundBase":"c75529d2","closesLoop":` + closes + `,"startedAt":"2026-10-24T11:00:00Z"}]`)
+	}
+	closed := vvdRun(t, vvdCase{dispatches: rows("true")})
+	if closed.code != 0 || !strings.HasPrefix(closed.out, "VISUAL-VERIFY-OK: UI paths touched") {
+		t.Fatalf("closesLoop true: got exit %d stdout %q stderr %q, want exit 0 and the OK verdict", closed.code, closed.out, closed.err)
+	}
+	open := vvdRun(t, vvdCase{dispatches: rows("false")})
+	if open.code != 1 || !strings.Contains(open.out, "ran scoped to round base c75529d2") {
+		t.Fatalf("closesLoop false: got exit %d stdout %q stderr %q, want exit 1 naming the round base", open.code, open.out, open.err)
+	}
+}
+
 // TestCheckVisualVerifyDispatchedScopesTheNewestVerifierPerWorktree pins that
 // the newest verifier row is chosen among the rows this worktree resolves: a
 // newer scoped re-run of another worktree (a sha this one cannot resolve)

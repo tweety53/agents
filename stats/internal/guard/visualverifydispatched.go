@@ -55,6 +55,9 @@ import (
 //   VISUAL-VERIFY-MISSING: the newest verifier row '<key>' ran scoped to round
 //   base <sha> — the loop's closing unscoped run is not recorded
 //   (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD <sha>
+// A newest row carrying closesLoop — ended `-closes-loop` by `flow-guard
+// visual-verify-pass close`, every frame re-captured and every changed frame
+// judged — closes the loop as an unscoped run does.
 //
 // Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
 // UI paths were touched and no qualifying verifier dispatch is recorded;
@@ -425,7 +428,7 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 			newest = v
 		}
 	}
-	newestKey, newestRoundBase := newest.key, newest.roundBase
+	newestKey, newestRoundBase, newestClosesLoop := newest.key, newest.roundBase, newest.closesLoop
 	for _, head := range shas {
 		if !resolves(head) {
 			continue
@@ -488,9 +491,10 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 	}
 	// ONE FULL RUN CLOSES THE LOOP (skills/flow/verify-fix-loop.md): a
 	// scoped re-run is begun with -round-base, so a newest qualifying row
-	// carrying one means the closing unscoped run was never recorded. The
-	// line ends on the HEAD it judged, as every MISSING verdict does.
-	if found && newestRoundBase != "" {
+	// carrying one means the closing unscoped run was never recorded, unless
+	// the row itself closed the loop (closesLoop). The line ends on the HEAD
+	// it judged, as every MISSING verdict does.
+	if found && newestRoundBase != "" && !newestClosesLoop {
 		headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
 		if !ok {
 			fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
@@ -772,6 +776,7 @@ func vvdCompletedVerifiers(raw []byte) (rows []vvdVerifier, ok bool) {
 			v.head, _ = row["diffBase"].(string)
 			v.start, _ = row["startedAt"].(string)
 			v.roundBase, _ = row["roundBase"].(string)
+			v.closesLoop, _ = row["closesLoop"].(bool)
 			rows = append(rows, v)
 		}
 	}
@@ -790,8 +795,12 @@ func vvdResolving(heads string, resolves func(string) bool) string {
 }
 
 // vvdVerifier is one qualifying verifier row: its key, the HEAD(s) it
-// verified (diffBase), its start instant and its scoped round base.
-type vvdVerifier struct{ key, head, start, roundBase string }
+// verified (diffBase), its start instant, its scoped round base and whether
+// `visual-verify-pass close` ended it `-closes-loop` (closesLoop).
+type vvdVerifier struct {
+	key, head, start, roundBase string
+	closesLoop                  bool
+}
 
 // vvdSHA is a commit id as `git rev-parse HEAD` prints it, abbreviated or
 // whole -- never a ref name such as HEAD, which would verify whatever the
