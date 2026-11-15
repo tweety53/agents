@@ -232,6 +232,11 @@ func twFoldBack(env Env, wt, cp string) error {
 			}
 			c := sdd + "/" + filepath.Base(f)
 			if twHeld(f, c) {
+				if root == wt {
+					if err := os.Remove(f); err != nil {
+						return err
+					}
+				}
 				continue
 			}
 			var err error

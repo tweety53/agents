@@ -386,3 +386,25 @@ func TestThrowawayWorktreeFoldBackMovesARootReport(t *testing.T) {
 		t.Errorf("an empty root report was folded")
 	}
 }
+
+// TestThrowawayWorktreeFoldBackDropsAHeldRootReport pins that a worktree-root
+// panel report the sdd copy already holds is removed, not left at the root.
+func TestThrowawayWorktreeFoldBackDropsAHeldRootReport(t *testing.T) {
+	t.Parallel()
+	wt, cp := twFoldFixture(t)
+	f := wt + "/panel-report-c.md"
+	if err := os.WriteFile(f, []byte("stale root c\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Unix(1_600_000_000, 0)
+	if err := os.Chtimes(f, old, old); err != nil {
+		t.Fatal(err)
+	}
+	twGuard(t, "remove", wt, cp, "--fold-back")
+	if _, err := os.Stat(f); err == nil {
+		t.Errorf("a held worktree-root report was left at the root")
+	}
+	if b, _ := os.ReadFile(wt + "/.superpowers/sdd/panel-report-c.md"); string(b) != "wt c newer\n" {
+		t.Errorf("held sdd report = %q, want %q", b, "wt c newer\n")
+	}
+}
