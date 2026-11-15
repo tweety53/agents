@@ -775,12 +775,13 @@ before the breach can even be recorded — so a run is never promised a stop the
 deliver.
 
 On a breach, in order: stop the slot where the harness offers a handle on the in-flight dispatch,
-and where it does not, let the dispatch return and record the breach then; close its dispatch row
-(`-outcome timed-out`); record the breach as
-`flow record pass -round <round> -note 'breach: <key> <elapsed>'`, `<elapsed>` as `21m47s`;
-re-dispatch that one slot once, under `-key panel-<round>-<slot>-retry` — each further
-re-dispatch of the same slot after another breach under `-retry-2`, `-retry-3` and so on, the
-count of its re-dispatches so far.
+and where it does not, let the dispatch return and record the breach then; record the breach as
+`flow record pass -round <round> -note 'breach: <key> <elapsed>'`, `<elapsed>` as `21m47s`; close
+its dispatch row. A slot that returned a parsable report past its ceiling is closed by that report
+as usual, keeps its findings, and is not re-dispatched. A slot stopped, or one that returned no
+parsable report, is closed `-outcome timed-out` and re-dispatched once, under
+`-key panel-<round>-<slot>-retry` — each further re-dispatch of the same slot after another breach
+under `-retry-2`, `-retry-3` and so on, the count of its re-dispatches so far.
 
 `flow-guard check-panel-findings-closed` refuses a panel reviewer row closed `completed` or
 `clean` whose stored span passes 15 minutes while no such `breach:` pass row names its key; the
