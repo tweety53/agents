@@ -35,10 +35,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-eight
-// findings, F1-F29 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-nine
+// findings, F1-F30 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F29's are the rows below).
+// design.md -- not restated here; F7-F30's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -262,6 +262,12 @@ import (
 //	    module root, so a cached run passes an edited Markdown file the
 //	    tests read (skills/flow/brainstorm-planner.md; self-review-kan-1110
 //	    F6). Reported at the line.
+//	F30 A task's **Size:** value -- its first column-0, unfenced
+//	    **Size:** line -- is `small`, `medium` or `big`: an unknown value
+//	    would be packed by plan-dispatch-groups as `medium`, and the plan
+//	    gate owns field validation, so a typo fails here rather than first
+//	    at dispatch (design decision size-checked-at-plan-gate). Reported
+//	    at the size line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -276,7 +282,7 @@ var psSubGuards = []string{"plan-suite-steps", "plan-script-paths", "plan-files-
 // rule's rationale stays in this file's header (decisions rules-flag,
 // rationale-stays-in-header). F21 is retired and has no row.
 var psRules = []struct{ id, sentence string }{
-	{"F1", `A task body declares each of **Files:**, **Tests:**, **Commit:**, **Baseline:** and **Allowed-collateral:** at most once.`},
+	{"F1", `A task body declares each of **Files:**, **Tests:**, **Commit:**, **Baseline:**, **Allowed-collateral:** and **Size:** at most once.`},
 	{"F2", `Every task declares a **Files:** line naming at least one file.`},
 	{"F3a", "Every field line (`**Files:**`, `**Tests:**`, `**After:**`, …) starts at column 0, never indented."},
 	{"F3b", `Every code fence a task body opens closes inside that body.`},
@@ -305,6 +311,7 @@ var psRules = []struct{ id, sentence string }{
 	{"F27", "Every `## Open questions` entry in design.md reads `**Status:** answered by <decision-id>`, and the section holds no list item."},
 	{"F28", `A plan whose unticked task edits run-loaded prose has a verbatim-moves.txt beside tasks.md.`},
 	{"F29", "Every go test command passes `-count=`."},
+	{"F30", "A task's **Size:** value is `small`, `medium` or `big`."},
 	{"plan-suite-steps", "No step runs a module or repository test suite: go test takes `-run`, Gradle `--tests`, npm test and vitest `-t`."},
 	{"plan-script-paths", "Every `scripts/` path a task cites exists in the repository or is in some task's **Files:**."},
 	{"plan-files-paths", `Every **Files:** path names the directory its file lands in, never one with a segment dropped.`},
@@ -438,9 +445,9 @@ func (p *psPlan) atFile(file string, line int, id, msg string) psFinding {
 	return psFinding{id, fmt.Sprintf("%s:%d: %s %s", file, line, id, msg)}
 }
 
-// psF1Fields are the five names F1 counts; Regression and Build are not
+// psF1Fields are the six names F1 counts; Regression and Build are not
 // part of it -- Build's precedence is tcfSelectBuildKind's job.
-var psF1Fields = []string{"Files", "Tests", "Commit", "Baseline", "Allowed-collateral"}
+var psF1Fields = []string{"Files", "Tests", "Commit", "Baseline", "Allowed-collateral", "Size"}
 
 // psTestShaped are F4's (and F15's) test-shaped file globs; psPlanning
 // F14's planning paths -- check-task-commit-planning-paths' <leaf>/changes/
@@ -799,6 +806,16 @@ func (p *psPlan) checkTask(found tcfTaskBody) []psFinding {
 			v = append(v, p.at(start+off+1, "F3a", "task "+id+" carries a **"+m[1]+":** line indented past column 0, invisible to the field grammar (FIELD_RE anchors at column 0) and therefore never read as a declaration"))
 		}
 		return false
+	})
+	tcfUnfenced(body, func(off int, line string) bool {
+		m := tcfFieldRE.FindStringSubmatch(line)
+		if m == nil || m[1] != "Size" {
+			return false
+		}
+		if sz := tcfStrip(m[2]); p.on("F30") && !slices.Contains(pdbSizes, sz) {
+			v = append(v, p.at(start+off+1, "F30", "task "+id+"'s **Size:** value `"+sz+"` is not `small`, `medium` or `big` — plan-dispatch-groups cannot weigh it and plan-dispatch-bundles refuses it"))
+		}
+		return true
 	})
 	firstGating := 0
 	tcfUnfenced(body, func(off int, line string) bool {
