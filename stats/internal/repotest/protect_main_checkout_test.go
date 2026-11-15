@@ -771,3 +771,40 @@ func TestProtectMainCheckoutAdmitsRemovingALocalClone(t *testing.T) {
 	f.bash("rm -rf of a clone of a network origin", "deny", "{ROOT}", `rm -rf {ROOT}/netclone`)
 	f.bash("rm -rf of a checkout cloned from a local bare repository", "deny", "{ROOT}", `rm -rf {MAIN}`)
 }
+
+// TestProtectMainCheckoutReadsALiteralExportAsData pins decisions
+// literal-export-is-data and deny-names-path-and-remedy (kan-1129 self-review
+// F2): an `export NAME=<literal>` beside a data heredoc keeps no body scanned,
+// while an export that may name the target, expands, or carries no value
+// still does — and a Bash deny names the path it read and the remedy.
+func TestProtectMainCheckoutReadsALiteralExportAsData(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	main := root + "/main"
+	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
+	f.git("init", "-q", "--bare", root+"/origin.git")
+	f.git("clone", "-q", root+"/origin.git", main)
+	f.write(main+"/f.txt", "a\n")
+	f.git("-C", main, "add", "f.txt")
+	f.git("-C", main, "commit", "-q", "-m", "init")
+	f.git("-C", main, "branch", "-M", "main")
+	f.git("-C", main, "push", "-q", "-u", "origin", "main")
+	f.git("-C", main, "remote", "set-head", "origin", "main")
+
+	f.bash("export literal", "allow", "{MAIN}", "CR={SIB}\nexport FLOWD_PORT=4174\ncat > $CR/live-verification.md <<'EOF'\nwrite f<i>.txt here\nEOF")
+	f.bash("export names target", "deny", "{MAIN}", "export PAGER={SIB}/r.md\ncat > {SIB}/r.md <<'EOF'\nwrite f<i>.txt here\nEOF")
+	expansion := "export X=$Y\ncat > {SIB}/r.md <<'EOF'\nwrite f<i>.txt here\nEOF"
+	f.bash("export expansion", "deny", "{MAIN}", expansion)
+	f.bash("export without value", "deny", "{MAIN}", "export PAGER\ncat > {SIB}/r.md <<'EOF'\nwrite f<i>.txt here\nEOF")
+	out := f.run(t, f.x("{MAIN}"), "Bash", map[string]string{"command": f.x(expansion)})
+	for _, want := range []string{f.x("{MAIN}/.txt"), "heredoc", "Write tool"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("(e) deny reason lacks %q: %s", want, out)
+		}
+	}
+}

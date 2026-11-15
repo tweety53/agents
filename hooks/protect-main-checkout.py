@@ -450,6 +450,22 @@ def command_segments(text):
     return out
 
 
+def literal_export(args, target):
+    """True when every export argument is `NAME=value` whose value can run nothing: no `$` or
+    backtick, and not naming target (`names_target`) — with target None, holding no `/`."""
+    if not args:
+        return False
+    for arg in args:
+        if not ASSIGNMENT_RE.match(arg):
+            return False
+        value = arg.split("=", 1)[1]
+        if "$" in value or "`" in value:
+            return False
+        if names_target(value, target) if target else "/" in value:
+            return False
+    return True
+
+
 def may_run_code(text, target):
     """True when text — the command outside one heredoc body — could run that body or the file
     target it writes. Fails closed: a process or command substitution (`>(sh)`, `bash <(`,
@@ -459,7 +475,8 @@ def may_run_code(text, target):
     one `reads_only` allows. A command naming another file (`flow-guard check-plan-shape /x/o.md`,
     `./gradlew`) leaves the body as data; `php $T`, `setsid $T`, `find . -exec`, `ssh h $T`
     keep it scanned, as does any command behind a leading `NAME=value` or run under
-    `env`/`export`. With target None no command names it, so substitutions, runner words, env
+    `env`/`export` — save an `export` whose every argument is `NAME=value` with a literal value:
+    no `$` or backtick, and one that cannot name target (with target None, no `/`). With target None no command names it, so substitutions, runner words, env
     assignments and a command word holding `/` or `$` count. Over-matching only keeps the body scanned."""
     segments = command_segments(text)
     if segments is None:
@@ -469,6 +486,8 @@ def may_run_code(text, target):
             return True
         # An env assignment can make any command run a file (GIT_EXTERNAL_DIFF, PAGER,
         # LD_PRELOAD, …): a command carrying one, or run under `env`/`export`, is never a reader.
+        if words and not assigned and words[0] == "export" and literal_export(words[1:], target):
+            continue
         if words and (assigned or words[0].rsplit("/", 1)[-1] in {"env", "export"}):
             return True
         # With no target, a command word holding `/` or `$` may run what the opener wrote or
@@ -1262,12 +1281,22 @@ def main():
         hit = protected(path) if path else None
         if hit is None:
             continue
+        reason = deny_reason(*hit)
+        if tool == "Bash":
+            reason += f"\n\nThis command reads as writing {path}."
+            if HEREDOC_OPEN_RE.search(command):
+                reason += (
+                    " A heredoc body the hook could not read as data is scanned as shell — an "
+                    "`export`, a `NAME=value` prefix or a code-running word elsewhere in the command "
+                    "keeps it scanned. Write the file with the Write tool, or run the heredoc as a "
+                    "command of its own."
+                )
         json.dump(
             {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "deny",
-                    "permissionDecisionReason": deny_reason(*hit),
+                    "permissionDecisionReason": reason,
                 }
             },
             sys.stdout,
