@@ -19,7 +19,7 @@ func behindRepo(t *testing.T) (repo, origin string) {
 		t.Fatal(err)
 	}
 	origin, repo, other := dir+"/origin.git", dir+"/repo", dir+"/other"
-	gitRun(t, "", "init", "-q", "--bare", "-b", "main", origin)
+	fixtureRepo(t, origin, repoShape{Branch: "main", Bare: true})
 	gitRun(t, "", "clone", "-q", origin, repo)
 	writeFile(t, repo+"/f.txt", "a\n")
 	gitRun(t, repo, "add", "f.txt")
@@ -187,7 +187,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 	t.Run("unborn HEAD cannot answer", func(t *testing.T) {
 		t.Parallel()
 		repo := t.TempDir() + "/repo"
-		gitRun(t, "", "init", "-q", "-b", "main", repo)
+		fixtureRepo(t, repo, repoShape{Branch: "main"})
 		if r := run(repo, "main"); r.rc != 2 || r.stdout != "" || r.err == "" {
 			t.Fatalf("want exit 2, git's message on stderr; got %+v", r)
 		}

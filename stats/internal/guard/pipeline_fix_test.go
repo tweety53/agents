@@ -37,7 +37,7 @@ func pfNew(t *testing.T, rows string) pfFx {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gitRun(t, "", "init", "-q", "--bare", "-b", "main", fx.origin)
+	fixtureRepo(t, fx.origin, repoShape{Branch: "main", Bare: true})
 	gitRun(t, "", "clone", "-q", fx.origin, fx.repo)
 	writeFile(t, fx.repo+"/"+mpFile, string(table))
 	writeFile(t, fx.repo+"/.flow/project.md", pfProject)
@@ -558,7 +558,7 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 	fx := pfNew(t, lpRowsJSON(token+"-", token, "plan completed", "fix completed"))
 	tmp := filepath.Dir(fx.repo)
 	porigin, proj := tmp+"/gymie.git", tmp+"/gymie"
-	gitRun(t, "", "init", "-q", "--bare", "-b", "develop", porigin)
+	fixtureRepo(t, porigin, repoShape{Branch: "develop", Bare: true})
 	gitRun(t, "", "clone", "-q", porigin, proj)
 	writeFile(t, proj+"/README.md", "gymie\n")
 	gitRun(t, proj, "add", "-A")

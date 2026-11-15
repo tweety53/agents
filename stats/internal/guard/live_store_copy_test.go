@@ -35,8 +35,7 @@ func TestLiveStoreCopy(t *testing.T) {
 
 	repo := t.TempDir()
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", repo)
-	g.git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(repo, repoShape{Branch: "main", Commit: "base"})
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
@@ -299,8 +298,7 @@ func TestLiveStoreCopyRefusesAnotherCheckout(t *testing.T) {
 	a, b := t.TempDir(), t.TempDir()
 	var g fxGit
 	for _, r := range []string{a, b} {
-		g.git("", "init", "-q", "-b", "main", r)
-		g.git(r, "commit", "-q", "--allow-empty", "-m", "base")
+		g.copyShape(r, repoShape{Branch: "main", Commit: "base"})
 	}
 	if g.err != nil {
 		t.Fatal(g.err)

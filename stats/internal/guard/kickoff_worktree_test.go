@@ -49,26 +49,21 @@ func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 		t.Fatal(err)
 	}
 	fx := kwFx{origin: tmp + "/origin.git", project: tmp + "/project"}
+	fixtureRepoWithOrigin(t, fx.project, fx.origin, repoShape{Branch: "main", Commit: "init"})
 	var g fxGit
-	g.git("", "init", "-q", "--bare", "-b", "main", fx.origin)
-	seed := tmp + "/seed"
-	g.git("", "clone", "-q", fx.origin, seed)
-	g.git(seed, "config", "user.name", "test")
-	g.git(seed, "config", "user.email", "test@example.com")
-	// Every project ignores .superpowers/, so kickoff adds no commit; one
-	// that does not is TestKickoffWorktreeIgnoresScratch's.
-	writeFile(t, seed+"/.gitignore", ".superpowers/\n")
-	if projectMD != "" {
-		writeFile(t, seed+"/.flow/project.md", projectMD)
-	} else {
-		writeFile(t, seed+"/README.md", "readme\n")
-	}
-	g.git(seed, "add", "-A")
-	g.git(seed, "commit", "-q", "-m", "init")
-	g.git(seed, "push", "-q", "origin", "HEAD:main")
-	g.git("", "clone", "-q", fx.origin, fx.project)
 	g.git(fx.project, "config", "user.name", "test")
 	g.git(fx.project, "config", "user.email", "test@example.com")
+	// Every project ignores .superpowers/, so kickoff adds no commit; one
+	// that does not is TestKickoffWorktreeIgnoresScratch's.
+	writeFile(t, fx.project+"/.gitignore", ".superpowers/\n")
+	if projectMD != "" {
+		writeFile(t, fx.project+"/.flow/project.md", projectMD)
+	} else {
+		writeFile(t, fx.project+"/README.md", "readme\n")
+	}
+	g.git(fx.project, "add", "-A")
+	g.git(fx.project, "commit", "-q", "-m", "project")
+	g.git(fx.project, "push", "-q", "origin", "HEAD:main")
 	if g.err != nil {
 		t.Fatal(g.err)
 	}

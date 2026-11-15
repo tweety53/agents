@@ -10,8 +10,7 @@ func TestUnchanged(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir() + "/r"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", repo)
-	g.git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(repo, repoShape{Branch: "main", Commit: "base"})
 	g.git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
 	g.err = os.MkdirAll(repo+"/docs", 0o755)
 	g.write(repo+"/docs/a.md", "a")
@@ -57,8 +56,7 @@ func TestUnchangedAnswersChangedUnderVerifyFull(t *testing.T) {
 	t.Parallel()
 	repo := t.TempDir() + "/r"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", repo)
-	g.git(repo, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(repo, repoShape{Branch: "main", Commit: "base"})
 	g.git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
 	g.err = os.MkdirAll(repo+"/docs", 0o755)
 	g.write(repo+"/docs/a.md", "a")

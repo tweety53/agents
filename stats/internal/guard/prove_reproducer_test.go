@@ -40,11 +40,8 @@ var prMaster = sync.OnceValues(func() ([2]string, error) {
 		out, err := cmd.CombinedOutput()
 		return strings.TrimSpace(string(out)), err
 	}
-	steps := [][]string{{"init", "-q"}, {"commit", "-q", "--allow-empty", "-m", "init"}}
-	for _, s := range steps {
-		if out, err := git(s...); err != nil {
-			return [2]string{}, &prGitError{s, out}
-		}
+	if err := copyShape(dir, repoShape{Commit: "init"}); err != nil {
+		return [2]string{}, err
 	}
 	commit := func(body, msg string) (string, error) {
 		if err := os.WriteFile(filepath.Join(dir, "check.txt"), []byte(body+"\n"), 0o644); err != nil {

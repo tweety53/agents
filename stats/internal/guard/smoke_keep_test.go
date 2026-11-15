@@ -11,7 +11,7 @@ import (
 func smokeKeepRepo(t *testing.T, g *fxGit, files ...string) string {
 	t.Helper()
 	repo := t.TempDir() + "/r"
-	g.git("", "init", "-q", "-b", "main", repo)
+	g.copyShape(repo, repoShape{Branch: "main"})
 	for _, f := range files {
 		if g.err == nil {
 			g.err = os.MkdirAll(filepath.Dir(repo+"/"+f), 0o755)
@@ -113,8 +113,7 @@ func TestSmokeKeepRefusals(t *testing.T) {
 	var g fxGit
 	repo := smokeKeepRepo(t, &g, "a.go")
 	noOrigin := t.TempDir() + "/n"
-	g.git("", "init", "-q", "-b", "main", noOrigin)
-	g.git(noOrigin, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(noOrigin, repoShape{Branch: "main", Commit: "base"})
 	if g.err != nil {
 		t.Fatal(g.err)
 	}

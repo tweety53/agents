@@ -218,7 +218,7 @@ func TestRunVerifyList(t *testing.T) {
 			project(g, "## test\n\n```bash\n# inputs: web/\necho ran >> \"$(git rev-parse --git-dir)/web-runs\"; echo web\n# inputs: go/\necho go\necho all\n```\n")
 			writeFile(t, filepath.Join(g, "web/a"), "a\n")
 			writeFile(t, filepath.Join(g, "go/b"), "b\n")
-			gitIn(t, g, "init", "-q")
+			fixtureRepo(t, g, repoShape{})
 			gitIn(t, g, "add", "-A")
 			gitIn(t, g, "commit", "-q", "-m", "one")
 		})
@@ -275,7 +275,7 @@ func TestRunVerifyList(t *testing.T) {
 		both(func(root string) {
 			f := filepath.Join(root, "fail")
 			project(f, "## test\n\n```bash\nseq 1 25; exit 4\ntrue\n```\n")
-			gitIn(t, f, "init", "-q")
+			fixtureRepo(t, f, repoShape{})
 			gitIn(t, f, "add", "-A")
 			gitIn(t, f, "commit", "-q", "-m", "one")
 		})
@@ -549,7 +549,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 		gitIn(t, wt, "add", "-A")
 		gitIn(t, wt, "commit", "-q", "-m", msg)
 	}
-	gitIn(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 
 	commit("exit 1", "one")
 	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
@@ -669,7 +669,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 			Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 	}
 	calls := func() string { b, _ := os.ReadFile(log); return string(b) }
-	git("init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, filepath.Join(wt, ".flow/project.md"),
 		"## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\nwhile [ ! -f "+gate+" ]; do sleep 0.05; done\n```\n")
 	git("add", "-A")
@@ -719,9 +719,7 @@ func TestRunVerifyListKeepsResultFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(fixtureGit, "-C", wt, "init", "-q").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, out)
-	}
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nmkdir -p build/test-results && echo \"<x n='$$'/>\" > build/test-results/TEST-a.xml; exit 1\n```\n")
 	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 	getenv := func(k string) string {
@@ -772,7 +770,8 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nseq 1 200000\ntrue\n```\n")
-	for _, args := range [][]string{{"init", "-q"}, {"add", "-A"}, {"commit", "-q", "-m", "one"}} {
+	fixtureRepo(t, wt, repoShape{})
+	for _, args := range [][]string{{"add", "-A"}, {"commit", "-q", "-m", "one"}} {
 		if out, err := exec.Command(fixtureGit, append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
@@ -900,7 +899,7 @@ func rvlVisualSetup(t *testing.T, verify, file, decision, specs string, noOrigin
 	if checkout {
 		checkoutPath = app
 		writeFile(t, filepath.Join(app, "a"), "x\n")
-		git(t, base, "init", "-q", "-b", "main", app)
+		fixtureRepo(t, app, repoShape{Branch: "main"})
 		git(t, app, "add", "-A")
 		git(t, app, "commit", "-q", "-m", "base")
 		if !noAppWT {
@@ -909,7 +908,7 @@ func rvlVisualSetup(t *testing.T, verify, file, decision, specs string, noOrigin
 	}
 	writeFile(t, filepath.Join(seed, ".flow/project.md"), project(verify, checkoutPath, specs))
 	writeFile(t, filepath.Join(seed, ".gitignore"), ".superpowers/\n")
-	git(t, base, "init", "-q", "-b", "main", seed)
+	fixtureRepo(t, seed, repoShape{Branch: "main"})
 	git(t, seed, "add", "-A")
 	git(t, seed, "commit", "-q", "-m", "base")
 	if noOrigin {
@@ -1028,9 +1027,7 @@ func TestRunVerifyListCapsMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(fixtureGit, "-C", wt, "init", "-q").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, out)
-	}
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## resource cap\n\n64\n\n## test\n\n```bash\npython3 -c 'import os, time; b = bytearray(os.urandom(128 << 20)); [(b.__setitem__(slice(None, None, 4096), os.urandom(len(b) // 4096)), time.sleep(0.2)) for _ in range(50)]'\n```\n")
 	// An outer run-capped's RUN_CAPPED_PGID would make the inner one run
 	// in place under the outer cap, never this fixture's 64 MB.
@@ -1066,7 +1063,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	wt := filepath.Join(tmp, "repo-x")
-	gitRun(t, tmp, "init", "-q", wt)
+	fixtureRepo(t, wt, repoShape{})
 	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
@@ -1126,11 +1123,10 @@ func TestRunVerifyListRecordsHead(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	gitRun(t, wt, "add", "-A")
 	gitRun(t, wt, "commit", "-qm", "a")
-	gitRun(t, canon, "init", "-q")
-	gitRun(t, canon, "commit", "-q", "--allow-empty", "-m", "c")
+	fixtureRepo(t, canon, repoShape{Commit: "c"})
 	head := func(d string) string {
 		out, err := exec.Command("git", "-C", d, "rev-parse", "HEAD").Output()
 		if err != nil {
@@ -1208,7 +1204,7 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 			t.Fatal(err)
 		}
 		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\n"+cmd+"\n```\n")
-		gitRun(t, wt, "init", "-q")
+		fixtureRepo(t, wt, repoShape{})
 		gitRun(t, wt, "add", "-A")
 		gitRun(t, wt, "commit", "-qm", "a")
 		out, err := exec.Command("git", "-C", wt, "rev-parse", "--path-format=absolute", "--git-path", "flow-lint-green").Output()
@@ -1281,7 +1277,7 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	a := `echo ran >> "$(git rev-parse --git-dir)/a-runs"; echo a`
 	b := `test -f "$(git rev-parse --git-dir)/b-ok"`
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+a+"\n"+b+"\n```\n")
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	gitRun(t, wt, "add", "-A")
 	gitRun(t, wt, "commit", "-qm", "a")
 	gitDir := filepath.Join(wt, ".git")
@@ -1707,7 +1703,7 @@ func TestRunVerifyListRunsSpecsFromTheSiblingFrontend(t *testing.T) {
 	// src/a.tsx -- web/src/a.tsx under the canonical `ui paths`.
 	sib := filepath.Join(t.TempDir(), "web")
 	writeFile(t, filepath.Join(sib, "README"), "x\n")
-	rvlGit(t, filepath.Dir(sib), "init", "-q", "-b", "main", sib)
+	fixtureRepo(t, sib, repoShape{Branch: "main"})
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "base")
 	sibBase := rvlGit(t, sib, "rev-parse", "HEAD")
@@ -1765,7 +1761,7 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 			t.Fatal(err)
 		}
 		writeFile(t, filepath.Join(repo, ".flow/project.md"), "## test\n\n```bash\n"+list+"```\n")
-		rvlGit(t, repo, "init", "-q", "-b", "main")
+		fixtureRepo(t, repo, repoShape{Branch: "main"})
 		rvlGit(t, repo, "add", "-A")
 		rvlGit(t, repo, "commit", "-q", "-m", "base")
 		rvlGit(t, repo, "update-ref", "refs/remotes/origin/main", "HEAD")
@@ -1824,7 +1820,7 @@ func rvlFullRepo(t *testing.T, list string) string {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(repo, ".flow/project.md"), "## test\n\n```bash\n"+list+"```\n")
-	rvlGit(t, repo, "init", "-q", "-b", "main")
+	fixtureRepo(t, repo, repoShape{Branch: "main"})
 	rvlGit(t, repo, "add", "-A")
 	rvlGit(t, repo, "commit", "-q", "-m", "base")
 	rvlGit(t, repo, "update-ref", "refs/remotes/origin/main", "HEAD")
@@ -1973,7 +1969,7 @@ func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
 	wt, _ := rvlVisualSetup(t, "echo VISUAL", "docs/a.md", "", "", false, false, false)
 	sib := filepath.Join(t.TempDir(), "web")
 	writeFile(t, filepath.Join(sib, "README"), "x\n")
-	rvlGit(t, filepath.Dir(sib), "init", "-q", "-b", "main", sib)
+	fixtureRepo(t, sib, repoShape{Branch: "main"})
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "base")
 	sibBase := rvlGit(t, sib, "rev-parse", "HEAD")

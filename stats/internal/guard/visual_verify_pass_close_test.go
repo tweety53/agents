@@ -465,7 +465,7 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 		h := vvcFixture(t, "")
 		regress := filepath.Join(filepath.Dir(h.wt), "regress")
 		writeFile(t, filepath.Join(regress, "README"), "r\n")
-		gitRun(t, regress, "init", "-q", "-b", "main")
+		fixtureRepo(t, regress, repoShape{Branch: "main"})
 		gitRun(t, regress, "add", "-A")
 		gitRun(t, regress, "commit", "-qm", "r")
 		capture := regress

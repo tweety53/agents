@@ -69,8 +69,7 @@ func cwdFixture(t *testing.T) (main, wt, bare string) {
 	}
 	main, wt, bare = dir+"/main", dir+"/wt", dir+"/bare"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", main)
-	g.git(main, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(main, repoShape{Branch: "main", Commit: "base"})
 	writeExec(t, main+"/scripts/flow-guard", "#!/bin/sh\n")
 	g.git(main, "add", "scripts/flow-guard")
 	g.git(main, "commit", "-q", "-m", "bootstrap")
@@ -110,7 +109,7 @@ func TestCwdCheckoutReexec(t *testing.T) {
 		t.Fatal(err)
 	}
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", other)
+	g.copyShape(other, repoShape{Branch: "main"})
 	writeExec(t, other+"/scripts/flow-guard", "#!/bin/sh\n")
 	if g.err != nil {
 		t.Fatal(g.err)

@@ -11,7 +11,7 @@ import (
 // spectre/changes/ file the task does not name.
 func stfRepo(t *testing.T, g *fxGit, wt string) []string {
 	t.Helper()
-	g.git("", "init", "-q", "-b", "work", wt)
+	g.copyShape(wt, repoShape{Branch: "work"})
 	for _, d := range []string{"/src/app/template/src/test/x", "/src/app/template/src/main/k/l", "/spectre/changes/c"} {
 		mkdir(t, wt+d)
 	}
@@ -98,7 +98,7 @@ func TestStageTaskFilesStagesDeletedPaths(t *testing.T) {
 	dir := t.TempDir()
 	wt := dir + "/wt"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "work", wt)
+	g.copyShape(wt, repoShape{Branch: "work"})
 	g.write(wt+"/gone-rm.txt", "base")
 	g.write(wt+"/gone-plain.txt", "base")
 	g.git(wt, "add", ".")
@@ -152,7 +152,7 @@ func TestStageTaskFilesSkipsAnUntrackedIgnoredPath(t *testing.T) {
 	dir := t.TempDir()
 	wt := dir + "/wt"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "work", wt)
+	g.copyShape(wt, repoShape{Branch: "work"})
 	mkdir(t, wt+"/.idea")
 	g.write(wt+"/.idea/vcs.xml", "base")
 	g.write(wt+"/.gitignore", "base\n")

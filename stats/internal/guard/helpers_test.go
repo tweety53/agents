@@ -752,6 +752,8 @@ func buildShape(s repoShape, withOrigin bool) (string, error) {
 		func() error { return fixtureGitExec(clone, "commit", "-q", "--allow-empty", "-m", s.Commit) },
 		func() error { return fixtureGitExec(clone, "remote", "add", "origin", origin) },
 		func() error { return fixtureGitExec(clone, "push", "-q", "-u", "origin", s.Branch) },
+		// origin/HEAD, as `git clone` records it.
+		func() error { return fixtureGitExec(clone, "remote", "set-head", "origin", s.Branch) },
 	} {
 		if err := step(); err != nil {
 			return "", err
@@ -783,7 +785,8 @@ func fixtureRepo(t *testing.T, dir string, s repoShape) {
 }
 
 // fixtureRepoWithOrigin copies the origin shape: a bare repository at origin and a clone at
-// dir with s.Commit on s.Branch pushed to it and tracking it, its origin URL rewritten to
+// dir with s.Commit on s.Branch pushed to it and tracking it, origin/HEAD naming s.Branch as
+// a clone's does, its origin URL rewritten to
 // origin in Go. Worktrees and further commits are made after the copy: gitdir paths are
 // absolute.
 func fixtureRepoWithOrigin(t *testing.T, dir, origin string, s repoShape) {
@@ -1057,6 +1060,7 @@ func TestFixtureRepoCopiesTheShape(t *testing.T) {
 	fixtureRepoWithOrigin(t, clone, origin, shape)
 	check("origin URL", g.git(clone, "remote", "get-url", "origin"), origin)
 	check("origin/main", g.git(clone, "rev-parse", "origin/main"), g.git(clone, "rev-parse", "HEAD"))
+	check("origin/HEAD", g.git(clone, "symbolic-ref", "refs/remotes/origin/HEAD"), "refs/remotes/origin/main")
 	g.git(clone, "commit", "-q", "--allow-empty", "-m", "next")
 	g.git(clone, "push", "-q", "origin", "main")
 	check("origin's main after a push", g.git(origin, "rev-parse", "main"), g.git(clone, "rev-parse", "HEAD"))

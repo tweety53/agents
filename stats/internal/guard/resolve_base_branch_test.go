@@ -44,13 +44,12 @@ var rbbMasters = sync.OnceValues(func() (rbbFixture, error) {
 		}
 		return nil
 	}
-	steps := [][]string{
-		{"init", "-q", "-b", "main", "--bare", f.remote},
-		{"init", "-q", "-b", "main", seed},
-		{"init", "-q", "-b", "spectre/fixture", f.noOrigin},
-	}
-	for _, s := range steps {
-		if err := git(s...); err != nil {
+	for dir, s := range map[string]repoShape{
+		f.remote:   {Branch: "main", Bare: true},
+		seed:       {Branch: "main"},
+		f.noOrigin: {Branch: "spectre/fixture"},
+	} {
+		if err := copyShape(dir, s); err != nil {
 			return f, err
 		}
 	}
@@ -59,7 +58,7 @@ var rbbMasters = sync.OnceValues(func() (rbbFixture, error) {
 			return f, err
 		}
 	}
-	steps = [][]string{
+	steps := [][]string{
 		{"-C", seed, "add", "file.txt"},
 		{"-C", seed, "commit", "-qm", "base"},
 		{"-C", seed, "remote", "add", "origin", f.remote},

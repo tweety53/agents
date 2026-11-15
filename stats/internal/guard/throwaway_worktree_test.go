@@ -45,7 +45,7 @@ func twRepo(t *testing.T) string {
 	t.Helper()
 	wt := filepath.Join(t.TempDir(), "wt")
 	mkdir(t, wt)
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, wt+"/.gitignore", ".superpowers/\n")
 	writeFile(t, wt+"/a.txt", "a\n")
 	writeFile(t, wt+"/b.txt", "b\n")
@@ -193,7 +193,7 @@ func TestThrowawayWorktreeCreateCopiesTheChangeDirectory(t *testing.T) {
 			t.Parallel()
 			wt := filepath.Join(t.TempDir(), "wt")
 			mkdir(t, wt)
-			gitRun(t, wt, "init", "-q")
+			fixtureRepo(t, wt, repoShape{})
 			writeFile(t, wt+"/a.txt", "a\n")
 			if tc.tracked {
 				writeFile(t, wt+"/.gitignore", ".superpowers/\n")
