@@ -421,6 +421,19 @@ func TestCheckVerbatimMovesAckAppendsFailLines(t *testing.T) {
 	}
 }
 
+// TestCheckVerbatimMovesAckRefusesAMissingChangeOnACleanTree pins the
+// kan-1115 self-review fix, F2: -ack resolves the change's directory before
+// judging the tree, so naming a change with no directory exits 2 even when
+// the run finds no FAIL to acknowledge (decision ack-dir-resolved-first).
+func TestCheckVerbatimMovesAckRefusesAMissingChangeOnACleanTree(t *testing.T) {
+	t.Parallel()
+	root := vmRepo(t, vmBase)
+	rc, out, errb := vmRun(root, "-ack", "missing", "-reason", "moved")
+	if rc != 2 || !strings.Contains(errb, `no change directory for "missing" to acknowledge in`) {
+		t.Fatalf("rc = %d, want 2 and the missing-directory refusal\nstdout:\n%s\nstderr:\n%s", rc, out, errb)
+	}
+}
+
 // TestCheckVerbatimMovesSymlinkSkipped pins the prototype's `not
 // p.is_symlink()`: skills/flow/scripts/ holds symlinks into scripts/, and a
 // symlinked Markdown file is the same text counted twice.

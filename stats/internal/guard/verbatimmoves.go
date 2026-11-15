@@ -127,6 +127,16 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	if v, ok := env.LookupEnv("GIT_CONFIG_GLOBAL"); ok {
 		gitEnv = append(gitEnv, "GIT_CONFIG_GLOBAL="+v)
 	}
+	var ackDir string
+	if ackChange != "" {
+		d, err := vmAckDir(root, ackChange)
+		if err != nil {
+			fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
+			Reason(env, "cannot-write-acks")
+			return 2
+		}
+		ackDir = d
+	}
 	git := envGit(env, gitEnv...)
 	if git("-C", root, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-verbatim-moves: %s is not a git worktree\n", root)
@@ -214,7 +224,7 @@ func checkVerbatimMoves(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "check-verbatim-moves: %d violation(s), %d to review, against %s\n", len(fails), review, label)
 	if len(fails) != 0 && ackChange != "" {
-		path, err := vmAckAppend(root, ackChange, ackReason, fails)
+		path, err := vmAckAppend(ackDir, ackReason, fails)
 		if err != nil {
 			fmt.Fprintf(stderr, "check-verbatim-moves: %v\n", err)
 			Reason(env, "cannot-write-acks")
@@ -243,23 +253,23 @@ func vmUsage(env Env, stderr io.Writer) int {
 	return 2
 }
 
-// vmAckAppend appends lines under one `# <reason>` comment to change's
-// acknowledgement file — its spectre change directory when present, else
-// its .superpowers/sdd/ change root — and returns the file's path.
-func vmAckAppend(root, change, reason string, lines []string) (string, error) {
-	var dir string
+// vmAckDir is change's acknowledgement directory — its spectre change
+// directory when present, else its .superpowers/sdd/ change root.
+func vmAckDir(root, change string) (string, error) {
 	for _, d := range []string{
 		filepath.Join(root, specRootLeaf(root, io.Discard), "changes", change),
 		filepath.Join(root, ".superpowers", "sdd", change),
 	} {
 		if fi, err := os.Stat(d); err == nil && fi.IsDir() {
-			dir = d
-			break
+			return d, nil
 		}
 	}
-	if dir == "" {
-		return "", fmt.Errorf("no change directory for %q to acknowledge in", change)
-	}
+	return "", fmt.Errorf("no change directory for %q to acknowledge in", change)
+}
+
+// vmAckAppend appends lines under one `# <reason>` comment to the
+// acknowledgement file in dir and returns the file's path.
+func vmAckAppend(dir, reason string, lines []string) (string, error) {
 	path := filepath.Join(dir, vmAckFile)
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
