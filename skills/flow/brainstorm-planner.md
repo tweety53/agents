@@ -149,13 +149,15 @@ dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook a
 printed model as the Agent tool's `model` and the effort as its `effort`.
 Where the planner's own prompt carries `Granted: <role> <model> <effort>` for the dispatch's role,
 the dispatch takes that pair instead, its prompt carrying the lines `Operator pair: <role>` and
-`Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`). Its prompt carries the
+`Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`).
+Its prompt carries the line `Worktree: <abs-worktree>` in a `/flow` planner, granted or not, the
 line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
 and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
 `fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
-planning dispatch's row is opened before its Agent call and ended when its agent hands back, and
+planning dispatch's row is opened at its launch, by the hook or by a `begin` before its Agent
+call, and ended when its agent hands back, and
 `flow stage end` of `flow.brainstorm` refuses while one is open. In a `/flow` planner, whose
 agents' prompts name the change's worktree, `hooks/enforce-agent-baseline.py` opens the row at
 launch; `/flow-plan` and the self-review and in-run fix planners run the `begin` below first:

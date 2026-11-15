@@ -222,12 +222,16 @@ func TestPairJudgeSavesThePickBesideTheDigest(t *testing.T) {
 	}
 }
 
-// TestPairJudgeRefusalSavesNoPick: a refused call (exit 2) writes no .pick.
+// TestPairJudgeRefusalSavesNoPick: a refused call (exit 2) writes no .pick and
+// leaves no earlier run's .pick under the key.
 func TestPairJudgeRefusalSavesNoPick(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	digest := filepath.Join(dir, "x.md")
 	if err := os.WriteFile(digest, []byte("a plan"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "x.pick"), []byte("opus low judge stale\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	stub := newPJStub(t, pjAnswer)

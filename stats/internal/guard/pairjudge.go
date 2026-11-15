@@ -161,6 +161,10 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	role, opusOnly := args[0], len(args) == 3
+	// A stale pick from an earlier run under the key must not outlive this one's refusal.
+	if err := os.Remove(strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"); err != nil && !errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintf(stderr, "pair-judge: %v\n", err)
+	}
 	if !pjJudged[role] {
 		judged := make([]string, 0, len(pjJudged))
 		for r := range pjJudged {

@@ -264,9 +264,10 @@ def main_checkout(cwd: str) -> "str | None":
     return os.path.realpath(os.path.dirname(os.path.normpath(done.stdout.strip())))
 
 
-def project_key(cwd: str) -> "str | None":
-    """The store's project key for cwd: stats/internal/fallback/statefile.go ProjectKey."""
-    main = main_checkout(cwd)
+def project_key(cwd: str, main: "str | None" = None) -> "str | None":
+    """The store's project key for cwd: stats/internal/fallback/statefile.go ProjectKey. A caller
+    that already holds cwd's main checkout passes it as main."""
+    main = main or main_checkout(cwd)
     if main is None:
         return None
     return f"{os.path.basename(main)}-{hashlib.sha1(main.encode()).hexdigest()[:8]}"
@@ -323,9 +324,9 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "tuple[str | None
         if not change:
             return None, None
         # The rows are read under cwd's project: another repo's cwd reads none, so fail open.
-        if project and project_key(cwd) != project:
-            return None, None
         main = main_checkout(cwd)
+        if project and project_key(cwd, main) != project:
+            return None, None
         worktree = f"{main}-worktrees/{change}" if main else None
         if planning and not (worktree and names_worktree(prompt, worktree)):
             return None, None
@@ -380,7 +381,7 @@ def read_pick(path: str) -> "str | None":
     try:
         with open(path, encoding="utf-8") as f:
             fields = f.readline().split(maxsplit=3)
-    except OSError:
+    except (OSError, ValueError):
         return None
     return f"{fields[2]}: {fields[3].strip()}" if len(fields) == 4 else None
 

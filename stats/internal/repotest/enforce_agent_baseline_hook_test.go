@@ -824,6 +824,54 @@ func TestEnforceAgentBaselineHookBeginsTheRow(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookBeginsEveryRowRole pins ROW_ROLE: every Role id launchRoleID
+// (stats/cmd/flow/record.go) can return, and every panel and planner id the table adds, is begun
+// under its row role rather than denied for want of an open row. The pair check is stubbed: the
+// pairs each role admits are flowd's, not this table's.
+func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for id, role := range map[string]string{
+		"implementer": "implementer", "operator-asked": "implementer",
+		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
+		"panel-reviewer": "reviewer", "panel-sanity-efficiency": "reviewer",
+		"panel-mutation-failure": "reviewer", "panel-rerun": "reviewer", "late-fix": "reviewer",
+		"panel-merger": "merger", "panel-fix": "panel-fix", "visual-verifier": "verifier",
+		"planner": "planner", "tooling-analyst": "planner", "fix-run-judge": "planner",
+	} {
+		t.Run(id, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, log := beginEnv(t, `[]`, 0)
+			if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-3 x", "Role: "+id+"\nwork", "flow-low", "opus", ""), append(env, "DISPATCH_PAIR_CHECK=true")...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			begins := flowCalls(t, log, "record dispatch begin")
+			if len(begins) != 1 || argAfter(strings.Fields(begins[0]), "-role") != role {
+				t.Errorf("begins = %q, want one with -role %s", begins, role)
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookIgnoresAnUndecodablePick: a .pick that is not UTF-8 is read as no
+// pick, and the row is still begun.
+func TestEnforceAgentBaselineHookIgnoresAnUndecodablePick(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	main, wt := beginRepo(t)
+	if err := os.WriteFile(filepath.Join(wt, ".superpowers", "sdd", "pair-judge", "panel-fix-2.pick"), []byte("\xff\xfe\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env, log := beginEnv(t, `[]`, 0)
+	if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), env...); denied {
+		t.Fatalf("denied: %s", out)
+	}
+	if begins := flowCalls(t, log, "record dispatch begin"); len(begins) != 1 || strings.Contains(begins[0], "-pair-pick") {
+		t.Errorf("begins = %q, want one with no -pair-pick", begins)
+	}
+}
+
 // TestEnforceAgentBaselineHookBeginKeyFromKeyLine pins the key's source: the prompt's `Key:` line
 // tells a gated reviewer bundle from its implementer group, both described `Task <ids>/<n>`; a
 // task description with no `Key:` line names no row the hook can begin and keeps today's deny.
