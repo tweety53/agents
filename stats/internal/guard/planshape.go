@@ -35,10 +35,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-nine
-// findings, F1-F30 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Thirty
+// findings, F1-F31 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F30's are the rows below).
+// design.md -- not restated here; F7-F31's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -268,6 +268,16 @@ import (
 //	    for load at or under the core count (skills/flow/brainstorm-planner.md;
 //	    kan-1124 self-review, F2). A ticked task is history, never
 //	    reported. Reported at the line.
+//	F31 An unticked task's line handing the parent an action on the
+//	    sibling design file -- "the parent records/writes/adds/notes/
+//	    commits" or "parent note", on a line naming design.md: the task's
+//	    tick closes step prose whether the parent acted or not, so the
+//	    action is a column-0 `- [ ] Parent:` line in design.md, which
+//	    check-unfinished-work holds open (skills/flow/brainstorm-planner.md;
+//	    kan-1124 self-review, F3). Measured over 1166 plans (decision
+//	    f3-parent-step-actions): both conditions hit kan-1124's three lines
+//	    alone, the actor phrase alone 9 lines of pipeline prose. A ticked
+//	    task is never reported. Reported at the line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -312,6 +322,7 @@ var psRules = []struct{ id, sentence string }{
 	{"F28", `A plan whose unticked task edits run-loaded prose has a verbatim-moves.txt beside tasks.md.`},
 	{"F29", "Every go test command passes `-count=`."},
 	{"F30", "No unticked task's line presumes the machine otherwise idle; a timing gate waits for load at or under the core count."},
+	{"F31", "No unticked task's line hands the parent an action on the sibling design file; that action is a column-0 Parent line there."},
 	{"plan-suite-steps", "No step runs a module or repository test suite: go test takes `-run`, Gradle `--tests`, npm test and vitest `-t`."},
 	{"plan-script-paths", "Every `scripts/` path a task cites exists in the repository or is in some task's **Files:**."},
 	{"plan-files-paths", `Every **Files:** path names the directory its file lands in, never one with a segment dropped.`},
@@ -558,6 +569,7 @@ func (p *psPlan) check() []psFinding {
 	v = append(v, p.npxFetch()...)
 	v = append(v, p.goTestCache()...)
 	v = append(v, p.idleTiming()...)
+	v = append(v, p.parentSteps()...)
 	v = append(v, p.openQuestions()...)
 	v = append(v, p.verbatimMoves()...)
 	return append(v, p.designSections()...)
@@ -807,6 +819,26 @@ func (p *psPlan) idleTiming() []psFinding {
 	p.untickedLines(func(n int, l string) {
 		if psIdleRE.MatchString(l) {
 			v = append(v, p.at(n, "F30", "this line presumes an idle machine a shared dev host never provides — wait for load at or under the core count, record the load beside the figure and name what a figure taken under load does (skills/flow/brainstorm-planner.md)"))
+		}
+	})
+	return v
+}
+
+var (
+	psParentStepRE = regexp.MustCompile(`(?i)\b(?:the parent[ ](?:record|write|add|note|commit)s?|parent[ ]note)\b`)
+	psDesignRefRE  = regexp.MustCompile(`design\.md`)
+)
+
+// parentSteps is F31: no unticked task's line hands the parent an action on
+// the sibling design file.
+func (p *psPlan) parentSteps() []psFinding {
+	if !p.on("F31") {
+		return nil
+	}
+	var v []psFinding
+	p.untickedLines(func(n int, l string) {
+		if psParentStepRE.MatchString(l) && psDesignRefRE.MatchString(l) {
+			v = append(v, p.at(n, "F31", "this line hands the parent an action on the design record as step prose, which the task's tick closes whether the parent acted or not — write it as a column-0 `- [ ] Parent: after Task <n>, <the action>` line in the sibling design file, which check-unfinished-work holds open (skills/flow/brainstorm-planner.md)"))
 		}
 	})
 	return v

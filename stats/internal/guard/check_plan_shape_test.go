@@ -1115,3 +1115,30 @@ func TestCheckPlanShapeF30(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckPlanShapeF31 pins F31: an unticked task's line handing the parent
+// an action on design.md is refused (kan-1124 self-review, F3).
+func TestCheckPlanShapeF31(t *testing.T) {
+	t.Parallel()
+	records := "The parent" + " records the kept rows in design.md."
+	for _, line := range []string{"Name it in the change's parent" + " note for design.md.", records} {
+		p := psFixture(t, psTasks("a")+"\n"+line+"\n")
+		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, ": F31 ") != 1 {
+			t.Errorf("%q refused nothing: rc=%d out=%q", line, r.rc, r.out)
+		}
+		if m := psMutant(p, "F31"); m.rc != 0 {
+			t.Errorf("the mutation disabling F31 still refused %q: rc=%d out=%q", line, m.rc, m.out)
+		}
+	}
+	ticked := strings.Replace(psTasks("a"), "- [ ] 1.", "- [x] 1.", 1)
+	for _, body := range []string{
+		ticked + "\n" + records + "\n",
+		psTasks("a") + "\nThe parent" + " records the dispatch.\n",
+		psTasks("a") + "\nCount it at the commit's parent; see design.md.\n",
+		psTasks("a") + "\nthe parent" + "'s test-list run reads design.md.\n",
+	} {
+		if r := psMutant(psFixture(t, body), ""); r.rc != 0 {
+			t.Errorf("admitted plan refused: rc=%d out=%q\n%s", r.rc, r.out, body)
+		}
+	}
+}

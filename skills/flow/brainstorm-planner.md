@@ -427,7 +427,7 @@ parent performs it and ticks it (**4. Execute (SDD + TDD)**, `skills/flow/implem
 `flow-guard check-plan-shape` F25 refuses an entry whose `**Chosen:**` names the parent as actor
 and a run moment — `before the first task`, `at flow.<stage>` — and carries no such line; one
 naming no run moment designs the parent's role and needs none. The line sits in `design.md`, never `tasks.md`, where `spectre validate`
-refuses a checkbox line that is not a numbered task.
+refuses a checkbox line that is not a numbered task. A parent action a task's step needs is the same tracked line, naming the task it follows — `- [ ] Parent: after Task <n>, <the action>` — never step prose, which the task's tick closes whether the parent acted or not; `flow-guard check-plan-shape` F31 refuses an unticked task's line handing the parent a note or a record for `design.md` (kan-1124 self-review, F3).
 
 **A parent action never writes a main checkout.** `hooks/protect-main-checkout.py` denies every
 write there — an `rm`, a redirect, a commit — and no approval reaches the hook, so a
