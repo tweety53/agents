@@ -24,7 +24,7 @@ import (
 func tcppRepo(t *testing.T, leaf string) string {
 	t.Helper()
 	repo := t.TempDir() + "/repo"
-	gitRun(t, "", "init", "-q", "-b", "main", repo)
+	fixtureRepo(t, repo, repoShape{Branch: "main"})
 	if leaf != "spectre" {
 		mkdir(t, repo+"/"+leaf+"/changes")
 	}
@@ -103,7 +103,7 @@ func TestCheckTaskCommitPlanningPaths(t *testing.T) {
 		}},
 		{"unborn repository: exit 2, nothing on stdout, HEAD named on stderr", func(t *testing.T) ([]string, result) {
 			repo := t.TempDir() + "/unborn"
-			gitRun(t, "", "init", "-q", "-b", "main", repo)
+			fixtureRepo(t, repo, repoShape{Branch: "main"})
 			return []string{repo, "main"}, result{2, "", p + "HEAD does not resolve in: " + repo + "\n"}
 		}},
 		{"implementation-only task commit: exit 0, clean verdict names 1 checked", func(t *testing.T) ([]string, result) {

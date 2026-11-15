@@ -24,7 +24,7 @@ func ptRepo(t *testing.T) (repo, sha string) {
 	repo = tmp + "/agents"
 	writeFile(t, repo+"/skills/flow/implement.md", "# Implement\n\nWrite a test for every exit path.\n")
 	writeFile(t, repo+"/rules/layer-backend.mdc", "# Backend\n\nClose every resource.\n")
-	gitRun(t, "", "init", "-q", "-b", "main", repo)
+	fixtureRepo(t, repo, repoShape{Branch: "main"})
 	gitRun(t, repo, "add", "-A")
 	gitRun(t, repo, "commit", "-q", "-m", "init")
 	out, err := exec.Command(fixtureGit, "-C", repo, "rev-parse", "HEAD").Output()

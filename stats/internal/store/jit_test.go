@@ -11,6 +11,7 @@ import (
 // live state board's query is costed above jit_above_cost, and compiling it
 // took ~1s of its ~1.3s on every poll.
 func TestOpenTurnsJITOff(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	var jit string
 	if err := store.PoolOf(st).QueryRow(context.Background(), `SHOW jit`).Scan(&jit); err != nil {

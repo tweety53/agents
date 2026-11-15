@@ -25,7 +25,7 @@ model was priced get their cost, and prints "priced N, skipped M". A run
 or dispatch row with no tokens or no rate in effect counts as skipped.
 `
 
-func runPricing(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runPricing(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] != "reprice" {
 		if len(args) > 0 {
 			fmt.Fprintf(stderr, "flow: unknown pricing command %q\n", args[0])
@@ -38,7 +38,7 @@ func runPricing(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	fset.SetOutput(stderr)
 	var since string
 	var f storeConnFlags
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	// Overrides the -timeout default registerStoreConnFlags set.
 	fset.Lookup("timeout").DefValue = repriceTimeout.String()
 	f.timeout = repriceTimeout
@@ -51,7 +51,7 @@ func runPricing(ctx context.Context, args []string, stdout, stderr io.Writer) in
 		fmt.Fprint(stderr, pricingUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if _, err := time.Parse(time.DateOnly, since); err != nil || fset.NArg() != 0 {
 		fmt.Fprintf(stderr, "flow: pricing reprice needs -since YYYY-MM-DD, got %q\n", since)
 		fmt.Fprint(stderr, pricingUsage)

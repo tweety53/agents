@@ -17,6 +17,7 @@ import (
 // unit tests (which construct a PricingRate by hand) while never actually
 // working end to end.
 func TestSeedPricingRatesRoundTrip(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -70,6 +71,7 @@ func TestSeedPricingRatesRoundTrip(t *testing.T) {
 // without ON CONFLICT would violate the (model, effective_from) primary
 // key on the second call).
 func TestSeedPricingIsIdempotent(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -87,6 +89,7 @@ func TestSeedPricingIsIdempotent(t *testing.T) {
 // read on 2026-09-02; the cache-read rate is the one column that is not
 // 0.1x input on this model.
 func TestSeedPricingRatesCarryFable(t *testing.T) {
+	t.Parallel()
 	var fable *store.PricingRate
 	for _, rate := range store.SeedPricingRates() {
 		if rate.Model == "claude-fable-5-1" {
@@ -115,6 +118,7 @@ func TestSeedPricingRatesCarryFable(t *testing.T) {
 // the published table on 2026-11-09 -- fast mode included, which that model
 // (unlike fable-5-1) has.
 func TestSeedPricingRatesCarryFable52(t *testing.T) {
+	t.Parallel()
 	var f *store.PricingRate
 	for _, rate := range store.SeedPricingRates() {
 		if rate.Model == "claude-fable-5-2" {
@@ -139,6 +143,7 @@ func TestSeedPricingRatesCarryFable52(t *testing.T) {
 // fast-mode rate (the source table's "—" cells), and this seed must not
 // invent one for them.
 func TestSeedPricingRatesOmitFastForModelsWithNone(t *testing.T) {
+	t.Parallel()
 	for _, rate := range store.SeedPricingRates() {
 		switch rate.Model {
 		case "claude-sonnet-5", "claude-haiku-4-5", "claude-haiku-4-5-20251001", "claude-fable-5-1", "claude-fable-5":
@@ -160,6 +165,7 @@ func TestSeedPricingRatesOmitFastForModelsWithNone(t *testing.T) {
 // model's single published cache rate priceable for ZCode's unknown-split
 // cache writes.
 func TestSeedPricingRatesCarriesGLMFlash(t *testing.T) {
+	t.Parallel()
 	var found *store.PricingRate
 	for i, rate := range store.SeedPricingRates() {
 		if rate.Model == "glm-5.3-flash" {
@@ -200,6 +206,7 @@ func TestSeedPricingRatesCarriesGLMFlash(t *testing.T) {
 // published table read on 2026-09-23. The dated Haiku id is the id the
 // harness actually serves, priced at the Haiku 4.5 row's own rates.
 func TestSeedPricingRatesCarryUnpricedServedModels(t *testing.T) {
+	t.Parallel()
 	type want struct{ in, out, w5, w1h, read float64 }
 	cases := map[string]want{
 		"claude-opus-5-5":           {4, 20, 5, 8, 0.20},

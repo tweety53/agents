@@ -37,6 +37,7 @@ func newSpecRunStore(t *testing.T) (*store.Store, *pgxpool.Pool, string) {
 // back, and the returned row carries the stored timestamp plus the
 // changes-since figure the inventory stat is built from.
 func TestRecordSpecRunUpsertsKeepsLatest(t *testing.T) {
+	t.Parallel()
 	st, pool, projectKey := newSpecRunStore(t)
 	ctx := context.Background()
 
@@ -72,6 +73,7 @@ func TestRecordSpecRunUpsertsKeepsLatest(t *testing.T) {
 // is the typed ErrInvalidSpecRun refusal -- the API's validation is UX,
 // this one is the boundary, ErrInvalidSuiteRun's same split.
 func TestRecordSpecRunRejectsInvalidRow(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newSpecRunStore(t)
 	ctx := context.Background()
 
@@ -95,6 +97,7 @@ func TestRecordSpecRunRejectsInvalidRow(t *testing.T) {
 // project's whole change count, and an unnamed read lists recorded specs
 // alone.
 func TestListSpecLastRunsCountsChangesSince(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newSpecRunStore(t)
 	ctx := context.Background()
 
@@ -156,6 +159,7 @@ func TestListSpecLastRunsCountsChangesSince(t *testing.T) {
 // stamped with the store's own now(), never a zero or stale stamp. The
 // mutant killer for the COALESCE($3, now()) default.
 func TestRecordSpecRunStampsZeroTimeWithNow(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newSpecRunStore(t)
 	ctx := context.Background()
 

@@ -14,6 +14,7 @@ import (
 // resumed-split-by-started-at).
 
 func TestAgentFileRecordsCreditOneRowWhole(t *testing.T) {
+	t.Parallel()
 	row := DispatchWindow{DispatchID: 7, AgentID: "a1", StartedAt: time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC)}
 	records := []Record{
 		{SessionID: "sess-parent", AgentID: "a1", IsSidechain: true, Timestamp: row.StartedAt.Add(time.Minute), Usage: Usage{InputTokens: 10, OutputTokens: 5}},
@@ -32,6 +33,7 @@ func TestAgentFileRecordsCreditOneRowWhole(t *testing.T) {
 }
 
 func TestAgentFileRecordsSplitAcrossResumedRows(t *testing.T) {
+	t.Parallel()
 	first := DispatchWindow{DispatchID: 10, AgentID: "a1", StartedAt: time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC)}
 	second := DispatchWindow{DispatchID: 12, AgentID: "a1", StartedAt: first.StartedAt.Add(10 * time.Minute)}
 	records := []Record{
@@ -45,6 +47,7 @@ func TestAgentFileRecordsSplitAcrossResumedRows(t *testing.T) {
 }
 
 func TestAgentFileRecordsBeforeTheFirstRowFloorToIt(t *testing.T) {
+	t.Parallel()
 	row := DispatchWindow{DispatchID: 10, AgentID: "a1", StartedAt: time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC)}
 	records := []Record{
 		{AgentID: "a1", IsSidechain: true, Timestamp: row.StartedAt.Add(-time.Minute), Usage: Usage{InputTokens: 3}},
@@ -56,6 +59,7 @@ func TestAgentFileRecordsBeforeTheFirstRowFloorToIt(t *testing.T) {
 }
 
 func TestAgentFileRecordsWithNoRowsCreditNothing(t *testing.T) {
+	t.Parallel()
 	records := []Record{{AgentID: "a1", IsSidechain: true, Usage: Usage{InputTokens: 1}}}
 	if got := attributeAgentFileRecords(nil, records); len(got) != 0 {
 		t.Errorf("deltas = %+v, want none — an agent with no rows has nothing to credit", got)
@@ -66,6 +70,7 @@ func TestAgentFileRecordsWithNoRowsCreditNothing(t *testing.T) {
 // input: one agent transcript read from offset 0 yields that agent's whole
 // sidechain usage and signals, in the shape MergeDispatchMetrics stores.
 func TestAgentFileDispatchPatchCreditsTheWholeFile(t *testing.T) {
+	t.Parallel()
 	patch, err := AgentFileDispatchPatch("../../testdata/transcripts/signals-agent.jsonl")
 	if err != nil {
 		t.Fatalf("AgentFileDispatchPatch: %v", err)

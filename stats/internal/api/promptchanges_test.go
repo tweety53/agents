@@ -9,6 +9,7 @@ import (
 // upserted and answered 204; a missing sha or an area outside
 // review|impl|vv|fix is 400 and reaches no store.
 func TestPostPromptChange(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 	url := ts.URL + "/api/v1/prompt-changes"

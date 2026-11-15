@@ -264,6 +264,7 @@ func TestIntegrateChangeFixtureLinksTheFlowStub(t *testing.T) {
 check "the fixture's flow stub is the assessed inode" '[ "$WORK/bin/flow" -ef "$IC_STUBS/flow" ]'`)
 }
 
+// Cost: 5.88 s — the two-repository prepare, commit and land the test proves, one chain no split can shorten.
 // smoke: core — prepare, commit, land and cleanup over two repositories
 func TestIntegrateChangeHappyPath(t *testing.T) {
 	icRunCases(t, []icCaseDef{

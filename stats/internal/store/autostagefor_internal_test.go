@@ -3,6 +3,7 @@ package store
 import "testing"
 
 func TestAutoStageFor(t *testing.T) {
+	t.Parallel()
 	for key, want := range map[string]string{
 		"plan-1":              "flow.brainstorm",
 		"plan-4":              "flow.brainstorm",

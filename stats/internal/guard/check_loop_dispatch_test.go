@@ -33,7 +33,7 @@ func lpNew(t *testing.T, rows string, branches ...string) lpFx {
 		t.Fatal(err)
 	}
 	writeFile(t, fx.repo+"/"+mpFile, string(table))
-	gitRun(t, "", "init", "-q", "-b", "main", fx.repo)
+	fixtureRepo(t, fx.repo, repoShape{Branch: "main"})
 	gitRun(t, fx.repo, "add", "-A")
 	gitRun(t, fx.repo, "commit", "-q", "-m", "init")
 	for _, b := range branches {
@@ -329,7 +329,7 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	fx := lpNew(t, lpRowsJSON("self-review-kan-1-demo-", "self-review-kan-1-demo", "plan completed"))
 	proj := filepath.Dir(fx.repo) + "/gymie"
 	writeFile(t, proj+"/README.md", "gymie\n")
-	gitRun(t, "", "init", "-q", "-b", "develop", proj)
+	fixtureRepo(t, proj, repoShape{Branch: "develop"})
 	gitRun(t, proj, "add", "-A")
 	gitRun(t, proj, "commit", "-q", "-m", "init")
 	gitRun(t, proj, "branch", "spectre/kan-1-demo")
@@ -503,8 +503,7 @@ func TestCheckLoopDispatchPassNeedsNarrative(t *testing.T) {
 			t.Parallel()
 			fx := lpNew(t, `[]`)
 			dir := filepath.Dir(fx.repo) + "/caller"
-			gitRun(t, "", "init", "-q", "-b", tc.branch, dir)
-			gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", "init")
+			fixtureRepo(t, dir, repoShape{Branch: tc.branch, Commit: "init"})
 			fx.env.Dir = dir
 			bundle := filepath.Dir(fx.repo) + "/sr/bundle.md"
 			if tc.bundle != "" {

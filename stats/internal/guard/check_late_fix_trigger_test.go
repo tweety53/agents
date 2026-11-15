@@ -21,7 +21,7 @@ func lftNewFx(t *testing.T, dir string) *lftFx {
 	t.Helper()
 	fx := &lftFx{wt: dir}
 	fx.tasks = dir + "/spectre/changes/demo/tasks.md"
-	fx.g.git("", "init", "-q", "-b", "work", dir)
+	fx.g.copyShape(dir, repoShape{Branch: "work"})
 	mkdir(t, dir+"/spectre/changes/demo")
 	fx.g.write(fx.tasks, "- [x] 1. the first task")
 	fx.g.write(dir+"/a.txt", "a")

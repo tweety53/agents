@@ -106,7 +106,7 @@ func TestCheckPythonSuppressions(t *testing.T) {
 	t.Run("case 14: no-args scan independent of caller cwd", func(t *testing.T) {
 		t.Parallel()
 		repo := t.TempDir()
-		gitRun(t, repo, "init", "-q")
+		fixtureRepo(t, repo, repoShape{})
 		writeFile(t, filepath.Join(repo, "tool.py"), "x = 1\n")
 		gitRun(t, repo, "add", "tool.py")
 		if rc, out, _, _ := psRun(t, crEnv(t.TempDir(), map[string]string{"FLOW_GUARD_REPO_ROOT": repo})); rc == 2 {

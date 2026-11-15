@@ -41,7 +41,7 @@ flush replays every pending journal entry found under root into the store,
 connecting to it directly (not through flowd's HTTP API).
 `
 
-func runJournal(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runJournal(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, journalUsage)
 		return 2
@@ -49,7 +49,7 @@ func runJournal(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 	switch args[0] {
 	case "flush":
-		return runJournalFlush(ctx, args[1:], stdout, stderr)
+		return runJournalFlush(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown journal command %q\n", args[0])
 		fmt.Fprint(stderr, journalUsage)
@@ -59,15 +59,15 @@ func runJournal(ctx context.Context, args []string, stdout, stderr io.Writer) in
 
 // runJournalFlush implements `flow journal flush`: it connects to the
 // store, replays every journal file under -root (default
-// fallback.StateRoot()), and reports the outcome on stdout. Unlike `state
+// fallback.StateRoot(getenv)), and reports the outcome on stdout. Unlike `state
 // get`/`state set`, this command does not have a fallback of its own to
 // take on failure -- there is nothing to fall back *to* for an explicit
 // "reconcile now" request -- so a connection failure or a replay error is
 // reported and this exits non-zero.
-func runJournalFlush(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runJournalFlush(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow journal flush", flag.ContinueOnError)
 	fset.SetOutput(stderr)
-	root := fset.String("root", fallback.StateRoot(), "root of every project's state directory")
+	root := fset.String("root", fallback.StateRoot(getenv), "root of every project's state directory")
 	dsn := fset.String("dsn", defaultJournalDSN, "store connection string")
 	timeout := fset.Duration("timeout", defaultJournalConnectTimeout, "connection timeout")
 	if err := fset.Parse(args); err != nil {

@@ -19,8 +19,9 @@ import (
 // bundle route for that project and change, and the body is printed
 // verbatim on stdout with exit 0.
 func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
+	t.Parallel()
 	repo := linkedWorktree(t, gitRepo(t), "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotPath, gotQuery string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +35,7 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
@@ -65,8 +66,9 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 // (kan-1072 self-review, F3).
 func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	repo := linkedWorktree(t, gitRepo(t), "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/bundle") {
@@ -80,7 +82,7 @@ func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", srv.URL, "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
@@ -92,13 +94,14 @@ func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
 // TestRunSelfReviewBundleRequiresChange pins the caller mistake: no
 // -change is exit 2 and a stderr line, never a request.
 func TestRunSelfReviewBundleRequiresChange(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", "http://127.0.0.1:1", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2", code)
 	}
@@ -115,8 +118,9 @@ func TestRunSelfReviewBundleRequiresChange(t *testing.T) {
 // stderr and exits non-zero -- never a partial bundle on stdout a caller
 // could mistake for the change's own.
 func TestRunSelfReviewBundleUnreachableStoreExitsNonZero(t *testing.T) {
+	t.Parallel()
 	repo := linkedWorktree(t, gitRepo(t), "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -126,7 +130,7 @@ func TestRunSelfReviewBundleUnreachableStoreExitsNonZero(t *testing.T) {
 	var stdout, stderr strings.Builder
 	code := run(context.Background(),
 		[]string{"self-review", "bundle", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("exit = 0, want non-zero (stderr: %s)", stderr.String())
 	}
@@ -144,8 +148,9 @@ func TestRunSelfReviewBundleUnreachableStoreExitsNonZero(t *testing.T) {
 // store refusal (400) is exit 2; and an unreachable store is exit 0 with
 // exactly one warning line -- the write never blocks.
 func TestSelfReviewFindingCLI(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotPath string
 	var gotBody map[string]any
@@ -166,7 +171,7 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 	finding := func(addr string, extra ...string) (int, string, string) {
 		var stdout, stderr strings.Builder
 		args := append([]string{"self-review", "finding", "-addr", addr, "-timeout", "500ms", "-C", repo}, extra...)
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
 	full := []string{"-change", "demo", "-angle", "myflow-fix", "-disposition", "fixed", "-ref", "abc1234", "-blast-radius", "3", "-severity", "important", "-note", "guard gap"}
@@ -236,8 +241,9 @@ func TestSelfReviewFindingCLI(t *testing.T) {
 // with no -severity is refused, exit 2, before any request goes out; a
 // declined row still records ungraded.
 func TestSelfReviewFindingRefusesUngradedFixedOrFiled(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	reached := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +268,7 @@ func TestSelfReviewFindingRefusesUngradedFixedOrFiled(t *testing.T) {
 			args = append(args, "-ref", tc.ref)
 		}
 		var stdout, stderr strings.Builder
-		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.wantCode {
 			t.Errorf("%s with no -severity: exit %d, want %d (stderr %q)", tc.disposition, code, tc.wantCode, stderr.String())
 		}
@@ -280,8 +286,9 @@ func TestSelfReviewFindingRefusesUngradedFixedOrFiled(t *testing.T) {
 // print as a JSON array on stdout, and an unreachable store is non-zero
 // with nothing on stdout -- the read's contract, unlike the write's.
 func TestSelfReviewFindingsCLI(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !strings.HasSuffix(r.URL.Path, "/demo/findings") {
@@ -296,7 +303,7 @@ func TestSelfReviewFindingsCLI(t *testing.T) {
 		var stdout, stderr strings.Builder
 		code := run(context.Background(),
 			[]string{"self-review", "findings", "-addr", addr, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String()
 	}
 

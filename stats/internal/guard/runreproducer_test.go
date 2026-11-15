@@ -612,7 +612,8 @@ func TestRunReproducerRenamedPremiseRefuses(t *testing.T) {
 func TestRunReproducerRefusesAChangedTree(t *testing.T) {
 	t.Parallel()
 	wt := rrWorktree(t)
-	for _, args := range [][]string{{"init", "-q"}, {"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
+	fixtureRepo(t, wt, repoShape{})
+	for _, args := range [][]string{{"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
 		if args[0] == "add" {
 			writeFile(t, filepath.Join(wt, "f.txt"), "x\n")
 			writeFile(t, filepath.Join(wt, ".gitignore"), "RAN\ngroups\nscripts/\n")
@@ -634,7 +635,8 @@ func TestRunReproducerRefusesAChangedTree(t *testing.T) {
 func TestRunReproducerRestoresAnUncommittedEdit(t *testing.T) {
 	t.Parallel()
 	wt := rrWorktree(t)
-	for _, args := range [][]string{{"init", "-q"}, {"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
+	fixtureRepo(t, wt, repoShape{})
+	for _, args := range [][]string{{"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
 		if args[0] == "add" {
 			writeFile(t, filepath.Join(wt, "f.txt"), "x\n")
 			writeFile(t, filepath.Join(wt, ".gitignore"), "RAN\ngroups\nscripts/\n")
@@ -674,7 +676,8 @@ func TestRunReproducerRestoresACleanPathTheRunChanged(t *testing.T) {
 			wt := rrWorktree(t)
 			writeFile(t, filepath.Join(wt, "f.txt"), "x\n")
 			writeFile(t, filepath.Join(wt, ".gitignore"), "RAN\ngroups\nscripts/\nbound\n")
-			for _, args := range [][]string{{"init", "-q"}, {"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
+			fixtureRepo(t, wt, repoShape{})
+			for _, args := range [][]string{{"add", "f.txt", ".gitignore"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "f"}} {
 				if out, err := exec.Command("git", append([]string{"-C", wt}, args...)...).CombinedOutput(); err != nil {
 					t.Fatalf("git %v: %v\n%s", args, err, out)
 				}

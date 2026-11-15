@@ -11,6 +11,7 @@ import (
 // (check-stage-mark-calls' `go run ./cmd/flow stage keys`), so no package
 // cmd/flow depends on may import it (KAN-1067).
 func TestFlowCLIDoesNotImportEmbeddedPolicy(t *testing.T) {
+	t.Parallel()
 	out, err := exec.Command("go", "list", "-deps", ".").Output()
 	if err != nil {
 		t.Fatalf("go list -deps: %v", err)

@@ -628,7 +628,7 @@ func vrtBaselineRepo(t *testing.T) (string, string) {
 	}
 	writeFile(t, filepath.Join(wt, "tests/visual/a-darwin.png"), "png\n")
 	writeFile(t, filepath.Join(wt, "kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png"), "png\n")
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	gitRun(t, wt, "add", "-A")
 	gitRun(t, wt, "commit", "-qm", "a")
 	return wt, vgHead(t, wt)
@@ -674,7 +674,7 @@ func TestCheckVerifyReportBaselineCitationInSiblingWorktree(t *testing.T) {
 	writeFile(t, filepath.Join(wt, "README.md"), "x\n")
 	writeFile(t, filepath.Join(sib, "tests/visual/b-darwin.png"), "png\n")
 	for _, d := range []string{wt, sib} {
-		gitRun(t, d, "init", "-q")
+		fixtureRepo(t, d, repoShape{})
 		gitRun(t, d, "add", "-A")
 		gitRun(t, d, "commit", "-qm", "a")
 	}

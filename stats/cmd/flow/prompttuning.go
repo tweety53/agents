@@ -43,14 +43,14 @@ git history, keyed <sha>:<target>, and prints "imported: <n>". Re-running it
 upserts. Both exit 0 on success, 1 on a git or store failure, 2 on usage.
 `
 
-func runPromptTuning(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runPromptTuning(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	switch {
 	case len(args) == 2 && args[0] == "render":
 		return runPromptTuningRender(args[1], stderr)
 	case len(args) >= 2 && args[0] == "record":
-		return runPromptTuningRecord(ctx, args[1], args[2:], stderr)
+		return runPromptTuningRecord(ctx, args[1], args[2:], getenv, stderr)
 	case len(args) >= 1 && args[0] == "import":
-		return runPromptTuningImport(ctx, args[1:], stdout, stderr)
+		return runPromptTuningImport(ctx, args[1:], getenv, stdout, stderr)
 	}
 	fmt.Fprint(stderr, promptTuningUsage)
 	return 2
@@ -90,11 +90,11 @@ func parsePromptTuningFlags(fset *flag.FlagSet, args []string, stderr io.Writer)
 	return 0, true
 }
 
-func runPromptTuningRecord(ctx context.Context, dir string, args []string, stderr io.Writer) int {
+func runPromptTuningRecord(ctx context.Context, dir string, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow prompt-tuning record", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f storeConnFlags
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	sha := fset.String("sha", "", "the commit that applied the case (required)")
 	atFlag := fset.String("at", "", "when it was applied, RFC 3339 (default: the commit's time)")
 	if code, ok := parsePromptTuningFlags(fset, args, stderr); !ok {
@@ -138,11 +138,11 @@ func runPromptTuningRecord(ctx context.Context, dir string, args []string, stder
 	return postPromptChanges(ctx, f, []client.PromptChange{row}, stderr, "record")
 }
 
-func runPromptTuningImport(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runPromptTuningImport(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow prompt-tuning import", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f storeConnFlags
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	repo := fset.String("C", ".", "the repository whose history to import")
 	since := fset.String("since", "", "only commits on or after YYYY-MM-DD")
 	if code, ok := parsePromptTuningFlags(fset, args, stderr); !ok {

@@ -110,6 +110,7 @@ func (f *fakeStore) ListSpecLastRuns(_ context.Context, projectKey string, specs
 // specs through -- a never-recorded name answering the never-run row, nil
 // stamp and whole-history count included.
 func TestPostSpecRunRecordsAndListReadsTheArray(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+"/api/v1/specs/proj/runs", map[string]any{"spec": "baseline.spec.ts"})
@@ -166,6 +167,7 @@ func TestPostSpecRunRecordsAndListReadsTheArray(t *testing.T) {
 // cannot identify what it describes is a 400 before the store is touched,
 // the same caller-mistake shape every record handler uses.
 func TestPostSpecRunRejectsAnEmptySpec(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 
 	resp, body := postJSON(t, ts.URL+"/api/v1/specs/proj/runs", map[string]any{"spec": ""})

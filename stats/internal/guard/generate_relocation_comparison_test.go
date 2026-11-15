@@ -32,7 +32,7 @@ func TestGenerateRelocationComparison(t *testing.T) {
 	// changes nothing the generator reads.
 	repo := func(base, after map[string]string) (string, string) {
 		dir := t.TempDir()
-		gitRun(t, dir, "init", "-q")
+		fixtureRepo(t, dir, repoShape{})
 		for p, b := range base {
 			writeFile(t, dir+"/"+p, b)
 		}
@@ -252,7 +252,7 @@ func TestGenerateRelocationComparison(t *testing.T) {
 		"See the rule in `old.md`, **Old Section**, for the full rule", "See the rule in `new.md`, **New Section**, for the full rule.")
 
 	dir = t.TempDir()
-	gitRun(t, dir, "init", "-q")
+	fixtureRepo(t, dir, repoShape{})
 	writeFile(t, dir+"/real_target.md", "the real target file content, unrelated to the symlink path itself\n")
 	psLink(t, "real_target.md", dir+"/link_ff.md")
 	gitRun(t, dir, "add", "-A")
@@ -351,7 +351,7 @@ func TestGenerateRelocationComparisonSkipsSymlinks(t *testing.T) {
 	// moves text from src.md to dst.md and makes link.md the other kind.
 	setup := func(linkAtBase bool) (string, string) {
 		dir := t.TempDir()
-		gitRun(t, dir, "init", "-q")
+		fixtureRepo(t, dir, repoShape{})
 		writeFile(t, dir+"/src.md", "## Src\n\n"+text+"\n\nStays.\n")
 		writeFile(t, dir+"/dst.md", "## Dst\n\nFiller.\n")
 		writeFile(t, dir+"/target.md", "## T\n\nTarget content.\n")

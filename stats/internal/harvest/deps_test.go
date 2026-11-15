@@ -16,6 +16,7 @@ import (
 // with a misleading message that pointed at the call site rather than
 // here.
 func TestNoDepsReturnsZeroValuesAndNoError(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	var d harvest.NoDeps
 
@@ -73,6 +74,7 @@ func TestNoDepsReturnsZeroValuesAndNoError(t *testing.T) {
 // composes, individually -- so a Deps that has drifted from what it
 // composes is caught here rather than at task 2's call sites.
 func TestNoDepsIsUsableAsEveryConstituentInterface(t *testing.T) {
+	t.Parallel()
 	var (
 		_ harvest.Pricer               = harvest.NoDeps{}
 		_ harvest.SessionTokenBinder   = harvest.NoDeps{}

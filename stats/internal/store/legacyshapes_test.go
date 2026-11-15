@@ -27,6 +27,7 @@ import (
 // ponytail: any migration numbered after 0031 also runs before seeding; add a
 // prefix-applying migrator hook if one of them ever reshapes these tables.
 func TestMigration0031RewritesLegacyRows(t *testing.T) {
+	t.Parallel()
 	const held = "0031_drop_legacy_shapes.sql"
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -149,6 +150,7 @@ func TestMigration0031RewritesLegacyRows(t *testing.T) {
 // agentless pipeline-fix row whose same-key twin sits under its own loop change of the same
 // project, nulls the finding pointing at it, and is a no-op on a second run.
 func TestMigration0047DropsLoopDispatchTwins(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -236,6 +238,7 @@ func TestMigration0047DropsLoopDispatchTwins(t *testing.T) {
 // modelVersion is kept, any other model is untouched, and a second run changes
 // nothing.
 func TestMigration0061FoldsModelSpellings(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

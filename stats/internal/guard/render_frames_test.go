@@ -55,14 +55,14 @@ func rfFixture(t *testing.T, checkout string) (design, root string) {
 	base := t.TempDir()
 	design, root = filepath.Join(base, "design"), filepath.Join(base, "project")
 	mkdir(t, design)
-	gitRun(t, design, "init", "-q")
+	fixtureRepo(t, design, repoShape{})
 	writeFile(t, filepath.Join(design, "Page.dc.html"), rfPage)
 	writeFile(t, filepath.Join(design, "_gen", "Page.dc.html"), rfPage)
 	gitRun(t, design, "add", "-A")
 	gitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "page")
 	gitRun(t, design, "tag", "t1")
 	mkdir(t, filepath.Join(root, ".flow"))
-	gitRun(t, root, "init", "-q")
+	fixtureRepo(t, root, repoShape{})
 	writeFile(t, filepath.Join(root, ".flow", "project.md"), "## visual verification\n\n| Setting | Value |\n|---------|-------|\n"+
 		"| `regression checkout` | `"+checkout+"` |\n| `mockups` | `docs/design/mockups` |\n"+
 		"| `design repo` | `"+design+" "+design+"` |\n")

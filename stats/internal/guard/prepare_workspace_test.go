@@ -50,7 +50,7 @@ func pwRepo(t *testing.T, name, cfg string) string {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(repo) })
-	gitRun(t, repo, "init", "-q")
+	fixtureRepo(t, repo, repoShape{})
 	writeFile(t, filepath.Join(repo, "README.md"), "seed\n")
 	gitRun(t, repo, "add", "-A")
 	gitRun(t, repo, "commit", "-q", "-m", "seed")

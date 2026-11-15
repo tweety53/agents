@@ -17,6 +17,7 @@ func guardRun(guard, outcome string, exit, ms int, at time.Time) records.GuardRu
 }
 
 func TestRecordGuardRunRefusesAnUnknownProject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	_, err := st.RecordGuardRun(context.Background(), "no-such-project", guardRun("g", "clear", 0, 1, time.Now()))
 	if !errors.Is(err, store.ErrProjectNotFound) {
@@ -25,6 +26,7 @@ func TestRecordGuardRunRefusesAnUnknownProject(t *testing.T) {
 }
 
 func TestRecordGuardRunRefusesAnInvalidRun(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	projectKey := fmt.Sprintf("proj-grinv-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
@@ -44,6 +46,7 @@ func TestRecordGuardRunRefusesAnInvalidRun(t *testing.T) {
 // (read back nil, never an empty slice), and an empty id is refused
 // (decisions reasons-array, reason-nullable).
 func TestRecordGuardRunStoresReasons(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	projectKey := fmt.Sprintf("proj-grrsn-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
@@ -91,6 +94,7 @@ func recordGuardRuns(t *testing.T, st *store.Store, projectKey string, runs ...r
 // by outcome, the median and summed duration, the latest fired instant (not
 // the latest run), the window and project filters, and helper exclusion.
 func TestGuardHealthPerGuard(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()
@@ -148,6 +152,7 @@ func TestGuardHealthPerGuard(t *testing.T) {
 // TestGuardHealthProjectsCountsGuardRuns pins the Project chips' counts:
 // helpers excluded, count descending before key.
 func TestGuardHealthProjectsCountsGuardRuns(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()
@@ -180,6 +185,7 @@ func TestGuardHealthProjectsCountsGuardRuns(t *testing.T) {
 // TestGuardHealthWindowBounds pins the half-open window both queries share:
 // a run exactly at From counts, a run exactly at To does not.
 func TestGuardHealthWindowBounds(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	proj := fmt.Sprintf("proj-gh-bounds-%d", time.Now().UnixNano())

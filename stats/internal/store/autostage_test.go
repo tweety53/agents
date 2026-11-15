@@ -41,6 +41,7 @@ func autoDispatch(token, key string, at time.Time) records.Dispatch {
 // A dispatch begun with no stage open lands in an auto-opened run whose
 // stage is derived from its key and that carries its session.
 func TestRecordDispatchOpensAutoStageRun(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	for key, stage := range map[string]string{
@@ -76,6 +77,7 @@ func TestRecordDispatchOpensAutoStageRun(t *testing.T) {
 
 // A dispatch begun while a stage is open opens nothing.
 func TestRecordDispatchInsideOpenStageOpensNothing(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-auto-inside-%d", time.Now().UnixNano())
@@ -98,6 +100,7 @@ func TestRecordDispatchInsideOpenStageOpensNothing(t *testing.T) {
 // auto run: the harvester has committed past that time and would never fill
 // it. One begun at or after the latest end still opens one.
 func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	day := func(h, m int) time.Time { return time.Date(2026, 8, 22, h, m, 0, 0, time.UTC) }
@@ -127,6 +130,7 @@ func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
 // The auto run ends with its last open dispatch, and takes the latest
 // run's command.
 func TestEndDispatchClosesAutoStageRun(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-auto-end-%d", time.Now().UnixNano())
@@ -170,6 +174,7 @@ func TestEndDispatchClosesAutoStageRun(t *testing.T) {
 // An explicit stage begin closes a dangling auto run, from another session
 // token too.
 func TestBeginStageClosesDanglingAutoStageRun(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-auto-supersede-%d", time.Now().UnixNano())
@@ -195,6 +200,7 @@ func TestBeginStageClosesDanglingAutoStageRun(t *testing.T) {
 // carries the change's one open request; with that request ended, two open,
 // or a /flow change, it carries none.
 func TestAutoStageRunCarriesTheOpenInteractiveRequest(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	day := func(h, m int) time.Time { return time.Date(2026, 10, 31, h, m, 0, 0, time.UTC) }

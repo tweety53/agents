@@ -15,8 +15,9 @@ import (
 // name travels as the POST body, and the confirmation carries the store's
 // stamped row -- the recorded timestamp and the changes-since figure.
 func TestSpecRecordPostsAndPrintsConfirmation(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotMethod, gotPath string
 	var gotBody []byte
@@ -32,7 +33,7 @@ func TestSpecRecordPostsAndPrintsConfirmation(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"spec", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-spec", "baseline.spec.ts"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -54,8 +55,9 @@ func TestSpecRecordPostsAndPrintsConfirmation(t *testing.T) {
 // inventories the directory's own spec files, carrying their basenames to
 // the store as the named universe.
 func TestSpecListPrintsRowsAndNeverRunSpecs(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotSpecs []string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +73,7 @@ func TestSpecListPrintsRowsAndNeverRunSpecs(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"spec", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec list exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -98,7 +100,7 @@ func TestSpecListPrintsRowsAndNeverRunSpecs(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"spec", "list", "-dir", dir, "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec list -dir exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -116,8 +118,9 @@ func TestSpecListPrintsRowsAndNeverRunSpecs(t *testing.T) {
 // listing an absent -dir produces, which is the silent degradation the
 // -dir guard exists to prevent.
 func TestSpecListEmptyDirPrintsNoSpecFiles(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		t.Errorf("an empty -dir must not reach the store")
@@ -130,7 +133,7 @@ func TestSpecListEmptyDirPrintsNoSpecFiles(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"spec", "list", "-dir", empty, "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("spec list -dir empty exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -32,8 +31,10 @@ var pucRepo = sync.OnceValues(func() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := copyShape(dir, repoShape{}); err != nil {
+		return "", err
+	}
 	g := &fxGit{}
-	g.git(dir, "init", "-q")
 	g.write(dir+"/src.txt", "source: original")
 	if err := os.MkdirAll(dir+"/spectre/changes/demo", 0o755); err != nil {
 		return "", err
@@ -120,8 +121,8 @@ func pucExec(root string, steps []pucStep, snapRel string) ([]pucResult, error) 
 	if err != nil {
 		return nil, err
 	}
-	if out, err := exec.Command("cp", "-Rp", src, wt).CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("cp: %v\n%s", err, out)
+	if err := copyTree(src, wt); err != nil {
+		return nil, err
 	}
 	snapDir := filepath.Join(root, "snap")
 	if err := os.Mkdir(snapDir, 0o755); err != nil {

@@ -37,6 +37,7 @@ func newHazardStore(t *testing.T) (*store.Store, *pgxpool.Pool, string) {
 // TestAddListRetireHazard covers the row's whole life: added active, listed
 // newest-first, retired stays listed only under includeInactive.
 func TestAddListRetireHazard(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
@@ -105,6 +106,7 @@ func TestAddListRetireHazard(t *testing.T) {
 // ('all', shape): the always-on rows inject beside the shape-specific ones,
 // and never the other shape's rows.
 func TestListHazardsFiltersByShape(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
@@ -143,6 +145,7 @@ func TestListHazardsFiltersByShape(t *testing.T) {
 // TestListHazardsIncludeInactive isolates the includeInactive lift: a
 // retired row reappears only when it is set, active rows regardless.
 func TestListHazardsIncludeInactive(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
@@ -168,6 +171,7 @@ func TestListHazardsIncludeInactive(t *testing.T) {
 // ErrHazardDuplicate -- a typed refusal the API maps to 409 -- and that the
 // refused insert left exactly one row.
 func TestAddHazardDuplicateRefused(t *testing.T) {
+	t.Parallel()
 	st, pool, projectKey := newHazardStore(t)
 	ctx := context.Background()
 

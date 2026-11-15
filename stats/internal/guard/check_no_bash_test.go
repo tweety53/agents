@@ -14,7 +14,7 @@ func TestCheckNoBash(t *testing.T) {
 	run := func(t *testing.T, tracked map[string]string) (int, string) {
 		t.Helper()
 		root := t.TempDir()
-		gitRun(t, root, "init", "-q")
+		fixtureRepo(t, root, repoShape{})
 		for p, body := range tracked {
 			writeFile(t, filepath.Join(root, p), body)
 			gitRun(t, root, "add", "--", p)

@@ -15,7 +15,7 @@ type wpdWT struct{ path, mb, held string }
 
 func wpdNewWT(t *testing.T, g *fxGit, path string) wpdWT {
 	t.Helper()
-	g.git("", "init", "-q", "-b", "work", path)
+	g.copyShape(path, repoShape{Branch: "work"})
 	g.write(path+"/a.txt", "base")
 	g.write(path+"/gone.txt", "gone")
 	g.git(path, "add", ".")
@@ -288,7 +288,7 @@ func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
 	dir := t.TempDir()
 	var g fxGit
 	wt := dir + "/wt"
-	g.git("", "init", "-q", "-b", "work", wt)
+	g.copyShape(wt, repoShape{Branch: "work"})
 	g.write(wt+"/README.md", "base")
 	g.git(wt, "add", ".")
 	g.git(wt, "commit", "-qm", "base")

@@ -21,6 +21,7 @@ import (
 // or none at all, carries no harness, so any pair on it passes -- the
 // refusal must never fire on a value the mapping does not know.
 func TestRecordDispatchValidatesHarnessPair(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-harnesspair-%d", time.Now().UnixNano())

@@ -47,6 +47,13 @@ func (g *fxGit) git(dir string, args ...string) string {
 	return strings.TrimRight(string(out), "\n")
 }
 
+// copyShape is copyShape (helpers_test.go) into dir, its error held like a git step's.
+func (g *fxGit) copyShape(dir string, s repoShape) {
+	if g.err == nil {
+		g.err = copyShape(dir, s)
+	}
+}
+
 // appendLine is `echo <line> >> <path>`.
 func (g *fxGit) appendLine(path, line string) {
 	if g.err != nil {
@@ -197,7 +204,7 @@ func (fx *bmFx) advanceBase(files ...string) {
 func (fx *bmFx) withOrigin() {
 	origin := fx.dir + "/origin"
 	fx.repo = fx.dir + "/clone"
-	fx.g.git("", "init", "-q", "--bare", "-b", "main", origin)
+	fx.g.copyShape(origin, repoShape{Branch: "main", Bare: true})
 	fx.g.git("", "clone", "-q", origin, fx.repo)
 	fx.g.write(fx.repo+"/base.txt", "base")
 	fx.g.write(fx.repo+"/shared.txt", "shared-base")
@@ -241,7 +248,7 @@ func TestCheckBaseMoved(t *testing.T) {
 	// shared.txt in one commit, and demo checked out at it.
 	tmpl := t.TempDir() + "/repo"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", tmpl)
+	g.copyShape(tmpl, repoShape{Branch: "main"})
 	g.write(tmpl+"/base.txt", "base")
 	g.write(tmpl+"/shared.txt", "shared-base")
 	g.git(tmpl, "add", "base.txt", "shared.txt")
@@ -526,7 +533,7 @@ func bmNewFx(t *testing.T) *bmFx {
 	t.Helper()
 	fx := &bmFx{dir: t.TempDir()}
 	fx.repo = fx.dir + "/repo"
-	fx.g.git("", "init", "-q", "-b", "main", fx.repo)
+	fx.g.copyShape(fx.repo, repoShape{Branch: "main"})
 	fx.g.write(fx.repo+"/base.txt", "base")
 	fx.g.write(fx.repo+"/shared.txt", "shared-base")
 	fx.g.git(fx.repo, "add", "base.txt", "shared.txt")

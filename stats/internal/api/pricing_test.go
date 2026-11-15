@@ -28,6 +28,7 @@ func (f *fakeRepricer) RepriceSince(_ context.Context, since time.Time) (int, in
 // TestPricingRepriceAnswersCounts pins POST /api/v1/pricing/reprice
 // (decision reprice-command).
 func TestPricingRepriceAnswersCounts(t *testing.T) {
+	t.Parallel()
 	post := func(t *testing.T, f *fakeRepricer, body string) (int, []byte) {
 		t.Helper()
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}

@@ -17,6 +17,7 @@ import (
 // per observation, the property the planned/appended derivation reads the
 // series by.
 func TestRecordTaskCountReturnsRecordedRow(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-task-counts-%d", time.Now().UnixNano())
@@ -64,6 +65,7 @@ func TestRecordTaskCountReturnsRecordedRow(t *testing.T) {
 // beside the total and read back by ListTaskCounts (KAN-1067); an old
 // client that posts no corrections stores 0, the column's default.
 func TestRecordTaskCountCorrections(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-task-counts-corrections-%d", time.Now().UnixNano())
@@ -93,6 +95,7 @@ func TestRecordTaskCountCorrections(t *testing.T) {
 // is refused before the store is touched, so the route answers 400, not
 // 500 -- the CHECK constraint is the backstop, this check is the message.
 func TestRecordTaskCountRefusesNonPositiveTotal(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-task-counts-zero-%d", time.Now().UnixNano())
@@ -106,6 +109,7 @@ func TestRecordTaskCountRefusesNonPositiveTotal(t *testing.T) {
 }
 
 func TestRecordTaskCountRefusesNegativeCorrections(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-task-counts-negcorr-%d", time.Now().UnixNano())
@@ -121,6 +125,7 @@ func TestRecordTaskCountRefusesNegativeCorrections(t *testing.T) {
 // gives, so the CLI can distinguish a mistyped name from an unreachable
 // store.
 func TestRecordTaskCountUnknownChange(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-task-counts-missing-%d", time.Now().UnixNano())
@@ -135,6 +140,7 @@ func TestRecordTaskCountUnknownChange(t *testing.T) {
 // empty, never an error -- the same empty-slice rule LiveStateBoard
 // follows.
 func TestListTaskCountsChangeWithNone(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-task-counts-empty-%d", time.Now().UnixNano())
@@ -153,6 +159,7 @@ func TestListTaskCountsChangeWithNone(t *testing.T) {
 // 0055: its corrections column is NULL, and listing it must still succeed,
 // reading Corrections as 0 rather than failing the scan.
 func TestListTaskCountsLegacyNullCorrections(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-task-counts-%d", time.Now().UnixNano())

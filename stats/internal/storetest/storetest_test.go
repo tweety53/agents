@@ -65,3 +65,13 @@ func migrationStamps(t *testing.T, dsn string) map[string]time.Time {
 	}
 	return stamps
 }
+
+// TestNewStoreOpensATwoConnectionPool pins that NewStore opens its store on
+// the pool-sized DSN (decision test-pool-size), not only that the DSN helper
+// would size it.
+func TestNewStoreOpensATwoConnectionPool(t *testing.T) {
+	t.Parallel()
+	if got := storetest.NewStore(t).MaxConns(); got != 2 {
+		t.Errorf("NewStore pool MaxConns = %d, want 2", got)
+	}
+}

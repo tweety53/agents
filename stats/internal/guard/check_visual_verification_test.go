@@ -88,7 +88,7 @@ func vvWriteCfg(t *testing.T, root, body string) {
 func vvGitCheckout(t *testing.T, dir, origin string) {
 	t.Helper()
 	mkdir(t, dir)
-	gitRun(t, dir, "init", "-q")
+	fixtureRepo(t, dir, repoShape{})
 	if origin != "" {
 		gitRun(t, dir, "remote", "add", "origin", origin)
 	}

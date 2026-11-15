@@ -36,8 +36,9 @@ func writeChangeFile(t *testing.T, root, rel, body string) {
 // byte for byte.
 // smoke: core — the CLI through a real api.New to a real store
 func TestChangeSaveUpsertsBothFiles(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	st := storetest.NewStore(t)
 	projectKey, mainCheckout, err := fallback.ProjectKey(repo)
 	if err != nil {
@@ -63,14 +64,14 @@ func TestChangeSaveUpsertsBothFiles(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"change", "save", "-addr", ts.URL, "-C", repo, "demo"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("save exit = %d, stderr: %s", code, stderr.String())
 	}
 	for path, want := range map[string]string{"tasks.md": tasks, "self-review-context.md": bundle} {
 		stdout.Reset()
 		stderr.Reset()
 		if code := run(context.Background(), []string{"change", "file", "-addr", ts.URL, "-C", repo, "demo", path},
-			strings.NewReader(""), &stdout, &stderr); code != 0 {
+			env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("file %s exit = %d, stderr: %s", path, code, stderr.String())
 		}
 		if stdout.String() != want {
@@ -83,8 +84,9 @@ func TestChangeSaveUpsertsBothFiles(t *testing.T) {
 // all-or-nothing refusal: with only tasks.md on disk it exits 1 naming the
 // missing bundle, and flowd sees no PUT at all.
 func TestChangeSaveRefusesAMissingFileBeforeWriting(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	puts := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPut {
@@ -97,7 +99,7 @@ func TestChangeSaveRefusesAMissingFileBeforeWriting(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	code := run(context.Background(), []string{"change", "save", "-addr", srv.URL, "-C", repo, "demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1; stderr: %s", code, stderr.String())
 	}
@@ -113,6 +115,7 @@ func TestChangeSaveRefusesAMissingFileBeforeWriting(t *testing.T) {
 // /flow-fast plan under .superpowers/sdd/<name>/ is saved as tasks.md, and a
 // change with no plan at all saves its bundle alone.
 func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		label, plan string
 		want        []string
@@ -123,7 +126,7 @@ func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
 	} {
 		t.Run(tc.label, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			var puts []string
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodPut {
@@ -146,7 +149,7 @@ func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
 			writeChangeFile(t, repo, ".superpowers/sdd/demo/self-review-context.md", "bundle")
 			var stdout, stderr strings.Builder
 			if code := run(context.Background(), []string{"change", "save", "-addr", srv.URL, "-C", repo, "demo"},
-				strings.NewReader(""), &stdout, &stderr); code != 0 {
+				env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 				t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 			}
 			if strings.Join(puts, "|") != strings.Join(tc.want, "|") {
@@ -159,8 +162,9 @@ func TestChangeSaveReadsEitherPlanOrNone(t *testing.T) {
 // TestChangeFilePrintsBody pins `flow change file`: the served body on
 // stdout verbatim, exit 1 on a 404, and exit 2 when flowd is unreachable.
 func TestChangeFilePrintsBody(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	var gotPath string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
@@ -175,7 +179,7 @@ func TestChangeFilePrintsBody(t *testing.T) {
 
 	var stdout, stderr strings.Builder
 	if code := run(context.Background(), []string{"change", "file", "-addr", srv.URL, "-C", repo, "demo", "tasks.md"},
-		strings.NewReader(""), &stdout, &stderr); code != 0 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", code, stderr.String())
 	}
 	if stdout.String() != "# plan\n" {
@@ -187,11 +191,11 @@ func TestChangeFilePrintsBody(t *testing.T) {
 
 	stdout.Reset()
 	if code := run(context.Background(), []string{"change", "file", "-addr", srv.URL, "-C", repo, "demo", "missing.md"},
-		strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 1 || stdout.Len() != 0 {
 		t.Errorf("missing file: exit = %d stdout = %q, want 1 and nothing", code, stdout.String())
 	}
 	if code := run(context.Background(), []string{"change", "file", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "demo", "tasks.md"},
-		strings.NewReader(""), &stdout, &stderr); code != 2 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("unreachable store: exit = %d, want 2", code)
 	}
 }

@@ -186,19 +186,18 @@ func TestReadStateFileMissingIsAnError(t *testing.T) {
 
 func TestListStateFileNamesFindsEveryJSONFile(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("FLOW_STATE_DIR", root)
 
 	for _, name := range []string{"kan-1", "kan-2", "kan-3"} {
-		if err := fallback.WriteStateFile(fallback.StateFilePath("proj", name), []byte(`{}`)); err != nil {
+		if err := fallback.WriteStateFile(fallback.StateFilePath(root, "proj", name), []byte(`{}`)); err != nil {
 			t.Fatalf("seed %s: %v", name, err)
 		}
 	}
 	// A journal file beside them must not be reported as a change name.
-	if err := fallback.AppendJournalEntry(fallback.JournalFilePath("proj", "kan-1"), "proj", "kan-1", []byte(`{}`), time.Now()); err != nil {
+	if err := fallback.AppendJournalEntry(fallback.JournalFilePath(root, "proj", "kan-1"), "proj", "kan-1", []byte(`{}`), time.Now()); err != nil {
 		t.Fatalf("seed journal: %v", err)
 	}
 
-	names, err := fallback.ListStateFileNames("proj")
+	names, err := fallback.ListStateFileNames(root, "proj")
 	if err != nil {
 		t.Fatalf("ListStateFileNames: %v", err)
 	}
@@ -218,9 +217,8 @@ func TestListStateFileNamesFindsEveryJSONFile(t *testing.T) {
 
 func TestListStateFileNamesMissingDirectoryIsNotAnError(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("FLOW_STATE_DIR", root)
 
-	names, err := fallback.ListStateFileNames("never-written-to")
+	names, err := fallback.ListStateFileNames(root, "never-written-to")
 	if err != nil {
 		t.Fatalf("ListStateFileNames: %v, want nil error for a project with no fallback directory yet", err)
 	}

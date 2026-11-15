@@ -16,6 +16,7 @@ import (
 // measured exactly as the older `run-verify-list.sh` spelling, which
 // transcripts written before the port still carry.
 func TestWatcherParsesFlowGuardRunVerifyList(t *testing.T) {
+	t.Parallel()
 	for _, call := range []string{
 		"flow-guard run-verify-list /wt test c verify mf-s opus medium",
 		"/a/scripts/flow-guard run-verify-list /wt test c verify mf-s opus medium > /tmp/x 2>&1",
@@ -32,6 +33,7 @@ func TestWatcherParsesFlowGuardRunVerifyList(t *testing.T) {
 // panel-round-begins …` — bare or as `…/scripts/flow-guard` — yields one
 // begin per slot, as the older `panel-round-begins.sh` spelling does.
 func TestWatcherParsesFlowGuardPanelRoundBegins(t *testing.T) {
+	t.Parallel()
 	for _, prefix := range []string{
 		"flow-guard panel-round-begins",
 		"/a/scripts/flow-guard panel-round-begins",

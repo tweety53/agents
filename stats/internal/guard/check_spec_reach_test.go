@@ -241,9 +241,9 @@ func TestCheckSpecReach(t *testing.T) {
 	t.Run("case 18", func(t *testing.T) {
 		fx := srNew(t, path)
 		fx.cfgWithCheckout("")
-		srGit(t, "init", "-q", "-b", "main", fx.checkout)
+		fixtureRepo(t, fx.checkout, repoShape{Branch: "main"})
 		srGit(t, "-C", fx.checkout, "commit", "-q", "--allow-empty", "-m", "base")
-		srGit(t, "init", "-q", "-b", "main", fx.root)
+		fixtureRepo(t, fx.root, repoShape{Branch: "main"})
 		srGit(t, "-C", fx.root, "commit", "-q", "--allow-empty", "-m", "base")
 		srGit(t, "-C", fx.root, "checkout", "-q", "-b", "spectre/demo")
 		fx.packageJSON("test:e2e=playwright test tests/")

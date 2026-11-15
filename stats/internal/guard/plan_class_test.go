@@ -72,8 +72,7 @@ func TestPlanClass(t *testing.T) {
 	// merge base every four-argument case measures from.
 	tmpl := t.TempDir() + "/repo"
 	var g fxGit
-	g.git("", "init", "-q", tmpl)
-	g.git(tmpl, "commit", "-q", "--allow-empty", "-m", "init")
+	g.copyShape(tmpl, repoShape{Commit: "init"})
 	mb := g.git(tmpl, "rev-parse", "HEAD")
 	if g.err != nil {
 		t.Fatal(g.err)
@@ -558,8 +557,7 @@ func TestPlanClassOverrideFlag(t *testing.T) {
 	t.Parallel()
 	tmpl := t.TempDir() + "/repo"
 	var g fxGit
-	g.git("", "init", "-q", tmpl)
-	g.git(tmpl, "commit", "-q", "--allow-empty", "-m", "init")
+	g.copyShape(tmpl, repoShape{Commit: "init"})
 	mb := g.git(tmpl, "rev-parse", "HEAD")
 	if g.err != nil {
 		t.Fatal(g.err)

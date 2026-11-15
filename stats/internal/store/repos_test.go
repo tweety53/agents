@@ -10,6 +10,7 @@ import (
 )
 
 func TestPutChangeWritesRepoSet(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -46,6 +47,7 @@ func TestPutChangeWritesRepoSet(t *testing.T) {
 }
 
 func TestTwoRepoChangeIsOneRow(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -75,6 +77,7 @@ func TestTwoRepoChangeIsOneRow(t *testing.T) {
 }
 
 func TestPutChangeReplacesRepoSetWholesale(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -107,6 +110,7 @@ func TestPutChangeReplacesRepoSetWholesale(t *testing.T) {
 }
 
 func TestNullMergeBaseRoundTrips(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -131,6 +135,7 @@ func TestNullMergeBaseRoundTrips(t *testing.T) {
 }
 
 func TestListChangeReposOrdersStably(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -175,6 +180,7 @@ func TestListChangeReposOrdersStably(t *testing.T) {
 // on tx (id is already known), so the assertions below hold only if that
 // upsert's effects are rolled back together with the repo write's.
 func TestRepoSetIsTransactionalWithTheChange(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -220,6 +226,7 @@ func TestRepoSetIsTransactionalWithTheChange(t *testing.T) {
 // same RepoRoot twice is refused with a typed ErrDuplicateRepoRoot rather
 // than surfacing change_repos' composite-primary-key violation raw.
 func TestPutChangeRejectsDuplicateRepoRoot(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -243,6 +250,7 @@ func TestPutChangeRejectsDuplicateRepoRoot(t *testing.T) {
 // change_repos exactly as PutChange wrote it -- the read side of the same
 // whole-object rule the write side follows.
 func TestGetChangeIncludesRepoSet(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -269,6 +277,7 @@ func TestGetChangeIncludesRepoSet(t *testing.T) {
 // one queried alone -- the case that would expose an accidental
 // single-change assumption in the batched read.
 func TestListChangesIncludesRepoSetForEveryChange(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 

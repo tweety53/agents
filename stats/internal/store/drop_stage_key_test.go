@@ -8,6 +8,7 @@ import (
 // TestStageRunsCarriesNoStageKey pins migration 0048: stage_runs.stage_key and
 // its index, added by 0008 and never written or read, are gone (kan-1037).
 func TestStageRunsCarriesNoStageKey(t *testing.T) {
+	t.Parallel()
 	_, pool := newRecordStore(t)
 	ctx := context.Background()
 	var n int

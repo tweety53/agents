@@ -287,6 +287,7 @@ func readBody(t *testing.T, resp *http.Response) []byte {
 // and start instant the request named -- command, stage, harness, session
 // id and started-at -- not merely that the request "succeeded".
 func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -352,6 +353,7 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 // (cmd/flow/stage_test.go), the daemon itself must never persist a
 // stage name absent from internal/stages' documented table.
 func TestStageBeginRejectsUndocumentedStage(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -384,6 +386,7 @@ func TestStageBeginRejectsUndocumentedStage(t *testing.T) {
 // shell-substitution shapes that would be recorded identically by every
 // caller (`$(...)`, a backtick, and `$VAR`).
 func TestStageBeginRejectsInvalidSessionToken(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name         string
 		sessionToken any // nil omits the field entirely, pinning the "missing" case
@@ -428,6 +431,7 @@ func TestStageBeginRejectsInvalidSessionToken(t *testing.T) {
 // has never heard of is recorded against a synthetic change row for the
 // project, rather than refused.
 func TestMarkForUnknownChangeIsStored(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	// Deliberately no pre-registered change for "proj"/"chg-nobody-made".
 	srv := newStageTestServer(t, fs)
@@ -475,6 +479,7 @@ func TestMarkForUnknownChangeIsStored(t *testing.T) {
 // it -- a second end call's metrics must not erase what a first call (or
 // a concurrent harvester merge) already wrote.
 func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -567,6 +572,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 // the wrong one would attribute that end's outcome and metrics to an
 // attempt no live session is actually writing to.
 func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -632,6 +638,7 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 // not-found rather than silently succeeding, or panicking, when no
 // matching stage run is currently open.
 func TestStageEndWithNoOpenRunIsNotFound(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -662,6 +669,7 @@ func TestStageEndWithNoOpenRunIsNotFound(t *testing.T) {
 // test actually pins is ApplyEndStageMark's translation of that into
 // ErrNoOpenStageRun rather than a raw, unmapped failure.
 func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -747,6 +755,7 @@ func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 // doc comment) -- the flag is derived entirely from what `stage begin`
 // already recorded, which is the fix for finding F1.
 func TestNonClaudeHarnessMarksTokensUnavailable(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -784,6 +793,7 @@ func TestNonClaudeHarnessMarksTokensUnavailable(t *testing.T) {
 // -- confirmed locally -- which is exactly the false-negative finding F1
 // reported: a measured run marked unavailable.
 func TestClaudeCodeHarnessEndedWithoutHarnessIsNotMarkedUnavailable(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -813,6 +823,7 @@ func TestClaudeCodeHarnessEndedWithoutHarnessIsNotMarkedUnavailable(t *testing.T
 // "not measured"), and tokens_available itself is the JSON boolean false,
 // never the number 0 (which a looser round-trip could otherwise hide).
 func TestUnavailableIsNeverWrittenAsZero(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	srv := newStageTestServer(t, fs)
@@ -852,6 +863,7 @@ func TestUnavailableIsNeverWrittenAsZero(t *testing.T) {
 // against ApplyEndStageMark directly, the same call reconcile makes, for
 // every metrics shape that must not panic.
 func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
+	t.Parallel()
 	for _, metrics := range [][]byte{nil, []byte("null"), []byte("{}")} {
 		fs := newFakeStore()
 		fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
@@ -898,6 +910,7 @@ func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
 // source the harvester reads -- while a harness with no transcript at all
 // (no-transcript-harness) keeps the honest stamp.
 func TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses(t *testing.T) {
+	t.Parallel()
 	t.Run("zcode is harvested and gets no stamp", func(t *testing.T) {
 		fs := newFakeStore()
 		fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
@@ -959,6 +972,7 @@ func TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses(t *testing.T)
 }
 
 func TestStageBeginWithJiraKeyRecordsAPlanSession(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
@@ -989,6 +1003,7 @@ func TestStageBeginWithJiraKeyRecordsAPlanSession(t *testing.T) {
 }
 
 func TestStageBeginRejectsJiraKeyOutsidePlanSession(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
@@ -1003,6 +1018,7 @@ func TestStageBeginRejectsJiraKeyOutsidePlanSession(t *testing.T) {
 }
 
 func TestStageEndWithJiraKeyClosesThePlanSession(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
@@ -1027,6 +1043,7 @@ func TestStageEndWithJiraKeyClosesThePlanSession(t *testing.T) {
 }
 
 func TestStageEndRejectsJiraKeyOutsidePlanSession(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
@@ -1047,6 +1064,7 @@ func TestStageEndRejectsJiraKeyOutsidePlanSession(t *testing.T) {
 // time, not left for a deferred pass to explain. A nil logger (the
 // reconcile replay path's legitimate shape) must not panic.
 func TestApplyBeginStageMarkCarriesSupersededRuns(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	fs.beginStageSuperseded = []store.SupersededRun{
@@ -1089,6 +1107,7 @@ func TestApplyBeginStageMarkCarriesSupersededRuns(t *testing.T) {
 // whose store answer names superseded runs returns them under
 // "superseded" in the response body, so the CLI can print the warning.
 func TestStageBeginResponseCarriesSupersededRuns(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	fs.beginStageSuperseded = []store.SupersededRun{
@@ -1131,6 +1150,7 @@ func TestStageBeginResponseCarriesSupersededRuns(t *testing.T) {
 // TestApplyBeginStageMarkFinishesAFlowFastChange pins that /flow-fast's
 // flow.write-finished mark moves its synthetic change row to FINISHED.
 func TestApplyBeginStageMarkFinishesAFlowFastChange(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 
@@ -1150,6 +1170,7 @@ func TestApplyBeginStageMarkFinishesAFlowFastChange(t *testing.T) {
 // keeps no state file either, so its flow.write-finished begin moves the
 // bootstrapped change row to FINISHED as /flow-fast's does.
 func TestApplyBeginStageMarkFinishesAFlowInteractiveChange(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 
@@ -1170,6 +1191,7 @@ func TestApplyBeginStageMarkFinishesAFlowInteractiveChange(t *testing.T) {
 // positive one; anything else is ErrInvalidMark before the store is
 // touched, and an accepted one reaches BeginStage as RequestN.
 func TestApplyBeginStageMarkRefusesRequestOffInteractive(t *testing.T) {
+	t.Parallel()
 	mark := func(command string, request int) api.BeginStageMark {
 		return api.BeginStageMark{
 			ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",

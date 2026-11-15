@@ -457,7 +457,7 @@ func TestCheckVisualPreflightFlowBaseSiblings(t *testing.T) {
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), vpIsolation+apps)
 	mkdir(t, filepath.Join(wt, "web"))
 	g := &fxGit{}
-	g.git(wt, "init", "-q", "-b", "spectre/x")
+	g.copyShape(wt, repoShape{Branch: "spectre/x"})
 	if g.err != nil {
 		t.Fatal(g.err)
 	}

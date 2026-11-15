@@ -15,7 +15,7 @@ func psiRepo(t *testing.T) (*fxGit, string) {
 	t.Helper()
 	wt := t.TempDir()
 	g := &fxGit{}
-	g.git("", "init", "-q", "-b", "work", wt)
+	g.copyShape(wt, repoShape{Branch: "work"})
 	g.write(wt+"/.gitignore", "spectre/changes/\n.superpowers/")
 	g.write(wt+"/a.txt", "a")
 	g.git(wt, "add", ".")

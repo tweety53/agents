@@ -48,6 +48,7 @@ func doRequest(t *testing.T, method, url string, body []byte) (int, string, []by
 // listing is false before a PUT, the PUT answers 204, the GET serves the
 // body byte for byte as text/markdown, and the listing turns true.
 func TestChangeFilePutThenGetServesBody(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-change-files-api-%d", time.Now().UnixNano())
 	mustPutIntegrationChange(t, st, projectKey, "kan-1073", nil)
@@ -93,6 +94,7 @@ func TestChangeFilePutThenGetServesBody(t *testing.T) {
 // TestChangeFilePutAcceptsABodyOverTwoMiB pins the request-body cap above
 // the largest change file observed: a self-review bundle past 2 MiB saves.
 func TestChangeFilePutAcceptsABodyOverTwoMiB(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-change-files-big-%d", time.Now().UnixNano())
 	mustPutIntegrationChange(t, st, projectKey, "kan-1087", nil)
@@ -115,6 +117,7 @@ func TestChangeFilePutAcceptsABodyOverTwoMiB(t *testing.T) {
 // TestChangeFileGetMissingIs404 pins both absences as 404: a path never
 // saved for a known change, and a change the store does not hold.
 func TestChangeFileGetMissingIs404(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-change-files-404-%d", time.Now().UnixNano())
 	mustPutIntegrationChange(t, st, projectKey, "kan-1073", nil)

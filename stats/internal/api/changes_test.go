@@ -122,6 +122,10 @@ type fakeStore struct {
 	nextSuiteRunID    int64
 	insertSuiteRunErr error
 	listSuiteRunsErr  error
+	// testsSuite and testsLimit are what the last LatestSuiteRunTests call
+	// asked for (KAN-1124).
+	testsSuite string
+	testsLimit int
 
 	// --- spec last-run bookkeeping (KAN-418,
 	// internal/api/specs_test.go's fakeStore methods operate on these) ---
@@ -429,6 +433,7 @@ func matchesFilters(c store.Change, filters []store.Filter) bool {
 // confirming the test actually exercises the guard rather than passing
 // vacuously.
 func TestServerBindsLoopbackOnly(t *testing.T) {
+	t.Parallel()
 	t.Run("non-loopback host is refused", func(t *testing.T) {
 		cfg := config.Config{Host: "0.0.0.0", Port: 0, DSN: "unused"}
 		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
@@ -475,6 +480,7 @@ func TestServerBindsLoopbackOnly(t *testing.T) {
 // default 500 branch makes this test fail, confirming it actually pins
 // the status rather than merely accepting whatever the handler returns.
 func TestPutChangeReturnsMonotonicRefusalDistinctly(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.putErr = store.ErrMonotonicViolation
 	ts := newTestServer(t, fs)
@@ -497,6 +503,7 @@ func TestPutChangeReturnsMonotonicRefusalDistinctly(t *testing.T) {
 // exist -- so this cannot pass merely because the handler returns 404 for
 // every request.
 func TestGetChangeUnknownReturns404(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -527,6 +534,7 @@ func TestGetChangeUnknownReturns404(t *testing.T) {
 // the unknown field is silently dropped), confirming the test actually
 // exercises the guard rather than passing regardless of it.
 func TestPutChangeRejectsUnknownField(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -554,6 +562,7 @@ func TestPutChangeRejectsUnknownField(t *testing.T) {
 // same way TestPutChangeRejectsUnknownField's `bogusField` is, under the
 // same DisallowUnknownFields guard.
 func TestPutChangeRejectsReviewPanelRosterField(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -578,6 +587,7 @@ func TestPutChangeRejectsReviewPanelRosterField(t *testing.T) {
 // field. This is the read-side counterpart of
 // TestPutChangeRejectsReviewPanelRosterField's write-side check.
 func TestGetChangeOmitsReviewPanelRoster(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -609,6 +619,7 @@ func TestGetChangeOmitsReviewPanelRoster(t *testing.T) {
 // the wire shape omits it entirely (omitempty), so every pre-withdrawal
 // record reads exactly as it did before the field existed.
 func TestDecodeChangeBodyWithdrawnRoundTrip(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -636,6 +647,7 @@ func TestDecodeChangeBodyWithdrawnRoundTrip(t *testing.T) {
 // a stored withdrawn record surfaces "withdrawn": true, a plain record
 // carries no key at all — the wire a flow state get prints.
 func TestGetChangeServesWithdrawn(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -676,6 +688,7 @@ func TestGetChangeServesWithdrawn(t *testing.T) {
 // review-before-landing flag survives a PUT and comes back on the GET that
 // follows; a body without the field stores false.
 func TestDecodeChangeBodyReviewBeforeLandingRoundTrip(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -713,6 +726,7 @@ func TestDecodeChangeBodyReviewBeforeLandingRoundTrip(t *testing.T) {
 // endpoint: a stored true record surfaces "reviewBeforeLanding": true, a
 // plain record carries no key at all.
 func TestGetChangeServesReviewBeforeLanding(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -758,6 +772,7 @@ func TestGetChangeServesReviewBeforeLanding(t *testing.T) {
 // code path; asserting the decoder's actual, distinct error text is what
 // tells them apart.
 func TestPutChangeRejectsMalformedJSON(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -784,6 +799,7 @@ func TestPutChangeRejectsMalformedJSON(t *testing.T) {
 // for the wrong reason: a fake that ignores the query but happens to
 // return one row, or a Query built correctly but never actually applied.
 func TestListChangesFiltersByProjectAndState(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	all := []store.Change{
 		{ProjectKey: "proj-a", Name: "one", State: store.StateStarted},
@@ -833,6 +849,7 @@ func TestListChangesFiltersByProjectAndState(t *testing.T) {
 // parse site (the stats-views requirement "A display name is
 // filtered on").
 func TestListChangesAcceptsProjectDisplayName(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.projectKeysByDisplayName = map[string][]string{"agents": {"agents-a740d89c"}}
 	all := []store.Change{
@@ -875,6 +892,7 @@ func TestListChangesAcceptsProjectDisplayName(t *testing.T) {
 // ambiguity and listing the candidate keys, rather than silently filtering
 // on one of them.
 func TestListChangesRejectsAmbiguousProjectDisplayName(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.projectKeysByDisplayName = map[string][]string{
 		"agents": {"agents-a740d89c", "agents-7c1f238a"},
@@ -900,6 +918,7 @@ func TestListChangesRejectsAmbiguousProjectDisplayName(t *testing.T) {
 // as 400 with the store's own internal text leaking into the body
 // (post-commit review round 2, F4).
 func TestListChangesProjectResolutionStoreFailureReturns500(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.projectKeysByDisplayNameErr = errors.New("store: project keys by display name \"agents\": connection refused")
 	ts := newTestServer(t, fs)
@@ -919,6 +938,7 @@ func TestListChangesProjectResolutionStoreFailureReturns500(t *testing.T) {
 // "A full key is filtered on": "it is used as-is, with no resolution
 // attempted".
 func TestListChangesExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -940,6 +960,7 @@ func TestListChangesExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
 // allowlist rejects surfaces as 400, naming the field -- never a 500 and
 // never a silently ignored parameter.
 func TestListChangesUnknownFieldReturns400(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.queryErr = fmt.Errorf("%w: filter %q not recognised; accepted: name, project, state", store.ErrUnknownField, "bogus")
 	ts := newTestServer(t, fs)
@@ -959,6 +980,7 @@ func TestListChangesUnknownFieldReturns400(t *testing.T) {
 // error, which must still land on 500 so the table actually distinguishes
 // "known and handled" from "unknown and generic".
 func TestErrorStatusMapping(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name       string
 		err        error
@@ -1010,6 +1032,7 @@ func TestErrorStatusMapping(t *testing.T) {
 // observing http.StatusOK, confirming this test actually distinguishes a
 // graceful shutdown from an abrupt one.
 func TestShutdownDrainsInFlight(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "slow")] = store.Change{
 		ProjectKey: "proj", Name: "slow", State: store.StateStarted,
@@ -1097,6 +1120,7 @@ func TestShutdownDrainsInFlight(t *testing.T) {
 // removed from api.New's Handler (using mux directly), every subtest here
 // fails with an empty header value.
 func TestServerSetsDaemonHeaderOnEveryResponse(t *testing.T) {
+	t.Parallel()
 	t.Run("200 on a known change", func(t *testing.T) {
 		fs := newFakeStore()
 		fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateInProgress}
@@ -1186,6 +1210,7 @@ func TestServerSetsDaemonHeaderOnEveryResponse(t *testing.T) {
 // zero repos recorded (the pre-fix behaviour: an explicit "repos" field
 // was needed on the wire, which task 5's CLI never sends).
 func TestPutChangeDerivesRepoSetFromWorktrees(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -1233,6 +1258,7 @@ func TestPutChangeDerivesRepoSetFromWorktrees(t *testing.T) {
 // its own project's repository -- no worktrees entries -- derives an empty
 // repo set rather than an error.
 func TestPutChangeEmptyWorktreesDerivesNoRepos(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -1253,6 +1279,7 @@ func TestPutChangeEmptyWorktreesDerivesNoRepos(t *testing.T) {
 // untouched until reposFromWorktrees parses it -- is reported as 400, not
 // silently ignored or turned into a 500.
 func TestPutChangeMalformedWorktreesIsRejected(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 
@@ -1297,6 +1324,7 @@ type changeDTOForFind struct {
 // more than one project's row, and the route is the only one that may
 // cross the project boundary.
 func TestStateFindRouteReturnsMatchingRecords(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj-a", "shared")] = store.Change{
 		ProjectKey: "proj-a", Name: "shared", State: store.StateStarted,
@@ -1345,6 +1373,7 @@ func TestStateFindRouteReturnsMatchingRecords(t *testing.T) {
 // an empty records array -- never a 404 and never an error -- and that a
 // request with no name parameter at all is a 400.
 func TestStateFindRouteUnknownIsEmpty(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
 

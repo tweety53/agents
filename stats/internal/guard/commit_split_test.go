@@ -31,12 +31,12 @@ func splitGit(t *testing.T, dir string, extra []string, args ...string) string {
 	return strings.TrimRight(string(out), "\n")
 }
 
-// splitRepo initialises main with the given branch flags, a local identity
-// and a seed commit of files, and adds a linked worktree at wt on
+// splitRepo copies an unborn repository on branch (git's default when empty)
+// to main, gives it a local identity and a seed commit of files, and adds a linked worktree at wt on
 // spectre/demo — the only place the location guard lets either guard commit.
-func splitRepo(t *testing.T, main, wt string, files map[string]string, initArgs ...string) {
+func splitRepo(t *testing.T, main, wt, branch string, files map[string]string) {
 	t.Helper()
-	splitGit(t, ".", nil, append(append([]string{"init", "-q"}, initArgs...), main)...)
+	fixtureRepo(t, main, repoShape{Branch: branch})
 	for _, kv := range [][2]string{{"user.email", "test@example.com"}, {"user.name", "Test"}, {"commit.gpgsign", "false"}} {
 		splitGit(t, main, nil, "config", kv[0], kv[1])
 	}
@@ -64,7 +64,7 @@ func csNew(t *testing.T) csFx {
 	t.Helper()
 	root := t.TempDir()
 	fx := csFx{root + "/main", root + "/wt"}
-	splitRepo(t, fx.main, fx.wt, map[string]string{
+	splitRepo(t, fx.main, fx.wt, "", map[string]string{
 		"README.md": "seed\n", ".gitignore": "spectre/changes/\n", "spectre/specs/seed.md": "seed\n",
 	})
 	return fx
@@ -132,7 +132,7 @@ func TestCommitSplit(t *testing.T) {
 		t.Parallel()
 		root := t.TempDir()
 		fx := csFx{root + "/main", root + "/wt"}
-		splitRepo(t, fx.main, fx.wt, map[string]string{"README.md": "seed\n", "spectre/specs/seed.md": "seed\n"})
+		splitRepo(t, fx.main, fx.wt, "", map[string]string{"README.md": "seed\n", "spectre/specs/seed.md": "seed\n"})
 		writeFile(t, fx.wt+"/src.md", "impl change\n")
 		writeFile(t, fx.wt+"/spectre/changes/demo/plan.md", "plan change\n")
 		rc, out := fx.split(t, fx.wt, "case1b")

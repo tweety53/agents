@@ -92,6 +92,7 @@ func (f *fakeStore) ListRequests(_ context.Context, projectKey, change string) (
 // n order, a store refusal of the record is a 400 and an unknown change a
 // 404.
 func TestRequestRoutes(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	base := ts.URL + recordsPath("proj", "kan-1") + "/requests"
 

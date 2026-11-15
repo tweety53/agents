@@ -23,7 +23,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -78,16 +80,17 @@ var (
 // TestMain: `os.Exit(storetest.Main(m))`.
 func Main(m *testing.M) int {
 	code := m.Run()
-	if err := dropLeftoverDatabases(context.Background()); err != nil {
+	if err := dropLeftoverDatabases(context.Background(), os.Getpid()); err != nil {
 		fmt.Fprintf(os.Stderr, "storetest: drop leftover test databases: %v\n", err)
 	}
 	return code
 }
 
-// dropLeftoverDatabases drops every test and template database this
-// process created that still exists. It runs once no test is left to use one. An unreachable
-// stack means nothing was created, so it is not an error.
-func dropLeftoverDatabases(ctx context.Context) error {
+// dropLeftoverDatabases drops every test and template database the process
+// with this pid created that still exists. Main runs it over its own pid once
+// no test is left to use one. An unreachable stack means nothing was created,
+// so it is not an error.
+func dropLeftoverDatabases(ctx context.Context, pid int) error {
 	admin, err := connectAdmin(ctx)
 	if err != nil {
 		return nil
@@ -95,7 +98,7 @@ func dropLeftoverDatabases(ctx context.Context) error {
 	defer admin.Close()
 
 	rows, err := admin.Query(ctx, "SELECT datname FROM pg_database WHERE datname ~ $1",
-		fmt.Sprintf(`^flow_(test|template)_%d_[0-9]+$`, os.Getpid()))
+		fmt.Sprintf(`^flow_(test|template)_%d_[0-9]+$`, pid))
 	if err != nil {
 		return err
 	}
@@ -134,10 +137,10 @@ func NewMigratedDatabase(t testing.TB) string {
 }
 
 // NewStore opens a store on a NewMigratedDatabase and registers its Close
-// as test cleanup.
+// as test cleanup. Its pool is sized to 2 connections (withTestPoolSize).
 func NewStore(t testing.TB) *store.Store {
 	t.Helper()
-	dsn := NewMigratedDatabase(t)
+	dsn := withTestPoolSize(NewMigratedDatabase(t))
 
 	st, err := store.Open(context.Background(), dsn)
 	if err != nil {
@@ -145,6 +148,24 @@ func NewStore(t testing.TB) *store.Store {
 	}
 	t.Cleanup(st.Close)
 	return st
+}
+
+// withTestPoolSize asks store.Open for a 2-connection pool through the
+// DSN's pool_max_conns, in either DSN form (KAN-1124, decision
+// test-pool-size): 3-4 packages x 4 parallel tests x (2 + 1 admin) is about
+// 48 connections, under the server's 100. Only NewStore applies it: DSN,
+// NewDatabase and NewMigratedDatabase hand their DSNs to pgx.Connect too,
+// which would send pool_max_conns to the server as a runtime parameter.
+func withTestPoolSize(dsn string) string {
+	const param = "pool_max_conns=2"
+	switch {
+	case !strings.HasPrefix(dsn, "postgres://") && !strings.HasPrefix(dsn, "postgresql://"):
+		return dsn + " " + param
+	case strings.Contains(dsn, "?"):
+		return dsn + "&" + param
+	default:
+		return dsn + "?" + param
+	}
 }
 
 // buildTemplate creates and migrates the package's template database, then
@@ -235,6 +256,14 @@ func dropDatabase(ctx context.Context, dbName string) error {
 	return err
 }
 
+// nameSeq tells apart names made in one clock tick: parallel tests create
+// databases at once, and the wall clock's resolution (a microsecond on
+// macOS) gave two of them one name, the second CREATE DATABASE refused.
+var nameSeq atomic.Int64
+
+// uniqueName is prefix, the PID dropLeftoverDatabases matches on, and a
+// suffix unique within this process and across earlier processes that held
+// the same PID: the fixed-width nanosecond clock, then the sequence.
 func uniqueName(prefix string) string {
-	return fmt.Sprintf("%s_%d_%d", prefix, os.Getpid(), time.Now().UnixNano())
+	return fmt.Sprintf("%s_%d_%d%d", prefix, os.Getpid(), time.Now().UnixNano(), nameSeq.Add(1))
 }

@@ -16,7 +16,7 @@ func TestCheckScopeSibling(t *testing.T) {
 	own, sib := filepath.Join(root, "gymie-playwright"), filepath.Join(root, "gymie")
 	g := &fxGit{}
 	for _, r := range []string{own, sib} {
-		g.git("", "init", "-q", "-b", "main", r)
+		g.copyShape(r, repoShape{Branch: "main"})
 	}
 	for _, p := range []string{"src/group/Group.kt", "e2e/x.ts", "helpers/h.ts", "workout-ui/w.kt", "playwright/p.ts", "build/b.kts"} {
 		writeFile(t, filepath.Join(sib, p), "x\n")

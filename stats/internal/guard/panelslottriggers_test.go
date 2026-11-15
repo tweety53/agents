@@ -24,7 +24,7 @@ func pstTemplate(t *testing.T) (func(t *testing.T) *pstFx, string) {
 	t.Helper()
 	tmpl := t.TempDir() + "/repo"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", tmpl)
+	g.copyShape(tmpl, repoShape{Branch: "main"})
 	for p, body := range map[string]string{
 		"README.md":        "# readme",
 		"stats/store/q.go": "row := db.QueryRow(q)",

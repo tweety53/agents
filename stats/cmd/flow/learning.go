@@ -29,7 +29,7 @@ as one JSON array line, exiting 1 when the store cannot be reached.
 skills/flow-contracts/learning.md is canonical for when a run calls these.
 `
 
-func runLearning(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runLearning(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, learningUsage)
 		return 2
@@ -37,9 +37,9 @@ func runLearning(ctx context.Context, args []string, stdout, stderr io.Writer) i
 
 	switch args[0] {
 	case "add":
-		return runLearningAdd(ctx, args[1:], stderr)
+		return runLearningAdd(ctx, args[1:], getenv, stderr)
 	case "list":
-		return runLearningList(ctx, args[1:], stdout, stderr)
+		return runLearningList(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown learning command %q\n", args[0])
 		fmt.Fprint(stderr, learningUsage)
@@ -49,7 +49,7 @@ func runLearning(ctx context.Context, args []string, stdout, stderr io.Writer) i
 
 // runLearningAdd implements `flow learning add`. The topic is the first
 // positional argument, ahead of the flags.
-func runLearningAdd(ctx context.Context, args []string, stderr io.Writer) int {
+func runLearningAdd(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	if len(args) == 0 || args[0] == "" || args[0][0] == '-' {
 		fmt.Fprintln(stderr, "flow: learning add needs a <topic> first")
 		fmt.Fprint(stderr, learningUsage)
@@ -60,7 +60,7 @@ func runLearningAdd(ctx context.Context, args []string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow learning add", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f storeConnFlags
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	note := fset.String("note", "", "the note's topic in one line (required)")
 	change := fset.String("change", "", "the change the note was shown in (required)")
 	dir := fset.String("C", "", "directory the project key resolves from (default: the working directory)")
@@ -72,7 +72,7 @@ func runLearningAdd(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, learningUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 0 || *note == "" || *change == "" {
 		fmt.Fprintln(stderr, "flow: learning add takes one <topic>, -note and -change")
 		fmt.Fprint(stderr, learningUsage)
@@ -104,11 +104,11 @@ func runLearningAdd(ctx context.Context, args []string, stderr io.Writer) int {
 }
 
 // runLearningList implements `flow learning list`.
-func runLearningList(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runLearningList(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow learning list", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f storeConnFlags
-	registerStoreConnFlags(fset, &f)
+	registerStoreConnFlags(fset, &f, getenv)
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -117,7 +117,7 @@ func runLearningList(ctx context.Context, args []string, stdout, stderr io.Write
 		fmt.Fprint(stderr, learningUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if fset.NArg() != 0 {
 		fmt.Fprintln(stderr, "flow: learning list takes no positional arguments")
 		fmt.Fprint(stderr, learningUsage)

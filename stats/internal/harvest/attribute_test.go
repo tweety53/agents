@@ -70,6 +70,7 @@ const mainSessionID = "session-main-a1b2c3"
 // double-counts, drops a record, or mixes up which bucket a token figure
 // lands in.
 func TestAttributeToOpenWindow(t *testing.T) {
+	t.Parallel()
 	records := mainThreadRecords(t)
 
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
@@ -118,6 +119,7 @@ func TestAttributeToOpenWindow(t *testing.T) {
 // registered window at all produces no delta at all, never one
 // attributed to the nearest window by guesswork.
 func TestMessagesOutsideAnyWindowAreNotAttributed(t *testing.T) {
+	t.Parallel()
 	records := mainThreadRecords(t) // includes one record from a second, unregistered session
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
@@ -151,6 +153,7 @@ func TestMessagesOutsideAnyWindowAreNotAttributed(t *testing.T) {
 // the finish instant an ended window of an unfinished change would own
 // them (decision gap-spend-to-last-begun-stage).
 func TestMessageOutsideItsWindowIntervalIsNotAttributed(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
 			StageRunID:       7,
@@ -223,6 +226,7 @@ func attributeGapCase(t *testing.T, windows []harvest.Window, records ...harvest
 // window that began last before it. The 10:04 record sits nearer window 2's
 // start than window 1's end, so a nearest-window rule would misplace it.
 func TestRecordBetweenWindowsGoesToTheLastBegunStage(t *testing.T) {
+	t.Parallel()
 	got := attributeGapCase(t,
 		[]harvest.Window{gapWindow(t, 1, "10:00:00", "10:01:00", ""), gapWindow(t, 2, "10:05:00", "10:06:00", "")},
 		gapRecord(t, "10:04:00", 3), gapRecord(t, "10:07:00", 5))
@@ -235,6 +239,7 @@ func TestRecordBetweenWindowsGoesToTheLastBegunStage(t *testing.T) {
 // goes where bestWindow sends it, never to a later-started window that
 // ended before it.
 func TestRecordInsideAWindowIgnoresTheFallback(t *testing.T) {
+	t.Parallel()
 	got := attributeGapCase(t,
 		[]harvest.Window{gapWindow(t, 1, "10:00:00", "", ""), gapWindow(t, 2, "10:05:00", "10:06:00", "")},
 		gapRecord(t, "10:10:00", 7))
@@ -247,6 +252,7 @@ func TestRecordInsideAWindowIgnoresTheFallback(t *testing.T) {
 // pre-first-mark-unattributed: what a session did before its first mark is
 // billed to no stage.
 func TestRecordBeforeTheFirstWindowIsNotAttributed(t *testing.T) {
+	t.Parallel()
 	got := attributeGapCase(t,
 		[]harvest.Window{gapWindow(t, 1, "10:00:00", "10:01:00", "")},
 		gapRecord(t, "09:59:00", 3))
@@ -258,6 +264,7 @@ func TestRecordBeforeTheFirstWindowIsNotAttributed(t *testing.T) {
 // TestRecordAfterTheChangeFinishedIsNotAttributed: the fallback never
 // crosses the change's finish instant.
 func TestRecordAfterTheChangeFinishedIsNotAttributed(t *testing.T) {
+	t.Parallel()
 	got := attributeGapCase(t,
 		[]harvest.Window{gapWindow(t, 1, "10:00:00", "10:01:00", "10:08:00"), gapWindow(t, 2, "10:05:00", "10:06:00", "10:08:00")},
 		gapRecord(t, "10:07:00", 3), gapRecord(t, "10:09:00", 5))
@@ -271,6 +278,7 @@ func TestRecordAfterTheChangeFinishedIsNotAttributed(t *testing.T) {
 // dispatch's bucket and one to output_unmeasured, never its first-chunk
 // output or thinking.
 func TestAttributeCountsUnmeasuredOutputApart(t *testing.T) {
+	t.Parallel()
 	at := mustParse(t, "2026-01-01T00:00:01Z")
 	records := []harvest.Record{
 		{Timestamp: at, SessionID: mainSessionID, IsSidechain: true, MessageID: "a",
@@ -299,6 +307,7 @@ func TestAttributeCountsUnmeasuredOutputApart(t *testing.T) {
 // self-reported marks as the metric source: a dispatching command's own
 // cost must stay distinguishable from what it dispatched.
 func TestSidechainAccumulatesSeparately(t *testing.T) {
+	t.Parallel()
 	var records []harvest.Record
 	records = append(records, mainThreadRecords(t)...)
 	records = append(records, sidechainRecords(t)...)
@@ -351,6 +360,7 @@ func TestSidechainAccumulatesSeparately(t *testing.T) {
 // way from Total to Models, because both are derived from the same
 // records in the same pass.
 func TestAttributeBucketsTokensPerModel(t *testing.T) {
+	t.Parallel()
 	var records []harvest.Record
 	records = append(records, mainThreadRecords(t)...)
 	records = append(records, sidechainRecords(t)...)
@@ -415,6 +425,7 @@ func TestAttributeBucketsTokensPerModel(t *testing.T) {
 // though someone had actually chosen it, and would break
 // absence-is-never-zero at its source.
 func TestRecordWithNoModelContributesToTotalOnlyNotToAnyBucket(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
 			StageRunID: 5,
@@ -453,6 +464,7 @@ func TestRecordWithNoModelContributesToTotalOnlyNotToAnyBucket(t *testing.T) {
 // usage -- Delta.Models' own per-model split (TestAttributeBucketsTokensPerModel
 // above) applied to a second key, agentId instead of model.
 func TestAttributeSplitsByAgentID(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
 			StageRunID: 12,
@@ -506,6 +518,7 @@ func TestAttributeSplitsByAgentID(t *testing.T) {
 // message -- contributes to Total and to Models, and creates no entry in
 // Dispatches at all, fabricated placeholder included.
 func TestAttributeNoAgentIDCreatesNoDispatch(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
 			StageRunID: 13,
@@ -545,6 +558,7 @@ func TestAttributeNoAgentIDCreatesNoDispatch(t *testing.T) {
 // TestAttributeRecordsDispatchModelVersion pins Delta.DispatchModels: a
 // dispatch's exact model ID, canonical lowercase, from its newest record.
 func TestAttributeRecordsDispatchModelVersion(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{StageRunID: 13, SessionID: mainSessionID, StartedAt: mustParse(t, "2025-12-01T00:00:00Z")}},
 	}}
@@ -571,6 +585,7 @@ func TestAttributeRecordsDispatchModelVersion(t *testing.T) {
 // run harvested before this capability must not become retroactively
 // wrong.
 func TestExistingTokenKeysUnchanged(t *testing.T) {
+	t.Parallel()
 	var records []harvest.Record
 	records = append(records, mainThreadRecords(t)...)
 	records = append(records, sidechainRecords(t)...)
@@ -618,6 +633,7 @@ func TestExistingTokenKeysUnchanged(t *testing.T) {
 // cumulative total from scratch, so Attribute must never assume it is
 // seeing a session's whole history in one call.
 func TestAttributePerModelBucketsAreAdditiveAcrossBatches(t *testing.T) {
+	t.Parallel()
 	all := mainThreadRecords(t) // 6 mainSessionID records (claude-opus-5) + 1 other-session record
 	boundary := mustParse(t, "2026-01-01T00:00:05Z")
 	var batch1, batch2 []harvest.Record
@@ -669,6 +685,7 @@ func TestAttributePerModelBucketsAreAdditiveAcrossBatches(t *testing.T) {
 // actually contains its timestamp, not in whichever window is listed
 // first or happens to be "closest".
 func TestBoundaryStraddlingMessagesSplitByTimestamp(t *testing.T) {
+	t.Parallel()
 	boundary := mustParse(t, "2026-01-01T00:00:05Z") // strictly between msg 3 (00:00:02.5) and msg 4 (00:00:10)
 	windowStart := mustParse(t, "2025-12-01T00:00:00Z")
 	windowEnd := mustParse(t, "2026-06-01T00:00:00Z")
@@ -730,6 +747,7 @@ func TestBoundaryStraddlingMessagesSplitByTimestamp(t *testing.T) {
 // end-then-start, to rule out the "incidental ORDER BY" failure mode the
 // review named directly.
 func TestExactBoundaryMessageGoesToTheStartingWindow(t *testing.T) {
+	t.Parallel()
 	seam := mustParse(t, "2026-07-26T15:25:40Z")
 	before := harvest.Window{
 		StageRunID: 201, SessionID: mainSessionID,
@@ -781,6 +799,7 @@ func TestExactBoundaryMessageGoesToTheStartingWindow(t *testing.T) {
 // boundary case, to rule out an incidental ORDER BY standing in for the
 // stated tie-break rule.
 func TestReplayedBeginPrefersHighestAttempt(t *testing.T) {
+	t.Parallel()
 	ts := mustParse(t, "2026-07-26T15:25:40Z")
 	orphan := harvest.Window{
 		StageRunID: 301, SessionID: mainSessionID, Attempt: 1,
@@ -819,6 +838,7 @@ func TestReplayedBeginPrefersHighestAttempt(t *testing.T) {
 // must go to the later-started window, and the orphan must receive
 // nothing, in both list orders.
 func TestOverlappingOpenWindowsPreferTheLatestStarted(t *testing.T) {
+	t.Parallel()
 	orphan := harvest.Window{
 		StageRunID: 401, SessionID: mainSessionID, Attempt: 1,
 		StartedAt: mustParse(t, "2026-07-26T15:00:00Z"), EndedAt: nil, // still open, dropped end mark
@@ -855,6 +875,7 @@ func TestOverlappingOpenWindowsPreferTheLatestStarted(t *testing.T) {
 // attempts 1 and 2 -- latest-start alone cannot distinguish them, so the
 // higher attempt still wins.
 func TestSameInstantWindowsFallBackToHighestAttempt(t *testing.T) {
+	t.Parallel()
 	sameStart := mustParse(t, "2026-07-26T15:00:00Z")
 	low := harvest.Window{
 		StageRunID: 501, SessionID: mainSessionID, Attempt: 1,
@@ -905,6 +926,7 @@ func TestSameInstantWindowsFallBackToHighestAttempt(t *testing.T) {
 // earlier but carries the *higher* attempt, window B starts later but
 // carries the *lower* attempt, and only latest-start-first picks B.
 func TestLatestStartOutranksAHigherAttempt(t *testing.T) {
+	t.Parallel()
 	earlierHigherAttempt := harvest.Window{
 		StageRunID: 601, SessionID: mainSessionID, Attempt: 5,
 		StartedAt: mustParse(t, "2026-07-26T15:00:00Z"), EndedAt: nil,
@@ -947,6 +969,7 @@ func TestLatestStartOutranksAHigherAttempt(t *testing.T) {
 // end, so the last-begun-stage fallback owns no instant past it and what
 // the window does not contain stays unattributed.
 func TestWindowContainsIsHalfOpen(t *testing.T) {
+	t.Parallel()
 	start := mustParse(t, "2026-01-01T00:00:00Z")
 	end := mustParse(t, "2026-01-01T01:00:00Z")
 	w := harvest.Window{StartedAt: start, EndedAt: ptrTime(end)}
@@ -990,6 +1013,7 @@ func TestWindowContainsIsHalfOpen(t *testing.T) {
 // commit anything for a batch whose attribution could not actually be
 // computed.
 func TestAttributePropagatesWindowSourceFailure(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{err: errors.New("window source unavailable")}
 	a := harvest.NewAttributor(windows)
 
@@ -1004,6 +1028,7 @@ func TestAttributePropagatesWindowSourceFailure(t *testing.T) {
 // violation: a batch spanning many messages for one session must ask
 // WindowSource once for that session, not once per message.
 func TestWindowsForSessionConsultedOncePerSession(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
 			StageRunID: 3,
@@ -1039,6 +1064,7 @@ func TestWindowsForSessionConsultedOncePerSession(t *testing.T) {
 // by TestAttributeToOpenWindow (33063) in CacheCreation1h, with nothing
 // left in CacheCreation5m or CacheCreationUnknown.
 func TestAttributeSplitsCacheCreationByRate(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		mainSessionID: {{
 			StageRunID: 42,
@@ -1073,6 +1099,7 @@ func TestAttributeSplitsCacheCreationByRate(t *testing.T) {
 // leaving both dedicated fields at zero (which would misread as "no
 // cache-creation usage at that rate happened", a different, false claim).
 func TestAttributeRecordsUnknownCacheSplitSeparately(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		"s-unknown-split": {{
 			StageRunID: 99,
@@ -1113,6 +1140,7 @@ func TestAttributeRecordsUnknownCacheSplitSeparately(t *testing.T) {
 // mirroring the rule Effort's own doc comment already states for that
 // field.
 func TestAttributeCapturesSpeedLastWriteWins(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		"s-speed": {{
 			StageRunID: 7,
@@ -1150,6 +1178,7 @@ func TestAttributeCapturesSpeedLastWriteWins(t *testing.T) {
 // sidechain record's effort -- a dispatch's own, shown on its dispatch
 // row -- never overwrites the session's.
 func TestAttributeCapturesMainSessionEffort(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
 		"s-effort": {{
 			StageRunID: 7,
@@ -1223,6 +1252,7 @@ func dispatchWindow(t *testing.T, dispatchID int64) harvest.DispatchWindow {
 // deliberately, since the two passes are two grains over the same usage
 // and neither redistributes it.
 func TestDispatchWindowAttributesSidechainUsage(t *testing.T) {
+	t.Parallel()
 	var records []harvest.Record
 	records = append(records, mainThreadRecords(t)...)
 	records = append(records, sidechainRecords(t)...)
@@ -1272,6 +1302,7 @@ func TestDispatchWindowAttributesSidechainUsage(t *testing.T) {
 // and the split between a dispatching command's own cost and what it
 // dispatched is exactly what TokenDelta's two buckets exist to keep.
 func TestDispatchWindowIgnoresMainThreadUsage(t *testing.T) {
+	t.Parallel()
 	var records []harvest.Record
 	records = append(records, mainThreadRecords(t)...)
 	records = append(records, sidechainRecords(t)...)
@@ -1312,6 +1343,7 @@ func TestDispatchWindowIgnoresMainThreadUsage(t *testing.T) {
 // same window. Before this, every inline row read "not measured" forever
 // (kan-930: 33 of 79 ledger rows).
 func TestInlineDispatchTakesMainThreadUsage(t *testing.T) {
+	t.Parallel()
 	var records []harvest.Record
 	records = append(records, mainThreadRecords(t)...)
 	records = append(records, sidechainRecords(t)...)
@@ -1345,6 +1377,7 @@ func TestInlineDispatchTakesMainThreadUsage(t *testing.T) {
 // -- while a measured window, one ending after the batch's last main-thread
 // record, an open one and a launched one get none.
 func TestInlineWindowWithNoTurnInsideMeasuresZero(t *testing.T) {
+	t.Parallel()
 	records := []harvest.Record{
 		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:31:25.743Z"), Model: "claude-opus-5-5", Effort: "low", Usage: harvest.Usage{InputTokens: 3, OutputTokens: 40}},
 		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:37:28.709Z"), Model: "claude-opus-5-5", Effort: "high", Usage: harvest.Usage{InputTokens: 5, OutputTokens: 70}},
@@ -1382,6 +1415,7 @@ func TestInlineWindowWithNoTurnInsideMeasuresZero(t *testing.T) {
 // only main-thread records past its end -- gets no zero entry: the batch
 // never saw the window, so it measures nothing for it.
 func TestInlineWindowFromAnEarlierBatchGetsNoZero(t *testing.T) {
+	t.Parallel()
 	start, end := mustParse(t, "2026-10-26T13:31:27.823Z"), mustParse(t, "2026-10-26T13:37:25.519Z")
 	records := []harvest.Record{
 		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:37:28.709Z"), Usage: harvest.Usage{InputTokens: 5, OutputTokens: 70}},
@@ -1403,6 +1437,7 @@ func TestInlineWindowFromAnEarlierBatchGetsNoZero(t *testing.T) {
 // spend goes to the inline row, the launched agent's sidechain spend to
 // the launched row, and neither takes a share of the other's.
 func TestInlineAndLaunchedWindowsOpenAtOnce(t *testing.T) {
+	t.Parallel()
 	start := mustParse(t, "2026-01-01T00:00:00Z")
 	at := start.Add(time.Minute)
 	records := []harvest.Record{
@@ -1431,6 +1466,7 @@ func TestInlineAndLaunchedWindowsOpenAtOnce(t *testing.T) {
 // main-thread record inside two inline windows is split between them
 // pro-rata (equal spans, equal shares), never credited to both in full.
 func TestOverlappingInlineWindowsApportionMainThreadUsage(t *testing.T) {
+	t.Parallel()
 	start := mustParse(t, "2026-01-01T00:00:00Z")
 	end := start.Add(10 * time.Minute)
 	records := []harvest.Record{
@@ -1458,6 +1494,7 @@ func TestOverlappingInlineWindowsApportionMainThreadUsage(t *testing.T) {
 // reaches an inline row -- a dispatch's signals are its sidechain side --
 // and that a batch of nothing else skips the windows query entirely.
 func TestMainThreadSignalsAreNotCredited(t *testing.T) {
+	t.Parallel()
 	start := mustParse(t, "2026-01-01T00:00:00Z")
 	records := []harvest.Record{
 		{SessionID: mainSessionID, Timestamp: start.Add(time.Minute), Signal: &harvest.Signal{Kind: harvest.SignalToolUse, ToolName: "Bash"}},
@@ -1489,6 +1526,7 @@ func TestMainThreadSignalsAreNotCredited(t *testing.T) {
 // against the literal figures catches a change to what stage attribution
 // records that both calls would report identically.
 func TestDispatchAttributionLeavesStageAttributionUnchanged(t *testing.T) {
+	t.Parallel()
 	var records []harvest.Record
 	records = append(records, mainThreadRecords(t)...)
 	records = append(records, sidechainRecords(t)...)
@@ -1547,6 +1585,7 @@ func TestDispatchAttributionLeavesStageAttributionUnchanged(t *testing.T) {
 // nearest one. Attribution that guesses here would be the self-reporting
 // this requirement exists to avoid, one level down.
 func TestRecordOutsideEveryDispatchWindowIsNotAttributed(t *testing.T) {
+	t.Parallel()
 	windows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
 		mainSessionID: {{
 			DispatchID: 12,
@@ -1575,6 +1614,7 @@ func TestRecordOutsideEveryDispatchWindowIsNotAttributed(t *testing.T) {
 // rather than exceptionally, and both list orders are checked so that an
 // incidental query order can never stand in for the stated rule.
 func TestDispatchWindowIntervalIsHalfOpen(t *testing.T) {
+	t.Parallel()
 	seam := mustParse(t, "2026-01-01T00:05:01.5Z")
 	first := harvest.DispatchWindow{
 		DispatchID: 1,
@@ -1708,6 +1748,7 @@ func dispatchIDs(windows []harvest.DispatchWindow) []int64 {
 // cannot produce, since latest-start-wins would hand both records to
 // slot B.
 func TestConcurrentSlotsAreSeparatedByAgentID(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		panelWindow(t, 1, "agent-slot-a", "2026-01-01T00:10:00Z"),
 		panelWindow(t, 2, "agent-slot-b", "2026-01-01T00:10:00.5Z"),
@@ -1737,6 +1778,7 @@ func TestConcurrentSlotsAreSeparatedByAgentID(t *testing.T) {
 // record, so a fallback case must give the interval pass exactly one
 // candidate to prove the fallback itself, not the ambiguity rule).
 func TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 1, AgentID: "agent-slot-a", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:15Z"))},
 		{DispatchID: 2, AgentID: "agent-slot-b", StartedAt: mustParse(t, "2026-01-01T00:10:15Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
@@ -1772,6 +1814,7 @@ func TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule(t *testing.T) {
 // would pull the record onto it and away from the window the interval rule
 // alone would place it on.
 func TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule(t *testing.T) {
+	t.Parallel()
 	t.Run("a record with no agent id does not match a dispatch with none", func(t *testing.T) {
 		windows := []harvest.DispatchWindow{
 			{DispatchID: 1, AgentID: "", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:15Z"))},
@@ -1810,6 +1853,7 @@ func TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule(t *testing.T) {
 // dispatch must attribute to it even when the record's own timestamp falls
 // outside that dispatch's interval entirely.
 func TestDispatchIdentityBeatsInterval(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{
 			DispatchID: 1,
@@ -1844,6 +1888,7 @@ func TestDispatchIdentityBeatsInterval(t *testing.T) {
 // split must hold in every window order, which the dispatch-id tie-break
 // in the remainder rule is what guarantees.
 func TestAttributeApportionsAmbiguousRecordsProRataByDuration(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 1, AgentID: "agent-one", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 2, AgentID: "agent-one", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:13:00Z"))},
@@ -1873,6 +1918,7 @@ func TestAttributeApportionsAmbiguousRecordsProRataByDuration(t *testing.T) {
 // every token lands somewhere, and the apportioned-records count names
 // one share per candidate.
 func TestAttributeApportionmentConservesUsage(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 21, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 22, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
@@ -1912,6 +1958,7 @@ func TestAttributeApportionmentConservesUsage(t *testing.T) {
 // duration to weight by, so when every candidate is weightless the record
 // is split equally rather than dropped on a technicality.
 func TestAttributeApportionmentEqualSplitsZeroDurationCandidates(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 31, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:00Z"))},
 		{DispatchID: 32, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:00Z"))},
@@ -1932,6 +1979,7 @@ func TestAttributeApportionmentEqualSplitsZeroDurationCandidates(t *testing.T) {
 // has demonstrably already covered -- while the closed candidate beside it
 // weights its full span.
 func TestAttributeOpenWindowAccruesToRecordTimestamp(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 41, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 42, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: nil},
@@ -1953,6 +2001,7 @@ func TestAttributeOpenWindowAccruesToRecordTimestamp(t *testing.T) {
 // and 1 -- one leftover unit to each of the two largest fractional
 // shares, ties to the lower dispatch id -- never 3 on one candidate.
 func TestAttributeApportionmentSpreadsRemainderAcrossThree(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 51, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 52, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
@@ -1974,6 +2023,7 @@ func TestAttributeApportionmentSpreadsRemainderAcrossThree(t *testing.T) {
 // an unequal split of 100 across weights 1 : 2 : 3.3 lands them 16/32/52
 // -- floors plus one unit each to the largest fractional remainders.
 func TestSplitInt64LargestRemainderSpreads(t *testing.T) {
+	t.Parallel()
 	equal := harvest.SplitInt64ForTest(5, []float64{1, 1, 1})
 	if equal[0] != 2 || equal[1] != 2 || equal[2] != 1 {
 		t.Fatalf("SplitInt64ForTest(5, [1 1 1]) = %v, want [2 2 1]", equal)
@@ -1993,6 +2043,7 @@ func TestSplitInt64LargestRemainderSpreads(t *testing.T) {
 // timestamp falls inside exactly one of them, and that one wins
 // (design.md's agent-id-on-begin).
 func TestDispatchSameAgentIDNarrowedByInterval(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 41, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 42, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:20:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:21:00Z"))},
@@ -2014,6 +2065,7 @@ func TestDispatchSameAgentIDNarrowedByInterval(t *testing.T) {
 // the candidates -- equal durations here, so an equal split -- rather than
 // being resolved by a guess or dropped on the floor.
 func TestDispatchSameAgentIDOutsideBothApportions(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 41, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		{DispatchID: 42, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:20:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:21:00Z"))},
@@ -2039,6 +2091,7 @@ func TestDispatchSameAgentIDOutsideBothApportions(t *testing.T) {
 // -- it is the only rule available on a harness with no agent id, and it is exactly
 // correct wherever windows do not overlap.
 func TestDispatchNonOverlappingIntervalStillAttributes(t *testing.T) {
+	t.Parallel()
 	windows := []harvest.DispatchWindow{
 		{DispatchID: 31, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 	}
@@ -2065,6 +2118,7 @@ func TestDispatchNonOverlappingIntervalStillAttributes(t *testing.T) {
 // is therefore canonicalized to lowercase where attribution mints it;
 // the record's own Model string is not the bucket key.
 func TestAttributionCanonicalizesModelBucketKeys(t *testing.T) {
+	t.Parallel()
 	const sess = "sess-canonical"
 	records := []harvest.Record{
 		{
@@ -2154,6 +2208,7 @@ func (d agentFileDeps) MergeDispatchMetrics(ctx context.Context, dispatchID int6
 // inference path could not merge anything: a merge on row 7 is proof the
 // agent-file route ran.
 func TestAttributeDispatchesRoutesAgentFileBatchesDirectly(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	agentWindows := &fakeAgentWindowSource{byAgent: map[string][]harvest.DispatchWindow{
@@ -2196,6 +2251,7 @@ func TestAttributeDispatchesRoutesAgentFileBatchesDirectly(t *testing.T) {
 // name, the newest line's model winning, and no key at all when no line
 // names one.
 func TestAttributeStampsModelVersion(t *testing.T) {
+	t.Parallel()
 	line := func(ts, model string) string {
 		return `{"type":"assistant","timestamp":"` + ts + `","sessionId":"s1","agentId":"abc","isSidechain":true,"message":{"model":"` + model + `","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n"
 	}
@@ -2246,6 +2302,7 @@ func TestAttributeStampsModelVersion(t *testing.T) {
 // every agent transcript under the root maps its agent id to the model it
 // names; one naming no model is left out.
 func TestAgentModelVersions(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	write := func(id, model string) {
 		t.Helper()
@@ -2292,6 +2349,7 @@ func TestAgentModelVersions(t *testing.T) {
 // takes the effort and model of the main-thread turns inside it, and that a
 // launched dispatch's sidechain turns leave its effort alone.
 func TestInlineWindowCarriesTheSessionsEffort(t *testing.T) {
+	t.Parallel()
 	start, end := mustParse(t, "2026-10-26T13:00:00Z"), mustParse(t, "2026-10-26T13:10:00Z")
 	records := []harvest.Record{
 		{SessionID: mainSessionID, Timestamp: mustParse(t, "2026-10-26T13:05:00Z"), Model: "claude-opus-5-5", Effort: "medium", Usage: harvest.Usage{OutputTokens: 9}},
@@ -2321,6 +2379,7 @@ func TestInlineWindowCarriesTheSessionsEffort(t *testing.T) {
 // delta; the in-window ones were harvested already and the pre-mark one is
 // nobody's.
 func TestAttributeGapsKeepsOnlyFallbackRecords(t *testing.T) {
+	t.Parallel()
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: {
 		gapWindow(t, 1, "10:00:00", "10:01:00", ""), gapWindow(t, 2, "10:05:00", "10:06:00", ""),
 	}}}
@@ -2347,6 +2406,7 @@ func TestAttributeGapsKeepsOnlyFallbackRecords(t *testing.T) {
 // run began is still nobody's, and one past a run that was never abandoned
 // still back-fills.
 func TestAttributeGapsSkipsRecordsPastAnAbandonedWindow(t *testing.T) {
+	t.Parallel()
 	swept := gapWindow(t, 1, "09:00:00", "10:00:00", "")
 	swept.Abandoned = true
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: {
@@ -2375,6 +2435,7 @@ func TestAttributeGapsSkipsRecordsPastAnAbandonedWindow(t *testing.T) {
 // -cite send-back's row relies on: two windows sharing one resumed agent's
 // id are told apart by when the record falls (self-review-kan-1110 F17).
 func TestBestDispatchWindowSplitsAResumedAgentByTime(t *testing.T) {
+	t.Parallel()
 	t0 := mustParse(t, "2026-11-14T12:00:00Z")
 	at := func(m int) time.Time { return t0.Add(time.Duration(m) * time.Minute) }
 	e1, e2 := at(10), at(14)

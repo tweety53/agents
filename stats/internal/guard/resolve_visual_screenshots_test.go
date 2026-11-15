@@ -79,14 +79,20 @@ var rvsGit = sync.OnceValues(func() (struct{ pw, projChange, projElse, wt string
 		return f, err
 	}
 	cfg := "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `gymie-frontend/**` |\n| `screenshots` | `.` |\n| `regression checkout` | `" + f.pw + "` |\n| `regression repo` | `git@github.com:tweety53/gymie-playwright.git` |\n"
+	for dir, s := range map[string]repoShape{
+		f.pw:         {Branch: "main"},
+		f.projChange: {Branch: "spectre/change"},
+		f.projElse:   {Branch: "spectre/change"},
+	} {
+		if err := copyShape(dir, s); err != nil {
+			return f, err
+		}
+	}
 	steps := [][]string{
-		{"init", "-q", "-b", "main", f.pw},
 		{"-C", f.pw, "add", "-A"},
 		{"-C", f.pw, "commit", "-q", "-m", "init"},
 		{"-C", f.pw, "worktree", "add", "-q", f.pw + "/.worktrees/change", "-b", "spectre/change"},
 		{"-C", f.pw, "worktree", "add", "-q", f.pw + "/.worktrees/other", "-b", "spectre/other"},
-		{"init", "-q", "-b", "spectre/change", f.projChange},
-		{"init", "-q", "-b", "spectre/change", f.projElse},
 		{"-C", f.projElse, "checkout", "-q", "-b", "elsewhere"},
 	}
 	for _, s := range steps {

@@ -17,6 +17,7 @@ import (
 // seen before" case reads as a plain, error-free zero -- exactly the
 // state of every transcript file the first time the harvester reads it.
 func TestGetHarvestOffsetUnknownTranscriptReadsAsZero(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -41,6 +42,7 @@ func TestGetHarvestOffsetUnknownTranscriptReadsAsZero(t *testing.T) {
 // that makes replaying a batch, or not replaying it, always the correct
 // choice.
 func TestCommitHarvestBatchAddsAndAdvancesTogether(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-commitbatch-%d", time.Now().UnixNano())
@@ -115,6 +117,7 @@ func TestCommitHarvestBatchAddsAndAdvancesTogether(t *testing.T) {
 // outside every registered window, or was a non-assistant type. The
 // offset must still advance, or those same bytes are re-read forever.
 func TestCommitHarvestBatchEmptyDeltasStillAdvancesOffset(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	path := "/synthetic/no-matches.jsonl"
@@ -149,6 +152,7 @@ func TestCommitHarvestBatchEmptyDeltasStillAdvancesOffset(t *testing.T) {
 // checks that neither good stage run's metrics changed -- regardless of
 // which position in iteration order the failing id happened to occupy.
 func TestCommitHarvestBatchFailurePartwayCommitsNothing(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-commitbatch-partial-%d", time.Now().UnixNano())
@@ -203,6 +207,7 @@ func TestCommitHarvestBatchFailurePartwayCommitsNothing(t *testing.T) {
 // returns SQL NULL, which stage_runs.metrics' NOT NULL constraint would
 // otherwise reject as a raw Postgres error rather than a typed one).
 func TestCommitHarvestBatchRejectsNilPatch(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-commitbatch-nilpatch-%d", time.Now().UnixNano())
@@ -228,6 +233,7 @@ func TestCommitHarvestBatchRejectsNilPatch(t *testing.T) {
 // on the *same* stage run's metrics bag must both survive, in either
 // write order.
 func TestHarvestBatchPreservesStageEndOutcomeKeys(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-outcome-then-harvest-%d", time.Now().UnixNano())
@@ -361,6 +367,7 @@ func buildDispatchPatch(t *testing.T, agentID string, bucket harvest.DispatchBuc
 // already covers: two ordinary batches for the same dispatch must leave
 // its tokens summed, never replaced.
 func TestCommitHarvestBatchSumsDispatchTokensAcrossTwoCommits(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-tokens-%d", time.Now().UnixNano())
@@ -424,6 +431,7 @@ func TestCommitHarvestBatchSumsDispatchTokensAcrossTwoCommits(t *testing.T) {
 // regression of F12 directly, with no Go-side merge logic standing
 // between the assertion and jsonb_deep_add's own rule.
 func TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-spawndepth-%d", time.Now().UnixNano())
@@ -491,6 +499,7 @@ func TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits(t *t
 // naive "first write wins, second write silently overwrites" scheme
 // could also produce for the offset row).
 func TestCommitHarvestBatchConcurrentCallersOnlyOneApplies(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-commitbatch-race-%d", time.Now().UnixNano())
@@ -592,6 +601,7 @@ func TestCommitHarvestBatchConcurrentCallersOnlyOneApplies(t *testing.T) {
 // transcript's already-committed offset and compute overlapping usage
 // from the same new bytes.
 func TestCommitHarvestBatchConcurrentCallersOnExistingRowOnlyOneApplies(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-commitbatch-race-update-%d", time.Now().UnixNano())
@@ -698,6 +708,7 @@ func TestCommitHarvestBatchConcurrentCallersOnExistingRowOnlyOneApplies(t *testi
 // bytes to be read and added again on the next cycle, if it were not
 // refused.
 func TestCommitHarvestBatchStaleExpectedOffsetAppliesNothing(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-commitbatch-stale-%d", time.Now().UnixNano())
@@ -773,6 +784,7 @@ func TestCommitHarvestBatchStaleExpectedOffsetAppliesNothing(t *testing.T) {
 // dispatch with an agent id and no modelVersion is stamped from the
 // lookup; a not-found lookup and an already stamped row are left alone.
 func TestBackfillModelVersions(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	project := fmt.Sprintf("proj-backfill-%d", time.Now().UnixNano())
@@ -822,6 +834,7 @@ func TestBackfillModelVersions(t *testing.T) {
 // second call under the same name -- a second startup, or a second daemon
 // starting together -- adds nothing.
 func TestCommitHarvestBackfillAppliesOnce(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-backfill-%d", time.Now().UnixNano())

@@ -456,6 +456,7 @@ func periodPath(view string) string {
 
 // smoke: core — every stats view answers for a period
 func TestEveryViewAcceptsAPeriod(t *testing.T) {
+	t.Parallel()
 	views := []string{
 		"state-board", "cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
 	}
@@ -478,6 +479,7 @@ func TestEveryViewAcceptsAPeriod(t *testing.T) {
 // longer carries a deferred share: nothing is deferred (KAN-862) -- nor,
 // since KAN-989, the findings-per-dispatch or withdrawn share.
 func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{reviewers: []store.ReviewerRow{
 		{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
 			Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5},
@@ -503,6 +505,7 @@ func TestReviewersWireCarriesNoDeferredShare(t *testing.T) {
 // TestStatsReviewersProjects: reviewers?projects=1 carries each project's
 // reviewer dispatch count; without it the aggregate does not run.
 func TestStatsReviewersProjects(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{reviewerProjects: []store.ProjectDispatches{{ProjectKey: "p", Dispatches: 4}}}
 	ts := newStatsTestServer(t, sts)
 
@@ -535,6 +538,7 @@ func TestStatsReviewersProjects(t *testing.T) {
 // TestStageLeaderboardMainFields: the route's rows carry mainCostUsd and
 // mainSharePct, null when absent (decision leaderboard-main-columns).
 func TestStageLeaderboardMainFields(t *testing.T) {
+	t.Parallel()
 	cost, share := 3.2, 45.6
 	sts := &statsFake{stageLeaderboard: []store.StageLeaderboardRow{
 		{Command: "/flow", Stage: "a", MainCostUSD: &cost, MainSharePct: &share},
@@ -566,6 +570,7 @@ func TestStageLeaderboardMainFields(t *testing.T) {
 // (decision leaderboard-project-chips-with-spend); no view but weekly-costs
 // gains it.
 func TestStatsStageLeaderboardProjects(t *testing.T) {
+	t.Parallel()
 	const key = "agents-a740d89c"
 	sts := &statsFake{stageLeaderboardProjects: []store.ProjectSpend{{ProjectKey: key, TotalCostUSD: 12.5}}}
 	ts := newStatsTestServer(t, sts)
@@ -624,6 +629,7 @@ func TestStatsStageLeaderboardProjects(t *testing.T) {
 // TestStatsStageLeaderboardProjectsError: a failing projects aggregate
 // fails the request rather than answering without chips.
 func TestStatsStageLeaderboardProjectsError(t *testing.T) {
+	t.Parallel()
 	ts := newStatsTestServer(t, &statsFake{projectsErr: errors.New("boom")})
 	status, _, body := getStats(t, ts, periodPath("stage-leaderboard")+"&projects=1")
 	if status != http.StatusInternalServerError {
@@ -632,6 +638,7 @@ func TestStatsStageLeaderboardProjectsError(t *testing.T) {
 }
 
 func TestStatsReviewerProjectsError(t *testing.T) {
+	t.Parallel()
 	ts := newStatsTestServer(t, &statsFake{reviewerProjectsErr: errors.New("boom")})
 	status, _, body := getStats(t, ts, periodPath("reviewers")+"&projects=1")
 	if status != http.StatusInternalServerError {
@@ -653,6 +660,7 @@ func TestStatsReviewerProjectsError(t *testing.T) {
 // hide behind a coincidental match -- and asserts every field of the
 // decoded response equals it exactly.
 func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
+	t.Parallel()
 	t.Run("stage-leaderboard", func(t *testing.T) {
 		sts := &statsFake{stageLeaderboard: []store.StageLeaderboardRow{
 			{Command: "/flow", Stage: "SDD + TDD per task", RunCount: 5,
@@ -852,6 +860,7 @@ func mustDecodeRows(t *testing.T, env statsEnvelope, body []byte, v any) {
 // --- TestEmptyPeriodReturnsEmptyNotError -------------------------------
 
 func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
+	t.Parallel()
 	// Telemetry exists (a run recorded well before and inside the queried
 	// period), but this specific view's aggregation has nothing to report
 	// for it -- costPerChange is left nil/empty on purpose. This must
@@ -904,6 +913,7 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // same run and change satisfy both at once. The trend view buckets changes by
 // their finish instant and refuses a project restriction, so it is not here.
 func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-boundary-%d", time.Now().UnixNano())
 	roster := "light"
@@ -961,6 +971,7 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 // the trend rows are every project's whole-life change costs, so a model or
 // a project restriction answers 400 before the store is asked.
 func TestStatsTrendRefusesFilters(t *testing.T) {
+	t.Parallel()
 	for _, param := range []string{"&model=claude-opus-5", "&project=agents-0a1b2c3d"} {
 		t.Run(param, func(t *testing.T) {
 			sts := &statsFake{}
@@ -979,6 +990,7 @@ func TestStatsTrendRefusesFilters(t *testing.T) {
 // --- TestProjectFilterRestrictsResults / TestNoProjectFilterAggregatesAcrossProjects ---
 
 func TestProjectFilterRestrictsResults(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 	status, env, body := getStats(t, ts, periodPath("cost-per-change")+"&project=kan-16")
@@ -994,6 +1006,7 @@ func TestProjectFilterRestrictsResults(t *testing.T) {
 }
 
 func TestNoProjectFilterAggregatesAcrossProjects(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 	status, env, body := getStats(t, ts, periodPath("cost-per-change"))
@@ -1013,6 +1026,7 @@ func TestNoProjectFilterAggregatesAcrossProjects(t *testing.T) {
 // key before it reaches the store -- the stats-views requirement
 // "A display name is filtered on".
 func TestStatsViewAcceptsProjectDisplayName(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{projectKeysByDisplayName: map[string][]string{"agents": {"agents-a740d89c"}}}
 	ts := newStatsTestServer(t, sts)
 
@@ -1034,6 +1048,7 @@ func TestStatsViewAcceptsProjectDisplayName(t *testing.T) {
 // "A full key is filtered on": "it is used as-is, with no resolution
 // attempted".
 func TestStatsViewExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 
@@ -1054,6 +1069,7 @@ func TestStatsViewExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
 // 400, naming the ambiguity and both candidate keys, rather than silently
 // filtering by one of them.
 func TestStatsViewAmbiguousProjectDisplayNameReturns400(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{projectKeysByDisplayName: map[string][]string{
 		"agents": {"agents-a740d89c", "agents-7c1f238a"},
 	}}
@@ -1078,6 +1094,7 @@ func TestStatsViewAmbiguousProjectDisplayNameReturns400(t *testing.T) {
 // as 400 with the store's own internal text leaking into the body
 // (post-commit review round 2, F5).
 func TestStatsViewProjectResolutionStoreFailureReturns500(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{
 		projectKeysByDisplayNameErr: errors.New(`store: project keys by display name "agents": connection refused`),
 	}
@@ -1097,6 +1114,7 @@ func TestStatsViewProjectResolutionStoreFailureReturns500(t *testing.T) {
 // GET /api/v1/models, which resolves its own "project" parameter through
 // the same parsePeriodAndProject call (post-commit review round 2, F5).
 func TestListModelsProjectResolutionStoreFailureReturns500(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{
 		projectKeysByDisplayNameErr: errors.New(`store: project keys by display name "agents": connection refused`),
 	}
@@ -1116,6 +1134,7 @@ func TestListModelsProjectResolutionStoreFailureReturns500(t *testing.T) {
 // unchanged, yielding no rows -- exactly as an unknown key already does --
 // rather than being treated as an error.
 func TestStatsViewUnknownProjectPassesThroughUnchanged(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 
@@ -1134,6 +1153,7 @@ func TestStatsViewUnknownProjectPassesThroughUnchanged(t *testing.T) {
 // --- TestPeriodBeforeAnyDataReportsNotRecorded --------------------------
 
 func TestPeriodBeforeAnyDataReportsNotRecorded(t *testing.T) {
+	t.Parallel()
 	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{{
@@ -1186,6 +1206,7 @@ func TestPeriodBeforeAnyDataReportsNotRecorded(t *testing.T) {
 // can render identically -- that collapse is the exact defect this task
 // closes (tasks.md, "5 A recorded but unmeasured run is visible as such").
 func TestThreeAbsenceStatesDoNotCollapse(t *testing.T) {
+	t.Parallel()
 	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	seeded := statsRun{
 		run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/flow", Stage: "x"},
@@ -1245,6 +1266,7 @@ func TestThreeAbsenceStatesDoNotCollapse(t *testing.T) {
 // the fake a fixture that would let it answer true, and confirming the
 // response still reports Unmeasured=false.
 func TestUnmeasuredNeverComputedWhenPeriodPredatesTelemetry(t *testing.T) {
+	t.Parallel()
 	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{{
@@ -1266,6 +1288,7 @@ func TestUnmeasuredNeverComputedWhenPeriodPredatesTelemetry(t *testing.T) {
 // --- TestLiveStateBoardMatchesStatusOutput ------------------------------
 
 func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
+	t.Parallel()
 	updatedAt := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		liveStateBoard: []store.LiveStateRow{
@@ -1325,6 +1348,7 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 // --- TestListEndpointsAcceptFilterSortSearchPage ------------------------
 
 func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
+	t.Parallel()
 	base := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{
@@ -1392,6 +1416,7 @@ func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
 // can filter by session can also learn the change without a second
 // lookup. A row with no owning change carries neither field.
 func TestListStageRunsCarriesChangeNameAndProject(t *testing.T) {
+	t.Parallel()
 	base := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{
@@ -1451,6 +1476,7 @@ func TestListStageRunsCarriesChangeNameAndProject(t *testing.T) {
 // /api/v1/changes (task 4's pre-existing endpoint, which had the identical
 // gap -- the fix in changes.go's parseChangeQuery closes it there too).
 func TestNegativeLimitAtHTTPBoundaryIsRejected(t *testing.T) {
+	t.Parallel()
 	t.Run("stage-runs", func(t *testing.T) {
 		sts := &statsFake{stageRuns: []statsRun{
 			{run: store.StageRun{ID: 1, Command: "/flow"}, projectKey: "p", changeName: "kan-1"},
@@ -1501,6 +1527,7 @@ func doGetRaw(t *testing.T, ts *httptest.Server, path string) (int, string) {
 // --- TestUnknownQueryFieldReturns400NamingIt ----------------------------
 
 func TestUnknownQueryFieldReturns400NamingIt(t *testing.T) {
+	t.Parallel()
 	t.Run("stage-runs list: unknown filter field", func(t *testing.T) {
 		sts := &statsFake{
 			queryStageRunsErr: fmt.Errorf("%w: filter %q not recognised; accepted: command, stage, project", store.ErrUnknownField, "bogus"),
@@ -1554,6 +1581,7 @@ func contains(s, substr string) bool {
 // --- period validation ---------------------------------------------------
 
 func TestStatsViewRequiresFromAndTo(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 	status, body := doGetRaw(t, ts, "/api/v1/stats/cost-per-change")
@@ -1566,6 +1594,7 @@ func TestStatsViewRequiresFromAndTo(t *testing.T) {
 // period whose "to" precedes its "from" was verified by hand to return 400
 // but had no test defending it.
 func TestStatsViewRejectsToBeforeFrom(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 	status, body := doGetRaw(t, ts, "/api/v1/stats/cost-per-change?from=2026-09-01T00:00:00Z&to=2026-08-01T00:00:00Z")
@@ -1593,6 +1622,7 @@ func (f *slowStatsFake) CostPerChange(ctx context.Context, _ store.Period, _, _,
 
 func TestStatsViewTimesOutCleanly(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	if os.Getenv("FLOW_STATS_SKIP_SLOW_TESTS") != "" {
 		t.Skip("FLOW_STATS_SKIP_SLOW_TESTS set")
 	}
@@ -1722,6 +1752,7 @@ func mustRunIntegrationStage(t *testing.T, st *store.Store, in store.BeginStageI
 // with hand-computed totals (RunCount=2, TotalCostUSD=2.0+3.0=5.0), not
 // merely "some row came back".
 func TestMultiRepoChangeIsOneRowInEveryView(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-multirepo-%d", time.Now().UnixNano())
 	repoA, repoB := "/repos/a", "/repos/b"
@@ -1789,6 +1820,7 @@ func TestMultiRepoChangeIsOneRowInEveryView(t *testing.T) {
 // wrong way if this rejection happened downstream instead of before any
 // store call.
 func TestModelRestrictionRejectedOnStateBoard(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
 	status, body := doGetRaw(t, ts, periodPath("state-board")+"&model=claude-opus-5")
@@ -1810,6 +1842,7 @@ func TestModelRestrictionRejectedOnStateBoard(t *testing.T) {
 // task's own non-negotiable requirement that the filter be honoured on
 // every one of the three, iterated.
 func TestModelParamAcceptedAndPassedThroughOnEveryStageRunView(t *testing.T) {
+	t.Parallel()
 	views := []string{
 		"cost-per-change", "stage-leaderboard", "weekly-costs",
 	}
@@ -1840,6 +1873,7 @@ func TestModelParamAcceptedAndPassedThroughOnEveryStageRunView(t *testing.T) {
 // toward either wrong shape (always present, or omitted-on-zero) fails
 // here.
 func TestExcludedNoModelPresentOnlyWhenAModelFilterWasApplied(t *testing.T) {
+	t.Parallel()
 	t.Run("unfiltered: absent", func(t *testing.T) {
 		sts := &statsFake{countRunsWithoutModel: 7} // must not leak through unfiltered
 		ts := newStatsTestServer(t, sts)
@@ -1904,6 +1938,7 @@ func getModels(t *testing.T, ts *httptest.Server, path string) (int, modelsEnvel
 // wire shape -- store.ListModels' own arithmetic (period, project scoping,
 // sorting) is aggregate_test.go's TestListModels, against real Postgres.
 func TestListModelsRoute(t *testing.T) {
+	t.Parallel()
 	t.Run("returns the fake's models", func(t *testing.T) {
 		sts := &statsFake{models: []string{"claude-opus-5", "claude-sonnet-5"}}
 		ts := newStatsTestServer(t, sts)
@@ -1962,6 +1997,7 @@ func TestListModelsRoute(t *testing.T) {
 // run; a request naming one change by name, with no breakdown, must
 // return only that change's own row.
 func TestCostPerChangeAcceptsChangeAlone(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-change-alone-%d", time.Now().UnixNano())
 	mustPutIntegrationChange(t, st, projectKey, "kan-1", nil)
@@ -2015,6 +2051,7 @@ func sptr(v string) *string { return &v }
 // base -- empty for filed and declined rows, and for every row when the
 // server has no base.
 func TestStatsSelfReviewView(t *testing.T) {
+	t.Parallel()
 	at := time.Date(2026, 8, 10, 9, 0, 0, 0, time.UTC)
 	three := 3
 	sts := &statsFake{selfReview: []store.SelfReviewFindingRow{
@@ -2101,6 +2138,7 @@ func TestStatsSelfReviewView(t *testing.T) {
 // TestStatsWeeklyCostsCarriesVisualVerify pins visualVerifyUsd and otherUsd
 // on the weekly-costs row (visual-verify-category, other-category).
 func TestStatsWeeklyCostsCarriesVisualVerify(t *testing.T) {
+	t.Parallel()
 	vv, other := 2.0, 1.0
 	sts := &statsFake{weeklyCosts: []store.WeeklyCostPoint{
 		{Week: time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC), VisualVerifyUSD: &vv, OtherUSD: &other},
@@ -2125,6 +2163,7 @@ func TestStatsWeeklyCostsCarriesVisualVerify(t *testing.T) {
 // (model-effort-view): long rows from WeeklyModelEffortCosts, with the
 // model query parameter ignored.
 func TestStatsWeeklyModelEffortCosts(t *testing.T) {
+	t.Parallel()
 	week := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{weeklyModelEffortCosts: []store.WeeklyModelEffortPoint{
 		{Week: week, Model: "claude-opus-5-5", Effort: "low", CostUSD: 3},
@@ -2157,6 +2196,7 @@ func TestStatsWeeklyModelEffortCosts(t *testing.T) {
 // model-effort-project-param: the resolved project reaches the store, and
 // nil when the request names none.
 func TestStatsWeeklyModelEffortCostsHonoursProject(t *testing.T) {
+	t.Parallel()
 	const key = "agents-a740d89c"
 	sts := &statsFake{}
 	ts := newStatsTestServer(t, sts)
@@ -2180,6 +2220,7 @@ func TestStatsWeeklyModelEffortCostsHonoursProject(t *testing.T) {
 // with projects=1 the weekly-costs response carries StageLeaderboardProjects'
 // list in its order; without it, no projects key.
 func TestStatsWeeklyCostsAnswersProjects(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{stageLeaderboardProjects: []store.ProjectSpend{
 		{ProjectKey: "proj-a", TotalCostUSD: 12.5},
 		{ProjectKey: "proj-b", TotalCostUSD: 3},
@@ -2217,6 +2258,7 @@ func TestStatsWeeklyCostsAnswersProjects(t *testing.T) {
 // summaries, the markers and lastPromptChangeAt; the project passes
 // through, and a model restriction is refused as the state board's is.
 func TestStatsReviewDynamics(t *testing.T) {
+	t.Parallel()
 	week := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	last := week.Add(50 * time.Hour)
 	slot, impl := "primary", 1.5
@@ -2283,6 +2325,7 @@ func TestStatsReviewDynamics(t *testing.T) {
 // (KAN-1061): a run tagged with a /flow-interactive request serves it as
 // "request", and a run of no request omits the key.
 func TestListStageRunsServesRequest(t *testing.T) {
+	t.Parallel()
 	base := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
 	three := 3
 	sts := &statsFake{
@@ -2322,6 +2365,7 @@ func TestListStageRunsServesRequest(t *testing.T) {
 // and pending for the others -- and a row without requests keeps reading
 // its tasks.md.
 func TestStateBoardServesRequestsAsTasks(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	dir := filepath.Join(root, "spectre", "changes", "kan-2")
 	if err := os.MkdirAll(dir, 0o755); err != nil {

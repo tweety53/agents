@@ -116,3 +116,38 @@ func TestSuiteRunCallsFallBackWhenNothingTrustworthyAnswers(t *testing.T) {
 		})
 	}
 }
+
+// TestLatestSuiteRunTestsReadsTheRun pins `flow suite list -tests`' read
+// (KAN-1124, decision suite-tests-read): the route, the suite and limit
+// queries, the run decoded with its tests, and a null answer as nil.
+func TestLatestSuiteRunTestsReadsTheRun(t *testing.T) {
+	answer := `{"id":4,"suite":"guard-tests","host":"laptop","durationMs":61000,"exitCode":0,"ranAt":"2026-11-15T12:00:00Z","tests":[{"package":"ex/a","test":"TestSlow","costMs":2500},{"package":"ex/b","test":"TestMid","costMs":700}]}`
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/suites/proj/tests" {
+			t.Errorf("request = %s %s, want GET /api/v1/suites/proj/tests", r.Method, r.URL.Path)
+		}
+		if got := r.URL.Query().Get("suite"); got != "guard-tests" {
+			t.Errorf("suite query = %q, want guard-tests", got)
+		}
+		if got := r.URL.Query().Get("limit"); got != "5" {
+			t.Errorf("limit query = %q, want 5", got)
+		}
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	got, err := c.LatestSuiteRunTests(context.Background(), "proj", "guard-tests", 5)
+	if err != nil {
+		t.Fatalf("LatestSuiteRunTests: %v", err)
+	}
+	if got == nil || got.ID != 4 || len(got.Tests) != 2 || got.Tests[0].Test != "TestSlow" || got.Tests[1].CostMs != 700 {
+		t.Errorf("LatestSuiteRunTests = %+v, want run 4 with TestSlow and TestMid", got)
+	}
+
+	answer = "null"
+	got, err = c.LatestSuiteRunTests(context.Background(), "proj", "guard-tests", 5)
+	if err != nil || got != nil {
+		t.Errorf("null answer = %+v, %v; want nil, nil", got, err)
+	}
+}

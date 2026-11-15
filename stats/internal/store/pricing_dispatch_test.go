@@ -84,6 +84,7 @@ func wantCost(t *testing.T, got *float64, want float64) {
 // metrics name claude-opus-5-5 is priced at that model's rate in effect at
 // its start, never at the label or at today's dearer rate.
 func TestDispatchRowPricedAtItsServedModel(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	id := record("task-1-implementer", `{"modelVersion":"claude-opus-5-5",`+dispatchTokens[1:])
 	if err := st.PriceDispatch(context.Background(), id); err != nil {
@@ -95,6 +96,7 @@ func TestDispatchRowPricedAtItsServedModel(t *testing.T) {
 // TestDispatchRowCostIsSetNeverAdded: pricing the same row twice leaves the
 // same cost -- every harvest pass reprices, so an added cost would inflate.
 func TestDispatchRowCostIsSetNeverAdded(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	id := record("task-1-implementer", `{"modelVersion":"claude-opus-5-5",`+dispatchTokens[1:])
 	for range 2 {
@@ -110,6 +112,7 @@ func TestDispatchRowCostIsSetNeverAdded(t *testing.T) {
 // earlier pass wrote is dropped once the row can no longer be priced, so it
 // never reads as complete.
 func TestDispatchRowWithNoRateStaysUnpriced(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	ctx := context.Background()
 	for _, c := range []struct{ name, metrics string }{
@@ -133,6 +136,7 @@ func TestDispatchRowWithNoRateStaysUnpriced(t *testing.T) {
 // TestMergeDispatchMetricsPricesTheRow: the harvester's tokens patch prices
 // the row as it lands, so inline and fixer rows carry their own cost.
 func TestMergeDispatchMetricsPricesTheRow(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	id := record("task-1-implementer", `{"modelVersion":"claude-opus-5-5"}`)
 	if err := st.MergeDispatchMetrics(context.Background(), id, json.RawMessage(dispatchTokens)); err != nil {
@@ -145,6 +149,7 @@ func TestMergeDispatchMetricsPricesTheRow(t *testing.T) {
 // written under a rate since removed is repriced from a date before it, and
 // counts into priced; an unpriceable row counts into skipped.
 func TestRepriceSinceRepricesDispatchRows(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	ctx := context.Background()
 	id := record("task-1-implementer", `{"modelVersion":"claude-opus-5-5","cost_usd":99,`+dispatchTokens[1:])
@@ -165,6 +170,7 @@ func TestRepriceSinceRepricesDispatchRows(t *testing.T) {
 // TestRestampRepricesTheRow: both restamps replace a row's tokens, so the
 // cost priced from the old tokens is replaced with the new tokens' cost.
 func TestRestampRepricesTheRow(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	ctx := context.Background()
 	const doubled = `{"tokens":{"main":{"output":2000000}}}`
@@ -191,6 +197,7 @@ func TestRestampRepricesTheRow(t *testing.T) {
 // TestDropDispatchPricesTheKeptRow: the tokens moved onto the kept row are
 // priced there.
 func TestDropDispatchPricesTheKeptRow(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	keep := record("task-keep", `{"modelVersion":"claude-opus-5-5"}`)
 	drop := record("task-drop", `{"modelVersion":"claude-opus-5-5",`+dispatchTokens[1:])
@@ -203,6 +210,7 @@ func TestDropDispatchPricesTheKeptRow(t *testing.T) {
 // TestBackfillModelVersionRepricesTheRow: a row its label could not price is
 // priced once the backfill stamps the model that served it.
 func TestBackfillModelVersionRepricesTheRow(t *testing.T) {
+	t.Parallel()
 	st, pool, record := pricedDispatchStore(t)
 	ctx := context.Background()
 	id := record("task-backfill", dispatchTokens)

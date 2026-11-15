@@ -17,6 +17,8 @@ import (
 // client's error on an unreachable store.
 func TestPricingRepricePrintsCounts(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/pricing/reprice" {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -50,7 +52,7 @@ func TestPricingRepricePrintsCounts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(), append([]string{"pricing", "reprice"}, tc.args...),
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code || stdout.String() != tc.stdout || !strings.Contains(stderr.String(), tc.stderrHas) {
 				t.Errorf("exit %d stdout %q stderr %q; want exit %d stdout %q stderr containing %q",
 					code, stdout.String(), stderr.String(), tc.code, tc.stdout, tc.stderrHas)

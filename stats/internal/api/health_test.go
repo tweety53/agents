@@ -19,6 +19,7 @@ import (
 )
 
 func TestGuardHealthCarriesItsRowsThrough(t *testing.T) {
+	t.Parallel()
 	fired := time.Date(2026, 8, 3, 14, 5, 0, 0, time.FixedZone("x", 3600))
 	sts := &statsFake{guardHealth: []store.GuardHealthRow{
 		{Guard: "check-a", Runs: 9, Fired: 2, CannotAnswer: 1, MedianMs: 120, TotalMs: 4000, LastFiredAt: &fired},
@@ -68,6 +69,7 @@ func TestGuardHealthCarriesItsRowsThrough(t *testing.T) {
 // project's guard-run count in the store's order; without it the count
 // does not run (decision guard-health-projects-param).
 func TestGuardHealthAnswersProjects(t *testing.T) {
+	t.Parallel()
 	sts := &statsFake{guardHealthProjects: []store.ProjectGuardRuns{{ProjectKey: "z", Runs: 5}, {ProjectKey: "a", Runs: 2}}}
 	ts := newStatsTestServer(t, sts)
 
@@ -103,6 +105,7 @@ func TestGuardHealthAnswersProjects(t *testing.T) {
 // measurement" says nothing about changes, guard runs or panel rounds, and
 // the SPA hides a panel's rows when it is set.
 func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
+	t.Parallel()
 	for _, view := range []string{"guard-health", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{
@@ -121,6 +124,7 @@ func TestHealthViewsAreNeverUnmeasured(t *testing.T) {
 }
 
 func TestHealthViewsRefuseAModelRestriction(t *testing.T) {
+	t.Parallel()
 	for _, view := range []string{"guard-health", "self-review"} {
 		t.Run(view, func(t *testing.T) {
 			ts := newStatsTestServer(t, &statsFake{})
@@ -181,6 +185,7 @@ func postGuardRun(t *testing.T, ts *httptest.Server, project string, in records.
 }
 
 func TestRecordGuardRunRoute(t *testing.T) {
+	t.Parallel()
 	run := records.GuardRun{Guard: "check-plan-shape", Worktree: "/w/kan-1", ExitCode: 1,
 		Outcome: "fired", DurationMS: 120, RecordedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)}
 
@@ -222,6 +227,7 @@ func TestRecordGuardRunRoute(t *testing.T) {
 // TestRecordGuardRunRouteCarriesReasons: the POST's reasons reach the store
 // unchanged, in order, through the route's strict decoder.
 func TestRecordGuardRunRouteCarriesReasons(t *testing.T) {
+	t.Parallel()
 	run := records.GuardRun{Guard: "check-plan-shape", Worktree: "/w/kan-1", ExitCode: 1,
 		Outcome: "fired", DurationMS: 120, RecordedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
 		Reasons: []string{"F2", "F6"}}

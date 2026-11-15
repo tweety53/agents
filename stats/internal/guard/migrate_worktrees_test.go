@@ -33,7 +33,7 @@ func mwNewFx(t *testing.T) *mwFx {
 	}
 	fx := &mwFx{dir: dir, repo: dir + "/repo", fake: dir + "/fake", sibling: dir + "/repo-worktrees"}
 	fx.free, fx.held = fx.repo+"/.worktrees/free", fx.repo+"/.worktrees/held"
-	fx.g.git("", "init", "-q", "-b", "main", fx.repo)
+	fx.g.copyShape(fx.repo, repoShape{Branch: "main"})
 	fx.g.write(fx.repo+"/.gitignore", ".worktrees/")
 	fx.g.git(fx.repo, "add", "-A")
 	fx.g.git(fx.repo, "commit", "-qm", "base")
@@ -248,8 +248,7 @@ func TestMigrateWorktrees(t *testing.T) {
 		// Repository b's worktree is recorded only in the primary project's
 		// record, as a cross-repo change's is; b's own project lists none.
 		b, bwt := fx.dir+"/b", fx.dir+"/b/.worktrees/x"
-		fx.g.git("", "init", "-q", "-b", "main", b)
-		fx.g.git(b, "commit", "-q", "--allow-empty", "-m", "base")
+		fx.g.copyShape(b, repoShape{Branch: "main", Commit: "base"})
 		fx.g.git(b, "worktree", "add", "-q", bwt, "-b", "spectre/x")
 		if fx.g.err != nil {
 			t.Fatal(fx.g.err)

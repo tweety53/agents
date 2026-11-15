@@ -48,6 +48,7 @@ func baseBeginInput(projectKey, name, command, stage string) store.BeginStageInp
 }
 
 func TestBeginStageAllocatesAttempts(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-attempts-%d", time.Now().UnixNano())
@@ -92,6 +93,7 @@ func TestBeginStageAllocatesAttempts(t *testing.T) {
 // a later GetStageRun -- the two reads a harvest cycle (task 2) and a
 // caller re-fetching the row would each perform.
 func TestBeginStageRoundTripsSessionToken(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-session-token-%d", time.Now().UnixNano())
@@ -132,6 +134,7 @@ func TestBeginStageRoundTripsSessionToken(t *testing.T) {
 // 0008), proven against the real predicate rather than assumed to match
 // it.
 func TestUnresolvedSessionTokensReturnsOnlyRowsAwaitingBinding(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-unresolved-%d", time.Now().UnixNano())
@@ -174,6 +177,7 @@ func TestUnresolvedSessionTokensReturnsOnlyRowsAwaitingBinding(t *testing.T) {
 // TestBindSessionSetsSessionID is BindSession's positive case: a stage
 // run with no session_id gets exactly the session it is told to bind.
 func TestBindSessionSetsSessionID(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-bind-%d", time.Now().UnixNano())
@@ -213,6 +217,7 @@ func TestBindSessionSetsSessionID(t *testing.T) {
 // mechanism task 4b changes BindSession's own signature (stage run id ->
 // token) to make possible.
 func TestBindSessionBindsEveryRunSharingAToken(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-bind-shared-%d", time.Now().UnixNano())
@@ -260,6 +265,7 @@ func TestBindSessionBindsEveryRunSharingAToken(t *testing.T) {
 // original session untouched, even when it names a different session
 // entirely -- binding never overwrites what a first call already set.
 func TestBindSessionIsOneWay(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-oneway-%d", time.Now().UnixNano())
@@ -302,6 +308,7 @@ func TestBindSessionIsOneWay(t *testing.T) {
 // gets its session_id set immediately, from insertStageRunAndSupersede's
 // own COALESCE, and never appears in UnresolvedSessionTokens at all.
 func TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-resolve-at-insert-%d", time.Now().UnixNano())
@@ -347,6 +354,7 @@ func TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken(t *testing.T) {
 // a dropped end mark, and the live stage of another change (kan-184)
 // that the same session moved on to.
 func TestBeginStageSupersedesAnEarlierOpenRunOfTheSameSession(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-supersede-%d", time.Now().UnixNano())
@@ -401,6 +409,7 @@ func TestBeginStageSupersedesAnEarlierOpenRunOfTheSameSession(t *testing.T) {
 // would close the live stage the session is actually in, the same class
 // of damage this change exists to stop.
 func TestBeginStageLeavesAnOpenRunThatStartedLaterAlone(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-replay-%d", time.Now().UnixNano())
@@ -443,6 +452,7 @@ func TestBeginStageLeavesAnOpenRunThatStartedLaterAlone(t *testing.T) {
 // TestBeginStageLeavesAnOpenRunThatStartedLaterAlone already covers the
 // strictly-earlier replay start; this covers the equal one.
 func TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-same-instant-%d", time.Now().UnixNano())
@@ -485,6 +495,7 @@ func TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant(t *testing.T) {
 // closes nothing -- a NULL token matches no row through SQL's own `=`,
 // so two NULL tokens never appear to match each other.
 func TestBeginStageWithNoSessionTokenSupersedesNothing(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-notoken-%d", time.Now().UnixNano())
@@ -532,6 +543,7 @@ func TestBeginStageWithNoSessionTokenSupersedesNothing(t *testing.T) {
 }
 
 func TestBeginStageUnknownChangeIsNotFound(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -554,6 +566,7 @@ func TestBeginStageUnknownChangeIsNotFound(t *testing.T) {
 // number, and those numbers must be exactly {1..N} with no duplicate and
 // no gap.
 func TestConcurrentBeginStageDoesNotCollide(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-concurrent-%d", time.Now().UnixNano())
@@ -632,6 +645,7 @@ func TestConcurrentBeginStageDoesNotCollide(t *testing.T) {
 // runs, so neither closes the other and both stay open -- this is what
 // this test fails on before the lock exists.
 func TestConcurrentBeginStageForOneSessionLeavesOneOpenRun(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-concurrent-supersede-%d", time.Now().UnixNano())
@@ -704,6 +718,7 @@ func TestConcurrentBeginStageForOneSessionLeavesOneOpenRun(t *testing.T) {
 }
 
 func TestMergeMetricsPreservesOtherKeys(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-merge-%d", time.Now().UnixNano())
@@ -772,6 +787,7 @@ func TestMergeMetricsPreservesOtherKeys(t *testing.T) {
 // nested object's keys instead, so neither writer needs to know what the
 // other already stored there.
 func TestMergeMetricsDeepMergesNestedSiblings(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-deepmerge-%d", time.Now().UnixNano())
@@ -826,6 +842,7 @@ func TestMergeMetricsDeepMergesNestedSiblings(t *testing.T) {
 // being merged into it. There is nothing under a non-object value to
 // preserve.
 func TestMergeMetricsNonObjectValueReplaces(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-nonobjreplace-%d", time.Now().UnixNano())
@@ -862,6 +879,7 @@ func TestMergeMetricsNonObjectValueReplaces(t *testing.T) {
 // which stage_runs.metrics' NOT NULL constraint would then reject as a raw
 // Postgres error -- MergeMetrics catches this in Go instead.
 func TestMergeMetricsRejectsNilPatch(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-nilpatch-%d", time.Now().UnixNano())
@@ -888,6 +906,7 @@ func TestMergeMetricsRejectsNilPatch(t *testing.T) {
 }
 
 func TestMergeMetricsUnknownStageRunIsNotFound(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -898,6 +917,7 @@ func TestMergeMetricsUnknownStageRunIsNotFound(t *testing.T) {
 }
 
 func TestEndStageRecordsOutcome(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-%d", time.Now().UnixNano())
@@ -929,6 +949,7 @@ func TestEndStageRecordsOutcome(t *testing.T) {
 // wrong outcome: a closed run takes the new outcome and keeps its ended_at;
 // an open run, an unknown id and an empty outcome are each refused.
 func TestRestampStageOutcome(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-restamp-%d", time.Now().UnixNano())
@@ -980,6 +1001,7 @@ func TestRestampStageOutcome(t *testing.T) {
 }
 
 func TestEndStageUnknownStageRunIsNotFound(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -998,6 +1020,7 @@ func TestEndStageUnknownStageRunIsNotFound(t *testing.T) {
 // report a distinct, typed refusal rather than success, and must leave
 // the row exactly as the first call left it.
 func TestEndStageRefusesARunAlreadyClosed(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-twice-%d", time.Now().UnixNano())
@@ -1036,6 +1059,7 @@ func TestEndStageRefusesARunAlreadyClosed(t *testing.T) {
 // silence cutoff -- never a stage run that already ended, and never one
 // that started after the cutoff.
 func TestSweepAbandonedClosesSilentStages(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sweep-%d", time.Now().UnixNano())
@@ -1103,6 +1127,7 @@ func TestSweepAbandonedClosesSilentStages(t *testing.T) {
 }
 
 func TestPriceFreezesCostAndVersion(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-%d", time.Now().UnixNano())
@@ -1225,6 +1250,7 @@ func TestPriceFreezesCostAndVersion(t *testing.T) {
 // cost_usd is their sum -- a mixed run's real total, not one model's
 // rate applied to every token.
 func TestPriceTwoModelsAgainstTwoRates(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-twomodel-%d", time.Now().UnixNano())
@@ -1300,6 +1326,7 @@ func TestPriceTwoModelsAgainstTwoRates(t *testing.T) {
 // indistinguishable from a correct one at every layer above it, which
 // makes it the most dangerous possible output here.
 func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-partial-%d", time.Now().UnixNano())
@@ -1378,6 +1405,7 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 // charge, is named as such -- never reported as a model with no pricing
 // in effect, which sent a live check looking for a rate that existed.
 func TestPriceNamesABucketItsRateCannotCharge(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-cannotcharge-%d", time.Now().UnixNano())
@@ -1412,6 +1440,7 @@ func TestPriceNamesABucketItsRateCannotCharge(t *testing.T) {
 }
 
 func TestPriceWithoutTokensIsUnavailable(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-unavail-%d", time.Now().UnixNano())
@@ -1439,6 +1468,7 @@ func TestPriceWithoutTokensIsUnavailable(t *testing.T) {
 // a literal cost_usd: 0 is written, indistinguishable from a genuinely
 // free stage. Price must refuse instead.
 func TestPriceWithoutChargeableFieldIsUnavailable(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-nocharge-%d", time.Now().UnixNano())
@@ -1477,6 +1507,7 @@ func TestPriceWithoutChargeableFieldIsUnavailable(t *testing.T) {
 }
 
 func TestPriceWithoutPricingRowIsNotFound(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-nopricing-%d", time.Now().UnixNano())
@@ -1503,6 +1534,7 @@ func TestPriceWithoutPricingRowIsNotFound(t *testing.T) {
 // total -- the 37.5% understatement this task's plan-provenance note
 // measures if the two ever get collapsed onto the cheaper 5m rate.
 func TestPriceChargesFiveMinuteAndOneHourWritesAtTheirOwnRates(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-split-%d", time.Now().UnixNano())
@@ -1562,6 +1594,7 @@ func TestPriceChargesFiveMinuteAndOneHourWritesAtTheirOwnRates(t *testing.T) {
 // with no pricing row at all: unpriceable, and the top-level cost_usd is
 // omitted.
 func TestPriceUnknownCacheSplitIsUnpriceable(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-unknownsplit-%d", time.Now().UnixNano())
@@ -1624,6 +1657,7 @@ func TestPriceUnknownCacheSplitIsUnpriceable(t *testing.T) {
 // recorded at "fast" speed must be charged the model's fast input/output
 // rate, not the standard one.
 func TestPriceFastModeUsesFastRate(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-fast-%d", time.Now().UnixNano())
@@ -1677,6 +1711,7 @@ func TestPriceFastModeUsesFastRate(t *testing.T) {
 // fast-mode rate (Sonnet 5 and Haiku 4.5, per pricing_seed.go's own
 // table) must not be silently priced at the standard rate.
 func TestPriceFastModeWithoutFastRateIsUnpriceable(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-fastnorate-%d", time.Now().UnixNano())
@@ -1734,6 +1769,7 @@ func TestPriceFastModeWithoutFastRateIsUnpriceable(t *testing.T) {
 // model buckets' own sum, unaffected by dispatch pricing, even though a
 // dispatch's tokens are already inside that same model bucket.
 func TestPriceDispatchGetsCostThroughSamePricingPath(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-dispatch-%d", time.Now().UnixNano())
@@ -1819,6 +1855,7 @@ func TestPriceDispatchGetsCostThroughSamePricingPath(t *testing.T) {
 // naming the unpriceable model; no top-level cost_usd is written; and the
 // dispatch's cost is never folded into it.
 func TestPriceDispatchIsPricedWhenEveryModelBucketIsUnpriceable(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-dispatch-priced-when-models-unpriceable-%d", time.Now().UnixNano())
@@ -1894,6 +1931,7 @@ func TestPriceDispatchIsPricedWhenEveryModelBucketIsUnpriceable(t *testing.T) {
 // object) -- this is latent robustness, exercised here by writing the
 // malformed shape directly through MergeMetrics.
 func TestPriceDegradesOnMalformedDispatchesRatherThanFailing(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-malformed-dispatches-%d", time.Now().UnixNano())
@@ -1971,6 +2009,7 @@ func TestPriceDegradesOnMalformedDispatchesRatherThanFailing(t *testing.T) {
 // misplaced decimal point is exactly the kind of bad row a real seed
 // mistake could produce.
 func TestPriceDispatchLookupErrorDoesNotDiscardModelsResult(t *testing.T) {
+	t.Parallel()
 	dsn := newTestDatabase(t)
 	ctx := context.Background()
 
@@ -2063,6 +2102,7 @@ func TestPriceDispatchLookupErrorDoesNotDiscardModelsResult(t *testing.T) {
 // price it -- absence is never a value, never a fabricated 0 and never a
 // neighbouring dispatch's rate.
 func TestPriceDispatchWithNoRecordedModelGetsNoCost(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-dispatch-nomodel-%d", time.Now().UnixNano())
@@ -2122,6 +2162,7 @@ func TestPriceDispatchWithNoRecordedModelGetsNoCost(t *testing.T) {
 // Price from succeeding overall when every model bucket it is actually
 // responsible for still prices cleanly.
 func TestPriceDispatchModelWithNoPricingRowGetsNoCost(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-dispatch-norate-%d", time.Now().UnixNano())
@@ -2182,6 +2223,7 @@ func TestPriceDispatchModelWithNoPricingRowGetsNoCost(t *testing.T) {
 // applies identically whether the bucket being priced is a model's or a
 // dispatch's.
 func TestPriceDispatchWithUnknownCacheSplitGetsNoCost(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-dispatch-unknownsplit-%d", time.Now().UnixNano())
@@ -2244,6 +2286,7 @@ func TestPriceDispatchWithUnknownCacheSplitGetsNoCost(t *testing.T) {
 // semantics (MATCH SIMPLE) skip the check entirely whenever any column of
 // a composite foreign key is NULL.
 func TestStageRunsNullRepoRootSkipsFKCheck(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-nullrepo-%d", time.Now().UnixNano())
@@ -2266,6 +2309,7 @@ func TestStageRunsNullRepoRootSkipsFKCheck(t *testing.T) {
 // the change does not have is rejected by the foreign key, rather than
 // silently accepted.
 func TestStageRunsRepoRootMustMatchChangeRepos(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-badrepo-%d", time.Now().UnixNano())
@@ -2302,6 +2346,7 @@ func TestStageRunsRepoRootMustMatchChangeRepos(t *testing.T) {
 // database, the same shape TestRepeatableReadPreventsCountDrift
 // (query_test.go) already uses for a query the typed API does not serve.
 func TestSupersedeIndexExists(t *testing.T) {
+	t.Parallel()
 	dsn := newTestDatabase(t)
 	ctx := context.Background()
 
@@ -2336,6 +2381,7 @@ func TestSupersedeIndexExists(t *testing.T) {
 }
 
 func TestBeginStageRecordsPlanSessionWithoutChange(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-plan-%d", time.Now().UnixNano())
@@ -2405,6 +2451,7 @@ func TestBeginStageRecordsPlanSessionWithoutChange(t *testing.T) {
 }
 
 func TestBeginStageRejectsJiraKeyWithoutProjectKey(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	_, err := st.BeginStage(context.Background(), store.BeginStageInput{
 		JiraKey: "KAN-901", Harness: "claude-code", Command: "/flow-plan", Stage: "plan.session",
@@ -2427,6 +2474,7 @@ func TestBeginStageRejectsJiraKeyWithoutProjectKey(t *testing.T) {
 // each compute the same MAX(attempt)+1 from the same snapshot and each
 // commit a duplicate attempt number outright.
 func TestConcurrentBeginStagePlanSessionDoesNotCollide(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-concurrent-plan-%d", time.Now().UnixNano())
@@ -2487,6 +2535,7 @@ func TestConcurrentBeginStagePlanSessionDoesNotCollide(t *testing.T) {
 // allowlist's own "project_key" filter entry maps too (KAN-594) -- so
 // what a caller filters by and what a row reports cannot disagree.
 func TestQueryStageRunsReturnsChangeNameAndProject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-change-name-%d", time.Now().UnixNano())
@@ -2520,6 +2569,7 @@ func TestQueryStageRunsReturnsChangeNameAndProject(t *testing.T) {
 // fields read back nil rather than an invented name. The hook treats a
 // nil ChangeName as "no change" exactly like an empty result.
 func TestQueryStageRunsPlanSessionHasNilChangeName(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-plan-name-%d", time.Now().UnixNano())
@@ -2566,6 +2616,7 @@ func TestQueryStageRunsPlanSessionHasNilChangeName(t *testing.T) {
 // is visible to the writer at write time instead of only to a later
 // reader of the ledger.
 func TestBeginStageSupersedeReturnsSupersededRuns(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-supersede-report-%d", time.Now().UnixNano())
@@ -2603,6 +2654,7 @@ func TestBeginStageSupersedeReturnsSupersededRuns(t *testing.T) {
 // no superseded runs, and so does a begin carrying no token at all -- the
 // ordinary sequential mark sequence must stay warning-free.
 func TestBeginStageWithoutOpenRunSupersedesNothing(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-supersede-quiet-%d", time.Now().UnixNano())
@@ -2643,6 +2695,7 @@ func TestBeginStageWithoutOpenRunSupersedesNothing(t *testing.T) {
 }
 
 func TestStageCompletedTrueForCompletedStage(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-stage-completed-%d", time.Now().UnixNano())
@@ -2667,6 +2720,7 @@ func TestStageCompletedTrueForCompletedStage(t *testing.T) {
 }
 
 func TestStageCompletedFalseForOtherOutcome(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-stage-outcome-%d", time.Now().UnixNano())
@@ -2691,6 +2745,7 @@ func TestStageCompletedFalseForOtherOutcome(t *testing.T) {
 }
 
 func TestStageCompletedFalseForUnknownChange(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-stage-unknown-%d", time.Now().UnixNano())
@@ -2705,6 +2760,7 @@ func TestStageCompletedFalseForUnknownChange(t *testing.T) {
 }
 
 func TestStageCompletedFalseForOtherStage(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-stage-other-%d", time.Now().UnixNano())
@@ -2732,6 +2788,7 @@ func TestStageCompletedFalseForOtherStage(t *testing.T) {
 // priced before its first unmeasured subagent message keeps no cost_usd once
 // output_unmeasured lands -- the earlier figure would read as complete.
 func TestPriceClearsCostOnceOutputUnmeasured(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-unmeasured-%d", time.Now().UnixNano())
@@ -2780,6 +2837,7 @@ func TestPriceClearsCostOnceOutputUnmeasured(t *testing.T) {
 // TestRetokenStageRunSetsTheToken pins flowd retoken-stage-run's store half
 // (kan-1029's self-review); an unknown id is ErrStageRunNotFound.
 func TestRetokenStageRunSetsTheToken(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-retoken-%d", time.Now().UnixNano())
@@ -2811,6 +2869,7 @@ func TestRetokenStageRunSetsTheToken(t *testing.T) {
 // matches, so Price resolves its rate from the served_models key with
 // the most turns, falling back to the bucket's own model.
 func TestPriceDispatchUsesServedModel(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-price-served-%d", time.Now().UnixNano())
@@ -2899,6 +2958,7 @@ func TestPriceDispatchUsesServedModel(t *testing.T) {
 // run started since the date is priced again, a run Price refuses counts
 // as skipped, and a run before the date is left untouched.
 func TestRepriceSinceCountsPricedAndSkipped(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reprice-%d", time.Now().UnixNano())
@@ -2979,6 +3039,7 @@ func TestRepriceSinceCountsPricedAndSkipped(t *testing.T) {
 }
 
 func TestSweepAbandonedEndsAtTheNextStageStart(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sweep-next-%d", time.Now().UnixNano())
@@ -3028,6 +3089,7 @@ func TestSweepAbandonedEndsAtTheNextStageStart(t *testing.T) {
 }
 
 func TestClipAbandonedStageRunsBoundsWrittenRows(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-clip-%d", time.Now().UnixNano())
@@ -3080,6 +3142,7 @@ func TestClipAbandonedStageRunsBoundsWrittenRows(t *testing.T) {
 // begin carrying RequestN stores it and QueryStageRuns and GetStageRun read
 // it back; a begin without it reads back nil.
 func TestBeginStageStoresRequestN(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-request-n-%d", time.Now().UnixNano())

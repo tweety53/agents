@@ -58,3 +58,28 @@ func (c *Client) ListSuiteRuns(ctx context.Context, project, suite string, limit
 	}
 	return out, nil
 }
+
+// LatestSuiteRunTests reads the newest run of one suite that carries
+// per-test costs, its tests heaviest first and capped at limit (KAN-1124,
+// decision suite-tests-read). The daemon's null answer -- no run of that
+// suite has test rows -- is nil and no error.
+func (c *Client) LatestSuiteRunTests(ctx context.Context, project, suite string, limit int) (*records.SuiteRun, error) {
+	q := url.Values{}
+	q.Set("suite", suite)
+	q.Set("limit", fmt.Sprintf("%d", limit))
+	testsURL := c.baseURL + "/api/v1/suites/" + url.PathEscape(project) + "/tests?" + q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, testsURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out *records.SuiteRun
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

@@ -337,7 +337,7 @@ func TestCheckPanelFixSingleDispatch(t *testing.T) {
 func TestCheckPanelFixSingleDispatchCommitIsATaskCommit(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, filepath.Join(wt, "spectre/changes/demo/tasks.md"),
 		"# demo\n\n- [ ] 1. Add alpha\n\n**Commit:** feat(alpha): add alpha\n")
 	head := func(msg ...string) string {
@@ -397,7 +397,7 @@ func TestCheckPanelFixSingleDispatchNonPanelFixShapes(t *testing.T) {
 func TestCheckPanelFixSingleDispatchAcceptsATrailerOneRoundLow(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, filepath.Join(wt, "spectre/changes/demo/tasks.md"),
 		"# demo\n\n- [ ] 1. Add alpha\n\n**Commit:** feat(alpha): add alpha\n")
 	head := func(trailer string) string {
@@ -428,7 +428,7 @@ func TestCheckPanelFixSingleDispatchAcceptsATrailerOneRoundLow(t *testing.T) {
 func TestCheckPanelFixSingleDispatchAcceptsAChunkRowKeyedToItsRound(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, filepath.Join(wt, "spectre/changes/demo/tasks.md"),
 		"# demo\n\n- [ ] 1. Add alpha\n\n**Commit:** feat(alpha): add alpha\n")
 	head := func(trailer string) string {

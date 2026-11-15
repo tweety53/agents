@@ -15,6 +15,7 @@ import (
 // returns exactly what was written -- the contract /flow-settings depends
 // on to both set and later display the harness-wide defaults.
 func TestSettingsStore_RoundTrip(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -40,6 +41,7 @@ func TestSettingsStore_RoundTrip(t *testing.T) {
 // flow_settings holds exactly one row, and re-running /flow-settings must
 // change it.
 func TestSettingsStore_RoundTripUpdates(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -74,6 +76,7 @@ func TestSettingsStore_RoundTripUpdates(t *testing.T) {
 // reviewers entry off the fixed reviewer-slot vocabulary, wrapping
 // store.ErrInvalidReviewer and naming the specific bad value in the error.
 func TestSettingsStore_RejectsUnknownReviewer(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -97,6 +100,7 @@ func TestSettingsStore_RejectsUnknownReviewer(t *testing.T) {
 // a flow_settings row written before its retirement still loads unchanged:
 // validation guards writes only, so a stale row never breaks GetSettings.
 func TestSettingsStore_RejectsRetiredCodeReviewLow(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -127,6 +131,7 @@ func TestSettingsStore_RejectsRetiredCodeReviewLow(t *testing.T) {
 // TestSettingsStore_RejectsRetiredBugbotAndSecurity asserts the retired
 // "bugbot" and "security" slot ids are refused on write like any unknown id.
 func TestSettingsStore_RejectsRetiredBugbotAndSecurity(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -146,6 +151,7 @@ func TestSettingsStore_RejectsRetiredBugbotAndSecurity(t *testing.T) {
 // resolves a slot with no prompt behind it and /flow-settings' "keep
 // current" re-writes a list PutSettings accepts.
 func TestSettingsStore_MigrationDropsRetiredReviewers(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -182,6 +188,7 @@ func TestSettingsStore_MigrationDropsRetiredReviewers(t *testing.T) {
 // surviving ids' order, and that the migrated row is one PutSettings
 // accepts -- the list /flow-settings' "keep current" writes back.
 func TestSettingsStore_MigrationDropsExtraDispatchRoles(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -215,6 +222,7 @@ func TestSettingsStore_MigrationDropsExtraDispatchRoles(t *testing.T) {
 // mutation, carried by the always-on extra dispatch since kan-1028, are
 // refused on write like any unknown id.
 func TestSettingsStore_RejectsExtraDispatchRoles(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -231,6 +239,7 @@ func TestSettingsStore_RejectsExtraDispatchRoles(t *testing.T) {
 // id, reviewers, updated_at and 0043's learning alone, and that a row written before it -- both model
 // columns populated -- keeps its reviewer list through the drop.
 func TestSettingsStore_MigrationDropsModelColumns(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -288,6 +297,7 @@ func TestSettingsStore_MigrationDropsModelColumns(t *testing.T) {
 // TestSettingsStore_LearningDefaultsOn asserts GetSettings reports
 // Learning on when flow_settings holds no row yet (learning-default-on).
 func TestSettingsStore_LearningDefaultsOn(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 
 	got, err := st.GetSettings(context.Background())
@@ -303,6 +313,7 @@ func TestSettingsStore_LearningDefaultsOn(t *testing.T) {
 // PutSettings/GetSettings round trip beside the reviewer list
 // (learning-in-settings).
 func TestSettingsStore_LearningRoundTrip(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 

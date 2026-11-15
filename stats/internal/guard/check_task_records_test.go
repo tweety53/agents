@@ -274,8 +274,10 @@ var trBase = sync.OnceValues(func() (string, error) {
 	if err := os.WriteFile(dir+"/base.txt", []byte("base\n"), 0o644); err != nil {
 		return "", err
 	}
+	if err := copyShape(dir, repoShape{Branch: "main"}); err != nil {
+		return "", err
+	}
 	for _, args := range [][]string{
-		{"init", "-q", "-b", "main"},
 		{"add", "-A"},
 		{"-c", "user.email=fixture@example.com", "-c", "user.name=Fixture", "commit", "-qm", "chore: base commit"},
 		{"update-ref", "refs/remotes/origin/main", "HEAD"},
@@ -295,7 +297,7 @@ func trRepo(t *testing.T) *trFx {
 		t.Fatal(err)
 	}
 	root := t.TempDir()
-	if err := os.CopyFS(root, os.DirFS(base)); err != nil {
+	if err := copyTree(base, root); err != nil {
 		t.Fatal(err)
 	}
 	fx := &trFx{t, root, root + "/spectre/changes/fixture-change/tasks.md"}

@@ -14,6 +14,7 @@ import (
 // error, and the schema_migrations bookkeeping is not duplicated.
 // smoke: core — the migrations apply twice
 func TestMigrationsAreIdempotent(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -43,6 +44,7 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 // the same CREATE TABLE/CREATE FUNCTION DDL and one fails with a duplicate
 // pg_type/pg_class catalog entry.
 func TestConcurrentRunMigrationsDoesNotCollide(t *testing.T) {
+	t.Parallel()
 	dsn := newTestDatabase(t)
 
 	const callers = 5

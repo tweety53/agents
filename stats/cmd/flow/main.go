@@ -78,13 +78,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), handledSignals...)
 	defer stop()
 
-	os.Exit(run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+	os.Exit(run(ctx, os.Args[1:], os.Getenv, os.Stdin, os.Stdout, os.Stderr))
 }
 
 // run is the whole of main's logic, factored out so tests can drive it
 // directly with in-memory streams and a cancellable context -- no
 // subprocess needed, per go-cli's "testable main" pattern.
-func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func run(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
@@ -92,49 +92,49 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 
 	switch args[0] {
 	case "state":
-		return runState(ctx, args[1:], stdin, stdout, stderr)
+		return runState(ctx, args[1:], getenv, stdin, stdout, stderr)
 	case "stage":
-		return runStage(ctx, args[1:], stdin, stdout, stderr)
+		return runStage(ctx, args[1:], getenv, stdin, stdout, stderr)
 	case "record":
-		return runRecord(ctx, args[1:], stdin, stdout, stderr)
+		return runRecord(ctx, args[1:], getenv, stdin, stdout, stderr)
 	case "decision":
 		return runDecision(ctx, args[1:], stdout, stderr)
 	case "hazard":
-		return runHazard(ctx, args[1:], stdout, stderr)
+		return runHazard(ctx, args[1:], getenv, stdout, stderr)
 	case "hazards":
-		return runHazards(ctx, args[1:], stdout, stderr)
+		return runHazards(ctx, args[1:], getenv, stdout, stderr)
 	case "suite":
-		return runSuite(ctx, args[1:], stdout, stderr)
+		return runSuite(ctx, args[1:], getenv, stdout, stderr)
 	case "spec":
-		return runSpec(ctx, args[1:], stdout, stderr)
+		return runSpec(ctx, args[1:], getenv, stdout, stderr)
 	case "journal":
-		return runJournal(ctx, args[1:], stdout, stderr)
+		return runJournal(ctx, args[1:], getenv, stdout, stderr)
 	case "settings":
-		return runSettings(ctx, args[1:], stdout, stderr)
+		return runSettings(ctx, args[1:], getenv, stdout, stderr)
 	case "experiment":
-		return runExperiment(ctx, args[1:], stdout, stderr)
+		return runExperiment(ctx, args[1:], getenv, stdout, stderr)
 	case "policy":
-		return runPolicy(ctx, args[1:], stdout, stderr)
+		return runPolicy(ctx, args[1:], getenv, stdout, stderr)
 	case "learning":
-		return runLearning(ctx, args[1:], stdout, stderr)
+		return runLearning(ctx, args[1:], getenv, stdout, stderr)
 	case "pricing":
-		return runPricing(ctx, args[1:], stdout, stderr)
+		return runPricing(ctx, args[1:], getenv, stdout, stderr)
 	case "tasks":
-		return runTasks(ctx, args[1:], stdout, stderr)
+		return runTasks(ctx, args[1:], getenv, stdout, stderr)
 	case "change":
-		return runChange(ctx, args[1:], stdout, stderr)
+		return runChange(ctx, args[1:], getenv, stdout, stderr)
 	case "self-review":
-		return runSelfReview(ctx, args[1:], stdout, stderr)
+		return runSelfReview(ctx, args[1:], getenv, stdout, stderr)
 	case "lesson":
-		return runLesson(ctx, args[1:], stdout, stderr)
+		return runLesson(ctx, args[1:], getenv, stdout, stderr)
 	case "jira":
-		return runJira(ctx, args[1:], stdout, stderr)
+		return runJira(ctx, args[1:], getenv, stdout, stderr)
 	case "workspace-id":
 		return runWorkspaceID(ctx, args[1:], stdout, stderr)
 	case "prompt-tuning":
-		return runPromptTuning(ctx, args[1:], stdout, stderr)
+		return runPromptTuning(ctx, args[1:], getenv, stdout, stderr)
 	case "interactive":
-		return runInteractive(ctx, args[1:], stdout, stderr)
+		return runInteractive(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown command %q\n", args[0])
 		fmt.Fprint(stderr, usage)

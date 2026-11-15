@@ -33,20 +33,22 @@ func (f *jiraFlowdFake) handler() http.HandlerFunc {
 	}
 }
 
-func runJiraTransitionForTest(t *testing.T, ts *httptest.Server, args ...string) (int, string, string) {
+func runJiraTransitionForTest(t *testing.T, ts *httptest.Server, env testEnv, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr strings.Builder
-	code := run(context.Background(), append([]string{"jira", "transition", "-addr", ts.URL}, args...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append([]string{"jira", "transition", "-addr", ts.URL}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
 func TestRunJiraTransition(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	fake := &jiraFlowdFake{t: t, wantStatus: http.StatusOK,
 		wantBody: `{"key":"KAN-571","status":"In Review","moved":true}`}
 	ts := httptest.NewServer(fake.handler())
 	defer ts.Close()
 
-	code, stdout, stderr := runJiraTransitionForTest(t, ts, "KAN-571", "In Review")
+	code, stdout, stderr := runJiraTransitionForTest(t, ts, env, "KAN-571", "In Review")
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr %s, want 0", code, stderr)
 	}
@@ -59,12 +61,14 @@ func TestRunJiraTransition(t *testing.T) {
 }
 
 func TestRunJiraTransitionAlreadyThere(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	fake := &jiraFlowdFake{t: t, wantStatus: http.StatusOK,
 		wantBody: `{"key":"KAN-571","status":"Done","moved":false}`}
 	ts := httptest.NewServer(fake.handler())
 	defer ts.Close()
 
-	code, stdout, stderr := runJiraTransitionForTest(t, ts, "KAN-571", "In Review")
+	code, stdout, stderr := runJiraTransitionForTest(t, ts, env, "KAN-571", "In Review")
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr %s, want 0", code, stderr)
 	}
@@ -74,12 +78,14 @@ func TestRunJiraTransitionAlreadyThere(t *testing.T) {
 }
 
 func TestRunJiraTransitionRefused(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	fake := &jiraFlowdFake{t: t, wantStatus: http.StatusUnprocessableEntity,
 		wantBody: `{"error":"jira: current status matches no name mapped onto the four ordered positions: \"Blocked\""}`}
 	ts := httptest.NewServer(fake.handler())
 	defer ts.Close()
 
-	code, stdout, stderr := runJiraTransitionForTest(t, ts, "KAN-571", "Done")
+	code, stdout, stderr := runJiraTransitionForTest(t, ts, env, "KAN-571", "Done")
 	if code != 1 {
 		t.Fatalf("exit = %d, want 1", code)
 	}
@@ -94,12 +100,14 @@ func TestRunJiraTransitionRefused(t *testing.T) {
 // A 400 from flowd -- the bad-target case among them -- is the caller-
 // mistake exit class: 2, exactly as jiraUsage documents.
 func TestRunJiraTransitionCallerMistake(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	fake := &jiraFlowdFake{t: t, wantStatus: http.StatusBadRequest,
 		wantBody: `{"error":"jira: \"Blocked\" matches no pipeline position (accepted: To Do, In Progress, In Review, Done)"}`}
 	ts := httptest.NewServer(fake.handler())
 	defer ts.Close()
 
-	code, stdout, stderr := runJiraTransitionForTest(t, ts, "KAN-571", "Blocked")
+	code, stdout, stderr := runJiraTransitionForTest(t, ts, env, "KAN-571", "Blocked")
 	if code != 2 {
 		t.Fatalf("exit = %d, stderr %s, want 2", code, stderr)
 	}
@@ -112,14 +120,16 @@ func TestRunJiraTransitionCallerMistake(t *testing.T) {
 }
 
 func TestRunJiraTransitionUsage(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr strings.Builder
-	if code := run(context.Background(), []string{"jira"}, strings.NewReader(""), &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"jira"}, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("bare `flow jira` exit = %d, want 2", code)
 	}
-	if code := run(context.Background(), []string{"jira", "transition", "KAN-571"}, strings.NewReader(""), &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"jira", "transition", "KAN-571"}, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("missing target exit = %d, want 2", code)
 	}
-	if code := run(context.Background(), []string{"jira", "wat"}, strings.NewReader(""), &stdout, &stderr); code != 2 {
+	if code := run(context.Background(), []string{"jira", "wat"}, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 {
 		t.Errorf("unknown subcommand exit = %d, want 2", code)
 	}
 	if !strings.Contains(stderr.String(), "four-position") {
@@ -130,15 +140,17 @@ func TestRunJiraTransitionUsage(t *testing.T) {
 // TestJiraResolvesTheRecordsAddress pins flow jira to the record family
 // (kan-1038): a transition goes to FLOW_RECORDS_ADDR, not FLOW_ADDR.
 func TestJiraResolvesTheRecordsAddress(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	fake := &jiraFlowdFake{t: t, wantStatus: http.StatusOK,
 		wantBody: `{"key":"KAN-571","status":"In Review","moved":true}`}
 	ts := httptest.NewServer(fake.handler())
 	defer ts.Close()
-	t.Setenv("FLOW_RECORDS_ADDR", ts.URL)
-	t.Setenv("FLOW_ADDR", deadPortURL(t))
+	env["FLOW_RECORDS_ADDR"] = ts.URL
+	env["FLOW_ADDR"] = deadPortURL(t)
 
 	var stdout, stderr strings.Builder
-	code := run(context.Background(), []string{"jira", "transition", "KAN-571", "In Review"}, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), []string{"jira", "transition", "KAN-571", "In Review"}, env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || fake.lastBody == "" {
 		t.Fatalf("jira transition exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr %s", code, fake.lastBody != "", stderr.String())
 	}

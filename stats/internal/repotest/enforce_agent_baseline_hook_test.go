@@ -32,6 +32,10 @@ import (
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
+// Cost: 6.37–7.72 s (load 8–13; no idle window) — twenty-eight runs of the
+// real hook, each a python3 start plus the git, flow and flow-guard execs the
+// hook makes for its case; the shared flow-guard build is TestMain's, not this
+// test's. Cutting a run drops a dispatch shape the gate proves.
 // smoke: core — the hook that gates every dispatch, through the real guard and CLI
 func TestEnforceAgentBaselineHook(t *testing.T) {
 	t.Parallel()

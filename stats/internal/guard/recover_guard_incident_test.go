@@ -110,7 +110,7 @@ func TestRecoverGuardIncident(t *testing.T) {
 	// commits touch, so a revert of HEAD~1 leaves REVERT_HEAD set.
 	tmpl := t.TempDir() + "/repo"
 	var g fxGit
-	g.git("", "init", "-q", tmpl)
+	g.copyShape(tmpl, repoShape{})
 	for i, body := range []string{"one", "two", "one"} {
 		g.write(tmpl+"/shared.txt", body)
 		g.git(tmpl, "add", "shared.txt")

@@ -14,6 +14,7 @@ import (
 // second save of the same path replaces the body rather than adding a row,
 // and an unknown change is ErrChangeNotFound.
 func TestSaveChangeFileUpsertsOnPath(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-change-files-upsert-%d", time.Now().UnixNano())
@@ -51,6 +52,7 @@ func TestSaveChangeFileUpsertsOnPath(t *testing.T) {
 // known change with no such file is ErrChangeFileNotFound, an unknown change
 // is ErrChangeNotFound.
 func TestGetChangeFileNotFound(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-change-files-missing-%d", time.Now().UnixNano())
@@ -68,6 +70,7 @@ func TestGetChangeFileNotFound(t *testing.T) {
 // a change with no saved file, true after one save, and ErrChangeNotFound
 // for a change the store has never heard of.
 func TestHasChangeFilesFalseUntilSaved(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-change-files-has-%d", time.Now().UnixNano())

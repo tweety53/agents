@@ -19,8 +19,7 @@ func dwRepo(t *testing.T, paths ...string) string {
 		t.Fatal(err)
 	}
 	var g fxGit
-	g.git(dir, "init", "-q")
-	g.git(dir, "commit", "-q", "--allow-empty", "-m", "base")
+	g.copyShape(dir, repoShape{Commit: "base"})
 	for _, p := range paths {
 		if g.err == nil {
 			g.err = os.MkdirAll(filepath.Dir(dir+"/"+p), 0o755)

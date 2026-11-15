@@ -49,6 +49,7 @@ import (
 // three unexported constants, so it would still be pinning a second
 // hand-typed copy of the literals rather than the constants themselves.
 func TestUnattributedReasonStringsMatchTheLedgersCopy(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		reason string

@@ -9,9 +9,9 @@ import (
 
 // TestTestListRunsTheGuardPackageOnce pins kan-1038's f9-guard-once: the
 // guard package runs once per verify, in the `guard-tests` suite's go test
-// under -race (KAN-1058), and the `stats-go` line of .flow/project.md filters
-// it out of the module's package list rather than running the bare ./...
-// pattern.
+// (under -race only in the full suite, kan-1124), and the `stats-go` line of
+// .flow/project.md filters it out of the module's package list rather than
+// running the bare ./... pattern.
 func TestTestListRunsTheGuardPackageOnce(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(repoRoot(t), ".flow/project.md"))
 	if err != nil {
@@ -31,8 +31,8 @@ func TestTestListRunsTheGuardPackageOnce(t *testing.T) {
 			suites[suite] = l
 		}
 	}
-	if g := suites["guard-tests"]; !strings.Contains(g, "go test -race -short -count=1 ./internal/guard/...") {
-		t.Errorf("## test guard-tests line %q does not run go test -race -short over ./internal/guard/...", g)
+	if g := suites["guard-tests"]; !strings.Contains(g, "go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 ./internal/guard/...") {
+		t.Errorf("## test guard-tests line %q does not run go test -json -short over ./internal/guard/...", g)
 	}
 	goLine := suites["stats-go"]
 	if !strings.Contains(goLine, "$(go list ./... | grep -v '/internal/guard$')") || strings.Contains(goLine, "go test ./...") {
@@ -66,6 +66,51 @@ func TestTestListRunsTheModTests(t *testing.T) {
 // -short with the keep list flow-guard smoke-keep prints, and the SPA and mod
 // lines carry neither.
 func TestTestListRunsTheSmokeSet(t *testing.T) {
+	suites := testListCommands(t)
+	keep := "keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/" +
+		" hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/" +
+		" scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/" +
+		" setup.sh=stats/internal/setuptest/"
+	ordered := []string{keep, ") && cd stats && ", `FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=`, " -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 "}
+	for _, name := range []string{"guard-tests", "stats-go"} {
+		line, at := suites[name], 0
+		for _, part := range ordered {
+			i := strings.Index(line[at:], part)
+			if i < 0 {
+				t.Errorf("## test %s line %q lacks %q after offset %d", name, line, part, at)
+				break
+			}
+			at += i + len(part)
+		}
+	}
+	for _, name := range []string{"stats-spa", "flow-task-list"} {
+		if line := suites[name]; line == "" || strings.Contains(line, "smoke-keep") || strings.Contains(line, "-short") {
+			t.Errorf("## test %s line %q is missing or carries smoke-keep or -short", name, line)
+		}
+	}
+}
+
+// TestTestListRacesOnlyUnderFull pins kan-1124's race-full-only-switch: both
+// Go lines of `## test` stream test2json for flow suite record's per-test
+// costs and run -race only when run-verify-list -full exports
+// FLOW_VERIFY_FULL, so a default verify never pays for the race detector.
+func TestTestListRacesOnlyUnderFull(t *testing.T) {
+	suites := testListCommands(t)
+	for _, name := range []string{"guard-tests", "stats-go"} {
+		line := suites[name]
+		if !strings.Contains(line, "go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 ") {
+			t.Errorf("## test %s line %q does not run go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1", name, line)
+		}
+		if strings.Contains(line, " -race ") {
+			t.Errorf("## test %s line %q runs -race on a default verify", name, line)
+		}
+	}
+}
+
+// testListCommands maps each `# suite:` of .flow/project.md's `## test` fence
+// to its command line.
+func testListCommands(t *testing.T) map[string]string {
+	t.Helper()
 	b, err := os.ReadFile(filepath.Join(repoRoot(t), ".flow/project.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -84,25 +129,5 @@ func TestTestListRunsTheSmokeSet(t *testing.T) {
 			suites[suite] = l
 		}
 	}
-	keep := "keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/" +
-		" hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/" +
-		" scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/" +
-		" setup.sh=stats/internal/setuptest/"
-	ordered := []string{keep, ") && cd stats && ", `FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=`, " -race -short -count=1 "}
-	for _, name := range []string{"guard-tests", "stats-go"} {
-		line, at := suites[name], 0
-		for _, part := range ordered {
-			i := strings.Index(line[at:], part)
-			if i < 0 {
-				t.Errorf("## test %s line %q lacks %q after offset %d", name, line, part, at)
-				break
-			}
-			at += i + len(part)
-		}
-	}
-	for _, name := range []string{"stats-spa", "flow-task-list"} {
-		if line := suites[name]; line == "" || strings.Contains(line, "smoke-keep") || strings.Contains(line, "-short") {
-			t.Errorf("## test %s line %q is missing or carries smoke-keep or -short", name, line)
-		}
-	}
+	return suites
 }

@@ -64,7 +64,7 @@ func TestProjectGetParity(t *testing.T) {
 	repo := func(t *testing.T, sub, head string, wt *string) string {
 		top := t.TempDir()
 		root := filepath.Join(top, sub)
-		gitRun(t, top, "init", "-q")
+		fixtureRepo(t, top, repoShape{})
 		writeFile(t, root+"/.flow/project.md", head)
 		gitRun(t, top, "add", "-A")
 		gitRun(t, top, "commit", "-q", "-m", "base")
@@ -112,7 +112,7 @@ func TestProjectGetParity(t *testing.T) {
 		}, 0},
 		{"HEAD lacks it, working tree has it", func(t *testing.T) []string {
 			top := t.TempDir()
-			gitRun(t, top, "init", "-q")
+			fixtureRepo(t, top, repoShape{})
 			writeFile(t, top+"/README", "x\n")
 			gitRun(t, top, "add", "-A")
 			gitRun(t, top, "commit", "-q", "-m", "base")
@@ -140,7 +140,7 @@ func TestProjectGetParity(t *testing.T) {
 func TestProjectGetIgnoresAmbientGitEnv(t *testing.T) {
 	root, other := t.TempDir(), t.TempDir()
 	for dir, body := range map[string]string{root: "## lint\n\nvalue-a\n", other: "## lint\n\nhostile\n"} {
-		gitRun(t, dir, "init", "-q")
+		fixtureRepo(t, dir, repoShape{})
 		writeFile(t, dir+"/.flow/project.md", body)
 		gitRun(t, dir, "add", "-A")
 		gitRun(t, dir, "commit", "-q", "-m", "base")

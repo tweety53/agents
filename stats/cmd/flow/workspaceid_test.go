@@ -12,6 +12,7 @@ import (
 // verbatim, plus one case whose first normalised segment alone exceeds 12
 // characters (the second branch of the prefix rule).
 func TestDeriveWorkspaceID(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		want string
@@ -45,8 +46,10 @@ func TestDeriveWorkspaceID(t *testing.T) {
 }
 
 func TestWorkspaceIDCommandPrintsID(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id", "kan-15-parallel-flow-task-lanes"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id", "kan-15-parallel-flow-task-lanes"}, env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
@@ -56,8 +59,10 @@ func TestWorkspaceIDCommandPrintsID(t *testing.T) {
 }
 
 func TestWorkspaceIDCommandNoArgExitsNonZero(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id"}, env.get, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stdout = %s", stdout.String())
 	}
@@ -72,8 +77,10 @@ func TestWorkspaceIDCommandNoArgExitsNonZero(t *testing.T) {
 // taken as the positional change name rather than rejected as an
 // unrecognized flag.
 func TestWorkspaceIDCommandAcceptsLeadingDashName(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id", "---"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id", "---"}, env.get, nil, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code = %d, stderr = %s", code, stderr.String())
 	}
@@ -84,8 +91,10 @@ func TestWorkspaceIDCommandAcceptsLeadingDashName(t *testing.T) {
 }
 
 func TestWorkspaceIDCommandTooManyArgsExitsNonZero(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"workspace-id", "a", "b"}, nil, &stdout, &stderr)
+	code := run(context.Background(), []string{"workspace-id", "a", "b"}, env.get, nil, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("code = 0, want non-zero; stdout = %s", stdout.String())
 	}

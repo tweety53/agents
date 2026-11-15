@@ -12,6 +12,7 @@ import (
 // kan-1024: a STARTED change goes IN_PROGRESS only once the store shows the
 // handoff's own stages -- run-instructions completed, write-in-progress open.
 func TestStateSetInProgressNeedsTheHandoffStages(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name         string
 		stored       string
@@ -29,7 +30,7 @@ func TestStateSetInProgressNeedsTheHandoffStages(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			put := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 				switch {
@@ -49,7 +50,7 @@ func TestStateSetInProgressNeedsTheHandoffStages(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-				strings.NewReader(`{"state":"IN_PROGRESS"}`), &stdout, &stderr)
+				env.get, strings.NewReader(`{"state":"IN_PROGRESS"}`), &stdout, &stderr)
 
 			if code != tc.want {
 				t.Fatalf("exit = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())

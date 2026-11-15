@@ -8,6 +8,7 @@ import (
 )
 
 func TestListStages(t *testing.T) {
+	t.Parallel()
 	rec := httptest.NewRecorder()
 	listStages(rec, httptest.NewRequest(http.MethodGet, "/api/v1/stages?command=/flow", nil))
 	var body struct{ Stages []string }

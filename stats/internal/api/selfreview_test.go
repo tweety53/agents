@@ -36,6 +36,7 @@ func selfReviewPath(project, change, repo string) string {
 // parent on the change branch spectre/<name> of the repository the request named — no path arrives
 // from the store.
 func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
+	t.Parallel()
 	repo := bundleGitRepo(t)
 	bundleChangeBranch(t, repo, "kan-1", map[string]string{
 		"tasks.md":  "- [ ] 1. do it\n",
@@ -81,6 +82,7 @@ func TestSelfReviewBundleHandlerServesAssembledBundle(t *testing.T) {
 // skipped — ledger and panel both, never an empty panel record nobody
 // wrote — not a 404 a caller could read as the endpoint refusing.
 func TestSelfReviewBundleHandlerUnknownChange(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	code, body := doGet(t, ts, selfReviewPath("proj", "never-heard", t.TempDir()))
@@ -99,6 +101,7 @@ func TestSelfReviewBundleHandlerUnknownChange(t *testing.T) {
 // mistake the route itself can see: a repo parameter that is not an
 // absolute path is a 400, before anything reads or renders.
 func TestSelfReviewBundleHandlerRefusesRelativeRepo(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", "relative/path"))
@@ -111,6 +114,7 @@ func TestSelfReviewBundleHandlerRefusesRelativeRepo(t *testing.T) {
 // cannot absorb: a store read that fails for a real reason is a 5xx, never
 // a bundle a caller could mistake for the change's own.
 func TestSelfReviewBundleHandlerStoreFailure(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.runRecordErr = errors.New("store exploded")
 
@@ -178,6 +182,7 @@ func bundleRunGit(t *testing.T, repo string, args ...string) {
 // it the route could only misreport the change directory's sources as
 // absent, so the request is refused before anything is read.
 func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 
 	code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", ""))
@@ -197,6 +202,7 @@ func TestSelfReviewBundleHandlerRequiresRepo(t *testing.T) {
 // inside writeTimeout, so the degraded note-bearing bundle is still
 // delivered rather than cut off mid-write.
 func TestGitBoundInsideWriteBudget(t *testing.T) {
+	t.Parallel()
 	if selfreview.BundleBudget+selfreview.DefaultGitBound >= 30*time.Second {
 		t.Errorf("git budget %s plus bound %s must sit inside the write budget 30s (server.go writeTimeout)", selfreview.BundleBudget, selfreview.DefaultGitBound)
 	}
@@ -208,6 +214,7 @@ func TestGitBoundInsideWriteBudget(t *testing.T) {
 // reports it skipped like every other missing source -- the store read
 // failing with ErrChangeNotFound is absence, never a 5xx.
 func TestSelfReviewBundleServesSummary(t *testing.T) {
+	t.Parallel()
 	repo := t.TempDir()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.recordedSummary = "what changed and why, grouped by area"
@@ -250,6 +257,7 @@ func TestSelfReviewBundleServesSummary(t *testing.T) {
 // could mistake for the change's own, the same contract the run record
 // read's failure branch carries.
 func TestSelfReviewBundleHandlerSummaryStoreFailure(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.changeSummaryErr = errors.New("store exploded")
 
@@ -264,6 +272,7 @@ func TestSelfReviewBundleHandlerSummaryStoreFailure(t *testing.T) {
 // stage run but no dispatch rows gets the loss named loudly in the served
 // bundle, not a plain "skipped (absent)" that reads as no panel ever ran.
 func TestSelfReviewBundleHandlerPassesPanelRan(t *testing.T) {
+	t.Parallel()
 	repo := t.TempDir()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.stageCompleted = true
@@ -282,6 +291,7 @@ func TestSelfReviewBundleHandlerPassesPanelRan(t *testing.T) {
 // 5xx, never a bundle a caller could mistake for the change's own — the
 // same contract the run record and summary reads carry.
 func TestSelfReviewBundleHandlerStageReadFailureIs5xx(t *testing.T) {
+	t.Parallel()
 	ts, fs := recordTestServer(t, "proj", "kan-1")
 	fs.stageCompletedErr = errors.New("store exploded")
 
@@ -329,6 +339,7 @@ type selfReviewFindingRecord struct {
 // echoed back, a store validation refusal is 400, and the read returns the
 // posted rows in order.
 func TestSelfReviewFindingsEndpoint(t *testing.T) {
+	t.Parallel()
 	ts, _ := recordTestServer(t, "proj", "kan-1")
 	url := ts.URL + "/api/v1/self-review/proj/kan-1/findings"
 
@@ -375,6 +386,7 @@ func TestSelfReviewFindingsEndpoint(t *testing.T) {
 // read (KAN-1061): the store's requests reach the bundle as its git-log
 // source, and a failed read leaves them empty -- the bundle still serves.
 func TestSelfReviewBundleReadsRequests(t *testing.T) {
+	t.Parallel()
 	repo := bundleGitRepo(t)
 	bundleCommit(t, repo, "a.go", "package main\n", "feat(a): the landed request")
 	ts, fs := recordTestServer(t, "proj", "kan-1")

@@ -53,14 +53,29 @@ func gitRepo(t *testing.T) string {
 	return dir
 }
 
-// isolatedStateRoot points FLOW_STATE_DIR at a fresh temp directory for
-// the duration of the test, so a test never touches the real
-// /Users/tweety53/Agents/flow/state tree.
-func isolatedStateRoot(t *testing.T) string {
+// testEnv is one test's environment, handed to run as its getenv: the keys
+// the test sets; every other key reads the process's. A test that sets its
+// variables here instead of in the process environment can run under t.Parallel
+// (decision cli-per-call-env).
+type testEnv map[string]string
+
+// get is e[k] when the test set k, the process's value otherwise.
+func (e testEnv) get(k string) string {
+	if v, ok := e[k]; ok {
+		return v
+	}
+	return os.Getenv(k)
+}
+
+// stateRoot is the test's FLOW_STATE_DIR.
+func (e testEnv) stateRoot() string { return e["FLOW_STATE_DIR"] }
+
+// newTestEnv is a test environment whose FLOW_STATE_DIR is a fresh temp
+// directory, so the test never touches the real state tree or another
+// test's.
+func newTestEnv(t *testing.T) testEnv {
 	t.Helper()
-	root := t.TempDir()
-	t.Setenv("FLOW_STATE_DIR", root)
-	return root
+	return testEnv{"FLOW_STATE_DIR": t.TempDir()}
 }
 
 func deadPortAddr(t *testing.T) string {
@@ -112,13 +127,14 @@ func countLines(s string) int {
 // --- state set: the fallback / never-block guarantee, one failure mode at a time ---
 
 func TestStateSetFallsBackOnDeadPort(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -130,8 +146,9 @@ func TestStateSetFallsBackOnDeadPort(t *testing.T) {
 }
 
 func TestStateSetFallsBackOnTimeout(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(300 * time.Millisecond)
@@ -143,7 +160,7 @@ func TestStateSetFallsBackOnTimeout(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "20ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -155,8 +172,9 @@ func TestStateSetFallsBackOnTimeout(t *testing.T) {
 }
 
 func TestStateSetFallsBackOnNon2xxThatIsNotRefusal(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -166,7 +184,7 @@ func TestStateSetFallsBackOnNon2xxThatIsNotRefusal(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -178,8 +196,9 @@ func TestStateSetFallsBackOnNon2xxThatIsNotRefusal(t *testing.T) {
 }
 
 func TestStateSetFallsBackOnMalformedResponse(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -190,7 +209,7 @@ func TestStateSetFallsBackOnMalformedResponse(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -202,13 +221,14 @@ func TestStateSetFallsBackOnMalformedResponse(t *testing.T) {
 }
 
 func TestStateSetFallbackExitsZero(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -218,8 +238,9 @@ func TestStateSetFallbackExitsZero(t *testing.T) {
 
 // smoke: core — the state write's fallback to the state file and the journal
 func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	// No updatedAt on the way in: the CLI owns that field and stamps it
 	// itself (stampUpdatedAt), so what the fallback records is the body
@@ -228,7 +249,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(body),
+		env.get, strings.NewReader(body),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
@@ -239,7 +260,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 
-	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16"))
+	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadStateFile: %v", err)
 	}
@@ -248,7 +269,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 		t.Errorf("on-disk state file = %s, want %s", stateBody, want)
 	}
 
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -273,13 +294,14 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 // record. It must instead be rejected before either write, as a usage
 // error -- neither the state file nor the journal may exist afterward.
 func TestStateSetRejectsNullBody(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader("null"),
+		env.get, strings.NewReader("null"),
 		&stdout, &stderr)
 
 	if code != 2 {
@@ -290,10 +312,10 @@ func TestStateSetRejectsNullBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16")); err == nil {
 		t.Error("a null body was written to the state file -- it must be rejected before either write")
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -306,15 +328,16 @@ func TestStateSetRejectsNullBody(t *testing.T) {
 // shapes json.Valid alone would have let through: an array, a bare string,
 // and a bare number.
 func TestStateSetRejectsNonObjectJSONBody(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 
 	for _, body := range []string{`[1,2,3]`, `"just a string"`, `42`, `true`} {
 		t.Run(body, func(t *testing.T) {
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-				strings.NewReader(body),
+				env.get, strings.NewReader(body),
 				&stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("body %s: exit code = %d, want 2; stderr:\n%s", body, code, stderr.String())
@@ -326,8 +349,9 @@ func TestStateSetRejectsNonObjectJSONBody(t *testing.T) {
 // --- state set: a monotonic refusal is not a fallback trigger ---
 
 func TestMonotonicRefusalIsNotAFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
@@ -338,7 +362,7 @@ func TestMonotonicRefusalIsNotAFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"STARTED","updatedAt":"2026-08-13T10:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"STARTED","updatedAt":"2026-08-13T10:00:00Z"}`),
 		&stdout, &stderr)
 
 	if code == 0 {
@@ -349,10 +373,10 @@ func TestMonotonicRefusalIsNotAFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16")); err == nil {
 		t.Error("state file was written on a refusal -- a refusal must not take the fallback path")
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -374,8 +398,9 @@ func TestMonotonicRefusalIsNotAFallback(t *testing.T) {
 // instead take the fallback path: state file and journal written, exactly
 // one warning line, exit 0.
 func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// A bare foreign server: no Flow-Daemon header, ever -- the
@@ -390,7 +415,7 @@ func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(body),
+		env.get, strings.NewReader(body),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -404,10 +429,10 @@ func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err != nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16")); err != nil {
 		t.Errorf("state file was not written on the fallback path: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -420,8 +445,9 @@ func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
 
 // smoke: core — flow state set against a reachable store
 func TestStateSetSucceedsAgainstReachableStore(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -439,7 +465,7 @@ func TestStateSetSucceedsAgainstReachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(body),
+		env.get, strings.NewReader(body),
 		&stdout, &stderr)
 
 	if code != 0 {
@@ -467,7 +493,7 @@ func TestStateSetSucceedsAgainstReachableStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16")); err == nil {
 		t.Error("state file was written on a successful store write -- the fallback path must be untouched")
 	}
 }
@@ -502,8 +528,9 @@ func updatedAtOf(t *testing.T, body []byte) string {
 // as moving state backwards. The CLI now owns the field: whatever the
 // body carried is overwritten before the body reaches the store.
 func TestStateSetStampsUpdatedAtOverBodyValue(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -521,7 +548,7 @@ func TestStateSetStampsUpdatedAtOverBodyValue(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -550,8 +577,9 @@ func TestStateSetStampsUpdatedAtOverBodyValue(t *testing.T) {
 // replayed under the wrong clock read, and could lose to the very write it
 // was recorded behind.
 func TestStateSetStampsSameInstantIntoRequestAndJournal(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -567,7 +595,7 @@ func TestStateSetStampsSameInstantIntoRequestAndJournal(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a 500 is not a refusal); stderr:\n%s", code, stderr.String())
@@ -577,11 +605,11 @@ func TestStateSetStampsSameInstantIntoRequestAndJournal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16"))
+	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadStateFile: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -613,6 +641,7 @@ func TestStateSetStampsSameInstantIntoRequestAndJournal(t *testing.T) {
 // time.RFC3339, so the regression is caught with no reading of the wall
 // clock at all.
 func TestStateSetStampIsFinerThanSecondPrecision(t *testing.T) {
+	t.Parallel()
 	at := time.Date(2026, 8, 24, 10, 30, 45, 123456789, time.UTC)
 	const want = "2026-08-24T10:30:45.123456789Z"
 	if got := formatUpdatedAt(at); got != want {
@@ -629,8 +658,9 @@ func TestStateSetStampIsFinerThanSecondPrecision(t *testing.T) {
 // known carries, so a check that rejected it would refuse writes the
 // pipeline makes on purpose.
 func TestStateSetAcceptsShaAndNullMergeBases(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -648,7 +678,7 @@ func TestStateSetAcceptsShaAndNullMergeBases(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/recorded":"`+sha+`","/w/unrecorded":null}}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/recorded":"`+sha+`","/w/unrecorded":null}}`),
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -677,6 +707,7 @@ func TestStateSetAcceptsShaAndNullMergeBases(t *testing.T) {
 // happens before the store is touched at all: the fake daemon below fails
 // the test if it is called.
 func TestStateSetRefusesMalformedMergeBase(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 
 	for name, value := range map[string]string{
@@ -686,7 +717,7 @@ func TestStateSetRefusesMalformedMergeBase(t *testing.T) {
 		"empty string":  "",
 	} {
 		t.Run(name, func(t *testing.T) {
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 				t.Errorf("the store was called: a malformed merge base must be refused before the store is touched")
 				w.WriteHeader(http.StatusOK)
@@ -701,7 +732,7 @@ func TestStateSetRefusesMalformedMergeBase(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-				strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":`+string(encoded)+`}}`),
+				env.get, strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":`+string(encoded)+`}}`),
 				&stdout, &stderr)
 
 			if code != 2 {
@@ -737,6 +768,7 @@ func TestStateSetRefusesMalformedMergeBase(t *testing.T) {
 // order for the same reason -- a decode that merely preserved input order
 // would name /w/zebra and fail here.
 func TestMergeBaseRefusalNamesTheSortedFirstOffender(t *testing.T) {
+	t.Parallel()
 	const body = `{"state":"IN_PROGRESS","worktrees":{"/w/zebra":"not-a-sha","/w/mike":"not-a-sha","/w/alpha":"not-a-sha"}}`
 
 	for range 16 {
@@ -758,13 +790,14 @@ func TestMergeBaseRefusalNamesTheSortedFirstOffender(t *testing.T) {
 // finish gate, which is the failure this change removes rather than a
 // tolerable version of it.
 func TestStateSetRefusalWritesNoFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":"/w/kan-16"}}`),
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":"/w/kan-16"}}`),
 		&stdout, &stderr)
 
 	if code != 2 {
@@ -775,10 +808,10 @@ func TestStateSetRefusalWritesNoFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16")); err == nil {
 		t.Error("a malformed merge base reached the state file -- the refusal must write nothing")
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -790,22 +823,23 @@ func TestStateSetRefusalWritesNoFallback(t *testing.T) {
 // --- state get: falls back and says so ---
 
 func TestStateGetFallsBackAndSaysSo(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	diskBody := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-16"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a get must never block either); stderr:\n%s", code, stderr.String())
@@ -828,15 +862,16 @@ func TestStateGetFallsBackAndSaysSo(t *testing.T) {
 // fallback read entirely even with a valid local record present. It must
 // instead take the fallback path and return the on-disk record.
 func TestStateGetTreatsForeignServer404AsFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	diskBody := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-16"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
@@ -850,7 +885,7 @@ func TestStateGetTreatsForeignServer404AsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a look-alike 404 must fall back, not block); stderr:\n%s", code, stderr.String())
@@ -865,8 +900,9 @@ func TestStateGetTreatsForeignServer404AsFallback(t *testing.T) {
 
 // smoke: core — flow state get against a reachable store
 func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -877,7 +913,7 @@ func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -897,8 +933,9 @@ func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
 // (skills/flow/SKILL.md's Reading the state) can test a field instead of
 // comparing "updatedBy" strings itself.
 func TestStateGetMarksSyntheticRecord(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	syntheticBody, err := json.Marshal(map[string]string{
 		"state":     "STARTED",
@@ -916,7 +953,7 @@ func TestStateGetMarksSyntheticRecord(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -943,8 +980,9 @@ func TestStateGetMarksSyntheticRecord(t *testing.T) {
 // all, not merely a false one -- proving markSyntheticIfNeeded leaves an
 // ordinary record untouched rather than annotating every record it sees.
 func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -955,7 +993,7 @@ func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1005,8 +1043,9 @@ func stateGetPrefixServer(rowsJSON string, resolvedNames ...string) http.Handler
 }
 
 func TestStateGetResolvesUniquePrefixMatch(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(stateGetPrefixServer(`{"view":"state-board","rows":[
 		{"projectKey":"proj","name":"kan-574-step-1-frontend-calendar-marks","state":"STARTED","updatedAt":"2026-09-19T20:22:00Z","updatedBy":"/flow"}
@@ -1016,7 +1055,7 @@ func TestStateGetResolvesUniquePrefixMatch(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (exactly one prefix match resolves); stderr:\n%s", code, stderr.String())
@@ -1027,8 +1066,9 @@ func TestStateGetResolvesUniquePrefixMatch(t *testing.T) {
 }
 
 func TestStateGetReportsAmbiguousPrefixMatch(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(stateGetPrefixServer(`{"view":"state-board","rows":[
 		{"projectKey":"proj","name":"kan-574-step-1-frontend-calendar-marks","state":"STARTED","updatedAt":"2026-09-19T20:22:00Z","updatedBy":"/flow"},
@@ -1039,7 +1079,7 @@ func TestStateGetReportsAmbiguousPrefixMatch(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (ambiguous prefix must never guess); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1053,8 +1093,9 @@ func TestStateGetReportsAmbiguousPrefixMatch(t *testing.T) {
 }
 
 func TestStateGetPrefixMatchIncludesFinishedRows(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	// resolveCandidates (state resolve's own helper) drops FINISHED rows,
 	// but a get-time retry must not: a caller landing here by way of a
@@ -1068,7 +1109,7 @@ func TestStateGetPrefixMatchIncludesFinishedRows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a FINISHED row is still a unique match); stderr:\n%s", code, stderr.String())
@@ -1076,8 +1117,9 @@ func TestStateGetPrefixMatchIncludesFinishedRows(t *testing.T) {
 }
 
 func TestStateGetNoPrefixMatchIsOrdinaryMiss(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(stateGetPrefixServer(`{"view":"state-board","rows":[
 		{"projectKey":"proj","name":"kan-999-unrelated-change","state":"STARTED","updatedAt":"2026-09-19T20:22:00Z","updatedBy":"/flow"}
@@ -1087,7 +1129,7 @@ func TestStateGetNoPrefixMatchIsOrdinaryMiss(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1 (zero prefix matches is the ordinary miss); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1098,8 +1140,9 @@ func TestStateGetNoPrefixMatchIsOrdinaryMiss(t *testing.T) {
 }
 
 func TestStateGetPrefixRetryNeverReadsFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
@@ -1113,7 +1156,7 @@ func TestStateGetPrefixRetryNeverReadsFallback(t *testing.T) {
 	// plain miss it would otherwise replace. The result is the ordinary
 	// miss, never the fallback file's contents.
 	diskBody := []byte(`{"state":"STARTED","updatedAt":"2026-09-19T20:22:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-574-step-1-frontend-calendar-marks"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-574-step-1-frontend-calendar-marks"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
@@ -1129,7 +1172,7 @@ func TestStateGetPrefixRetryNeverReadsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-574"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1 (a failed board retry falls through to the ordinary miss, never the fallback file); stdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1174,8 +1217,9 @@ func decodeStateListOutput(t *testing.T, raw []byte) stateListOutputForTest {
 }
 
 func TestStateListSucceedsAgainstReachableStore(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -1188,7 +1232,7 @@ func TestStateListSucceedsAgainstReachableStore(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1209,13 +1253,14 @@ func TestStateListSucceedsAgainstReachableStore(t *testing.T) {
 }
 
 func TestStateListFallbackExitsZeroAndWarnsOnce(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead port must never block); stderr:\n%s", code, stderr.String())
@@ -1233,22 +1278,23 @@ func TestStateListFallbackExitsZeroAndWarnsOnce(t *testing.T) {
 }
 
 func TestStateListFallbackReportsLocalRecords(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-9"), seeded); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-9"), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1326,8 +1372,9 @@ func changesDirFixture(t *testing.T, mainCheckout string) {
 }
 
 func TestStateResolveStoreDropsFinished(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -1341,7 +1388,7 @@ func TestStateResolveStoreDropsFinished(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1360,8 +1407,9 @@ func TestStateResolveStoreDropsFinished(t *testing.T) {
 }
 
 func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	changesDirFixture(t, repo)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
@@ -1369,14 +1417,14 @@ func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-9"), seeded); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-9"), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1402,12 +1450,13 @@ func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
 // FINISHED record no worktree's change directory holds is a landed change
 // -- cleanup removed its worktree -- and leaves the candidate list.
 func TestStateResolveFallbackDropsLanded(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	changesDirFixture(t, repo)
-	seedFallbackRecord(t, repo, "kan-c", "FINISHED")
+	seedFallbackRecord(t, repo, "kan-c", "FINISHED", env)
 
-	names := candidateNames(resolveFallback(t, repo))
+	names := candidateNames(resolveFallback(t, repo, env))
 	if containsName(names, "kan-c") {
 		t.Errorf("candidates = %v, want kan-c (FINISHED, no live directory) dropped", names)
 	}
@@ -1420,37 +1469,38 @@ func TestStateResolveFallbackDropsLanded(t *testing.T) {
 // without a change directory is kept unless FINISHED: a change whose
 // worktree is not on this machine still waits, IN_PROGRESS, on its run.
 func TestStateResolveFallbackKeepsInProgressWithoutDir(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	changesDirFixture(t, repo)
-	seedFallbackRecord(t, repo, "kan-c", "IN_PROGRESS")
+	seedFallbackRecord(t, repo, "kan-c", "IN_PROGRESS", env)
 
-	if names := candidateNames(resolveFallback(t, repo)); !containsName(names, "kan-c") {
+	if names := candidateNames(resolveFallback(t, repo, env)); !containsName(names, "kan-c") {
 		t.Errorf("candidates = %v, want kan-c (IN_PROGRESS, no live directory) present", names)
 	}
 }
 
 // seedFallbackRecord writes change's fallback state record in state.
-func seedFallbackRecord(t *testing.T, repo, change, state string) {
+func seedFallbackRecord(t *testing.T, repo, change, state string, env testEnv) {
 	t.Helper()
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	seeded := []byte(`{"state":"` + state + `","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, change), seeded); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, change), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 }
 
 // resolveFallback runs `flow state resolve` against a dead daemon, so the
 // fallback path answers.
-func resolveFallback(t *testing.T, repo string) stateResolveOutputForTest {
+func resolveFallback(t *testing.T, repo string, env testEnv) stateResolveOutputForTest {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -1463,21 +1513,22 @@ func resolveFallback(t *testing.T, repo string) stateResolveOutputForTest {
 // still be named in "unreadable", never silently dropped from the
 // candidate set.
 func TestStateResolveFallbackNamesUnreadable(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
 		t.Fatalf("seed corrupt state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1492,13 +1543,14 @@ func TestStateResolveFallbackNamesUnreadable(t *testing.T) {
 }
 
 func TestStateResolveTakesNoPositionalArguments(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "resolve", "-C", repo, "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -1512,21 +1564,22 @@ func TestStateResolveTakesNoPositionalArguments(t *testing.T) {
 // still appear in the list, marked unreadable, rather than silently
 // vanish from an enumeration that is already degraded.
 func TestStateListFallbackReportsUnreadableFileByName(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
 		t.Fatalf("seed corrupt state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1547,8 +1600,9 @@ func TestStateListFallbackReportsUnreadableFileByName(t *testing.T) {
 // must still be treated as unreachable rather than trusted as a complete
 // list.
 func TestStateListTreatsForeignServerAsFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// No Flow-Daemon header -- not a real flowd.
@@ -1560,7 +1614,7 @@ func TestStateListTreatsForeignServerAsFallback(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1577,13 +1631,14 @@ func TestStateListTreatsForeignServerAsFallback(t *testing.T) {
 }
 
 func TestStateListTakesNoPositionalArguments(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "list", "-C", repo, "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -1591,6 +1646,8 @@ func TestStateListTakesNoPositionalArguments(t *testing.T) {
 }
 
 func TestResolveDefaultAddr(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	tests := []struct {
 		name string
 		env  string
@@ -1604,14 +1661,11 @@ func TestResolveDefaultAddr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.set {
-				t.Setenv("FLOW_ADDR", tt.env)
+				env["FLOW_ADDR"] = tt.env
 			} else {
-				t.Setenv("FLOW_ADDR", "")
-				if err := os.Unsetenv("FLOW_ADDR"); err != nil {
-					t.Fatalf("unset FLOW_ADDR: %v", err)
-				}
+				env["FLOW_ADDR"] = ""
 			}
-			if got := resolveDefaultAddr(); got != tt.want {
+			if got := resolveDefaultAddr(env.get); got != tt.want {
 				t.Fatalf("resolveDefaultAddr() = %q, want %q", got, tt.want)
 			}
 		})
@@ -1619,9 +1673,10 @@ func TestResolveDefaultAddr(t *testing.T) {
 }
 
 func TestResolveDefaultAddrFlagBeatsEnvironment(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
-	t.Setenv("FLOW_ADDR", "http://127.0.0.1:4174")
+	env := newTestEnv(t)
+	env["FLOW_ADDR"] = "http://127.0.0.1:4174"
 
 	var handled string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1633,7 +1688,7 @@ func TestResolveDefaultAddrFlagBeatsEnvironment(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-addr", srv.URL, "-C", repo, "some-change"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1; stderr=%s", code, stderr.String())
@@ -1690,8 +1745,9 @@ func decodeStateFindOutput(t *testing.T, raw []byte) stateFindOutputForTest {
 }
 
 func TestStateFindPrintsRecords(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -1705,7 +1761,7 @@ func TestStateFindPrintsRecords(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-1"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1729,8 +1785,9 @@ func TestStateFindPrintsRecords(t *testing.T) {
 }
 
 func TestStateFindFallsBackToDiskAcrossProjects(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
@@ -1738,7 +1795,7 @@ func TestStateFindFallsBackToDiskAcrossProjects(t *testing.T) {
 	}
 	seeded := []byte(`{"state":"IN_PROGRESS","worktrees":{},"updatedAt":"2026-09-10T09:00:00Z","updatedBy":"/flow"}`)
 	for _, pk := range []string{projectKey, "other-project-12345678"} {
-		if err := fallback.WriteStateFile(fallback.StateFilePath(pk, "kan-9"), seeded); err != nil {
+		if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), pk, "kan-9"), seeded); err != nil {
 			t.Fatalf("seed state file for %s: %v", pk, err)
 		}
 	}
@@ -1746,7 +1803,7 @@ func TestStateFindFallsBackToDiskAcrossProjects(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-9"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead port must never block); stderr:\n%s", code, stderr.String())
@@ -1771,8 +1828,9 @@ func TestStateFindFallsBackToDiskAcrossProjects(t *testing.T) {
 }
 
 func TestStateFindUnknownIsEmpty(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -1783,7 +1841,7 @@ func TestStateFindUnknownIsEmpty(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "absent"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1795,13 +1853,14 @@ func TestStateFindUnknownIsEmpty(t *testing.T) {
 }
 
 func TestStateFindRequiresName(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "find", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 for a missing change name", code)
@@ -1812,6 +1871,8 @@ func TestStateFindRequiresName(t *testing.T) {
 }
 
 func TestResolveRecordsAddr(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	tests := []struct {
 		name       string
 		recordsEnv string
@@ -1828,22 +1889,16 @@ func TestResolveRecordsAddr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.recordsSet {
-				t.Setenv("FLOW_RECORDS_ADDR", tt.recordsEnv)
+				env["FLOW_RECORDS_ADDR"] = tt.recordsEnv
 			} else {
-				t.Setenv("FLOW_RECORDS_ADDR", "")
-				if err := os.Unsetenv("FLOW_RECORDS_ADDR"); err != nil {
-					t.Fatalf("unset FLOW_RECORDS_ADDR: %v", err)
-				}
+				env["FLOW_RECORDS_ADDR"] = ""
 			}
 			if tt.runSet {
-				t.Setenv("FLOW_ADDR", tt.runEnv)
+				env["FLOW_ADDR"] = tt.runEnv
 			} else {
-				t.Setenv("FLOW_ADDR", "")
-				if err := os.Unsetenv("FLOW_ADDR"); err != nil {
-					t.Fatalf("unset FLOW_ADDR: %v", err)
-				}
+				env["FLOW_ADDR"] = ""
 			}
-			if got := resolveRecordsAddr(); got != tt.want {
+			if got := resolveRecordsAddr(env.get); got != tt.want {
 				t.Fatalf("resolveRecordsAddr() = %q, want %q", got, tt.want)
 			}
 		})
@@ -1851,12 +1906,14 @@ func TestResolveRecordsAddr(t *testing.T) {
 }
 
 func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("a records address is named and the run address is not", func(t *testing.T) {
-		t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
-		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
+		env["FLOW_RECORDS_ADDR"] = "http://127.0.0.1:4173"
+		env["FLOW_ADDR"] = "http://127.0.0.1:4299"
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4173")
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4173", env.get)
 
 		if !strings.Contains(stderr.String(), "flow: using FLOW_RECORDS_ADDR=http://127.0.0.1:4173") {
 			t.Errorf("stderr = %q, want the records address named", stderr.String())
@@ -1867,14 +1924,11 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 	})
 
 	t.Run("no records address falls back to naming the run address", func(t *testing.T) {
-		t.Setenv("FLOW_RECORDS_ADDR", "")
-		if err := os.Unsetenv("FLOW_RECORDS_ADDR"); err != nil {
-			t.Fatalf("unset FLOW_RECORDS_ADDR: %v", err)
-		}
-		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
+		env["FLOW_RECORDS_ADDR"] = ""
+		env["FLOW_ADDR"] = "http://127.0.0.1:4299"
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299", env.get)
 
 		if !strings.Contains(stderr.String(), "flow: using FLOW_ADDR=http://127.0.0.1:4299") {
 			t.Errorf("stderr = %q, want the run address named", stderr.String())
@@ -1882,11 +1936,11 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 	})
 
 	t.Run("a verb that resolved the run address is not named as records", func(t *testing.T) {
-		t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
-		t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
+		env["FLOW_RECORDS_ADDR"] = "http://127.0.0.1:4173"
+		env["FLOW_ADDR"] = "http://127.0.0.1:4299"
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("hazard", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299")
+		noteAddrUsage(flag.NewFlagSet("hazard", flag.ContinueOnError), &stderr, "http://127.0.0.1:4299", env.get)
 
 		if !strings.Contains(stderr.String(), "flow: using FLOW_ADDR=http://127.0.0.1:4299") {
 			t.Errorf("stderr = %q, want the run address named", stderr.String())
@@ -1897,17 +1951,11 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 	})
 
 	t.Run("neither variable decided the address prints nothing", func(t *testing.T) {
-		t.Setenv("FLOW_RECORDS_ADDR", "")
-		t.Setenv("FLOW_ADDR", "")
-		if err := os.Unsetenv("FLOW_RECORDS_ADDR"); err != nil {
-			t.Fatalf("unset FLOW_RECORDS_ADDR: %v", err)
-		}
-		if err := os.Unsetenv("FLOW_ADDR"); err != nil {
-			t.Fatalf("unset FLOW_ADDR: %v", err)
-		}
+		env["FLOW_RECORDS_ADDR"] = ""
+		env["FLOW_ADDR"] = ""
 
 		var stderr bytes.Buffer
-		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, defaultAddr)
+		noteAddrUsage(flag.NewFlagSet("record", flag.ContinueOnError), &stderr, defaultAddr, env.get)
 
 		if stderr.Len() != 0 {
 			t.Errorf("stderr = %q, want empty", stderr.String())
@@ -1915,7 +1963,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 	})
 
 	t.Run("an explicit -addr flag silences the note", func(t *testing.T) {
-		t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
+		env["FLOW_RECORDS_ADDR"] = "http://127.0.0.1:4173"
 
 		fset := flag.NewFlagSet("record", flag.ContinueOnError)
 		fset.String("addr", "", "")
@@ -1924,7 +1972,7 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 		}
 
 		var stderr bytes.Buffer
-		noteAddrUsage(fset, &stderr, "http://127.0.0.1:9999")
+		noteAddrUsage(fset, &stderr, "http://127.0.0.1:9999", env.get)
 
 		if stderr.Len() != 0 {
 			t.Errorf("stderr = %q, want empty", stderr.String())
@@ -1933,12 +1981,14 @@ func TestNoteAddrUsageNamesTheDecidingVariable(t *testing.T) {
 }
 
 func TestRiderVerbsRegisterTheRunAddress(t *testing.T) {
-	t.Setenv("FLOW_ADDR", "http://127.0.0.1:4299")
-	t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:4173")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["FLOW_ADDR"] = "http://127.0.0.1:4299"
+	env["FLOW_RECORDS_ADDR"] = "http://127.0.0.1:4173"
 
 	var f recordIdentityFlags
 	fset := flag.NewFlagSet("hazard", flag.ContinueOnError)
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, env.get)
 
 	if f.addr != "http://127.0.0.1:4299" {
 		t.Fatalf("rider -addr default = %q, want the run address %q", f.addr, "http://127.0.0.1:4299")
@@ -1967,13 +2017,15 @@ func contractProjectKey(t *testing.T, mainCheckout string) string {
 // stdout is exactly <StateRoot>/<project-key> for the -C target, one line,
 // exit 0, with no store contact anywhere on the path.
 func TestStateDirPrintsProjectDirectory(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	root := isolatedStateRoot(t)
+	env := newTestEnv(t)
+	root := env.stateRoot()
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1989,14 +2041,16 @@ func TestStateDirPrintsProjectDirectory(t *testing.T) {
 // text and state-file.md claim is exercised here, not only asserted: any
 // attempt to reach the address would fail this command.
 func TestStateDirNeverContactsTheStore(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	root := isolatedStateRoot(t)
-	t.Setenv("FLOW_ADDR", deadPortAddr(t))
+	env := newTestEnv(t)
+	root := env.stateRoot()
+	env["FLOW_ADDR"] = deadPortAddr(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 with the store down; stderr:\n%s", code, stderr.String())
@@ -2011,8 +2065,10 @@ func TestStateDirNeverContactsTheStore(t *testing.T) {
 // directory -- the --git-common-dir resolution state-file.md calls
 // load-bearing, the one record a worktree and its main checkout share.
 func TestStateDirResolvesWorktreeToMainCheckoutKey(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	root := isolatedStateRoot(t)
+	env := newTestEnv(t)
+	root := env.stateRoot()
 
 	worktreeParent := t.TempDir()
 	worktreeDir := filepath.Join(worktreeParent, "wt")
@@ -2025,7 +2081,7 @@ func TestStateDirResolvesWorktreeToMainCheckoutKey(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", worktreeDir},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2036,13 +2092,14 @@ func TestStateDirResolvesWorktreeToMainCheckoutKey(t *testing.T) {
 }
 
 func TestStateDirTakesNoPositionalArguments(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", repo, "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -2061,13 +2118,14 @@ func TestStateDirTakesNoPositionalArguments(t *testing.T) {
 // that cannot be resolved never prints a directory that only looks
 // resolved.
 func TestStateDirRejectsNonRepository(t *testing.T) {
-	isolatedStateRoot(t)
+	t.Parallel()
+	env := newTestEnv(t)
 	dir := t.TempDir()
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "dir", "-C", dir},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a non-repository -C target")
@@ -2111,11 +2169,11 @@ func awStore(t *testing.T, record []byte) (*httptest.Server, *[][]byte) {
 }
 
 // awRun runs `flow state add-worktree` with args after the fixed flags.
-func awRun(t *testing.T, addr, repo string, args ...string) (int, string, string) {
+func awRun(t *testing.T, addr, repo string, env testEnv, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
 	full := append([]string{"state", "add-worktree", "-addr", addr, "-timeout", "500ms", "-C", repo}, args...)
-	code := run(context.Background(), full, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), full, env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -2139,11 +2197,12 @@ func awWorktrees(t *testing.T, m map[string]json.RawMessage) map[string]*string 
 }
 
 func TestStateAddWorktreeMergesEntry(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	srv, puts := awStore(t, []byte(`{"state":"STARTED","updatedBy":"/flow","updatedAt":"2026-09-30T10:00:00Z"}`))
 
-	code, stdout, stderr := awRun(t, srv.URL, repo, "kan-16", "/abs/wt", awSha)
+	code, stdout, stderr := awRun(t, srv.URL, repo, env, "kan-16", "/abs/wt", awSha)
 	if code != 0 || stdout != "" || stderr != "" {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
@@ -2157,12 +2216,13 @@ func TestStateAddWorktreeMergesEntry(t *testing.T) {
 }
 
 func TestStateAddWorktreePreservesPeersAndState(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	srv, puts := awStore(t, []byte(`{"state":"IN_PROGRESS","updatedBy":"/flow","updatedAt":"2026-09-30T10:00:00Z",`+
 		`"jira":"KAN-16","worktrees":{"/abs/peer":"`+awPeer+`","/abs/unbased":null,"/abs/wt":"`+awPeer+`"}}`))
 
-	if code, _, stderr := awRun(t, srv.URL, repo, "kan-16", "/abs/wt", awSha); code != 0 {
+	if code, _, stderr := awRun(t, srv.URL, repo, env, "kan-16", "/abs/wt", awSha); code != 0 {
 		t.Fatalf("code=%d stderr=%q", code, stderr)
 	}
 	if len(*puts) != 1 {
@@ -2180,18 +2240,19 @@ func TestStateAddWorktreePreservesPeersAndState(t *testing.T) {
 }
 
 func TestStateAddWorktreeFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatal(err)
 	}
-	statePath := fallback.StateFilePath(projectKey, "kan-16")
+	statePath := fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16")
 	if err := fallback.WriteStateFile(statePath, []byte(`{"state":"STARTED","updatedBy":"/flow","worktrees":{"/abs/peer":"`+awPeer+`"}}`)); err != nil {
 		t.Fatal(err)
 	}
 
-	code, _, stderr := awRun(t, deadPortAddr(t), repo, "kan-16", "/abs/wt", awSha)
+	code, _, stderr := awRun(t, deadPortAddr(t), repo, env, "kan-16", "/abs/wt", awSha)
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%q", code, stderr)
 	}
@@ -2207,13 +2268,14 @@ func TestStateAddWorktreeFallback(t *testing.T) {
 	if string(m["state"]) != `"STARTED"` || len(w) != 2 || *w["/abs/peer"] != awPeer || *w["/abs/wt"] != awSha {
 		t.Errorf("fallback record = %s", body)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil || len(entries) != 1 || !jsonEqual(t, entries[0].Body, body) {
 		t.Errorf("journal = %v, err %v", entries, err)
 	}
 }
 
 func TestStateAddWorktreeRefusals(t *testing.T) {
+	t.Parallel()
 	synthetic := []byte(`{"state":"STARTED","updatedBy":"` + stages.SyntheticChangeUpdatedBy + `"}`)
 	real := []byte(`{"state":"STARTED","updatedBy":"/flow"}`)
 	for _, c := range []struct {
@@ -2232,13 +2294,14 @@ func TestStateAddWorktreeRefusals(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			root := isolatedStateRoot(t)
+			env := newTestEnv(t)
+			root := env.stateRoot()
 			srv, puts := awStore(t, c.record)
 			projectKey, _, err := fallback.ProjectKey(repo)
 			if err != nil {
 				t.Fatal(err)
 			}
-			code, stdout, stderr := awRun(t, srv.URL, repo, c.args...)
+			code, stdout, stderr := awRun(t, srv.URL, repo, env, c.args...)
 			want := strings.ReplaceAll(c.stderr, "<key>", projectKey)
 			if code != c.code || stdout != "" || stderr != want {
 				t.Fatalf("code=%d stdout=%q\nstderr=%q\nwant  =%q", code, stdout, stderr, want)
@@ -2258,22 +2321,23 @@ func TestStateAddWorktreeRefusals(t *testing.T) {
 // `flow state get <name> -C <dir>` used to exit 2 with "expected exactly one
 // argument".
 func TestStateGetAcceptsFlagsAfterTheName(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
 	diskBody := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z"}`)
-	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-16"), diskBody); err != nil {
+	if err := fallback.WriteStateFile(fallback.StateFilePath(env.stateRoot(), projectKey, "kan-16"), diskBody); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "kan-16", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2286,8 +2350,9 @@ func TestStateGetAcceptsFlagsAfterTheName(t *testing.T) {
 // TestStateResolvesTheRecordsAddress pins flow state to the record family
 // (kan-1038): a state get reads FLOW_RECORDS_ADDR, not FLOW_ADDR.
 func TestStateResolvesTheRecordsAddress(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	var reached bool
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		reached = true
@@ -2295,13 +2360,13 @@ func TestStateResolvesTheRecordsAddress(t *testing.T) {
 		_, _ = w.Write([]byte(`{"state":"STARTED","updatedAt":"2026-10-27T09:00:00Z"}`))
 	}))
 	defer srv.Close()
-	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
-	t.Setenv("FLOW_ADDR", deadPortURL(t))
+	env["FLOW_RECORDS_ADDR"] = srv.URL
+	env["FLOW_ADDR"] = deadPortURL(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "get", "-timeout", "500ms", "-C", repo, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("state get exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
 	}

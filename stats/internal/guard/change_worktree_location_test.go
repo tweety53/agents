@@ -13,7 +13,7 @@ func cwlFx(t *testing.T) (sandbox, main string) {
 	sandbox = t.TempDir()
 	main = sandbox + "/repo"
 	var g fxGit
-	g.git("", "init", "-q", "-b", "main", main)
+	g.copyShape(main, repoShape{Branch: "main"})
 	g.write(main+"/README.md", "seed")
 	g.git(main, "add", "-A")
 	g.git(main, "commit", "-q", "-m", "seed")

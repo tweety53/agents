@@ -287,7 +287,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 	// staged and unstaged edits, and an untracked file git diff never lists.
 	var g fxGit
 	repo := d + "/work tree"
-	g.git("", "init", "-q", "-b", "main", repo)
+	g.copyShape(repo, repoShape{Branch: "main"})
 	for _, f := range []string{"a.txt", "old.txt", "tracked.md", "sp ace.txt", "B.md"} {
 		g.write(repo+"/"+f, "base "+f)
 	}
@@ -309,7 +309,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 	g.appendLine(repo+"/B.md", "unstaged")
 	g.write(repo+"/untracked.txt", "untracked")
 	clean := d + "/clean"
-	g.git("", "init", "-q", "-b", "main", clean)
+	g.copyShape(clean, repoShape{Branch: "main"})
 	g.write(clean+"/a.txt", "a")
 	g.git(clean, "add", "a.txt")
 	g.git(clean, "commit", "-qm", "base")

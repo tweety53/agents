@@ -17,8 +17,7 @@ import (
 func fastRecordRepo(t *testing.T, name string, commits ...[2]string) string {
 	t.Helper()
 	dir := t.TempDir()
-	gitRun(t, dir, "init", "-q", "-b", "main")
-	gitRun(t, dir, "commit", "--allow-empty", "-q", "-m", "init: base")
+	fixtureRepo(t, dir, repoShape{Branch: "main", Commit: "init: base"})
 	gitRun(t, dir, "update-ref", "refs/remotes/origin/main", "HEAD")
 	gitRun(t, dir, "checkout", "-q", "-b", name)
 	for _, c := range commits {
@@ -150,8 +149,7 @@ func TestFastRouteRecordMergeCommit(t *testing.T) {
 
 func TestFastRouteRecordBaseFallback(t *testing.T) {
 	dir := t.TempDir()
-	gitRun(t, dir, "init", "-q", "-b", "main")
-	gitRun(t, dir, "commit", "--allow-empty", "-q", "-m", "init: base")
+	fixtureRepo(t, dir, repoShape{Branch: "main", Commit: "init: base"})
 	// No refs/remotes/origin/main: the base resolves through the bare-name
 	// fallback leg, as a revision of its own.
 	gitRun(t, dir, "checkout", "-q", "-b", "kan-838-demo")

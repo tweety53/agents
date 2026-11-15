@@ -1006,6 +1006,10 @@ func (stubStageStore) ListSuiteRuns(context.Context, string, string, int) ([]rec
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) LatestSuiteRunTests(context.Context, string, string, int) (*records.SuiteRun, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 // RecordSpecRun and ListSpecLastRuns are here for the same reason
 // ListSuiteRuns is: api.RecordStore gained the spec last-run pair (KAN-418)
 // and every implementer must keep compiling -- this file's tests never

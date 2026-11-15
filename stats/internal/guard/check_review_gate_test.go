@@ -24,7 +24,7 @@ func rgRepo(t *testing.T, plan bool) string {
 	t.Helper()
 	wt := filepath.Join(t.TempDir(), "wt")
 	mkdir(t, wt)
-	gitRun(t, wt, "init", "-q")
+	fixtureRepo(t, wt, repoShape{})
 	writeFile(t, wt+"/base.txt", "base\n")
 	gitRun(t, wt, "add", "-A")
 	gitRun(t, wt, "commit", "-q", "-m", "base")

@@ -16,7 +16,7 @@ func TestFindCanonicalIgnoresADropCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gitRun(t, "", "init", "-q", "-b", "main", wt)
+	fixtureRepo(t, wt, repoShape{Branch: "main"})
 	writeFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [x] 1. Do the work\n")
 	gitRun(t, wt, "add", "-A")
 	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): plan demo")
@@ -44,7 +44,7 @@ func TestMergeOrderMissingLinkIsSingleRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, b := top+"/a", top+"/b"
-	gitRun(t, "", "init", "-q", "-b", "main", a)
+	fixtureRepo(t, a, repoShape{Branch: "main"})
 	writeFile(t, a+"/spectre/changes/demo/link.md", "## Merge order\n\n1. `b`\n2. `.`\n")
 	writeFile(t, a+"/spectre/peers", "b ../b\n")
 	gitRun(t, a, "add", "-A")

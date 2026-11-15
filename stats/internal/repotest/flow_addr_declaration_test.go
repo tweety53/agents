@@ -27,13 +27,13 @@ package repotest
 //     one.
 //  4. No registerConnFlags call site — the seam whose address follows
 //     FLOW_ADDR alone — sits in a declared record-family file, and no
-//     inline `-addr` registration through resolveDefaultAddr() sits in one
+//     inline `-addr` registration through resolveDefaultAddr(getenv) sits in one
 //     either, outside the registerConnFlags definition itself: a family
 //     verb registering through its own helper (the registerJiraConnFlags
 //     shape) resolves FLOW_ADDR exactly where the declaration says the
 //     whole family resolves FLOW_RECORDS_ADDR.
 //  5. Every `-addr` registration under stats/cmd/flow takes its default
-//     from resolveDefaultAddr() or resolveRecordsAddr(), never a literal
+//     from resolveDefaultAddr(getenv) or resolveRecordsAddr(getenv), never a literal
 //     and never a third resolver — so every store-touching command honors
 //     FLOW_ADDR, and only the record family consults FLOW_RECORDS_ADDR.
 //
@@ -176,7 +176,7 @@ func assertFlowAddrRoot(root string) string {
 	recordGo := filepath.Join(cmd, "record.go")
 
 	// 2. exactly one FLOW_RECORDS_ADDR registration, inside registerRecordsAddrFlag
-	const recReg, defReg = `"addr", resolveRecordsAddr()`, `"addr", resolveDefaultAddr()`
+	const recReg, defReg = `"addr", resolveRecordsAddr(getenv)`, `"addr", resolveDefaultAddr(getenv)`
 	if n := countIn(srcs, recReg); n != 1 {
 		return fmt.Sprintf("expected exactly one FLOW_RECORDS_ADDR -addr registration under stats/cmd/flow, found %d", n)
 	}
@@ -226,7 +226,7 @@ func assertFlowAddrRoot(root string) string {
 	inlineTotal := countIn(famFiles, defReg)
 	inSeam := countLines(funcBody(recordGo, "registerConnFlags"), defReg)
 	if inlineTotal != inSeam {
-		return fmt.Sprintf("declared record-family files carry %d inline -addr registration(s) through resolveDefaultAddr() outside the registerConnFlags definition itself", inlineTotal-inSeam)
+		return fmt.Sprintf("declared record-family files carry %d inline -addr registration(s) through resolveDefaultAddr(getenv) outside the registerConnFlags definition itself", inlineTotal-inSeam)
 	}
 
 	// 5. every -addr registration takes a resolver default, never a literal
@@ -312,18 +312,18 @@ func TestFlowAddrDeclaration(t *testing.T) {
 		// a verb outside the record family joins the record seam
 		{"mutate-record-seam-outside-family", "stats/cmd/flow/hazard.go", "registerConnFlags(", "registerRecordConnFlags(", "call-site files"},
 		// registerRecordsAddrFlag stops resolving FLOW_RECORDS_ADDR
-		{"mutate-record-seam-default", "stats/cmd/flow/record.go", `"addr", resolveRecordsAddr()`, `"addr", resolveDefaultAddr()`, "FLOW_RECORDS_ADDR -addr registration"},
+		{"mutate-record-seam-default", "stats/cmd/flow/record.go", `"addr", resolveRecordsAddr(getenv)`, `"addr", resolveDefaultAddr(getenv)`, "FLOW_RECORDS_ADDR -addr registration"},
 		// a record-family verb falls back to the FLOW_ADDR-only seam
-		{"mutate-family-verb-switches-seam", "stats/cmd/flow/selfreview.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)", "call-site files"},
+		{"mutate-family-verb-switches-seam", "stats/cmd/flow/selfreview.go", "registerRecordConnFlags(fset, &f, getenv)", "registerConnFlags(fset, &f, getenv)", "call-site files"},
 		// the declared set loses every `flow self-review` verb (they share
 		// one source file); the closing paren stays, so the case fails
 		// through assertion 3's set comparison, not the sentence parse
 		{"mutate-declaration-drops-verb", ".flow/project.md", ", `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`", "", "call-site files"},
 		// `flow suite` (declared so its runtime rows outlive a worktree)
 		// falls back to the FLOW_ADDR-only seam
-		{"mutate-family-suite-switches-seam", "stats/cmd/flow/suite.go", "registerRecordConnFlags(fset, &f)", "registerConnFlags(fset, &f)", "call-site files"},
+		{"mutate-family-suite-switches-seam", "stats/cmd/flow/suite.go", "registerRecordConnFlags(fset, &f, getenv)", "registerConnFlags(fset, &f, getenv)", "call-site files"},
 		// a registration takes a hardcoded default
-		{"mutate-literal-addr-registration", "stats/cmd/flow/record.go", `"addr", resolveDefaultAddr()`, `"addr", "http://127.0.0.1:9999"`, "take a resolver default"},
+		{"mutate-literal-addr-registration", "stats/cmd/flow/record.go", `"addr", resolveDefaultAddr(getenv)`, `"addr", "http://127.0.0.1:9999"`, "take a resolver default"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

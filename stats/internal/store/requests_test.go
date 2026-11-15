@@ -17,6 +17,7 @@ import (
 // the begin bumps the change's updated_at; a non-positive n and an unknown
 // change are refused.
 func TestRequestBeginUpserts(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-requests-begin-%d", time.Now().UnixNano())
@@ -83,6 +84,7 @@ func TestRequestBeginUpserts(t *testing.T) {
 // end for a request never begun is ErrInvalidRequest and writes no row
 // (kan-1081 self-review, F6: such ends made untitled requests 18 and 86).
 func TestRequestEndRecordsOutcome(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-requests-end-%d", time.Now().UnixNano())
@@ -154,6 +156,7 @@ func TestRequestEndRecordsOutcome(t *testing.T) {
 // carrying only a brainstorm reason is ErrInvalidRequest and writes no row
 // -- while a later begin may carry only a reason and keeps the title.
 func TestRequestBeginRefusesUntitledFirst(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-requests-untitled-%d", time.Now().UnixNano())
@@ -182,6 +185,7 @@ func TestRequestBeginRefusesUntitledFirst(t *testing.T) {
 // request (kan-1081 self-review, F6): a begin naming a title fills the
 // empty one and leaves the outcome; a stored title is never changed after.
 func TestRequestBeginFillsEmptyTitle(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-requests-filltitle-%d", time.Now().UnixNano())
@@ -217,6 +221,7 @@ func TestRequestBeginFillsEmptyTitle(t *testing.T) {
 // request reads its outcome, one a stage run carries reads in progress,
 // one with neither reads queued -- returned in n order.
 func TestListRequestsDerivesState(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-requests-state-%d", time.Now().UnixNano())
@@ -260,6 +265,7 @@ func TestListRequestsDerivesState(t *testing.T) {
 // refused with ErrRequestEnded and change nothing, while an identical replay
 // of either is accepted; an open request is still amended.
 func TestRequestWritesRefuseChangingAnEndedRequest(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-requests-ended-%d", time.Now().UnixNano())
@@ -331,6 +337,7 @@ func TestRequestWritesRefuseChangingAnEndedRequest(t *testing.T) {
 // unknown change; SetStageRunRequest moves a stage run's request, refusing
 // n 0 and an unknown id.
 func TestRequestRepairWrites(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-requests-repair-%d", time.Now().UnixNano())

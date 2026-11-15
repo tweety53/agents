@@ -13,6 +13,7 @@ import (
 // client that accepts it and left plain for one that does not: the live
 // state board's finished read is ~170 KB of repetitive JSON.
 func TestServerGzipsAPIResponses(t *testing.T) {
+	t.Parallel()
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateInProgress}
 	ts := newTestServer(t, fs)

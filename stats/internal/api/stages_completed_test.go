@@ -36,6 +36,7 @@ func selfReviewBegin(projectKey, change string) store.BeginStageInput {
 // TestStageCompletedRouteFalseBeforeEnd pins the route's false answer: a
 // begun, not yet ended flow.self-review run has not completed.
 func TestStageCompletedRouteFalseBeforeEnd(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-stage-completed-open-%d", time.Now().UnixNano())
 	mustPutIntegrationChange(t, st, projectKey, "kan-1073", nil)
@@ -56,6 +57,7 @@ func TestStageCompletedRouteFalseBeforeEnd(t *testing.T) {
 // completed end, scoped to the change: a second change's completed run does
 // not count for the first.
 func TestStageCompletedRouteTrueAfterCompletedEnd(t *testing.T) {
+	t.Parallel()
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-stage-completed-done-%d", time.Now().UnixNano())
 	mustPutIntegrationChange(t, st, projectKey, "kan-1073", nil)

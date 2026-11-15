@@ -40,16 +40,16 @@ the recorded-only listing. -json emits the store's array alone.
 `
 
 // runSpec routes `flow spec`'s two verbs. record writes; list reads.
-func runSpec(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSpec(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, specUsage)
 		return 2
 	}
 	switch args[0] {
 	case "record":
-		return runSpecRecord(ctx, args[1:], stdout, stderr)
+		return runSpecRecord(ctx, args[1:], getenv, stdout, stderr)
 	case "list":
-		return runSpecList(ctx, args[1:], stdout, stderr)
+		return runSpecList(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown spec subcommand %q\n", args[0])
 		fmt.Fprint(stderr, specUsage)
@@ -61,14 +61,14 @@ func runSpec(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 // and the store's stamped row is confirmed on stderr. The store refusing
 // (a 400, a 404) and the store being unreachable are both reported and
 // exit 1 -- there is no child whose verdict could stand in their place.
-func runSpecRecord(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSpecRecord(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow spec record", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, getenv)
 	spec := fset.String("spec", "", "the spec file that ran, by basename (required)")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if *spec == "" {
@@ -104,15 +104,15 @@ func runSpecRecord(ctx context.Context, args []string, stdout, stderr io.Writer)
 // ask on its own. A -dir that does not exist is reported and exits 1: a
 // mistyped path silently degrading to the recorded-only listing would be
 // the very accident this inventory exists to prevent.
-func runSpecList(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runSpecList(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow spec list", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerConnFlags(fset, &f)
+	registerConnFlags(fset, &f, getenv)
 	dir := fset.String("dir", "", "inventory this directory's *.spec.ts files (optional)")
 	asJSON := fset.Bool("json", false, "print the store's array alone")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 

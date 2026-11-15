@@ -171,6 +171,7 @@ func weekOf(at time.Time) time.Time {
 // before/after windows and that a change counts once, in the window its
 // first stage run started in.
 func TestExperimentStatsPlannerFamily(t *testing.T) {
+	t.Parallel()
 	fx := newStatsFixture(t)
 	id := fx.open(map[string][]string{"plan-designer": {"opus/Plan@xhigh"}})
 	tok := func(n int) string {
@@ -253,6 +254,7 @@ func TestExperimentStatsPlannerFamily(t *testing.T) {
 // TestExperimentStatsImplementerFamily pins verify reds (verify% rows
 // ended blocked by a test failure) and findings per implementer task.
 func TestExperimentStatsImplementerFamily(t *testing.T) {
+	t.Parallel()
 	fx := newStatsFixture(t)
 	id := fx.open(map[string][]string{"implementer": {"sonnet/flow-low"}})
 
@@ -287,6 +289,7 @@ func TestExperimentStatsImplementerFamily(t *testing.T) {
 // TestExperimentStatsReviewerAndVisual pins findings per reviewer dispatch,
 // late-round findings and the visual verifier's mismatches and re-runs.
 func TestExperimentStatsReviewerAndVisual(t *testing.T) {
+	t.Parallel()
 	fx := newStatsFixture(t)
 	id := fx.open(map[string][]string{"panel-reviewer": {"opus/flow-low"}, "visual-verifier": {"opus/flow-low"}})
 
@@ -318,6 +321,7 @@ func TestExperimentStatsReviewerAndVisual(t *testing.T) {
 // only reviewer dispatches keyed plan-review-<n> -- never a planner's plan-<n> or a panel
 // reviewer's -- and reports the reviewer family's metrics.
 func TestExperimentStatsDesignReviewer(t *testing.T) {
+	t.Parallel()
 	fx := newStatsFixture(t)
 	id := fx.open(map[string][]string{"design-reviewer": {"opus/flow-low"}})
 
@@ -346,6 +350,7 @@ func TestExperimentStatsDesignReviewer(t *testing.T) {
 // counts under panel-rerun (decision extra-stats-pass-one).
 func TestExperimentStatsExtraBundleRoles(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	for role, want := range map[string]float64{
 		"panel-reviewer": 3, "panel-sanity-efficiency": 1, "panel-mutation-failure": 2, "panel-rerun": 4,
 	} {
@@ -381,6 +386,7 @@ func TestExperimentStatsExtraBundleRoles(t *testing.T) {
 // after figures count only changes whose harvested main thread ran its
 // model (alias or full id) at its effort; the rest are excluded.
 func TestExperimentStatsMainCountsMatchingRunsOnly(t *testing.T) {
+	t.Parallel()
 	fx := newStatsFixture(t)
 	id := fx.open(map[string][]string{"main": {"opus@medium"}})
 	run := func(model, effort string) string {
@@ -409,6 +415,7 @@ func TestExperimentStatsMainCountsMatchingRunsOnly(t *testing.T) {
 // selfReviewFindings counts, per change, its self-review findings graded
 // critical or important and fixed or filed, joined on project and name.
 func TestExperimentStatsMainSelfReviewFindings(t *testing.T) {
+	t.Parallel()
 	fx := newStatsFixture(t)
 	id := fx.open(map[string][]string{"main": {"opus@medium"}})
 	run := `{"effort":"medium","models":{"claude-opus-5-5":{"tokens":{"main":{"input":10,"output":90}}}},"tokens":{"main":{"input":10,"output":90}}}`
@@ -453,6 +460,7 @@ func TestExperimentStatsMainSelfReviewFindings(t *testing.T) {
 // TestExperimentStatsCombinedUnion pins that a two-role experiment
 // reports the union of both families, each metric once.
 func TestExperimentStatsCombinedUnion(t *testing.T) {
+	t.Parallel()
 	fx := newStatsFixture(t)
 	id := fx.open(map[string][]string{"plan-designer": {"opus/Plan@xhigh"}, "implementer": {"sonnet/flow-low"}})
 	got := fx.stats(id)

@@ -15,6 +15,8 @@ import (
 // `state get` already prints for a change record (state_test.go), applied
 // to task 2's GET /api/v1/settings instead.
 func TestSettingsCmd_Get(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/settings" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -27,7 +29,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "get", "-addr", srv.URL, "-timeout", "2s"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
@@ -55,6 +57,8 @@ func TestSettingsCmd_Get(t *testing.T) {
 // never-block-on-store-failure pattern, this is a caller mistake with no
 // fallback value to record, per the task's own instruction.
 func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/settings" {
 			_, _ = w.Write([]byte(`{"reviewers":["primary"],"learning":true}`))
@@ -72,7 +76,7 @@ func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
 			"-reviewers", "primary,not-a-slot"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero")
@@ -87,6 +91,8 @@ func TestSettingsCmd_Set_PrintsRejectionReason(t *testing.T) {
 // exiting 0 -- the round-trip TestSettingsCmd_Get proves for a read,
 // proved here for a write.
 func TestSettingsCmd_Set_Valid(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/settings" {
 			_, _ = w.Write([]byte(`{"reviewers":["primary"],"learning":true}`))
@@ -113,7 +119,7 @@ func TestSettingsCmd_Set_Valid(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
 			"-reviewers", "primary,principles,mutation"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
@@ -126,6 +132,8 @@ func TestSettingsCmd_Set_Valid(t *testing.T) {
 // TestSettingsCmd_Set_RejectsModelFlag asserts the retired -model flag is
 // a usage error (exit 2, stderr naming it) and never reaches the store.
 func TestSettingsCmd_Set_RejectsModelFlag(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 	}))
@@ -135,7 +143,7 @@ func TestSettingsCmd_Set_RejectsModelFlag(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
 			"-model", "opus", "-reviewers", "primary"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr=%s", code, stderr.String())
@@ -148,10 +156,12 @@ func TestSettingsCmd_Set_RejectsModelFlag(t *testing.T) {
 // TestSettingsCmd_ModelsIsUnknown asserts the retired `settings models`
 // subcommand is refused as an unknown settings command.
 func TestSettingsCmd_ModelsIsUnknown(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "models"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr=%s", code, stderr.String())
@@ -181,21 +191,23 @@ func settingsServer(t *testing.T, stored *map[string]any) *httptest.Server {
 	}))
 }
 
-func runSettingsArgs(addr string, extra ...string) (int, string) {
+func runSettingsArgs(addr string, env testEnv, extra ...string) (int, string) {
 	var stdout, stderr bytes.Buffer
 	args := append([]string{"settings", "set", "-addr", addr, "-timeout", "2s"}, extra...)
-	code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String()
 }
 
 // TestSettingsSet_LearningKeepsReviewers asserts `set -learning off` keeps
 // the stored reviewer list (settings-set-merges).
 func TestSettingsSet_LearningKeepsReviewers(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	stored := map[string]any{"reviewers": []any{"primary", "mutation"}, "learning": true}
 	srv := settingsServer(t, &stored)
 	defer srv.Close()
 
-	if code, stderr := runSettingsArgs(srv.URL, "-learning", "off"); code != 0 {
+	if code, stderr := runSettingsArgs(srv.URL, env, "-learning", "off"); code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr)
 	}
 	if got, _ := json.Marshal(stored); string(got) != `{"learning":false,"reviewers":["primary","mutation"]}` {
@@ -206,11 +218,13 @@ func TestSettingsSet_LearningKeepsReviewers(t *testing.T) {
 // TestSettingsSet_ReviewersKeepLearning asserts `set -reviewers` keeps a
 // stored learning off (settings-set-merges).
 func TestSettingsSet_ReviewersKeepLearning(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	stored := map[string]any{"reviewers": []any{"primary", "mutation"}, "learning": false}
 	srv := settingsServer(t, &stored)
 	defer srv.Close()
 
-	if code, stderr := runSettingsArgs(srv.URL, "-reviewers", "primary"); code != 0 {
+	if code, stderr := runSettingsArgs(srv.URL, env, "-reviewers", "primary"); code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr)
 	}
 	if got, _ := json.Marshal(stored); string(got) != `{"learning":false,"reviewers":["primary"]}` {
@@ -221,7 +235,9 @@ func TestSettingsSet_ReviewersKeepLearning(t *testing.T) {
 // TestSettingsSet_NeedsAFlag asserts `set` with neither flag is a usage
 // error.
 func TestSettingsSet_NeedsAFlag(t *testing.T) {
-	if code, _ := runSettingsArgs("http://127.0.0.1:1"); code != 2 {
+	t.Parallel()
+	env := newTestEnv(t)
+	if code, _ := runSettingsArgs("http://127.0.0.1:1", env); code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
 }
@@ -229,7 +245,9 @@ func TestSettingsSet_NeedsAFlag(t *testing.T) {
 // TestSettingsSet_LearningRejectsBadValue asserts -learning takes on or
 // off only.
 func TestSettingsSet_LearningRejectsBadValue(t *testing.T) {
-	if code, _ := runSettingsArgs("http://127.0.0.1:1", "-learning", "maybe"); code != 2 {
+	t.Parallel()
+	env := newTestEnv(t)
+	if code, _ := runSettingsArgs("http://127.0.0.1:1", env, "-learning", "maybe"); code != 2 {
 		t.Errorf("exit code = %d, want 2", code)
 	}
 }
@@ -237,6 +255,8 @@ func TestSettingsSet_LearningRejectsBadValue(t *testing.T) {
 // TestSettingsResolvesTheRecordsAddress pins flow settings to the record
 // family (kan-1038): a settings get reads FLOW_RECORDS_ADDR, not FLOW_ADDR.
 func TestSettingsResolvesTheRecordsAddress(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var reached bool
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		reached = true
@@ -244,13 +264,13 @@ func TestSettingsResolvesTheRecordsAddress(t *testing.T) {
 		_, _ = w.Write([]byte(`{"reviewers":["primary"]}`))
 	}))
 	defer srv.Close()
-	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
-	t.Setenv("FLOW_ADDR", deadPortURL(t))
+	env["FLOW_RECORDS_ADDR"] = srv.URL
+	env["FLOW_ADDR"] = deadPortURL(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"settings", "get", "-timeout", "2s"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("settings get exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
 	}

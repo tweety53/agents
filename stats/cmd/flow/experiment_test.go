@@ -12,15 +12,17 @@ import (
 	"testing"
 )
 
-func runExperimentArgs(args ...string) (int, string, string) {
+func runExperimentArgs(env testEnv, args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append([]string{"experiment"}, args...), strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append([]string{"experiment"}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
 // TestFlowExperiment drives every `flow experiment` subcommand against a
 // stand-in daemon: what each sends, prints and exits with.
 func TestFlowExperiment(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var opened map[string]any
 	var closeBody, promoteBody map[string]string
 	overrides := `{}`
@@ -62,7 +64,7 @@ func TestFlowExperiment(t *testing.T) {
 	defer srv.Close()
 	addr := []string{"-addr", srv.URL, "-timeout", "2s"}
 
-	code, out, errOut := runExperimentArgs(append([]string{"open"}, append(addr, "-name", "t", "-cell", "a=x/y@low", "-cell", "b=x/z")...)...)
+	code, out, errOut := runExperimentArgs(env, append([]string{"open"}, append(addr, "-name", "t", "-cell", "a=x/y@low", "-cell", "b=x/z")...)...)
 	if code != 0 || out != "experiment 12 open\n" {
 		t.Fatalf("open = %d %q %q, want 0 \"experiment 12 open\"", code, out, errOut)
 	}
@@ -70,60 +72,60 @@ func TestFlowExperiment(t *testing.T) {
 	if !reflect.DeepEqual(opened["cells"], wantCells) {
 		t.Fatalf("open posted cells %v, want %v", opened["cells"], wantCells)
 	}
-	if code, _, _ = runExperimentArgs(append([]string{"open"}, append(addr, "-name", "t", "-cell", "a=x/y@low,x/y@medium")...)...); code != 0 ||
+	if code, _, _ = runExperimentArgs(env, append([]string{"open"}, append(addr, "-name", "t", "-cell", "a=x/y@low,x/y@medium")...)...); code != 0 ||
 		!reflect.DeepEqual(opened["cells"], map[string]any{"a": []any{"x/y@low", "x/y@medium"}}) {
 		t.Fatalf("open with a comma list = %d, posted %v; want both pairs in one cell", code, opened["cells"])
 	}
-	code, _, errOut = runExperimentArgs(append([]string{"open"}, append(addr, "-name", "dup", "-cell", "a=x/y")...)...)
+	code, _, errOut = runExperimentArgs(env, append([]string{"open"}, append(addr, "-name", "dup", "-cell", "a=x/y")...)...)
 	if code != 1 || !strings.Contains(errOut, "held by open experiment 3") {
 		t.Fatalf("open conflict = %d %q, want 1 naming the holder", code, errOut)
 	}
 	for _, bad := range [][]string{{"-name", "t"}, {"-cell", "a=x/y"}, {"-name", "t", "-cell", "noequals"}, {"-name", "t", "-cell", "a=x/y", "extra"}} {
-		if code, _, _ = runExperimentArgs(append([]string{"open"}, append(addr, bad...)...)...); code != 2 {
+		if code, _, _ = runExperimentArgs(env, append([]string{"open"}, append(addr, bad...)...)...); code != 2 {
 			t.Errorf("open %v = %d, want 2", bad, code)
 		}
 	}
 
-	code, out, _ = runExperimentArgs(append([]string{"list"}, addr...)...)
+	code, out, _ = runExperimentArgs(env, append([]string{"list"}, addr...)...)
 	wantList := "4 closed 2026-10-01 old run x=opus/flow-low\n5 open 2026-10-29 t a=x/y@low,x/y@medium;b=x/z\n"
 	if code != 0 || out != wantList {
 		t.Fatalf("list = %d %q, want %q", code, out, wantList)
 	}
-	if code, out, _ = runExperimentArgs(append([]string{"list", "-open"}, addr...)...); code != 0 || out != "5 open 2026-10-29 t a=x/y@low\n" {
+	if code, out, _ = runExperimentArgs(env, append([]string{"list", "-open"}, addr...)...); code != 0 || out != "5 open 2026-10-29 t a=x/y@low\n" {
 		t.Fatalf("list -open = %d %q", code, out)
 	}
 
-	if code, out, _ = runExperimentArgs(append([]string{"overrides"}, addr...)...); code != 0 || out != "{}\n" {
+	if code, out, _ = runExperimentArgs(env, append([]string{"overrides"}, addr...)...); code != 0 || out != "{}\n" {
 		t.Fatalf("overrides (none) = %d %q, want {}", code, out)
 	}
 	overrides = `{"b": ["x/z"], "a": ["x/y@low"]}`
-	if code, out, _ = runExperimentArgs(append([]string{"overrides"}, addr...)...); code != 0 || out != `{"a":["x/y@low"],"b":["x/z"]}`+"\n" {
+	if code, out, _ = runExperimentArgs(env, append([]string{"overrides"}, addr...)...); code != 0 || out != `{"a":["x/y@low"],"b":["x/z"]}`+"\n" {
 		t.Fatalf("overrides = %d %q, want compact JSON", code, out)
 	}
 
-	if code, _, errOut = runExperimentArgs(append([]string{"close", "5"}, append(addr, "-verdict", "positive", "-summary", "s")...)...); code != 0 ||
+	if code, _, errOut = runExperimentArgs(env, append([]string{"close", "5"}, append(addr, "-verdict", "positive", "-summary", "s")...)...); code != 0 ||
 		closeBody["verdict"] != "positive" || closeBody["summary"] != "s" {
 		t.Fatalf("close = %d %q, posted %v", code, errOut, closeBody)
 	}
-	if code, out, errOut = runExperimentArgs(append([]string{"promote", "5"}, append(addr, "-summary", "won")...)...); code != 0 || out != "experiment 5 promoted\n" || promoteBody["summary"] != "won" {
+	if code, out, errOut = runExperimentArgs(env, append([]string{"promote", "5"}, append(addr, "-summary", "won")...)...); code != 0 || out != "experiment 5 promoted\n" || promoteBody["summary"] != "won" {
 		t.Fatalf("promote = %d %q %q, sent %v", code, out, errOut, promoteBody)
 	}
-	if code, _, errOut = runExperimentArgs(append([]string{"promote", "6"}, addr...)...); code != 1 || !strings.Contains(errOut, "not open") {
+	if code, _, errOut = runExperimentArgs(env, append([]string{"promote", "6"}, addr...)...); code != 1 || !strings.Contains(errOut, "not open") {
 		t.Fatalf("promote closed = %d %q, want 1", code, errOut)
 	}
-	if code, _, _ = runExperimentArgs("promote"); code != 2 {
+	if code, _, _ = runExperimentArgs(env, "promote"); code != 2 {
 		t.Fatalf("promote with no id = %d, want 2", code)
 	}
-	if code, _, _ = runExperimentArgs(append([]string{"close", "5"}, append(addr, "-verdict", "great", "-summary", "s")...)...); code != 2 {
+	if code, _, _ = runExperimentArgs(env, append([]string{"close", "5"}, append(addr, "-verdict", "great", "-summary", "s")...)...); code != 2 {
 		t.Fatalf("close bad verdict = %d, want 2", code)
 	}
-	if code, _, _ = runExperimentArgs(append([]string{"close", "x"}, append(addr, "-verdict", "positive")...)...); code != 2 {
+	if code, _, _ = runExperimentArgs(env, append([]string{"close", "x"}, append(addr, "-verdict", "positive")...)...); code != 2 {
 		t.Fatalf("close bad id = %d, want 2", code)
 	}
-	if code, _, _ = runExperimentArgs("bogus"); code != 2 {
+	if code, _, _ = runExperimentArgs(env, "bogus"); code != 2 {
 		t.Fatalf("unknown subcommand = %d, want 2", code)
 	}
-	if code, _, _ = runExperimentArgs(); code != 2 {
+	if code, _, _ = runExperimentArgs(env); code != 2 {
 		t.Fatalf("no subcommand = %d, want 2", code)
 	}
 
@@ -134,7 +136,7 @@ func TestFlowExperiment(t *testing.T) {
 		append([]string{"overrides"}, dead...),
 		append([]string{"close", "5", "-verdict", "negative"}, dead...),
 	} {
-		if code, _, errOut = runExperimentArgs(args...); code != 1 || errOut == "" {
+		if code, _, errOut = runExperimentArgs(env, args...); code != 1 || errOut == "" {
 			t.Errorf("%v on an unreachable store = %d %q, want 1 with a message", args, code, errOut)
 		}
 	}
@@ -144,6 +146,8 @@ func TestFlowExperiment(t *testing.T) {
 // the daemon's JSON as-is, exits 1 on an unknown id or an unreachable
 // store and 2 on a malformed id.
 func TestFlowExperimentStats(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	const body = `{"experiment":{"id":5},"runs":{"before":3,"after":1},"metrics":[]}`
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -160,18 +164,18 @@ func TestFlowExperimentStats(t *testing.T) {
 	defer srv.Close()
 	addr := []string{"-addr", srv.URL, "-timeout", "2s"}
 
-	if code, out, errOut := runExperimentArgs(append([]string{"stats", "5"}, addr...)...); code != 0 || out != body+"\n" {
+	if code, out, errOut := runExperimentArgs(env, append([]string{"stats", "5"}, addr...)...); code != 0 || out != body+"\n" {
 		t.Fatalf("stats = %d %q %q, want 0 printing the daemon's JSON", code, out, errOut)
 	}
-	if code, _, errOut := runExperimentArgs(append([]string{"stats", "9"}, addr...)...); code != 1 || !strings.Contains(errOut, "experiment not found: 9") {
+	if code, _, errOut := runExperimentArgs(env, append([]string{"stats", "9"}, addr...)...); code != 1 || !strings.Contains(errOut, "experiment not found: 9") {
 		t.Fatalf("stats unknown = %d %q, want 1 naming the id", code, errOut)
 	}
 	for _, args := range [][]string{{"stats"}, append([]string{"stats", "x"}, addr...), append([]string{"stats", "5", "extra"}, addr...)} {
-		if code, _, _ := runExperimentArgs(args...); code != 2 {
+		if code, _, _ := runExperimentArgs(env, args...); code != 2 {
 			t.Errorf("%v = %d, want 2", args, code)
 		}
 	}
-	if code, _, errOut := runExperimentArgs("stats", "5", "-addr", "http://127.0.0.1:1", "-timeout", "500ms"); code != 1 || errOut == "" {
+	if code, _, errOut := runExperimentArgs(env, "stats", "5", "-addr", "http://127.0.0.1:1", "-timeout", "500ms"); code != 1 || errOut == "" {
 		t.Errorf("stats on an unreachable store = %d %q, want 1 with a message", code, errOut)
 	}
 }
@@ -181,6 +185,8 @@ func TestFlowExperimentStats(t *testing.T) {
 // session's, nothing when it matches, when no main cell is open or when
 // the store is unreachable -- always exit 0, since it never blocks a run.
 func TestFlowExperimentMainCheck(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	open := `[{"id":7,"name":"m","cells":{"main":["opus@medium"],"explorer":["x/y"]},"startedAt":"2026-10-29T10:00:00Z","summary":"","status":"open"}]`
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/experiments" || r.URL.Query().Get("open") != "1" {
@@ -191,22 +197,22 @@ func TestFlowExperimentMainCheck(t *testing.T) {
 	defer srv.Close()
 	addr := []string{"-addr", srv.URL, "-timeout", "2s"}
 
-	code, out, errOut := runExperimentArgs(append([]string{"main-check", "-model", "opus", "-effort", "high"}, addr...)...)
+	code, out, errOut := runExperimentArgs(env, append([]string{"main-check", "-model", "opus", "-effort", "high"}, addr...)...)
 	if code != 0 || out != "⚠ experiment 7: main agent should run opus@medium; this session runs opus@high\n" {
 		t.Fatalf("mismatch = %d %q %q, want 0 and the warning line", code, out, errOut)
 	}
-	if code, out, _ = runExperimentArgs(append([]string{"main-check", "-model", "opus", "-effort", "medium"}, addr...)...); code != 0 || out != "" {
+	if code, out, _ = runExperimentArgs(env, append([]string{"main-check", "-model", "opus", "-effort", "medium"}, addr...)...); code != 0 || out != "" {
 		t.Fatalf("match = %d %q, want 0 and nothing", code, out)
 	}
 	open = `[{"id":8,"name":"e","cells":{"explorer":["x/y"]},"startedAt":"2026-10-29T10:00:00Z","summary":"","status":"open"}]`
-	if code, out, _ = runExperimentArgs(append([]string{"main-check", "-model", "opus", "-effort", "high"}, addr...)...); code != 0 || out != "" {
+	if code, out, _ = runExperimentArgs(env, append([]string{"main-check", "-model", "opus", "-effort", "high"}, addr...)...); code != 0 || out != "" {
 		t.Fatalf("no main cell = %d %q, want 0 and nothing", code, out)
 	}
-	if code, out, _ = runExperimentArgs("main-check", "-model", "opus", "-effort", "high", "-addr", "http://127.0.0.1:1", "-timeout", "500ms"); code != 0 || out != "" {
+	if code, out, _ = runExperimentArgs(env, "main-check", "-model", "opus", "-effort", "high", "-addr", "http://127.0.0.1:1", "-timeout", "500ms"); code != 0 || out != "" {
 		t.Fatalf("unreachable = %d %q, want 0 and nothing", code, out)
 	}
 	for _, bad := range [][]string{{"-model", "opus"}, {"-effort", "high"}, {"-model", "opus", "-effort", "high", "extra"}} {
-		if code, _, _ = runExperimentArgs(append([]string{"main-check"}, append(addr, bad...)...)...); code != 2 {
+		if code, _, _ = runExperimentArgs(env, append([]string{"main-check"}, append(addr, bad...)...)...); code != 2 {
 			t.Errorf("main-check %v = %d, want 2", bad, code)
 		}
 	}

@@ -88,6 +88,7 @@ type pointKey struct {
 // Store.ReviewDynamics (cohort-by-change, impl-vv-metrics,
 // bucket-from-range) over a two-week fixture.
 func TestReviewDynamicsSeries(t *testing.T) {
+	t.Parallel()
 	st, project := seedDynamics(t)
 	ctx := context.Background()
 	period := store.Period{From: week1, To: week1.Add(15 * 24 * time.Hour)}
@@ -168,6 +169,7 @@ func TestReviewDynamicsSeries(t *testing.T) {
 // against the previous range of the same length (previous-range) and the
 // prompt-change markers (markers-by-area).
 func TestReviewDynamicsHeatSummaryMarkers(t *testing.T) {
+	t.Parallel()
 	st, project := seedDynamics(t)
 	ctx := context.Background()
 	slot := "primary"
@@ -237,6 +239,7 @@ func TestReviewDynamicsHeatSummaryMarkers(t *testing.T) {
 // version, a dispatch's version read from its harvested modelVersion, its
 // full model ID, or "<family> (version unrecorded)".
 func TestReviewDynamicsModelVersions(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	fx := dynamicsFixture{t: t, st: st, project: fmt.Sprintf("proj-versions-%d", time.Now().UnixNano())}
@@ -301,6 +304,7 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 // per-dispatch model, version and effort groups; one with no metrics counts
 // under its labels.
 func TestReviewDynamicsPrefersServedModelAndEffort(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	fx := dynamicsFixture{t: t, st: st, project: fmt.Sprintf("proj-served-%d", time.Now().UnixNano())}
@@ -341,6 +345,7 @@ func TestReviewDynamicsPrefersServedModelAndEffort(t *testing.T) {
 // carries it, and Projects lists the period's reviewed projects whatever
 // the filters -- reviewer dispatches only, period.To excluded.
 func TestReviewDynamicsClassAndProjects(t *testing.T) {
+	t.Parallel()
 	st, project := seedDynamics(t)
 	ctx := context.Background()
 	decide := func(change, token, class string) {

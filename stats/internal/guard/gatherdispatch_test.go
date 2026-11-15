@@ -26,6 +26,9 @@ import (
 // the bundle it wrote. The guard sees a PATH holding only the case's own bin
 // directory, so `flow` is absent unless a case stubs it: the real store is
 // never consulted.
+//
+// Cost: 2.45 s — ninety-three cases, each a copied repository and one full
+// gather; no single case costs more than a few tens of milliseconds.
 // smoke: core — the bundle every dispatch reads
 func TestGatherDispatchContext(t *testing.T) {
 	t.Parallel()
@@ -111,12 +114,6 @@ func TestGatherDispatchContext(t *testing.T) {
 			return f.run(ids)
 		}
 	}
-	withFlow := func(stub string) scen {
-		return func(t *testing.T, f *gdcFx) gdcResult {
-			writeExec(t, f.bin+"/flow", stub)
-			return f.run()
-		}
-	}
 	principlesAt := func(rel string) scen {
 		return func(t *testing.T, f *gdcFx) gdcResult {
 			f.principles = f.repo + "/" + rel
@@ -200,26 +197,32 @@ func TestGatherDispatchContext(t *testing.T) {
   {"id":2,"name":"commit-fields-guard-reverts-head-only","body":"Never stash, revert or reset inside a worktree a guard may read; inspect a timed-out guard call first","applies":"all","active":true,"createdAt":"2026-09-09T12:00:00Z"},
   {"id":1,"name":"commit-fields-guard-single-repo","body":"pass the change own worktree, never a sibling","applies":"single-repo","active":true,"createdAt":"2026-09-09T11:00:00Z"}
 ]`
-	// incidentStub is make_flow_stub_dir's stub; hazardStub is
-	// make_flow_hazard_stub_dir's, recording its argv when argv is set.
-	incidentStub := func(json string) string {
-		return "#!/bin/sh\nif [ \"$1\" = record ] && [ \"$2\" = incidents ]; then\ncat <<'JSON'\n" + json +
-			"\nJSON\nexit 0\nfi\necho \"flow: unexpected invocation: $*\" >&2\nexit 1\n"
-	}
-	hazardStub := func(json, argv string) string {
-		rec := ""
-		if argv != "" {
-			rec = "printf '%s\\n' \"$@\" > \"" + argv + "\"\n"
+	// setFlow puts make_flow_stub_dir's and make_flow_hazard_stub_dir's
+	// stubs, as one body, on the fixture's PATH: it records its argv in
+	// <base>/argv and answers `flow record incidents` and `flow hazards`
+	// from incidents.json and hazards.json beside it, `[]` when absent ("").
+	// Every case shares the one body, so it is assessed once (writeExec).
+	setFlow := func(t *testing.T, f *gdcFx, incidents, hazards string) {
+		t.Helper()
+		writeExec(t, f.bin+"/flow", "#!/bin/sh\nd=${0%/*}\nprintf '%s\\n' \"$@\" > \"$d/../argv\"\n"+
+			"if [ \"$1\" = record ] && [ \"$2\" = incidents ]; then\ncat \"$d/incidents.json\" 2>/dev/null || echo '[]'\nexit 0\nfi\n"+
+			"if [ \"$1\" = hazards ]; then\ncat \"$d/hazards.json\" 2>/dev/null || echo '[]'\nexit 0\nfi\n"+
+			"echo \"flow: unexpected invocation: $*\" >&2\nexit 1\n")
+		for name, body := range map[string]string{"incidents.json": incidents, "hazards.json": hazards} {
+			if body != "" {
+				writeFile(t, f.bin+"/"+name, body+"\n")
+			}
 		}
-		return "#!/bin/sh\n" + rec + "if [ \"$1\" = record ] && [ \"$2\" = incidents ]; then\necho '[]'\nexit 0\nfi\n" +
-			"if [ \"$1\" = hazards ]; then\ncat <<'JSON'\n" + json + "\nJSON\nexit 0\nfi\n" +
-			"echo \"flow: unexpected invocation: $*\" >&2\nexit 1\n"
+	}
+	withFlow := func(incidents, hazards string) scen {
+		return func(t *testing.T, f *gdcFx) gdcResult {
+			setFlow(t, f, incidents, hazards)
+			return f.run()
+		}
 	}
 	shapeCall := func(shape string) scen {
 		return func(t *testing.T, f *gdcFx) gdcResult {
-			// <base>/argv, named from the stub's own path so every shape
-			// case shares one body (writeExec).
-			writeExec(t, f.bin+"/flow", hazardStub(twoHazards, "${0%/*}/../argv"))
+			setFlow(t, f, "", twoHazards)
 			args := []string{f.repo, f.changeRoot, "demo", f.principles, f.output, "", ""}
 			if shape != "" {
 				args = append(args, shape)
@@ -478,7 +481,7 @@ func TestGatherDispatchContext(t *testing.T) {
 			return f.run("1")
 		}, all(exit(2), errHas("task ids given but tasks.md is absent or refused"))},
 		// CASES 44-47: ## incidents.
-		{"incidents with two rows: table present with newer row first, counted as found", withFlow(incidentStub(twoIncidents)), all(exit(0),
+		{"incidents with two rows: table present with newer row first, counted as found", withFlow(twoIncidents, ""), all(exit(0),
 			func(t *testing.T, _ *gdcFx, r gdcResult) {
 				if !regexp.MustCompile(`(?m)^found: 5 source\(s\)`).MatchString(r.out) {
 					t.Fatalf("incidents not counted as found:\n%s", r.out)
@@ -488,16 +491,16 @@ func TestGatherDispatchContext(t *testing.T) {
 				}
 			},
 			has("## incidents", "| 2026-09-03 | check-task-commit-fields | Baseline revert re-entered mid-flight | aborted revert, restored dir from stash^3 | 55 | kan-423 |"))},
-		{"incidents empty: skipped as (none), no section", withFlow(incidentStub("[]")), all(exit(0), line("skipped: incidents (none)"), lacks("## incidents"))},
+		{"incidents empty: skipped as (none), no section", withFlow("[]", ""), all(exit(0), line("skipped: incidents (none)"), lacks("## incidents"))},
 		{"incidents no flow on PATH: skipped as (flow unavailable), exit 0", base, all(exit(0), line("skipped: incidents (flow unavailable)"), lacks("## incidents"))},
 		{"a new incident changes the body hash, so the bundle is rebuilt", func(t *testing.T, f *gdcFx) gdcResult {
-			writeExec(t, f.bin+"/flow", incidentStub(`[{"occurredAt":"2026-01-01T00:00:00Z","guard":"g","symptom":"s","recovery":"r","minutesLost":1,"change":null}]`))
+			setFlow(t, f, `[{"occurredAt":"2026-01-01T00:00:00Z","guard":"g","symptom":"s","recovery":"r","minutesLost":1,"change":null}]`, "")
 			f.run()
-			writeExec(t, f.bin+"/flow", incidentStub(`[{"occurredAt":"2026-01-02T00:00:00Z","guard":"g","symptom":"s2","recovery":"r","minutesLost":1,"change":null}]`))
+			setFlow(t, f, `[{"occurredAt":"2026-01-02T00:00:00Z","guard":"g","symptom":"s2","recovery":"r","minutesLost":1,"change":null}]`, "")
 			return f.run()
 		}, all(errHas("bundle rebuilt"), has("| s2 |"))},
 		// CASES 84-88: ## hazards.
-		{"hazards with two rows: section present with one bullet per row, counted as found", withFlow(hazardStub(twoHazards, "")), all(exit(0),
+		{"hazards with two rows: section present with one bullet per row, counted as found", withFlow("", twoHazards), all(exit(0),
 			func(t *testing.T, _ *gdcFx, r gdcResult) {
 				if !regexp.MustCompile(`(?m)^found: 5 source\(s\)`).MatchString(r.out) {
 					t.Fatalf("hazards not counted as found:\n%s", r.out)
@@ -506,7 +509,7 @@ func TestGatherDispatchContext(t *testing.T) {
 			has("## hazards",
 				"- **commit-fields-guard-reverts-head-only (all):** Never stash, revert or reset inside a worktree a guard may read; inspect a timed-out guard call first",
 				"- **commit-fields-guard-single-repo (single-repo):** pass the change own worktree, never a sibling"))},
-		{"hazards empty: skipped as (none), no section", withFlow(hazardStub("[]", "")), all(exit(0), line("skipped: hazards (none)"), lacks("## hazards"))},
+		{"hazards empty: skipped as (none), no section", withFlow("", "[]"), all(exit(0), line("skipped: hazards (none)"), lacks("## hazards"))},
 		{"hazards no flow on PATH: skipped as (flow unavailable), exit 0", base, all(exit(0), line("skipped: hazards (flow unavailable)"), lacks("## hazards"))},
 		{"eighth argument cross-repo forwarded to flow hazards as -shape cross-repo", shapeCall("cross-repo"), all(exit(0), argvHas("-shape", "cross-repo"))},
 		{"shape omitted: stub still receives -shape all (fail-open)", shapeCall(""), all(exit(0), argvHas("-shape", "all"))},
@@ -665,8 +668,7 @@ func (f *gdcFx) runArgs(args ...string) gdcResult {
 // copied by every case.
 func gdcTemplate(t *testing.T) string {
 	dir := t.TempDir() + "/repo"
-	gitRun(t, "", "init", "-q", dir)
-	gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", "init")
+	fixtureRepo(t, dir, repoShape{Commit: "init"})
 	return dir
 }
 

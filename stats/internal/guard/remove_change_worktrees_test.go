@@ -25,8 +25,8 @@ func rcwNewFx(t *testing.T) *rcwFx {
 	t.Helper()
 	dir := t.TempDir()
 	fx := &rcwFx{dir: dir, repo: dir + "/repo", wt: dir + "/wt/demo"}
-	fx.g.git("", "init", "-q", "--bare", "-b", "main", dir+"/origin.git")
-	fx.g.git("", "init", "-q", "-b", "main", fx.repo)
+	fx.g.copyShape(dir+"/origin.git", repoShape{Branch: "main", Bare: true})
+	fx.g.copyShape(fx.repo, repoShape{Branch: "main"})
 	for _, kv := range [][2]string{{"user.name", "Test"}, {"user.email", "test@example.invalid"}, {"commit.gpgsign", "false"}} {
 		fx.g.git(fx.repo, "config", kv[0], kv[1])
 	}

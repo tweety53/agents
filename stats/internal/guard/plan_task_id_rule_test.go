@@ -34,8 +34,7 @@ func TestPlanTaskIDRule(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			if tc.git {
-				gitRun(t, dir, "init", "-q")
-				gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", "init")
+				fixtureRepo(t, dir, repoShape{Commit: "init"})
 				gitRun(t, dir, "update-ref", tc.ref, "HEAD")
 			}
 			p := filepath.Join(dir, tc.rel)

@@ -655,7 +655,7 @@ override rather than re-stamping it.
 // runRecord implements `flow record`. Every subcommand but `render` and
 // `journal-count` writes a record and shares the never-block fallback;
 // `render` alone reads one back and turns it into Markdown.
-func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func runRecord(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, recordUsage)
 		return 2
@@ -663,61 +663,61 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 
 	switch args[0] {
 	case "dispatch":
-		return runRecordDispatchVerb(ctx, args[1:], stdout, stderr)
+		return runRecordDispatchVerb(ctx, args[1:], getenv, stdout, stderr)
 	case "finding":
-		return runRecordFinding(ctx, args[1:], stdout, stderr)
+		return runRecordFinding(ctx, args[1:], getenv, stdout, stderr)
 	case "findings":
-		return runRecordFindings(ctx, args[1:], stdout, stderr)
+		return runRecordFindings(ctx, args[1:], getenv, stdout, stderr)
 	case "finding-patterns":
-		return runRecordFindingPatterns(ctx, args[1:], stdout, stderr)
+		return runRecordFindingPatterns(ctx, args[1:], getenv, stdout, stderr)
 	case "finding-pattern":
-		return runRecordFindingPattern(ctx, args[1:], stdout, stderr)
+		return runRecordFindingPattern(ctx, args[1:], getenv, stdout, stderr)
 	case "dispatches":
-		return runRecordDispatches(ctx, args[1:], stdout, stderr)
+		return runRecordDispatches(ctx, args[1:], getenv, stdout, stderr)
 	case "passes":
-		return runRecordPasses(ctx, args[1:], stdout, stderr)
+		return runRecordPasses(ctx, args[1:], getenv, stdout, stderr)
 	case "mutations":
-		return runRecordMutations(ctx, args[1:], stdout, stderr)
+		return runRecordMutations(ctx, args[1:], getenv, stdout, stderr)
 	case "next-round":
-		return runRecordNextRound(ctx, args[1:], stdout, stderr)
+		return runRecordNextRound(ctx, args[1:], getenv, stdout, stderr)
 	case "next-ref":
-		return runRecordNextRef(ctx, args[1:], stdout, stderr)
+		return runRecordNextRef(ctx, args[1:], getenv, stdout, stderr)
 	case "verdict":
-		return runRecordVerdict(ctx, args[1:], stdout, stderr)
+		return runRecordVerdict(ctx, args[1:], getenv, stdout, stderr)
 	case "verdicts":
-		return runRecordVerdicts(ctx, args[1:], stdout, stderr)
+		return runRecordVerdicts(ctx, args[1:], getenv, stdout, stderr)
 	case "substitution":
-		return runRecordSubstitution(ctx, args[1:], stdout, stderr)
+		return runRecordSubstitution(ctx, args[1:], getenv, stdout, stderr)
 	case "substitutions":
-		return runRecordSubstitutions(ctx, args[1:], stdout, stderr)
+		return runRecordSubstitutions(ctx, args[1:], getenv, stdout, stderr)
 	case "incident":
-		return runRecordIncident(ctx, args[1:], stdout, stderr)
+		return runRecordIncident(ctx, args[1:], getenv, stdout, stderr)
 	case "incidents":
-		return runRecordIncidents(ctx, args[1:], stdout, stderr)
+		return runRecordIncidents(ctx, args[1:], getenv, stdout, stderr)
 	case "status":
-		return runRecordStatus(ctx, args[1:], stdout, stderr)
+		return runRecordStatus(ctx, args[1:], getenv, stdout, stderr)
 	case "render":
-		return runRecordRender(ctx, args[1:], stdout, stderr)
+		return runRecordRender(ctx, args[1:], getenv, stdout, stderr)
 	case "journal-count":
-		return runRecordJournalCount(args[1:], stdout, stderr)
+		return runRecordJournalCount(args[1:], getenv, stdout, stderr)
 	case "cost-status":
-		return runRecordCostStatus(ctx, args[1:], stdout, stderr)
+		return runRecordCostStatus(ctx, args[1:], getenv, stdout, stderr)
 	case "handoff-lines":
-		return runRecordHandoffLines(ctx, args[1:], stdout, stderr)
+		return runRecordHandoffLines(ctx, args[1:], getenv, stdout, stderr)
 	case "decision":
-		return runRecordDecision(ctx, args[1:], stdin, stdout, stderr)
+		return runRecordDecision(ctx, args[1:], getenv, stdin, stdout, stderr)
 	case "decisions":
-		return runRecordDecisions(ctx, args[1:], stdout, stderr)
+		return runRecordDecisions(ctx, args[1:], getenv, stdout, stderr)
 	case "summary":
-		return runRecordSummary(ctx, args[1:], stdin, stdout, stderr)
+		return runRecordSummary(ctx, args[1:], getenv, stdin, stdout, stderr)
 	case "roles":
 		return runRecordRoles(args[1:], stdout, stderr)
 	case "pass":
-		return runRecordPass(ctx, args[1:], stdout, stderr)
+		return runRecordPass(ctx, args[1:], getenv, stdout, stderr)
 	case "mutation":
-		return runRecordMutation(ctx, args[1:], stdout, stderr)
+		return runRecordMutation(ctx, args[1:], getenv, stdout, stderr)
 	case "request":
-		return runRecordRequest(ctx, args[1:], stdout, stderr)
+		return runRecordRequest(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -770,7 +770,7 @@ type recordIdentityFlags struct {
 // this set and nothing else; `incident` registers it plus its own optional
 // -change.
 //
-// The -addr default is resolveRecordsAddr(), and this registration is the
+// The -addr default is resolveRecordsAddr(getenv), and this registration is the
 // one place that decision is wired: the record family's rows must outlive an
 // apply worktree, so this is the only flag set that resolves
 // FLOW_RECORDS_ADDR. `flow self-review bundle`, `flow lesson resolve` and
@@ -782,16 +782,16 @@ type recordIdentityFlags struct {
 // so they register their -addr through registerRecordsAddrFlag. Every
 // verb outside the record family -- hazard, spec, tasks -- registers
 // registerConnFlags instead, whose address follows FLOW_ADDR alone.
-func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
-	registerRecordsAddrFlag(fset, &f.addr)
+func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, getenv func(string) string) {
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 }
 
 // registerRecordsAddrFlag holds the one registration of the records
 // resolver as an -addr default; every record-family flag set calls it.
-func registerRecordsAddrFlag(fset *flag.FlagSet, p *string) {
-	fset.StringVar(p, "addr", resolveRecordsAddr(), "flowd base URL")
+func registerRecordsAddrFlag(fset *flag.FlagSet, p *string, getenv func(string) string) {
+	fset.StringVar(p, "addr", resolveRecordsAddr(getenv), "flowd base URL")
 }
 
 // registerConnFlags is registerRecordConnFlags for every store-touching
@@ -799,14 +799,14 @@ func registerRecordsAddrFlag(fset *flag.FlagSet, p *string) {
 // resolved from FLOW_ADDR alone. Hazard, spec and tasks telemetry
 // lives and dies with the run that produced it, so it follows the run's
 // daemon; only the record family outlives the workspace.
-func registerConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+func registerConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, getenv func(string) string) {
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(getenv), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 }
 
-func registerRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
-	registerRecordConnFlags(fset, f)
+func registerRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags, getenv func(string) string) {
+	registerRecordConnFlags(fset, f, getenv)
 	fset.StringVar(&f.change, "change", "", "the change this record belongs to (required)")
 }
 
@@ -839,7 +839,7 @@ func finishRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) error
 // caller mistake: the message, the usage block, exit 2. It returns whether
 // parsing succeeded alongside the exit code, since flag.ErrHelp is a
 // successful non-continuation rather than a mistake.
-func parseRecordFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string, stderr io.Writer) (ok bool, code int) {
+func parseRecordFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string, getenv func(string) string, stderr io.Writer) (ok bool, code int) {
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return false, 0
@@ -848,7 +848,7 @@ func parseRecordFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string,
 		fmt.Fprint(stderr, recordUsage)
 		return false, 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishRecordIdentityFlags(fset, f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, recordUsage)
@@ -860,7 +860,7 @@ func parseRecordFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string,
 // parseRecordConnFlags is parseRecordFlags for a subcommand that takes no
 // -change at all -- `verdicts` and `incidents`, which design.md's
 // guard-log routes scope to {project} rather than {project}/{change}.
-func parseRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string, stderr io.Writer) (ok bool, code int) {
+func parseRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string, getenv func(string) string, stderr io.Writer) (ok bool, code int) {
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return false, 0
@@ -869,7 +869,7 @@ func parseRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []str
 		fmt.Fprint(stderr, recordUsage)
 		return false, 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishRecordConnFlags(fset, f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, recordUsage)
@@ -905,8 +905,8 @@ func requireRecordFlags(stderr io.Writer, pairs ...[2]string) bool {
 // entry after it fail to decode on replay. Using a third sibling file
 // instead reuses fallback's own AppendJournalEntry unchanged, without
 // touching either existing replay contract.
-func recordJournalPath(projectKey, name string) string {
-	return fallback.JournalFilePath(projectKey, name) + ".record"
+func recordJournalPath(projectKey, name string, getenv func(string) string) string {
+	return fallback.JournalFilePath(fallback.StateRoot(getenv), projectKey, name) + ".record"
 }
 
 // recordJournalBody is what gets journalled for a record write that could
@@ -928,10 +928,10 @@ type recordJournalBody struct {
 // exactly as journalStageMark swallows them: there is nothing further to
 // fall back to, and the guarantee this exists to uphold is "never block",
 // not "never lose telemetry".
-func journalRecordWrite(projectKey, name, kind string, req any, stderr io.Writer) {
+func journalRecordWrite(projectKey, name, kind string, req any, stderr io.Writer, getenv func(string) string) {
 	body, err := json.Marshal(recordJournalBody{Kind: kind, Request: req})
 	if err == nil {
-		_ = fallback.AppendJournalEntry(recordJournalPath(projectKey, name), projectKey, name, body, time.Now())
+		_ = fallback.AppendJournalEntry(recordJournalPath(projectKey, name, getenv), projectKey, name, body, time.Now())
 	}
 	fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal")
 }
@@ -973,7 +973,7 @@ func callRecord[T any](ctx context.Context, addr string, timeout time.Duration, 
 // write that can never succeed, forever. Everything else -- a dead port, a
 // timeout, a look-alike server on the configured port, a 500 -- is a store
 // that could not be reached, which journals, warns once and exits 0.
-func classifyRecordWrite(err error, projectKey, change, kind string, req any, stderr io.Writer) int {
+func classifyRecordWrite(err error, projectKey, change, kind string, req any, stderr io.Writer, getenv func(string) string) int {
 	switch {
 	case err == nil:
 		return 0
@@ -981,7 +981,7 @@ func classifyRecordWrite(err error, projectKey, change, kind string, req any, st
 		fmt.Fprintf(stderr, "flow: record %s refused: %v\n", kind, err)
 		return 1
 	default:
-		journalRecordWrite(projectKey, change, kind, req, stderr)
+		journalRecordWrite(projectKey, change, kind, req, stderr, getenv)
 		return 0
 	}
 }
@@ -991,18 +991,18 @@ func classifyRecordWrite(err error, projectKey, change, kind string, req any, st
 // the row and `end` closes it, and a run that performs one without the
 // other produces a dispatch whose cost is wrong in a specific, silent way
 // (runRecordDispatchBegin and runRecordDispatchEnd each say how).
-func runRecordDispatchVerb(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordDispatchVerb(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, recordUsage)
 		return 2
 	}
 	switch args[0] {
 	case "begin":
-		return runRecordDispatchBegin(ctx, args[1:], stdout, stderr)
+		return runRecordDispatchBegin(ctx, args[1:], getenv, stdout, stderr)
 	case "end":
-		return runRecordDispatchEnd(ctx, args[1:], stdout, stderr)
+		return runRecordDispatchEnd(ctx, args[1:], getenv, stdout, stderr)
 	case "backfill":
-		return runRecordDispatchBackfill(ctx, args[1:], stdout, stderr)
+		return runRecordDispatchBackfill(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record dispatch command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -1079,11 +1079,11 @@ func validAgentIDFlag(id string) bool {
 // seq the caller may never have seen -- a begin that fell back to the
 // journal returned no seq at all -- and so that a replayed begin collides
 // with the row it already wrote rather than inserting a second one.
-func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record dispatch begin", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	task := fset.String("task", "", "the task id from the tasks.md heading, where the role runs against a task")
 	request := fset.Int("request", 0, "the /flow-interactive request this dispatch ran for, a positive integer (optional)")
 	role := fset.String("role", "", "one of: "+strings.Join(recordRoles, ", ")+" (required)")
@@ -1098,7 +1098,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if *request < 0 {
@@ -1235,7 +1235,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		}
 		for _, wt := range worktrees {
 			var out, why bytes.Buffer
-			if guard.Registry["resolve-base-branch"]([]string{wt}, guard.Env{Getenv: os.Getenv, Dir: wt}, &out, &why) != 1 {
+			if guard.Registry["resolve-base-branch"]([]string{wt}, guard.Env{Getenv: getenv, Dir: wt}, &out, &why) != 1 {
 				continue
 			}
 			branch, _ := exec.Command("git", "-C", wt, "rev-parse", "--abbrev-ref", "HEAD").Output()
@@ -1517,7 +1517,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	// replay.
 	attemptAt := time.Now()
 	sessionID := ""
-	if v := sessionIDFromEnv(); v != nil {
+	if v := sessionIDFromEnv(getenv); v != nil {
 		sessionID = *v
 	}
 	in := records.Dispatch{
@@ -1553,7 +1553,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		// and not by seq.
 		fmt.Fprintf(stdout, "recorded: dispatch %d\n", out.Seq)
 	}
-	code := classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr)
+	code := classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr, getenv)
 	// A panel slot's begin writes that slot's `dispatched:` pass row from
 	// its own flags, so no round begun -- by panel-round-begins or by hand
 	// -- lacks one, and the line cannot contradict its row (kan-1086
@@ -1571,7 +1571,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		if passErr == nil {
 			fmt.Fprintf(stdout, "recorded: pass %d\n", pout.ID)
 		}
-		code = classifyRecordWrite(passErr, projectKey, f.change, "pass", pass, stderr)
+		code = classifyRecordWrite(passErr, projectKey, f.change, "pass", pass, stderr, getenv)
 	}
 	if code == 0 && *startedAt == "" && *agentID != "inline" {
 		printLaunchLines(stdout, f.dir, f.change, *role, *key)
@@ -1752,11 +1752,11 @@ func inlineDerivedWindow(ctx context.Context, f recordIdentityFlags, projectKey,
 // seq, so a caller may hold none, and an end that could not name its row
 // would leave the window open -- the exact failure this call exists to
 // prevent.
-func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record dispatch end", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	key := fset.String("key", "", "the literal label this dispatch's begin call carried (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	commit := fset.String("commit", "", "the commit sha this dispatch produced")
@@ -1768,7 +1768,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	diffBase := fset.String("diff-base", "", "corrects the sha (or comma-joined shas) begin recorded as the HEAD this dispatch verified -- optional: omitted, begin's value stands")
 	closesLoop := fset.Bool("closes-loop", false, "this scoped visual-verify verifier row closed the fix loop -- passed by flow-guard visual-verify-pass close alone, and only with -outcome completed (skills/flow/verify-fix-loop.md)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireChangeCheckout(ctx, f.addr, f.timeout, f.dir, f.change, stderr) {
@@ -1788,7 +1788,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	) {
 		return 2
 	}
-	report, ok := checkDispatchEndFields(*outcome, *cause, *tokens, stderr)
+	report, ok := checkDispatchEndFields(*outcome, *cause, *tokens, stderr, getenv)
 	if !ok {
 		return 2
 	}
@@ -1882,7 +1882,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	if callErr == nil {
 		fmt.Fprintf(stdout, "updated: dispatch %d\n", out.Seq)
 	}
-	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr)
+	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr, getenv)
 }
 
 // planReviewKeyRE matches a plan reviewer's key, plan-review-<n>.
@@ -1919,11 +1919,11 @@ func recordModelAlias(model string) string {
 // for -started-at and -ended-at). It routes each flag it was given to begin,
 // end or both and runs the two, begin first; both instants are validated
 // before either is sent, so a bad -ended-at never leaves a half-written row.
-func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record dispatch backfill", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	beginOnly := []string{"task", "request", "role", "slot", "model", "effort", "agent-id", "diff-base", "round-base", "pair-pick", "started-at"}
 	endOnly := []string{"commit", "outcome", "cause", "tokens", "ended-at"}
 	v := map[string]*string{}
@@ -1992,7 +1992,7 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	if !commitPushed(ctx, f, projectKey, *v["commit"]) && !panelFixKeyedARoundLow(ctx, f, projectKey, *v["role"], *v["key"], ended, stderr) {
 		return 2
 	}
-	if _, ok := checkDispatchEndFields(*v["outcome"], *v["cause"], *v["tokens"], stderr); !ok {
+	if _, ok := checkDispatchEndFields(*v["outcome"], *v["cause"], *v["tokens"], stderr, getenv); !ok {
 		return 2
 	}
 	if err := validateCommitSHA("-commit", *v["commit"]); err != nil {
@@ -2047,16 +2047,16 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, stdout, stder
 	if *v["effort"] == "" {
 		begin = append(begin, "-effort", "default")
 	}
-	if code := runRecordDispatchBegin(ctx, begin, stdout, stderr); code != 0 {
+	if code := runRecordDispatchBegin(ctx, begin, getenv, stdout, stderr); code != 0 {
 		return code
 	}
-	return runRecordDispatchEnd(ctx, end, stdout, stderr)
+	return runRecordDispatchEnd(ctx, end, getenv, stdout, stderr)
 }
 
 // checkDispatchEndFields validates `dispatch end`'s -outcome, -cause and
 // -tokens and returns the parsed token report; `dispatch backfill` runs it
 // before its begin, so a bad end flag never leaves a begun row with no end.
-func checkDispatchEndFields(outcome, cause, tokens string, stderr io.Writer) (*records.TokenReport, bool) {
+func checkDispatchEndFields(outcome, cause, tokens string, stderr io.Writer, getenv func(string) string) (*records.TokenReport, bool) {
 	if outcome != "" && !slices.Contains(recordOutcomes, outcome) {
 		fmt.Fprintf(stderr, "flow: -outcome %q is not one of: %s\n", outcome, strings.Join(recordOutcomes, ", "))
 		return nil, false
@@ -2080,7 +2080,7 @@ func checkDispatchEndFields(outcome, cause, tokens string, stderr io.Writer) (*r
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return nil, false
 	}
-	if tokens != "" && os.Getenv("CLAUDE_CODE_SESSION_ID") != "" {
+	if tokens != "" && getenv("CLAUDE_CODE_SESSION_ID") != "" {
 		fmt.Fprintln(stderr, "flow: -tokens is refused where CLAUDE_CODE_SESSION_ID is set -- the harvester credits this row from the Claude Code transcript")
 		return nil, false
 	}
@@ -2126,23 +2126,23 @@ func parseBackfillInstant(flagName, v string, stderr io.Writer) (time.Time, bool
 // end sent with another run's token (kan-929). Journalling it would warn
 // "store unreachable" about a reachable store and queue an entry that 404s
 // on every replay, so it is reported and exits non-zero like any refusal.
-func classifyDispatchEnd(err error, projectKey, change string, in records.DispatchEnd, stderr io.Writer) int {
+func classifyDispatchEnd(err error, projectKey, change string, in records.DispatchEnd, stderr io.Writer, getenv func(string) string) int {
 	if errors.Is(err, client.ErrNotFound) {
-		if beginQueued(projectKey, change, in.Key, in.SessionToken) {
-			journalRecordWrite(projectKey, change, "dispatch-end", in, stderr)
+		if beginQueued(projectKey, change, in.Key, in.SessionToken, getenv) {
+			journalRecordWrite(projectKey, change, "dispatch-end", in, stderr, getenv)
 			return 0
 		}
 		fmt.Fprintf(stderr, "flow: record dispatch-end refused: the store answered 404 -- no dispatch row under key %q with session token %q, and no journalled begin for it: %v\n", in.Key, in.SessionToken, err)
 		return 1
 	}
-	return classifyRecordWrite(err, projectKey, change, "dispatch-end", in, stderr)
+	return classifyRecordWrite(err, projectKey, change, "dispatch-end", in, stderr, getenv)
 }
 
 // beginQueued reports whether the record journal for projectKey/change
 // holds a `dispatch` begin with this key and session token, still waiting
 // for replay. An unreadable journal reads as none.
-func beginQueued(projectKey, change, key, sessionToken string) bool {
-	entries, _ := fallback.ReadJournalEntries(recordJournalPath(projectKey, change))
+func beginQueued(projectKey, change, key, sessionToken string, getenv func(string) string) bool {
+	entries, _ := fallback.ReadJournalEntries(recordJournalPath(projectKey, change, getenv))
 	for _, e := range entries {
 		var body struct {
 			Kind    string           `json:"kind"`
@@ -2196,7 +2196,7 @@ func splitFromFlag(args []string) (path string, rest []string, ok bool) {
 // exits 1 naming the file, before anything is posted or written. A -ref on
 // the command line is refused (exit 2), since every line names or takes its
 // own, and a line that is not a JSON object (`null`) is exit 2.
-func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdout, stderr io.Writer) int {
+func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdout, stderr io.Writer, getenv func(string) string) int {
 	for _, arg := range rest {
 		if arg == "-ref" || arg == "--ref" || strings.HasPrefix(arg, "-ref=") || strings.HasPrefix(arg, "--ref=") {
 			fmt.Fprintln(stderr, "flow: -ref and -from cannot be combined: each -from line names its own ref, or takes the next free one")
@@ -2208,7 +2208,7 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 		fmt.Fprintf(stderr, "flow: -from: %v\n", err)
 		return 2
 	}
-	data, code := numberRefLessFindings(ctx, path, data, rest, stderr)
+	data, code := numberRefLessFindings(ctx, path, data, rest, stderr, getenv)
 	if code != 0 {
 		return code
 	}
@@ -2243,7 +2243,7 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 				return 2
 			}
 		}
-		if code := runRecordFinding(ctx, args, stdout, stderr); code != 0 {
+		if code := runRecordFinding(ctx, args, getenv, stdout, stderr); code != 0 {
 			fmt.Fprintf(stderr, "flow: -from %s:%d: not recorded; the lines after it were not tried\n", path, i+1)
 			return code
 		}
@@ -2258,7 +2258,7 @@ func runRecordFindingFrom(ctx context.Context, path string, rest []string, stdou
 // and any other malformed line is left for runRecordFindingFrom to report.
 // It assumes a single writer per change: the parent runs -from once per
 // round, so two concurrent runs could read the same next free ref.
-func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer) ([]byte, int) {
+func numberRefLessFindings(ctx context.Context, path string, data []byte, rest []string, stderr io.Writer, getenv func(string) string) ([]byte, int) {
 	lines := strings.Split(string(data), "\n")
 	var refLess []int
 	rows := map[int]map[string]any{}
@@ -2290,7 +2290,7 @@ func numberRefLessFindings(ctx context.Context, path string, data []byte, rest [
 	if len(refLess) == 0 {
 		return data, 0
 	}
-	run, code, ok := readNextRecord(ctx, "finding -from "+path, recordIdentityArgs(rest), stderr)
+	run, code, ok := readNextRecord(ctx, "finding -from "+path, recordIdentityArgs(rest), getenv, stderr)
 	if !ok {
 		return nil, code
 	}
@@ -2370,14 +2370,14 @@ func recordIdentityArgs(args []string) []string {
 // "recorded:" when the write inserted, "updated:" when it replaced. A
 // panel run can then tell a finding it has just raised from one a fix
 // round restated, which is a fact no caller can work out for itself.
-func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordFinding(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if path, rest, ok := splitFromFlag(args); ok {
-		return runRecordFindingFrom(ctx, path, rest, stdout, stderr)
+		return runRecordFindingFrom(ctx, path, rest, stdout, stderr, getenv)
 	}
 	fset := flag.NewFlagSet("flow record finding", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	ref := fset.String("ref", "", "the finding's reference, F<n>, unique per change (required)")
 	// 0 is the initial panel and a meaningful value, so -round carries no
 	// "not given" sentinel: a finding raised without one is a finding the
@@ -2412,7 +2412,7 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	pattern := fset.String("pattern", "", "the recurring defect pattern this finding is an instance of (optional)")
 	task := fset.String("task", "", "the task id from the tasks.md heading whose commit the finding falls in -- omitted where it spans tasks or falls in none (optional)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireChangeCheckout(ctx, f.addr, f.timeout, f.dir, f.change, stderr) {
@@ -2497,21 +2497,21 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 			fmt.Fprintf(stdout, "updated: %s\n", *ref)
 		}
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "finding", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "finding", in, stderr, getenv)
 }
 
 // runRecordStatus implements `flow record status`: the one column a fix
 // round rewrites about a finding it has resolved, and nothing else.
-func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordStatus(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record status", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	ref := fset.String("ref", "", "the finding's reference, F<n> (required)")
 	status := fset.String("status", "", "one of: open, fixed, withdrawn <reason> (required)")
 	category := fset.String("category", "", "the deferral category, deferred statuses only")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireChangeCheckout(ctx, f.addr, f.timeout, f.dir, f.change, stderr) {
@@ -2545,7 +2545,7 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 	if callErr == nil {
 		fmt.Fprintf(stdout, "updated: %s\n", *ref)
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "status", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "status", in, stderr, getenv)
 }
 
 // runRecordJournalCount implements `flow record journal-count`: how many
@@ -2573,14 +2573,14 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 // putting the gate's own output behind a filesystem the run has no other
 // reason to care about. Exit 0 for every such case; the only non-zero exit
 // is a caller mistake, which the shared identity flags already report.
-func runRecordJournalCount(args []string, stdout, stderr io.Writer) int {
+func runRecordJournalCount(args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record journal-count", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	fset.StringVar(&f.change, "change", "", "the change whose pending record writes are counted (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -2591,7 +2591,7 @@ func runRecordJournalCount(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	path := recordJournalPath(projectKey, f.change)
+	path := recordJournalPath(projectKey, f.change, getenv)
 	n, err := countRecordJournalEntries(path)
 	if err != nil {
 		fmt.Fprintln(stdout, recordJournalCountUnknown)
@@ -2676,13 +2676,13 @@ const costStatusUnknown = "unknown"
 // costStatusUnknown and exits 0, on the single exit path below. The only
 // non-zero exit is a caller mistake, which the shared identity flags
 // already report.
-func runRecordCostStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordCostStatus(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record cost-status", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -2765,18 +2765,18 @@ const (
 // IT NEVER BLOCKS, like journal-count and cost-status: every failure prints
 // its "unknown" spelling, the diagnostic goes to stderr, and it exits 0.
 // The only non-zero exit is a caller mistake.
-func runRecordHandoffLines(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordHandoffLines(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record handoff-lines", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	var worktrees []string
 	fset.Func("worktree", "another affected worktree (repeatable)", func(v string) error {
 		worktrees = append(worktrees, v)
 		return nil
 	})
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -2802,7 +2802,7 @@ func runRecordHandoffLines(ctx context.Context, args []string, stdout, stderr io
 	if keysOK {
 		total := 0
 		for _, key := range keys {
-			path := recordJournalPath(key, f.change)
+			path := recordJournalPath(key, f.change, getenv)
 			n, err := countRecordJournalEntries(path)
 			if err != nil {
 				fmt.Fprintf(stderr, "flow: count %s: %v\n", path, err)
@@ -2894,15 +2894,15 @@ type recordStatusRequest struct {
 // mistake, and judging it after the fetch would let an unreachable store
 // turn it into the exit-0 `journalled:` path -- the failure direction
 // records.Destination's own protections exist to remove.
-func runRecordRender(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordRender(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record render", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	kind := fset.String("kind", "", "which record to render: ledger, panel, or all (required)")
 	repo := fset.String("repo", "", "the repository root the record renders into (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr, [2]string{"-kind", *kind}, [2]string{"-repo", *repo}) {
@@ -3001,13 +3001,13 @@ func runRecordRender(ctx context.Context, args []string, stdout, stderr io.Write
 // opposite of `record render`'s fallback, which prints "journalled:" and
 // exits 0. A caller must never be told "no findings" for a question this
 // command could not actually answer.
-func runRecordFindings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordFindings(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record findings", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -3057,13 +3057,13 @@ func readFindings(ctx context.Context, f recordIdentityFlags, projectKey string)
 // Project-scoped like `verdicts` and `incidents`, and findings' read
 // contract, verbatim: no rows prints "[]", an unreachable store prints
 // nothing and exits non-zero.
-func runRecordFindingPatterns(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordFindingPatterns(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record finding-patterns", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -3099,14 +3099,14 @@ func runRecordFindingPatterns(ctx context.Context, args []string, stdout, stderr
 // store normalizes it exactly as the write path normalizes it, so any
 // spelling of a pattern finds its rows, and a name nothing carries is an
 // empty array rather than an error.
-func runRecordFindingPattern(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordFindingPattern(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record finding-pattern", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	name := fset.String("name", "", "the pattern to look up (required)")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr, [2]string{"-name", *name}) {
@@ -3148,8 +3148,8 @@ func runRecordFindingPattern(ctx context.Context, args []string, stdout, stderr 
 // the call could not reach is reported to stderr and exits non-zero,
 // never rendered as an empty array a caller could mistake for "no
 // dispatches."
-func runRecordDispatches(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	return runRecordRunRows(ctx, "dispatches", args, stdout, stderr, func(r records.Run) any {
+func runRecordDispatches(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	return runRecordRunRows(ctx, "dispatches", args, getenv, stdout, stderr, func(r records.Run) any {
 		if r.Dispatches == nil {
 			return []records.Dispatch{}
 		}
@@ -3161,8 +3161,8 @@ func runRecordDispatches(ctx context.Context, args []string, stdout, stderr io.W
 // rows as one JSON array, `dispatches`' twin -- the read
 // check-unfinished-work needs to tell a panel round that recorded no pass
 // row (kan-939 self-review).
-func runRecordPasses(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	return runRecordRunRows(ctx, "passes", args, stdout, stderr, func(r records.Run) any {
+func runRecordPasses(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	return runRecordRunRows(ctx, "passes", args, getenv, stdout, stderr, func(r records.Run) any {
 		if r.Passes == nil {
 			return []records.Pass{}
 		}
@@ -3174,8 +3174,8 @@ func runRecordPasses(ctx context.Context, args []string, stdout, stderr io.Write
 // fix-mutation rows as one JSON array, `passes`' twin -- the read
 // check-unfinished-work needs to tell a fix round that recorded no
 // fix-mutation row.
-func runRecordMutations(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	return runRecordRunRows(ctx, "mutations", args, stdout, stderr, func(r records.Run) any {
+func runRecordMutations(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	return runRecordRunRows(ctx, "mutations", args, getenv, stdout, stderr, func(r records.Run) any {
 		if r.Mutations == nil {
 			return []records.Mutation{}
 		}
@@ -3186,13 +3186,13 @@ func runRecordMutations(ctx context.Context, args []string, stdout, stderr io.Wr
 // runRecordRunRows is a read verb printing one kind of the change's run
 // record rows as a JSON array: a change the store has never heard of is
 // `[]`, any other failed read exits 1 with nothing on stdout.
-func runRecordRunRows(ctx context.Context, verb string, args []string, stdout, stderr io.Writer, rows func(records.Run) any) int {
+func runRecordRunRows(ctx context.Context, verb string, args []string, getenv func(string) string, stdout, stderr io.Writer, rows func(records.Run) any) int {
 	fset := flag.NewFlagSet("flow record "+verb, flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -3230,8 +3230,8 @@ func runRecordRunRows(ctx context.Context, verb string, args []string, stdout, s
 // highest round any pass, finding or mutation row of the change carries, or
 // 0 for a change with none -- the round a panel run opens with, read from the
 // store so a later run cannot reuse an earlier run's round.
-func runRecordNextRound(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	run, code, ok := readNextRecord(ctx, "next-round", args, stderr)
+func runRecordNextRound(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	run, code, ok := readNextRecord(ctx, "next-round", args, getenv, stderr)
 	if !ok {
 		return code
 	}
@@ -3255,8 +3255,8 @@ func runRecordNextRound(ctx context.Context, args []string, stdout, stderr io.Wr
 // with none -- the ref a run records its first finding under, read from the
 // store because the store upserts on (change, ref): kan-951's third run
 // numbered from F1 again and its F1 rewrote the creating run's F1.
-func runRecordNextRef(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	run, code, ok := readNextRecord(ctx, "next-ref", args, stderr)
+func runRecordNextRef(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	run, code, ok := readNextRecord(ctx, "next-ref", args, getenv, stderr)
 	if !ok {
 		return code
 	}
@@ -3280,13 +3280,13 @@ func nextFindingRef(run records.Run) int {
 // readNextRecord reads the change's run record for next-round and next-ref:
 // a change the store has never heard of is an empty record, any other
 // failed read exits 1 with nothing on stdout.
-func readNextRecord(ctx context.Context, name string, args []string, stderr io.Writer) (records.Run, int, bool) {
+func readNextRecord(ctx context.Context, name string, args []string, getenv func(string) string, stderr io.Writer) (records.Run, int, bool) {
 	fset := flag.NewFlagSet("flow record "+name, flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return records.Run{}, code, false
 	}
 
@@ -3318,20 +3318,20 @@ func readNextRecord(ctx context.Context, name string, args []string, stderr io.W
 // reached this verdict, and a journalled write replayed minutes or hours
 // later must not report the replay's own instant as the moment the guard
 // ran.
-func runRecordVerdict(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordVerdict(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "false-positive" {
-		return runRecordVerdictFalsePositive(ctx, args[1:], stdout, stderr)
+		return runRecordVerdictFalsePositive(ctx, args[1:], getenv, stdout, stderr)
 	}
 
 	fset := flag.NewFlagSet("flow record verdict", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	guard := fset.String("guard", "", "the guard that reached this verdict (required)")
 	worktree := fset.String("worktree", "", "the worktree the guard ran against (required)")
 	verdict := fset.String("verdict", "", "the guard's whole verdict line, verbatim (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr,
@@ -3360,7 +3360,7 @@ func runRecordVerdict(ctx context.Context, args []string, stdout, stderr io.Writ
 	if callErr == nil {
 		fmt.Fprintln(stdout, "recorded: verdict")
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "verdict", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "verdict", in, stderr, getenv)
 }
 
 // runRecordVerdictFalsePositive implements `flow record verdict
@@ -3374,15 +3374,15 @@ func runRecordVerdict(ctx context.Context, args []string, stdout, stderr io.Writ
 // reported and exited non-zero, never journalled -- for the identical
 // reason a finding ref naming nothing is: a replay of it would be refused
 // identically forever.
-func runRecordVerdictFalsePositive(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordVerdictFalsePositive(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record verdict false-positive", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	guard := fset.String("guard", "", "the guard whose latest verdict is being flagged (required)")
 	reason := fset.String("reason", "", "why the verdict was wrong (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr, [2]string{"-guard", *guard}, [2]string{"-reason", *reason}) {
@@ -3402,7 +3402,7 @@ func runRecordVerdictFalsePositive(ctx context.Context, args []string, stdout, s
 	if callErr == nil {
 		fmt.Fprintln(stdout, "updated: verdict")
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "verdict-false-positive", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "verdict-false-positive", in, stderr, getenv)
 }
 
 // runRecordVerdicts implements `flow record verdicts`: a project's guard
@@ -3410,15 +3410,15 @@ func runRecordVerdictFalsePositive(ctx context.Context, args []string, stdout, s
 // verbatim (see runRecordFindings' doc comment for the whole of it). It
 // takes no -change: design.md's guard-log routes scope this read to
 // {project} alone, since a verdict list spans every change on the project.
-func runRecordVerdicts(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordVerdicts(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record verdicts", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	guard := fset.String("guard", "", "restrict to one guard; empty means every guard")
 	falsePositive := fset.Bool("false-positive", false, "restrict to verdicts an operator has flagged as false positives")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -3457,16 +3457,16 @@ func runRecordVerdicts(ctx context.Context, args []string, stdout, stderr io.Wri
 // one caller that knows when the substitution actually happened, and a
 // journalled write replayed minutes or hours later must not report the
 // replay's own instant as that moment.
-func runRecordSubstitution(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordSubstitution(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record substitution", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	guard := fset.String("guard", "", "the guard that could not be run (required)")
 	shape := fset.String("shape", "", "the project topology the guard failed on -- one of: "+strings.Join(recordShapes, ", ")+" (required)")
 	substitution := fset.String("substitution", "", "what was used in the guard's place, verbatim (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr,
@@ -3499,7 +3499,7 @@ func runRecordSubstitution(ctx context.Context, args []string, stdout, stderr io
 	if callErr == nil {
 		fmt.Fprintln(stdout, "recorded: substitution")
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "substitution", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "substitution", in, stderr, getenv)
 }
 
 // runRecordSubstitutions implements `flow record substitutions`: a
@@ -3508,15 +3508,15 @@ func runRecordSubstitution(ctx context.Context, args []string, stdout, stderr io
 // comment for the whole of it). It takes no -change, exactly as `verdicts`
 // takes none: the read is scoped to {project} alone, since a substitution
 // list spans every change on the project.
-func runRecordSubstitutions(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordSubstitutions(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record substitutions", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	guard := fset.String("guard", "", "restrict to one guard; empty means every guard")
 	shape := fset.String("shape", "", "restrict to one topology; empty means every topology")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if *shape != "" && !slices.Contains(recordShapes, *shape) {
@@ -3559,18 +3559,18 @@ func runRecordSubstitutions(ctx context.Context, args []string, stdout, stderr i
 // -minutes-lost is parsed and refused (non-numeric, or negative) before the
 // store is ever contacted, the identical caller-mistake contract every
 // other required flag on this command carries.
-func runRecordIncident(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordIncident(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record incident", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 	fset.StringVar(&f.change, "change", "", "the change this incident happened during, where one was in flight")
 	guard := fset.String("guard", "", "the guard involved (required)")
 	symptom := fset.String("symptom", "", "what went wrong (required)")
 	recovery := fset.String("recovery", "", "the recovery that was taken (required)")
 	minutesLost := fset.String("minutes-lost", "", "minutes lost to the incident, a non-negative integer (required)")
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr,
@@ -3607,19 +3607,19 @@ func runRecordIncident(ctx context.Context, args []string, stdout, stderr io.Wri
 	if callErr == nil {
 		fmt.Fprintln(stdout, "recorded: incident")
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "incident", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "incident", in, stderr, getenv)
 }
 
 // runRecordIncidents implements `flow record incidents`: a project's
 // incidents, newest first, as a JSON array -- `verdicts`' own read
 // contract, verbatim.
-func runRecordIncidents(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordIncidents(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record incidents", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f)
+	registerRecordConnFlags(fset, &f, getenv)
 
-	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordConnFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -3687,15 +3687,15 @@ func readPairPolicy(ctx context.Context, f recordIdentityFlags) (overrides map[s
 // fixer or group pair the role's admitted pairs -- the open experiments'
 // overrides, else the policy's base pairs plus granted opt-ins -- do not
 // admit (decisionPairsAdmitted; kan-1103 self-review, F3).
-func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func runRecordDecision(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record decision", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	file := fset.String("file", "", "path to the decision JSON body, or \"-\" to read it from stdin (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr,
@@ -3737,7 +3737,7 @@ func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdo
 		return 2
 	}
 
-	body = stampGroupTasks(body, f)
+	body = stampGroupTasks(body, f, getenv)
 	in := records.Decision{SessionToken: *sessionToken, Decision: json.RawMessage(body)}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Decision, error) {
 		d, _, err := cl.RecordDecision(ctx, projectKey, f.change, in)
@@ -3746,7 +3746,7 @@ func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdo
 	if callErr == nil {
 		fmt.Fprintf(stdout, "recorded: decision %d\n", out.ID)
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "decision", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "decision", in, stderr, getenv)
 }
 
 // runRecordSummary implements `flow record summary`: a change's summary --
@@ -3762,14 +3762,14 @@ func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdo
 // command carries. There is no -session-token: the record is one row per
 // change, last write wins, so the per-change uniqueness alone makes a
 // replayed write land on the row the first attempt inserted or replaced.
-func runRecordSummary(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func runRecordSummary(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record summary", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	file := fset.String("file", "", "path to the summary Markdown body, or \"-\" to read it from stdin (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr,
@@ -3809,7 +3809,7 @@ func runRecordSummary(ctx context.Context, args []string, stdin io.Reader, stdou
 	if callErr == nil {
 		fmt.Fprintf(stdout, "recorded: summary %d\n", out.ID)
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "summary", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "summary", in, stderr, getenv)
 }
 
 // sddTddOpen is false only when the change's flow.sdd-tdd runs under
@@ -3839,7 +3839,7 @@ func sddTddOpen(ctx context.Context, f recordIdentityFlags, projectKey string) b
 // `flow record dispatch begin` can hold an implementer key to one group
 // (kan-1123 self-review, F2). Any group naming a bundle the plan lacks, an
 // unreadable plan or a body without groups leaves the body unchanged.
-func stampGroupTasks(body []byte, f recordIdentityFlags) []byte {
+func stampGroupTasks(body []byte, f recordIdentityFlags, getenv func(string) string) []byte {
 	var d map[string]json.RawMessage
 	var groups []map[string]json.RawMessage
 	if json.Unmarshal(body, &d) != nil || json.Unmarshal(d["groups"], &groups) != nil || groups == nil {
@@ -3850,7 +3850,7 @@ func stampGroupTasks(body []byte, f recordIdentityFlags) []byte {
 		return body
 	}
 	var out bytes.Buffer
-	if guard.Registry["plan-dispatch-bundles"]([]string{plan}, guard.Env{Getenv: os.Getenv}, &out, io.Discard) != 0 {
+	if guard.Registry["plan-dispatch-bundles"]([]string{plan}, guard.Env{Getenv: getenv}, &out, io.Discard) != 0 {
 		return body
 	}
 	bundles := map[string][]string{}
@@ -3944,13 +3944,13 @@ func latestDecision(ctx context.Context, f recordIdentityFlags, projectKey strin
 // change the store has never heard of, so no ErrNotFound special case is
 // needed the way runRecordFindings and runRecordRender need one -- there is
 // no row to be missing, only zero of them.
-func runRecordDecisions(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordDecisions(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record decisions", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 
@@ -3986,17 +3986,17 @@ func runRecordDecisions(ctx context.Context, args []string, stdout, stderr io.Wr
 // dedup: a pass entry is a line spoken once, and a replayed write can at
 // worst duplicate a line, the same cosmetic risk verdicts and incidents
 // already carry.
-func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordPass(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record pass", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	// 0 is the initial panel and a meaningful value, so -round carries no
 	// "not given" sentinel, exactly as `flow record finding`'s -round does.
 	round := fset.Int("round", 0, "the round the entry belongs to: 0 for the initial panel, 1..n for a fix round")
 	note := fset.String("note", "", "the pass-log line itself, verbatim (required)")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireChangeCheckout(ctx, f.addr, f.timeout, f.dir, f.change, stderr) {
@@ -4046,7 +4046,7 @@ func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer)
 	if callErr == nil {
 		fmt.Fprintf(stdout, "recorded: pass %d\n", out.ID)
 	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "pass", in, stderr)
+	return classifyRecordWrite(callErr, projectKey, f.change, "pass", in, stderr, getenv)
 }
 
 // runRecordMutation implements `flow record mutation`: one fix-mutation:
@@ -4056,18 +4056,18 @@ func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer)
 // mutated> — <the test that failed>` -- and the exemption form fills all
 // three too, -mutated carrying "none" and -test the reason, so all three
 // are required here.
-func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runRecordMutation(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record mutation", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
+	registerRecordIdentityFlags(fset, &f, getenv)
 	round := fset.Int("round", 0, "the fix round that performed the mutation: 0 is never a mutation round, but carried verbatim like pass's")
 	path := fset.String("path", "", "the path that was mutated (required)")
 	mutated := fset.String("mutated", "", "what was mutated -- the literal \"none\" on the exemption form (required)")
 	test := fset.String("test", "", "the test that failed -- the reason, where -mutated is none (required)")
 	late := fset.String("late", "", "admit a row for a round whose re-review already began, with the reason it was missed; recorded beside it as a pass note")
 
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr,
@@ -4131,7 +4131,7 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 		if callErr == nil {
 			fmt.Fprintf(stdout, "recorded: mutation %d\n", out.ID)
 		}
-		if code := classifyRecordWrite(callErr, projectKey, f.change, "mutation", in, stderr); code != 0 || *late == "" || !began {
+		if code := classifyRecordWrite(callErr, projectKey, f.change, "mutation", in, stderr, getenv); code != 0 || *late == "" || !began {
 			return code
 		}
 	} else if !began {
@@ -4146,7 +4146,7 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 	if passErr == nil {
 		fmt.Fprintf(stdout, "recorded: pass %d\n", pout.ID)
 	}
-	return classifyRecordWrite(passErr, projectKey, f.change, "pass", note, stderr)
+	return classifyRecordWrite(passErr, projectKey, f.change, "pass", note, stderr, getenv)
 }
 
 // resolveRenderKinds turns -kind into the kinds to render. "all" renders

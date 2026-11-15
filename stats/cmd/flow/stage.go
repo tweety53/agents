@@ -95,7 +95,7 @@ There is no fix at this layer: type the literal token itself on the command
 line, not a variable holding it.
 `
 
-func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func runStage(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
@@ -103,19 +103,19 @@ func runStage(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 
 	switch args[0] {
 	case "begin":
-		return runStageBegin(ctx, args[1:], stderr)
+		return runStageBegin(ctx, args[1:], getenv, stderr)
 	case "end":
-		return runStageEnd(ctx, args[1:], stderr)
+		return runStageEnd(ctx, args[1:], getenv, stderr)
 	case "wrap":
-		return runStageWrap(ctx, args[1:], stdin, stdout, stderr)
+		return runStageWrap(ctx, args[1:], getenv, stdin, stdout, stderr)
 	case "mark":
-		return runStageMark(ctx, args[1:], stderr)
+		return runStageMark(ctx, args[1:], getenv, stderr)
 	case "keys":
 		return runStageKeys(args[1:], stdout, stderr)
 	case "sessions":
-		return runStageSessions(ctx, args[1:], stdout, stderr)
+		return runStageSessions(ctx, args[1:], getenv, stdout, stderr)
 	case "completed":
-		return runStageCompleted(ctx, args[1:], stderr)
+		return runStageCompleted(ctx, args[1:], getenv, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
 		fmt.Fprint(stderr, stageUsage)
@@ -141,8 +141,8 @@ type stageIdentityFlags struct {
 	dirGiven bool
 }
 
-func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
-	registerRecordsAddrFlag(fset, &f.addr)
+func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags, getenv func(string) string) {
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	fset.StringVar(&f.command, "command", "", "the flow command this stage belongs to, e.g. /flow")
@@ -178,11 +178,11 @@ func finishStageIdentityFlags(fset *flag.FlagSet, pos []string, f *stageIdentity
 
 // resolveHarness returns harnessFlag if set, else FLOW_HARNESS, else
 // defaultHarness -- never empty, since stage_runs.harness is NOT NULL.
-func resolveHarness(harnessFlag string) string {
+func resolveHarness(harnessFlag string, getenv func(string) string) string {
 	if harnessFlag != "" {
 		return harnessFlag
 	}
-	if v := os.Getenv("FLOW_HARNESS"); v != "" {
+	if v := getenv("FLOW_HARNESS"); v != "" {
 		return v
 	}
 	return defaultHarness
@@ -192,11 +192,11 @@ func resolveHarness(harnessFlag string) string {
 // nil when neither harness exposes one. CLAUDE_CODE_SESSION_ID wins over
 // MUSE_SESSION_ID: no session sets both, so the order only settles a
 // hypothetical overlap deterministically.
-func sessionIDFromEnv() *string {
-	if v := os.Getenv("CLAUDE_CODE_SESSION_ID"); v != "" {
+func sessionIDFromEnv(getenv func(string) string) *string {
+	if v := getenv("CLAUDE_CODE_SESSION_ID"); v != "" {
 		return &v
 	}
-	if v := os.Getenv("MUSE_SESSION_ID"); v != "" {
+	if v := getenv("MUSE_SESSION_ID"); v != "" {
 		return &v
 	}
 	return nil
@@ -314,8 +314,8 @@ func validateSessionTokenStamp(sessionToken string) error {
 // AppendJournalEntry/ReadJournalEntries (the exact functions `state set`'s
 // fallback already reuses -- see this file's own doc comments) without
 // touching, or risking, the state journal's replay contract.
-func stageJournalPath(projectKey, name string) string {
-	return fallback.JournalFilePath(projectKey, name) + ".stage"
+func stageJournalPath(projectKey, name string, getenv func(string) string) string {
+	return fallback.JournalFilePath(fallback.StateRoot(getenv), projectKey, name) + ".stage"
 }
 
 // stageMarkJournalBody is what gets journalled for a stage mark that could
@@ -335,10 +335,10 @@ type stageMarkJournalBody struct {
 // WriteStateFile/AppendJournalEntry errors: there is nothing further to
 // fall back to, and the guarantee this exists to uphold is "never block",
 // not "never lose telemetry".
-func journalStageMark(projectKey, name, kind string, req any, stderr io.Writer) {
+func journalStageMark(projectKey, name, kind string, req any, stderr io.Writer, getenv func(string) string) {
 	body, err := json.Marshal(stageMarkJournalBody{Kind: kind, Request: req})
 	if err == nil {
-		_ = fallback.AppendJournalEntry(stageJournalPath(projectKey, name), projectKey, name, body, time.Now())
+		_ = fallback.AppendJournalEntry(stageJournalPath(projectKey, name, getenv), projectKey, name, body, time.Now())
 	}
 	fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal (flow journal flush's stderr carries the real cause)")
 }
@@ -366,11 +366,11 @@ func warnNoOpenStageRun(stderr io.Writer, name, stage string) {
 // (journalStageMark, built on fallback.AppendJournalEntry -- the exact
 // function `state set`'s fallback already uses, not a second
 // implementation) and one warning line is printed.
-func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
+func runStageBegin(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage begin", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f stageIdentityFlags
-	registerStageIdentityFlags(fset, &f)
+	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (required)")
@@ -384,7 +384,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -455,13 +455,13 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 	case *sessionFlag != "":
 		sessionID = sessionFlag
 	default:
-		sessionID = sessionIDFromEnv()
+		sessionID = sessionIDFromEnv(getenv)
 	}
 	req := client.BeginStageRequest{
 		ProjectKey:       projectKey,
 		MainCheckoutPath: mainCheckout,
 		ChangeName:       f.name,
-		Harness:          resolveHarness(*harnessFlag),
+		Harness:          resolveHarness(*harnessFlag, getenv),
 		SessionID:        sessionID,
 		SessionToken:     *sessionTokenFlag,
 		Command:          f.command,
@@ -486,7 +486,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: stage begin refused: %v\n", beginErr)
 		return 1
 	default:
-		journalStageMark(projectKey, journalName(f), "begin", req, stderr)
+		journalStageMark(projectKey, journalName(f), "begin", req, stderr, getenv)
 		return 0
 	}
 }
@@ -547,11 +547,11 @@ func beginStage(ctx context.Context, addr string, timeout time.Duration, req cli
 // (`flow stage end --change ... --outcome completed`) never names one
 // either. Its never-block and fallback behaviour mirror runStageBegin's
 // exactly.
-func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
+func runStageEnd(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage end", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f stageIdentityFlags
-	registerStageIdentityFlags(fset, &f)
+	registerStageIdentityFlags(fset, &f, getenv)
 	outcome := fset.String("outcome", "", "the stage's outcome, e.g. completed")
 	fixRounds := fset.Int("fix-rounds", -1, "metrics.fix_rounds, if this stage tracked fix rounds")
 	panelRounds := fset.Int("panel-rounds", -1, "metrics.panel_rounds, if this stage ran a review panel")
@@ -567,7 +567,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -610,7 +610,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		return 2
 	}
 
-	if code := gateLiveVerification(f, *outcome, stderr); code != 0 {
+	if code := gateLiveVerification(f, *outcome, stderr, getenv); code != 0 {
 		return code
 	}
 	if code := gateVerifyNotBlocked(ctx, f, *outcome, stderr); code != 0 {
@@ -619,7 +619,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
 		return code
 	}
-	if code := gatePanelFindingsClosed(f, *outcome, stderr); code != 0 {
+	if code := gatePanelFindingsClosed(f, *outcome, stderr, getenv); code != 0 {
 		return code
 	}
 	if code := gatePanelMergerRan(ctx, f, *outcome, stderr); code != 0 {
@@ -628,7 +628,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	if code := gateSelfReviewPassRan(ctx, f, *outcome, stderr); code != 0 {
 		return code
 	}
-	if code := gateVisualVerifyTrailers(ctx, f, *outcome, stderr); code != 0 {
+	if code := gateVisualVerifyTrailers(ctx, f, *outcome, stderr, getenv); code != 0 {
 		return code
 	}
 	if code := gateFallbackRetried(ctx, f, *outcome, stderr); code != 0 {
@@ -671,7 +671,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		// ErrUnavailable or ErrRefused: neither may block the
 		// pipeline. (ErrNotFound no longer lands here -- a definitive
 		// no-open-run answer names the missing begin above.)
-		journalStageMark(projectKey, journalName(f), "end", req, stderr)
+		journalStageMark(projectKey, journalName(f), "end", req, stderr, getenv)
 		return 0
 	}
 }
@@ -684,7 +684,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 // reads the checkout carrying the change, a linked worktree first, as
 // gateVisualVerifyTrailers does: a /flow parent ends from the main checkout,
 // which holds no change directory (kan-1086 self-review, F5).
-func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer) int {
+func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer, getenv func(string) string) int {
 	if f.command != "/flow" || f.stage != "flow.verify" || outcome != "completed" {
 		return 0
 	}
@@ -705,7 +705,7 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 		return 2
 	}
 	root := filepath.Dir(plan)
-	if code := guard.Registry["check-live-verification"]([]string{root}, guard.Env{Getenv: os.Getenv, Dir: dir}, stderr, stderr); code != 0 {
+	if code := guard.Registry["check-live-verification"]([]string{root}, guard.Env{Getenv: getenv, Dir: dir}, stderr, stderr); code != 0 {
 		fmt.Fprintf(stderr, "flow: stage end refused: check-live-verification exited %d on %s -- "+
 			"run **Live check** and write its record, or pass -C the worktree holding the change\n", code, root)
 		return 1
@@ -873,7 +873,7 @@ func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, s
 // no -C it runs against the checkout carrying the change, a linked worktree
 // first: a /flow parent ends from the main checkout, which holds none of the
 // change's report files (kan-1025).
-func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Writer) int {
+func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Writer, getenv func(string) string) int {
 	if f.command != "/flow" || f.stage != "flow.review-panel" || outcome != "completed" {
 		return 0
 	}
@@ -889,7 +889,7 @@ func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Wri
 			}
 		}
 	}
-	if code := guard.Registry["check-panel-findings-closed"]([]string{dir, f.name}, guard.Env{Getenv: os.Getenv, Dir: dir}, stderr, stderr); code != 0 {
+	if code := guard.Registry["check-panel-findings-closed"]([]string{dir, f.name}, guard.Env{Getenv: getenv, Dir: dir}, stderr, stderr); code != 0 {
 		fmt.Fprintf(stderr, "flow: stage end refused: check-panel-findings-closed exited %d\n", code)
 		return 1
 	}
@@ -998,7 +998,7 @@ func changeWorktreeMap(ctx context.Context, addr string, timeout time.Duration, 
 	return worktrees, nil
 }
 
-func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
+func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer, getenv func(string) string) int {
 	if f.command != "/flow" || f.stage != "flow.visual-verify" || outcome != "completed" {
 		return 0
 	}
@@ -1018,7 +1018,7 @@ func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome
 		fmt.Fprintf(stderr, "flow: stage end refused: cannot read %s's worktree map: %v\n", f.name, err)
 		return 1
 	}
-	env := guard.Env{Getenv: os.Getenv, Dir: dir}
+	env := guard.Env{Getenv: getenv, Dir: dir}
 	for _, wt := range worktrees {
 		var base bytes.Buffer
 		if code := guard.Registry["resolve-base-branch"]([]string{wt}, env, &base, stderr); code != 0 {
@@ -1148,7 +1148,7 @@ func runStageKeys(args []string, stdout, stderr io.Writer) int {
 // (usage errors, an undocumented stage key) are the one exception, exactly
 // as runStageBegin already draws the line: exit non-zero before anything
 // runs, so the defect is surfaced rather than swallowed by a fallback.
-func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func runStageWrap(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	// The terminating signal is observed as it arrives, from the first
 	// line of the wrapper (F8, F11): signal.Notify multicasts to every
 	// registered channel, so this one receives the signal main's
@@ -1183,7 +1183,7 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 	fset := flag.NewFlagSet("flow stage wrap", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f stageIdentityFlags
-	registerStageIdentityFlags(fset, &f)
+	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (required)")
@@ -1196,7 +1196,7 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -1232,13 +1232,13 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 	case *sessionFlag != "":
 		sessionID = sessionFlag
 	default:
-		sessionID = sessionIDFromEnv()
+		sessionID = sessionIDFromEnv(getenv)
 	}
 	beginReq := client.BeginStageRequest{
 		ProjectKey:       projectKey,
 		MainCheckoutPath: mainCheckout,
 		ChangeName:       f.name,
-		Harness:          resolveHarness(*harnessFlag),
+		Harness:          resolveHarness(*harnessFlag, getenv),
 		SessionID:        sessionID,
 		SessionToken:     *sessionTokenFlag,
 		Command:          f.command,
@@ -1258,7 +1258,7 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		fmt.Fprintf(stderr, "flow: stage wrap refused: %v\n", beginErr)
 		return 1
 	default:
-		journalStageMark(projectKey, journalName(f), "begin", beginReq, stderr)
+		journalStageMark(projectKey, journalName(f), "begin", beginReq, stderr, getenv)
 	}
 
 	// The argv after -- is the caller's own work command, the whole point
@@ -1359,7 +1359,7 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 		// journals nothing.
 		warnNoOpenStageRun(stderr, journalName(f), f.stage)
 	default:
-		journalStageMark(projectKey, journalName(f), "end", endReq, stderr)
+		journalStageMark(projectKey, journalName(f), "end", endReq, stderr, getenv)
 	}
 	return exitCode
 }
@@ -1372,11 +1372,11 @@ func runStageWrap(ctx context.Context, args []string, stdin io.Reader, stdout, s
 // Each half runs through runStageBegin/runStageEnd themselves, so the
 // journal fallback, the never-block exits and the refusals are theirs; the
 // first nonzero exit stops the run and is returned.
-func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
+func runStageMark(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage mark", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f stageIdentityFlags
-	registerStageIdentityFlags(fset, &f)
+	registerStageIdentityFlags(fset, &f, getenv)
 	stagesFlag := fset.String("stages", "", "comma-separated stage keys, each marked begin then end completed, in order")
 	fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
@@ -1389,7 +1389,7 @@ func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
-	noteAddrUsage(fset, stderr, f.addr)
+	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if *stagesFlag == "" || f.stage != "" {
 		fmt.Fprintln(stderr, "flow: stage mark takes -stages, never -stage")
 		fmt.Fprint(stderr, stageUsage)
@@ -1420,10 +1420,10 @@ func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
 	})
 	for _, key := range keys {
 		stage := []string{"-stage=" + key}
-		if rc := runStageBegin(ctx, append(append(stage, beginArgs...), fset.Args()...), stderr); rc != 0 {
+		if rc := runStageBegin(ctx, append(append(stage, beginArgs...), fset.Args()...), getenv, stderr); rc != 0 {
 			return rc
 		}
-		if rc := runStageEnd(ctx, append(append(stage, endArgs...), fset.Args()...), stderr); rc != 0 {
+		if rc := runStageEnd(ctx, append(append(stage, endArgs...), fset.Args()...), getenv, stderr); rc != 0 {
 			return rc
 		}
 	}
@@ -1435,11 +1435,11 @@ func runStageMark(ctx context.Context, args []string, stderr io.Writer) int {
 // session ids, plus one per row carrying none. flow-guard check-narrative-runs
 // compares it with the narrative's run sections (decision
 // narrative-runs-from-stage-marks).
-func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func runStageSessions(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage sessions", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var addr string
-	registerRecordsAddrFlag(fset, &addr)
+	registerRecordsAddrFlag(fset, &addr, getenv)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
 	dir := fset.String("C", ".", "the change's repository")
 	stage := fset.String("stage", "", "a /flow stage key")
@@ -1495,11 +1495,11 @@ func runStageSessions(ctx context.Context, args []string, stdout, stderr io.Writ
 
 // runStageCompleted is `flow stage completed`: exit 0 when the change holds
 // a completed run of -stage, 1 when it does not, 2 when flowd cannot answer.
-func runStageCompleted(ctx context.Context, args []string, stderr io.Writer) int {
+func runStageCompleted(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage completed", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var addr string
-	registerRecordsAddrFlag(fset, &addr)
+	registerRecordsAddrFlag(fset, &addr, getenv)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
 	dir := fset.String("C", ".", "the change's repository")
 	stage := fset.String("stage", "", "a stage key")

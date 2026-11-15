@@ -20,9 +20,9 @@ func rbNew(t *testing.T) rbFx {
 	t.Helper()
 	main := t.TempDir() + "/repo"
 	fx := rbFx{main: main, wt: main + "/.worktrees/demo"}
-	splitRepo(t, fx.main, fx.wt, map[string]string{
+	splitRepo(t, fx.main, fx.wt, "main", map[string]string{
 		"src/a.txt": "seed\n", ".gitignore": "spectre/changes/\n",
-	}, "-b", "main")
+	})
 	fx.base = splitGit(t, fx.main, nil, "rev-parse", "HEAD")
 	mkdir(t, fx.wt+"/spectre/changes/demo")
 	return fx

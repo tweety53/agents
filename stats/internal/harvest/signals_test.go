@@ -20,6 +20,7 @@ func countKinds(records []harvest.Record) map[harvest.SignalKind]int {
 }
 
 func TestParseSignalRecordsFromFixture(t *testing.T) {
+	t.Parallel()
 	complete, _ := harvest.SplitCompleteLines(readFixture(t, signalsFixture))
 	records := harvest.ParseSignalRecords(complete)
 
@@ -73,6 +74,7 @@ func TestParseSignalRecordsFromFixture(t *testing.T) {
 }
 
 func TestParseSignalRecordsDeduplicatesRepeatedBlocks(t *testing.T) {
+	t.Parallel()
 	line := []byte(`{"type":"assistant","isSidechain":false,"sessionId":"s","timestamp":"2026-09-01T10:00:00Z","message":{"id":"m","model":"claude-opus-5","content":[{"type":"tool_use","id":"toolu_x","name":"Bash","input":{}}],"usage":{"input_tokens":1}}}` + "\n")
 	twice := append(append([]byte{}, line...), line...)
 	got := countKinds(harvest.ParseSignalRecords(twice))
@@ -82,6 +84,7 @@ func TestParseSignalRecordsDeduplicatesRepeatedBlocks(t *testing.T) {
 }
 
 func TestAttributeCarriesSignalsSplitByMainAndSidechain(t *testing.T) {
+	t.Parallel()
 	main, _ := harvest.SplitCompleteLines(readFixture(t, signalsFixture))
 	agent, _ := harvest.SplitCompleteLines(readFixture(t, "../../testdata/transcripts/signals-agent.jsonl"))
 	records := append(harvest.ParseAssistantRecords(main), harvest.ParseSignalRecords(main)...)
@@ -132,6 +135,7 @@ func TestAttributeCarriesSignalsSplitByMainAndSidechain(t *testing.T) {
 }
 
 func TestAttributeAgentFileCarriesDispatchSignals(t *testing.T) {
+	t.Parallel()
 	agent, _ := harvest.SplitCompleteLines(readFixture(t, "../../testdata/transcripts/signals-agent.jsonl"))
 	records := append(harvest.ParseAssistantRecords(agent), harvest.ParseSignalRecords(agent)...)
 	windows := []harvest.DispatchWindow{{DispatchID: 3, AgentID: "agent-sig0001", StartedAt: mustParse(t, "2026-09-01T10:04:00Z")}}
@@ -149,6 +153,7 @@ func TestAttributeAgentFileCarriesDispatchSignals(t *testing.T) {
 // entry there would misrepresent that as "zero tokens measured" instead
 // of "no tokens in this batch at all".
 func TestAttributeSignalOnlyAgentRecordsCreateNoDispatchTokens(t *testing.T) {
+	t.Parallel()
 	agent, _ := harvest.SplitCompleteLines(readFixture(t, "../../testdata/transcripts/signals-agent.jsonl"))
 	records := harvest.ParseSignalRecords(agent)
 
@@ -181,6 +186,7 @@ func TestAttributeSignalOnlyAgentRecordsCreateNoDispatchTokens(t *testing.T) {
 // jsonb_deep_add's last-write-wins string replace then commits over the
 // stored real value for good, with no earlier value to fall back to.
 func TestSyntheticAPIErrorLineDoesNotZeroContextEnd(t *testing.T) {
+	t.Parallel()
 	lines := []byte(
 		`{"type":"assistant","isSidechain":false,"sessionId":"session-synth-1","timestamp":"2026-09-01T10:00:00.000Z","message":{"id":"m1","model":"claude-opus-5","role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":10,"cache_creation_input_tokens":0,"cache_read_input_tokens":50,"output_tokens":5}}}` + "\n" +
 			`{"type":"assistant","isSidechain":false,"sessionId":"session-synth-1","timestamp":"2026-09-01T10:00:01.000Z","isApiErrorMessage":true,"message":{"id":"m2","model":"<synthetic>","role":"assistant","content":[{"type":"text","text":"API Error"}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}}` + "\n",

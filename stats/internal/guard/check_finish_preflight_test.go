@@ -47,7 +47,7 @@ type fpFx struct {
 func (fx *fpFx) newRepo(cloneOf string) {
 	fx.main = fx.dir + "/main"
 	if cloneOf == "" {
-		fx.g.git("", "init", "-q", "-b", "main", fx.main)
+		fx.g.copyShape(fx.main, repoShape{Branch: "main"})
 	} else {
 		fx.g.git("", "clone", "-q", cloneOf, fx.main)
 	}
@@ -65,7 +65,7 @@ func (fx *fpFx) newRepo(cloneOf string) {
 // withOrigin is new_repo_with_origin: newRepo over a clone of a bare origin.
 func (fx *fpFx) withOrigin() {
 	origin := fx.dir + "/origin"
-	fx.g.git("", "init", "-q", "--bare", "-b", "main", origin)
+	fx.g.copyShape(origin, repoShape{Branch: "main", Bare: true})
 	fx.newRepo(origin)
 }
 

@@ -31,8 +31,9 @@ import (
 // accepted, never rejected as a usage error.
 // smoke: core — flow stage begin records the stage's identity and instant
 func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +60,7 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 			"-session-token", "mf-session-token-identity-abc-20261024T000000Z",
 			"kan-16",
 		},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -103,9 +104,10 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 // stage_runs.harness is NOT NULL, so an empty value would be rejected by
 // the store rather than merely "missing".
 func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
-	t.Setenv("FLOW_HARNESS", "")
+	env := newTestEnv(t)
+	env["FLOW_HARNESS"] = ""
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +125,7 @@ func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -147,8 +149,9 @@ func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
 // never be contacted for it -- if it were, the fallback would swallow the
 // caller's own mistake as if it were a store outage.
 func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +165,7 @@ func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T) 
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "a stage nobody documented", "-session-token", "mf-session-token-undocumented-stage-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (an undocumented stage is a usage error); stderr:\n%s", code, stderr.String())
@@ -181,8 +184,9 @@ func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T) 
 // caller mistake, not a stage outcome": exit non-zero, name the flag, and
 // never contact the store -- exactly like an undocumented stage key.
 func TestStageBeginRequiresSessionToken(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +200,7 @@ func TestStageBeginRequiresSessionToken(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (a missing -session-token is a usage error); stderr:\n%s", code, stderr.String())
@@ -216,6 +220,7 @@ func TestStageBeginRequiresSessionToken(t *testing.T) {
 // says why rather than just "invalid" (design.md: "a reader who does not
 // know that will reintroduce the defect").
 func TestStageBeginRejectsShellSubstitutionSessionToken(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name         string
 		sessionToken string
@@ -228,7 +233,7 @@ func TestStageBeginRejectsShellSubstitutionSessionToken(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +247,7 @@ func TestStageBeginRejectsShellSubstitutionSessionToken(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", tc.sessionToken, "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (a shell-substitution sessionToken is a usage error); stderr:\n%s", code, stderr.String())
@@ -265,8 +270,9 @@ func TestStageBeginRejectsShellSubstitutionSessionToken(t *testing.T) {
 // "$(" and no following name character) is not mistaken for a
 // substitution.
 func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +290,7 @@ func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-20260814-abc123-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -314,8 +320,9 @@ func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
 // future change cannot "fix" this by asserting a rejection here without
 // first reading why one was ruled out.
 func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	// The value a shell would leave behind after expanding an unquoted or
 	// double-quoted $T -- ordinary characters, no "$", no backtick: this is
@@ -339,7 +346,7 @@ func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", expandedValue, "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- this shape is, and must remain, indistinguishable "+
@@ -360,9 +367,10 @@ func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
 // so the row is born with session_id set and the harvester's transcript
 // search never has to run for it.
 func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "6af6b60e-72da-4615-8e3f-75d37bdf8f9d")
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = "6af6b60e-72da-4615-8e3f-75d37bdf8f9d"
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -380,7 +388,7 @@ func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-env-bind-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -402,10 +410,11 @@ func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
 // CLAUDE_CODE_SESSION_ID is unset, a begin mark picks up MUSE_SESSION_ID so the
 // row is born with session_id set.
 func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
-	t.Setenv("MUSE_SESSION_ID", "01a1252a-531b-7a13-8cf8-0f07531311ea")
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	env["MUSE_SESSION_ID"] = "01a1252a-531b-7a13-8cf8-0f07531311ea"
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -423,7 +432,7 @@ func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-muse-env-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -443,9 +452,10 @@ func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
 // TestStageBeginSessionFlagWinsOverClaudeCodeEnv pins the precedence design.md
 // states: -session, when given, wins over CLAUDE_CODE_SESSION_ID.
 func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "6af6b60e-72da-4615-8e3f-75d37bdf8f9d")
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = "6af6b60e-72da-4615-8e3f-75d37bdf8f9d"
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -464,7 +474,7 @@ func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session", "sess-flag",
 			"-session-token", "mf-session-token-flag-wins-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -487,10 +497,11 @@ func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
 // finding: a mark born with session_id = "" would skip the harvester's transcript
 // search the same way a real session id does, but attribute nothing).
 func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
-	t.Setenv("MUSE_SESSION_ID", "")
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	env["MUSE_SESSION_ID"] = ""
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -508,7 +519,7 @@ func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-no-env-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -529,8 +540,9 @@ func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
 // round-trip through -findings' own JSON.
 // smoke: core — flow stage end records the outcome and the metrics
 func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -564,7 +576,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 			"-reason", "the Findings KPI wraps",
 			"kan-16",
 		},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -607,7 +619,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 // absolute; a missing one is a usage error before any write.
 func TestStageEndRecordsScreenshot(t *testing.T) {
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -638,7 +650,7 @@ func TestStageEndRecordsScreenshot(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "-screenshot", path, "kan-16"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 
@@ -666,8 +678,9 @@ func TestStageEndRecordsScreenshot(t *testing.T) {
 // (store.ErrNilMetricsPatch), so the daemon must not be asked to merge an
 // empty one for the common case of a stage with nothing but an outcome.
 func TestStageEndOmitsMetricsWhenNoFlagsGiven(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -685,7 +698,7 @@ func TestStageEndOmitsMetricsWhenNoFlagsGiven(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -706,15 +719,16 @@ func TestStageEndOmitsMetricsWhenNoFlagsGiven(t *testing.T) {
 // pipeline, and the intent must be journalled somewhere durable rather
 // than silently dropped.
 func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
+	t.Parallel()
 	t.Run("begin", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-begin-20261024T000000Z", "kan-16"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -727,7 +741,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ProjectKey: %v", err)
 		}
-		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16") + ".stage")
+		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16") + ".stage")
 		if err != nil {
 			t.Fatalf("ReadJournalEntries: %v", err)
 		}
@@ -745,13 +759,13 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 
 	t.Run("end", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -764,7 +778,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ProjectKey: %v", err)
 		}
-		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16") + ".stage")
+		entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16") + ".stage")
 		if err != nil {
 			t.Fatalf("ReadJournalEntries: %v", err)
 		}
@@ -788,14 +802,15 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 // DisallowUnknownFields, so a stage-mark body landing there would corrupt
 // replay for every entry after it.
 func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-journal-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -804,7 +819,7 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	stateEntries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	stateEntries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-16"))
 	if err != nil {
 		t.Fatalf("ReadJournalEntries (state journal): %v", err)
 	}
@@ -821,8 +836,9 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 // end for a run that never opened can only fail the same way again, which
 // is exactly the wasted journal round trip KAN-573 paid for.
 func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		// The merger gate's run-record read is the one other request (F14).
@@ -838,7 +854,7 @@ func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.review-panel", "-outcome", "completed", "kan-700-demo"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a definitive store answer never blocks); stderr:\n%s", code, stderr.String())
@@ -854,7 +870,7 @@ func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-700-demo") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-700-demo") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -869,8 +885,9 @@ func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 // that diagnosis -- never the outage fallback -- while still exiting with
 // the child's own code and journaling nothing.
 func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/stages/end" {
@@ -889,7 +906,7 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
 			"-session-token", "ff-session-token-wrap-noopen-20261024T000000Z", "kan-700-demo",
 			"--", "sh", "-c", "true"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (the child's own exit code); stderr:\n%s", code, stderr.String())
@@ -905,7 +922,7 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-700-demo") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-700-demo") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -920,14 +937,15 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
 // replay that fails prints the actual API error on `flow journal flush`'s
 // stderr, which is how KAN-573's misdiagnosed mark was finally explained.
 func TestStageMarkJournalWarningNamesWhereTheRealCauseSurfaces(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -944,8 +962,9 @@ func TestStageMarkJournalWarningNamesWhereTheRealCauseSurfaces(t *testing.T) {
 }
 
 func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var got map[string]any
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -959,7 +978,7 @@ func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow-plan", "-stage", "plan.session", "-session-token", "fp-cli-plan-20261024T000000Z", "-jira-key", "KAN-900"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -969,13 +988,14 @@ func TestStageBeginJiraKeySendsAPlanSessionMark(t *testing.T) {
 }
 
 func TestStageBeginJiraKeyAndChangeNameTogetherIsAUsageError(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-C", repo, "-command", "/flow-plan", "-stage", "plan.session",
 			"-session-token", "fp-cli-plan-20261024T000000Z", "-jira-key", "KAN-900", "kan-900-slug"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -989,8 +1009,9 @@ func TestStageBeginJiraKeyAndChangeNameTogetherIsAUsageError(t *testing.T) {
 // exits with the child's exit code -- it records the work, it never alters
 // it.
 func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var mu sync.Mutex
 	var paths []string
@@ -1017,7 +1038,7 @@ func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
 			"-session-token", "ff-session-token-wrap-happy-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "sleep 0.2; echo wrapped-output"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (the child's own exit code); stderr:\n%s", code, stderr.String())
@@ -1075,8 +1096,9 @@ func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
 // non-zero is recorded with outcome "failed" and that the wrapper exits
 // with the child's own code, not 0 and not the store's.
 func TestRunStageWrapChildFailureMarksFailedOutcome(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotOutcome string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1098,7 +1120,7 @@ func TestRunStageWrapChildFailureMarksFailedOutcome(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.verify",
 			"-session-token", "ff-session-token-wrap-fail-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "exit 3"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 3 {
 		t.Fatalf("exit code = %d, want 3 (the child's own exit code); stderr:\n%s", code, stderr.String())
@@ -1113,8 +1135,9 @@ func TestRunStageWrapChildFailureMarksFailedOutcome(t *testing.T) {
 // one warning line, and the child still runs -- the wrapper's exit code is
 // the child's, never the store failure's.
 func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
@@ -1122,7 +1145,7 @@ func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
 			"-session-token", "ff-session-token-wrap-dead-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "echo wrapped-anyway"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (the child's own exit code, dead store must never block); stderr:\n%s", code, stderr.String())
@@ -1138,7 +1161,7 @@ func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-323") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-323") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -1161,6 +1184,7 @@ func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
 // no "--" separator, an empty child after it, a missing -session-token --
 // exits 2 with the usage text and never runs the child.
 func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		args []string
@@ -1179,7 +1203,7 @@ func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1192,7 +1216,7 @@ func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				append([]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, tc.args...),
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (a usage error); stderr:\n%s", code, stderr.String())
@@ -1214,8 +1238,9 @@ func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
 // stage key is refused exactly as `stage begin` refuses it -- a caller
 // defect, not a store outage -- and the child never runs behind it.
 func TestRunStageWrapUndocumentedStageRunsNoChild(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1231,7 +1256,7 @@ func TestRunStageWrapUndocumentedStageRunsNoChild(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "a stage nobody documented",
 			"-session-token", "ff-session-token-wrap-undoc-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "echo should-not-run"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (an undocumented stage is a usage error); stderr:\n%s", code, stderr.String())
@@ -1252,8 +1277,9 @@ func TestRunStageWrapUndocumentedStageRunsNoChild(t *testing.T) {
 // 128+SIGTERM convention for its own termination -- with the end mark still
 // recorded, on the fresh context, as failed.
 func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotOutcome string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1278,7 +1304,7 @@ func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
 			"-session-token", "ff-session-token-wrap-cancel-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "sleep 30"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 143 {
 		t.Fatalf("exit code = %d, want 143 (128+SIGTERM, the wrapper's own termination convention); stderr:\n%s", code, stderr.String())
@@ -1296,9 +1322,10 @@ func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
 // process group, so no survivor outlives the cancelled wrap.
 func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	repo := gitRepo(t)
 	pidfile := t.TempDir() + "/grandchild.pid"
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	endSeen := make(chan struct{})
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1321,7 +1348,7 @@ func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
 			"-command", "/flow-fast", "-stage", "flow.verify",
 			"-session-token", "ff-session-token-wrap-stubborn-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "trap \"\" TERM; sleep 30 & echo $! >\"$0\"; wait", pidfile},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 143 {
 		t.Fatalf("exit code = %d, want 143; stderr:\n%s", code, stderr.String())
@@ -1353,6 +1380,7 @@ func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
 // 128+signal mapping for a child that dies to its own signal, both
 // spellings of the convention.
 func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		kill string
 		want int
@@ -1363,7 +1391,7 @@ func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T
 	for _, tc := range cases {
 		t.Run(tc.kill, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
@@ -1377,7 +1405,7 @@ func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T
 					"-command", "/flow-fast", "-stage", "flow.brainstorm",
 					"-session-token", "ff-session-token-wrap-sigchild-20261024T000000Z", "kan-323",
 					"--", "sh", "-c", tc.kill},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != tc.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
@@ -1395,10 +1423,12 @@ func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T
 // an empty, padded or reordered printing would move the guard off the
 // documented table this package validates marks against.
 func TestStageKeysSubcommandPrintsServedKeys(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "keys"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1422,10 +1452,12 @@ func TestStageKeysSubcommandPrintsServedKeys(t *testing.T) {
 // sibling `flow state list` holds: an unexpected positional argument is a
 // usage error reported on stderr, never silently ignored input.
 func TestStageKeysTakesNoPositionalArguments(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "keys", "unexpected-arg"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -1443,8 +1475,9 @@ func TestStageKeysTakesNoPositionalArguments(t *testing.T) {
 // warns on stderr naming what was closed -- the marking slip is caught
 // at write time, in the session that made it.
 func TestRunStageBeginWarnsOnSupersededRuns(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -1461,7 +1494,7 @@ func TestRunStageBeginWarnsOnSupersededRuns(t *testing.T) {
 			"-harness", "claude-code", "-session-token", "ff-session-token-warn-abc-20261024T000000Z",
 			"kan-618",
 		},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1479,8 +1512,9 @@ func TestRunStageBeginWarnsOnSupersededRuns(t *testing.T) {
 // `completed`, key by key in the order given, each begin carrying the
 // session token and harness a `stage begin` would.
 func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var mu sync.Mutex
 	var calls []string
@@ -1509,7 +1543,7 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
 		[]string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate", "-harness", "zcode",
 			"-session-token", "ff-session-token-mark-happy-20261024T000000Z", "kan-860"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1536,6 +1570,7 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
 // earlier key is left half-marked. A missing -stages, a stray -stage and a
 // missing -session-token are usage errors the same way.
 func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
+	t.Parallel()
 	cases := map[string][]string{
 		"bad second key":  {"-stages", "flow.preflight,flow.no-such-stage", "-session-token", "ff-mark-bad-key-20261024T000000Z"},
 		"bad first key":   {"-stages", "flow.no-such-stage,flow.preflight", "-session-token", "ff-mark-bad-key-20261024T000000Z"},
@@ -1547,7 +1582,7 @@ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 	for name, extra := range cases {
 		t.Run(name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			var mu sync.Mutex
 			hits := 0
@@ -1564,7 +1599,7 @@ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 				"-command", "/flow-fast", "-harness", "zcode"}, extra...)
 			args = append(args, "kan-860")
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -1582,15 +1617,16 @@ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 // begin`/`stage end` hold, carried by `stage mark`: a dead store journals
 // every half of every key, in order, into the stage journal, and exits 0.
 func TestStageMarkJournalFallback(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "mark", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate",
 			"-session-token", "ff-session-token-mark-dead-20261024T000000Z", "kan-860"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (dead port must never block); stderr:\n%s", code, stderr.String())
@@ -1599,7 +1635,7 @@ func TestStageMarkJournalFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-860") + ".stage")
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-860") + ".stage")
 	if err != nil {
 		t.Fatalf("ReadJournalEntries: %v", err)
 	}
@@ -1625,8 +1661,9 @@ func TestStageMarkJournalFallback(t *testing.T) {
 // TestStageBeginTakesFlagsAfterTheChangeName: `<name> -C <dir>` parses as
 // `flow state` already does, while a second positional is still refused.
 func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1643,7 +1680,7 @@ func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), append(append([]string{}, base...), "demo", "-C", repo),
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -1658,7 +1695,7 @@ func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 	code = run(context.Background(), append(append([]string{}, base...), "demo", "extra", "-C", repo),
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("two positionals exit = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -1669,9 +1706,10 @@ func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
 // narrative-runs-from-stage-marks). Distinct session ids count once; a row
 // with no session id counts as a run of its own.
 func TestRunStageSessions(t *testing.T) {
+	t.Parallel()
 	t.Run("counts distinct sessions", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		wantKey, _, err := fallback.ProjectKey(repo)
 		if err != nil {
 			t.Fatalf("project key: %v", err)
@@ -1694,27 +1732,27 @@ func TestRunStageSessions(t *testing.T) {
 		defer srv.Close()
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"stage", "sessions", "-addr", srv.URL, "-C", repo, "-stage", "flow.document-fix", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 || stdout.String() != "3\n" {
 			t.Fatalf("exit %d stdout %q, want 0 and \"3\\n\"; stderr:\n%s", code, stdout.String(), stderr.String())
 		}
 	})
 	t.Run("a failed read exits 1", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"stage", "sessions", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-stage", "flow.document-fix", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 1 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want 1 and empty", code, stdout.String())
 		}
 	})
 	t.Run("an undocumented stage exits 2", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"stage", "sessions", "-addr", deadPortAddr(t), "-C", repo, "-stage", "flow.nope", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 {
 			t.Fatalf("exit %d, want 2", code)
 		}
@@ -1726,6 +1764,7 @@ func TestRunStageSessions(t *testing.T) {
 // the stage with no check-live-verification chained before it). A refused
 // end never reaches the store.
 func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name, design, record string // design "" writes no change directory
 		command, outcome     string // "" means /flow and completed
@@ -1741,7 +1780,7 @@ func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			if c.design != "" {
 				root := filepath.Join(repo, "spectre", "changes", "kan-1")
 				if err := os.MkdirAll(root, 0o755); err != nil {
@@ -1774,7 +1813,7 @@ func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", command, "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want || reached != (c.want == 0) {
 				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
 			}
@@ -1790,8 +1829,9 @@ func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
 // completed, so a gate reading either passes wrongly. A newer completed
 // verify-3 ends it, and so does a blocked end over the same set.
 func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	root := filepath.Join(repo, "spectre", "changes", "kan-1")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
@@ -1828,7 +1868,7 @@ func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 				"-command", "/flow", "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 	if code, stderr, reached := end(set, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-2 ended blocked") {
@@ -1861,11 +1901,12 @@ func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
 // suffix (kan-1029's self-review: `mf-k1029-PLACEHOLDER` opened two stage
 // runs bound to no run). begin and wrap both refuse before any network call.
 func TestStageBeginRefusesUnstampedSessionToken(t *testing.T) {
+	t.Parallel()
 	for _, sub := range []string{"begin", "wrap"} {
 		for _, token := range []string{"mf-k1029-PLACEHOLDER", "mf-k1028b", "mf-k1029-20261024T002513", "mf-20261024T002513Z-x"} {
 			t.Run(sub+" "+token, func(t *testing.T) {
 				repo := gitRepo(t)
-				isolatedStateRoot(t)
+				env := newTestEnv(t)
 				contacted := false
 				srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 					contacted = true
@@ -1879,7 +1920,7 @@ func TestStageBeginRefusesUnstampedSessionToken(t *testing.T) {
 					args = append(args, "--", "true")
 				}
 				var stdout, stderr bytes.Buffer
-				code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+				code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 				if code != 2 || contacted || !strings.Contains(stderr.String(), "UTC") {
 					t.Fatalf("exit=%d contacted=%v, want 2 and no store call; stderr:\n%s", code, contacted, stderr.String())
 				}
@@ -1905,7 +1946,7 @@ func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			bin := t.TempDir()
 			if err := os.WriteFile(filepath.Join(bin, "findings.json"), []byte(c.findings), 0o644); err != nil {
 				t.Fatal(err)
@@ -1929,7 +1970,7 @@ func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", c.outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want || reached != (c.want == 0) {
 				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
 			}
@@ -1948,7 +1989,7 @@ func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
 func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
 	smoke.Heavy(t)
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	bin := t.TempDir()
 	script := "#!/usr/bin/env bash\ncase \"$*\" in\n" +
 		"  *\"record dispatches\"*) echo '[]' ;;\n" +
@@ -1987,7 +2028,7 @@ func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", tc.outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.want || reached != (tc.want == 0) {
 				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, tc.want, stderr.String())
 			}
@@ -2006,7 +2047,7 @@ func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
 func TestStageEndReviewPanelResolvesWorktreeWithoutC(t *testing.T) {
 	smoke.Heavy(t)
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	wt := filepath.Join(t.TempDir(), "wt")
 	if out, err := exec.Command("git", "-C", repo, "worktree", "add", wt).CombinedOutput(); err != nil {
 		t.Fatalf("worktree add: %v\n%s", err, out)
@@ -2039,7 +2080,7 @@ func TestStageEndReviewPanelResolvesWorktreeWithoutC(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms",
 			"-command", "/flow", "-stage", "flow.review-panel", "-outcome", "completed", "kan-1"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("exit=%d reached=%v, want 0 and the daemon reached; stderr:\n%s", code, reached, stderr.String())
 	}
@@ -2048,8 +2089,9 @@ func TestStageEndReviewPanelResolvesWorktreeWithoutC(t *testing.T) {
 // TestStageBeginAcceptsChangeFlag: `flow record` takes -change, so `flow
 // stage` accepts it too (kan-1037); -change with a positional is a usage error.
 func TestStageBeginAcceptsChangeFlag(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -2070,7 +2112,7 @@ func TestStageBeginAcceptsChangeFlag(t *testing.T) {
 			"-command", "/flow", "-stage", "flow.brainstorm",
 			"-session-token", "mf-x-20261024T000000Z",
 		}, tail...)
-		return run(context.Background(), args, strings.NewReader(""), &stdout, &stderr), stderr.String()
+		return run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr), stderr.String()
 	}
 
 	if code, stderr := begin("-change", "demo"); code != 0 {
@@ -2094,8 +2136,9 @@ func TestStageBeginAcceptsChangeFlag(t *testing.T) {
 // runs check-untasked-commits over every worktree of the state map
 // (design.md visual-verify-end-trailer-gate).
 func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	root := t.TempDir()
 	peer, origin := filepath.Join(root, "peer"), filepath.Join(root, "origin.git")
 	git := func(dir string, args ...string) string {
@@ -2139,7 +2182,7 @@ func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", dir,
 				"-command", "/flow", "-stage", "flow.visual-verify", "-outcome", outcome, "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 
@@ -2174,8 +2217,9 @@ func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
 // store, a stage begin reaches the records store, so a mark outlives the
 // worktree's daemon.
 func TestStageResolvesTheRecordsAddress(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	var reached bool
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		reached = true
@@ -2183,14 +2227,14 @@ func TestStageResolvesTheRecordsAddress(t *testing.T) {
 		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
 	}))
 	defer srv.Close()
-	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
-	t.Setenv("FLOW_ADDR", deadPortURL(t))
+	env["FLOW_RECORDS_ADDR"] = srv.URL
+	env["FLOW_ADDR"] = deadPortURL(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-timeout", "500ms", "-C", repo,
 			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness-20261024T000000Z", "kan-16"},
-		strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("stage begin exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
 	}
@@ -2202,8 +2246,9 @@ func TestStageResolvesTheRecordsAddress(t *testing.T) {
 // key; with the row ended it passes, and another stage over the same open row
 // passes.
 func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	open := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","sessionToken":"tok-9","startedAt":"2026-10-28T12:35:02Z"}]}`
 	closed := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","startedAt":"2026-10-28T12:35:02Z","endedAt":"2026-10-28T12:36:38Z"}]}`
 	end := func(record, command, stage string) (int, string, bool) {
@@ -2222,7 +2267,7 @@ func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 				"-command", command, "-stage", stage, "-outcome", "completed", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 	if code, stderr, reached := end(open, "/flow", "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") || !strings.Contains(stderr, "-session-token tok-9") {
@@ -2244,8 +2289,9 @@ func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
 // enforce-loop-dispatch.py opens under the change -- naming the end call
 // that closes it, and passes once every row has ended.
 func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	for _, tc := range []struct {
 		name, record string
 		code         int
@@ -2268,7 +2314,7 @@ func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow", "-stage", "flow.self-review",
 					"-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2282,8 +2328,9 @@ func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
 // TestStageEndRefusesOpenSelfReviewPassInteractive: the open-pass gate covers
 // a /flow-interactive flow.self-review end too (self-review-gate-interactive).
 func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	for _, tc := range []struct {
 		name, record string
 		code         int
@@ -2306,7 +2353,7 @@ func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", "/flow-interactive", "-stage", "flow.self-review",
 					"-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2324,8 +2371,9 @@ func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
 // that fails, refuses nothing (kan-1070 self-review, F1).
 func TestStageEndRefusesSelfReviewWithNoPassRow(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	const (
 		none      = `{"change":"kan-16","dispatches":[],"findings":[],"passes":[],"mutations":[]}`
 		aborted   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"aborted"}],"findings":[],"passes":[],"mutations":[]}`
@@ -2366,7 +2414,7 @@ func TestStageEndRefusesSelfReviewWithNoPassRow(t *testing.T) {
 							"-session-token", "sr-gate-token-20261107T000000Z", "kan-16"}
 					}
 					var stdout, stderr bytes.Buffer
-					code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+					code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 					if code != tc.code {
 						t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 					}
@@ -2384,8 +2432,9 @@ func TestStageEndRefusesSelfReviewWithNoPassRow(t *testing.T) {
 // command, or a non-positive value, it exits 2 naming the flag and sends
 // nothing.
 func TestStageBeginRequestFlag(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var bodies [][]byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -2406,7 +2455,7 @@ func TestStageBeginRequestFlag(t *testing.T) {
 			"-command", command, "-stage", "flow.sdd-tdd", "-request", request,
 			"-harness", "claude-code", "-session-token", "fi-request-flag-20261030T100000Z",
 			"kan-1061",
-		}, strings.NewReader(""), &stdout, &stderr)
+		}, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 
@@ -2442,8 +2491,9 @@ func TestStageBeginRequestFlag(t *testing.T) {
 // ended planner row, an open row of another role, and another stage over the
 // open planner row all pass.
 func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	row := func(key, end string) string {
 		return `{"change":"kan-1","dispatches":[{"key":"` + key + `","agentId":"a1","role":"planner","sessionToken":"tok-9","startedAt":"2026-11-02T12:29:53Z"` + end + `}]}`
 	}
@@ -2464,7 +2514,7 @@ func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 				"-command", command, "-stage", stage, "-session-token", "mf-k1-20261102T000000Z", "kan-1"},
-			strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), reached
 	}
 	for _, tc := range []struct {
@@ -2498,8 +2548,9 @@ func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
 // has no end, naming the end call that closes it, and passes once it has
 // ended, or when the open row is no operator- row (kan-1080 self-review, F4).
 func TestStageEndRefusesOpenOperatorRow(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	const (
 		open   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"operator-82","role":"implementer","model":"opus","sessionToken":"fi-tok","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
 		ended  = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"operator-82","role":"implementer","model":"opus","sessionToken":"fi-tok","startedAt":"2026-11-08T09:43:49Z","endedAt":"2026-11-08T09:55:32Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`
@@ -2529,7 +2580,7 @@ func TestStageEndRefusesOpenOperatorRow(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", tc.command, "-stage", tc.stage, "-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2546,8 +2597,9 @@ func TestStageEndRefusesOpenOperatorRow(t *testing.T) {
 // row is no task- row; /flow-interactive keeps its operator- gate alone
 // (kan-1086 self-review, F4).
 func TestStageEndSddTddRefusesOpenTaskDispatch(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	const (
 		open   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"task-12+13-implementer-fix-1","role":"implementer","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
 		ended  = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"task-12+13-implementer-fix-1","role":"implementer","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z","endedAt":"2026-11-08T09:55:32Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`
@@ -2576,7 +2628,7 @@ func TestStageEndSddTddRefusesOpenTaskDispatch(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-command", tc.command, "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.code {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
 			}
@@ -2600,7 +2652,7 @@ func TestStageEndVerifyFindsTheChangeWorktree(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			wt := filepath.Join(t.TempDir(), "kan-1")
 			if out, err := exec.Command("git", "-C", repo, "worktree", "add", "-q", "-b", "spectre/kan-1", wt).CombinedOutput(); err != nil {
 				t.Fatalf("worktree add: %v\n%s", err, out)
@@ -2625,7 +2677,7 @@ func TestStageEndVerifyFindsTheChangeWorktree(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms",
 					"-command", "/flow", "-stage", "flow.verify", "-outcome", "completed", "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want {
 				t.Fatalf("exit %d, want %d; stderr:\n%s", code, c.want, stderr.String())
 			}
@@ -2641,7 +2693,7 @@ func TestStageEndVerifyFindsTheChangeWorktree(t *testing.T) {
 func TestStageEndRefusesAFallbackWithoutItsRetry(t *testing.T) {
 	smoke.Heavy(t)
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	bin := t.TempDir()
 	script := "#!/usr/bin/env bash\ncase \"$*\" in\n" +
 		"  *\"record dispatches\"*) echo '[]' ;;\n" +
@@ -2691,7 +2743,7 @@ func TestStageEndRefusesAFallbackWithoutItsRetry(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
 					"-command", "/flow", "-stage", tc.stage, "-outcome", tc.outcome, "kan-1"},
-				strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.want {
 				t.Fatalf("exit=%d, want %d; stderr:\n%s", code, tc.want, stderr.String())
 			}
