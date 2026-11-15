@@ -60,9 +60,10 @@ None of those row checks applies once the session's change is FINISHED in the st
 over, and a later dispatch in the same session is no flow dispatch.
 
 A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) is begun under its `explore-<n>` or
-`design-<n>` key only when its prompt names the session change's worktree,
-<main-checkout>-worktrees/<change> (decision planning-agents-hook-begun); a loop planner's agents,
-naming the loop's worktree, keep the planner's explicit begin. Otherwise no row check applies to it;
+`design-<n>` key only while the session's latest stage run is `flow.brainstorm` and its prompt
+names the session change's worktree, <main-checkout>-worktrees/<change> (decisions
+planning-agents-hook-begun, planning-agent-begins-in-brainstorm); a loop planner's agents -- naming
+the loop's worktree, or the run's own outside `flow.brainstorm` -- keep the planner's explicit begin. Otherwise no row check applies to it;
 the baseline-pointer and allowed-pairs checks still do.
 
 Each deny, once written, also records one `flow record incident` row, with the session's change
@@ -273,16 +274,16 @@ def project_key(cwd: str, main: "str | None" = None) -> "str | None":
     return f"{os.path.basename(main)}-{hashlib.sha1(main.encode()).hexdigest()[:8]}"
 
 
-def session_change(session_id: str) -> "tuple[str | None, str | None, str | None]":
-    """The session's latest stage run: its change, project key and session token."""
+def session_change(session_id: str) -> "tuple[str | None, str | None, str | None, str | None]":
+    """The session's latest stage run: its change, project key, session token and stage."""
     addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
     query = parse.urlencode({"session_id": session_id, "sort": "-started_at", "limit": "1"})
     with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=bound(2)) as resp:
         runs = json.load(resp).get("stageRuns")
     run = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
-    values = (run.get("changeName"), run.get("projectKey"), run.get("sessionToken"))
-    name, key, token = (v if isinstance(v, str) and v else None for v in values)
-    return name, key, token
+    values = (run.get("changeName"), run.get("projectKey"), run.get("sessionToken"), run.get("stage"))
+    name, key, token, stage = (v if isinstance(v, str) and v else None for v in values)
+    return name, key, token, stage
 
 
 def begin_key(tool_input: dict, prompt: str) -> "str | None":
@@ -320,7 +321,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "tuple[str | None
     if not in_flow_run(payload):
         return None, None
     try:
-        change, project, token = session_change(session_id)
+        change, project, token, stage = session_change(session_id)
         if not change:
             return None, None
         # The rows are read under cwd's project: another repo's cwd reads none, so fail open.
@@ -328,7 +329,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "tuple[str | None
         if project and project_key(cwd, main) != project:
             return None, None
         worktree = f"{main}-worktrees/{change}" if main else None
-        if planning and not (worktree and names_worktree(prompt, worktree)):
+        if planning and not (stage == "flow.brainstorm" and worktree and names_worktree(prompt, worktree)):
             return None, None
         done = subprocess.run(
             ["flow", "record", "dispatches", "-change", change, "-C", cwd],
@@ -414,7 +415,7 @@ def change_finished(payload: dict) -> bool:
     if not isinstance(session_id, str) or not session_id:
         return False
     try:
-        change, key, _ = session_change(session_id)
+        change, key, _, _ = session_change(session_id)
         key = key or (project_key(cwd) if isinstance(cwd, str) else None)
         if not change or not key:
             return False
@@ -533,7 +534,7 @@ def deny(reason: str) -> None:
     session_id = PAYLOAD.get("session_id")
     if isinstance(session_id, str) and session_id:
         try:
-            change, _, _ = session_change(session_id)
+            change, _, _, _ = session_change(session_id)
         except (OSError, ValueError, AttributeError):  # recorded without its change
             change = None
     record_incident("enforce-agent-baseline", reason, cwd if isinstance(cwd, str) else None, change)

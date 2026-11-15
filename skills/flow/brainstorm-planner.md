@@ -158,8 +158,8 @@ and a narrow, explicit scope: what to look at, what is already known, what to re
 `fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
 planning dispatch's row is opened at its launch, by the hook or by a `begin` before its Agent
 call, and ended when its agent hands back, and
-`flow stage end` of `flow.brainstorm` refuses while one is open. In a `/flow` planner, whose
-agents' prompts name the change's worktree, `hooks/enforce-agent-baseline.py` opens the row at
+`flow stage end` of `flow.brainstorm` refuses while one is open. In a `/flow` planner, during
+`flow.brainstorm`, whose agents' prompts name the change's worktree, `hooks/enforce-agent-baseline.py` opens the row at
 launch; `/flow-plan` and the self-review and in-run fix planners run the `begin` below first:
 
 ```bash

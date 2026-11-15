@@ -140,27 +140,32 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	}
 }
 
-// openRowFixture serves a store answering /api/v1/stage-runs with change c1 and session token
-// mf-t1 (status 500 when fail), and a fake `flow` first on PATH that appends its argv, one line
+// openRowFixture serves a store answering /api/v1/stage-runs with change c1, session token mf-t1
+// and stage flow.brainstorm -- or the contents of a `stage` file beside the called log, when a
+// test writes one -- (status 500 when fail), and a fake `flow` first on PATH that appends its argv, one line
 // per call, to the returned called file. It answers `record dispatches` with rows (exiting 1 when
 // rows is ""), `record dispatch begin` with exit $FAKE_BEGIN_RC (default 0) after printing
 // $FAKE_BEGIN_ERR to stderr, and every other call with exit 1. It returns the env the hook runs
 // under and that argv log.
 func openRowFixture(t *testing.T, rows string, fail bool, projectKey ...string) (env []string, called string) {
 	t.Helper()
+	bin := t.TempDir()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if fail || r.URL.Path != "/api/v1/stage-runs" || r.URL.Query().Get("session_id") != "s1" {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		run := map[string]string{"changeName": "c1", "sessionToken": "mf-t1"}
+		stage := "flow.brainstorm"
+		if b, err := os.ReadFile(filepath.Join(bin, "stage")); err == nil {
+			stage = string(b)
+		}
+		run := map[string]string{"changeName": "c1", "sessionToken": "mf-t1", "stage": stage}
 		if len(projectKey) > 0 {
 			run["projectKey"] = projectKey[0]
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": []any{run}})
 	}))
 	t.Cleanup(srv.Close)
-	bin := t.TempDir()
 	called = filepath.Join(bin, "called")
 	rowsAnswer := "exit 1"
 	if rows != "" {
@@ -1003,25 +1008,34 @@ func TestEnforceAgentBaselineHookDeniesARefusedBegin(t *testing.T) {
 
 // TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree pins decision
 // planning-agents-hook-begun: a /flow planner's Explore and Plan agents, whose prompts name the
-// session change's worktree, are begun; a loop planner's, naming only the loop's worktree, are not.
+// session change's worktree, are begun; a loop planner's, naming only the loop's worktree, are not,
+// and neither is one naming the run's own worktree outside flow.brainstorm (decision
+// planning-agent-begins-in-brainstorm).
 func TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, typ, description, role, names string // names: the worktree suffix the prompt names
+		stage                               string // the latest stage run's stage; "" serves flow.brainstorm
 		want                                map[string]string
 	}{
-		{"Explore", "Explore", "explore-3 hooks", "explorer", "c1/hooks",
+		{"Explore", "Explore", "explore-3 hooks", "explorer", "c1/hooks", "",
 			map[string]string{"-role": "explorer", "-effort": "low", "-key": "explore-3", "-model": "opus"}},
-		{"Plan", "Plan", "design-1 options", "plan-designer", "c1",
+		{"Plan", "Plan", "design-1 options", "plan-designer", "c1", "",
 			map[string]string{"-role": "planner", "-effort": "low", "-key": "design-1"}},
-		{"loop worktree", "Explore", "explore-3 hooks", "explorer", "pipeline-fix-c1-2/hooks", nil},
-		{"a longer change name", "Explore", "explore-3 hooks", "explorer", "c10 hooks", nil},
+		{"loop worktree", "Explore", "explore-3 hooks", "explorer", "pipeline-fix-c1-2/hooks", "", nil},
+		{"a longer change name", "Explore", "explore-3 hooks", "explorer", "c10 hooks", "", nil},
+		{"loop planner in the run's worktree", "Explore", "explore-3 hooks", "explorer", "c1/hooks", "flow.self-review", nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			main, _ := beginRepo(t)
 			env, log := beginEnv(t, `[]`, 0)
+			if c.stage != "" {
+				if err := os.WriteFile(filepath.Join(filepath.Dir(log), "stage"), []byte(c.stage), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
 			prompt := "Role: " + c.role + "\nread " + main + "-worktrees/" + c.names
 			if denied, out := runBegin(t, beginPayload(t, main, c.description, prompt, c.typ, "opus", "low"), env...); denied {
 				t.Fatalf("denied: %s", out)
