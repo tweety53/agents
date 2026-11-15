@@ -855,14 +855,13 @@ withdrawn with a reason under the fix round's handback. A surviving mutant's rep
 `flow-guard run-reproducer` reads as the mutation convention, since the build succeeding
 with the mutation landed is the bug present, the reverse of the generic exit-code contract. A reproducer never `cd`s — it runs each tool against its directory with `go -C`, `make -C` or `npm --prefix` and names every file as `$PWD/<path>` — and makes its edit through a patch file or a fixed-string replacement, never through shell quoting nested inside another quoted string. A reproducer adds no file under `$PWD`: a Go test it adds is written under `mktemp -d` and passed to `go test -overlay <json>`, whose `Replace` map names the test's path in the package, a Go mutation goes through the same overlay, its `Replace` map naming the mutated source's path and its mutated copy under `mktemp -d`, and every other file it writes lives in its own `mktemp -d` directory. Its
 tree is `$PWD`, the worktree `flow-guard run-reproducer` passes — never the slot's throwaway copy it was
-authored in, which is gone once the dispatch closes. Its test command runs every test of the package, file or module the mutated
-code belongs to, never a filter naming the tests that exist today: a test the fix adds under a new
-name has to be able to kill the mutant. When one run of that whole
-package takes more than a third of the slot's ceiling — measured once in the slot, before the first
-mutation — the command may instead filter by the name prefix the mutated code's test family shares
-(`-run '^TestCheckPanel'`), never a full test name, so a fix's new test under that prefix still
-kills the mutant. Its
-`# reproducer-bound:` is that measured run's seconds, doubled. Its exits follow the
+authored in, which is gone once the dispatch closes. Its test command filters by the name prefix the mutated code's test family
+shares (`-run '^TestCheckPanel'`), never by a full test name, so a test the fix adds under that
+prefix still kills the mutant and the run's cost does not grow with the package; only when the
+family shares no prefix does it run every test of the package, file or module the mutated code
+belongs to. Its `# reproducer-bound:` is one run of that command, measured in the slot before the
+first mutation, its seconds doubled — never raised to fit a whole-package run (kan-1119
+self-review, F3). Its exits follow the
 mutation-reproducer convention, never the generic one: it exits 0 when every test passes with the
 mutation in place — the mutant survived, the defect present — and non-zero when a test kills it.
 Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess.
