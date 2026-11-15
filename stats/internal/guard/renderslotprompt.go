@@ -74,7 +74,8 @@ import (
 // After the path, one line names the Agent call that launches the brief:
 // `DISPATCH: description "panel-<round>-<slots>[-<repo>]" — prompt opens "Role: <role>"`,
 // <role> panel-mutation-failure for a dispatch carrying mutation and
-// panel-sanity-efficiency for test-sanity+call-efficiency under -diff final,
+// panel-sanity-efficiency under -diff final for a dispatch whose every slot is
+// test-sanity or call-efficiency (the bundle, or either alone once shrunk),
 // panel-reviewer for any other final dispatch, panel-rerun under delta and
 // fix-round, and under late-fix `late-fix` when
 // <canonical-wt>/.superpowers/sdd/decision.json is absent or its panel is
@@ -444,16 +445,19 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 // rspRole is the Role line's id a dispatch of slotArg under -diff kind opens
 // with (decision f9-dispatch-head, kan-1086 self-review F9) -- a final
 // dispatch carrying the mutation slot, alone or with failure-modes, is the
-// panel-mutation-failure bundle; under late-fix,
+// panel-mutation-failure bundle, and one whose every role is test-sanity or
+// call-efficiency -- the bundle, or either role alone after the slot triggers
+// shrank it (kan-1126) -- is panel-sanity-efficiency; under late-fix,
 // `late-fix` on a default panel -- decision.json absent or its panel the
 // string "default" -- and `panel-rerun` on a decided one.
 func rspRole(slotArg, kind, sdd string) string {
 	switch kind {
 	case "final":
+		roles := strings.Split(slotArg, "+")
 		switch {
-		case slices.Contains(strings.Split(slotArg, "+"), "mutation"):
+		case slices.Contains(roles, "mutation"):
 			return "panel-mutation-failure"
-		case slotArg == "test-sanity+call-efficiency":
+		case !slices.ContainsFunc(roles, func(r string) bool { return r != "test-sanity" && r != "call-efficiency" }):
 			return "panel-sanity-efficiency"
 		}
 		return "panel-reviewer"

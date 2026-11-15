@@ -467,6 +467,31 @@ func TestRenderSlotPromptPrintsTheDispatchHead(t *testing.T) {
 	}
 }
 
+// A sanity-efficiency bundle the slot triggers shrank to one role is still
+// judged on that bundle's pair row: a final dispatch of test-sanity or
+// call-efficiency alone opens Role: panel-sanity-efficiency, while any other
+// non-mutation final dispatch stays panel-reviewer (kan-1126).
+func TestRenderSlotPromptLoneSanityEfficiencyRole(t *testing.T) {
+	t.Parallel()
+	skill := rspSkillDir(t)
+	for _, c := range []struct{ slots, role string }{
+		{"test-sanity", "panel-sanity-efficiency"},
+		{"call-efficiency", "panel-sanity-efficiency"},
+		{"test-sanity+call-efficiency", "panel-sanity-efficiency"},
+		{"primary", "panel-reviewer"},
+	} {
+		t.Run(c.slots, func(t *testing.T) {
+			fx := rspNewFx(t)
+			r, _ := fx.run(t, skill, skill, "2", fx.canon, fx.plan, c.slots, "-diff", "final", "--", fx.canon)
+			want := `DISPATCH: description "panel-2-` + c.slots + `" — prompt opens "Role: ` + c.role + `"`
+			lines := strings.Split(strings.TrimSuffix(r.stdout, "\n"), "\n")
+			if r.rc != 0 || len(lines) != 2 || lines[1] != want {
+				t.Errorf("exit %d stdout %q stderr %q; want the path, then %q", r.rc, r.stdout, r.err, want)
+			}
+		})
+	}
+}
+
 // Over the cap, a multi-repository pass is dispatched once per repository
 // section: -repo renders its SECTION block, per-repository report files, its
 // own prompt file and DISPATCH description (kan-1096 self-review, F2).
