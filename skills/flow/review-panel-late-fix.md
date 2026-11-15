@@ -31,7 +31,7 @@ reduction fires; exit 1 → the full path, each failed condition on its own line
 answer, read as the full path; exit 3 → **The append scope** below — the full path for the
 roster, never for the read scope; exit 4 → **The small append** below.
 
-**On trigger, pass 1 is one dispatch: `primary` alone**, beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the operator named at
+**On trigger, pass 1 is one dispatch: `primary` alone**, beside **The extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the operator named at
 this stage's start, reading not the whole `final-review.diff` but only
 `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by
 `flow-guard write-panel-diff late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`,
@@ -89,7 +89,7 @@ narrow. A clean close moves the close sha to the round's HEAD, as any close does
 ## The small append
 
 **A fix run whose late-fix check exits 4 — the append scope's verdict on a countable delta of at
-most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the
+most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside **The extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the
 operator named at this stage's start, on the pair `flow-guard pair-judge late-fix <prompt file>`
 prints (**Model and effort**, `skills/flow/brainstorm-planner.md`) under the ordinary 15-minute ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders
 it. `primary` reads every line of the new source, so nothing appended goes unreviewed; what the
@@ -153,7 +153,7 @@ verbatim:
 It also states: the absolute worktree path; the fix instructions, verbatim; the output of
 `git -C <worktree> diff --stat <merge-base>`; the three lines `flow-guard fix-run-floor` printed;
 the roles this round's pass 1 would dispatch without a verdict — the roster the reductions above
-leave, the always-on extra dispatches' roles and every slot the operator named — one id per
+leave, the extra dispatches' roles **The slot triggers** (`skills/flow/review-panel.md`) leave and every slot the operator named — one id per
 line; the absolute path of the rendered panel record under
 `<abs-worktree>/.superpowers/sdd/reviews/`, whose findings are the earlier rounds'; and this
 task, as written:
@@ -193,7 +193,7 @@ or `fix-run judge: full path — <the guard's stderr, or aborted>`.
 **What a verdict in force changes, and what holds it there:**
 
 - **The roster.** Pass 1 dispatches a role only when the verdict's roster names it. The verdict
-  is applied after the reductions above, to the roster and to the always-on extra dispatches
+  is applied after the reductions above and the slot triggers, to the roster and to the extra dispatches
   alike, and only ever removes: a bundle dispatches the roles it still names, on its own pair
   and read scope, and a bundle left naming none is not dispatched. Each dropped role is recorded
   with `flow record pass -round <round> -note 'not dispatched — fix-run judge: <slot>'`.

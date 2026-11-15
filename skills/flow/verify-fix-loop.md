@@ -138,7 +138,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 3. **Re-review the delta, once the loop's re-runs are clean.** A round does not open the panel:
    step 4 follows step 2 directly, and the next round opens on any defect it reports. When the
    closing full run reports no fixable defect, open `flow.review-panel` once and run `primary`
-   beside **The always-on extra dispatches** (`skills/flow/review-panel.md`), reading
+   beside **The extra dispatches** (`skills/flow/review-panel.md`), reading
    `late-fix.diff` over the range since the panel's last clean close — every round's fix in one
    read. A Critical or Important it raises is fixed by the ordinary fix round, and that fix is
    then verified by one step-4 re-run scoped to its diff; a fix that touches no `ui paths` entry

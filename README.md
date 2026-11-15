@@ -169,13 +169,17 @@ The planner prints a `## Decision` table and proceeds without asking.
 | Class | Execution | Implementer effort | Review panel |
 |-------|-----------|--------------------|--------------|
 | `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
-| `small` | inline | — | `primary`+`principles`, delta re-runs |
+| `small` | inline | — | `primary`, delta re-runs |
 | `regular` | inline | — | `primary`+`principles`, delta re-runs |
 | `big` | `sdd`: subagent implementers, one per task group | judged per group by `pair-judge`, never `high` | same roster as `regular`, full re-runs |
 
-- **Rosters.** `compact` shrinks any roster but `micro`'s to `primary`+`principles`; a round runs at
-  most two review dispatches of up to three roles, beside the always-on
+- **Rosters.** `compact` shrinks any roster but `micro`'s and `small`'s to `primary`+`principles`; a
+  round runs at most two review dispatches of up to three roles, beside the
   `test-sanity+call-efficiency` and `mutation+failure-modes` dispatches.
+- **Slot triggers.** `test-sanity`, `call-efficiency` and `failure-modes` run only when the change
+  gives them something to read: `scripts/flow-guard panel-slot-triggers` reads the diff at review
+  time, `scripts/flow-guard slot-judge` reads the plan at Decide, and a role is skipped only when
+  both say skip. `mutation` always runs.
 - **`micro`** (at most two tasks, docs only, at most 20 changed lines) makes no choices but still
   gets the decision record, verify and self-review.
 
