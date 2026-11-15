@@ -125,6 +125,10 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 	return out
 }
 
+// Cost: 1.78–2.23 s (load 8–26; no idle window) — twenty-five runs of the
+// real stop hook, each a python3 start reading its own fake store; the shared
+// flow-guard build is TestMain's, not this test's. Cutting a run drops a stop
+// shape the gate proves.
 // smoke: core — the stop gate
 func TestFlowStopGuardHook(t *testing.T) {
 	t.Parallel()

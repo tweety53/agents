@@ -61,7 +61,17 @@ var sharedGuardCache = sync.OnceValues(func() (string, error) {
 	return dir, nil
 })
 
+// TestMain builds the shared flow-guard cache before any test runs, so its
+// build is not charged to whichever hook test calls runHook first (kan-1124,
+// slowest-threshold).
 func TestMain(m *testing.M) {
+	if _, err := sharedGuardCache(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		if guardCacheDir != "" {
+			_ = os.RemoveAll(guardCacheDir)
+		}
+		os.Exit(2)
+	}
 	code := m.Run()
 	if guardCacheDir != "" {
 		_ = os.RemoveAll(guardCacheDir)
