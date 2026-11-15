@@ -639,14 +639,21 @@ func RenderLedger(r Run) string {
 		}
 		// The label is what the dispatch asked for; the metrics name what
 		// served it, shown beside the label when they differ (decision
-		// readers-prefer-served-metrics).
+		// readers-prefer-served-metrics). An inline row's work is the parent's
+		// own transcript, so its served model is the true one and its label a
+		// hand-typed guess: it prints the served model alone (kan-1087
+		// self-review, F16). "inline" is internal/harvest's InlineAgentID.
 		var served struct {
 			ModelVersion, Effort string
 			CostUSD              *float64 `json:"cost_usd"`
 		}
 		_ = json.Unmarshal(d.Metrics, &served)
+		model := labelServed(orElse(d.Model, "not recorded"), served.ModelVersion)
+		if d.AgentID == "inline" && served.ModelVersion != "" {
+			model = served.ModelVersion
+		}
 		fmt.Fprintf(&b, "- Model: %s effort=%s\n",
-			labelServed(orElse(d.Model, "not recorded"), served.ModelVersion),
+			model,
 			labelServed(orElse(d.Effort, "default"), served.Effort))
 		// The dispatch's own price is a breakdown: its stage's cost already
 		// holds these tokens (decision dispatch-cost-on-row-metrics).

@@ -1320,3 +1320,26 @@ func TestRenderLedgerNamesPairPick(t *testing.T) {
 		t.Errorf("want exactly one pair pick line, got %d:\n%s", n, out)
 	}
 }
+
+// TestLedgerShowsAnInlineRowsServedModelAlone pins kan-1087 self-review F16: an inline row's
+// served model is the true one, so it renders alone, with no requested-label arrow.
+func TestLedgerShowsAnInlineRowsServedModelAlone(t *testing.T) {
+	served := json.RawMessage(`{"modelVersion":"claude-sonnet-5-5","effort":"medium"}`)
+	for _, tc := range []struct {
+		agent   string
+		metrics json.RawMessage
+		want    string
+	}{
+		{"inline", served, "- Model: claude-sonnet-5-5 effort=high → medium\n"},
+		{"inline", nil, "- Model: opus effort=high\n"},
+		{"a1b2", served, "- Model: opus → claude-sonnet-5-5 effort=high → medium\n"},
+	} {
+		out := records.RenderLedger(records.Run{Change: "demo", Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", AgentID: tc.agent, Model: "opus", Effort: "high", Metrics: tc.metrics,
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+		}}})
+		if !strings.Contains(out, tc.want) {
+			t.Errorf("%s: ledger lacks %q:\n%s", tc.agent, tc.want, out)
+		}
+	}
+}
