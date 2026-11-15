@@ -258,7 +258,7 @@ squash partner).
 
 **Implement:** `check-task-commit-fields` (commit touches exactly its declared files),
 `check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
-`check-plan-unchanged` + `check-tree-markers` (snapshot around each subagent),
+`check-plan-unchanged` (snapshot at a reviewer row's begin, verify at its end) + `check-tree-markers` (snapshot around each subagent),
 `check-dispatch-paragraphs`, `check-workspace-isolation` (own database, cache, bucket, ports).
 
 **Verify:** `run-verify-list` (the lint and test lists, the visual `verify` row last; the test list is the default run, and `-full` — every skip off, run only when the operator asks — is the full suite; `-detect-flaky` names a flaky visual test once, `-only <visual-failing.txt>` re-runs only the failing ones five times, each round's log kept as `visual-<mode>-r<N>.log`, and one plain run is the gate), `check-verify-green`, `visual-verify-pass` (the parent's side of `flow.visual-verify`; a scoped fix round whose every frame was re-captured and whose every changed frame was judged closes the visual loop with no `-full` run), `smoke-keep` (the heavy tests a touched file keeps in the default run), `test-cost` (each test's cost from the test2json it reads on stdin, for re-profiling the heavy marks); `flow suite list -tests <suite>` prints a suite's recorded per-test costs.

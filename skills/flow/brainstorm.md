@@ -109,8 +109,9 @@ flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -ses
 `planner-role`). A `/flow-plan` capture runs this section too, with the differences
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states. Every planner dispatch is fresh and one-shot, on `subagent_type:
 flow-planner-<effort>` with `model` and effort from `flow-guard pair-judge planner <digest>`, per
-**Model and effort** (`skills/flow/brainstorm-planner.md`): `<digest>` is the latest round file, and in round 1
-the ticket or seeded note written to `<abs-worktree>/.superpowers/sdd/pair-judge/plan-1.md`; a
+**Model and effort** (`skills/flow/brainstorm-planner.md`): `<digest>` is
+`<abs-worktree>/.superpowers/sdd/pair-judge/plan-<n>.md`, the latest round file copied there in the
+call that judges it, and in round 1 the ticket or seeded note written there; a
 guard redispatch takes the pair the guard redispatch rule below names. `xhigh` and an opt-in pair are used only under an
 operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`): the parent's prompt
 then carries `Operator pair: planner`, and one line `Granted: <role> <model> <effort>` for each
@@ -120,10 +121,10 @@ auto-resolution sentence replaced by "every choice is written as a question of t
 the change name, the absolute worktree, the session token and `REVIEWERS` (**Model resolution**,
 `skills/flow/SKILL.md`), already in scope from this run's own earlier resolution. `<n>` counts
 this run's planner dispatches from 1, and the Agent-tool `description` opens with `plan-<n>` —
-`plan-2 design round` — the row `hooks/enforce-agent-baseline.py` admits:
+`plan-2 design round` — the row `hooks/enforce-agent-baseline.py` begins at launch, ended on the
+planner's return:
 
 ```bash
-flow record dispatch begin -change <name> -role planner -model <m> -effort <e> -key plan-<n> -session-token mf-<literal-token> -pair-pick '<source>: <reason>'
 flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal-token> -outcome completed
 ```
 
@@ -131,7 +132,7 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    plan mode, reading the ticket, `findings.md`, the latest `round-<r>.md` and the latest
    `answers-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
    prompt, never an earlier round or answers file —
-   dispatching its own Explore and Plan agents (it records their rows, `-role explorer|planner`,
+   dispatching its own Explore and Plan agents (the hook begins their rows and the planner ends them, `-role explorer|planner`,
    `-key explore-<n>|design-<n>`, each pair from `flow-guard pair-judge explorer|plan-designer <prompt file>`, `<n>` continuing
    the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
    a reused key restarts the earlier round's row), writing or
@@ -245,7 +246,6 @@ in-run fix planners and `/flow-fast` never run it.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.plan-review -harness <harness> -session-token mf-<literal-token> <name>
-flow record dispatch begin -change <name> -role reviewer -model <m> -effort <e> -key plan-review-<n> -session-token mf-<literal-token> -pair-pick '<source>: <reason>'
 flow record dispatch end -change <name> -key plan-review-<n> -session-token mf-<literal-token> -outcome completed
 flow stage end -command '/flow' -stage flow.plan-review -outcome completed <name>
 ```

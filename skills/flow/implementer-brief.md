@@ -183,7 +183,7 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > commit and your final test run — carrying each commit's sha, the failing RED output you saw,
 > and anything the plan's `unverified:` tags asked you to establish. The report opens with this
 > summary head, and your final message is the head alone — the dispatcher reads it from your
-> completion notification and opens the report body only where a judgement needs it:
+> completion notification and never opens the report body:
 >
 > ```text
 > Model: <the model named in your own system prompt>

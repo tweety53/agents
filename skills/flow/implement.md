@@ -104,11 +104,19 @@ words, with no parentheses: `panel-1-primary correctness review`. The `flow-task
 (`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
 row its description's first word names, so `hooks/enforce-agent-baseline.py` denies, in a flow run,
 a dispatch whose description opens any other way. A first
-word off the **Key shape** column above is another way. A live `flow record dispatch begin` prints both for its row after its
-`recorded:` line — `description: <opening>`, and `Role: <role id>` wherever the row decides it —
-and the parent pastes that opening into the Agent call's `description` and that line into its
-prompt, never composing either; where no `Role:` line is printed, as for a panel reviewer row, the
-id is the **Role line** column's above.
+word off the **Key shape** column above is another way. The `Role:` line is the **Role line** column's id above.
+
+**The hook writes the row's begin.** On a flow dispatch with no open row for its key,
+`hooks/enforce-agent-baseline.py` runs `flow record dispatch begin` itself once its other checks
+pass — the key from the prompt's `Key:` line, else the description's first word; the role from the
+prompt's `Role:` line; the model and effort from the Agent call; the session token and change from
+the session's latest stage run; the pair pick from
+`<abs-worktree>/.superpowers/sdd/pair-judge/<key>.pick` — and denies the launch with `flow`'s
+stderr when that begin is refused. The parent runs no `begin` of its own for such a row. A row
+whose begin needs a flag the Agent call cannot carry — a panel slot's `-diff-base`, an
+operator-asked row's `-request`, an inline row's `-agent-id inline` — is still begun by its own
+site, and the hook then finds it open and writes nothing. The end stays the parent's, riding the
+Bash call it already makes on each return.
 
 **Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
 `SendMessage` to a child that has written its report. Whatever a
@@ -154,9 +162,10 @@ model and `subagent_type`, under `<key>-retry`:
 ```bash
 flow record dispatch end -change <name> -key <key> -session-token mf-<literal-token> \
   -outcome fallback
-flow record dispatch begin -change <name> -role <role> -model <the model originally requested> \
-  -effort <the effort originally requested> -key <key>-retry -session-token mf-<literal-token>
 ```
+
+The retry names `<key>-retry` wherever the original named `<key>` — its prompt's `Key:` line, or
+its `description`'s first word — and the hook begins that row.
 
 A **second** mismatch closes the retry row `-outcome fallback` too and the parent asks the
 operator directly through **AskUserQuestion**, naming the requested model and both models that
@@ -447,15 +456,8 @@ dispatch inherits; a fix to something visual names the fresh capture taken after
 the same footing as step 6's fingerprint (`skills/flow/visual-verify.md`). A mutator that
 finds unrelated uncommitted changes mid-task says so and stops rather than fixing around them.
 
-**The parent records each dispatch in two calls — one as it goes out, one as it comes back.**
-Immediately before dispatching:
-
-```bash
-flow record dispatch begin -change <name> -task <n> -role implementer -model <m> -effort <e> \
-  -key task-<ids>-implementer -session-token mf-<literal-token>
-```
-
-and as soon as that dispatch reports back, before the next one goes out:
+**The hook begins each implementer's row as it goes out** (**The hook writes the row's begin**,
+above), and the parent ends it as soon as that dispatch reports back, before the next one goes out:
 
 ```bash
 flow record dispatch end -change <name> -key task-<ids>-implementer \
@@ -575,7 +577,7 @@ flow record substitution -change <name> -guard <guard-name> -shape <shape> -subs
 The paragraphs that instruct an implementer in its work — FLOW — COMMIT-PER-TASK through REPORT,
 DON'T DECIDE — live in that file, which the implementer reads in full first, and the prompt never
 carries them. The prompt is these lines alone, in this order, each `<…>` filled — `<skill-dir>` the
-directory this file was read from, the `Role:` line the one `flow record dispatch begin` printed for
+directory this file was read from, the `Role:` line the **Role line** column's id for
 the row, and the `Incident:` line present only when an incident rides this dispatch (**An incident
 one dispatch caused rides the next dispatch to the same role**, above), and the `In-run fix:` line
 present only on the implementer of an in-run fix task (**The in-run fix loop**, `skills/flow/verify-fix-loop.md`):
@@ -670,8 +672,8 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
      # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
      # group N+2's gather (skills/flow/sdd-dispatch.md), then its marker snapshot:
      flow-guard check-tree-markers snapshot <worktree> <markers-file> <group N+2's snapshot-file>
-     # group N+2's `flow record dispatch begin` (above); on `big`, when a gate fired in group N+1,
-     # that bundle's diffs, snapshots and begin (The gated per-task reviewer, below)
+     # on `big`, when a gate fired in group N+1, that bundle's diffs and marker snapshot
+     # (The gated per-task reviewer, below); the hook begins both rows at launch
    fi
    ```
 
@@ -843,9 +845,9 @@ The reviewer writes every finding its passes raise to the bundle's findings file
 <that file>`, which gives each line the change's next free ref, so the run's Findings count holds
 what the gate caught; the panel's guards and its rendered record skip `gated-reviewer` rows.
 **A returning bundle is one Bash call**, its verdicts read from its final message — one line per
-pass — never its report bodies: `flow-guard check-plan-unchanged verify` and `flow-guard check-tree-markers
-verify` first (**The plan tree survives every reviewer dispatch**, below), then, on both exit 0,
-the findings call above, the record's end and `flow tasks tick` for every clean task — riding the
+pass — never its report bodies: `flow-guard check-tree-markers verify` first, then the record's end,
+which runs the plan-tree verify itself (**The plan tree survives every reviewer dispatch**, below),
+then, on both exit 0, the findings call above and `flow tasks tick` for every clean task — riding the
 boundary call above when the next group's implementer returns in the same wake.
 A gated bundle's `verify` appends the `**Files:**` paths of the implementer group dispatched beside it, `flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file> <path>…`, so that group's uncommitted edits are not read as the reviewer's; every other bracket passes none.
 **A pass whose findings are all Minor is `clean`** — no re-review; its task ticks in the call
@@ -902,12 +904,14 @@ its PASS values those `skills/flow/gated-review-fix.md` names; a handshake retry
 bundle's lines.
 
 **The plan tree survives every reviewer dispatch — asserted by git, never by the reviewer's
-prose.** Before a gated reviewer bundle's Agent call goes out — original, fix re-review, or
-handshake retry alike — the parent runs
-`flow-guard check-plan-unchanged snapshot <worktree> <name> <snapshot-file>`. Once the bundle's completion
-notification arrives, the parent runs `flow-guard check-plan-unchanged verify <worktree> <name>
-<snapshot-file>` **before any verdict is read or acted on**: exit 0, the reports are read; exit
-1 ends the turn with `## Question` carrying the guard's lines verbatim; exit 2, the same stop.
+prose.** As `hooks/enforce-agent-baseline.py` begins a gated reviewer bundle's row — original, fix
+re-review, or handshake retry alike — it runs `flow-guard check-plan-unchanged snapshot` to
+`<abs-worktree>/.superpowers/sdd/plan-snapshot-<key>.txt`, and denies the launch when the snapshot
+fails. `flow record dispatch end` of that row runs `check-plan-unchanged verify` against the same
+file **before any verdict is acted on**: exit 0, the row closes; exit 1 or 2 — a changed tree, or a
+missing or unreadable snapshot — refuses the end with the guard's lines, and the parent ends the
+turn with `## Question` carrying them verbatim. Only `-outcome aborted`, for a dispatch that never
+ran, skips the verify.
 The parent never edits the plan tree while a snapshot-bracketed dispatch is in flight: an operator's plan change that arrives then is applied after that dispatch's `verify`, and the next bracket's snapshot is taken after the edit. The parent's own task-close edits are the exception: a checkbox tick, an inserted `Correction (YYYY-MM-DD):` paragraph and a `**Files:**` line widened without dropping an entry may land while a bracket is open, since `verify` admits exactly those three; any other plan edit waits for the bracket's `verify`.
 
 **Every dispatch that can touch the worktree is bracketed by content markers — the subagent's
@@ -973,12 +977,12 @@ control,
 stated once here and cited — never restated — from `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` wherever they read a report or a diff:
 
-- **Never `cat` a report.** An implementer, panel-fix, panel or verifier report is read for its
-  verdict section only — `sed -n '/^## Verdict/,/^## /p' <report>` or the equivalent for that
-  report's own shape — never the whole file. An implementer's, fixer's or gated bundle's verdict is
-  the final message its notification carries (`skills/flow/implementer-brief.md`,
-  `skills/flow/gated-reviewer-brief.md`), and its report body is read only where a judgement needs
-  it, once, narrowly.
+- **Never open a report.** The parent opens no report or evidence file a dispatched agent wrote. A
+  dispatch's verdict is its final message — an implementer's, fixer's or gated bundle's summary
+  head (`skills/flow/implementer-brief.md`, `skills/flow/gated-reviewer-brief.md`), the verifier's
+  `## Verdict`, the panel's merger summary — and a judgement that needs a report body goes to the
+  agent passed that path: the fixer through `FIX INPUT:`, the merger, the planner. A file a guard or
+  `flow` parses, and output the operator must see, are not the parent's reads.
 - **Never read `final-review.diff`, a dispatch-context bundle, or a panel-fix diff whole.** A slot
   reads the diff it was dispatched against; the parent walks a fix's hunks through `git diff
   --stat` and the specific hunks a finding names, never the whole diff. "Never read the bundle

@@ -498,10 +498,10 @@ tracked path the suite's tree gate reads.
 The same plan-tree discipline rides every round, re-run rounds included: `flow-guard
 panel-round-begins` takes the round's snapshot itself, to
 `<abs-worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt`, overwriting a file an earlier
-invocation left, pass 1's `mutation+failure-modes` call keeping the round's — never by hand — and once every report file exists the parent runs
-`flow-guard check-plan-unchanged verify <worktree> <name> <that file>` before any
-report is read or finding recorded. Exit 1 or 2 stops the round the same way the per-task
-reviewer's stop works (the plan-tree rule of **4. Execute
+invocation left, pass 1's `mutation+failure-modes` call keeping the round's — never by hand — and
+the round's `panel-<round>-merger` row's end runs `flow-guard check-plan-unchanged verify` against
+that file before any finding is recorded, refusing the end on exit 1 or 2 or a missing file. That
+refusal stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`). The round brackets
 itself with content markers beside that guard (the content-marker rule of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`): the marker list names the plan
@@ -831,12 +831,10 @@ defect raised by several roles, every `flow record finding`, `status` and `incid
 and every re-run decision stay the parent's.
 
 **The merger runs on `flow-low` with `model: "sonnet"`** — its work is mechanical, and every review
-stays on its slot's own pair. Its row, begun in the Bash call before its launch and ended once its
-summary is read:
+stays on its slot's own pair. Its row is begun by the hook at launch and ended once its summary is
+read, before any finding is recorded:
 
 ```bash
-flow record dispatch begin -change <name> -role merger -model sonnet -effort low \
-  -key panel-<round>-merger -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-<round>-merger \
   -session-token mf-<literal-token> -outcome completed
 ```
@@ -867,7 +865,7 @@ reply.
 
 **The summary is what the parent reads**, not the reports: its `finding:` lines carry each
 finding's severity, location, task, reproducer and the reviewer's own sentence, the `-note` of
-**Recording findings**. A report is read only where a finding's judgement needs it. A `duplicate:`
+**Recording findings**. A `duplicate:`
 line is a candidate fold the parent confirms or rejects under **Bundled dispatch**'s
 several-roles rule; a `missing-reproducer:` line is the reproducer the parent writes itself under
 **Recording findings**.
@@ -1224,13 +1222,13 @@ the **AskUserQuestion** it states.
 > line, `regression-test: F<n> — <repo-relative path> — <test name>`, naming the git-tracked suite
 > test that fails at the pre-fix code — a reproducer promoted into the suite, never one left under
 > `<project>/.superpowers/` — or `regression-test: F<n> — none — <reason>` where no suite test can exist.
-> The dispatcher waits on that file's presence.
+> The dispatcher waits on that file's presence. Your final message repeats the report's
+> `fix-mutation:` and `fix-mutations-total:` lines.
 
-**The fix subagent's own dispatch is recorded too, with `-role panel-fix`:**
+**The fix subagent's own dispatch is recorded too** — the hook begins its row, `-role panel-fix`,
+at launch, and the parent ends it:
 
 ```bash
-flow record dispatch begin -change <name> -role panel-fix -model <m> -effort <e> \
-  -key panel-fix-<round>[-<chunk>] -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed
 ```
