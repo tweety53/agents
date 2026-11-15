@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -797,4 +801,200 @@ func TestVisualVerifyPassPrepareRoundDiffReadsTheSiblings(t *testing.T) {
 	if rc != 0 || strings.Contains(out, "round diff empty") || !strings.Contains(calls, "dispatch begin") {
 		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
 	}
+}
+
+// vvpFrames is "<prefix><from>" … "<prefix><to>".
+func vvpFrames(prefix string, from, to int) []string {
+	var ids []string
+	for i := from; i <= to; i++ {
+		ids = append(ids, prefix+strconv.Itoa(i))
+	}
+	return ids
+}
+
+// vvpOwnShots is one (spec, screenshot, frame) line per frame, each frame on
+// a screenshot of its own.
+func vvpOwnShots(spec string, frames []string) [][3]string {
+	var lines [][3]string
+	for _, f := range frames {
+		lines = append(lines, [3]string{spec, "shot-" + f + ".png", f})
+	}
+	return lines
+}
+
+// TestVvpSlices pins decisions four-shards-slices-grow and slice-by-frame-id:
+// n = min(4, ⌈F/25⌉) contiguous slices, each closing at the first group
+// boundary at or past ⌈F/n⌉ frames, a group being the frames one screenshot
+// joins across every spec; fewer slices when the groups run out, never an
+// empty one; a declared frame with no sidecar line in the first.
+func TestVvpSlices(t *testing.T) {
+	t.Parallel()
+	sizes := func(s [][]string) []int {
+		var n []int
+		for _, x := range s {
+			n = append(n, len(x))
+		}
+		return n
+	}
+	joined := vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60))
+	joined[20][1] = joined[19][1] // F20 and F21 drawn on one screenshot
+	twoSpecs := append(vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60)),
+		[3]string{"b.spec.ts", "y.png", "F5"}, [3]string{"b.spec.ts", "y.png", "F50"})
+	oneBig := vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60))
+	for i := 0; i < 45; i++ {
+		oneBig[i][1] = "all.png"
+	}
+	for _, tc := range []struct {
+		name  string
+		lines [][3]string
+		extra []string
+		want  []int
+		check func(s [][]string) bool
+	}{
+		{"25 frames stay one slice", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 25)), nil, []int{25}, nil},
+		{"60 frames cut into three of 20", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60)), nil, []int{20, 20, 20}, func(s [][]string) bool { return s[1][0] == "F21" }},
+		{"130 frames keep four, slices grow", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 130)), nil, []int{33, 33, 33, 31}, nil},
+		{"a cut inside a screenshot moves forward", joined, nil, []int{21, 20, 19}, func(s [][]string) bool { return s[0][20] == "F21" }},
+		{"a frame two specs map joins its group", twoSpecs, nil, []int{20, 20, 20}, func(s [][]string) bool { return slices.Contains(s[0], "F50") }},
+		{"groups that run out make fewer slices", oneBig, nil, []int{45, 15}, nil},
+		{"a frame with no sidecar line goes first", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 59)), []string{"Z1"}, []int{20, 20, 20}, func(s [][]string) bool { return s[0][0] == "Z1" }},
+	} {
+		got := vvpSlices(tc.lines, tc.extra)
+		if !slices.Equal(sizes(got), tc.want) || tc.check != nil && !tc.check(got) {
+			t.Errorf("%s: slices %v, want sizes %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// vvpShardFixture is a prepare fixture declaring `mockups`, whose `specs` row
+// prints one capture spec mapping n frames, one screenshot each, its `setup`
+// and `capture` rows fixture scripts logging every run to run.log; capture
+// writes shot-F1.png when png is set.
+func vvpShardFixture(t *testing.T, n int, capture string) *vvpFix {
+	t.Helper()
+	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n")
+	b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
+	// The section's `capture` row is its one cell ending `<spec>`.
+	project := regexp.MustCompile("`[^`|]*<spec>`").ReplaceAllString(string(b), "`./cap <spec>`")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(project, "`npm ci`", "`./setup`", 1))
+	log := filepath.Join(f.wt, "run.log")
+	writeExec(t, filepath.Join(f.wt, "setup"), "#!/bin/sh\necho setup >> "+log+"\n")
+	writeExec(t, filepath.Join(f.wt, "cap"), "#!/bin/sh\necho \"capture $*\" >> "+log+"\n"+capture)
+	writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts\n")
+	var spec, sidecar strings.Builder
+	for _, id := range vvpFrames("F", 1, n) {
+		writeFile(t, filepath.Join(f.wt, "design/mockups", id+".png"), "png\n")
+		fmt.Fprintf(&spec, "shot('shot-%s.png')\n", id)
+		fmt.Fprintf(&sidecar, "shot-%s.png %s\n", id, id)
+	}
+	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts"), spec.String())
+	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts.mockups"), sidecar.String())
+	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), fmt.Sprintf("Frames F1 … F%d.\n", n))
+	writeFile(t, filepath.Join(f.wt, ".gitignore"), "run.log\nspectre/changes/\n")
+	gitRun(t, f.wt, "add", "-A")
+	gitRun(t, f.wt, "commit", "-qm", "frames")
+	f.green()
+	return f
+}
+
+// TestVisualVerifyPassPrepareShards pins decisions
+// shard-unscoped-single-worktree, prepare-captures-sharded,
+// capture-before-merge-base, merge-base-capture-when-baseline-missing,
+// capture-failure-falls-back-serial, bundle-names-measure-call and
+// shard-key-segment (KAN-1121).
+func TestVisualVerifyPassPrepareShards(t *testing.T) {
+	smoke.Heavy(t)
+	runLog := func(f *vvpFix) string { b, _ := os.ReadFile(filepath.Join(f.wt, "run.log")); return string(b) }
+	bundle := func(f *vvpFix, key string) string {
+		b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/verify-prompt-"+key+".md"))
+		return string(b)
+	}
+	spec := func(f *vvpFix) string { return filepath.Join(f.wt, "tests/visual/a.spec.ts") }
+	part := func(f *vvpFix) string {
+		return filepath.Join(f.wt, "spectre/changes/demo/visual-verification/record-s1of2.md")
+	}
+
+	t.Run("25 frames run one unsharded verifier", func(t *testing.T) {
+		f := vvpShardFixture(t, 25, "")
+		writeFile(t, part(f), "# old\n")
+		rc, out, _ := f.prepare()
+		if rc != 0 || strings.Contains(f.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 || !strings.Contains(out, "DISPATCH: visual-verify ") || runLog(f) != "" {
+			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, f.stageFile())
+		}
+		if !strings.Contains(bundle(f, "visual-verify"), "measure: flow-guard visual-verify-pass measure "+f.wt+" demo visual-verify <spec path>\n") {
+			t.Fatalf("the unsharded bundle names no measure call:\n%s", bundle(f, "visual-verify"))
+		}
+		if _, err := os.Stat(part(f)); err != nil {
+			t.Fatalf("an unsharded pass deleted an old record part: %v", err)
+		}
+	})
+
+	t.Run("60 frames run three shards", func(t *testing.T) {
+		f := vvpShardFixture(t, 60, "")
+		writeFile(t, part(f), "# old\n")
+		rc, out, calls := f.prepare()
+		s := f.stageFile()
+		slice2 := strings.Join(vvpFrames("F", 21, 40), ",")
+		for _, want := range []string{"spec " + spec(f) + "\n", "slice s1of3 " + strings.Join(vvpFrames("F", 1, 20), ",") + "\n", "slice s2of3 " + slice2 + "\n", "captured\n", "row visual-verify-s3of3 " + f.wt + "\n"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("stage file lacks %q", want)
+			}
+		}
+		d := vvpLines(out, "DISPATCH: ")
+		if rc != 0 || len(d) != 3 || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-s2of3 ") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 3") ||
+			!strings.Contains(calls, "-key visual-verify-s1of3 ") || runLog(f) != "setup\ncapture "+spec(f)+" --update-snapshots=all\n" {
+			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
+		}
+		b := bundle(f, "visual-verify-s2of3")
+		for _, want := range []string{"slice: s2of3 " + slice2 + "\n", "measure: flow-guard visual-verify-pass measure " + f.wt + " demo visual-verify-s2of3 <spec path> --frames " + slice2 + "\n"} {
+			if !strings.Contains(b, want) {
+				t.Errorf("the s2of3 bundle lacks %q:\n%s", want, b)
+			}
+		}
+		if _, err := os.Stat(part(f)); !os.IsNotExist(err) {
+			t.Errorf("a sharded pass left an old record part (stat err %v)", err)
+		}
+	})
+
+	t.Run("a failed capture falls back to one verifier", func(t *testing.T) {
+		f := vvpShardFixture(t, 60, "exit 1\n")
+		rc, out, _ := f.prepare()
+		if rc != 0 || !strings.Contains(out, "SHARDS: none — ./cap "+spec(f)+" --update-snapshots=all exit 1") || len(vvpLines(out, "DISPATCH: ")) != 1 ||
+			!strings.Contains(out, "DISPATCH: visual-verify ") || strings.Contains(f.stageFile(), "slice ") {
+			t.Fatalf("exit %d\n%s\n%s", rc, out, f.stageFile())
+		}
+	})
+
+	t.Run("a missing merge-base baseline asks the parent first", func(t *testing.T) {
+		shots := filepath.Join("tests/visual/a.spec.ts-snapshots")
+		f := vvpShardFixture(t, 60, "mkdir -p "+shots+" && printf png > "+shots+"/shot-F1-darwin.png\n")
+		rc, out, calls := f.prepare()
+		if rc != 0 || !strings.Contains(out, "MERGE-BASE-SPEC: "+spec(f)+"\n") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: merge-base-capture") || strings.Contains(calls, "dispatch begin") {
+			t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+		}
+		args := []string{f.wt, "demo", "visual-verify", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL, "--merge-base-failed", "stack down"}
+		rc, out, _ = f.run("prepare", args...)
+		if rc != 0 || len(vvpLines(out, "DISPATCH: ")) != 3 || strings.Count(runLog(f), "capture ") != 1 || !strings.Contains(bundle(f, "visual-verify-s3of3"), "merge-base capture failed — stack down\n") {
+			t.Fatalf("--merge-base-failed: exit %d, run log %q\n%s", rc, runLog(f), out)
+		}
+	})
+
+	t.Run("a scoped pass and a two-worktree set never shard", func(t *testing.T) {
+		f := vvpShardFixture(t, 60, "")
+		if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb); rc != 0 || strings.Contains(f.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
+			t.Fatalf("--round-base: exit %d\n%s", rc, out)
+		}
+		g := vvpShardFixture(t, 60, "")
+		w, mb := g.sibling("gymie-frontend")
+		if rc, out, _ := g.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+g.app.URL); rc != 0 || strings.Contains(g.stageFile(), "slice ") {
+			t.Fatalf("two worktrees: exit %d\n%s", rc, out)
+		}
+	})
+
+	t.Run("the merge-base flags need --continue", func(t *testing.T) {
+		f := vvpShardFixture(t, 60, "")
+		if rc, out, _ := f.prepare("--merge-base-captured"); rc != 2 || !strings.Contains(out, "--continue") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
 }
