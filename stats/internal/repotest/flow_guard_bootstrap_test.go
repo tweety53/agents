@@ -143,7 +143,7 @@ func copyRealSources(t *testing.T) string {
 	dst := t.TempDir()
 	src := filepath.Join(repoRoot(t), "stats")
 	files := []string{"go.mod", "go.sum"}
-	for _, dir := range []string{"cmd/flow-guard", "internal/guard", "internal/records", "internal/modelpolicy", "internal/prompttuning"} {
+	for _, dir := range []string{"cmd/flow-guard", "internal/guard", "internal/records", "internal/modelpolicy", "internal/prompttuning", "internal/testcost"} {
 		matches, err := filepath.Glob(filepath.Join(src, dir, "*.go"))
 		if err != nil {
 			t.Fatal(err)
