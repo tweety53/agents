@@ -88,6 +88,13 @@ func (s *Store) Ping(ctx context.Context) error {
 	return nil
 }
 
+// MaxConns reports the pool's configured connection cap. It exists so
+// storetest can pin the cap NewStore asks for; production callers have no
+// need for it.
+func (s *Store) MaxConns() int32 {
+	return s.pool.Config().MaxConns
+}
+
 // MigrationCount reports how many migrations have been recorded as
 // applied. It exists for verifying idempotency; production callers have no
 // need for it.

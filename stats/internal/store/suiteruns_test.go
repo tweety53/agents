@@ -219,7 +219,8 @@ func TestInsertSuiteRunStoresItsTests(t *testing.T) {
 
 // TestLatestSuiteRunTestsReadsTheNewestRunWithTests pins decision
 // suite-tests-read: the read skips a newer run of the same suite that
-// carries no test rows and never reads another suite's rows; limit caps
+// carries no test rows, picks the newest ran_at then the highest id among
+// runs with rows, and never reads another suite's rows; limit caps
 // the test rows, heaviest kept; a suite or project with none reads nil.
 func TestLatestSuiteRunTestsReadsTheNewestRunWithTests(t *testing.T) {
 	t.Parallel()
@@ -227,6 +228,13 @@ func TestLatestSuiteRunTestsReadsTheNewestRunWithTests(t *testing.T) {
 	ctx := context.Background()
 
 	base := time.Date(2026, 11, 15, 9, 0, 0, 0, time.UTC)
+	// A run at A's own ran_at, inserted first: A's higher id breaks the tie.
+	if _, err := st.InsertSuiteRun(ctx, projectKey, records.SuiteRun{
+		Suite: "guard-tests", Host: "laptop", DurationMs: 500, RanAt: base,
+		Tests: []records.SuiteRunTest{{Package: "ex/a", Test: "TestTied", CostMs: 7}},
+	}); err != nil {
+		t.Fatalf("seed tie: %v", err)
+	}
 	runA, err := st.InsertSuiteRun(ctx, projectKey, records.SuiteRun{
 		Suite: "guard-tests", Host: "laptop", DurationMs: 1_000, RanAt: base,
 		Tests: []records.SuiteRunTest{
@@ -241,6 +249,13 @@ func TestLatestSuiteRunTestsReadsTheNewestRunWithTests(t *testing.T) {
 		Suite: "guard-tests", Host: "laptop", DurationMs: 2_000, RanAt: base.Add(time.Hour),
 	}); err != nil {
 		t.Fatalf("seed B: %v", err)
+	}
+	// An older run with tests, inserted after A: ran_at, not id, picks A.
+	if _, err := st.InsertSuiteRun(ctx, projectKey, records.SuiteRun{
+		Suite: "guard-tests", Host: "laptop", DurationMs: 800, RanAt: base.Add(-time.Hour),
+		Tests: []records.SuiteRunTest{{Package: "ex/a", Test: "TestOld", CostMs: 8}},
+	}); err != nil {
+		t.Fatalf("seed old: %v", err)
 	}
 	if _, err := st.InsertSuiteRun(ctx, projectKey, records.SuiteRun{
 		Suite: "stats-go", Host: "laptop", DurationMs: 3_000, RanAt: base.Add(2 * time.Hour),

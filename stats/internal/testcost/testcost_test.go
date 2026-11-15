@@ -19,7 +19,7 @@ func TestFoldCostsTopLevelTests(t *testing.T) {
 			f.Add(ev)
 		}
 	}
-	// TestSkipped has no row; TestPar adds its paused descendants at every depth; TestParallel
+	// TestSkipped and TestHung, which never ended, have no row; TestPar adds its paused descendants at every depth; TestParallel
 	// is a sibling whose name extends TestPar's, never its descendant; TestSeq's sequential
 	// subtest adds nothing; equal costs order by package then test.
 	want := []Row{

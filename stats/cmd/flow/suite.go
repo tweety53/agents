@@ -47,8 +47,10 @@ the median duration of the last 10 passing runs -- a failed run's duration
 is diagnostic, never a runtime figure, and one cold-cache run must not move
 the number. -json emits the store's array alone.
 
-record turns each go test -json line of the command's stdout back into its
-output text -- every other line passes through unchanged -- and records each
+record turns the go test -json lines of the command's stdout back into
+output text as go test prints it without -v -- a test's output only when it
+fails, or never ends -- every other line passing through unchanged, and
+records each
 top-level test's cost with the run: its own elapsed time plus that of every
 descendant that paused for t.Parallel, a skipped test left out. list -tests
 <suite> prints the newest run of that suite that has costs, as its row line
@@ -90,6 +92,10 @@ func runSuite(ctx context.Context, args []string, getenv func(string) string, st
 // written to; a suite run belongs to the project, not to one change.
 const suiteJournalName = "_suite-runs"
 
+// suiteWaitDelay is how long record waits, once the child has exited, for
+// its stdout to close: a descendant still holding it is cut off there.
+const suiteWaitDelay = time.Second
+
 // runSuiteRecord implements `flow suite record`: the child runs with
 // inherited stdin and stderr, its stdout decoded by copyDecodingGoTestJSON,
 // is wall-timed, and its row is recorded. The store never
@@ -121,32 +127,40 @@ func runSuiteRecord(ctx context.Context, args []string, getenv func(string) stri
 	child := exec.Command(command[0], command[1:]...)
 	child.Stdin = os.Stdin
 	child.Stderr = stderr
-	childOut, err := child.StdoutPipe()
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: suite %s could not start %s: %v\n", *suite, command[0], err)
-		return 127
-	}
+	// The child writes to a pipe writer, never an *os.File, so exec copies
+	// its stdout and WaitDelay bounds that copy: a descendant that inherits
+	// stdout and outlives the child cannot hold the run open past it.
+	childOut, childIn := io.Pipe()
+	child.Stdout = childIn
+	child.WaitDelay = suiteWaitDelay
+	decoded := make(chan []records.SuiteRunTest, 1)
+	go func() { decoded <- copyDecodingGoTestJSON(childOut, stdout) }()
 
 	start := time.Now()
 	if err := child.Start(); err != nil {
 		// The child never started: nothing was measured, so nothing is
 		// recorded -- a duration for a run that did not happen would be a
 		// figure with no run behind it.
+		_ = childIn.Close()
+		<-decoded
 		fmt.Fprintf(stderr, "flow: suite %s could not start %s: %v\n", *suite, command[0], err)
 		return 127
 	}
-	costs := copyDecodingGoTestJSON(childOut, stdout)
 	runErr := child.Wait()
 	measured := time.Since(start)
+	_ = childIn.Close()
+	costs := <-decoded
 
 	exitCode := 0
 	var exitErr *exec.ExitError
-	if errors.As(runErr, &exitErr) {
+	switch {
+	case errors.As(runErr, &exitErr):
 		exitCode = exitErr.ExitCode()
-	} else if runErr != nil {
-		// Wait failed for a reason other than the child's exit status (its
-		// stdout copy broke): the run happened, so it is still recorded,
-		// but its verdict is unknown -- never a pass.
+	case errors.Is(runErr, exec.ErrWaitDelay):
+		// The child exited 0; only a descendant still held its stdout.
+	case runErr != nil:
+		// Wait failed for a reason other than the child's exit status: the
+		// run happened, so it is still recorded, with exit 1.
 		fmt.Fprintf(stderr, "flow: suite %s: wait for %s: %v\n", *suite, command[0], runErr)
 		exitCode = 1
 	}
@@ -176,20 +190,40 @@ func runSuiteRecord(ctx context.Context, args []string, getenv func(string) stri
 }
 
 // copyDecodingGoTestJSON copies the child's stdout to out line by line, with
-// no line-length limit (decision json-stream-line-detection): a line that is
-// a go test -json event writes its Output, when it has one, and is folded
-// into the per-test costs; every other line -- a last one without a newline
-// included -- is written through unchanged. It returns each non-skipped
-// top-level test's cost, by testcost's rule (decision store-every-test).
+// no line-length limit (decision json-stream-line-detection), as go test
+// prints without -v: a go test -json event with no Test writes its Output at
+// once; a test's Output is held until its terminal event and written only
+// when that is fail -- or at EOF, for a test that never ended. Every event is
+// folded into the per-test costs; every other line -- a last one without a
+// newline included -- is written through unchanged. It returns each
+// non-skipped top-level test's cost, by testcost's rule (decision
+// store-every-test).
 func copyDecodingGoTestJSON(in io.Reader, out io.Writer) []records.SuiteRunTest {
+	type testKey struct{ pkg, test string }
 	r := bufio.NewReader(in)
 	var fold testcost.Fold
+	held := map[testKey]string{}
+	var order []testKey // first-seen order, for the EOF flush
 	for {
 		line, err := r.ReadBytes('\n')
 		if len(line) > 0 {
 			if ev, ok := testcost.ParseEvent(line); ok {
-				_, _ = io.WriteString(out, ev.Output)
 				fold.Add(ev)
+				k := testKey{ev.Package, ev.Test}
+				switch {
+				case ev.Test == "":
+					_, _ = io.WriteString(out, ev.Output)
+				case ev.Action == "pass" || ev.Action == "skip":
+					delete(held, k)
+				case ev.Action == "fail":
+					_, _ = io.WriteString(out, held[k]+ev.Output)
+					delete(held, k)
+				default:
+					if _, seen := held[k]; !seen {
+						order = append(order, k)
+					}
+					held[k] += ev.Output
+				}
 			} else {
 				_, _ = out.Write(line)
 			}
@@ -197,6 +231,10 @@ func copyDecodingGoTestJSON(in io.Reader, out io.Writer) []records.SuiteRunTest 
 		if err != nil {
 			break
 		}
+	}
+	for _, k := range order {
+		_, _ = io.WriteString(out, held[k])
+		delete(held, k)
 	}
 	var tests []records.SuiteRunTest
 	for _, row := range fold.Rows() {

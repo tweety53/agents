@@ -28,3 +28,5 @@
 FAIL	ex/b [build failed]
 {"Action":"fail","Package":"ex/b","Elapsed":2.5}
 {"Action":"pass","Package":"ex/a","Elapsed":3}
+{"Action":"run","Package":"ex/a","Test":"TestHung"}
+{"Action":"output","Package":"ex/a","Test":"TestHung","Output":"=== RUN   TestHung\n"}

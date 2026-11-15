@@ -95,8 +95,13 @@ func goTestJSONChild(t *testing.T) []string {
 		`plain before`,
 		`{"Action":"run","Package":"ex/a","Test":"TestA"}`,
 		`{"Action":"output","Package":"ex/a","Test":"TestA","Output":"=== RUN   TestA\n"}`,
-		`{"Action":"pass","Package":"ex/a","Test":"TestA","Elapsed":1.5}`,
+		`{"Action":"output","Package":"ex/a","Test":"TestA","Output":"    a_test.go:9: passing log\n"}`,
+		`{"Action":"pass","Package":"ex/a","Test":"TestA","Elapsed":1.0006}`,
 		`{"Action":"skip","Package":"ex/a","Test":"TestS","Elapsed":0}`,
+		`{"Action":"output","Package":"ex/a","Test":"TestF","Output":"    f_test.go:3: boom\n"}`,
+		`{"Action":"output","Package":"ex/a","Test":"TestH","Output":"hung log\n"}`,
+		`{"Action":"fail","Package":"ex/a","Test":"TestF","Output":"--- FAIL: TestF\n","Elapsed":0.25}`,
+		`{"Action":"output","Package":"ex/a","Output":"FAIL\tex/a\n"}`,
 		`{"x":1}`,
 		`tail`,
 	}, "\n")
@@ -131,15 +136,55 @@ func TestSuiteRecordDecodesGoTestJSON(t *testing.T) {
 	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("suite record exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
-	if want := "plain before\n=== RUN   TestA\n{\"x\":1}\ntail"; stdout.String() != want {
+	// A passing test's output is dropped, a failing one's printed at its
+	// fail, an event with no Test at once, and a test that never ended at EOF.
+	if want := "plain before\n    f_test.go:3: boom\n--- FAIL: TestF\nFAIL\tex/a\n{\"x\":1}\ntailhung log\n"; stdout.String() != want {
 		t.Errorf("stdout = %q, want %q", stdout.String(), want)
 	}
 	var sent records.SuiteRun
 	if err := json.Unmarshal(gotBody, &sent); err != nil {
 		t.Fatalf("decode record body %s: %v", gotBody, err)
 	}
-	if got := fmt.Sprint(sent.Tests); got != "[{ex/a TestA 1500}]" {
-		t.Errorf("tests = %s, want [{ex/a TestA 1500}]", got)
+	// 1.0006 s rounds to 1001 ms; truncation would record 1000.
+	if got := fmt.Sprint(sent.Tests); got != "[{ex/a TestA 1001} {ex/a TestF 250}]" {
+		t.Errorf("tests = %s, want [{ex/a TestA 1001} {ex/a TestF 250}]", got)
+	}
+}
+
+// TestSuiteRecordReturnsWhenTheChildExits pins that a descendant inheriting
+// the child's stdout and outliving it cannot hold the record open: the run
+// ends within suiteWaitDelay of the child's exit, and the child's 0 stands.
+func TestSuiteRecordReturnsWhenTheChildExits(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = readAll(r)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"suite":"probe","host":"h","durationMs":10,"exitCode":0,"ranAt":"2026-09-09T12:00:00Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	start := time.Now()
+	code := run(context.Background(),
+		[]string{"suite", "record", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-suite", "probe", "--", "/bin/sh", "-c", "sleep 8 & echo hi"},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	if took := time.Since(start); took > 5*time.Second {
+		t.Errorf("suite record took %s, want it to return once the child exited, not the leaked sleep", took)
+	}
+	if code != 0 {
+		t.Fatalf("suite record exit = %d, want the child's 0; stderr:\n%s", code, stderr.String())
+	}
+	var sent records.SuiteRun
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode record body %s: %v", gotBody, err)
+	}
+	if sent.ExitCode != 0 || sent.DurationMs > 5000 {
+		t.Errorf("recorded exit %d duration %dms, want 0 and under 5s", sent.ExitCode, sent.DurationMs)
 	}
 }
 
@@ -270,8 +315,8 @@ func TestSuiteRecordJournalsTestsWhenStoreDown(t *testing.T) {
 	if err := json.Unmarshal(entries[0].Body, &body); err != nil {
 		t.Fatalf("decode entry: %v", err)
 	}
-	if got := fmt.Sprint(body.Request.Tests); body.Kind != "suite" || got != "[{ex/a TestA 1500}]" {
-		t.Errorf("entry kind %q tests %s, want kind suite, tests [{ex/a TestA 1500}]", body.Kind, got)
+	if got := fmt.Sprint(body.Request.Tests); body.Kind != "suite" || got != "[{ex/a TestA 1001} {ex/a TestF 250}]" {
+		t.Errorf("entry kind %q tests %s, want kind suite, tests [{ex/a TestA 1001} {ex/a TestF 250}]", body.Kind, got)
 	}
 }
 
@@ -482,6 +527,14 @@ func TestSuiteListTestsReportsNoRunAndAnUnreachableStore(t *testing.T) {
 		[]string{"suite", "list", "-tests", "guard-tests", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
 		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || stdout.String() != "no test costs recorded for guard-tests\n" {
 		t.Errorf("no run: exit %d stdout %q, want 0 and the no-costs line; stderr:\n%s", code, stdout.String(), stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(context.Background(),
+		[]string{"suite", "list", "-tests", "guard-tests", "-json", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || stdout.String() != "null\n" {
+		t.Errorf("no run -json: exit %d stdout %q, want 0 and null; stderr:\n%s", code, stdout.String(), stderr.String())
 	}
 
 	stdout.Reset()
