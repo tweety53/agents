@@ -171,7 +171,7 @@ The planner prints a `## Decision` table and proceeds without asking.
 | `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
 | `small` | inline | — | `primary`, delta re-runs |
 | `regular` | inline | — | `primary`+`principles`, delta re-runs |
-| `big` | `sdd`: subagent implementers, one per task group | judged per group by `pair-judge`, never `high` | same roster as `regular`, full re-runs |
+| `big` | `sdd`: subagent implementers, one per task group of at most weight 3 (a `**Size:** big` task weighs 3, any other 1) | judged per group by `pair-judge`, never `high` | same roster as `regular`, full re-runs |
 
 - **Rosters.** `compact` shrinks any roster but `micro`'s and `small`'s to `primary`+`principles`; a
   round runs at most two review dispatches of up to three roles, beside the
