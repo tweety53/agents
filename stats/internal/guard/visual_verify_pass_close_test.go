@@ -16,7 +16,9 @@ import (
 // vvcFixture is a prepare fixture whose stage has begun one row, its key
 // `visual-verify`, with a design.md, a capture spec and its PNG, a full app
 // suite and its zip, and a visual-verification/ directory left uncommitted
-// under a .gitignore holding spectre/changes/, as the real repository has.
+// under a .gitignore holding spectre/changes/, as the real repository has —
+// its one file, uncommitted.txt, a name no component reads, so no fixture
+// stands for the record at a depth no reader uses.
 func vvcFixture(t *testing.T, extra string) *vvpFix {
 	t.Helper()
 	f := vvpFixture(t, extra)
@@ -35,7 +37,7 @@ func vvcFixture(t *testing.T, extra string) *vvpFix {
 		t.Fatalf("prepare: exit %d\n%s", rc, out)
 	}
 	f.captures(f.wt)
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/visual-verification/visual-verification.md"), "# vv\n")
+	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/visual-verification/uncommitted.txt"), "# vv\n")
 	return f
 }
 
