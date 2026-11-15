@@ -84,6 +84,10 @@ func bpConfigOf(repo string) string {
 // script's path and line. The port prints "break-and-prove: " there instead.
 var bpBashDiag = regexp.MustCompile(`(?m)^\S*break-and-prove\.sh: line [0-9]+: `)
 
+// bpRootHint is the restored-run failure's root line, the port's own
+// addition, absent from the bash at base (kan-1124 self-review, F1).
+var bpRootHint = regexp.MustCompile("(?m)^break-and-prove: the test command ran from the repository root, .*\n")
+
 // bpParity runs the bash at base and the port on separate copies of the
 // fixture prep sets up, with the arguments prep returns, and asserts stdout,
 // stderr and exit are the same.
@@ -104,6 +108,8 @@ func bpParity(t *testing.T, base, bashDir string, prep func(t *testing.T, repo s
 				bashUsage(bpBashDiag.ReplaceAllString(errb.String(), "break-and-prove: "))}
 		} else {
 			r = bpProve(repo, args...)
+			// The root line is the port's own addition; the bash at base never prints it.
+			r.err = bpRootHint.ReplaceAllString(r.err, "")
 		}
 		_ = os.Chmod(repo+"/config.yaml", 0o644)
 		phys, err := filepath.EvalSymlinks(repo)
@@ -566,4 +572,24 @@ func TestBreakAndProveSubdirectoryShellForm(t *testing.T) {
 		mvCheck(t, "root-run form exits 2", r.rc == 2, "rc=%d\n%s", r.rc, r.all())
 		mvCheck(t, "root-run form names the root cache as drift", strings.Contains(r.all(), "cache/"), "%s", r.all())
 	})
+}
+
+// TestBreakAndProveNamesTheRootOnARestoredFailure: a test command written for
+// a subdirectory fails both legs from the root, and the restored-run failure
+// names the root the command ran from (kan-1124 self-review, F1).
+func TestBreakAndProveNamesTheRootOnARestoredFailure(t *testing.T) {
+	t.Parallel()
+	repo := bpRepo(t, bpBuild(t))
+	r := bpProve(repo, bpArgs(bpSed, []string{"--", "grep", "-q", "mode: strict", "stats/config.yaml"})...)
+	mvCheck(t, "exits 1", r.rc == 1, "rc=%d\n%s", r.rc, r.all())
+	mvCheck(t, "names run 2's exit", strings.Contains(r.err, "run 2 exited 2"), "%s", r.err)
+	phys, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	named := strings.Contains(r.err, "the test command ran from the repository root, "+repo) ||
+		strings.Contains(r.err, "the test command ran from the repository root, "+phys)
+	mvCheck(t, "names the repository root", named, "%s", r.err)
+	mvCheck(t, "names the go -C form", strings.Contains(r.err, "go -C <dir> test"), "%s", r.err)
+	mvCheck(t, "restores the file", bpConfigOf(repo) == bpConfig, "%q", bpConfigOf(repo))
 }

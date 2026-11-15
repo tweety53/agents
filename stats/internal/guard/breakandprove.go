@@ -50,7 +50,9 @@ import (
 // THE TEST COMMAND IS AN ARGV VECTOR, NEVER A STRING THROUGH A SHELL, and
 // it runs from the repository root with its arguments passed verbatim —
 // give it paths relative to that root, the same way flow-guard run-reproducer
-// passes its reproducer argv through untouched.
+// passes its reproducer argv through untouched. A restored-run failure names
+// that root, since a command written for a subdirectory fails both legs there
+// (kan-1124 self-review, F1).
 //
 // WHERE THE TARGET MAY LIVE IS A PROPERTY OF THE MUTATION KIND, and the
 // asymmetry is deliberate: a `--sed` target may sit outside the repository
@@ -398,6 +400,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	}
 	if rc != 0 {
 		fmt.Fprintf(r.stderr, "break-and-prove: run 2 exited %d — the proof did not hold: the test fails on the restored file\n", rc)
+		fmt.Fprintf(r.stderr, "break-and-prove: the test command ran from the repository root, %s — a command for a subdirectory is written `go -C <dir> test …` or `sh -c 'cd <dir> && exec …'`\n", r.root)
 		Reason(env, "restored-run-failed")
 		return 1
 	}

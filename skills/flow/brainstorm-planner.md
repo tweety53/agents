@@ -400,6 +400,8 @@ and cites its output in the task as a `measured:` comment per **Plan provenance*
 exit code or figures the run produced. A premise the run disproves strikes the task during
 planning, before the panel reads the plan.
 
+**A `flow-guard break-and-prove` step writes its test command as run from the repository root.** The guard runs the argv after `--` from the root, so a command a subdirectory needs is written `go -C <dir> test …`, or `sh -c 'cd <dir> && exec …'` for a runner with no directory flag — never with a separate run-from note, which the guard never reads (kan-1124 self-review, F1).
+
 **Committed content never cites a commit sha on the change's own branch.** Integrate's run 1
 reshapes that branch (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`),
 so a sha a task's committed file names stops resolving; cite a path on the default branch and the
