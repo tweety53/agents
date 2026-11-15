@@ -630,12 +630,13 @@ for one dispatch.
 ### A cap or override applies on top
 
 **ID:** cap-and-override-win
-**Status:** active
+**Status:** superseded by cap-takes-highest-admitted
 **Chosen:** A `session_cap` or session override applies on top of the judge's pick, as it does on
 today's pick. A pick above the cap is replaced by the first candidate within it, with the reason
 `override: …`.
 **Considered:** A `-cap` flag on the guard — the cap is applied by the caller today, and the
 guard would need a second input for it.
+**Superseded because:** the round-0 review panel found its "first candidate within it" rule contradicting the canonical **`session_cap`** rule of `skills/flow-contracts/pipeline.md`, and the panel's fix changed `skills/flow/brainstorm-planner.md` to the canonical rule without superseding this entry (kan-1119 self-review, F5).
 
 ### A carried decision row judges its new groups
 
@@ -750,5 +751,15 @@ or row leaves the line out of the system prompt. Auto-taken at writing-plans, re
 review 1's role-to-line map.
 **Considered:** A role-to-line map in `pairjudge.go` — a second copy of the table's Does column,
 which an edit to one would leave stale.
+
+### A cap takes the highest pair the row admits under it
+
+**ID:** cap-takes-highest-admitted
+**Status:** active
+**Chosen:** A `session_cap` or session override applies on top of the judge's pick, as it does on
+today's pick. A pick above the cap is replaced by the highest pair the role's row admits at or
+under it (**`session_cap`**, `skills/flow-contracts/pipeline.md`), with the reason `override: …`.
+**Considered:** The first candidate within the cap — decision `cap-and-override-win`'s rule, which
+contradicted the canonical **`session_cap`** rule.
 
 ## Open questions

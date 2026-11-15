@@ -244,7 +244,10 @@ for byte — after the reshape and before the implementation commit, which carri
 worktree never writes one. The file is derived on every run of the step, so a decision a fix
 round superseded is in it, and it is never edited by hand; nothing keeps it current after
 landing — a decision a later change overturns is superseded in that change's own record. A
-change with no Jira key drops the parenthesis.
+change with no Jira key drops the parenthesis. A decision superseded after the implementation
+commit — by a self-review fix — is written out again with
+`flow-guard integrate-change design-record <main-checkout> <name>`, which runs the same write
+alone, and the file committed with that fix (kan-1119 self-review, F5).
 
 ```markdown
 # <name>

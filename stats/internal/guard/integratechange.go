@@ -25,6 +25,7 @@ import (
 // Usage:
 //   flow-guard integrate-change prepare <main-checkout> <name> [--accept-foreign] [--accept-outstanding]
 //   flow-guard integrate-change commit  <main-checkout> <name> [<worktree>=<impl subject>]... [--outstanding <text>]
+//   flow-guard integrate-change design-record <main-checkout> <name>
 //   flow-guard integrate-change land    <main-checkout> <name> [--route <route>] [--pr-url <worktree>=<url|none>]...
 //   flow-guard integrate-change cleanup <main-checkout> <name> [--proceed <main-checkout>]...
 //
@@ -162,6 +163,15 @@ type ic struct {
 //	`In-run pipeline fix:` line in it off the format pipeline.md's
 //	Pipeline defects found mid-run fixes stops first, STOP: narrative.
 //
+// design-record  loads the worktree set, finds the canonical worktree,
+//
+//	writes the design record exactly as commit does and prints its
+//	path — no reshape, no stage mark, no push — so a record whose
+//	design.md changed after landing is re-derived alone. A canonical
+//	change directory with no design.md is exit 2, reason no-design.
+//	It marks no stage, so it alone needs no --harness or
+//	--session-token (kan-1119 self-review, F5).
+//
 // land     the route (merge and push: the --force-with-lease branch push then
 //
 //	`push origin HEAD:<base>` per worktree in merge order, one re-sync
@@ -232,6 +242,8 @@ func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int
 		c.prepare()
 	case "commit":
 		c.commit()
+	case "design-record":
+		c.designRecord()
 	case "land":
 		c.land()
 	case "cleanup":
@@ -268,7 +280,7 @@ func (c *ic) parse(args []string) {
 	}
 	sub, mainArg, name := arg(0), arg(1), arg(2)
 	if sub == "" || mainArg == "" || name == "" {
-		c.die("usage", "usage: flow-guard integrate-change prepare|commit|land|cleanup <main-checkout> <name> [flags]")
+		c.die("usage", "usage: flow-guard integrate-change prepare|commit|design-record|land|cleanup <main-checkout> <name> [flags]")
 	}
 	// A relative argument resolves against the directory it was called from.
 	m, ok := icPhys(c.env.Dir, mainArg)
@@ -334,7 +346,7 @@ func (c *ic) parse(args []string) {
 			c.subjects = append(c.subjects, a)
 		}
 	}
-	if c.harness == "" || c.token == "" {
+	if sub != "design-record" && (c.harness == "" || c.token == "") {
 		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS / FLOW_SESSION_TOKEN)")
 	}
 }

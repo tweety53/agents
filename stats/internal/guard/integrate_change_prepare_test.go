@@ -1,6 +1,8 @@
 package guard
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
@@ -627,4 +629,41 @@ check "no_jira_key: commit exits 0" '[ "$RC" -eq 0 ]'
 check "no_jira_key: line 2 drops the parenthesis" \
   '[ "$(sed -n 2p "$rec")" = "> Design record of change demo, written at landing. Each decision'"'"'s own **Status:** line is the status." ]'`},
 	})
+}
+
+// TestIntegrateChangeDesignRecordSubcommand pins kan-1119's self-review F5:
+// design-record re-derives the design record alone — the same bytes commit
+// writes, its path printed, no commit made — and a change with no design.md
+// is exit 2 with no record written.
+func TestIntegrateChangeDesignRecordSubcommand(t *testing.T) {
+	smoke.Heavy(t)
+	icRunCases(t, []icCaseDef{
+		{"design_record_alone", icDesignRecord + `# --- design_record_alone ---
+fixture
+design
+before=$(git -C "$WORK/a-worktrees/demo" rev-list --count HEAD)
+sut design-record "$WORK/a" demo
+check "design_record_alone: exits 0" '[ "$RC" -eq 0 ]'
+check "design_record_alone: line 1 is the title" '[ "$(sed -n 1p "$rec")" = "# demo" ]'
+check "design_record_alone: line 2 is the header" \
+  '[ "$(sed -n 2p "$rec")" = "> Design record of change demo (KAN-1), written at landing. Each decision'"'"'s own **Status:** line is the status." ]'
+check "design_record_alone: line 3 is empty" '[ -z "$(sed -n 3p "$rec")" ]'
+check "design_record_alone: the rest is design.md byte for byte" \
+  'tail -n +4 "$rec" | cmp -s - "$WORK/a-worktrees/demo/spectre/changes/demo/design.md"'
+check "design_record_alone: stdout names the record" 'printf "%s" "$OUT" | grep -qxF "$rec"'
+check "design_record_alone: no commit made" '[ "$(git -C "$WORK/a-worktrees/demo" rev-list --count HEAD)" = "$before" ]'`},
+		{"design_record_no_design", icDesignRecord + `# --- design_record_no_design ---
+fixture
+rec="$WORK/a-worktrees/demo/docs/designs/demo.md"
+rm -f "$WORK/a-worktrees/demo/spectre/changes/demo/design.md"
+sut design-record "$WORK/a" demo
+check "design_record_no_design: exits 2" '[ "$RC" -eq 2 ]'
+check "design_record_no_design: writes no record" '[ ! -e "$rec" ]'`},
+	})
+	// design-record marks no stage, so it needs no --harness or --session-token.
+	var out, errb bytes.Buffer
+	Registry["integrate-change"]([]string{"design-record", t.TempDir(), "demo"}, Env{Getenv: func(string) string { return "" }}, &out, &errb)
+	if strings.Contains(errb.String(), "--harness") {
+		t.Errorf("design-record asks for a harness: %s", errb.String())
+	}
 }

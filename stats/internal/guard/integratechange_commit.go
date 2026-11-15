@@ -249,6 +249,21 @@ func icReadTrimmed(f string) string {
 	return strings.TrimRight(string(b), "\n")
 }
 
+// designRecord is `integrate-change design-record`: the design record alone,
+// re-derived from the canonical change directory's design.md.
+func (c *ic) designRecord() {
+	c.loadSet()
+	if !c.findCanonical() {
+		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
+	}
+	design := c.canon + "/" + c.spec + "/changes/" + c.name + "/design.md"
+	if !isFile(design) {
+		c.die("no-design", "%s does not exist — no design record to write", design)
+	}
+	c.writeDesignRecord(design)
+	c.say(c.canon + "/docs/designs/" + c.name + ".md")
+}
+
 // writeDesignRecord writes the change's design.md to docs/designs/<name>.md in
 // the canonical worktree, under a fixed two-line header, for the
 // implementation commit to carry (The design record,
