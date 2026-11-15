@@ -786,6 +786,13 @@ A completed `flow stage end` of `flow.review-panel` is refused the same way whil
 holding a reviewer row has no completed `panel-<r>-merger` row.
 `flow record dispatch begin` refuses a `panel-<r>-merger` row while a reviewer row of round `<r>`
 has no end recorded.
+**A section a report leaves unread is read in the same round, before the merger.** When a
+round-`<r>` report's `Unread:` line names a section that no other per-repository report of its role
+in round `<r>` reads, the parent dispatches one more dispatch of that role in round `<r>`, keyed
+`panel-<r>-<id>-unread` with `<id>` the report's own id, its prompt carrying the SECTION paragraph
+for each section the line names, and its report written to `panel-report-<r>-<id>-unread.md`.
+`flow record dispatch begin` refuses the `panel-<r>-merger` row while such a section has neither
+(kan-1087 self-review, F21).
 Once every dispatch of the round has ended — its `end` recorded, every role's report file
 confirmed under **Recording findings**, the plan-tree and content-marker `verify` passed, and on a
 re-run every `flow-guard check-rerun-citations` settled — the parent dispatches one merger: a one-shot that
@@ -1223,7 +1230,7 @@ fires on the class **Panel re-runs**' ordering above added: a Critical or Import
 `fixed` whose slot has no clean re-run dispatch of it in any later round — a fixed Minor needs
 none. It fires as well when a slot's report counts more Critical and Important findings on its
 `Critical: <n>` and `Important: <n>` lines than the store holds for that round and slot. It fires as well when a report's `Unread:` line
-names a section that no per-repository report of the same role read in full in that round or a later one; a `mutation` report is exempt. It fires too
+names a section that no per-repository report of the same role read in full in that round or a later one, nor the report's own `-unread` report; a `mutation` report is exempt. It fires too
 when a role's store rows of a round outnumber what its reports count — every severity when each
 of its reports carries a `Minor:` line, Critical and Important otherwise. It fires too
 when a completed reviewer dispatch left one of its roles' `panel-report-<round>-<id>.md` absent or

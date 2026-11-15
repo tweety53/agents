@@ -749,8 +749,10 @@ func cfcUncounted(worktree string, findings []cfcFindingRow) (over, under []stri
 
 // cfcUnreadSections answers each section a report's `Unread:` line names
 // that no written per-repository report of the same role read in that round
-// or any later one, each as `<file> (<repo>)`: a round cannot be reopened, so
-// a section left unread in round r can only be read in a later round.
+// or any later one, nor the report's own written `-unread` cover, each as
+// `<file> (<repo>)`: a round cannot be reopened, so a section left unread in
+// round r can only be read in a later round or by its cover (kan-1087
+// self-review, F21).
 // Reports of role `mutation` are exempt: a mutation pass probes behaviours by
 // mutating them, it is not a section read, and it is never re-dispatched.
 func cfcUnreadSections(worktree string, findings []cfcFindingRow) ([]string, error) {
@@ -764,12 +766,50 @@ func cfcUnreadSections(worktree string, findings []cfcFindingRow) ([]string, err
 			continue
 		}
 		for _, repo := range cfcUnread(r.body) {
-			if !cfcReadInRoundOrLater(worktree, r.round, r.role, repo) {
+			if !cfcReadInRoundOrLater(worktree, r.round, r.role, repo) && !cfcReportWritten(worktree, cfcCoverName(r.name)) {
 				out = append(out, r.name+" ("+repo+")")
 			}
 		}
 	}
 	return out, nil
+}
+
+// PanelUnreadUncovered answers each section a round-<round> report's
+// `Unread:` line names -- reports of role mutation exempt -- that neither a
+// written same-round per-repository report panel-report-<round>-<role>-<repo>.md
+// nor the report's own written cover <report name less .md>-unread.md reads,
+// each as `<report name> (<repo>)`. slots are the round's reviewer slots,
+// whose ids and `+`-components resolve each report's role as cfcReports does.
+// flow record dispatch begin refuses a panel-<round>-merger row while it
+// answers anything: a section left unread is read in its own round, before
+// the merger (kan-1087 self-review, F21). An unreadable report answers nothing.
+func PanelUnreadUncovered(worktree string, round int, slots []string) []string {
+	var rows []cfcFindingRow
+	for _, s := range slots {
+		rows = append(rows, cfcFindingRow{slot: s})
+	}
+	reports, err := cfcReports(worktree, rows)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, r := range reports {
+		if r.round != round || r.role == "mutation" {
+			continue
+		}
+		for _, repo := range cfcUnread(r.body) {
+			same := fmt.Sprintf("panel-report-%d-%s-%s.md", round, r.role, repo)
+			if !(same != r.name && cfcReportWritten(worktree, same)) && !cfcReportWritten(worktree, cfcCoverName(r.name)) {
+				out = append(out, r.name+" ("+repo+")")
+			}
+		}
+	}
+	return out
+}
+
+// cfcCoverName is a report's own `-unread` cover: <name less .md>-unread.md.
+func cfcCoverName(name string) string {
+	return strings.TrimSuffix(name, ".md") + "-unread.md"
 }
 
 // cfcReadInRoundOrLater reports whether a written per-repository report

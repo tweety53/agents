@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -922,5 +923,53 @@ func TestCheckPanelFindingsClosedFlagsAnUnrecordedCeilingBreach(t *testing.T) {
 	}
 	if _, errs := cfcCasePasses(t, "[]", long, `[{"id":1,"round":3,"note":"breach: panel-3-primary 20m"}]`, files); !strings.Contains(errs, want) {
 		t.Errorf("another key's breach: %s", errs)
+	}
+}
+
+// TestPanelUnreadUncovered pins kan-1087 self-review F21: a round's unread section is covered
+// only by a written same-round per-repository report of its role or the report's own -unread cover.
+func TestPanelUnreadUncovered(t *testing.T) {
+	t.Parallel()
+	unread := func(s string) string { return "Critical: 0\nImportant: 0\nMinor: 0\nUnread: " + s + "\n" }
+	first := []string{"panel-report-0-primary-gymie.md (gymie)"}
+	for _, tc := range []struct {
+		name  string
+		files map[string]string
+		want  []string
+		has   bool // want is contained, not the whole answer
+	}{
+		{"an unread section alone", map[string]string{"panel-report-0-primary-gymie.md": unread("gymie")}, first, false},
+		{"a written cover", map[string]string{"panel-report-0-primary-gymie.md": unread("gymie"), "panel-report-0-primary-gymie-unread.md": unread("none")}, nil, false},
+		{"a cover leaving it unread", map[string]string{"panel-report-0-primary-gymie.md": unread("gymie"), "panel-report-0-primary-gymie-unread.md": unread("gymie")}, first, true},
+		{"a later round's read", map[string]string{"panel-report-0-primary-gymie.md": unread("gymie"), "panel-report-1-primary-gymie.md": unread("none")}, first, false},
+		{"a same-round per-repository read", map[string]string{"panel-report-0-primary.md": unread("web"), "panel-report-0-primary-web.md": unread("none")}, nil, false},
+		{"mutation is exempt", map[string]string{"panel-report-0-mutation.md": unread("gymie")}, nil, false},
+	} {
+		wt := t.TempDir()
+		cfcSDD(t, wt, tc.files)
+		got := PanelUnreadUncovered(wt, 0, []string{"primary", "mutation"})
+		ok := slices.Equal(got, tc.want)
+		if tc.has {
+			ok = len(got) > 0
+			for _, w := range tc.want {
+				ok = ok && slices.Contains(got, w)
+			}
+		}
+		if !ok {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestCheckPanelFindingsClosedAcceptsAnUnreadCover pins kan-1087 self-review F21: the close
+// guard counts a report's own written -unread cover as reading every section it names.
+func TestCheckPanelFindingsClosedAcceptsAnUnreadCover(t *testing.T) {
+	t.Parallel()
+	_, errs := cfcCase(t, "[]", "[]", map[string]string{
+		"panel-report-0-primary.md":        "Critical: 0\nImportant: 0\nUnread: gymie\n",
+		"panel-report-0-primary-unread.md": "Critical: 0\nImportant: 0\nUnread: none\n",
+	})
+	if strings.Contains(errs, "(gymie)") {
+		t.Errorf("a written cover does not cover the section:\n%s", errs)
 	}
 }

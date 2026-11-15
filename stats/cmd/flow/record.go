@@ -1308,6 +1308,26 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 				return 2
 			}
 		}
+		// A section a round-<r> report leaves unread is read in the same
+		// round, before the merger (kan-1087 self-review, F21).
+		var slots []string
+		for _, d := range run.Dispatches {
+			if n, ok := records.PanelDispatchRound(d); ok && n == r && d.Role == "reviewer" && d.Slot != "" {
+				slots = append(slots, d.Slot)
+			}
+		}
+		if labels := guard.PanelUnreadUncovered(carryingWorktree(f.dir, f.change), r, slots); len(labels) > 0 {
+			var keys []string
+			for _, l := range labels {
+				name, _, _ := strings.Cut(l, " ")
+				id := strings.TrimSuffix(strings.TrimPrefix(name, fmt.Sprintf("panel-report-%d-", r)), ".md")
+				if k := fmt.Sprintf("panel-%d-%s-unread", r, id); !slices.Contains(keys, k) {
+					keys = append(keys, k)
+				}
+			}
+			fmt.Fprintf(stderr, "flow: -key %q: round %d leaves %s unread -- dispatch %s reading each section before the merger (skills/flow/review-panel.md, The findings merger)\n", *key, r, strings.Join(labels, ", "), strings.Join(keys, ", "))
+			return 2
+		}
 	}
 	// A panel-fix fixes review round <r>-1 (skills/flow/review-panel-fix-round.md),
 	// so it begins only once that round holds a Critical or Important row,
@@ -4179,6 +4199,28 @@ func requireChangeCheckout(ctx context.Context, addr string, timeout time.Durati
 	}
 	fmt.Fprintf(stderr, "flow: no checkout of the repository holding %s carries change %q (spectre/changes/, .superpowers/sdd/, branch spectre/%s or a flowd change record) -- refused, so the row is not filed under the wrong project; pass -C <the change's canonical worktree>\n", dir, change, change)
 	return false
+}
+
+// carryingWorktree is the first linked worktree on spectre/<change> that is
+// not the main checkout, else dir.
+func carryingWorktree(dir, change string) string {
+	out, err := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain").Output()
+	if err != nil {
+		return dir
+	}
+	main, wt := "", ""
+	for line := range strings.Lines(string(out)) {
+		line = strings.TrimRight(line, "\n")
+		if next, ok := strings.CutPrefix(line, "worktree "); ok {
+			wt = next
+			if main == "" {
+				main = wt
+			}
+		} else if line == "branch refs/heads/spectre/"+change && wt != main {
+			return wt
+		}
+	}
+	return dir
 }
 
 // changeCheckouts scans dir's repository's worktrees: main is the first

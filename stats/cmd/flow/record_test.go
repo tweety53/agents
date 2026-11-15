@@ -8934,3 +8934,47 @@ func TestRecordAdmitsAFullSuiteFixRetryKey(t *testing.T) {
 		}
 	}
 }
+
+// TestRecordDispatchBeginRefusesMergerOverAnUnreadSection pins kan-1087 self-review F21: a
+// panel-<r>-merger begin refuses while a round-<r> report leaves a section unread and uncovered.
+func TestRecordDispatchBeginRefusesMergerOverAnUnreadSection(t *testing.T) {
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(`{"change":"kan-258","dispatches":[{"key":"panel-1-primary","role":"reviewer","slot":"primary","startedAt":"2026-11-10T02:03:47Z","endedAt":"2026-11-10T02:08:03Z","outcome":"completed"}]}`))
+			return
+		}
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"merger","model":"sonnet"}`))
+	}))
+	t.Cleanup(srv.Close)
+	sdd := filepath.Join(repo, ".superpowers", "sdd")
+	if err := os.MkdirAll(sdd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sdd, "panel-report-1-primary.md"), []byte("Critical: 0\nImportant: 0\nUnread: web\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	begin := func() (int, string) {
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "merger", "-model", "sonnet", "-effort", "low", "-key", "panel-1-merger",
+			"-session-token", "mf-record-merger-unread"}, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	if code, errs := begin(); code != 2 || posts != 0 || !strings.Contains(errs, "panel-report-1-primary.md (web)") || !strings.Contains(errs, "panel-1-primary-unread") {
+		t.Errorf("uncovered: exit %d, posts %d, stderr:\n%s", code, posts, errs)
+	}
+	if err := os.WriteFile(filepath.Join(sdd, "panel-report-1-primary-unread.md"), []byte("Critical: 0\nImportant: 0\nUnread: none\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, errs := begin(); code != 0 || posts == 0 {
+		t.Errorf("covered: exit %d, posts %d, stderr:\n%s", code, posts, errs)
+	}
+}
