@@ -10,8 +10,8 @@ import (
 )
 
 // pstFx is one copy of the panel-slot-triggers template repository: main,
-// one commit carrying README.md, stats/store/q.go (one db.QueryRow( line),
-// cmd/a.go and cmd/a_test.go -- the merge base every case diffs against.
+// one commit carrying README.md, stats/store/q.go and cmd/db.go (one
+// db.QueryRow( line each), cmd/a.go and cmd/a_test.go -- the merge base every case diffs against.
 type pstFx struct {
 	dir, repo string
 	g         fxGit
@@ -28,6 +28,7 @@ func pstTemplate(t *testing.T) (func(t *testing.T) *pstFx, string) {
 	for p, body := range map[string]string{
 		"README.md":        "# readme",
 		"stats/store/q.go": "row := db.QueryRow(q)",
+		"cmd/db.go":        "row := db.QueryRow(q)",
 		"cmd/a.go":         "package cmd",
 		"cmd/a_test.go":    "package cmd",
 	} {
@@ -141,11 +142,37 @@ func TestPanelSlotTriggersCallEfficiency(t *testing.T) {
 		}, both("cmd/a.go:2 http-client")},
 		{"deleted query", func(t *testing.T, fx *pstFx) { fx.put(t, "stats/store/q.go", "package store") },
 			both("stats/store/q.go:1 query")},
+		{"deleted file outside handler dirs", func(t *testing.T, fx *pstFx) { fx.g.err = os.Remove(fx.repo + "/cmd/db.go") },
+			both("cmd/db.go:1 query")},
 		{"new file under api", func(t *testing.T, fx *pstFx) { fx.put(t, "internal/api/h.go", "package api") },
 			both("internal/api/h.go handler-dir")},
+		{"http-handler line", func(t *testing.T, fx *pstFx) {
+			fx.g.appendLine(fx.repo+"/cmd/a.go", `func (h H) ServeHTTP(w W, r *http.Request) {}`)
+		},
+			both("cmd/a.go:2 http-handler")},
+		{"spring-handler line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `@GetMapping("/x")`) },
+			both("cmd/a.go:2 spring-handler")},
+		{"next-handler line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `export async function GET() {}`) },
+			both("cmd/a.go:2 next-handler")},
+		{"sql line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `q := "SELECT 1"`) },
+			both("cmd/a.go:2 sql")},
+		{"jpa-query line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `@Query("x")`) },
+			both("cmd/a.go:2 jpa-query")},
+		{"fetch line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `fetch(u)`) },
+			both("cmd/a.go:2 fetch")},
+		{"axios line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `axios.get(u)`) },
+			both("cmd/a.go:2 axios")},
+		{"http-client-jvm line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `val c = HttpClient()`) },
+			both("cmd/a.go:2 http-client-jvm")},
+		{"react-query line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `useQuery(k)`) },
+			both("cmd/a.go:2 react-query")},
+		{"sql file", func(t *testing.T, fx *pstFx) { fx.put(t, "db/x.sql", "-- x") },
+			both("db/x.sql sql-file")},
 		{"fetch in a doc", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/README.md", "fetch(x)") },
 			pstWant("", "", "")},
 		{"fetch in a lockfile", func(t *testing.T, fx *pstFx) { fx.put(t, "go.sum", "fetch(x)") },
+			pstWant("", "", "")},
+		{"fetch in a .lockfile", func(t *testing.T, fx *pstFx) { fx.put(t, "deps.lockfile", "fetch(x)") },
 			pstWant("", "", "")},
 		{"fetch in a test", func(t *testing.T, fx *pstFx) { fx.put(t, "web/x.test.ts", "fetch(x)") },
 			pstWant("web/x.test.ts js-test", "", "")},
@@ -178,6 +205,24 @@ func TestPanelSlotTriggersFailureModes(t *testing.T) {
 		}, pstWant("", "", "cmd/a.go:2 file-io")},
 		{"goroutine", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", "go func() {}()") },
 			pstWant("", "", "cmd/a.go:2 goroutine")},
+		{"exec line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `exec.Command("ls")`) },
+			pstWant("", "", "cmd/a.go:2 exec")},
+		{"sync line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `var mu sync.Mutex`) },
+			pstWant("", "", "cmd/a.go:2 sync")},
+		{"channel line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `c := make(chan int)`) },
+			pstWant("", "", "cmd/a.go:2 channel")},
+		{"context line", func(t *testing.T, fx *pstFx) {
+			fx.g.appendLine(fx.repo+"/cmd/a.go", `ctx, cancel := context.WithCancel(ctx)`)
+		},
+			pstWant("", "", "cmd/a.go:2 context")},
+		{"kotlin-coroutine line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `launch { }`) },
+			pstWant("", "", "cmd/a.go:2 kotlin-coroutine")},
+		{"ts-async line", func(t *testing.T, fx *pstFx) { fx.g.appendLine(fx.repo+"/cmd/a.go", `await x()`) },
+			pstWant("", "", "cmd/a.go:2 ts-async")},
+		{"space in the name", func(t *testing.T, fx *pstFx) { fx.put(t, "cmd/my file.go", "go func() {}()") },
+			pstWant("", "", "cmd/my file.go:1 goroutine")},
+		{"non-ASCII name", func(t *testing.T, fx *pstFx) { fx.put(t, "cmd/café.go", "go func() {}()") },
+			pstWant("", "", "cmd/café.go:1 goroutine")},
 		{"jobs directory", func(t *testing.T, fx *pstFx) { fx.put(t, "jobs/run.go", "package jobs") },
 			pstWant("", "", "jobs/run.go worker-dir")},
 	} {
@@ -193,9 +238,10 @@ func TestPanelSlotTriggersFailureModes(t *testing.T) {
 	}
 }
 
-// One worktree's run wins over another's skip, in either order; a path the
-// worktree's `## panel diff exclude` leaves out is never scanned. The
-// uncommitted case reads a staged and an unstaged change too.
+// One worktree's run wins over another's skip, in either order, and the
+// first pair's reason wins when both run; a path the worktree's `## panel
+// diff exclude` leaves out is never scanned. The code worktree's change is
+// unstaged.
 func TestPanelSlotTriggersAcrossWorktrees(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -212,6 +258,14 @@ func TestPanelSlotTriggersAcrossWorktrees(t *testing.T) {
 	want := pstWant("", "", "cmd/a.go:2 goroutine")
 	pstIs(t, pstRun(t, docs.env, docs.repo, mb, code.repo, mb), want)
 	pstIs(t, pstRun(t, docs.env, code.repo, mb, docs.repo, mb), want)
+
+	jobs := newFx(t)
+	jobs.put(t, "jobs/run.go", "package jobs")
+	jobs.commit()
+	if jobs.g.err != nil {
+		t.Fatal(jobs.g.err)
+	}
+	pstIs(t, pstRun(t, jobs.env, jobs.repo, mb, code.repo, mb), pstWant("", "", "jobs/run.go worker-dir"))
 
 	ex := newFx(t)
 	ex.put(t, ".flow/project.md", "# p\n\n## panel diff exclude\n\n```text\ngen/**\n```")

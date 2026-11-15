@@ -49,9 +49,6 @@ func init() {
 	Registry["slot-judge"] = slotJudge
 }
 
-// sjOrder is the three gated slots, in print order.
-var sjOrder = []string{"test-sanity", "call-efficiency", "failure-modes"}
-
 var sjLine = regexp.MustCompile(`^(test-sanity|call-efficiency|failure-modes):[ \t]*(run|skip)[ \t]+—[ \t]+(\S.*?)[ \t]*$`)
 
 // sjPrompt is the judge's system prompt; the conditions are KAN-1126's,
@@ -89,7 +86,7 @@ func slotJudge(args []string, env Env, stdout, stderr io.Writer) int {
 		digest = append(digest[:pjDigestCap:pjDigestCap], pjTruncated...)
 	}
 	verdicts, cause := sjAsk(env, digest)
-	for _, s := range sjOrder {
+	for _, s := range pstSlots {
 		if cause != "" {
 			fmt.Fprintf(stdout, "%s: run — fallback: %s\n", s, strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
 		} else {
@@ -116,7 +113,7 @@ func sjAsk(env Env, digest []byte) (map[string]string, string) {
 	for _, line := range strings.Split(result, "\n") {
 		line = strings.TrimSpace(line)
 		slot, _, ok := strings.Cut(line, ":")
-		if !ok || !slices.Contains(sjOrder, slot) {
+		if !ok || !slices.Contains(pstSlots, slot) {
 			continue
 		}
 		m := sjLine.FindStringSubmatch(line)
@@ -125,7 +122,7 @@ func sjAsk(env Env, digest []byte) (map[string]string, string) {
 		}
 		verdicts[slot] = m[2] + " — " + m[3] + "; judge" + spend
 	}
-	if len(verdicts) != len(sjOrder) {
+	if len(verdicts) != len(pstSlots) {
 		return nil, malformed
 	}
 	return verdicts, ""

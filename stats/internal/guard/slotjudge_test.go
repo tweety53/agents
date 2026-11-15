@@ -103,6 +103,25 @@ func TestSlotJudgeFallsBack(t *testing.T) {
 	}
 }
 
+// TestSlotJudgeToleratesProse pins the contract's malformed rule: only a
+// line opening with a slot name is parsed, so prose around the three
+// verdict lines -- a colon in it too -- does not make the answer malformed.
+func TestSlotJudgeToleratesProse(t *testing.T) {
+	t.Parallel()
+	stub := newPJStub(t, pjJSON("Here are the verdicts:\ntest-sanity: run — a\ncall-efficiency: skip — b\nfailure-modes: skip — c\nNote: that is all.", ""))
+	r := runGuard("slot-judge", []string{pjDigest(t, "a plan")}, pjEnv(t, pjPolicy(), stub))
+	lines := strings.Split(strings.TrimSuffix(r.stdout, "\n"), "\n")
+	want := []string{"test-sanity: run — a; judge", "call-efficiency: skip — b; judge", "failure-modes: skip — c; judge"}
+	if r.rc != 0 || len(lines) != 3 {
+		t.Fatalf("rc=%d stdout=%q, want 0 and three lines", r.rc, r.stdout)
+	}
+	for i, w := range want {
+		if !strings.HasPrefix(lines[i], w) {
+			t.Errorf("line %d = %q, want it opening %q", i, lines[i], w)
+		}
+	}
+}
+
 // TestSlotJudgeRefuses: usage and an unreadable digest exit 2 with nothing
 // on stdout.
 func TestSlotJudgeRefuses(t *testing.T) {

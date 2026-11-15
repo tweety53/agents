@@ -286,7 +286,9 @@ func pstIsLockfile(p string) bool {
 // pstChangedLines parses a -U0 diff into each path's changed lines. A
 // `diff --git` line opens a file header, which ends at its first `@@`; in
 // it `--- a/<p>` and `+++ b/<p>` name the path (`---` for a deletion, whose
-// `+++` is /dev/null). Each hunk header sets the old and new counters; a
+// `+++` is /dev/null), less the tab git ends a header with when the name
+// holds a space; panelGit's core.quotePath=false leaves a non-ASCII name
+// unquoted. Each hunk header sets the old and new counters; a
 // `+` line is added at the new one, a `-` line removed at the old one.
 func pstChangedLines(diff string) map[string][]pstLine {
 	out := map[string][]pstLine{}
@@ -298,9 +300,9 @@ func pstChangedLines(diff string) map[string][]pstLine {
 		case strings.HasPrefix(l, "diff --git "):
 			header, p = true, ""
 		case header && strings.HasPrefix(l, "--- a/"):
-			p = strings.TrimPrefix(l, "--- a/")
+			p = strings.TrimSuffix(strings.TrimPrefix(l, "--- a/"), "\t")
 		case header && strings.HasPrefix(l, "+++ b/"):
-			p = strings.TrimPrefix(l, "+++ b/")
+			p = strings.TrimSuffix(strings.TrimPrefix(l, "+++ b/"), "\t")
 		case strings.HasPrefix(l, "@@"):
 			header = false
 			if m := pstHunk.FindStringSubmatch(l); m != nil {

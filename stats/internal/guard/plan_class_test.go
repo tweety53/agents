@@ -636,24 +636,11 @@ func TestPlanClassExtraLinesNameTheBundleAlone(t *testing.T) {
 
 // TestPlanClassTreeSmallDropsPrinciples pins decisions
 // principles-small-effective-class and principles-micro-unchanged: the small
-// class's panel is primary alone under every roll, regular keeps principles,
-// and a planner's -class regular raise over a mechanically small plan brings
+// class's panel is primary alone under every roll (TestPlanClassTree's small
+// row), regular keeps principles, and a planner's -class regular raise over a mechanically small plan brings
 // principles back.
 func TestPlanClassTreeSmallDropsPrinciples(t *testing.T) {
 	t.Parallel()
-	two := []pcExp{{"a", "first probe"}, {"b", "second probe"}}
-	for _, compact := range []uint64{89, 90} {
-		for _, bundle := range []uint64{29, 30} {
-			for _, exp := range []uint64{29, 30} {
-				for _, cands := range [][]pcExp{nil, two} {
-					got := pcTree("small", compact, exp, bundle, cands)
-					if !strings.Contains(got, "roster primary ·") || !strings.Contains(got, "dispatches primary\n") || strings.Contains(got, "principles") {
-						t.Errorf("small compact=%d bundle=%d exp=%d cands=%d:\n%s", compact, bundle, exp, len(cands), got)
-					}
-				}
-			}
-		}
-	}
 	if got := pcTree("regular", 89, 30, 30, nil); !strings.Contains(got, "roster primary; principles") {
 		t.Errorf("regular dropped principles:\n%s", got)
 	}

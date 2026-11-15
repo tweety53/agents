@@ -19,9 +19,10 @@ import (
 // same inputs and fails on any difference.
 
 // panelGit runs gitBin -C worktree args from env's directory, its stderr
-// discarded, as the library's `2>/dev/null` calls do.
+// discarded, as the library's `2>/dev/null` calls do. core.quotePath=false
+// prints a non-ASCII path as itself, not as a quoted octal escape.
 func panelGit(env Env, gitBin, worktree string, args ...string) *exec.Cmd {
-	cmd := exec.Command(gitBin, append([]string{"-C", worktree}, args...)...)
+	cmd := exec.Command(gitBin, append([]string{"-C", worktree, "-c", "core.quotePath=false"}, args...)...)
 	cmd.Dir = env.Dir
 	// GIT_CONFIG_GLOBAL is forwarded from env, as verbatimmoves.go does: a
 	// no-op in production, the tests' /dev/null under test.
