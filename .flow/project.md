@@ -132,10 +132,13 @@ part of a `/flow` run. A command it fails that the default list passed at the sa
 `escaped the default list — it passed at <sha>` in its block: the fix tags the failing test core,
 or a cheaper sibling proving the same behaviour, by the rubric above.
 
-**Re-profiling is one command per Go line**: the line's `go test` command with `-json` added,
-piped into `scripts/flow-guard test-cost -min 1`. A marked test is skipped and so not printed;
-what prints is the core set plus whatever grew heavy — each new row meets the rubric and is
-tagged, or gains the `smoke.Heavy(t)` call.
+**Re-profiling is `flow suite list -tests guard-tests` and `flow suite list -tests stats-go`
+after a default run**: every non-skipped top-level test's cost, recorded with the run, heaviest
+first, read against the 1 s heavy mark and the 2 s ceiling — a test at 2 s or more is cut below it,
+or its doc comment records why its cost is the operation it proves. A hand profile is still the
+line's command piped into `scripts/flow-guard test-cost -min 1`. A marked test is skipped and so
+not printed; what prints is the core set plus whatever grew heavy — each new row meets the rubric
+and is tagged, or gains the `smoke.Heavy(t)` call.
 
 **`/flow-fast` and `/flow-interactive` scope these commands by hand**, and `smoke.Heavy` follows
 the scope: a command naming tests with `-run` runs every test it names whatever else it carries,
