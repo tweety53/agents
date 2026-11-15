@@ -11,8 +11,16 @@ import (
 
 // sobEnv runs the guard with root as FLOW_GUARD_REPO_ROOT,
 // and stub's directory first on PATH when stub is not "".
-func sobEnv(dir, root, stub string) Env {
-	get := os.Getenv
+func sobEnv(t *testing.T, dir, root, stub string) Env {
+	t.Helper()
+	// The moving stub execs fixtureGit itself; without it, fixtureGitPath.
+	path := fixtureGitPath(t)
+	get := func(k string) string {
+		if k == "PATH" {
+			return path
+		}
+		return os.Getenv(k)
+	}
 	if stub != "" {
 		get = pathEnv(stub)
 	}
@@ -59,26 +67,32 @@ func sobOverlapFx(t *testing.T) *bmFx {
 
 // sobMovingStub writes a git that moves main one empty commit forward each
 // time a rebase starts -- a fetch landing mid-sync -- and logs each move to
-// dir/.moves; with once, only the first rebase moves it.
+// dir/.moves; with once, only the first rebase moves it. Every other call
+// execs the real git at once, and dir is read from the stub's own path, so
+// the stub's body is one of two and each is assessed once (execFixtures).
 func sobMovingStub(t *testing.T, dir string, once bool) string {
 	t.Helper()
 	stop := ""
 	if once {
 		stop = `: > "$D/.stop"`
 	}
-	writeExec(t, dir+"/stub/git", fmt.Sprintf(`#!/usr/bin/env bash
-REAL=%q D=%q
-if [ "${3-}" = rebase ] && [ "${4-}" != --continue ] && [ ! -e "$D/.stop" ]; then
+	writeExec(t, dir+"/stub/git", fmt.Sprintf(`#!/bin/sh
+[ "${3-}" = rebase ] || exec %[1]q "$@"
+REAL=%[1]q D="${0%%/stub/git}"
+if [ "${4-}" != --continue ] && [ ! -e "$D/.stop" ]; then
   c="$("$REAL" -C "$2" commit-tree "$("$REAL" -C "$2" rev-parse 'main^{tree}')" -p main -m more)"
   "$REAL" -C "$2" update-ref refs/heads/main "$c"
   echo moved >> "$D/.moves"
-  %s
+  %[2]s
 fi
 exec "$REAL" "$@"
-`, fixtureGit, dir, stop))
+`, fixtureGit, stop))
 	return dir + "/stub"
 }
 
+// Cost: 2.00 s — ten cases of real git over their own repositories, two of
+// them rebasing again onto a base the stub moves, up to the three-rebase cap
+// the test proves.
 // smoke: core — the rebase onto a moved base
 func TestSyncOntoBase(t *testing.T) {
 	t.Parallel()
@@ -169,7 +183,7 @@ func TestSyncOntoBase(t *testing.T) {
 			if c.args != nil {
 				args = c.args(fx)
 			}
-			r := runGuard("sync-onto-base", args, sobEnv(fx.dir, root, stub))
+			r := runGuard("sync-onto-base", args, sobEnv(t, fx.dir, root, stub))
 			want := strings.NewReplacer("$WT", fx.repo, "$ROOT", root, "$TIP", fx.g.git(fx.repo, "rev-parse", "main")).Replace(c.out)
 			if r.rc != c.code || r.stdout != want {
 				t.Fatalf("got exit %d stdout %q\nwant exit %d stdout %q\nstderr %s", r.rc, r.stdout, c.code, want, r.err)
@@ -202,7 +216,7 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		if fx.g.err != nil {
 			t.Fatal(fx.g.err)
 		}
-		if r := runGuard("sync-onto-base", []string{fx.repo, "main", fx.recorded}, sobEnv(fx.dir, root, "")); r.rc != 1 {
+		if r := runGuard("sync-onto-base", []string{fx.repo, "main", fx.recorded}, sobEnv(t, fx.dir, root, "")); r.rc != 1 {
 			t.Fatalf("setup: sync exit %d, want the conflict's 1\n%s%s", r.rc, r.stdout, r.err)
 		}
 		return fx, fx.g.git(fx.repo, "rev-parse", "main")
@@ -224,7 +238,7 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		if fx.g.err != nil {
 			t.Fatal(fx.g.err)
 		}
-		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(fx.dir, root, ""))
+		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(t, fx.dir, root, ""))
 		want := "MOVED: " + fx.repo + " — 1 commits on main since the recorded merge base; overlaps: later.txt\n" +
 			"CLEAR: " + fx.repo + " — main has not moved since the recorded merge base\nREBASED: " + fx.repo + " — onto " + tip + "\n"
 		if r.rc != 0 || r.stdout != want {
@@ -241,7 +255,7 @@ func TestSyncOntoBaseResume(t *testing.T) {
 	t.Run("refuses while the rebase is still in progress", func(t *testing.T) {
 		t.Parallel()
 		fx, onto := conflicted(t)
-		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(fx.dir, root, ""))
+		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(t, fx.dir, root, ""))
 		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "still in progress") {
 			t.Fatalf("got exit %d stdout %q stderr %q, want a refusal naming the rebase in progress", r.rc, r.stdout, r.err)
 		}
@@ -255,7 +269,7 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		if fx.g.err != nil {
 			t.Fatal(fx.g.err)
 		}
-		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(fx.dir, root, ""))
+		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(t, fx.dir, root, ""))
 		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "ancestor") {
 			t.Fatalf("got exit %d stdout %q stderr %q, want a refusal naming the ancestry", r.rc, r.stdout, r.err)
 		}

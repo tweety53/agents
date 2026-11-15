@@ -42,13 +42,7 @@ const kwName = "kan-1-demo"
 // ("" for none). withFlow puts the real flow CLI on PATH.
 func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 	t.Helper()
-	// Physical, as git records a worktree's path and the location guard
-	// compares it.
-	tmp, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	fx := kwFx{origin: tmp + "/origin.git", project: tmp + "/project"}
+	fx := kwNoRepo(t, withFlow)
 	fixtureRepoWithOrigin(t, fx.project, fx.origin, repoShape{Branch: "main", Commit: "init"})
 	var g fxGit
 	g.git(fx.project, "config", "user.name", "test")
@@ -67,7 +61,20 @@ func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
+	return fx
+}
 
+// kwNoRepo is kwNew's paths and environment with no repository built: the
+// fixture of a refusal kickoff makes before it reads any repository.
+func kwNoRepo(t *testing.T, withFlow bool) kwFx {
+	t.Helper()
+	// Physical, as git records a worktree's path and the location guard
+	// compares it.
+	tmp, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx := kwFx{origin: tmp + "/origin.git", project: tmp + "/project"}
 	// PATH without any directory holding a flow binary, so "flow absent"
 	// means absent; the real CLI is prepended when asked for.
 	var path []string
@@ -78,6 +85,12 @@ func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 		}
 		path = append(path, dir)
 	}
+	// The shim and its guards run git over this PATH (fixtureGitPath).
+	gitDir, err := fixtureGitDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path = append(path, gitDir)
 	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
 		if _, err := os.Stat(filepath.Join(d, "flow")); err != nil {
 			path = append(path, d)
@@ -152,11 +165,18 @@ func (fx kwFx) git(t *testing.T, dir string, args ...string) string {
 
 const kwSetupMD = "# project\n\n## worktree setup\n\n```bash\ntouch setup-ran\necho second >> setup-ran\n```\n\nTrailing prose, never run.\n"
 
+// Cost: 4.89 s — twelve runs of the real shim, each adding a worktree from a
+// real origin, running setup, pushing and recording through the real flow
+// CLI; the two refusals made before any repository is read build none.
 // smoke: core — kickoff: worktree, branch, setup, push, the STARTED record
 func TestKickoffWorktree(t *testing.T) {
 	t.Parallel()
 	if Registry["kickoff-worktree"] == nil {
 		t.Fatal("kickoff-worktree is not registered")
+	}
+	// Built once before the fan-out, so no subtest waits on the build.
+	if _, err := kwFlowBuilt(); err != nil {
+		t.Fatalf("build flow: %v", err)
 	}
 
 	t.Run("fresh branch: add from origin/main, setup, push, persisted", func(t *testing.T) {
@@ -234,7 +254,7 @@ func TestKickoffWorktree(t *testing.T) {
 
 	t.Run("flow absent from PATH: exit 2 before any add", func(t *testing.T) {
 		t.Parallel()
-		fx := kwNew(t, "", false)
+		fx := kwNoRepo(t, false)
 		r := fx.run(t, fx.project, kwName)
 		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "kickoff-worktree: no flow binary on PATH") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)
@@ -392,7 +412,7 @@ func TestKickoffWorktree(t *testing.T) {
 
 	t.Run("usage: exit 2", func(t *testing.T) {
 		t.Parallel()
-		fx := kwNew(t, "", true)
+		fx := kwNoRepo(t, true)
 		r := fx.run(t, fx.project)
 		if r.rc != 2 || r.err != "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n" {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out)

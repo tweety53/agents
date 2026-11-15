@@ -44,6 +44,7 @@ var ctPlan = bt(`- [ ] 1. One
 type ctFx struct {
 	wt, peer, base, log, decisions, dispatches, state string
 	env                                               Env
+	origin                                            bool // the repositories carry an origin
 }
 
 // ctRepo is a repository on spectre/demo with one base commit and a bare
@@ -62,7 +63,7 @@ func ctRepo(t *testing.T, dir string, origin bool) {
 }
 
 // ctFixture builds the canonical worktree (plan on disk, never committed),
-// a peer repository, and the flow stub: tickRC and recordRC are the exit
+// names a peer repository withPeer builds, and the flow stub: tickRC and recordRC are the exit
 // codes of `flow tasks tick` and `flow record …`; `flow record decisions`
 // and `flow record dispatches` print fx.decisions and fx.dispatches when a
 // test wrote them, nothing otherwise; `flow state get` prints fx.state the
@@ -70,15 +71,24 @@ func ctRepo(t *testing.T, dir string, origin bool) {
 func ctFixture(t *testing.T, origin bool, tickRC, recordRC string) *ctFx {
 	t.Helper()
 	root := t.TempDir()
-	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", decisions: root + "/decisions.json", dispatches: root + "/dispatches.json", state: root + "/state.json"}
+	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", decisions: root + "/decisions.json", dispatches: root + "/dispatches.json", state: root + "/state.json", origin: origin}
 	ctRepo(t, fx.wt, origin)
-	ctRepo(t, fx.peer, origin)
 	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", ctPlan)
 	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	bin := root + "/bin"
-	writeExec(t, bin+"/flow", "#!/bin/sh\n[ \"$1 $2\" = \"state get\" ] && { cat "+fx.state+" 2>/dev/null; exit 0; }\necho \"flow $*\" >> "+fx.log+"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record decisions\") cat "+fx.decisions+" 2>/dev/null; exit "+recordRC+";;\n\"record dispatches\") cat "+fx.dispatches+" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
-	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> "+fx.log+";; esac\nexec "+fixtureGit+" \"$@\"\n")
+	// Both stubs find root from their own path, so their bodies are shared
+	// across fixtures and each is assessed once (execFixtures).
+	writeExec(t, bin+"/flow", "#!/bin/sh\nr=${0%/bin/flow}\n[ \"$1 $2\" = \"state get\" ] && { cat \"$r/state.json\" 2>/dev/null; exit 0; }\necho \"flow $*\" >> \"$r/calls.log\"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record decisions\") cat \"$r/decisions.json\" 2>/dev/null; exit "+recordRC+";;\n\"record dispatches\") cat \"$r/dispatches.json\" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
+	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> \"${0%/bin/git}/calls.log\";; *) exec "+fixtureGit+" \"$@\";; esac\nexec "+fixtureGit+" \"$@\"\n")
 	fx.env = Env{Getenv: pathEnv(bin), Dir: fx.wt}
+	return fx
+}
+
+// withPeer builds the peer repository at fx.peer, as ctRepo built the
+// canonical one: only the tests that read fx.peer pay for it.
+func (fx *ctFx) withPeer(t *testing.T) *ctFx {
+	t.Helper()
+	ctRepo(t, fx.peer, fx.origin)
 	return fx
 }
 
@@ -119,6 +129,9 @@ func ctEqual(t *testing.T, got, want []string) {
 	}
 }
 
+// Cost: 6.42 s — ten full close-task runs, each its five checks over real git
+// (about sixty git calls) and the push it ends in, one fixture each because
+// every case leaves a different tree; the runs are the operation proved.
 // smoke: core — a task's close, its five checks run in process
 func TestCloseTaskOrder(t *testing.T) {
 	t.Parallel()
@@ -317,7 +330,7 @@ func TestCloseTaskExitContract(t *testing.T) {
 	}
 	t.Run("map form: one push per distinct worktree", func(t *testing.T) {
 		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
+		fx := ctFixture(t, true, "0", "0").withPeer(t)
 		s3 := fx.commit(t, fx.wt, "three", "3", "c.txt", "c\n")
 		p3 := fx.commit(t, fx.peer, "three", "3", "d.txt", "d\n")
 		r := fx.run(fx.wt, "demo", fx.base, "3:"+fx.wt+"="+s3+","+fx.peer+"="+p3)
@@ -528,7 +541,7 @@ func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			fx := ctFixture(t, true, "0", "0")
+			fx := ctFixture(t, true, "0", "0").withPeer(t)
 			gitRun(t, fx.peer, "branch", "main")
 			writeFile(t, fx.state, `{"worktrees":{"`+fx.wt+`":"`+fx.base+`","`+fx.peer+`":"-"}}`)
 			fx.commit(t, fx.peer, "one", c.peerTask, c.peerFile, "p\n")
@@ -619,7 +632,7 @@ func TestCloseTaskRebuildsASuiteZipInTheRegressionCheckout(t *testing.T) {
 	if _, err := exec.LookPath("zip"); err != nil {
 		t.Skip("zip is not on PATH")
 	}
-	fx := ctFixture(t, true, "0", "0")
+	fx := ctFixture(t, true, "0", "0").withPeer(t)
 	// The resolver answers with git's real paths; the temp dir sits under a symlink on macOS.
 	var err error
 	if fx.peer, err = filepath.EvalSymlinks(fx.peer); err != nil {

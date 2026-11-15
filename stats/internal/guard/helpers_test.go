@@ -645,6 +645,26 @@ var fixtureGit = func() string {
 	return p
 }()
 
+// fixtureGitPath is PATH with a directory holding only `git`, a link to
+// fixtureGit, put first: a guard under test that resolves git over its PATH
+// then skips the xcrun trampoline too, which halves each of its git calls.
+func fixtureGitPath(t *testing.T) string {
+	t.Helper()
+	dir, err := fixtureGitDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir + string(os.PathListSeparator) + os.Getenv("PATH")
+}
+
+var fixtureGitDir = sync.OnceValues(func() (string, error) {
+	dir := filepath.Join(execFixtures.dir, "git-bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, os.Symlink(fixtureGit, filepath.Join(dir, "git"))
+})
+
 // fixtureGitEnv is what every fixture-building git runs under: the user's
 // global config masked, as the bash harnesses' GIT_CONFIG_GLOBAL=/dev/null
 // did, no `git maintenance run --auto` child spawned after each commit, and

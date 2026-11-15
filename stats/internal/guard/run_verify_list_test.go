@@ -1755,7 +1755,8 @@ func TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns(t *testing.T) {
 func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 	t.Parallel()
 	// fixture: the base commit holds the list, origin/main; one commit adds docs/a.md.
-	fixture := func(list string) (repo, base string) {
+	fixture := func(t *testing.T, list string) (repo, base string) {
+		t.Helper()
 		repo, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -1772,43 +1773,50 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 		return repo, base
 	}
 	const quiet = "# suite: quiet\nflow-guard unchanged . ':!docs/' || { echo QUIET-RAN; }\n"
-	repo, base := fixture(quiet +
-		"# suite: loud\nflow-guard unchanged docs/ || { echo LOUD-RAN; }\n" +
-		"# suite: odd\nflow-guard unchanged $(echo src/) || { echo ODD-RAN; }\n" +
-		"# suite: chain\nflow-guard unchanged . ':!docs' || echo A && echo CHAIN-RAN\n")
-	stub, flowLog := rvlFlowStub(t, "", 1)
-	guardLog := filepath.Join(stub, "guard-calls")
-	writeExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+guardLog+"\nexit 1\n")
+	t.Run("only the guard-skipped line records no row", func(t *testing.T) {
+		t.Parallel()
+		repo, base := fixture(t, quiet+
+			"# suite: loud\nflow-guard unchanged docs/ || { echo LOUD-RAN; }\n"+
+			"# suite: odd\nflow-guard unchanged $(echo src/) || { echo ODD-RAN; }\n"+
+			"# suite: chain\nflow-guard unchanged . ':!docs' || echo A && echo CHAIN-RAN\n")
+		stub, flowLog := rvlFlowStub(t, "", 1)
+		guardLog := filepath.Join(stub, "guard-calls")
+		writeExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+guardLog+"\nexit 1\n")
 
-	rc, out := rvlRunIn(t, repo, stub, repo, "test")
-	if rc != 0 {
-		t.Fatalf("exit %d, want 0\n%s", rc, out)
-	}
-	if want := "`flow-guard unchanged . ':!docs/' || { echo QUIET-RAN; }` — skipped, unchanged: nothing under . :!docs/ changed since " + base + " — suite skipped\n"; !strings.Contains(out, want) || strings.Contains(out, "QUIET-RAN\n") {
-		t.Errorf("the quiet suite was not skipped by its guard, want %q:\n%s", want, out)
-	}
-	for _, c := range []string{"`flow-guard unchanged docs/ || { echo LOUD-RAN; }` — exit 0\n  LOUD-RAN", "`flow-guard unchanged $(echo src/) || { echo ODD-RAN; }` — exit 0\n  ODD-RAN", "CHAIN-RAN"} {
-		if !strings.Contains(out, c) {
-			t.Errorf("output lacks %q:\n%s", c, out)
+		rc, out := rvlRunIn(t, repo, stub, repo, "test")
+		if rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", rc, out)
 		}
-	}
-	calls, _ := os.ReadFile(flowLog)
-	if !strings.Contains(string(calls), "-suite loud ") || !strings.Contains(string(calls), "-suite odd ") || !strings.Contains(string(calls), "-suite chain ") || strings.Contains(string(calls), "-suite quiet ") {
-		t.Errorf("suite record calls want loud and odd, not quiet:\n%s", calls)
-	}
-	if g, _ := os.ReadFile(guardLog); strings.Contains(string(g), ":!docs/") {
-		t.Errorf("the quiet suite's guard ran as a child:\n%s", g)
-	}
+		if want := "`flow-guard unchanged . ':!docs/' || { echo QUIET-RAN; }` — skipped, unchanged: nothing under . :!docs/ changed since " + base + " — suite skipped\n"; !strings.Contains(out, want) || strings.Contains(out, "QUIET-RAN\n") {
+			t.Errorf("the quiet suite was not skipped by its guard, want %q:\n%s", want, out)
+		}
+		for _, c := range []string{"`flow-guard unchanged docs/ || { echo LOUD-RAN; }` — exit 0\n  LOUD-RAN", "`flow-guard unchanged $(echo src/) || { echo ODD-RAN; }` — exit 0\n  ODD-RAN", "CHAIN-RAN"} {
+			if !strings.Contains(out, c) {
+				t.Errorf("output lacks %q:\n%s", c, out)
+			}
+		}
+		calls, _ := os.ReadFile(flowLog)
+		if !strings.Contains(string(calls), "-suite loud ") || !strings.Contains(string(calls), "-suite odd ") || !strings.Contains(string(calls), "-suite chain ") || strings.Contains(string(calls), "-suite quiet ") {
+			t.Errorf("suite record calls want loud and odd, not quiet:\n%s", calls)
+		}
+		if g, _ := os.ReadFile(guardLog); strings.Contains(string(g), ":!docs/") {
+			t.Errorf("the quiet suite's guard ran as a child:\n%s", g)
+		}
+	})
 
-	repo, _ = fixture(quiet)
-	os.Remove(flowLog)
-	if rc, out := rvlRunIn(t, repo, stub, repo, "test", "kan-1", "verify", "mf-k1", "opus", "low"); rc != 0 {
-		t.Fatalf("quiet alone: exit %d, want 0\n%s", rc, out)
-	}
-	calls, _ = os.ReadFile(flowLog)
-	if !strings.Contains(string(calls), "-outcome skipped") || strings.Contains(string(calls), "-outcome completed") {
-		t.Errorf("the row of a guard-skipped list did not end skipped:\n%s", calls)
-	}
+	t.Run("a list the guard skips whole ends its row skipped", func(t *testing.T) {
+		t.Parallel()
+		repo, _ := fixture(t, quiet)
+		stub, flowLog := rvlFlowStub(t, "", 1)
+		writeExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+filepath.Join(stub, "guard-calls")+"\nexit 1\n")
+		if rc, out := rvlRunIn(t, repo, stub, repo, "test", "kan-1", "verify", "mf-k1", "opus", "low"); rc != 0 {
+			t.Fatalf("quiet alone: exit %d, want 0\n%s", rc, out)
+		}
+		calls, _ := os.ReadFile(flowLog)
+		if !strings.Contains(string(calls), "-outcome skipped") || strings.Contains(string(calls), "-outcome completed") {
+			t.Errorf("the row of a guard-skipped list did not end skipped:\n%s", calls)
+		}
+	})
 }
 
 // rvlFullRepo is a clean repository whose origin/main is its HEAD and whose

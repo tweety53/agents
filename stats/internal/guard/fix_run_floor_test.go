@@ -39,11 +39,16 @@ func newFrFx(t *testing.T) *frFx {
 	fx.g.git(fx.repo, "add", "-A")
 	fx.g.git(fx.repo, "commit", "-qm", "base")
 	fx.mb = fx.g.git(fx.repo, "rev-parse", "HEAD")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "GIT_CONFIG_GLOBAL=/dev/null")
+	// The guard runs git a dozen times a call (fixtureGitPath).
+	path := fixtureGitPath(t)
+	environ := append(os.Environ(), "GIT_CONFIG_GLOBAL=/dev/null")
 	fx.env = Env{Dir: dir, Environ: func() []string { return environ }, LookupEnv: hermeticGitLookup,
 		Getenv: func(k string) string {
-			if k == "GIT_CONFIG_GLOBAL" {
+			switch k {
+			case "GIT_CONFIG_GLOBAL":
 				return "/dev/null"
+			case "PATH":
+				return path
 			}
 			return os.Getenv(k)
 		},
@@ -163,31 +168,35 @@ func TestFixRunFloorVerdict(t *testing.T) {
 			t.Errorf("an earlier fix run's verdict survived the next floor call: %v", err)
 		}
 	})
-	for name, verdict := range map[string]string{
-		"a roster without primary":  `{"roster": ["principles"], "verify": "full", "reasons": ["r"]}`,
-		"an empty roster":           `{"roster": [], "verify": "fast", "reasons": ["r"]}`,
-		"a roster entry off the id": `{"roster": ["primary", "all of them"], "verify": "fast", "reasons": ["r"]}`,
-		"an unknown verify mode":    `{"roster": ["primary"], "verify": "none", "reasons": ["r"]}`,
-		"no reason":                 `{"roster": ["primary"], "verify": "fast", "reasons": []}`,
-		"an unknown field":          `{"roster": ["primary"], "verify": "fast", "reasons": ["r"], "skip_lint": true}`,
-		"not JSON":                  `roster: primary`,
-	} {
-		t.Run("refused: "+name, func(t *testing.T) {
-			t.Parallel()
-			fx := newFrFx(t)
-			fx.commit("notes.md")
+	// One fixture for every malformed verdict: each row seeds a verdict of
+	// its own first, so each refusal is seen removing one.
+	t.Run("refused: a malformed verdict", func(t *testing.T) {
+		t.Parallel()
+		fx := newFrFx(t)
+		fx.commit("notes.md")
+		for _, c := range []struct{ name, verdict string }{
+			{"a roster without primary", `{"roster": ["principles"], "verify": "full", "reasons": ["r"]}`},
+			{"an empty roster", `{"roster": [], "verify": "fast", "reasons": ["r"]}`},
+			{"a roster entry off the id", `{"roster": ["primary", "all of them"], "verify": "fast", "reasons": ["r"]}`},
+			{"an unknown verify mode", `{"roster": ["primary"], "verify": "none", "reasons": ["r"]}`},
+			{"no reason", `{"roster": ["primary"], "verify": "fast", "reasons": []}`},
+			{"an unknown field", `{"roster": ["primary"], "verify": "fast", "reasons": ["r"], "skip_lint": true}`},
+			{"not JSON", `roster: primary`},
+		} {
 			if r := fx.judge("1", frFast); r.rc != 0 {
-				t.Fatalf("seeding an earlier verdict: rc=%d stderr=%q", r.rc, r.err)
+				t.Fatalf("%s: seeding an earlier verdict: rc=%d stderr=%q", c.name, r.rc, r.err)
 			}
-			r := fx.judge("2", verdict)
-			if r.rc != 1 || r.err == "" {
-				t.Fatalf("rc=%d stderr=%q, want rc=1 and a cause", r.rc, r.err)
+			if _, err := os.Stat(frPath(fx.repo)); err != nil {
+				t.Fatalf("%s: the seeded verdict is not in force: %v", c.name, err)
+			}
+			if r := fx.judge("2", c.verdict); r.rc != 1 || r.err == "" {
+				t.Errorf("%s: rc=%d stderr=%q, want rc=1 and a cause", c.name, r.rc, r.err)
 			}
 			if _, err := os.Stat(frPath(fx.repo)); !os.IsNotExist(err) {
-				t.Errorf("a refused verdict left a file in force: %v", err)
+				t.Errorf("%s: a refused verdict left a file in force: %v", c.name, err)
 			}
-		})
-	}
+		}
+	})
 	t.Run("refused: code has no room above its floor", func(t *testing.T) {
 		t.Parallel()
 		fx := newFrFx(t)
