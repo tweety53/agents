@@ -48,7 +48,7 @@ is diagnostic, never a runtime figure, and one cold-cache run must not move
 the number. -json emits the store's array alone.
 
 record turns the go test -json lines of the command's stdout back into
-output text as go test prints it without -v -- a test's output only when it
+output text close to what go test prints without -v -- a test's output only when it
 fails, or never ends -- every other line passing through unchanged, and
 records each
 top-level test's cost with the run: its own elapsed time plus that of every
