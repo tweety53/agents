@@ -18,8 +18,8 @@ import (
 
 // plan-dispatch-groups is the mechanical default for grouping a plan's
 // dispatch bundles (plan-dispatch-bundles, computed in-process) into
-// implementer groups, biased toward fewer, larger groups when bundles aren't
-// independently parallel (KAN-513).
+// implementer groups, then cut so no implementer receives more than weight 3
+// (KAN-1129).
 //
 // Rule (canonical definition: this repository's
 // spectre/changes/kan-513-flow-bias-free-implementer-grouping-toward/design.md,
@@ -31,7 +31,7 @@ import (
 //
 //	deps(k) = A_k \ M_k -- what bundle k actually waits on.
 //
-// Two passes, both in plan order:
+// Three passes, all in plan order:
 //
 //  1. Chain merge. Walk bundles by id. Bundle k joins the first existing
 //     group g such that deps(k) intersects members(g) and deps(k) is a
@@ -41,6 +41,14 @@ import (
 //     in-flight cap. Among the chain-merged groups, those sharing an
 //     identical ready set are folded down to exactly two, dealt round-robin
 //     in plan order (1st and 3rd together, 2nd and 4th together, ...).
+//  3. Cut to at most pdgMaxWeight (three) per group. Each folded group's
+//     bundles are walked in bundle-id order into consecutive pieces: a
+//     bundle joins the current piece when the piece is empty or its weight
+//     plus the bundle's stays within 3, otherwise it opens the next piece.
+//     A task weighs 3 when its **Size:** is `big` and 1 otherwise (`small`,
+//     `medium`, or absent, read as `medium`); a bundle weighs the sum of its
+//     tasks. A single bundle heavier than 3 stays one group -- a
+//     **Squash-with:** pair must commit together.
 //
 // Tasks under different repository headings never share a group (kan-1107
 // self-review F4): a task's repository is the text of the nearest `## `
@@ -57,8 +65,9 @@ import (
 // Exit codes mirror plan-dispatch-bundles exactly, since this computes on
 // top of its output:
 //
-//	0  groups computed -- printed one per line on stdout, ordered by each
-//	   group's lowest bundle id, as `group <g>: <bundle ids>` with the ids in
+//	0  groups computed -- the pieces of pass 3, printed one per line on
+//	   stdout, ordered by each group's lowest bundle id, as
+//	   `group <g>: <bundle ids>` with the ids in
 //	   plan (bundle-id) order. A file with zero unchecked tasks (zero
 //	   bundles) prints nothing and still exits 0.
 //	1  plan-dispatch-bundles' own violations, passed through unchanged.
@@ -69,6 +78,23 @@ func init() { Registry["plan-dispatch-groups"] = planDispatchGroups }
 // pdgMaxInFlight is the implementer in-flight cap (skills/flow/sdd-dispatch.md's
 // **Waves** paragraph): a ready-set folds to this many groups, never more.
 const pdgMaxInFlight = 2
+
+// pdgMaxWeight is the most weight one implementer receives (KAN-1129): three
+// small or medium tasks, or one big task.
+const pdgMaxWeight = 3
+
+// pdgWeight is a bundle's weight: 3 per `big` task, 1 per other task.
+func pdgWeight(tasks []pdbTask) int {
+	w := 0
+	for _, t := range tasks {
+		if t.size == "big" {
+			w += 3
+		} else {
+			w++
+		}
+	}
+	return w
+}
 
 func planDispatchGroups(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
@@ -192,7 +218,18 @@ func pdgComputeGroups(bundles [][]pdbTask, afterSets [][]string, repoAt []string
 				ids = append(ids, bucket[j].bundleIDs...)
 			}
 			slices.Sort(ids)
-			folded = append(folded, ids)
+			// Cut pass: consecutive pieces of at most pdgMaxWeight.
+			var piece []int
+			weight := 0
+			for _, id := range ids {
+				w := pdgWeight(bundles[id-1])
+				if piece != nil && weight+w > pdgMaxWeight {
+					folded = append(folded, piece)
+					piece, weight = nil, 0
+				}
+				piece, weight = append(piece, id), weight+w
+			}
+			folded = append(folded, piece)
 		}
 	}
 	slices.SortStableFunc(folded, func(a, b []int) int { return a[0] - b[0] })

@@ -60,8 +60,10 @@ import (
 //	   stderr as `<path>:<task line>: task <id> has no **Files:** field` --
 //	   or an `**After:**` value that does not gate as `Task <ids>` or
 //	   `none` -- `<path>:<task line>: task <id> has a malformed **After:**
-//	   value: <value>` -- every missing field first, then every malformed
-//	   value, never stopping at the first.
+//	   value: <value>` -- or a **Size:** value other than `small`,
+//	   `medium` or `big` -- `<path>:<task line>: task <id> has an unknown
+//	   **Size:** value: <value>` -- every missing field first, then every
+//	   malformed value, then every unknown size, never stopping at the first.
 //	2  invocation error -- wrong argument count, the file cannot be read, or
 //	   it cannot be decoded as text.
 //
@@ -149,7 +151,8 @@ func pdbBundlesOf(path string, env Env, stderr io.Writer) ([][]pdbTask, [][]stri
 
 // pdbComputeBundles is compute_bundles: bundles in lowest-id order, members
 // in plan order, each with its resolved after-set; violations instead when
-// any unchecked task lacks **Files:** or carries a malformed **After:**.
+// any unchecked task lacks **Files:**, carries a malformed **After:**, or
+// declares an unknown **Size:**.
 func pdbComputeBundles(tasks []pdbTask) ([][]pdbTask, [][]string, []string) {
 	var unchecked []pdbTask
 	for _, t := range tasks {
@@ -166,6 +169,11 @@ func pdbComputeBundles(tasks []pdbTask) ([][]pdbTask, [][]string, []string) {
 	for _, t := range unchecked {
 		if t.afterMalformed != nil {
 			violations = append(violations, fmt.Sprintf("%d: task %s has a malformed **After:** value: %s", t.taskLine, t.id, *t.afterMalformed))
+		}
+	}
+	for _, t := range unchecked {
+		if t.sizeDeclared && !slices.Contains(pdbSizes, t.size) {
+			violations = append(violations, fmt.Sprintf("%d: task %s has an unknown **Size:** value: %s", t.taskLine, t.id, t.size))
 		}
 	}
 	if violations != nil {

@@ -1142,3 +1142,40 @@ func TestCheckPlanShapeF31(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckPlanShapeF32 pins F32 and Size's place in F1 and F3a: a task's
+// **Size:** value is small, medium or big, declared once, at column 0.
+func TestCheckPlanShapeF32(t *testing.T) {
+	t.Parallel()
+	plan := func(extra string) string {
+		return psFixture(t, psTasks("a")+"\n"+extra)
+	}
+	refused := func(name, extra, id string) {
+		p := plan(extra)
+		r := psMutant(p, "")
+		if r.rc != 1 || strings.Count(r.out, ": "+id+" ") != 1 || strings.Count(r.out, "\n")+1 != 1 {
+			t.Errorf("%s: rc=%d out=%q, want one %s finding", name, r.rc, r.out, id)
+		}
+		if m := psMutant(p, id); m.rc != 0 {
+			t.Errorf("%s: the mutation disabling %s still refused: rc=%d out=%q", name, id, m.rc, m.out)
+		}
+	}
+	refused("unknown value", "**Size:** huge\n", "F32")
+	if r := psMutant(plan("**Size:** huge\n"), ""); !strings.Contains(r.out, ":7: F32 ") || !strings.Contains(r.out, "task 1") || !strings.Contains(r.out, "huge") {
+		t.Errorf("unknown value: F32 not at the size line naming task 1 and huge: %q", r.out)
+	}
+	refused("empty value", "**Size:**\n", "F32")
+	refused("second line", "**Size:** big\n**Size:** small\n", "F1")
+	if r := psMutant(plan("**Size:** big\n**Size:** small\n"), ""); !strings.Contains(r.out, ":8: F1 ") || !strings.Contains(r.out, "**Size:**") {
+		t.Errorf("second line: F1 not at line 8 naming **Size:**: %q", r.out)
+	}
+	refused("indented", "  **Size:** big\n", "F3a")
+	if r := psMutant(plan("  **Size:** big\n"), ""); !strings.Contains(r.out, "**Size:**") {
+		t.Errorf("indented: F3a does not name **Size:**: %q", r.out)
+	}
+	for _, extra := range []string{"**Size:** small\n", "**Size:** medium\n", "**Size:** big\n", "```\n**Size:** huge\n```\n"} {
+		if r := psMutant(plan(extra), ""); r.rc != 0 {
+			t.Errorf("%q refused: rc=%d out=%q", extra, r.rc, r.out)
+		}
+	}
+}

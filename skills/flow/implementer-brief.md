@@ -42,6 +42,15 @@ implements**, `skills/flow/implement.md`).
 > `skills/flow-contracts/git-boundaries.md`). **Your commit's message describes the tree it lands**: an attempt you
 > wrote and undid before committing is never what its subject or body describes (**Revert and
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
+>
+> **Check your own commit before you hand back.** Once a task's commit exists, run
+> `flow-guard check-task-commit-fields <abs-worktree> <n> HEAD` and
+> `flow-guard check-task-commit-planning-paths <abs-worktree> HEAD~1` on it, `<n>` the task's
+> `Task-Id:`. On an exit 1, fix what they name, undo the commit with
+> `git -C <abs-worktree> reset --soft HEAD~1`, re-stage through `flow-guard stage-task-files` and
+> recommit with the task's declared `**Commit:**` subject and `Task-Id: <n>` trailer, until both
+> exit 0: the parent's `flow-guard close-task` runs them again, and a refusal there costs a
+> recommit dispatch. An exit 2 is reported, never worked around.
 
 **A `Build: red` task is dispatched with its `Squash-with:` partner, in one bundle.** The
 implementer runs the red task first — writes its tests, runs them, and reports the failing
@@ -150,9 +159,11 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 
 > **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
 > whole context — a large output is paid for again on every turn after it. Read a file over 200
-> lines by line range — `grep -n` for the symbol, then `sed -n '<a>,<b>p'` or Read with
-> `offset`/`limit` — and never re-read a file already in your context unless you have edited it
-> since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
+> lines by line range — Read with `offset`/`limit`, or `sed -n '<a>,<b>p'`, over the range a
+> `grep -n` found — and never re-read a file already in your context unless you have edited it
+> since. **A search whose hit needs its surrounding lines is one call** — `grep -n -C<k>`, or the
+> Grep tool with context — never a `grep` followed by a `sed -n` window on the same hit. Cap every
+> search (`| head -40`) and every build, lint or install run (`| tail -30`), and
 > reproduce a failing block from its log rather than printing the whole log. Never print a
 > generated file — a lockfile, a snapshot, a bundle, a build artifact.
 

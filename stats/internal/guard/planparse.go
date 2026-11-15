@@ -472,7 +472,7 @@ func tcfResolvePlan(env Env, stderr io.Writer, label, worktree, name, canonical 
 }
 
 var (
-	tcfFieldRE     = regexp.MustCompile(`^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After|Decision|Opener):\*\*[` + tcfWS + `]*(.*)$`)
+	tcfFieldRE     = regexp.MustCompile(`^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After|Decision|Opener|Size):\*\*[` + tcfWS + `]*(.*)$`)
 	tcfBacktickAll = regexp.MustCompile("^`([^`]+)`$")
 	tcfBaselineRE  = regexp.MustCompile(`before=([0-9]+)[` + tcfWS + `]+after=([0-9]+)`)
 	tcfMeasuredRE  = regexp.MustCompile(`<!--[` + tcfWS + `]*measured:[` + tcfWS + `]*(.+?)[` + tcfWS + `]+@[` + tcfWS + `]+(.+?)[` + tcfWS + `]*-->`)
@@ -617,7 +617,8 @@ func tcfScanPlans(env Env, root string, stderr io.Writer) ([]string, bool) {
 // **After:** value gates (afterDeclared; empty for `none` or `Task ,`) --
 // with no field the serial default is applied where bundles are resolved,
 // never here. afterMalformed holds the offending value when the field is
-// present but does not gate.
+// present but does not gate. size is the stripped value of the task's first
+// column-0, unfenced **Size:** line; sizeDeclared is false when it has none.
 type pdbTask struct {
 	id             string
 	taskLine       int
@@ -628,12 +629,19 @@ type pdbTask struct {
 	afterSet       []string
 	afterDeclared  bool
 	afterMalformed *string
+	size           string
+	sizeDeclared   bool
 }
+
+// pdbSizes is the one list of valid **Size:** values; a task without the
+// field reads as `medium`.
+var pdbSizes = []string{"small", "medium", "big"}
 
 // pdbParseTasks is plan-dispatch-bundles.py's parse_tasks: every task of
 // lines in document order (tcfIterTasks' task and body grammar), its open
 // state read off its own task line, its gated **Squash-with:** partners and
-// **After:** field, and its **Files:** bullet entries.
+// **After:** field, its **Files:** bullet entries, and its first column-0,
+// unfenced **Size:** value.
 //
 // The first line opening with `**Files:**` opens the field; its entries are
 // every immediately following `- ` bullet that is not a checkbox (`- [ ]`,
@@ -671,6 +679,9 @@ func pdbParseTasks(lines []string) []pdbTask {
 					continue
 				}
 				inFiles = false
+			}
+			if v, ok := strings.CutPrefix(line, "**Size:**"); ok && !t.sizeDeclared {
+				t.size, t.sizeDeclared = tcfStrip(v), true
 			}
 			if inline, ok := strings.CutPrefix(line, "**Files:**"); ok {
 				t.filesPresent, inFiles = true, true
