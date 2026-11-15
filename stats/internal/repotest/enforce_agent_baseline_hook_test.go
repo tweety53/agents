@@ -21,6 +21,7 @@ package repotest
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -139,9 +140,12 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	}
 }
 
-// openRowFixture serves a store answering /api/v1/stage-runs with change c1 (status 500 when
-// fail), and a fake `flow` first on PATH printing rows (exiting 1 when rows is ""). It returns the
-// env the hook runs under and a file the fake `flow` touches when called.
+// openRowFixture serves a store answering /api/v1/stage-runs with change c1 and session token
+// mf-t1 (status 500 when fail), and a fake `flow` first on PATH that appends its argv, one line
+// per call, to the returned called file. It answers `record dispatches` with rows (exiting 1 when
+// rows is ""), `record dispatch begin` with exit $FAKE_BEGIN_RC (default 0) after printing
+// $FAKE_BEGIN_ERR to stderr, and every other call with exit 1. It returns the env the hook runs
+// under and that argv log.
 func openRowFixture(t *testing.T, rows string, fail bool, projectKey ...string) (env []string, called string) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +153,7 @@ func openRowFixture(t *testing.T, rows string, fail bool, projectKey ...string) 
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		run := map[string]string{"changeName": "c1"}
+		run := map[string]string{"changeName": "c1", "sessionToken": "mf-t1"}
 		if len(projectKey) > 0 {
 			run["projectKey"] = projectKey[0]
 		}
@@ -158,15 +162,17 @@ func openRowFixture(t *testing.T, rows string, fail bool, projectKey ...string) 
 	t.Cleanup(srv.Close)
 	bin := t.TempDir()
 	called = filepath.Join(bin, "called")
-	script := "#!/bin/sh\ntouch " + called + "\n"
-	if rows == "" {
-		script += "exit 1\n"
-	} else {
+	rowsAnswer := "exit 1"
+	if rows != "" {
 		if err := os.WriteFile(filepath.Join(bin, "rows.json"), []byte(rows), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		script += "cat " + filepath.Join(bin, "rows.json") + "\n"
+		rowsAnswer = "cat " + filepath.Join(bin, "rows.json")
 	}
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + called + "\ncase \"$*\" in\n" +
+		"'record dispatches'*) " + rowsAnswer + " ;;\n" +
+		"'record dispatch begin'*) [ -n \"$FAKE_BEGIN_ERR\" ] && echo \"$FAKE_BEGIN_ERR\" >&2; exit \"${FAKE_BEGIN_RC:-0}\" ;;\n" +
+		"*) exit 1 ;;\nesac\n"
 	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -201,8 +207,9 @@ func openRowPayload(t *testing.T, description, prompt string) []byte {
 }
 
 // TestEnforceAgentBaselineHookRequiresAnOpenRow pins the begun-row check: a flow dispatch the
-// store answers for with no open matching row is denied; every unanswered store, and a loop-key
-// dispatch, passes.
+// store answers for with no open matching row, and whose row the hook cannot begin (its prompt
+// carries no Role line), is denied with no begin; every unanswered store, and a loop-key dispatch,
+// passes.
 func TestEnforceAgentBaselineHookRequiresAnOpenRow(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -225,13 +232,21 @@ func TestEnforceAgentBaselineHookRequiresAnOpenRow(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			env, called := openRowFixture(t, c.rows, c.fail)
-			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, c.description, c.prompt), env...)
+			payload := openRowPayload(t, c.description, c.prompt)
+			if c.deny {
+				// No Role line: the hook cannot begin the row, so it keeps today's deny.
+				payload = []byte(strings.Replace(string(payload), `Role: panel-reviewer\n`, "", 1))
+			}
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", payload, env...)
 			denied := strings.Contains(out, `"permissionDecision": "deny"`)
 			if rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
 			}
 			if c.deny && !strings.Contains(out, "flow record dispatch begin") {
 				t.Errorf("reason lacks the begin command: %s", out)
+			}
+			if begins := flowCalls(t, called, "record dispatch begin"); len(begins) != 0 {
+				t.Errorf("begun %v", begins)
 			}
 			if c.name == "loop key" {
 				if _, err := os.Stat(called); err == nil {
@@ -392,7 +407,7 @@ func TestEnforceAgentBaselineHookAsksForTheLoopKeyLine(t *testing.T) {
 }
 
 // TestEnforceAgentBaselineHookAdmitsPlanningAgents pins kan-1032's self-review: a planner's
-// Explore or Plan dispatch records no row, so the row checks let it through in a flow session,
+// Explore or Plan dispatch with no key the hook begins under passes the row checks in a flow session,
 // while any other type with the same description is still denied.
 func TestEnforceAgentBaselineHookAdmitsPlanningAgents(t *testing.T) {
 	smoke.Heavy(t)
@@ -587,7 +602,8 @@ func anyCommandDeny(t *testing.T, command string) bool {
 	t.Cleanup(srv.Close)
 	env = append(env, "FLOW_ADDR="+srv.URL)
 
-	payload := openRowPayload(t, "panel-4-primary review", "review")
+	// A task description with no Key line names no row the hook can begin, so it is denied.
+	payload := openRowPayload(t, "Task 3/9 (x)", "implement")
 	var p struct {
 		TranscriptPath string `json:"transcript_path"`
 	}
@@ -661,7 +677,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 	t.Run("open row deny carries the change", func(t *testing.T) {
 		cmd, log := incidentStub(t, 0)
 		env, _ := openRowFixture(t, `[]`, false)
-		out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "panel-4-primary review", "review"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
+		out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "Task 3/9 (x)", "implement"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
 		if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
 			t.Fatalf("rc=%d out=%s", rc, out)
 		}
@@ -689,4 +705,315 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 			t.Errorf("rc=%d stdout=%q, want the deny JSON alone", rc, out)
 		}
 	})
+}
+
+// flowCalls returns the argv lines the fake `flow` (or the snapshot stub) logged to log that open
+// with prefix; a log never written holds none.
+func flowCalls(t *testing.T, log, prefix string) []string {
+	t.Helper()
+	b, err := os.ReadFile(log)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls []string
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if strings.HasPrefix(line, prefix) {
+			calls = append(calls, line)
+		}
+	}
+	return calls
+}
+
+// beginRepo is a main checkout the hook derives the change's worktree from: it returns the
+// checkout, the payload's cwd, and its change worktree <checkout>-worktrees/c1, whose
+// .superpowers/sdd/pair-judge/ exists.
+func beginRepo(t *testing.T) (main, wt string) {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	main = filepath.Join(root, "main")
+	if out, err := exec.Command("git", "init", "-q", main).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	wt = main + "-worktrees/c1"
+	if err := os.MkdirAll(filepath.Join(wt, ".superpowers", "sdd", "pair-judge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return main, wt
+}
+
+// beginEnv is openRowFixture's env plus a check-plan-unchanged stand-in that logs
+// `check-plan-unchanged <argv>` to the same argv log and exits snapshotRC.
+func beginEnv(t *testing.T, rows string, snapshotRC int) (env []string, log string) {
+	t.Helper()
+	env, log = openRowFixture(t, rows, false)
+	stub := filepath.Join(t.TempDir(), "check-plan-unchanged")
+	script := fmt.Sprintf("#!/bin/sh\nprintf 'check-plan-unchanged %%s\\n' \"$*\" >> %s\nexit %d\n", log, snapshotRC)
+	if err := os.WriteFile(stub, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return append(env, "DISPATCH_PLAN_SNAPSHOT="+stub), log
+}
+
+// beginPayload is a /flow-session Agent payload for session s1 run from cwd, its prompt carrying
+// the baseline pointer; effort "" omits the field.
+func beginPayload(t *testing.T, cwd, description, prompt, typ, model, effort string) []byte {
+	t.Helper()
+	tr := filepath.Join(t.TempDir(), "s1.jsonl")
+	if err := os.WriteFile(tr, []byte(`{"type":"user","message":{"content":"<command-name>/flow</command-name>"}}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ti := map[string]string{
+		"description":   description,
+		"prompt":        prompt + "\nBefore anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent.",
+		"subagent_type": typ,
+		"model":         model,
+	}
+	if effort != "" {
+		ti["effort"] = effort
+	}
+	b, err := json.Marshal(map[string]any{"tool_name": "Agent", "session_id": "s1", "cwd": cwd, "transcript_path": tr, "tool_input": ti})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// runBegin runs the hook on payload under env and reports whether it denied, failing on a
+// non-zero exit.
+func runBegin(t *testing.T, payload []byte, env ...string) (denied bool, out string) {
+	t.Helper()
+	out, _, rc := runHook(t, "enforce-agent-baseline.py", payload, env...)
+	if rc != 0 {
+		t.Fatalf("rc=%d out=%s", rc, out)
+	}
+	return strings.Contains(out, `"permissionDecision": "deny"`), out
+}
+
+// TestEnforceAgentBaselineHookBeginsTheRow pins decisions hook-same-file,
+// hook-token-from-stage-run and pair-pick-file: a flow dispatch with no open row is begun, not
+// denied, with the stage run's token, its Role line's role, the call's model and effort, and the
+// key's .pick line as -pair-pick.
+func TestEnforceAgentBaselineHookBeginsTheRow(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, pick := range []bool{true, false} {
+		t.Run(fmt.Sprintf("pick=%v", pick), func(t *testing.T) {
+			t.Parallel()
+			main, wt := beginRepo(t)
+			want := "record dispatch begin -C " + main + " -change c1 -role panel-fix -model opus -effort low -key panel-fix-2 -session-token mf-t1"
+			if pick {
+				if err := os.WriteFile(filepath.Join(wt, ".superpowers", "sdd", "pair-judge", "panel-fix-2.pick"), []byte("opus low judge cheap fix\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				want += " -pair-pick judge: cheap fix"
+			}
+			env, log := beginEnv(t, `[]`, 0)
+			if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), env...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			if got := flowCalls(t, log, "record dispatch begin"); len(got) != 1 || got[0] != want {
+				t.Errorf("begins = %q, want [%q]", got, want)
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookBeginKeyFromKeyLine pins the key's source: the prompt's `Key:` line
+// tells a gated reviewer bundle from its implementer group, both described `Task <ids>/<n>`; a
+// task description with no `Key:` line names no row the hook can begin and keeps today's deny.
+func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct {
+		name, description, prompt, typ string
+		want                           map[string]string // flag -> value; nil: denied, no begin
+		noTask                         bool
+	}{
+		{"gated reviewer", "Task 3/9 (review)", "Role: gated-reviewer\nKey: task-3-reviewer\nreview", "flow-medium",
+			map[string]string{"-key": "task-3-reviewer", "-role": "reviewer", "-task": "3", "-effort": "medium"}, false},
+		{"implementer group", "Tasks 3+4/9 (x)", "Role: implementer\nKey: task-3+4-implementer\nimplement", "flow-low",
+			map[string]string{"-key": "task-3+4-implementer", "-role": "implementer"}, true},
+		{"no Key line", "Task 3/9 (x)", "Role: implementer\nimplement", "flow-low", nil, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, log := beginEnv(t, `[]`, 0)
+			denied, out := runBegin(t, beginPayload(t, main, c.description, c.prompt, c.typ, "opus", ""), env...)
+			begins := flowCalls(t, log, "record dispatch begin")
+			if c.want == nil {
+				if !denied || !strings.Contains(out, "no open ledger row") || len(begins) != 0 {
+					t.Fatalf("want today's deny and no begin: out=%s begins=%q", out, begins)
+				}
+				return
+			}
+			if denied || len(begins) != 1 {
+				t.Fatalf("out=%s begins=%q", out, begins)
+			}
+			argv := strings.Fields(begins[0])
+			for flag, v := range c.want {
+				if got := argAfter(argv, flag); got != v {
+					t.Errorf("%s = %q, want %q (%s)", flag, got, v, begins[0])
+				}
+			}
+			if c.noTask && strings.Contains(begins[0], " -task ") {
+				t.Errorf("a group begun with -task: %s", begins[0])
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookSkipsAnOpenRow pins decisions panel-round-begins-kept and
+// explicit-begin-fallback: a row already open is never begun again.
+func TestEnforceAgentBaselineHookSkipsAnOpenRow(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct{ name, rows, description, prompt string }{
+		{"panel slot", `[{"key":"panel-4-primary","outcome":""}]`, "panel-4-primary review", "Role: panel-reviewer\nreview"},
+		{"task row", `[{"key":"task-3-implementer","outcome":""}]`, "Task 3/9 (x)", "Role: implementer\nKey: task-3-implementer\nimplement"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, log := beginEnv(t, c.rows, 0)
+			if denied, out := runBegin(t, beginPayload(t, main, c.description, c.prompt, "flow-low", "opus", ""), env...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			if begins := flowCalls(t, log, "record dispatch begin"); len(begins) != 0 {
+				t.Errorf("an open row begun again: %q", begins)
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookSnapshotsAGatedReviewer pins decision plan-check-rides-row: a gated
+// reviewer's plan tree is snapshotted to plan-snapshot-<key>.txt before its row is begun, and a
+// failed snapshot denies the launch with no row begun.
+func TestEnforceAgentBaselineHookSnapshotsAGatedReviewer(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, rc := range []int{0, 2} {
+		t.Run(fmt.Sprintf("snapshot exit %d", rc), func(t *testing.T) {
+			t.Parallel()
+			main, wt := beginRepo(t)
+			env, log := beginEnv(t, `[]`, rc)
+			denied, out := runBegin(t, beginPayload(t, main, "Task 3/9 (review)", "Role: gated-reviewer\nKey: task-3-reviewer\nreview", "flow-medium", "opus", ""), env...)
+			snap := "check-plan-unchanged snapshot " + wt + " c1 " + wt + "/.superpowers/sdd/plan-snapshot-task-3-reviewer.txt"
+			calls := append(flowCalls(t, log, "check-plan-unchanged"), flowCalls(t, log, "record dispatch begin")...)
+			if rc != 0 {
+				if !denied || len(calls) != 1 || calls[0] != snap {
+					t.Fatalf("want a deny after the snapshot alone: out=%s calls=%q", out, calls)
+				}
+				return
+			}
+			b, err := os.ReadFile(log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if denied || len(calls) != 2 || calls[0] != snap || strings.Index(string(b), snap) > strings.Index(string(b), "record dispatch begin") {
+				t.Fatalf("want the snapshot, then the begin: out=%s log=%s", out, b)
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookDeniesARefusedBegin pins decision hook-begin-refusal-denies: a begin
+// flow refuses denies the launch with flow's stderr verbatim; a begin flow journals (exit 0) lets
+// it through.
+func TestEnforceAgentBaselineHookDeniesARefusedBegin(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct {
+		rc         string
+		stderr     string
+		wantDenied bool
+	}{
+		{"2", "flow: session cap", true},
+		{"0", "flow: store unreachable, journalled", false},
+	} {
+		t.Run("exit "+c.rc, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, _ := beginEnv(t, `[]`, 0)
+			env = append(env, "FAKE_BEGIN_RC="+c.rc, "FAKE_BEGIN_ERR="+c.stderr)
+			denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), env...)
+			if denied != c.wantDenied {
+				t.Fatalf("denied=%v want %v: %s", denied, c.wantDenied, out)
+			}
+			if denied && (!strings.Contains(out, c.stderr) || !strings.Contains(out, "flow refused this dispatch's begin")) {
+				t.Errorf("reason lacks flow's stderr: %s", out)
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree pins decision
+// planning-agents-hook-begun: a /flow planner's Explore and Plan agents, whose prompts name the
+// session change's worktree, are begun; a loop planner's, naming only the loop's worktree, are not.
+func TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct {
+		name, typ, description, role, names string // names: the worktree suffix the prompt names
+		want                                map[string]string
+	}{
+		{"Explore", "Explore", "explore-3 hooks", "explorer", "c1/hooks",
+			map[string]string{"-role": "explorer", "-effort": "low", "-key": "explore-3", "-model": "opus"}},
+		{"Plan", "Plan", "design-1 options", "plan-designer", "c1",
+			map[string]string{"-role": "planner", "-effort": "low", "-key": "design-1"}},
+		{"loop worktree", "Explore", "explore-3 hooks", "explorer", "pipeline-fix-c1-2/hooks", nil},
+		{"a longer change name", "Explore", "explore-3 hooks", "explorer", "c10 hooks", nil},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, log := beginEnv(t, `[]`, 0)
+			prompt := "Role: " + c.role + "\nread " + main + "-worktrees/" + c.names
+			if denied, out := runBegin(t, beginPayload(t, main, c.description, prompt, c.typ, "opus", "low"), env...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			begins := flowCalls(t, log, "record dispatch begin")
+			if c.want == nil {
+				if len(begins) != 0 {
+					t.Errorf("a loop planner's agent begun: %q", begins)
+				}
+				return
+			}
+			if len(begins) != 1 {
+				t.Fatalf("begins = %q, want one", begins)
+			}
+			argv := strings.Fields(begins[0])
+			for flag, v := range c.want {
+				if got := argAfter(argv, flag); got != v {
+					t.Errorf("%s = %q, want %q (%s)", flag, got, v, begins[0])
+				}
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookBeginsAfterThePairCheck pins that an off-policy dispatch the pair
+// check denies leaves no begun row.
+func TestEnforceAgentBaselineHookBeginsAfterThePairCheck(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	stub := filepath.Join(t.TempDir(), "check-dispatch-pair")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho 'off policy'\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	main, _ := beginRepo(t)
+	env, log := beginEnv(t, `[]`, 0)
+	denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), append(env, "DISPATCH_PAIR_CHECK="+stub)...)
+	if !denied || !strings.Contains(out, "check-dispatch-pair exit 1") {
+		t.Fatalf("want the pair check's deny: %s", out)
+	}
+	if begins := flowCalls(t, log, "record dispatch begin"); len(begins) != 0 {
+		t.Errorf("an off-policy dispatch begun: %q", begins)
+	}
 }
