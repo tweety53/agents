@@ -1090,3 +1090,28 @@ func TestCheckPlanShapeRefusesRunLoadedEditsWithoutVerbatimMoves(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckPlanShapeF30 pins F30: an unticked task's line presuming an idle
+// machine is refused; a ticked task is history (kan-1124 self-review, F2).
+func TestCheckPlanShapeF30(t *testing.T) {
+	t.Parallel()
+	idle := "on an otherwise" + " idle machine"
+	for _, line := range []string{"Time it " + idle + ".", "Time it on an otherwise-" + "idle machine."} {
+		p := psFixture(t, psTasks("a")+"\n"+line+"\n")
+		if r := psMutant(p, ""); r.rc != 1 || strings.Count(r.out, ": F30 ") != 1 {
+			t.Errorf("%q refused nothing: rc=%d out=%q", line, r.rc, r.out)
+		}
+		if m := psMutant(p, "F30"); m.rc != 0 {
+			t.Errorf("the mutation disabling F30 still refused %q: rc=%d out=%q", line, m.rc, m.out)
+		}
+	}
+	ticked := strings.Replace(psTasks("a"), "- [ ] 1.", "- [x] 1.", 1)
+	for _, body := range []string{
+		ticked + "\nTime it " + idle + ".\n",
+		psTasks("a") + "\nWait until the load is at or under the core count.\n",
+	} {
+		if r := psMutant(psFixture(t, body), ""); r.rc != 0 {
+			t.Errorf("admitted plan refused: rc=%d out=%q\n%s", r.rc, r.out, body)
+		}
+	}
+}

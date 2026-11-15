@@ -417,6 +417,8 @@ records the result in the task as a `measured:` comment per **Plan provenance**
 disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
 stays tagged `unverified:<what-to-check>` for the implementer.
 
+**A timing gate never presumes an idle machine.** A step whose outcome turns on a measured duration first waits, on a Monitor until-loop with a stated bound and never a foreground sleep, until the one-minute load average (`uptime`) is at or under the core count (`getconf _NPROCESSORS_ONLN`), as "A test runner's own timeout under outside load is the environment's failure" (`skills/flow/verify-and-handoff.md`) does; it records that load average beside the figure, and names what the task does with a figure taken while the load stays above the core count — never a raised timeout, and never the gated outcome skipped in silence (kan-1124 self-review, F2). `flow-guard check-plan-shape` F30 refuses an unticked task's line that presumes the machine otherwise idle.
+
 **An action a decision gives the parent is a tracked line, never prose alone**. When a `## Decisions` entry's `**Chosen:**` has the parent do something outside
 every task — a commit before the first task, a run action at a stage — the entry carries, beneath
 its `**Chosen:**`, a column-0 line `- [ ] Parent: <the action, and the stage it runs at>`. The

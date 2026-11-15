@@ -35,10 +35,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Twenty-eight
-// findings, F1-F29 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Twenty-nine
+// findings, F1-F30 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F29's are the rows below).
+// design.md -- not restated here; F7-F30's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -262,6 +262,12 @@ import (
 //	    module root, so a cached run passes an edited Markdown file the
 //	    tests read (skills/flow/brainstorm-planner.md; self-review-kan-1110
 //	    F6). Reported at the line.
+//	F30 An unticked task's line -- its task line or any body line --
+//	    presuming the machine "on an otherwise idle machine" (hyphenated
+//	    or not): a shared dev host is never idle, so a timing gate waits
+//	    for load at or under the core count (skills/flow/brainstorm-planner.md;
+//	    kan-1124 self-review, F2). A ticked task is history, never
+//	    reported. Reported at the line.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -305,6 +311,7 @@ var psRules = []struct{ id, sentence string }{
 	{"F27", "Every `## Open questions` entry in design.md reads `**Status:** answered by <decision-id>`, and the section holds no list item."},
 	{"F28", `A plan whose unticked task edits run-loaded prose has a verbatim-moves.txt beside tasks.md.`},
 	{"F29", "Every go test command passes `-count=`."},
+	{"F30", "No unticked task's line presumes the machine otherwise idle; a timing gate waits for load at or under the core count."},
 	{"plan-suite-steps", "No step runs a module or repository test suite: go test takes `-run`, Gradle `--tests`, npm test and vitest `-t`."},
 	{"plan-script-paths", "Every `scripts/` path a task cites exists in the repository or is in some task's **Files:**."},
 	{"plan-files-paths", `Every **Files:** path names the directory its file lands in, never one with a segment dropped.`},
@@ -550,6 +557,7 @@ func (p *psPlan) check() []psFinding {
 	v = append(v, p.parentActions()...)
 	v = append(v, p.npxFetch()...)
 	v = append(v, p.goTestCache()...)
+	v = append(v, p.idleTiming()...)
 	v = append(v, p.openQuestions()...)
 	v = append(v, p.verbatimMoves()...)
 	return append(v, p.designSections()...)
@@ -771,6 +779,36 @@ func (p *psPlan) goTestCache() []psFinding {
 			v = append(v, p.at(i+1, "F29", "this line runs go test without -count=, so a cached result can pass a file the run never re-read — the test cache never rechecks a file outside the module root; pass -count=1 (skills/flow/brainstorm-planner.md)"))
 		}
 	}
+	return v
+}
+
+// untickedLines calls fn with each unticked task's line and then every body
+// line, each with its 1-based line number.
+func (p *psPlan) untickedLines(fn func(n int, l string)) {
+	for _, task := range tcfIterTasks(p.lines) {
+		if !strings.HasPrefix(p.lines[task.taskLine-1], "- [ ]") {
+			continue
+		}
+		fn(task.taskLine, p.lines[task.taskLine-1])
+		for off, l := range task.lines {
+			fn(task.taskLine+off+1, l)
+		}
+	}
+}
+
+var psIdleRE = regexp.MustCompile(`(?i)\bon an otherwise[- ]idle machine\b`)
+
+// idleTiming is F30: no unticked task's line presumes an idle machine.
+func (p *psPlan) idleTiming() []psFinding {
+	if !p.on("F30") {
+		return nil
+	}
+	var v []psFinding
+	p.untickedLines(func(n int, l string) {
+		if psIdleRE.MatchString(l) {
+			v = append(v, p.at(n, "F30", "this line presumes an idle machine a shared dev host never provides — wait for load at or under the core count, record the load beside the figure and name what a figure taken under load does (skills/flow/brainstorm-planner.md)"))
+		}
+	})
 	return v
 }
 
