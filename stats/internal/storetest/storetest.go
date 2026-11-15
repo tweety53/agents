@@ -80,16 +80,17 @@ var (
 // TestMain: `os.Exit(storetest.Main(m))`.
 func Main(m *testing.M) int {
 	code := m.Run()
-	if err := dropLeftoverDatabases(context.Background()); err != nil {
+	if err := dropLeftoverDatabases(context.Background(), os.Getpid()); err != nil {
 		fmt.Fprintf(os.Stderr, "storetest: drop leftover test databases: %v\n", err)
 	}
 	return code
 }
 
-// dropLeftoverDatabases drops every test and template database this
-// process created that still exists. It runs once no test is left to use one. An unreachable
-// stack means nothing was created, so it is not an error.
-func dropLeftoverDatabases(ctx context.Context) error {
+// dropLeftoverDatabases drops every test and template database the process
+// with this pid created that still exists. Main runs it over its own pid once
+// no test is left to use one. An unreachable stack means nothing was created,
+// so it is not an error.
+func dropLeftoverDatabases(ctx context.Context, pid int) error {
 	admin, err := connectAdmin(ctx)
 	if err != nil {
 		return nil
@@ -97,7 +98,7 @@ func dropLeftoverDatabases(ctx context.Context) error {
 	defer admin.Close()
 
 	rows, err := admin.Query(ctx, "SELECT datname FROM pg_database WHERE datname ~ $1",
-		fmt.Sprintf(`^flow_(test|template)_%d_[0-9]+$`, os.Getpid()))
+		fmt.Sprintf(`^flow_(test|template)_%d_[0-9]+$`, pid))
 	if err != nil {
 		return err
 	}

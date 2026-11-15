@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,9 @@ import (
 // TestDropLeftoverDatabasesRemovesALeftover pins Main's sweep: a test
 // database whose cleanup never dropped it, and a template whose process
 // never reached its own cleanup, are both gone once dropLeftoverDatabases
-// has run.
+// has run over their PID. It sweeps PID 0, which no process holds, so this
+// process's own cached template outlives it: a -count=2 run's second pass
+// still copies from it.
 func TestDropLeftoverDatabasesRemovesALeftover(t *testing.T) {
 	ctx := context.Background()
 	admin, err := connectAdmin(ctx)
@@ -23,16 +26,28 @@ func TestDropLeftoverDatabasesRemovesALeftover(t *testing.T) {
 		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	defer admin.Close()
+	NewMigratedDatabase(t)
 
-	leftovers := []string{uniqueName("flow_test"), uniqueName("flow_template")}
+	leftovers := []string{
+		fmt.Sprintf("flow_test_0_%d", time.Now().UnixNano()),
+		fmt.Sprintf("flow_template_0_%d", time.Now().UnixNano()),
+	}
 	for _, name := range leftovers {
 		if _, err := admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 			t.Fatalf("create leftover database %s: %v", name, err)
 		}
 	}
 
-	if err := dropLeftoverDatabases(ctx); err != nil {
+	if err := dropLeftoverDatabases(ctx, 0); err != nil {
 		t.Fatalf("dropLeftoverDatabases: %v", err)
+	}
+
+	var kept bool
+	if err := admin.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)", templateName).Scan(&kept); err != nil {
+		t.Fatalf("look up template database %s: %v", templateName, err)
+	}
+	if !kept {
+		t.Fatalf("this process's template %s did not outlive a sweep of another PID", templateName)
 	}
 
 	for _, name := range leftovers {
