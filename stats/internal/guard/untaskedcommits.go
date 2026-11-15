@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"io"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -47,6 +48,12 @@ import (
 // fixed in the change (kan-1079 self-review, F2: 07081426 passed here and
 // run 1's reshape squashed it unrecorded). Its line reads `<sha12>
 // <subject> — Flow-Key: <key> with no Task-Id:`.
+//
+// A commit changing a `.png` under a `full-app-suite.spec.ts-snapshots`
+// directory without changing a `full-app-suite.zip` is listed whatever its
+// trailers: the suite's baselines and their archive land together (kan-1119
+// self-review, F4). Its line reads `<sha12> <subject> — changes a
+// full-app-suite PNG without full-app-suite.zip`.
 //
 // Prints one verdict line to stdout:
 //   UNTASKED-OK: <n> commit(s) checked                      nothing listed — exit 0
@@ -123,6 +130,16 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 				f[2] = m[1]
 			}
 		}
+		paths, ok := capture(git("-C", worktree, "diff-tree", "--no-commit-id", "--no-renames", "--name-only", "-r", "--root", sha))
+		if !ok {
+			fmt.Fprintf(stderr, "%s git cannot list the paths of %s\n", ucPrefix, sha)
+			Reason(env, "git-cannot-list-the-paths")
+			return 2
+		}
+		if ucSuitePNGWithoutZip(paths) {
+			listed = append(listed, fmt.Sprintf("  %s %s — changes a full-app-suite PNG without full-app-suite.zip", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n")))
+			continue
+		}
 		if !pipelineFixBranch && ucHasPipelineFixKey(f[3]) {
 			listed = append(listed, fmt.Sprintf("  %s %s — Flow-Key: pipeline-fix-… on a change branch", sha[:12], strings.TrimSuffix(sanitizeDisplay(subject), "\n")))
 			continue
@@ -133,12 +150,6 @@ func checkUntaskedCommits(args []string, env Env, stdout, stderr io.Writer) int 
 		}
 		if strings.TrimSpace(f[2]) != "" || strings.TrimSpace(f[3]) != "" || ucChoreRE.MatchString(subject) {
 			continue
-		}
-		paths, ok := capture(git("-C", worktree, "diff-tree", "--no-commit-id", "--no-renames", "--name-only", "-r", "--root", sha))
-		if !ok {
-			fmt.Fprintf(stderr, "%s git cannot list the paths of %s\n", ucPrefix, sha)
-			Reason(env, "git-cannot-list-the-paths")
-			return 2
 		}
 		if ucPlanningOnly(paths, planning) {
 			continue
@@ -194,4 +205,19 @@ func ucImplementerKey(keys string) string {
 		}
 	}
 	return ""
+}
+
+// ucSuitePNGWithoutZip reports whether paths change a full-app-suite baseline
+// PNG and no full-app-suite.zip.
+func ucSuitePNGWithoutZip(paths string) bool {
+	png := false
+	for _, p := range strings.Split(paths, "\n") {
+		if path.Base(p) == "full-app-suite.zip" {
+			return false
+		}
+		if strings.HasSuffix(p, ".png") && strings.Contains("/"+p, "/full-app-suite.spec.ts-snapshots/") {
+			png = true
+		}
+	}
+	return png
 }

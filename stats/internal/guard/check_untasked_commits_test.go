@@ -174,3 +174,50 @@ func TestCheckUntaskedCommitsRefusesAPipelineFixKey(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckUntaskedCommitsListsASuitePNGWithoutItsZip pins kan-1119's
+// self-review F4: a commit changing a full-app-suite baseline PNG without
+// full-app-suite.zip is listed whatever its trailers.
+func TestCheckUntaskedCommitsListsASuitePNGWithoutItsZip(t *testing.T) {
+	t.Parallel()
+	const png = "web/tests/visual/full-app-suite.spec.ts-snapshots/full-x-darwin.png"
+	cases := []struct {
+		name, trailer string
+		files         []string
+		code          int
+		want          string
+	}{
+		{"full-suite-fix key, PNG alone", "Flow-Key: full-suite-fix-1", []string{png}, 1,
+			"fix(app): a — changes a full-app-suite PNG without full-app-suite.zip"},
+		{"task commit, PNG alone", "Task-Id: 3", []string{png}, 1,
+			"fix(app): a — changes a full-app-suite PNG without full-app-suite.zip"},
+		{"PNG with its zip", "Task-Id: 3", []string{png, "web/tests/visual/full-app-suite.zip"}, 0, "UNTASKED-OK"},
+		{"another suite's PNG", "Task-Id: 3", []string{"web/tests/visual/other.spec.ts-snapshots/a-darwin.png"}, 0, "UNTASKED-OK"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			g := &fxGit{}
+			g.git(dir, "init", "-q", "-b", "main")
+			writeFile(t, filepath.Join(dir, "README"), "base\n")
+			g.git(dir, "add", "-A")
+			g.git(dir, "commit", "-qm", "base")
+			base := g.git(dir, "rev-parse", "HEAD")
+			g.git(dir, "checkout", "-qb", "spectre/demo")
+			for _, f := range tc.files {
+				writeFile(t, filepath.Join(dir, f), "x\n")
+			}
+			g.git(dir, "add", "-A")
+			g.git(dir, "commit", "-qm", "fix(app): a", "-m", tc.trailer)
+			if g.err != nil {
+				t.Fatal(g.err)
+			}
+			var out, errb bytes.Buffer
+			code := checkUntaskedCommits([]string{dir, base}, Env{Getenv: os.Getenv, Dir: dir}, &out, &errb)
+			if code != tc.code || !strings.Contains(out.String(), tc.want) {
+				t.Fatalf("exit %d, want %d and %q\nstdout:\n%s\nstderr:\n%s", code, tc.code, tc.want, out.String(), errb.String())
+			}
+		})
+	}
+}
