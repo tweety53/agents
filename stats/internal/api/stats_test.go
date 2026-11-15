@@ -1466,6 +1466,48 @@ func TestListStageRunsCarriesChangeNameAndProject(t *testing.T) {
 	}
 }
 
+// TestListStageRunsCarriesSessionToken pins the field
+// hooks/enforce-agent-baseline.py reads to begin a dispatch row itself
+// (KAN-1115): a run begun with a session token carries it, and a run begun
+// with none omits the key.
+func TestListStageRunsCarriesSessionToken(t *testing.T) {
+	t.Parallel()
+	base := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	token := "mf-t1"
+	sts := &statsFake{
+		stageRuns: []statsRun{
+			{run: store.StageRun{ID: 1, Command: "/flow", Stage: "a", StartedAt: base, SessionToken: &token}, projectKey: "p", changeName: "kan-1"},
+			{run: store.StageRun{ID: 2, Command: "/flow", Stage: "b", StartedAt: base}, projectKey: "p", changeName: "kan-1"},
+		},
+	}
+	ts := newStatsTestServer(t, sts)
+
+	status, body := doGetRaw(t, ts, "/api/v1/stage-runs?sort=-started_at")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+
+	var resp struct {
+		StageRuns []map[string]json.RawMessage `json:"stageRuns"`
+	}
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode: %v (body %s)", err, body)
+	}
+	if len(resp.StageRuns) != 2 {
+		t.Fatalf("stageRuns = %d, want 2", len(resp.StageRuns))
+	}
+	byID := map[string]map[string]json.RawMessage{}
+	for _, r := range resp.StageRuns {
+		byID[string(r["stageRunId"])] = r
+	}
+	if got := string(byID["1"]["sessionToken"]); got != `"mf-t1"` {
+		t.Errorf("run 1 sessionToken = %s, want \"mf-t1\"", got)
+	}
+	if got, ok := byID["2"]["sessionToken"]; ok {
+		t.Errorf("run 2 (no token) sessionToken = %s, want the key absent", got)
+	}
+}
+
 // TestNegativeLimitAtHTTPBoundaryIsRejected is post-commit review finding
 // F3: store.NoLimit is -1, an internal sentinel documented on the Query
 // type as disabling paging entirely -- it was never meant to be reachable

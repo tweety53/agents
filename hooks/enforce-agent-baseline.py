@@ -36,19 +36,34 @@ It denies, in a flow session, a dispatch whose description opens with a loop key
 row under the loop's change off that line, so the fix is the line, never a begin under the run's
 change (kan-1032's self-review: that begin left a twin row).
 
-It denies, in a flow session, a dispatch whose row was never begun: the session's change is read
-off the store as its latest stage run of any command, `flow record dispatches` lists its rows, and a
-dispatch is denied when that list holds no open row (empty `outcome`) whose key is the
-description's first word or, for `Task <ids>/<n>`, starts with `task-<ids>-`. A loop-key dispatch
--- a `Key:` line, or a description opening with a loop key -- is never checked. An unreachable
-store, no stage begin for the session, an absent or failing `flow` CLI, or an unparseable
-answer lets the dispatch through.
+It begins, in a flow session, a dispatch's ledger row when none is open (KAN-1115, decision
+hook-same-file): the session's change and session token are read off the store as its latest stage
+run of any command, `flow record dispatches` lists its rows, and when none is open (empty
+`outcome`) under the dispatch's key the hook runs `flow record dispatch begin` itself -- the key
+the prompt's column-0 `Key:` line, else the description's first word; the role the prompt's
+`Role:` line mapped back as launchRoleID (stats/cmd/flow/record.go) maps it; the call's model and
+effort; `-pair-pick` from the `.pick` line flow-guard pair-judge saved as
+<worktree>/.superpowers/sdd/pair-judge/<key>.pick. A gated reviewer's plan tree is snapshotted to
+<worktree>/.superpowers/sdd/plan-snapshot-<key>.txt first (decision plan-check-rides-row). The
+begin is written only after every deny check has passed, so a launch the hook denies leaves no row;
+a begin `flow` refuses denies the launch with its stderr, and a failed snapshot denies it with no
+begin. The row's end stays the parent's (decision begin-moves-end-stays).
+
+It denies a dispatch with no open row whose row it cannot begin: a `Task <ids>/<n>` description
+with no `Key:` line and no open `task-<ids>-` row, or a prompt whose `Role:` line is missing or
+names no role a row records. A loop-key dispatch -- a `Key:` line, or a description opening with a
+loop key -- is never checked. An unreachable store, no stage begin for the session, a stage run
+with no session token, an absent or failing `flow` CLI, or an unparseable answer lets the dispatch
+through with no begin.
 
 None of those row checks applies once the session's change is FINISHED in the store: the run is
 over, and a later dispatch in the same session is no flow dispatch.
 
-A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) records no row, so none of those row checks
-applies to it; the baseline-pointer and allowed-pairs checks still do.
+A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) is begun under its `explore-<n>` or
+`design-<n>` key only when its prompt names the session change's worktree,
+<main-checkout>-worktrees/<change> (decision planning-agents-hook-begun); a loop planner's agents,
+naming the loop's worktree, keep the planner's explicit begin. Otherwise no row check applies to it;
+the baseline-pointer and allowed-pairs checks still do.
 
 Each deny, once written, also records one `flow record incident` row, with the session's change
 where the store names one; that write fails open, leaving the deny as it stands.
@@ -72,9 +87,10 @@ DISPATCH_TOOLS = {"Agent", "Task"}
 # outside a flow session, where it is denied instead (fork_reason).
 EXEMPT_SUBAGENT_TYPES = {"fork"}
 
-# A planner's own read-only agents record no ledger row, so the row checks (description, loop key
-# line, begun row) pass them; the baseline-pointer and allowed-pairs checks still apply
-# (kan-1032's self-review: a planner's Explore dispatch was denied mid-plan).
+# A planner's own read-only agents pass the description and loop key line checks, and are begun
+# only when their prompt names the session change's worktree (begin_row); the baseline-pointer and
+# allowed-pairs checks still apply (kan-1032's self-review: a planner's Explore dispatch was denied
+# mid-plan).
 PLANNING_AGENT_TYPES = {"Explore", "Plan"}
 
 # A flow run's slash command as the harness writes it into the session transcript.
@@ -120,6 +136,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # The checker the hook runs; overridable for the hook's own harness only.
 PAIR_CHECK = [os.environ["DISPATCH_PAIR_CHECK"]] if os.environ.get("DISPATCH_PAIR_CHECK") else [
     os.path.join(REPO, "scripts", "flow-guard"), "check-dispatch-pair"
+]
+PLAN_SNAPSHOT = [os.environ["DISPATCH_PLAN_SNAPSHOT"]] if os.environ.get("DISPATCH_PLAN_SNAPSHOT") else [
+    os.path.join(REPO, "scripts", "flow-guard"), "check-plan-unchanged"
 ]
 
 
@@ -204,6 +223,27 @@ def description_reason(payload: dict, tool_input: dict, prompt: str) -> "str | N
 
 
 TASK_DESCRIPTION = re.compile(r"Tasks? (\d+(?:\+\d+)*)/\d+")
+# A key the hook begins a row under: a closed-list key, or a planner's Explore/Plan agent's.
+BEGIN_KEY = re.compile(r"(?:" + ROW_KEY + r"|explore-\d+|design-\d+)")
+KEY_LINE = re.compile(r"^Key:[ \t]*(\S+)[ \t]*$", re.M)
+ROLE_LINE = re.compile(r"^Role:[ \t]*(\S+)[ \t]*$", re.M)
+SINGLE_TASK_KEY = re.compile(r"task-(\d+)-")
+# A gated reviewer's key, suffixed or not: its plan tree is snapshotted before the begin.
+GATED_REVIEWER_KEY = re.compile(r"task-\d+(?:\+\d+)*-reviewer")
+FLOW_EFFORT = re.compile(r"flow-(?:planner-)?([a-z]+)")
+# A prompt's `Role:` id -> the row role `flow record dispatch begin -role` takes: the inverse of
+# launchRoleID (stats/cmd/flow/record.go).
+ROW_ROLE = {
+    "implementer": "implementer", "operator-asked": "implementer",
+    "gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
+    "panel-reviewer": "reviewer", "panel-sanity-efficiency": "reviewer",
+    "panel-mutation-failure": "reviewer", "panel-rerun": "reviewer", "late-fix": "reviewer",
+    "panel-merger": "merger",
+    "panel-fix": "panel-fix",
+    "visual-verifier": "verifier",
+    "planner": "planner", "plan-designer": "planner", "tooling-analyst": "planner", "fix-run-judge": "planner",
+    "explorer": "explorer",
+}
 
 
 def bound(seconds: float) -> "float | None":
@@ -213,74 +253,158 @@ def bound(seconds: float) -> "float | None":
     return None if os.environ.get("FLOW_HOOK_UNBOUNDED") == "1" else seconds
 
 
-def project_key(cwd: str) -> "str | None":
-    """The store's project key for cwd: stats/internal/fallback/statefile.go ProjectKey."""
+def main_checkout(cwd: str) -> "str | None":
+    """cwd's main checkout, from its git common dir."""
     done = subprocess.run(
         ["git", "-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir"],
         capture_output=True, text=True, timeout=bound(5), check=False,
     )
     if done.returncode != 0:
         return None
-    main = os.path.realpath(os.path.dirname(os.path.normpath(done.stdout.strip())))
+    return os.path.realpath(os.path.dirname(os.path.normpath(done.stdout.strip())))
+
+
+def project_key(cwd: str, main: "str | None" = None) -> "str | None":
+    """The store's project key for cwd: stats/internal/fallback/statefile.go ProjectKey. A caller
+    that already holds cwd's main checkout passes it as main."""
+    main = main or main_checkout(cwd)
+    if main is None:
+        return None
     return f"{os.path.basename(main)}-{hashlib.sha1(main.encode()).hexdigest()[:8]}"
 
 
-def session_change(session_id: str) -> "tuple[str | None, str | None]":
+def session_change(session_id: str) -> "tuple[str | None, str | None, str | None]":
+    """The session's latest stage run: its change, project key and session token."""
     addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
     query = parse.urlencode({"session_id": session_id, "sort": "-started_at", "limit": "1"})
     with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=bound(2)) as resp:
         runs = json.load(resp).get("stageRuns")
     run = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
-    name, key = run.get("changeName"), run.get("projectKey")
-    return (name if isinstance(name, str) and name else None, key if isinstance(key, str) and key else None)
+    values = (run.get("changeName"), run.get("projectKey"), run.get("sessionToken"))
+    name, key, token = (v if isinstance(v, str) and v else None for v in values)
+    return name, key, token
 
 
-def begin_row_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
-    if tool_input.get("subagent_type") in PLANNING_AGENT_TYPES:
-        return None
-    if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
-        return None
+def begin_key(tool_input: dict, prompt: str) -> "str | None":
+    """The row key a dispatch is begun under: the prompt's column-0 `Key:` line, else the
+    description's first word, when it is a key the hook begins."""
+    line = KEY_LINE.search(prompt)
+    if line and BEGIN_KEY.fullmatch(line.group(1)):
+        return line.group(1)
     description = tool_input.get("description")
-    if not isinstance(description, str) or not ROW_DESCRIPTION.match(description):
-        return None
+    words = description.split() if isinstance(description, str) else []
+    return words[0] if words and BEGIN_KEY.fullmatch(words[0]) else None
+
+
+def names_worktree(prompt: str, worktree: str) -> bool:
+    return re.search(re.escape(worktree) + r"(?:/|\s|$)", prompt) is not None
+
+
+def begin_row(payload: dict, tool_input: dict, prompt: str) -> "tuple[str | None, list | None]":
+    """The begun-row check: (a deny reason, None), (None, the begin to write once every other check
+    has passed), or (None, None) -- a row already open, a dispatch the hook neither checks nor
+    begins, or an unanswered store. The hook writes the begin; the row's end stays the parent's."""
+    if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
+        return None, None
+    planning = tool_input.get("subagent_type") in PLANNING_AGENT_TYPES
+    description = tool_input.get("description")
+    if not isinstance(description, str):
+        return None, None
+    key = begin_key(tool_input, prompt)
+    task = TASK_DESCRIPTION.match(description)
+    if key is None and (planning or not task):
+        return None, None
     session_id, cwd = payload.get("session_id"), payload.get("cwd")
     if not isinstance(session_id, str) or not session_id or not isinstance(cwd, str):
-        return None
+        return None, None
     if not in_flow_run(payload):
-        return None
+        return None, None
     try:
-        change, key = session_change(session_id)
+        change, project, token = session_change(session_id)
         if not change:
-            return None
+            return None, None
         # The rows are read under cwd's project: another repo's cwd reads none, so fail open.
-        if key and project_key(cwd) != key:
-            return None
+        main = main_checkout(cwd)
+        if project and project_key(cwd, main) != project:
+            return None, None
+        worktree = f"{main}-worktrees/{change}" if main else None
+        if planning and not (worktree and names_worktree(prompt, worktree)):
+            return None, None
         done = subprocess.run(
             ["flow", "record", "dispatches", "-change", change, "-C", cwd],
             capture_output=True, text=True, timeout=bound(5), check=False,
         )
         rows = json.loads(done.stdout) if done.returncode == 0 else None
     except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
-        return None
+        return None, None
     if not isinstance(rows, list):
+        return None, None
+    open_keys = [r["key"] for r in rows if isinstance(r, dict) and not r.get("outcome") and isinstance(r.get("key"), str)]
+    if key in open_keys if key else any(k.startswith(f"task-{task.group(1)}-") for k in open_keys):
+        return None, None
+    role = ROLE_LINE.search(prompt)
+    role = ROW_ROLE.get(role.group(1)) if role else None
+    if key is None or role is None:
+        word = key or f"task-{task.group(1)}-"
+        shown = key or f"task-{task.group(1)}-implementer"
+        return (
+            f"Dispatch blocked: no open ledger row for '{word}' in {change} — record it first with "
+            f"`flow record dispatch begin -change {change} -key {shown} …` (skills/flow/implement.md), "
+            "then re-send this call unchanged."
+        ), None
+    if not token or not worktree:
+        return None, None
+    if planning:
+        effort = tool_input.get("effort")
+    else:
+        typed = FLOW_EFFORT.fullmatch(str(tool_input.get("subagent_type") or ""))
+        effort = typed.group(1) if typed else None
+    args = ["flow", "record", "dispatch", "begin", "-C", cwd, "-change", change, "-role", role,
+            "-model", str(tool_input.get("model") or ""), "-effort", str(effort or "")]
+    single = SINGLE_TASK_KEY.match(key)
+    if single:
+        args += ["-task", single.group(1)]
+    args += ["-key", key, "-session-token", token]
+    pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
+    if pick:
+        args += ["-pair-pick", pick]
+    snapshot = None
+    if GATED_REVIEWER_KEY.match(key):
+        snapshot = [*PLAN_SNAPSHOT, "snapshot", worktree, change,
+                    os.path.join(worktree, ".superpowers", "sdd", f"plan-snapshot-{key}.txt")]
+    return None, [snapshot, args]
+
+
+def read_pick(path: str) -> "str | None":
+    """The `<source>: <reason>` of the `<model> <effort> <source> <reason…>` line flow-guard
+    pair-judge saved, or None when the file is absent or its first line does not parse."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            fields = f.readline().split(maxsplit=3)
+    except (OSError, ValueError):
         return None
-    task = TASK_DESCRIPTION.match(description)
-    word = description.split()[0]
-    for row in rows:
-        if not isinstance(row, dict) or row.get("outcome"):
-            continue
-        key = row.get("key")
-        if not isinstance(key, str):
-            continue
-        if (key.startswith(f"task-{task.group(1)}-") if task else key == word):
-            return None
-    key = f"task-{task.group(1)}-implementer" if task else word
-    word = f"task-{task.group(1)}-" if task else word
-    return (
-        f"Dispatch blocked: no open ledger row for '{word}' in {change} — record it first with "
-        f"`flow record dispatch begin -change {change} -key {key} …` (skills/flow/implement.md), "
-        "then re-send this call unchanged."
-    )
+    return f"{fields[2]}: {fields[3].strip()}" if len(fields) == 4 else None
+
+
+def write_begin(begin: list) -> "str | None":
+    """Snapshot a gated reviewer's plan tree, then write the row's begin. A failed snapshot or a
+    begin `flow` refuses is a deny reason; a command that cannot run fails open with no begin."""
+    snapshot, args = begin
+    try:
+        if snapshot:
+            os.makedirs(os.path.dirname(snapshot[-1]), exist_ok=True)
+            done = subprocess.run(snapshot, capture_output=True, text=True, timeout=bound(60), check=False)
+            if done.returncode != 0:
+                return (
+                    f"Dispatch blocked: flow-guard check-plan-unchanged snapshot exit {done.returncode}, "
+                    f"so this gated reviewer's row was not begun:\n{done.stdout}{done.stderr}"
+                )
+        done = subprocess.run(args, capture_output=True, text=True, timeout=bound(10), check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return f"Dispatch blocked: flow refused this dispatch's begin:\n{done.stderr}"
+    return None
 
 
 def change_finished(payload: dict) -> bool:
@@ -290,7 +414,7 @@ def change_finished(payload: dict) -> bool:
     if not isinstance(session_id, str) or not session_id:
         return False
     try:
-        change, key = session_change(session_id)
+        change, key, _ = session_change(session_id)
         key = key or (project_key(cwd) if isinstance(cwd, str) else None)
         if not change or not key:
             return False
@@ -409,7 +533,7 @@ def deny(reason: str) -> None:
     session_id = PAYLOAD.get("session_id")
     if isinstance(session_id, str) and session_id:
         try:
-            change, _ = session_change(session_id)
+            change, _, _ = session_change(session_id)
         except (OSError, ValueError, AttributeError):  # recorded without its change
             change = None
     record_incident("enforce-agent-baseline", reason, cwd if isinstance(cwd, str) else None, change)
@@ -470,12 +594,11 @@ def main() -> int:
         deny(DENY_REASON)
         return 0
 
-    reason = (
-        description_reason(payload, tool_input, prompt)
-        or loop_key_line_reason(payload, tool_input, prompt)
-        or begin_row_reason(payload, tool_input, prompt)
-        or dispatch_pair_reason(payload, prompt, tool_input)
-    )
+    begin = None
+    reason = description_reason(payload, tool_input, prompt) or loop_key_line_reason(payload, tool_input, prompt)
+    if not reason:
+        reason, begin = begin_row(payload, tool_input, prompt)
+    reason = reason or dispatch_pair_reason(payload, prompt, tool_input) or (begin and write_begin(begin))
     if reason:
         deny(reason)
     return 0

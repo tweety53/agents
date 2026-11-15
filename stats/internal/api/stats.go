@@ -1268,17 +1268,19 @@ func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
 // stageRunDTO is the wire representation of a store.StageRun, matching
 // changeDTO's own field-for-field style (internal/api/changes.go).
 type stageRunDTO struct {
-	StageRunID int64           `json:"stageRunId"`
-	RepoRoot   *string         `json:"repoRoot,omitempty"`
-	Harness    string          `json:"harness"`
-	SessionID  *string         `json:"sessionId,omitempty"`
-	Command    string          `json:"command"`
-	Stage      string          `json:"stage"`
-	Attempt    int             `json:"attempt"`
-	StartedAt  string          `json:"startedAt"`
-	EndedAt    *string         `json:"endedAt,omitempty"`
-	Outcome    *string         `json:"outcome,omitempty"`
-	Metrics    json.RawMessage `json:"metrics,omitempty"`
+	StageRunID int64   `json:"stageRunId"`
+	RepoRoot   *string `json:"repoRoot,omitempty"`
+	Harness    string  `json:"harness"`
+	SessionID  *string `json:"sessionId,omitempty"`
+	// SessionToken is read by hooks/enforce-agent-baseline.py to begin a dispatch row itself.
+	SessionToken *string         `json:"sessionToken,omitempty"`
+	Command      string          `json:"command"`
+	Stage        string          `json:"stage"`
+	Attempt      int             `json:"attempt"`
+	StartedAt    string          `json:"startedAt"`
+	EndedAt      *string         `json:"endedAt,omitempty"`
+	Outcome      *string         `json:"outcome,omitempty"`
+	Metrics      json.RawMessage `json:"metrics,omitempty"`
 	// ChangeName and ProjectKey are the owning change's public identity,
 	// read through the query's changes join (KAN-537), so a caller that
 	// can filter stage runs by session learns the change without a second
@@ -1297,20 +1299,21 @@ type stageRunDTO struct {
 
 func toStageRunDTO(r store.StageRun) stageRunDTO {
 	dto := stageRunDTO{
-		StageRunID: r.ID,
-		RepoRoot:   r.RepoRoot,
-		Harness:    r.Harness,
-		SessionID:  r.SessionID,
-		Command:    r.Command,
-		Stage:      r.Stage,
-		Attempt:    r.Attempt,
-		StartedAt:  r.StartedAt.UTC().Format(time.RFC3339Nano),
-		Outcome:    r.Outcome,
-		Metrics:    r.Metrics,
-		ChangeName: r.ChangeName,
-		ProjectKey: r.ProjectKey,
-		AutoOpened: r.AutoOpened,
-		Request:    r.RequestN,
+		StageRunID:   r.ID,
+		RepoRoot:     r.RepoRoot,
+		Harness:      r.Harness,
+		SessionID:    r.SessionID,
+		SessionToken: r.SessionToken,
+		Command:      r.Command,
+		Stage:        r.Stage,
+		Attempt:      r.Attempt,
+		StartedAt:    r.StartedAt.UTC().Format(time.RFC3339Nano),
+		Outcome:      r.Outcome,
+		Metrics:      r.Metrics,
+		ChangeName:   r.ChangeName,
+		ProjectKey:   r.ProjectKey,
+		AutoOpened:   r.AutoOpened,
+		Request:      r.RequestN,
 	}
 	if r.EndedAt != nil {
 		endedAt := r.EndedAt.UTC().Format(time.RFC3339Nano)

@@ -17,10 +17,12 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/guard"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -1189,6 +1191,203 @@ func TestDispatchEndCauseUnknown(t *testing.T) {
 		if !strings.Contains(stderr.String(), want) {
 			t.Errorf("stderr does not name the accepted cause %q:\n%s", want, stderr.String())
 		}
+	}
+}
+
+// planEndStore is a stub store answering every request 200, counting the
+// dispatch begin and end requests it receives.
+type planEndStore struct {
+	url          string
+	begins, ends *atomic.Int32
+}
+
+func newPlanEndStore(t *testing.T) planEndStore {
+	t.Helper()
+	var begins, ends atomic.Int32
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/dispatches/end"):
+			ends.Add(1)
+		case strings.HasSuffix(r.URL.Path, "/dispatches") && r.Method == http.MethodPost:
+			begins.Add(1)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"sonnet","startedAt":"2026-01-02T03:04:05Z","endedAt":"2026-01-02T03:44:05Z"}`))
+	}))
+	t.Cleanup(srv.Close)
+	return planEndStore{srv.URL, &begins, &ends}
+}
+
+// planTreeRepo is a git repository holding a minimal plan tree for change
+// at spectre/changes/<change>/design.md.
+func planTreeRepo(t *testing.T, change string) string {
+	t.Helper()
+	repo := recordRepo(t, change)
+	writePlanDesign(t, repo, change, "# design\n")
+	return repo
+}
+
+func writePlanDesign(t *testing.T, wt, change, body string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(wt, "spectre", "changes", change, "design.md"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// snapshotPlan runs the real `flow-guard check-plan-unchanged snapshot` to
+// <wt>/.superpowers/sdd/<name>.
+func snapshotPlan(t *testing.T, wt, change, name string) {
+	t.Helper()
+	sdd := filepath.Join(wt, ".superpowers", "sdd")
+	if err := os.MkdirAll(sdd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var errs bytes.Buffer
+	if code := guard.Registry["check-plan-unchanged"]([]string{"snapshot", wt, change, filepath.Join(sdd, name)}, guard.Env{Getenv: os.Getenv, Dir: wt}, io.Discard, &errs); code != 0 {
+		t.Fatalf("snapshot exit %d: %s", code, errs.String())
+	}
+}
+
+// planEnd runs `flow record dispatch end` against store from dir.
+func planEnd(t *testing.T, store planEndStore, dir, change, key, outcome string) (int, string) {
+	t.Helper()
+	env := newTestEnv(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", store.url, "-timeout", "500ms", "-C", dir,
+		"-change", change, "-key", key, "-session-token", "mf-plan-verify-end", "-outcome", outcome},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String()
+}
+
+// TestDispatchEndVerifiesGatedReviewerPlanTree: a gated reviewer row's end
+// verifies the plan tree against plan-snapshot-<key>.txt and refuses,
+// writing nothing, when it changed (decision plan-check-rides-row).
+func TestDispatchEndVerifiesGatedReviewerPlanTree(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1115"
+	repo := planTreeRepo(t, change)
+	store := newPlanEndStore(t)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-1-reviewer.txt")
+	if code, errs := planEnd(t, store, repo, change, "task-1-reviewer", "clean"); code != 0 || store.ends.Load() != 1 {
+		t.Fatalf("unchanged tree: exit %d, ends %d, want 0 and 1; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+	writePlanDesign(t, repo, change, "# design, edited\n")
+	snapshotPlan(t, repo, change, "plan-snapshot-task-2-reviewer-fix-1.txt")
+	writePlanDesign(t, repo, change, "# design, edited again\n")
+	code, errs := planEnd(t, store, repo, change, "task-2-reviewer-fix-1", "fix")
+	if code == 0 || store.ends.Load() != 1 {
+		t.Fatalf("changed tree: exit %d, ends %d, want non-zero and still 1; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+	for _, want := range []string{"design.md", "plan-snapshot-task-2-reviewer-fix-1.txt", "the plan tree check refused this end"} {
+		if !strings.Contains(errs, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, errs)
+		}
+	}
+}
+
+// TestDispatchEndVerifiesMergerRoundSnapshot: a panel merger row's end
+// verifies against its round's plan-snapshot-panel-<r>.txt.
+func TestDispatchEndVerifiesMergerRoundSnapshot(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1115"
+	repo := planTreeRepo(t, change)
+	store := newPlanEndStore(t)
+	snapshotPlan(t, repo, change, "plan-snapshot-panel-3.txt")
+	if code, errs := planEnd(t, store, repo, change, "panel-3-merger", "completed"); code != 0 || store.ends.Load() != 1 {
+		t.Fatalf("unchanged tree: exit %d, ends %d, want 0 and 1; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+	writePlanDesign(t, repo, change, "# design, edited\n")
+	if code, errs := planEnd(t, store, repo, change, "panel-3-merger-retry", "completed"); code == 0 || store.ends.Load() != 1 || !strings.Contains(errs, "plan-snapshot-panel-3.txt") {
+		t.Fatalf("changed tree: exit %d, ends %d, want non-zero, still 1, naming the round's snapshot; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestDispatchEndRefusesAMissingPlanSnapshot: a reviewer or merger end with
+// no snapshot file refuses, naming the path, rather than skipping the verify.
+func TestDispatchEndRefusesAMissingPlanSnapshot(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1115"
+	repo := planTreeRepo(t, change)
+	store := newPlanEndStore(t)
+	for key, file := range map[string]string{"panel-4-merger": "plan-snapshot-panel-4.txt", "task-5-reviewer": "plan-snapshot-task-5-reviewer.txt"} {
+		if code, errs := planEnd(t, store, repo, change, key, "completed"); code == 0 || store.ends.Load() != 0 || !strings.Contains(errs, file) {
+			t.Errorf("%s: exit %d, ends %d, want non-zero, no end, naming %s; stderr:\n%s", key, code, store.ends.Load(), file, errs)
+		}
+	}
+}
+
+// TestDispatchEndAbortedSkipsPlanVerify: -outcome aborted, a row whose
+// dispatch never ran, ends with no snapshot.
+func TestDispatchEndAbortedSkipsPlanVerify(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1115"
+	repo := planTreeRepo(t, change)
+	store := newPlanEndStore(t)
+	if code, errs := planEnd(t, store, repo, change, "task-5-reviewer", "aborted"); code != 0 || store.ends.Load() != 1 {
+		t.Fatalf("exit %d, ends %d, want 0 and 1; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestDispatchEndPanelSlotSkipsPlanVerify: a panel slot or implementer row
+// verifies nothing at its end.
+func TestDispatchEndPanelSlotSkipsPlanVerify(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1115"
+	repo := planTreeRepo(t, change)
+	store := newPlanEndStore(t)
+	for i, key := range []string{"panel-4-primary", "task-6-implementer"} {
+		if code, errs := planEnd(t, store, repo, change, key, "completed"); code != 0 || store.ends.Load() != int32(i+1) {
+			t.Errorf("%s: exit %d, ends %d, want 0 and %d; stderr:\n%s", key, code, store.ends.Load(), i+1, errs)
+		}
+	}
+}
+
+// TestDispatchEndFindsTheSnapshotFromTheMainCheckout: an end run with -C the
+// main checkout reads the snapshot under <main>-worktrees/<change>, even
+// when that worktree's branch is <change> rather than spectre/<change>.
+func TestDispatchEndFindsTheSnapshotFromTheMainCheckout(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1115"
+	repo := gitRepo(t)
+	wt := repo + "-worktrees/" + change
+	if out, err := exec.Command("git", "-C", repo, "worktree", "add", "-q", "-b", change, wt).CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %v\n%s", err, out)
+	}
+	if err := os.MkdirAll(filepath.Join(wt, "spectre", "changes", change), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePlanDesign(t, wt, change, "# design\n")
+	snapshotPlan(t, wt, change, "plan-snapshot-panel-2.txt")
+	store := newPlanEndStore(t)
+	if code, errs := planEnd(t, store, repo, change, "panel-2-merger", "completed"); code != 0 || store.ends.Load() != 1 {
+		t.Fatalf("exit %d, ends %d, want 0 and 1; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestDispatchBackfillVerifiesBeforeBegin: a backfilled reviewer row whose
+// verify refuses is never begun, so the refusal leaves no open row.
+func TestDispatchBackfillVerifiesBeforeBegin(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1115"
+	repo := planTreeRepo(t, change)
+	store := newPlanEndStore(t)
+	backfill := func() (int, string) {
+		env := newTestEnv(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{"record", "dispatch", "backfill", "-addr", store.url, "-timeout", "500ms", "-C", repo,
+			"-change", change, "-key", "task-5-reviewer", "-role", "reviewer", "-model", "sonnet", "-outcome", "completed",
+			"-session-token", "mf-plan-verify-backfill", "-started-at", "2026-11-15T10:00:00Z", "-ended-at", "2026-11-15T10:05:00Z"},
+			env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	if code, errs := backfill(); code == 0 || store.begins.Load() != 0 || store.ends.Load() != 0 || !strings.Contains(errs, "plan-snapshot-task-5-reviewer.txt") {
+		t.Fatalf("no snapshot: exit %d, begins %d, ends %d, want non-zero, none, naming the snapshot; stderr:\n%s", code, store.begins.Load(), store.ends.Load(), errs)
+	}
+	snapshotPlan(t, repo, change, "plan-snapshot-task-5-reviewer.txt")
+	if code, errs := backfill(); code != 0 || store.begins.Load() != 1 || store.ends.Load() != 1 {
+		t.Fatalf("snapshot present: exit %d, begins %d, ends %d, want 0, 1, 1; stderr:\n%s", code, store.begins.Load(), store.ends.Load(), errs)
 	}
 }
 

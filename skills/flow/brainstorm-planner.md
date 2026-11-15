@@ -149,14 +149,18 @@ dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook a
 printed model as the Agent tool's `model` and the effort as its `effort`.
 Where the planner's own prompt carries `Granted: <role> <model> <effort>` for the dispatch's role,
 the dispatch takes that pair instead, its prompt carrying the lines `Operator pair: <role>` and
-`Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`). Its prompt carries the
+`Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`).
+Its prompt carries the line `Worktree: <abs-worktree>` in a `/flow` planner, granted or not, the
 line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`), the
 two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
 and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
 `fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
-planning dispatch's row is opened before its Agent call and ended when its agent hands back, and
-`flow stage end` of `flow.brainstorm` refuses while one is open:
+planning dispatch's row is opened at its launch, by the hook or by a `begin` before its Agent
+call, and ended when its agent hands back, and
+`flow stage end` of `flow.brainstorm` refuses while one is open. In a `/flow` planner, whose
+agents' prompts name the change's worktree, `hooks/enforce-agent-baseline.py` opens the row at
+launch; `/flow-plan` and the self-review and in-run fix planners run the `begin` below first:
 
 ```bash
 flow record dispatch begin -change <change> -role explorer|planner -model <m> -effort <e> -key explore-<n>|design-<n> -session-token <token> -pair-pick '<pick>'
@@ -771,7 +775,8 @@ and each Decide call's digest to `<abs-worktree>/.superpowers/sdd/pair-judge/dec
 `<field>` naming the pair it picks — `implementer`, `fixer`, `group-<g>`, `dispatch-<i>`, `rerun`,
 `extra` or `extra-mutation`. The dispatch runs on the printed model and effort — `subagent_type`
 `flow-<effort>`, `flow-planner-<effort>` for a planner, the Agent tool's `effort` for Explore and
-Plan — and its `flow record dispatch begin` carries `-pair-pick '<source>: <reason>'`; a loop
+Plan — and `flow-guard pair-judge` saves that line beside the digest as `<key>.pick`, from which the
+dispatch's begin takes `-pair-pick '<source>: <reason>'`; a loop
 dispatch, whose row `flow-guard check-loop-dispatch` opens, carries the line `Pair pick: <source>:
 <reason>` in its prompt instead. A dispatch on a recorded decision pair passes neither: the pair's
 `reason` in the decision row is its record.

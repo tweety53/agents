@@ -258,7 +258,7 @@ squash partner).
 
 **Implement:** `check-task-commit-fields` (commit touches exactly its declared files),
 `check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
-`check-plan-unchanged` + `check-tree-markers` (snapshot around each subagent),
+`check-plan-unchanged` (snapshot at a reviewer row's begin, verify at its end) + `check-tree-markers` (snapshot around each subagent),
 `check-dispatch-paragraphs`, `check-workspace-isolation` (own database, cache, bucket, ports),
 `resume-or-fresh` (an immediate send-back resumes the agent only while its cache is warm and its
 context small).

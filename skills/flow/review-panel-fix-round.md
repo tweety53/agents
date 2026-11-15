@@ -384,7 +384,7 @@ refuses a round of fixed Critical or Important findings with no fix-mutation row
 the next.
 
 **Record each one with one `flow record mutation -change <name> -round <round> -path <path>
--mutated <what> -test <test>` call per line, transcribed from the fix subagent's report — the
+-mutated <what> -test <test>` call per line, transcribed from the fix subagent's final message — the
 exemption form records `-mutated none -test <reason>`; the lines the calls write are:**
 
 ```text

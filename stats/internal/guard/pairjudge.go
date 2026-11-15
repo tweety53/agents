@@ -22,7 +22,11 @@ import (
 // dispatch's {model, effort} from its role's allowed pairs (KAN-1119).
 //
 // Prints one line, `<model> <effort> <judge|fallback|single> <reason>`, the
-// reason one line (runs of whitespace collapsed to one space).
+// reason one line (runs of whitespace collapsed to one space). The same line
+// is saved, overwriting, beside the digest file as `<digest less its
+// extension>.pick` -- `pair-judge/<key>.md` saves `pair-judge/<key>.pick`, which
+// hooks/enforce-agent-baseline.py reads as the row's -pair-pick (decision
+// pair-pick-file); a failed save is one stderr line and leaves the exit 0.
 //
 // The judged set (decisions judged-set, judged-set-by-function): planner,
 // self-review-plan, pipeline-fix-plan, implementer, panel-fix,
@@ -157,6 +161,10 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	role, opusOnly := args[0], len(args) == 3
+	// A stale pick from an earlier run under the key must not outlive this one's refusal.
+	if err := os.Remove(strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"); err != nil && !errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintf(stderr, "pair-judge: %v\n", err)
+	}
 	if !pjJudged[role] {
 		judged := make([]string, 0, len(pjJudged))
 		for r := range pjJudged {
@@ -188,16 +196,20 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "candidates-empty")
 		return 2
 	}
+	var line string
 	if len(cands) == 1 {
-		fmt.Fprintln(stdout, cands[0].line("single", "the only candidate"))
-		return 0
+		line = cands[0].line("single", "the only candidate")
+	} else if pick, reason, cause := pjAsk(env, rows, role, cands, digest); cause != "" {
+		line = cands[0].line("fallback", cause)
+	} else {
+		line = pick.line("judge", reason)
 	}
-	pick, reason, cause := pjAsk(env, rows, role, cands, digest)
-	if cause != "" {
-		fmt.Fprintln(stdout, cands[0].line("fallback", cause))
-		return 0
+	line += "\n"
+	pickFile := strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"
+	if err := os.WriteFile(pickFile, []byte(line), 0o644); err != nil {
+		fmt.Fprintf(stderr, "pair-judge: could not save %s: %v\n", pickFile, err)
 	}
-	fmt.Fprintln(stdout, pick.line("judge", reason))
+	fmt.Fprint(stdout, line)
 	return 0
 }
 
