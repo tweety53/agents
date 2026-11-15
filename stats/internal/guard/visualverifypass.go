@@ -475,9 +475,12 @@ func (v *vvp) flow(args ...string) (string, int) {
 }
 
 func (v *vvp) markBegin() {
-	if out, rc := v.flow("stage", "begin", "-C", v.canon, "-command", "/flow", "-stage", "flow.visual-verify",
-		"-harness", v.harness, "-session-token", v.token, v.name); rc != 0 {
+	out, rc := v.flow("stage", "begin", "-C", v.canon, "-command", "/flow", "-stage", "flow.visual-verify",
+		"-harness", v.harness, "-session-token", v.token, v.name)
+	if rc != 0 {
 		fmt.Fprintf(v.stderr, "visual-verify-pass: warning: flow stage begin failed: %s\n", out)
+	} else if out != "" {
+		fmt.Fprintln(v.stderr, out)
 	}
 	v.stageOpen = true
 }

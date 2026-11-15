@@ -472,6 +472,19 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	}
 }
 
+// TestVisualVerifyPassPrepareForwardsBeginWarning: a stage begin that
+// succeeds with output still reaches the operator.
+func TestVisualVerifyPassPrepareForwardsBeginWarning(t *testing.T) {
+	smoke.Heavy(t)
+	f := vvpFixture(t, "")
+	const warn = "flow: warning: this stage begin superseded 1 still-open run of the same session"
+	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(filepath.Dir(f.log), "rows.json")+";; \"stage begin\") echo '"+warn+"' >&2;; \"policy get\") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
+	rc, out, calls := f.prepare()
+	if rc != 0 || !strings.Contains(calls, "stage begin ") || !strings.Contains(out, warn) {
+		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+	}
+}
+
 func TestVisualVerifyPassPrepareContinue(t *testing.T) {
 	smoke.Heavy(t)
 	f := vvpFixture(t, "")
