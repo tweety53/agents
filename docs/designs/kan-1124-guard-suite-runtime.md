@@ -149,6 +149,15 @@ line (11 guard rows and 2 stats-go rows today) is cut below 2 s, or this file re
 is the operation the test proves.
 **Considered:** ≥ 1 s — 31 rows, most of them already sub-second-adjacent after the fixture and
 race changes; a top-N count — an arbitrary N says nothing about whether a test is slow.
+**Kept at 2 s or more (recorded after implementation; the machine was never idle — load 8–31 from other agents' runs — so every figure is a loaded one, not an idle measurement):**
+- `TestIntegrateChangeHappyPath` — 5.88 s median (its doc comment): the two-repository prepare, commit and land the test proves, one chain no split can shorten.
+- `TestCloseTaskOrder` — 6.42 s: ten full `close-task` runs, each its five checks over real git; the cost is the operation it proves.
+- `TestKickoffWorktree` — 4.89 s: twelve runs of the real shim, each adding a worktree from a copied repository.
+- `TestGatherDispatchContext` — 2.45 s: ninety-three cases, each a copied repository and one full gather.
+- `TestSyncOntoBase` — 2.00 s: ten cases of real git over their own repositories.
+- `TestEnforceAgentBaselineHook` — 6.37–7.72 s and `TestFlowStopGuardHook` — 1.78–2.23 s (`stats/internal/repotest`, `smoke: core`): 28 and 25 real hook runs, each a python3 start plus the git, flow and flow-guard execs the hook makes. Task 19's premise (the guard build was the cost) was measured false: with the build moved into `TestMain` both stay at or above 2 s.
+Each of the guard rows carries a `Cost:` doc comment saying the same.
+**Not cut, by decision (follow-up candidates, not defects of this change):** the re-profile (Task 20 Step 2) listed 56 guard-tests and 43 stats-go rows at 2 s or more under that load, many of them `smoke.Heavy` tests that ran only because this branch touches their packages and that a default run after landing skips (for example `TestStatsViewTimesOutCleanly`, whose 20 s is `statsWriteTimeout`); the test-cost rule sums parallel subtests, so contention inflates them past wall time. A `TestMain` that puts `fixtureGitDir` first on the guard package's PATH (skipping the xcrun git trampoline, 1.9 s → 0.95 s on the fix-run-floor subtest) is the first follow-up. No task was appended for these: an idle-machine profile could not be taken on this host.
 
 ### Which tests run under t.Parallel
 
