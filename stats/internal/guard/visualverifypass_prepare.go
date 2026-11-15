@@ -52,6 +52,7 @@ func (v *vvp) prepare() {
 	}
 	stack := v.probe(survivors)
 	fingerprints := v.fingerprint(survivors)
+	v.captureShards(survivors)
 	v.dispatch(survivors, stack, fingerprints)
 }
 
@@ -241,7 +242,7 @@ func (v *vvp) captureRoot(w string) string {
 // check-frame-list read them (kan-1096). Every failing check is collected,
 // then one `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
-	var fails []string
+	var fails, specs, sidecars []string
 	collect := func(guard, out, errs string) {
 		ev := strings.TrimSpace(out + "\n" + errs)
 		fails = append(fails, guard+": "+strings.Join(strings.Fields(strings.ReplaceAll(ev, "\n", " | ")), " "))
@@ -274,13 +275,25 @@ func (v *vvp) preflight(survivors []string) {
 				}
 				targets = nil
 				for _, spec := range strings.Fields(out) {
+					specs = append(specs, cellPath(root, spec))
 					if sc := cellPath(root, spec) + ".mockups"; isFile(sc) {
 						targets = append(targets, sc)
 					}
 				}
 			}
+			files := v.frameFiles(targets)
+			for _, p := range files {
+				if strings.HasSuffix(p, ".mockups") {
+					sidecars = append(sidecars, p)
+				}
+			}
+			if specs == nil {
+				for _, sc := range sidecars {
+					specs = append(specs, strings.TrimSuffix(sc, ".mockups"))
+				}
+			}
 			if v.cells(w)["design repo"] != "" {
-				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, v.frameFiles(targets)...)...); rc != 0 {
+				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, files...)...); rc != 0 {
 					collect("render-frames", out, errs)
 				}
 			}
@@ -294,6 +307,209 @@ func (v *vvp) preflight(survivors []string) {
 	if len(fails) > 0 {
 		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
+	v.shard(specs, sidecars)
+}
+
+// shard writes a sharded pass's `spec` and `slice` lines to the stage file
+// and deletes every earlier record part (decisions
+// shard-unscoped-single-worktree, four-shards-slices-grow): only an unscoped
+// pass of a single-worktree set, with `mockups` declared and more than 25
+// frames on the change's list, shards.
+func (v *vvp) shard(specs, sidecars []string) {
+	mock := v.cells(v.canon)["mockups"]
+	if len(v.worktrees) != 1 || mock == "" || len(v.roundBase) > 0 {
+		return
+	}
+	var lines [][3]string
+	listed := map[string]bool{}
+	for _, sc := range sidecars {
+		body, _ := os.ReadFile(sc)
+		for _, f := range mockupsLines(body) {
+			lines = append(lines, [3]string{strings.TrimSuffix(sc, ".mockups"), f[0], f[1]})
+			listed[f[1]] = true
+		}
+	}
+	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
+	var extra []string
+	design, derr := os.ReadFile(filepath.Join(changeRoot, "design.md"))
+	entries, eerr := os.ReadDir(cellPath(v.canon, mock))
+	if derr == nil && eerr == nil {
+		for _, id := range flDeclared(design, cellPath(v.canon, mock), entries) {
+			if !listed[id] {
+				extra = append(extra, id)
+			}
+		}
+	}
+	cut := vvpSlices(lines, extra)
+	if len(cut) < 2 {
+		return
+	}
+	for _, s := range specs {
+		v.appendStage("spec " + s)
+	}
+	for i, s := range cut {
+		v.appendStage(fmt.Sprintf("slice s%dof%d %s", i+1, len(cut), strings.Join(s, ",")))
+	}
+	parts, _ := filepath.Glob(filepath.Join(changeRoot, "visual-verification", "record-s*.md"))
+	for _, p := range parts {
+		if err := os.Remove(p); err != nil {
+			v.die("cannot-write", "cannot remove %s: %v", p, err)
+		}
+	}
+}
+
+// vvpSlices cuts the change's frames into the slices of a sharded pass
+// (decisions four-shards-slices-grow, slice-by-frame-id): lines are the
+// sidecars' (spec, screenshot, frame) lines in order, extra the declared
+// frames no line maps. A group is the frames one screenshot joins,
+// transitively, across every spec, extra one group of its own taken first;
+// groups keep their first appearance's order. n = min(4, ⌈F/25⌉); slices
+// s1…s(n-1) each close at the first group boundary at or past ⌈F/n⌉ frames
+// and the last takes the rest, so fewer slices come back when the groups run
+// out, never an empty one. One slice is an unsharded pass.
+func vvpSlices(lines [][3]string, extra []string) [][]string {
+	parent := map[string]string{}
+	var order []string
+	find := func(f string) string {
+		for parent[f] != f {
+			f = parent[f]
+		}
+		return f
+	}
+	add := func(f string) {
+		if _, ok := parent[f]; !ok {
+			parent[f] = f
+			order = append(order, f)
+		}
+	}
+	for _, f := range extra {
+		add(f)
+		parent[find(f)] = find(extra[0])
+	}
+	shot := map[[2]string]string{}
+	for _, l := range lines {
+		add(l[2])
+		k := [2]string{l[0], l[1]}
+		if g, ok := shot[k]; ok {
+			parent[find(l[2])] = find(g)
+		} else {
+			shot[k] = l[2]
+		}
+	}
+	var groups [][]string
+	at := map[string]int{}
+	for _, f := range order {
+		r := find(f)
+		i, ok := at[r]
+		if !ok {
+			i = len(groups)
+			at[r] = i
+			groups = append(groups, nil)
+		}
+		groups[i] = append(groups[i], f)
+	}
+	n := min(4, (len(order)+24)/25)
+	if n < 2 {
+		return [][]string{order}
+	}
+	target := (len(order) + n - 1) / n
+	var out [][]string
+	var cur []string
+	for _, g := range groups {
+		cur = append(cur, g...)
+		if len(cur) >= target && len(out) < n-1 {
+			out = append(out, cur)
+			cur = nil
+		}
+	}
+	if len(cur) > 0 {
+		out = append(out, cur)
+	}
+	return out
+}
+
+// captureShards is step 8's capture on a sharded pass (decisions
+// prepare-captures-sharded, capture-before-merge-base,
+// capture-failure-falls-back-serial,
+// merge-base-capture-when-baseline-missing): `setup`, then `capture <spec>
+// --update-snapshots=all` per `spec` line, once per pass; a non-zero exit
+// drops the slices and the pass runs one verifier. Then each spec with a PNG
+// absent at the merge base prints `MERGE-BASE-SPEC:` and the pass stops for
+// the parent's merge-base capture, unless --merge-base-captured or
+// --merge-base-failed says it ran.
+func (v *vvp) captureShards(survivors []string) {
+	var specs []string
+	sliced, captured := false, false
+	for _, l := range v.readStage() {
+		switch l[0] {
+		case "spec":
+			specs = append(specs, l[1])
+		case "slice":
+			sliced = true
+		case "captured":
+			captured = true
+		}
+	}
+	if !sliced || vvpShardSeg.MatchString(v.key) {
+		return
+	}
+	w := survivors[0]
+	if !captured {
+		cells := v.cells(w)
+		var cmds []string
+		if c := strings.TrimSpace(cells["setup"]); c != "" {
+			cmds = append(cmds, c)
+		}
+		for _, s := range specs {
+			cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", s)+" --update-snapshots=all")
+		}
+		for _, c := range cmds {
+			if rc, _ := kwRun(v.env, v.captureRoot(w), "sh", "-c", c); rc != 0 {
+				v.say("SHARDS: none — %s exit %d", c, rc)
+				v.dropStage("slice")
+				return
+			}
+		}
+		v.appendStage("captured")
+	}
+	if v.mbFailed != "" {
+		v.appendStage("merge-base-failed " + v.mbFailed)
+	}
+	if v.mbCaptured || v.mbFailed != "" {
+		return
+	}
+	missing := false
+	for _, s := range specs {
+		var out bytes.Buffer
+		// Exit 1 is zero PNGs, nothing to compare; exit 2 cannot answer, so the
+		// spec fails closed.
+		if resolveVisualScreenshots([]string{w, filepath.Base(s)}, quietReasons(v.env), &out, io.Discard) == 2 {
+			v.say("MERGE-BASE-SPEC: %s", s)
+			missing = true
+			continue
+		}
+		for _, png := range strings.Fields(out.String()) {
+			if _, ok := v.git("-C", filepath.Dir(png), "cat-file", "-e", v.mergeBase[w]+":./"+filepath.Base(png)); !ok {
+				v.say("MERGE-BASE-SPEC: %s", s)
+				missing = true
+				break
+			}
+		}
+	}
+	if missing {
+		v.next("merge-base-capture")
+	}
+}
+
+// dropStage rewrites the stage file without its lines whose first word is word.
+func (v *vvp) dropStage(word string) {
+	var b strings.Builder
+	for _, l := range v.readStage() {
+		if l[0] != word {
+			b.WriteString(strings.TrimSpace(l[0]+" "+l[1]) + "\n")
+		}
+	}
+	v.writeOut(v.stagePath(), b.String())
 }
 
 // frameFiles is the change's design.md, when present, and every
@@ -509,6 +725,14 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 			break
 		}
 	}
+	stage := v.readStage()
+	if rows == nil && !vvpShardSeg.MatchString(v.key) {
+		for _, l := range stage {
+			if k, _, _ := strings.Cut(l[1], " "); l[0] == "slice" {
+				rows = append(rows, row{v.key + "-" + k, survivors[0]})
+			}
+		}
+	}
 	if rows == nil {
 		for _, w := range survivors {
 			k := v.key
@@ -520,10 +744,6 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 	}
 	relay := v.relayContract()
 	green := v.greenRows()
-	var stage [][2]string
-	if v.cont {
-		stage = v.readStage()
-	}
 	model, effort := v.pair()
 	begun := []string{}
 	for _, r := range rows {
@@ -679,6 +899,24 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	}
 	line("verify: %s", verify)
 	line("")
+	line("## Measure")
+	line("")
+	measure := "measure: flow-guard visual-verify-pass measure " + w + " " + v.name + " " + vrRestSegment.ReplaceAllString(key, "") + " <spec path>"
+	if slice := vvpSlice(stage, key); slice != "" {
+		line("slice: %s %s", strings.TrimPrefix(vvpShardSeg.FindString(key), "-"), slice)
+		measure += " --frames " + slice
+		mbFailed := v.mbFailed
+		for _, l := range stage {
+			if l[0] == "merge-base-failed" {
+				mbFailed = l[1]
+			}
+		}
+		if mbFailed != "" {
+			line("merge-base capture failed — %s", mbFailed)
+		}
+	}
+	line("%s", measure)
+	line("")
 	line("## Mockup sources")
 	line("")
 	sources, decoded := v.mockupSources(key, w, changeRoot)
@@ -728,7 +966,7 @@ func (v *vvp) attempts(b *strings.Builder, key, w string, stage [][2]string) {
 			continue
 		}
 		k, rw, _ := strings.Cut(l[1], " ")
-		if rw == w && k != key {
+		if rw == w && k != key && vvpShardSeg.FindString(k) == vvpShardSeg.FindString(key) {
 			earlier = append(earlier, k)
 		}
 	}

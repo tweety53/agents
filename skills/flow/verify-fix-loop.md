@@ -66,6 +66,8 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    that file states.
    **One round appends one task**, carrying every defect the report names — never a task or a
    round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`.
+   On a sharded pass (`skills/flow/visual-verify.md`) the one task transcribes every shard report
+   that names a defect, and its `**Opener:**` is the pass key without the `-s<i>of<n>` segment.
    Before the append, the stage's failing row is closed with `flow record dispatch
    end` at `-outcome blocked -cause test-failure`, so no row of the stage stays open while this
    round's rows open. The failing stage's mark — `flow.verify` or `flow.visual-verify` — is closed beside that row, `flow stage end -command '/flow' -stage <that stage> -outcome stopped <name>`, save a `flow.visual-verify` mark whose `flow-guard visual-verify-pass close` printed `STAGE:`, which that close already ended, and a run that re-enters this loop while `flow.write-in-progress` is open closes that mark the same way first, so the round's next `flow stage begin` supersedes no open run.

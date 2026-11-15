@@ -305,7 +305,7 @@ A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<
    run — the one **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`) read for it — is
    passed `--since <worktree>=<that sha>`, so a fix run whose delta touches no `ui paths` skips this
    stage at step 2 as exit 1 does.
-   A worktree whose since-close sha is `-` is passed no `--since`, and neither is any worktree when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/flow-guard check-visual-verify-dispatched` counts) does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the since-close sha.
+   A worktree whose since-close sha is `-` is passed no `--since`, and neither is any worktree when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/flow-guard check-visual-verify-dispatched` counts), or on a sharded pass the newest row of any shard index, does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the since-close sha.
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of

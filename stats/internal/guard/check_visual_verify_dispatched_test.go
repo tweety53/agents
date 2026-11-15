@@ -816,3 +816,30 @@ func TestCheckVisualVerifyDispatchedIgnoresAnInlineVerifier(t *testing.T) {
 		t.Fatalf("launched row: got exit %d stdout %q stderr %q, want exit 0 %q", r.code, r.out, r.err, vvdOK)
 	}
 }
+
+// TestCheckVisualVerifyDispatchedCountsAShardSetWhole pins KAN-1121's gate: a
+// sharded pass counts only once the newest row of every shard index 1..n is
+// completed; a set with one shard open or aborted counts for nothing, and a
+// newer unsharded completed row governs as before.
+func TestCheckVisualVerifyDispatchedCountsAShardSetWhole(t *testing.T) {
+	t.Parallel()
+	row := func(key, outcome, start string) string {
+		return `{"key":"` + key + `","role":"verifier","outcome":"` + outcome + `","diffBase":"@HEAD@","startedAt":"2026-11-15T` + start + `:00Z"}`
+	}
+	for _, tc := range []struct {
+		name string
+		rows []string
+		code int
+		out  string
+	}{
+		{"one shard completed, one aborted", []string{row("visual-verify-s1of2", "completed", "10:00"), row("visual-verify-s2of2", "aborted", "10:00")}, 1, "VISUAL-VERIFY-MISSING"},
+		{"one shard completed, one still open", []string{row("visual-verify-s1of2", "completed", "10:00"), row("visual-verify-s2of2", "", "10:00")}, 1, "VISUAL-VERIFY-MISSING"},
+		{"every shard's newest row completed", []string{row("visual-verify-s1of2", "completed", "10:00"), row("visual-verify-s2of2", "blocked", "10:00"), row("visual-verify-2-s2of2", "completed", "11:00")}, 0, "VISUAL-VERIFY-OK: UI paths touched"},
+		{"an incomplete set, then a newer unsharded row", []string{row("visual-verify-s1of2", "completed", "10:00"), row("visual-verify-s2of2", "aborted", "10:00"), row("visual-verify-fix-1", "completed", "12:00")}, 0, "VISUAL-VERIFY-OK: UI paths touched"},
+	} {
+		r := vvdRun(t, vvdCase{dispatches: []byte("[" + strings.Join(tc.rows, ",") + "]")})
+		if r.code != tc.code || !strings.HasPrefix(r.out, tc.out) {
+			t.Errorf("%s: got exit %d stdout %q stderr %q, want exit %d %q", tc.name, r.code, r.out, r.err, tc.code, tc.out)
+		}
+	}
+}

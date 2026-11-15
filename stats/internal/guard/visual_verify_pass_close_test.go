@@ -533,3 +533,62 @@ func TestVerifierExitsTemplateOmitsMeasure(t *testing.T) {
 		}
 	}
 }
+
+// TestVisualVerifyPassCloseKeepsTheRound pins decision
+// redispatch-key-keeps-round: a blocked `-fix-<k>` row's redispatch keeps the
+// segment `flow record` requires while In-run fix k is open.
+func TestVisualVerifyPassCloseKeepsTheRound(t *testing.T) {
+	f := vvcFixture(t, "")
+	f.appendRow("visual-verify-fix-3", f.wt)
+	f.report("visual-verify-fix-3", f.wt, vvcVerdict("1", vvcBlocked, "test-failure"), "- steps: "+vvcBlocked+"\n")
+	if rc, out, _ := f.close("visual-verify-fix-3"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: redispatch visual-verify-2-fix-3") {
+		t.Fatalf("exit %d\n%s", rc, out)
+	}
+}
+
+// TestVisualVerifyPassCloseShards pins decisions shard-key-segment,
+// shard-unscoped-single-worktree, record-parts-merged-by-close and
+// closes-serial-no-lock (KAN-1121): a shard's blocked count, remainder and
+// redispatch keys are its own index's, its report guards run on its slice,
+// the stage ends only once every index's newest row is closed, and
+// visual-verification.md is the shards' parts joined in order.
+func TestVisualVerifyPassCloseShards(t *testing.T) {
+	smoke.Heavy(t)
+	f := vvcFixture(t, "")
+	f.appendRow("visual-verify-s1of3", f.wt)
+	f.appendRow("visual-verify-s2of3", f.wt)
+	writeFile(t, f.stagePath(), f.stageFile()+"blocked visual-verify-s1of3\n")
+	f.report("visual-verify-s2of3", f.wt, vvcVerdict("1", vvcBlocked, "environment"), "- steps: "+vvcBlocked+"\n")
+	if rc, out, _ := f.close("visual-verify-s2of3"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: redispatch visual-verify-2-s2of3") {
+		t.Fatalf("another index's block counted: exit %d\n%s", rc, out)
+	}
+
+	g := vvcFixture(t, "| `mockups` | `design/mockups` |\n")
+	vv := filepath.Join(g.wt, "spectre/changes/demo/visual-verification")
+	writeFile(t, filepath.Join(g.wt, "spectre/changes/demo/design.md"), "# design\n\nFrames f1 and f2.\n")
+	writeFile(t, filepath.Join(g.wt, "design/mockups/f2.png"), "png\n")
+	writeFile(t, filepath.Join(g.wt, "tests/visual/home.spec.ts.mockups"), "one.png f1\ntwo.png f2\n")
+	writeFile(t, filepath.Join(vv, "record-s1of2.md"), "# s1\n")
+	writeFile(t, filepath.Join(vv, "record-s2of2.md"), "# s2\n")
+	writeFile(t, g.stagePath(), strings.Replace(g.stageFile(), "row visual-verify "+g.wt+"\n", "", 1)+
+		"slice s1of2 f1\nslice s2of2 f2\nrow visual-verify-s1of2 "+g.wt+"\nrow visual-verify-s2of2 "+g.wt+"\n")
+	undone := strings.Replace(vvcSteps, "10 done", "10 not done", 1)
+	g.report("visual-verify-s2of2", g.wt, vvcVerdict("0", undone, ""), "- frames: 1/1\n- f2 note: composed\n- steps: "+undone+"\n")
+	if rc, out, _ := g.close("visual-verify-s2of2"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-s2of2") {
+		t.Fatalf("a shard's remainder: exit %d\n%s", rc, out)
+	}
+	g.appendRow("visual-verify-rest-s2of2", g.wt)
+	g.report("visual-verify-rest-s2of2", g.wt, vvcVerdict("0", vvcSteps, ""), "- frames: 1/1\n- f2 note: composed\n- steps: "+vvcSteps+"\n")
+	rc, out, calls := g.close("visual-verify-rest-s2of2")
+	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: done") || strings.Contains(out, "STAGE:") || strings.Contains(calls, "stage end") {
+		t.Fatalf("the last index closed first ended the stage, or its slice's report was refused: exit %d\n%s\n%s", rc, out, calls)
+	}
+	g.report("visual-verify-s1of2", g.wt, vvcVerdict("0", vvcSteps, ""), "- frames: 1/1\n- f1 note: composed\n- steps: "+vvcSteps+"\n")
+	rc, out, calls = g.close("visual-verify-s1of2")
+	if rc != 0 || !strings.Contains(out, "STAGE: completed") || !strings.Contains(calls, "stage end -C "+g.wt+" -command /flow -stage flow.visual-verify -outcome completed demo") {
+		t.Fatalf("every index closed: exit %d\n%s\n%s", rc, out, calls)
+	}
+	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(vv), "visual-verification.md")); string(b) != "# s1\n\n# s2\n" {
+		t.Fatalf("visual-verification.md = %q, want the parts joined in shard order", b)
+	}
+}

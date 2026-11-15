@@ -585,3 +585,48 @@ func TestVisualVerifyPassMeasureCells(t *testing.T) {
 		t.Errorf("vrCells = %q, want only the missing spot-check line", bad)
 	}
 }
+
+// TestVisualVerifyPassMeasureFrames pins decisions manifest-per-shard and
+// slice-by-frame-id (KAN-1121): `measure --frames` composes and measures only
+// the slice's frames, through a filtered copy of the spec's sidecar that
+// compose-mockup-frames accepts without --prototype, and leaves another
+// slice's cropped frame, matrix and the sidecar itself untouched.
+func TestVisualVerifyPassMeasureFrames(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\nb.png frame-b\n")
+	vv := filepath.Join(f.changeRoot, "visual-verification")
+	kept := []string{filepath.Join(vv, "b.frame.png"), filepath.Join(vv, "matrix/frame-b.json")}
+	for _, k := range kept {
+		writeFile(t, k, "keep\n")
+	}
+	sidecar := filepath.Join(f.wt, "tests/visual/app.spec.ts.mockups")
+	rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify-s1of2", "tests/visual/app.spec.ts", "--frames", "frame-a")
+	if rc != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q", rc, stdout, stderr)
+	}
+	m := f.manifest(t, "visual-verify-s1of2")
+	if len(m.Pairs) != 1 || m.Pairs[0].Frame != "frame-a" {
+		t.Fatalf("pairs %+v, want frame-a alone", m.Pairs)
+	}
+	if e := m.Pairs[0].Exits["compose"]; e == nil || *e != 0 {
+		t.Fatalf("frame-a compose exit %v, want 0 from the filtered sidecar", e)
+	}
+	filtered, err := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-measure-visual-verify-s1of2/app.spec.ts.mockups"))
+	if err != nil || string(filtered) != "frame none\na.png frame-a\n" {
+		t.Fatalf("filtered sidecar %q (%v), want the frame line and frame-a's line", filtered, err)
+	}
+	for _, k := range kept {
+		if b, err := os.ReadFile(k); err != nil || string(b) != "keep\n" {
+			t.Fatalf("%s: %q %v, want it untouched", k, b, err)
+		}
+	}
+	if b, _ := os.ReadFile(sidecar); string(b) != "frame none\na.png frame-a\nb.png frame-b\n" {
+		t.Fatalf("the spec's sidecar was rewritten: %q", b)
+	}
+	if _, err := os.Stat(filepath.Join(vv, "b.png")); !os.IsNotExist(err) {
+		t.Fatalf("frame-b was composed outside the slice (stat err %v)", err)
+	}
+	if rc, _, stderr := f.run(t, f.wt, "demo", "k", "tests/visual/app.spec.ts", "--frames"); rc != 2 || !strings.Contains(stderr, "--frames") {
+		t.Fatalf("--frames with no value: exit %d, stderr %q, want 2 naming it", rc, stderr)
+	}
+}

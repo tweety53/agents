@@ -25,10 +25,10 @@ import (
 //     [--worktree <worktree>]... [--since <worktree>=<sha>]... \
 //     [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... \
 //     [--app <worktree>:<app-root>=<url>]... \
-//     [--miss] [--continue [--started]]
+//     [--miss] [--continue [--started] [--merge-base-captured | --merge-base-failed <reason>]]
 //   flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> \
 //     --session-token mf-<t>
-//   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]
+//   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]
 //
 // Arguments:
 //   <canonical-worktree>  the change's canonical worktree, where its rows are
@@ -55,6 +55,13 @@ import (
 //   --miss                a fix run with a missed defect: stop for the tooling
 //                         analyst once step 3 passes (decision
 //                         analyst-after-preflight)
+//   --merge-base-captured the parent ran the merge-base capture a sharded pass
+//                         asked for (`NEXT: merge-base-capture`); given with
+//                         --continue only, a usage error otherwise
+//   --merge-base-failed   the parent's merge-base capture failed, for
+//                         <reason>: every shard bundle carries `merge-base
+//                         capture failed — <reason>`; given with --continue
+//                         only, a usage error otherwise
 //
 // prepare runs, in order, stopping at the first closing line:
 //   1. the kickoff check — a `regression checkout` `## apps` declares, or,
@@ -98,6 +105,15 @@ import (
 //      collected; then the stage ends `stopped` and one line names them all:
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
 //      No verifier row is begun on any STOP.
+//  6a. with no failing check, an unscoped pass (no --round-base) of a set of
+//      one worktree with `mockups` declared counts F, the distinct frame ids of the capture specs'
+//      sidecar lines plus the declared frames no line maps (decision
+//      shard-unscoped-single-worktree). Above 25 it writes one `spec <abs>`
+//      line per capture spec and one `slice s<i>of<n> <frame,…>` line per
+//      slice vvpSlices cuts (decisions four-shards-slices-grow,
+//      slice-by-frame-id), and deletes every
+//      <changeRoot>/visual-verification/record-s*.md. Otherwise it writes
+//      nothing and the pass runs unsharded.
 //   7. --miss: NEXT: analyst          exit 0, no row begun
 //   8. step 5 (decision parent-starts-the-stack): a short GET of each
 //      survivor's --app URLs, any answer counting. A survivor nothing answers
@@ -111,6 +127,19 @@ import (
 //      `stopped` with `STOP: fingerprint — <the guard's output>`, exit 1.
 //      Exit 2 continues, the bundle reading `fingerprint: not declared —
 //      <its stderr reason>`.
+//  9a. on a stage with `slice` lines and a key with no shard segment
+//      (decision prepare-captures-sharded): unless a `captured` line is there,
+//      `setup` and each `spec` line's `capture <spec> --update-snapshots=all`
+//      run from the capture root, then `captured` is appended; a non-zero
+//      exit prints `SHARDS: none — <command> exit <n>`, drops the `slice`
+//      lines and continues unsharded (decision
+//      capture-failure-falls-back-serial). Then, without
+//      --merge-base-captured or --merge-base-failed, each spec with a PNG
+//      `git cat-file -e <merge-base>:<png>` refuses, or whose
+//      resolve-visual-screenshots exits 2, prints
+//        MERGE-BASE-SPEC: <spec>
+//      and then `NEXT: merge-base-capture`, exit 0, no row begun (decisions
+//      capture-before-merge-base, merge-base-capture-when-baseline-missing).
 //  10. per row, the verifier's bundle
 //      <worktree>/.superpowers/sdd/verify-prompt-<key>.md: the absolute
 //      worktree; `changeRoot:`; the path of skills/flow/visual-verify-verifier.md
@@ -138,7 +167,12 @@ import (
 //      `## Incomplete attempt`: the worktree's previous row's report path and
 //      the `verdict <key> <line>` lines the stage file holds for it; a
 //      `visual-verify-<n>` key adds `## Previous attempt`: every earlier
-//      report path of the worktree (decision redispatch-bundle-by-path).
+//      report path of the worktree (decision redispatch-bundle-by-path) — of
+//      its own shard index only, on a shard key. Every bundle carries a
+//      `## Measure` section (decision bundle-names-measure-call): on a shard
+//      key `slice: s<i>of<n> <slice>` and, under --merge-base-failed or a
+//      stage `merge-base-failed` line, `merge-base capture failed — <reason>`, then
+//        measure: flow-guard visual-verify-pass measure <worktree> <name> <key less any -rest[-<n>]> <spec path>[ --frames <slice>]
 //  11. one `flow record dispatch begin -C <canonical-worktree> -change <name>
 //      -role verifier -model <model> -effort <effort> -key <key> -session-token <t>
 //      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor,
@@ -146,7 +180,9 @@ import (
 //      (an open experiment's in its place; a failed read or an unusable row
 //      ends the stage `stopped` with `STOP: pair — <why>`, exit 1) — a sibling is a worktree whose diff
 //      the survivor's `ui paths` matched under --repo; keys suffixed
-//      `-<repository name>` when the set holds more than one worktree — each
+//      `-<repository name>` when the set holds more than one worktree; on a
+//      stage with `slice` lines one row per `slice` line instead, keyed
+//      `<key>-s<i>of<n>` (decision shard-key-segment) — each
 //      appending `row <key> <worktree>` to the stage file and printing
 //      `DISPATCH: <key> <bundle> — description "<key>", subagent_type
 //      flow-<effort>, model <model>, prompt opens "Role: visual-verifier"`, the
@@ -165,7 +201,8 @@ import (
 // step 1–3 check: it reads the survivors, their merge bases and siblings and
 // the set's size from the stage file, and its own --app and --round-base
 // flags, then runs steps 8–11. A key ending in a survivor's
-// `-<repository name>` runs that worktree alone, its key unchanged. A
+// `-<repository name>` runs that worktree alone, its key unchanged; a shard
+// key, ending `-s<i>of<n>`, runs its one row. A
 // survivor no --app pair names and no `preflight apps` row resolves is a
 // usage error, exit 2, `no --app passed for <worktree>` (kan-1102
 // self-review, F3).
@@ -180,19 +217,25 @@ import (
 //   2. flow-guard check-verify-report <report> <motions named> --design
 //      <changeRoot>/design.md and, with `mockups` declared,
 //      flow-guard check-frame-list <changeRoot>/design.md <mockups root> <report>, in
-//      process (exit 2 from either is this call's exit 2). A
-//      check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
+//      process (exit 2 from either is this call's exit 2); on a shard key both
+//      are passed `--frames` with the stage file's `slice` of the key's shard
+//      segment. A check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
 //      other than `no sidecar line`, ends the row `-outcome aborted`, appends
 //      each guard verdict line to the stage file as `verdict <key> <line>`
 //      (the remainder's bundle reads them), prints them and
 //        NEXT: rest <key>-rest[-<n>][-<repository name>]       exit 0
 //      — `-rest`, then `-rest-<n>` from 2, placed before any
-//      `-<repository name>` suffix. No commit; the stage stays open.
+//      `-<repository name>` suffix, the shard segment kept last
+//      (`visual-verify-rest-s2of4`). No commit; the stage stays open.
 //   3. the report's `## Verdict` block: `exits:` naming a non-zero exit is a
-//      block, its `cause:` (environment when absent). The stage's first such
-//      report of the worktree ends the row `blocked -cause <cause>` and prints
-//        NEXT: redispatch visual-verify-<n>[-<repository name>]   (<n> from 2)
-//      with no commit. From the second: cause `environment` ends the row the
+//      block, its `cause:` (environment when absent). The blocked count is the
+//      stage's blocked rows of the worktree and the key's shard index. The
+//      stage's first such report of the worktree and shard index ends the row
+//      `blocked -cause <cause>` and prints
+//        NEXT: redispatch visual-verify-<n>[-fix-<k>[-full]][-s<i>of<n>][-<repository name>]   (<n> from 2)
+//      — the closing key's `-fix-<k>[-full]` segment, its shard segment and its
+//      `-<repository name>` suffix kept (`visual-verify-2-fix-3`,
+//      `visual-verify-2-s2of3`) — with no commit. From the second: cause `environment` ends the row the
 //      same way and prints `NEXT: cure-environment <next key>`, no commit;
 //      `test-failure` or `missing-fixture` ends the row `blocked`, commits
 //      (step 12), ends the stage and prints `NEXT: loop`.
@@ -220,6 +263,10 @@ import (
 //      with no such file prints neither. Every `completed` close, scoped or
 //      not, then rewrites visual-prototype.txt with those lines when the map
 //      exists.
+// On the `loop`, `judge` and `done` paths (steps 3–5) a shard's close rewrites
+// <changeRoot>/visual-verification.md as the
+// `record-s<i>of<n>.md` parts that exist, joined in shard order by one blank
+// line (decision record-parts-merged-by-close).
 // Every commit is step 12 (decision close-commits-final-reports), never made
 // after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
 // path, every PNG it names, the full app suite's spec and zip its `- full app
@@ -233,7 +280,8 @@ import (
 //   PUSH: git -C <checkout> push
 // Nothing to commit makes no commit. Then, always:
 //   ROUND-BASE: <worktree>=<git -C <worktree> rev-parse HEAD>
-// The stage ends once every surviving worktree's newest row is closed —
+// The stage ends once the newest row of every surviving worktree and every
+// shard index is closed —
 // `stopped` when any is `blocked`, else `completed` — through `flow stage end
 // -C <canonical-worktree> -command /flow -stage flow.visual-verify`, then
 // `flow record render -change <name> -kind ledger -repo <canonical-worktree>`
@@ -258,7 +306,13 @@ import (
 //      piped into flow-guard compose-mockup-frames <sidecar> <mockups root>
 //      <changeRoot>/visual-verification [<mockup frame>] (no fourth argument
 //      under --prototype or without a declared `mockup frame`). Neither: the
-//      manifest carries no pairs.
+//      manifest carries no pairs. With --frames, only the sidecar's lines
+//      whose frame is in the slice — every `frame`, comment and blank line
+//      kept — copied to
+//      <worktree>/.superpowers/sdd/visual-measure-<key>/<spec basename>.mockups
+//      and composed from there; a frame outside the slice is neither composed
+//      nor measured, and its `.frame.png` is left alone (decision
+//      manifest-per-shard).
 //   3. per sidecar line (a pair), with the cropped `<stem>.frame.png` as the
 //      frame when compose wrote one, else the mockup itself:
 //      flow-guard measure-visual-properties <frame> <capture> --scale 1 --props
@@ -308,6 +362,11 @@ import (
 //   begin <RFC 3339 instant>
 //   set <worktrees in the resolved set>
 //   worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
+//   spec <absolute capture spec path>        prepare, on a sharded pass
+//   slice s<i>of<n> <frame>[,<frame>…]       prepare, on a sharded pass
+//   captured                                 prepare, once a sharded pass's capture ran
+//   merge-base-failed <reason>               prepare, under --merge-base-failed; every
+//                                            later shard bundle reads its reason
 //   row <key> <worktree>
 //   verdict <key> <guard verdict line>       close, on a remainder
 //   blocked <key>                            close, on a report with a non-zero exit
@@ -317,7 +376,7 @@ import (
 // unknown subcommand or argument, a token not mf-<t>, no --harness, a
 // --merge-base, --since or --round-base not <worktree>=<sha>, an --app not
 // <worktree>:<app-root>=<url>, a --defects not <worktree>=<frame>[,<frame>…]
-// or with no --round-base for its worktree, --started without --continue, a <motions
+// or with no --round-base for its worktree, --started, --merge-base-captured or --merge-base-failed without --continue, a <motions
 // named> that is not a count) or an unreadable input — the cause on stderr,
 // nothing recorded for a usage error.
 
@@ -328,9 +387,9 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started]]\n" +
+const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started] [--merge-base-captured | --merge-base-failed <reason>]]\n" +
 	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
-	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
+	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]"
 
 // vvpExit unwinds a step to visualVerifyPass with its exit code.
 type vvpExit int
@@ -347,6 +406,8 @@ type vvp struct {
 	apps                             map[string][]string
 	defects                          map[string][]string // by worktree, --defects
 	miss, cont, started              bool
+	mbCaptured                       bool                // --merge-base-captured
+	mbFailed                         string              // --merge-base-failed <reason>
 	siblings                         map[string][]string // a worktree's siblings whose diff its `ui paths` matched
 	setSize                          int
 
@@ -498,6 +559,11 @@ func (v *vvp) parse(args []string, prepare bool) {
 			v.cont = true
 		case prepare && f == "--started":
 			v.started = true
+		case prepare && f == "--merge-base-captured":
+			v.mbCaptured = true
+		case prepare && f == "--merge-base-failed":
+			v.mbFailed = val(i)
+			i++
 		default:
 			v.usage("unknown argument '" + f + "'")
 		}
@@ -515,6 +581,9 @@ func (v *vvp) parse(args []string, prepare bool) {
 	}
 	if v.started && !v.cont {
 		v.usage("--started is given with --continue only")
+	}
+	if (v.mbCaptured || v.mbFailed != "") && !v.cont {
+		v.usage("--merge-base-captured and --merge-base-failed are given with --continue only")
 	}
 	if prepare && !v.cont {
 		for _, w := range v.worktrees {
@@ -582,6 +651,9 @@ func (v *vvp) repoName(w string) string {
 //	begin <RFC 3339 instant>
 //	set <worktrees in the resolved set>
 //	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
+//	spec <absolute capture spec path>
+//	slice s<i>of<n> <frame>[,<frame>…]
+//	captured
 //	row <key> <worktree>
 //	verdict <key> <guard verdict line>
 //	blocked <key>
