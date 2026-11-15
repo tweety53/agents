@@ -114,6 +114,10 @@ func (nopRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]rec
 	return nil, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) LatestSuiteRunTests(context.Context, string, string, int) (*records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 // RecordSpecRun and ListSpecLastRuns are here for the same reason
 // ListSuiteRuns is: api.RecordStore gained the spec last-run pair (KAN-418)
 // and every implementer must keep compiling -- the replay path never
@@ -171,11 +175,18 @@ var _ api.RecordStore = nopRecordStore{}
 // InsertSuiteRun records a replayed suite run (kan-1040: a run the store
 // could not take is journalled); ListSuiteRuns is never exercised by replay.
 func (f *fakeRecordStore) InsertSuiteRun(_ context.Context, projectKey string, in records.SuiteRun) (records.SuiteRun, error) {
+	f.mu.Lock()
+	f.suiteRuns = append(f.suiteRuns, in)
+	f.mu.Unlock()
 	f.record(fmt.Sprintf("suite %s suite=%s exit=%d", projectKey, in.Suite, in.ExitCode))
 	return in, nil
 }
 
 func (f *fakeRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) LatestSuiteRunTests(context.Context, string, string, int) (*records.SuiteRun, error) {
 	return nil, errRecordStoreNotExercised
 }
 
@@ -271,6 +282,7 @@ type fakeRecordStore struct {
 	applied         []string
 	lastDispatch    *records.Dispatch
 	lastDispatchEnd *records.DispatchEnd
+	suiteRuns       []records.SuiteRun
 }
 
 var _ api.RecordStore = (*fakeRecordStore)(nil)
@@ -582,6 +594,34 @@ func TestReplayAppliesVerdictAndIncidentEntries(t *testing.T) {
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {
 		t.Fatalf("pending record entries after replay = %d, want 0 (every applied entry retired)", n)
+	}
+}
+
+// TestReplaySuiteRunKeepsItsTests pins that a journalled suite run replays
+// with its per-test costs (KAN-1124): the suite arm decodes the whole
+// records.SuiteRun, Tests included, and hands it to the store.
+func TestReplaySuiteRunKeepsItsTests(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-suite-tests", "chg-record-suite-tests"
+
+	tests := []records.SuiteRunTest{
+		{Package: "ex/a", Test: "TestSlow", CostMs: 2500},
+		{Package: "ex/b", Test: "TestMid", CostMs: 700},
+	}
+	appendRecordWrite(t, root, project, change, "suite", records.SuiteRun{
+		Suite: "guard-tests", Host: "h", DurationMs: 10, RanAt: time.Now(), Tests: tests,
+	})
+
+	rs := &fakeRecordStore{}
+	result, err := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil).Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want Applied 1 Refused 0", result)
+	}
+	if len(rs.suiteRuns) != 1 || fmt.Sprint(rs.suiteRuns[0].Tests) != fmt.Sprint(tests) {
+		t.Errorf("replayed suite runs = %+v, want one run carrying %v", rs.suiteRuns, tests)
 	}
 }
 

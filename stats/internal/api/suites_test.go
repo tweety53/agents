@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -67,6 +68,27 @@ func (f *fakeStore) ListSuiteRuns(_ context.Context, projectKey, suite string, l
 		out = append(out, sr.run)
 	}
 	return out, nil
+}
+
+// LatestSuiteRunTests mirrors store.Store.LatestSuiteRunTests over the
+// runs POSTed to the fake: the newest run of the suite carrying tests, its
+// tests capped at limit, nil when none does. It records the suite and
+// limit it was asked for, so a test can pin what the handler sent.
+func (f *fakeStore) LatestSuiteRunTests(_ context.Context, projectKey, suite string, limit int) (*records.SuiteRun, error) {
+	f.testsSuite, f.testsLimit = suite, limit
+	if limit <= 0 {
+		return nil, errFakeInvalidSuiteRun
+	}
+	for i := len(f.suiteRuns) - 1; i >= 0; i-- {
+		sr := f.suiteRuns[i]
+		if sr.projectKey != projectKey || sr.run.Suite != suite || len(sr.run.Tests) == 0 {
+			continue
+		}
+		out := sr.run
+		out.Tests = out.Tests[:min(limit, len(out.Tests))]
+		return &out, nil
+	}
+	return nil, nil
 }
 
 // TestPostSuiteRunReturnsTheRecordedRow pins the write route: POST 201 with
@@ -190,5 +212,96 @@ func TestGetSuiteRunsDefaultsAndRejectsBadLimit(t *testing.T) {
 	status, _ = doGet(t, ts, "/api/v1/suites/proj/runs?limit=0")
 	if status != http.StatusBadRequest {
 		t.Fatalf("GET limit=0 = %d, want 400", status)
+	}
+}
+
+// suiteRunWithTests is a POST body carrying two per-test costs (KAN-1124).
+func suiteRunWithTests() map[string]any {
+	return map[string]any{
+		"suite": "guard-tests", "host": "laptop", "durationMs": 52400, "exitCode": 0,
+		"tests": []map[string]any{
+			{"package": "ex/a", "test": "TestSlow", "costMs": 2500},
+			{"package": "ex/b", "test": "TestFast", "costMs": 30},
+		},
+	}
+}
+
+// TestPostSuiteRunStoresItsTests pins that the write route hands a run's
+// per-test costs to the store with the run (decision per-test-costs-in-flowd).
+func TestPostSuiteRunStoresItsTests(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+
+	if resp, body := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", suiteRunWithTests()); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST suite run with tests = %d (%s), want 201", resp.StatusCode, body)
+	}
+	if len(fs.suiteRuns) != 1 {
+		t.Fatalf("store suite runs = %d, want 1", len(fs.suiteRuns))
+	}
+	want := []records.SuiteRunTest{
+		{Package: "ex/a", Test: "TestSlow", CostMs: 2500},
+		{Package: "ex/b", Test: "TestFast", CostMs: 30},
+	}
+	if got := fs.suiteRuns[0].run.Tests; fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("stored Tests = %v, want %v", got, want)
+	}
+}
+
+// TestPostSuiteRunRejectsAnInvalidTest pins the per-test refusal: a test
+// row with no package is a 400 and never reaches the store.
+func TestPostSuiteRunRejectsAnInvalidTest(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+
+	body := suiteRunWithTests()
+	body["tests"] = []map[string]any{{"package": "", "test": "TestSlow", "costMs": 2500}}
+	resp, out := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", body)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST with an empty test package = %d (%s), want 400", resp.StatusCode, out)
+	}
+	if fs.nextSuiteRunID != 0 {
+		t.Errorf("fake allocated suite run id %d, want none: a refused payload never reaches the store", fs.nextSuiteRunID)
+	}
+}
+
+// TestGetSuiteTestsReadsTheNewestRun pins GET .../tests (decision
+// suite-tests-read): suite is required, limit defaults to 20 and travels
+// as given, a non-positive limit is a 400, and no run with tests is 200
+// with a null body.
+func TestGetSuiteTestsReadsTheNewestRun(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	if resp, body := postJSON(t, ts.URL+"/api/v1/suites/proj/runs", suiteRunWithTests()); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("seed POST = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	status, body := doGet(t, ts, "/api/v1/suites/proj/tests?suite=guard-tests")
+	if status != http.StatusOK {
+		t.Fatalf("GET suite tests = %d (%s), want 200", status, body)
+	}
+	var got records.SuiteRun
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	if got.ID != fs.suiteRuns[0].run.ID || len(got.Tests) != 2 {
+		t.Errorf("run = %+v, want the seeded run with its two tests", got)
+	}
+	if fs.testsSuite != "guard-tests" || fs.testsLimit != 20 {
+		t.Errorf("store asked for %s limit %d, want guard-tests limit 20", fs.testsSuite, fs.testsLimit)
+	}
+
+	if status, body := doGet(t, ts, "/api/v1/suites/proj/tests?suite=guard-tests&limit=3"); status != http.StatusOK || fs.testsLimit != 3 {
+		t.Errorf("GET limit=3 = %d (%s), store limit %d; want 200 and 3", status, body, fs.testsLimit)
+	}
+
+	status, body = doGet(t, ts, "/api/v1/suites/proj/tests")
+	if status != http.StatusBadRequest || !strings.Contains(body, "suite is required") {
+		t.Errorf("GET without suite = %d (%s), want 400 suite is required", status, body)
+	}
+
+	if status, body := doGet(t, ts, "/api/v1/suites/proj/tests?suite=guard-tests&limit=0"); status != http.StatusBadRequest {
+		t.Errorf("GET limit=0 = %d (%s), want 400", status, body)
+	}
+
+	status, body = doGet(t, ts, "/api/v1/suites/proj/tests?suite=stats-go")
+	if status != http.StatusOK || strings.TrimSpace(body) != "null" {
+		t.Errorf("GET with no run carrying tests = %d (%s), want 200 null", status, body)
 	}
 }

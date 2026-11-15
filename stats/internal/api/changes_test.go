@@ -122,6 +122,10 @@ type fakeStore struct {
 	nextSuiteRunID    int64
 	insertSuiteRunErr error
 	listSuiteRunsErr  error
+	// testsSuite and testsLimit are what the last LatestSuiteRunTests call
+	// asked for (KAN-1124).
+	testsSuite string
+	testsLimit int
 
 	// --- spec last-run bookkeeping (KAN-418,
 	// internal/api/specs_test.go's fakeStore methods operate on these) ---

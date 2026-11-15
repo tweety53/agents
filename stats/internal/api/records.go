@@ -131,6 +131,9 @@ type RecordStore interface {
 	// reason the hazard methods state above.
 	InsertSuiteRun(ctx context.Context, projectKey string, run records.SuiteRun) (records.SuiteRun, error)
 	ListSuiteRuns(ctx context.Context, projectKey, suite string, limit int) ([]records.SuiteRun, error)
+	// LatestSuiteRunTests is KAN-1124's per-test cost read: the newest run
+	// of one suite that carries test rows, its tests heaviest first.
+	LatestSuiteRunTests(ctx context.Context, projectKey, suite string, limit int) (*records.SuiteRun, error)
 
 	// RecordSpecRun and ListSpecLastRuns are KAN-418's per-spec last-run
 	// inventory -- the store answering which spec files have and have not
