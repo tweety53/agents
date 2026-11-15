@@ -21,12 +21,14 @@ import (
 // tmMaster is make_repo's tree: one committed artifact holding two known
 // strings, and a notes file whose uncommitted edit carries a string of its own.
 var tmMaster = sync.OnceValues(func() (string, error) {
-	dir, err := os.MkdirTemp("", "check-tree-markers-master")
+	dir, err := os.MkdirTemp(execFixtures.dir, "check-tree-markers-master")
 	if err != nil {
 		return "", err
 	}
+	if err := copyShape(dir, repoShape{}); err != nil {
+		return "", err
+	}
 	g := &fxGit{}
-	g.git(dir, "init", "-q")
 	if g.err == nil {
 		g.err = os.MkdirAll(dir+"/spectre/changes/demo", 0o755)
 	}
@@ -62,8 +64,8 @@ func tmNew(t *testing.T) *tmFx {
 		t.Fatal(err)
 	}
 	root := t.TempDir()
-	if out, err := exec.Command("cp", "-R", master, root+"/wt").CombinedOutput(); err != nil {
-		t.Fatalf("cp: %v\n%s", err, out)
+	if err := copyTree(master, root+"/wt"); err != nil {
+		t.Fatal(err)
 	}
 	writeFile(t, root+"/m/markers", tmMarkersBody)
 	mkdir(t, root+"/s")

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -657,6 +658,13 @@ var fixtureGitEnv = []string{"GIT_CONFIG_GLOBAL=/dev/null",
 // harness's GIT_CONFIG_GLOBAL=/dev/null plus its `config user.*` do.
 func gitRun(t *testing.T, dir string, args ...string) {
 	t.Helper()
+	if err := fixtureGitExec(dir, args...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// fixtureGitExec is gitRun for code with no *testing.T: the shape templates below.
+func fixtureGitExec(dir string, args ...string) error {
 	if dir != "" {
 		args = append([]string{"-C", dir}, args...)
 	}
@@ -665,8 +673,202 @@ func gitRun(t *testing.T, dir string, args ...string) {
 		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
 		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, out)
+		return fmt.Errorf("git %v: %v\n%s", args, err, out)
 	}
+	return nil
+}
+
+// repoShape is one recurring fixture repository: git init [-b Branch] [--bare], plus one
+// empty commit with message Commit when Commit is set.
+type repoShape struct {
+	Branch, Commit string
+	Bare           bool
+}
+
+// shapeTemplates holds each shape built once per package run under execFixtures.dir, through
+// fixtureGitExec's fixed identity, and copied per test: a `git init` plus a commit is a handful of
+// execs, and the package's fixtures make one per test. A template is a directory; for the
+// origin shapes it holds origin.git (bare) and clone/ (Commit pushed to it).
+var shapeTemplates struct {
+	sync.Mutex
+	plain, origin map[repoShape]func() (string, error)
+}
+
+func shapeTemplate(s repoShape, withOrigin bool) (string, error) {
+	shapeTemplates.Lock()
+	m := &shapeTemplates.plain
+	if withOrigin {
+		m = &shapeTemplates.origin
+	}
+	if *m == nil {
+		*m = map[repoShape]func() (string, error){}
+	}
+	build := (*m)[s]
+	if build == nil {
+		build = sync.OnceValues(func() (string, error) { return buildShape(s, withOrigin) })
+		(*m)[s] = build
+	}
+	shapeTemplates.Unlock()
+	return build()
+}
+
+func buildShape(s repoShape, withOrigin bool) (string, error) {
+	dir, err := os.MkdirTemp(execFixtures.dir, "shape")
+	if err != nil {
+		return "", err
+	}
+	init := func(repo string, bare bool) error {
+		args := []string{"init", "-q"}
+		if s.Branch != "" {
+			args = append(args, "-b", s.Branch)
+		}
+		if bare {
+			args = append(args, "--bare")
+		}
+		return fixtureGitExec("", append(args, repo)...)
+	}
+	if !withOrigin {
+		if err := init(dir+"/repo", s.Bare); err != nil {
+			return "", err
+		}
+		if s.Commit != "" {
+			// ponytail: no bare shape carries a commit yet; build it through a clone when one does.
+			if s.Bare {
+				return "", fmt.Errorf("repoShape %+v: a bare shape with a commit is not built", s)
+			}
+			if err := fixtureGitExec(dir+"/repo", "commit", "-q", "--allow-empty", "-m", s.Commit); err != nil {
+				return "", err
+			}
+		}
+		return dir + "/repo", nil
+	}
+	if s.Commit == "" || s.Branch == "" || s.Bare {
+		return "", fmt.Errorf("repoShape %+v: an origin shape names a Branch and a Commit and is not bare", s)
+	}
+	origin, clone := dir+"/origin.git", dir+"/clone"
+	for _, step := range []func() error{
+		func() error { return init(origin, true) },
+		func() error { return init(clone, false) },
+		func() error { return fixtureGitExec(clone, "commit", "-q", "--allow-empty", "-m", s.Commit) },
+		func() error { return fixtureGitExec(clone, "remote", "add", "origin", origin) },
+		func() error { return fixtureGitExec(clone, "push", "-q", "-u", "origin", s.Branch) },
+	} {
+		if err := step(); err != nil {
+			return "", err
+		}
+	}
+	return dir, nil
+}
+
+// copyShape copies shape s into dir: a bare shape's repository is dir itself, any other's .git
+// is dir/.git; dir is created if missing and files already in it are kept. It takes no
+// *testing.T, so a sync.OnceValues master can build on it.
+func copyShape(dir string, s repoShape) error {
+	tpl, err := shapeTemplate(s, false)
+	if err != nil {
+		return err
+	}
+	if s.Bare {
+		return copyTree(tpl, dir)
+	}
+	return copyTree(tpl+"/.git", dir+"/.git")
+}
+
+// fixtureRepo is copyShape, failing t on error.
+func fixtureRepo(t *testing.T, dir string, s repoShape) {
+	t.Helper()
+	if err := copyShape(dir, s); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// fixtureRepoWithOrigin copies the origin shape: a bare repository at origin and a clone at
+// dir with s.Commit on s.Branch pushed to it and tracking it, its origin URL rewritten to
+// origin in Go. Worktrees and further commits are made after the copy: gitdir paths are
+// absolute.
+func fixtureRepoWithOrigin(t *testing.T, dir, origin string, s repoShape) {
+	t.Helper()
+	tpl, err := shapeTemplate(s, true)
+	if err == nil {
+		err = copyTree(tpl+"/origin.git", origin)
+	}
+	if err == nil {
+		err = copyTree(tpl+"/clone/.git", dir+"/.git")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := dir + "/.git/config"
+	b, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	from, to := "\turl = "+tpl+"/origin.git\n", "\turl = "+origin+"\n"
+	if !bytes.Contains(b, []byte(from)) {
+		t.Fatalf("%s carries no %q", cfg, from)
+	}
+	if err := os.WriteFile(cfg, bytes.Replace(b, []byte(from), []byte(to), 1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// copyTree copies src to dst — regular files, directories and symlinks — keeping each one's
+// mode and mtime; dst and its directories are created when missing, other files in them kept.
+func copyTree(src, dst string) error {
+	type dirTime struct {
+		path string
+		mt   time.Time
+	}
+	var dirs []dirTime
+	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, p)
+		to := filepath.Join(dst, rel)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		switch {
+		case d.IsDir():
+			if err := os.MkdirAll(to, 0o755); err != nil {
+				return err
+			}
+			dirs = append(dirs, dirTime{to, info.ModTime()})
+			return os.Chmod(to, info.Mode().Perm())
+		case d.Type()&fs.ModeSymlink != 0:
+			l, err := os.Readlink(p)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(l, to)
+		case d.Type().IsRegular():
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(to, b, info.Mode().Perm()); err != nil {
+				return err
+			}
+			if err := os.Chmod(to, info.Mode().Perm()); err != nil {
+				return err
+			}
+			return os.Chtimes(to, info.ModTime(), info.ModTime())
+		}
+		return fmt.Errorf("copyTree: %s is neither a file, a directory nor a symlink", p)
+	})
+	if err != nil {
+		return err
+	}
+	// Children set their directory's mtime as they are written, so directories go last,
+	// deepest first.
+	for i := len(dirs) - 1; i >= 0; i-- {
+		if err := os.Chtimes(dirs[i].path, dirs[i].mt, dirs[i].mt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // TestPlainNameRefusesEmpty pins the empty-name refusal plainChangeName took over
@@ -807,5 +1009,84 @@ func TestSpecRootFrozenOpenspecIsSpectre(t *testing.T) {
 				t.Errorf("specRootLeaf = %q stderr %q, want %q and no stderr", got, stderr.String(), tc.want)
 			}
 		})
+	}
+}
+
+// TestFixtureRepoCopiesTheShape pins the repository-shape templates: each copy
+// is the shape it names, on its own branch with a clean tree, every copy of a
+// shape is the one template, an origin copy pushes to its own origin, and
+// copyTree keeps every copied file's mode and mtime.
+func TestFixtureRepoCopiesTheShape(t *testing.T) {
+	t.Parallel()
+	g := &fxGit{}
+	check := func(what, got, want string) {
+		t.Helper()
+		if g.err != nil {
+			t.Fatalf("%s: %v", what, g.err)
+		}
+		if got != want {
+			t.Errorf("%s = %q, want %q", what, got, want)
+		}
+	}
+	root := t.TempDir()
+	shape := repoShape{Branch: "main", Commit: "init"}
+	a, b := root+"/a", root+"/b"
+	fixtureRepo(t, a, shape)
+	fixtureRepo(t, b, shape)
+	for _, d := range []string{a, b} {
+		check(d+" HEAD", g.git(d, "symbolic-ref", "HEAD"), "refs/heads/main")
+		check(d+" log", g.git(d, "log", "--format=%s"), "init")
+		check(d+" status", g.git(d, "status", "--porcelain"), "")
+	}
+	check("b's HEAD", g.git(b, "rev-parse", "HEAD"), g.git(a, "rev-parse", "HEAD"))
+
+	bare := root + "/bare.git"
+	fixtureRepo(t, bare, repoShape{Bare: true, Branch: "develop"})
+	check("bare HEAD", g.git(bare, "symbolic-ref", "HEAD"), "refs/heads/develop")
+	check("bare", g.git(bare, "rev-parse", "--is-bare-repository"), "true")
+
+	unborn, fresh := root+"/unborn", root+"/fresh"
+	fixtureRepo(t, unborn, repoShape{})
+	g.git("", "init", "-q", fresh)
+	check("unborn HEAD", g.git(unborn, "symbolic-ref", "HEAD"), g.git(fresh, "symbolic-ref", "HEAD"))
+	if exec.Command(fixtureGit, "-C", unborn, "rev-parse", "-q", "--verify", "HEAD").Run() == nil {
+		t.Error("repoShape{} copied a repository with a commit, want an unborn one")
+	}
+
+	clone, origin := root+"/clone", root+"/origin.git"
+	fixtureRepoWithOrigin(t, clone, origin, shape)
+	check("origin URL", g.git(clone, "remote", "get-url", "origin"), origin)
+	check("origin/main", g.git(clone, "rev-parse", "origin/main"), g.git(clone, "rev-parse", "HEAD"))
+	g.git(clone, "commit", "-q", "--allow-empty", "-m", "next")
+	g.git(clone, "push", "-q", "origin", "main")
+	check("origin's main after a push", g.git(origin, "rev-parse", "main"), g.git(clone, "rev-parse", "HEAD"))
+
+	src, dst := root+"/src", root+"/dst"
+	mkdir(t, src+"/sub")
+	if err := os.WriteFile(src+"/sub/x", []byte("x"), 0o751); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(src+"/sub/x", 0o751); err != nil {
+		t.Fatal(err)
+	}
+	mtime := time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
+	if err := os.Chtimes(src+"/sub/x", mtime, mtime); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("sub/x", src+"/link"); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyTree(src, dst); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(dst + "/sub/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o751 || !st.ModTime().Equal(mtime) {
+		t.Errorf("copied file mode %v mtime %v, want -rwxr-x--x and %v", st.Mode().Perm(), st.ModTime(), mtime)
+	}
+	if l, err := os.Readlink(dst + "/link"); err != nil || l != "sub/x" {
+		t.Errorf("copied symlink = %q, %v; want sub/x", l, err)
 	}
 }

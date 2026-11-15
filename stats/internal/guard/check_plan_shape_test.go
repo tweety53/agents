@@ -30,7 +30,7 @@ func TestPlanParseScansLiveChangesOnly(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	writeFile(t, root+"/README", "base\n")
-	gitRun(t, root, "init", "-q", "-b", "main")
+	fixtureRepo(t, root, repoShape{Branch: "main"})
 	gitRun(t, root, "add", "-A")
 	gitRun(t, root, "commit", "-qm", "base")
 	writeFile(t, root+"/spectre/changes/archive/old/tasks.md", "- [ ] 1. Archived, no Files line\n\n**Tests:** `test-a.sh`\n")
@@ -577,8 +577,10 @@ var psF15Master = sync.OnceValues(func() (string, error) {
 			return "", err
 		}
 	}
+	if err := copyShape(dir, repoShape{Branch: "main"}); err != nil {
+		return "", err
+	}
 	g := &fxGit{}
-	g.git("", "init", "-q", "-b", "main", dir)
 	g.git(dir, "add", "pkg")
 	g.git(dir, "-c", "core.hooksPath=/dev/null", "commit", "-qm", "base")
 	g.git(dir, "checkout", "-q", "-b", "work")
@@ -593,8 +595,8 @@ func psF15Repo(t *testing.T) string {
 		t.Fatal(err)
 	}
 	repo := t.TempDir() + "/repo"
-	if out, err := exec.Command("cp", "-R", master, repo).CombinedOutput(); err != nil {
-		t.Fatalf("cp: %v\n%s", err, out)
+	if err := copyTree(master, repo); err != nil {
+		t.Fatal(err)
 	}
 	return repo
 }
@@ -742,9 +744,7 @@ func TestCheckPlanShapePrototypeNeedsACapture(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			root := t.TempDir()
-			if out, err := exec.Command("git", "init", "-q", root).CombinedOutput(); err != nil {
-				t.Fatalf("git init: %v\n%s", err, out)
-			}
+			fixtureRepo(t, root, repoShape{})
 			writeFile(t, root+"/.flow/project.md", "# p\n\n"+fmt.Sprintf(section, tc.checkout))
 			writeFile(t, root+"/spectre/changes/x/design.md", "## Context\n\n"+tc.design+"\n")
 			p := root + "/spectre/changes/x/tasks.md"
@@ -775,9 +775,7 @@ func TestCheckPlanShapeF22SkipsMarkdown(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			root := t.TempDir()
-			if out, err := exec.Command("git", "init", "-q", root).CombinedOutput(); err != nil {
-				t.Fatalf("git init: %v\n%s", err, out)
-			}
+			fixtureRepo(t, root, repoShape{})
 			writeFile(t, root+"/.flow/project.md", "# p\n\n"+section)
 			writeFile(t, root+"/spectre/changes/x/design.md", "## Context\n\nsee `.superpowers/sdd/x-prototype.html`\n")
 			p := root + "/spectre/changes/x/tasks.md"

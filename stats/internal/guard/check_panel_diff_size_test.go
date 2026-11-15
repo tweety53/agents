@@ -20,12 +20,14 @@ import (
 
 // pdsMaster is new_repo's tree: a git repo with one seed commit.
 var pdsMaster = sync.OnceValues(func() (string, error) {
-	dir, err := os.MkdirTemp("", "check-panel-diff-size-master")
+	dir, err := os.MkdirTemp(execFixtures.dir, "check-panel-diff-size-master")
 	if err != nil {
 		return "", err
 	}
+	if err := copyShape(dir, repoShape{}); err != nil {
+		return "", err
+	}
 	g := &fxGit{}
-	g.git(dir, "init", "-q")
 	g.write(dir+"/README.md", "seed")
 	g.git(dir, "add", "-A")
 	g.git(dir, "commit", "-q", "-m", "seed")
@@ -50,8 +52,8 @@ func pdsRepo(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	repo := t.TempDir() + "/repo"
-	if out, err := exec.Command("cp", "-R", master, repo).CombinedOutput(); err != nil {
-		t.Fatalf("cp: %v\n%s", err, out)
+	if err := copyTree(master, repo); err != nil {
+		t.Fatal(err)
 	}
 	g := &fxGit{}
 	head := g.git(repo, "rev-parse", "HEAD")
