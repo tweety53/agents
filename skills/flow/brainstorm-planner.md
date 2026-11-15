@@ -415,7 +415,7 @@ a live spike of five minutes or less for each such assumption before the task is
 records the result in the task as a `measured:` comment per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`), naming the command and the ref. A premise the spike
 disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
-stays tagged `unverified:<what-to-check>` for the implementer.
+stays tagged `unverified:<what-to-check>` for the implementer. The same spike covers a premise naming what a measured cost is spent on — that a build, a fixture or a setup step is where a test's time goes: planning times that part alone before a task cuts it, and a premise the timing disproves strikes the cut (kan-1124 self-review, F5).
 
 **A timing gate never presumes an idle machine.** A step whose outcome turns on a measured duration first waits, on a Monitor until-loop with a stated bound and never a foreground sleep, until the one-minute load average (`uptime`) is at or under the core count (`getconf _NPROCESSORS_ONLN`), as "A test runner's own timeout under outside load is the environment's failure" (`skills/flow/verify-and-handoff.md`) does; it records that load average beside the figure, and names what the task does with a figure taken while the load stays above the core count — never a raised timeout, and never the gated outcome skipped in silence (kan-1124 self-review, F2). `flow-guard check-plan-shape` F30 refuses an unticked task's line that presumes the machine otherwise idle.
 
