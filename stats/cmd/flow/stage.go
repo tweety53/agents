@@ -714,9 +714,10 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 }
 
 // gateVerifyNotBlocked refuses a completed /flow flow.verify end while any
-// worktree's newest verify dispatch by start -- key `verify[-<n>]`, suffixed
-// `-<repository name>` on a multi-worktree run, never `verify-fix-<n>` --
-// ended blocked: the stage would read completed over a verify that did not
+// worktree's newest verify dispatch by start -- key `verify[-<n>]` or a
+// re-run `verify-fix-<k>` (step 4 of The loop, skills/flow/verify-fix-loop.md;
+// kan-1117 self-review, F5), suffixed `-<repository name>` on a
+// multi-worktree run -- ended blocked: the stage would read completed over a verify that did not
 // pass (KAN-1071 self-review: stage run 18938). A failed record read refuses
 // nothing.
 func gateVerifyNotBlocked(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
@@ -735,7 +736,7 @@ func gateVerifyNotBlocked(ctx context.Context, f stageIdentityFlags, outcome str
 	}
 	newest := map[string]*records.Dispatch{}
 	for i, d := range run.Dispatches {
-		isVerify := d.Key == "verify" || (strings.HasPrefix(d.Key, "verify-") && !strings.HasPrefix(d.Key, "verify-fix-"))
+		isVerify := d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")
 		if !isVerify {
 			continue
 		}
@@ -754,9 +755,13 @@ func gateVerifyNotBlocked(ctx context.Context, f stageIdentityFlags, outcome str
 }
 
 // verifyKeyRepository returns the `-<repository name>` suffix of a verify
-// dispatch key `verify[-<n>][-<repository name>]`, "" when it has none.
+// dispatch key `verify[-<n>][-<repository name>]` or
+// `verify-fix-<k>[-<repository name>]` (step 4 of The loop,
+// skills/flow/verify-fix-loop.md; kan-1117 self-review, F5), "" when it has
+// none.
 func verifyKeyRepository(key string) string {
 	rest := strings.TrimPrefix(strings.TrimPrefix(key, "verify"), "-")
+	rest = strings.TrimPrefix(rest, "fix-")
 	round, tail, _ := strings.Cut(rest, "-")
 	if _, err := strconv.Atoi(round); err == nil {
 		return tail

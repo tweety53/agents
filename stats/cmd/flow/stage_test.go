@@ -1823,10 +1823,10 @@ func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
 
 // TestStageEndFlowVerifyRefusesOverBlockedVerify pins the verify gate: a
 // completed /flow flow.verify end is refused, exit 1 with no end request,
-// while the change's newest verify dispatch -- `verify` or `verify-<n>`,
-// never `verify-fix-<n>` -- ended blocked. The set's newest dispatch of any
-// key (visual-verify) and its newest verify-prefixed one (verify-fix-1) both
-// completed, so a gate reading either passes wrongly. A newer completed
+// while the change's newest verify dispatch -- `verify`, `verify-<n>` or
+// `verify-fix-<k>` -- ended blocked. The set's newest dispatch of any key
+// (visual-verify) completed, and its verify-fix-1 completed before verify-2
+// began, so a gate reading either passes wrongly. A newer completed
 // verify-3 ends it, and so does a blocked end over the same set.
 func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
 	t.Parallel()
@@ -1848,7 +1848,7 @@ func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
 	set := []string{
 		dispatch("verify", "completed", "09:00"),
 		dispatch("verify-2", "blocked", "10:00"),
-		dispatch("verify-fix-1", "completed", "10:30"),
+		dispatch("verify-fix-1", "completed", "09:30"),
 		dispatch("visual-verify", "completed", "11:00"),
 	}
 	end := func(dispatches []string, outcome string) (int, string, bool) {
@@ -1894,6 +1894,70 @@ func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
 	}
 	if code, stderr, reached := end(append(multi[:len(multi):len(multi)], dispatch("verify-3-a", "completed", "10:45")), "completed"); code != 0 || !reached {
 		t.Fatalf("completed verify-3-a newest for a: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+}
+
+// TestStageEndFlowVerifyCountsAVerifyFixRerun pins kan-1117 self-review F5:
+// a verify-fix-<k>[-<repository name>] row is a verify re-run (step 4 of The
+// loop, skills/flow/verify-fix-loop.md), so a completed one started after a
+// blocked verify lets the end through, a blocked newest one refuses it, and
+// verify-fix-2-a is read under repository a, not fix-2-a.
+func TestStageEndFlowVerifyCountsAVerifyFixRerun(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	root := filepath.Join(repo, "spectre", "changes", "kan-1")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "design.md"), []byte("## Live check\n\nRun the daemon.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte("- Before: 3\n- After: 0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dispatch := func(key, outcome, at string) string {
+		return fmt.Sprintf(`{"key":%q,"outcome":%q,"startedAt":"2026-11-01T%s:00Z","endedAt":"2026-11-01T%s:30Z"}`, key, outcome, at, at)
+	}
+	end := func(dispatches []string, outcome string) (int, string, bool) {
+		t.Helper()
+		record := `{"change":"kan-1","dispatches":[` + strings.Join(dispatches, ",") + `]}`
+		reached := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				_, _ = w.Write([]byte(record))
+				return
+			}
+			reached = true
+			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
+				"-command", "/flow", "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
+			env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), reached
+	}
+	if code, stderr, reached := end([]string{dispatch("verify", "blocked", "09:00"), dispatch("verify-fix-1", "completed", "10:00")}, "completed"); code != 0 || !reached {
+		t.Fatalf("completed verify-fix-1 after blocked verify: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
+	if code, stderr, reached := end([]string{dispatch("verify", "completed", "09:00"), dispatch("verify-fix-1", "blocked", "10:00")}, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-fix-1 ended blocked") {
+		t.Fatalf("blocked verify-fix-1 newest: exit=%d reached=%v, want 1 naming verify-fix-1; stderr:\n%s", code, reached, stderr)
+	}
+	multi := []string{
+		dispatch("verify-a", "completed", "09:00"),
+		dispatch("verify-b", "completed", "09:05"),
+		dispatch("verify-fix-2-a", "blocked", "10:00"),
+		dispatch("verify-fix-2-b", "completed", "10:05"),
+	}
+	if code, stderr, reached := end(multi, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-fix-2-a ended blocked") {
+		t.Fatalf("blocked verify-fix-2-a: exit=%d reached=%v, want 1 naming verify-fix-2-a; stderr:\n%s", code, reached, stderr)
+	}
+	// A later completed verify-3-a supersedes verify-fix-2-a only when both
+	// are read under repository a.
+	if code, stderr, reached := end(append(multi[:len(multi):len(multi)], dispatch("verify-3-a", "completed", "10:45")), "completed"); code != 0 || !reached {
+		t.Fatalf("completed verify-3-a after verify-fix-2-a: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
 	}
 }
 
