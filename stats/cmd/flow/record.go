@@ -1719,6 +1719,8 @@ func taskWorkKey(key string) string {
 // before it in any of the change's worktrees, raised to panelFixFloor and
 // inlineFloor (kan-1003, kan-1039, kan-1046). The back-fill and a live
 // inline end both call it.
+// A panel-fix floor never lies after the commit: panelFixAfterReports
+// refuses such a fix first (kan-1117 self-review, F3).
 func inlineDerivedWindow(ctx context.Context, f recordIdentityFlags, projectKey, role, key, commit string) (start, end time.Time, ok bool) {
 	roots := mutationRoots(ctx, f, projectKey)
 	end, ok = commitTime(commit, roots)
@@ -1728,7 +1730,7 @@ func inlineDerivedWindow(ctx context.Context, f recordIdentityFlags, projectKey,
 	if !ok {
 		return time.Time{}, time.Time{}, false
 	}
-	if floor, ok := panelFixFloor(ctx, f, projectKey, role, key, end); ok && floor.After(start) && !floor.After(end) {
+	if floor, ok := panelFixFloor(ctx, f, projectKey, role, key, end); ok && floor.After(start) {
 		start = floor
 	}
 	if floor, ok := inlineFloor(ctx, f, projectKey, key, end); ok && floor.After(start) {
@@ -1838,6 +1840,9 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 		if ok {
 			commitAt = &t
 		}
+	}
+	if commitAt != nil && !panelFixAfterReports(ctx, f, projectKey, *key, *commitAt, stderr) {
+		return 2
 	}
 	// A live inline task implementer end derives its start as the back-fill
 	// does, so a row begun at its commit records the work before it; the
@@ -1967,6 +1972,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 		startT, endT, ok := inlineDerivedWindow(ctx, f, projectKey, *v["role"], *v["key"], *v["commit"])
 		if !ok {
 			fmt.Fprintf(stderr, "flow: cannot derive the instants of commit %s (or the commit before it) from any of the change's worktrees\n", *v["commit"])
+			return 2
+		}
+		if !panelFixAfterReports(ctx, f, projectKey, *v["key"], endT, stderr) {
 			return 2
 		}
 		*v["started-at"] = startT.UTC().Format(time.RFC3339)
@@ -4502,6 +4510,43 @@ func reviewedRoundUnproved(run records.Run, round int) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// panelFixAfterReports refuses, reporting false, a panel-fix-<r>[-<chunk>]
+// row whose commit precedes the end of a reviewer row of round r-1: the fix
+// cannot begin before the reports it fixes (kan-1117 self-review, F3:
+// 5bc6e17c was committed at 23:02:19, before panel-0-mutation ended at
+// 23:04:59). The latest such end is named. Any other key, and a failed
+// record read, pass.
+func panelFixAfterReports(ctx context.Context, f recordIdentityFlags, projectKey, key string, commitAt time.Time, stderr io.Writer) bool {
+	rest, ok := strings.CutPrefix(key, "panel-fix-")
+	if !ok {
+		return true
+	}
+	digits, _, _ := strings.Cut(rest, "-")
+	r, err := strconv.Atoi(digits)
+	if err != nil || r < 1 {
+		return true
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return true
+	}
+	var late *records.Dispatch
+	for i, d := range run.Dispatches {
+		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && d.Role == "reviewer" && d.EndedAt != nil &&
+			d.EndedAt.After(commitAt) && (late == nil || d.EndedAt.After(*late.EndedAt)) {
+			late = &run.Dispatches[i]
+		}
+	}
+	if late == nil {
+		return true
+	}
+	fmt.Fprintf(stderr, "flow: -key %q: its commit (%s) precedes %s's end (%s) -- the fix cannot begin before the reports it fixes (skills/flow/review-panel-fix-round.md)\n",
+		key, commitAt.UTC().Format(time.RFC3339), late.Key, late.EndedAt.UTC().Format(time.RFC3339))
 	return false
 }
 

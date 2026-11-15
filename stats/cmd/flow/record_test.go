@@ -5843,8 +5843,6 @@ func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T)
 		{"panel-fix", "panel-fix-1-2", "2026-10-23T09:28:18Z", false},
 		{"panel-fix", "panel-fix-3", "2026-10-23T09:19:34Z", false},
 		{"implementer", "task-1-implementer", "2026-10-23T09:19:34Z", false},
-		// a reviewer end later than the fix commit never becomes the floor
-		{"panel-fix", "panel-fix-4", "2026-10-23T09:19:34Z", false},
 		// a failed record read keeps the commit-derived start
 		{"panel-fix", "panel-fix-1", "2026-10-23T09:19:34Z", true},
 	} {
@@ -5860,6 +5858,20 @@ func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T)
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
 			t.Errorf("%s: bodies = %v, want begin startedAt %s", tc.key, bodies, tc.want)
 		}
+	}
+	// a reviewer end later than the fix commit refuses the fix, naming the
+	// report it precedes (kan-1117 self-review, F3)
+	bodies = nil
+	recordFails = false
+	args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-4",
+		"-session-token", "mf-record-panel-fix-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 || len(bodies) != 0 {
+		t.Fatalf("panel-fix-4: exit %d, %d bodies; want 2 and none (stderr %q)", code, len(bodies), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "panel-3-primary") {
+		t.Errorf("panel-fix-4: stderr %q does not name panel-3-primary", stderr.String())
 	}
 }
 
@@ -8049,6 +8061,95 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 	}
 	if len(bodies) != 2 || bodies[0]["startedAt"] != "2026-10-28T14:40:55Z" {
 		t.Errorf("closed round: bodies = %v, want begin startedAt 14:40:55Z", bodies)
+	}
+}
+
+// reportsDaemon serves a run record whose panel-0-mutation reviewer ends at
+// mutationEnd, the fix commit sitting at 09:30:03Z, and counts every POST.
+func reportsDaemon(t *testing.T, mutationEnd string) (*httptest.Server, *int, *[]map[string]any) {
+	t.Helper()
+	record := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:25:00Z"},` +
+		`{"key":"panel-0-mutation","role":"reviewer","slot":"mutation","startedAt":"2026-10-23T09:20:01Z","endedAt":"` + mutationEnd + `"},` +
+		`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
+	posts := 0
+	var bodies []map[string]any
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		raw, _ := readAll(r)
+		var b map[string]any
+		_ = json.Unmarshal(raw, &b)
+		bodies = append(bodies, b)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &posts, &bodies
+}
+
+// TestRecordDispatchBackfillRefusesAPanelFixCommittedBeforeItsReports pins
+// kan-1117 self-review F3: an inline panel-fix-<r> back-fill whose commit
+// precedes a round r-1 reviewer's end is refused, naming that reviewer;
+// with every end before the commit it begins, floored at the latest end.
+func TestRecordDispatchBackfillRefusesAPanelFixCommittedBeforeItsReports(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	repo := recordRepo(t, "kan-258")
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
+	backfill := func(url string) (int, string) {
+		args := []string{"record", "dispatch", "backfill", "-addr", url, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-1",
+			"-session-token", "mf-record-before-reports", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	srv, posts, _ := reportsDaemon(t, "2026-10-23T09:32:00Z")
+	if code, stderr := backfill(srv.URL); code != 2 || *posts != 0 || !strings.Contains(stderr, "panel-0-mutation") {
+		t.Fatalf("report after commit: exit %d, %d POSTs, stderr %q; want 2, none, naming panel-0-mutation", code, *posts, stderr)
+	}
+	srv, _, bodies := reportsDaemon(t, "2026-10-23T09:27:00Z")
+	if code, stderr := backfill(srv.URL); code != 0 {
+		t.Fatalf("reports before commit: exit %d; stderr:\n%s", code, stderr)
+	}
+	if len(*bodies) != 2 || (*bodies)[0]["startedAt"] != "2026-10-23T09:27:00Z" {
+		t.Errorf("reports before commit: bodies = %v, want begin startedAt 09:27:00Z", *bodies)
+	}
+}
+
+// TestRecordDispatchEndRefusesAPanelFixCommittedBeforeItsReports pins
+// kan-1117 self-review F3 on the live end: a panel-fix-<r> end whose commit
+// precedes a round r-1 reviewer's end is refused before the store call,
+// while a full-suite-fix end over the same record is sent.
+func TestRecordDispatchEndRefusesAPanelFixCommittedBeforeItsReports(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	repo := recordRepo(t, "kan-258")
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
+	srv, posts, _ := reportsDaemon(t, "2026-10-23T09:32:00Z")
+	end := func(key string) (int, string) {
+		args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-key", key, "-session-token", "mf-record-end-before-reports", "-outcome", "completed", "-commit", sha}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	if code, stderr := end("panel-fix-1"); code != 2 || *posts != 0 || !strings.Contains(stderr, "panel-0-mutation") {
+		t.Fatalf("panel-fix-1: exit %d, %d POSTs, stderr %q; want 2, none, naming panel-0-mutation", code, *posts, stderr)
+	}
+	if code, stderr := end("full-suite-fix-1"); code != 0 || *posts != 1 {
+		t.Fatalf("full-suite-fix-1: exit %d, %d POSTs; want 0 and the end sent (stderr %q)", code, *posts, stderr)
 	}
 }
 
