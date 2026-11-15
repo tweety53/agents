@@ -38,6 +38,7 @@ type vvmPair struct {
 	Bands      []any             `json:"bands"`
 	Seams      []any             `json:"seams"`
 	Over       []any             `json:"over"`
+	Cells      []any             `json:"cells"`
 }
 
 type vvmManifestOut struct {

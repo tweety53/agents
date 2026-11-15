@@ -159,21 +159,20 @@ func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
 	}
 }
 
-// TestCheckVerifyReportMatrixLinePerFrame pins kan-1016's self-review: one
-// `matrix:` line covered nine frames, and the warm-up sheet's frame had no
-// matrix until round 8. A `done` step 10 needs a matrix line per composed frame.
-func TestCheckVerifyReportMatrixLinePerFrame(t *testing.T) {
-	const frames = "- templates-W1: /tmp/w1.composite.png diff=0.1\n- templates-A4b: /tmp/a4b.composite.png diff=0.2\n- templates-W1 matrix: 12 rows\n" +
-		"- templates-W1 bands: 3/3 paired\n- templates-W1 seams: 2/2 paired\n- templates-W1 over-tolerance: 0\n" +
-		"- templates-A4b bands: 3/3 paired\n- templates-A4b seams: 2/2 paired\n- templates-A4b over-tolerance: 0\n"
+// TestCheckVerifyReportSpotCheckLinePerFrame pins decision spot-check-shape
+// with kan-1016's lesson: one line covered nine frames. A `done` step 10 needs
+// a spot-check: line per composed frame.
+func TestCheckVerifyReportSpotCheckLinePerFrame(t *testing.T) {
+	frames := vrtFrame("templates-W1") + "- templates-W1 over-tolerance: 0\n" + vrtFrame("templates-A4b") + "- templates-A4b over-tolerance: 0\n"
+	noA4b := strings.Replace(frames, "- templates-A4b spot-check:", "- templates-A4b notes:", 1)
 	for _, tc := range []struct {
 		name, body string
 		rc         int
 		want       string
 	}{
-		{"missing", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n" + frames, 1, "templates-A4b has no matrix: line"},
-		{"present", "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n" + frames + "- templates-A4b matrix: 9 rows\n", 0, "COMPLETE"},
-		{"not done", "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n" + frames, 0, "COMPLETE"},
+		{"missing", vrtDone + noA4b, 1, "templates-A4b has no spot-check: line"},
+		{"present", vrtDone + frames, 0, "COMPLETE"},
+		{"not done", "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n" + noA4b, 0, "COMPLETE"},
 	} {
 		dir := t.TempDir()
 		vrtManifest(t, dir, "visual-verify", "templates-W1")
@@ -256,13 +255,13 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — header and table read\n",
 			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — roles panel read\n",
 			"- mock-frame-03: <root>/vv/a-roles-darwin.png diff=n/a — prototype frame\n",
-			"- mock-frame-03 matrix: 4 rows\n- mock-frame-03 bands: 2/2 paired\n- mock-frame-03 seams: 1/1 paired\n- mock-frame-03 over-tolerance: 0\n",
+			vrtSpot("mock-frame-03") + "- mock-frame-03 over-tolerance: 0\n",
 			"- per view, no frame composed: a-open sweeps: text done | overflow done\n",
 		}
 		var body strings.Builder
 		for _, l := range lines {
 			drop := tc.drop != "" && strings.Contains(l, tc.drop)
-			if tc.name == "frame lines removed" && strings.Contains(l, "mock-frame-03 matrix:") {
+			if tc.name == "frame lines removed" && strings.Contains(l, "mock-frame-03 spot-check:") {
 				drop = true
 			}
 			if !drop {
@@ -321,16 +320,40 @@ const vrtDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done 
 
 // vrtFrame is one composed frame's full set of lines but its over-tolerance one.
 func vrtFrame(id string) string {
-	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n- " + id + " bands: 3/3 paired\n- " + id +
-		" seams: 2/2 paired\n- " + id + " sweeps: text done | order n/a — one column\n- " + id + " matrix: 3 elements\n"
+	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n- " + id + " sweeps: text done | order n/a — one column\n" + vrtSpot(id)
+}
+
+// vrtSpot is a spot-check: line over vrtCells' three rows, each script figure its row's b box.width.
+func vrtSpot(id string) string {
+	return "- " + id + " spot-check: #10 size script 50 hand 50; #11 size script 51 hand 51; #12 size script 52 hand 52\n"
+}
+
+// vrtCells is a frame's manifest cells: rows 10 to 12, three controls, every
+// column filled with box.width a=40 and b=40+<row> — rows no test's over list names.
+func vrtCells() []any {
+	var cells []any
+	for _, n := range []int{10, 11, 12} {
+		c := map[string]any{"row": n, "class": "control"}
+		for _, col := range vrColumns {
+			c[col] = map[string]any{"a": map[string]any{"box.width": 40}, "b": map[string]any{"box.width": 40 + n}, "delta": map[string]any{}}
+		}
+		cells = append(cells, c)
+	}
+	return cells
 }
 
 // vrtManifest writes the manifest `visual-verify-pass measure` writes for key,
-// built from its own types, with frame's pair carrying over.
+// built from its own types, with frame's pair carrying over and vrtCells.
 func vrtManifest(t *testing.T, sdd, key, frame string, over ...any) {
 	t.Helper()
+	vrtManifestCells(t, sdd, key, frame, vrtCells(), over...)
+}
+
+// vrtManifestCells is vrtManifest with frame's pair carrying cells.
+func vrtManifestCells(t *testing.T, sdd, key, frame string, cells []any, over ...any) {
+	t.Helper()
 	m := vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
-		Pairs: []vvmPair{{Frame: frame, Bands: []any{}, Seams: []any{}, Over: over}}}
+		Pairs: []vvmPair{{Frame: frame, Bands: []any{}, Seams: []any{}, Over: over, Cells: cells}}}
 	body, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -406,52 +429,100 @@ func TestCheckVerifyReportOverToleranceCauses(t *testing.T) {
 	}
 }
 
-// TestCheckVerifyReportComposedFrameLines pins decision by-hand-check-automated:
-// a composed frame needs its bands:, seams: and matrix: lines.
-func TestCheckVerifyReportComposedFrameLines(t *testing.T) {
-	for _, drop := range []string{"bands:", "seams:", "matrix:"} {
+// TestCheckVerifyReportNoMatrixBandsSeamsLines pins decisions
+// bands-seams-lines-dropped and keep-status-only-lines: a composed frame's
+// report carries no matrix:, bands: or seams: line and step 10 is still done,
+// while its sweeps: line is still read item by item.
+func TestCheckVerifyReportNoMatrixBandsSeamsLines(t *testing.T) {
+	for _, tc := range []struct {
+		name, sweeps string
+		rc           int
+		want         string
+	}{
+		{"status-only sweeps", "text done | order n/a — one column", 0, "COMPLETE"},
+		{"a sweep skipped", "text done | order skipped", 1, "sweep item `order skipped` reads neither"},
+	} {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		vrtManifest(t, sdd, "visual-verify", "W1")
-		var body strings.Builder
-		for _, l := range strings.SplitAfter(vrtFrame("W1"), "\n") {
-			if !strings.Contains(l, drop) {
-				body.WriteString(l)
-			}
-		}
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+body.String()+"- W1 over-tolerance: 0\n")
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != 1 || !strings.Contains(r.out, "W1 has no "+drop) {
-			t.Errorf("drop %s: rc=%d out=%q", drop, r.rc, r.out)
+		frame := strings.Replace(vrtFrame("W1"), "text done | order n/a — one column", tc.sweeps, 1)
+		writeFile(t, path, "## Report\n"+vrtDone+frame+"- W1 over-tolerance: 0\n")
+		if r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv}); r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
 		}
 	}
 }
 
-// TestCheckVerifyReportMatrixCells pins decision matrix-kind-opens-with-class:
-// a matrix cell is n/a only in a column that does not apply to its row's class.
-func TestCheckVerifyReportMatrixCells(t *testing.T) {
-	const head = "| element | kind | content | alignment | border | fill | radius | shadow |\n|---|---|---|---|---|---|---|---|\n"
+// TestCheckVerifyReportManifestCells pins decisions cells-in-measure and
+// matrix-row-class: every cell of a composed frame's manifest cells is filled,
+// n/a only in a column vrNAColumns lists for its class, `unresolved — ` only
+// on an unresolved row, and a missing row's absent side null.
+func TestCheckVerifyReportManifestCells(t *testing.T) {
+	filled := map[string]any{"a": map[string]any{"box.width": 40}, "b": map[string]any{"box.width": 50}, "delta": map[string]any{}}
+	row := func(class string, set map[string]any) any {
+		c := map[string]any{"row": 10, "class": class}
+		for _, col := range vrColumns {
+			c[col] = filled
+		}
+		for k, v := range set {
+			c[k] = v
+		}
+		return c
+	}
 	for _, tc := range []struct {
-		name, row string
-		rc        int
-		want      string
+		name  string
+		cells []any
+		rc    int
+		want  string
 	}{
-		{"text run n/a in its dashes", "| title | text run heading | 1 | 2 | n/a — no box | n/a — none | — | — |", 0, "COMPLETE"},
-		{"text run n/a in content", "| title | text run heading | n/a — skipped | 2 | n/a | n/a | n/a | n/a |", 1, "title.content reads"},
-		{"empty cell", "| btn | control save | 1 | 2 | 3 |  | 5 | 6 |", 1, "btn.fill is empty"},
-		{"rule n/a in its dashes", "| hr | rule divider | — | — | — | 1 | — | — |", 0, "COMPLETE"},
-		{"no mockup source", "| btn | control save | 1 | 2 | n/a — no mockup source | 4 | 5 | 6 |", 0, "COMPLETE"},
-		{"unknown class", "| x | blob | 1 | 2 | n/a — none | 4 | 5 | 6 |", 1, "x.border reads"},
-		// kan-938: a control's border left n/a when the measure failed.
-		{"kan-938 control border", "| btn | control save | 1 | 2 | n/a — measure failed | 4 | 5 | 6 |", 1, "visual-verification.md:5: btn.border reads"},
+		{"every cell filled", []any{row("control", nil)}, 0, "COMPLETE"},
+		{"text run content n/a", []any{row("text run", map[string]any{"content": "n/a — transcribed by sweep 5"})}, 0, "COMPLETE"},
+		{"control border n/a", []any{row("control", map[string]any{"border": "n/a — measure failed"})}, 1, "W1 cells #10 border reads \"n/a — measure failed\" — the column applies to `control`"},
+		{"text run colour n/a", []any{row("text run", map[string]any{"colour": "n/a — none"})}, 1, "W1 cells #10 colour reads"},
+		{"empty string cell", []any{row("control", map[string]any{"fill": ""})}, 1, "W1 cells #10 fill is empty"},
+		{"null cell", []any{row("control", map[string]any{"fill": nil})}, 1, "W1 cells #10 fill is empty"},
+		{"both sides empty", []any{row("control", map[string]any{"fill": map[string]any{"a": map[string]any{}, "b": nil}})}, 1, "W1 cells #10 fill is empty"},
+		{"unresolved row", []any{row("unresolved", map[string]any{"size": "unresolved — no edge"})}, 0, "COMPLETE"},
+		{"unresolved on a control", []any{row("control", map[string]any{"size": "unresolved — no edge"})}, 1, "W1 cells #10 size reads"},
+		{"missing row, b null", []any{row("missing", map[string]any{"size": map[string]any{"a": map[string]any{"element.height": 10}, "b": nil, "delta": nil}, "border": "n/a — does not apply to a missing row"})}, 0, "COMPLETE"},
+		{"no cells", nil, 1, "W1 has no cells in the manifest"},
 	} {
-		wt := t.TempDir()
-		design := filepath.Join(wt, "spectre/changes/x/design.md")
-		writeFile(t, design, "## Context\n")
-		writeFile(t, filepath.Join(wt, "spectre/changes/x/visual-verification.md"), "# vv\n\n"+head+tc.row+"\n")
-		path := filepath.Join(wt, ".superpowers/sdd/verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone)
-		r := runGuard("check-verify-report", []string{path, "0", "--design", design}, Env{Getenv: os.Getenv})
+		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
+		vrtManifestCells(t, sdd, "visual-verify", "W1", tc.cells)
+		path := filepath.Join(sdd, "verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+vrtDone+"- W1: /c/W1.png diff=0.1 — match\n- W1 spot-check: #10 kind script 50 hand 50\n- W1 over-tolerance: 0\n")
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}
+
+// TestCheckVerifyReportSpotCheck pins decision spot-check-shape: at least 3
+// rows, or every row off the over list when fewer; each a cells row off that
+// list, its script figure one of the cell's b figures.
+func TestCheckVerifyReportSpotCheck(t *testing.T) {
+	for _, tc := range []struct {
+		name, line, overLine string
+		over                 []any
+		rc                   int
+		want                 string
+	}{
+		{"three rows", "#10 size script 50 hand 50; #11 size script 51 hand 52; #12 kind script 52 hand 52", "0", nil, 0, "COMPLETE"},
+		{"two rows", "#10 size script 50 hand 50; #11 size script 51 hand 51", "0", nil, 1, "W1 spot-check checks 2 rows, needs 3"},
+		{"one row twice", "#10 size script 50 hand 50; #10 colour script 50 hand 50; #11 size script 51 hand 51", "0", nil, 1, "checks 2 rows, needs 3"},
+		{"every row off the over list", "#10 size script 50 hand 50; #12 size script 52 hand 52", "1 — #11: departure", []any{vrtOver(11, "paired", "box.width")}, 0, "COMPLETE"},
+		{"a row on the over list", "#10 size script 50 hand 50; #11 size script 51 hand 51; #12 size script 52 hand 52", "1 — #11: departure", []any{vrtOver(11, "paired", "box.width")}, 1, "W1 spot-check #11 is on the over list"},
+		{"a row off the cells", "#10 size script 50 hand 50; #11 size script 51 hand 51; #13 size script 52 hand 52", "0", nil, 1, "W1 spot-check #13 is no row of the manifest's cells"},
+		{"script figure off the manifest", "#10 size script 50 hand 50; #11 size script 51 hand 51; #12 size script 53 hand 53", "0", nil, 1, "W1 spot-check #12 size: script 53 is none of the manifest's b figures (52)"},
+		{"script figure from the a side", "#10 size script 40 hand 40; #11 size script 51 hand 51; #12 size script 52 hand 52", "0", nil, 1, "W1 spot-check #10 size: script 40 is none"},
+		{"item of another shape", "#10 size 50; #11 size script 51 hand 51; #12 size script 52 hand 52", "0", nil, 1, "W1 spot-check item \"#10 size 50\" is not"},
+	} {
+		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
+		vrtManifest(t, sdd, "visual-verify", "W1", tc.over...)
+		path := filepath.Join(sdd, "verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+vrtDone+"- W1: /c/W1.png diff=0.1 — match\n- W1 spot-check: "+tc.line+"\n- W1 over-tolerance: "+tc.overLine+"\n")
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
 		}
@@ -491,18 +562,6 @@ func vrtMerge(t *testing.T, dir string) {
 	a.Pairs = append(a.Pairs, b.Pairs...)
 	body, _ := json.Marshal(a)
 	writeFile(t, filepath.Join(dir, "visual-manifest-visual-verify.json"), string(body))
-}
-
-// TestVrMatrixCellsMissingSide pins the kan-1060 gated-review Minors: a cell
-// that names one side missing (`— / 14px`) is a measurement, not an n/a, and
-// every bad cell is reported in one run.
-func TestVrMatrixCellsMissingSide(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "visual-verification.md")
-	writeFile(t, p, "| element | kind | content | border |\n|---|---|---|---|\n| save | control | — / 14px | 1px |\n| cancel | control | n/a — x | |\n")
-	bad := vrMatrixCells(p)
-	if len(bad) != 2 || !strings.Contains(bad[0], "cancel.content") || !strings.Contains(bad[1], "cancel.border is empty") {
-		t.Errorf("bad = %q", bad)
-	}
 }
 
 // vrtBaselineRepo is a git repository committing tests/visual/a-darwin.png
