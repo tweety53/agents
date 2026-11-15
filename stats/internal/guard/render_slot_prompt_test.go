@@ -523,3 +523,23 @@ func TestRenderSlotPromptSplitsByRepository(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderSlotPromptRefusesAMutationCopy pins kan-1119's self-review F1: a
+// mutation slot's own throwaway copy passed as a worktree is refused, since
+// the renderer derives the copy itself and would name <copy>-mutation-0.
+func TestRenderSlotPromptRefusesAMutationCopy(t *testing.T) {
+	t.Parallel()
+	real := rspSkillDir(t)
+	fx := rspNewFx(t)
+	copyWT := fx.canon + "-mutation-0"
+	if err := os.MkdirAll(copyWT, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation+failure-modes", "-diff", "final", "--", copyWT)
+	if r.rc != 2 || !strings.Contains(r.err, copyWT) || !strings.Contains(r.err, "copy") {
+		t.Fatalf("copy as worktree: exit %d stderr %q; want 2 naming %s and copy", r.rc, r.err, copyWT)
+	}
+	if _, err := os.Stat(fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation+failure-modes.md"); err == nil {
+		t.Errorf("a prompt was rendered for a refused copy")
+	}
+}

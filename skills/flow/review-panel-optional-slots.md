@@ -38,8 +38,10 @@ not dispatched against that copy.
 
 Never symlink a shared `node_modules` into a copy: the copy's own `npm ci` installs one, and over a symlink it empties the shared directory — `<agents repo>/stats/Makefile` refuses to run it there.
 
-Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
-that slot as the repository paths to mutate and test in, in place of `<worktree>`.
+Dispatch each slot present in this round's roster **once**, its brief rendered by
+`flow-guard render-slot-prompt` from the shared resolved set after `--`, never from a copy: the
+renderer names each copy, `<worktree>-<slot>-<round>`, as the repository path to mutate and test
+in, and refuses a `--` worktree whose name already ends `-mutation-<round>` (kan-1119 self-review, F1).
 Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
 (including after the wall-clock re-dispatch), or the run stopped — with
 `flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, run as its own Bash call with literal absolute paths, never chained into a compound command, which first copies

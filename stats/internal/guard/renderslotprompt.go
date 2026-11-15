@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -23,6 +24,9 @@ import (
 // <skill-dir> is the directory review-panel.md was read from; <worktree>...
 // is the change's resolved set, the canonical worktree first. Every path is
 // absolute: the subagent resolves what it is given from its own directory.
+// A <worktree> whose base name ends -mutation-<round> is the mutation slot's
+// own copy and is exit 2: pass the shared set, the renderer names the copies
+// itself (kan-1119 self-review, F1).
 //
 // Writes <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slot>[+<slot>...][-<repo>].md,
 // atomically, and prints its path. -repo <repo> renders one per-repository
@@ -163,6 +167,11 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, p := range append(append(append([]string{skill, canon, plan}, wts...), standards...), reports...) {
 		if !strings.HasPrefix(p, "/") {
 			return refuse("not-an-absolute-path", "%q is not an absolute path — a subagent resolves every path it is given from its own directory", p)
+		}
+	}
+	for _, wt := range wts {
+		if strings.HasSuffix(filepath.Base(wt), "-mutation-"+round) {
+			return refuse("worktree-is-a-mutation-copy", "%s is the mutation slot's copy for round %s — pass the shared worktree; the renderer names the copy itself", wt, round)
 		}
 	}
 	// mutation has no template: its PASS section is review-panel.md's
