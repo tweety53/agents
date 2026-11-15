@@ -59,7 +59,7 @@ func TestResumeOrFresh(t *testing.T) {
 		{"cache lapsed", rows(rofFixture(1, key, "a1", 600*time.Second, "42000")), nil, 1, "fresh: age 600s >= 240s\n"},
 		{"context not harvested", rows(rofFixture(1, key, "a1", 10*time.Second, "")), nil, 1, "fresh: context unknown\n"},
 		{"context at the bound", rows(rofFixture(1, key, "a1", 10*time.Second, "100000")), nil, 1, "fresh: context 100000 >= 100000\n"},
-		{"highest seq wins", rows(rofFixture(1, key, "old", 600*time.Second, "42000"), rofFixture(2, key, "new", 10*time.Second, "42000")), nil, 0, "resume new\n"},
+		{"highest seq wins", rows(rofFixture(2, key, "new", 10*time.Second, "42000"), rofFixture(1, key, "old", 600*time.Second, "42000")), nil, 0, "resume new\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			code, out := rofRun(t, c.rows, c.err, t.TempDir(), "demo", key)

@@ -49,11 +49,13 @@ func init() { Registry["resume-or-fresh"] = resumeOrFresh }
 
 func resumeOrFresh(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
+		Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard resume-or-fresh <worktree> <change-name> <key>")
 		return 2
 	}
 	worktree, name, key := args[0], args[1], args[2]
 	fresh := func(format string, a ...any) int {
+		Reason(env, "fresh")
 		fmt.Fprintf(stdout, "fresh: "+format+"\n", a...)
 		return 1
 	}
