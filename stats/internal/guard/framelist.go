@@ -47,7 +47,10 @@ import (
 // declared only by its explicit `<sub>/<id>`. A root frame is never declared
 // when a cited sub-directory holds the same id — the sub-directory shadows it
 // — and a root id preceded by `/` matches only when the path segment before it
-// is <mockups dir>'s own base name. No `dk-<id>` twin is inferred: it is
+// is <mockups dir>'s own base name. While design.md cites a sub-directory, a
+// root frame is declared only by `<id>.png` or a path ending in
+// `<mockups base>/<id>`, never by a bare token or a range (kan-1087
+// self-review, F5: "rules R1–R49" declared another change's root `R1.png`). No `dk-<id>` twin is inferred: it is
 // declared only when named itself (kan-1084 self-review, F12: a design citing
 // `kan-1084/` and naming P3 bare declared the root P3.png of another change,
 // while its own eleven frames went undeclared).
@@ -183,11 +186,13 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// holders maps a frame id to the cited sub-directories holding it.
 	holders := map[string][]string{}
+	subCited := false
 	for _, e := range entries {
 		sub := e.Name()
 		if !e.IsDir() || !regexp.MustCompile(`(^|[^A-Za-z0-9_-])`+regexp.QuoteMeta(sub+"/")).Match(design) {
 			continue
 		}
+		subCited = true
 		pngs, _ := filepath.Glob(filepath.Join(args[1], sub, "*.png"))
 		for _, p := range pngs {
 			if id := strings.TrimSuffix(filepath.Base(p), ".png"); id != "" {
@@ -207,7 +212,11 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	base := filepath.Base(args[1]) + "/"
 	for id := range frames {
-		if len(holders[id]) == 0 && !answered[id] && (inRange(id) || flBare(id, base).Match(design)) {
+		if len(holders[id]) > 0 || answered[id] {
+			continue
+		}
+		if subCited && (flBare(id+".png", base).Match(design) || flToken(base+id).Match(design)) ||
+			!subCited && (inRange(id) || flBare(id, base).Match(design)) {
 			declared = append(declared, id)
 		}
 	}

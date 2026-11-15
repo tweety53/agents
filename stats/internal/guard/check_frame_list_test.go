@@ -318,3 +318,51 @@ func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
 		t.Errorf("(d) root ids after a slash: rc=%d out=%q; want 0 with only NS25 declared", res.rc, res.out)
 	}
 }
+
+// TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory pins kan-1087 self-review F5:
+// while design.md cites a sub-directory, a rule range or bare token declares no root frame.
+func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing.T) {
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	for _, f := range []string{"R1.png", "R2.png", "R6.png", "v2-plan/A1.png"} {
+		p := filepath.Join(mockups, f)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	check := func(design string, ids ...string) guardResult {
+		t.Helper()
+		var side, rep strings.Builder
+		rep.WriteString("## Report\n- spec: " + spec + "\n")
+		for i, id := range ids {
+			fmt.Fprintf(&side, "shot%d %s\n", i, id)
+			rep.WriteString("- " + id + ": ok\n")
+		}
+		fmt.Fprintf(&rep, "- frames: %d/%d\n", len(ids), len(ids))
+		for p, b := range map[string]string{spec + ".mockups": side.String(), r: rep.String(), d: design} {
+			if err := os.WriteFile(p, []byte(b), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+	}
+	a := "Frames: `docs/design/mockups/v2-plan/` (A1). The kernel keeps rules R1–R49 (R1, R6, R2).\n"
+	if res := check(a, "v2-plan/A1"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
+		t.Errorf("(a) rule range beside a sub-directory: rc=%d out=%q; want 0 with 1 declared", res.rc, res.out)
+	}
+	b := a + "Also `docs/design/mockups/R6.png`.\n"
+	if res := check(b, "v2-plan/A1", "R6"); res.rc != 0 || !strings.Contains(res.out, "2 declared") {
+		t.Errorf("(b) explicit root path: rc=%d out=%q; want 0 with 2 declared", res.rc, res.out)
+	}
+	if res := check(b, "v2-plan/A1"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: R6") {
+		t.Errorf("(c) explicit root path unmapped: rc=%d out=%q; want 1 naming no sidecar line: R6", res.rc, res.out)
+	}
+	if res := check("Frames R1–R2.\n", "R1", "R2"); res.rc != 0 || !strings.Contains(res.out, "2 declared") {
+		t.Errorf("(d) range with no sub-directory: rc=%d out=%q; want 0 with 2 declared", res.rc, res.out)
+	}
+}
