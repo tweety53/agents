@@ -1289,3 +1289,34 @@ func TestLedgerShowsDispatchCostAsABreakdown(t *testing.T) {
 		t.Errorf("a dispatch with no cost_usd must render no Cost line:\n%s", out)
 	}
 }
+
+// TestRenderLedgerNamesPairPick pins kan-1119's self-review F11: a dispatch's
+// pair pick renders right after its diff base, and a dispatch with none
+// renders no line.
+func TestRenderLedgerNamesPairPick(t *testing.T) {
+	run := records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{
+				Seq: 1, Role: "reviewer", Slot: "Bugbot", Model: "sonnet",
+				CommitSHA: "abc1234", DiffBase: "9f3c2a1", PairPick: "judge: renames only",
+				Outcome:   "completed",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			},
+			{
+				Seq: 2, Role: "reviewer", Slot: "Lens A", Model: "sonnet",
+				Outcome:   "completed",
+				StartedAt: time.Date(2026, 1, 2, 4, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	out := records.RenderLedger(run)
+
+	if !strings.Contains(out, "- Commit: abc1234\n- Diff base: 9f3c2a1\n- Pair pick: judge: renames only\n") {
+		t.Errorf("the pair pick must render right after the diff base:\n%s", out)
+	}
+	if n := strings.Count(out, "- Pair pick:"); n != 1 {
+		t.Errorf("want exactly one pair pick line, got %d:\n%s", n, out)
+	}
+}

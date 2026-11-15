@@ -662,6 +662,10 @@ func RenderLedger(r Run) string {
 		if strings.TrimSpace(d.DiffBase) != "" {
 			fmt.Fprintf(&b, "- Diff base: %s\n", neutraliseMarkers(d.DiffBase))
 		}
+		// The pair judge's pick, when one was recorded (kan-1119 self-review, F11).
+		if strings.TrimSpace(d.PairPick) != "" {
+			fmt.Fprintf(&b, "- Pair pick: %s\n", neutraliseMarkers(d.PairPick))
+		}
 		fmt.Fprintf(&b, "- Outcome: %s\n", orElse(d.Outcome, "not recorded"))
 		started := "not recorded"
 		if !d.StartedAt.IsZero() {
