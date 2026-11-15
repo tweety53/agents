@@ -20,6 +20,7 @@ func recordTopic(t *testing.T, st *store.Store, topic, note string) error {
 // TestLearningTopics_ListCounts asserts ListLearningTopics returns each
 // topic once, ordered by topic, with its count and newest note.
 func TestLearningTopics_ListCounts(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	for _, in := range [][2]string{{"go-generics", "first"}, {"go-generics", "second"}, {"cqrs", "only"}} {
 		if err := recordTopic(t, st, in[0], in[1]); err != nil {
@@ -43,6 +44,7 @@ func TestLearningTopics_ListCounts(t *testing.T) {
 // TestLearningTopics_CapAtThree asserts a fourth record of one topic is
 // refused with ErrLearningTopicExhausted and writes nothing (cap-in-store).
 func TestLearningTopics_CapAtThree(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	for i := 0; i < store.MaxLearningTopicShows; i++ {
 		if err := recordTopic(t, st, "cqrs", "n"); err != nil {
@@ -67,6 +69,7 @@ func TestLearningTopics_CapAtThree(t *testing.T) {
 // lowercase kebab slug of at most 64 bytes, or an empty note, is refused
 // with ErrInvalidLearningTopic (topic-slug).
 func TestLearningTopics_RejectsBadSlug(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	for _, topic := range []string{"Go Generics", "", strings.Repeat("a", 65)} {
 		if err := recordTopic(t, st, topic, "n"); !errors.Is(err, store.ErrInvalidLearningTopic) {

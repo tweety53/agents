@@ -14,6 +14,7 @@ import (
 )
 
 func TestCostPricesUnknownSplitAtFlatRate(t *testing.T) {
+	t.Parallel()
 	splitRate := PricingRate{
 		Model:               "claude-test-split",
 		InputPerMTok:        1,
@@ -69,6 +70,7 @@ func ptr(v float64) *float64 { return &v }
 // output_unmeasured counts messages its Output leaves out prices nothing --
 // a cost from it would read as complete while under-pricing output.
 func TestCostRefusesUnmeasuredOutput(t *testing.T) {
+	t.Parallel()
 	rate := PricingRate{Model: "claude-test", InputPerMTok: 1, OutputPerMTok: 2, CacheWrite5mPerMTok: 6.25, CacheReadPerMTok: 0.1}
 	if _, ok := (chargeableTokens{Input: ptr(1000), Output: ptr(400), OutputUnmeasured: ptr(1)}).cost(rate, false); ok {
 		t.Error("ok = true, want false: output_unmeasured leaves output out of the bucket")

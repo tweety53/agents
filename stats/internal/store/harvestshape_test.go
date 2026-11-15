@@ -27,6 +27,7 @@ import (
 // future change to MetricsPatch that breaks an aggregation must fail here,
 // in this repository, rather than silently in a view nobody queried.
 func TestAggregationsReadTheHarvesterSMetricsShape(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-harvestshape-%d", time.Now().UnixNano())

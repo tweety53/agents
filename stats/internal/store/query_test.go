@@ -32,6 +32,7 @@ import (
 // worse, simply return zero rows for every real session id the harvester
 // ever asked about.
 func TestFilterBySessionID(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-session-filter-%d", time.Now().UnixNano())
@@ -79,6 +80,7 @@ func TestFilterBySessionID(t *testing.T) {
 // unlike a test that merely checks each own field is *present*, which
 // would still pass if two entries collided and only one survived.
 func TestStageRunAndChangeFieldsDoNotCollide(t *testing.T) {
+	t.Parallel()
 	const stageRunOwnFieldCount = 13 // command, stage, attempt, harness, outcome, started_at, ended_at, duration_ms, repo_root, session_id, jira_key, session_token, project_key
 
 	got := len(store.AllowedStageRunFields())
@@ -95,6 +97,7 @@ func TestStageRunAndChangeFieldsDoNotCollide(t *testing.T) {
 // by a sort is impossible: the moment the map grows, this test grows with
 // it.
 func TestSortByEveryAllowlistedField(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sort-fields-%d", time.Now().UnixNano())
@@ -127,6 +130,7 @@ func TestSortByEveryAllowlistedField(t *testing.T) {
 }
 
 func TestUnknownSortFieldIsRejected(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -145,6 +149,7 @@ func TestUnknownSortFieldIsRejected(t *testing.T) {
 }
 
 func TestUnknownFilterFieldIsRejected(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -170,6 +175,7 @@ func TestUnknownFilterFieldIsRejected(t *testing.T) {
 // the seeded row survives every payload untouched, and the changes table
 // still exists to be queried at all.
 func TestSortInjectionAttemptIsRejected(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-injection-%d", time.Now().UnixNano())
@@ -216,6 +222,7 @@ func TestSortInjectionAttemptIsRejected(t *testing.T) {
 }
 
 func TestFilterByMetricsKeyPath(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-metrics-filter-%d", time.Now().UnixNano())
@@ -269,6 +276,7 @@ func TestFilterByMetricsKeyPath(t *testing.T) {
 // from an ordinary unknown field (ErrUnknownField): the caller was
 // attempting the metrics path syntax, not naming some unrelated field.
 func TestMalformedMetricsKeyPathIsRejected(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -307,6 +315,7 @@ func TestMalformedMetricsKeyPathIsRejected(t *testing.T) {
 // test exercises that end to end against the real store, not just the
 // validator.
 func TestModelMetricsKeyPathIsAccepted(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-model-metric-%d", time.Now().UnixNano())
@@ -343,6 +352,7 @@ func TestModelMetricsKeyPathIsAccepted(t *testing.T) {
 // ties on the primary key is caught by that mismatch instead of the
 // tiebreaker coincidentally reproducing the right answer.
 func TestAbsentMetricSortsDistinctlyFromZero(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-absent-metric-%d", time.Now().UnixNano())
@@ -391,6 +401,7 @@ func TestAbsentMetricSortsDistinctlyFromZero(t *testing.T) {
 // [zero, absent], and a coerce-to-zero regression is caught here too
 // rather than only in the ASC twin.
 func TestAbsentMetricSortsDistinctlyFromZeroDescending(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-absent-metric-desc-%d", time.Now().UnixNano())
@@ -435,6 +446,7 @@ func TestAbsentMetricSortsDistinctlyFromZeroDescending(t *testing.T) {
 // anything other than that single row proves either a missing column in
 // the search or an over-broad match.
 func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -541,6 +553,7 @@ func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
 // implementation, since an unescaped "_" or "%" matches its literal
 // character too, just not *only* its literal character.
 func TestSearchTermMetacharactersAreEscaped(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-search-escape-%d", time.Now().UnixNano())
@@ -603,6 +616,7 @@ func TestSearchTermMetacharactersAreEscaped(t *testing.T) {
 // syntactically valid path is still rejected once it has more segments,
 // or a longer segment, than the fixed caps allow.
 func TestMetricsKeyPathSizeIsBounded(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -635,6 +649,7 @@ func TestMetricsKeyPathSizeIsBounded(t *testing.T) {
 // through without a word would hide a caller's mistaken assumption that
 // paging still applied.
 func TestNoLimitWithNonZeroOffsetIsRejected(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -671,6 +686,7 @@ func TestNoLimitWithNonZeroOffsetIsRejected(t *testing.T) {
 // it proves REPEATABLE READ actually has the effect this test's value
 // claims it does. Neither proves the other's claim; both are needed.
 func TestQueryTxOptionsUsesRepeatableRead(t *testing.T) {
+	t.Parallel()
 	want := pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 	got := store.QueryTxOptionsForTest()
 	if got != want {
@@ -705,6 +721,7 @@ func TestQueryTxOptionsUsesRepeatableRead(t *testing.T) {
 // between, and checks whether the second read saw that write -- a
 // deterministic reproduction of the mechanism, not a race against timing.
 func TestRepeatableReadPreventsCountDrift(t *testing.T) {
+	t.Parallel()
 	dsn := newTestDatabase(t)
 	ctx := context.Background()
 
@@ -777,6 +794,7 @@ func TestRepeatableReadPreventsCountDrift(t *testing.T) {
 // row exactly once -- neither a duplicate (the tiebreaker missing or
 // non-unique) nor a gap (an off-by-one in LIMIT/OFFSET).
 func TestPaginationIsStableUnderEqualSortKeys(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-page-stable-%d", time.Now().UnixNano())
@@ -832,6 +850,7 @@ func TestPaginationIsStableUnderEqualSortKeys(t *testing.T) {
 // size, so the last page is a partial page -- the boundary most likely to
 // lose or duplicate a row in an off-by-one.
 func TestPageBoundaryLosesNoRow(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-page-boundary-%d", time.Now().UnixNano())

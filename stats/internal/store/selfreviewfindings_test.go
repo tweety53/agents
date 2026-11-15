@@ -16,6 +16,7 @@ import (
 // reads them back in insertion order with every field intact -- the nil
 // blast radius of a declined row staying nil rather than reading back 0.
 func TestSelfReviewFindingsRoundTrip(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
@@ -67,6 +68,7 @@ func TestSelfReviewFindingsRoundTrip(t *testing.T) {
 // its disposition, an empty change, angle or note, or a negative blast radius is ErrSelfReviewFindingInvalid
 // and writes nothing.
 func TestSelfReviewFindingRefusesBadDisposition(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
@@ -106,6 +108,7 @@ func TestSelfReviewFindingRefusesBadDisposition(t *testing.T) {
 // exactly the matching rows, newest first, each carrying its project key,
 // ref and blast radius.
 func TestSelfReviewFindingsInPeriod(t *testing.T) {
+	t.Parallel()
 	st, pool, projectA := newHazardStore(t)
 	ctx := context.Background()
 
@@ -182,6 +185,7 @@ func TestSelfReviewFindingsInPeriod(t *testing.T) {
 // its missing blast radius filled from the repeat, while a rewritten sha and
 // a different refless note are new findings.
 func TestSelfReviewFindingRecordedOnce(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
@@ -229,6 +233,7 @@ func TestSelfReviewFindingRecordedOnce(t *testing.T) {
 // onto their first row, which takes the first non-null blast radius among
 // them, and leaves distinct findings alone.
 func TestSelfReviewFindingsMigrationCollapsesRepeats(t *testing.T) {
+	t.Parallel()
 	st, pool, projectKey := newHazardStore(t)
 	ctx := context.Background()
 
@@ -281,6 +286,7 @@ func TestSelfReviewFindingsMigrationCollapsesRepeats(t *testing.T) {
 // and listed back lowercased, empty when omitted, and refused outside
 // critical, important and minor.
 func TestRecordSelfReviewFindingSeverity(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sr-sev-%d", time.Now().UnixNano())

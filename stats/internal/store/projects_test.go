@@ -12,6 +12,7 @@ import (
 )
 
 func TestProjectRootsListsRegisteredCheckouts(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -41,6 +42,7 @@ func TestProjectRootsListsRegisteredCheckouts(t *testing.T) {
 }
 
 func TestProjectRootsKeepsFirstCheckoutPath(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -67,6 +69,7 @@ func TestProjectRootsKeepsFirstCheckoutPath(t *testing.T) {
 }
 
 func TestProjectRootsOnEmptyStore(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	roots, err := st.ProjectRoots(context.Background())
 	if err != nil {
@@ -85,6 +88,7 @@ func TestProjectRootsOnEmptyStore(t *testing.T) {
 // EnsureProject's row lets it through; a second call and an existing row
 // are left as they are, and an empty path never creates one.
 func TestEnsureProjectLetsARecordWriteThrough(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	run := records.GuardRun{Guard: "check-x", Worktree: "/ws/alpha", Outcome: "clear"}

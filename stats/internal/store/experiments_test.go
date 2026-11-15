@@ -16,6 +16,7 @@ import (
 // life: open, listed as open, its cells served as overrides, closed with a
 // verdict and summary, and gone from the overrides once closed.
 func TestExperimentOpenListClose(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -81,6 +82,7 @@ func TestExperimentOpenListClose(t *testing.T) {
 // role: a second open naming a role the first holds is refused, naming the
 // role and the holder, writes nothing, and succeeds once the first closes.
 func TestExperimentOpenRefusesOverlappingRole(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -121,6 +123,7 @@ func TestExperimentOpenRefusesOverlappingRole(t *testing.T) {
 // TestValidateExperiment asserts every malformed experiment and close
 // verdict is refused before anything is written.
 func TestValidateExperiment(t *testing.T) {
+	t.Parallel()
 	cases := map[string]store.Experiment{
 		"empty name":       {Name: "", Cells: map[string][]string{"explorer": {"opus/Explore@low"}}},
 		"no cells":         {Name: "t"},
@@ -163,6 +166,7 @@ func TestValidateExperiment(t *testing.T) {
 // experiment at that instant and CloseExperimentAt closes it at its own --
 // the UI-test fixture's deterministic windows (cmd/uitest-seed).
 func TestExperimentPinnedInstants(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	start := time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)

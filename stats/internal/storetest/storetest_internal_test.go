@@ -106,3 +106,18 @@ func TestStoreDSNAsksForTwoConnections(t *testing.T) {
 		}
 	}
 }
+
+// TestUniqueNameIsUniqueWithinOneClockTick pins that names made in a tight
+// loop -- many inside one tick of the wall clock, as parallel tests make
+// them -- never repeat: a repeat is a CREATE DATABASE refused with a
+// duplicate pg_database name.
+func TestUniqueNameIsUniqueWithinOneClockTick(t *testing.T) {
+	seen := make(map[string]bool)
+	for range 1000 {
+		name := uniqueName("flow_test")
+		if seen[name] {
+			t.Fatalf("uniqueName repeated %s", name)
+		}
+		seen[name] = true
+	}
+}

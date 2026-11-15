@@ -10,6 +10,7 @@ import (
 // in step with the always-on extra dispatch's table in
 // skills/flow/review-panel.md, the text the map copies.
 func TestExtraDispatchDescriptionsMatchReviewPanel(t *testing.T) {
+	t.Parallel()
 	doc, err := os.ReadFile("../../../skills/flow/review-panel.md")
 	if err != nil {
 		t.Fatalf("read review-panel.md: %v", err)

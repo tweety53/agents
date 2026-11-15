@@ -14,6 +14,7 @@ import (
 // gave and starting at a retry count of zero -- this is the first time the
 // watcher has abandoned this token, so nothing has retried it yet.
 func TestRecordSessionTokenGiveUp(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -52,6 +53,7 @@ func TestRecordSessionTokenGiveUp(t *testing.T) {
 // is the read the watcher makes at start, over every token it has ever
 // abandoned, not just the most recent one.
 func TestPersistedGiveUpsAreListed(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -91,6 +93,7 @@ func TestPersistedGiveUpsAreListed(t *testing.T) {
 // retry count must climb, so a persisted give-up records how many times the
 // watcher has come back to it rather than just the latest attempt.
 func TestGiveUpIsIdempotent(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -125,6 +128,7 @@ func TestGiveUpIsIdempotent(t *testing.T) {
 // absent from the result and deleted from the table, while a give-up inside
 // the horizon survives with its retry count intact.
 func TestPersistedGiveUpsExpiresPastHorizon(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -171,6 +175,7 @@ func TestPersistedGiveUpsExpiresPastHorizon(t *testing.T) {
 // refreshes the timestamp, so a hopeless token could otherwise re-seed the
 // whole-corpus retry scan on every daemon start forever.
 func TestPersistedGiveUpsDropsExhaustedRetries(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 

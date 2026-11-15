@@ -56,6 +56,7 @@ func baseChange(projectKey, name string) store.Change {
 
 // smoke: core — a change record round-trips every field
 func TestPutChangeRoundTripsEveryField(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -111,6 +112,7 @@ func TestPutChangeRoundTripsEveryField(t *testing.T) {
 }
 
 func TestPutChangeWithdrawnRoundTrip(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -144,6 +146,7 @@ func TestPutChangeWithdrawnRoundTrip(t *testing.T) {
 }
 
 func TestPutChangeReviewBeforeLandingRoundTrip(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -176,6 +179,7 @@ func TestPutChangeReviewBeforeLandingRoundTrip(t *testing.T) {
 }
 
 func TestPutChangeRefusesWithdrawnOutsideFinished(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -194,6 +198,7 @@ func TestPutChangeRefusesWithdrawnOutsideFinished(t *testing.T) {
 }
 
 func TestPutChangeRefusesMonotonicViolation(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -235,6 +240,7 @@ func TestPutChangeRefusesMonotonicViolation(t *testing.T) {
 // becomes "older-writer" -- confirming the test actually exercises the new
 // clause rather than passing regardless of it.
 func TestPutChangeRefusesOutOfOrderWriteAtSameState(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -287,6 +293,7 @@ func TestPutChangeRefusesOutOfOrderWriteAtSameState(t *testing.T) {
 // TestPutChangeRefusesIdenticalRetry, naming the exact guarantee that
 // broke rather than leaving it to a comment no one re-reads.
 func TestPutChangeRefusesIdenticalRetry(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -319,6 +326,7 @@ func TestPutChangeRefusesIdenticalRetry(t *testing.T) {
 // UpdatedAt than the one stored must still apply -- this is not a blanket
 // refusal of every same-state write, only of the backwards ones.
 func TestPutChangeAppliesInOrderWriteAtSameState(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -351,6 +359,7 @@ func TestPutChangeAppliesInOrderWriteAtSameState(t *testing.T) {
 // judged on: an earlier UpdatedAt must not block a genuine state advance,
 // only an equal-state regression in time.
 func TestPutChangeStrictlyLaterStateAppliesRegardlessOfInstant(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -379,6 +388,7 @@ func TestPutChangeStrictlyLaterStateAppliesRegardlessOfInstant(t *testing.T) {
 }
 
 func TestPutChangeIsWholeObject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -426,6 +436,7 @@ func TestPutChangeIsWholeObject(t *testing.T) {
 }
 
 func TestListChangesFiltersByProject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -454,6 +465,7 @@ func TestListChangesFiltersByProject(t *testing.T) {
 }
 
 func TestSameNameInTwoProjectsCoexist(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -486,6 +498,7 @@ func TestSameNameInTwoProjectsCoexist(t *testing.T) {
 }
 
 func TestGetChangeUnknownReturnsNotFound(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -502,6 +515,7 @@ func TestGetChangeUnknownReturnsNotFound(t *testing.T) {
 // monotonic rule only fires on a conflict — so state_rank's -1 for an
 // unknown value never gets a chance to refuse anything.
 func TestPutChangeRejectsInvalidState(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -524,6 +538,7 @@ func TestPutChangeRejectsInvalidState(t *testing.T) {
 // rather than silently accepting an empty string that permanently poisons
 // the row (main_checkout_path is NOT NULL but not checked non-empty).
 func TestPutChangeRejectsEmptyMainCheckoutPathForNewProject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -545,6 +560,7 @@ func TestPutChangeRejectsEmptyMainCheckoutPathForNewProject(t *testing.T) {
 // write that leaves MainCheckoutPath at its zero value (because the caller
 // isn't the one that owns that field) must not be refused.
 func TestPutChangeAllowsEmptyMainCheckoutPathForExistingProject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -568,6 +584,7 @@ func TestPutChangeAllowsEmptyMainCheckoutPathForExistingProject(t *testing.T) {
 // ErrMonotonicViolation — the two mean different things to the caller and
 // errors.Is must be able to tell them apart.
 func TestPutChangeInvalidStateIsNotConflatedWithMonotonicViolation(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -599,6 +616,7 @@ func TestPutChangeInvalidStateIsNotConflatedWithMonotonicViolation(t *testing.T)
 // single atomic statement so every concurrent first-writer either succeeds
 // outright or defers cleanly to whichever writer actually created the row.
 func TestConcurrentPutChangeBootstrapsNewProjectWithoutRace(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 
 	const writers = 5
@@ -648,6 +666,7 @@ func TestConcurrentPutChangeBootstrapsNewProjectWithoutRace(t *testing.T) {
 // way a project row is created) and read them back by display name.
 
 func TestProjectKeysByDisplayNameReturnsBothKeysForSharedDisplayName(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -675,6 +694,7 @@ func TestProjectKeysByDisplayNameReturnsBothKeysForSharedDisplayName(t *testing.
 }
 
 func TestProjectKeysByDisplayNameReturnsOneKeyForUniqueDisplayName(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -696,6 +716,7 @@ func TestProjectKeysByDisplayNameReturnsOneKeyForUniqueDisplayName(t *testing.T)
 }
 
 func TestProjectKeysByDisplayNameReturnsNoneForUnknownName(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -726,6 +747,7 @@ func TestProjectKeysByDisplayNameReturnsNoneForUnknownName(t *testing.T) {
 // on otherwise, and it must leave nothing behind: the check runs before
 // the transaction opens, so there is no partial write to roll back.
 func TestPutChangeRefusesMalformedMergeBase(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -774,6 +796,7 @@ func TestPutChangeRefusesMalformedMergeBase(t *testing.T) {
 // and reports the caller's content fault rather than the ordering one it
 // never got far enough to hit.
 func TestPutChangeMergeBaseErrorIsDistinctFromInvalidState(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -807,6 +830,7 @@ func TestPutChangeMergeBaseErrorIsDistinctFromInvalidState(t *testing.T) {
 }
 
 func TestPutChangeBackfillsPlanSessionsByJiraIssue(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-backfill-%d", time.Now().UnixNano())
@@ -857,6 +881,7 @@ func TestPutChangeBackfillsPlanSessionsByJiraIssue(t *testing.T) {
 }
 
 func TestFindChangesByNameReturnsAllProjects(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -889,6 +914,7 @@ func TestFindChangesByNameReturnsAllProjects(t *testing.T) {
 }
 
 func TestFindChangesByNameUnknownIsEmpty(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	got, err := st.FindChangesByName(context.Background(), "no-such-change")
 	if err != nil {
@@ -903,6 +929,7 @@ func TestFindChangesByNameUnknownIsEmpty(t *testing.T) {
 // FINISHED change -- withdrawn or not -- has a finish instant, its
 // updated_at, and an id no change has is simply absent.
 func TestFinishedAtByChange(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 
@@ -948,6 +975,7 @@ func TestFinishedAtByChange(t *testing.T) {
 // last stage run's end, a still-open last run counts its start, and a change
 // whose state write follows every run keeps updated_at.
 func TestFinishedAtByChangeIsTheLatestOfStateAndRuns(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 

@@ -52,6 +52,7 @@ func queryFieldsFixturePath(t *testing.T) string {
 // which writes the current allowlists and always passes; run again without
 // the env var to confirm it now matches.
 func TestSPAQueryFieldsFixtureMatchesTheAllowlist(t *testing.T) {
+	t.Parallel()
 	want := queryFieldsFixture{
 		ChangeFields:   store.AllowedChangeFields(),
 		StageRunFields: store.AllowedStageRunFields(),

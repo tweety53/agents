@@ -94,6 +94,7 @@ func baseFinding(ref string, round int) records.Finding {
 // than as a literal total, so migration 0011 does not have to edit this
 // test to add a table this change knows nothing about.
 func TestRunRecordsMigrationAppliesTwiceIdempotently(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -141,6 +142,7 @@ func TestRunRecordsMigrationAppliesTwiceIdempotently(t *testing.T) {
 // second change rather than being one global counter, so a change's own
 // record reads 1, 2, 3 no matter what else the store holds.
 func TestRecordDispatchAllocatesSeqPerChange(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-seq-%d", time.Now().UnixNano())
@@ -211,6 +213,7 @@ func TestRecordDispatchAllocatesSeqPerChange(t *testing.T) {
 // TestConcurrentBeginStageDoesNotCollide already asserts for attempt
 // allocation.
 func TestConcurrentRecordDispatchDoesNotCollide(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-concurrent-%d", time.Now().UnixNano())
@@ -282,6 +285,7 @@ func TestConcurrentRecordDispatchDoesNotCollide(t *testing.T) {
 // silently counts it. Severity matches case-insensitively, the update
 // path's own ILIKE rule, so a lowercase "minor" is still Minor.
 func TestUpsertFindingDeferredMinorOnly(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-deferred-%d", time.Now().UnixNano())
@@ -329,6 +333,7 @@ func TestUpsertFindingDeferredMinorOnly(t *testing.T) {
 }
 
 func TestUpsertFindingRefusesADuplicateRef(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-finding-%d", time.Now().UnixNano())
@@ -425,6 +430,7 @@ func warmUp(t *testing.T, st *store.Store, projectKey string, n int) {
 // seq allocation, against a real database because the race is Postgres's
 // snapshot semantics and nothing else can exhibit it.
 func TestConcurrentUpsertFindingReportsCreatedExactlyOnce(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-finding-concurrent-%d", time.Now().UnixNano())
@@ -489,6 +495,7 @@ func TestConcurrentUpsertFindingReportsCreatedExactlyOnce(t *testing.T) {
 // exactly one row for F1, and nothing else about the finding moves --
 // status is the only column a fix round may rewrite.
 func TestSetFindingStatusUpdatesInPlace(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-status-%d", time.Now().UnixNano())
@@ -534,6 +541,7 @@ func TestSetFindingStatusUpdatesInPlace(t *testing.T) {
 // refused with ErrDeferredNotMinor and its status is left untouched, while a
 // Minor finding is deferred successfully.
 func TestSetFindingStatusDeferredMinorOnly(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-status-deferred-%d", time.Now().UnixNano())
@@ -588,6 +596,7 @@ func TestSetFindingStatusDeferredMinorOnly(t *testing.T) {
 // is genuinely Minor and must be deferrable, not refused with
 // ErrDeferredNotMinor.
 func TestSetFindingStatusDeferredAcceptsLowercaseMinor(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-status-deferred-case-%d", time.Now().UnixNano())
@@ -623,6 +632,7 @@ func TestSetFindingStatusDeferredAcceptsLowercaseMinor(t *testing.T) {
 // replay land here, not in the validator. A reasoned withdrawal succeeds on
 // both paths, so the refusal is about the missing reason and nothing else.
 func TestWithdrawnStatusCarriesAReason(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-withdrawn-%d", time.Now().UnixNano())
@@ -691,6 +701,7 @@ func TestWithdrawnStatusCarriesAReason(t *testing.T) {
 // at 4 below rather than 14 -- a dispatch spanning two harvest cycles
 // silently reduced to whichever batch landed last.
 func TestMergeDispatchMetricsDeepMerges(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-metrics-%d", time.Now().UnixNano())
@@ -746,6 +757,7 @@ func TestMergeDispatchMetricsDeepMerges(t *testing.T) {
 // wrote them in order and fail the moment a journalled write replayed late.
 // smoke: core — a run record reads back in write order
 func TestRunRecordOrdersDispatchesAndFindings(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-order-%d", time.Now().UnixNano())
@@ -820,6 +832,7 @@ func TestRunRecordOrdersDispatchesAndFindings(t *testing.T) {
 // The refs are written out of order on purpose, so an implementation that
 // happened to return insertion order could not pass by coincidence.
 func TestRunRecordOrdersFindingsNaturally(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-natural-order-%d", time.Now().UnixNano())
@@ -877,6 +890,7 @@ func TestRunRecordOrdersFindingsNaturally(t *testing.T) {
 // from seq to dispatch_id has to happen in the store, and a finding whose
 // DispatchSeq is nil legitimately leaves the column NULL.
 func TestUpsertFindingResolvesDispatchSeqToDispatchID(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-dispatchseq-%d", time.Now().UnixNano())
@@ -944,6 +958,7 @@ func TestUpsertFindingResolvesDispatchSeqToDispatchID(t *testing.T) {
 // just recorded through anything but a raw query -- which internal/store
 // is the only package allowed to write.
 func TestRecordDispatchReturnsID(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-id-%d", time.Now().UnixNano())
@@ -1009,6 +1024,7 @@ func TestRecordDispatchReturnsID(t *testing.T) {
 // record, and every dispatch's metrics bag simply stays empty with nothing
 // failing anywhere.
 func TestDispatchWindowsForSessionResolvesTheBoundToken(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-windows-%d", time.Now().UnixNano())
@@ -1087,6 +1103,7 @@ func TestDispatchWindowsForSessionResolvesTheBoundToken(t *testing.T) {
 // session though no stage run carries its token -- a fix run that marks no
 // stage still has its inline rows' windows.
 func TestDispatchWindowsForSessionMatchesTheRowsOwnSession(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-own-session-%d", time.Now().UnixNano())
@@ -1119,6 +1136,7 @@ func TestDispatchWindowsForSessionMatchesTheRowsOwnSession(t *testing.T) {
 // its owning stage run's end, so it cannot take every later record of the
 // session. Without the COALESCE the window comes back open.
 func TestDispatchWindowsForSessionCapsAnOpenDispatchAtItsStageRunEnd(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-window-cap-%d", time.Now().UnixNano())
@@ -1182,6 +1200,7 @@ func TestDispatchWindowsForSessionCapsAnOpenDispatchAtItsStageRunEnd(t *testing.
 // It states the contract; harvest's TestSameInstantDispatchWindowsResolveTheSameWayEveryTime
 // is what makes attribution independent of this order regardless.
 func TestDispatchWindowsForSessionOrdersTiesByID(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-window-ties-%d", time.Now().UnixNano())
@@ -1239,6 +1258,7 @@ func TestDispatchWindowsForSessionOrdersTiesByID(t *testing.T) {
 // A different agent's row and a row with no agent id at all are never
 // windows for this agent.
 func TestDispatchWindowsForAgentOrdersByStartedAt(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-agent-windows-%d", time.Now().UnixNano())
@@ -1296,6 +1316,7 @@ func TestDispatchWindowsForAgentOrdersByStartedAt(t *testing.T) {
 // rather than a placeholder -- "not reported", which is the ordinary case
 // on the two harnesses that expose no such identifier.
 func TestDispatchAgentIDRoundTripsAndAbsenceStaysAbsent(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-agent-id-%d", time.Now().UnixNano())
@@ -1367,6 +1388,7 @@ func TestDispatchAgentIDRoundTripsAndAbsenceStaysAbsent(t *testing.T) {
 // read back, or read back into the wrong field, loses both silently: the
 // dispatch still records, and the base it names is simply gone.
 func TestRecordDispatchRoundTripsDiffBase(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-diff-base-%d", time.Now().UnixNano())
@@ -1402,6 +1424,7 @@ func TestRecordDispatchRoundTripsDiffBase(t *testing.T) {
 // re-run is begun with: written, it reads back as RoundBase; absent, it
 // reads back empty.
 func TestDispatchRoundBaseRoundTrips(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-round-base-%d", time.Now().UnixNano())
@@ -1437,6 +1460,7 @@ func TestDispatchRoundBaseRoundTrips(t *testing.T) {
 // return and RunRecord; a dispatch no judge picked reads back empty
 // (KAN-1119).
 func TestDispatchPairPickRoundTrips(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-pair-pick-%d", time.Now().UnixNano())
@@ -1474,6 +1498,7 @@ func TestDispatchPairPickRoundTrips(t *testing.T) {
 // TestDispatchReBeginReplacesPairPick: a dispatch re-begun on the same key
 // on another pair records the new pick, never the first begin's.
 func TestDispatchReBeginReplacesPairPick(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-pair-pick-rebegin-%d", time.Now().UnixNano())
@@ -1509,6 +1534,7 @@ func TestDispatchReBeginReplacesPairPick(t *testing.T) {
 // case rather than a degraded row, and a slot holding no last-reviewed sha
 // is given the whole diff rather than a delta anchored at nothing.
 func TestRecordDispatchOmitsAbsentDiffBase(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-no-diff-base-%d", time.Now().UnixNano())
@@ -1572,6 +1598,7 @@ func TestRecordDispatchOmitsAbsentDiffBase(t *testing.T) {
 // is required here -- a plain `SET agent_id = $8` would clear the column
 // on every ordinary end call that omits it.
 func TestEndDispatchOmittedAgentIDPreservesBeginsIdentifierAgainstPostgres(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-dispatch-agent-id-%d", time.Now().UnixNano())
@@ -1633,6 +1660,7 @@ func TestEndDispatchOmittedAgentIDPreservesBeginsIdentifierAgainstPostgres(t *te
 // a COALESCE-preserved one -- so a row cannot keep claiming an environment
 // block after its outcome has moved on to completed.
 func TestEndDispatchRecordsCause(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-dispatch-cause-%d", time.Now().UnixNano())
@@ -1769,6 +1797,7 @@ func TestEndDispatchRecordsClosesLoop(t *testing.T) {
 // it -- and asserting it from here is what makes the coverage real rather
 // than self-agreeing.
 func TestRenderedLedgerCallsAStoredDispatchWithNoMetricsNotMeasured(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-render-%d", time.Now().UnixNano())
@@ -1876,6 +1905,7 @@ func dispatchPairFixture(t *testing.T, st *store.Store, label, sessionID, token 
 // what the production defect looked like: nothing errored, the figures were
 // simply not there.
 func TestUsageDuringAnUnfinishedDispatchIsAttributedToIt(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -1932,6 +1962,7 @@ func TestUsageDuringAnUnfinishedDispatchIsAttributedToIt(t *testing.T) {
 // candidate, so a window that should have closed is the only one there --
 // and it takes usage that belongs to nothing this table recorded.
 func TestAClosedDispatchStopsClaimingLaterUsage(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -1996,6 +2027,7 @@ func TestAClosedDispatchStopsClaimingLaterUsage(t *testing.T) {
 // UpsertFinding and SetFindingStatus were already idempotent; this was the
 // write whose duplicate costs money.
 func TestRecordDispatchIsIdempotentUnderTheSameKey(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -2053,6 +2085,7 @@ func TestRecordDispatchIsIdempotentUnderTheSameKey(t *testing.T) {
 // still be queued ahead of it -- so a silent no-op here would lose the end
 // entirely and leave the window open.
 func TestEndDispatchReportsAKeyNamingNoDispatch(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -2077,6 +2110,7 @@ func TestEndDispatchReportsAKeyNamingNoDispatch(t *testing.T) {
 // marked given up is a contradiction the store must not resolve by
 // destroying the measurement.
 func TestMarkDispatchesUnattributed(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-unattributed-%d", time.Now().UnixNano())
@@ -2149,6 +2183,7 @@ func TestMarkDispatchesUnattributed(t *testing.T) {
 // stamp must therefore replace the "unattributed" key wholesale rather than
 // summing its candidates leaf.
 func TestMarkDispatchesUnattributedRepeatStampIsIdempotent(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-unattributed-repeat-%d", time.Now().UnixNano())
@@ -2219,6 +2254,7 @@ func TestMarkDispatchesUnattributedRepeatStampIsIdempotent(t *testing.T) {
 // record 0018_guard_log.sql exactly once and leave both tables it creates
 // in place.
 func TestGuardLogMigrationAppliesTwiceIdempotently(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -2264,6 +2300,7 @@ func baseVerdict(guard, verdict string, recordedAt time.Time) records.Verdict {
 // and that ListVerdicts reads the row back with Change joined in and
 // FalsePositive false, exactly as an unflagged verdict should read.
 func TestRecordVerdictRoundTrips(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-verdict-roundtrip-%d", time.Now().UnixNano())
@@ -2311,6 +2348,7 @@ func TestRecordVerdictRoundTrips(t *testing.T) {
 // flagging the same row a second time overwrites the reason rather than
 // erroring or stacking a second flag.
 func TestFlagVerdictFalsePositiveFlagsTheLatestForChangeAndGuard(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-verdict-flag-latest-%d", time.Now().UnixNano())
@@ -2393,6 +2431,7 @@ func TestFlagVerdictFalsePositiveFlagsTheLatestForChangeAndGuard(t *testing.T) {
 // unknown (session token, key) pair, and the same sentinel this store
 // already exports for exactly that shape of failure.
 func TestFlagVerdictFalsePositiveReportsNoVerdict(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-verdict-flag-missing-%d", time.Now().UnixNano())
@@ -2409,6 +2448,7 @@ func TestFlagVerdictFalsePositiveReportsNoVerdict(t *testing.T) {
 // false-positive flag, reason and flagged_at by row id, and that an id no row
 // has is ErrDispatchNotFound (kan-1003: verdict 646 was flagged in error).
 func TestUnflagVerdictClearsTheFlag(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-verdict-unflag-%d", time.Now().UnixNano())
@@ -2456,6 +2496,7 @@ func TestUnflagVerdictClearsTheFlag(t *testing.T) {
 // compose independently and that, whichever filter is applied, the result
 // is newest first.
 func TestListVerdictsFiltersByGuardAndFlag(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-verdict-list-filter-%d", time.Now().UnixNano())
@@ -2528,6 +2569,7 @@ func baseSubstitution(guard, shape, substitution string, recordedAt time.Time) r
 // joined in, exactly as a verdict round-trips -- a substitution is the
 // same shape of row, one per hand-substitution, never deduplicated.
 func TestRecordSubstitutionRoundTrip(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-substitution-roundtrip-%d", time.Now().UnixNano())
@@ -2568,6 +2610,7 @@ func TestRecordSubstitutionRoundTrip(t *testing.T) {
 // validation: a row written past the API layer with a shape outside the
 // closed vocabulary is refused by Postgres, never stored (panel F4).
 func TestStoreRejectsSubstitutionShapeOutsideVocabulary(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-substitution-check-%d", time.Now().UnixNano())
@@ -2587,6 +2630,7 @@ func TestStoreRejectsSubstitutionShapeOutsideVocabulary(t *testing.T) {
 // (projectKey, change) pair is ErrChangeNotFound -- the same sentinel
 // RecordVerdict returns for the same shape of failure.
 func TestRecordSubstitutionReportsUnknownChange(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-substitution-missing-%d", time.Now().UnixNano())
@@ -2603,6 +2647,7 @@ func TestRecordSubstitutionReportsUnknownChange(t *testing.T) {
 // compose independently and that, whichever filter is applied, the result
 // is newest first.
 func TestListSubstitutionsFilters(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-substitution-filter-%d", time.Now().UnixNano())
@@ -2656,6 +2701,7 @@ func TestListSubstitutionsFilters(t *testing.T) {
 // zero OccurredAt takes the column's own now() default instead of storing
 // the zero time literally.
 func TestRecordIncidentWithAndWithoutAChange(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-incident-change-%d", time.Now().UnixNano())
@@ -2699,6 +2745,7 @@ func TestRecordIncidentWithAndWithoutAChange(t *testing.T) {
 // TestListIncidentsNewestFirst asserts ListIncidents orders newest first
 // and that the project filter excludes another project's rows.
 func TestListIncidentsNewestFirst(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-incident-list-%d", time.Now().UnixNano())
@@ -2743,6 +2790,7 @@ func TestListIncidentsNewestFirst(t *testing.T) {
 // body is the one that survives -- the same "second write wins" shape
 // UpsertFinding gives a ref.
 func TestRecordDecisionUpsertsPerSession(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decision-upsert-%d", time.Now().UnixNano())
@@ -2816,6 +2864,7 @@ func TestRecordDecisionUpsertsPerSession(t *testing.T) {
 // zero RecordedAt keeps the now() default every `flow record decision`
 // call relies on.
 func TestRecordDecisionKeepsSuppliedRecordedAt(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decision-at-%d", time.Now().UnixNano())
@@ -2848,6 +2897,7 @@ func TestRecordDecisionKeepsSuppliedRecordedAt(t *testing.T) {
 // and that the project filter excludes another project's rows -- the same
 // shape TestListIncidentsNewestFirst asserts for incidents.
 func TestListDecisionsNewestFirst(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decision-list-%d", time.Now().UnixNano())
@@ -2892,6 +2942,7 @@ func TestListDecisionsNewestFirst(t *testing.T) {
 // rather than an empty string or NULL, and one recorded with an explicit
 // effort must read back exactly that word.
 func TestRecordDispatchStoresEffort(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-effort-%d", time.Now().UnixNano())
@@ -2933,6 +2984,7 @@ func TestRecordDispatchStoresEffort(t *testing.T) {
 // inserts that allocate ids in call order, carry round verbatim, and refuse
 // an unknown change with ErrChangeNotFound.
 func TestRecordPanelPassAndMutation(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-passlog-%d", time.Now().UnixNano())
@@ -2972,6 +3024,7 @@ func TestRecordPanelPassAndMutation(t *testing.T) {
 // note recorded twice for one round keeps one row, while a different note or
 // round is still added.
 func TestRecordPassDropsAnIdenticalNote(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-passdedup-%d", time.Now().UnixNano())
@@ -3012,6 +3065,7 @@ func TestRecordPassDropsAnIdenticalNote(t *testing.T) {
 // pass-log rows beside the dispatches and findings, ordered by round then
 // id, inside the same REPEATABLE READ snapshot.
 func TestRunRecordCarriesPassLog(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-passlog-run-%d", time.Now().UnixNano())
@@ -3056,6 +3110,7 @@ func TestRunRecordCarriesPassLog(t *testing.T) {
 // note and severity, so a fix round restating a finding is never haunted
 // by a link its caller did not restate.
 func TestUpsertFindingLineageRoundTrip(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-finding-%d", time.Now().UnixNano())
@@ -3126,6 +3181,7 @@ func TestUpsertFindingLineageRoundTrip(t *testing.T) {
 // mistyped ref is a definitive CLI refusal rather than a write that
 // journals for a replay that could never succeed.
 func TestUpsertFindingLineageUnknownRef(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-finding-%d", time.Now().UnixNano())
@@ -3157,6 +3213,7 @@ func TestUpsertFindingLineageUnknownRef(t *testing.T) {
 // chain of one, and a chain of one would sit in the lineage column
 // looking exactly like a real hop.
 func TestUpsertFindingLineageSelfRef(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-finding-%d", time.Now().UnixNano())
@@ -3185,6 +3242,7 @@ func TestUpsertFindingLineageSelfRef(t *testing.T) {
 // reads it back, and a finding recorded without one reads back empty rather
 // than inheriting a sibling's word.
 func TestUpsertFindingRoundTripsCategory(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3251,6 +3309,7 @@ func TestUpsertFindingRoundTripsCategory(t *testing.T) {
 // id lands on the row and reads back through RunRecord, a restate carries
 // the new value, and a finding recorded without one reads back empty.
 func TestUpsertFindingRoundTripsTaskID(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3302,6 +3361,7 @@ func TestUpsertFindingRoundTripsTaskID(t *testing.T) {
 // carries no category clears the old one rather than leaving a category
 // against a status it no longer describes.
 func TestSetFindingStatusStoresCategory(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-status-category-%d", time.Now().UnixNano())
@@ -3343,6 +3403,7 @@ func TestSetFindingStatusStoresCategory(t *testing.T) {
 // the finding is left untouched -- the same shape ErrDeferredNotMinor gives
 // the severity rule.
 func TestSetFindingStatusRefusesCategoryOffDeferral(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-status-category-guard-%d", time.Now().UnixNano())
@@ -3373,6 +3434,7 @@ func TestSetFindingStatusRefusesCategoryOffDeferral(t *testing.T) {
 // refused before the statement runs, and the row is left untouched -- the
 // same shape SetFindingStatus's own refusal takes.
 func TestUpsertFindingRefusesCategoryOffDeferral(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-upsert-category-guard-%d", time.Now().UnixNano())
@@ -3406,6 +3468,7 @@ func TestUpsertFindingRefusesCategoryOffDeferral(t *testing.T) {
 // the category with the status, so a stale word can never outlive the
 // deferral it described.
 func TestUpsertFindingRestateClearsCategory(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-upsert-category-clear-%d", time.Now().UnixNano())
@@ -3457,6 +3520,7 @@ func seedStampedDispatch(t *testing.T, st *store.Store, ctx context.Context, pro
 // its agent id, which is what makes overlapping dispatches attributable
 // without anyone typing the id by hand.
 func TestStampDispatchAgentFillsEmptyID(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3490,6 +3554,7 @@ func TestStampDispatchAgentFillsEmptyID(t *testing.T) {
 // row recorded under it is filled -- an older row sharing the key is
 // another loop's and keeps its empty id.
 func TestStampLoopDispatchAgentFillsLatestRowByKey(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3530,6 +3595,7 @@ func TestStampLoopDispatchAgentFillsLatestRowByKey(t *testing.T) {
 }
 
 func TestDispatchStartedAtReadsTheLatestRowsBegin(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3556,6 +3622,7 @@ func TestDispatchStartedAtReadsTheLatestRowsBegin(t *testing.T) {
 // empty row under that key in the launching session only -- never another
 // session's row, never a row already carrying an agent.
 func TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3606,6 +3673,7 @@ func TestStampSessionDispatchAgentFillsTheSessionsLatestEmptyRow(t *testing.T) {
 // which stamps the session's newest open agentless row under that prefix --
 // never a closed row, and never a "task-130-" row.
 func TestStampSessionDispatchAgentStampsATaskPrefix(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3657,6 +3725,7 @@ func TestStampSessionDispatchAgentStampsATaskPrefix(t *testing.T) {
 // never replace it -- a launch seen later in the transcript is evidence
 // about an empty column, never a correction to a filled one.
 func TestStampDispatchAgentNeverOverwrites(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3699,6 +3768,7 @@ func TestStampDispatchAgentNeverOverwrites(t *testing.T) {
 // project's store holds) -- nothing stamps, nothing errors, and the
 // caller logs nothing. False is "no row changed", not a failure.
 func TestStampDispatchAgentNoRowReportsFalse(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -3716,6 +3786,7 @@ func TestStampDispatchAgentNoRowReportsFalse(t *testing.T) {
 // under the normalized name, and the finding the caller gets back carries
 // that same normalized form.
 func TestUpsertFindingRecordsPattern(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-pattern-record-%d", time.Now().UnixNano())
@@ -3775,6 +3846,7 @@ func TestUpsertFindingRecordsPattern(t *testing.T) {
 // occurrence row, never a second -- (change_id, finding_ref) is the
 // convergence point, exactly as findings_ref_key is for the finding row.
 func TestUpsertFindingPatternIdempotentOnReplay(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-pattern-replay-%d", time.Now().UnixNano())
@@ -3809,6 +3881,7 @@ func TestUpsertFindingPatternIdempotentOnReplay(t *testing.T) {
 // alone is refused rather than landing an unmatchable row, and an
 // alphanumeric name passes through unchanged.
 func TestUpsertFindingNormalizesPattern(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-pattern-normalize-%d", time.Now().UnixNano())
@@ -3857,6 +3930,7 @@ func TestUpsertFindingNormalizesPattern(t *testing.T) {
 // occurrence row, last-write-wins -- a finding is one row per ref, and its
 // occurrence is one row beside it, never a growing set of labels.
 func TestUpsertFindingRelabelsPattern(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-pattern-relabel-%d", time.Now().UnixNano())
@@ -3896,6 +3970,7 @@ func TestUpsertFindingRelabelsPattern(t *testing.T) {
 // has none -- the labeled finding a panel reads back is the same fact the
 // registry counts.
 func TestRunRecordCarriesPattern(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-pattern-read-%d", time.Now().UnixNano())
@@ -3932,6 +4007,7 @@ func TestRunRecordCarriesPattern(t *testing.T) {
 // ordered most-recurring first -- the answer to "is this a fourth
 // instance" a panel queries instead of recalling.
 func TestListFindingPatternsSummarizesRecurrence(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-pattern-registry-%d", time.Now().UnixNano())
@@ -3994,6 +4070,7 @@ func TestListFindingPatternsSummarizesRecurrence(t *testing.T) {
 // finding identity, oldest labeling first -- the recurrence evidence
 // itself, not a count of it.
 func TestListFindingPatternOccurrencesListsPastFindings(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-pattern-occur-%d", time.Now().UnixNano())
@@ -4044,6 +4121,7 @@ func TestListFindingPatternOccurrencesListsPastFindings(t *testing.T) {
 // ErrFindingPatternInvalid, symmetric with the write path -- never a
 // silent empty list a caller would read as "no recurrence".
 func TestListFindingPatternOccurrencesRefusesSeparatorsOnly(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	_, err := st.ListFindingPatternOccurrences(context.Background(), "proj-pattern-refuse", "!!! --- !!!")
 	if !errors.Is(err, store.ErrFindingPatternInvalid) {
@@ -4058,6 +4136,7 @@ func TestListFindingPatternOccurrencesRefusesSeparatorsOnly(t *testing.T) {
 }
 
 func TestEndDispatchRefusesTokensOnAHarvestedSession(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -4096,6 +4175,7 @@ func TestEndDispatchRefusesTokensOnAHarvestedSession(t *testing.T) {
 // the two facts the ledger's caller-reported qualifier and CostStatusOf's
 // counted-as-measured rule both read.
 func TestEndDispatchWritesReportedTokensIntoBag(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-dispatch-tokens-%d", time.Now().UnixNano())
@@ -4175,6 +4255,7 @@ func TestEndDispatchWritesReportedTokensIntoBag(t *testing.T) {
 // because the harvester's own figures must never be a casualty of the
 // caller's.
 func TestEndDispatchTokenReplayIsIdempotent(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-dispatch-tokens-replay-%d", time.Now().UnixNano())
@@ -4259,6 +4340,7 @@ func TestEndDispatchTokenReplayIsIdempotent(t *testing.T) {
 // not at all, so the ordinary subagent dispatch's bag -- whatever the
 // harvester has made of it by close time -- survives the end verbatim.
 func TestEndDispatchWithoutTokensLeavesBagUntouched(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-dispatch-no-tokens-%d", time.Now().UnixNano())
@@ -4319,6 +4401,7 @@ func TestEndDispatchWithoutTokensLeavesBagUntouched(t *testing.T) {
 // lower-kebab name, on the way in for dispatches and findings alike, so
 // the reviewers view shows one row per role instead of one per casing.
 func TestSlotsAreCanonicalised(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -4383,6 +4466,7 @@ func TestSlotsAreCanonicalised(t *testing.T) {
 // whole run. The refusal must therefore be the store's, on every
 // dispatcher-typed path, before any SQL runs.
 func TestRecordDispatchRejectsInvalidAgentID(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-agentid-%d", time.Now().UnixNano())
@@ -4430,6 +4514,7 @@ func TestRecordDispatchRejectsInvalidAgentID(t *testing.T) {
 // names exactly as begin wrote it, so the daemon's stamp can still fill
 // the identifier later.
 func TestEndDispatchRejectsInvalidAgentID(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-end-agentid-%d", time.Now().UnixNano())
@@ -4477,6 +4562,7 @@ func TestEndDispatchRejectsInvalidAgentID(t *testing.T) {
 // refused and stays open; closed seven seconds later -- a cached docs-only
 // verify (kan-960) -- it closes.
 func TestEndDispatchRefusesAZeroWidthInlineRow(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-end-inline-%d", time.Now().UnixNano())
@@ -4520,6 +4606,7 @@ func TestEndDispatchRefusesAZeroWidthInlineRow(t *testing.T) {
 // refusal: a completed inline row on a task's implementer key must name its
 // commit, while a non-task key, or a blocked task row, need none.
 func TestEndDispatchRefusesAnInlineTaskRowWithNoCommit(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-end-nocommit-%d", time.Now().UnixNano())
@@ -4559,6 +4646,7 @@ func TestEndDispatchRefusesAnInlineTaskRowWithNoCommit(t *testing.T) {
 // after the work. A row that is not inline is pinned by
 // TestEndDispatchRefusesAnyRowBegunAfterItsCommit.
 func TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-end-aftercommit-%d", time.Now().UnixNano())
@@ -4601,6 +4689,7 @@ func TestEndDispatchRefusesAnInlineRowBegunAfterItsCommit(t *testing.T) {
 // kan-1083 was begun with no -agent-id and ended with a commit 1m36s older
 // than its begin, and nothing refused it (kan-1083 self-review, F13).
 func TestEndDispatchRefusesAnyRowBegunAfterItsCommit(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-end-anyaftercommit-%d", time.Now().UnixNano())
@@ -4640,6 +4729,7 @@ func TestEndDispatchRefusesAnyRowBegunAfterItsCommit(t *testing.T) {
 // half: the instants and commit land exactly, an unknown id is
 // ErrDispatchNotFound, and inverted instants change nothing.
 func TestRetimeDispatchSetsInstantsAndCommit(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-retime-%d", time.Now().UnixNano())
@@ -4687,6 +4777,7 @@ func TestRetimeDispatchSetsInstantsAndCommit(t *testing.T) {
 // self-review). A key another row of the run holds is refused and changes
 // neither row; an unknown id is ErrDispatchNotFound.
 func TestRekeyDispatchSetsTheKey(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-rekey-%d", time.Now().UnixNano())
@@ -4734,6 +4825,7 @@ func TestRekeyDispatchSetsTheKey(t *testing.T) {
 // shapes the harvester actually forwards -- ZCode's agent_<uuid> and
 // Claude Code's bare launch hex -- must stamp onto an unclaimed row.
 func TestStampDispatchAgentStillAcceptsHarnessShapes(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-stamp-agentid-%d", time.Now().UnixNano())
@@ -4766,6 +4858,7 @@ func TestStampDispatchAgentStillAcceptsHarnessShapes(t *testing.T) {
 // summary replacing the first run's is the designed outcome, never an
 // accumulation of two.
 func TestRecordChangeSummaryUpsertsLastWriteWins(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-summary-upsert-%d", time.Now().UnixNano())
@@ -4813,6 +4906,7 @@ func TestRecordChangeSummaryUpsertsLastWriteWins(t *testing.T) {
 // that says nothing is not a summary, and a recorded blank would read in
 // the bundle as the change having said so.
 func TestRecordChangeSummaryRequiresNonEmpty(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-summary-empty-%d", time.Now().UnixNano())
@@ -4834,6 +4928,7 @@ func TestRecordChangeSummaryRequiresNonEmpty(t *testing.T) {
 // -- the bundle's "a missing source is never fatal" case reads this
 // sentinel, never a guessed blank.
 func TestChangeSummaryNotFoundWithoutRow(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-summary-missing-%d", time.Now().UnixNano())
@@ -4851,6 +4946,7 @@ func TestChangeSummaryNotFoundWithoutRow(t *testing.T) {
 // whose row ended aborted reopens it: ended_at and outcome cleared, started_at
 // the re-run's, so the OPEN check and the window see the re-dispatch.
 func TestRecordDispatchReopensAnAbortedKey(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reopen-%d", time.Now().UnixNano())
@@ -4921,10 +5017,12 @@ func rebeginSlotModelEffort(t *testing.T, abort bool) {
 }
 
 func TestRecordDispatchReBeginUpdatesSlotModelAndEffort(t *testing.T) {
+	t.Parallel()
 	rebeginSlotModelEffort(t, false)
 }
 
 func TestRecordDispatchReBeginOfAnAbortedKeyUpdatesSlotModelAndEffort(t *testing.T) {
+	t.Parallel()
 	rebeginSlotModelEffort(t, true)
 }
 
@@ -4932,6 +5030,7 @@ func TestRecordDispatchReBeginOfAnAbortedKeyUpdatesSlotModelAndEffort(t *testing
 // re-dispatch of an aborted loop key clears the dead attempt's agent id, so
 // the stamp names the re-run's agent rather than leaving the row on the first.
 func TestStampLoopDispatchAgentRestampsAReBegunAbortedKey(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-restamp-%d", time.Now().UnixNano())
@@ -4968,6 +5067,7 @@ func TestStampLoopDispatchAgentRestampsAReBegunAbortedKey(t *testing.T) {
 // the cap for a row with no stage run: a never-ended inline row closes at the
 // next inline begin in the same session rather than taking every later record.
 func TestDispatchWindowsForSessionCapsAStagelessOpenRowAtTheNextInlineBegin(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-stageless-cap-%d", time.Now().UnixNano())
@@ -5002,6 +5102,7 @@ func TestDispatchWindowsForSessionCapsAStagelessOpenRowAtTheNextInlineBegin(t *t
 // after another is a sibling running beside it, never its successor, so it
 // does not cap the earlier row's open window.
 func TestDispatchWindowsForSessionLeavesAConcurrentInlineSiblingOpen(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-inline-sibling-%d", time.Now().UnixNano())
@@ -5035,6 +5136,7 @@ func TestDispatchWindowsForSessionLeavesAConcurrentInlineSiblingOpen(t *testing.
 // an already-named row takes the new agent id, its harvested tokens and
 // signals are replaced rather than added to, and other bag keys survive.
 func TestRestampDispatchReplacesAgentAndFigures(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-restamp-%d", time.Now().UnixNano())
@@ -5073,6 +5175,7 @@ func TestRestampDispatchReplacesAgentAndFigures(t *testing.T) {
 // row's repair seam: the lookup finds the latest inline row under a token
 // and key, and the restamp replaces an inline row's figures only.
 func TestInlineDispatchIDAndRestampInlineDispatch(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-inline-%d", time.Now().UnixNano())
@@ -5137,6 +5240,7 @@ func TestInlineDispatchIDAndRestampInlineDispatch(t *testing.T) {
 // half: a given base replaces begin's, an omitted one leaves it (kan-1008's
 // self-review: the correction took a second, agentless row).
 func TestEndDispatchCorrectsDiffBase(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-diff-base-%d", time.Now().UnixNano())
@@ -5164,6 +5268,7 @@ func TestEndDispatchCorrectsDiffBase(t *testing.T) {
 // row and the agentless row is gone; a row with an agent id, or another
 // session's, is ErrDispatchNotFound and changes nothing.
 func TestFoldDispatchMovesTheDiffBaseAndDropsTheRow(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-fold-dispatch-%d", time.Now().UnixNano())
@@ -5206,6 +5311,7 @@ func TestFoldDispatchMovesTheDiffBaseAndDropsTheRow(t *testing.T) {
 // latest row's ended_at and agent id, zero for an open row, not found for
 // no row.
 func TestDispatchEndedAtReadsTheLatestRow(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 
@@ -5242,6 +5348,7 @@ func TestDispatchEndedAtReadsTheLatestRow(t *testing.T) {
 // first step: an agentless row becomes inline, a row naming an agent is
 // left alone.
 func TestMarkDispatchInlineFillsOnlyAnEmptyID(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -5280,6 +5387,7 @@ func TestMarkDispatchInlineFillsOnlyAnEmptyID(t *testing.T) {
 // later, aborted, carrying a token report, or on a session no harvester
 // reads, it is not refused for its window.
 func TestEndDispatchRefusesShortWindowOnHarvestedSession(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-end-subagent-window-%d", time.Now().UnixNano())
@@ -5326,6 +5434,7 @@ func TestEndDispatchRefusesShortWindowOnHarvestedSession(t *testing.T) {
 // binds a completed end only: run-verify-list's all-skipped list ends its
 // row a second after begin with outcome skipped (kan-1017's self-review).
 func TestEndDispatchAdmitsAShortSkippedInlineRow(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-end-skipped-%d", time.Now().UnixNano())
@@ -5357,6 +5466,7 @@ func TestEndDispatchAdmitsAShortSkippedInlineRow(t *testing.T) {
 // sets the outcome and cause, clears the cause for a non-blocked outcome,
 // and answers ErrDispatchNotFound on an unknown id.
 func TestSetDispatchOutcome(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-reoutcome-%d", time.Now().UnixNano())
@@ -5398,6 +5508,7 @@ func TestSetDispatchOutcome(t *testing.T) {
 // row moves its begin back and the end no longer refuses; a later re-begin
 // leaves started_at alone.
 func TestBeginDispatchMovesAnOpenRowsBeginEarlier(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-begin-earlier-%d", time.Now().UnixNano())
@@ -5469,6 +5580,7 @@ func endBeforeStartFixture(t *testing.T, keys ...string) (*store.Store, string, 
 }
 
 func TestEndDispatchClampsSameSecondEnd(t *testing.T) {
+	t.Parallel()
 	st, projectKey, start := endBeforeStartFixture(t, "task-1-implementer")
 	got, err := st.EndDispatch(context.Background(), projectKey, "kan-1", records.DispatchEnd{
 		SessionToken: "mf-end-before-start", Key: "task-1-implementer", Outcome: "aborted",
@@ -5483,6 +5595,7 @@ func TestEndDispatchClampsSameSecondEnd(t *testing.T) {
 }
 
 func TestEndDispatchRefusesEndBeforeStart(t *testing.T) {
+	t.Parallel()
 	outcomes := []string{"completed", "aborted", "blocked"}
 	st, projectKey, start := endBeforeStartFixture(t, outcomes...)
 	ctx := context.Background()
@@ -5508,6 +5621,7 @@ func TestEndDispatchRefusesEndBeforeStart(t *testing.T) {
 }
 
 func TestEndDispatchKeepsClosedRowEnd(t *testing.T) {
+	t.Parallel()
 	st, projectKey, start := endBeforeStartFixture(t, "panel-fix-4")
 	ctx := context.Background()
 	t1 := start.Add(10 * time.Minute)
@@ -5536,6 +5650,7 @@ func TestEndDispatchKeepsClosedRowEnd(t *testing.T) {
 // self-review, 1d): a recorded mutation is gone after DropMutation, and a
 // second drop of the same id is an error.
 func TestDropMutation(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dropmutation-%d", time.Now().UnixNano())
@@ -5564,6 +5679,7 @@ func TestDropMutation(t *testing.T) {
 // stamped is moved to the agent's last transcript write, though the first
 // call already closed the row.
 func TestApplyDispatchEndAtRestampsOnTheStore(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-restamp-%d", time.Now().UnixNano())
@@ -5596,6 +5712,7 @@ func TestApplyDispatchEndAtRestampsOnTheStore(t *testing.T) {
 // self-review, F1-a): only a non-inline row whose end carries
 // sub-millisecond digits, whose agent end falls inside its window, moves.
 func TestRestampStampedEnds(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-restamp-ends-%d", time.Now().UnixNano())
@@ -5655,6 +5772,7 @@ func TestRestampStampedEnds(t *testing.T) {
 // half: an inline end carrying a start before the row's moves it there, one
 // after leaves it.
 func TestEndDispatchTakesAnEarlierStart(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-earlier-start-%d", time.Now().UnixNano())
@@ -5694,6 +5812,7 @@ func TestEndDispatchTakesAnEarlierStart(t *testing.T) {
 // TestDropDispatchMovesTokensToTheKeptRow pins flowd drop-dispatch's store
 // half (kan-1044 self-review, F1-b).
 func TestDropDispatchMovesTokensToTheKeptRow(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-drop-dispatch-%d", time.Now().UnixNano())
@@ -5737,6 +5856,7 @@ func TestDropDispatchMovesTokensToTheKeptRow(t *testing.T) {
 // slot is set to one its key names, a slot the key does not name is refused,
 // and an unknown id or a non-reviewer row is ErrDispatchNotFound.
 func TestSetDispatchSlot(t *testing.T) {
+	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-reslot-%d", time.Now().UnixNano())
@@ -5786,6 +5906,7 @@ func TestSetDispatchSlot(t *testing.T) {
 // self-review, F2): a skipped number is refused naming the expected key,
 // while a replayed key and another session token's plan-1 pass.
 func TestRecordDispatchRefusesOutOfSequencePlannerKey(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-planner-key-%d", time.Now().UnixNano())
@@ -5824,6 +5945,7 @@ func TestRecordDispatchRefusesOutOfSequencePlannerKey(t *testing.T) {
 // group's (kan-1075 self-review, F4), and that an earlier end never pulls
 // it back.
 func TestEndDispatchLaterVerifyGroupExtendsInlineVerifierRow(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-verify-groups-%d", time.Now().UnixNano())
@@ -5858,6 +5980,7 @@ func TestEndDispatchLaterVerifyGroupExtendsInlineVerifierRow(t *testing.T) {
 // request it ran for, and a re-begin that names none keeps the stored one
 // and leaves an ended row ended.
 func TestRecordDispatchKeepsRequest(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-dispatch-request-%d", time.Now().UnixNano())

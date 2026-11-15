@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -254,6 +255,14 @@ func dropDatabase(ctx context.Context, dbName string) error {
 	return err
 }
 
+// nameSeq tells apart names made in one clock tick: parallel tests create
+// databases at once, and the wall clock's resolution (a microsecond on
+// macOS) gave two of them one name, the second CREATE DATABASE refused.
+var nameSeq atomic.Int64
+
+// uniqueName is prefix, the PID dropLeftoverDatabases matches on, and a
+// suffix unique within this process and across earlier processes that held
+// the same PID: the fixed-width nanosecond clock, then the sequence.
 func uniqueName(prefix string) string {
-	return fmt.Sprintf("%s_%d_%d", prefix, os.Getpid(), time.Now().UnixNano())
+	return fmt.Sprintf("%s_%d_%d%d", prefix, os.Getpid(), time.Now().UnixNano(), nameSeq.Add(1))
 }

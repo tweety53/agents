@@ -39,6 +39,7 @@ func newSuiteRunStore(t *testing.T) (*store.Store, *pgxpool.Pool, string) {
 // row carries what was recorded plus the store's own stamps (id, ran_at),
 // and a second insert is a second row -- no upsert, one row per run.
 func TestInsertSuiteRunReturnsRecordedRow(t *testing.T) {
+	t.Parallel()
 	st, pool, projectKey := newSuiteRunStore(t)
 	ctx := context.Background()
 
@@ -86,6 +87,7 @@ func TestInsertSuiteRunReturnsRecordedRow(t *testing.T) {
 // ErrInvalidHazardShape draws -- the API's validation is UX, this one is
 // the boundary, and it is covered here rather than only through a fake.
 func TestInsertSuiteRunRejectsInvalidRow(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newSuiteRunStore(t)
 	ctx := context.Background()
 
@@ -104,6 +106,7 @@ func TestInsertSuiteRunRejectsInvalidRow(t *testing.T) {
 // suite lists every suite, a named suite lists only that suite's rows, both
 // newest first, and limit caps the row count.
 func TestListSuiteRunsFiltersBySuiteAndLimit(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newSuiteRunStore(t)
 	ctx := context.Background()
 
@@ -156,6 +159,7 @@ func TestListSuiteRunsFiltersBySuiteAndLimit(t *testing.T) {
 // violation (23503), never a silently stored row -- the boundary that keeps
 // a mistyped -C from filing runtimes under a project that does not exist.
 func TestSuiteRunsRejectUnknownProject(t *testing.T) {
+	t.Parallel()
 	st, _, _ := newSuiteRunStore(t)
 	ctx := context.Background()
 
@@ -172,6 +176,7 @@ func TestSuiteRunsRejectUnknownProject(t *testing.T) {
 // (KAN-1124, decision store-every-test): the test rows land with their
 // suite row, come back heaviest first, and a zero-cost row is kept.
 func TestInsertSuiteRunStoresItsTests(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newSuiteRunStore(t)
 	ctx := context.Background()
 
@@ -217,6 +222,7 @@ func TestInsertSuiteRunStoresItsTests(t *testing.T) {
 // carries no test rows and never reads another suite's rows; limit caps
 // the test rows, heaviest kept; a suite or project with none reads nil.
 func TestLatestSuiteRunTestsReadsTheNewestRunWithTests(t *testing.T) {
+	t.Parallel()
 	st, _, projectKey := newSuiteRunStore(t)
 	ctx := context.Background()
 
@@ -285,6 +291,7 @@ func TestLatestSuiteRunTestsReadsTheNewestRunWithTests(t *testing.T) {
 // test row with no package, no name or a negative cost refuses the whole
 // run before any SQL, so no suite row is half-recorded.
 func TestInsertSuiteRunRejectsAnInvalidTest(t *testing.T) {
+	t.Parallel()
 	st, pool, projectKey := newSuiteRunStore(t)
 	ctx := context.Background()
 
@@ -314,6 +321,7 @@ func TestInsertSuiteRunRejectsAnInvalidTest(t *testing.T) {
 // TestSuiteRunTestsCascadeWithTheirRun pins decision store-every-test's
 // lifetime: deleting a suite run deletes its test rows with it.
 func TestSuiteRunTestsCascadeWithTheirRun(t *testing.T) {
+	t.Parallel()
 	st, pool, projectKey := newSuiteRunStore(t)
 	ctx := context.Background()
 

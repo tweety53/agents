@@ -42,6 +42,7 @@ func runStage(t *testing.T, st *store.Store, in store.BeginStageInput, metrics j
 
 func TestAggregateRestrictsByPeriodInSQL(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-period-%d", time.Now().UnixNano())
@@ -76,6 +77,7 @@ func TestAggregateRestrictsByPeriodInSQL(t *testing.T) {
 }
 
 func TestAggregateEmptyPeriodReturnsEmptyNotError(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-empty-%d", time.Now().UnixNano())
@@ -123,6 +125,7 @@ func TestAggregateEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // mean is computed over the two measured runs only, and the unmeasured run
 // is counted separately rather than folded into the average.
 func TestAggregateExcludesUnavailableTokensFromAverages(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-unavail-%d", time.Now().UnixNano())
@@ -180,6 +183,7 @@ func TestAggregateExcludesUnavailableTokensFromAverages(t *testing.T) {
 // them into separate fields rather than folding subagent cost into its
 // parent's.
 func TestAggregateSeparatesMainFromSidechain(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-mainside-%d", time.Now().UnixNano())
@@ -246,6 +250,7 @@ func costRun(t *testing.T, st *store.Store, in store.BeginStageInput, costUSD fl
 // 40 to 50, since rank (5-1)*0.9 = 3.6 lands between the 4th and 5th
 // values in sorted order).
 func TestStageLeaderboardComputesMeanMedianP90(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-leaderboard-%d", time.Now().UnixNano())
@@ -295,6 +300,7 @@ func TestStageLeaderboardComputesMeanMedianP90(t *testing.T) {
 // leaderboard-transport-uncapped) -- eleven stages in, all eleven arrive
 // total-descending.
 func TestStageLeaderboardReturnsEveryCostedStage(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-leaderboard-top-%d", time.Now().UnixNano())
@@ -337,6 +343,7 @@ func TestStageLeaderboardReturnsEveryCostedStage(t *testing.T) {
 // out-of-window run and an uncosted run add nothing, and a project with no
 // costed run in the window is absent.
 func TestStageLeaderboardProjects(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()
@@ -431,6 +438,7 @@ func wantFigure(t *testing.T, name string, got *float64, want float64) {
 // dispatch buckets, floored at zero; a run with a bucket lacking cost_usd
 // is left out of both main figures (decision leaderboard-main-columns).
 func TestStageLeaderboardMainFigures(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	projectKey := fmt.Sprintf("proj-leaderboard-main-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
@@ -468,6 +476,7 @@ func TestStageLeaderboardMainFigures(t *testing.T) {
 // run's main figure is that model's cost minus the buckets it served, a
 // bucket's served model read as dispatchBucket.servedModel reads it.
 func TestStageLeaderboardMainFiguresUnderModelFilter(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	projectKey := fmt.Sprintf("proj-leaderboard-main-model-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
@@ -502,6 +511,7 @@ func TestStageLeaderboardMainFiguresUnderModelFilter(t *testing.T) {
 // stage run, its week the Wednesday 00:00 UTC bucket of its finish instant,
 // its command that of its first stage run, its cost the whole-life sum.
 func TestTrendFinishedChanges(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-trend-%d", time.Now().UnixNano())
@@ -589,6 +599,7 @@ func TestTrendFinishedChanges(t *testing.T) {
 // none, and checks each week's overall and per-category totals -- a loop
 // change's run counting as self-review whatever its stage.
 func TestWeeklyCostsBucketsByWednesdayAndCategory(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-weekly-%d", time.Now().UnixNano())
@@ -671,6 +682,7 @@ func TestWeeklyCostsBucketsByWednesdayAndCategory(t *testing.T) {
 // starting exactly at period.To, and -- with a model -- that model's own
 // cost_usd rather than the run's total, and no run lacking that model.
 func TestWeeklyCostsHonoursProjectModelAndPeriod(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-weekly-f-%d", time.Now().UnixNano())
@@ -735,6 +747,7 @@ func TestWeeklyCostsHonoursProjectModelAndPeriod(t *testing.T) {
 // loop change's still as self-review), and a run in no named phase counts
 // in Other, nil in a week whose runs all fall in named phases.
 func TestWeeklyCostsCountsVisualVerify(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-weekly-vv-%d", time.Now().UnixNano())
@@ -791,6 +804,7 @@ func TestWeeklyCostsCountsVisualVerify(t *testing.T) {
 // a project restricts the rows to its own changes' stage runs; nil sums
 // every project.
 func TestWeeklyModelEffortCostsHonoursProject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	stamp := time.Now().UnixNano()
@@ -839,6 +853,7 @@ func TestWeeklyModelEffortCostsHonoursProject(t *testing.T) {
 // served model and effort (default when none was served), and each model
 // bucket's remainder after its dispatches charts as that model's session.
 func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-weekly-me-%d", time.Now().UnixNano())
@@ -939,6 +954,7 @@ func TestWeeklyModelEffortCostsSplitsDispatchAndSession(t *testing.T) {
 // with hand-computed arithmetic elsewhere: LiveStateBoard (a projection of
 // changes, already covered thoroughly by changes_test.go).
 func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-smoke-%d", time.Now().UnixNano())
@@ -977,6 +993,7 @@ func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 // Both wrong answers are asserted against directly, not merely the right
 // one, since either would otherwise pass a looser assertion.
 func TestCostPerChangeModelFilterReportsThatModelsOwnNumbers(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-modelfilter-cost-%d", time.Now().UnixNano())
@@ -1056,6 +1073,7 @@ func TestCostPerChangeModelFilterReportsThatModelsOwnNumbers(t *testing.T) {
 // without wiring the filter through fails here rather than in a view
 // nobody queried.
 func TestModelFilterHonouredByEveryAggregation(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-modelfilter-every-%d", time.Now().UnixNano())
@@ -1119,6 +1137,7 @@ func TestModelFilterHonouredByEveryAggregation(t *testing.T) {
 // by which model a caller is about to filter for, since a run with no
 // model could not have matched any filter.
 func TestCountRunsWithoutModel(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-nomodel-%d", time.Now().UnixNano())
@@ -1163,6 +1182,7 @@ func TestCountRunsWithoutModel(t *testing.T) {
 // exists for exactly this shape; nothing before this test seeded it, so a
 // regression that dropped that disjunct passed the whole suite.
 func TestCountRunsWithoutModelCoversAnExplicitEmptyModelsObject(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-nomodel-empty-%d", time.Now().UnixNano())
@@ -1193,6 +1213,7 @@ func TestCountRunsWithoutModelCoversAnExplicitEmptyModelsObject(t *testing.T) {
 // from "no filter was applied" (which this method is never called for at
 // all -- the API layer, not this method, encodes that distinction).
 func TestCountRunsWithoutModelIsGenuinelyZero(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-nomodel-zero-%d", time.Now().UnixNano())
@@ -1222,6 +1243,7 @@ func TestCountRunsWithoutModelIsGenuinelyZero(t *testing.T) {
 // distinct models actually used inside the period, sorted -- never the
 // out-of-period model, and never a fabricated entry for the run with none.
 func TestListModels(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-listmodels-%d", time.Now().UnixNano())
@@ -1278,6 +1300,7 @@ func TestListModels(t *testing.T) {
 // at all, one that recorded a model but no tokens -- and asserts the
 // period reads as entirely unmeasured, not as empty.
 func TestAllRecordedRunsUnmeasuredWhenNoneCarryTokens(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-allunmeasured-%d", time.Now().UnixNano())
@@ -1313,6 +1336,7 @@ func TestAllRecordedRunsUnmeasuredWhenNoneCarryTokens(t *testing.T) {
 // single measured run, even one measured at zero, is enough to disprove
 // "none was measured" for the whole period.
 func TestAllRecordedRunsUnmeasuredFalseWhenARunIsMeasuredAsZero(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-allunmeasured-zero-%d", time.Now().UnixNano())
@@ -1348,6 +1372,7 @@ func TestAllRecordedRunsUnmeasuredFalseWhenARunIsMeasuredAsZero(t *testing.T) {
 // never conflate; the caller (internal/api) uses the existing recorded
 // signal, not this method, to report the "no runs" arm.
 func TestAllRecordedRunsUnmeasuredFalseWhenNoRunsInPeriod(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-allunmeasured-empty-%d", time.Now().UnixNano())
@@ -1378,6 +1403,7 @@ func TestAllRecordedRunsUnmeasuredFalseWhenNoRunsInPeriod(t *testing.T) {
 // two findings (one withdrawn Critical, one fixed Minor). Every count and
 // share below is hand-computed from exactly that seed.
 func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reviewers-%d", time.Now().UnixNano())
@@ -1525,6 +1551,7 @@ func recordReviewerRoster(t *testing.T, st *store.Store, projectKey, change stri
 }
 
 func TestReviewersFoldsSeverityAndCountsWithdrawn(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-rv-fold-%d", time.Now().UnixNano())
@@ -1571,6 +1598,7 @@ func TestReviewersFoldsSeverityAndCountsWithdrawn(t *testing.T) {
 }
 
 func TestReviewersPricesFromStageRunBuckets(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-rv-cost-%d", time.Now().UnixNano())
@@ -1642,6 +1670,7 @@ func TestReviewersPricesFromStageRunBuckets(t *testing.T) {
 
 func TestReviewersPricesSharedAgentIDOnce(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-rv-shared-agent-%d", time.Now().UnixNano())
@@ -1683,6 +1712,7 @@ func TestReviewersPricesSharedAgentIDOnce(t *testing.T) {
 
 func TestReviewerProjectsCountsScopedDispatches(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	suffix := time.Now().UnixNano()
@@ -1721,6 +1751,7 @@ func TestReviewerProjectsCountsScopedDispatches(t *testing.T) {
 }
 
 func TestDecisionsFoldsCanonicalSeverity(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-fold-%d", time.Now().UnixNano())
@@ -1776,6 +1807,7 @@ func TestDecisionsFoldsCanonicalSeverity(t *testing.T) {
 // as the Reviewers query does, while FixRounds still spans every finding.
 func TestDecisionsExcludesWithdrawnFindings(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-withdrawn-%d", time.Now().UnixNano())
@@ -1842,6 +1874,7 @@ func TestDecisionsExcludesWithdrawnFindings(t *testing.T) {
 // Dispatches=1 and zero findings, "primary" with Dispatches=1 and one
 // finding.
 func TestReviewersSplitsBundledSlots(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reviewers-bundle-%d", time.Now().UnixNano())
@@ -1919,6 +1952,7 @@ func TestReviewersSplitsBundledSlots(t *testing.T) {
 // extra_dispatch.slots and never under panel.roster, and asserts both roles
 // surface as rows, each with its finding and its description.
 func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reviewers-extra-%d", time.Now().UnixNano())
@@ -1982,6 +2016,7 @@ func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
 // description review-panel.md gives it.
 func TestReviewersCountsMutationExtraDispatch(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reviewers-extramf-%d", time.Now().UnixNano())
@@ -2051,6 +2086,7 @@ func TestReviewersCountsMutationExtraDispatch(t *testing.T) {
 // its findings by severity and fix round (findings, joined through
 // dispatch_id).
 func TestDecisionsJoinsRunTotals(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-%d", time.Now().UnixNano())
@@ -2210,6 +2246,7 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 // renders Grouping as "default" with no dispatches to show, and a nil
 // groups field (inline execution) renders as empty.
 func TestDecisionsRendersGrouping(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-grouping-%d", time.Now().UnixNano())
@@ -2306,6 +2343,7 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 // change_task_counts series (KAN-415) -- and a change never observed reads
 // nil, nil, the board's absence-is-never-zero case, never a count of zero.
 func TestLiveStateBoardCarriesPlannedAndCurrentTasks(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-growth-%d", time.Now().UnixNano())
@@ -2366,6 +2404,7 @@ type LiveStateByName struct {
 // begin) sets that column, so a join through stage_runs left the live view
 // empty from its first day.
 func TestReviewersScopesByDispatchStart(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-reviewers-nostage-%d", time.Now().UnixNano())
@@ -2422,6 +2461,7 @@ func seedRoster(t *testing.T, st *store.Store, projectKey, change string, slots 
 // token-less row is a run of its own, and a run started long before the
 // board's period still counts.
 func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-runs-%d", time.Now().UnixNano())
@@ -2476,6 +2516,7 @@ func TestLiveStateBoardCarriesWholeLifeRunTotals(t *testing.T) {
 // TestCostPerChangeScopesToOneChange pins the change filter: it narrows the
 // aggregate in SQL, so one run page never aggregates a whole project.
 func TestCostPerChangeScopesToOneChange(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-cost-change-%d", time.Now().UnixNano())
@@ -2498,6 +2539,7 @@ func TestCostPerChangeScopesToOneChange(t *testing.T) {
 // bound to the period: the board polls a bounded window yet never loses an
 // open change gone quiet.
 func TestLiveStateBoardKeepsOpenChangesOutsideThePeriod(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-open-%d", time.Now().UnixNano())
@@ -2538,6 +2580,7 @@ func TestLiveStateBoardKeepsOpenChangesOutsideThePeriod(t *testing.T) {
 // the board whenever it was last updated: the board's open poll asks for an
 // empty period and its Active runs must still list that run.
 func TestLiveStateBoardKeepsFinishedChangesWithAnOpenStage(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-finished-open-%d", time.Now().UnixNano())
@@ -2567,6 +2610,7 @@ func TestLiveStateBoardKeepsFinishedChangesWithAnOpenStage(t *testing.T) {
 // open run's session is doing. A change with no open run and no
 // implementer dispatch carries none of them.
 func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-live-%d", time.Now().UnixNano())
@@ -2675,6 +2719,7 @@ func TestLiveStateBoardCarriesOpenStageDoneTasksAndActivity(t *testing.T) {
 // stage run still carries its latest run's session activity, so a main
 // session working between stages reads as working.
 func TestLiveStateBoardActivityBetweenStages(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-between-%d", time.Now().UnixNano())
@@ -2724,6 +2769,7 @@ func TestLiveStateBoardActivityBetweenStages(t *testing.T) {
 // the same activity keeps its since while a new state moves it, the period's
 // end is exclusive, and "change" scopes the board to one change.
 func TestLiveStateBoardLiveFieldEdges(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-edges-%d", time.Now().UnixNano())
@@ -2795,6 +2841,7 @@ func TestLiveStateBoardLiveFieldEdges(t *testing.T) {
 // names the worktrees of its self-review sub-run, self-review-<name>, even
 // when that sub-run lives in another project.
 func TestLiveStateBoardCarriesSelfReviewRoots(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-srroots-%d", time.Now().UnixNano())
@@ -2827,6 +2874,7 @@ func TestLiveStateBoardCarriesSelfReviewRoots(t *testing.T) {
 // ended one its outcome, one a stage run carries in progress, any other
 // queued); a /flow change reads /flow and no requests.
 func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-requests-%d", time.Now().UnixNano())
@@ -2892,6 +2940,7 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 // reviewer bar the analysis -pass -- whether recorded under the change or its
 // self-review-<name> sub-run.
 func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-review-%d", time.Now().UnixNano())
@@ -2954,6 +3003,7 @@ func TestLiveStateBoardCountsFixRoundsAndReviewerRuns(t *testing.T) {
 // the In-run fix task's own implementer row add nothing; an implement-phase
 // full-suite fix counts once, and a %verify-fix-% panel-fix row not at all.
 func TestLiveStateBoardCountsEachInRunFixRoundOnce(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-inrun-%d", time.Now().UnixNano())
@@ -2998,6 +3048,7 @@ func TestLiveStateBoardCountsEachInRunFixRoundOnce(t *testing.T) {
 // metrics name the model and effort that served it shows those, one with no
 // metrics shows its labels.
 func TestLiveStateBoardPrefersServedModelAndEffort(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-served-%d", time.Now().UnixNano())
@@ -3038,6 +3089,7 @@ func TestLiveStateBoardPrefersServedModelAndEffort(t *testing.T) {
 // main's from its panel findings, whatever case and synonym the severity was
 // recorded in, the self-review's from its findings recorded with a severity.
 func TestLiveStateBoardCountsFindingsBySeverity(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-cim-%d", time.Now().UnixNano())
@@ -3085,6 +3137,7 @@ func TestLiveStateBoardCountsFindingsBySeverity(t *testing.T) {
 // carries no execution or implementer; Decisions reads them as empty rather
 // than failing the whole period's scan.
 func TestDecisionsReadsClassOnlyDecision(t *testing.T) {
+	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-class-only-%d", time.Now().UnixNano())
@@ -3116,6 +3169,7 @@ func TestDecisionsReadsClassOnlyDecision(t *testing.T) {
 // never added into the change's cost: the stage run's models.<m> already
 // holds those tokens (decision dispatch-cost-on-row-metrics).
 func TestLiveStateBoardShowsAnOpenDispatchCost(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-board-dcost-%d", time.Now().UnixNano())

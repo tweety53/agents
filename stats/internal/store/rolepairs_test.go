@@ -14,6 +14,7 @@ import (
 // into the store: unmarked rows base, marked rows opt-in under their marker,
 // every list in table order.
 func TestRolePairsSeedMatchesTable(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	got, err := st.RolePairs(context.Background())
 	if err != nil {
@@ -57,6 +58,7 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 // TestReplaceRolePairsRoundTrip: a replace writes base and opt-in whole, in
 // the order given, and leaves the role's marked pairs alone.
 func TestReplaceRolePairsRoundTrip(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	if err := st.ReplaceRolePairs(ctx, "panel-fix", []string{"sonnet/flow-medium", "opus/flow-low"}, []string{"fable/flow-high"}); err != nil {
@@ -85,6 +87,7 @@ func TestReplaceRolePairsRoundTrip(t *testing.T) {
 // TestReplaceRolePairsRefusesMalformedPair: a malformed or repeated pair
 // refuses the whole write, leaving the role as it was.
 func TestReplaceRolePairsRefusesMalformedPair(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	before, err := st.RolePairs(ctx)
@@ -116,6 +119,7 @@ func TestReplaceRolePairsRefusesMalformedPair(t *testing.T) {
 // TestGrantRevokeRoundTrip: grants are per change, idempotent, revocable,
 // and lapse once the change is recorded FINISHED.
 func TestGrantRevokeRoundTrip(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	if err := st.Grant(ctx, "kan-1", []string{"planner", "plan-designer"}); err != nil {
@@ -159,6 +163,7 @@ func TestGrantRevokeRoundTrip(t *testing.T) {
 // TestReplaceRolePairsRefusesOptinEqualToMarked: an opt-in pair equal to one
 // of the role's marked pairs refuses the whole write rather than vanishing.
 func TestReplaceRolePairsRefusesOptinEqualToMarked(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	before, err := st.RolePairs(ctx)

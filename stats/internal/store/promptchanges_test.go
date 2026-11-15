@@ -12,6 +12,7 @@ import (
 // (0049_review_dynamics.sql): every spelling a reviewer wrote folds onto
 // critical, important or minor, case-insensitively (canonical-severity).
 func TestCanonicalSeverityFolds(t *testing.T) {
+	t.Parallel()
 	_, pool := newRecordStore(t)
 	ctx := context.Background()
 
@@ -34,6 +35,7 @@ func TestCanonicalSeverityFolds(t *testing.T) {
 // TestUpsertPromptChangeTuningOverEdit pins prompt-changes-table: a tuning
 // row upserts over an edit row of the same sha and is never demoted back.
 func TestUpsertPromptChangeTuningOverEdit(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	slot := "primary"
