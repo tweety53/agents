@@ -183,9 +183,6 @@ func twRemove(env Env, wt, cp string, foldBack bool) error {
 	return errors.Join(foldErr, err)
 }
 
-// twFoldBack copies a slot's report or reproducer back into the worktree
-// unless the worktree already holds a non-empty file the copy's is not newer
-// than.
 // twHeld reports whether c already holds a non-empty file that f is not newer than.
 func twHeld(f, c string) bool {
 	if !twNonEmpty(c) {
@@ -196,6 +193,9 @@ func twHeld(f, c string) bool {
 	return !fs.ModTime().After(cs.ModTime())
 }
 
+// twFoldBack copies a slot's report or reproducer back into the worktree
+// unless the worktree already holds a non-empty file the copy's is not newer
+// than.
 func twFoldBack(env Env, wt, cp string) error {
 	var found []string
 	for _, pat := range []string{"/.superpowers/sdd/panel-report-*.md", "/.superpowers/sdd/reproducers/*.sh",
