@@ -393,7 +393,9 @@ fix-mutations-total: <n>
 Each row is recorded before the round's re-review begins, and `flow record mutation` refuses one
 after. `flow record dispatch begin` refuses that re-review's reviewer
 rows while the reviewed round holds a fixed Critical or Important finding and no fix-mutation row at
-the fix round. A row missed before the re-review is recorded with
+the fix round. It refuses them too while the reviewed round holds a Critical or Important finding
+still `open` once that round's `panel-fix` dispatch completed, so the verification walk's
+`status fixed` rows come first. A row missed before the re-review is recorded with
 `flow record mutation -late '<reason>'`, which admits it at its own round and records the reason as
 a pass note of that round, `late mutation proof for <path>: <reason>`.
 

@@ -8119,6 +8119,66 @@ func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchRefusesAReReviewOverAnOpenFinding pins the kan-1120
+// self-review fix, F2: a live reviewer of round 5 is refused while round 4
+// holds a Critical or Important finding still open once panel-fix-5
+// completed — the begin kan-1120's round-1 re-review passed with F1-F3 open
+// and no mutation row. A fix not yet completed, a Minor, a withdrawn finding
+// and a back-fill pass.
+func TestRecordDispatchRefusesAReReviewOverAnOpenFinding(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	repo := recordRepo(t, "kan-258")
+	isolatedStateRoot(t)
+	const rounds = `{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"},{"key":"panel-4-merger","role":"merger","startedAt":"2026-10-28T02:48:00Z","endedAt":"2026-10-28T02:48:30Z","outcome":"completed"}`
+	const fixDone = `,{"key":"panel-fix-5","role":"panel-fix","startedAt":"2026-10-28T02:49:00Z","endedAt":"2026-10-28T02:55:00Z","outcome":"completed"}`
+	const fixOpen = `,{"key":"panel-fix-5","role":"panel-fix","startedAt":"2026-10-28T02:49:00Z"}`
+	var record string
+	posts := 0
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		posts++
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	finding := func(sev, status string) string {
+		return `{"ref":"F1","round":4,"slot":"primary","severity":"` + sev + `","note":"n","status":"` + status + `"}`
+	}
+	for _, tc := range []struct {
+		name, finding, fix string
+		extra              []string
+		want               int
+	}{
+		{"an open Important after a completed fix", finding("Important", "open"), fixDone, nil, 2},
+		{"an open Critical after a completed fix", finding("Critical", "open"), fixDone, nil, 2},
+		{"no panel-fix row", finding("Important", "open"), ``, nil, 0},
+		{"a panel-fix not yet ended", finding("Important", "open"), fixOpen, nil, 0},
+		{"an open Minor", finding("Minor", "open"), fixDone, nil, 0},
+		{"a withdrawn Important", finding("Important", "withdrawn names no defect"), fixDone, nil, 0},
+		{"a back-fill", finding("Important", "open"), fixDone, []string{"-started-at", "2026-10-28T02:56:00Z"}, 0},
+	} {
+		record = `{"change":"kan-258","findings":[` + tc.finding + `],"mutations":[],"dispatches":[` + rounds + tc.fix + `]}`
+		posts = 0
+		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
+			"-session-token", "mf-record-rereview-open", "-effort", "default"}, tc.extra...)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
+		if code != tc.want {
+			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
+		}
+		if tc.want == 2 && (posts != 0 || !strings.Contains(stderr.String(), "round 4's F1 still open after a completed panel-fix-5")) {
+			t.Errorf("%s: posts %d, stderr %q; want none and a message naming F1 and panel-fix-5", tc.name, posts, stderr.String())
+		}
+	}
+}
+
 // TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger pins the
 // kan-1045 self-review fix, F-C (decision merger-enforced-at-begin): a
 // panel-fix-1, live or back-filled, and a live reviewer of round 1 are

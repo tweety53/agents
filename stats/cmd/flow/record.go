@@ -4405,8 +4405,11 @@ func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectK
 // finding and the run holds no fix-mutation row at the fix round (round r,
 // as reviewedRoundUnproved requires): the proof is recorded before the
 // re-review, not found as a late row after it
-// (kan-1059 self-review, 1b; uwUnprovedFixRounds's predicate). A failed
-// record or git read refuses nothing.
+// (kan-1059 self-review, 1b; uwUnprovedFixRounds's predicate). Or round r-1
+// holds a Critical or Important finding still open once panel-fix-<r>
+// completed: the verification walk's `status fixed` rows come before the
+// re-review, or the mutation gate above never sees the round it guards
+// (kan-1120 self-review, F2). A failed record or git read refuses nothing.
 func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey string, r int) string {
 	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
 		return cl.GetRunRecord(ctx, projectKey, f.change)
@@ -4416,6 +4419,9 @@ func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey stri
 	}
 	if mergerMissing(run, r-1) {
 		return mergerMissingMsg(r - 1)
+	}
+	if refs := reviewedRoundOpen(run, r); refs != "" {
+		return fmt.Sprintf("round %d's %s still open after a completed panel-fix-%d -- record `flow record status -ref F<n> -status fixed` for every finding the verification walk verified, or take another fix round, before the re-review (skills/flow/review-panel-fix-round.md)", r-1, refs, r)
 	}
 	if reviewedRoundUnproved(run, r-1) {
 		return fmt.Sprintf("round %d holds a fixed Critical or Important finding and no fix-mutation row -- record one `flow record mutation -round %d` per fix-mutation line, or one `-mutated none -test <reason>` row, before the re-review (skills/flow/review-panel-fix-round.md)", r-1, r)
@@ -4453,6 +4459,25 @@ func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey stri
 		}
 	}
 	return ""
+}
+
+// reviewedRoundOpen lists, comma-joined, round r-1's Critical and Important
+// findings still open once a panel-fix-<r> dispatch completed — "" when
+// none is, or no such fix completed.
+func reviewedRoundOpen(run records.Run, r int) string {
+	key := "panel-fix-" + strconv.Itoa(r)
+	if !slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
+		return d.Role == "panel-fix" && (d.Key == key || strings.HasPrefix(d.Key, key+"-")) && d.EndedAt != nil && d.Outcome == "completed"
+	}) {
+		return ""
+	}
+	var refs []string
+	for _, fd := range run.Findings {
+		if sev := strings.ToLower(fd.Severity); fd.Round == r-1 && fd.Status == "open" && (sev == "critical" || sev == "important") {
+			refs = append(refs, fd.Ref)
+		}
+	}
+	return strings.Join(refs, ", ")
 }
 
 // reviewedRoundUnproved reports whether round holds a fixed Critical or
