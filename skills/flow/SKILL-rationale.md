@@ -1371,3 +1371,10 @@ attribution; the text after it is the passage, verbatim.
 ### visual-verify.md — The verifier dispatch
 
 - *Report every departure you see in this one pass.* — kan-1009: the paragraph priced a rejected report as one more dispatch, and a verifier handed back with step 10 undone on that reading; its remainder ran 9m34s.
+
+## review-panel.md — The slot triggers (KAN-1126)
+
+- *a role is skipped only when both sources say `skip`* — the guard reads the landed diff but misses a query reached through an unnamed helper; the judge reads the plan, written before the code, and misses what the plan does not name. Skipping on either source's skip would turn each one's miss into a silent skip; requiring both keeps every reduction to a definite answer, so the judge only ever adds a role back (decision `slot-judge-union`).
+- *built-in rules over changed lines, no project configuration* — rules widened to the enclosing function, or a boundary-named-receiver rule, fire on nearly every Go and Kotlin change, shrinking the saving the ticket asks for; project-declared globs keep the always-on cost in every project until it writes them (decision `trigger-rules-builtin-changed-lines`).
+- *the judge reuses pair-judge's call* — a new policy row would need a model-policy contract row, an Allowed pairs entry and a migration for one call per change (decision `slot-judge-reuses-pair-judge-call`).
+- *principles drops on the effective `small` class* — the mechanical class would ignore a planner's recorded raise to `regular` (decision `principles-small-effective-class`).

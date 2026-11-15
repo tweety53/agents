@@ -1,7 +1,7 @@
 # Review panel — optional slots
 
-Loaded by `skills/flow/review-panel.md` only for a round that dispatches `mutation`, which rides the always-on `mutation+failure-modes`
-extra dispatch. Every
+Loaded by `skills/flow/review-panel.md` only for a round that dispatches `mutation`, which rides the `mutation+failure-modes`
+extra dispatch, alone where `failure-modes` is dropped. Every
 section name below without a path is a section of `skills/flow/review-panel.md`.
 
 ## The mutation slot's prompt

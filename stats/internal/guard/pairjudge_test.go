@@ -285,7 +285,7 @@ func TestPairJudgeFallsBack(t *testing.T) {
 	}{
 		{name: "missing command", missing: true, policy: pjPolicy(row), cause: "not runnable"},
 		{name: "non-zero exit", answer: "exit 1\n", policy: pjPolicy(row), cause: "exit 1"},
-		{name: "timeout", answer: "exec sleep 5\n", policy: pjPolicy(row), timeout: 200 * time.Millisecond, cause: "timed out"},
+		{name: "timeout", answer: "exec sleep 5\n", policy: pjPolicy(row), timeout: 200 * time.Millisecond, cause: "timed out after 200ms (judge "},
 		{name: "no PAIR line", answer: pjJSON("REASON: r", ""), policy: pjPolicy(row), cause: "no PAIR"},
 		{name: "pick outside the candidates", answer: pjJSON("PAIR: opus/flow-high\nREASON: r", ""), policy: pjPolicy(row), cause: "outside the candidates"},
 		{name: "no pair-judge row", answer: pjAnswer, policy: "{" + row + "}", cause: "no pair-judge pair"},

@@ -6,7 +6,7 @@ roster: this run's decision's `panel.roster` (`<abs-worktree>/.superpowers/sdd/d
 the `## Decision` block of **Decide**, `skills/flow/brainstorm-planner.md`), or — when the decision's `panel` is the string `default`,
 a `micro` class — `REVIEWERS`, which `skills/flow/SKILL.md`'s **Model resolution** resolves from the
 settings store and is canonical for. This file owns dispatch: mapping each resolved id to
-its slot and spawning it. Every pass 1 also dispatches **The always-on extra dispatches** below.
+its slot and spawning it. Every pass 1 also dispatches **The extra dispatches** below.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -161,10 +161,10 @@ overrides:
 | `principles` | **Principles** | `flow-low` + `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
 
 **The roster names only `primary` and `principles`.** `failure-modes` and `mutation` run on
-**The always-on extra dispatches** below, so every resolved roster drops any role an always-on extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not
-dispatched — carried by an always-on extra dispatch: <slot>'`. A dropped role leaves its
+**The extra dispatches** below, so every resolved roster drops any role an extra dispatch carries, each recorded with `flow record pass -round 0 -note 'not
+dispatched — carried by an extra dispatch: <slot>'`. A dropped role leaves its
 `panel.dispatches` bundle too: that bundle dispatches the roles it still names, and a bundle left
-naming none is not dispatched — so no role an always-on extra dispatch carries runs twice, and no
+naming none is not dispatched — so no role an extra dispatch carries runs twice, and no
 two dispatches of one round create the same `<worktree>-mutation-<round>` copy.
 
 **A subagent-facing file is passed by absolute path, never read into this context.** This repository's
@@ -250,18 +250,20 @@ Then run
 
 ```bash
 flow-guard check-panel-docs-only <worktree> <merge-base>
+flow-guard panel-slot-triggers <worktree> <merge-base> [<worktree> <merge-base>…]
 ```
 
-### The always-on extra dispatches
+### The extra dispatches
 
 **Every pass 1 dispatches two more bundles, each on its own pair: `test-sanity+call-efficiency` on
 the decision's `extra_dispatch` pair, and `mutation+failure-modes` on its
 `extra_dispatch_mutation` pair** — on a decided and a `default` panel alike, beside the dispatches
 the roster resolves, and outside their `≤2 × ≤3` cap. The docs-only reduction drops
-`test-sanity+call-efficiency` — an `.md`/`.mdc`-only diff adds no test and no call — recorded
-`flow record pass -round 0 -note 'not dispatched — docs-only reduction:
-test-sanity+call-efficiency'`. No other reduction removes either: the late-fix reduction and the
-small append each still dispatch both. A
+`test-sanity+call-efficiency` and `failure-modes` — an `.md`/`.mdc`-only diff adds no test, no
+call and no I/O — each recorded `flow record pass -round 0 -note 'not dispatched — docs-only
+reduction: <slot>'`. **The slot triggers** below drop `test-sanity`, `call-efficiency` and
+`failure-modes` role by role; `mutation` is never dropped by either. The late-fix reduction and the
+small append each still dispatch both bundles as those reductions leave them. A
 decision with no such key dispatches that bundle on `opus`
 at `low`. A fix run's judged roster alone may drop a role of either (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`).
 
@@ -278,11 +280,36 @@ mutation+failure-modes` and that bundle's pair's `-model` and `-effort`. A role 
 raised a finding re-runs like any other role (**Panel re-runs**,
 `skills/flow/review-panel-fix-round.md`).
 
+### The slot triggers
+
+**`test-sanity`, `call-efficiency` and `failure-modes` each run only when the change gives their
+lens something to read, and a role is skipped only when both sources say `skip`:**
+
+- **the guard**, `flow-guard panel-slot-triggers` above, over every worktree in the resolved set,
+  each `<merge-base>` the working-notes merge base, so it reads the whole branch on every run, a
+  fix run included — its header (`<agents repo>/stats/internal/guard/panelslottriggers.go`) is
+  canonical for its rules and its three lines, `<slot>: run|skip — <reason>`;
+- **the slot judge**, the decision's `slot_triggers`, recorded at Decide by `flow-guard
+  slot-judge` (**Decide**, `skills/flow/brainstorm-planner.md`).
+
+A role runs when the guard prints `run` for it, when `slot_triggers` gives it `run`, when the guard
+exits 2, or when the decision carries no `slot_triggers` — an older decision, a run with no decision, an
+unreadable file: an unanswered question never reduces a panel. `mutation` is never gated. Each
+skipped role is recorded with `flow record pass -round <round> -note 'not dispatched — slot
+trigger: <slot> — guard: <guard reason>; judge: <judge reason>'`, and the guard's three lines with
+`flow record pass -round <round>` on every run. A skipped role leaves its bundle as a dropped role
+does (**The roster** above): `test-sanity+call-efficiency` runs as `test-sanity` or
+`call-efficiency` alone or not at all, and `mutation+failure-modes` as `mutation` alone, each on
+its own pair. The reductions apply in this order: the docs-only reduction, the late-fix reduction
+or the small append, the slot triggers, then the fix-run judge
+(`skills/flow/review-panel-late-fix.md`); every slot the operator named at this stage's start runs
+whatever any of them says.
+
 ### The docs-only reduction
 
 **Exit 0 from
 every worktree in the resolved set — every path this branch touched, committed since the merge
-base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus `mutation+failure-modes` and every
+base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus `mutation` and every
 slot the operator's per-run instruction
 named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
@@ -301,11 +328,11 @@ Record the verdict, the printed path where there is one, and the roster actually
 `flow record pass -round <round>` on **every** run, beside the diff-size
 fields above.
 
-**This, the late-fix reduction below and the small append (`skills/flow/review-panel-late-fix.md`)
+**This, the slot triggers above, the late-fix reduction below and the small append (`skills/flow/review-panel-late-fix.md`)
 are the only automatic reductions, and they only ever
 remove; the append scope (`skills/flow/review-panel-late-fix.md`) narrows the read scope and
 removes no slot.** No slot is ever added by diff
-size, touched area, or any other automatic trigger, and none removes an always-on extra dispatch: beyond the reduced or resolved roster,
+size, touched area, or any other automatic trigger, and none removes `mutation`: beyond the reduced or resolved roster,
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
 
@@ -338,7 +365,7 @@ Before dispatching any panel round,
 re-check the decision's `panel.dispatches`/`panel.grouping`.
 
 **One bundled review dispatch per round is the starting shape: every role the round dispatches
-rides one dispatch**, beside **The always-on extra dispatches**, one rendered **PASS `<id>`** section per role in roster order, on decided and
+rides one dispatch**, beside **The extra dispatches**, one rendered **PASS `<id>`** section per role in roster order, on decided and
 `default` panels alike and in both execution modes — findings still recorded per role. A roster
 past the three-role cap spills its overflow into a second dispatch, and a roster the two
 dispatches cannot hold shrinks to what they hold. **The full-roster
@@ -486,7 +513,7 @@ is read or finding recorded. `verify` also compares the worktree's `git status -
 recorded, paths under `<project>/.superpowers/` aside, and fails naming every path a slot left changed or
 untracked — a reproducer's scratch copy included.
 
-`-slot` names the dispatch's roles from **The roster** table above, or from **The always-on extra dispatches**' table for that bundle. `-role` is
+`-slot` names the dispatch's roles from **The roster** table above, or from **The extra dispatches**' table for that bundle. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
@@ -495,7 +522,7 @@ a `default` panel and the dispatch's own model from the decision's
 `panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a
 fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` likewise:
 `low` on a `default` panel, and the dispatch's own effort on a decided panel,
-`panel.rerun_dispatch`'s `low` on a re-run. The always-on extra dispatches are the one exception to both: each one's pass-1 `-model` and `-effort` are its own pair — `extra_dispatch` for `test-sanity+call-efficiency`, `extra_dispatch_mutation` for `mutation+failure-modes` — `opus`/`low` when the decision has none.
+`panel.rerun_dispatch`'s `low` on a re-run. The extra dispatches are the one exception to both: each one's pass-1 `-model` and `-effort` are its own pair — `extra_dispatch` for `test-sanity+call-efficiency`, `extra_dispatch_mutation` for `mutation+failure-modes` — `opus`/`low` when the decision has none.
 On harness `zcode` every pair this paragraph names is recorded as `glm-5.3-flash` / `high`
 instead — the one pair the store accepts on a `zcode` session token — and on harness `muse` as
 the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`).

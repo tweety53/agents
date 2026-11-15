@@ -27,7 +27,7 @@ import (
 //   rolls: compact N · experimental N · bundle N
 //   tree: class <c> · execution inline|sdd · implementer skipped — inline|chosen
 //   panel: default|compact|full · roster <slot; …> · rerun delta
-//   grouping: static|free · dispatches primary+principles[+exp-<name>]
+//   grouping: static|free · dispatches primary[+principles][+exp-<name>]
 //   experimental: no slot|none available|exp-<name> · skills/flow/experimental/<name>.md · <description>[ · skipped — bundle cap]
 //   extra: test-sanity+call-efficiency
 //   extra: mutation+failure-modes
@@ -44,8 +44,8 @@ import (
 // panel and is otherwise `skipped — bundle cap`. On
 // micro, panel is `default` and grouping/experimental read `not
 // consulted — micro`.
-// The extra line is printed on every class, micro included: it names the always-on test-sanity+call-efficiency bundle (kan-959), whose pair Decide's `flow-guard pair-judge` call picks (KAN-1119).
-// The second extra line names the always-on mutation+failure-modes bundle (kan-1028), whose pair Decide's `flow-guard pair-judge` call picks the same way.
+// The extra line is printed on every class, micro included: it names the test-sanity+call-efficiency bundle (kan-959), whose pair Decide's `flow-guard pair-judge` call picks (KAN-1119).
+// The second extra line names the mutation+failure-modes bundle (kan-1028), whose pair Decide's `flow-guard pair-judge` call picks the same way.
 //
 // -class may equal class_mechanical or sit one step above it
 // (micro→small→regular→big) — the planner's recorded raise; the class: line
@@ -180,10 +180,10 @@ type pcExp struct{ name, desc string }
 // roster, its grouping and dispatches, and the experimental slot. Compact
 // when compact < 90, static grouping when bundle < 30, an experimental slot
 // when exp < 30, picked at index exp mod len(cands) of the byte-ordered
-// candidates. The roster is primary and principles alone — failure-modes and
-// mutation run on an always-on extra dispatch — so the slot joins the first
-// dispatch of a full regular/big panel and is otherwise skipped for the
-// bundle cap. Every class but micro executes sdd with an implementer
+// candidates. The roster is primary and principles alone — primary alone on
+// small (KAN-1126) — failure-modes and mutation running on an extra
+// dispatch, so the slot joins the first dispatch of a full regular/big panel
+// and is otherwise skipped for the bundle cap. Every class but micro executes sdd with an implementer
 // chosen; micro alone is inline, records defaults and consults no roll.
 func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 	if class == "micro" {
@@ -194,6 +194,9 @@ func pcTree(class string, compact, exp, bundle uint64, cands []pcExp) string {
 	}
 	execution, implementer := "sdd", "chosen"
 	shape, roster, dispatches, room := "compact", "primary; principles", "primary+principles", false
+	if class == "small" {
+		roster, dispatches = "primary", "primary"
+	}
 	if compact >= 90 {
 		shape = "full"
 		room = class != "small"

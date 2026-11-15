@@ -17,8 +17,8 @@ import (
 // flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...
 // — records every slot's begin of one review-panel round, each under the
 // literal key panel-<round>-<slot>, in the one Bash call just before the
-// round's launch message (on pass 1, every slot but mutation+failure-modes,
-// which skills/flow/review-panel.md launches after the suite exits) — hooks/enforce-agent-baseline.py denies a launch
+// round's launch message (on pass 1, every slot but a mutation-carrying extra
+// bundle, which skills/flow/review-panel.md launches after the suite exits) — hooks/enforce-agent-baseline.py denies a launch
 // whose row is not open yet (skills/flow/review-panel.md, "Every slot's
 // dispatch is recorded"). <round> is the number itself, never a substitution.
 //
@@ -29,8 +29,8 @@ import (
 // Before any begin it snapshots the plan tree to
 // <worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt
 // (flow-guard check-plan-unchanged snapshot), overwriting a file an earlier
-// invocation left; pass 1's later call, recording mutation+failure-modes
-// alone, keeps the round's file (self-review-kan-1110 F16).
+// invocation left; pass 1's later call, recording a mutation-carrying extra
+// bundle alone, keeps the round's file (self-review-kan-1110 F16).
 //
 // Exit codes: 0 every begin recorded; 1 a begin failed (its output relayed,
 // the later slots still recorded); 2 usage, no flow binary on PATH, or the
@@ -55,8 +55,8 @@ import (
 // self-review moved the row out of hand-recording first).
 // It first snapshots the plan tree to
 // <worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt, overwriting
-// a stale one; a mutation+failure-modes-only call keeps the round's file
-// (self-review-kan-1110 F16).
+// a stale one; a call recording only a mutation-carrying extra bundle keeps
+// the round's file (self-review-kan-1110 F16).
 // Exit 0 every begin recorded; 1 a begin failed (its output relayed, the
 // rest still recorded); 2 usage, no flow binary on PATH, or a failed
 // snapshot, no begin recorded; 3 a slot off the fix run's judged roster, no
@@ -106,13 +106,17 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// THE ROUND'S PLAN-TREE SNAPSHOT is taken here by the round's first call,
 	// overwriting any file an earlier invocation left under the same round
-	// number. Pass 1's later call, recording mutation+failure-modes alone,
-	// keeps it, so a tree the first wave's slots changed is never
-	// re-snapshotted (self-review-kan-1110 F16).
+	// number. Pass 1's later call, recording a mutation-carrying extra bundle
+	// alone -- roles within {mutation, failure-modes}, mutation among them, as
+	// the slot triggers may shrink it -- keeps it, so a tree the first wave's
+	// slots changed is never re-snapshotted (self-review-kan-1110 F16).
 	snap := filepath.Join(smcAbs(env, wt), ".superpowers", "sdd", "plan-snapshot-panel-"+round+".txt")
 	later := true
 	for _, s := range slots {
-		later = later && s.name == "mutation+failure-modes"
+		roles := strings.Split(s.name, "+")
+		later = later && slices.Contains(roles, "mutation") && !slices.ContainsFunc(roles, func(r string) bool {
+			return r != "mutation" && r != "failure-modes"
+		})
 	}
 	if _, err := os.Stat(snap); err != nil || !later {
 		if os.MkdirAll(filepath.Dir(snap), 0o755) != nil || checkPlanUnchanged([]string{"snapshot", wt, change, snap}, env, io.Discard, stderr) != 0 {

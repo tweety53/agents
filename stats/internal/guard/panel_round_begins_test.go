@@ -159,3 +159,53 @@ func TestPanelRoundBeginsSnapshotsThePlanTree(t *testing.T) {
 		t.Errorf("a failed snapshot still recorded a begin: %s", calls)
 	}
 }
+
+// TestPanelRoundBeginsHoldsALoneMutation pins decision
+// fix-latent-bundle-matchers: once the slot triggers shrink
+// mutation+failure-modes to mutation alone, pass 1's later call still keeps
+// the round's snapshot, while a call carrying primary beside mutation takes
+// a fresh one.
+func TestPanelRoundBeginsHoldsALoneMutation(t *testing.T) {
+	dir := t.TempDir()
+	stub := "#!/bin/sh\necho recorded\n"
+	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := Env{Getenv: func(k string) string {
+		if k == "PATH" {
+			return dir
+		}
+		return ""
+	}}
+	wt := t.TempDir()
+	tasks := filepath.Join(wt, "spectre", "changes", "demo", "tasks.md")
+	writeFile(t, tasks, "- [ ] 1. a\n")
+	snap := filepath.Join(wt, ".superpowers", "sdd", "plan-snapshot-panel-1.txt")
+	begins := func(slot string) {
+		t.Helper()
+		var out, errb bytes.Buffer
+		if code := panelRoundBegins([]string{wt, "demo", "1", "mf-x-20261114T120000Z", slot}, env, &out, &errb); code != 0 {
+			t.Fatalf("%s: exit %d, stderr %s", slot, code, errb.String())
+		}
+	}
+	begins("primary:opus:low")
+	first, err := os.ReadFile(snap)
+	if err != nil {
+		t.Fatalf("no snapshot written: %v", err)
+	}
+	writeFile(t, tasks, "- [ ] 1. rewritten\n")
+	begins("mutation:opus:low")
+	if again, _ := os.ReadFile(snap); !bytes.Equal(again, first) {
+		t.Error("a later call recording mutation alone re-snapshotted the plan tree")
+	}
+	begins("primary+mutation:opus:low")
+	if again, _ := os.ReadFile(snap); bytes.Equal(again, first) {
+		t.Error("a call carrying primary beside mutation kept the stale snapshot")
+	}
+	second, _ := os.ReadFile(snap)
+	writeFile(t, tasks, "- [ ] 1. rewritten again\n")
+	begins("failure-modes:opus:low")
+	if again, _ := os.ReadFile(snap); bytes.Equal(again, second) {
+		t.Error("a call carrying failure-modes without mutation kept the stale snapshot")
+	}
+}

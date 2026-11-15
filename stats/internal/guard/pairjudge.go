@@ -223,18 +223,41 @@ func pjCandidates(rows map[string][]policyRow, role string, opusOnly bool) []pjC
 
 // pjAsk runs the judge; a non-empty cause is why its answer cannot be used.
 func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidate, digest []byte) (pjCandidate, string, string) {
+	result, spend, cause := pjRun(env, rows, pjSystemPrompt(env, role, cands), digest)
+	if cause != "" {
+		return pjCandidate{}, "", cause
+	}
+	pm, wm := pjPick.FindStringSubmatch(result), pjWhy.FindStringSubmatch(result)
+	if pm == nil || wm == nil {
+		return pjCandidate{}, "", "judge answer has no PAIR or REASON line: " + strings.TrimSpace(result) + spend
+	}
+	i := slices.IndexFunc(cands, func(c pjCandidate) bool { return c.pair == pm[1] })
+	if i < 0 {
+		return pjCandidate{}, "", fmt.Sprintf("judge pick %s is outside the candidates", pm[1]) + spend
+	}
+	return cands[i], wm[1] + spend, ""
+}
+
+// pjRun runs the judge -- headless `claude -p` (or FLOW_PAIR_JUDGE_CMD) on
+// the pair-judge row's first base pair, under the deadline, with system as
+// its system prompt and digest on stdin -- for pair-judge and slot-judge
+// alike (KAN-1126, decision slot-judge-reuses-pair-judge-call). result is
+// the answer JSON's `result` text; spend the ` (judge <s>s[, $<cost>])`
+// suffix; cause, when non-empty, why there is no usable answer, already
+// carrying spend whenever the command ran.
+func pjRun(env Env, rows map[string][]policyRow, system string, digest []byte) (result, spend, cause string) {
 	var judge pjCandidate
 	if rs := rows["pair-judge"]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
 		judge, _ = pjParse(rs[0].Pairs[0])
 	}
 	if judge.model == "" {
-		return pjCandidate{}, "", "no pair-judge pair"
+		return "", "", "no pair-judge pair"
 	}
 	bin := env.Getenv("FLOW_PAIR_JUDGE_CMD")
 	if bin == "" {
 		var ok bool
 		if bin, ok = lookPath(env, "claude"); !ok {
-			return pjCandidate{}, "", "claude not on PATH"
+			return "", "", "claude not on PATH"
 		}
 	}
 	limit := env.PairJudgeTimeout
@@ -245,7 +268,7 @@ func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidat
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "-p", "--model", judge.model, "--effort", judge.effort,
 		"--tools", "", "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
-		"--output-format", "json", "--system-prompt", pjSystemPrompt(env, role, cands))
+		"--output-format", "json", "--system-prompt", system)
 	cmd.Dir = env.Dir
 	cmd.Stdin = bytes.NewReader(digest)
 	cmd.WaitDelay = time.Second // an orphaned child holding the pipes cannot outlast the deadline by more
@@ -258,7 +281,7 @@ func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidat
 		Cost   *float64 `json:"total_cost_usd"`
 	}
 	jerr := json.Unmarshal(out.Bytes(), &ans)
-	spend := fmt.Sprintf(" (judge %.1fs", time.Since(start).Seconds())
+	spend = fmt.Sprintf(" (judge %.1fs", time.Since(start).Seconds())
 	if jerr == nil && ans.Cost != nil {
 		spend += fmt.Sprintf(", $%.4f", *ans.Cost)
 	}
@@ -266,23 +289,15 @@ func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidat
 	var ee *exec.ExitError
 	switch {
 	case ctx.Err() != nil:
-		return pjCandidate{}, "", fmt.Sprintf("judge timed out after %v", limit) + spend
+		return "", spend, fmt.Sprintf("judge timed out after %v", limit) + spend
 	case errors.As(err, &ee):
-		return pjCandidate{}, "", fmt.Sprintf("judge %s exit %d: %s", filepath.Base(bin), ee.ExitCode(), strings.TrimSpace(errb.String())) + spend
+		return "", spend, fmt.Sprintf("judge %s exit %d: %s", filepath.Base(bin), ee.ExitCode(), strings.TrimSpace(errb.String())) + spend
 	case err != nil:
-		return pjCandidate{}, "", fmt.Sprintf("judge command %s not runnable: %v", bin, err) + spend
+		return "", spend, fmt.Sprintf("judge command %s not runnable: %v", bin, err) + spend
 	case jerr != nil:
-		return pjCandidate{}, "", "judge answer is not JSON: " + strings.TrimSpace(out.String()) + spend
+		return "", spend, "judge answer is not JSON: " + strings.TrimSpace(out.String()) + spend
 	}
-	pm, wm := pjPick.FindStringSubmatch(ans.Result), pjWhy.FindStringSubmatch(ans.Result)
-	if pm == nil || wm == nil {
-		return pjCandidate{}, "", "judge answer has no PAIR or REASON line: " + strings.TrimSpace(ans.Result) + spend
-	}
-	i := slices.IndexFunc(cands, func(c pjCandidate) bool { return c.pair == pm[1] })
-	if i < 0 {
-		return pjCandidate{}, "", fmt.Sprintf("judge pick %s is outside the candidates", pm[1]) + spend
-	}
-	return cands[i], wm[1] + spend, ""
+	return ans.Result, spend, ""
 }
 
 // pjSystemPrompt fills pjPrompt for role.

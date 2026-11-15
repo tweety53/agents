@@ -142,6 +142,12 @@ type dDecision struct {
 		Model  string   `json:"model"`
 		Effort string   `json:"effort"`
 	} `json:"extra_dispatch_mutation"`
+	// SlotTriggers is Decide step 7's slot-judge verdict per gated slot
+	// (kan-1126). Optional: a decision written before it renders without
+	// its line, and a slot the map leaves out reads as run.
+	SlotTriggers map[string]struct {
+		Verdict string `json:"verdict"`
+	} `json:"slot_triggers"`
 }
 
 // dVisual is Decide's visual-verification decision. Optional, so a decision
@@ -358,6 +364,17 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 	}
 	if x := d.ExtraDispatchMutation; x != nil {
 		line("Extra dispatch", strings.Join(x.Slots, "+")+" "+dPair{Model: x.Model, Effort: x.Effort}.pair())
+	}
+	if d.SlotTriggers != nil {
+		var slots []string
+		for _, s := range []string{"test-sanity", "call-efficiency", "failure-modes"} {
+			v := d.SlotTriggers[s].Verdict
+			if v == "" {
+				v = "run"
+			}
+			slots = append(slots, s+" "+v)
+		}
+		line("Slot judge", strings.Join(slots, " · "))
 	}
 
 	if v := d.Visual; v != nil {

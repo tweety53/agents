@@ -120,9 +120,9 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | `design-reviewer` | Reviews the plan's three artifacts before implementation, from the documents alone. |
 | `gated-reviewer` | Reviews risky tasks as they land, on big changes only. |
 | `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
-| `panel-reviewer` | Reviews the whole branch, first pass: the primary + principles bundle. |
-| `panel-sanity-efficiency` | Always-on extra bundle: checks each new test would fail if its behaviour broke, and spots wasted calls. |
-| `panel-mutation-failure` | Always-on extra bundle: breaks the code on purpose to prove the tests notice, and checks error, timeout and partial-write paths. |
+| `panel-reviewer` | Reviews the whole branch, first pass: the primary + principles bundle, primary alone on a small change. |
+| `panel-sanity-efficiency` | Extra bundle, each role only when the change gives it something to read: checks each new test would fail if its behaviour broke, and spots wasted calls. |
+| `panel-mutation-failure` | Extra bundle: breaks the code on purpose to prove the tests notice, on every change, and checks error, timeout and partial-write paths where the change does I/O, persistence or concurrency. |
 | `panel-rerun` | Re-reviews the branch after a fix round. |
 | `late-fix` | Reviews just a small fix made after the branch already passed review. |
 | `fix-run-judge` | Decides, once per fix run, which reviewers and which verify a prose fix still needs. |

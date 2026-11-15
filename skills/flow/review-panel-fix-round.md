@@ -189,6 +189,14 @@ resolved slot not yet dispatched this run, each reading the whole `final-review.
 no-last-reviewed-sha rule above; Mutation among them takes its pass-1 shape, throwaway
 worktree included. Record which slots joined this way and the path the guard printed.
 
+**The slot triggers run again beside it**, `flow-guard panel-slot-triggers <worktree> <merge-base>
+[<worktree> <merge-base>…]` over the whole branch (**The slot triggers**,
+`skills/flow/review-panel.md`). A gated role not yet dispatched this run that the guard now prints
+`run` for, or every such role on its exit 2, joins this round as a docs-only join does, reading
+the whole `final-review.diff`, recorded with `flow record pass -round <round> -note 'joined — slot
+trigger: <slot> — guard: <guard reason>'`. The decision's `slot_triggers` is never asked again; a
+role still skipped by both sources stays skipped, the docs-only join above included.
+
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
 finding's own recorded location, taken verbatim from the findings table. *Theme* is the finding's
 one-sentence Note column, reduced to its own defect noun phrase — the shortest phrase naming what is

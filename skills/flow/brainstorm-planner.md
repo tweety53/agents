@@ -687,7 +687,8 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    as `extra_dispatch`, `slots` `["test-sanity", "call-efficiency"]`, printed by `flow-guard
    pair-judge panel-sanity-efficiency`, the second as `extra_dispatch_mutation`, `slots`
    `["mutation", "failure-modes"]`, printed by `flow-guard pair-judge panel-mutation-failure` —
-   each over the plan's tasks and the `inputs:` line.
+   each over the plan's tasks and the `inputs:` line. Both pairs are recorded whichever roles
+   step 7 and the panel's slot triggers later skip.
 5. **implementer groups** — on every run whose step 1 came out `sdd`: run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md`, then
    `flow-guard plan-dispatch-groups <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
@@ -724,10 +725,18 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    `required`. A fix run, which passes no plan gate, may raise `skipped` to `required` and never
    lowers `required` to `skipped` — a decision row with no `visual` counts as `required`. What
    `skipped` does is **Visual verification** (`skills/flow/verify-and-handoff.md`).
+7. **slot judge** — on every class, `micro` included, and on a fix run's Decide: write the plan's
+   tasks and the `inputs:` line to `<abs-worktree>/.superpowers/sdd/pair-judge/decide-slots.md` and
+   run `flow-guard slot-judge` on it. Record its three lines as `slot_triggers`, keyed by slot,
+   each `{verdict, reason}` — `verdict` the line's `run` or `skip`, `reason` the text after its
+   dash. Its exit 2 records no `slot_triggers`, which runs every gated slot. Its header
+   (`<agents repo>/stats/internal/guard/slotjudge.go`) is canonical for the prompt, the output and
+   the fallback; what the panel does with the verdicts is **The slot triggers**
+   (`skills/flow/review-panel.md`).
 
 **The micro row** records defaults, never choices: what it skips is every roster, model/effort and
 grouping choice, and every roll the script printed; what it never skips is the decision record
-itself, the extra dispatches, step 6's visual judgement, the verify stage, or the self-review.
+itself, the extra dispatches, step 6's visual judgement, step 7's slot judge, the verify stage, or the self-review.
 
 #### Model and effort
 
@@ -809,7 +818,7 @@ skipped for the cap is recorded as the string `"experimental": "skipped — bund
 `roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
 sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object
-`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` and `extra_dispatch_mutation` (each an object `{slots, model, effort, reason}`, recorded on every class), `parent` (`{model, effort}`, the parent's own
+`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` and `extra_dispatch_mutation` (each an object `{slots, model, effort, reason}`, recorded on every class), `slot_triggers` (step 7's verdicts, an object keyed `test-sanity`, `call-efficiency` and `failure-modes`, each `{verdict, reason}`; absent when step 7 exited 2), `parent` (`{model, effort}`, the parent's own
 model/effort, per **Harness mapping** (`skills/flow-contracts/model-policy.md`): `unknown
 (agent-defined)` and `default` where the session does not state them), `overrides` (session-instruction
 overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was

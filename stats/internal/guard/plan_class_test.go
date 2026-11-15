@@ -402,25 +402,25 @@ func TestPlanClassTreeSddBelowMicro(t *testing.T) {
 func TestPlanClassTree(t *testing.T) {
 	t.Parallel()
 	two := []pcExp{{"a", "first probe"}, {"b", "second probe"}}
-	// Per class: the tree line, the full roster, whether a full panel has
-	// room for the experimental slot in its first dispatch.
+	// Per class: the tree line, the roster and dispatches, whether a full
+	// panel has room for the experimental slot in its first dispatch.
 	classes := []struct {
-		class, tree, full string
-		second            bool
+		class, tree, full, disp string
+		second                  bool
 	}{
-		{"small", "tree: class small · execution sdd · implementer chosen", "primary; principles", false},
-		{"regular", "tree: class regular · execution sdd · implementer chosen", "primary; principles", true},
-		{"big", "tree: class big · execution sdd · implementer chosen", "primary; principles", true},
+		{"small", "tree: class small · execution sdd · implementer chosen", "primary", "primary", false},
+		{"regular", "tree: class regular · execution sdd · implementer chosen", "primary; principles", "primary+principles", true},
+		{"big", "tree: class big · execution sdd · implementer chosen", "primary; principles", "primary+principles", true},
 	}
 	for _, c := range classes {
 		for _, compact := range []uint64{89, 90} {
 			for _, bundle := range []uint64{29, 30} {
 				for _, exp := range []uint64{29, 30} {
 					for _, cands := range [][]pcExp{nil, two} {
-						shape, roster, dispatches := "compact", "primary; principles", "primary+principles"
+						shape, roster, dispatches := "compact", c.full, c.disp
 						room := false
 						if compact >= 90 {
-							shape, roster = "full", c.full
+							shape = "full"
 							room = c.second
 						}
 						grouping := "free"
@@ -631,5 +631,23 @@ func TestPlanClassExtraLinesNameTheBundleAlone(t *testing.T) {
 	}
 	if !regexp.MustCompile(`(?m)^rolls: compact [0-9]+ · experimental [0-9]+ · bundle [0-9]+$`).MatchString(r.stdout) {
 		t.Errorf("stdout %q carries no rolls line without an effort roll", r.stdout)
+	}
+}
+
+// TestPlanClassTreeSmallDropsPrinciples pins decisions
+// principles-small-effective-class and principles-micro-unchanged: the small
+// class's panel is primary alone under every roll (TestPlanClassTree's small
+// row), regular keeps principles, and a planner's -class regular raise over a mechanically small plan brings
+// principles back.
+func TestPlanClassTreeSmallDropsPrinciples(t *testing.T) {
+	t.Parallel()
+	if got := pcTree("regular", 89, 30, 30, nil); !strings.Contains(got, "roster primary; principles") {
+		t.Errorf("regular dropped principles:\n%s", got)
+	}
+	env := envWith(t, []string{"FLOW_GUARD_REPO_ROOT=" + pcRoot(t)})
+	small := pcTasks(t, "raise-small", pcMake(4, false))
+	r := runGuard("plan-class", []string{"-class", "regular", small, "1"}, env)
+	if r.rc != 0 || !strings.Contains(r.stdout, "roster primary; principles") {
+		t.Errorf("-class regular over a small plan: rc=%d stdout=%q", r.rc, r.stdout)
 	}
 }
