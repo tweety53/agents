@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,17 +33,10 @@ type Store struct {
 // Store backed by an explicitly-bounded pool. The caller must call Close
 // when done.
 func Open(ctx context.Context, dsn string) (*Store, error) {
-	cfg, err := pgxpool.ParseConfig(dsn)
+	cfg, err := poolConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("store: parse dsn: %w", err)
+		return nil, err
 	}
-	cfg.MaxConns = _maxConns
-	cfg.MinConns = _minConns
-	cfg.MaxConnLifetime = _maxConnLifetime
-	cfg.MaxConnIdleTime = _maxConnIdleTime
-	// JIT compiles every execution afresh: the live state board's query cost
-	// ~1s of compile on every poll against ~0.2s of actual work.
-	cfg.ConnConfig.RuntimeParams["jit"] = "off"
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -53,6 +47,28 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 		return nil, fmt.Errorf("store: ping: %w", err)
 	}
 	return &Store{pool: pool}, nil
+}
+
+// poolConfig parses dsn into the pool Open builds. The pool keeps
+// _maxConns unless the DSN names its own pool_max_conns, which pgxpool has
+// already parsed into MaxConns: test stores ask for 2, so parallel store
+// tests stay under Postgres's 100 connections (KAN-1124, decision
+// test-pool-size). MinConns never exceeds MaxConns, which pgxpool refuses.
+func poolConfig(dsn string) (*pgxpool.Config, error) {
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("store: parse dsn: %w", err)
+	}
+	if !strings.Contains(dsn, "pool_max_conns") {
+		cfg.MaxConns = _maxConns
+	}
+	cfg.MinConns = min(_minConns, cfg.MaxConns)
+	cfg.MaxConnLifetime = _maxConnLifetime
+	cfg.MaxConnIdleTime = _maxConnIdleTime
+	// JIT compiles every execution afresh: the live state board's query cost
+	// ~1s of compile on every poll against ~0.2s of actual work.
+	cfg.ConnConfig.RuntimeParams["jit"] = "off"
+	return cfg, nil
 }
 
 // Close releases the underlying connection pool.

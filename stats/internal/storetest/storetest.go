@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -134,10 +135,10 @@ func NewMigratedDatabase(t testing.TB) string {
 }
 
 // NewStore opens a store on a NewMigratedDatabase and registers its Close
-// as test cleanup.
+// as test cleanup. Its pool is sized to 2 connections (withTestPoolSize).
 func NewStore(t testing.TB) *store.Store {
 	t.Helper()
-	dsn := NewMigratedDatabase(t)
+	dsn := withTestPoolSize(NewMigratedDatabase(t))
 
 	st, err := store.Open(context.Background(), dsn)
 	if err != nil {
@@ -145,6 +146,24 @@ func NewStore(t testing.TB) *store.Store {
 	}
 	t.Cleanup(st.Close)
 	return st
+}
+
+// withTestPoolSize asks store.Open for a 2-connection pool through the
+// DSN's pool_max_conns, in either DSN form (KAN-1124, decision
+// test-pool-size): 3-4 packages x 4 parallel tests x (2 + 1 admin) is about
+// 48 connections, under the server's 100. Only NewStore applies it: DSN,
+// NewDatabase and NewMigratedDatabase hand their DSNs to pgx.Connect too,
+// which would send pool_max_conns to the server as a runtime parameter.
+func withTestPoolSize(dsn string) string {
+	const param = "pool_max_conns=2"
+	switch {
+	case !strings.HasPrefix(dsn, "postgres://") && !strings.HasPrefix(dsn, "postgresql://"):
+		return dsn + " " + param
+	case strings.Contains(dsn, "?"):
+		return dsn + "&" + param
+	default:
+		return dsn + "?" + param
+	}
 }
 
 // buildTemplate creates and migrates the package's template database, then

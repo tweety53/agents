@@ -2,10 +2,12 @@ package storetest
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -81,5 +83,26 @@ func TestMigrationWaitsOutSlowSetupInsteadOfTimingOut(t *testing.T) {
 	}
 	if err := <-released; err != nil {
 		t.Fatalf("release migration lock: %v", err)
+	}
+}
+
+// TestStoreDSNAsksForTwoConnections pins decision test-pool-size
+// (KAN-1124): the DSN NewStore opens sizes its pool to 2, keeping parallel
+// store tests under Postgres's 100 connections, in both DSN forms -- while
+// DSN itself carries no pool_max_conns, since its callers hand it to
+// pgx.Connect, which would send the unknown parameter to the server.
+func TestStoreDSNAsksForTwoConnections(t *testing.T) {
+	for _, admin := range []string{"", "host=localhost port=5433 user=flow password=flow dbname=flow sslmode=disable"} {
+		t.Setenv("FLOW_STATS_ADMIN_DSN", admin)
+		cfg, err := pgxpool.ParseConfig(withTestPoolSize(DSN("flow_test_x")))
+		if err != nil {
+			t.Fatalf("admin %q: parse: %v", admin, err)
+		}
+		if cfg.MaxConns != 2 || cfg.ConnConfig.Database != "flow_test_x" {
+			t.Errorf("admin %q: MaxConns %d database %q, want 2 and flow_test_x", admin, cfg.MaxConns, cfg.ConnConfig.Database)
+		}
+		if dsn := DSN("flow_test_x"); strings.Contains(dsn, "pool_max_conns") {
+			t.Errorf("admin %q: DSN = %q, want no pool_max_conns", admin, dsn)
+		}
 	}
 }
