@@ -384,12 +384,15 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			undone = append(undone, strings.TrimSpace(id+" "+s))
 		}
 	}
+	// The manifest is read once for both consumers below (KAN-1122).
+	mpath := filepath.Join(filepath.Dir(args[0]), "visual-manifest-"+vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")+".json")
+	mbody, merr := os.ReadFile(mpath)
 	if status["10"] == "done" && len(frames) > 0 {
-		undone = append(undone, vrOverTolerance(args[0], frames, over, spot, string(designBody))...)
+		undone = append(undone, vrOverTolerance(mpath, mbody, merr, frames, over, spot, string(designBody))...)
 	}
 	if spec != "" && !noView {
 		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
-		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key))...)
+		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr))...)
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
@@ -433,13 +436,12 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped []string) []s
 // vrScopedCaptures is every capture key's manifest pairs with a frame, when key
 // has a round file — a scoped row's verifier may leave those unread; an
 // unscoped row, or a view no frame is composed for, is always read (KAN-1122).
-func vrScopedCaptures(sdd, key string) []string {
+func vrScopedCaptures(sdd, key string, body []byte, rerr error) []string {
 	if _, _, ok := readRound(sdd, key); !ok {
 		return nil
 	}
 	var m vvmManifestOut
-	body, err := os.ReadFile(filepath.Join(sdd, "visual-manifest-"+key+".json"))
-	if err != nil || json.Unmarshal(body, &m) != nil {
+	if rerr != nil || json.Unmarshal(body, &m) != nil {
 		return nil
 	}
 	var caps []string
@@ -462,9 +464,7 @@ type vrOverRow struct {
 // committed matrix JSON, so a pass that skipped `measure` cannot stand on last
 // round's numbers. The manifest sits beside the report as
 // visual-manifest-<key>.json, <key> the report's own less any `-rest[-<n>]`.
-func vrOverTolerance(report string, frames []string, lines, spot map[string]string, design string) []string {
-	key := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(report), "verify-report-"), ".md")
-	path := filepath.Join(filepath.Dir(report), "visual-manifest-"+vrRestSegment.ReplaceAllString(key, "")+".json")
+func vrOverTolerance(path string, body []byte, err error, frames []string, lines, spot map[string]string, design string) []string {
 	var m struct {
 		Pairs []struct {
 			Frame string           `json:"frame"`
@@ -472,7 +472,6 @@ func vrOverTolerance(report string, frames []string, lines, spot map[string]stri
 			Cells []map[string]any `json:"cells"`
 		} `json:"pairs"`
 	}
-	body, err := os.ReadFile(path)
 	if err == nil {
 		err = json.Unmarshal(body, &m)
 	}
