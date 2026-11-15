@@ -38,7 +38,7 @@ member's row closes when it is picked, never at the handoff. A pick conflict or 
 guard failure goes to a fresh fixer (**Every fix is a fresh one-shot**, `skills/flow/implement.md`)
 — a conflict aborted first, `git -C <canonical-worktree> cherry-pick --abort`, then the pick row
 dispatched into the canonical worktree, its `FIX INPUT:` naming the member's commits; a guard
-failure the re-commit row — and the parent re-runs the guard on what it commits, while sibling
+failure the re-commit row, behind `flow-guard resume-or-fresh` on the member's own closed row — and the parent re-runs the guard on what it commits, while sibling
 members, queued groups and already-ready later waves are unaffected. A copy is removed once its group is picked —
 `flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g> --fold-back`, which first copies the group's context bundle and implementer reports back into `<worktree>` for its gated review — its own Bash call with literal absolute paths, never chained into a compound command, which the harness's rm safety check refuses. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.

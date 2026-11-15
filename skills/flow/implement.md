@@ -110,12 +110,25 @@ and the parent pastes that opening into the Agent call's `description` and that 
 prompt, never composing either; where no `Role:` line is printed, as for a panel reviewer row, the
 id is the **Role line** column's above.
 
-**Every dispatch is one-shot — a finished child is never resumed.** The parent never sends a
-`SendMessage` to a child that has written its report. Whatever a
+**Every dispatch is one-shot — a finished child is never resumed, save an immediate send-back.**
+The parent never sends a `SendMessage` to a child that has written its report, save an immediate
+send-back `flow-guard resume-or-fresh` answers `resume` for. Whatever a
 finished child's work still needs — a guard refusal, a pick conflict, a reviewer's `fix`, a
 full-suite failure — goes to a fresh fixer under `sdd` (**Every fix is a fresh one-shot**, below)
 and is the parent's own inline fix under `inline`, under the commit mechanics and records
 **Inline — the parent implements** below states; a re-review is a fresh dispatch.
+
+**An immediate send-back runs `flow-guard resume-or-fresh` first.** Two send-backs are found at the
+agent's own hand-back, while its prompt cache is still warm: a `flow-guard close-task` exit 1 a
+re-commit repairs, under `sdd`, and a `flow-guard check-rerun-citations` exit 1
+(`skills/flow/review-panel-fix-round.md`). Right after that row's `dispatch end`, before any other
+dispatch or wait, the parent runs `flow-guard resume-or-fresh <worktree> <change> <the closed row's key>`.
+On exit 0 it sends the send-back to the agent its `resume <agentId>` line names with `SendMessage`;
+on any other exit it dispatches fresh, exactly as without the guard. A resumed send-back keeps the
+key the fresh dispatch would have used, its `begin` passing `-agent-id <the id the guard printed>` —
+a resume has no launch for the daemon to stamp — and its prompt carries only the send-back input
+and its `FIX INPUT:` line, since the agent already holds its brief. A second send-back to the same
+agent runs the guard on that resume's own row key. Every other dispatch stays one-shot.
 
 Every row's own prompt or brief carries the NO DELEGATION paragraph (`skills/flow/implementer-brief.md`,
 `skills/flow/gated-reviewer-brief.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
@@ -1044,7 +1057,8 @@ Once this stage completes, continue into `skills/flow/review-panel.md`.
 
 **Under `sdd` the parent edits no code.** Whatever a task's close, a wave's pick, a gated pass or
 the test list still needs changed in the tree goes to a fresh one-shot dispatch — never the
-parent, never a resumed child — on its row below. Its prompt is the implementer stub (section
+parent, never a resumed child save an immediate send-back `flow-guard resume-or-fresh` answered
+`resume` for (**Every dispatch is one-shot**, above) — on its row below. Its prompt is the implementer stub (section
 **4** above) under the row's own `Key:`, its `Tasks:` line the tasks it fixes and a `FIX INPUT:`
 line naming what to fix and, on the gated and full-suite rows, `MUTATION PROOF`; its work is the
 FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
@@ -1052,7 +1066,7 @@ FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
 | Fix | Key | Pair | When |
 |---|---|---|---|
 | every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the decision's `fixer` | at the stage's end, one per group of at most twenty findings, in series (`skills/flow/gated-review-fix.md`) |
-| a `flow-guard close-task` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches |
+| a `flow-guard close-task` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches, behind `flow-guard resume-or-fresh` on the group's closed `task-<ids>-implementer` row |
 | a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the group's own pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
 | a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the test list**, above) |
 

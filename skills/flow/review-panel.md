@@ -527,7 +527,7 @@ On harness `zcode` every pair this paragraph names is recorded as `glm-5.3-flash
 instead — the one pair the store accepts on a `zcode` session token — and on harness `muse` as
 the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`).
 
-**`-agent-id` is never typed on a slot's row — save the `-cite` send-back's (`skills/flow/review-panel-fix-round.md`) — never invented** — the daemon captures the launch identifier,
+**`-agent-id` is never typed on a slot's row — save a send-back `flow-guard resume-or-fresh` answered `resume` for (`skills/flow/review-panel-fix-round.md`, `skills/flow/implement.md`) — never invented** — the daemon captures the launch identifier,
 stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session — each slot's description opens with its row's `-key` (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`) — and pairing a launch whose description names no row with the begin nearest it in time;
 record the round's `begin`s in the one Bash call before its launch message, as above, and never reuse a `-key`.
 
