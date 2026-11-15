@@ -112,7 +112,11 @@ import (
 // worktree three directories above <report file>, each need a
 // `- <view>: <absolute PNG path>` line, and each such view that no
 // `- <view>: <composite> diff=` line names needs a
-// `per view, no frame composed: <view> sweeps:` line; each gap is undone. No
+// `per view, no frame composed: <view> sweeps:` line; each gap is undone. A
+// view whose own line reads
+// `- <view>: <absolute PNG path> — capture unchanged since <round base>` needs
+// neither line — a scoped fix round's verifier does not read a view whose
+// capture is unchanged (skills/flow/visual-verify-verifier.md step 9). No
 // `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
 // than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
 // reports named only the prototype-framed captures).
@@ -380,11 +384,15 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			undone = append(undone, strings.TrimSpace(id+" "+s))
 		}
 	}
+	// The manifest is read once for both consumers below (KAN-1122).
+	mpath := filepath.Join(filepath.Dir(args[0]), "visual-manifest-"+vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")+".json")
+	mbody, merr := os.ReadFile(mpath)
 	if status["10"] == "done" && len(frames) > 0 {
-		undone = append(undone, vrOverTolerance(args[0], frames, over, spot, string(designBody))...)
+		undone = append(undone, vrOverTolerance(mpath, mbody, merr, frames, over, spot, string(designBody))...)
 	}
 	if spec != "" && !noView {
-		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines)...)
+		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
+		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr))...)
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
@@ -401,7 +409,9 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 // basename, less `.png` and any Playwright `-<platform>` suffix, is the stem
 // of a frame line's composite path — a frame id names the mockup, not the
 // view. A resolver exit other than 0 is not checked: step 9 blocks on it.
-func vrUnaccounted(wt, spec string, env Env, framed, lines []string) []string {
+// A `capture unchanged since` line accounts only for a capture in scoped, the
+// captures a scoped row may leave unread (vrScopedCaptures).
+func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped []string) []string {
 	var buf strings.Builder
 	if resolveVisualScreenshots([]string{wt, filepath.Base(spec)}, env, &buf, io.Discard) != 0 {
 		return nil
@@ -409,15 +419,36 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines []string) []string {
 	report := strings.Join(lines, "\n")
 	var gaps []string
 	for _, png := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
-		m := regexp.MustCompile(`(?m)^\s*- (\S+): ` + regexp.QuoteMeta(png) + `(\s|$)`).FindStringSubmatch(report)
+		m := regexp.MustCompile(`(?m)^\s*- (\S+): ` + regexp.QuoteMeta(png) + `(\s.*)?$`).FindStringSubmatch(report)
 		switch {
 		case m == nil:
 			gaps = append(gaps, filepath.Base(png)+` is on no "- <view>: <path>" line — step 9 states every capture`)
+		case slices.Contains(scoped, png) && strings.HasPrefix(strings.TrimSpace(m[2]), "— capture unchanged since "):
+			// A scoped fix round's verifier does not read a view whose capture is
+			// unchanged since its round base (KAN-1122): its line says so.
 		case !slices.Contains(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(png), ".png"), "")) && !strings.Contains(report, "per view, no frame composed: "+m[1]+" sweeps:"):
 			gaps = append(gaps, m[1]+` has no frame and no "per view, no frame composed: `+m[1]+` sweeps:" line`)
 		}
 	}
 	return gaps
+}
+
+// vrScopedCaptures is every capture key's manifest pairs with a frame, when key
+// has a round file — a scoped row's verifier may leave those unread; an
+// unscoped row, or a view no frame is composed for, is always read (KAN-1122).
+func vrScopedCaptures(sdd, key string, body []byte, rerr error) []string {
+	if _, _, ok := readRound(sdd, key); !ok {
+		return nil
+	}
+	var m vvmManifestOut
+	if rerr != nil || json.Unmarshal(body, &m) != nil {
+		return nil
+	}
+	var caps []string
+	for _, p := range m.Pairs {
+		caps = append(caps, p.Capture)
+	}
+	return caps
 }
 
 type vrOverRow struct {
@@ -433,9 +464,7 @@ type vrOverRow struct {
 // committed matrix JSON, so a pass that skipped `measure` cannot stand on last
 // round's numbers. The manifest sits beside the report as
 // visual-manifest-<key>.json, <key> the report's own less any `-rest[-<n>]`.
-func vrOverTolerance(report string, frames []string, lines, spot map[string]string, design string) []string {
-	key := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(report), "verify-report-"), ".md")
-	path := filepath.Join(filepath.Dir(report), "visual-manifest-"+vrRestSegment.ReplaceAllString(key, "")+".json")
+func vrOverTolerance(path string, body []byte, err error, frames []string, lines, spot map[string]string, design string) []string {
 	var m struct {
 		Pairs []struct {
 			Frame string           `json:"frame"`
@@ -443,7 +472,6 @@ func vrOverTolerance(report string, frames []string, lines, spot map[string]stri
 			Cells []map[string]any `json:"cells"`
 		} `json:"pairs"`
 	}
-	body, err := os.ReadFile(path)
 	if err == nil {
 		err = json.Unmarshal(body, &m)
 	}

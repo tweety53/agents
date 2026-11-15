@@ -2,14 +2,18 @@ package guard
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // close is `visual-verify-pass.sh close`: the report guards, the row's end,
@@ -110,10 +114,138 @@ func (v *vvp) close() {
 		v.commit(w, body)
 		v.next("judge")
 	}
-	v.endRow("completed")
+	snap := protoSnapshot(filepath.Dir(design))
+	scoped, why := v.closesLoop(w, design, body, snap)
+	if scoped && why == "" {
+		v.endRow("completed", "-closes-loop")
+	} else {
+		v.endRow("completed")
+	}
+	if snap != "" {
+		// A lost snapshot only keeps the next scoped round's full run.
+		_ = os.WriteFile(filepath.Join(w, ".superpowers", "sdd", "visual-prototype.txt"), []byte(snap), 0o644)
+	}
 	v.commit(w, body)
 	v.endStage()
+	switch {
+	case scoped && why == "":
+		v.say("CLOSES-LOOP: yes")
+	case scoped:
+		v.say("CLOSES-LOOP: no — %s", why)
+	}
 	v.next("done")
+}
+
+// closesLoop derives whether this row closes the visual fix loop (decisions
+// closes-loop-derived-in-close, capture-freshness-by-mtime, closing-frame-list,
+// frame-map-change-keeps-full-run, prototype-change-keeps-full-run): scoped is
+// false with no round file of the key; why is "" when every condition holds,
+// else the first that fails.
+func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped bool, why string) {
+	sdd := filepath.Join(w, ".superpowers", "sdd")
+	base, at, ok := readRound(sdd, v.key)
+	if !ok {
+		return false, ""
+	}
+	mpath := filepath.Join(sdd, "visual-manifest-"+v.key+".json")
+	var m vvmManifestOut
+	b, err := os.ReadFile(mpath)
+	if err == nil {
+		err = json.Unmarshal(b, &m)
+	}
+	if err != nil {
+		return true, "no readable manifest " + mpath
+	}
+	// The closing list: the declared frames, the prototype map's, the manifest's.
+	var list []string
+	add := func(id string) {
+		if !slices.Contains(list, id) {
+			list = append(list, id)
+		}
+	}
+	mock := ""
+	if c := v.cells(w)["mockups"]; c != "" {
+		mock = cellPath(w, c)
+		d, derr := os.ReadFile(design)
+		entries, eerr := os.ReadDir(mock)
+		if derr == nil && eerr == nil {
+			for _, id := range flDeclared(d, mock, entries) {
+				add(id)
+			}
+		}
+	}
+	proto, _ := os.ReadFile(filepath.Join(filepath.Dir(design), "visual-verification", "prototype.mockups"))
+	for _, f := range mockupsLines(proto) {
+		add(f[1])
+	}
+	for _, p := range m.Pairs {
+		add(p.Frame)
+	}
+	if len(list) == 0 {
+		return true, "no frame on the change's list"
+	}
+	for _, id := range list {
+		fresh := false
+		for _, p := range m.Pairs {
+			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil && fi.ModTime().After(at) {
+				fresh = true
+			}
+		}
+		if !fresh {
+			return true, id + ": no capture in " + mpath + " re-captured after " + at.Format(time.RFC3339Nano)
+		}
+	}
+	lines := flReportLines(report)
+	for _, p := range m.Pairs {
+		if v.captureChanged(p.Capture, base) && !flPerFrame(p.Frame, lines) {
+			return true, p.Frame + ": its capture changed since " + base + " and the report has no line of its own for it"
+		}
+	}
+	var specs []string
+	for _, p := range m.Pairs {
+		if s := p.Spec + ".mockups"; !slices.Contains(specs, s) && vvmExists(s) {
+			specs = append(specs, s)
+			if v.captureChanged(s, base) {
+				return true, s + " changed since " + base
+			}
+		}
+	}
+	if mock != "" {
+		out, ok := v.git("-C", w, "diff", "--no-renames", "--name-only", base, "--", mock)
+		if !ok {
+			return true, "git diff " + base + " -- " + mock + " failed in " + w
+		}
+		if out != "" {
+			return true, strings.Split(out, "\n")[0] + " changed since " + base
+		}
+	}
+	if snap != "" {
+		path := filepath.Join(sdd, "visual-prototype.txt")
+		if old, _ := os.ReadFile(path); string(old) != snap {
+			return true, path + " differs from prototype.mockups and prototype/*.png now"
+		}
+	}
+	return true, ""
+}
+
+// protoSnapshot is the prototype frames a verifier judges against (decision
+// prototype-change-keeps-full-run): one `<sha-256 hex> <name>` line for
+// <changeRoot>/visual-verification/prototype.mockups, then one per
+// prototype/*.png in name order; "" when the change has no prototype map.
+func protoSnapshot(changeRoot string) string {
+	vvDir := filepath.Join(changeRoot, "visual-verification")
+	mp := filepath.Join(vvDir, "prototype.mockups")
+	if !vvmExists(mp) {
+		return ""
+	}
+	pngs, _ := filepath.Glob(filepath.Join(vvDir, "prototype", "*.png"))
+	var b strings.Builder
+	for _, p := range append([]string{mp}, pngs...) {
+		data, _ := os.ReadFile(p)
+		rel, _ := filepath.Rel(vvDir, p)
+		fmt.Fprintf(&b, "%x %s\n", sha256.Sum256(data), rel)
+	}
+	return b.String()
 }
 
 // vvcOnlyNoSidecar is a FRAME-LIST-GAP line whose every gap is `no sidecar

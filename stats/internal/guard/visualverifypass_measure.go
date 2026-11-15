@@ -141,11 +141,7 @@ func (v *vvp) measure(args []string) {
 	type line struct{ name, frame string }
 	var lines []line
 	own := "frame none\n"
-	for _, raw := range strings.Split(string(body), "\n") {
-		f := strings.Fields(raw)
-		if len(f) != 2 || f[0] == "frame" || strings.HasPrefix(f[0], "#") {
-			continue
-		}
+	for _, f := range mockupsLines(body) {
 		if prototype && len(cmfMatchCapture(f[0], m.Captures)) == 0 {
 			continue
 		}
@@ -241,6 +237,20 @@ func (v *vvp) writeOut(path, body string) {
 // identical lines ahead of m's; steps are m's alone (kan-1102 self-review, F2).
 func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool) {
 	path := filepath.Join(sdd, "visual-manifest-"+key+".json")
+	// Only this call's pairs count, so the line is read before the merge.
+	if base, _, ok := readRound(sdd, key); ok {
+		var changed []string
+		for _, p := range m.Pairs {
+			if !slices.Contains(changed, p.Frame) && v.captureChanged(p.Capture, base) {
+				changed = append(changed, p.Frame)
+			}
+		}
+		line := "none"
+		if len(changed) > 0 {
+			line = strings.Join(changed, " ")
+		}
+		v.say("changed: %s — round base %s", line, base)
+	}
 	var old vvmManifestOut
 	if b, err := os.ReadFile(path); err == nil && json.Unmarshal(b, &old) == nil {
 		mine := map[string]bool{}
@@ -518,4 +528,16 @@ func vvmOver(v any) bool {
 		}
 	}
 	return false
+}
+
+// mockupsLines is a `.mockups` map's `<screenshot> <frame id>` lines, less
+// its `frame` line, comments and malformed lines.
+func mockupsLines(body []byte) [][2]string {
+	var out [][2]string
+	for _, raw := range strings.Split(string(body), "\n") {
+		if f := strings.Fields(raw); len(f) == 2 && f[0] != "frame" && !strings.HasPrefix(f[0], "#") {
+			out = append(out, [2]string{f[0], f[1]})
+		}
+	}
+	return out
 }

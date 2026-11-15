@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -469,6 +470,50 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	rc, out, calls = i.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+i.app.URL)
 	if rc != 1 || !strings.Contains(calls, "record dispatch end -C "+i.wt+" -change demo -key visual-verify-demo -session-token mf-tok -outcome aborted\n") || !strings.Contains(calls, "-outcome stopped") {
 		t.Fatalf("a refused second begin: exit %d\n%s\n%s", rc, out, calls)
+	}
+}
+
+// TestVisualVerifyPassPrepareWritesTheRoundFile pins decisions
+// round-file-per-row and no-round-file-for-rest: a row begun with a round
+// base gets visual-round-<key>.txt holding the base and the instant read
+// before its begin; the same key re-begun unscoped loses it; a -rest key
+// gets none.
+func TestVisualVerifyPassPrepareWritesTheRoundFile(t *testing.T) {
+	smoke.Heavy(t)
+	f := vvpFixture(t, "")
+	sdd := filepath.Join(f.wt, ".superpowers/sdd")
+	before := time.Now()
+	if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb); rc != 0 {
+		t.Fatalf("scoped prepare: exit %d\n%s", rc, out)
+	}
+	after := time.Now()
+	b, err := os.ReadFile(filepath.Join(sdd, "visual-round-visual-verify.txt"))
+	if err != nil {
+		t.Fatalf("scoped prepare wrote no round file: %v", err)
+	}
+	fields := strings.Fields(string(b))
+	if len(fields) != 2 || fields[0] != f.mb {
+		t.Fatalf("round file %q, want `%s <instant>`", b, f.mb)
+	}
+	at, err := time.Parse(time.RFC3339Nano, fields[1])
+	if err != nil || at.Before(before) || at.After(after) {
+		t.Fatalf("round file instant %q (%v), want an RFC3339Nano instant within [%s, %s]", fields[1], err, before.Format(time.RFC3339Nano), after.Format(time.RFC3339Nano))
+	}
+
+	cont := func(key string, extra ...string) {
+		t.Helper()
+		args := append([]string{f.wt, "demo", key, "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}, extra...)
+		if rc, out, _ := f.run("prepare", args...); rc != 0 {
+			t.Fatalf("continue %s: exit %d\n%s", key, rc, out)
+		}
+	}
+	cont("visual-verify")
+	if _, err := os.Stat(filepath.Join(sdd, "visual-round-visual-verify.txt")); !os.IsNotExist(err) {
+		t.Fatalf("an unscoped re-begin left the round file (stat err %v)", err)
+	}
+	cont("visual-verify-rest", "--round-base", f.wt+"="+f.mb)
+	if _, err := os.Stat(filepath.Join(sdd, "visual-round-visual-verify-rest.txt")); !os.IsNotExist(err) {
+		t.Fatalf("a -rest key got a round file (stat err %v)", err)
 	}
 }
 
