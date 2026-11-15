@@ -208,10 +208,11 @@ import (
 //            with its kind's columns — `text/control` `ink`, plus the box
 //            columns when its region resolves; `fill band` `box`, `radius`,
 //            `border`, `fill`, `shadow`, `content`, `gap`; `rule` `runs`.
-//            Output is `scale`, `matrix` (one row per pair: `kind`, the
-//            pairing, and `measured` with `a`, `b` and `delta`, or
-//            `unresolved` with the reason; an unpaired element is its
-//            `missing` or `extra` row) and `summary` (kan-1017: every matrix
+//            Output is `scale`, `matrix` (one row per pair: `kind`,
+//            `class`, the pairing, and `measured` with `a`, `b` and `delta`,
+//            or `unresolved` with the reason; an unpaired element is its
+//            `missing` or `extra` row, carrying `class` and no `kind`) and
+//            `summary` (kan-1017: every matrix
 //            was filled one element per call): `paired`, `missing`, `extra`
 //            and `over` (decision over-list) — one `{row, status, keys}`
 //            entry per matrix row, `row` its 1-based index in `matrix`, that
@@ -222,7 +223,11 @@ import (
 //            A leaf under an unscaled key (`ratio`, `approx_opacity`,
 //            `peak_delta`, `share`) is never over. `keys` names the leaves
 //            over, `, `-separated (`unresolved` for an unresolved row, empty
-//            for a missing or extra one).
+//            for a missing or extra one). `class` is the row's matrix class
+//            (decision matrix-row-class): `missing` or `extra` for an unpaired
+//            row, `unresolved` for one carrying `unresolved`, else `control`
+//            for a `text/control` element whose box columns resolved, `text
+//            run` for one whose did not, and `fill band` or `rule` as its kind.
 //
 // A given `--region-*` that starts inside the image but runs past its edge is
 // clamped to the image and reported `clipped` on that side; one starting
@@ -1579,20 +1584,21 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 	rows := []pyObj{}
 	for _, p := range pairs {
 		if p.status != "paired" {
-			rows = append(rows, p.obj)
+			rows = append(rows, append(pyObj{{"class", p.status}}, p.obj...))
 			continue
 		}
 		kind := ea[p.i].kind
 		props := mvpKindProps[kind]
-		row := append(pyObj{{"kind", kind}}, p.obj...)
 		ma, errA := measure(a.images[0], ea[p.i], props)
 		mb, errB := measure(a.images[1], eb[p.j], props)
 		if errA != nil || errB != nil {
-			row = append(row, pyKV{"unresolved", errors.Join(errA, errB).Error()})
-			rows = append(rows, row)
+			row := append(pyObj{{"kind", kind}, {"class", "unresolved"}}, p.obj...)
+			rows = append(rows, append(row, pyKV{"unresolved", errors.Join(errA, errB).Error()}))
 			continue
 		}
+		class := kind
 		if kind == "text/control" {
+			class = "text run"
 			box := mvpKindProps["fill band"]
 			if ba, err := measure(a.images[0], ea[p.i], box); err == nil {
 				if bb, err := measure(a.images[1], eb[p.j], box); err == nil {
@@ -1604,9 +1610,11 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 						return o[1:]
 					}
 					ma.out, mb.out, props = append(ma.out, rest(ba.out)...), append(mb.out, rest(bb.out)...), append(slices.Clone(props), box...)
+					class = "control"
 				}
 			}
 		}
+		row := append(pyObj{{"kind", kind}, {"class", class}}, p.obj...)
 		rows = append(rows, append(row, pyKV{"measured", pyObj{{"a", ma.out}, {"b", mb.out}, {"delta", mvpDelta(ma, mb, props, scale)}}}))
 	}
 	paired, missing, extra := mvpCountStatus(pairs)
@@ -1649,7 +1657,7 @@ func mvpOver(rows []pyObj) []pyObj {
 			switch kv.k {
 			case "status":
 				status, _ = kv.v.(string)
-			case "kind", "a", "b":
+			case "kind", "class", "a", "b":
 			case "unresolved":
 				keys = append(keys, "unresolved")
 			case "measured":
