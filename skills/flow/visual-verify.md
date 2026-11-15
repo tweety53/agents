@@ -196,7 +196,7 @@ attribution starts, committing and pushing nothing. The parent's prompt carries 
 the lines no script can resolve: the views touched; `sweeps-<n>.md`'s path
 when **A missed defect — the tooling analysis** above completed this round, with the re-run rule
 its loaded file states, as written; the change's motions, named as the paragraph below states; and the
-`moved:` frames when **The loop** (`skills/flow/verify-fix-loop.md`) names them.
+`moved:` frames and, in a scoped fix round, the `defects:` frames — every frame this round's defects name — when **The loop** (`skills/flow/verify-fix-loop.md`) names them.
 
 **`prepare` names the mockup sources in the bundle** — `mockup sources:`, then every HTML or CSS
 path `design.md` cites that exists in the tree, or `mockup sources: none` — and decodes a bundled

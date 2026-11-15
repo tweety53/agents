@@ -646,6 +646,7 @@ func insertDispatch(ctx context.Context, q interface {
 			ended_at = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.ended_at END,
 			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
 			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END,
+			closes_loop = CASE WHEN `+reBegin+` THEN false ELSE dispatches.closes_loop END,
 			agent_id = CASE WHEN `+reBegin+` THEN EXCLUDED.agent_id ELSE dispatches.agent_id END,
 			slot = EXCLUDED.slot,
 			model = EXCLUDED.model,

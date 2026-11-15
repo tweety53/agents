@@ -118,7 +118,7 @@ never an exit code the command did not return.
    script can do that — and state, per view, `clean` or the defect seen.
    In a scoped fix round `measure` also prints `changed: <frame id> … — round base <sha>`, or
    `changed: none — round base <sha>`, before its `MANIFEST:` line: read only the views of the
-   frames it names and of the prompt's `moved:` frames, and every view no frame is composed for,
+   frames it names, of the prompt's `moved:` frames and of its `defects:` frames, and every view no frame is composed for,
    and at step 10 only those frames' composites. Every other view's line reads
    `- <view>: <absolute PNG path> — capture unchanged since <round base>`, with no frame, sweeps,
    spot-check or over-tolerance line for its frame. With no `changed:` line, every view is read.
@@ -313,8 +313,9 @@ never an exit code the command did not return.
    derives from the specs it happened to run is the partial pass wearing a fraction. The report's
    `frames:` line counts against that list and names every declared frame absent from the
    per-frame lines, with its reason.
-   In a scoped fix round, a frame that neither step 9's `changed:` line nor the prompt's `moved:`
-   names is not read again: an earlier verifier judged that same capture. The `frames:` line names
+   In a scoped fix round, a frame that neither step 9's `changed:` line, the prompt's `moved:`, nor
+   the prompt's `defects:` — the frames this round's defects name, always judged even when their
+   capture did not change — names is not read again: an earlier verifier judged that same capture. The `frames:` line names
    it with the reason `capture unchanged since <round base>`, and its view line carries the same
    reason.
 

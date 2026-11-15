@@ -114,15 +114,16 @@ func (v *vvp) close() {
 		v.commit(w, body)
 		v.next("judge")
 	}
-	scoped, why := v.closesLoop(w, design, body)
+	snap := protoSnapshot(filepath.Dir(design))
+	scoped, why := v.closesLoop(w, design, body, snap)
 	if scoped && why == "" {
 		v.endRow("completed", "-closes-loop")
 	} else {
 		v.endRow("completed")
 	}
-	if s := protoSnapshot(filepath.Dir(design)); s != "" {
+	if snap != "" {
 		// A lost snapshot only keeps the next scoped round's full run.
-		_ = os.WriteFile(filepath.Join(w, ".superpowers", "sdd", "visual-prototype.txt"), []byte(s), 0o644)
+		_ = os.WriteFile(filepath.Join(w, ".superpowers", "sdd", "visual-prototype.txt"), []byte(snap), 0o644)
 	}
 	v.commit(w, body)
 	v.endStage()
@@ -140,7 +141,7 @@ func (v *vvp) close() {
 // frame-map-change-keeps-full-run, prototype-change-keeps-full-run): scoped is
 // false with no round file of the key; why is "" when every condition holds,
 // else the first that fails.
-func (v *vvp) closesLoop(w, design string, report []byte) (scoped bool, why string) {
+func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped bool, why string) {
 	sdd := filepath.Join(w, ".superpowers", "sdd")
 	base, at, ok := readRound(sdd, v.key)
 	if !ok {
@@ -174,10 +175,8 @@ func (v *vvp) closesLoop(w, design string, report []byte) (scoped bool, why stri
 		}
 	}
 	proto, _ := os.ReadFile(filepath.Join(filepath.Dir(design), "visual-verification", "prototype.mockups"))
-	for _, l := range strings.Split(string(proto), "\n") {
-		if f := strings.Fields(l); len(f) == 2 && f[0] != "frame" && !strings.HasPrefix(f[0], "#") {
-			add(f[1])
-		}
+	for _, f := range mockupsLines(proto) {
+		add(f[1])
 	}
 	for _, p := range m.Pairs {
 		add(p.Frame)
@@ -220,10 +219,10 @@ func (v *vvp) closesLoop(w, design string, report []byte) (scoped bool, why stri
 			return true, strings.Split(out, "\n")[0] + " changed since " + base
 		}
 	}
-	if s := protoSnapshot(filepath.Dir(design)); s != "" {
-		snap := filepath.Join(sdd, "visual-prototype.txt")
-		if old, _ := os.ReadFile(snap); string(old) != s {
-			return true, snap + " differs from prototype.mockups and prototype/*.png now"
+	if snap != "" {
+		path := filepath.Join(sdd, "visual-prototype.txt")
+		if old, _ := os.ReadFile(path); string(old) != snap {
+			return true, path + " differs from prototype.mockups and prototype/*.png now"
 		}
 	}
 	return true, ""

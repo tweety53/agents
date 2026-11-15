@@ -258,6 +258,14 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 		}
 		return s
 	}
+	const mockupsCell = "| `mockups` | `design/mockups` |\n"
+	// sidecar commits the home spec's frame map, so a mockups cell's frame list
+	// has a sidecar line for f1 and no sidecar reads changed.
+	sidecar := func(f *vvpFix, body string) {
+		writeFile(t, filepath.Join(f.wt, "tests/visual/home.spec.ts.mockups"), body)
+		gitRun(t, f.wt, "add", "tests/visual/home.spec.ts.mockups")
+		gitRun(t, f.wt, "commit", "-qm", "sidecar")
+	}
 	snapFile := func(f *vvpFix) string { return filepath.Join(f.wt, ".superpowers/sdd/visual-prototype.txt") }
 	cases := []struct {
 		name     string
@@ -268,6 +276,8 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 		want     []string
 		closes   bool
 		isProto  bool
+		extra    string
+		noPairs  bool
 	}{
 		{name: "fresh, the changed frame judged", lines: judged, want: []string{"CLOSES-LOOP: yes"}, closes: true},
 		{name: "an unchanged frame needs no line", setup: func(f *vvpFix) {
@@ -293,10 +303,20 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 			writeFile(t, filepath.Join(vvDir(f), "prototype/f1.png"), "new\n")
 		}, lines: judged, want: []string{"CLOSES-LOOP: no — ", "visual-prototype.txt"}, isProto: true},
 		{name: "a prototype map with no snapshot", setup: proto, lines: judged, want: []string{"CLOSES-LOOP: no — ", "visual-prototype.txt"}, isProto: true},
+		{name: "a declared frame no pair carries", extra: mockupsCell, setup: func(f *vvpFix) {
+			writeFile(t, filepath.Join(f.wt, "design/mockups/f2.png"), "png\n")
+			writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "# design\n\nFrame f1 is the home screen.\nFrame f2 is the menu.\n")
+			sidecar(f, "home.png f1\nmenu.png f2\n")
+		}, lines: "- frames: 2/2\n" + judged + "- f2 sweeps: text done\n", want: []string{"CLOSES-LOOP: no — f2: "}},
+		{name: "a mockups-root file changed since the round base", extra: mockupsCell, setup: func(f *vvpFix) {
+			sidecar(f, "home.png f1\n")
+			writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "new\n")
+		}, lines: "- frames: 1/1\n" + judged, want: []string{"CLOSES-LOOP: no — design/mockups/f1.png changed since"}},
+		{name: "an empty closing list", noPairs: true, want: []string{"CLOSES-LOOP: no — no frame on the change's list"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f := vvcFixture(t, "")
+			f := vvcFixture(t, c.extra)
 			if c.setup != nil {
 				c.setup(f)
 			}
@@ -314,8 +334,11 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 			if !c.unscoped {
 				writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), base+" "+at.UTC().Format(time.RFC3339Nano))
 			}
-			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"),
-				`{"pairs":[{"spec":"`+filepath.Join(f.wt, "tests/visual/home.spec.ts")+`","frame":"f1","capture":"`+capture+`"}]}`)
+			pairs := `[{"spec":"` + filepath.Join(f.wt, "tests/visual/home.spec.ts") + `","frame":"f1","capture":"` + capture + `"}]`
+			if c.noPairs {
+				pairs = "[]"
+			}
+			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), `{"pairs":`+pairs+`}`)
 			f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n"+c.lines)
 			rc, out, calls := f.close("visual-verify")
 			if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: done") {

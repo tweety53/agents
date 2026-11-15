@@ -141,11 +141,7 @@ func (v *vvp) measure(args []string) {
 	type line struct{ name, frame string }
 	var lines []line
 	own := "frame none\n"
-	for _, raw := range strings.Split(string(body), "\n") {
-		f := strings.Fields(raw)
-		if len(f) != 2 || f[0] == "frame" || strings.HasPrefix(f[0], "#") {
-			continue
-		}
+	for _, f := range mockupsLines(body) {
 		if prototype && len(cmfMatchCapture(f[0], m.Captures)) == 0 {
 			continue
 		}
@@ -532,4 +528,16 @@ func vvmOver(v any) bool {
 		}
 	}
 	return false
+}
+
+// mockupsLines is a `.mockups` map's `<screenshot> <frame id>` lines, less
+// its `frame` line, comments and malformed lines.
+func mockupsLines(body []byte) [][2]string {
+	var out [][2]string
+	for _, raw := range strings.Split(string(body), "\n") {
+		if f := strings.Fields(raw); len(f) == 2 && f[0] != "frame" && !strings.HasPrefix(f[0], "#") {
+			out = append(out, [2]string{f[0], f[1]})
+		}
+	}
+	return out
 }
