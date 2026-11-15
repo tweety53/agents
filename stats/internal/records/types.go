@@ -486,6 +486,20 @@ type SuiteRun struct {
 	DurationMs int64     `json:"durationMs"`
 	ExitCode   int       `json:"exitCode"`
 	RanAt      time.Time `json:"ranAt"`
+	// Tests is the run's per-test costs (KAN-1124), sent by `flow suite
+	// record` and read back by `flow suite list -tests`; empty for a run
+	// whose output carried no `go test -json` event, and on every row the
+	// summary reads return.
+	Tests []SuiteRunTest `json:"tests,omitempty"`
+}
+
+// SuiteRunTest is one top-level test's cost within a suite run: its own
+// elapsed time plus that of every descendant that paused for t.Parallel,
+// by `flow-guard test-cost`'s rule.
+type SuiteRunTest struct {
+	Package string `json:"package"`
+	Test    string `json:"test"`
+	CostMs  int64  `json:"costMs"`
 }
 
 // SpecLastRun is one spec file's inventory row: when it last ran and how
