@@ -30,13 +30,13 @@ import (
 // mistake must leave no file behind, and ReadJournalEntries returning an
 // empty slice for an absent file would make "refused before writing" and
 // "wrote an empty journal" indistinguishable.
-func recordJournalEntries(t *testing.T, repo, change string) (entries []fallback.Entry, exists bool) {
+func recordJournalEntries(t *testing.T, repo, change string, env testEnv) (entries []fallback.Entry, exists bool) {
 	t.Helper()
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	path := fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, change) + ".record"
+	path := fallback.JournalFilePath(env.stateRoot(), projectKey, change) + ".record"
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			return nil, false
@@ -59,9 +59,11 @@ func recordJournalEntries(t *testing.T, repo, change string) (entries []fallback
 // and "updated:" for the second -- a CLI printing one word either way
 // would make the client's own `created` flag dead weight.
 func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("dispatch", func(t *testing.T) {
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		var gotPath string
 		var gotBody []byte
@@ -83,7 +85,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 				"-change", "kan-258", "-task", "6", "-role", "implementer",
 				"-model", "unknown (agent-defined)", "-key", "task-6-implementer",
 				"-session-token", "mf-record-dispatch-ok"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -139,7 +141,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 
 	t.Run("finding created", func(t *testing.T) {
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +161,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 				"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 				"-severity", "major", "-location", "stats/cmd/flow/record.go:1",
 				"-status", "open", "-reproducer", "scripts/x.sh", "-note", "the note"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -182,7 +184,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 
 	t.Run("finding updated", func(t *testing.T) {
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -195,7 +197,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-ref", "F1", "-round", "1", "-slot", "principles",
 				"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh", "-note", "restated"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -207,7 +209,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 
 	t.Run("status", func(t *testing.T) {
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var gotMethod, gotPath string
 		var gotBody []byte
@@ -226,7 +228,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-ref", "F1", "-status", "fixed"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -259,6 +261,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 // record describes proceeds unaffected.
 // smoke: core — a record write never blocks: it journals and exits 0
 func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		args []string
@@ -295,7 +298,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			// The connection flags are spliced in after the verb words
 			// -- "record dispatch begin" is three, "record finding" is
@@ -310,7 +313,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 			args = append(args, tc.args[verbLen:]...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -322,7 +325,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 				t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
 			}
 
-			entries, exists := recordJournalEntries(t, repo, "kan-258")
+			entries, exists := recordJournalEntries(t, repo, "kan-258", env)
 			if !exists {
 				t.Fatalf("no record journal was written")
 			}
@@ -353,8 +356,8 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 				t.Fatalf("ProjectKey: %v", err)
 			}
 			for _, other := range []struct{ what, path string }{
-				{"state journal", fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-258")},
-				{"stage journal", fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, "kan-258") + ".stage"},
+				{"state journal", fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-258")},
+				{"stage journal", fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-258") + ".stage"},
 			} {
 				otherEntries, err := fallback.ReadJournalEntries(other.path)
 				if err != nil {
@@ -376,6 +379,7 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 // the attempt instant; an explicit -ended-at is a real end and carries no
 // mark.
 func TestRecordDispatchEndJournalMarksTheAttemptInstant(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		extra []string
@@ -386,16 +390,16 @@ func TestRecordDispatchEndJournalMarksTheAttemptInstant(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			args := []string{"record", "dispatch", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-journal-mark",
 				"-commit", "abc1234000000000000000000000000000000000", "-outcome", "completed"}
 			args = append(args, tc.extra...)
 			var stdout, stderr bytes.Buffer
-			if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 			}
-			entries, exists := recordJournalEntries(t, repo, "kan-258")
+			entries, exists := recordJournalEntries(t, repo, "kan-258", env)
 			if !exists || len(entries) != 1 {
 				t.Fatalf("record journal entries = %v (exists=%v), want 1", entries, exists)
 			}
@@ -426,6 +430,7 @@ func TestRecordDispatchEndJournalMarksTheAttemptInstant(t *testing.T) {
 // clock -- so the journal is the only place this CLI ever supplies an
 // instant.
 func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name  string
 		args  []string
@@ -442,7 +447,7 @@ func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			verbLen := 0
 			for verbLen < len(tc.args) && !strings.HasPrefix(tc.args[verbLen], "-") {
@@ -453,12 +458,12 @@ func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
 			args = append(args, tc.args[verbLen:]...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
 			}
 
-			entries, exists := recordJournalEntries(t, repo, "kan-258")
+			entries, exists := recordJournalEntries(t, repo, "kan-258", env)
 			if !exists || len(entries) != 1 {
 				t.Fatalf("record journal entries = %v (exists=%v), want 1", entries, exists)
 			}
@@ -490,6 +495,7 @@ func TestRecordDispatchJournalCarriesTheAttemptInstant(t *testing.T) {
 // so it exits 2 and leaves no journal entry to replay. Journalling it
 // would queue a write that can never succeed.
 func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		args []string
@@ -516,19 +522,19 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			args := append([]string{}, tc.args[:2]...)
 			args = append(args, "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo)
 			args = append(args, tc.args[2:]...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (a caller mistake); stderr:\n%s", code, stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Errorf("a caller mistake wrote a record journal -- a replay of it could never succeed")
 			}
 		})
@@ -540,8 +546,9 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 // `stage begin` checks its stage key: were it checked after, the fallback
 // would swallow the caller's own mistake as if it were a store outage.
 func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -556,7 +563,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "architect", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-record-unknown-role"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -569,7 +576,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 			t.Errorf("stderr does not name the accepted role %q:\n%s", role, stderr.String())
 		}
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("an unrecognised role wrote a record journal")
 	}
 }
@@ -579,8 +586,9 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 // role `/flow` records for the subagent it dispatches to plan
 // brainstorm.md sections B-D and flow.document-fix.
 func TestRecordAcceptsPlannerRole(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -595,7 +603,7 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "planner", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-record-planner-role"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -609,8 +617,9 @@ func TestRecordAcceptsPlannerRole(t *testing.T) {
 // allowlist -- the role `/flow` records for an Explore subagent its planning
 // session dispatches during flow.brainstorm (kan-1033).
 func TestRecordAcceptsExplorerRole(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-1033")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -625,7 +634,7 @@ func TestRecordAcceptsExplorerRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-1033", "-role", "explorer", "-model", "sonnet", "-key", "explore-1",
 			"-session-token", "mf-record-explorer-role"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -639,8 +648,9 @@ func TestRecordAcceptsExplorerRole(t *testing.T) {
 // allowlist -- the role `/flow` records for the one-shot subagent that
 // folds a panel round's reports into one summary (review-panel.md).
 func TestRecordAcceptsMergerRole(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-1050")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -655,7 +665,7 @@ func TestRecordAcceptsMergerRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-1050", "-role", "merger", "-model", "sonnet", "-key", "panel-0-merger",
 			"-session-token", "mf-record-merger-role"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -670,8 +680,9 @@ func TestRecordAcceptsMergerRole(t *testing.T) {
 // that runs implement.md, review-panel.md and verify-and-handoff.md as
 // the conductor (design.md's conductor-runs-implementation-half).
 func TestRecordAcceptsConductorRole(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -686,7 +697,7 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "conductor", "-model", "sonnet", "-key", "conductor",
 			"-session-token", "mf-record-conductor-role"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -701,8 +712,9 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 // skills/flow/verify-and-handoff.md dispatches for flow.verify and
 // flow.visual-verify.
 func TestRecordAcceptsVerifierRole(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -717,7 +729,7 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "task-1-implementer",
 			"-session-token", "mf-record-verifier-role"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -733,8 +745,9 @@ func TestRecordAcceptsVerifierRole(t *testing.T) {
 // between no two sessions, so the harvest binding it exists for would bind
 // nothing.
 func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -749,7 +762,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-1-implementer",
 			"-session-token", "mf-$(date +%s)"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -760,7 +773,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 	if !strings.Contains(stderr.String(), "command substitution") {
 		t.Errorf("stderr does not say why the token was refused:\n%s", stderr.String())
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("a refused session token wrote a record journal")
 	}
 }
@@ -771,8 +784,10 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 // a usage error naming all four subcommands, so an operator who typed the
 // verb and stopped is told what it takes rather than nothing.
 func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"record"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), []string{"record"}, env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -799,6 +814,7 @@ func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {
 // absence as a present, empty value would be a value the daemon could
 // store and the attributor could compare.
 func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
+	t.Parallel()
 	dispatchArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "begin", "-effort", "default", "-addr", addr, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "sonnet", "-key", "panel-1-primary", "-slot", "primary",
@@ -809,7 +825,7 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -830,7 +846,7 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), dispatchArgs(repo, srv.URL, extra...),
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
@@ -869,10 +885,10 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 // -diff-base tests below differ only in the flags they pass and in what
 // they assert about the result, so the wiring they share sits here rather
 // than being written out twice.
-func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
+func dispatchBeginBody(t *testing.T, env testEnv, extra ...string) map[string]any {
 	t.Helper()
 	repo := recordRepo(t, "kan-327")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -896,7 +912,7 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 		"-session-token", "mf-record-diff-base"}
 
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append(args, extra...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append(args, extra...), env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -915,9 +931,11 @@ func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
 // flag the command accepted and then dropped would leave the store holding
 // nothing while every caller believed the base had been recorded.
 func TestRecordDispatchBeginAcceptsDiffBase(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	const base = "0f1e2d3c4b5a69788796a5b4c3d2e1f009182736"
 
-	sent := dispatchBeginBody(t, "-diff-base", base)
+	sent := dispatchBeginBody(t, env, "-diff-base", base)
 
 	if sent["diffBase"] != base {
 		t.Errorf("diffBase = %v, want %s", sent["diffBase"], base)
@@ -929,12 +947,14 @@ func TestRecordDispatchBeginAcceptsDiffBase(t *testing.T) {
 // a begin no judge picked for sends no pairPick key at all -- absence, not
 // an empty value.
 func TestRecordDispatchBeginSendsPairPick(t *testing.T) {
-	sent := dispatchBeginBody(t, "-pair-pick", "judge: a docs-only plan")
+	t.Parallel()
+	env := newTestEnv(t)
+	sent := dispatchBeginBody(t, env, "-pair-pick", "judge: a docs-only plan")
 	if sent["pairPick"] != "judge: a docs-only plan" {
 		t.Errorf("pairPick = %v, want %q", sent["pairPick"], "judge: a docs-only plan")
 	}
 
-	sent = dispatchBeginBody(t)
+	sent = dispatchBeginBody(t, env)
 	if v, ok := sent["pairPick"]; ok {
 		t.Errorf("pairPick = %v, want the key absent when no -pair-pick is given", v)
 	}
@@ -944,9 +964,11 @@ func TestRecordDispatchBeginSendsPairPick(t *testing.T) {
 // begin carries the harness session it ran in, so the store can bind a row
 // no stage run's token reaches.
 func TestRecordDispatchBeginSendsTheSessionID(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "session-kan967")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = "session-kan967"
 
-	sent := dispatchBeginBody(t)
+	sent := dispatchBeginBody(t, env)
 
 	if sent["sessionId"] != "session-kan967" {
 		t.Errorf("sessionId = %v, want session-kan967", sent["sessionId"])
@@ -964,7 +986,9 @@ func TestRecordDispatchBeginSendsTheSessionID(t *testing.T) {
 // absent base means "not recorded", and a present empty value is one the
 // store would keep and a reader could mistake for a base that was.
 func TestRecordDispatchBeginDiffBaseIsOptional(t *testing.T) {
-	sent := dispatchBeginBody(t)
+	t.Parallel()
+	env := newTestEnv(t)
+	sent := dispatchBeginBody(t, env)
 
 	if v, ok := sent["diffBase"]; ok {
 		t.Errorf("diffBase = %v, want the key absent -- an unrecorded base is absence, not an empty value", v)
@@ -985,6 +1009,7 @@ func TestRecordDispatchBeginDiffBaseIsOptional(t *testing.T) {
 // same contract TestRecordDispatchSendsAgentIDOnlyWhenGiven pins for
 // begin.
 func TestDispatchEndAcceptsAgentID(t *testing.T) {
+	t.Parallel()
 	endArgs := func(repo, addr string, extra ...string) []string {
 		args := []string{"record", "dispatch", "end", "-addr", addr, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "panel-1-primary", "-session-token", "mf-record-end-agent-id"}
@@ -994,7 +1019,7 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1010,7 +1035,7 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), endArgs(repo, srv.URL, extra...),
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
@@ -1053,10 +1078,10 @@ func TestDispatchEndAcceptsAgentID(t *testing.T) {
 
 // The cause tests share one call shape: every case below passes the same
 // minimal end request, varying only `-outcome` and `-cause`.
-func causeEndRun(t *testing.T, extra ...string) (int, bytes.Buffer, bytes.Buffer, bool, string) {
+func causeEndRun(t *testing.T, env testEnv, extra ...string) (int, bytes.Buffer, bytes.Buffer, bool, string) {
 	t.Helper()
 	repo := recordRepo(t, "kan-510")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -1070,7 +1095,7 @@ func causeEndRun(t *testing.T, extra ...string) (int, bytes.Buffer, bytes.Buffer
 	args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause"}
 	args = append(args, extra...)
-	code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout, stderr, contacted, repo
 }
 
@@ -1078,7 +1103,9 @@ func causeEndRun(t *testing.T, extra ...string) (int, bytes.Buffer, bytes.Buffer
 // is a caller mistake refused before the store is ever contacted: a blocked
 // outcome naming no cause is the prose footnote this flag exists to retire.
 func TestDispatchEndCauseRequired(t *testing.T) {
-	code, _, stderr, contacted, repo := causeEndRun(t, "-outcome", "blocked")
+	t.Parallel()
+	env := newTestEnv(t)
+	code, _, stderr, contacted, repo := causeEndRun(t, env, "-outcome", "blocked")
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -1086,7 +1113,7 @@ func TestDispatchEndCauseRequired(t *testing.T) {
 	if contacted {
 		t.Error("the store was contacted for a blocked outcome with no cause -- it must be refused first")
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-510"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-510", env); exists {
 		t.Error("a refused end wrote a record journal")
 	}
 }
@@ -1095,6 +1122,8 @@ func TestDispatchEndCauseRequired(t *testing.T) {
 // cause is meaningful only beside a blocked outcome, so carrying one with
 // any other outcome is a caller mistake.
 func TestDispatchEndCauseRejectedWithoutBlocked(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, outcome := range []string{"completed", "timed-out", "aborted", ""} {
 		t.Run("outcome="+outcome, func(t *testing.T) {
 			extra := []string{}
@@ -1102,7 +1131,7 @@ func TestDispatchEndCauseRejectedWithoutBlocked(t *testing.T) {
 				extra = append(extra, "-outcome", outcome)
 			}
 			extra = append(extra, "-cause", "environment")
-			code, _, stderr, contacted, _ := causeEndRun(t, extra...)
+			code, _, stderr, contacted, _ := causeEndRun(t, env, extra...)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -1144,7 +1173,9 @@ func TestDispatchEndClosesLoopRefusedOffCompleted(t *testing.T) {
 // store is contacted, the recordRoles/recordEfforts precedent, and the
 // usage names the accepted set.
 func TestDispatchEndCauseUnknown(t *testing.T) {
-	code, _, stderr, contacted, _ := causeEndRun(t, "-outcome", "blocked", "-cause", "weather")
+	t.Parallel()
+	env := newTestEnv(t)
+	code, _, stderr, contacted, _ := causeEndRun(t, env, "-outcome", "blocked", "-cause", "weather")
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -1164,9 +1195,11 @@ func TestDispatchEndCauseUnknown(t *testing.T) {
 // the store is contacted, its usage naming the accepted set, and every
 // contract outcome reaches the store.
 func TestDispatchEndOutcomeClosedSet(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, outcome := range []string{"done", "approve", "Completed"} {
 		t.Run("refused="+outcome, func(t *testing.T) {
-			code, _, stderr, contacted, _ := causeEndRun(t, "-outcome", outcome)
+			code, _, stderr, contacted, _ := causeEndRun(t, env, "-outcome", outcome)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 			}
@@ -1184,7 +1217,7 @@ func TestDispatchEndOutcomeClosedSet(t *testing.T) {
 			if outcome == "blocked" {
 				extra = append(extra, "-cause", "environment")
 			}
-			code, _, stderr, contacted, _ := causeEndRun(t, extra...)
+			code, _, stderr, contacted, _ := causeEndRun(t, env, extra...)
 			if code != 0 || !contacted {
 				t.Fatalf("exit code = %d, contacted = %v, want 0 and the store contacted; stderr:\n%s", code, contacted, stderr.String())
 			}
@@ -1195,8 +1228,9 @@ func TestDispatchEndOutcomeClosedSet(t *testing.T) {
 // TestDispatchEndCauseAccepted pins the happy path: `-outcome blocked`
 // with a cause from the set reaches the wire carrying it.
 func TestDispatchEndCauseAccepted(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-510")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1220,7 +1254,7 @@ func TestDispatchEndCauseAccepted(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause",
 			"-outcome", "blocked", "-cause", "environment"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1326,8 +1360,9 @@ func runRecordDaemon(t *testing.T, body string) http.HandlerFunc {
 // success outcome: one `rendered: <dest>` line per kind, the file actually
 // on disk, exit 0.
 func TestRecordRenderWritesBothFilesAndPrintsRendered(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(renderDaemon(t, map[string]records.Rendered{
 		"ledger": mustEnvelope(t, "ledger", renderRun),
@@ -1339,7 +1374,7 @@ func TestRecordRenderWritesBothFilesAndPrintsRendered(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "all", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1387,8 +1422,9 @@ func TestRecordRenderWritesBothFilesAndPrintsRendered(t *testing.T) {
 // TestRecordRenderPanelWithNoFindingsStillWritesTheRecord below: a panel
 // that raised nothing has to SAY so.
 func TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(renderDaemon(t, missingRenderLedger()))
 	defer srv.Close()
@@ -1397,7 +1433,7 @@ func TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing(t *testing.T)
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "ledger", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1431,8 +1467,9 @@ func TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing(t *testing.T)
 // invocation is itself the evidence a panel ran; no sentinel row exists in
 // the store and none is needed.
 func TestRecordRenderPanelWithNoFindingsStillWritesTheRecord(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(renderDaemon(t, renderedPanelEnvelope(t, records.Run{Change: "demo"})))
 	defer srv.Close()
@@ -1441,7 +1478,7 @@ func TestRecordRenderPanelWithNoFindingsStillWritesTheRecord(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "panel", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1485,7 +1522,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	smoke.Heavy(t)
 	guard := unfinishedWorkGuard(t)
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	planDir := filepath.Join(repo, "spectre", "changes", "demo")
 	if err := os.MkdirAll(planDir, 0o755); err != nil {
@@ -1526,18 +1563,19 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	}))
 	defer srv.Close()
 	// The guard shells out to `flow record findings` with no -addr, and that
-	// subprocess inherits this process's environment. Its reads resolve
-	// FLOW_RECORDS_ADDR before FLOW_ADDR, so pinning both to srv.URL keeps
-	// the guard reading from this test's daemon rather than from the
+	// subprocess inherits the guard's environment. Its reads resolve
+	// FLOW_RECORDS_ADDR before FLOW_ADDR, so pinning both to srv.URL -- here
+	// for run, and in the guard's own Env below with its state root --
+	// keeps the guard reading from this test's daemon rather than from the
 	// caller's FLOW_RECORDS_ADDR, FLOW_ADDR or the dev daemon on 4173.
-	t.Setenv("FLOW_ADDR", srv.URL)
-	t.Setenv("FLOW_RECORDS_ADDR", srv.URL)
+	env["FLOW_ADDR"] = srv.URL
+	env["FLOW_RECORDS_ADDR"] = srv.URL
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "panel", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -1582,7 +1620,9 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	sep := string(os.PathListSeparator)
 	t.Setenv("PATH", buildDir+sep+stubDir+sep+os.Getenv("PATH"))
 
-	out, err := exec.Command("bash", guard, "check-unfinished-work", repo, "demo").CombinedOutput()
+	check := exec.Command("bash", guard, "check-unfinished-work", repo, "demo")
+	check.Env = append(os.Environ(), "FLOW_ADDR="+srv.URL, "FLOW_RECORDS_ADDR="+srv.URL, "FLOW_STATE_DIR="+env.stateRoot())
+	out, err := check.CombinedOutput()
 	if err != nil {
 		t.Fatalf("check-unfinished-work.sh exited non-zero (%v):\n%s", err, out)
 	}
@@ -1612,14 +1652,15 @@ func unfinishedWorkGuard(t *testing.T) string {
 // mistake, and reaching the network first would let an unreachable store
 // turn it into the exit-0 fallback path.
 func TestRecordRenderRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "../escape", "-kind", "ledger", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a refused change name; stdout:\n%s", stdout.String())
@@ -1630,7 +1671,7 @@ func TestRecordRenderRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(repo, "docs")); !os.IsNotExist(err) {
 		t.Errorf("a refused render created %s", filepath.Join(repo, "docs"))
 	}
-	if _, exists := recordJournalEntries(t, repo, "../escape"); exists {
+	if _, exists := recordJournalEntries(t, repo, "../escape", env); exists {
 		t.Errorf("a caller mistake journalled an entry; a replay of it could never succeed")
 	}
 }
@@ -1639,8 +1680,9 @@ func TestRecordRenderRefusesAChangeNameOutsideTheAllowlist(t *testing.T) {
 // protection inherited from preserve-session-records.sh: a symlink placed
 // under .superpowers/sdd/ must not carry the render out of the repository.
 func TestRecordRenderRefusesADestinationOutsideTheRepo(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	outside := t.TempDir()
 
 	if err := os.MkdirAll(filepath.Join(repo, ".superpowers", "sdd"), 0o755); err != nil {
@@ -1654,7 +1696,7 @@ func TestRecordRenderRefusesADestinationOutsideTheRepo(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "ledger", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a destination outside the repository; stdout:\n%s", stdout.String())
@@ -1674,8 +1716,9 @@ func TestRecordRenderRefusesADestinationOutsideTheRepo(t *testing.T) {
 // abandoned rather than adopted -- the fresh render does not overwrite it
 // and does not mint a second dated copy.
 func TestRecordRenderWritesTheChangeKeyedNameBesideNoLegacy(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	dir := filepath.Join(repo, ".superpowers", "sdd", "ledgers")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -1695,7 +1738,7 @@ func TestRecordRenderWritesTheChangeKeyedNameBesideNoLegacy(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "ledger", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1734,8 +1777,9 @@ func TestRecordRenderWritesTheChangeKeyedNameBesideNoLegacy(t *testing.T) {
 // this binary's vintage -- the silent staleness this verb exists to
 // remove. So the skew exits non-zero, names the fix, and writes nothing.
 func TestRecordRenderStopsLoudlyOnADaemonWithoutTheRoute(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -1747,7 +1791,7 @@ func TestRecordRenderStopsLoudlyOnADaemonWithoutTheRoute(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "all", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero against a daemon without the render route; stdout:\n%s", stdout.String())
@@ -1783,8 +1827,9 @@ func TestRecordRenderStopsLoudlyOnADaemonWithoutTheRoute(t *testing.T) {
 // written, so the fetch that failed takes the whole run to the
 // journalled path with the earlier kind's body still in memory only.
 func TestRecordRenderJournalsEveryKindWhenOneKindFails(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/render/panel") {
@@ -1801,7 +1846,7 @@ func TestRecordRenderJournalsEveryKindWhenOneKindFails(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "render", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo", "-kind", "all", "-repo", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- an unreachable store journals, it does not fail; stderr:\n%s", code, stderr.String())
@@ -1830,13 +1875,13 @@ func TestRecordRenderJournalsEveryKindWhenOneKindFails(t *testing.T) {
 // recordJournalEntries does, rather than through the CLI, so a subcommand
 // whose whole job is to stop callers hand-deriving this path is not itself
 // verified by asking it where it looked.
-func recordJournalFilePath(t *testing.T, repo, change string) string {
+func recordJournalFilePath(t *testing.T, repo, change string, env testEnv) string {
 	t.Helper()
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	return fallback.JournalFilePath(fallback.StateRoot(os.Getenv), projectKey, change) + ".record"
+	return fallback.JournalFilePath(env.stateRoot(), projectKey, change) + ".record"
 }
 
 // TestRecordJournalCountAbsentJournalCountsZero pins the ordinary case,
@@ -1846,13 +1891,14 @@ func recordJournalFilePath(t *testing.T, repo, change string) string {
 // exactly as it prints on a degraded one -- a line printed only when
 // something went wrong is indistinguishable from a line nobody printed.
 func TestRecordJournalCountAbsentJournalCountsZero(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "journal-count", "-change", "kan-258", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1872,14 +1918,15 @@ func TestRecordJournalCountAbsentJournalCountsZero(t *testing.T) {
 // A count that disagreed would report one more pending write than a replay
 // will ever apply -- at a gate whose whole job is to be believable.
 func TestRecordJournalCountIgnoresPartialTrailingLine(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	projectKey, _, err := fallback.ProjectKey(repo)
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	path := recordJournalFilePath(t, repo, "kan-258")
+	path := recordJournalFilePath(t, repo, "kan-258", env)
 	for _, body := range []string{`{"kind":"dispatch"}`, `{"kind":"finding"}`} {
 		if err := fallback.AppendJournalEntry(path, projectKey, "kan-258", []byte(body), time.Now()); err != nil {
 			t.Fatalf("AppendJournalEntry: %v", err)
@@ -1902,7 +1949,7 @@ func TestRecordJournalCountIgnoresPartialTrailingLine(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "journal-count", "-change", "kan-258", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1921,13 +1968,14 @@ func TestRecordJournalCountIgnoresPartialTrailingLine(t *testing.T) {
 // A non-zero exit here would put the gate's own output behind a filesystem
 // the run has no other reason to care about.
 func TestRecordJournalCountPrintsUnknownWhenItCannotCount(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	// A directory where the journal file belongs: every read of it fails,
 	// on every platform and whatever the test runs as -- unlike a mode
 	// stripped to 0000, which root reads regardless.
-	path := recordJournalFilePath(t, repo, "kan-258")
+	path := recordJournalFilePath(t, repo, "kan-258", env)
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		t.Fatalf("mkdir over journal path: %v", err)
 	}
@@ -1935,7 +1983,7 @@ func TestRecordJournalCountPrintsUnknownWhenItCannotCount(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "journal-count", "-change", "kan-258", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- an uncountable journal must never block the handoff; stderr:\n%s", code, stderr.String())
@@ -1955,8 +2003,9 @@ func TestRecordJournalCountPrintsUnknownWhenItCannotCount(t *testing.T) {
 // because only the store can answer the question: it exists to state a
 // figure journal-count has no way to derive.
 func TestCostStatusPrintsOneLine(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotPath, gotMethod string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -1970,7 +2019,7 @@ func TestCostStatusPrintsOneLine(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "cost-status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -1993,14 +2042,15 @@ func TestCostStatusPrintsOneLine(t *testing.T) {
 // a stale addr -- prints the literal `unknown` and exits 0, exactly the
 // contract journal-count carries for the filesystem it reads instead.
 func TestCostStatusNeverBlocks(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "cost-status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-258"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- cost-status must never block a handoff; stderr:\n%s", code, stderr.String())
@@ -2020,8 +2070,9 @@ func TestCostStatusNeverBlocks(t *testing.T) {
 // and token begin carried, never by that seq.
 // smoke: core — a dispatch row's begin and end
 func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var endPath string
 	var endBody []byte
@@ -2046,7 +2097,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
 			"-key", "task-6-implementer", "-session-token", "mf-record-pair"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("begin exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -2060,7 +2111,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-pair",
 			"-commit", "abc1234000000000000000000000000000000000", "-outcome", "completed"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("end exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -2083,7 +2134,7 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 			t.Errorf("end body %s = %v, want %q", field, sent[field], want)
 		}
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("a clean pair wrote a record journal")
 	}
 }
@@ -2099,15 +2150,16 @@ func TestRecordDispatchBeginPrintsTheAllocatedSeqAndEndClosesIt(t *testing.T) {
 // it would lose the end and leave the window that begin opened open
 // forever, which is the defect the end call exists to prevent.
 func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var beginOut, beginErr bytes.Buffer
 	if code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-effort", "default", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-agent-id", "none", "-change", "kan-258", "-task", "6", "-role", "implementer", "-model", "opus",
 			"-key", "task-6-implementer", "-session-token", "mf-record-end-404"},
-		os.Getenv, strings.NewReader(""), &beginOut, &beginErr); code != 0 {
+		env.get, strings.NewReader(""), &beginOut, &beginErr); code != 0 {
 		t.Fatalf("journalled begin exit = %d; stderr:\n%s", code, beginErr.String())
 	}
 
@@ -2122,12 +2174,12 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-record-end-404",
 			"-outcome", "completed"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- a dispatch end whose begin has not landed yet must never block; stderr:\n%s", code, stderr.String())
 	}
-	entries, exists := recordJournalEntries(t, repo, "kan-258")
+	entries, exists := recordJournalEntries(t, repo, "kan-258", env)
 	if !exists {
 		t.Fatal("no record journal was written -- the end would be lost and its window left open forever")
 	}
@@ -2151,8 +2203,9 @@ func TestRecordDispatchEndJournalsAKeyTheStoreDoesNotKnowYet(t *testing.T) {
 // unreachable" and journalled an entry that 404s on every replay). It is
 // reported, names the status, journals nothing and exits non-zero.
 func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -2165,7 +2218,7 @@ func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
 		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-key", "task-6-implementer", "-session-token", "mf-other-run",
 			"-outcome", "completed"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero for a refused end; stderr:\n%s", stderr.String())
@@ -2173,7 +2226,7 @@ func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
 	if !strings.Contains(stderr.String(), "404") || strings.Contains(stderr.String(), "store unreachable") {
 		t.Errorf("stderr = %q, want the 404 named and no unreachable warning", stderr.String())
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("a refused end was journalled -- it would 404 on every replay")
 	}
 }
@@ -2182,8 +2235,9 @@ func TestRecordDispatchEndRefusesA404WithNoQueuedBegin(t *testing.T) {
 // exception above: a 404 from any other record write stays definitive, so
 // the exception cannot quietly become the rule.
 func TestRecordFindingStillRefusesAnUnknownRef(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -2195,12 +2249,12 @@ func TestRecordFindingStillRefusesAnUnknownRef(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-ref", "F99", "-status", "fixed"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero -- a ref naming nothing is refused identically forever")
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("a refused ref wrote a record journal -- a replay of it could never succeed")
 	}
 }
@@ -2213,8 +2267,9 @@ func TestRecordFindingStillRefusesAnUnknownRef(t *testing.T) {
 // after, the fallback would swallow the caller's own mistake as if it were
 // a store outage.
 func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2230,7 +2285,7 @@ func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
 			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 			"-severity", "major", "-status", "in-review", "-reproducer", "scripts/x.sh",
 			"-note", "the note"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2243,7 +2298,7 @@ func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
 			t.Errorf("stderr does not name the accepted vocabulary %q:\n%s", want, stderr.String())
 		}
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("an unrecognised status wrote a record journal")
 	}
 }
@@ -2252,10 +2307,11 @@ func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
 // -- with no reason following it, whitespace-only counting as none -- is
 // refused before the store is contacted.
 func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"withdrawn", "withdrawn   "} {
 		t.Run(status, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2271,7 +2327,7 @@ func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
 					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 					"-severity", "major", "-status", status, "-reproducer", "scripts/x.sh",
 					"-note", "the note"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2282,7 +2338,7 @@ func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
 			if !strings.Contains(stderr.String(), "withdrawn") {
 				t.Errorf("stderr does not name the accepted vocabulary:\n%s", stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Error("a reasonless withdrawn status wrote a record journal")
 			}
 		})
@@ -2297,9 +2353,11 @@ func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
 // record write shares.
 // smoke: core — flow record verdict, stored or journalled
 func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("writes the verdict", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		var gotPath string
 		var gotBody []byte
@@ -2320,7 +2378,7 @@ func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
 			[]string{"record", "verdict", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-worktree", "/wt/kan-451",
 				"-verdict", "CLEAR: /wt/kan-451 -- every plan item is checked and no finding is open"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2349,14 +2407,14 @@ func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
 
 	t.Run("falls back to the journal", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "verdict", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-worktree", "/wt/kan-451",
 				"-verdict", "OUTSTANDING: /wt/kan-451 -- one item unchecked"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -2365,7 +2423,7 @@ func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
 			t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
 		}
 
-		entries, exists := recordJournalEntries(t, repo, "kan-451")
+		entries, exists := recordJournalEntries(t, repo, "kan-451", env)
 		if !exists || len(entries) != 1 {
 			t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
 		}
@@ -2387,9 +2445,11 @@ func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
 // replay, and an empty -reason is a caller mistake refused before the store
 // is ever contacted.
 func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("404 refuses without journalling", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
@@ -2401,30 +2461,30 @@ func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *tes
 		code := run(context.Background(),
 			[]string{"record", "verdict", "false-positive", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", "verified structural"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero for a 404; stdout:\n%s", stdout.String())
 		}
-		if _, exists := recordJournalEntries(t, repo, "kan-451"); exists {
+		if _, exists := recordJournalEntries(t, repo, "kan-451", env); exists {
 			t.Error("a 404 (definitive refusal) wrote a record journal")
 		}
 	})
 
 	t.Run("dead port journals for replay", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "verdict", "false-positive", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", "verified structural"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
 		}
-		entries, exists := recordJournalEntries(t, repo, "kan-451")
+		entries, exists := recordJournalEntries(t, repo, "kan-451", env)
 		if !exists || len(entries) != 1 {
 			t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
 		}
@@ -2441,7 +2501,7 @@ func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *tes
 
 	t.Run("empty reason exits 2 without contacting the store", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		contacted := false
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2455,7 +2515,7 @@ func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *tes
 		code := run(context.Background(),
 			[]string{"record", "verdict", "false-positive", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", ""},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 2 {
 			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2473,9 +2533,11 @@ func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *tes
 // -- the same one `findings` already carries -- plus its two query
 // parameters landing on the request.
 func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("prints the array verbatim", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		body := `[{"id":1,"guard":"check-unfinished-work","worktree":"/wt/kan-451","verdict":"CLEAR: /wt/kan-451 -- ok","recordedAt":"2026-01-02T03:04:05Z","falsePositive":false}]`
 		var gotQuery string
@@ -2490,7 +2552,7 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "verdicts", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-guard", "check-unfinished-work", "-false-positive"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2508,7 +2570,7 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 
 	t.Run("empty for no rows", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -2519,7 +2581,7 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "verdicts", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2531,12 +2593,12 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 
 	t.Run("dead port fails loudly", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "verdicts", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -2556,10 +2618,12 @@ func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
 // ever contacted -- and that an omitted -change (incidents take no
 // required change identity) leaves the field out of the request body.
 func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, minutes := range []string{"-1", "abc"} {
 		t.Run(minutes, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2574,7 +2638,7 @@ func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T
 				[]string{"record", "incident", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-guard", "check-unfinished-work", "-symptom", "s", "-recovery", "r",
 					"-minutes-lost", minutes},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2587,7 +2651,7 @@ func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T
 
 	t.Run("valid write without -change omits change from the body", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -2606,7 +2670,7 @@ func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T
 			[]string{"record", "incident", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-guard", "check-unfinished-work", "-symptom", "s", "-recovery", "r",
 				"-minutes-lost", "5"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2624,8 +2688,9 @@ func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T
 // TestRecordIncidentsPrintsArray pins the second read verb's contract --
 // identical to `verdicts`' own.
 func TestRecordIncidentsPrintsArray(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	body := `[{"id":1,"guard":"check-unfinished-work","symptom":"s","recovery":"r","minutesLost":5,"occurredAt":"2026-01-02T03:04:05Z"}]`
 	srv := httptest.NewServer(runRecordDaemon(t, body))
@@ -2634,7 +2699,7 @@ func TestRecordIncidentsPrintsArray(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "incidents", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2647,8 +2712,9 @@ func TestRecordIncidentsPrintsArray(t *testing.T) {
 // TestRecordFindingRejectsEmptyReproducer pins that an empty -reproducer is
 // refused before the store is contacted.
 func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2664,7 +2730,7 @@ func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
 			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 			"-severity", "major", "-status", "open", "-reproducer", "",
 			"-note", "the note"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2675,7 +2741,7 @@ func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
 	if !strings.Contains(stderr.String(), "reproducer") {
 		t.Errorf("stderr does not name the reproducer field:\n%s", stderr.String())
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("an empty reproducer wrote a record journal")
 	}
 }
@@ -2685,10 +2751,11 @@ func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
 // refused before the store is contacted, since "none — <reason>" is the
 // only legal way to say "not reproducible."
 func TestRecordFindingRejectsBareNoneReproducer(t *testing.T) {
+	t.Parallel()
 	for _, reproducer := range []string{"none", "none  "} {
 		t.Run(reproducer, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2704,7 +2771,7 @@ func TestRecordFindingRejectsBareNoneReproducer(t *testing.T) {
 					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 					"-severity", "major", "-status", "open", "-reproducer", reproducer,
 					"-note", "the note"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2715,7 +2782,7 @@ func TestRecordFindingRejectsBareNoneReproducer(t *testing.T) {
 			if !strings.Contains(stderr.String(), "none — ") {
 				t.Errorf("stderr does not name the required \"none — <reason>\" form:\n%s", stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Error("a bare none reproducer wrote a record journal")
 			}
 		})
@@ -2726,6 +2793,7 @@ func TestRecordFindingRejectsBareNoneReproducer(t *testing.T) {
 // case: a well-formed status and reproducer still reach the fake server,
 // so the validation above rejects only what it names and nothing else.
 func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name       string
 		status     string
@@ -2738,7 +2806,7 @@ func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2754,7 +2822,7 @@ func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
 					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 					"-severity", "major", "-status", c.status, "-reproducer", c.reproducer,
 					"-note", "the note"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2770,8 +2838,9 @@ func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
 // the same status vocabulary check as `record finding`, before the store
 // is contacted.
 func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2784,7 +2853,7 @@ func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-ref", "F1", "-status", "in-review"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2797,7 +2866,7 @@ func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
 			t.Errorf("stderr does not name the accepted vocabulary %q:\n%s", want, stderr.String())
 		}
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("an unrecognised status wrote a record journal")
 	}
 }
@@ -2805,10 +2874,11 @@ func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
 // TestRecordStatusRejectsWithdrawnWithNoReason pins that `record status`
 // applies the same reasonless-withdrawn check as `record finding`.
 func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"withdrawn", "withdrawn   "} {
 		t.Run(status, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2821,7 +2891,7 @@ func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-ref", "F1", "-status", status},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -2832,7 +2902,7 @@ func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
 			if !strings.Contains(stderr.String(), "withdrawn") {
 				t.Errorf("stderr does not name the accepted vocabulary:\n%s", stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Error("a reasonless withdrawn status wrote a record journal")
 			}
 		})
@@ -2844,6 +2914,7 @@ func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
 // before the store is contacted (kan-1083 self-review, F5: F27 and F28 were
 // withdrawn "already green at HEAD" with no run behind the claim).
 func TestRecordStatusRefusesAGreenWithdrawalWithNoRun(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		status string
 		want   int
@@ -2858,7 +2929,7 @@ func TestRecordStatusRefusesAGreenWithdrawalWithNoRun(t *testing.T) {
 	} {
 		t.Run(c.status, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -2871,7 +2942,7 @@ func TestRecordStatusRefusesAGreenWithdrawalWithNoRun(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-ref", "F1", "-status", c.status},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != c.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, c.want, stderr.String())
@@ -2885,7 +2956,7 @@ func TestRecordStatusRefusesAGreenWithdrawalWithNoRun(t *testing.T) {
 			if !strings.Contains(stderr.String(), "exit") {
 				t.Errorf("stderr does not ask for the run's exit:\n%s", stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Error("a refused green withdrawal wrote a record journal")
 			}
 		})
@@ -2899,8 +2970,9 @@ func TestRecordStatusRefusesAGreenWithdrawalWithNoRun(t *testing.T) {
 // carrying ref/status/reproducer -- the only fields a guard consuming this
 // verb needs.
 func TestRecordFindingsPrintsJSONArray(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	body := `{"change":"demo","dispatches":[],"findings":[
 	  {"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"fixed","reproducer":"none — prose only"},
@@ -2913,7 +2985,7 @@ func TestRecordFindingsPrintsJSONArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2945,8 +3017,9 @@ func TestRecordFindingsPrintsJSONArray(t *testing.T) {
 // change the store has never heard of has no findings, which is a fact,
 // not an error.
 func TestRecordFindingsWithNoRowsPrintsEmptyArray(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -2960,7 +3033,7 @@ func TestRecordFindingsWithNoRowsPrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -2976,14 +3049,15 @@ func TestRecordFindingsWithNoRowsPrintsEmptyArray(t *testing.T) {
 // success for a question it could not answer -- non-zero exit, and no
 // JSON array on stdout for a caller to misread as "no findings."
 func TestRecordFindingsStoreUnreachableExitsNonZero(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -2997,13 +3071,14 @@ func TestRecordFindingsStoreUnreachableExitsNonZero(t *testing.T) {
 // caller-mistake contract every other record subcommand uses:
 // requireRecordFlags's message, exit 2.
 func TestRecordFindingsRequiresChange(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "findings", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stdout:\n%s stderr:\n%s", code, stdout.String(), stderr.String())
@@ -3018,6 +3093,7 @@ func TestRecordFindingsRequiresChange(t *testing.T) {
 // the literal prefix, with no separator check, so a concatenated value like
 // "withdrawnfoo" is wrongly accepted as a legal status.
 func TestValidateFindingStatusRejectsWithdrawnConcatenatedNoSpace(t *testing.T) {
+	t.Parallel()
 	if err := validateFindingStatus("withdrawnfoo"); err == nil {
 		t.Fatal(`validateFindingStatus("withdrawnfoo") = nil, want an error -- no space before the reason`)
 	}
@@ -3028,6 +3104,7 @@ func TestValidateFindingStatusRejectsWithdrawnConcatenatedNoSpace(t *testing.T) 
 // shape, checked before the store is ever contacted -- and refuses a bare
 // "deferred" the same way a bare "withdrawn" is refused.
 func TestValidateFindingStatusDeferred(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"deferred", "deferred   ", "deferredfoo"} {
 		if err := validateFindingStatus(status); err == nil {
 			t.Errorf("validateFindingStatus(%q) = nil, want an error -- deferred requires a reason", status)
@@ -3043,6 +3120,7 @@ func TestValidateFindingStatusDeferred(t *testing.T) {
 // reproducer is treated as neither empty nor a bare "none" and wrongly
 // accepted as a legal reproducer.
 func TestValidateFindingReproducerRejectsWhitespaceOnly(t *testing.T) {
+	t.Parallel()
 	if err := validateFindingReproducer(" "); err == nil {
 		t.Fatal(`validateFindingReproducer(" ") = nil, want an error -- whitespace-only is not a legal reproducer`)
 	}
@@ -3055,8 +3133,9 @@ func TestValidateFindingReproducerRejectsWhitespaceOnly(t *testing.T) {
 // pipelines start with ".[]" and crash on a top-level null under
 // set -euo pipefail.
 func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	body := `{"change":"demo","dispatches":[{"id":1,"seq":1,"role":"implementer","model":"sonnet","startedAt":"2026-01-01T00:00:00Z"}],"findings":null}`
 	srv := httptest.NewServer(runRecordDaemon(t, body))
@@ -3066,7 +3145,7 @@ func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testi
 	code := run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3085,8 +3164,9 @@ func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testi
 // into objects carrying key/role/sessionToken -- what
 // check-panel-fix-single-dispatch.sh filters and counts on.
 func TestRunRecordDispatchesPrintsDispatchesAsJSONArray(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	body := `{"change":"demo","findings":[],"dispatches":[
 	  {"id":1,"seq":1,"key":"panel-fix-1","role":"panel-fix","model":"sonnet","sessionToken":"mf-tok","startedAt":"2026-09-10T09:00:00Z"},
@@ -3099,7 +3179,7 @@ func TestRunRecordDispatchesPrintsDispatchesAsJSONArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3130,8 +3210,9 @@ func TestRunRecordDispatchesPrintsDispatchesAsJSONArray(t *testing.T) {
 // verb treats it -- as an empty JSON array and exit 0: a change the store
 // has never heard of has no dispatches, which is a fact, not an error.
 func TestRunRecordDispatchesEmptyChangePrintsEmptyArray(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -3145,7 +3226,7 @@ func TestRunRecordDispatchesEmptyChangePrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3160,14 +3241,15 @@ func TestRunRecordDispatchesEmptyChangePrintsEmptyArray(t *testing.T) {
 // reports success for a question it could not answer -- non-zero exit, and
 // no JSON array on stdout for a caller to misread as "no dispatches."
 func TestRunRecordDispatchesUnreachableStoreFails(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code == 0 {
 		t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -3188,8 +3270,9 @@ func TestRunRecordDispatchesUnreachableStoreFails(t *testing.T) {
 // pipeline starts with .[] and crashes on a top-level null under set -euo
 // pipefail.
 func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	body := `{"change":"demo","findings":[{"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"fixed","reproducer":"none — prose only"}],"dispatches":null}`
 	srv := httptest.NewServer(runRecordDaemon(t, body))
@@ -3199,7 +3282,7 @@ func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3216,8 +3299,9 @@ func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
 // journal entry -- the validateFindingStatus posture the dispatch prompt
 // names.
 func TestRunRecordDecisionRefusesBadBody(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	file := filepath.Join(t.TempDir(), "decision.json")
 	if err := os.WriteFile(file, []byte("not json"), 0o644); err != nil {
@@ -3236,7 +3320,7 @@ func TestRunRecordDecisionRefusesBadBody(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3244,7 +3328,7 @@ func TestRunRecordDecisionRefusesBadBody(t *testing.T) {
 	if contacted {
 		t.Error("the store was contacted for a non-JSON body -- it must be refused first")
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-472"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-472", env); exists {
 		t.Error("a caller mistake wrote a record journal")
 	}
 }
@@ -3253,8 +3337,9 @@ func TestRunRecordDecisionRefusesBadBody(t *testing.T) {
 // fallback every other write verb already carries: an unreachable store
 // journals the decision under kind "decision" and still exits 0.
 func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	file := filepath.Join(t.TempDir(), "decision.json")
 	body := `{"toggles":{"executionMode":"dynamic"},"class":"regular"}`
@@ -3266,7 +3351,7 @@ func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "decision", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -3275,7 +3360,7 @@ func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
 		t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
 	}
 
-	entries, exists := recordJournalEntries(t, repo, "kan-472")
+	entries, exists := recordJournalEntries(t, repo, "kan-472", env)
 	if !exists || len(entries) != 1 {
 		t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
 	}
@@ -3306,6 +3391,7 @@ func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
 // else the policy's base pairs, plus opt-in pairs under a grant -- do not
 // admit is refused with exit 2 before anything is written.
 func TestRunRecordDecisionRefusesAPairNoPolicyAdmits(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name, implementer, fixer, group string
 		grant                           bool
@@ -3331,7 +3417,7 @@ func TestRunRecordDecisionRefusesAPairNoPolicyAdmits(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			file := filepath.Join(t.TempDir(), "decision.json")
 			body := `{"class":"regular","implementer":` + tc.implementer + `,"fixer":` + tc.fixer + `,"groups":[` + tc.group + `]}`
@@ -3370,7 +3456,7 @@ func TestRunRecordDecisionRefusesAPairNoPolicyAdmits(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != tc.wantCode {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.wantCode, stderr.String())
@@ -3387,7 +3473,7 @@ func TestRunRecordDecisionRefusesAPairNoPolicyAdmits(t *testing.T) {
 			if posts != wantPosts {
 				t.Errorf("decision posts = %d, want %d", posts, wantPosts)
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-472"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-472", env); exists {
 				t.Error("a decision was journalled")
 			}
 		})
@@ -3398,9 +3484,11 @@ func TestRunRecordDecisionRefusesAPairNoPolicyAdmits(t *testing.T) {
 // contract -- `incidents`'/`verdicts`' own, verbatim: the store's array,
 // printed as-is, and an empty array (never null) when the store holds none.
 func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("prints the array verbatim", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		body := `[{"id":2,"sessionToken":"mf-def","recordedAt":"2026-01-02T03:04:05Z","decision":{"class":"big"}},` +
 			`{"id":1,"sessionToken":"mf-abc","recordedAt":"2026-01-01T00:00:00Z","decision":{"class":"small"}}]`
@@ -3416,7 +3504,7 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "decisions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-472"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3432,7 +3520,7 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 
 	t.Run("no rows prints an empty array", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -3444,7 +3532,7 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "decisions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-472"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3457,13 +3545,13 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 
 	t.Run("store unreachable exits non-zero", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "decisions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-472"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero -- a read has nothing to journal; stdout:\n%s", stdout.String())
@@ -3478,6 +3566,7 @@ func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
 // while the usage still listed six roles -- and a role dropped from the
 // slice cannot stay advertised as accepted by a stale usage line.
 func TestRecordUsageNamesEveryRole(t *testing.T) {
+	t.Parallel()
 	for _, role := range recordRoles {
 		if !strings.Contains(recordUsage, " "+role+",") && !strings.Contains(recordUsage, " "+role+".") {
 			t.Errorf("recordUsage does not list role %q on its -role line", role)
@@ -3518,10 +3607,12 @@ func TestRecordUsageNamesEveryRole(t *testing.T) {
 // guess (KAN-595), and the output any consumer of the vocabulary reads
 // rather than keeping a transcription of its own.
 func TestRunRecordRolesPrintsServedVocabulary(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "roles"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3545,10 +3636,12 @@ func TestRunRecordRolesPrintsServedVocabulary(t *testing.T) {
 // sibling `flow stage keys` holds: an unexpected positional argument is a
 // usage error reported on stderr, never silently ignored input.
 func TestRunRecordRolesRejectsPositionalArgument(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "roles", "unexpected-arg"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (usage error)", code)
@@ -3575,6 +3668,7 @@ func TestRunRecordRolesRejectsPositionalArgument(t *testing.T) {
 // are excluded because no run ever loads them (skills/flow-contracts/SKILL.md),
 // so a rationale's prose is not vocabulary a caller can act on.
 func TestSkillDocRolesAreAllServed(t *testing.T) {
+	t.Parallel()
 	root := filepath.Join("..", "..", "..", "skills")
 	var hits []string
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -3623,8 +3717,9 @@ var roleLiteralRe = regexp.MustCompile(`(?:^|[^A-Za-z])-role\s+([a-z][a-z|-]*)`)
 // taking the never-block fallback path would journal a write a replay
 // could only ever be refused for a second time.
 func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -3639,7 +3734,7 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "extreme",
 			"-key", "task-1-implementer", "-session-token", "mf-record-unknown-effort"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3652,7 +3747,7 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 			t.Errorf("stderr does not name the accepted effort %q:\n%s", effort, stderr.String())
 		}
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("an unrecognised effort wrote a record journal")
 	}
 }
@@ -3662,15 +3757,16 @@ func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
 // (model-policy.md, **Harness mapping**): kan-988's inline rows recorded
 // an invented `high` after `-effort unknown` was refused without it.
 func TestRunRecordDispatchBeginUnknownEffortNamesDefault(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "unknown",
 			"-key", "task-1-implementer", "-session-token", "mf-record-unknown-effort"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3685,7 +3781,9 @@ func TestRunRecordDispatchBeginUnknownEffortNamesDefault(t *testing.T) {
 // effort, a known fact; an omitted -effort is refused instead
 // (TestRecordDispatchBeginRequiresEffort).
 func TestRecordDispatchBeginSendsAnExplicitDefaultEffort(t *testing.T) {
-	sent := dispatchBeginBody(t, "-effort", "default")
+	t.Parallel()
+	env := newTestEnv(t)
+	sent := dispatchBeginBody(t, env, "-effort", "default")
 
 	if sent["effort"] != "default" {
 		t.Errorf("effort = %v, want %q", sent["effort"], "default")
@@ -3695,9 +3793,11 @@ func TestRecordDispatchBeginSendsAnExplicitDefaultEffort(t *testing.T) {
 // TestRecordDispatchBeginAcceptsEffort pins -effort through to the request
 // body verbatim for each of the five accepted non-default words.
 func TestRecordDispatchBeginAcceptsEffort(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, effort := range []string{"low", "medium", "high", "xhigh", "max"} {
 		t.Run(effort, func(t *testing.T) {
-			sent := dispatchBeginBody(t, "-effort", effort)
+			sent := dispatchBeginBody(t, env, "-effort", effort)
 
 			if sent["effort"] != effort {
 				t.Errorf("effort = %v, want %q", sent["effort"], effort)
@@ -3712,8 +3812,9 @@ func TestRecordDispatchBeginAcceptsEffort(t *testing.T) {
 // to .../passes carrying round and note verbatim, one stdout line naming the
 // allocated row id, exit 0.
 func TestRecordPassCommand(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotPath string
 	var gotBody []byte
@@ -3733,7 +3834,7 @@ func TestRecordPassCommand(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "pass", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-round", "1", "-note", "not re-run — nothing new since its last read"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3767,8 +3868,9 @@ func TestRecordPassCommand(t *testing.T) {
 // POST to .../mutations carrying all three of the contract line's fields,
 // one stdout line, exit 0.
 func TestRecordMutationCommand(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -3792,7 +3894,7 @@ func TestRecordMutationCommand(t *testing.T) {
 		[]string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-round", "1", "-path", "render.go",
 			"-mutated", "none", "-test", "guard was equivalent"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -3818,6 +3920,7 @@ func TestRecordMutationCommand(t *testing.T) {
 // behind -- the same caller-mistake contract every other record write
 // carries.
 func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		args []string
@@ -3828,14 +3931,14 @@ func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), tc.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), tc.args, env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2", code)
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Errorf("a caller mistake left a record journal behind")
 			}
 		})
@@ -3851,6 +3954,7 @@ func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
 // refusal would vanish and the call would reach the store (or, on a quiet
 // machine, journal), and either way this test must name the mechanism.
 func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		verb string
@@ -3861,7 +3965,7 @@ func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -3874,7 +3978,7 @@ func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				append([]string{"record", tc.verb, "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, tc.args...),
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -3889,7 +3993,7 @@ func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
 			// fell through to the never-block path would journal under the
 			// empty change -- assert that file's absence, not a named
 			// change's, or the assertion guards nothing.
-			if _, exists := recordJournalEntries(t, repo, ""); exists {
+			if _, exists := recordJournalEntries(t, repo, "", env); exists {
 				t.Errorf("a record with no -change left a journal behind")
 			}
 		})
@@ -3902,6 +4006,7 @@ func TestRecordPassAndMutationMissingFlagsRefuseWithoutChange(t *testing.T) {
 // under the JSON keys the store reads. Omitted flags record a finding
 // carrying no lineage, which is the ordinary shape of most findings.
 func TestRecordFindingLineageFlags(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name         string
 		args         []string
@@ -3932,7 +4037,7 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-507")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			var body records.Finding
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -3949,7 +4054,7 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 			args = append(args, c.args...)
 
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 			}
@@ -3969,8 +4074,9 @@ func TestRecordFindingLineageFlags(t *testing.T) {
 // the posted finding and serves it on the run-record read.
 // smoke: core — flow record finding's success path, read back
 func TestRecordFindingTaskRoundTrips(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-9")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stored json.RawMessage
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -3989,7 +4095,7 @@ func TestRecordFindingTaskRoundTrips(t *testing.T) {
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-9", "-ref", "F1", "-slot", "principles", "-severity", "major",
 			"-status", "open", "-reproducer", "scripts/x.sh", "-note", "the note", "-task", "2"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("record finding exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -3997,7 +4103,7 @@ func TestRecordFindingTaskRoundTrips(t *testing.T) {
 	stdout.Reset()
 	code = run(context.Background(),
 		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-9"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("record findings exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -4016,6 +4122,7 @@ func TestRecordFindingTaskRoundTrips(t *testing.T) {
 // beside a `deferred <reason>` status -- a category on any other status is
 // the same caller contradiction the store refuses one layer out.
 func TestValidateFindingCategory(t *testing.T) {
+	t.Parallel()
 	for _, category := range []string{"doc-only", "pre-existing", "cosmetic", "coverage-gap", "out-of-scope", "other"} {
 		if err := validateFindingCategory(category, "deferred cosmetic, not worth a fix round"); err != nil {
 			t.Errorf("validateFindingCategory(%q, deferred ...) = %v, want nil", category, err)
@@ -4039,20 +4146,21 @@ func TestValidateFindingCategory(t *testing.T) {
 // call, category included, so a replay of a categorised deferral re-lands
 // the category instead of clearing it.
 func TestRecordStatusJournalsCategory(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-258", "-ref", "F2",
 			"-status", "deferred doc wording only", "-category", "doc-only"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
 	}
 
-	entries, exists := recordJournalEntries(t, repo, "kan-258")
+	entries, exists := recordJournalEntries(t, repo, "kan-258", env)
 	if !exists {
 		t.Fatalf("no record journal was written")
 	}
@@ -4082,8 +4190,9 @@ func TestRecordStatusJournalsCategory(t *testing.T) {
 // review panel round 0): -category reaches the daemon's POST body, so a
 // finding recorded already-deferred lands with its category in one write.
 func TestRecordFindingSendsCategory(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -4108,7 +4217,7 @@ func TestRecordFindingSendsCategory(t *testing.T) {
 			"-change", "kan-258", "-ref", "F3", "-slot", "principles", "-severity", "Minor",
 			"-status", "deferred cosmetic, not worth a fix round", "-category", "cosmetic",
 			"-reproducer", "none — cosmetic dead code", "-note", "the handler carries dead code"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -4128,8 +4237,9 @@ func TestRecordFindingSendsCategory(t *testing.T) {
 // before any network call -- a dead addr proves the refusal, since a fall
 // through to the write path would journal and exit 0.
 func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	cases := []struct {
 		name string
@@ -4156,11 +4266,11 @@ func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), tc.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), tc.args, env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (the validator must refuse before the store is contacted); stderr:\n%s", code, stderr.String())
 			}
-			entries, _ := recordJournalEntries(t, repo, "kan-258")
+			entries, _ := recordJournalEntries(t, repo, "kan-258", env)
 			if len(entries) != 0 {
 				t.Fatalf("a refused write was journalled anyway: %d entries", len(entries))
 			}
@@ -4178,8 +4288,9 @@ func TestRecordVerbsValidateCategoryBeforeTheStore(t *testing.T) {
 // passes the validator and falls through to the network path, journalling
 // as every unreachable write does.
 func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-508", "kan-508-ok")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	for _, tc := range []struct{ name, severity string }{
 		{name: "Critical", severity: "Critical"},
@@ -4191,11 +4302,11 @@ func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
 				"-change", "kan-508", "-ref", "F1", "-slot", "principles", "-severity", tc.severity,
 				"-status", "deferred cosmetic dead code", "-category", "cosmetic",
 				"-reproducer", "none — wording only", "-note", "a wording finding"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2 (the validator must refuse before the store is contacted); stderr:\n%s", code, stderr.String())
 			}
-			entries, _ := recordJournalEntries(t, repo, "kan-508")
+			entries, _ := recordJournalEntries(t, repo, "kan-508", env)
 			if len(entries) != 0 {
 				t.Fatalf("a refused write was journalled anyway: %d entries", len(entries))
 			}
@@ -4211,7 +4322,7 @@ func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
 				"-change", "kan-508-ok", "-ref", "F1", "-slot", "principles", "-severity", tc.severity,
 				"-status", "deferred cosmetic dead code", "-category", "cosmetic",
 				"-reproducer", "none — wording only", "-note", "a wording finding"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code == 2 {
 				t.Fatalf("exit code = 2, want the validator to pass the deferral through to the network path; stderr:\n%s", stderr.String())
 			}
@@ -4225,9 +4336,11 @@ func TestRecordFindingRefusesADeferredNonMinorBeforeTheStore(t *testing.T) {
 // -shape outside the closed vocabulary is a caller mistake refused before
 // the store is ever contacted.
 func TestRecordSubstitutionCommand(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("writes the substitution", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		var gotPath string
 		var gotBody []byte
@@ -4248,7 +4361,7 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 			[]string{"record", "substitution", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-417", "-guard", "gather-dispatch-context", "-shape", "cross-repo",
 				"-substitution", "composed the dispatch bundle by hand"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4277,14 +4390,14 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 
 	t.Run("falls back to the journal", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "substitution", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-417", "-guard", "check-task-commit-fields", "-shape", "cross-repo",
 				"-substitution", "checked every commit message by hand"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -4293,7 +4406,7 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 			t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
 		}
 
-		entries, exists := recordJournalEntries(t, repo, "kan-417")
+		entries, exists := recordJournalEntries(t, repo, "kan-417", env)
 		if !exists || len(entries) != 1 {
 			t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
 		}
@@ -4310,14 +4423,14 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 
 	t.Run("refuses a shape outside the closed set", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "substitution", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-417", "-guard", "gather-dispatch-context", "-shape", "all",
 				"-substitution", "s"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 2 {
 			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -4325,7 +4438,7 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 		if !strings.Contains(stderr.String(), "-shape") {
 			t.Errorf("stderr = %q, want it to name -shape as the offender", stderr.String())
 		}
-		if _, exists := recordJournalEntries(t, repo, "kan-417"); exists {
+		if _, exists := recordJournalEntries(t, repo, "kan-417", env); exists {
 			t.Errorf("a refused caller mistake was journalled")
 		}
 	})
@@ -4335,9 +4448,11 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 // contract: the array verbatim, newest first as the daemon answers it, []
 // for no rows, and a loud non-zero failure on an unreachable store.
 func TestRecordSubstitutionsReadback(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	t.Run("prints the array verbatim", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 
 		body := `[{"id":1,"change":"kan-417","guard":"gather-dispatch-context","shape":"cross-repo","substitution":"composed by hand","recordedAt":"2026-01-02T03:04:05Z"}]`
 		var gotQuery string
@@ -4352,7 +4467,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-guard", "gather-dispatch-context", "-shape", "cross-repo"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4370,7 +4485,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 
 	t.Run("empty for no rows", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -4381,7 +4496,7 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4393,13 +4508,13 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 
 	t.Run("refuses a shape outside the closed set", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-shape", "all"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code != 2 {
 			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -4411,12 +4526,12 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 
 	t.Run("dead port fails loudly", func(t *testing.T) {
 		repo := gitRepo(t)
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "substitutions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
 		if code == 0 {
 			t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
@@ -4435,8 +4550,9 @@ func TestRecordSubstitutionsReadback(t *testing.T) {
 // store, while the pattern's normalization stays the store's business --
 // the CLI forwards verbatim what the caller typed.
 func TestRecordFindingPatternFlag(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-416")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotPattern string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -4458,7 +4574,7 @@ func TestRecordFindingPatternFlag(t *testing.T) {
 			"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh",
 			"-note", "the restyled row lost its handler",
 			"-pattern", "Restyled Row Loses its Handler!"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4473,8 +4589,9 @@ func TestRecordFindingPatternFlag(t *testing.T) {
 // the verdicts-and-incidents project scope, since a pattern's recurrence
 // spans changes.
 func TestRecordFindingPatternsVerb(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/api/v1/finding-patterns/") {
@@ -4489,7 +4606,7 @@ func TestRecordFindingPatternsVerb(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "finding-patterns", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4511,8 +4628,9 @@ func TestRecordFindingPatternsVerb(t *testing.T) {
 // 2 without it, the caller-mistake contract), the pattern escaped into the
 // path, and a pattern nothing carries printed as exactly "[]" with exit 0.
 func TestRecordFindingPatternVerb(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var requested string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -4527,7 +4645,7 @@ func TestRecordFindingPatternVerb(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-name", "Restyled Row"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4551,7 +4669,7 @@ func TestRecordFindingPatternVerb(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("missing -name exit code = %d, want 2", code)
 	}
@@ -4566,8 +4684,9 @@ func TestRecordFindingPatternVerb(t *testing.T) {
 // regardless -- a caller scripting against this verb must never see null
 // where the documented contract says an empty array.
 func TestRecordFindingPatternsEmptyRegistryPrintsEmptyArray(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -4578,7 +4697,7 @@ func TestRecordFindingPatternsEmptyRegistryPrintsEmptyArray(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "finding-patterns", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4593,8 +4712,9 @@ func TestRecordFindingPatternsEmptyRegistryPrintsEmptyArray(t *testing.T) {
 // pattern nothing carries with a JSON null, and this verb — like its
 // plural sibling — must print exactly [].
 func TestRecordFindingPatternEmptyDetailPrintsEmptyArray(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -4606,7 +4726,7 @@ func TestRecordFindingPatternEmptyDetailPrintsEmptyArray(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "finding-pattern", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-name", "pattern-nobody-labeled"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4627,7 +4747,9 @@ func TestRecordFindingPatternEmptyDetailPrintsEmptyArray(t *testing.T) {
 // journalled, since a replay of it could only ever be refused a second
 // time.
 func TestDispatchEndTokensParserRefusals(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	cases := []struct{ name, value string }{
 		{"no equals sign", "input"},
 		{"unknown key", "bandwidth=5"},
@@ -4638,7 +4760,7 @@ func TestDispatchEndTokensParserRefusals(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			code, _, stderr, contacted, repo := causeEndRun(t, "-tokens", tc.value)
+			code, _, stderr, contacted, repo := causeEndRun(t, env, "-tokens", tc.value)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -4646,7 +4768,7 @@ func TestDispatchEndTokensParserRefusals(t *testing.T) {
 			if contacted {
 				t.Error("the store was contacted for an unparseable -tokens value -- it must be refused first")
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-510"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-510", env); exists {
 				t.Error("a refused -tokens value wrote a record journal")
 			}
 			if !strings.Contains(stderr.String(), "-tokens") {
@@ -4663,11 +4785,13 @@ func TestDispatchEndTokensParserRefusals(t *testing.T) {
 // rather than an empty value, the same contract agentId's omitted case
 // pins.
 func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
 		repo := recordRepo(t, "kan-525")
-		isolatedStateRoot(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
 
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -4685,7 +4809,7 @@ func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
 		args := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-525", "-key", "inline-implementer", "-session-token", "ff-kan525-tokens"}
 		args = append(args, extra...)
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
@@ -4723,12 +4847,14 @@ func TestDispatchEndTokensCarriedOnWire(t *testing.T) {
 }
 
 func TestRecordFlagsDefaultToTheRecordsAddress(t *testing.T) {
-	t.Setenv("FLOW_ADDR", "http://127.0.0.1:4174")
-	t.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:9999")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["FLOW_ADDR"] = "http://127.0.0.1:4174"
+	env["FLOW_RECORDS_ADDR"] = "http://127.0.0.1:9999"
 
 	var f recordIdentityFlags
 	fset := flag.NewFlagSet("record", flag.ContinueOnError)
-	registerRecordConnFlags(fset, &f, os.Getenv)
+	registerRecordConnFlags(fset, &f, env.get)
 
 	if f.addr != "http://127.0.0.1:9999" {
 		t.Fatalf("record -addr default = %q, want the records address %q", f.addr, "http://127.0.0.1:9999")
@@ -4742,8 +4868,9 @@ func TestRecordFlagsDefaultToTheRecordsAddress(t *testing.T) {
 // before the store is contacted, and the request path ends in
 // /<change>/summary.
 func TestRunRecordSummary(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var gotPath string
 	var gotBody []byte
@@ -4768,7 +4895,7 @@ func TestRunRecordSummary(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "summary", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-598", "-file", file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -4809,7 +4936,7 @@ func TestRunRecordSummary(t *testing.T) {
 		"empty body":     {"record", "summary", "-addr", srv2.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-598", "-file", emptyFile},
 	} {
 		var stdout2, stderr2 bytes.Buffer
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout2, &stderr2); code != 2 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout2, &stderr2); code != 2 {
 			t.Errorf("%s: exit code = %d, want 2; stderr:\n%s", name, code, stderr2.String())
 		}
 	}
@@ -4822,8 +4949,9 @@ func TestRunRecordSummary(t *testing.T) {
 // every other write verb carries: an unreachable store journals the
 // summary under kind "summary" and still exits 0.
 func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	file := filepath.Join(t.TempDir(), "summary.md")
 	if err := os.WriteFile(file, []byte("what changed and why"), 0o644); err != nil {
@@ -4834,7 +4962,7 @@ func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
 	code := run(context.Background(),
 		[]string{"record", "summary", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 			"-change", "kan-598", "-file", file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
@@ -4843,7 +4971,7 @@ func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
 		t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
 	}
 
-	entries, exists := recordJournalEntries(t, repo, "kan-598")
+	entries, exists := recordJournalEntries(t, repo, "kan-598", env)
 	if !exists || len(entries) != 1 {
 		t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
 	}
@@ -4886,13 +5014,13 @@ func handoffDaemon(t *testing.T) http.HandlerFunc {
 
 // writeRecordJournal writes n complete entries into the record journal of
 // dir's project for change, the file journal-count counts.
-func writeRecordJournal(t *testing.T, dir, change string, n int) string {
+func writeRecordJournal(t *testing.T, dir, change string, n int, env testEnv) string {
 	t.Helper()
 	key, _, err := fallback.ProjectKey(dir)
 	if err != nil {
 		t.Fatalf("project key: %v", err)
 	}
-	path := recordJournalPath(key, change, os.Getenv)
+	path := recordJournalPath(key, change, env.get)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -4902,17 +5030,18 @@ func writeRecordJournal(t *testing.T, dir, change string, n int) string {
 	return path
 }
 
-func runHandoffLines(t *testing.T, args ...string) (int, string, string) {
+func runHandoffLines(t *testing.T, env testEnv, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), append([]string{"record", "handoff-lines", "-timeout", "500ms"}, args...),
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 
 // TestRecordHandoffLinesFormat pins the block the verb prints: the three
 // Records spellings and the Costs line, nothing else.
 func TestRecordHandoffLinesFormat(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name    string
 		journal int // -1: make the journal unreadable
@@ -4925,12 +5054,12 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			if tc.journal > 0 {
-				writeRecordJournal(t, repo, "demo", tc.journal)
+				writeRecordJournal(t, repo, "demo", tc.journal, env)
 			}
 			if tc.journal < 0 {
-				path := writeRecordJournal(t, repo, "demo", 0)
+				path := writeRecordJournal(t, repo, "demo", 0, env)
 				if err := os.Remove(path); err != nil {
 					t.Fatal(err)
 				}
@@ -4941,7 +5070,7 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 			srv := httptest.NewServer(handoffDaemon(t))
 			defer srv.Close()
 
-			code, out, errOut := runHandoffLines(t, "-addr", srv.URL, "-C", repo, "-change", "demo")
+			code, out, errOut := runHandoffLines(t, env, "-addr", srv.URL, "-C", repo, "-change", "demo")
 			if code != 0 {
 				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 			}
@@ -4956,18 +5085,19 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 // keyed per project, so two worktrees of one project are counted once, never
 // double-counted.
 func TestRecordHandoffLinesDedupByProject(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	wt := filepath.Join(t.TempDir(), "wt")
 	if out, err := exec.Command("git", "-C", repo, "worktree", "add", "-q", "--detach", wt).CombinedOutput(); err != nil {
 		t.Fatalf("git worktree add: %v\n%s", err, out)
 	}
-	writeRecordJournal(t, repo, "demo", 3)
+	writeRecordJournal(t, repo, "demo", 3, env)
 
 	srv := httptest.NewServer(handoffDaemon(t))
 	defer srv.Close()
 
-	code, out, errOut := runHandoffLines(t, "-addr", srv.URL, "-C", repo, "-change", "demo", "-worktree", wt)
+	code, out, errOut := runHandoffLines(t, env, "-addr", srv.URL, "-C", repo, "-change", "demo", "-worktree", wt)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
@@ -4980,8 +5110,9 @@ func TestRecordHandoffLinesDedupByProject(t *testing.T) {
 // TestRecordHandoffLinesReadsNoFindings pins that the verb makes no findings
 // read: a records endpoint that fails is never hit, and both lines print.
 func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	recordReads := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/cost-status") {
@@ -4994,7 +5125,7 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	code, out, errOut := runHandoffLines(t, "-addr", srv.URL, "-C", repo, "-change", "demo")
+	code, out, errOut := runHandoffLines(t, env, "-addr", srv.URL, "-C", repo, "-change", "demo")
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
@@ -5011,8 +5142,9 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 // the highest round any pass, finding or mutation row carries, 0 for a
 // change the store has never heard of, and no number on a failed read.
 func TestRunRecordNextRound(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	for _, tc := range []struct {
 		name, body string
@@ -5034,7 +5166,7 @@ func TestRunRecordNextRound(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "next-round", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
 				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
 			}
@@ -5045,7 +5177,7 @@ func TestRunRecordNextRound(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "next-round", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code == 0 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
 		}
@@ -5057,8 +5189,9 @@ func TestRunRecordNextRound(t *testing.T) {
 // nothing on stdout with a non-zero exit when the store cannot be read --
 // check-unfinished-work's signal five reads it.
 func TestRunRecordPasses(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	for _, tc := range []struct {
 		name, body string
 		status     int
@@ -5077,7 +5210,7 @@ func TestRunRecordPasses(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "passes", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
 				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
 			}
@@ -5087,7 +5220,7 @@ func TestRunRecordPasses(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "passes", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code == 0 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
 		}
@@ -5100,8 +5233,9 @@ func TestRunRecordPasses(t *testing.T) {
 // read -- kan-951's third run numbered from F1 and overwrote the creating
 // run's F1.
 func TestRunRecordNextRef(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	for _, tc := range []struct {
 		name, body string
@@ -5122,7 +5256,7 @@ func TestRunRecordNextRef(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "next-ref", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 || strings.TrimSpace(stdout.String()) != tc.want {
 				t.Fatalf("exit %d stdout %q, want 0 and %s; stderr:\n%s", code, stdout.String(), tc.want, stderr.String())
 			}
@@ -5133,7 +5267,7 @@ func TestRunRecordNextRef(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "next-ref", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-change", "demo"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		if code == 0 || stdout.Len() != 0 {
 			t.Fatalf("exit %d stdout %q, want non-zero and empty", code, stdout.String())
 		}
@@ -5145,6 +5279,7 @@ func TestRunRecordNextRef(t *testing.T) {
 // the store is contacted -- kan-964 stored two rows keyed by commit shas,
 // a shape only `flow self-review finding` takes.
 func TestRecordFindingRejectsMalformedRef(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ flag, value string }{
 		{"-ref", "d1650b7"},
 		{"-ref", "F0"},
@@ -5156,7 +5291,7 @@ func TestRecordFindingRejectsMalformedRef(t *testing.T) {
 	} {
 		t.Run(tc.flag+"="+tc.value, func(t *testing.T) {
 			repo := recordRepo(t, "kan-964")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -5176,7 +5311,7 @@ func TestRecordFindingRejectsMalformedRef(t *testing.T) {
 				args = append(args, tc.flag, tc.value)
 			}
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -5199,26 +5334,27 @@ func TestRecordFindingRejectsMalformedRef(t *testing.T) {
 // -addr is a closed port, so a regressed refusal falls through to the
 // journal instead of reaching a live daemon.
 func TestRecordPassRefusesMarkerNote(t *testing.T) {
+	t.Parallel()
 	for _, note := range []string{
 		"fix-mutation: stats/x.go — dropped the guard — TestX",
 		"  finding-status: F9 fixed",
 	} {
 		t.Run(note, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "pass", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-round", "4", "-note", note},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 			}
 			if !strings.Contains(stderr.String(), "flow record mutation") || !strings.Contains(stderr.String(), "flow record finding") {
 				t.Errorf("stderr = %q, want it to name flow record mutation and flow record finding", stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Errorf("a refused marker note left a record journal behind")
 			}
 		})
@@ -5231,23 +5367,24 @@ func TestRecordPassRefusesMarkerNote(t *testing.T) {
 // store is contacted. The -addr is a closed port, so a regressed refusal
 // falls through to the journal instead of reaching a live daemon.
 func TestRecordPassRefusesOneWordNote(t *testing.T) {
+	t.Parallel()
 	for _, note := range []string{"x", "  probe  "} {
 		t.Run(note, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"record", "pass", "-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-round", "0", "-note", note},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 			}
 			if !strings.Contains(stderr.String(), "is one word") {
 				t.Errorf("stderr = %q, want it to say the note is one word", stderr.String())
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Errorf("a refused one-word note left a record journal behind")
 			}
 		})
@@ -5261,6 +5398,7 @@ func TestRecordPassRefusesOneWordNote(t *testing.T) {
 // worktree, an archive or a /flow-fast .superpowers/sdd root is accepted
 // from the main checkout.
 func TestRecordWriteRefusesAChangeNoCheckoutCarries(t *testing.T) {
+	t.Parallel()
 	for _, c := range []struct {
 		name, root string
 		linked     bool
@@ -5273,7 +5411,7 @@ func TestRecordWriteRefusesAChangeNoCheckoutCarries(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			repo := gitRepo(t)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			holder := repo
 			if c.linked {
 				holder = filepath.Join(t.TempDir(), "wt")
@@ -5299,7 +5437,7 @@ func TestRecordWriteRefusesAChangeNoCheckoutCarries(t *testing.T) {
 			defer srv.Close()
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-				"-change", "kan-7", "-key", "k", "-session-token", "mf-kan7-end", "-outcome", "completed"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				"-change", "kan-7", "-key", "k", "-session-token", "mf-kan7-end", "-outcome", "completed"}, env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want || contacted != (c.want == 0) {
 				t.Fatalf("exit %d, contacted %v; want exit %d, contacted %v\nstderr:\n%s", code, contacted, c.want, c.want == 0, stderr.String())
 			}
@@ -5327,6 +5465,7 @@ func recordRepo(t *testing.T, changes ...string) string {
 // A name that resolves to a directory without being a change -- the archive
 // root, a climb out of the tree -- is refused, not stat-matched.
 func TestRequireChangeCheckoutRefusesNonChangeNames(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "real")
 	if err := os.MkdirAll(filepath.Join(repo, "spectre", "changes", "archive"), 0o755); err != nil {
 		t.Fatal(err)
@@ -5345,13 +5484,15 @@ func TestRequireChangeCheckoutRefusesNonChangeNames(t *testing.T) {
 // recorded under its alias -- kan-939's parent rows read claude-opus-5-5
 // beside dispatches' opus -- and any other model verbatim.
 func TestRecordDispatchBeginModelAlias(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for given, want := range map[string]string{
 		"claude-opus-5-5":   "opus",
 		"claude-sonnet-4-6": "sonnet",
 		"opus":              "opus",
 		"glm-5.3-flash":     "glm-5.3-flash",
 	} {
-		if sent := dispatchBeginBody(t, "-model", given); sent["model"] != want {
+		if sent := dispatchBeginBody(t, env, "-model", given); sent["model"] != want {
 			t.Errorf("-model %s recorded as %v, want %s", given, sent["model"], want)
 		}
 	}
@@ -5362,6 +5503,8 @@ func TestRecordDispatchBeginModelAlias(t *testing.T) {
 // version suffix -- is recorded under its family, and any other value
 // verbatim.
 func TestRecordDispatchBeginModelFamily(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for given, want := range map[string]string{
 		"sonnet-5-5":                "sonnet",
 		"claude-fable-5-2":          "fable",
@@ -5373,7 +5516,7 @@ func TestRecordDispatchBeginModelFamily(t *testing.T) {
 		"glm-5.3-flash":             "glm-5.3-flash",
 		"GLM-5.3-Flash":             "GLM-5.3-Flash",
 	} {
-		if sent := dispatchBeginBody(t, "-model", given); sent["model"] != want {
+		if sent := dispatchBeginBody(t, env, "-model", given); sent["model"] != want {
 			t.Errorf("-model %s recorded as %v, want %s", given, sent["model"], want)
 		}
 	}
@@ -5385,10 +5528,11 @@ func TestRecordDispatchBeginModelFamily(t *testing.T) {
 // outcome; a call missing either instant, or carrying one that is not RFC
 // 3339, is exit 2 before the store is called -- never half a row.
 func TestRecordDispatchBackfill(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	const start, end = "2026-10-15T12:08:50Z", "2026-10-15T12:31:07Z"
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	var bodies []map[string]any
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -5408,7 +5552,7 @@ func TestRecordDispatchBackfill(t *testing.T) {
 		"-key", "task-7-implementer", "-session-token", "mf-record-backfill", "-commit", "abc1234000000000000000000000000000000000"}
 	var stdout, stderr bytes.Buffer
 	args := append(append([]string{}, base...), "-started-at", start, "-ended-at", end, "-outcome", "completed")
-	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	if len(bodies) != 2 {
@@ -5433,7 +5577,7 @@ func TestRecordDispatchBackfill(t *testing.T) {
 	} {
 		bodies = nil
 		stderr.Reset()
-		if code := run(context.Background(), append(append([]string{}, base...), extra...), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || bodies != nil {
+		if code := run(context.Background(), append(append([]string{}, base...), extra...), env.get, strings.NewReader(""), &stdout, &stderr); code != 2 || bodies != nil {
 			t.Errorf("%s: exit %d, store calls %d; want 2 and none (stderr %q)", name, code, len(bodies), stderr.String())
 		}
 	}
@@ -5444,13 +5588,15 @@ func TestRecordDispatchBackfill(t *testing.T) {
 // begin's body as startedAt and -ended-at end's as endedAt; an instant that
 // is not RFC 3339 is a usage refusal, exit 2, before the store is called.
 func TestRecordDispatchBackfillInstants(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	const start, end = "2026-10-15T12:08:50Z", "2026-10-15T12:31:07Z"
-	if sent := dispatchBeginBody(t, "-started-at", start); sent["startedAt"] != start {
+	if sent := dispatchBeginBody(t, env, "-started-at", start); sent["startedAt"] != start {
 		t.Errorf("begin startedAt = %v, want %s", sent["startedAt"], start)
 	}
 
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		gotBody, _ = readAll(r)
@@ -5461,7 +5607,7 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 	endArgs := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-key", "panel-1-primary", "-session-token", "mf-record-backfill"}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), append(endArgs, "-ended-at", end), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), append(endArgs, "-ended-at", end), env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("end exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 	var sent map[string]any
@@ -5478,7 +5624,7 @@ func TestRecordDispatchBackfillInstants(t *testing.T) {
 		stdout.Reset()
 		stderr.Reset()
 		gotBody = nil
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "is not an RFC 3339 instant") || gotBody != nil {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "is not an RFC 3339 instant") || gotBody != nil {
 			t.Errorf("%s: exit %d, store called %v, stderr %q; want 2, no call, an RFC 3339 refusal", args[2], code, gotBody != nil, stderr.String())
 		}
 	}
@@ -5528,21 +5674,22 @@ func postBodies(t *testing.T) (*httptest.Server, *[]map[string]any) {
 // -commit carries its committer time as commitAt, so the store can refuse
 // an inline row begun after it; a sha no worktree knows sends none.
 func TestRecordDispatchEndSendsCommitAt(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
 	srv, bodies := postBodies(t)
 	base := []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-key", "task-1-implementer", "-session-token", "mf-record-commitat", "-outcome", "completed"}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), append(append([]string{}, base...), "-commit", sha), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), append(append([]string{}, base...), "-commit", sha), env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 1 || (*bodies)[0]["commitAt"] != "2026-10-21T11:10:31Z" {
 		t.Fatalf("bodies = %v, want one with commitAt 2026-10-21T11:10:31Z", *bodies)
 	}
 	*bodies = nil
-	if code := run(context.Background(), append(append([]string{}, base...), "-commit", "abc1234000000000000000000000000000000000"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), append(append([]string{}, base...), "-commit", "abc1234000000000000000000000000000000000"), env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("unknown sha: exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 1 {
@@ -5557,13 +5704,14 @@ func TestRecordDispatchEndSendsCommitAt(t *testing.T) {
 // run-verify-list ends an all-skipped run with it, and a refusal would leave
 // that row open.
 func TestRecordDispatchEndAcceptsSkipped(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	srv, bodies := postBodies(t)
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-key", "verify-list-lint", "-session-token", "mf-record-skipped", "-outcome", "skipped"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 1 || (*bodies)[0]["outcome"] != "skipped" {
@@ -5576,9 +5724,10 @@ func TestRecordDispatchEndAcceptsSkipped(t *testing.T) {
 // commit and its start from the commit before it, and refuses either
 // instant given by hand.
 func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-21T11:02:00Z")
 	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
 	srv, bodies := postBodies(t)
@@ -5587,7 +5736,7 @@ func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
 		"-key", "task-1-implementer", "-session-token", "mf-record-derive", "-outcome", "completed"}
 	inline := append(append([]string{}, base...), "-agent-id", "inline", "-commit", sha)
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), inline, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), inline, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(*bodies) != 2 || (*bodies)[0]["startedAt"] != "2026-10-21T11:02:00Z" || (*bodies)[1]["endedAt"] != "2026-10-21T11:10:31Z" {
@@ -5600,7 +5749,7 @@ func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
 	} {
 		*bodies = nil
 		stderr.Reset()
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || len(*bodies) != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 || len(*bodies) != 0 {
 			t.Errorf("%s: exit %d, store calls %d; want 2 and none (stderr %q)", name, code, len(*bodies), stderr.String())
 		}
 	}
@@ -5611,9 +5760,10 @@ func TestRecordDispatchBackfillDerivesInlineInstants(t *testing.T) {
 // its hand-typed window does not contain the commit's committer time
 // (dispatch 87 was back-filled four hours before its commit).
 func TestRecordDispatchBackfillRefusesAWindowMissingItsCommit(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
 	srv, bodies := postBodies(t)
 	base := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
@@ -5633,7 +5783,7 @@ func TestRecordDispatchBackfillRefusesAWindowMissingItsCommit(t *testing.T) {
 	} {
 		*bodies = nil
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), c.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), c.args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != c.code || len(*bodies) != c.calls {
 			t.Errorf("%s: exit %d, store calls %d; want %d and %d (stderr %q)", c.name, code, len(*bodies), c.code, c.calls, stderr.String())
 		}
@@ -5649,9 +5799,10 @@ func TestRecordDispatchBackfillRefusesAWindowMissingItsCommit(t *testing.T) {
 // commit before its fix commit is; a round with no ended reviewer row, and
 // any other role, keep the commit-derived start.
 func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
 	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
 	record := `{"change":"kan-258","dispatches":[` +
@@ -5701,7 +5852,7 @@ func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T)
 			"-change", "kan-258", "-role", tc.role, "-model", "opus", "-key", tc.key,
 			"-session-token", "mf-record-panel-fix-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.key, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -5716,9 +5867,10 @@ func TestRecordDispatchBackfillFloorsAPanelFixAtItsRoundsReviewers(t *testing.T)
 // longer claims the whole panel wait; a record with no reviewer row, and a
 // key whose <n> is not a positive integer, keep the commit-derived start.
 func TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
 	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
 	reviewers := `{"change":"kan-258","dispatches":[` +
@@ -5755,7 +5907,7 @@ func TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers(t *testin
 			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", tc.key,
 			"-session-token", "mf-record-full-suite-fix-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.key, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -5768,8 +5920,9 @@ func TestRecordDispatchBackfillFloorsAFullSuiteFixAtThePanelsReviewers(t *testin
 // refused before the store is contacted, never recorded as "default" --
 // an explicit -effort default is still accepted.
 func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -5783,7 +5936,7 @@ func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
 		"-change", "kan-258", "-role", "implementer", "-model", "opus",
 		"-key", "task-1-implementer", "-session-token", "mf-record-requires-effort"}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -5793,13 +5946,13 @@ func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
 	if contacted {
 		t.Error("the store was contacted for a begin with no -effort -- it must be refused first")
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Error("a begin with no -effort wrote a record journal")
 	}
 
 	stdout.Reset()
 	stderr.Reset()
-	code = run(context.Background(), append(args, "-effort", "default"), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code = run(context.Background(), append(args, "-effort", "default"), env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("explicit -effort default exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -5809,6 +5962,7 @@ func TestRecordDispatchBeginRequiresEffort(t *testing.T) {
 // -location naming no line is refused before the store is contacted, while
 // a path:line range and an omitted -location are both accepted.
 func TestRecordFindingRefusesALocationWithNoLine(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name     string
 		location []string
@@ -5821,7 +5975,7 @@ func TestRecordFindingRefusesALocationWithNoLine(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			contacted := false
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -5836,7 +5990,7 @@ func TestRecordFindingRefusesALocationWithNoLine(t *testing.T) {
 				"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh",
 				"-note", "the note"}, tc.location...)
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != tc.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
 			}
@@ -5857,8 +6011,10 @@ func TestRecordFindingRefusesALocationWithNoLine(t *testing.T) {
 // -- the harvester credits that row from the transcript, and a report would
 // overwrite it -- on both `dispatch end` and `dispatch backfill`.
 func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "s")
-	code, _, stderr, contacted, _ := causeEndRun(t, "-tokens", "input=1,output=2")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = "s"
+	code, _, stderr, contacted, _ := causeEndRun(t, env, "-tokens", "input=1,output=2")
 	if code != 2 {
 		t.Fatalf("end exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -5872,7 +6028,6 @@ func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
 	}
 
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	contacted = false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		contacted = true
@@ -5885,7 +6040,7 @@ func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
 		"-change", "kan-258", "-role", "implementer", "-model", "opus", "-agent-id", "none",
 		"-key", "k", "-session-token", "mf-record-backfill-tokens",
 		"-started-at", "2026-10-15T12:08:50Z", "-ended-at", "2026-10-15T12:31:07Z", "-outcome", "completed",
-		"-tokens", "input=1,output=2"}, os.Getenv, strings.NewReader(""), &stdout, &berr)
+		"-tokens", "input=1,output=2"}, env.get, strings.NewReader(""), &stdout, &berr)
 	if bcode != 2 || contacted {
 		t.Errorf("backfill exit = %d, contacted = %v; want 2 and not contacted (stderr %q)", bcode, contacted, berr.String())
 	}
@@ -5893,8 +6048,8 @@ func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
 		t.Errorf("backfill stderr does not name CLAUDE_CODE_SESSION_ID:\n%s", berr.String())
 	}
 
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
-	code, _, stderr, _, _ = causeEndRun(t, "-tokens", "input=1,output=2")
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	code, _, stderr, _, _ = causeEndRun(t, env, "-tokens", "input=1,output=2")
 	if code != 0 {
 		t.Errorf("end with CLAUDE_CODE_SESSION_ID empty exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -5904,7 +6059,9 @@ func TestRecordDispatchEndRefusesTokensUnderClaudeCode(t *testing.T) {
 // `dispatch backfill` refuse an abbreviated -commit before the store is
 // contacted, and that a full 40-hex sha is accepted.
 func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
-	code, _, stderr, contacted, _ := causeEndRun(t, "-commit", "99153ab4")
+	t.Parallel()
+	env := newTestEnv(t)
+	code, _, stderr, contacted, _ := causeEndRun(t, env, "-commit", "99153ab4")
 	if code != 2 || contacted {
 		t.Errorf("end exit = %d, contacted = %v; want 2 and not contacted", code, contacted)
 	}
@@ -5913,7 +6070,7 @@ func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
 	}
 
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 	contacted = false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
 		contacted = true
@@ -5926,7 +6083,7 @@ func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
 		"-change", "kan-258", "-role", "implementer", "-model", "opus", "-agent-id", "none",
 		"-key", "k", "-session-token", "mf-record-backfill-commit",
 		"-started-at", "2026-10-15T12:08:50Z", "-ended-at", "2026-10-15T12:31:07Z", "-outcome", "completed",
-		"-commit", "99153ab4"}, os.Getenv, strings.NewReader(""), &stdout, &berr)
+		"-commit", "99153ab4"}, env.get, strings.NewReader(""), &stdout, &berr)
 	if bcode != 2 || contacted {
 		t.Errorf("backfill exit = %d, contacted = %v; want 2 and not contacted (stderr %q)", bcode, contacted, berr.String())
 	}
@@ -5934,7 +6091,7 @@ func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
 		t.Errorf("backfill stderr does not name 40:\n%s", berr.String())
 	}
 
-	code, _, stderr, _, _ = causeEndRun(t, "-commit", "99153ab4"+strings.Repeat("0", 32))
+	code, _, stderr, _, _ = causeEndRun(t, env, "-commit", "99153ab4"+strings.Repeat("0", 32))
 	if code != 0 {
 		t.Errorf("full sha exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -5943,10 +6100,10 @@ func TestRecordDispatchRefusesAnAbbreviatedCommit(t *testing.T) {
 // dispatchBeginKey runs `flow record dispatch begin` with the given role and
 // key against a fake daemon and reports the exit code, stderr, and whether
 // the daemon was contacted.
-func dispatchBeginKey(t *testing.T, role, key string) (int, string, bool) {
+func dispatchBeginKey(t *testing.T, env testEnv, role, key string) (int, string, bool) {
 	t.Helper()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		contacted = true
@@ -5961,7 +6118,7 @@ func dispatchBeginKey(t *testing.T, role, key string) (int, string, bool) {
 		argv = append(argv, "-slot", "primary")
 	}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String(), contacted
 }
 
@@ -5969,7 +6126,9 @@ func dispatchBeginKey(t *testing.T, role, key string) (int, string, bool) {
 // panel key carries its numeric round: a key PanelDispatchRound cannot read
 // would drop the row out of every panel-round signal.
 func TestRecordDispatchBeginRefusesANonNumericPanelRound(t *testing.T) {
-	code, stderr, contacted := dispatchBeginKey(t, "reviewer", "panel-fix1-primary")
+	t.Parallel()
+	env := newTestEnv(t)
+	code, stderr, contacted := dispatchBeginKey(t, env, "reviewer", "panel-fix1-primary")
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr)
 	}
@@ -5980,7 +6139,7 @@ func TestRecordDispatchBeginRefusesANonNumericPanelRound(t *testing.T) {
 		t.Error("a refused key was sent to the daemon")
 	}
 	for _, ok := range [][2]string{{"reviewer", "panel-2-primary"}, {"panel-fix", "panel-fix-2"}} {
-		if code, stderr, _ := dispatchBeginKey(t, ok[0], ok[1]); code != 0 {
+		if code, stderr, _ := dispatchBeginKey(t, env, ok[0], ok[1]); code != 0 {
 			t.Errorf("-role %s -key %s: exit %d, want 0; stderr:\n%s", ok[0], ok[1], code, stderr)
 		}
 	}
@@ -5990,8 +6149,10 @@ func TestRecordDispatchBeginRefusesANonNumericPanelRound(t *testing.T) {
 // implementer key shape task-<ids>-implementer[-fix-<k>], ids +-joined: a
 // hyphen-joined task-11-12 reads as task 11 alone to every task-key reader.
 func TestRecordDispatchBeginRefusesAnOffConventionImplementerKey(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, bad := range []string{"task-11-12", "task-12"} {
-		code, stderr, contacted := dispatchBeginKey(t, "implementer", bad)
+		code, stderr, contacted := dispatchBeginKey(t, env, "implementer", bad)
 		if code != 2 {
 			t.Errorf("-key %s: exit code = %d, want 2; stderr:\n%s", bad, code, stderr)
 		}
@@ -6005,7 +6166,7 @@ func TestRecordDispatchBeginRefusesAnOffConventionImplementerKey(t *testing.T) {
 	for _, ok := range []string{"task-12-implementer", "task-11+12-implementer", "task-3+4-implementer-fix-1",
 		"task-3-implementer-retry", "task-3+4-implementer-fix-1-retry",
 		"self-review-demo-fix-g1"} {
-		if code, stderr, _ := dispatchBeginKey(t, "implementer", ok); code != 0 {
+		if code, stderr, _ := dispatchBeginKey(t, env, "implementer", ok); code != 0 {
 			t.Errorf("-key %s: exit %d, want 0; stderr:\n%s", ok, code, stderr)
 		}
 	}
@@ -6016,8 +6177,9 @@ func TestRecordDispatchBeginRefusesAnOffConventionImplementerKey(t *testing.T) {
 // panel-reviewer-slot-required), while a non-panel reviewer key and every
 // other role still record with none.
 func TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		contacted = true
@@ -6031,7 +6193,7 @@ func TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot(t *testing.T) {
 			[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-role", role, "-model", "opus", "-key", key,
 				"-session-token", "mf-record-slot-required"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	code, stderr := begin("reviewer", "panel-1-primary")
@@ -6055,8 +6217,9 @@ func TestRecordDispatchBeginRefusesAPanelReviewerWithoutSlot(t *testing.T) {
 // that a visual-verify verifier row carries the HEAD it verifies, while a
 // plain verify verifier still records with none.
 func TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		contacted = true
@@ -6069,7 +6232,7 @@ func TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase(t *testi
 		args := append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "verifier", "-model", "opus", "-key", key,
 			"-session-token", "mf-record-vv-diff-base"}, extra...)
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	code, stderr := begin("visual-verify-gymie")
@@ -6095,11 +6258,12 @@ func TestRecordDispatchBeginRefusesAVisualVerifyVerifierWithoutDiffBase(t *testi
 // the change's records carry is refused, while a round at or above it, and
 // any begin whose record read fails, still records.
 func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
+	t.Parallel()
 	recorded := `{"change":"kan-258","passes":[{"id":1,"round":3,"note":"n"}],"dispatches":[{"key":"panel-2-primary","role":"reviewer","slot":"primary"},{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"},{"key":"panel-2-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"},{"key":"panel-3-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	begin := func(t *testing.T, record string, readStatus int, key string, extra ...string) (int, string, int) {
 		t.Helper()
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		posts := 0
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
@@ -6135,7 +6299,7 @@ func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
 			append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", key, "-slot", "primary",
 				"-session-token", "mf-record-round-floor"}, extra...),
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	t.Run("below the recorded round is refused", func(t *testing.T) {
@@ -6176,6 +6340,7 @@ func TestRecordDispatchBeginRefusesAPanelRoundBelowTheRecorded(t *testing.T) {
 // mutation-path-exists: a mutation row names a regular file in the -C
 // repository or in a worktree the change's state record names.
 func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
+	t.Parallel()
 	write := func(root, rel string) {
 		t.Helper()
 		p := filepath.Join(root, rel)
@@ -6187,7 +6352,7 @@ func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
 		}
 	}
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	peer := t.TempDir()
 	write(repo, "local/Fixed.kt")
 	write(peer, "peer/Fixed.kt")
@@ -6221,7 +6386,7 @@ func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-round", "1", "-path", path, "-mutated", "m", "-test", "t"},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 
@@ -6272,8 +6437,9 @@ func TestRecordMutationRefusesAPathNoWorktreeHolds(t *testing.T) {
 // rows, and a failed store read records nothing and leaves the file as it
 // was.
 func TestRecordFindingFromAssignsRefs(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-918")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	readStatus := http.StatusOK
 	var gotPath string
@@ -6305,7 +6471,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 				"-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-dispatch-seq", "4", "-from", file},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	write := func(s string) {
@@ -6411,7 +6577,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 			"-ref", "F7", "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderrF)
+		env.get, strings.NewReader(""), &stdout, &stderrF)
 	if code != 2 || !strings.Contains(stderrF.String(), "-ref") {
 		t.Errorf("(f) -ref with -from exit %d stderr %q, want 2 naming -ref", code, stderrF.String())
 	}
@@ -6421,7 +6587,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 		code = run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 				form, "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
-			os.Getenv, strings.NewReader(""), &stdout, &stderrF)
+			env.get, strings.NewReader(""), &stdout, &stderrF)
 		if code != 2 || !strings.Contains(stderrF.String(), "-ref and -from cannot be combined") {
 			t.Errorf("(f) %s with -from exit %d stderr %q, want 2 refusing the combination", form, code, stderrF.String())
 		}
@@ -6489,8 +6655,9 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 // command line's own flags, a note carrying a tab, quotes and a `$` arrives
 // intact, and a malformed line stops the run at its line number.
 func TestRecordFindingFromFile(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-918")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	var posted []records.Finding
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -6516,7 +6683,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from", file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("record finding -from exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
@@ -6537,7 +6704,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from=" + file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 || !strings.Contains(stderr.String(), file+":2:") {
 		t.Errorf("malformed line 2: exit %d, stderr %q; want 2 naming %s:2", code, stderr.String(), file)
 	}
@@ -6552,7 +6719,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	stderr.Reset()
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918", "-from", file},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 || !strings.Contains(stderr.String(), file+":2:") {
 		t.Errorf("non-scalar line 2: exit %d, stderr %q; want 2 naming %s:2", code, stderr.String(), file)
 	}
@@ -6565,7 +6732,7 @@ func TestRecordFindingFromFile(t *testing.T) {
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
 			"-note", "from", "-ref", "F6", "-slot", "primary", "-severity", "Minor", "-status", "open", "-reproducer", "none — x"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || len(posted) != 5 || posted[4].Note != "from" {
 		t.Errorf("-note from: exit %d, stderr %q, posted %+v; want F6 recorded with note \"from\"", code, stderr.String(), posted)
 	}
@@ -6578,8 +6745,9 @@ func TestRecordFindingFromFile(t *testing.T) {
 // close-task ticks stay uncommitted -- while a dispatched row and a
 // back-filled one are not judged.
 func TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	change := filepath.Join(repo, "spectre", "changes", "kan-258")
 	write := func(name, body string) {
 		t.Helper()
@@ -6607,7 +6775,7 @@ func TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-5-implementer",
 			"-session-token", "mf-record-inline-dirty"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), contacted
 	}
 
@@ -6634,8 +6802,9 @@ func TestRecordDispatchBeginRefusesAnInlineRowOverEarlierWork(t *testing.T) {
 // A review-panel round reads the whole diff, so every task must be closed
 // first (kan-1007: panel round 4 began before task 8's close).
 func TestRecordDispatchBeginRefusesAPanelRoundOverAnUntickedTask(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	plan := filepath.Join(repo, "spectre", "changes", "kan-258", "tasks.md")
 	write := func(body string) {
 		t.Helper()
@@ -6656,7 +6825,7 @@ func TestRecordDispatchBeginRefusesAPanelRoundOverAnUntickedTask(t *testing.T) {
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", key,
 			"-session-token", "mf-record-panel-unticked"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), contacted
 	}
 
@@ -6687,8 +6856,9 @@ func TestRecordDispatchBeginRefusesAPanelRoundOverAnUntickedTask(t *testing.T) {
 }
 
 func TestRecordDispatchBeginInlineReadsTheChangeWorktree(t *testing.T) {
+	t.Parallel()
 	main := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	wt := filepath.Join(t.TempDir(), "wt")
 	gitIn := func(dir string, args ...string) {
 		t.Helper()
@@ -6726,7 +6896,7 @@ func TestRecordDispatchBeginInlineReadsTheChangeWorktree(t *testing.T) {
 			"-change", "kan-259", "-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 			"-session-token", "mf-record-inline-dirty"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 
@@ -6741,8 +6911,9 @@ func TestRecordDispatchBeginInlineReadsTheChangeWorktree(t *testing.T) {
 }
 
 func TestRecordDispatchBeginInlineKeepsANamedCarryingWorktree(t *testing.T) {
+	t.Parallel()
 	main := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	root := t.TempDir()
 	gitIn := func(dir string, args ...string) {
 		t.Helper()
@@ -6782,7 +6953,7 @@ func TestRecordDispatchBeginInlineKeepsANamedCarryingWorktree(t *testing.T) {
 		"-change", "kan-259", "-role", "implementer", "-model", "opus", "-key", "task-6-implementer",
 		"-session-token", "mf-record-inline-named", "-agent-id", "inline"}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("-C a clean carrying worktree beside a dirty one: exit %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }
@@ -6791,10 +6962,11 @@ func TestRecordDispatchBeginInlineKeepsANamedCarryingWorktree(t *testing.T) {
 // correction reaches the daemon as diffBase, and an end without it sends
 // no diffBase key, so begin's value stands (kan-1008's self-review).
 func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
+	t.Parallel()
 	send := func(t *testing.T, extra ...string) map[string]any {
 		t.Helper()
 		repo := recordRepo(t, "kan-1008")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		var gotBody []byte
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			var err error
@@ -6809,7 +6981,7 @@ func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		args := append([]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-1008", "-key", "visual-verify-fix-3-full-gymie", "-session-token", "mf-k1008r2", "-outcome", "completed"}, extra...)
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 		}
 		var sent map[string]any
@@ -6867,10 +7039,10 @@ func TestDispatchEndClosesLoopCarriedOnWire(t *testing.T) {
 
 // dispatchCall runs one `flow record dispatch <verb>` against a fake daemon
 // and returns its exit code, stderr and how many requests the daemon saw.
-func dispatchCall(t *testing.T, verb string, extra ...string) (int, string, int) {
+func dispatchCall(t *testing.T, env testEnv, verb string, extra ...string) (int, string, int) {
 	t.Helper()
 	repo := recordRepo(t, "kan-327")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 
 	requests := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -6886,7 +7058,7 @@ func dispatchCall(t *testing.T, verb string, extra ...string) (int, string, int)
 		args = append(args, "-role", "verifier", "-model", "opus", "-effort", "default")
 	}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append(args, extra...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append(args, extra...), env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String(), requests
 }
 
@@ -6894,13 +7066,15 @@ func dispatchCall(t *testing.T, verb string, extra ...string) (int, string, int)
 // rows: a key whose suffix expanded to nothing (`verify-`) is refused before
 // any request, while a key that merely ends in a letter still records.
 func TestRecordDispatchBeginRefusesAKeyEndingInADash(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, key := range []string{"verify-", "verify-fix-1-"} {
-		code, stderr, requests := dispatchCall(t, "begin", "-agent-id", "inline", "-key", key)
+		code, stderr, requests := dispatchCall(t, env, "begin", "-agent-id", "inline", "-key", key)
 		if code != 2 || !strings.Contains(stderr, fmt.Sprintf("%q", key)) || requests != 0 {
 			t.Errorf("-key %s: exit %d, %d requests, stderr %q; want exit 2, 0 requests, the key named", key, code, requests, stderr)
 		}
 	}
-	if code, stderr, _ := dispatchCall(t, "begin", "-agent-id", "inline", "-key", "verify-gymie"); code != 0 {
+	if code, stderr, _ := dispatchCall(t, env, "begin", "-agent-id", "inline", "-key", "verify-gymie"); code != 0 {
 		t.Errorf("-key verify-gymie: exit %d, stderr %q; want 0", code, stderr)
 	}
 }
@@ -6909,14 +7083,16 @@ func TestRecordDispatchBeginRefusesAKeyEndingInADash(t *testing.T) {
 // rows: a dispatch label passed as -agent-id blocks the daemon's stamp, so
 // begin and end refuse anything but a harness id, inline or none.
 func TestRecordDispatchRefusesAnInventedAgentID(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	for _, c := range []struct{ verb, id string }{{"begin", "task-11"}, {"end", "visual-verify"}} {
-		code, stderr, requests := dispatchCall(t, c.verb, "-key", "verify-gymie", "-agent-id", c.id)
+		code, stderr, requests := dispatchCall(t, env, c.verb, "-key", "verify-gymie", "-agent-id", c.id)
 		if code != 2 || !strings.Contains(stderr, fmt.Sprintf("%q", c.id)) || !strings.Contains(stderr, "omit -agent-id") || requests != 0 {
 			t.Errorf("%s -agent-id %s: exit %d, %d requests, stderr %q; want exit 2, 0 requests, the value named and omit -agent-id", c.verb, c.id, code, requests, stderr)
 		}
 	}
 	for _, id := range []string{"a30f48a5e14b11392", "agent_541a9582-890b-417e-a3c3-419047bb4ee6", "inline", "none"} {
-		if code, stderr, _ := dispatchCall(t, "begin", "-key", "verify-gymie", "-agent-id", id); code != 0 {
+		if code, stderr, _ := dispatchCall(t, env, "begin", "-key", "verify-gymie", "-agent-id", id); code != 0 {
 			t.Errorf("begin -agent-id %s: exit %d, stderr %q; want 0", id, code, stderr)
 		}
 	}
@@ -6926,6 +7102,7 @@ func TestRecordDispatchRefusesAnInventedAgentID(t *testing.T) {
 // loop key begun under a change that is not its loop's is refused before the store is
 // contacted -- the loop hook records it under the loop's change, so a hand-recorded row is a twin.
 func TestRecordDispatchBeginRefusesALoopKeyOffItsLoop(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		change, key string
 		want        int
@@ -6937,7 +7114,7 @@ func TestRecordDispatchBeginRefusesALoopKeyOffItsLoop(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.change+"/"+c.key, func(t *testing.T) {
 			repo := recordRepo(t, c.change)
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusCreated)
 				_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
@@ -6947,7 +7124,7 @@ func TestRecordDispatchBeginRefusesALoopKeyOffItsLoop(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", c.change, "-role", "planner", "-model", "opus", "-key", c.key, "-session-token", "mf-loop-key"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != c.want {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, c.want, stderr.String())
 			}
@@ -6961,10 +7138,10 @@ func TestRecordDispatchBeginRefusesALoopKeyOffItsLoop(t *testing.T) {
 // beginUnderDecision runs `flow record dispatch begin` with args against a
 // daemon whose decisions read answers decisions (an HTTP 500 when empty)
 // and whose dispatch write succeeds; it returns the exit code and stderr.
-func beginUnderDecision(t *testing.T, decisions string, args ...string) (int, string) {
+func beginUnderDecision(t *testing.T, env testEnv, decisions string, args ...string) (int, string) {
 	t.Helper()
 	repo := recordRepo(t, "kan-327")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/decisions") {
 			if decisions == "" {
@@ -6982,7 +7159,7 @@ func beginUnderDecision(t *testing.T, decisions string, args ...string) (int, st
 	base := []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-327", "-session-token", "mf-record-inline"}
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), append(base, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+	code := run(context.Background(), append(base, args...), env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String()
 }
 
@@ -6996,6 +7173,8 @@ func decisionsBody(decision string) string {
 // behind it is refused, while an inline row, a reviewer, a self-review
 // fixer, a subagent decision and a failed decisions read all begin.
 func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	inline := decisionsBody(`{"execution":"inline"}`)
 	impl := []string{"-role", "implementer", "-key", "task-1-implementer", "-model", "opus", "-effort", "low"}
 	fix := []string{"-role", "panel-fix", "-key", "panel-fix-1", "-model", "opus", "-effort", "low"}
@@ -7015,7 +7194,7 @@ func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
 			if code != tc.code {
 				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
 			}
@@ -7032,6 +7211,8 @@ func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
 // while a self-review or panel fixer, a subagent row, a back-fill and a
 // failed decisions read all begin.
 func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	sdd := decisionsBody(`{"execution":"sdd"}`)
 	row := func(agentID, role, key string, extra ...string) []string {
 		return append([]string{"-agent-id", agentID, "-role", role, "-key", key, "-model", "opus", "-effort", "low"}, extra...)
@@ -7061,7 +7242,7 @@ func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
 			if code != tc.code {
 				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
 			}
@@ -7077,6 +7258,8 @@ func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
 // effort included, is refused; a row at or under it, and a decision with no
 // cap, begins.
 func TestRecordDispatchBeginRefusesAboveSessionCap(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	capped := func(model string) string {
 		return decisionsBody(`{"execution":"subagent","session_cap":{"model":"` + model + `","effort":"low","instruction":"opus/low until 2026-10-28"}}`)
 	}
@@ -7099,7 +7282,7 @@ func TestRecordDispatchBeginRefusesAboveSessionCap(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
 			if code != tc.code {
 				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
 			}
@@ -7116,8 +7299,9 @@ func TestRecordDispatchBeginRefusesAboveSessionCap(t *testing.T) {
 // contacted; a relative command with a later absolute argument, and
 // "none — <reason>", are still accepted.
 func TestRecordFindingRejectsAbsoluteReproducer(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
@@ -7133,7 +7317,7 @@ func TestRecordFindingRejectsAbsoluteReproducer(t *testing.T) {
 			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 			"-severity", "major", "-status", "open", "-reproducer", "/tmp/x.sh arg",
 			"-note", "the note"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
@@ -7160,11 +7344,12 @@ func TestRecordFindingRejectsAbsoluteReproducer(t *testing.T) {
 // open visual verifier. A non-visual verifier and a reviewer are never
 // refused, and a failed run-record read skips the check.
 func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
+	t.Parallel()
 	const ended = `"endedAt":"2026-10-26T10:00:00Z"`
 	begin := func(t *testing.T, record string, readStatus int, role, key string) (int, string, int) {
 		t.Helper()
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		posts := 0
 		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
@@ -7187,7 +7372,7 @@ func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
 			args = append(args, "-diff-base", "0123456789abcdef0123456789abcdef01234567")
 		}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	cases := []struct {
@@ -7224,13 +7409,14 @@ func TestRecordDispatchBeginRefusesAVerifierBesideAnOpenMutator(t *testing.T) {
 // (skills/flow/verify-fix-loop.md step 3).
 func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	const ticked = "# plan\n\n- [x] 1. a task\n- [x] 3. In-run fix 2 — flow.visual-verify: the chip colour\n"
 	const done = `{"key":"visual-verify-gymie","role":"verifier","outcome":"completed","endedAt":"2026-10-26T10:00:00Z"}`
 	const full = `{"key":"visual-verify-fix-2-full-gymie","role":"verifier","outcome":"completed","endedAt":"2026-10-26T11:00:00Z"}`
 	begin := func(t *testing.T, plan, dispatches, key string, extra ...string) (int, string, int) {
 		t.Helper()
 		repo := recordRepo(t, "kan-258")
-		isolatedStateRoot(t)
+		env := newTestEnv(t)
 		if err := os.WriteFile(filepath.Join(repo, "spectre", "changes", "kan-258", "tasks.md"), []byte(plan), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -7254,7 +7440,7 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 			append([]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-role", "verifier", "-model", "opus", "-key", key, "-session-token", "mf-record-vv-in-run-fix",
 				"-diff-base", "0123456789abcdef0123456789abcdef01234567"}, extra...),
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	cases := []struct {
@@ -7321,6 +7507,7 @@ func TestInRunFixRefusalCountsAClosingScopedRow(t *testing.T) {
 // A landed change -- its worktree removed by cleanup, no checkout carrying
 // it -- is still this repository's change while flowd holds its record.
 func TestRequireChangeCheckoutAcceptsALandedChange(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/kan-7") {
@@ -7342,6 +7529,7 @@ func TestRequireChangeCheckoutAcceptsALandedChange(t *testing.T) {
 // has made spectre/changes/<change>: its worktree on branch spectre/<change>
 // already carries the change.
 func TestRequireChangeCheckoutAcceptsTheChangeBranch(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	for _, args := range [][]string{
 		{"-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "base"},
@@ -7363,8 +7551,9 @@ func TestRequireChangeCheckoutAcceptsTheChangeBranch(t *testing.T) {
 // modified record is admitted, an inline implementer begin still refused
 // (design.md verifier-skips-inline-dirty).
 func TestRecordDispatchBeginInlineDirtyTree(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "x")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	record := filepath.Join(repo, "spectre", "changes", "x", "visual-verification.md")
 	if err := os.WriteFile(record, []byte("# v\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -7387,7 +7576,7 @@ func TestRecordDispatchBeginInlineDirtyTree(t *testing.T) {
 		argv := []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "inline", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "x", "-role", role, "-model", "opus", "-key", key, "-session-token", "mf-record-inline-verifier"}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	if code, stderr := begin("verifier", "verify-x"); code != 0 {
@@ -7403,7 +7592,9 @@ func TestRecordDispatchBeginInlineDirtyTree(t *testing.T) {
 // key whose round is 0 (or carries a leading zero) before any store call,
 // and journal nothing; panel-fix-1 and full-suite-fix-1 pass this check.
 func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-1040")
 	addr := deadPortAddr(t)
 	const refusal = "counts fix rounds from 1"
@@ -7418,9 +7609,10 @@ func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
 	}
 	for _, verb := range []string{"begin", "backfill"} {
 		for _, key := range []string{"panel-fix-0", "panel-fix-01"} {
-			root := isolatedStateRoot(t)
+			env["FLOW_STATE_DIR"] = t.TempDir()
+			root := env.stateRoot()
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args(verb, key), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args(verb, key), env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 2 || !strings.Contains(stderr.String(), key) || !strings.Contains(stderr.String(), "panel-fix-1") {
 				t.Errorf("%s %s: exit %d, stderr %q; want 2 naming the key and panel-fix-1", verb, key, code, stderr.String())
 			}
@@ -7429,9 +7621,9 @@ func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
 			}
 		}
 		for _, key := range []string{"panel-fix-1", "full-suite-fix-1"} {
-			isolatedStateRoot(t)
+			env["FLOW_STATE_DIR"] = t.TempDir()
 			var stdout, stderr bytes.Buffer
-			run(context.Background(), args(verb, key), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			run(context.Background(), args(verb, key), env.get, strings.NewReader(""), &stdout, &stderr)
 			if strings.Contains(stderr.String(), refusal) {
 				t.Errorf("%s %s: refused as a round-0 key: %q", verb, key, stderr.String())
 			}
@@ -7445,9 +7637,10 @@ func TestRecordDispatchRefusesPanelFixZero(t *testing.T) {
 // on an inline back-fill, an explicit back-fill and a live begin alike; the
 // right key, a back-filled begin and a failed record read pass.
 func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-28T02:40:00Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T02:48:46Z")
 	record := `{"change":"kan-258","findings":[{"ref":"F1","round":5,"slot":"primary","severity":"Important","note":"n","status":"open"}],"dispatches":[` +
@@ -7499,7 +7692,7 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 		posts = 0
 		recordFails = tc.recordFails
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), tc.args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), tc.args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -7513,7 +7706,7 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 		t.Fatalf("update-ref: %v\n%s", err, out)
 	}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), backfill("panel-fix-5", "-agent-id", "inline", "-commit", sha), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), backfill("panel-fix-5", "-agent-id", "inline", "-commit", sha), env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Errorf("a pushed commit's back-fill: exit %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 }
@@ -7524,9 +7717,10 @@ func TestRecordDispatchRefusesAPanelFixKeyedARoundLow(t *testing.T) {
 // inline rows, so its window holds no other inline row; a non-inline row,
 // one ending after the commit and a failed record read set no floor.
 func TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-28T02:48:46Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T03:02:22Z")
 	withInline := `{"change":"kan-258","dispatches":[` +
@@ -7570,7 +7764,7 @@ func TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows(t *testing.
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-13-implementer", "-task", "13",
 			"-session-token", "mf-record-inline-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -7581,10 +7775,10 @@ func TestRecordDispatchBackfillFloorsAnInlineRowAtTheOtherInlineRows(t *testing.
 
 // panelFixBegin begins key as a panel-fix of kan-258 under token against a
 // daemon serving record, returning the exit code, stderr and the posts made.
-func panelFixBegin(t *testing.T, record, key, token string, extra ...string) (int, string, int) {
+func panelFixBegin(t *testing.T, env testEnv, record, key, token string, extra ...string) (int, string, int) {
 	t.Helper()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 	posts := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/decisions") {
@@ -7610,27 +7804,29 @@ func panelFixBegin(t *testing.T, record, key, token string, extra ...string) (in
 	code := run(context.Background(),
 		append([]string{"record", "dispatch", verb, "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", key, "-session-token", token}, extra...),
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	return code, stderr.String(), posts
 }
 
 func TestRecordDispatchRefusesPanelFixWithoutFindings(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	minor := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"Minor","note":"n","status":"open"}],"dispatches":[{"key":"panel-1-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	important := `{"change":"kan-258","findings":[{"ref":"F1","round":1,"slot":"primary","severity":"important","note":"n","status":"open"}],"dispatches":[{"key":"panel-1-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	t.Run("a Minor-only round is refused", func(t *testing.T) {
-		code, stderr, posts := panelFixBegin(t, minor, "panel-fix-2", "mf-pf-a")
+		code, stderr, posts := panelFixBegin(t, env, minor, "panel-fix-2", "mf-pf-a")
 		if code != 2 || posts != 0 || !strings.Contains(stderr, "round 1") || !strings.Contains(stderr, "flow record finding -from") {
 			t.Fatalf("exit %d, posts %d; want 2, 0 naming round 1; stderr:\n%s", code, posts, stderr)
 		}
 	})
 	t.Run("an important row admits it", func(t *testing.T) {
-		if code, stderr, posts := panelFixBegin(t, important, "panel-fix-2", "mf-pf-a"); code != 0 || posts != 1 {
+		if code, stderr, posts := panelFixBegin(t, env, important, "panel-fix-2", "mf-pf-a"); code != 0 || posts != 1 {
 			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
 		}
 	})
 	t.Run("a backfill is admitted", func(t *testing.T) {
-		if code, stderr, posts := panelFixBegin(t, minor, "panel-fix-2", "mf-pf-a",
+		if code, stderr, posts := panelFixBegin(t, env, minor, "panel-fix-2", "mf-pf-a",
 			"-started-at", "2026-10-27T12:00:00Z", "-ended-at", "2026-10-27T12:10:00Z", "-outcome", "completed"); code != 0 || posts == 0 {
 			t.Fatalf("exit %d, posts %d; want 0 and a post; stderr:\n%s", code, posts, stderr)
 		}
@@ -7638,24 +7834,26 @@ func TestRecordDispatchRefusesPanelFixWithoutFindings(t *testing.T) {
 }
 
 func TestRecordDispatchRefusesReusedPanelFixKey(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	rec := func(outcome string) string {
 		return `{"change":"kan-258","findings":[{"ref":"F1","round":0,"slot":"primary","severity":"Important","note":"n","status":"open"}],` +
 			`"dispatches":[{"key":"panel-fix-1","role":"panel-fix","model":"opus","sessionToken":"mf-pf-other","outcome":"` + outcome + `","startedAt":"2026-10-27T12:00:00Z"},{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	}
 	t.Run("another session's key is refused", func(t *testing.T) {
-		code, stderr, posts := panelFixBegin(t, rec("completed"), "panel-fix-1", "mf-pf-mine")
+		code, stderr, posts := panelFixBegin(t, env, rec("completed"), "panel-fix-1", "mf-pf-mine")
 		if code != 2 || posts != 0 || !strings.Contains(stderr, "mf-pf-other") {
 			t.Fatalf("exit %d, posts %d; want 2, 0 naming mf-pf-other; stderr:\n%s", code, posts, stderr)
 		}
 	})
 	t.Run("an aborted reuse is admitted", func(t *testing.T) {
-		if code, stderr, posts := panelFixBegin(t, rec("aborted"), "panel-fix-1", "mf-pf-mine"); code != 0 || posts != 1 {
+		if code, stderr, posts := panelFixBegin(t, env, rec("aborted"), "panel-fix-1", "mf-pf-mine"); code != 0 || posts != 1 {
 			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
 		}
 	})
 	t.Run("the same token is admitted", func(t *testing.T) {
-		if code, stderr, posts := panelFixBegin(t, rec("completed"), "panel-fix-1", "mf-pf-other"); code != 0 || posts != 1 {
+		if code, stderr, posts := panelFixBegin(t, env, rec("completed"), "panel-fix-1", "mf-pf-other"); code != 0 || posts != 1 {
 			t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
 		}
 	})
@@ -7688,9 +7886,10 @@ func TestPanelFixBeginRefusalReusedKeyNamesTheAbortedRemedy(t *testing.T) {
 // visual fix answers that verdict; a verdict ending after the commit is no
 // floor.
 func TestRecordDispatchBackfillInlineFloorsAtVisualVerify(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-28T14:26:41Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T14:37:26Z")
 	verdict := func(end string) string {
@@ -7725,7 +7924,7 @@ func TestRecordDispatchBackfillInlineFloorsAtVisualVerify(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", "task-3-implementer", "-task", "3",
 			"-session-token", "mf-record-visual-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
 		}
 		if len(bodies) != 2 || bodies[0]["startedAt"] != tc.want {
@@ -7739,9 +7938,10 @@ func TestRecordDispatchBackfillInlineFloorsAtVisualVerify(t *testing.T) {
 // with no store call, while a reviewer row of round r-1 is open; with that
 // row ended it passes and floors at its end.
 func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-28T14:37:39Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T14:41:35Z")
 	open := `{"change":"kan-258","dispatches":[` +
@@ -7773,18 +7973,18 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 		"-session-token", "mf-record-open-round", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 	record = open
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || len(bodies) != 0 {
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 || len(bodies) != 0 {
 		t.Fatalf("open round: exit %d, store calls %d; want 2 and none (stderr %q)", code, len(bodies), stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "close panel round 1's reviewer rows first") {
 		t.Errorf("open round: stderr %q does not name the open round", stderr.String())
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Errorf("open round: wrote a record journal")
 	}
 	record = closed
 	stderr.Reset()
-	if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("closed round: exit %d; stderr:\n%s", code, stderr.String())
 	}
 	if len(bodies) != 2 || bodies[0]["startedAt"] != "2026-10-28T14:40:55Z" {
@@ -7797,8 +7997,9 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 // write, once a reviewer row of panel round r has begun; a round with no
 // reviewer row yet passes.
 func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -7827,23 +8028,23 @@ func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
 			"-change", "kan-258", "-round", round, "-path", "render.go", "-mutated", "x", "-test", "y"}
 	}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), args("1"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 2 || posts != 0 {
+	if code := run(context.Background(), args("1"), env.get, strings.NewReader(""), &stdout, &stderr); code != 2 || posts != 0 {
 		t.Fatalf("round 1: exit %d, posts %d; want 2 and none (stderr %q)", code, posts, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "panel round 1's re-review began") {
 		t.Errorf("round 1: stderr %q does not name panel round 1", stderr.String())
 	}
-	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 		t.Errorf("round 1: wrote a record journal")
 	}
 	stderr.Reset()
-	if code := run(context.Background(), args("2"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
+	if code := run(context.Background(), args("2"), env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
 		t.Fatalf("round 2: exit %d, posts %d; want 0 and one (stderr %q)", code, posts, stderr.String())
 	}
 	// The late form admits round 1 and records its reason as a pass note
 	// (kan-1047 pipeline fix).
 	stderr.Reset()
-	if code := run(context.Background(), append(args("1"), "-late", "missed before re-review"), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 3 {
+	if code := run(context.Background(), append(args("1"), "-late", "missed before re-review"), env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 3 {
 		t.Fatalf("late round 1: exit %d, posts %d; want 0 and three (stderr %q)", code, posts, stderr.String())
 	}
 	if !strings.Contains(lastBody, "late mutation proof for render.go: missed before re-review") {
@@ -7856,8 +8057,9 @@ func TestRecordMutationRefusesAfterReReviewBegan(t *testing.T) {
 // re-review has not begun writes no late note; a -late retry whose mutation
 // row already landed writes only the pass note.
 func TestRecordMutationLateEdges(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -7901,7 +8103,7 @@ func TestRecordMutationLateEdges(t *testing.T) {
 	for _, c := range cases {
 		record, failMutation, posts = c.record, c.fail, nil
 		stderr.Reset()
-		code := run(context.Background(), args("1"), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args("1"), env.get, strings.NewReader(""), &stdout, &stderr)
 		if (code == 0) != c.wantZero || len(posts) != len(c.want) {
 			t.Fatalf("%s: exit %d, posts %v; want zero=%v and %v (stderr %q)", c.name, code, posts, c.wantZero, c.want, stderr.String())
 		}
@@ -7949,9 +8151,10 @@ func recordServer(t *testing.T, record *string) (*httptest.Server, *[]map[string
 // a completed end of an inline task implementer row with -commit sends the
 // start the back-fill would derive; a subagent row sends none.
 func TestRecordDispatchEndInlineDerivesItsStart(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-21T11:02:00Z")
 	sha := fixtureCommit(t, repo, "2026-10-21T11:10:31Z")
 	reviewer := `,{"key":"task-8-reviewer","agentId":"a2","role":"reviewer","outcome":"completed","startedAt":"2026-10-21T11:02:00Z","endedAt":"2026-10-21T11:06:00Z"}`
@@ -7967,7 +8170,7 @@ func TestRecordDispatchEndInlineDerivesItsStart(t *testing.T) {
 			"-change", "kan-258", "-key", "task-9-implementer", "-session-token", "mf-end-derive",
 			"-outcome", "completed", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		if code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 			t.Fatalf("%s: exit %d; stderr:\n%s", tc.name, code, stderr.String())
 		}
 		got, _ := (*bodies)[0]["startedAt"].(string)
@@ -7983,9 +8186,10 @@ func TestRecordDispatchEndInlineDerivesItsStart(t *testing.T) {
 // commit, and a failed record read, are admitted.
 func TestRecordDispatchBackfillRefusesADuplicateTaskCommit(t *testing.T) {
 	smoke.Heavy(t)
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	fixtureCommit(t, repo, "2026-10-28T15:10:00Z")
 	sha := fixtureCommit(t, repo, "2026-10-28T15:25:48Z")
 	same := `{"change":"kan-258","dispatches":[{"key":"task-8-implementer","agentId":"inline","role":"implementer","outcome":"completed","commitSha":"` + sha + `","startedAt":"2026-10-28T15:20:08Z"}]}`
@@ -8004,7 +8208,7 @@ func TestRecordDispatchBackfillRefusesADuplicateTaskCommit(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-key", tc.key, "-task", "8",
 			"-session-token", "mf-record-dup", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want || (tc.want == 2 && len(*bodies) != 0) {
 			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
 		}
@@ -8015,9 +8219,10 @@ func TestRecordDispatchBackfillRefusesADuplicateTaskCommit(t *testing.T) {
 // F1-b: an inline begin of a task implementer key is refused while the task
 // already holds a completed implementer row.
 func TestRecordDispatchBeginRefusesACompletedTask(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	for _, tc := range []struct {
 		name, outcome, key string
 		want               int
@@ -8033,7 +8238,7 @@ func TestRecordDispatchBeginRefusesACompletedTask(t *testing.T) {
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "default", "-key", tc.key, "-task", "7",
 			"-session-token", "mf-record-done", "-agent-id", "inline"}
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want || (tc.want == 2 && len(*bodies) != 0) {
 			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
 		}
@@ -8045,9 +8250,10 @@ func TestRecordDispatchBeginRefusesACompletedTask(t *testing.T) {
 // plan-review rows completed or still open; an aborted row, another token, a
 // failed record read and a back-filled row (-started-at given) are admitted.
 func TestDispatchBeginRefusesAThirdPlanReview(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	rows := func(second, token string) string {
 		return `{"change":"kan-258","dispatches":[` +
 			`{"key":"plan-review-1","role":"reviewer","model":"opus","outcome":"completed","sessionToken":"mf-T","startedAt":"2026-11-14T10:00:00Z"},` +
@@ -8073,7 +8279,7 @@ func TestDispatchBeginRefusesAThirdPlanReview(t *testing.T) {
 			"-session-token", tc.token}
 		args = append(args, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want || (tc.want == 2 && (len(*bodies) != 0 || !strings.Contains(stderr.String(), "plan-review-1 and plan-review-2"))) {
 			t.Errorf("%s: exit %d, posts %d; want %d (stderr %q)", tc.name, code, len(*bodies), tc.want, stderr.String())
 		}
@@ -8101,9 +8307,10 @@ func trailerCommit(t *testing.T, repo, at, trailer string) {
 // trailer, a back-fill and a commit authored before the round pass.
 func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.T) {
 	smoke.Heavy(t)
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	record := `{"change":"kan-258","dispatches":[` +
 		`{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"},` +
 		`{"key":"panel-4-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
@@ -8147,7 +8354,7 @@ func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
 			"-session-token", "mf-record-rereview", "-effort", "default"}, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8163,9 +8370,10 @@ func TestRecordDispatchRefusesAReReviewOverAnOffRoundPanelFixTrailer(t *testing.
 // a row at round 5, a -mutated none row, a Minor-only round and a
 // back-fill pass.
 func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	const reviewer = `{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"}`
 	var record string
 	posts := 0
@@ -8203,7 +8411,7 @@ func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
 			"-session-token", "mf-record-rereview", "-effort", "default"}, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8220,9 +8428,10 @@ func TestRecordDispatchRefusesAReReviewBeforeItsMutationRows(t *testing.T) {
 // and no mutation row. A fix not yet completed, a Minor, a withdrawn finding
 // and a back-fill pass.
 func TestRecordDispatchRefusesAReReviewOverAnOpenFinding(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	const rounds = `{"key":"panel-4-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z"},{"key":"panel-4-merger","role":"merger","startedAt":"2026-10-28T02:48:00Z","endedAt":"2026-10-28T02:48:30Z","outcome":"completed"}`
 	const fixDone = `,{"key":"panel-fix-5","role":"panel-fix","startedAt":"2026-10-28T02:49:00Z","endedAt":"2026-10-28T02:55:00Z","outcome":"completed"}`
 	const fixOpen = `,{"key":"panel-fix-5","role":"panel-fix","startedAt":"2026-10-28T02:49:00Z"}`
@@ -8263,7 +8472,7 @@ func TestRecordDispatchRefusesAReReviewOverAnOpenFinding(t *testing.T) {
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-5-primary", "-slot", "primary",
 			"-session-token", "mf-record-rereview-open", "-effort", "default"}, tc.extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8279,7 +8488,9 @@ func TestRecordDispatchRefusesAReReviewOverAnOpenFinding(t *testing.T) {
 // refused while round 0 holds no completed panel-0-merger row.
 func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) {
 	smoke.Heavy(t)
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
 	const finding = `{"ref":"F1","round":0,"slot":"primary","severity":"Important","note":"n","status":"open"}`
 	const reviewer = `{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-28T02:45:33Z","endedAt":"2026-10-28T02:47:03Z","outcome":"completed"}`
 	merger := func(tail string) string {
@@ -8302,7 +8513,7 @@ func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) 
 		{"a back-fill with no merger row", record(reviewer), backfill, 2},
 		{"a failed record read", `not json`, nil, 0},
 	} {
-		code, stderr, posts := panelFixBegin(t, tc.record, "panel-fix-1", "mf-pf-merger", tc.extra...)
+		code, stderr, posts := panelFixBegin(t, env, tc.record, "panel-fix-1", "mf-pf-merger", tc.extra...)
 		if code != tc.want {
 			t.Errorf("panel-fix, %s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr)
 		}
@@ -8312,7 +8523,6 @@ func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) 
 	}
 
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
 	var rec string
 	posts := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -8341,7 +8551,7 @@ func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) 
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", tc.key, "-slot", "primary",
-			"-session-token", "mf-record-merger", "-effort", "default"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			"-session-token", "mf-record-merger", "-effort", "default"}, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8357,8 +8567,9 @@ func TestRecordDispatchRefusesAFixOrReReviewBeforeItsRoundsMerger(t *testing.T) 
 // single-slot key under a joined slot, is refused; a suffixed key under its
 // own slot and a non-reviewer panel row are admitted.
 func TestRecordDispatchBeginRefusesASlotOffItsPanelKey(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		contacted = true
@@ -8374,7 +8585,7 @@ func TestRecordDispatchBeginRefusesASlotOffItsPanelKey(t *testing.T) {
 		if slot != "" {
 			argv = append(argv, "-slot", slot)
 		}
-		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	for _, bad := range [][2]string{
@@ -8413,8 +8624,9 @@ func TestRecordDispatchBeginRefusesASlotOffItsPanelKey(t *testing.T) {
 // line, the row's description opening and, where the row decides it, its
 // Role line; a back-fill and an inline row print only the recorded: line.
 func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258", "kan-259")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	plan := "# plan\n\n- [ ] 1. one\n- [ ] 2. two\n  - [ ] 3. nested step, not a task\n- [ ] 3. three\n"
 	if err := os.WriteFile(filepath.Join(repo, "spectre", "changes", "kan-258", "tasks.md"), []byte(plan), 0o644); err != nil {
 		t.Fatal(err)
@@ -8429,7 +8641,7 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		argv := append([]string{"record", "dispatch", "begin", "-effort", "default", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", change, "-role", role, "-model", "opus", "-key", key,
 			"-session-token", "mf-record-launch-lines"}, extra...)
-		code := run(context.Background(), argv, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), argv, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
 	for _, c := range []struct {
@@ -8462,8 +8674,9 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 }
 
 func TestRecordNextRoundSkipsGatedRows(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "demo")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"passes":[],"mutations":[],
 		  "findings":[{"ref":"F1","round":0,"slot":"gated-reviewer","severity":"Important","note":"n","status":"open"}]}`))
@@ -8472,7 +8685,7 @@ func TestRecordNextRoundSkipsGatedRows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"record", "next-round", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-		os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || strings.TrimSpace(stdout.String()) != "0" {
 		t.Fatalf("exit %d stdout %q, want 0 and 0; stderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -8482,15 +8695,17 @@ func TestRecordNextRoundSkipsGatedRows(t *testing.T) {
 // F5): a positive value reaches the body, a negative one is refused before
 // any write, and an absent one sends no request at all.
 func TestRecordDispatchBeginRequestFlag(t *testing.T) {
-	if sent := dispatchBeginBody(t, "-request", "12"); sent["request"] != float64(12) {
+	t.Parallel()
+	env := newTestEnv(t)
+	if sent := dispatchBeginBody(t, env, "-request", "12"); sent["request"] != float64(12) {
 		t.Errorf("request = %v, want 12", sent["request"])
 	}
-	if sent := dispatchBeginBody(t); sent["request"] != nil {
+	if sent := dispatchBeginBody(t, env); sent["request"] != nil {
 		t.Errorf("no -request: body carries request %v, want none", sent["request"])
 	}
 
 	repo := recordRepo(t, "kan-327")
-	isolatedStateRoot(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
 	posted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -8502,7 +8717,7 @@ func TestRecordDispatchBeginRequestFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-327", "-role", "implementer", "-model", "opus", "-key", "operator-1", "-request", "-1",
-		"-session-token", "fi-request-flag"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		"-session-token", "fi-request-flag"}, env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 2 {
 		t.Errorf("-request -1: exit %d, want 2; stderr:\n%s", code, stderr.String())
 	}
@@ -8517,8 +8732,9 @@ func TestRecordDispatchBeginRequestFlag(t *testing.T) {
 // end recorded; an ended row, another round's open row, a back-fill and a
 // failed read refuse nothing.
 func TestRecordDispatchBeginRefusesMergerBesideOpenReviewer(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	var rec string
 	posts := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -8560,7 +8776,7 @@ func TestRecordDispatchBeginRefusesMergerBesideOpenReviewer(t *testing.T) {
 		args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "merger", "-model", "sonnet", "-effort", "low", "-key", tc.key,
 			"-session-token", "mf-record-merger-open"}, tc.extra...)
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != tc.want {
 			t.Errorf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.want, stderr.String())
 		}
@@ -8577,8 +8793,9 @@ func TestRecordDispatchBeginRefusesMergerBesideOpenReviewer(t *testing.T) {
 // round 0, pass, finding and mutation refuse -round 7 and name the allowed
 // maximum, 1, while round 0 on a run with no rounds is accepted.
 func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	if err := os.WriteFile(filepath.Join(repo, "render.go"), []byte("package x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -8601,13 +8818,13 @@ func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
 		"mutation": {"-path", "render.go", "-mutated", "x", "-test", "y"},
 	}
 	var stdout, stderr bytes.Buffer
-	if code := run(context.Background(), append(append([]string{"record", "pass"}, base...), append(cmds["pass"], "-round", "0")...), os.Getenv, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
+	if code := run(context.Background(), append(append([]string{"record", "pass"}, base...), append(cmds["pass"], "-round", "0")...), env.get, strings.NewReader(""), &stdout, &stderr); code != 0 || posts != 1 {
 		t.Fatalf("round 0 on an empty run: exit %d, posts %d; want 0 and one (stderr %q)", code, posts, stderr.String())
 	}
 	record = `{"change":"kan-258","passes":[{"id":1,"round":0,"note":"not re-run"}]}`
 	for kind, flags := range cmds {
 		stderr.Reset()
-		code := run(context.Background(), append(append([]string{"record", kind}, base...), append(flags, "-round", "7")...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), append(append([]string{"record", kind}, base...), append(flags, "-round", "7")...), env.get, strings.NewReader(""), &stdout, &stderr)
 		if code != 2 || posts != 1 {
 			t.Errorf("%s -round 7: exit %d, posts %d; want 2 and no new write (stderr %q)", kind, code, posts, stderr.String())
 		}
@@ -8623,6 +8840,7 @@ func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
 // implementer begin is not gated, and a base origin carries is admitted.
 func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	git := func(dir string, args ...string) {
 		t.Helper()
 		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
@@ -8630,7 +8848,7 @@ func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -8669,7 +8887,7 @@ func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
 		args := append([]string{"record", "dispatch", "begin", "-effort", "low", "-agent-id", "none", "-addr", srv.URL, "-timeout", "2s", "-C", clone,
 			"-change", "demo", "-role", role, "-model", "opus", "-key", key, "-session-token", "mf-record-gone-base"}, extra...)
 		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String(), posts
 	}
 	for _, c := range []struct {
@@ -8708,8 +8926,9 @@ func TestRecordDispatchBeginRefusesAGoneBase(t *testing.T) {
 // own `dispatched:` pass row from its own flags; a refused begin and a
 // non-panel begin write none.
 func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	begin := func(t *testing.T, refuse bool, args ...string) (int, string, []records.Pass) {
 		t.Helper()
 		var passes []records.Pass
@@ -8740,7 +8959,7 @@ func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
 		defer srv.Close()
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), append([]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-			"-change", "kan-258", "-session-token", "mf-record-pass-row"}, args...), os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			"-change", "kan-258", "-session-token", "mf-record-pass-row"}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String() + stderr.String(), passes
 	}
 	panel := []string{"-role", "reviewer", "-slot", "primary", "-model", "sonnet", "-effort", "low", "-diff-base", "a515c200", "-key", "panel-4-primary"}
@@ -8760,14 +8979,15 @@ func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
 // the `dispatched:` pass line is the panel begin's own, so `flow record
 // pass` refuses a hand-written one and admits any other note.
 func TestRecordPassRefusesAHandDispatchedNote(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	pass := func(note string) (int, string) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "pass", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
 				"-change", "kan-258", "-round", "4", "-note", note},
-			os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	if code, stderr := pass("  dispatched: panel-4-primary on opus/low"); code != 2 || !strings.Contains(stderr, "flow record dispatch begin") {
@@ -8783,8 +9003,9 @@ func TestRecordPassRefusesAHandDispatchedNote(t *testing.T) {
 // and no reviewer dispatch has nothing for a merger to read, so the first
 // panel round after it begins.
 func TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	posts := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
@@ -8804,7 +9025,7 @@ func TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 		"-change", "kan-258", "-role", "reviewer", "-model", "opus", "-key", "panel-1-primary", "-slot", "primary",
-		"-session-token", "mf-record-merger", "-effort", "default"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+		"-session-token", "mf-record-merger", "-effort", "default"}, env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || posts != 1 {
 		t.Errorf("exit %d, dispatch posts %d; want 0 and 1; stderr:\n%s", code, posts, stderr.String())
 	}
@@ -8816,6 +9037,7 @@ func TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows(t *testing.T) {
 // and that a role's marked pair is admitted, since only the Agent hook sees
 // the marker line (kan-1112 self-review, F2).
 func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name, role, key, effort string
 		policyDown              bool
@@ -8830,7 +9052,7 @@ func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-258")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 
 			posts := 0
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -8856,7 +9078,7 @@ func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
 				[]string{"record", "dispatch", "begin", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-258", "-role", tc.role, "-model", "opus", "-effort", tc.effort,
 					"-key", tc.key, "-session-token", "mf-record-pair-admitted"},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 
 			if code != tc.wantCode {
 				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.wantCode, stderr.String())
@@ -8873,7 +9095,7 @@ func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
 			if posts != 0 {
 				t.Errorf("a refused begin sent %d POST(s)", posts)
 			}
-			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+			if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
 				t.Error("a refused begin wrote a record journal")
 			}
 		})
@@ -8885,6 +9107,7 @@ func TestRecordDispatchBeginRefusesAPairTheRoleDoesNotAdmit(t *testing.T) {
 // of the change is open, and a failed stage-runs read never refuses
 // (self-review-kan-1110 F8).
 func TestRecordDispatchBeginRefusesImplementationOutsideSddTdd(t *testing.T) {
+	t.Parallel()
 	ended := `{"stageRuns":[{"startedAt":"2026-11-14T10:00:00Z","endedAt":"2026-11-14T11:00:00Z"}]}`
 	open := `{"stageRuns":[{"startedAt":"2026-11-14T10:00:00Z"}]}`
 	cases := []struct {
@@ -8912,7 +9135,7 @@ func TestRecordDispatchBeginRefusesImplementationOutsideSddTdd(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-327")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 				if strings.HasSuffix(r.URL.Path, "/stage-runs") {
 					body := tc.runs[r.URL.Query().Get("command")]
@@ -8935,7 +9158,7 @@ func TestRecordDispatchBeginRefusesImplementationOutsideSddTdd(t *testing.T) {
 			args := append([]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-327", "-session-token", "mf-record-inline", "-agent-id", "none", "-model", "opus", "-effort", "low"}, tc.args...)
 			var stdout, stderr bytes.Buffer
-			code := run(context.Background(), args, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
 			if tc.code >= 0 && code != tc.code {
 				t.Errorf("exit %d, want %d\n%s", code, tc.code, stderr.String())
 			}
@@ -8952,6 +9175,8 @@ func TestRecordDispatchBeginRefusesImplementationOutsideSddTdd(t *testing.T) {
 // group's tasks is refused; a fix key, a back-fill, a decision without
 // tasks and a failed decisions read all begin.
 func TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
 	g := decisionsBody(`{"execution":"sdd","groups":[{"bundles":[1],"tasks":["1","3"]},{"bundles":["2"],"tasks":["2"]}]}`)
 	row := func(key string, extra ...string) []string {
 		return append([]string{"-agent-id", "none", "-role", "implementer", "-key", key, "-model", "opus", "-effort", "low"}, extra...)
@@ -8973,7 +9198,7 @@ func TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, tc.decisions, tc.args...)
+			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
 			if code != tc.code {
 				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
 			}
@@ -8989,6 +9214,7 @@ func TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups(t *testing.T) {
 // the plan's own plan-dispatch-bundles output, and no stamp at all when the
 // plan is absent or a group names a bundle the plan does not have.
 func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
+	t.Parallel()
 	plan := "- [ ] 1. One\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n\n" +
 		"- [ ] 2. Two\n\n**Files:**\n- Modify: `b.go`\n\n  - [ ] **Step 1: do it**\n\n" +
 		"- [ ] 3. Three\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n"
@@ -9004,7 +9230,7 @@ func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := recordRepo(t, "kan-472")
-			isolatedStateRoot(t)
+			env := newTestEnv(t)
 			if tc.plan {
 				if err := os.WriteFile(filepath.Join(repo, "spectre", "changes", "kan-472", "tasks.md"), []byte(plan), 0o644); err != nil {
 					t.Fatal(err)
@@ -9029,7 +9255,7 @@ func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
 			code := run(context.Background(),
 				[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 					"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-				os.Getenv, strings.NewReader(""), &stdout, &stderr)
+				env.get, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 			}
@@ -9064,8 +9290,9 @@ func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
 // TestRecordAdmitsAFullSuiteFixRetryKey pins kan-1087 self-review F8: a full-suite fixer's
 // fallback row is retried under `full-suite-fix-<n>-retry`, which the key check admits.
 func TestRecordAdmitsAFullSuiteFixRetryKey(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			w.WriteHeader(http.StatusNotFound)
@@ -9081,7 +9308,7 @@ func TestRecordAdmitsAFullSuiteFixRetryKey(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "low", "-key", tc.key,
-			"-session-token", "mf-record-fsf-retry"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			"-session-token", "mf-record-fsf-retry"}, env.get, strings.NewReader(""), &stdout, &stderr)
 		refused := strings.Contains(stderr.String(), "is not task-<ids>-implementer")
 		if refused != tc.refused || tc.refused && code != 2 {
 			t.Errorf("%s: exit %d, refused %v, want %v; stderr:\n%s", tc.key, code, refused, tc.refused, stderr.String())
@@ -9092,8 +9319,9 @@ func TestRecordAdmitsAFullSuiteFixRetryKey(t *testing.T) {
 // TestRecordDispatchBeginRefusesMergerOverAnUnreadSection pins kan-1087 self-review F21: a
 // panel-<r>-merger begin refuses while a round-<r> report leaves a section unread and uncovered.
 func TestRecordDispatchBeginRefusesMergerOverAnUnreadSection(t *testing.T) {
+	t.Parallel()
 	repo := recordRepo(t, "kan-258")
-	isolatedStateRoot(t)
+	env := newTestEnv(t)
 	posts := 0
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
@@ -9119,7 +9347,7 @@ func TestRecordDispatchBeginRefusesMergerOverAnUnreadSection(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(), []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 			"-change", "kan-258", "-role", "merger", "-model", "sonnet", "-effort", "low", "-key", "panel-1-merger",
-			"-session-token", "mf-record-merger-unread"}, os.Getenv, strings.NewReader(""), &stdout, &stderr)
+			"-session-token", "mf-record-merger-unread"}, env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
 	if code, errs := begin(); code != 2 || posts != 0 || !strings.Contains(errs, "panel-report-1-primary.md (web)") || !strings.Contains(errs, "panel-1-primary-unread") {
