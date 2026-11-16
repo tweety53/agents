@@ -987,6 +987,16 @@ file written by the parent carrying `no verbatim report captured — <reason>` (
 findings, and the record's format**, `skills/flow/review-panel.md`), its findings read from the child's final message; any
 other child closed `-outcome aborted`, as **The return** above closes a dispatch whose agent dies.
 
+**A hand-back is the end of a child; one that keeps running is stopped.** A child whose final
+message has arrived (a `SubagentHandback` message, or a completion notification carrying the
+report) and whose notification says it is `waiting on its own background work` — or that `ListAgents`
+still lists `running` after its report file exists — is a zombie: it holds a live process and, on a
+writer, the worktree. The parent `TaskStop`s it at once and takes the commit its report names. The
+parent ends each dispatch row at the hand-back (`-outcome completed`, the report being the
+record), never at the stage end, so the stage-end check of open rows finds none. A `flow-guard` run
+after the report is written is a long-running command under FOREGROUND BUILDS: the child ends its
+turn only once it has exited.
+
 **Read discipline.** These five rules are the run's own size
 control,
 stated once here and cited — never restated — from `skills/flow/review-panel.md` and

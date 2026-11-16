@@ -113,7 +113,8 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
-> completion, before you stop.
+> completion, before you stop. A `flow-guard` run counts: write your report file last, after
+> every guard has exited, and hand back only then.
 
 > **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
