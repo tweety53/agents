@@ -39,6 +39,14 @@ import (
 // **Allowed-collateral:** glob never joins two tasks -- it names paths a
 // legitimate sweep may also touch, not paths the task owns.
 //
+// A joined bundle heavier than pdgMaxWeight (a `big` task weighs 3, every
+// other task 1) is then cut, in plan order, into consecutive bundles of at
+// most that weight, so no implementer receives more (kan-1091). A run of
+// tasks a **Squash-with:** pair straddles is never split -- the pair commits
+// together -- and such a run heavier than the cap is a bundle of its own.
+// Every cut bundle after the first also waits on every task of the earlier
+// ones, since they share files.
+//
 // Arguments: one tasks.md path computes that file; none scans every live
 // change's tasks.md under <root>/<spec leaf>/changes/*/tasks.md,
 // aggregating exit codes -- 2 beats 1 beats 0 -- and printing
@@ -233,6 +241,21 @@ func pdbComputeBundles(tasks []pdbTask) ([][]pdbTask, [][]string, []string) {
 		}
 		bundles[i] = append(bundles[i], t)
 	}
+	// Cut every bundle heavier than the cap (kan-1091); prior maps a cut
+	// bundle's first member to the tasks of its earlier siblings.
+	prior := map[string][]string{}
+	var cut [][]pdbTask
+	for _, members := range bundles {
+		var earlier []string
+		for _, c := range pdbCutBundle(members) {
+			cut = append(cut, c)
+			prior[c[0].id] = slices.Clone(earlier)
+			for _, m := range c {
+				earlier = append(earlier, m.id)
+			}
+		}
+	}
+	bundles = cut
 	lowest := func(members []pdbTask) string {
 		low := members[0].id
 		for _, m := range members[1:] {
@@ -256,7 +279,7 @@ func pdbComputeBundles(tasks []pdbTask) ([][]pdbTask, [][]string, []string) {
 	}
 	afterSets := make([][]string, len(bundles))
 	for i, members := range bundles {
-		var acc []string
+		acc := prior[members[0].id]
 		for _, m := range members {
 			ids := m.afterSet
 			if !m.afterDeclared {
@@ -275,6 +298,47 @@ func pdbComputeBundles(tasks []pdbTask) ([][]pdbTask, [][]string, []string) {
 		return nil, nil, []string{v}
 	}
 	return bundles, afterSets, nil
+}
+
+// pdbCutBundle cuts one bundle, its members in plan order, into consecutive
+// chunks of weight at most pdgMaxWeight. A segment -- the shortest run of
+// members no **Squash-with:** pair straddles -- is never split, and a segment
+// heavier than the cap is a chunk of its own.
+func pdbCutBundle(members []pdbTask) [][]pdbTask {
+	if pdgWeight(members) <= pdgMaxWeight {
+		return [][]pdbTask{members}
+	}
+	pos := map[string]int{}
+	for i, m := range members {
+		pos[m.id] = i
+	}
+	reach := make([]int, len(members)) // the last member a segment opened here must hold
+	for i, m := range members {
+		reach[i] = max(reach[i], i)
+		for _, p := range m.partners {
+			if j, ok := pos[p]; ok {
+				lo := min(i, j)
+				reach[lo] = max(reach[lo], i, j)
+			}
+		}
+	}
+	var chunks [][]pdbTask
+	var chunk []pdbTask
+	weight, start, end := 0, 0, 0
+	for i := range members {
+		if end = max(end, reach[i]); end > i {
+			continue
+		}
+		seg := members[start : i+1]
+		w := pdgWeight(seg)
+		if chunk != nil && weight+w > pdgMaxWeight {
+			chunks = append(chunks, chunk)
+			chunk, weight = nil, 0
+		}
+		chunk, weight = append(chunk, seg...), weight+w
+		start = i + 1
+	}
+	return append(chunks, chunk)
 }
 
 // pdbBundleCycle searches the bundle graph -- bundle k waits on every bundle

@@ -120,7 +120,8 @@ func TestPlanDispatchGroupsKeepsRepositoriesApart(t *testing.T) {
 
 // TestPlanDispatchGroupsWeightCap pins KAN-1129's cut pass: every group is
 // cut, in plan order, into pieces of at most weight 3 -- a `big` task weighs
-// 3, every other task 1 -- and a single bundle heavier than 3 stays whole.
+// 3, every other task 1 -- and a single **Squash-with:** bundle heavier than
+// 3 stays whole, plan-dispatch-bundles having cut every other (kan-1091).
 func TestPlanDispatchGroupsWeightCap(t *testing.T) {
 	t.Parallel()
 	task := func(id, file, after, size string) string {
@@ -154,7 +155,8 @@ func TestPlanDispatchGroupsWeightCap(t *testing.T) {
 		{"small big small", chain("", "small", "big", "small"), 0, "group 1: 1\ngroup 2: 2\ngroup 3: 3"},
 		{"big big big", chain("", "big", "big", "big"), 0, "group 1: 1\ngroup 2: 2\ngroup 3: 3"},
 		{"small small big small", chain("", "small", "small", "big", "small"), 0, "group 1: 1 2\ngroup 2: 3\ngroup 3: 4"},
-		{"oversized bundle stays whole", task("1", "a.txt", "", "big") + task("2", "a.txt", "", "") + task("3", "b.txt", "", ""), 0, "group 1: 1\ngroup 2: 2"},
+		{"oversized shared-file bundle is cut", task("1", "a.txt", "", "big") + task("2", "a.txt", "", "") + task("3", "b.txt", "", ""), 0, "group 1: 1\ngroup 2: 2 3"},
+		{"oversized Squash-with bundle stays whole", task("1", "a.txt", "", "big") + "**Squash-with:** Task 2\n\n" + task("2", "c.txt", "", "") + task("3", "b.txt", "", ""), 0, "group 1: 1\ngroup 2: 2"},
 		{"five singletons fold at weight 3", chain("none", five...), 0, "group 1: 1 3 5\ngroup 2: 2 4"},
 		{"seven singletons fold then cut", chain("none", seven...), 0, "group 1: 1 3 5\ngroup 2: 2 4 6\ngroup 3: 7"},
 		{"unknown size passes the violation through", chain("", "", "huge"), 1, ""},

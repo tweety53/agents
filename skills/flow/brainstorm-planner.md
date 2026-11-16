@@ -710,7 +710,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
 5. **implementer groups** — on every run whose step 1 came out `sdd`: run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md`, then
    `flow-guard plan-dispatch-groups <changeRoot>/tasks.md` for the mechanical default — a deterministic
    grouping that caps every group at weight 3 — a `**Size:** big` task weighs 3, every other task 1,
-   and a single bundle heavier than that stays one group (no roll, no static table; at most two
+   and a single **Squash-with:** bundle heavier than that stays one group (no roll, no static table; at most two
    implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
    is `groups_mechanical` verbatim unless the planner **splits** a mechanical group into more
    groups — a chain judged too long for one implementer's context, or a real parallel-wave benefit

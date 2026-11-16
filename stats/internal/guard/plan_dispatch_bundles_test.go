@@ -181,8 +181,8 @@ func TestPlanDispatchBundles(t *testing.T) {
 	// does not end the run, and a Files line's own inline value is read too,
 	// so task 1's inline.txt joins task 3.
 	_, r = run("- [ ] 1. A\n\n**Files:** `inline.txt`\n-   Delete:   plain path  \n```\n- `fenced.txt`\n```\n- Create: `x.txt`\n\n" +
-		"- [ ] 2. B\n\n**Files:**\n- plain path\n\n- [ ] 3. C\n\n**Files:**\n- `fenced.txt`\n- `inline.txt`\n\n- [ ] 4. D\n\n**Files:**\n- `x.txt`\n")
-	want("pin: Files bullets parse as the Python's BULLET_RE did", r.rc == 0 && r.out == "bundle 1: 1 2 3 4\nafter 1: 1 2 3", r)
+		"- [ ] 2. B\n\n**Files:**\n- plain path\n\n- [ ] 3. C\n\n**Files:**\n- `fenced.txt`\n- `inline.txt`\n\n- [ ] 4. D\n\n**Files:**\n- `x.txt`\n\n**After:** none\n")
+	want("pin: Files bullets parse as the Python's BULLET_RE did", r.rc == 0 && r.out == "bundle 1: 1 2 3\nafter 1: 1 2\nbundle 2: 4\nafter 2: 1 2 3", r)
 	root := t.TempDir()
 	writeFile(t, root+"/spectre/changes/a/tasks.md", tk("1", "a.txt"))
 	writeFile(t, root+"/spectre/changes/b/tasks.md", "- [ ] 1. \xff\n")
@@ -298,7 +298,7 @@ func TestPlanDispatchBundlesRefusesACyclicBundleGraph(t *testing.T) {
 		return s + "\n"
 	}
 	plan := func(after3 string) string {
-		return tk("1", "s.txt", "none", "big") + tk("2", "b.txt", "Task 1", "") + tk("3", "s.txt", after3, "")
+		return tk("1", "s.txt", "none", "") + tk("2", "b.txt", "Task 1", "") + tk("3", "s.txt", after3, "")
 	}
 
 	md := psFixture(t, plan("Task 2"))
@@ -318,5 +318,35 @@ func TestPlanDispatchBundlesRefusesACyclicBundleGraph(t *testing.T) {
 	r = runGuard("plan-dispatch-bundles", []string{psFixture(t, plan("none"))}, env)
 	if r.rc != 0 {
 		t.Errorf("(c) rc=%d out=%q, want 0", r.rc, r.out)
+	}
+}
+
+// TestPlanDispatchBundlesCutsAHeavyBundle pins kan-1091: a bundle heavier
+// than weight 3 is cut in plan order into serial bundles of at most 3, never
+// splitting a run a **Squash-with:** pair straddles.
+func TestPlanDispatchBundlesCutsAHeavyBundle(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	tk := func(id, extra string) string {
+		return "- [ ] " + id + ". Task " + id + "\n\n**Files:** `s.txt`\n**After:** none\n" + extra + "\n"
+	}
+	for _, c := range []struct{ name, body, want string }{
+		{"five shared-file tasks become two serial bundles",
+			tk("1", "") + tk("2", "") + tk("3", "") + tk("4", "") + tk("5", ""),
+			"bundle 1: 1 2 3\nafter 1: none\nbundle 2: 4 5\nafter 2: 1 2 3"},
+		{"a big task is a bundle of its own",
+			tk("1", "") + tk("2", "**Size:** big\n") + tk("3", ""),
+			"bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1\nbundle 3: 3\nafter 3: 1 2"},
+		{"a Squash-with pair heavier than 3 stays whole",
+			tk("1", "**Size:** big\n**Squash-with:** Task 2\n") + tk("2", ""),
+			"bundle 1: 1 2\nafter 1: none"},
+		{"a run a Squash-with pair straddles is never split",
+			tk("1", "**Squash-with:** Task 4\n") + tk("2", "") + tk("3", "") + tk("4", "") + tk("5", ""),
+			"bundle 1: 1 2 3 4\nafter 1: none\nbundle 2: 5\nafter 2: 1 2 3 4"},
+	} {
+		r := runGuard("plan-dispatch-bundles", []string{psFixture(t, c.body)}, env)
+		if r.rc != 0 || r.out != c.want {
+			t.Errorf("%s: rc=%d out=%q, want 0 %q", c.name, r.rc, r.out, c.want)
+		}
 	}
 }

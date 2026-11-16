@@ -47,8 +47,9 @@ import (
 //     plus the bundle's stays within 3, otherwise it opens the next piece.
 //     A task weighs 3 when its **Size:** is `big` and 1 otherwise (`small`,
 //     `medium`, or absent, read as `medium`); a bundle weighs the sum of its
-//     tasks. A single bundle heavier than 3 stays one group -- a
-//     **Squash-with:** pair must commit together.
+//     tasks. plan-dispatch-bundles already cut every bundle heavier than 3
+//     but a **Squash-with:** run, which must commit together and stays one
+//     group (kan-1091).
 //
 // Tasks under different repository headings never share a group (kan-1107
 // self-review F4): a task's repository is the text of the nearest `## `
