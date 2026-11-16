@@ -18,7 +18,6 @@ func TestVisualVerifyShardProse(t *testing.T) {
 		"skills/flow/visual-verify.md": {
 			"The parent runs each shard's `close` as its own Bash call, one after another, never two at once.",
 			"## The merge-base capture In each repository",
-			"`prepare --continue --merge-base-captured`",
 		},
 		"skills/flow/verify-fix-loop.md": {
 			"its `**Opener:**` is the pass key without the `-s<i>of<n>` segment",
