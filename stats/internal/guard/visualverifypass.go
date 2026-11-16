@@ -25,7 +25,7 @@ import (
 //     [--worktree <worktree>]... [--since <worktree>=<sha>]... \
 //     [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... \
 //     [--app <worktree>:<app-root>=<url>]... \
-//     [--miss] [--continue [--started] [--merge-base-captured | --merge-base-failed <reason>]]
+//     [--miss] [--continue [--started] [--merge-base-failed <reason>]]
 //   flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> \
 //     --session-token mf-<t>
 //   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]
@@ -55,13 +55,11 @@ import (
 //   --miss                a fix run with a missed defect: stop for the tooling
 //                         analyst once step 3 passes (decision
 //                         analyst-after-preflight)
-//   --merge-base-captured the parent ran the merge-base capture a sharded pass
-//                         asked for (`NEXT: merge-base-capture`); given with
-//                         --continue only, a usage error otherwise
-//   --merge-base-failed   the parent's merge-base capture failed, for
-//                         <reason>: every shard bundle carries `merge-base
-//                         capture failed — <reason>`; given with --continue
-//                         only, a usage error otherwise
+//   --merge-base-failed   the merge-base capture a shard's close asked for
+//                         (`MERGE-BASE-SPEC:`) failed, for <reason>: every
+//                         later shard bundle carries `merge-base capture
+//                         failed — <reason>`; given with --continue only, a
+//                         usage error otherwise
 //
 // prepare runs, in order, stopping at the first closing line:
 //   1. the kickoff check — a `regression checkout` `## apps` declares, or,
@@ -113,9 +111,7 @@ import (
 //      shard-unscoped-single-worktree). Above 25 it writes one `spec <abs>`
 //      line per capture spec and one `slice s<i>of<n> <frame,…>` line per
 //      slice vvpSlices cuts (decisions four-shards-slices-grow,
-//      slice-by-frame-id), a `capture-base <sha>` line — the capture root's
-//      own --merge-base — when the capture root is another worktree of the
-//      set, and deletes every
+//      slice-by-frame-id), and deletes every
 //      <changeRoot>/visual-verification/record-s*.md. Otherwise it writes
 //      nothing and the pass runs unsharded.
 //   7. --miss: NEXT: analyst          exit 0, no row begun
@@ -133,18 +129,16 @@ import (
 //      <its stderr reason>`.
 //  9a. on a stage with `slice` lines and a key with no shard segment
 //      (decision prepare-captures-sharded): unless a `captured` line is there,
-//      `setup` and each `spec` line's `capture <spec> --update-snapshots=all`
+//      `setup` and one `capture <spec> --update-snapshots=all`, `<spec>`
+//      every `spec` line's path space-joined (kan-1087: its verifier ran 4
+//      specs, 70 tests, as one run of 8.5 minutes),
 //      run from the capture root, then `captured` is appended; a non-zero
 //      exit prints `SHARDS: none — <command> exit <n>`, drops the `slice`
 //      lines and continues unsharded (decision
-//      capture-failure-falls-back-serial). Then, without
-//      --merge-base-captured or --merge-base-failed, each spec with a PNG
-//      `git cat-file -e <merge-base>:<png>` refuses — <merge-base> the stage
-//      file's `capture-base` when it holds one — or whose
-//      resolve-visual-screenshots exits 2, prints
-//        MERGE-BASE-SPEC: <spec>
-//      and then `NEXT: merge-base-capture`, exit 0, no row begun (decisions
-//      capture-before-merge-base, merge-base-capture-when-baseline-missing).
+//      capture-failure-falls-back-serial). No merge-base capture is asked
+//      for here (kan-1087 … kan-1102: 2 of 63 verifier rows needed one, each
+//      4–8 minutes of a second stack): a shard that needs one names its spec
+//      in its report and close prints it, step 2 below.
 //  10. per row, the verifier's bundle
 //      <worktree>/.superpowers/sdd/verify-prompt-<key>.md: the absolute
 //      worktree; `changeRoot:`; the path of skills/flow/visual-verify-verifier.md
@@ -235,7 +229,10 @@ import (
 //      segment. A check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
 //      other than `no sidecar line`, ends the row `-outcome aborted`, appends
 //      each guard verdict line to the stage file as `verdict <key> <line>`
-//      (the remainder's bundle reads them), prints them and
+//      (the remainder's bundle reads them), prints them, then one
+//        MERGE-BASE-SPEC: <spec>
+//      per distinct `- merge-base capture owed: <spec>` line of the report —
+//      the parent takes that merge-base capture before the remainder — and
 //        NEXT: rest <key>-rest[-<n>][-<repository name>]       exit 0
 //      — `-rest`, then `-rest-<n>` from 2, placed before any
 //      `-<repository name>` suffix, the shard segment kept last
@@ -389,7 +386,7 @@ import (
 // unknown subcommand or argument, a token not mf-<t>, no --harness, a
 // --merge-base, --since or --round-base not <worktree>=<sha>, an --app not
 // <worktree>:<app-root>=<url>, a --defects not <worktree>=<frame>[,<frame>…]
-// or with no --round-base for its worktree, --started, --merge-base-captured or --merge-base-failed without --continue, a <motions
+// or with no --round-base for its worktree, --started or --merge-base-failed without --continue, a <motions
 // named> that is not a count) or an unreadable input — the cause on stderr,
 // nothing recorded for a usage error.
 
@@ -400,7 +397,7 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started] [--merge-base-captured | --merge-base-failed <reason>]]\n" +
+const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started] [--merge-base-failed <reason>]]\n" +
 	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
 	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]"
 
@@ -419,7 +416,6 @@ type vvp struct {
 	apps                             map[string][]string
 	defects                          map[string][]string // by worktree, --defects
 	miss, cont, started              bool
-	mbCaptured                       bool                // --merge-base-captured
 	mbFailed                         string              // --merge-base-failed <reason>
 	siblings                         map[string][]string // a worktree's siblings whose diff its `ui paths` matched
 	setSize                          int
@@ -572,8 +568,6 @@ func (v *vvp) parse(args []string, prepare bool) {
 			v.cont = true
 		case prepare && f == "--started":
 			v.started = true
-		case prepare && f == "--merge-base-captured":
-			v.mbCaptured = true
 		case prepare && f == "--merge-base-failed":
 			v.mbFailed = val(i)
 			i++
@@ -595,8 +589,8 @@ func (v *vvp) parse(args []string, prepare bool) {
 	if v.started && !v.cont {
 		v.usage("--started is given with --continue only")
 	}
-	if (v.mbCaptured || v.mbFailed != "") && !v.cont {
-		v.usage("--merge-base-captured and --merge-base-failed are given with --continue only")
+	if v.mbFailed != "" && !v.cont {
+		v.usage("--merge-base-failed is given with --continue only")
 	}
 	if prepare && !v.cont {
 		for _, w := range v.worktrees {
@@ -666,7 +660,6 @@ func (v *vvp) repoName(w string) string {
 //	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
 //	spec <absolute capture spec path>
 //	slice s<i>of<n> <frame>[,<frame>…]
-//	capture-base <the capture root's merge base, when it is another worktree of the set>
 //	captured
 //	row <key> <worktree>
 //	verdict <key> <guard verdict line>

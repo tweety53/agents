@@ -22,7 +22,10 @@ alone, and its `- frames:` line counts the slice's declared frames. A shard neve
 merge base: it reads the PNG the parent copied under
 `<changeRoot>/visual-verification/merge-base/` and cites it as `merge-base capture: <its absolute
 path>`, and with a bundle line `merge-base capture failed — <reason>` a departure no baseline PNG
-attributes is this change's, its line naming that failure. A step-10 state check that writes to
+attributes is this change's, its line naming that failure. Where step 10 calls for a merge-base
+capture and neither is there, the shard writes `- merge-base capture owed: <absolute spec path>`,
+one line per spec, reports step 10 `blocked — merge-base capture owed`, and finishes every other
+frame: the parent takes the capture and the remainder attributes the departure. A step-10 state check that writes to
 the stack — a submitted form, data seeded to reach a comparison branch — runs signed in as an
 account the shard registers fresh for it, as a capture spec that registers fresh does, never the
 seeded account the other shards' captures read; a check that only reads, or types without

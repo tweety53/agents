@@ -905,7 +905,6 @@ func vvpShardFixture(t *testing.T, n int, capture string) *vvpFix {
 
 // TestVisualVerifyPassPrepareShards pins decisions
 // shard-unscoped-single-worktree, prepare-captures-sharded,
-// capture-before-merge-base, merge-base-capture-when-baseline-missing,
 // capture-failure-falls-back-serial, bundle-names-measure-call and
 // shard-key-segment (KAN-1121).
 func TestVisualVerifyPassPrepareShards(t *testing.T) {
@@ -964,6 +963,18 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
+	t.Run("every spec is captured in one run", func(t *testing.T) {
+		f := vvpShardFixture(t, 60, "")
+		writeFile(t, filepath.Join(f.wt, "tests/visual/b.spec.ts"), "shot('b.png')\n")
+		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts\n")
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "second spec")
+		f.green()
+		if rc, out, _ := f.prepare(); rc != 0 || runLog(f) != "setup\ncapture "+spec(f)+" "+filepath.Join(f.wt, "tests/visual/b.spec.ts")+" --update-snapshots=all\n" {
+			t.Fatalf("exit %d, run log %q\n%s", rc, runLog(f), out)
+		}
+	})
+
 	t.Run("a failed capture falls back to one verifier", func(t *testing.T) {
 		f := vvpShardFixture(t, 60, "exit 1\n")
 		rc, out, _ := f.prepare()
@@ -973,16 +984,17 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
-	t.Run("a missing merge-base baseline asks the parent first", func(t *testing.T) {
+	t.Run("a missing merge-base baseline stops no shard", func(t *testing.T) {
 		shots := filepath.Join("tests/visual/a.spec.ts-snapshots")
 		f := vvpShardFixture(t, 60, "mkdir -p "+shots+" && printf png > "+shots+"/shot-F1-darwin.png\n")
-		rc, out, calls := f.prepare()
-		if rc != 0 || !strings.Contains(out, "MERGE-BASE-SPEC: "+spec(f)+"\n") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: merge-base-capture") || strings.Contains(calls, "dispatch begin") {
-			t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+		rc, out, _ := f.prepare()
+		if rc != 0 || strings.Contains(out, "MERGE-BASE-SPEC: ") || len(vvpLines(out, "DISPATCH: ")) != 3 {
+			t.Fatalf("exit %d\n%s", rc, out)
 		}
-		args := []string{f.wt, "demo", "visual-verify", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL, "--merge-base-failed", "stack down"}
+		// A shard's remainder after a merge-base capture that failed.
+		args := []string{f.wt, "demo", "visual-verify-rest-s3of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL, "--merge-base-failed", "stack down"}
 		rc, out, _ = f.run("prepare", args...)
-		if rc != 0 || len(vvpLines(out, "DISPATCH: ")) != 3 || strings.Count(runLog(f), "capture ") != 1 || !strings.Contains(bundle(f, "visual-verify-s3of3"), "merge-base capture failed — stack down\n") {
+		if rc != 0 || len(vvpLines(out, "DISPATCH: ")) != 1 || strings.Count(runLog(f), "capture ") != 1 || !strings.Contains(bundle(f, "visual-verify-rest-s3of3"), "merge-base capture failed — stack down\n") {
 			t.Fatalf("--merge-base-failed: exit %d, run log %q\n%s", rc, runLog(f), out)
 		}
 		args = args[:len(args)-2]
@@ -1037,9 +1049,6 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 			runLog(f) != "setup\ncapture "+filepath.Join(w, "tests/visual/a.spec.ts")+" --update-snapshots=all\n" {
 			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
 		}
-		if !strings.Contains(s, "capture-base "+mb+"\n") || strings.Contains(out, "MERGE-BASE-SPEC: ") {
-			t.Fatalf("the baseline was not looked up at the capture root's merge base:\n%s\n%s", out, s)
-		}
 		args := []string{f.wt, "demo", "visual-verify-rest-demo-s2of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}
 		rc, out, _ = f.run("prepare", args...)
 		if d := vvpLines(out, "DISPATCH: "); rc != 0 || len(d) != 1 || !strings.HasPrefix(d[0], "DISPATCH: visual-verify-rest-demo-s2of3 ") || strings.Count(runLog(f), "capture ") != 1 {
@@ -1068,7 +1077,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 
 	t.Run("the merge-base flags need --continue", func(t *testing.T) {
 		f := vvpShardFixture(t, 60, "")
-		if rc, out, _ := f.prepare("--merge-base-captured"); rc != 2 || !strings.Contains(out, "--continue") {
+		if rc, out, _ := f.prepare("--merge-base-failed", "stack down"); rc != 2 || !strings.Contains(out, "--continue") {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
 	})

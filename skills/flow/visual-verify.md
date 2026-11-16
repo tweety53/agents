@@ -136,7 +136,7 @@ stage — `stopped` when any is `blocked`, else `completed` — and rendered the
 **A pass over more than 25 frames runs as up to four shards at once.** On an unscoped pass — the
 first, or a `-fix-<k>-full` run — with one surviving worktree, with `mockups` declared and more than
 25 frames on the change's list, `prepare` cuts the frames into n = min(4, ⌈F/25⌉) slices, runs
-step 8's `setup` and each capture spec's `capture` itself, and begins one row per slice, keyed
+step 8's `setup` and one `capture` of every capture spec itself, and begins one row per slice, keyed
 `<stage key>-s<i>of<n>`, the segment after any `-<repository name>` suffix — `visual-verify-s2of4`,
 `visual-verify-fix-3-full-s1of3`, `visual-verify-gymie-s2of3`;
 `flow-guard visual-verify-pass`'s header is canonical for the cut. Every other pass runs one
@@ -152,14 +152,15 @@ only once every shard of the pass has closed; on `judge`, every shard row still 
 own key. One fix round transcribes every shard report that names a defect (**The loop**,
 `skills/flow/verify-fix-loop.md`).
 
-**`NEXT: merge-base-capture` — the parent takes the merge-base capture once, before any shard
-starts.** `prepare` prints one `MERGE-BASE-SPEC: <spec>` line per capture spec with a PNG absent at
-the merge base, and begins no row. For every spec named, the parent runs **The merge-base capture**
-below in its own Bash calls, copies every PNG it wrote to
-`<changeRoot>/visual-verification/merge-base/<its path below the screenshots root>`, and runs
-`prepare --continue --merge-base-captured`, adding `--started` again when it started the stack. A
+**`MERGE-BASE-SPEC:` — the parent takes a merge-base capture only for a shard that asks for one.**
+A shard's `close` prints one `MERGE-BASE-SPEC: <spec>` line per spec its report names as owed,
+before `NEXT: rest`. For every spec named whose PNGs are not yet under
+`<changeRoot>/visual-verification/merge-base/`, the parent runs **The merge-base capture**
+below in its own Bash calls and copies every PNG it wrote to
+`<changeRoot>/visual-verification/merge-base/<its path below the screenshots root>`, before the
+remainder's `prepare --continue`. A
 merge-base capture that cannot run is passed as `prepare --continue --merge-base-failed "<reason>"`,
-and every shard's bundle carries `merge-base capture failed — <reason>`.
+and every later shard bundle carries `merge-base capture failed — <reason>`.
 
 **An environment cure that changes what the stack serves — a served root switched, a worktree added
 to the set — voids every earlier pass**, so the next re-dispatch runs unscoped: its `prepare` is

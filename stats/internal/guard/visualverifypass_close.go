@@ -80,6 +80,15 @@ func (v *vvp) close() {
 			v.appendStage("verdict " + v.key + " " + l)
 			v.say("%s", l)
 		}
+		// A shard starts no merge-base stack: it names the spec it needs one
+		// for, and the parent takes that capture before the remainder.
+		var owed []string
+		for _, m := range vvcOwed.FindAllStringSubmatch(string(body), -1) {
+			if !slices.Contains(owed, m[1]) {
+				owed = append(owed, m[1])
+				v.say("MERGE-BASE-SPEC: %s", m[1])
+			}
+		}
 		v.next("rest " + v.restKey(w))
 	}
 
@@ -259,6 +268,9 @@ func protoSnapshot(changeRoot string) string {
 	}
 	return b.String()
 }
+
+// vvcOwed is a report's `- merge-base capture owed: <spec>` line.
+var vvcOwed = regexp.MustCompile(`(?m)^- merge-base capture owed: (\S+)`)
 
 // vvcOnlyNoSidecar is a FRAME-LIST-GAP line whose every gap is `no sidecar
 // line: <frame id>`.

@@ -315,9 +315,7 @@ func (v *vvp) preflight(survivors []string) {
 // shard-unscoped-single-worktree, four-shards-slices-grow): only an unscoped
 // pass with one surviving worktree, with `mockups` declared and more than 25
 // frames on the change's list, shards — a set of several worktrees included,
-// since its one survivor is still one verifier. A capture root that is another
-// worktree of the set records its own merge base as `capture-base`, the sha
-// captureShards looks its baseline PNGs up at.
+// since its one survivor is still one verifier.
 func (v *vvp) shard(survivors, specs, sidecars []string) {
 	if len(survivors) != 1 || len(v.roundBase) > 0 {
 		return
@@ -356,9 +354,6 @@ func (v *vvp) shard(survivors, specs, sidecars []string) {
 	}
 	for i, s := range cut {
 		v.appendStage(fmt.Sprintf("slice s%dof%d %s", i+1, len(cut), strings.Join(s, ",")))
-	}
-	if root := v.captureRoot(w); root != w && v.mergeBase[root] != "" {
-		v.appendStage("capture-base " + v.mergeBase[root])
 	}
 	parts, _ := filepath.Glob(filepath.Join(changeRoot, "visual-verification", "record-s*.md"))
 	for _, p := range parts {
@@ -439,21 +434,16 @@ func vvpSlices(lines [][3]string, extra []string) [][]string {
 }
 
 // captureShards is step 8's capture on a sharded pass (decisions
-// prepare-captures-sharded, capture-before-merge-base,
-// capture-failure-falls-back-serial,
-// merge-base-capture-when-baseline-missing): `setup`, then `capture <spec>
-// --update-snapshots=all` per `spec` line, once per pass; a non-zero exit
-// drops the slices and the pass runs one verifier. Then each spec with a PNG
-// absent at the merge base prints `MERGE-BASE-SPEC:` and the pass stops for
-// the parent's merge-base capture, unless --merge-base-captured or
-// --merge-base-failed says it ran.
+// prepare-captures-sharded, capture-failure-falls-back-serial): `setup`, then
+// one `capture <spec> --update-snapshots=all` with every `spec` line's path
+// for `<spec>`, space-joined, once per pass; a
+// non-zero exit drops the slices and the pass runs one verifier. No
+// merge-base capture is asked for here: a shard that needs one says so in its
+// report, and close asks the parent then. --merge-base-failed records its
+// reason for every later bundle of the pass.
 func (v *vvp) captureShards(survivors []string) {
 	var specs []string
 	sliced, captured := false, false
-	w := survivors[0]
-	// The baselines live in the capture root's repository, so its merge base
-	// is the one a PNG is looked up at.
-	base := v.mergeBase[w]
 	for _, l := range v.readStage() {
 		switch l[0] {
 		case "spec":
@@ -462,58 +452,30 @@ func (v *vvp) captureShards(survivors []string) {
 			sliced = true
 		case "captured":
 			captured = true
-		case "capture-base":
-			base = l[1]
 		}
 	}
-	if !sliced || vvpShardSeg.MatchString(v.key) {
-		return
-	}
-	if !captured {
-		cells := v.cells(w)
-		var cmds []string
-		if c := strings.TrimSpace(cells["setup"]); c != "" {
-			cmds = append(cmds, c)
-		}
-		for _, s := range specs {
-			cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", s)+" --update-snapshots=all")
-		}
-		for _, c := range cmds {
-			if rc, _ := kwRun(v.env, v.captureRoot(w), "sh", "-c", c); rc != 0 {
-				v.say("SHARDS: none — %s exit %d", c, rc)
-				v.dropStage("slice")
-				return
-			}
-		}
-		v.appendStage("captured")
-	}
-	if v.mbFailed != "" {
+	if sliced && v.mbFailed != "" {
 		v.appendStage("merge-base-failed " + v.mbFailed)
 	}
-	if v.mbCaptured || v.mbFailed != "" {
+	if !sliced || captured || vvpShardSeg.MatchString(v.key) {
 		return
 	}
-	missing := false
-	for _, s := range specs {
-		var out bytes.Buffer
-		// Exit 1 is zero PNGs, nothing to compare; exit 2 cannot answer, so the
-		// spec fails closed.
-		if resolveVisualScreenshots([]string{w, filepath.Base(s)}, quietReasons(v.env), &out, io.Discard) == 2 {
-			v.say("MERGE-BASE-SPEC: %s", s)
-			missing = true
-			continue
-		}
-		for _, png := range strings.Fields(out.String()) {
-			if _, ok := v.git("-C", filepath.Dir(png), "cat-file", "-e", base+":./"+filepath.Base(png)); !ok {
-				v.say("MERGE-BASE-SPEC: %s", s)
-				missing = true
-				break
-			}
+	w := survivors[0]
+	cells := v.cells(w)
+	var cmds []string
+	if c := strings.TrimSpace(cells["setup"]); c != "" {
+		cmds = append(cmds, c)
+	}
+	// One run for every spec, so the runner's workers fill across spec files.
+	cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " "))+" --update-snapshots=all")
+	for _, c := range cmds {
+		if rc, _ := kwRun(v.env, v.captureRoot(w), "sh", "-c", c); rc != 0 {
+			v.say("SHARDS: none — %s exit %d", c, rc)
+			v.dropStage("slice")
+			return
 		}
 	}
-	if missing {
-		v.next("merge-base-capture")
-	}
+	v.appendStage("captured")
 }
 
 // dropStage rewrites the stage file without its lines whose first word is word.

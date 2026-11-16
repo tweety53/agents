@@ -565,6 +565,16 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 		t.Fatalf("another index's block counted: exit %d\n%s", rc, out)
 	}
 
+	// A shard names the spec it needs a merge-base capture for; close asks
+	// the parent once per spec, before the remainder.
+	o := vvcFixture(t, "")
+	o.appendRow("visual-verify-s1of2", o.wt)
+	owed := "4 done | 8 done | 9 done | 10 blocked — merge-base capture owed | 11 done | motion n/a — no motion named"
+	o.report("visual-verify-s1of2", o.wt, vvcVerdict("0", owed, ""), "- merge-base capture owed: /abs/a.spec.ts\n- merge-base capture owed: /abs/a.spec.ts\n- steps: "+owed+"\n")
+	if rc, out, _ := o.close("visual-verify-s1of2"); rc != 0 || strings.Count(out, "MERGE-BASE-SPEC: /abs/a.spec.ts\n") != 1 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-s1of2") {
+		t.Fatalf("an owed merge-base capture: exit %d\n%s", rc, out)
+	}
+
 	// A shard of a set of several worktrees: the repository name, then the
 	// shard segment, on its remainder and its redispatch alike.
 	m := vvcFixture(t, "")
