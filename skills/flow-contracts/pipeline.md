@@ -152,7 +152,11 @@ phase — findings recorded and the fix round not yet made, a fix committed and 
 yet launched, a dispatch returned and its result not yet acted on — the next step is taken in the
 same turn, never announced as "next". A turn whose last action is anything other than an operator
 prompt **What still stops** names, a blocked report, or the handoff the state's run ends on is
-this rule broken. The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end.
+this rule broken. The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end. Ending on
+"the turn has been long", "each step is a real dispatch or build", "send `/flow` to continue" or
+any status report that offers to continue is this rule broken too, and the hook refuses it again
+however often it recurs, letting an operator stop through only as an `AskUserQuestion` or a
+`## Question` (kan-1099).
 
 **A wait on background subagents is the one turn end inside a phase.** The parent ends its turn on
 the one-shots it launched, and the harness's completion notifications resume it — never a poll;

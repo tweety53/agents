@@ -4,7 +4,7 @@ package repotest
 // refuses a /flow turn end mid-phase (kan-1024). Each subtest starts a stub
 // store answering /api/v1/stage-runs and /api/v1/changes/find, writes the
 // change's tasks.md under the stage row's repoRoot, and pipes a Stop payload
-// to the hook with HOME in a temp dir (the fingerprint lives under it).
+// to the hook with HOME in a temp dir.
 
 import (
 	"fmt"
@@ -199,11 +199,6 @@ func TestFlowStopGuardHook(t *testing.T) {
 			f.lastUser = "stop here"
 			allow(t, runStopGuard(t, f, t.TempDir(), false))
 		}},
-		{"i: stop_hook_active with unchanged fingerprint allows", func(t *testing.T) {
-			home := t.TempDir()
-			block(t, runStopGuard(t, started(3, 7, true), home, false), "flow.implement")
-			allow(t, runStopGuard(t, started(3, 7, true), home, true))
-		}},
 		{"j: stop_hook_active after a stage ended blocks", func(t *testing.T) {
 			home := t.TempDir()
 			block(t, runStopGuard(t, started(7, 7, true), home, false), "flow.implement")
@@ -269,5 +264,31 @@ func TestFlowStopGuardHook(t *testing.T) {
 			t.Parallel()
 			c.fn(t)
 		})
+	}
+}
+
+// TestFlowStopGuardReblocksARepeatedEnd pins kan-1099: a /flow turn ended twice
+// at the same open stage on a status report offering to continue, and the
+// hook let the second end through because its fingerprint had not moved.
+// Every repeat is refused; an operator stop passes only as an AskUserQuestion
+// or a ## Question.
+// smoke: core — the stop gate
+func TestFlowStopGuardReblocksARepeatedEnd(t *testing.T) {
+	t.Parallel()
+	offer := "Stopped here because the turn has been long and each step is a real dispatch or build. Send /flow to continue."
+	home := t.TempDir()
+	for i, active := range []bool{false, true, true} {
+		f := stopFixture{state: "STARTED", ticked: 3, total: 7, open: true, lastText: offer}
+		if out := runStopGuard(t, f, home, active); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "flow.implement") {
+			t.Errorf("end %d at the same open stage: expected block naming flow.implement, got %q", i+1, out)
+		}
+	}
+	f := stopFixture{state: "STARTED", ticked: 3, total: 7, open: true, lastText: "## Question\n\nThe store needs a credential only you hold."}
+	if out := runStopGuard(t, f, home, true); out != "" {
+		t.Errorf("a ## Question stop: expected allow (no output), got %q", out)
+	}
+	f.lastText = "The report says ## Question mid-line."
+	if out := runStopGuard(t, f, home, true); !strings.Contains(out, `"decision": "block"`) {
+		t.Errorf("## Question mid-line: expected block, got %q", out)
 	}
 }

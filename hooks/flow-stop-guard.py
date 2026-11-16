@@ -11,13 +11,15 @@ STARTED and:
 - every task of the plan is ticked (ticked == total > 0) --
   implementation is done and flow.write-in-progress is not yet written.
 
-It allows (exit 0, no output) at an AskUserQuestion, after an operator message saying
+It allows (exit 0, no output) at an AskUserQuestion or a turn whose last text opens a line with
+`## Question` (the stop **What still stops** names), after an operator message saying
 "stop", while a background agent this transcript launched has not yet notified its end (the
 wait on one-shot subagents, skills/flow-contracts/pipeline.md), while a Bash command it moved to the
 background has not either (await-own-agents.py's running_background; the wait
 skills/flow/verify-and-handoff.md prescribes for a long check), at IN_PROGRESS / FINISHED, at STARTED with no tasks or none ticked and no open
-stage, when the session has no /flow run, and when stop_hook_active is true with nothing
-advanced since its last block (a fingerprint under ~/.claude/flow-stop-guard/).
+stage, and when the session has no /flow run. A repeated end at the same open stage is refused
+every time: stop_hook_active never lets one through (kan-1099, where a second status report
+offering to continue passed a fingerprint that had not moved).
 
 Before any of that, it reads the turn's last assistant text: a Finished handoff (a `## Finished`
 line, skills/flow/cleanup.md) or a /flow-fast landing report (recognised by carrying either line)
@@ -62,6 +64,7 @@ TASK_RE = re.compile(r"^- \[([ xX])\] ")
 STOP_RE = re.compile(r"^\s*(stop|pause|wait)\b", re.IGNORECASE)
 TRANSCRIPT_TAIL_BYTES = 1 << 20
 HANDOFF_LINES = ("**Learning:**", "**Prompt tuning:**")
+QUESTION_RE = re.compile(r"^## Question\s*$", re.MULTILINE)
 
 
 def store_get(path: str, query: dict) -> dict:
@@ -118,8 +121,8 @@ def transcript_entries(path) -> list:
         return fh.read().decode("utf-8", "replace").splitlines()
 
 
-def handoff_missing(lines: list) -> list:
-    """The never-omitted handoff lines the turn's last assistant text drops, if it is a handoff."""
+def last_text(lines: list) -> str:
+    """The turn's last assistant text: only text after the operator's last message counts."""
     last = ""
     for line in lines:
         try:
@@ -135,6 +138,11 @@ def handoff_missing(lines: list) -> list:
             texts = _texts((entry.get("message") or {}).get("content"))
             if any(t.strip() for t in texts):
                 last = "\n".join(texts)
+    return last
+
+
+def handoff_missing(last: str) -> list:
+    """The never-omitted handoff lines the turn's last assistant text drops, if it is a handoff."""
     present = [h for h in HANDOFF_LINES if re.search(r"^" + re.escape(h), last, re.MULTILINE)]
     if not present and not re.search(r"^## Finished\s*$", last, re.MULTILINE):
         return []
@@ -186,7 +194,8 @@ def main() -> int:
     if not isinstance(payload, dict):
         return 0
     lines = transcript_entries(payload.get("transcript_path"))
-    missing = [] if payload.get("stop_hook_active") else handoff_missing(lines)
+    last = last_text(lines)
+    missing = [] if payload.get("stop_hook_active") else handoff_missing(last)
     if missing:
         json.dump(
             {
@@ -199,7 +208,7 @@ def main() -> int:
             sys.stdout,
         )
         return 0
-    if transcript_allows(lines) or agents_pending(lines) or bash_pending(payload.get("transcript_path")):
+    if transcript_allows(lines) or QUESTION_RE.search(last) or agents_pending(lines) or bash_pending(payload.get("transcript_path")):
         return 0
     session_id = _fac.resolve_session_id(payload)
     if not session_id:
@@ -218,17 +227,6 @@ def main() -> int:
         reason = f"all {total} tasks are ticked at STARTED"
     else:
         return 0
-
-    fingerprint = {"stageRunId": run.get("stageRunId"), "endedAt": run.get("endedAt"), "ticked": ticked}
-    state_dir = os.path.join(os.path.expanduser("~"), ".claude", "flow-stop-guard")
-    state_file = os.path.join(state_dir, f"{os.path.basename(session_id)}.json")
-    if payload.get("stop_hook_active") and os.path.isfile(state_file):
-        with open(state_file, encoding="utf-8") as fh:
-            if json.load(fh) == fingerprint:
-                return 0
-    os.makedirs(state_dir, exist_ok=True)
-    with open(state_file, "w", encoding="utf-8") as fh:
-        json.dump(fingerprint, fh)
 
     nxt = (
         "test list, review panel, verify, then flow.write-in-progress"
