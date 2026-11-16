@@ -133,10 +133,11 @@ stage — `stopped` when any is `blocked`, else `completed` — and rendered the
 `STAGE:`. An exit 2 is a usage error or an unreadable input, corrected and `close` run again.
 
 **A pass over more than 25 frames runs as up to four shards at once.** On an unscoped pass — the
-first, or a `-fix-<k>-full` run — of a set of one worktree, with `mockups` declared and more than
+first, or a `-fix-<k>-full` run — with one surviving worktree, with `mockups` declared and more than
 25 frames on the change's list, `prepare` cuts the frames into n = min(4, ⌈F/25⌉) slices, runs
 step 8's `setup` and each capture spec's `capture` itself, and begins one row per slice, keyed
-`<stage key>-s<i>of<n>` — `visual-verify-s2of4`, `visual-verify-fix-3-full-s1of3`;
+`<stage key>-s<i>of<n>`, the segment after any `-<repository name>` suffix — `visual-verify-s2of4`,
+`visual-verify-fix-3-full-s1of3`, `visual-verify-gymie-s2of3`;
 `flow-guard visual-verify-pass`'s header is canonical for the cut. Every other pass runs one
 verifier per worktree, as above. The `DISPATCH:` lines go out in one message, the shards running at
 once against one stack. A shard's bundle names its slice on a `slice:` line and passes it to the

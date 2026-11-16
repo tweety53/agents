@@ -335,13 +335,14 @@ func (v *vvp) rowWorktree(stage [][2]string, key string) string {
 	return w
 }
 
-// suffix is the key's shard segment, `-s<i>of<n>`, then `-<repository name>`
-// when the set holds more than one worktree.
+// suffix is `-<repository name>` when the set holds more than one worktree,
+// then the key's shard segment, `-s<i>of<n>`.
 func (v *vvp) suffix(w string) string {
+	shard := vvpShardSeg.FindString(v.key)
 	if v.setSize > 1 {
-		return "-" + v.repoName(w)
+		return "-" + v.repoName(w) + shard
 	}
-	return vvpShardSeg.FindString(v.key)
+	return shard
 }
 
 // vvpShardSeg is a shard key's `-s<i>of<n>` segment (decision shard-key-segment).

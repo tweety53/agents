@@ -565,6 +565,21 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 		t.Fatalf("another index's block counted: exit %d\n%s", rc, out)
 	}
 
+	// A shard of a set of several worktrees: the repository name, then the
+	// shard segment, on its remainder and its redispatch alike.
+	m := vvcFixture(t, "")
+	writeFile(t, m.stagePath(), strings.Replace(m.stageFile(), "set 1\n", "set 2\n", 1))
+	m.appendRow("visual-verify-demo-s2of3", m.wt)
+	m.report("visual-verify-demo-s2of3", m.wt, vvcVerdict("0", "10 not done", ""), "- steps: 10 not done\n")
+	if rc, out, _ := m.close("visual-verify-demo-s2of3"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-demo-s2of3") {
+		t.Fatalf("a suffixed shard's remainder: exit %d\n%s", rc, out)
+	}
+	m.appendRow("visual-verify-rest-demo-s2of3", m.wt)
+	m.report("visual-verify-rest-demo-s2of3", m.wt, vvcVerdict("1", vvcBlocked, "environment"), "- steps: "+vvcBlocked+"\n")
+	if rc, out, _ := m.close("visual-verify-rest-demo-s2of3"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: redispatch visual-verify-2-demo-s2of3") {
+		t.Fatalf("a suffixed shard's redispatch: exit %d\n%s", rc, out)
+	}
+
 	g := vvcFixture(t, "| `mockups` | `design/mockups` |\n")
 	vv := filepath.Join(g.wt, "spectre/changes/demo/visual-verification")
 	writeFile(t, filepath.Join(g.wt, "spectre/changes/demo/design.md"), "# design\n\nFrames f1 and f2.\n")

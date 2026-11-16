@@ -307,17 +307,24 @@ func (v *vvp) preflight(survivors []string) {
 	if len(fails) > 0 {
 		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
-	v.shard(specs, sidecars)
+	v.shard(survivors, specs, sidecars)
 }
 
 // shard writes a sharded pass's `spec` and `slice` lines to the stage file
 // and deletes every earlier record part (decisions
 // shard-unscoped-single-worktree, four-shards-slices-grow): only an unscoped
-// pass of a single-worktree set, with `mockups` declared and more than 25
-// frames on the change's list, shards.
-func (v *vvp) shard(specs, sidecars []string) {
-	mock := v.cells(v.canon)["mockups"]
-	if len(v.worktrees) != 1 || mock == "" || len(v.roundBase) > 0 {
+// pass with one surviving worktree, with `mockups` declared and more than 25
+// frames on the change's list, shards — a set of several worktrees included,
+// since its one survivor is still one verifier. A capture root that is another
+// worktree of the set records its own merge base as `capture-base`, the sha
+// captureShards looks its baseline PNGs up at.
+func (v *vvp) shard(survivors, specs, sidecars []string) {
+	if len(survivors) != 1 || len(v.roundBase) > 0 {
+		return
+	}
+	w := survivors[0]
+	mock := v.cells(w)["mockups"]
+	if mock == "" {
 		return
 	}
 	var lines [][3]string
@@ -332,9 +339,9 @@ func (v *vvp) shard(specs, sidecars []string) {
 	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
 	var extra []string
 	design, derr := os.ReadFile(filepath.Join(changeRoot, "design.md"))
-	entries, eerr := os.ReadDir(cellPath(v.canon, mock))
+	entries, eerr := os.ReadDir(cellPath(w, mock))
 	if derr == nil && eerr == nil {
-		for _, id := range flDeclared(design, cellPath(v.canon, mock), entries) {
+		for _, id := range flDeclared(design, cellPath(w, mock), entries) {
 			if !listed[id] {
 				extra = append(extra, id)
 			}
@@ -349,6 +356,9 @@ func (v *vvp) shard(specs, sidecars []string) {
 	}
 	for i, s := range cut {
 		v.appendStage(fmt.Sprintf("slice s%dof%d %s", i+1, len(cut), strings.Join(s, ",")))
+	}
+	if root := v.captureRoot(w); root != w && v.mergeBase[root] != "" {
+		v.appendStage("capture-base " + v.mergeBase[root])
 	}
 	parts, _ := filepath.Glob(filepath.Join(changeRoot, "visual-verification", "record-s*.md"))
 	for _, p := range parts {
@@ -440,6 +450,10 @@ func vvpSlices(lines [][3]string, extra []string) [][]string {
 func (v *vvp) captureShards(survivors []string) {
 	var specs []string
 	sliced, captured := false, false
+	w := survivors[0]
+	// The baselines live in the capture root's repository, so its merge base
+	// is the one a PNG is looked up at.
+	base := v.mergeBase[w]
 	for _, l := range v.readStage() {
 		switch l[0] {
 		case "spec":
@@ -448,12 +462,13 @@ func (v *vvp) captureShards(survivors []string) {
 			sliced = true
 		case "captured":
 			captured = true
+		case "capture-base":
+			base = l[1]
 		}
 	}
 	if !sliced || vvpShardSeg.MatchString(v.key) {
 		return
 	}
-	w := survivors[0]
 	if !captured {
 		cells := v.cells(w)
 		var cmds []string
@@ -489,7 +504,7 @@ func (v *vvp) captureShards(survivors []string) {
 			continue
 		}
 		for _, png := range strings.Fields(out.String()) {
-			if _, ok := v.git("-C", filepath.Dir(png), "cat-file", "-e", v.mergeBase[w]+":./"+filepath.Base(png)); !ok {
+			if _, ok := v.git("-C", filepath.Dir(png), "cat-file", "-e", base+":./"+filepath.Base(png)); !ok {
 				v.say("MERGE-BASE-SPEC: %s", s)
 				missing = true
 				break
@@ -719,19 +734,32 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 	}
 	type row struct{ key, w string }
 	var rows []row
+	// A shard key keeps its segment last, after any `-<repository name>`.
+	shard := vvpShardSeg.FindString(v.key)
+	named := ""
 	for _, w := range survivors {
-		if size > 1 && strings.HasSuffix(v.key, "-"+v.repoName(w)) {
-			rows = []row{{v.key, w}}
+		if size > 1 && strings.HasSuffix(strings.TrimSuffix(v.key, shard), "-"+v.repoName(w)) {
+			named = w
 			break
 		}
 	}
 	stage := v.readStage()
-	if rows == nil && !vvpShardSeg.MatchString(v.key) {
+	if shard == "" {
 		for _, l := range stage {
 			if k, _, _ := strings.Cut(l[1], " "); l[0] == "slice" {
-				rows = append(rows, row{v.key + "-" + k, survivors[0]})
+				key := v.key
+				if size > 1 && named == "" {
+					key += "-" + v.repoName(survivors[0])
+				}
+				rows = append(rows, row{key + "-" + k, survivors[0]})
 			}
 		}
+	}
+	if rows == nil && named != "" {
+		rows = []row{{v.key, named}}
+	}
+	if rows == nil && shard != "" {
+		rows = []row{{v.key, survivors[0]}}
 	}
 	if rows == nil {
 		for _, w := range survivors {

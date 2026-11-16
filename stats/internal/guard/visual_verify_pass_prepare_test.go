@@ -992,7 +992,61 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
-	t.Run("a scoped pass and a two-worktree set never shard", func(t *testing.T) {
+	// kan-1099 ran ~32 frames as one verifier: its set held the regression
+	// checkout's worktree beside the one surviving worktree.
+	t.Run("one survivor of a two-worktree set shards", func(t *testing.T) {
+		f := vvpShardFixture(t, 60, "")
+		// The regression checkout, a worktree of the set whose diff touches no
+		// UI path: it holds the spec, its sidecar and a baseline at its merge base.
+		w := filepath.Join(filepath.Dir(f.wt), "gymie-playwright")
+		shot := "tests/visual/a.spec.ts-snapshots/shot-F1-darwin.png"
+		for _, p := range []string{"tests/visual/a.spec.ts", "tests/visual/a.spec.ts.mockups"} {
+			b, _ := os.ReadFile(filepath.Join(f.wt, p))
+			writeFile(t, filepath.Join(w, p), string(b))
+		}
+		writeFile(t, filepath.Join(w, shot), "png\n")
+		writeFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
+		writeFile(t, filepath.Join(w, ".gitignore"), "setup\ncap\n")
+		log := filepath.Join(f.wt, "run.log")
+		writeExec(t, filepath.Join(w, "setup"), "#!/bin/sh\necho setup >> "+log+"\n")
+		writeExec(t, filepath.Join(w, "cap"), "#!/bin/sh\necho \"capture $*\" >> "+log+"\nprintf new > "+shot+"\n")
+		fixtureRepo(t, w, repoShape{Branch: "spectre/demo"})
+		gitRun(t, w, "add", "-A")
+		gitRun(t, w, "commit", "-qm", "base")
+		mb := vgHead(t, w)
+		vgCommit(t, w, "notes.md")
+		b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
+		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), string(b)+"| `regression checkout` | `"+w+"` |\n| `regression repo` | `x/regress` |\n")
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "regression checkout")
+		f.green()
+
+		rc, out, calls := f.prepare("--worktree", w, "--merge-base", w+"="+mb)
+		s := f.stageFile()
+		d := vvpLines(out, "DISPATCH: ")
+		if rc != 0 || len(d) != 3 || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-demo-s2of3 ") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 3") ||
+			!strings.Contains(calls, "-key visual-verify-demo-s1of3 ") || !strings.Contains(s, "row visual-verify-demo-s3of3 "+f.wt+"\n") ||
+			runLog(f) != "setup\ncapture "+filepath.Join(w, "tests/visual/a.spec.ts")+" --update-snapshots=all\n" {
+			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
+		}
+		if !strings.Contains(s, "capture-base "+mb+"\n") || strings.Contains(out, "MERGE-BASE-SPEC: ") {
+			t.Fatalf("the baseline was not looked up at the capture root's merge base:\n%s\n%s", out, s)
+		}
+		args := []string{f.wt, "demo", "visual-verify-rest-demo-s2of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}
+		rc, out, _ = f.run("prepare", args...)
+		if d := vvpLines(out, "DISPATCH: "); rc != 0 || len(d) != 1 || !strings.HasPrefix(d[0], "DISPATCH: visual-verify-rest-demo-s2of3 ") || strings.Count(runLog(f), "capture ") != 1 {
+			t.Fatalf("a suffixed shard's remainder: exit %d, run log %q\n%s", rc, runLog(f), out)
+		}
+		// A key the parent already suffixed shards under that suffix.
+		args = []string{f.wt, "demo", "visual-verify-fix-1-full-demo", "--harness", "claude", "--session-token", "mf-tok",
+			"--merge-base", f.wt + "=" + f.mb, "--app", f.wt + ":.=" + f.app.URL, "--worktree", w, "--merge-base", w + "=" + mb}
+		rc, out, _ = f.run("prepare", args...)
+		if d := vvpLines(out, "DISPATCH: "); rc != 0 || len(d) != 3 || !strings.HasPrefix(d[2], "DISPATCH: visual-verify-fix-1-full-demo-s3of3 ") {
+			t.Fatalf("a suffixed pass key: exit %d\n%s", rc, out)
+		}
+	})
+
+	t.Run("a scoped pass and a set with two survivors never shard", func(t *testing.T) {
 		f := vvpShardFixture(t, 60, "")
 		if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb); rc != 0 || strings.Contains(f.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
 			t.Fatalf("--round-base: exit %d\n%s", rc, out)

@@ -105,13 +105,17 @@ import (
 //      collected; then the stage ends `stopped` and one line names them all:
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
 //      No verifier row is begun on any STOP.
-//  6a. with no failing check, an unscoped pass (no --round-base) of a set of
-//      one worktree with `mockups` declared counts F, the distinct frame ids of the capture specs'
+//  6a. with no failing check, an unscoped pass (no --round-base) with one
+//      surviving worktree — the set's other worktrees, a regression
+//      checkout's among them, dispatch no verifier — and `mockups` declared
+//      counts F, the distinct frame ids of the capture specs'
 //      sidecar lines plus the declared frames no line maps (decision
 //      shard-unscoped-single-worktree). Above 25 it writes one `spec <abs>`
 //      line per capture spec and one `slice s<i>of<n> <frame,…>` line per
 //      slice vvpSlices cuts (decisions four-shards-slices-grow,
-//      slice-by-frame-id), and deletes every
+//      slice-by-frame-id), a `capture-base <sha>` line — the capture root's
+//      own --merge-base — when the capture root is another worktree of the
+//      set, and deletes every
 //      <changeRoot>/visual-verification/record-s*.md. Otherwise it writes
 //      nothing and the pass runs unsharded.
 //   7. --miss: NEXT: analyst          exit 0, no row begun
@@ -135,7 +139,8 @@ import (
 //      lines and continues unsharded (decision
 //      capture-failure-falls-back-serial). Then, without
 //      --merge-base-captured or --merge-base-failed, each spec with a PNG
-//      `git cat-file -e <merge-base>:<png>` refuses, or whose
+//      `git cat-file -e <merge-base>:<png>` refuses — <merge-base> the stage
+//      file's `capture-base` when it holds one — or whose
 //      resolve-visual-screenshots exits 2, prints
 //        MERGE-BASE-SPEC: <spec>
 //      and then `NEXT: merge-base-capture`, exit 0, no row begun (decisions
@@ -182,7 +187,8 @@ import (
 //      the survivor's `ui paths` matched under --repo; keys suffixed
 //      `-<repository name>` when the set holds more than one worktree; on a
 //      stage with `slice` lines one row per `slice` line instead, keyed
-//      `<key>-s<i>of<n>` (decision shard-key-segment) — each
+//      `<key>-s<i>of<n>`, the segment after any `-<repository name>`
+//      (`visual-verify-gymie-s2of3`; decision shard-key-segment) — each
 //      appending `row <key> <worktree>` to the stage file and printing
 //      `DISPATCH: <key> <bundle> — description "<key>", subagent_type
 //      flow-<effort>, model <model>, prompt opens "Role: visual-verifier"`, the
@@ -232,7 +238,7 @@ import (
 //      stage's blocked rows of the worktree and the key's shard index. The
 //      stage's first such report of the worktree and shard index ends the row
 //      `blocked -cause <cause>` and prints
-//        NEXT: redispatch visual-verify-<n>[-fix-<k>[-full]][-s<i>of<n>][-<repository name>]   (<n> from 2)
+//        NEXT: redispatch visual-verify-<n>[-fix-<k>[-full]][-<repository name>][-s<i>of<n>]   (<n> from 2)
 //      — the closing key's `-fix-<k>[-full]` segment, its shard segment and its
 //      `-<repository name>` suffix kept (`visual-verify-2-fix-3`,
 //      `visual-verify-2-s2of3`) — with no commit. From the second: cause `environment` ends the row the
@@ -653,6 +659,7 @@ func (v *vvp) repoName(w string) string {
 //	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
 //	spec <absolute capture spec path>
 //	slice s<i>of<n> <frame>[,<frame>…]
+//	capture-base <the capture root's merge base, when it is another worktree of the set>
 //	captured
 //	row <key> <worktree>
 //	verdict <key> <guard verdict line>
