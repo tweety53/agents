@@ -183,10 +183,6 @@
 // failing `specs` row still fail the list. A `verify` cell with no `<specs>`
 // can only run whole: it is not run and fails the list.
 //
-// THE CAP. A selection naming more than 40 spec files -- the distinct paths
-// of its tokens, `-only`'s file included -- is not run and fails the list,
-// its line giving the count; with `FLOW_OPERATOR_FULL_SUITE=1` set it runs.
-//
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
 // check-spec-reach included — that exits 0 on a tree clean before and after
@@ -377,10 +373,6 @@ import (
 // failing `specs` row still fail the list. A `verify` cell with no `<specs>`
 // can only run whole: it is not run and fails the list.
 //
-// THE CAP. A selection naming more than 40 spec files -- the distinct paths
-// of its tokens, `-only`'s file included -- is not run and fails the list,
-// its line giving the count; with `FLOW_OPERATOR_FULL_SUITE=1` set it runs.
-//
 // A SKIPPED SUITE. A `test` command opening with `flow-guard unchanged
 // <pathspecs> ||` (an optional path before `flow-guard`; each pathspec a bare
 // word of letters, digits and `_ . / : ! @ % + = , -` or one single-quoted
@@ -493,13 +485,11 @@ func rvlGuardSkip(env Env, wt, cmd string) string {
 
 const (
 	// rvlOperatorFull is THE OPERATOR'S SWITCH: the variable only the
-	// operator sets. -full is refused without it, and it lifts rvlSpecCap.
+	// operator sets. -full is refused without it.
 	rvlOperatorFull = "FLOW_OPERATOR_FULL_SUITE"
 	// rvlSmokeSet fills `<specs>` when no selection can: Playwright's own
 	// filter for the tests tagged `@smoke` (THE SMOKE FALLBACK).
 	rvlSmokeSet = "--grep @smoke"
-	// rvlSpecCap is the most spec files one selection may name (THE CAP).
-	rvlSpecCap = 40
 )
 
 // rvlVisualVerify is the `## visual verification` `verify` row a `test` list
@@ -1351,20 +1341,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				tokens = strings.Fields(rvlSmokeSet)
 				fmt.Fprintf(stderr, "run-verify-list: the visual verify runs the smoke set alone (`%s`) — %s; the whole suite runs only when the operator asks\n", rvlSmokeSet, smokeWhy)
 			}
-			var files []string
-			for _, tok := range tokens {
-				if f, _, _ := strings.Cut(tok, ":"); !strings.HasPrefix(f, "-") && !slices.Contains(files, f) {
-					files = append(files, f)
-				}
-			}
 			switch {
 			case full:
 				cmd = fill(nil)
 			case rawVerify != "" && !strings.Contains(rawVerify, "<specs>"):
-			case len(files) > rvlSpecCap && !operator:
-				failed = 1
-				cmd = ""
-				fmt.Fprintf(stdout, "- visual verify — not run: the selection names %d spec files, over the cap of %d. A selection that wide is close to the whole suite, which runs only when the operator asks: the operator re-runs this command with %s=1 set to run the selection as it is; an agent never sets that variable\n", len(files), rvlSpecCap, rvlOperatorFull)
 			default:
 				cmd = fill(tokens)
 			}

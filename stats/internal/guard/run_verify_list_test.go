@@ -2052,40 +2052,26 @@ func TestRunVerifyListFullNeedsTheOperator(t *testing.T) {
 	}
 }
 
-// TestRunVerifyListCapsTheSelection pins THE CAP: a selection naming more
-// than 40 spec files is not run, whatever picked it, unless the operator's
-// variable is set.
-func TestRunVerifyListCapsTheSelection(t *testing.T) {
+// TestRunVerifyListRunsALargeSelection: a targeted selection runs whatever
+// its size, with no operator variable set -- nothing caps the spec files a
+// selection may name, whatever picked it.
+func TestRunVerifyListRunsALargeSelection(t *testing.T) {
 	t.Parallel()
-	files := func(n int) string {
-		var b strings.Builder
-		for i := range n {
-			// two tokens a file: the cap counts files, not tokens
-			fmt.Fprintf(&b, "tests/s%d.spec.ts:3 tests/s%d.spec.ts:9 ", i, i)
-		}
-		return b.String()
+	var b strings.Builder
+	for i := range 500 {
+		fmt.Fprintf(&b, "tests/s%d.spec.ts:3 ", i)
 	}
-	over, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "echo "+files(41), false, false, false)
-	at, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "echo "+files(40), false, false, false)
+	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "echo "+b.String(), false, false, false)
 	only := filepath.Join(t.TempDir(), "only")
-	writeFile(t, only, files(41))
-	for _, tc := range []struct {
-		name  string
-		extra []string
-		args  []string
-		want  int
-		ran   bool
-	}{
-		{"41 files are refused", nil, []string{over, "visual"}, 1, false},
-		{"41 files in a test list's tail are refused", nil, []string{over, "test"}, 1, false},
-		{"41 files under -detect-flaky are refused", nil, []string{"-detect-flaky", over, "visual"}, 1, false},
-		{"41 files in an -only list are refused", nil, []string{"-only", only, at, "visual"}, 1, false},
-		{"40 files run", nil, []string{at, "visual"}, 0, true},
-		{"41 files run for the operator", rvlOperator, []string{over, "visual"}, 0, true},
+	writeFile(t, only, b.String())
+	for _, args := range [][]string{
+		{wt, "visual"},
+		{wt, "test"},
+		{"-detect-flaky", wt, "visual"},
+		{"-only", only, wt, "visual"},
 	} {
-		rc, out := rvlRunEnv(t, over, "", tc.extra, tc.args...)
-		if rc != tc.want || strings.Contains(out, "VISUAL-RAN") != tc.ran || (!tc.ran && !strings.Contains(out, "names 41 spec files, over the cap of 40")) {
-			t.Errorf("%s: exit %d, want %d, ran = %v:\n%s", tc.name, rc, tc.want, !tc.ran, out)
+		if rc, out := rvlRunIn(t, wt, "", args...); rc != 0 || !strings.Contains(out, "VISUAL-RAN") || !strings.Contains(out, "tests/s499.spec.ts:3") {
+			t.Errorf("%v: exit %d, want 0 and all 500 spec files run:\n%.600s", args, rc, out)
 		}
 	}
 }
