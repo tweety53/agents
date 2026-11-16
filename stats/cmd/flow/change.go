@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/client"
@@ -23,7 +26,10 @@ save keeps the files of a change that outlive its worktree in flowd
 /flow-fast's <wt>/.superpowers/sdd/<name>/tasks.md, saved as tasks.md, and
 <wt>/.superpowers/sdd/<name>/self-review-context.md, <wt> the git worktree
 -C names (default: cwd). A change with no plan at all (/flow-interactive)
-saves the bundle alone. Every /flow* cleanup runs it once, before the
+saves the bundle alone. It also keeps every *-report-*.md and
+visual-manifest-*.json under .superpowers/sdd/ of that worktree and of every
+other worktree the change's record names, each as
+reports.<repository>.<file>; one that cannot be read or saved is skipped. Every /flow* cleanup runs it once, before the
 worktrees are removed. A missing bundle is refused, exit 1, naming it,
 before anything is written; a second save replaces the bodies.
 
@@ -130,11 +136,13 @@ func runChange(ctx context.Context, args []string, getenv func(string) string, s
 		files = append(files, file)
 		bodies = append(bodies, string(b))
 	}
+	reports, reportBodies := changeReports(ctx, f, projectKey, name, wt)
+	files, bodies = append(files, reports...), append(bodies, reportBodies...)
 	for i, file := range files {
 		_, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (struct{}, error) {
 			return struct{}{}, cl.PutChangeFile(ctx, projectKey, name, file[0], bodies[i])
 		})
-		if code := changeCallExit(err, "save", stderr); code != 0 {
+		if code := changeCallExit(err, "save", stderr); code != 0 && !strings.HasPrefix(file[0], "reports.") {
 			return code
 		}
 	}
@@ -155,4 +163,40 @@ func changeCallExit(err error, verb string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "flow: change %s: %v\n", verb, err)
 		return 2
 	}
+}
+
+// changeReports reads every dispatch report and measure manifest the run
+// left under .superpowers/sdd/ of wt and of every other worktree the
+// change's record names, each by its saved path reports.<repository>.<file>,
+// <repository> the worktree's main checkout's basename. Reports are evidence,
+// never a gate: a record that cannot be read leaves wt alone, a worktree or
+// file that cannot be read is skipped, and a report flowd refuses is named
+// on stderr and leaves the save's exit alone.
+func changeReports(ctx context.Context, f recordIdentityFlags, projectKey, name, wt string) (files [][2]string, bodies []string) {
+	dirs := []string{wt}
+	var record struct {
+		Worktrees map[string]json.RawMessage `json:"worktrees"`
+	}
+	if body, err := getChange(ctx, f.addr, f.timeout, projectKey, name); err == nil && json.Unmarshal(body, &record) == nil {
+		others := slices.Sorted(maps.Keys(record.Worktrees))
+		dirs = append(dirs, slices.DeleteFunc(others, func(d string) bool { return d == wt })...)
+	}
+	for _, dir := range dirs {
+		_, main, err := fallback.ProjectKey(dir)
+		if err != nil {
+			continue
+		}
+		for _, pattern := range []string{"*-report-*.md", "visual-manifest-*.json"} {
+			matches, _ := filepath.Glob(filepath.Join(dir, ".superpowers", "sdd", pattern))
+			for _, m := range matches {
+				b, err := os.ReadFile(m)
+				if err != nil {
+					continue
+				}
+				saved := "reports." + filepath.Base(main) + "." + filepath.Base(m)
+				files, bodies = append(files, [2]string{saved, m}), append(bodies, string(b))
+			}
+		}
+	}
+	return files, bodies
 }

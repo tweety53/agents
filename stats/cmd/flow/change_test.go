@@ -199,3 +199,63 @@ func TestChangeFilePrintsBody(t *testing.T) {
 		t.Errorf("unreachable store: exit = %d, want 2", code)
 	}
 }
+
+// TestChangeSaveKeepsEveryWorktreesReports: save keeps each report and
+// measure manifest under .superpowers/sdd/ of the -C worktree and of every
+// other worktree the change's record names, as reports.<repository>.<file>;
+// a recorded worktree that is gone is skipped.
+func TestChangeSaveKeepsEveryWorktreesReports(t *testing.T) {
+	t.Parallel()
+	repo, peer := gitRepo(t), gitRepo(t)
+	env := newTestEnv(t)
+	st := storetest.NewStore(t)
+	projectKey, mainCheckout, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	worktrees, _ := json.Marshal(map[string]string{repo: "a", peer: "b", filepath.Join(t.TempDir(), "gone"): "c"})
+	if err := st.PutChange(context.Background(), store.Change{
+		ProjectKey: projectKey, MainCheckoutPath: mainCheckout, Name: "demo", Worktrees: worktrees,
+		State: store.StateInProgress, UpdatedAt: time.Now(), UpdatedBy: "test",
+	}); err != nil {
+		t.Fatalf("seed change: %v", err)
+	}
+	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, st, st, st, st, st, nil, api.WithChangeFiles(st))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	writeChangeFile(t, repo, ".superpowers/sdd/demo/self-review-context.md", "bundle\n")
+	writeChangeFile(t, repo, ".superpowers/sdd/implementer-report-1.md", "implemented\n")
+	writeChangeFile(t, repo, ".superpowers/sdd/dispatch-context-group-1.md", "not a report\n")
+	writeChangeFile(t, peer, ".superpowers/sdd/verify-report-visual-verify.md", "three departures\n")
+	writeChangeFile(t, peer, ".superpowers/sdd/visual-manifest-task-4.json", "{\"pairs\":[]}\n")
+
+	var stdout, stderr strings.Builder
+	if code := run(context.Background(), []string{"change", "save", "-addr", ts.URL, "-C", repo, "demo"},
+		env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("save exit = %d, stderr: %s", code, stderr.String())
+	}
+	read := func(path string) (int, string) {
+		stdout.Reset()
+		stderr.Reset()
+		code := run(context.Background(), []string{"change", "file", "-addr", ts.URL, "-C", repo, "demo", path},
+			env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stdout.String()
+	}
+	_, peerMain, _ := fallback.ProjectKey(peer)
+	for path, want := range map[string]string{
+		"reports." + filepath.Base(mainCheckout) + ".implementer-report-1.md":    "implemented\n",
+		"reports." + filepath.Base(peerMain) + ".verify-report-visual-verify.md": "three departures\n",
+		"reports." + filepath.Base(peerMain) + ".visual-manifest-task-4.json":    "{\"pairs\":[]}\n",
+	} {
+		if code, got := read(path); code != 0 || got != want {
+			t.Errorf("file %s: exit %d body %q, want %q (stderr %s)", path, code, got, want, stderr.String())
+		}
+	}
+	if code, _ := read("reports." + filepath.Base(mainCheckout) + ".dispatch-context-group-1.md"); code != 1 {
+		t.Errorf("a file that is no report was saved: exit %d", code)
+	}
+}

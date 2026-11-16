@@ -34,7 +34,7 @@ a worktree:
 flow change save -C <canonical-worktree> <name>
 ```
 
-It keeps `tasks.md` and `self-review-context.md` in flowd. Its exit 1 — a missing `tasks.md` or
+It keeps `tasks.md` and `self-review-context.md` in flowd, and with them every dispatch report and measure manifest each of the change's worktrees holds, as `reports.<repository>.<file>`. Its exit 1 — a missing `tasks.md` or
 `self-review-context.md`, each named — stops cleanup at `IN_PROGRESS`: report the lines, restore
 the file, and re-run. `remove-change-worktrees` refuses until the save ran.
 
