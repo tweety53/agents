@@ -23,7 +23,8 @@ import (
 // Usage: flow-guard remove-change-worktrees <repo> <name> <merge-base|-> [--proceed]
 //
 // The worktrees are the ones `git -C <repo> worktree list --porcelain` lists on
-// refs/heads/spectre/<name>, plus every detached wave-group copy of one
+// refs/heads/spectre/<name>, plus every wave-group copy of one, detached or on
+// its own flow-copy/ branch
 // (`<worktree>-wave-group-<g>`). A listed worktree whose directory is gone is
 // already removed: success, its registration pruned. <merge-base> scopes the
 // wave-group copies' disclosed log; `-` discloses their status alone.
@@ -66,7 +67,9 @@ import (
 //     key or fence that is absent means no command is declared, the check is
 //     skipped, and nothing outside the fence is ever run. Then the sibling
 //     flow-guard check-worktree-processes.
-//   `worktree remove --force` for each copy, then each apply worktree;
+//   `worktree remove --force` for each copy, then `branch -D
+//     flow-copy/<its last path element>` when that branch exists, then each
+//     apply worktree;
 //   `worktree prune`; `branch -d spectre/<name>` (never -D) when it exists,
 //     its upstream first set to origin/<base> (the base check 3's
 //     resolve-base-branch printed; with every worktree already gone, the
@@ -328,6 +331,10 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			fmt.Fprintf(stdout, "REFUSED: %s — git worktree remove: %s\n", wt, rcwFlat(string(out)))
 		} else {
 			fmt.Fprintf(stdout, "REMOVED: %s\n", wt)
+			if err := twDropCopyBranch(env, repo, wt); err != nil {
+				failed = true
+				fmt.Fprintf(stdout, "REFUSED: %s — %v\n", wt, err)
+			}
 		}
 	}
 	for _, wt := range gone {

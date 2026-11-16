@@ -710,3 +710,23 @@ func TestRcwRegeneratable(t *testing.T) {
 		}
 	}
 }
+
+// TestRemoveChangeWorktreesDeletesACopyBranch pins that a copy made by
+// throwaway-worktree create, on its own flow-copy branch, is found, removed
+// and its branch deleted (kan-1090 self-review, F14).
+func TestRemoveChangeWorktreesDeletesACopyBranch(t *testing.T) {
+	t.Parallel()
+	fx := rcwNewFx(t)
+	c := fx.wt + "-wave-group-2"
+	var o, e bytes.Buffer
+	if rc := throwawayWorktree([]string{"create", fx.wt, c}, Env{Getenv: os.Getenv}, &o, &e); rc != 0 {
+		t.Fatalf("create: exit %d: %s", rc, e.String())
+	}
+	code, out, errb := fx.run(t, nil, "--proceed")
+	if code != 0 || rcwExists(c) {
+		t.Fatalf("--proceed: exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+	}
+	if fx.hasRef("refs/heads/flow-copy/demo-wave-group-2") {
+		t.Error("the copy's flow-copy branch survived")
+	}
+}

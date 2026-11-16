@@ -922,7 +922,7 @@ one diff rather than the working-tree-only diff a bare `git diff` produces: a ba
 anything staged, and (independently) fails to reconstruct a rename whose move is already reflected
 in the index. `--allow-empty` on the `apply` side makes the sequence a no-op, not a failure, when
 there is nothing to transplant — the common case, since task and fix-round work is committed and
-`worktree add --detach ... HEAD` already carries every committed change on its own. The
+a `worktree add -B` of a `flow-copy` branch at `HEAD` already carries every committed change on its own. The
 untracked-file loop reads `git status --porcelain -z`, NUL-delimited, into `read -r -d ''` — the
 plain-text `awk` form cannot survive git's quote-escaping of a filename with a space or another
 special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal

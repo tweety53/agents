@@ -408,3 +408,83 @@ func TestThrowawayWorktreeFoldBackDropsAHeldRootReport(t *testing.T) {
 		t.Errorf("held sdd report = %q, want %q", b, "wt c newer\n")
 	}
 }
+
+// TestThrowawayWorktreeCopyCarriesTheFlowBase pins that a copy is checked out
+// on its own flow-copy/<dir> branch carrying the source branch's flowBase, so
+// a tool reading branch.<current>.flowBase in the copy resolves the change's
+// base, and that remove deletes that branch (kan-1090 self-review, F14).
+func TestThrowawayWorktreeCopyCarriesTheFlowBase(t *testing.T) {
+	t.Parallel()
+	git := func(dir string, args ...string) (string, error) {
+		out, err := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...).Output()
+		return strings.TrimSpace(string(out)), err
+	}
+	src := func(t *testing.T, base string) string {
+		wt := filepath.Join(t.TempDir(), "wt")
+		mkdir(t, wt)
+		fixtureRepo(t, wt, repoShape{})
+		writeFile(t, wt+"/a.txt", "a\n")
+		gitRun(t, wt, "add", "-A")
+		gitRun(t, wt, "commit", "-q", "-m", "base")
+		gitRun(t, wt, "checkout", "-q", "-b", "spectre/x")
+		if base != "" {
+			gitRun(t, wt, "config", "branch.spectre/x.flowBase", base)
+		}
+		return wt
+	}
+	t.Run("flowBase carried", func(t *testing.T) {
+		t.Parallel()
+		wt := src(t, "feature/t")
+		cp := wt + "-copy"
+		twGuard(t, "create", wt, cp)
+		if b, _ := git(cp, "rev-parse", "--abbrev-ref", "HEAD"); b != "flow-copy/wt-copy" {
+			t.Errorf("copy on %q, want flow-copy/wt-copy", b)
+		}
+		if v, _ := git(cp, "config", "--get", "branch.flow-copy/wt-copy.flowBase"); v != "feature/t" {
+			t.Errorf("copy flowBase %q, want feature/t", v)
+		}
+		twGuard(t, "remove", wt, cp)
+		if _, err := git(wt, "rev-parse", "--verify", "-q", "refs/heads/flow-copy/wt-copy"); err == nil {
+			t.Error("remove left the flow-copy branch")
+		}
+		if _, err := git(wt, "config", "--get", "branch.flow-copy/wt-copy.flowBase"); err == nil {
+			t.Error("remove left the flow-copy branch's config")
+		}
+	})
+	t.Run("no flowBase", func(t *testing.T) {
+		t.Parallel()
+		wt := src(t, "")
+		cp := wt + "-copy"
+		twGuard(t, "create", wt, cp)
+		if b, _ := git(cp, "rev-parse", "--abbrev-ref", "HEAD"); b != "flow-copy/wt-copy" {
+			t.Errorf("copy on %q, want flow-copy/wt-copy", b)
+		}
+		if v, err := git(cp, "config", "--get", "branch.flow-copy/wt-copy.flowBase"); err == nil {
+			t.Errorf("copy records flowBase %q, want none", v)
+		}
+	})
+	t.Run("stale branch reset", func(t *testing.T) {
+		t.Parallel()
+		wt := src(t, "feature/t")
+		gitRun(t, wt, "branch", "flow-copy/wt-copy")
+		writeFile(t, wt+"/b.txt", "b\n")
+		gitRun(t, wt, "add", "-A")
+		gitRun(t, wt, "commit", "-q", "-m", "next")
+		cp := wt + "-copy"
+		twGuard(t, "create", wt, cp)
+		h, _ := git(wt, "rev-parse", "HEAD")
+		if c, _ := git(cp, "rev-parse", "HEAD"); c != h {
+			t.Errorf("copy at %s, want the source HEAD %s", c, h)
+		}
+	})
+	t.Run("old detached copy removes", func(t *testing.T) {
+		t.Parallel()
+		wt := src(t, "feature/t")
+		cp := wt + "-copy"
+		gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
+		twGuard(t, "remove", wt, cp)
+		if _, err := os.Stat(cp); err == nil {
+			t.Error("the detached copy survived remove")
+		}
+	})
+}

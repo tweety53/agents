@@ -61,9 +61,9 @@ import (
 // the proposal artifact source and the workspace database
 // and bucket — plus the wave-group throwaway worktree copy, whose lifetime is
 // meant to end inside the implement phase but which a run that died mid-wave
-// leaves for run 2. It is detached, so the branch match that finds the worktree
-// row never sees it; it is matched instead on git's own worktree list as a
-// detached entry whose last path element is `<name>-wave-group-<digits>`. The per-task diffs, the panel record and the session ledger are not
+// leaves for run 2. It is detached or on its own flow-copy/ branch, so the
+// spectre/ branch match that finds the worktree row never sees it; it is
+// matched instead on git's own worktree list as such an entry whose last path element is `<name>-wave-group-<digits>`. The per-task diffs, the panel record and the session ledger are not
 // checked separately because the registry removes them WITH the worktree — a
 // surviving one of those is a surviving worktree, already reported. The state
 // file is not checked at all: its row says it is never removed, so its presence
@@ -359,8 +359,8 @@ func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int 
 	if len(wts) > 0 {
 		add(fmt.Sprintf("worktree(s) still registered for spectre/%s at %s", name, strings.Join(wts, ", ")))
 	}
-	// The wave-group throwaway copies (KAN-854) are detached, so the branch
-	// match above never sees one; a run that died mid-wave leaves them for run 2.
+	// The wave-group throwaway copies (KAN-854) are detached or on a flow-copy/
+	// branch, so the spectre/ branch match above never sees one; a run that died mid-wave leaves them for run 2.
 	if len(copies) > 0 {
 		add(fmt.Sprintf("wave-group worktree copy(ies) of spectre/%s still registered at %s", name, strings.Join(copies, ", ")))
 	}
@@ -951,8 +951,8 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 }
 
 // changeWorktrees reads `git worktree list --porcelain` output: the
-// worktrees checked out on refs/heads/spectre/<name>, and the detached
-// wave-group copies of that change's apply worktree (ccWaveGroupCopy), each
+// worktrees checked out on refs/heads/spectre/<name>, and the detached or
+// flow-copy/-branched wave-group copies of that change's apply worktree (ccWaveGroupCopy), each
 // in git's listed order. check-cleanup-complete reports them as leftovers;
 // remove-change-worktrees removes them.
 //
@@ -972,6 +972,8 @@ func changeWorktrees(porcelain []byte, name string) (wts, copies []string) {
 		} else if b, ok := strings.CutPrefix(l, "branch "); ok {
 			if f := strings.Fields(b); len(f) > 0 && f[0] == "refs/heads/spectre/"+name {
 				wts = append(wts, wt)
+			} else if len(f) > 0 && f[0] == "refs/heads/flow-copy/"+wt[strings.LastIndex(wt, "/")+1:] && ccWaveGroupCopy(wt, name) {
+				copies = append(copies, wt)
 			}
 		} else if l == "detached" && ccWaveGroupCopy(wt, name) {
 			copies = append(copies, wt)
@@ -985,9 +987,11 @@ func changeWorktrees(porcelain []byte, name string) (wts, copies []string) {
 // review-panel-optional-slots.md's `<worktree>-mutation-<round>` (kan-1037),
 // matched on the path's last element as `<name>-wave-group-` or
 // `<name>-mutation-` followed by digits and nothing else. The caller only
-// asks for a DETACHED entry -- each copy is created with --detach -- so a
-// change actually named `<name>-wave-group-3`, whose apply worktree carries a
-// branch, is never read as this change's copy. The path is read from git's
+// asks for an entry that is DETACHED or on `refs/heads/flow-copy/<its path's
+// last element>` -- a copy is created on that branch (kan-1090 self-review,
+// F14), one made before that detached -- so a change actually named
+// `<name>-wave-group-3`, whose apply worktree carries a spectre/ branch, is
+// never read as this change's copy. The path is read from git's
 // own worktree list, never guessed from a layout.
 func ccWaveGroupCopy(path, name string) bool {
 	base := path[strings.LastIndex(path, "/")+1:]

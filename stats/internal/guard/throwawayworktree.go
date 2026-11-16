@@ -14,21 +14,28 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/throwaway-worktree.sh shim (KAN-1058).
 //
-// flow-guard throwaway-worktree — create or remove the detached throwaway copy of a
+// flow-guard throwaway-worktree — create or remove the throwaway copy of a
 // worktree that a wave group's implementer (skills/flow/sdd-dispatch.md) or a
 // review-panel slot (skills/flow/review-panel-optional-slots.md) works in.
 //
 // Usage: flow-guard throwaway-worktree create <worktree> <copy> [--sdd]
 //        flow-guard throwaway-worktree remove <worktree> <copy> [--fold-back]
 //
-// create: `git worktree add --detach <copy> HEAD`, then the worktree's
+// create: `git worktree add -B flow-copy/<basename of copy> <copy> HEAD` -- the
+//   copy on its own branch, reset to HEAD when one is left from an earlier
+//   copy -- and, when the worktree's branch records `branch.<branch>.flowBase`,
+//   the same value set as `branch.flow-copy/<basename>.flowBase`, so a tool
+//   reading `branch.<current>.flowBase` in the copy resolves the change's base
+//   (kan-1090 self-review, F14); then the worktree's
 //   uncommitted diff against HEAD (`diff HEAD --binary`) applied in the copy,
 //   then every untracked (`??`) entry of `status --porcelain -z` copied with
 //   `cp -a`, then the worktree's `<spec root>/changes/` -- gitignored, so
 //   neither the diff nor the untracked entries carry it -- copied into the
 //   same path of the copy, when present. --sdd also copies `<worktree>/.superpowers/sdd`, when present,
 //   to the same path in the copy.
-// remove: `git worktree remove --force <copy>`. --fold-back first copies each
+// remove: `git worktree remove --force <copy>`, then `branch -D
+//   flow-copy/<basename of copy>` when that branch exists, which drops its
+//   config section with it. --fold-back first copies each
 //   non-empty `.superpowers/sdd/panel-report-*.md`,
 //   `.superpowers/sdd/reproducers/*.sh`, `.superpowers/sdd/dispatch-context-group-*.md`
 //   and `.superpowers/sdd/implementer-report-*.md` from the copy back into the worktree,
@@ -114,8 +121,16 @@ func twDirname(p string) string {
 }
 
 func twCreate(env Env, wt, cp string, sdd bool) error {
-	if _, err := twRun(env, nil, "git", "-C", wt, "worktree", "add", "--detach", cp, "HEAD"); err != nil {
+	br := "flow-copy/" + filepath.Base(cp)
+	if _, err := twRun(env, nil, "git", "-C", wt, "worktree", "add", "-B", br, cp, "HEAD"); err != nil {
 		return err
+	}
+	if src, _ := twRun(env, nil, "git", "-C", wt, "symbolic-ref", "-q", "--short", "HEAD"); len(src) > 0 {
+		if base, _ := twRun(env, nil, "git", "-C", wt, "config", "--get", "branch."+strings.TrimSpace(string(src))+".flowBase"); len(base) > 0 {
+			if _, err := twRun(env, nil, "git", "-C", wt, "config", "branch."+br+".flowBase", strings.TrimSpace(string(base))); err != nil {
+				return err
+			}
+		}
 	}
 	diff, err := twRun(env, nil, "git", "-C", wt, "diff", "--no-renames", "HEAD", "--binary")
 	if err != nil {
@@ -180,7 +195,21 @@ func twRemove(env Env, wt, cp string, foldBack bool) error {
 		foldErr = twFoldBack(env, wt, cp)
 	}
 	_, err := twRun(env, nil, "git", "-C", wt, "worktree", "remove", "--force", cp)
+	if err == nil {
+		err = twDropCopyBranch(env, wt, cp)
+	}
 	return errors.Join(foldErr, err)
+}
+
+// twDropCopyBranch deletes the copy's flow-copy/<basename> branch when it
+// exists; a copy made detached, before F14, has none.
+func twDropCopyBranch(env Env, wt, cp string) error {
+	ref := "refs/heads/flow-copy/" + filepath.Base(cp)
+	if _, err := twRun(env, nil, "git", "-C", wt, "rev-parse", "--verify", "-q", ref); err != nil {
+		return nil
+	}
+	_, err := twRun(env, nil, "git", "-C", wt, "branch", "-D", "flow-copy/"+filepath.Base(cp))
+	return err
 }
 
 // twHeld reports whether c already holds a non-empty file that f is not newer than.

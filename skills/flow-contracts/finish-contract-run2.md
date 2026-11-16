@@ -183,7 +183,7 @@ files.
   leave that worktree's entry in `worktrees`.
 
 **Wave-group copies go with the apply worktree they were copied from.** For each `$WT`, every
-entry `git -C "$REPO" worktree list --porcelain` lists as `detached` at `$WT-wave-group-<g>` is a
+entry `git -C "$REPO" worktree list --porcelain` lists at `$WT-wave-group-<g>`, `detached` or on its own branch under `flow-copy`, is a
 copy **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) made and a run that died mid-wave never
 removed. Checks 5 and 6 above run on each such `$COPY` in `$WT`'s place and stay gates. Checks 1–4
 do not: a copy starts from the canonical worktree's uncommitted state, and run 1's reshape folds

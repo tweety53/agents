@@ -1045,3 +1045,21 @@ func TestCCThrowawayCopyMatchesMutation(t *testing.T) {
 		}
 	}
 }
+
+// TestCCChangeWorktreesFindsABranchedCopy pins that a copy on its own
+// flow-copy/<dir> branch is a copy like a detached one, and that a branch
+// naming another directory is not (kan-1090 self-review, F14).
+func TestCCChangeWorktreesFindsABranchedCopy(t *testing.T) {
+	porcelain := "worktree /r/demo\nHEAD 1\nbranch refs/heads/spectre/demo\n\n" +
+		"worktree /r/demo-wave-group-2\nHEAD 1\nbranch refs/heads/flow-copy/demo-wave-group-2\n\n" +
+		"worktree /r/demo-mutation-1\nHEAD 1\ndetached\n\n" +
+		"worktree /r/demo-wave-group-3\nHEAD 1\nbranch refs/heads/flow-copy/other\n\n" +
+		"worktree /r/demo-wave-group-4\nHEAD 1\nbranch refs/heads/spectre/demo-wave-group-4\n\n"
+	wts, copies := changeWorktrees([]byte(porcelain), "demo")
+	if strings.Join(wts, ",") != "/r/demo" {
+		t.Errorf("worktrees %q, want [/r/demo]", wts)
+	}
+	if strings.Join(copies, ",") != "/r/demo-wave-group-2,/r/demo-mutation-1" {
+		t.Errorf("copies %q, want the branched and the detached copy", copies)
+	}
+}
