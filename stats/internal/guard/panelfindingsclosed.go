@@ -820,7 +820,7 @@ func cfcReadInRoundOrLater(worktree string, round int, role, repo string) bool {
 	for _, path := range names {
 		name := filepath.Base(path)
 		n, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(name, "panel-report-"), suffix))
-		if err == nil && n >= round && cfcReportWritten(worktree, name) {
+		if err == nil && n >= round && (cfcReportWritten(worktree, name) || cfcReportWritten(worktree, cfcCoverName(name))) {
 			return true
 		}
 	}

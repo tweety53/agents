@@ -974,3 +974,18 @@ func TestCheckPanelFindingsClosedAcceptsAnUnreadCover(t *testing.T) {
 		t.Errorf("a written cover does not cover the section:\n%s", errs)
 	}
 }
+
+// TestCheckPanelFindingsClosedAcceptsAPerRepoReportReadThroughItsCover: a per-repository
+// report of the same role that left its own section unread but has a written -unread cover
+// reads that section, so another report of the role naming it unread is covered.
+func TestCheckPanelFindingsClosedAcceptsAPerRepoReportReadThroughItsCover(t *testing.T) {
+	t.Parallel()
+	_, errs := cfcCase(t, "[]", "[]", map[string]string{
+		"panel-report-0-primary.md":            "Critical: 0\nImportant: 0\nUnread: web\n",
+		"panel-report-0-primary-web.md":        "Critical: 0\nImportant: 0\nUnread: web\n",
+		"panel-report-0-primary-web-unread.md": "Critical: 0\nImportant: 0\nUnread: none\n",
+	})
+	if strings.Contains(errs, "primary.md (web)") {
+		t.Errorf("a per-repository report's own cover does not cover the section:\n%s", errs)
+	}
+}
