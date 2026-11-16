@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -470,6 +471,43 @@ func decisionPairsAdmitted(body []byte, overrides map[string][]string, policy ma
 		pair := c.model + "/flow-" + c.effort
 		if judged && !slices.Contains(admitted, pair) {
 			return fmt.Errorf("record decision: %s pair %s is not admitted for role %s, whose admitted pairs are [%s]", c.path, pair, c.role, strings.Join(admitted, " "))
+		}
+	}
+	return nil
+}
+
+// groupJudgePicksBacked refuses a decision in which a group's reason opens
+// `judge:` while pickDir -- the pair-judge directory beside the decision
+// file -- holds no pick `flow-guard pair-judge` saved for that group on that
+// model and effort: decide-group-<g>.pick, <g> the group's place counting
+// from 1, or decide-implementer.pick for a plan of one group, which takes
+// the plan's own pick. kan-1089 recorded 31 and then 38 groups as `judge:
+// see decide-implementer`, all on the plan's pair, with no group judged. A
+// reason that does not claim the judge is not checked.
+func groupJudgePicksBacked(body []byte, pickDir string) error {
+	var d struct {
+		Groups []struct{ Model, Effort, Reason string }
+	}
+	if json.Unmarshal(body, &d) != nil {
+		return nil
+	}
+	for i, g := range d.Groups {
+		if !strings.HasPrefix(g.Reason, "judge:") {
+			continue
+		}
+		names := []string{fmt.Sprintf("decide-group-%d.pick", i+1)}
+		if len(d.Groups) == 1 {
+			names = append(names, "decide-implementer.pick")
+		}
+		backed := false
+		for _, n := range names {
+			b, _ := os.ReadFile(filepath.Join(pickDir, n))
+			if f := strings.Fields(string(b)); len(f) >= 2 && f[0] == g.Model && f[1] == g.Effort {
+				backed = true
+			}
+		}
+		if !backed {
+			return fmt.Errorf("record decision: groups[%d] is recorded as a judge pick of %s %s, but %s holds no such pick -- run `flow-guard pair-judge implementer` on that group's own digest and record its line, or give the reason the pair was chosen for", i, g.Model, g.Effort, filepath.Join(pickDir, names[0]))
 		}
 	}
 	return nil

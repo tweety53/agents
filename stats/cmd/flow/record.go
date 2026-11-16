@@ -3755,7 +3755,9 @@ func readPairPolicy(ctx context.Context, f recordIdentityFlags) (overrides map[s
 // Before the write it refuses, with exit 2 and no journal, an implementer,
 // fixer or group pair the role's admitted pairs -- the open experiments'
 // overrides, else the policy's base pairs plus granted opt-ins -- do not
-// admit (decisionPairsAdmitted; kan-1103 self-review, F3).
+// admit (decisionPairsAdmitted; kan-1103 self-review, F3), and a group
+// whose reason claims a judge pick no saved pick backs
+// (groupJudgePicksBacked).
 func runRecordDecision(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record decision", flag.ContinueOnError)
 	fset.SetOutput(stderr)
@@ -3804,6 +3806,13 @@ func runRecordDecision(ctx context.Context, args []string, getenv func(string) s
 	if err := decisionPairsAdmitted(body, overrides, policy, granted); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
+	}
+
+	if *file != "-" {
+		if err := groupJudgePicksBacked(body, filepath.Join(filepath.Dir(*file), "pair-judge")); err != nil {
+			fmt.Fprintf(stderr, "flow: %v\n", err)
+			return 2
+		}
 	}
 
 	body = stampGroupTasks(body, f, getenv)

@@ -9720,3 +9720,28 @@ func TestRecordDispatchBeginRefusesMergerOverAnUnreadSection(t *testing.T) {
 		t.Errorf("covered: exit %d, posts %d, stderr:\n%s", code, posts, errs)
 	}
 }
+
+// TestRunRecordDecisionRefusesAnUnbackedJudgePick: a group recorded as a
+// judge pick with no saved pick beside the decision file is refused, exit 2,
+// before anything is written or journalled.
+func TestRunRecordDecisionRefusesAnUnbackedJudgePick(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	file := filepath.Join(t.TempDir(), "decision.json")
+	body := `{"class":"regular","groups":[{"model":"opus","effort":"medium","reason":"judge: see decide-implementer"},{"model":"opus","effort":"medium","reason":"judge: see decide-implementer"}]}`
+	if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "decision", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-change", "kan-1", "-session-token", "mf-abc123", "-file", file},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), "holds no such pick") {
+		t.Fatalf("exit = %d, stderr = %q; want 2 naming the missing pick", code, stderr.String())
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-1", env); exists {
+		t.Error("a refused decision was journalled")
+	}
+}

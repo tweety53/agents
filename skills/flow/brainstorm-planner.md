@@ -727,6 +727,7 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    `inputs:` line, which counts the whole plan, and which the guard drops from a `decide-group-<g>`
    digest — `-opus-only` when the group carries a hard seam; a plan of one group takes step 2's
    implementer pair without a second call.
+   `flow record decision` refuses a group whose `reason` opens `judge:` while no `decide-group-<g>.pick` saved for it carries that pair.
    `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
 6. **visual verification** — on every class, `micro` included: it judges what the change can

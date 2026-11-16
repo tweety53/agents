@@ -356,3 +356,35 @@ func TestDecisionParentModel(t *testing.T) {
 		t.Fatalf("effort ultra: rc=%d stderr=%q, want 2 naming the set", rc, errs)
 	}
 }
+
+// TestGroupJudgePicksBacked: a group whose reason claims the judge needs the
+// judge's saved pick for it on the same pair; a plan of one group may stand
+// on the plan's own pick; any other reason is not checked.
+func TestGroupJudgePicksBacked(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	for name, line := range map[string]string{
+		"decide-group-1.pick":     "sonnet low judge test-only work\n",
+		"decide-group-3.pick":     "opus low judge a guard change\n",
+		"decide-implementer.pick": "opus medium judge the whole plan\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, c := range map[string]struct {
+		groups string
+		ok     bool
+	}{
+		"each judged group backed":     {`[{"model":"sonnet","effort":"low","reason":"judge: test-only"},{"model":"opus","effort":"medium","reason":"carries the data-model seam"},{"model":"opus","effort":"low","reason":"judge: guard"}]`, true},
+		"a judge claim with no pick":   {`[{"model":"sonnet","effort":"low","reason":"judge: test-only"},{"model":"opus","effort":"medium","reason":"judge: see decide-implementer"}]`, false},
+		"a pick on another pair":       {`[{"model":"opus","effort":"medium","reason":"judge: see decide-implementer"}, {"model":"opus","effort":"low","reason":"mechanical"}]`, false},
+		"one group on the plan's pick": {`[{"model":"opus","effort":"medium","reason":"judge: the whole plan"}]`, true},
+		"no groups":                    {`null`, true},
+	} {
+		err := groupJudgePicksBacked([]byte(`{"groups":`+c.groups+`}`), dir)
+		if (err == nil) != c.ok {
+			t.Errorf("%s: err = %v, want ok=%v", name, err, c.ok)
+		}
+	}
+}
