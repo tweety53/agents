@@ -1,0 +1,5 @@
+# What every capture renders and no import chain shows.
+stats/cmd/uitest-seed/**
+stats/web/index.html
+stats/web/playwright.config.ts
+stats/web/package-lock.json
