@@ -231,6 +231,8 @@ ROLE_LINE = re.compile(r"^Role:[ \t]*(\S+)[ \t]*$", re.M)
 SINGLE_TASK_KEY = re.compile(r"task-(\d+)-")
 # A gated reviewer's key, suffixed or not: its plan tree is snapshotted before the begin.
 GATED_REVIEWER_KEY = re.compile(r"task-\d+(?:\+\d+)*-reviewer")
+# A review-panel reviewer key, `panel-<round>-<slots>`: its row needs the slot panel-round-begins passes.
+PANEL_REVIEWER_KEY = re.compile(r"panel-(\d+)-(.+?)(?:-part\d+|-unread)*")
 FLOW_EFFORT = re.compile(r"flow-(?:planner-)?([a-z]+)")
 # A prompt's `Role:` id -> the row role `flow record dispatch begin -role` takes: the inverse of
 # launchRoleID (stats/cmd/flow/record.go).
@@ -304,7 +306,10 @@ def names_worktree(prompt: str, worktree: str) -> bool:
 def begin_row(payload: dict, tool_input: dict, prompt: str) -> "tuple[str | None, list | None]":
     """The begun-row check: (a deny reason, None), (None, the begin to write once every other check
     has passed), or (None, None) -- a row already open, a dispatch the hook neither checks nor
-    begins, or an unanswered store. The hook writes the begin; the row's end stays the parent's."""
+    begins, or an unanswered store. The hook writes the begin; the row's end stays the parent's.
+    A review-panel reviewer key (`panel-<round>-<slots>`) is denied with a pointer at
+    `flow-guard panel-round-begins`: its row needs a -slot an Agent call cannot pass, so a begin
+    from here is one `flow` refuses (kan-1090 self-review, F4)."""
     if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
         return None, None
     planning = tool_input.get("subagent_type") in PLANNING_AGENT_TYPES
@@ -360,8 +365,20 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "tuple[str | None
     else:
         typed = FLOW_EFFORT.fullmatch(str(tool_input.get("subagent_type") or ""))
         effort = typed.group(1) if typed else None
+    model = str(tool_input.get("model") or "")
+    panel = PANEL_REVIEWER_KEY.fullmatch(key) if role == "reviewer" else None
+    if panel:
+        return (
+            f"Dispatch blocked: no open ledger row for '{key}' in {change} — a review-panel reviewer "
+            "row needs its slot, which an Agent call cannot pass. Record the round's begins first with "
+            f"`flow-guard panel-round-begins {worktree} {change} {panel.group(1)} {token} "
+            f"{panel.group(2)}:{model}:{effort or ''}` (skills/flow/review-panel.md), or, for a key "
+            "carrying a -<repo>, -part<k> or -unread suffix, "
+            f"`flow record dispatch begin -change {change} -key {key} -slot <its slots> …`; "
+            "then re-send this call unchanged."
+        ), None
     args = ["flow", "record", "dispatch", "begin", "-C", cwd, "-change", change, "-role", role,
-            "-model", str(tool_input.get("model") or ""), "-effort", str(effort or "")]
+            "-model", model, "-effort", str(effort or "")]
     single = SINGLE_TASK_KEY.match(key)
     if single:
         args += ["-task", single.group(1)]

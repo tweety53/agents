@@ -829,6 +829,58 @@ func TestEnforceAgentBaselineHookBeginsTheRow(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookPointsAPanelKeyAtPanelRoundBegins pins decision f4-panel-key-deny:
+// a panel reviewer key with no open row is denied with a pointer at panel-round-begins, since a
+// begin from the hook carries no -slot and flow refuses it; the merger and panel-fix keys are
+// begun as before.
+func TestEnforceAgentBaselineHookPointsAPanelKeyAtPanelRoundBegins(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	t.Run("reviewer", func(t *testing.T) {
+		t.Parallel()
+		main, wt := beginRepo(t)
+		env, log := beginEnv(t, `[]`, 0)
+		denied, out := runBegin(t, beginPayload(t, main, "panel-1-primary+principles review", "Role: panel-reviewer\nreview", "flow-low", "opus", ""), append(env, "DISPATCH_PAIR_CHECK=true")...)
+		if !denied {
+			t.Fatalf("not denied: %s", out)
+		}
+		for _, want := range []string{"flow-guard panel-round-begins " + wt + " c1 1 mf-t1 primary+principles:opus:low", "flow record dispatch begin"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("reason lacks %q: %s", want, out)
+			}
+		}
+		if got := flowCalls(t, log, "record dispatch begin"); len(got) != 0 {
+			t.Errorf("begins = %q, want none", got)
+		}
+	})
+	t.Run("suffixed reviewer", func(t *testing.T) {
+		t.Parallel()
+		main, wt := beginRepo(t)
+		env, _ := beginEnv(t, `[]`, 0)
+		denied, out := runBegin(t, beginPayload(t, main, "panel-1-primary-part2 review", "Role: panel-reviewer\nreview", "flow-low", "opus", ""), append(env, "DISPATCH_PAIR_CHECK=true")...)
+		if want := "flow-guard panel-round-begins " + wt + " c1 1 mf-t1 primary:opus:low"; !denied || !strings.Contains(out, want) {
+			t.Errorf("denied=%v, reason lacks %q: %s", denied, want, out)
+		}
+	})
+	for _, c := range []struct{ name, description, prompt, role string }{
+		{"merger", "panel-2-merger merge", "Role: panel-merger\nmerge", "merger"},
+		{"panel-fix", "panel-fix-2 fix", "Role: panel-fix\nfix", "panel-fix"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, log := beginEnv(t, `[]`, 0)
+			if denied, out := runBegin(t, beginPayload(t, main, c.description, c.prompt, "flow-low", "opus", ""), append(env, "DISPATCH_PAIR_CHECK=true")...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			begins := flowCalls(t, log, "record dispatch begin")
+			if len(begins) != 1 || argAfter(strings.Fields(begins[0]), "-role") != c.role {
+				t.Errorf("begins = %q, want one with -role %s", begins, c.role)
+			}
+		})
+	}
+}
+
 // TestEnforceAgentBaselineHookBeginsEveryRowRole pins ROW_ROLE: every Role id launchRoleID
 // (stats/cmd/flow/record.go) can return, and every panel and planner id the table adds, is begun
 // under its row role rather than denied for want of an open row. The pair check is stubbed: the
