@@ -826,6 +826,27 @@ func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 	}
 }
 
+// TestCloseTaskPrintsAffectedSpecs pins close-task's `affected specs` line:
+// an in-run fix task's close names the specs flow-guard affected-specs maps
+// its commit to -- the screen its file belongs to, never every spec.
+func TestCloseTaskPrintsAffectedSpecs(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", bt(ctPlan+"\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"))
+	writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4","commitSha":"abc"}]`)
+	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `*.txt` |\n")
+	for spec, source := range map[string]string{"shots/day.spec.js": "e.txt", "shots/rooms.spec.js": "z.txt"} {
+		writeFile(t, fx.wt+"/"+spec, "test('x', () => {})\n")
+		writeFile(t, fx.wt+"/"+spec+".sources", source+"\n")
+	}
+	sha := fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
+	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
+	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — day.spec.js\n") {
+		t.Fatalf("exit %d, want 0 naming day.spec.js alone\n%s\n%s", r.rc, r.out, r.err)
+	}
+}
+
 // TestCloseTaskRunsPlanShapeOnAWidenedPlannedTask pins the kan-1067
 // self-review fix, 1-B: a planned task widened to a test path while its
 // **Tests:** stays none is refused at close, nothing ticked.

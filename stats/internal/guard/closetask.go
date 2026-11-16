@@ -72,6 +72,13 @@ import (
 //      flow-guard check-plan-shape <the change's tasks.md> runs too, its exit
 //      folded in at step 4 (kan-1046 self-review, 1f: an in-run fix closed
 //      with a **Files:** the plan guard refuses).
+//      For a task titled `In-run fix <k> — `, once the commit guards pass,
+//      `close-task: task <id>: affected specs — <spec> <spec>…` (or `— none`)
+//      is printed: flow-guard affected-specs over each map pair's own
+//      commit and every directory of the task's worktrees holding a
+//      `<spec>.sources` sidecar -- the specs the task's capture run before
+//      this close covers (skills/flow/verify-fix-loop.md step 2). Nothing
+//      is printed where no worktree holds a sidecar; the line never blocks.
 //   3. flow-guard check-task-commit-planning-paths <canonical> <merge-base>, then
 //      flow-guard check-untasked-commits <worktree> refs/remotes/origin/spectre/<name>
 //      once per distinct worktree whose branch origin already holds: the push
@@ -271,6 +278,9 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		fmt.Fprintln(stderr, "close-task: STOP — a commit guard could not judge; nothing was ticked or pushed")
 		Reason(env, "commit-guard-cannot-judge")
 		return 2
+	}
+	for _, t := range tasks {
+		ctAffectedSpecs(env, stdout, canonical, name, t.id, t.commit)
 	}
 	if len(undispatched) > 0 {
 		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row carrying its commit; nothing was ticked or pushed")
@@ -645,4 +655,49 @@ func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string, o
 		}
 	}
 	return worst
+}
+
+// ctAffectedSpecs prints step 2's `affected specs` line for an in-run fix
+// task: the specs flow-guard affected-specs maps its commit to.
+func ctAffectedSpecs(env Env, stdout io.Writer, canonical, name, id, commit string) {
+	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical)
+	plan, _ := os.ReadFile(tasksMD)
+	if !regexp.MustCompile(`(?m)^- \[[ xX]\] ` + regexp.QuoteMeta(id) + `\. In-run fix [0-9]+ — `).Match(plan) {
+		return
+	}
+	pairs := []string{canonical + "=" + commit}
+	if strings.Contains(commit, "=") {
+		pairs = strings.Split(commit, ",")
+	}
+	git := envGit(env)
+	var roots []string
+	for _, p := range pairs {
+		wt, _, _ := strings.Cut(strings.TrimSpace(p), "=")
+		out, _ := capture(git("-C", wt, "ls-files", "-co", "--exclude-standard", "--", "*.sources"))
+		for _, f := range strings.Fields(out) {
+			if dir := filepath.Join(wt, filepath.Dir(f)); !slices.Contains(roots, dir) {
+				roots = append(roots, dir)
+			}
+		}
+	}
+	if len(roots) == 0 {
+		return
+	}
+	var specs []string
+	for _, p := range pairs {
+		wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
+		for _, root := range roots {
+			var out bytes.Buffer
+			Registry["affected-specs"]([]string{wt, sha + "^.." + sha, root}, quietReasons(env), &out, io.Discard)
+			for _, spec := range strings.Fields(out.String()) {
+				if !slices.Contains(specs, spec) {
+					specs = append(specs, spec)
+				}
+			}
+		}
+	}
+	if len(specs) == 0 {
+		specs = []string{"none"}
+	}
+	fmt.Fprintf(stdout, "close-task: task %s: affected specs — %s\n", id, strings.Join(specs, " "))
 }
