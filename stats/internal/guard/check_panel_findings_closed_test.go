@@ -989,3 +989,17 @@ func TestCheckPanelFindingsClosedAcceptsAPerRepoReportReadThroughItsCover(t *tes
 		t.Errorf("a per-repository report's own cover does not cover the section:\n%s", errs)
 	}
 }
+
+// TestCheckPanelFindingsClosedResolvesARoleThatRaisedNothing: a per-repository report of a role
+// with no store rows still resolves to its role, so another repository's report of the role,
+// read in full, covers the section.
+func TestCheckPanelFindingsClosedResolvesARoleThatRaisedNothing(t *testing.T) {
+	t.Parallel()
+	_, errs := cfcCase(t, "[]", "[]", map[string]string{
+		"panel-report-0-call-efficiency-web.md":  "Critical: 0\nImportant: 0\nUnread: none\n",
+		"panel-report-0-call-efficiency-docs.md": "Critical: 0\nImportant: 0\nUnread: web\n",
+	})
+	if strings.Contains(errs, "(web)") {
+		t.Errorf("a role with no findings did not resolve its per-repository reports:\n%s", errs)
+	}
+}

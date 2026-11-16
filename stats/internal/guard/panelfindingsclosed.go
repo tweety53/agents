@@ -629,9 +629,11 @@ type cfcReport struct {
 // each resolved to its role per decision f2-report-role (kan-1096
 // self-review, F2): <rest> itself when it is a known id, else the longest
 // known id <k> with <rest> = <k>-<suffix>, else <rest>. The known ids are
-// every store row's slot and each of its `+`-components.
+// every store row's slot and each of its `+`-components, plus the panel's own
+// role ids, so a role that raised nothing still resolves its per-repository
+// reports (kan-1099: call-efficiency-gymie-playwright resolved to itself).
 func cfcReports(worktree string, findings []cfcFindingRow) ([]cfcReport, error) {
-	var known []string
+	known := []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"}
 	for _, f := range findings {
 		for _, k := range append(strings.Split(f.slot, "+"), f.slot) {
 			if k != "" && !slices.Contains(known, k) {
