@@ -48,7 +48,7 @@ func TestPlanDispatchGroups(t *testing.T) {
 
 	_, r = run(task("1", "a.txt", "none") + task("2", "b.txt", "none") + task("3", "c.txt", "none") + task("4", "d.txt", "none") + task("5", "e.txt", "Task 1, 2, 3, 4"))
 	want("case 3: four singletons plus a join exits 0", r.rc == 0, r)
-	want("case 3: fold to two, round-robin, join point untouched", r.out == "group 1: 1 3\ngroup 2: 2 4\ngroup 3: 5", r)
+	want("case 3: fold to three, round-robin, join point untouched", r.out == "group 1: 1 4\ngroup 2: 2\ngroup 3: 3\ngroup 4: 5", r)
 
 	_, r = run(task("1", "a.txt", "none") + task("2", "b.txt", "none"))
 	want("case 3b: two singletons exits 0", r.rc == 0, r)
@@ -76,13 +76,13 @@ func TestPlanDispatchGroups(t *testing.T) {
 	r = one(missing)
 	want("pin: a missing file exits 2 with the OSError on stderr", r.rc == 2 && r.stdout == "" &&
 		r.err == missing+": cannot read file: [Errno 2] No such file or directory: '"+missing+"'\n", r)
-	// Fold: five after:none singletons deal round-robin into two lanes.
+	// Fold: five after:none singletons deal round-robin into three lanes.
 	_, r = run(task("1", "a", "none") + task("2", "b", "none") + task("3", "c", "none") + task("4", "d", "none") + task("5", "e", "none"))
-	want("pin: five ready-alike singletons fold into two lanes", r.rc == 0 && r.out == "group 1: 1 3 5\ngroup 2: 2 4", r)
+	want("pin: five ready-alike singletons fold into three lanes", r.rc == 0 && r.out == "group 1: 1 4\ngroup 2: 2 5\ngroup 3: 3", r)
 	// A bundle whose member names a bundle-mate in After: its own member is
 	// no dependency, so it opens with an empty ready set.
 	_, r = run(task("1", "a", "none") + "- [ ] 2. Task 2\n\n**After:** Task 2\n\n**Files:**\n- Create: `b`\n\n" + task("3", "c", "none"))
-	want("pin: a bundle's own members are not its dependencies", r.rc == 0 && r.out == "group 1: 1 3\ngroup 2: 2", r)
+	want("pin: a bundle's own members are not its dependencies", r.rc == 0 && r.out == "group 1: 1\ngroup 2: 2\ngroup 3: 3", r)
 
 	for _, c := range checks {
 		t.Run(c.label, func(t *testing.T) {
@@ -157,8 +157,8 @@ func TestPlanDispatchGroupsWeightCap(t *testing.T) {
 		{"small small big small", chain("", "small", "small", "big", "small"), 0, "group 1: 1 2\ngroup 2: 3\ngroup 3: 4"},
 		{"oversized shared-file bundle is cut", task("1", "a.txt", "", "big") + task("2", "a.txt", "", "") + task("3", "b.txt", "", ""), 0, "group 1: 1\ngroup 2: 2 3"},
 		{"oversized Squash-with bundle stays whole", task("1", "a.txt", "", "big") + "**Squash-with:** Task 2\n\n" + task("2", "c.txt", "", "") + task("3", "b.txt", "", ""), 0, "group 1: 1\ngroup 2: 2"},
-		{"five singletons fold at weight 3", chain("none", five...), 0, "group 1: 1 3 5\ngroup 2: 2 4"},
-		{"seven singletons fold then cut", chain("none", seven...), 0, "group 1: 1 3 5\ngroup 2: 2 4 6\ngroup 3: 7"},
+		{"five singletons fold at weight 3", chain("none", five...), 0, "group 1: 1 4\ngroup 2: 2 5\ngroup 3: 3"},
+		{"ten singletons fold then cut", chain("none", make([]string, 10)...), 0, "group 1: 1 4 7\ngroup 2: 2 5 8\ngroup 3: 3 6 9\ngroup 4: 10"},
 		{"unknown size passes the violation through", chain("", "", "huge"), 1, ""},
 	} {
 		r := runGuard("plan-dispatch-groups", []string{psFixture(t, c.body)}, Env{Getenv: os.Getenv})

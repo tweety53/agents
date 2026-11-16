@@ -37,10 +37,10 @@ import (
 //     group g such that deps(k) intersects members(g) and deps(k) is a
 //     subset of members(g) union ready(g); otherwise it opens a new group.
 //     Joining never changes ready(g).
-//  2. Fold to at most pdgMaxInFlight (two) per ready-set -- the implementer
+//  2. Fold to at most pdgMaxInFlight (three) per ready-set -- the implementer
 //     in-flight cap. Among the chain-merged groups, those sharing an
-//     identical ready set are folded down to exactly two, dealt round-robin
-//     in plan order (1st and 3rd together, 2nd and 4th together, ...).
+//     identical ready set are folded down to exactly three, dealt round-robin
+//     in plan order (1st and 4th together, 2nd and 5th together, ...).
 //  3. Cut to at most pdgMaxWeight (three) per group. Each folded group's
 //     bundles are walked in bundle-id order into consecutive pieces: a
 //     bundle joins the current piece when the piece is empty or its weight
@@ -78,7 +78,7 @@ func init() { Registry["plan-dispatch-groups"] = planDispatchGroups }
 
 // pdgMaxInFlight is the implementer in-flight cap (skills/flow/sdd-dispatch.md's
 // **Waves** paragraph): a ready-set folds to this many groups, never more.
-const pdgMaxInFlight = 2
+const pdgMaxInFlight = 3
 
 // pdgMaxWeight is the most weight one implementer receives (KAN-1129): three
 // small or medium tasks, or one big task.
