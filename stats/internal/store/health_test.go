@@ -214,3 +214,36 @@ func TestGuardHealthWindowBounds(t *testing.T) {
 		t.Errorf("GuardHealthProjects = %+v, want %+v (From in, To out)", projects, want)
 	}
 }
+
+// TestRecordGuardRunFindsAPeerWorktreesProject: a run posted under a project
+// key the store does not hold -- a guard whose cwd is a peer repository's
+// worktree, or a wave copy of one -- is recorded under the project of the
+// change whose worktrees map names that worktree; a worktree no change names
+// is still refused.
+func TestRecordGuardRunFindsAPeerWorktreesProject(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-grpeer-%d", time.Now().UnixNano())
+	c := baseChange(projectKey, "kan-1")
+	c.Worktrees = []byte(`{"/w/app-worktrees/kan-1":"aaa","/w/peer-worktrees/kan-1":"bbb"}`)
+	if err := st.PutChange(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	for _, wt := range []string{"/w/peer-worktrees/kan-1", "/w/peer-worktrees/kan-1/fidelity", "/w/peer-worktrees/kan-1-wave-group-2"} {
+		in := guardRun("check-plan-shape", "clear", 0, 1, time.Now())
+		in.Worktree = wt
+		if _, err := st.RecordGuardRun(ctx, "peer-0000beef", in); err != nil {
+			t.Errorf("%s: err = %v, want the run recorded", wt, err)
+		}
+	}
+	rows, err := st.GuardHealth(ctx, store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}, &projectKey)
+	if err != nil || len(rows) != 1 || rows[0].Runs != 3 {
+		t.Errorf("guard health = %+v, %v; want one guard with 3 runs under the change's project", rows, err)
+	}
+	in := guardRun("g", "clear", 0, 1, time.Now())
+	in.Worktree = "/w/peer-worktrees/kan-10"
+	if _, err := st.RecordGuardRun(ctx, "peer-0000beef", in); !errors.Is(err, store.ErrProjectNotFound) {
+		t.Errorf("unnamed worktree: err = %v, want ErrProjectNotFound", err)
+	}
+}

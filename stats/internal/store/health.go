@@ -33,7 +33,12 @@ var ErrProjectNotFound = errors.New("store: project not found")
 var ErrInvalidGuardRun = errors.New("store: invalid guard run")
 
 // RecordGuardRun records one flow-guard invocation against projectKey.
-// Every call inserts a new row, as RecordVerdict does. An unknown project is
+// Every call inserts a new row, as RecordVerdict does. A key the store does
+// not hold falls back to the project of the newest change whose worktrees map
+// names the run's worktree, a directory under it, or a wave copy of it: a
+// guard run from a peer repository's worktree keys to that repository, which
+// is no project, and every capture and verifier run of gymie-playwright was
+// dropped. Any other unknown project is
 // ErrProjectNotFound: the INSERT ... SELECT inserts nothing, rather than
 // tripping the foreign key, so the refusal is a sentinel and not a 500.
 func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in records.GuardRun) (records.GuardRun, error) {
@@ -64,7 +69,11 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 		INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons)
 		SELECT p.project_key, $2, $3, $4, $5, $6, $7, $8
 		FROM projects p
-		WHERE p.project_key = $1
+		WHERE p.project_key = COALESCE(
+			(SELECT project_key FROM projects WHERE project_key = $1),
+			(SELECT c.project_key FROM changes c, jsonb_object_keys(c.worktrees) k
+				WHERE $3 = k OR starts_with($3, k || '/') OR starts_with($3, k || '-wave-group-')
+				ORDER BY c.id DESC LIMIT 1))
 		RETURNING id, recorded_at, reasons
 	`, projectKey, in.Guard, in.Worktree, in.ExitCode, in.Outcome, in.DurationMS, recordedAt, reasons).Scan(&out.ID, &out.RecordedAt, &out.Reasons)
 	if err != nil {
