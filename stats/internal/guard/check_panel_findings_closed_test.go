@@ -943,6 +943,7 @@ func TestPanelUnreadUncovered(t *testing.T) {
 		{"a cover leaving it unread", map[string]string{"panel-report-0-primary-gymie.md": unread("gymie"), "panel-report-0-primary-gymie-unread.md": unread("gymie")}, first, true},
 		{"a later round's read", map[string]string{"panel-report-0-primary-gymie.md": unread("gymie"), "panel-report-1-primary-gymie.md": unread("none")}, first, false},
 		{"a same-round per-repository read", map[string]string{"panel-report-0-primary.md": unread("web"), "panel-report-0-primary-web.md": unread("none")}, nil, false},
+		{"a same-round per-repository report read through its own cover", map[string]string{"panel-report-0-primary-gymie.md": unread("web"), "panel-report-0-primary-web.md": unread("web"), "panel-report-0-primary-web-unread.md": unread("none")}, nil, false},
 		{"mutation is exempt", map[string]string{"panel-report-0-mutation.md": unread("gymie")}, nil, false},
 	} {
 		wt := t.TempDir()

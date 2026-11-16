@@ -799,7 +799,7 @@ func PanelUnreadUncovered(worktree string, round int, slots []string) []string {
 		}
 		for _, repo := range cfcUnread(r.body) {
 			same := fmt.Sprintf("panel-report-%d-%s-%s.md", round, r.role, repo)
-			if !(same != r.name && cfcReportWritten(worktree, same)) && !cfcReportWritten(worktree, cfcCoverName(r.name)) {
+			if !(same != r.name && (cfcReportWritten(worktree, same) || cfcReportWritten(worktree, cfcCoverName(same)))) && !cfcReportWritten(worktree, cfcCoverName(r.name)) {
 				out = append(out, r.name+" ("+repo+")")
 			}
 		}
