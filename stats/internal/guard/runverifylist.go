@@ -1247,7 +1247,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				// The `specs` row runs only to group the failures; the
 				// list alone picks what runs.
 				if cmd != "" && specs != "" {
-					r := rgtRun(context.Background(), [][]string{{"bash", "-c", specs}}, 1, outDir, dir, cmdEnv)[0]
+					r := rgtRun(context.Background(), [][]string{{"bash", "-c", rvlStdoutOnly(specs, outDir)}}, 1, outDir, dir, cmdEnv)[0]
 					if out, err := os.ReadFile(r.out); err == nil && r.rc == 0 {
 						specTokens = append([]string{}, strings.Fields(string(out))...)
 					}
@@ -1259,11 +1259,17 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			case specs == "":
 				cmd = fill(nil)
 			default:
-				r := rgtRun(context.Background(), [][]string{{"bash", "-c", specs}}, 1, outDir, dir, cmdEnv)[0]
+				r := rgtRun(context.Background(), [][]string{{"bash", "-c", rvlStdoutOnly(specs, outDir)}}, 1, outDir, dir, cmdEnv)[0]
 				out, _ := os.ReadFile(r.out)
 				paths := strings.Fields(string(out))
 				switch {
 				case r.rc != 0:
+					if b, err := os.ReadFile(filepath.Join(outDir, "specs.stderr")); err == nil {
+						if f, err := os.OpenFile(r.out, os.O_APPEND|os.O_WRONLY, 0o644); err == nil {
+							_, _ = f.Write(b)
+							_ = f.Close()
+						}
+					}
 					report(specs, r.rc, r.out, list+"-specs")
 					cmd = ""
 				case len(paths) == 0:
@@ -1438,4 +1444,13 @@ func rgtRun(ctx context.Context, argvs [][]string, jobs int, tmpDir, dir string,
 	}
 	wg.Wait()
 	return results
+}
+
+// rvlStdoutOnly wraps a `specs` command so its stderr -- the notes naming the
+// files that select nothing -- goes to a file beside the run's output, never
+// into the spec list it prints on stdout (kan-1099: rgtRun merges both streams,
+// and a note became a Playwright filter, "No tests found").
+func rvlStdoutOnly(specs, outDir string) string {
+	q := "'" + strings.ReplaceAll(filepath.Join(outDir, "specs.stderr"), "'", `'\''`) + "'"
+	return "{ " + specs + "\n} 2>" + q
 }

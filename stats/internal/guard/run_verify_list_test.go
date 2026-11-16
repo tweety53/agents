@@ -952,6 +952,7 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 		// verify-list-runs-targeted: a `specs` row scopes the run, and never
 		// falls back to the whole suite.
 		{"specs scopes it to the mapped specs", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "test -d <frontend-root> && git rev-parse -q --verify <merge-base> >/dev/null && { echo a.spec.ts; echo b.spec.ts; }", "VISUAL-RAN [a.spec.ts b.spec.ts]", false, 0, true, false},
+		{"specs notes on stderr never reach the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "echo 'note: shared rendering code -- no spec selected' >&2; echo a.spec.ts", "VISUAL-RAN [a.spec.ts]", false, 0, true, false},
 		{"specs mapping nothing runs no spec", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "true <frontend-root> <merge-base>", "mapped no spec", false, 0, false, false},
 		{"a failing specs fails the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "exit 3", "exit 3", false, 1, false, false},
 		{"specs with an unresolved base fails the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "echo a.spec.ts <merge-base>", "no merge base", true, 1, false, false},
