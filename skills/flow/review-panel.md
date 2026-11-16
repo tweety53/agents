@@ -819,6 +819,7 @@ round-`<r>` report's `Unread:` line names a section that no other per-repository
 in round `<r>` reads, the parent dispatches one more dispatch of that role in round `<r>`, keyed
 `panel-<r>-<id>-unread` with `<id>` the report's own id, its prompt carrying the SECTION paragraph
 for each section the line names, and its report written to `panel-report-<r>-<id>-unread.md`.
+Its prompt names its reproducers `<r>-<id>-unread-<n>.sh`, `<n>` numbered from 1, so they never collide with the first dispatch's `<r>-<id>-<n>.sh`; `flow-guard check-panel-reproducers` accepts that shape for a finding of slot `<id>` (kan-1090 self-review, F6).
 `flow record dispatch begin` refuses the `panel-<r>-merger` row while such a section has neither
 (kan-1087 self-review, F21).
 Once every dispatch of the round has ended — its `end` recorded, every role's report file

@@ -278,6 +278,40 @@ func TestCheckPanelReproducersRefusesAnOffShapeName(t *testing.T) {
 	}
 }
 
+// TestCheckPanelReproducersAcceptsAnUnreadName pins F6 (kan-1090 self-review):
+// an -unread dispatch names its scripts <round>-<id>-unread-<n>.sh.
+func TestCheckPanelReproducersAcceptsAnUnreadName(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	okBin := cprBin(t, `cat "$(dirname -- "$0")/state.json"; exit 0`, `exit 1`)
+	const dir = ".superpowers/sdd/reproducers/"
+	finding := func(round int, slot, repro string) []byte {
+		b, _ := json.Marshal([]map[string]any{{"ref": "F1", "round": round, "slot": slot, "status": "open", "severity": "Important", "reproducer": repro}})
+		return b
+	}
+	const shape = "<round>-<id>-<n>.sh shape"
+	cases := []struct {
+		label    string
+		findings []byte
+		want     int
+		needle   string
+	}{
+		{"an unread name", finding(0, "principles", dir+"0-principles-unread-1.sh"), 0, "REPRODUCERS-OK"},
+		{"an unread name in a joined slot", finding(0, "primary+principles", dir+"0-principles-unread-2.sh"), 0, "REPRODUCERS-OK"},
+		{"a leading zero on the unread index", finding(0, "principles", dir+"0-principles-unread-01.sh"), 1, shape},
+		{"another slot's unread name", finding(0, "principles", dir+"0-mutation-unread-1.sh"), 1, shape},
+		{"the wrong round on an unread name", finding(0, "principles", dir+"1-principles-unread-1.sh"), 1, shape},
+		{"an unread name with no index", finding(0, "principles", dir+"0-principles-unread.sh"), 1, shape},
+	}
+	for _, c := range cases {
+		t.Run(c.label, func(t *testing.T) {
+			t.Parallel()
+			got, out := cprRun(t, okBin, wt, "demo", c.findings)
+			cprExpect(t, got, out, c.want, c.needle)
+		})
+	}
+}
+
 func TestCheckPanelReproducersRefusesCrossRoundPath(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()

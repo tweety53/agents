@@ -470,8 +470,11 @@ const cprReproducersDir = ".superpowers/sdd/reproducers/"
 // <n> a positive integer with no leading zero. Why: in kan-1036 two slots
 // wrote r1-m1-1.sh and r1-M1-1.sh, which a case-insensitive filesystem holds
 // as one file, so one finding's recorded script ran the other's check. The
-// exact slot id is what keeps two slots' names apart. A reproducer elsewhere
-// is not name-checked.
+// exact slot id is what keeps two slots' names apart. An -unread dispatch of
+// the same slot and round names its scripts <round>-<id>-unread-<n>.sh, so
+// they never collide with the first dispatch's.
+// <id> is compared with a trailing -unread removed (kan-1090 self-review, F6). A
+// reproducer elsewhere is not name-checked.
 func cprNameViolation(ref, cmd string, round int, slot string) string {
 	pathToken, _, _ := strings.Cut(cmd, " ")
 	name, ok := strings.CutPrefix(pathToken, cprReproducersDir)
@@ -481,7 +484,7 @@ func cprNameViolation(ref, cmd string, round int, slot string) string {
 	if rest, ok := strings.CutPrefix(name, strconv.Itoa(round)+"-"); ok {
 		if rest, ok := strings.CutSuffix(rest, ".sh"); ok {
 			if i := strings.LastIndexByte(rest, '-'); i > 0 && cprPositive(rest[i+1:]) {
-				id := rest[:i]
+				id := strings.TrimSuffix(rest[:i], "-unread")
 				if id == slot || slices.Contains(strings.Split(slot, "+"), id) {
 					return ""
 				}
