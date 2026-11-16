@@ -1,10 +1,8 @@
 package guard
 
 import (
-	"os"
-	"path/filepath"
+	_ "embed"
 	"reflect"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -18,16 +16,15 @@ const mpRepo = "../../.."
 // testPolicy is `flow policy get` as 0061_role_pairs.sql seeds it: the
 // Allowed pairs table as it stood when the pairs moved into flowd
 // (testdata/policy.json, which internal/repotest's hook tests read too).
-var testPolicy = func() string {
-	// Located off this file, not the working directory: a test binary
-	// self-exec'd as a guard (runSibling) runs from wherever its caller is.
-	_, self, _, _ := runtime.Caller(0)
-	b, err := os.ReadFile(filepath.Join(filepath.Dir(self), "testdata", "policy.json"))
-	if err != nil {
-		panic(err)
-	}
-	return strings.TrimSpace(string(b))
-}()
+// Embedded, not read off the working directory: a test binary self-exec'd
+// as a guard (runSibling) runs from wherever its caller is, and -trimpath
+// makes a runtime.Caller path module-relative, so neither locates the file
+// (kan-1090 self-review planning).
+//
+//go:embed testdata/policy.json
+var testPolicyJSON string
+
+var testPolicy = strings.TrimSpace(testPolicyJSON)
 
 // policyStub is the arm of a fake `flow` answering `policy get` with
 // testPolicy; every fake flow of this package's policy readers opens with it.
