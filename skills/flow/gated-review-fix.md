@@ -27,7 +27,7 @@ one clause, or carried to the next fixer. A finding the FRAME DEPARTURES paragra
 green names the run — its command and exit — else the line is carried to the next fixer, and
 `flow record status` refuses a green withdrawal with no exit.
 
-**One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix`, under
+**One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix` — save an in-run fix task, which takes none (**The loop**, step 2, `skills/flow/verify-fix-loop.md`) — under
 `task-<n+n>-reviewer-fix-<k>`, the same convention as the fixer's key, each pass on its own fix
 diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched bundle runs on the pair `flow-guard pair-judge gated-re-reviewer <prompt file>` prints (**Model and effort**, `skills/flow/brainstorm-planner.md`),
 its prompt opening with the line `Role: gated-re-reviewer` in place of the original bundle's.

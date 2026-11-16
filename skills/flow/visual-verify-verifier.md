@@ -40,8 +40,15 @@ reads every number on it as an exit.
    names; a non-zero exit blocks, printing the command and its exit. The verify `specs` maps for that
    merge base already ran green in `flow.verify`, which the report's `verify:` line names as the
    bundle does — this step runs no `verify`. The capture spec is the touched views' existing spec from `specs`' output,
-   extended, when one covers the view; a new spec is authored only for a view none covers. Run
-   `capture` with `<spec>` substituted for the spec's path. **Every capture asserts the view is on
+   extended, when one covers the view; a new spec is authored only for a view none covers. **A capture
+   spec carries a `<spec>.sources` sidecar** naming the source files its screen is made of, written
+   or extended with the spec; `flow-guard affected-specs`'s header is canonical for its lines. Run
+   `capture` with `<spec>` substituted for the spec's path. **One `capture` run takes every capture
+   spec of the pass**, their paths space-joined for `<spec>`, with
+   `--workers=$(flow-guard capture-workers)` before `--update-snapshots=all` — never one run per
+   spec. A project's page limit for ad-hoc probes does not bind the capture suite. A capture whose
+   PNG differs between that count and `--workers=1` is nondeterministic, and is fixed at its source
+   (`rules/fix-determinism-at-the-source.mdc`), never tolerated. **Every capture asserts the view is on
    screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the
    capture instead of becoming its baseline. **A capture reached through a click also asserts the state it clicked into, and parks the pointer before it is taken** — a positive control on a drawn, state-dependent property the wrong state cannot satisfy (the selected tab's fill, the opened sheet's tag), and the pointer moved clear of every control (`page.mouse.move(0, 0)`) after the last click — so a missed click fails the capture instead of becoming its baseline, and no hover ink reaches one. **A capture reaches every control it clicks or types into by a structural locator, never a page coordinate** (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`). **A capture whose subject sits under a scrim, or any dimming or alpha layer, also pins that subject structurally** — the presence of each tag the change draws beneath the layer and the absence of each it removes, covered tags included — because the dimming can shrink a real difference below the screenshot comparison's per-pixel threshold; a dimmed capture whose baseline predates the change is recaptured, never trusted because its diff passes. `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration-visual.md`; nothing here restates it. **Every screenshot

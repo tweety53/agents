@@ -18,8 +18,10 @@ report names it.
 **A defect whose root cause is a shared source — a style, a token, a component other screens draw
 too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** The round's task never patches the
 changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
-moves is recaptured: every spec `specs` prints for the fix's own diff — none when it prints
-nothing — runs through `capture` with `--update-snapshots=all`
+moves is recaptured: every spec `flow-guard affected-specs <worktree> <round base> <capture root>`
+prints for the fix's own diff where the capture root holds a `<spec>.sources` sidecar, else every
+spec `specs` prints for it — none when it prints
+nothing — runs through one `capture` run with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
@@ -64,8 +66,14 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    `**Allowed-collateral:**` — `check-plan-shape` F23 refuses it and
    `check-task-commit-planning-paths` sweeps it — and is written on disk only. The re-decide runs as
    that file states.
-   **One round appends one task**, carrying every defect the report names — never a task or a
-   round per defect. The task carries `**Opener:** <the dispatch key whose report it transcribes>`.
+   **One round appends one task**, carrying every defect the report names, every reviewer finding
+   still open and every leftover a fixer named with its cause — never a task or a
+   round per defect, and never a second task under another title. A second task of a round is a
+   slice, cut only where two of its items edit one file in conflicting ways: it carries the
+   round's `<k>` and `**Opener:**`, names that file in its `**Files:**` as the first task does, and
+   has its own fixer. `flow-guard check-plan-shape` F24 and F33 refuse any other second task, and
+   a round opened by a report older than the previous round's `-fix-<k>` re-run, whose departures
+   were known when that round was planned. The task carries `**Opener:** <the dispatch key whose report it transcribes>`.
    On a sharded pass (`skills/flow/visual-verify.md`) the one task transcribes every shard report
    that names a defect, and its `**Opener:**` is the pass key without the `-s<i>of<n>` segment.
    Before the append, the stage's failing row is closed with `flow record dispatch
@@ -74,7 +82,14 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    On `NEXT: loop`, `flow-guard visual-verify-pass close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the decision's implementer pair, `flow-guard close-task` with its
-   guard and its review gate. The task closes through `flow-guard close-task` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task. The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
+   guard and its review gate. **The gated reviewer runs once per round, after its last fixer.**
+   On `big`, the round's gate-fired tasks, its slices included, go out in one reviewer bundle once
+   the last of them has closed through `flow-guard close-task`; a `fix` verdict takes one fixer
+   (`skills/flow/gated-review-fix.md`) and no re-review bundle — each task ticks, and each finding
+   closes `fixed`, on that fixer's guard pass, and step 3's panel reads the fix in `late-fix.diff`.
+   `flow-guard check-task-reviewer-single-dispatch` refuses a re-review of an in-run fix task and a
+   review begun before the round's last slice. Step 4 follows: `verify`, then one `visual-verify`.
+   The task closes through `flow-guard close-task` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task. The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
    and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`) by pointer (`skills/flow/implement.md`), and the round closes only when every reported
    `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
    what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
@@ -106,8 +121,9 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    pair on the 2× capture and the 2× mockup frame themselves, never on a `flow-guard compose-mockup-frames`
    composite. A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small.
    **A task fixing a visual departure runs its capture spec before it closes.** Its verify step
-   runs the project's `capture` command with the round's capture spec for `<spec>`, against the
-   stack rebuilt from its fix, and the task closes through `flow-guard close-task` only on that run's exit
+   runs the project's `capture` command with the recapture list above for `<spec>`, against the
+   stack rebuilt from its fix, and the task closes through `flow-guard close-task`, which prints
+   that list as `affected specs`, only on that run's exit
    0 — a red capture is fixed in the same task and folded into its one commit.
    **A departure observed on a running clock closes on repeated running-clock passes.** When the
    departure was observed on a running clock — a live walk, a recorded frame sequence, any read the
