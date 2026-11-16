@@ -9576,14 +9576,14 @@ func TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups(t *testing.T) {
 func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
 	t.Parallel()
 	plan := "- [ ] 1. One\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n\n" +
-		"- [ ] 2. Two\n\n**Files:**\n- Modify: `b.go`\n\n  - [ ] **Step 1: do it**\n\n" +
-		"- [ ] 3. Three\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n"
+		"- [ ] 2. Two\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n\n" +
+		"- [ ] 3. Three\n\n**Files:**\n- Modify: `b.go`\n\n  - [ ] **Step 1: do it**\n"
 	cases := []struct {
 		name, groups string
 		plan         bool
 		want         [][]string
 	}{
-		{"stamped", `[{"bundles":[1],"slots":[]},{"bundles":["2"],"slots":[]}]`, true, [][]string{{"1", "3"}, {"2"}}},
+		{"stamped", `[{"bundles":[1],"slots":[]},{"bundles":["2"],"slots":[]}]`, true, [][]string{{"1", "2"}, {"3"}}},
 		{"no plan", `[{"bundles":[1]},{"bundles":["2"]}]`, false, [][]string{nil, nil}},
 		{"unknown bundle", `[{"bundles":[1]},{"bundles":[9]}]`, true, [][]string{nil, nil}},
 	}
