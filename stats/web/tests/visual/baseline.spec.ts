@@ -52,7 +52,7 @@ test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(FIXTURE_NOW);
 });
 
-test.describe("dashboard", () => {
+test.describe("dashboard", { tag: "@smoke" }, () => {
   test("renders the live state board with data loaded and the dark palette applied", async ({ page }) => {
     await page.goto(DASHBOARD_URL);
     await expect(page.getByRole("heading", { name: "Live state board" })).toBeVisible();
@@ -81,7 +81,7 @@ test.describe("dashboard", () => {
   });
 });
 
-test.describe("run detail", () => {
+test.describe("run detail", { tag: "@smoke" }, () => {
   test("renders one change's stage-run history with data loaded and the dark palette applied", async ({ page }) => {
     await page.goto(RUN_DETAIL_URL);
     await expect(page.getByRole("heading", { name: "kan-201-refactor-thing" })).toBeVisible();
@@ -135,7 +135,7 @@ test.describe("run detail", () => {
 // specific: a screenshot alone would just become the new accepted
 // baseline the next time someone runs `--update-snapshots` without
 // looking.
-test.describe("dark palette forced via data-theme, in a light OS context", () => {
+test.describe("dark palette forced via data-theme, in a light OS context", { tag: "@smoke" }, () => {
   test.use({ colorScheme: "light" });
 
   test('data-theme="dark" still renders the dark surface token', async ({ page }) => {

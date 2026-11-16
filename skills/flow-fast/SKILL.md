@@ -295,7 +295,7 @@ flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -se
 Run `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint` — it runs every command of
 `## lint`'s fence, never the fence lines `flow-guard project-get` prints with them — and the `## test` commands scoped to what the
 change touched — the packages, modules or test files the diff names, never the whole list; the full suite,
-`<agents repo>/scripts/flow-guard run-verify-list -full <worktree> test`, runs only when the operator asked for it. When the diff names nothing those commands can scope to, none of them
+`<agents repo>/scripts/flow-guard run-verify-list -full <worktree> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
 runs — the change summary below states that empty-scope reason explicitly, the stated reason
 being what makes the skip auditable rather than lazy, never a reflexive run of the whole list in its
 place. Then `flow-guard check-fast-route-record <worktree> <base>` reads the branch's

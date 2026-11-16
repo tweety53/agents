@@ -171,7 +171,8 @@ An instruction given before **A. Resolve the change and write `STARTED`**
 the change, covers one run and is stored nowhere.** Given before the run reaches a `test` list,
 the next `test` list it reaches runs as `flow-guard run-verify-list -full <worktree> test`, with the
 recording arguments that list carries; given when no `test` list is ahead, the session runs that
-command at once in each of the change's worktrees. It is one line in the run's narrative and one
+command at once in each of the change's worktrees. The command runs only under the operator's own
+`FLOW_OPERATOR_FULL_SUITE=1`, which no session sets. It is one line in the run's narrative and one
 `Decisions:` bullet. Every later `test` list runs the default one (**Inline verify**,
 `skills/flow/verify-and-handoff.md`).
 

@@ -19,7 +19,7 @@ report names it.
 too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** The round's task never patches the
 changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
 moves is recaptured: every spec `specs` prints for the fix's own diff — none when it prints
-nothing, and the whole suite only when `specs` is not declared — runs through `capture` with `--update-snapshots=all`
+nothing — runs through `capture` with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
@@ -237,8 +237,8 @@ group under the round's `-fix-<k>` key is the gate, and when it fails the next r
 its failures. Neither flag records a dispatch row, writes the green cache or stands as the gate.
 The detector's retry only names a flake: a flaky test is a failure the fixer fixes at its source
 (`rules/fix-determinism-at-the-source.mdc`). A plain run is the `specs` row's selection — the
-change's tests plus the smoke tail, or every spec when the diff touches shared rendering code —
-and never the whole suite otherwise. Each failing run prints its failures in two groups, the
+change's tests plus the smoke tail —
+and never the whole suite. Each failing run prints its failures in two groups, the
 change's specs and the specs outside the `specs` row's output. Two consecutive rounds whose failures all fall outside it make no progress, and escalate as **Fewest operator actions** states (`skills/flow-contracts/pipeline.md`). A non-visual command keeps its own inline re-run.
 
 ## No cap

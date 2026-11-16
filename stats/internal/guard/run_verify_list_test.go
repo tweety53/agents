@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -837,6 +838,17 @@ func rvlVisualRun(t *testing.T, list, verify, file, decision, specs string, noOr
 // wanting one passes its stub's directory as path.
 func rvlRunIn(t *testing.T, dir, path string, args ...string) (int, string) {
 	t.Helper()
+	return rvlRunEnv(t, dir, path, nil, args...)
+}
+
+// rvlOperator is the environment entry only the operator sets (THE
+// OPERATOR'S SWITCH).
+var rvlOperator = []string{rvlOperatorFull + "=1"}
+
+// rvlRunEnv is rvlRunIn with extra appended to the environment, after the
+// entries that make every run a default one no operator asked to widen.
+func rvlRunEnv(t *testing.T, dir, path string, extra []string, args ...string) (int, string) {
+	t.Helper()
 	var bare []string
 	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
 		if _, err := os.Stat(filepath.Join(d, "flow")); err != nil {
@@ -848,7 +860,8 @@ func rvlRunIn(t *testing.T, dir, path string, args ...string) (int, string) {
 	}
 	// FLOW_VERIFY_FULL= and FLOW_SMOKE_KEEP= last: every run through here is
 	// a default run, whatever the process carries.
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+strings.Join(bare, ":"), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+strings.Join(bare, ":"), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=", rvlOperatorFull+"=")
+	environ = append(environ, extra...)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -943,7 +956,7 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 		ran, checkout                      bool
 	}{
 		{"a ui change runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", "", "", false, 0, true, false},
-		{"a failing visual verify fails the list", "exit 1", "web/src/a.tsx", "", "test", "", "", false, 1, false, false},
+		{"a failing visual verify fails the list", "false <specs>", "web/src/a.tsx", "", "test", "", "", false, 1, false, false},
 		{"a skipped visual verify", "echo VISUAL-RAN <specs>", "web/src/a.tsx", `{"visual":{"verify":"skipped","reason":"r"}}`, "test", "", "", false, 0, false, false},
 		{"a change outside ui paths", "echo VISUAL-RAN <specs>", "docs/a.md", "", "test", "", "", false, 0, false, false},
 		{"an unresolved base runs it", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "test", "", "", true, 0, true, false},
@@ -953,9 +966,14 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 		// falls back to the whole suite.
 		{"specs scopes it to the mapped specs", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "test -d <frontend-root> && git rev-parse -q --verify <merge-base> >/dev/null && { echo a.spec.ts; echo b.spec.ts; }", "VISUAL-RAN [a.spec.ts b.spec.ts]", false, 0, true, false},
 		{"specs notes on stderr never reach the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "echo 'note: shared rendering code -- no spec selected' >&2; echo a.spec.ts", "VISUAL-RAN [a.spec.ts]", false, 0, true, false},
-		{"specs mapping nothing runs no spec", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "true <frontend-root> <merge-base>", "mapped no spec", false, 0, false, false},
-		{"a failing specs fails the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "exit 3", "exit 3", false, 1, false, false},
-		{"specs with an unresolved base fails the list", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "echo a.spec.ts <merge-base>", "no merge base", true, 1, false, false},
+		// THE SMOKE FALLBACK: the smoke set fills `<specs>` wherever no
+		// selection can, and the row never runs with it empty.
+		{"no specs row runs the smoke set", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "", "VISUAL-RAN [--grep @smoke]", false, 0, true, false},
+		{"no specs row and an unresolved base runs the smoke set", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "", "VISUAL-RAN [--grep @smoke]", true, 0, true, false},
+		{"specs mapping nothing runs the smoke set", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "true <frontend-root> <merge-base>", "VISUAL-RAN [--grep @smoke]", false, 0, true, false},
+		{"a failing specs fails the list and runs the smoke set", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "exit 3", "VISUAL-RAN [--grep @smoke]", false, 1, true, false},
+		{"specs with an unresolved base fails the list and runs the smoke set", "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "test", "echo a.spec.ts <merge-base>", "VISUAL-RAN [--grep @smoke]", true, 1, true, false},
+		{"a verify cell with no <specs> is not run", "echo WHOLE", "web/src/a.tsx", "", "test", "", "no <specs> placeholder", false, 1, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -969,7 +987,13 @@ func TestRunVerifyListRunsTheVisualVerify(t *testing.T) {
 			if !strings.Contains(out, tc.wantOut) {
 				t.Fatalf("output lacks %q\n%s", tc.wantOut, out)
 			}
-			if tc.checkout && !strings.Contains(out, "VISUAL-RAN in "+appWT+"\n") {
+			if strings.Contains(out, "VISUAL-RAN []") || strings.Contains(out, "VISUAL-RAN \n") {
+				t.Fatalf("the visual verify ran with <specs> empty\n%s", out)
+			}
+			if smoke := strings.Contains(out, "--grep @smoke"); smoke != strings.Contains(out, "runs the smoke set alone") {
+				t.Fatalf("the smoke set ran = %v, and stderr does not say the same\n%s", smoke, out)
+			}
+			if tc.checkout && !strings.Contains(out, "VISUAL-RAN in "+appWT+" --grep @smoke\n") {
 				t.Fatalf("the visual verify did not run from %s\n%s", appWT, out)
 			}
 			if tc.ran && strings.Index(out, "VISUAL-RAN") < strings.Index(out, "LIST-RAN") {
@@ -992,7 +1016,7 @@ func TestRunVerifyListVisualList(t *testing.T) {
 		ran, notRun, noAppWT         bool
 	}{
 		{"a ui change runs the verify row alone", "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", 0, true, false, false},
-		{"a failing verify row fails the list", "exit 1", "web/src/a.tsx", "", 1, false, false, false},
+		{"a failing verify row fails the list", "false <specs>", "web/src/a.tsx", "", 1, false, false, false},
 		{"a change outside ui paths runs nothing", "echo VISUAL-RAN <specs>", "docs/a.md", "", 0, false, true, false},
 		{"a skipped visual verify runs nothing", "echo VISUAL-RAN <specs>", "web/src/a.tsx", `{"visual":{"verify":"skipped","reason":"r"}}`, 0, false, true, false},
 		// kan-1052 self-review R1: /flow-fast and /flow-interactive create no
@@ -1850,7 +1874,7 @@ func TestRunVerifyListFullRunsEverySuite(t *testing.T) {
 	rvlGit(t, repo, "commit", "-q", "--allow-empty", "-m", "empty")
 	head := rvlGit(t, repo, "rev-parse", "HEAD")
 	os.Remove(log)
-	rc, out = rvlRunIn(t, repo, stub, "-full", repo, "test", "kan-1", "verify", "mf-k1", "opus", "low")
+	rc, out = rvlRunEnv(t, repo, stub, rvlOperator, "-full", repo, "test", "kan-1", "verify", "mf-k1", "opus", "low")
 	if rc != 0 || strings.Contains(out, "skipped") || !strings.Contains(out, "  QUIET-RAN\n") || !strings.Contains(out, "  FULL=1\n") {
 		t.Errorf("-full run: exit %d, want 0, nothing skipped, QUIET-RAN and FULL=1:\n%s", rc, out)
 	}
@@ -1879,7 +1903,7 @@ func TestRunVerifyListFullNamesAnEscape(t *testing.T) {
 	if rc, out := rvlRunIn(t, repo, "", repo, "test"); rc != 1 || !strings.Contains(out, "`"+a+"` — exit 0") {
 		t.Fatalf("default run: exit %d, want 1 with a passed:\n%s", rc, out)
 	}
-	rc, out := rvlRunIn(t, repo, "", "-full", repo, "test")
+	rc, out := rvlRunEnv(t, repo, "", rvlOperator, "-full", repo, "test")
 	escape := "  escaped the default list — it passed at " + head + "\n"
 	block := func(cmd, next string) string {
 		_, rest, _ := strings.Cut(out, "- `"+cmd+"` — ")
@@ -1898,7 +1922,7 @@ func TestRunVerifyListFullNamesAnEscape(t *testing.T) {
 	if rc, out := rvlRunIn(t, repo, "", repo, "test"); rc != 0 {
 		t.Fatalf("default run of a alone: exit %d:\n%s", rc, out)
 	}
-	if rc, out := rvlRunIn(t, repo, "", "-full", repo, "test"); rc != 1 || !strings.Contains(out, "  escaped the default list — it passed at "+head+"\n") {
+	if rc, out := rvlRunEnv(t, repo, "", rvlOperator, "-full", repo, "test"); rc != 1 || !strings.Contains(out, "  escaped the default list — it passed at "+head+"\n") {
 		t.Errorf("-full run of a alone: exit %d, want 1 and the escape line on the green sha:\n%s", rc, out)
 	}
 }
@@ -1920,6 +1944,13 @@ func TestRunVerifyListFullSetsVerifyFastAside(t *testing.T) {
 	env := fx.env
 	environ := append(env.Environ(), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=")
 	env.Environ = func() []string { return environ }
+	getenv := env.Getenv
+	env.Getenv = func(k string) string {
+		if k == rvlOperatorFull {
+			return "1"
+		}
+		return getenv(k)
+	}
 	var out, errb bytes.Buffer
 	rc := runVerifyList([]string{"-full", fx.repo, "test"}, env, &out, &errb)
 	ran, _ := os.ReadFile(fx.log)
@@ -1942,7 +1973,7 @@ func TestRunVerifyListFullRunsTheVisualSuiteWhole(t *testing.T) {
 	}
 	for _, list := range []string{"visual", "test"} {
 		os.Remove(log)
-		rc, out := rvlRunIn(t, wt, stub, "-full", wt, list)
+		rc, out := rvlRunEnv(t, wt, stub, rvlOperator, "-full", wt, list)
 		calls, _ := os.ReadFile(log)
 		if rc != 0 || !strings.Contains(out, "VISUAL []") || strings.Contains(out, "SPECS-ROW-RAN") || !strings.Contains(string(calls), "-suite visual-full ") {
 			t.Errorf("-full %s: exit %d, want the whole suite run as visual-full:\n%s\nflow log:\n%s", list, rc, out, calls)
@@ -1963,7 +1994,7 @@ func TestRunVerifyListFullUsage(t *testing.T) {
 		{"-full"},
 	} {
 		var out, errb bytes.Buffer
-		rc := runVerifyList(args, Env{Getenv: os.Getenv, Environ: os.Environ, Dir: repo}, &out, &errb)
+		rc := runVerifyList(args, Env{Getenv: func(k string) string { return map[string]string{rvlOperatorFull: "1"}[k] }, Environ: os.Environ, Dir: repo}, &out, &errb)
 		if _, err := os.Stat(filepath.Join(repo, "ran")); rc != 2 || errb.Len() == 0 || err == nil {
 			t.Errorf("%q: rc=%d stderr=%q, want 2, a stderr line and no command run", args, rc, errb.String())
 		}
@@ -1975,7 +2006,7 @@ func TestRunVerifyListFullUsage(t *testing.T) {
 func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
-	wt, _ := rvlVisualSetup(t, "echo VISUAL", "docs/a.md", "", "", false, false, false)
+	wt, _ := rvlVisualSetup(t, "echo VISUAL <specs>", "docs/a.md", "", "", false, false, false)
 	sib := filepath.Join(t.TempDir(), "web")
 	writeFile(t, filepath.Join(sib, "README"), "x\n")
 	fixtureRepo(t, sib, repoShape{Branch: "main"})
@@ -1986,7 +2017,7 @@ func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "ui")
 	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
-	ran := "`echo VISUAL` — exit 0"
+	ran := "`echo VISUAL --grep @smoke` — exit 0"
 	args := []string{wt, "test", "demo", "verify", "mf-test", "opus", "low"}
 	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || !strings.Contains(out, ran) {
 		t.Fatalf("run 1: exit %d, the visual row did not run:\n%s", rc, out)
@@ -1999,5 +2030,72 @@ func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
 	rvlGit(t, sib, "commit", "-q", "-m", "more ui")
 	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || !strings.Contains(out, ran) {
 		t.Fatalf("run 3: exit %d, the visual row was skipped after the sibling moved:\n%s", rc, out)
+	}
+}
+
+// TestRunVerifyListFullNeedsTheOperator pins THE OPERATOR'S SWITCH: -full
+// runs nothing unless FLOW_OPERATOR_FULL_SUITE=1 is set, and a default run
+// drops an inherited FLOW_VERIFY_FULL.
+func TestRunVerifyListFullNeedsTheOperator(t *testing.T) {
+	t.Parallel()
+	repo := rvlFullRepo(t, "touch ran\necho \"FULL=$FLOW_VERIFY_FULL\"\n")
+	for _, list := range []string{"test", "visual"} {
+		for _, extra := range [][]string{nil, {rvlOperatorFull + "=yes"}} {
+			rc, out := rvlRunEnv(t, repo, "", extra, "-full", repo, list)
+			if _, err := os.Stat(filepath.Join(repo, "ran")); rc != 2 || err == nil || !strings.Contains(out, rvlOperatorFull+"=1") {
+				t.Errorf("-full %s with %q: exit %d, want 2, no command run and the variable named:\n%s", list, extra, rc, out)
+			}
+		}
+	}
+	if rc, out := rvlRunEnv(t, repo, "", []string{"FLOW_VERIFY_FULL=1"}, repo, "test"); rc != 0 || !strings.Contains(out, "  FULL=\n") {
+		t.Errorf("default run under an inherited FLOW_VERIFY_FULL=1: exit %d, want 0 and FULL= printed:\n%s", rc, out)
+	}
+}
+
+// TestRunVerifyListCapsTheSelection pins THE CAP: a selection naming more
+// than 40 spec files is not run, whatever picked it, unless the operator's
+// variable is set.
+func TestRunVerifyListCapsTheSelection(t *testing.T) {
+	t.Parallel()
+	files := func(n int) string {
+		var b strings.Builder
+		for i := range n {
+			// two tokens a file: the cap counts files, not tokens
+			fmt.Fprintf(&b, "tests/s%d.spec.ts:3 tests/s%d.spec.ts:9 ", i, i)
+		}
+		return b.String()
+	}
+	over, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "echo "+files(41), false, false, false)
+	at, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "echo "+files(40), false, false, false)
+	only := filepath.Join(t.TempDir(), "only")
+	writeFile(t, only, files(41))
+	for _, tc := range []struct {
+		name  string
+		extra []string
+		args  []string
+		want  int
+		ran   bool
+	}{
+		{"41 files are refused", nil, []string{over, "visual"}, 1, false},
+		{"41 files in a test list's tail are refused", nil, []string{over, "test"}, 1, false},
+		{"41 files under -detect-flaky are refused", nil, []string{"-detect-flaky", over, "visual"}, 1, false},
+		{"41 files in an -only list are refused", nil, []string{"-only", only, at, "visual"}, 1, false},
+		{"40 files run", nil, []string{at, "visual"}, 0, true},
+		{"41 files run for the operator", rvlOperator, []string{over, "visual"}, 0, true},
+	} {
+		rc, out := rvlRunEnv(t, over, "", tc.extra, tc.args...)
+		if rc != tc.want || strings.Contains(out, "VISUAL-RAN") != tc.ran || (!tc.ran && !strings.Contains(out, "names 41 spec files, over the cap of 40")) {
+			t.Errorf("%s: exit %d, want %d, ran = %v:\n%s", tc.name, rc, tc.want, !tc.ran, out)
+		}
+	}
+}
+
+// TestRunVerifyListDetectFlakyFallsBackToSmoke: the detector never runs the
+// row with `<specs>` empty either (THE SMOKE FALLBACK).
+func TestRunVerifyListDetectFlakyFallsBackToSmoke(t *testing.T) {
+	t.Parallel()
+	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "", false, false, false)
+	if rc, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL-RAN [--grep @smoke --retries=1 --fail-on-flaky-tests]") {
+		t.Errorf("exit %d, want 0 and the smoke set under the detector's flags:\n%s", rc, out)
 	}
 }

@@ -61,7 +61,7 @@
 // runs in order, one command at a time.
 // A `test` list then ends with the `## visual verification` `verify` row,
 // run once in the foreground after every other command has exited, `<specs>`
-// replaced by nothing, from the section's `regression checkout` when declared
+// filled as THE SMOKE FALLBACK states, from the section's `regression checkout` when declared
 // and <worktree> otherwise (verify-list-runs-visual, kan-1047: the run never
 // ran the visual verify by hand) -- when the row is declared,
 // `<worktree>/.superpowers/sdd/decision.json` does not record
@@ -167,6 +167,25 @@
 // in its block, after its output lines. `-full` with `-only` or
 // `-detect-flaky`, with the `lint` list, or with no <worktree> and list exits
 // 2 before any command runs.
+//
+// THE OPERATOR'S SWITCH. `-full` exits 2 before any command unless
+// `FLOW_OPERATOR_FULL_SUITE=1` is in its environment. Only the operator sets
+// that variable; an agent never does, and hands the operator the command
+// instead. A run without `-full` puts `FLOW_VERIFY_FULL=` after every
+// inherited entry of each command's environment, so no caller's export turns
+// a default run into the full suite.
+//
+// THE SMOKE FALLBACK. Outside `-full` the visual `verify` row never runs with
+// `<specs>` empty. With no `specs` row, a `specs` row with no merge base, one
+// that exits non-zero or one that prints nothing, `<specs>` is filled with
+// `--grep @smoke` -- the tests the regression suite tags `@smoke` -- and a
+// stderr line names which of the four it was; the missing merge base and the
+// failing `specs` row still fail the list. A `verify` cell with no `<specs>`
+// can only run whole: it is not run and fails the list.
+//
+// THE CAP. A selection naming more than 40 spec files -- the distinct paths
+// of its tokens, `-only`'s file included -- is not run and fails the list,
+// its line giving the count; with `FLOW_OPERATOR_FULL_SUITE=1` set it runs.
 //
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
@@ -307,9 +326,9 @@ import (
 // touches a `ui paths` glob and decision.json does not record `visual.verify`
 // `skipped`; a base that does not resolve runs it, and it fails the list like
 // any other command (kan-1047). A declared `specs` row runs first, its paths
-// put in `<specs>`: no path runs no spec, a non-zero exit or an unresolved
-// base fails the list, and the whole suite never runs in its place. With no
-// `specs` row, `<specs>` is emptied and the suite runs whole. A sibling
+// put in `<specs>`: a non-zero exit or an unresolved base fails the list,
+// and the whole suite never runs in its place, with no `specs` row either
+// (THE SMOKE FALLBACK). A sibling
 // worktree in the change's state record whose diff touches the `ui paths`
 // as `<its repository name>/<path>` runs the row too, its path and kickoff
 // base filling `<frontend-root>` and `<merge-base>` (siblingFrontend).
@@ -342,6 +361,25 @@ import (
 // in its block, after its output lines. `-full` with `-only` or
 // `-detect-flaky`, with the `lint` list, or with no <worktree> and list exits
 // 2 before any command runs.
+//
+// THE OPERATOR'S SWITCH. `-full` exits 2 before any command unless
+// `FLOW_OPERATOR_FULL_SUITE=1` is in its environment. Only the operator sets
+// that variable; an agent never does, and hands the operator the command
+// instead. A run without `-full` puts `FLOW_VERIFY_FULL=` after every
+// inherited entry of each command's environment, so no caller's export turns
+// a default run into the full suite.
+//
+// THE SMOKE FALLBACK. Outside `-full` the visual `verify` row never runs with
+// `<specs>` empty. With no `specs` row, a `specs` row with no merge base, one
+// that exits non-zero or one that prints nothing, `<specs>` is filled with
+// `--grep @smoke` -- the tests the regression suite tags `@smoke` -- and a
+// stderr line names which of the four it was; the missing merge base and the
+// failing `specs` row still fail the list. A `verify` cell with no `<specs>`
+// can only run whole: it is not run and fails the list.
+//
+// THE CAP. A selection naming more than 40 spec files -- the distinct paths
+// of its tokens, `-only`'s file included -- is not run and fails the list,
+// its line giving the count; with `FLOW_OPERATOR_FULL_SUITE=1` set it runs.
 //
 // A SKIPPED SUITE. A `test` command opening with `flow-guard unchanged
 // <pathspecs> ||` (an optional path before `flow-guard`; each pathspec a bare
@@ -453,17 +491,29 @@ func rvlGuardSkip(env Env, wt, cmd string) string {
 	return strings.TrimSpace(out.String())
 }
 
+const (
+	// rvlOperatorFull is THE OPERATOR'S SWITCH: the variable only the
+	// operator sets. -full is refused without it, and it lifts rvlSpecCap.
+	rvlOperatorFull = "FLOW_OPERATOR_FULL_SUITE"
+	// rvlSmokeSet fills `<specs>` when no selection can: Playwright's own
+	// filter for the tests tagged `@smoke` (THE SMOKE FALLBACK).
+	rvlSmokeSet = "--grep @smoke"
+	// rvlSpecCap is the most spec files one selection may name (THE CAP).
+	rvlSpecCap = 40
+)
+
 // rvlVisualVerify is the `## visual verification` `verify` row a `test` list
 // ends with, the directory it runs from, and -- when the section declares a
 // `specs` row -- that row with `<frontend-root>` and `<merge-base>`
 // substituted, whose printed paths the caller puts in `<specs>`; with no
-// `specs` row, `<specs>` is emptied and the row runs whole. ok false when the
+// `specs` row, specs is "" and the caller fills `<specs>` with the smoke set
+// (THE SMOKE FALLBACK). ok false when the
 // row is not declared, decision.json records `visual.verify` `skipped`, the
 // green sha covers the tree, or the diff from the base branch touches no
 // `ui paths` glob (verify-list-runs-visual). A base that does not resolve
 // runs it: running more is the safe side -- but a `specs` row then has no
 // merge base to scope to, and specs comes back "" with ok true and cmd ""
-// so the caller fails the list rather than run the whole suite
+// so the caller fails the list and runs the smoke set, never the whole suite
 // (verify-list-runs-targeted). fallback is the `regression checkout` dir
 // fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
 func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
@@ -630,7 +680,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		}
 		return cells["verify"], strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(s), dir, fallback, true
 	}
-	return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, true
+	return cells["verify"], "", dir, fallback, true
 }
 
 var (
@@ -865,6 +915,13 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "full-needs-test-or-visual")
 		return 2
 	}
+	// THE OPERATOR'S SWITCH: only the operator sets it, never an agent.
+	operator := env.Getenv(rvlOperatorFull) == "1"
+	if full && !operator {
+		fmt.Fprintf(stderr, "run-verify-list: -full runs the whole suite, which only the operator starts — no command ran. The operator runs it with %s=1 set; an agent never sets that variable, it hands the operator the command instead\n", rvlOperatorFull)
+		Reason(env, "full-needs-the-operator")
+		return 2
+	}
 	// change and canon name the state record the kickoff base is read from.
 	change, canon := "", ""
 	if mode != "plain" {
@@ -1097,6 +1154,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	cmdEnv := append(childEnv[:len(childEnv):len(childEnv)], "PWD="+abs(wt))
 	if full {
 		cmdEnv = append(cmdEnv, "FLOW_VERIFY_FULL=1")
+	} else {
+		// A default run is the smoke set whatever its caller exported.
+		cmdEnv = append(cmdEnv, "FLOW_VERIFY_FULL=")
 	}
 	// Every command runs under run-capped, which kills its process tree
 	// past the project's `## resource cap` (kan-1044).
@@ -1238,11 +1298,18 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		} else if ok {
 			visualRan = true
 			var specTokens []string // the `specs` row's output, nil with no row
-			// A `specs` row scopes the suite to the specs it maps; one that
-			// cannot run, or fails, blocks the list, and one that maps
-			// nothing runs no spec -- never the whole suite, which runs only
-			// when the operator asks (verify-list-runs-targeted).
+			// tokens fill `<specs>`; smokeWhy, when set, is why the smoke set
+			// alone fills it. Outside -full the row never runs with `<specs>`
+			// empty: the whole suite runs only when the operator asks
+			// (verify-list-runs-targeted, THE SMOKE FALLBACK).
+			var tokens []string
+			smokeWhy := ""
 			switch {
+			case full:
+			case !strings.Contains(rawVerify, "<specs>"):
+				failed = 1
+				cmd = ""
+				fmt.Fprintf(stdout, "- visual verify — not run: the `verify` cell has no <specs> placeholder, so it can only run whole, and the whole suite runs only when the operator asks: %s\n", rawVerify)
 			case mode == "only":
 				// The `specs` row runs only to group the failures; the
 				// list alone picks what runs.
@@ -1252,12 +1319,13 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 						specTokens = append([]string{}, strings.Fields(string(out))...)
 					}
 				}
-				cmd = fill(only)
+				tokens = only
 			case cmd == "":
 				failed = 1
 				fmt.Fprintln(stdout, "- `specs` — not run, no merge base to scope the visual verify to; the whole suite runs only when the operator asks")
+				smokeWhy = "the `specs` row has no merge base to scope to"
 			case specs == "":
-				cmd = fill(nil)
+				smokeWhy = "no `specs` row is declared"
 			default:
 				r := rgtRun(context.Background(), [][]string{{"bash", "-c", rvlStdoutOnly(specs, outDir)}}, 1, outDir, dir, cmdEnv)[0]
 				out, _ := os.ReadFile(r.out)
@@ -1271,14 +1339,34 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 						}
 					}
 					report(specs, r.rc, r.out, list+"-specs")
-					cmd = ""
+					smokeWhy = "the `specs` row failed"
 				case len(paths) == 0:
-					fmt.Fprintf(stdout, "- `%s` — exit 0, mapped no spec: the visual verify ran no spec\n", specs)
-					cmd = ""
+					fmt.Fprintf(stdout, "- `%s` — exit 0, mapped no spec\n", specs)
+					smokeWhy = "the `specs` row mapped no spec"
 				default:
-					cmd = fill(paths)
-					specTokens = paths
+					tokens, specTokens = paths, paths
 				}
+			}
+			if smokeWhy != "" {
+				tokens = strings.Fields(rvlSmokeSet)
+				fmt.Fprintf(stderr, "run-verify-list: the visual verify runs the smoke set alone (`%s`) — %s; the whole suite runs only when the operator asks\n", rvlSmokeSet, smokeWhy)
+			}
+			var files []string
+			for _, tok := range tokens {
+				if f, _, _ := strings.Cut(tok, ":"); !strings.HasPrefix(f, "-") && !slices.Contains(files, f) {
+					files = append(files, f)
+				}
+			}
+			switch {
+			case full:
+				cmd = fill(nil)
+			case rawVerify != "" && !strings.Contains(rawVerify, "<specs>"):
+			case len(files) > rvlSpecCap && !operator:
+				failed = 1
+				cmd = ""
+				fmt.Fprintf(stdout, "- visual verify — not run: the selection names %d spec files, over the cap of %d. A selection that wide is close to the whole suite, which runs only when the operator asks: the operator re-runs this command with %s=1 set to run the selection as it is; an agent never sets that variable\n", len(files), rvlSpecCap, rvlOperatorFull)
+			default:
+				cmd = fill(tokens)
 			}
 			switch {
 			case cmd == "":

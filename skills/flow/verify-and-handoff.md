@@ -118,7 +118,7 @@ The parent writes this `## Report` itself and shows it as this stage's output.
 call; the lint and test run, this run's `flow record dispatch begin`, and the ledger render below
 are one more.
 
-`flow-guard run-verify-list <worktree> lint` and `flow-guard run-verify-list <worktree> test` are the two groups: each runs its list as above, stdin detached, and prints that list's `## Report` lines, its exit codes canonical in its header — never a runner built by hand. On a change whose diff touches `ui paths`, the `test` group also ends with the project's `## visual verification` `verify` row, on the specs its `specs` row maps (the whole suite only with no `specs` row, or when the operator asks), run from the change's worktree of the `regression checkout` repo, unless decision.json records the visual verify skipped.
+`flow-guard run-verify-list <worktree> lint` and `flow-guard run-verify-list <worktree> test` are the two groups: each runs its list as above, stdin detached, and prints that list's `## Report` lines, its exit codes canonical in its header — never a runner built by hand. On a change whose diff touches `ui paths`, the `test` group also ends with the project's `## visual verification` `verify` row, on the specs its `specs` row maps (the smoke set alone, `--grep @smoke`, with no `specs` row or one that maps nothing; the whole suite only when the operator asks), run from the change's worktree of the `regression checkout` repo, unless decision.json records the visual verify skipped.
 The test group skips what the list's last green run on a clean tree already covered: every command
 when HEAD is the sha that run recorded, otherwise each command whose `# inputs:` pathspecs the delta
 since that sha leaves untouched; a skipped command's `## Report` line says so, and the script's
@@ -131,6 +131,16 @@ for that run, and the visual `verify` row runs whole. Its suite rows are recorde
 `<name>-full`, and with the recording arguments its row stands as the `verify` gate. A command
 it fails that the default list passed at the same HEAD is marked `escaped the default list`; the
 script's header is canonical for the rest.
+
+**Only the operator starts the full suite.** `-full` is refused unless `FLOW_OPERATOR_FULL_SUITE=1`
+is in its environment. The operator sets that variable; a session or a subagent never sets it, whoever
+asks. A session asked for the full suite whose environment
+lacks it hands the operator the command — `FLOW_OPERATOR_FULL_SUITE=1 <agents repo>/scripts/flow-guard
+run-verify-list -full <worktree> test` — and goes on with the default list. Every `/flow`,
+`/flow-fast` and `/flow-interactive` run, in every project, runs the smoke set and the change's
+targeted tests and nothing wider: a targeting that is empty or fails falls back to the smoke set,
+never to a whole suite, and no whole-suite command is typed by hand in its place. A visual selection naming more than 40 spec files is not run; the operator's variable
+on the same command runs it.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the flake detector of **Narrowed visual re-runs**
