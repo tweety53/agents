@@ -78,6 +78,12 @@ import (
 // the answer carries none; an answer that is not that JSON falls back with
 // the cause `judge answer is not JSON: <stdout>` (kan-1119 self-review, F12).
 //
+// The judge runs with CLAUDE_CODE_DISABLE_AUTO_MEMORY=1: `--setting-sources ""`
+// still loads the cwd project's auto-memory index, and a judge in gymie read
+// its expired "at most opus at low effort" note into 13 of 172 group picks.
+// Measured 2026-11-17, claude in a project with a memory index: the index is
+// in context without the variable and absent with it, $0.0222 against $0.0047.
+//
 // FLOW_PAIR_JUDGE_CMD, when set, names the command run in place of `claude`
 // (decision judge-command-seam). Bounds (decision
 // judge-timeout-60s-digest-200kb): a 60 s deadline (Env.PairJudgeTimeout in
@@ -291,6 +297,7 @@ func pjRun(env Env, rows map[string][]policyRow, system string, digest []byte) (
 		"--tools", "", "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
 		"--output-format", "json", "--system-prompt", system)
 	cmd.Dir = env.Dir
+	cmd.Env = append(os.Environ(), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
 	cmd.Stdin = bytes.NewReader(digest)
 	cmd.WaitDelay = time.Second // an orphaned child holding the pipes cannot outlast the deadline by more
 	var out, errb bytes.Buffer

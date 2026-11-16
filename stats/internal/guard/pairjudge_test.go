@@ -500,3 +500,18 @@ func TestPairJudgeGroupDigestDropsThePlanInputs(t *testing.T) {
 		}
 	}
 }
+
+// TestPairJudgeRunsWithoutAutoMemory: the judge command runs with
+// CLAUDE_CODE_DISABLE_AUTO_MEMORY=1, so the cwd project's memory index never
+// reaches it.
+func TestPairJudgeRunsWithoutAutoMemory(t *testing.T) {
+	t.Parallel()
+	stub := newPJStub(t, `printf '%s' "$CLAUDE_CODE_DISABLE_AUTO_MEMORY" > "$(dirname "$0")/memory"`+"\n"+pjAnswer)
+	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "Task 1.\n")}, pjEnv(t, policy, stub)); r.rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	}
+	if got := mustRead(t, stub.dir+"/memory"); got != "1" {
+		t.Errorf("CLAUDE_CODE_DISABLE_AUTO_MEMORY = %q in the judge's environment, want 1", got)
+	}
+}
