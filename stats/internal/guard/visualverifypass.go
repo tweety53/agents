@@ -178,6 +178,13 @@ import (
 //      key `slice: s<i>of<n> <slice>` and, under --merge-base-failed or a
 //      stage `merge-base-failed` line, `merge-base capture failed — <reason>`, then
 //        measure: flow-guard visual-verify-pass measure <worktree> <name> <key less any -rest[-<n>]> <spec path>[ --frames <slice>]
+//      and a `## Report checks` section, the two guard calls close's step 2
+//      runs on the report, for the verifier to run first (kan-1084 … kan-1087:
+//      11 of 12 incomplete first reports carried a frame-list gap the
+//      verifier's own check-verify-report run could not show it):
+//        check: flow-guard check-verify-report <report> <motions named> --design <changeRoot>/design.md[ --frames <slice>]
+//        check: flow-guard check-frame-list <changeRoot>/design.md <mockups root> <report>[ --frames <slice>]
+//      the second only with `mockups` declared.
 //  11. one `flow record dispatch begin -C <canonical-worktree> -change <name>
 //      -role verifier -model <model> -effort <effort> -key <key> -session-token <t>
 //      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor,

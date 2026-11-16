@@ -363,6 +363,9 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 		filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md"),
 		filepath.Join(repo, "skills/flow/visual-verify-verifier.md"),
 		"mockup sources: " + filepath.Join(f.wt, "design/proto.html") + "\n",
+		// The two guards close runs on the report, so the verifier runs them first.
+		"check: flow-guard check-verify-report " + filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md") + " <motions named> --design " + filepath.Join(f.wt, "spectre/changes/demo/design.md") + "\n",
+		"check: flow-guard check-frame-list " + filepath.Join(f.wt, "spectre/changes/demo/design.md") + " " + filepath.Join(f.wt, "design/mockups") + " " + filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md") + "\n",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("bundle lacks %q:\n%s", want, s)
@@ -381,6 +384,9 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 	b, _ = os.ReadFile(filepath.Join(g.wt, ".superpowers/sdd/verify-prompt-visual-verify.md"))
 	if !strings.Contains(string(b), "mockup sources: none") {
 		t.Errorf("no source:\n%s", b)
+	}
+	if !strings.Contains(string(b), "check: flow-guard check-verify-report ") || strings.Contains(string(b), "check-frame-list") {
+		t.Errorf("no `mockups` declared, so the report check alone:\n%s", b)
 	}
 }
 
@@ -946,7 +952,9 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
 		}
 		b := bundle(f, "visual-verify-s2of3")
-		for _, want := range []string{"slice: s2of3 " + slice2 + "\n", "measure: flow-guard visual-verify-pass measure " + f.wt + " demo visual-verify-s2of3 <spec path> --frames " + slice2 + "\n"} {
+		report := filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify-s2of3.md")
+		for _, want := range []string{"slice: s2of3 " + slice2 + "\n", "measure: flow-guard visual-verify-pass measure " + f.wt + " demo visual-verify-s2of3 <spec path> --frames " + slice2 + "\n",
+			"design.md --frames " + slice2 + "\n", report + " --frames " + slice2 + "\n"} {
 			if !strings.Contains(b, want) {
 				t.Errorf("the s2of3 bundle lacks %q:\n%s", want, b)
 			}

@@ -681,6 +681,9 @@ each of steps 4, 8–11 and the motion step a status `flow-guard check-verify-re
 is canonical for them — and the parent runs that guard on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
+Run the bundle's `flow-guard check-frame-list` line the same way: a `no report line` frame gets its
+own per-frame line or is named on the `frames:` line with its reason, and a `no sidecar line` gap
+step 8 could not close stays, which `close` hands the parent.
 **A departure found never shortens the pass:** every step still runs to its end in the same
 dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it.
 **Step 10 is `done` only when every frame's matrix and sweeps are**: every composite read, every

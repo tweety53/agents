@@ -930,9 +930,11 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	line("## Measure")
 	line("")
 	measure := "measure: flow-guard visual-verify-pass measure " + w + " " + v.name + " " + vrRestSegment.ReplaceAllString(key, "") + " <spec path>"
+	frames := ""
 	if slice := vvpSlice(stage, key); slice != "" {
 		line("slice: %s %s", strings.TrimPrefix(vvpShardSeg.FindString(key), "-"), slice)
-		measure += " --frames " + slice
+		frames = " --frames " + slice
+		measure += frames
 		mbFailed := v.mbFailed
 		for _, l := range stage {
 			if l[0] == "merge-base-failed" {
@@ -944,6 +946,14 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 		}
 	}
 	line("%s", measure)
+	line("")
+	line("## Report checks")
+	line("")
+	design := filepath.Join(changeRoot, "design.md")
+	line("check: flow-guard check-verify-report %s <motions named> --design %s%s", report, design, frames)
+	if m := cells["mockups"]; m != "" {
+		line("check: flow-guard check-frame-list %s %s %s%s", design, cellPath(w, m), report, frames)
+	}
 	line("")
 	line("## Mockup sources")
 	line("")

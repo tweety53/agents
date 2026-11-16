@@ -63,8 +63,9 @@ own system prompt>`.
 **The prompt also carries the REPORT FORMAT paragraph**, `<agents repo>` resolved:
 
 > **REPORT FORMAT:** Before writing `## Report`, read the header of
-> `<agents repo>/scripts/flow-guard check-verify-report`, and run it on your report before handing back:
-> an exit 1 names the steps you still owe — do them in this dispatch and run it again. Hand back
+> `<agents repo>/scripts/flow-guard check-verify-report`, and run every `check:` line of your bundle on
+> your report before handing back: an exit 1 names what you still owe — do it in this dispatch and
+> run it again. Hand back
 > an incomplete report only for a blocker you cannot cure, named; time, context and a departure
 > found are none. Report every departure you see in this one pass.
 
@@ -234,7 +235,7 @@ matched; the project's `## run` commands; steps 5 and 6's results, as the report
 the relay contract above, with its report path resolved for this dispatch's `<key>`; the
 `flow-guard visual-verify-pass measure` call of the verifier's step 9 with its arguments, its manifest key
 this dispatch's key with any `-rest[-<n>]` segment removed, since a remainder completes the pass it
-continues; and
+continues; the `check:` lines, the two guard calls `close` runs on the report; and
 to read the absolute path of
 `visual-verify-verifier.md` beside this file and run its steps 4 and 8–11 and its motion step as written against the stack steps 5 and 6 left serving the
 worktree's build, starting, stopping and restarting nothing but the merge-base stack step 10's
