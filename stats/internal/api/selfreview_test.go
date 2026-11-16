@@ -418,3 +418,8 @@ func TestSelfReviewBundleReadsRequests(t *testing.T) {
 		t.Errorf("a failed requests read still rendered requests:\n%s", body)
 	}
 }
+
+// SelfReviewThemeCounts answers the fake's canned counts.
+func (f *fakeStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
+	return []records.SelfReviewTheme{}, nil
+}

@@ -195,9 +195,9 @@ func TestSelfReviewFindingRecordedOnce(t *testing.T) {
 		{Change: "kan-1", Angle: "flow-fix", Note: "recorded again by hand", Disposition: "fixed", Ref: "14a900ef", BlastRadius: &one},
 		{Change: "kan-1", Angle: "flow-fix", Note: "recorded again by hand", Disposition: "fixed", Ref: "14a900ef", BlastRadius: &one},
 		{Change: "kan-1", Angle: "flow-fix", Note: "the landing's own row", Disposition: "fixed", Ref: "b0d0cdd5"},
-		{Change: "kan-1", Angle: "flow-cost", Note: "an observation", Disposition: "noted"},
-		{Change: "kan-1", Angle: "flow-cost", Note: "an observation", Disposition: "noted"},
-		{Change: "kan-1", Angle: "flow-cost", Note: "another observation", Disposition: "noted"},
+		{Change: "kan-1", Angle: "flow-cost", Note: "an observation", Disposition: "noted", Theme: "other"},
+		{Change: "kan-1", Angle: "flow-cost", Note: "an observation", Disposition: "noted", Theme: "other"},
+		{Change: "kan-1", Angle: "flow-cost", Note: "another observation", Disposition: "noted", Theme: "other"},
 	}
 	var ids []int64
 	for _, f := range writes {
@@ -306,5 +306,64 @@ func TestRecordSelfReviewFindingSeverity(t *testing.T) {
 	got, err := st.ListSelfReviewFindings(ctx, projectKey, "kan-1")
 	if err != nil || len(got) != 2 || got[0].Severity != "important" || got[1].Severity != "" {
 		t.Fatalf("ListSelfReviewFindings = %+v, %v; want severities important, empty", got, err)
+	}
+}
+
+// TestSelfReviewThemes: a noted cost or speed finding carries a theme from
+// records.SelfReviewThemes and is refused without one; any other row may
+// carry one or none. SelfReviewThemeCounts counts, per theme, the distinct
+// changes of every project that noted it since the cutoff, and reports a
+// theme settled once a fixed, filed or declined row carries it.
+func TestSelfReviewThemes(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	rec := func(f records.SelfReviewFinding) error {
+		_, err := st.RecordSelfReviewFinding(ctx, projectKey, f)
+		return err
+	}
+	for name, f := range map[string]records.SelfReviewFinding{
+		"noted cost without a theme":  {Change: "kan-1", Angle: "flow-cost", Note: "n", Disposition: "noted"},
+		"noted speed without a theme": {Change: "kan-1", Angle: "flow-speed", Note: "n", Disposition: "noted"},
+		"a theme outside the list":    {Change: "kan-1", Angle: "flow-cost", Note: "n", Disposition: "noted", Theme: "vibes"},
+	} {
+		if err := rec(f); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
+			t.Errorf("%s: err = %v, want ErrSelfReviewFindingInvalid", name, err)
+		}
+	}
+	if err := rec(records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "went well", Disposition: "noted"}); err != nil {
+		t.Errorf("a noted finding of another angle needs no theme: %v", err)
+	}
+	for _, f := range []records.SelfReviewFinding{
+		{Change: "kan-1", Angle: "flow-speed", Note: "slot waited", Disposition: "noted", Theme: "mutation-slot"},
+		{Change: "kan-1", Angle: "flow-cost", Note: "slot cost", Disposition: "noted", Theme: "mutation-slot"},
+		{Change: "kan-2", Angle: "flow-speed", Note: "slot waited", Disposition: "noted", Theme: "mutation-slot"},
+		{Change: "kan-2", Angle: "flow-cost", Note: "planning 60%", Disposition: "noted", Theme: "planning-share"},
+		{Change: "kan-3", Angle: "flow-cost", Note: "planning is intended", Disposition: "declined", Theme: "planning-share"},
+	} {
+		if err := rec(f); err != nil {
+			t.Fatalf("RecordSelfReviewFinding(%+v): %v", f, err)
+		}
+	}
+	got, err := st.ListSelfReviewFindings(ctx, projectKey, "kan-2")
+	if err != nil || len(got) != 2 || got[0].Theme != "mutation-slot" {
+		t.Errorf("listed %+v, %v; want kan-2's two rows with their themes", got, err)
+	}
+	counts, err := st.SelfReviewThemeCounts(ctx, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	by := map[string]records.SelfReviewTheme{}
+	for _, c := range counts {
+		by[c.Theme] = c
+	}
+	if c := by["mutation-slot"]; c.Changes != 2 || c.Settled {
+		t.Errorf("mutation-slot = %+v, want 2 changes, not settled", c)
+	}
+	if c := by["planning-share"]; c.Changes != 1 || !c.Settled {
+		t.Errorf("planning-share = %+v, want 1 change, settled by the declined row", c)
+	}
+	if later, err := st.SelfReviewThemeCounts(ctx, time.Now().Add(time.Hour)); err != nil || len(later) != 0 {
+		t.Errorf("counts since a later cutoff = %+v, %v; want none", later, err)
 	}
 }

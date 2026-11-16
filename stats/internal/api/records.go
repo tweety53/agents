@@ -124,6 +124,7 @@ type RecordStore interface {
 	// methods state above.
 	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
 	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
+	SelfReviewThemeCounts(ctx context.Context, since time.Time) ([]records.SelfReviewTheme, error)
 
 	// InsertSuiteRun and ListSuiteRuns are KAN-252's suite-runtime
 	// methods -- per-run, per-machine figures project.md cites instead of

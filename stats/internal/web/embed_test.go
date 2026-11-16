@@ -613,3 +613,7 @@ func (fakeStore) RecordLearningTopic(context.Context, store.LearningTopic) error
 func (fakeStore) ListLearningTopics(context.Context) ([]store.LearningTopicCount, error) {
 	return nil, nil
 }
+
+func (fakeStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
+	return nil, nil
+}

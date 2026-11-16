@@ -95,3 +95,21 @@ func (c *Client) ListSelfReviewFindings(ctx context.Context, project, change str
 	}
 	return out, nil
 }
+
+// SelfReviewThemes fetches every theme a self-review finding of the window
+// carries, with its count and whether it is settled.
+func (c *Client) SelfReviewThemes(ctx context.Context) ([]records.SelfReviewTheme, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/self-review-themes", nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.SelfReviewTheme
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

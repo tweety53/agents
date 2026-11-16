@@ -47,12 +47,17 @@ usage: flow self-review finding [-addr url] [-timeout dur] [-C dir]
                               -disposition fixed|filed|declined|noted -note text
                               [-ref sha|KEY] [-blast-radius N]
                               [-severity critical|important|minor]
+                              [-theme id]
 
 Records one self-review finding and its outcome (KAN-875): -ref is the
 landed sha for fixed, the issue key for filed and omitted for declined
 and noted;
 -blast-radius is the finding's file count, omitted when none was counted;
--severity is the finding's grade, required for fixed and filed and omitted for declined and noted when none was given.
+-severity is the finding's grade, required for fixed and filed and omitted for declined and noted when none was given;
+-theme is what a cost or speed observation is about, one of the ids
+flow self-review themes prints: required on a noted flow-cost or flow-speed
+finding, and carried by the fixed, filed or declined row of a finding
+raised because its theme was due.
 
 This is a write that never blocks: a store that cannot be reached, or
 that fails the write for any reason but a refusal, is one warning line on
@@ -68,6 +73,15 @@ Prints the change's recorded self-review findings as a JSON array on
 stdout, in the order they were recorded. A read, with the bundle's
 contract: a store that cannot be reached exits non-zero with nothing on
 stdout.
+
+usage: flow self-review themes [-addr url] [-timeout dur] [-C dir]
+
+Prints one line per theme, "<id>: <n> changes in 30 days — <state>": <n>
+the distinct changes of every project whose pass noted the theme in the
+last 30 days, <state> due once 5 changes have, settled when a fixed, filed
+or declined row carried the theme in those 30 days, uncounted for
+accounting, fixed-in-run and other, and counted otherwise. A read, with
+the bundle's contract.
 `
 
 // runSelfReview implements `flow self-review`: `bundle`, the read run 1's
@@ -85,6 +99,8 @@ func runSelfReview(ctx context.Context, args []string, getenv func(string) strin
 		return runSelfReviewFinding(ctx, args[1:], getenv, stderr)
 	case "findings":
 		return runSelfReviewFindings(ctx, args[1:], getenv, stdout, stderr)
+	case "themes":
+		return runSelfReviewThemes(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown self-review command %q\n", args[0])
 		fmt.Fprint(stderr, selfReviewUsage)
@@ -222,6 +238,7 @@ func runSelfReviewFinding(ctx context.Context, args []string, getenv func(string
 	fset.StringVar(&in.Ref, "ref", "", "the landed sha for fixed, the issue key for filed")
 	fset.IntVar(&blastRadius, "blast-radius", -1, "the finding's file count (optional)")
 	fset.StringVar(&in.Severity, "severity", "", "critical, important or minor (required for fixed and filed)")
+	fset.StringVar(&in.Theme, "theme", "", "what a cost or speed observation is about, an id `flow self-review themes` prints")
 
 	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, getenv, stderr)
 	if code >= 0 {
@@ -290,6 +307,37 @@ func runSelfReviewFindings(ctx context.Context, args []string, getenv func(strin
 	if err := enc.Encode(rows); err != nil {
 		fmt.Fprintf(stderr, "flow: self-review findings: %v\n", err)
 		return 1
+	}
+	return 0
+}
+
+// runSelfReviewThemes implements `flow self-review themes`: every theme of
+// records.SelfReviewThemes, in the list's order, with the store's count and
+// the state it puts the theme in.
+func runSelfReviewThemes(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow self-review themes", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f, getenv)
+	if err := fset.Parse(args); err != nil || fset.NArg() != 0 {
+		fmt.Fprint(stderr, selfReviewUsage)
+		return 2
+	}
+	counts, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.SelfReviewTheme, error) {
+		return cl.SelfReviewThemes(ctx)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: self-review themes: %v\n", err)
+		return 1
+	}
+	for _, id := range records.SelfReviewThemes {
+		t := records.SelfReviewTheme{Theme: id}
+		for _, c := range counts {
+			if c.Theme == id {
+				t = c
+			}
+		}
+		fmt.Fprintf(stdout, "%s: %d changes in 30 days — %s\n", t.Theme, t.Changes, t.State())
 	}
 	return 0
 }

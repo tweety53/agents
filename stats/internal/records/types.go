@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"regexp"
+	"slices"
 	"time"
 )
 
@@ -455,8 +456,68 @@ type SelfReviewFinding struct {
 	Ref         string `json:"ref,omitempty"`
 	BlastRadius *int   `json:"blastRadius,omitempty"`
 	// Severity is critical, important or minor, empty when none was graded.
-	Severity   string    `json:"severity,omitempty"`
+	Severity string `json:"severity,omitempty"`
+	// Theme is one of SelfReviewThemes, empty when the row carries none.
+	Theme      string    `json:"theme,omitempty"`
 	RecordedAt time.Time `json:"recordedAt"`
+}
+
+// SelfReviewThemes is the closed list a self-review finding's theme comes
+// from: what a cost or speed observation is about. One pass judges one
+// change, so an observation it rightly notes as by design is never seen the
+// thirtieth time; the theme is what lets the store count it across changes.
+// The last three name no single recurring cost and are never due
+// (SelfReviewUncountedThemes).
+var SelfReviewThemes = []string{
+	"planning-share",   // planning's share of the run's spend
+	"mutation-slot",    // the mutation slot's runtime or its wait on the suite
+	"visual-rounds",    // repeated or full visual-verify rounds
+	"verify-reruns",    // the verify list run again, or in full, after a small fix
+	"implementer-size", // one implementer dispatch's size: its tasks, minutes or cache reads
+	"inline-context",   // the parent's own context carried by inline work
+	"operator-wait",    // time waiting on the operator or on a permission denial
+	"accounting",       // a record or attribution artefact, not a cost
+	"fixed-in-run",     // a cost whose cause this run already fixed
+	"other",
+}
+
+// SelfReviewUncountedThemes are the themes that never come due.
+var SelfReviewUncountedThemes = []string{"accounting", "fixed-in-run", "other"}
+
+// SelfReviewThemedAngles are the angles whose noted findings must carry a
+// theme.
+var SelfReviewThemedAngles = []string{"flow-cost", "flow-speed"}
+
+// SelfReviewThemeDueAt is how many changes must note a theme within
+// SelfReviewThemeWindow before it is due, and SelfReviewThemeWindow that
+// window.
+const (
+	SelfReviewThemeDueAt  = 5
+	SelfReviewThemeWindow = 30 * 24 * time.Hour
+)
+
+// SelfReviewTheme is one theme's count: the distinct changes, across every
+// project, that noted it within the window, and whether a fixed, filed or
+// declined row carried it there -- which settles it for the window.
+type SelfReviewTheme struct {
+	Theme   string `json:"theme"`
+	Changes int    `json:"changes"`
+	Settled bool   `json:"settled,omitempty"`
+}
+
+// State is the theme's word in `flow self-review themes`: uncounted for a
+// theme of SelfReviewUncountedThemes, settled once acted on or declined in
+// the window, due at SelfReviewThemeDueAt changes, counted otherwise.
+func (t SelfReviewTheme) State() string {
+	switch {
+	case slices.Contains(SelfReviewUncountedThemes, t.Theme):
+		return "uncounted"
+	case t.Settled:
+		return "settled"
+	case t.Changes >= SelfReviewThemeDueAt:
+		return "due"
+	}
+	return "counted"
 }
 
 // Hazard is a proactive, per-project warning a dispatch bundle carries

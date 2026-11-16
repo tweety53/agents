@@ -1419,3 +1419,7 @@ func TestGetChangeIgnoresStaleRestartMarker(t *testing.T) {
 		t.Fatalf("took %v, want a fast failure", d)
 	}
 }
+
+func (stubStageStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
+	return nil, nil
+}

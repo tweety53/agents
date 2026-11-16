@@ -1504,3 +1504,11 @@ func TestReplayRequestEntries(t *testing.T) {
 		t.Fatalf("pending record entries after replay = %d, want 0", n)
 	}
 }
+
+func (nopRecordStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
+	return nil, nil
+}
+
+func (*fakeRecordStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
+	return nil, nil
+}

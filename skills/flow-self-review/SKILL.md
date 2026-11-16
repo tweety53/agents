@@ -47,6 +47,10 @@ hand-back, never the files it names, save where a step below says it reads one; 
 `big`, filing, landing, and when a step runs again — stays this session's.
 Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases. A pass already run is never run again: while the change holds a completed `self-review-<name>-pass` row (`flow record dispatches -change <name>`) and the loop branch `self-review-<name>` exists in `<agents repo>`, this session keeps `<sr-dir>` whole, dispatches no pass and resumes at step 3 from `<sr-dir>/findings.md`, and `flow-guard check-loop-dispatch` refuses a second pass row.
 
+**Cost and speed observations are counted across changes by theme.** Before the pass is dispatched, this session runs `flow self-review themes` and carries its lines in the pass's prompt; a failed call carries none.
+Every `flow-cost` and `flow-speed` observation the pass returns names the one listed theme it is about, `other` when none fits.
+An observation whose theme the listing marks `due` is a finding, never `noted`, however its own change reads: its line states the listing's count, and step 3 classifies it as it classifies any fixable finding.
+
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
 standalone, `<sr-dir>/bundle.md` in-run — and `<sr-dir>`, and carrying this step's rules and step 3's classification, the
@@ -545,11 +549,11 @@ One call per finding, every disposition alike, before step 7 — save a `fixed`
 finding on the change's own branch, whose row step 5's landing push records:
 
 ```bash
-flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined|noted [-ref <sha|KEY>] [-blast-radius <N>] [-severity critical|important|minor] -note '<the finding, one line>'
+flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined|noted [-ref <sha|KEY>] [-blast-radius <N>] [-severity critical|important|minor] [-theme <id>] -note '<the finding, one line>'
 ```
 
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined` and `noted`;
-`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `filed`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none. An `In-run pipeline fix:`
+`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `filed`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none; `-theme` is the theme the pass named, on every `flow-cost` and `flow-speed` row whatever its disposition — `flow self-review finding` refuses a `noted` one without it, and a `fixed`, `filed` or `declined` row carrying a theme settles it for 30 days. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
 lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A row this step records for such a line, which the pass never grades, takes `-severity` by the rule of **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues to the listing below.
