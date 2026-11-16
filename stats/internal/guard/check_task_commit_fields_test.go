@@ -3231,3 +3231,29 @@ func TestTaskIDCommitsJoinsATaskKeyedFix(t *testing.T) {
 	res = branch("self-review-change-b")
 	ok(t, "a self-review key joins only its own commits", res.rc == 1, res)
 }
+
+// TestTcfFnmatchDoubleStarMatchesZeroDirectories pins kan-1090 self-review
+// F2: `**/` at a segment start matches zero or more directories, as git
+// reads it, so an Allowed-collateral `a/b/**/*.kt` covers a direct child.
+func TestTcfFnmatchDoubleStarMatchesZeroDirectories(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, pattern string
+		want          bool
+	}{
+		{"a/b/X.kt", "a/b/**/*.kt", true},
+		{"a/b/c/X.kt", "a/b/**/*.kt", true},
+		{"a/b/c/d/X.kt", "a/b/**/*.kt", true},
+		{"x.go", "**/x.go", true},
+		{"d/x.go", "**/x.go", true},
+		{"a/b/x.go", "a/**/b/x.go", true},
+		{"a/bX.kt", "a/b/**/*.kt", false},
+		{"a/c/X.kt", "a/b/**/*.kt", false},
+		{"a/b/X.go", "a/b/**/*.kt", false},
+		{"a/xb/x.go", "a/**/b/x.go", false},
+	} {
+		if got := tcfFnmatch(c.name, c.pattern); got != c.want {
+			t.Errorf("tcfFnmatch(%q, %q) = %v, want %v", c.name, c.pattern, got, c.want)
+		}
+	}
+}

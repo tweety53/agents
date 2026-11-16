@@ -2134,7 +2134,8 @@ func tcfReprList(list []string) string {
 
 // tcfFnmatch is fnmatch.fnmatch on POSIX: the pattern translated as
 // Python 3.14's fnmatch.translate translates it -- `*` crosses `/`, and a
-// backslash is a literal.
+// backslash is a literal -- save that `**/` at a segment start matches zero
+// or more directories, as git reads it (kan-1090 self-review, F2).
 func tcfFnmatch(name, pattern string) bool {
 	re, err := regexp.Compile(`^(?s:` + tcfTranslate(pattern) + `)\z`)
 	return err == nil && re.MatchString(name)
@@ -2149,9 +2150,15 @@ func tcfTranslate(pattern string) string {
 		i++
 		switch c {
 		case '*':
-			b.WriteString(".*")
+			start := i - 1
 			for i < n && p[i] == '*' {
 				i++
+			}
+			if i-start >= 2 && (start == 0 || p[start-1] == '/') && i < n && p[i] == '/' {
+				b.WriteString("(?:.*/)?")
+				i++
+			} else {
+				b.WriteString(".*")
 			}
 		case '?':
 			b.WriteString(".")
