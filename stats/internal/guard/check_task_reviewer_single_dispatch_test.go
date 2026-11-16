@@ -296,3 +296,50 @@ func TestCheckTaskReviewerSingleDispatch(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckTaskReviewerInRunBatch pins the in-run fix batch rule: one gated
+// review per batch, after its last fixer. The guard demands no intermediate
+// review -- a batch whose fixers ran back to back passes -- and refuses one
+// that was run.
+func TestCheckTaskReviewerInRunBatch(t *testing.T) {
+	t.Parallel()
+	const r, i, tok = "reviewer", "implementer", "mf-tok"
+	d := pfdDispatches
+	const p = "check-task-reviewer-single-dispatch: "
+	// Task 6 is In-run fix 1, an earlier round; tasks 7 and 8 are In-run fix 2 and its slice.
+	plan := trsdPlan + strings.Join([]string{
+		"- [x] 6. In-run fix 1 — flow.visual-verify: departures\n\n**Files:**\n- Modify: `g.txt`\n\n**Opener:** visual-verify\n**After:** Task 5\n\n  - [x] **Step 1: do it**\n\n",
+		"- [x] 7. In-run fix 2 — flow.visual-verify: more\n\n**Files:**\n- Modify: `f.txt`\n\n**Opener:** visual-verify-fix-1\n**After:** Task 6\n\n  - [x] **Step 1: do it**\n\n",
+		"- [x] 8. In-run fix 2 — flow.visual-verify: the slice\n\n**Files:**\n- Modify: `f.txt`\n\n**Opener:** visual-verify-fix-1\n**After:** Task 7\n\n  - [x] **Step 1: do it**\n\n",
+	}, "")
+	cases := []struct {
+		label      string
+		dispatches []byte
+		want       int
+		wantErr    string
+	}{
+		{"fixers back to back, one review after the last, and its fix with no re-review: nothing more is demanded",
+			d("task-7-implementer", i, tok, "task-8-implementer", i, tok, "task-7+8-reviewer", r, tok, "task-7+8-implementer-fix-1", i, tok), 0, ""},
+		{"a batch with no review at all is not this guard's to demand",
+			d("task-7-implementer", i, tok, "task-8-implementer", i, tok), 0, ""},
+		{"a re-review of an in-run fix task is refused",
+			d("task-7-implementer", i, tok, "task-7-reviewer", r, tok, "task-7-implementer-fix-1", i, tok, "task-7-reviewer-fix-1", r, tok), 1,
+			p + "re-review 'task-7-reviewer-fix-1' names in-run fix task 7 -- an in-run fix batch is reviewed once, after its last fixer, and the loop's closing panel reads a later fix (skills/flow/verify-fix-loop.md step 2)\n"},
+		{"a review between the batch's fixers is refused",
+			d("task-7-implementer", i, tok, "task-7-reviewer", r, tok, "task-8-implementer", i, tok), 1,
+			p + "'task-8-implementer' ran after 'task-7-reviewer' reviewed in-run fix 2 -- the gated reviewer runs once, after the batch's last fixer, never between them (skills/flow/verify-fix-loop.md step 2)\n"},
+		{"two reviewer bundles for one batch are refused",
+			d("task-7-implementer", i, tok, "task-8-implementer", i, tok, "task-7-reviewer", r, tok, "task-8-reviewer", r, tok), 1,
+			p + "in-run fix 2 is reviewed by 'task-7-reviewer' and 'task-8-reviewer' -- one reviewer bundle carries every task of a batch\n"},
+		{"an earlier round's re-review is history",
+			d("task-6-reviewer", r, tok, "task-6-reviewer-fix-1", r, tok), 0, ""},
+		{"another run's rows never count",
+			d("task-7-reviewer", r, "other", "task-7-reviewer-fix-1", r, "other"), 0, ""},
+	}
+	for _, c := range cases {
+		code, _, errOut, _, _ := trsdRun(t, trsdCase{dispatches: c.dispatches, plan: &plan})
+		if code != c.want || errOut != c.wantErr {
+			t.Errorf("%s: exit %d, stderr %q; want %d, %q", c.label, code, errOut, c.want, c.wantErr)
+		}
+	}
+}

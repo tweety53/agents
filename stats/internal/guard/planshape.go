@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -36,9 +37,9 @@ import (
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
 // judges its commits (check-task-commit-fields) can actually read it. Thirty-one
-// findings, F1-F32 (F1-F6's canonical definitions, decisions and rationale:
+// findings, F1-F33 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F32's are the rows below).
+// design.md -- not restated here; F7-F33's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -216,9 +217,10 @@ import (
 //	    at the field's line, once per entry.
 //	F24 A task titled `In-run fix <k> — …`, any stage, with no **Opener:**
 //	    field, or whose **Opener:** value another such task before it names
-//	    too, backticks ignored: one verifier report opens one round, and two
-//	    tasks never transcribe one report (skills/flow/verify-fix-loop.md
-//	    step 1; decision one-report-one-round-opener). A ticked task is never
+//	    too, backticks ignored, unless the two share a **Files:** path -- a
+//	    slice: one verifier report opens one round
+//	    (skills/flow/verify-fix-loop.md step 1; decision
+//	    one-report-one-round-opener). A ticked task is never
 //	    reported -- it may predate the field -- but its opener still counts
 //	    against a later task's. Reported at the task's title line -- for a
 //	    shared opener, the second task's.
@@ -284,6 +286,18 @@ import (
 //	    gate owns field validation, so a typo fails here rather than first
 //	    at dispatch (design decision size-checked-at-plan-gate). Reported
 //	    at the size line.
+//	F33 One fix round is one task (kan-1099: task 46 opened round 1 and
+//	    five `Round 1 continued` tasks followed, each with its own 35-minute
+//	    verify re-run). Refused, each at the later task's title line: an
+//	    unticked `In-run fix <k> — …` task beside an earlier one that is
+//	    unticked or carries the same `<k>`, unless the two share a
+//	    **Files:** path -- a slice, cut only where both edit one file in
+//	    conflicting ways; an unticked one whose **Opener:** carries no
+//	    `-fix-<j>` segment with `<j>` at or above the highest earlier fix
+//	    number below its own -- that report's departures were known when
+//	    the earlier round was planned; and an unticked task after an in-run
+//	    fix task that is neither titled so nor counted by
+//	    `**Tasks appended:**`. A ticked task is never reported.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -321,7 +335,7 @@ var psRules = []struct{ id, sentence string }{
 	{"F20", "A **Baseline:** `measured:` comment reads `<!-- measured: <command> @ <ref> -->`."},
 	{"F22", "When design.md cites a `.superpowers/sdd/*.html` prototype and a task's non-Markdown **Files:** path matches a `ui paths` glob, some task's **Files:** names a capture under `screenshots`."},
 	{"F23", "No **Files:** or **Allowed-collateral:** entry lies under `spectre/changes/`, `openspec/changes/` or `docs/superpowers/`."},
-	{"F24", "Every unticked `In-run fix <k> — …` task carries an **Opener:** that no earlier such task names."},
+	{"F24", "Every unticked `In-run fix <k> — …` task carries an **Opener:**, one an earlier such task names only when the two share a **Files:** path."},
 	{"F25", "A design.md decision whose **Chosen:** has the parent act before the first task or at `flow.<stage>` carries a column-0 `- [ ] Parent: <action>` line."},
 	{"F26", "No line runs npx without `--no-install` or `--no`, nor with `-y` or `--yes`."},
 	{"F27", "Every `## Open questions` entry in design.md reads `**Status:** answered by <decision-id>`, and the section holds no list item."},
@@ -330,6 +344,7 @@ var psRules = []struct{ id, sentence string }{
 	{"F30", "No unticked task's line presumes the machine otherwise idle; a timing gate waits for load at or under the core count."},
 	{"F31", "No unticked task's line hands the parent an action on the sibling design file; that action is a column-0 Parent line there."},
 	{"F32", "A task's **Size:** value is `small`, `medium` or `big`."},
+	{"F33", "One fix round is one `In-run fix <k> — …` task: no second unticked one unless the two share a **Files:** path, none opened by a report older than the previous round's `-fix-<k>` re-run, and no task under another title after one outside **Tasks appended:**."},
 	{"plan-suite-steps", "No step runs a module or repository test suite: go test takes `-run`, Gradle `--tests`, npm test and vitest `-t`."},
 	{"plan-script-paths", "Every `scripts/` path a task cites exists in the repository or is in some task's **Files:**."},
 	{"plan-files-paths", `Every **Files:** path names the directory its file lands in, never one with a segment dropped.`},
@@ -571,7 +586,7 @@ func (p *psPlan) check() []psFinding {
 	v = append(v, p.baseDeclared(ids)...)
 	v = append(v, p.sweepScope()...)
 	v = append(v, p.prototypeCapture()...)
-	v = append(v, p.inRunOpeners(ids)...)
+	v = append(v, p.inRunBatches(ids)...)
 	v = append(v, p.parentActions()...)
 	v = append(v, p.npxFetch()...)
 	v = append(v, p.goTestCache()...)
@@ -672,36 +687,75 @@ func (p *psPlan) prototypeCapture() []psFinding {
 	return []psFinding{p.at(first.taskLine, "F22", "design.md cites a prototype and this task touches `ui paths` (`"+uiPath+"`), but no task's **Files:** names a capture under `"+shots+"/` — plan the capture spec driving every interactive state the prototype draws (skills/flow/brainstorm-planner.md)")}
 }
 
-// psInRunFixRE is F24's title: an in-run fix task of any stage.
-var psInRunFixRE = regexp.MustCompile(`^\s*- \[.\] \S+\s+In-run fix [0-9]+ — `)
+// psInRunFixRE is F24's and F33's title: an in-run fix task of any stage,
+// group 1 its fix number. psFixSegRE is a dispatch key's `-fix-<j>` segment.
+var (
+	psInRunFixRE = regexp.MustCompile(`^\s*- \[.\] \S+\s+In-run fix ([0-9]+) — `)
+	psFixSegRE   = regexp.MustCompile(`-fix-([0-9]+)`)
+)
 
-// inRunOpeners is F24: every in-run fix task names the report that opened
-// its round, and no two name the same one.
-func (p *psPlan) inRunOpeners(ids []string) []psFinding {
-	if !p.on("F24") {
-		return nil
+// inRunBatches is F24 and F33: every in-run fix task names the report that
+// opened its round, and one round is one task carrying every open item --
+// a second task of a round is a slice, and shares a **Files:** path with
+// the task it is cut from.
+func (p *psPlan) inRunBatches(ids []string) []psFinding {
+	type fix struct {
+		id, opener string
+		k          int
+		files      []string
+		ticked     bool
 	}
 	var v []psFinding
-	seen := map[string]string{}
+	var fixes []fix
+	appended := uwAppendedIn(strings.Join(p.lines, "\n"), false)
 	for _, id := range ids {
 		found := tcfSelectTask(p.lines, id)
-		if !psInRunFixRE.MatchString(p.lines[found.taskLine-1]) {
+		title := p.lines[found.taskLine-1]
+		ticked := strings.HasPrefix(strings.TrimSpace(title), "- [x]")
+		m := psInRunFixRE.FindStringSubmatch(title)
+		if m == nil {
+			// kan-1099: five `Round 1 continued` tasks, each its own verify re-run.
+			if len(fixes) > 0 && !ticked && !slices.Contains(appended, id) && p.on("F33") {
+				v = append(v, p.at(found.taskLine, "F33", "task "+id+" follows in-run fix task "+fixes[len(fixes)-1].id+" under another title — a task the fix loop appends is titled `In-run fix <k> — …`, and a round's open items go in its one task (skills/flow/verify-fix-loop.md step 1)"))
+			}
 			continue
 		}
-		opener := strings.Trim(strings.TrimSpace(strings.Join(tcfBodyFields(found.lines)["Opener"], " ")), "`")
-		first, shared := seen[opener]
-		if opener != "" && !shared {
-			seen[opener] = id
+		cur := fix{id: id, ticked: ticked, files: p.parse(id).files}
+		cur.k, _ = strconv.Atoi(m[1])
+		cur.opener = strings.Trim(strings.TrimSpace(strings.Join(tcfBodyFields(found.lines)["Opener"], " ")), "`")
+		slice := func(e fix) bool {
+			return slices.ContainsFunc(cur.files, func(f string) bool { return slices.Contains(e.files, f) })
 		}
-		if strings.HasPrefix(strings.TrimSpace(p.lines[found.taskLine-1]), "- [x]") {
-			continue
+		if !ticked {
+			prev, sliced := 0, false
+			for _, e := range fixes {
+				sameOpener := cur.opener != "" && e.opener == cur.opener
+				sliced = sliced || sameOpener // F24's, or a slice: never stale as well
+				switch {
+				case slice(e):
+					sliced = sliced || e.k == cur.k
+				case sameOpener && p.on("F24"):
+					v = append(v, p.at(found.taskLine, "F24", "task "+id+"'s **Opener:** "+cur.opener+" is task "+e.id+"'s too — one report opens one round, and a second task transcribes it only as a slice sharing a **Files:** path with the first (skills/flow/verify-fix-loop.md step 1)"))
+				case (e.k == cur.k || !e.ticked) && !sameOpener && p.on("F33"):
+					v = append(v, p.at(found.taskLine, "F33", "task "+id+" is a second fix round beside in-run fix task "+e.id+" — every departure, open reviewer finding and named cause known now goes in that one task; slice only where both tasks edit one file in conflicting ways, naming that file in both **Files:** (skills/flow/verify-fix-loop.md step 1)"))
+				}
+				if e.k < cur.k {
+					prev = max(prev, e.k)
+				}
+			}
+			newest := 0
+			for _, seg := range psFixSegRE.FindAllStringSubmatch(cur.opener, -1) {
+				j, _ := strconv.Atoi(seg[1])
+				newest = max(newest, j)
+			}
+			switch {
+			case cur.opener == "" && p.on("F24"):
+				v = append(v, p.at(found.taskLine, "F24", "task "+id+" is an in-run fix with no **Opener:** field — name the verifier report that opened its round (skills/flow/verify-fix-loop.md step 1)"))
+			case cur.opener != "" && !sliced && newest < prev && p.on("F33"):
+				v = append(v, p.at(found.taskLine, "F33", fmt.Sprintf("task %s's **Opener:** %s predates In-run fix %d's re-run — every departure that report names was known when round %d was planned and belonged in its one task; open a round only from a report keyed `-fix-%d` or later (skills/flow/verify-fix-loop.md step 1)", id, cur.opener, prev, prev, prev)))
+			}
 		}
-		switch {
-		case opener == "":
-			v = append(v, p.at(found.taskLine, "F24", "task "+id+" is an in-run fix with no **Opener:** field — name the verifier report that opened its round (skills/flow/verify-fix-loop.md step 1)"))
-		case shared:
-			v = append(v, p.at(found.taskLine, "F24", "task "+id+"'s **Opener:** "+opener+" is task "+first+"'s too — one report opens one round, and two tasks never transcribe one report (skills/flow/verify-fix-loop.md step 1)"))
-		}
+		fixes = append(fixes, cur)
 	}
 	return v
 }

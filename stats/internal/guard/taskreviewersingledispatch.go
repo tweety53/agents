@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -83,6 +84,21 @@ import (
 // implement.md dispatches no gated reviewer at all: every gate-fired task is
 // the whole-branch panel's review focus instead (KAN-934) -- so on those
 // classes, any gated-reviewer row of this token is itself a violation.
+//
+// AN IN-RUN FIX BATCH IS REVIEWED ONCE (skills/flow/verify-fix-loop.md
+// step 2; kan-1099: task 52 took two gated re-reviews between three fixer
+// rounds). A batch is every task titled `In-run fix <k> — …` under one
+// `<k>` -- the round's one task and its slices. Among this token's rows, in
+// the order the store returns them: a `-fix-<k>` re-review key naming a
+// batch task is a violation, the loop's closing panel reading that fix
+// instead; so is a slice's implementer row (`task-<ids>-implementer`,
+// `-retry` included, a `-implementer-fix-<k>` fixer never) after the
+// batch's reviewer row -- the review ran between the batch's fixers; and so
+// are two original reviewer bundles naming tasks of one batch. Only the
+// newest batch -- the highest `<k>` in the plan -- is judged: an earlier
+// round's rows are history no close can change. No row of an
+// in-run fix batch is demanded: a batch with one review and none between
+// its fixers passes.
 //
 // Rows of other roles and rows of other session tokens never count. A task
 // id that never appears in any `reviewer`-role key of this token was never
@@ -339,6 +355,8 @@ func checkTaskReviewerSingleDispatch(args []string, env Env, stdout, stderr io.W
 		violations = append(violations, fmt.Sprintf("class '%s' carries %d gated reviewer dispatch(es) (%s) -- on micro/small/regular no gated reviewer runs; the whole-branch panel reviews every gate-fired task", class, len(keys), strings.Join(keys, " ")))
 	}
 
+	violations = append(violations, trsdInRunBatches(rows, token, tasksMD)...)
+
 	if len(violations) > 0 {
 		for _, v := range violations {
 			fmt.Fprintf(stderr, "%s%s\n", trsdPrefix, v)
@@ -504,4 +522,59 @@ func trsdNewestClass(raw []byte) (string, bool) {
 		}
 	}
 	return strings.TrimRight(strings.ReplaceAll(out.String(), "\x00", ""), "\n"), true
+}
+
+var (
+	trsdInRunTaskRE = regexp.MustCompile(`(?m)^- \[[ xX]\] ([0-9]+)\. In-run fix ([0-9]+) — `)
+	trsdTaskRowRE   = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-(reviewer|implementer)(-fix-[0-9]+)?(-retry)?$`)
+)
+
+// trsdInRunBatches is the in-run fix batch rule of the header: one review
+// per batch, after its last slice's implementer, and no re-review.
+func trsdInRunBatches(raw []byte, token, tasksMD string) []string {
+	plan, _ := os.ReadFile(tasksMD)
+	batchOf := map[string]string{} // task id -> fix number, the newest round's tasks only
+	newest := -1
+	for _, m := range trsdInRunTaskRE.FindAllStringSubmatch(string(plan), -1) {
+		k, _ := strconv.Atoi(m[2])
+		if k > newest {
+			newest, batchOf = k, map[string]string{}
+		}
+		if k == newest {
+			batchOf[m[1]] = m[2]
+		}
+	}
+	var rows []struct{ Key, Role, SessionToken string }
+	if len(batchOf) == 0 || json.Unmarshal(raw, &rows) != nil {
+		return nil
+	}
+	var violations []string
+	reviewed := map[string]string{} // fix number -> its first original reviewer key
+	for _, row := range rows {
+		m := trsdTaskRowRE.FindStringSubmatch(row.Key)
+		if row.SessionToken != token || m == nil || row.Role != m[2] {
+			continue
+		}
+		for _, id := range strings.Split(m[1], "+") {
+			k, ok := batchOf[id]
+			if !ok {
+				continue
+			}
+			first, seen := reviewed[k]
+			switch {
+			case m[2] == "reviewer" && m[3] != "":
+				violations = append(violations, fmt.Sprintf("re-review '%s' names in-run fix task %s -- an in-run fix batch is reviewed once, after its last fixer, and the loop's closing panel reads a later fix (skills/flow/verify-fix-loop.md step 2)", row.Key, id))
+			case m[2] == "reviewer" && !seen:
+				reviewed[k] = strings.TrimSuffix(row.Key, "-retry")
+			case m[2] == "reviewer" && first != strings.TrimSuffix(row.Key, "-retry"):
+				violations = append(violations, fmt.Sprintf("in-run fix %s is reviewed by '%s' and '%s' -- one reviewer bundle carries every task of a batch", k, first, row.Key))
+			case m[2] == "implementer" && m[3] == "" && seen:
+				violations = append(violations, fmt.Sprintf("'%s' ran after '%s' reviewed in-run fix %s -- the gated reviewer runs once, after the batch's last fixer, never between them (skills/flow/verify-fix-loop.md step 2)", row.Key, first, k))
+			default:
+				continue
+			}
+			break
+		}
+	}
+	return violations
 }

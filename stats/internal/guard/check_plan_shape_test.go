@@ -840,7 +840,8 @@ func TestCheckPlanShapeF24(t *testing.T) {
 	if r.rc != 1 || strings.Count(r.out, ": F24 ") != 1 || !strings.Contains(r.out, "task 2") {
 		t.Errorf("two in-run fixes sharing an opener: rc=%d out=%q", r.rc, r.out)
 	}
-	r = runGuard("check-plan-shape", []string{psFixture(t, task(1, "`visual-verify`")+task(2, "`visual-verify-2`"))}, env)
+	tick := func(s string) string { return strings.Replace(s, "- [ ]", "- [x]", 1) }
+	r = runGuard("check-plan-shape", []string{psFixture(t, tick(task(1, "`visual-verify`"))+task(2, "`visual-verify-fix-1`"))}, env)
 	if r.rc != 0 {
 		t.Errorf("distinct openers refused: rc=%d out=%q", r.rc, r.out)
 	}
@@ -856,6 +857,71 @@ func TestCheckPlanShapeF24(t *testing.T) {
 	}
 	if r := psMutant(shared, "F24"); r.rc != 0 {
 		t.Errorf("the mutation disabling F24 still refused: rc=%d out=%s", r.rc, r.out)
+	}
+}
+
+// TestCheckPlanShapeF33 pins F33: one fix round is one in-run fix task. A
+// second unticked round, a round opened by a report older than the previous
+// round's re-run, and a task appended under another title are each refused;
+// a slice sharing a **Files:** path with its round's first task is not.
+func TestCheckPlanShapeF33(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	task := func(n, k int, title, files, opener string) string {
+		if title == "" {
+			title = fmt.Sprintf("In-run fix %d — visual-verify: x", k)
+		}
+		s := fmt.Sprintf("- [ ] %d. %s\n\n**Files:** %s\n**Tests:** `test_%d`\n**Commit:** fix %d\n", n, title, files, n, n)
+		if opener != "" {
+			s += "**Opener:** " + opener + "\n"
+		}
+		if n > 1 {
+			return s + fmt.Sprintf("**After:** Task %d\n\n", n-1)
+		}
+		return s + "**After:** none\n\n"
+	}
+	tick := func(s string) string { return strings.Replace(s, "- [ ]", "- [x]", 1) }
+	run := func(body string) guardResult {
+		return runGuard("check-plan-shape", []string{psFixture(t, body)}, env)
+	}
+	first := task(1, 1, "", "`a.kt`", "visual-verify")
+
+	// Two rounds open at once: the departures were all known.
+	second := first + task(2, 2, "", "`b.kt`", "visual-verify-fix-1")
+	if r := run(second); r.rc != 1 || strings.Count(r.out, ": F33 ") != 1 || !strings.Contains(r.out, "task 2 is a second fix round") {
+		t.Errorf("a second open round: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := psMutant(psFixture(t, second), "F33"); r.rc != 0 {
+		t.Errorf("the mutation disabling F33 still refused: rc=%d out=%s", r.rc, r.out)
+	}
+	// The next round, once the first is ticked and its re-run reported.
+	if r := run(tick(first) + task(2, 2, "", "`b.kt`", "visual-verify-fix-1-full")); r.rc != 0 {
+		t.Errorf("the next round refused: rc=%d out=%q", r.rc, r.out)
+	}
+	// A round opened by a report the previous round already had.
+	if r := run(tick(first) + task(2, 2, "", "`b.kt`", "verify")); r.rc != 1 || strings.Count(r.out, ": F33 ") != 1 || !strings.Contains(r.out, "predates In-run fix 1's re-run") {
+		t.Errorf("a stale opener: rc=%d out=%q", r.rc, r.out)
+	}
+	// A slice: same round, same report, one file both edit.
+	slice := first + task(2, 1, "", "`a.kt`, `b.kt`", "visual-verify")
+	if r := run(slice); r.rc != 0 {
+		t.Errorf("a slice sharing a file refused: rc=%d out=%q", r.rc, r.out)
+	}
+	// The same round cut with no shared file is not a slice.
+	if r := run(tick(first) + task(2, 1, "", "`b.kt`", "visual-verify-2")); r.rc != 1 || strings.Count(r.out, ": F33 ") != 1 {
+		t.Errorf("a second task of one round with no shared file: rc=%d out=%q", r.rc, r.out)
+	}
+	// kan-1099's shape: the round continued under another title.
+	continued := tick(first) + task(2, 0, "Round 1 continued (captures) — the moved baselines", "`b.kt`", "")
+	if r := run(continued); r.rc != 1 || strings.Count(r.out, ": F33 ") != 1 || !strings.Contains(r.out, "under another title") {
+		t.Errorf("a continued round: rc=%d out=%q", r.rc, r.out)
+	}
+	// A task the human gate appended is counted, and passes.
+	if r := run("> **Tasks appended:** 1\n\n" + continued); r.rc != 0 {
+		t.Errorf("a counted appended task refused: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := run(tick(continued)); r.rc != 0 {
+		t.Errorf("ticked tasks refused: rc=%d out=%q", r.rc, r.out)
 	}
 }
 
