@@ -63,7 +63,14 @@ import (
 //	   value: <value>` -- or a **Size:** value other than `small`,
 //	   `medium` or `big` -- `<path>:<task line>: task <id> has an unknown
 //	   **Size:** value: <value>` -- every missing field first, then every
-//	   malformed value, then every unknown size, never stopping at the first.
+//	   malformed value, then every unknown size, never stopping at the first;
+//	   or, with every field well formed, bundles that wait on each other --
+//	   a bundle's after-set naming a task of another bundle whose after-set
+//	   leads back to it -- printed as one line `<path>:<task line>: bundles
+//	   <a> (tasks <ids>) and <b> (task <ids>) wait on each other — joined by
+//	   shared **Files:** path <p>[, <p>…]; move it to **Allowed-collateral:**
+//	   or reorder the tasks`, the first cycle a depth-first search in bundle
+//	   order finds (kan-1090 self-review, F1).
 //	2  invocation error -- wrong argument count, the file cannot be read, or
 //	   it cannot be decoded as text.
 //
@@ -264,7 +271,90 @@ func pdbComputeBundles(tasks []pdbTask) ([][]pdbTask, [][]string, []string) {
 		slices.SortStableFunc(acc, pdbIDCompare)
 		afterSets[i] = acc
 	}
+	if v := pdbBundleCycle(bundles, afterSets); v != "" {
+		return nil, nil, []string{v}
+	}
 	return bundles, afterSets, nil
+}
+
+// pdbBundleCycle searches the bundle graph -- bundle k waits on every bundle
+// holding a task of k's after-set that is not k's own -- depth-first in
+// bundle order, as check-plan-shape's F10 searches the task graph, and
+// renders the first cycle as a violation, or "" when there is none
+// (kan-1090 self-review, F1).
+func pdbBundleCycle(bundles [][]pdbTask, afterSets [][]string) string {
+	owner := map[string]int{}
+	for i, members := range bundles {
+		for _, m := range members {
+			owner[m.id] = i
+		}
+	}
+	deps := make([][]int, len(bundles))
+	for i, after := range afterSets {
+		for _, id := range after {
+			if j, ok := owner[id]; ok && j != i && !slices.Contains(deps[i], j) {
+				deps[i] = append(deps[i], j)
+			}
+		}
+		slices.Sort(deps[i])
+	}
+	state := make([]int, len(bundles)) // 0 unseen, 1 on stack, 2 done
+	var stack, cycle []int
+	var visit func(i int) bool
+	visit = func(i int) bool {
+		state[i] = 1
+		stack = append(stack, i)
+		for _, j := range deps[i] {
+			if state[j] == 1 {
+				cycle = slices.Clone(stack[slices.Index(stack, j):])
+				return true
+			}
+			if state[j] == 0 && visit(j) {
+				return true
+			}
+		}
+		stack = stack[:len(stack)-1]
+		state[i] = 2
+		return false
+	}
+	for i := range bundles {
+		if state[i] == 0 && visit(i) {
+			break
+		}
+	}
+	if cycle == nil {
+		return ""
+	}
+	slices.Sort(cycle)
+	var names, paths []string
+	for _, i := range cycle {
+		ids := make([]string, len(bundles[i]))
+		seen := map[string]bool{}
+		for j, m := range bundles[i] {
+			ids[j] = m.id
+			for _, p := range m.files {
+				if seen[p] && !slices.Contains(paths, p) {
+					paths = append(paths, p)
+				}
+				seen[p] = true
+			}
+		}
+		word := "tasks"
+		if len(ids) == 1 {
+			word = "task"
+		}
+		names = append(names, fmt.Sprintf("%d (%s %s)", i+1, word, strings.Join(ids, " ")))
+	}
+	slices.Sort(paths)
+	first := bundles[cycle[0]][0]
+	for _, m := range bundles[cycle[0]][1:] {
+		if pdbIDCompare(m.id, first.id) < 0 {
+			first = m
+		}
+	}
+	list := strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+	return fmt.Sprintf("%d: bundles %s wait on each other — joined by shared **Files:** path %s; move it to **Allowed-collateral:** or reorder the tasks",
+		first.taskLine, list, strings.Join(paths, ", "))
 }
 
 // pdbIDCompare is _id_key's numeric order over task ids, so "10" sorts after

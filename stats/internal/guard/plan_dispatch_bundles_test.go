@@ -145,9 +145,15 @@ func TestPlanDispatchBundles(t *testing.T) {
 	want("case 22: resumed plan exits 0", r.rc == 0, r)
 	want("case 22: the checked task still precedes the open one", r.out == "bundle 1: 2\nafter 1: 1", r)
 
-	_, r = run("- [ ] 1. First\n\n**After:** Task 10\n\n**Files:**\n- Create: `shared.txt`\n\n" + step + "\n" + tk("2", "b.txt") + tk("3", "shared.txt") + tk("10", "j.txt"))
+	// Every task declares its After: the serial default would make bundles
+	// 1 and 2 wait on each other, which F1 refuses.
+	none := func(id, file string) string {
+		return "- [ ] " + id + ". Task " + id + "\n\n**After:** none\n\n**Files:**\n- Create: `" + file + "`\n\n" + step + "\n"
+	}
+	_, r = run("- [ ] 1. First\n\n**After:** Task 10\n\n**Files:**\n- Create: `shared.txt`\n\n" + step + "\n" + none("2", "b.txt") +
+		"- [ ] 3. Third\n\n**After:** Task 2\n\n**Files:**\n- Create: `shared.txt`\n\n" + step + "\n" + none("10", "j.txt"))
 	want("case 23: mixed-width after-set exits 0", r.rc == 0, r)
-	want("case 23: the after line sorts numerically, not lexically", r.out == "bundle 1: 1 3\nafter 1: 1 2 10\nbundle 2: 2\nafter 2: 1\nbundle 3: 10\nafter 3: 1 2 3", r)
+	want("case 23: the after line sorts numerically, not lexically", r.out == "bundle 1: 1 3\nafter 1: 2 10\nbundle 2: 2\nafter 2: none\nbundle 3: 10\nafter 3: none", r)
 
 	// Beyond the harness: the outputs it never pinned, as the Python and its
 	// wrapper printed them at bbfe685e.
@@ -276,5 +282,41 @@ func TestPlanDispatchBundlesSizeField(t *testing.T) {
 		if r.rc != c.rc || strings.TrimRight(r.stdout, "\n") != c.out || r.err != want {
 			t.Errorf("%s: rc=%d stdout=%q err=%q, want rc=%d out=%q err=%q", c.name, r.rc, r.stdout, r.err, c.rc, c.out, want)
 		}
+	}
+}
+
+// TestPlanDispatchBundlesRefusesACyclicBundleGraph pins kan-1090 self-review
+// F1: two bundles each waiting on a task of the other can never dispatch.
+func TestPlanDispatchBundlesRefusesACyclicBundleGraph(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	tk := func(id, file, after, size string) string {
+		s := "- [ ] " + id + ". Task " + id + "\n\n**Files:** `" + file + "`\n**After:** " + after + "\n"
+		if size != "" {
+			s += "**Size:** " + size + "\n"
+		}
+		return s + "\n"
+	}
+	plan := func(after3 string) string {
+		return tk("1", "s.txt", "none", "big") + tk("2", "b.txt", "Task 1", "") + tk("3", "s.txt", after3, "")
+	}
+
+	md := psFixture(t, plan("Task 2"))
+	wantErr := md + ":1: bundles 1 (tasks 1 3) and 2 (task 2) wait on each other — joined by shared **Files:** path s.txt; move it to **Allowed-collateral:** or reorder the tasks\n"
+	for _, g := range []string{"plan-dispatch-bundles", "plan-dispatch-groups"} {
+		r := runGuard(g, []string{md}, env)
+		if r.rc != 1 || r.stdout != "" || r.err != wantErr {
+			t.Errorf("(a) %s: rc=%d stdout=%q stderr=%q, want rc=1 stderr=%q", g, r.rc, r.stdout, r.err, wantErr)
+		}
+	}
+
+	r := runGuard("plan-dispatch-bundles", []string{psFixture(t, plan("Task 1"))}, env)
+	if want := "bundle 1: 1 3\nafter 1: 1\nbundle 2: 2\nafter 2: 1"; r.rc != 0 || r.out != want {
+		t.Errorf("(b) rc=%d out=%q, want 0 %q", r.rc, r.out, want)
+	}
+
+	r = runGuard("plan-dispatch-bundles", []string{psFixture(t, plan("none"))}, env)
+	if r.rc != 0 {
+		t.Errorf("(c) rc=%d out=%q, want 0", r.rc, r.out)
 	}
 }
