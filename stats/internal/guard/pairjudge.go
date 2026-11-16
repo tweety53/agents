@@ -82,7 +82,10 @@ import (
 // (decision judge-command-seam). Bounds (decision
 // judge-timeout-60s-digest-200kb): a 60 s deadline (Env.PairJudgeTimeout in
 // tests), and a digest over 204800 bytes is cut there and followed by the
-// line `[digest truncated at 200 KB]`.
+// line `[digest truncated at 200 KB]`. A digest file named `decide-group-<g>…`
+// -- one implementer group's Decide digest -- loses every line opening
+// `inputs: `: plan-class counts the whole plan there, and the judge read a
+// one-task group as the plan's 47 tasks, two repositories and migration.
 //
 // Exit 0 on the printed line, whatever the judge did. Exit 2, nothing on
 // stdout: usage (reason usage), a role outside the judged set
@@ -139,6 +142,9 @@ PAIR: <one candidate, verbatim>
 REASON: <one line>
 `
 
+// pjPlanInputs is plan-class's `inputs:` line, which counts the whole plan.
+var pjPlanInputs = regexp.MustCompile(`(?m)^inputs: .*\n?`)
+
 // pjCandidate is one parsed pair.
 type pjCandidate struct{ pair, model, effort string }
 
@@ -180,6 +186,9 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "pair-judge: %v\n", err)
 		Reason(env, "digest-unreadable")
 		return 2
+	}
+	if strings.HasPrefix(filepath.Base(args[1]), "decide-group-") {
+		digest = pjPlanInputs.ReplaceAll(digest, nil)
 	}
 	if len(digest) > pjDigestCap {
 		digest = append(digest[:pjDigestCap:pjDigestCap], pjTruncated...)

@@ -475,3 +475,28 @@ func TestPairJudgeRecordsItsSpend(t *testing.T) {
 		})
 	}
 }
+
+// TestPairJudgeGroupDigestDropsThePlanInputs: a `decide-group-<g>` digest
+// reaches the judge without the plan's `inputs:` line, which counts the whole
+// plan and not the group; every other digest keeps it.
+func TestPairJudgeGroupDigestDropsThePlanInputs(t *testing.T) {
+	t.Parallel()
+	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
+	const tasks, inputs = "Task 15: one UI test.\n", "inputs: tasks=47 files=90 repos=2 migration=yes spec=yes red=no unverified=yes\n"
+	for name, want := range map[string]string{
+		"decide-group-2.md":     tasks + "after\n",
+		"decide-implementer.md": tasks + inputs + "after\n",
+	} {
+		stub := newPJStub(t, pjAnswer)
+		p := filepath.Join(t.TempDir(), name)
+		if err := os.WriteFile(p, []byte(tasks+inputs+"after\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if r := runGuard("pair-judge", []string{"implementer", p}, pjEnv(t, policy, stub)); r.rc != 0 {
+			t.Fatalf("%s: rc=%d err=%q", name, r.rc, r.err)
+		}
+		if got := stub.stdin(t); got != want {
+			t.Errorf("%s: stdin = %q, want %q", name, got, want)
+		}
+	}
+}

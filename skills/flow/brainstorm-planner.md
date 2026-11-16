@@ -723,8 +723,9 @@ Decide, in this order — step 2 only when step 1 came out `sdd`:
    runs them in series. `groups_override` is `null` when the mechanical grouping is
    taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
    reason when `groups_override` is set. **Each group carries its own `model` and `effort`**,
-   printed by `flow-guard pair-judge implementer` over that group's own tasks and the `inputs:`
-   line, `-opus-only` when the group carries a hard seam; a plan of one group takes step 2's
+   printed by `flow-guard pair-judge implementer` over that group's own tasks alone — never the
+   `inputs:` line, which counts the whole plan, and which the guard drops from a `decide-group-<g>`
+   digest — `-opus-only` when the group carries a hard seam; a plan of one group takes step 2's
    implementer pair without a second call.
    `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
    inline.
