@@ -549,6 +549,66 @@ func TestRenderSlotPromptSplitsByRepository(t *testing.T) {
 	}
 }
 
+// Over the cap, a single-worktree pass is dispatched once per part of
+// final-review.diff: -part renders the PART block, the part's diff and
+// touched list, per-part report files, its own prompt file and DISPATCH
+// description (kan-1090 self-review, F9).
+func TestRenderSlotPromptRendersAPart(t *testing.T) {
+	t.Parallel()
+	skill := rspSkillDir(t)
+	fx := rspNewFx(t)
+	sdd := fx.canon + "/.superpowers/sdd/"
+	partDiff := sdd + "final-review-part-2.diff"
+	writeFile(t, partDiff, "# final-review.diff\n")
+	writeFile(t, partDiff+".touched", "# worktree: "+fx.canon+" — merge base abc\nA\tpart-two-only.go\n")
+
+	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+principles", "-diff", "final", "-part", "2", "--", fx.canon)
+	if r.rc != 0 {
+		t.Fatalf("exit %d\n%s", r.rc, r.out)
+	}
+	lines := strings.Split(r.stdout, "\n")
+	if want := sdd + "slot-prompt-0-primary+principles-part2.md"; lines[0] != want {
+		t.Errorf("stdout %q, want %q", r.stdout, want)
+	}
+	if len(lines) < 2 || !strings.Contains(lines[1], `description "panel-0-primary+principles-part2"`) {
+		t.Errorf("DISPATCH line %q", r.stdout)
+	}
+	for _, want := range []string{
+		"`" + sdd + "panel-report-0-primary-part2.md`", "`" + sdd + "panel-report-0-principles-part2.md`",
+		"part-two-only.go",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("render lacks %q", want)
+		}
+	}
+	if n := strings.Count(got, "**Diff file:** "+partDiff); n != 2 {
+		t.Errorf("%d PASS sections name %s, want 2", n, partDiff)
+	}
+	if strings.Contains(got, "final-review.diff-touched.go") || strings.Contains(got, "`final-review.diff`") {
+		t.Errorf("render names the whole diff or its touched list:\n%s", got)
+	}
+	partBlock := rspTestBlock(t, skill+"/review-panel.md", "PART")
+	wi, pi := strings.Index(got, "**WORKTREES:**"), strings.Index(got, partBlock)
+	if wi < 0 || pi < wi {
+		t.Errorf("the PART block does not follow WORKTREES (at %d, %d)", wi, pi)
+	}
+
+	for _, bad := range [][]string{
+		{"-diff", "delta", "-part", "2"}, {"-diff", "final", "-part", "2", "-repo", "gymie"},
+		{"-diff", "final", "-part", "0"}, {"-diff", "final", "-part", "x"},
+	} {
+		f := rspNewFx(t)
+		args := append([]string{skill, "0", f.canon, f.plan, "primary"}, bad...)
+		r, _ := f.run(t, skill, append(args, "--", f.canon)...)
+		if r.rc != 2 {
+			t.Errorf("%v: exit %d, want 2", bad, r.rc)
+		}
+		if m, _ := filepath.Glob(f.canon + "/.superpowers/sdd/slot-prompt-*"); len(m) > 0 {
+			t.Errorf("%v: wrote %v", bad, m)
+		}
+	}
+}
+
 // TestRenderSlotPromptRefusesAMutationCopy pins kan-1119's self-review F1: a
 // mutation slot's own throwaway copy passed as a worktree is refused, since
 // the renderer derives the copy itself and would name <copy>-mutation-0.

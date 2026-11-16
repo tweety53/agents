@@ -236,15 +236,21 @@ once per worktree in the resolved set, unchanged. **The gating count is the sum 
 worktrees** — one slot now reads every section — and the over-cap report names the sum and each
 worktree's own count.
 
-Exit 0 proceeds. Exit 1 proceeds too, unasked, and the over-cap fact is reported, never put to
-the operator as a question: with one worktree in the resolved set the panel dispatches reading the
-whole diff regardless of its size, and with more than one each `panel.dispatches` entry not
-carrying `mutation` is dispatched once per worktree section — rendered with
-`flow-guard render-slot-prompt` `-repo <repo>`, `<repo>` the repository name the WORKTREES
-paragraph defines, keyed `panel-<round>-<slots>-<repo>`, reading only that section, and each of
-its roles writing `panel-report-<round>-<id>-<repo>.md` (kan-1096 self-review, F2). Exit 2 — the guard could not measure, not an over-cap verdict — stops the run. Record
-the measured count, the cap in force, and the automatic proceed decision where the cap was
-exceeded with `flow record pass -round <round>` on **every** run, including exit-0 runs.
+Exit 0 proceeds. Exit 1 proceeds too, unasked, and the over-cap fact is reported, never put to the
+operator as a question: with one worktree in the resolved set, `flow-guard write-panel-diff parts
+<canonical-wt> <cap>` — `<cap>` the cap in force — cuts `final-review.diff` at file boundaries into
+parts of at most `<cap>` changed lines, a file over the cap a part of its own, and prints each
+part's path, and each `panel.dispatches` entry not carrying `mutation` is dispatched once per part,
+every part in parallel — rendered with `flow-guard render-slot-prompt` `-part <k>`, keyed
+`panel-<round>-<slots>-part<k>`, reading only `final-review-part-<k>.diff`, and each of its roles
+writing `panel-report-<round>-<id>-part<k>.md` (kan-1090 self-review, F9); with more than one each
+`panel.dispatches` entry not carrying `mutation` is dispatched once per worktree section — rendered
+with `flow-guard render-slot-prompt` `-repo <repo>`, `<repo>` the repository name the WORKTREES
+paragraph defines, keyed `panel-<round>-<slots>-<repo>`, reading only that section, and each of its
+roles writing `panel-report-<round>-<id>-<repo>.md` (kan-1096 self-review, F2). Exit 2 — the guard
+could not measure, not an over-cap verdict — stops the run. Record the measured count, the cap in
+force, and the automatic proceed decision where the cap was exceeded with `flow record pass -round
+<round>` on **every** run, including exit-0 runs.
 
 Then run
 
@@ -717,6 +723,12 @@ and, when it holds more than one worktree, the qualification rule:
 > reproducer rule states: it executes from the canonical worktree the parent passes the runner,
 > never from the worktree its own prefix names, and resolves that worktree by absolute path inside
 > itself.
+
+**A per-part dispatch's prompt also carries the PART paragraph**:
+
+> **PART:** this dispatch reads only the part of the diff its **Diff file:** names — the panel's
+> diff is over its cap, cut at file boundaries, and each other part has a dispatch of its own.
+> Follow a seam into another part only as far as judging this part needs.
 
 **A per-repository dispatch's prompt also carries the SECTION paragraph**, with `<repo>`
 substituted:

@@ -3,6 +3,8 @@ package guard
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -324,5 +326,96 @@ func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
 		return os.Getenv(k)
 	}, LookupEnv: hermeticGitLookup}); r.rc != 0 || !strings.Contains(r.stdout, "class: micro\n") {
 		t.Errorf("plan-class: exit %d, stdout %q; want class micro\n%s", r.rc, r.stdout, r.out)
+	}
+}
+
+// TestWritePanelDiffWritesParts pins `parts` (kan-1090 self-review, F9): an
+// over-cap single-worktree final-review.diff is cut at file boundaries into
+// parts of at most <cap> changed lines, a file over the cap a part of its own.
+func TestWritePanelDiffWritesParts(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	var g fxGit
+	wt := dir + "/wt"
+	g.copyShape(wt, repoShape{Branch: "work"})
+	g.write(wt+"/keep.txt", "keep")
+	g.git(wt, "add", ".")
+	g.git(wt, "commit", "-qm", "base")
+	base := g.git(wt, "rev-parse", "HEAD")
+	g.write(wt+"/a.txt", "1\n2\n3")
+	g.write(wt+"/b.txt", "1\n2\n3\n4")
+	g.write(wt+"/c.txt", "1\n2")
+	g.git(wt, "add", ".")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	env := Env{Dir: dir, Getenv: os.Getenv}
+	sdd := wt + "/.superpowers/sdd/"
+	run := func(args ...string) guardResult {
+		t.Helper()
+		return runGuard("write-panel-diff", args, env)
+	}
+	// Refusals before any final-review.diff exists.
+	for _, args := range [][]string{{"parts", wt, "x"}, {"parts", wt, "6"}} {
+		if r := run(args...); r.rc != 2 || r.stdout != "" {
+			t.Errorf("%v: exit %d stdout %q; want 2 and nothing", args, r.rc, r.stdout)
+		}
+	}
+	if r := run("final", wt, wt, base); r.rc != 0 {
+		t.Fatalf("final: exit %d\n%s", r.rc, r.out)
+	}
+	header := "# worktree: " + wt + " — merge base " + base + "\n"
+	const sem = "# final-review.diff — working tree vs merge-base, unstaged changes included\n"
+	r := run("parts", wt, "6")
+	if want := sdd + "final-review-part-1.diff\n" + sdd + "final-review-part-2.diff\n"; r.rc != 0 || r.stdout != want {
+		t.Fatalf("parts 6: exit %d stdout %q; want 0 and %q\n%s", r.rc, r.stdout, want, r.err)
+	}
+	for k, want := range [][]string{{"a.txt"}, {"b.txt", "c.txt"}} {
+		name := sdd + "final-review-part-" + string(rune('1'+k)) + ".diff"
+		body, touched := rbRead(name), rbRead(name+".touched")
+		if !strings.HasPrefix(body, sem+header) || !strings.HasPrefix(touched, header) {
+			t.Errorf("part %d lacks its headers:\n%s\n%s", k+1, body, touched)
+		}
+		for _, f := range []string{"a.txt", "b.txt", "c.txt"} {
+			in := slices.Contains(want, f)
+			if strings.Contains(body, "diff --git a/"+f) != in || strings.Contains(touched, "A\t"+f) != in {
+				t.Errorf("part %d: %s present=%v, want %v\n%s\n%s", k+1, f, !in, in, body, touched)
+			}
+		}
+	}
+	if r := run("parts", wt, "2"); r.rc != 0 || strings.Count(r.stdout, "\n") != 3 {
+		t.Fatalf("parts 2: exit %d stdout %q; want three parts", r.rc, r.stdout)
+	}
+	if body := rbRead(sdd + "final-review-part-2.diff"); !strings.Contains(body, "b/b.txt") || strings.Contains(body, "c.txt") {
+		t.Errorf("parts 2: b.txt is not alone in part 2:\n%s", body)
+	}
+	if r := run("final", wt, wt, base); r.rc != 0 {
+		t.Fatalf("final: exit %d", r.rc)
+	}
+	if stale, _ := filepath.Glob(sdd + "final-review-part-*"); len(stale) != 0 {
+		t.Errorf("a final write left %v", stale)
+	}
+	if r := run("final", wt, wt, base, wt, base); r.rc != 0 {
+		t.Fatalf("final over two sections: exit %d", r.rc)
+	}
+	if r := run("parts", wt, "6"); r.rc != 2 || !strings.Contains(r.err, "more than one worktree section") {
+		t.Errorf("two sections: exit %d stderr %q; want 2", r.rc, r.err)
+	}
+}
+
+// TestWpdHeaderPaths pins that a path containing " b/" is not cut at it.
+func TestWpdHeaderPaths(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		in   string
+		want []string
+	}{
+		{"diff --git a/x.txt b/x.txt", []string{"x.txt"}},
+		{"diff --git a/d b/e.txt b/d b/e.txt", []string{"d b/e.txt"}},
+		{"diff --git a/old.txt b/new.txt", []string{"old.txt", "new.txt"}},
+	} {
+		if got := wpdHeaderPaths(c.in); !slices.Equal(got, c.want) {
+			t.Errorf("%q: got %q, want %q", c.in, got, c.want)
+		}
 	}
 }

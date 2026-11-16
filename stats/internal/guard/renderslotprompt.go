@@ -19,7 +19,7 @@ import (
 //
 // Usage: flow-guard render-slot-prompt <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \
 //          -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>...] \
-//          [-fix-report <path>...] [-repo <repo>] -- <worktree>...
+//          [-fix-report <path>...] [-repo <repo> | -part <k>] -- <worktree>...
 //
 // <skill-dir> is the directory review-panel.md was read from; <worktree>...
 // is the change's resolved set, the canonical worktree first. Every path is
@@ -28,13 +28,20 @@ import (
 // own copy and is exit 2: pass the shared set, the renderer names the copies
 // itself (kan-1119 self-review, F1).
 //
-// Writes <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slot>[+<slot>...][-<repo>].md,
+// Writes <canonical-wt>/.superpowers/sdd/slot-prompt-<round>-<slot>[+<slot>...][-<repo>|-part<k>].md,
 // atomically, and prints its path. -repo <repo> renders one per-repository
 // dispatch of an over-cap multi-repository panel (review-panel.md's over-cap
 // paragraph, kan-1096 self-review F2): the SECTION block, `<repo>` filled in,
 // follows WORKTREES; every REPORT FILE names panel-report-<round>-<id>-<repo>.md;
 // the file name and the DISPATCH description gain `-<repo>`. A <repo> that is
-// not a plain name (plainChangeName) is exit 2. In order:
+// not a plain name (plainChangeName) is exit 2. -part <k> renders one
+// per-part dispatch of an over-cap single-worktree panel (kan-1090
+// self-review F9): every pass reads final-review-part-<k>.diff
+// (flow-guard write-panel-diff parts) and its .touched, the shared blocks
+// are rewritten as for a non-final kind, the PART block follows WORKTREES,
+// and the file name, DISPATCH description and every REPORT FILE gain
+// `-part<k>`. A <k> that is not a positive integer, -part with any -diff but
+// final, or -part with -repo is exit 2. In order:
 //   1. the shared blocks, each extracted verbatim by its `> **<LABEL>:**`
 //      blockquote from <skill-dir>/review-panel.md (the first one — the
 //      slot's): TOOLS, FOREGROUND BUILDS, NO DELEGATION, REPRODUCE, DON'T
@@ -72,7 +79,7 @@ import (
 // stay typed in the Agent call.
 //
 // After the path, one line names the Agent call that launches the brief:
-// `DISPATCH: description "panel-<round>-<slots>[-<repo>]" — prompt opens "Role: <role>"`,
+// `DISPATCH: description "panel-<round>-<slots>[-<repo>|-part<k>]" — prompt opens "Role: <role>"`,
 // <role> panel-mutation-failure for a dispatch carrying mutation and
 // panel-sanity-efficiency under -diff final for a dispatch whose every slot is
 // test-sanity or call-efficiency (the bundle, or either alone once shrunk),
@@ -99,7 +106,7 @@ func init() {
 
 const rspUsage = "usage: flow-guard render-slot-prompt <skill-dir> <round> <canonical-wt> <plan-dir> <slot>[+<slot>...] \\\n" +
 	"         -diff final|late-fix|delta|fix-round [-no-bundle] [-standard <path>...] [-fix-report <path>...] \\\n" +
-	"         [-repo <repo>] -- <worktree>...\n"
+	"         [-repo <repo> | -part <k>] -- <worktree>...\n"
 
 var (
 	// rspUnfilled is what a render must no longer carry: a template
@@ -122,7 +129,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		return usage()
 	}
 	skill, round, canon, plan, slotArg := args[0], args[1], args[2], args[3], args[4]
-	var kind, repo string
+	var kind, repo, part string
 	var noBundle bool
 	var standards, reports, wts []string
 	rest := args[5:]
@@ -150,6 +157,11 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 				return refuse("repo-needs-a-plain-repository", "-repo needs a plain repository name")
 			}
 			repo, rest = rest[0], rest[1:]
+		case "-part":
+			if len(rest) == 0 || !cprPositive(rest[0]) {
+				return refuse("part-needs-a-positive-integer", "-part needs a positive integer")
+			}
+			part, rest = rest[0], rest[1:]
 		case "-no-bundle":
 			noBundle = true
 		case "-standard":
@@ -164,6 +176,9 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if !wpdNumber.MatchString(round) || len(wts) == 0 {
 		return usage()
+	}
+	if part != "" && (kind != "final" || repo != "") {
+		return refuse("part-needs-final-without-repo", "-part reads a part of final-review.diff: it needs -diff final and no -repo")
 	}
 	for _, p := range append(append(append([]string{skill, canon, plan}, wts...), standards...), reports...) {
 		if !strings.HasPrefix(p, "/") {
@@ -198,6 +213,9 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	diffPath := func(id string) string {
 		switch kind {
 		case "final":
+			if part != "" {
+				return sdd + "final-review-part-" + part + ".diff"
+			}
 			return sdd + "final-review.diff"
 		case "late-fix":
 			return sdd + "late-fix.diff"
@@ -243,7 +261,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	// The shared blocks are written for pass 1; a pass reading any other
 	// diff is pointed at the one its PASS section names, never the branch.
 	named := func(b string) string {
-		if kind == "final" {
+		if kind == "final" && part == "" {
 			return b
 		}
 		return strings.ReplaceAll(b, "`final-review.diff`", "the **Diff file:** each PASS section names")
@@ -284,6 +302,15 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 		emit(strings.ReplaceAll(b, "<repo>", repo))
+	}
+	if part != "" {
+		suffix = "-part" + part
+		b, ok := block(panel, "review-panel.md", "PART")
+		if !ok {
+			Reason(env, "template-block-missing")
+			return 2
+		}
+		emit(b)
 	}
 	for _, wt := range wts {
 		if isFile(wt + "/.superpowers/sdd/citation-check.md") {
