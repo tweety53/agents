@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -435,7 +436,7 @@ func vvpSlices(lines [][3]string, extra []string) [][]string {
 
 // captureShards is step 8's capture on a sharded pass (decisions
 // prepare-captures-sharded, capture-failure-falls-back-serial): `setup`, then
-// one `capture <spec> --update-snapshots=all` with every `spec` line's path
+// one `capture <spec> --workers=<flow-guard capture-workers> --update-snapshots=all` with every `spec` line's path
 // for `<spec>`, space-joined, once per pass; a
 // non-zero exit drops the slices and the pass runs one verifier. No
 // merge-base capture is asked for here: a shard that needs one says so in its
@@ -466,8 +467,8 @@ func (v *vvp) captureShards(survivors []string) {
 	if c := strings.TrimSpace(cells["setup"]); c != "" {
 		cmds = append(cmds, c)
 	}
-	// One run for every spec, so the runner's workers fill across spec files.
-	cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " "))+" --update-snapshots=all")
+	// One run for every spec, across capture-workers' count of workers.
+	cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " "))+fmt.Sprintf(" --workers=%d --update-snapshots=all", captureWorkers(runtime.NumCPU())))
 	for _, c := range cmds {
 		if rc, _ := kwRun(v.env, v.captureRoot(w), "sh", "-c", c); rc != 0 {
 			v.say("SHARDS: none — %s exit %d", c, rc)

@@ -947,7 +947,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 		d := vvpLines(out, "DISPATCH: ")
 		if rc != 0 || len(d) != 3 || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-s2of3 ") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 3") ||
-			!strings.Contains(calls, "-key visual-verify-s1of3 ") || runLog(f) != "setup\ncapture "+spec(f)+" --update-snapshots=all\n" {
+			!strings.Contains(calls, "-key visual-verify-s1of3 ") || runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
 			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
 		}
 		b := bundle(f, "visual-verify-s2of3")
@@ -970,7 +970,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		gitRun(t, f.wt, "add", "-A")
 		gitRun(t, f.wt, "commit", "-qm", "second spec")
 		f.green()
-		if rc, out, _ := f.prepare(); rc != 0 || runLog(f) != "setup\ncapture "+spec(f)+" "+filepath.Join(f.wt, "tests/visual/b.spec.ts")+" --update-snapshots=all\n" {
+		if rc, out, _ := f.prepare(); rc != 0 || runLog(f) != "setup\ncapture "+spec(f)+" "+filepath.Join(f.wt, "tests/visual/b.spec.ts")+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
 			t.Fatalf("exit %d, run log %q\n%s", rc, runLog(f), out)
 		}
 	})
@@ -978,7 +978,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	t.Run("a failed capture falls back to one verifier", func(t *testing.T) {
 		f := vvpShardFixture(t, 60, "exit 1\n")
 		rc, out, _ := f.prepare()
-		if rc != 0 || !strings.Contains(out, "SHARDS: none — ./cap "+spec(f)+" --update-snapshots=all exit 1") || len(vvpLines(out, "DISPATCH: ")) != 1 ||
+		if rc != 0 || !strings.Contains(out, "SHARDS: none — ./cap "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all exit 1") || len(vvpLines(out, "DISPATCH: ")) != 1 ||
 			!strings.Contains(out, "DISPATCH: visual-verify ") || strings.Contains(f.stageFile(), "slice ") {
 			t.Fatalf("exit %d\n%s\n%s", rc, out, f.stageFile())
 		}
@@ -1046,7 +1046,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		d := vvpLines(out, "DISPATCH: ")
 		if rc != 0 || len(d) != 3 || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-demo-s2of3 ") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 3") ||
 			!strings.Contains(calls, "-key visual-verify-demo-s1of3 ") || !strings.Contains(s, "row visual-verify-demo-s3of3 "+f.wt+"\n") ||
-			runLog(f) != "setup\ncapture "+filepath.Join(w, "tests/visual/a.spec.ts")+" --update-snapshots=all\n" {
+			runLog(f) != "setup\ncapture "+filepath.Join(w, "tests/visual/a.spec.ts")+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
 			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
 		}
 		args := []string{f.wt, "demo", "visual-verify-rest-demo-s2of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}
