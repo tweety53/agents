@@ -685,7 +685,8 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
      [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>[:<task-sha>] …
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then
-     # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
+     # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below);
+     # ready-groups already treats that still-open first-pass row, its tasks ticked, as returned
      flow-guard ready-groups <changeRoot>/tasks.md <canonical-worktree> <name>; echo "ready-groups: $?"
    fi
    ```
@@ -842,8 +843,8 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 **The gated reviewer runs on `big` alone.** On `micro`, `small` and `regular` no gated reviewer
 dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
 (the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
-**The bundle is the implementer group**: at a boundary, every task of group N+1 whose gate fired
-goes out in one reviewer Agent call beside group N+2's implementer, on the pair `flow-guard
+**The bundle is the implementer group**: at a boundary, every task of the returned group whose gate fired
+goes out in one reviewer Agent call beside the implementers the boundary launches, on the pair `flow-guard
 pair-judge gated-reviewer <prompt file>` prints (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
 line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
 with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps

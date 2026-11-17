@@ -18,7 +18,10 @@ import (
 // Groups are the `groups[].tasks` of the decision with the highest id,
 // numbered from 1 in recorded order. A task is landed when its task line is
 // ticked or an ended `implementer` row with outcome `completed` and key
-// `task-<ids>-implementer(-retry)?` names it. A row is in flight when it has
+// exactly `task-<ids>-implementer` or `task-<ids>-implementer-retry` names it.
+// An open row with such a key whose every task the plan ticks is a returned
+// implementer whose end has not reached the store yet (close-task exit 3): it
+// is neither in flight nor holds its repository. A row is in flight when it has
 // no endedAt, role `implementer` and a key opening `task-<ids>-implementer`
 // (a fix, re-commit, pick or retry row included); its repository is that of
 // the first of its ids the plan carries, and a row naming no task of the plan
@@ -44,7 +47,10 @@ import (
 //	   unreadable rows or decisions, or no usable groups.
 func init() { Registry["ready-groups"] = readyGroups }
 
-var rgKeyRE = regexp.MustCompile(`^task-([^-]+)-implementer(-retry)?`)
+var (
+	rgKeyRE     = regexp.MustCompile(`^task-([^-]+)-implementer`)
+	rgFirstPass = regexp.MustCompile(`^task-[^-]+-implementer(-retry)?$`)
+)
 
 type rgRow struct {
 	Key     string  `json:"key"`
@@ -118,9 +124,11 @@ func readyGroups(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	landed := map[string]bool{}
+	ticked := map[string]bool{}
 	for _, t := range tasks {
 		if !t.unchecked {
 			landed[t.id] = true
+			ticked[t.id] = true
 		}
 	}
 	inFlight := map[string]int{} // repository -> open rows
@@ -132,13 +140,17 @@ func readyGroups(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		ids := strings.Split(m[1], "+")
+		firstPass := rgFirstPass.MatchString(r.Key)
 		if r.EndedAt != nil {
-			if r.Outcome == "completed" && !strings.Contains(r.Key[len("task-"+m[1]+"-implementer"):], "-fix") {
+			if r.Outcome == "completed" && firstPass {
 				for _, id := range ids {
 					landed[id] = true
 				}
 			}
 			continue
+		}
+		if firstPass && !slices.ContainsFunc(ids, func(id string) bool { return !ticked[id] }) {
+			continue // returned; its end has not reached the store
 		}
 		first := -1
 		for _, id := range ids {
