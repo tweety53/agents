@@ -159,11 +159,14 @@ func (v *vvp) close() {
 // else the first that fails.
 func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped bool, why string) {
 	sdd := filepath.Join(w, ".superpowers", "sdd")
-	base, at, defects, ok := readRound(sdd, v.key)
+	// A remainder (`-rest[-<n>]`) completes the pass it continues: the round
+	// file and the manifest are the continued key's (decision rest-closes-the-loop).
+	key := vvcRestSeg.ReplaceAllString(v.key, "$1")
+	base, at, defects, ok := readRound(sdd, key)
 	if !ok {
 		return false, ""
 	}
-	mpath := filepath.Join(sdd, "visual-manifest-"+v.key+".json")
+	mpath := filepath.Join(sdd, "visual-manifest-"+key+".json")
 	var m vvmManifestOut
 	b, err := os.ReadFile(mpath)
 	if err == nil {
@@ -400,6 +403,9 @@ func (v *vvp) joinRecords(changeRoot string) {
 }
 
 var vvcRest = regexp.MustCompile(`-rest(?:-([0-9]+))?$`)
+
+// vvcRestSeg is the remainder segment of a key, before any repository suffix.
+var vvcRestSeg = regexp.MustCompile(`-rest(?:-[0-9]+)?(-|$)`)
 
 // restKey is the remainder's key: `-rest`, then `-rest-<n>` from 2, placed
 // before any `-<repository name>` suffix.

@@ -619,3 +619,73 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 		t.Fatalf("visual-verification.md = %q, want the parts joined in shard order", b)
 	}
 }
+
+// TestVisualVerifyPassCloseRemainderClosesTheLoop pins decision
+// rest-closes-the-loop: a `-rest` remainder reads the continued key's round
+// file and manifest, so a remainder that completes a scoped pass whose frames
+// were all re-captured and judged ends -closes-loop; without the base key's
+// files it stays unscoped.
+func TestVisualVerifyPassCloseRemainderClosesTheLoop(t *testing.T) {
+	smoke.Heavy(t)
+	for _, c := range []struct {
+		name  string
+		round bool
+		want  bool
+	}{
+		{"the continued key has a round file", true, true},
+		{"no round file for the continued key", false, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := vvcFixture(t, "")
+			base := vgHead(t, f.wt)
+			at := time.Now().Add(-time.Minute)
+			capture := filepath.Join(f.wt, "tests/visual/home.spec.ts-home.png")
+			now := time.Now()
+			if err := os.Chtimes(capture, now, now); err != nil {
+				t.Fatal(err)
+			}
+			sdd := filepath.Join(f.wt, ".superpowers/sdd")
+			stage, err := os.ReadFile(filepath.Join(sdd, "visual-verify-stage.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var rows []string
+			for _, l := range strings.Split(string(stage), "\n") {
+				if strings.Contains(l, "visual-verify ") {
+					rows = append(rows, strings.Replace(l, "visual-verify ", "visual-verify-rest ", 1))
+				}
+			}
+			writeFile(t, filepath.Join(sdd, "visual-verify-stage.txt"), string(stage)+strings.Join(rows, "\n")+"\n")
+			if c.round {
+				writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), base+" "+at.UTC().Format(time.RFC3339Nano))
+			}
+			pairs := `[{"spec":"` + filepath.Join(f.wt, "tests/visual/home.spec.ts") + `","frame":"f1","capture":"` + capture + `"}]`
+			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), `{"pairs":`+pairs+`}`)
+			f.report("visual-verify-rest", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n- f1 sweeps: text done\n")
+			rc, out, calls := f.close("visual-verify-rest")
+			if rc != 0 {
+				t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+			}
+			if got := strings.Contains(calls, "-closes-loop"); got != c.want {
+				t.Errorf("-closes-loop in the calls %v, want %v\n%s\n%s", got, c.want, out, calls)
+			}
+		})
+	}
+}
+
+// TestVisualVerifyPassCloseRestSegmentIsAnchored pins that only a remainder
+// segment is stripped from the key: `-restore` is no remainder.
+func TestVisualVerifyPassCloseRestSegmentIsAnchored(t *testing.T) {
+	for in, want := range map[string]string{
+		"visual-verify-fix-3-rest":         "visual-verify-fix-3",
+		"visual-verify-fix-3-rest-2":       "visual-verify-fix-3",
+		"visual-verify-fix-3-rest-gymie":   "visual-verify-fix-3-gymie",
+		"visual-verify-fix-3-rest-2-gymie": "visual-verify-fix-3-gymie",
+		"visual-verify-restore":            "visual-verify-restore",
+		"visual-verify-fix-3-gymie":        "visual-verify-fix-3-gymie",
+	} {
+		if got := vvcRestSeg.ReplaceAllString(in, "$1"); got != want {
+			t.Errorf("%s -> %s, want %s", in, got, want)
+		}
+	}
+}
