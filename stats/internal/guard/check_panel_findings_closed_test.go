@@ -1055,3 +1055,17 @@ func TestPanelUnreadUncoveredRoleCoverLeavingTheSectionUnread(t *testing.T) {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
+
+// TestCheckPanelFindingsClosedAcceptsARoleCover: a section a role cover
+// (panel-report-<round>-<id>-unread.md, <id> a slot containing the role) read is not owed
+// again -- the close guard judges unread sections as the merger's begin does.
+func TestCheckPanelFindingsClosedAcceptsARoleCover(t *testing.T) {
+	t.Parallel()
+	_, errs := cfcCase(t, "[]", "[]", map[string]string{
+		"panel-report-0-principles.md":                "Critical: 0\nImportant: 0\nUnread: web\n",
+		"panel-report-0-primary+principles-unread.md": "Critical: 0\nImportant: 0\nUnread: none\n",
+	})
+	if strings.Contains(errs, "principles.md (web)") {
+		t.Errorf("a role cover did not cover the section:\n%s", errs)
+	}
+}

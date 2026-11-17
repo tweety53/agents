@@ -762,18 +762,18 @@ func cfcUnreadSections(worktree string, findings []cfcFindingRow) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	var out []string
-	for _, r := range reports {
-		if r.role == "mutation" {
-			continue
-		}
-		for _, repo := range cfcUnread(r.body) {
-			if !cfcReadInRoundOrLater(worktree, r.round, r.role, repo) && !cfcReportWritten(worktree, cfcCoverName(r.name)) {
-				out = append(out, r.name+" ("+repo+")")
-			}
+	var slots []string
+	for _, f := range findings {
+		if f.slot != "" && !slices.Contains(slots, f.slot) {
+			slots = append(slots, f.slot)
 		}
 	}
-	return out, nil
+	for _, r := range reports { // a role cover's id is a slot too: panel-report-<round>-<id>-unread.md
+		if id, ok := strings.CutSuffix(strings.TrimPrefix(r.name, fmt.Sprintf("panel-report-%d-", r.round)), "-unread.md"); ok && !slices.Contains(slots, id) {
+			slots = append(slots, id)
+		}
+	}
+	return cfcUncovered(worktree, reports, -1, slots), nil
 }
 
 // PanelUnreadUncovered answers each section a round-<round> report's
@@ -801,14 +801,20 @@ func PanelUnreadUncovered(worktree string, round int, slots []string) []string {
 	if err != nil {
 		return nil
 	}
+	return cfcUncovered(worktree, reports, round, slots)
+}
+
+// cfcUncovered is PanelUnreadUncovered's walk over reports; round < 0 takes
+// every round, as the close guard does.
+func cfcUncovered(worktree string, reports []cfcReport, round int, slots []string) []string {
 	var out []string
 	for _, r := range reports {
-		if r.round != round || r.role == "mutation" || strings.HasSuffix(r.name, "-unread.md") {
+		if (round >= 0 && r.round != round) || r.role == "mutation" || strings.HasSuffix(r.name, "-unread.md") {
 			continue
 		}
 		for _, repo := range cfcUnread(r.body) {
-			same := fmt.Sprintf("panel-report-%d-%s-%s.md", round, r.role, repo)
-			if !(same != r.name && (cfcReadsOwnRepo(worktree, same, repo) || cfcReportWritten(worktree, cfcCoverName(same)))) && !cfcReportWritten(worktree, cfcCoverName(r.name)) && !cfcRoleCovered(worktree, round, r.role, repo, slots) {
+			same := fmt.Sprintf("panel-report-%d-%s-%s.md", r.round, r.role, repo)
+			if !(same != r.name && (cfcReadsOwnRepo(worktree, same, repo) || cfcReportWritten(worktree, cfcCoverName(same)))) && !cfcReportWritten(worktree, cfcCoverName(r.name)) && !cfcRoleCovered(worktree, r.round, r.role, repo, slots) && (round >= 0 || !cfcReadInRoundOrLater(worktree, r.round+1, r.role, repo)) {
 				out = append(out, r.name+" ("+repo+")")
 			}
 		}
