@@ -772,6 +772,8 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 		} else if err := os.Remove(rf); err != nil && !os.IsNotExist(err) {
 			// A stale round file would let close read this row as scoped.
 			v.die("cannot-write", "cannot remove %s: %v", rf, err)
+		} else if bf := basesFile(filepath.Join(r.w, ".superpowers", "sdd"), r.key); !vrRestSegment.MatchString(r.key) {
+			_ = os.Remove(bf) // a stale bases file would outlive its round file
 		}
 		if out, rc := v.flow(argv...); rc != 0 {
 			// End the rows already begun so none is left open in the store.
