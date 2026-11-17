@@ -173,6 +173,10 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > reproduce a failing block from its log rather than printing the whole log. Never print a
 > generated file — a lockfile, a snapshot, a bundle, a build artifact.
 
+> **AFTER A COMPACTION:** Your context is compacted near 150,000 tokens: a summary takes the
+> place of your earlier turns. When your context opens with such a summary, re-read this brief
+> and your CONTEXT BUNDLE before your next action — the summary carries neither.
+
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
 > guard, a real transcript, a real process — at least one test you write MUST exercise the real
 > thing. A test backed by a fake or a hand-built value passes while the real integration is broken:

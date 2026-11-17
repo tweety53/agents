@@ -604,7 +604,8 @@ Include this instruction verbatim in any prompt you write for another agent.
 Report tersely: findings first, bullets over prose, no preamble, no recap. Full prose in whatever you write to disk.
 Key: task-<ids>-implementer
 **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own system prompt>` and nothing else on that line. Answer it before any tool call.
-Read <skill-dir>/implementer-brief.md in full first — it is your brief.
+Read <skill-dir>/implementer-brief.md in full first, and again after any compaction of your
+context — it is your brief.
 Worktree: <abs-worktree>
 CONTEXT BUNDLE: <abs-worktree>/.superpowers/sdd/dispatch-context-group-<g>.md
 Tasks: <the group's task ids, in plan order> of <the plan's task count>
