@@ -823,3 +823,61 @@ func TestVisualVerifyPassCloseReadsEachCheckoutsRoundBase(t *testing.T) {
 		})
 	}
 }
+
+// TestVisualVerifyPassCloseRemainderReadsEachCheckoutsRoundBase pins decisions
+// rest-closes-the-loop and round-base-per-checkout together: a `-rest` close
+// reads the continued key's bases file, so a capture in another checkout is
+// compared with that checkout's own round base.
+func TestVisualVerifyPassCloseRemainderReadsEachCheckoutsRoundBase(t *testing.T) {
+	smoke.Heavy(t)
+	for _, c := range []struct {
+		name  string
+		bases bool
+		want  bool
+	}{
+		{"the checkout's own base recorded", true, true},
+		{"no base for the checkout", false, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := vvcFixture(t, "")
+			other := t.TempDir()
+			gitRun(t, other, "init", "-q")
+			capture := filepath.Join(other, "fidelity/home.spec.ts-snapshots/home-darwin.png")
+			writeFile(t, capture, "png\n")
+			gitRun(t, other, "add", ".")
+			gitRun(t, other, "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "capture")
+			otherBase := vgHead(t, other)
+			at := time.Now().Add(-time.Minute)
+			now := time.Now()
+			if err := os.Chtimes(capture, now, now); err != nil {
+				t.Fatal(err)
+			}
+			sdd := filepath.Join(f.wt, ".superpowers/sdd")
+			stage, err := os.ReadFile(filepath.Join(sdd, "visual-verify-stage.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var rows []string
+			for _, l := range strings.Split(string(stage), "\n") {
+				if strings.Contains(l, "visual-verify ") {
+					rows = append(rows, strings.Replace(l, "visual-verify ", "visual-verify-rest ", 1))
+				}
+			}
+			writeFile(t, filepath.Join(sdd, "visual-verify-stage.txt"), string(stage)+strings.Join(rows, "\n")+"\n")
+			writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), strings.Repeat("0", 40)+" "+at.UTC().Format(time.RFC3339Nano))
+			if c.bases {
+				writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.bases"), other+" "+otherBase+"\n")
+			}
+			pairs := `[{"spec":"` + filepath.Join(other, "fidelity/home.spec.ts") + `","frame":"f1","capture":"` + capture + `"}]`
+			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), `{"pairs":`+pairs+`}`)
+			f.report("visual-verify-rest", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
+			rc, out, calls := f.close("visual-verify-rest")
+			if rc != 0 {
+				t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+			}
+			if got := strings.Contains(calls, "-closes-loop"); got != c.want {
+				t.Errorf("-closes-loop %v, want %v\n%s", got, c.want, out)
+			}
+		})
+	}
+}
