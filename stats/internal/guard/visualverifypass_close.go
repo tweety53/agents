@@ -207,7 +207,7 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 		fresh := false
 		for _, p := range m.Pairs {
 			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil &&
-				(fi.ModTime().After(at) || (v.captureIsCommitted(p.Capture) && playwrightRanAfter(w, p.Capture, at))) {
+				(fi.ModTime().After(at) || (v.captureIsCommitted(p.Capture) && v.playwrightRanAfter(p.Capture, at))) {
 				fresh = true
 			}
 		}
@@ -574,12 +574,21 @@ func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 // (decision identical-recapture-fresh, refining capture-freshness-by-mtime):
 // Playwright leaves a PNG whose recapture is byte-identical untouched, so its
 // mtime cannot prove the recapture; the run's own output directory,
-// `test-results/` in the nearest ancestor of the capture (up to the worktree
-// w) that holds one, does. The guarantee is per run, not per frame: a passing
-// test's own output is removed, so no entry names a spec; the frame still
-// needs its blob unchanged since the round base and its own line in the report.
+// `test-results/` in the nearest ancestor of the capture (up to the capture's
+// own checkout, which is not the canonical worktree) that holds one, does. The
+// guarantee is per run, not per frame: a passing test's own output is removed,
+// so no entry names a spec; the frame still needs a capture equal to its
+// committed blob and its own line in the report.
 // A non-default output directory finds nothing and falls back to the mtime rule.
-func playwrightRanAfter(w, capture string, at time.Time) bool {
+func (v *vvp) playwrightRanAfter(capture string, at time.Time) bool {
+	w, ok := v.git("-C", filepath.Dir(capture), "rev-parse", "--show-toplevel")
+	if !ok {
+		return false
+	}
+	// git reports the physical root; resolve the capture's links the same way.
+	if real, err := filepath.EvalSymlinks(filepath.Dir(capture)); err == nil {
+		capture = filepath.Join(real, filepath.Base(capture))
+	}
 	for dir := filepath.Dir(capture); dir == w || strings.HasPrefix(dir, w+string(filepath.Separator)); dir = filepath.Dir(dir) {
 		entries, err := os.ReadDir(filepath.Join(dir, "test-results"))
 		if err == nil {

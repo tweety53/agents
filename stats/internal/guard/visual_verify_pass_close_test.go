@@ -736,3 +736,41 @@ func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 		})
 	}
 }
+
+// TestVisualVerifyPassCloseIdenticalRecaptureInAnotherCheckout pins decision
+// identical-recapture-fresh: the capture and its test-results live in a
+// checkout other than the canonical worktree (the playwright repository), and
+// the proof walks up to that checkout's own root.
+func TestVisualVerifyPassCloseIdenticalRecaptureInAnotherCheckout(t *testing.T) {
+	smoke.Heavy(t)
+	f := vvcFixture(t, "")
+	other := t.TempDir()
+	gitRun(t, other, "init", "-q")
+	capture := filepath.Join(other, "fidelity/home.spec.ts-snapshots/home-darwin.png")
+	writeFile(t, capture, "png\n")
+	gitRun(t, other, "add", ".")
+	gitRun(t, other, "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "capture")
+	at := time.Now().Add(-time.Minute)
+	old := at.Add(-time.Hour)
+	if err := os.Chtimes(capture, old, old); err != nil {
+		t.Fatal(err)
+	}
+	run := filepath.Join(other, "test-results/run-1")
+	writeFile(t, filepath.Join(run, "trace.txt"), "x\n")
+	now := time.Now()
+	if err := os.Chtimes(run, now, now); err != nil {
+		t.Fatal(err)
+	}
+	sdd := filepath.Join(f.wt, ".superpowers/sdd")
+	writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), strings.Repeat("0", 40)+" "+at.UTC().Format(time.RFC3339Nano))
+	pairs := `[{"spec":"` + filepath.Join(other, "fidelity/home.spec.ts") + `","frame":"f1","capture":"` + capture + `"}]`
+	writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), `{"pairs":`+pairs+`}`)
+	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n- f1 sweeps: text done\n")
+	rc, out, calls := f.close("visual-verify")
+	if rc != 0 {
+		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+	}
+	if !strings.Contains(calls, "-closes-loop") {
+		t.Errorf("a capture in another checkout, identical and run after the row began, did not close the loop\n%s", out)
+	}
+}
