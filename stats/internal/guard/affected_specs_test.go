@@ -125,3 +125,36 @@ func TestAffectedSpecs(t *testing.T) {
 		}
 	}
 }
+
+// TestAffectedSpecsSpecRootEditIsNoUIChange pins kan-1099 self-review F2: with
+// no `ui paths` row every file is UI, but a file inside the spec root is not,
+// so a spec edit selects itself, not every unmapped spec.
+func TestAffectedSpecsSpecRootEditIsNoUIChange(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	root := t.TempDir()
+	files := map[string]string{
+		".flow/project.md":           "# p\n",
+		"web/src/pages/Home.tsx":     "export function Home() { return null }\n",
+		"tests/home.spec.ts":         "test('home', () => {})\n",
+		"tests/home.spec.ts.sources": "web/src/pages/Home.tsx\n",
+		"tests/rooms.spec.ts":        "test('rooms', () => {})\n",
+	}
+	for p, body := range files {
+		writeFile(t, filepath.Join(root, p), body)
+	}
+	gitRun(t, root, "init", "-q")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	for touch, want := range map[string]string{
+		"tests/home.spec.ts":     "home.spec.ts\n",
+		"web/src/pages/Home.tsx": "home.spec.ts\nrooms.spec.ts\n",
+	} {
+		writeFile(t, filepath.Join(root, touch), files[touch]+"// edited\n")
+		r := runGuard("affected-specs", []string{root, "HEAD", filepath.Join(root, "tests")}, env)
+		if r.rc != 0 || r.stdout != want {
+			t.Errorf("%s: rc=%d stdout=%q err=%q, want %q", touch, r.rc, r.stdout, r.err, want)
+		}
+		writeFile(t, filepath.Join(root, touch), files[touch])
+	}
+}

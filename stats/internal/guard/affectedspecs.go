@@ -68,7 +68,9 @@ import (
 // nothing imports: an entry point draws it in the shell around every
 // screen. A UI change also selects every spec with no `.sources`
 // sidecar, whose screen is unknown. A changed file outside `ui paths` that
-// no spec reaches selects nothing and is named `unreached: <path>`.
+// no spec reaches selects nothing and is named `unreached: <path>`. A changed
+// file inside `<spec-root>` is never a UI change: its reach is its own
+// selection and the import climb (kan-1099 self-review, F2).
 //
 // THE TASK SET: with `-task` the list is what an in-run fix task's own
 // capture run takes (skills/flow/verify-fix-loop.md step 2; kan-1091: a
@@ -305,7 +307,7 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			continue
 		}
-		ui := isUI(f)
+		ui := isUI(f) && !inSpecRoot(f)
 		seen, shell := reach(f)
 		hit := false
 		for _, s := range specs {
