@@ -101,6 +101,11 @@ import (
 //      implementer-<k> <spec path>` writes (kan-1099: five in-run fix tasks
 //      were handed back unmeasured, and each left a departure the next
 //      verifier found).
+//      Any other task is held to both checks for each spec of its task set
+//      carrying a `<spec>.mockups` sidecar, its measure under `task-<id>`,
+//      and prints the line only when it has one: a view is verified against
+//      its mockup in the task that draws it (kan-1091: every departure
+//      surfaced in the stage after verify, eight whole-set runs later).
 //   3. flow-guard check-task-commit-planning-paths <canonical> <merge-base>, then
 //      flow-guard check-untasked-commits <worktree> refs/remotes/origin/spectre/<name>
 //      once per distinct worktree whose branch origin already holds: the push
@@ -326,7 +331,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		uncaptured = max(uncaptured, ctAffectedSpecs(env, stdout, stderr, canonical, name, t.id, t.commit))
 	}
 	if uncaptured != 0 {
-		fmt.Fprintln(stderr, "close-task: RECAPTURE — an in-run fix task's affected specs have no passing capture run; nothing was ticked or pushed")
+		fmt.Fprintln(stderr, "close-task: RECAPTURE — a task's affected specs have no passing capture run or no measure; nothing was ticked or pushed")
 		Reason(env, "affected-specs-not-captured")
 		return 1
 	}
@@ -753,29 +758,35 @@ func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string, o
 	return worst
 }
 
-// ctAffectedSpecs is step 2's affected-specs check for an in-run fix task:
+// ctAffectedSpecs is step 2's affected-specs check: for an in-run fix task
 // it prints the task set flow-guard affected-specs maps the commit to and
 // returns 1 when a map pair holds a spec with no passing flow-guard
-// recapture receipt on that commit's sources, else 0.
+// recapture receipt on that commit's sources, or a departure's spec with no
+// measure; for a planned task it holds the specs carrying a `.mockups`
+// sidecar to both. Else 0.
 func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, commit string) int {
 	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical)
 	plan, _ := os.ReadFile(tasksMD)
 	title := regexp.MustCompile(`(?m)^- \[[ xX]\] ` + regexp.QuoteMeta(id) + `\. In-run fix ([0-9]+) — `).FindSubmatchIndex(plan)
-	if title == nil {
-		return 0
+	// key is the measure's: an in-run fix a visual-verify report opened
+	// closes a mockup departure, and its implementer measures before it
+	// hands back (verify-fix-loop.md step 2); a planned task measures every
+	// mocked-up view it draws.
+	inRun, key, why, base := title != nil, "task-"+id, "draws a view that carries a mockup", "<the commit the task started from>"
+	departure := true
+	if inRun {
+		round := string(plan[title[2]:title[3]])
+		body, _, _ := strings.Cut(string(plan[title[1]:]), "\n- [")
+		departure = regexp.MustCompile("(?m)^\\*\\*Opener:\\*\\*\\s*`?visual-verify").MatchString(body)
+		key, why, base = "implementer-"+round, "In-run fix "+round+" closes a mockup departure", "<round base>"
 	}
-	// A task a visual-verify report opened closes a mockup departure: its
-	// implementer measures before it hands back (verify-fix-loop.md step 2).
-	round := string(plan[title[2]:title[3]])
-	body, _, _ := strings.Cut(string(plan[title[1]:]), "\n- [")
-	departure := regexp.MustCompile("(?m)^\\*\\*Opener:\\*\\*\\s*`?visual-verify").MatchString(body)
 	pairs := []string{canonical + "=" + commit}
 	if strings.Contains(commit, "=") {
 		pairs = strings.Split(commit, ",")
 	}
 	git := envGit(env)
 	var roots []string    // every worktree of the map holding a sidecar
-	var measured []string // the spec paths a manifest of this round's key pairs
+	var measured []string // the spec paths a manifest of this task's key pairs
 	manifests := []string{canonical}
 	for _, p := range pairs {
 		wt, _, _ := strings.Cut(strings.TrimSpace(p), "=")
@@ -786,7 +797,7 @@ func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, com
 	}
 	for _, wt := range manifests {
 		var m vvmManifestOut
-		if b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "visual-manifest-implementer-"+round+".json")); err == nil && json.Unmarshal(b, &m) == nil {
+		if b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "visual-manifest-"+key+".json")); err == nil && json.Unmarshal(b, &m) == nil {
 			for _, p := range m.Pairs {
 				measured = append(measured, filepath.ToSlash(p.Spec))
 			}
@@ -802,34 +813,43 @@ func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, com
 		for _, root := range roots {
 			var out bytes.Buffer
 			Registry["affected-specs"]([]string{"-task", tasksMD + ":" + id, wt, sha + "^.." + sha, root}, quietReasons(env), &out, io.Discard)
+			sidecars, _ := capture(git("-C", root, "ls-files", "-co", "--exclude-standard", "--", "*.mockups"))
+			mocked := func(token string) bool {
+				spec := rcSpecFile(token)
+				return slices.ContainsFunc(strings.Split(sidecars, "\n"), func(f string) bool { return f == spec+".mockups" || strings.HasSuffix(f, "/"+spec+".mockups") })
+			}
 			specs := strings.Fields(out.String())
+			if !inRun {
+				specs = slices.DeleteFunc(specs, func(s string) bool { return !mocked(s) })
+			}
 			for _, spec := range specs {
 				if !slices.Contains(all, spec) {
 					all = append(all, spec)
 				}
 			}
 			if len(specs) > 0 && !rcCovered(env, wt, root, sha, specs) {
-				fmt.Fprintf(stderr, "close-task: task %s: no passing capture run covers commit %s's sources in %s for %s — run `flow-guard recapture %s:%s %s %s=<round base> '<the capture command with <spec>>'`, commit what it moves, and re-run\n", id, sha, wt, strings.Join(specs, " "), tasksMD, id, root, wt)
+				fmt.Fprintf(stderr, "close-task: task %s: no passing capture run covers commit %s's sources in %s for %s — run `flow-guard recapture %s:%s %s %s=%s '<the capture command with <spec>>'`, commit what it moves, and re-run\n", id, sha, wt, strings.Join(specs, " "), tasksMD, id, root, wt, base)
 				Reason(env, "affected-specs-not-captured")
 				rc = 1
 			}
-			// ponytail: the round's key alone dates a measure -- one taken
-			// before the round's last recapture still counts; compare the
-			// manifest with the captures' blobs if that ever bites.
-			sidecars, _ := capture(git("-C", root, "ls-files", "-co", "--exclude-standard", "--", "*.mockups"))
+			// ponytail: the key alone dates a measure -- one taken before
+			// the task's last recapture still counts; compare the manifest
+			// with the captures' blobs if that ever bites.
 			for _, spec := range specs {
 				spec = rcSpecFile(spec)
-				if !departure || !slices.ContainsFunc(strings.Split(sidecars, "\n"), func(f string) bool { return f == spec+".mockups" || strings.HasSuffix(f, "/"+spec+".mockups") }) ||
-					slices.ContainsFunc(measured, func(m string) bool { return m == spec || strings.HasSuffix(m, "/"+spec) }) {
+				if !departure || !mocked(spec) || slices.ContainsFunc(measured, func(m string) bool { return m == spec || strings.HasSuffix(m, "/"+spec) }) {
 					continue
 				}
-				fmt.Fprintf(stderr, "close-task: task %s: In-run fix %s closes a mockup departure and no measure of %s ran under implementer-%s — run `flow-guard visual-verify-pass measure %s %s implementer-%s <spec path>` on the views the fix touched, close or name every flagged band, seam and `over` row, and re-run\n", id, round, spec, round, canonical, name, round)
+				fmt.Fprintf(stderr, "close-task: task %s: %s and no measure of %s ran under %s — run `flow-guard visual-verify-pass measure %s %s %s <spec path>` on the views the fix touched, close or name every flagged band, seam and `over` row, and re-run\n", id, why, spec, key, canonical, name, key)
 				Reason(env, "departure-not-measured")
 				rc = 1
 			}
 		}
 	}
 	if len(all) == 0 {
+		if !inRun {
+			return rc
+		}
 		all = []string{"none"}
 	}
 	fmt.Fprintf(stdout, "close-task: task %s: affected specs — %s\n", id, strings.Join(all, " "))

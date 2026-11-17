@@ -919,10 +919,48 @@ func TestCloseTaskRefusesAnUnmeasuredDeparture(t *testing.T) {
 	}
 }
 
+// TestCloseTaskVerifiesAPlannedUITaskAgainstItsMockup pins the per-task
+// visual close (kan-1091: every departure surfaced in the stage after verify):
+// a planned task whose commit reaches a spec carrying a `.mockups` sidecar
+// closes only once that spec is recaptured on the commit's sources and
+// measured under `task-<id>`; a spec with no mockup holds nothing.
+func TestCloseTaskVerifiesAPlannedUITaskAgainstItsMockup(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	for _, spec := range []string{"shots/day.spec.js", "shots/night.spec.js"} {
+		writeFile(t, fx.wt+"/"+spec, "test('x', () => {})\n")
+		writeFile(t, fx.wt+"/"+spec+".sources", "a.txt\n")
+	}
+	writeFile(t, fx.wt+"/shots/day.spec.js.mockups", "day 1:2\n")
+	sha := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+	r := fx.run(fx.wt, "demo", fx.base, "1:"+sha)
+	if r.rc != 1 || !strings.Contains(r.err, "no passing capture run covers commit "+sha) || !strings.Contains(r.err, "shots/day.spec.js") || strings.Contains(r.err, "night.spec.js") {
+		t.Fatalf("an uncaptured mocked-up view: exit %d, want 1 naming day.spec.js alone\n%s\n%s", r.rc, r.out, r.err)
+	}
+	if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:1", fx.wt, fx.wt + "=HEAD^", "true <spec>"}, fx.env); r.rc != 0 {
+		t.Fatalf("recapture: exit %d\n%s", r.rc, r.out)
+	}
+	r = fx.run(fx.wt, "demo", fx.base, "1:"+sha)
+	if want := "visual-verify-pass measure " + fx.wt + " demo task-1 <spec path>"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under task-1") || !strings.Contains(r.err, want) {
+		t.Fatalf("an unmeasured mocked-up view: exit %d, want 1 and %q\n%s\n%s", r.rc, want, r.out, r.err)
+	}
+	for _, call := range fx.calls(t) {
+		if strings.HasPrefix(call, "flow tasks tick") {
+			t.Errorf("ticked after a refusal: %s", call)
+		}
+	}
+	writeFile(t, fx.wt+"/.superpowers/sdd/visual-manifest-task-1.json", `{"pairs":[{"spec":"`+fx.wt+`/shots/day.spec.js","frame":"day"}]}`)
+	r = fx.run(fx.wt, "demo", fx.base, "1:"+sha)
+	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 1: affected specs — shots/day.spec.js\n") {
+		t.Fatalf("a captured, measured view: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
+	}
+}
+
 // TestCloseTaskTakesTheTaskSet pins the kan-1091 fix: an in-run fix task
 // touching only a fixture every spec renders closes on a capture run of the
 // spec its Tests name, never of every spec, and a run red on one spec is
-// covered by the five-repeat run of that spec alone.
+// covered by the re-run of its failing test alone.
 func TestCloseTaskTakesTheTaskSet(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()

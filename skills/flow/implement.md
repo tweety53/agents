@@ -594,8 +594,9 @@ DON'T DECIDE — live in that file, which the implementer reads in full first, a
 carries them. The prompt is these lines alone, in this order, each `<…>` filled — `<skill-dir>` the
 directory this file was read from, the `Role:` line the **Role line** column's id for
 the row, and the `Incident:` line present only when an incident rides this dispatch (**An incident
-one dispatch caused rides the next dispatch to the same role**, above), and the `In-run fix:` line
-present only on the implementer of an in-run fix task (**The in-run fix loop**, `skills/flow/verify-fix-loop.md`):
+one dispatch caused rides the next dispatch to the same role**, above), the `In-run fix:` line
+present only on the implementer of an in-run fix task (**The in-run fix loop**, `skills/flow/verify-fix-loop.md`), and the `Visual close:` line
+present only when a task of the group names a `ui paths` file in its `**Files:**`:
 
 ```text
 Role: implementer
@@ -611,8 +612,15 @@ CONTEXT BUNDLE: <abs-worktree>/.superpowers/sdd/dispatch-context-group-<g>.md
 Tasks: <the group's task ids, in plan order> of <the plan's task count>
 Incident: <what happened and the exact commands that would have caught it, verbatim — on a repeat, stop and report>
 In-run fix: read the MUTATION PROOF and PIXEL PROBE paragraphs of <skill-dir>/review-panel.md and follow both; report their fix-mutation: lines
+Visual close: step 2 of <skill-dir>/verify-fix-loop.md, **The implementer measures before it hands back** and **A task fixing a visual departure runs its capture spec before it closes**, binds each task here whose commit reaches a capture spec carrying a `.mockups` sidecar — key `task-<id>`, base the commit the task started from; verifier file <skill-dir>/visual-verify-verifier.md; capture: <the `capture` command>; mockups: <the resolved `mockups` root>, frame <the `mockup frame` value>
 REPORT FILE: <abs-worktree>/.superpowers/sdd/implementer-report-<k>.md
 ```
+
+**A view is verified against its mockup in the task that draws it.** `flow-guard close-task`
+refuses a planned task whose commit reaches such a spec until the spec has a `flow-guard recapture`
+receipt on the commit's sources and a measure under `task-<id>` (its header canonical), so a
+departure is fixed by the implementer that drew it, and `flow.visual-verify` confirms the change
+instead of finding it.
 
 A fixer's prompt is the same stub under its own `Key:`, its `Tasks:` line the tasks it fixes and a
 `FIX INPUT:` line before its REPORT FILE line (**Every fix is a fresh one-shot**, below).
