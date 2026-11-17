@@ -4,12 +4,15 @@ Loaded during `flow.sdd-tdd` by the load directive under the gated per-task revi
 **4. Execute (SDD + TDD)** (`skills/flow/implement.md`), only when, once the last group's guard has
 passed and every gated bundle has returned, a gated pass closed `fix` or left a Minor open.
 
-**One fixer per group of at most twenty findings, in series**, never the parent and never a
-resumed implementer: once the last group's guard has passed and every gated bundle has returned,
-the `fix` reports and the Minors a gated pass left open are split, in plan order, into groups of
-whole tasks each carrying at most twenty findings — a task carrying more is a group alone — and one
-fresh dispatch per group carries its tasks' reports and Minors, each launched once the previous
-one's return has run, since every group shares one worktree — the gated row of **Every fix is a
+**One fixer per group of at most weight 3**, never the parent
+and never a resumed implementer: once the last group's guard has passed and every gated bundle
+has returned, the `fix` reports and the Minors a gated pass left open are split, in plan
+order, into groups of whole tasks of one repository, each of at most weight 3 — a
+`**Size:** big` task weighs 3, every other task 1, the cap `flow-guard plan-dispatch-groups`
+puts on an implementer group — and one fresh dispatch per group carries its tasks' reports and
+Minors. Fixers of one worktree run in series, each launched once the previous one's return has
+run; fixers of different worktrees run at once. `flow record dispatch begin` refuses a fixer
+key naming more than three tasks — the gated row of **Every fix is a
 fresh one-shot** (`skills/flow/implement.md`), keyed `task-<n+n>-implementer-fix-<k>`, the ids of
 the tasks its group fixes `+`-joined in plan order, on the decision's `fixer` pair. Its `FIX INPUT:` line names each reviewer
 report path, each finding's ref and MUTATION PROOF. Every task commit is pushed by then, so each
