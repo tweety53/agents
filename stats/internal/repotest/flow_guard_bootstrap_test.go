@@ -371,6 +371,19 @@ func TestFlowGuardBootstrap(t *testing.T) {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out())
 		}
 	})
+	t.Run("case 11b: one source edit mid-build is rebuilt, answered and cached under the new key", func(t *testing.T) {
+		t.Parallel()
+		fix := newBootstrapFixture(t, "v11b")
+		wrap := t.TempDir()
+		once := filepath.Join(wrap, "edited")
+		writeFile(t, filepath.Join(wrap, "go"), fmt.Sprintf("#!/bin/sh\n[ -e '%s' ] || { : > '%s'; printf '// edited mid-build\\n' >> '%s'; }\nexec '%s' \"$@\"\n",
+			once, once, filepath.Join(fix, "stats/cmd/flow-guard/main.go"), goBin), 0o755)
+		cache := t.TempDir()
+		r := runBootstrap(t, fix, withPath(bootstrapEnv(cache), wrap+":"+path), filepath.Join(fix, "scripts", "flow-guard"), "check-x")
+		if r.rc != 0 || !strings.Contains(r.out(), "v11b check-x") || len(cachedBinaries(t, cache)) != 1 {
+			t.Fatalf("rc=%d out=%s bins=%v", r.rc, r.out(), cachedBinaries(t, cache))
+		}
+	})
 	t.Run("case 12: a cross-compile environment neither breaks its own call nor poisons the cache", func(t *testing.T) {
 		t.Parallel()
 		fix := newBootstrapFixture(t, "v12")

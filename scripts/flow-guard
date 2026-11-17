@@ -48,7 +48,10 @@
 # last rename wins with an identical binary, and no caller ever execs a
 # half-written file. The key is recomputed after the build; if the sources
 # changed while it ran, the binary is discarded rather than cached under a key
-# it was not built from. The build runs with GOOS, GOARCH and GOFLAGS removed
+# it was not built from, and the build runs again for the sources as they
+# stand — three builds at most, so an edit made while a guard runs costs a
+# rebuild, never the guard's answer; sources still moving after the third are
+# the cannot-answer exit. The build runs with GOOS, GOARCH and GOFLAGS removed
 # from its environment, so it always targets the host and the artifact
 # depends only on the hashed sources: a call from a cross-compiling shell
 # would otherwise cache a foreign binary every later call execs (exit 126).
@@ -127,20 +130,36 @@ if [ ! -x "$bin" ]; then
     echo "$opening cannot build flow-guard from $stats — no go on PATH" >&2
     exit "$code"
   fi
-  tmp="$bin.$$"
-  if ! mkdir -p "$cache/$key" || ! (cd "$stats" && env -u GOOS -u GOARCH -u GOFLAGS go build -o "$tmp" ./cmd/flow-guard) >&2; then
+  built=""
+  for _ in 1 2 3; do
+    tmp="$bin.$$"
+    if ! mkdir -p "$cache/$key" || ! (cd "$stats" && env -u GOOS -u GOARCH -u GOFLAGS go build -o "$tmp" ./cmd/flow-guard) >&2; then
+      rm -f "$tmp"
+      echo "$opening could not build flow-guard from $stats" >&2
+      exit "$code"
+    fi
+    now="$(flow_guard_key "$stats")" || now=""
+    if [ "$now" = "$key" ]; then
+      if ! mv -f "$tmp" "$bin"; then
+        rm -f "$tmp" || :
+        echo "$opening could not install flow-guard into $cache/$key" >&2
+        exit "$code"
+      fi
+      built=1
+      break
+    fi
+    # The sources moved under the build: discard it and build what is there now.
     rm -f "$tmp"
-    echo "$opening could not build flow-guard from $stats" >&2
-    exit "$code"
-  fi
-  if [ "$(flow_guard_key "$stats")" != "$key" ]; then
-    rm -f "$tmp"
+    [ -n "$now" ] || break
+    key="$now"
+    bin="$cache/$key/flow-guard"
+    if [ -x "$bin" ]; then
+      built=1
+      break
+    fi
+  done
+  if [ -z "$built" ]; then
     echo "$opening flow-guard's sources in $stats changed during its build — run the guard again" >&2
-    exit "$code"
-  fi
-  if ! mv -f "$tmp" "$bin"; then
-    rm -f "$tmp" || :
-    echo "$opening could not install flow-guard into $cache/$key" >&2
     exit "$code"
   fi
 fi
