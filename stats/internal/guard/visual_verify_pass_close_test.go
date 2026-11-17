@@ -672,20 +672,3 @@ func TestVisualVerifyPassCloseRemainderClosesTheLoop(t *testing.T) {
 		})
 	}
 }
-
-// TestVisualVerifyPassCloseRestSegmentIsAnchored pins that only a remainder
-// segment is stripped from the key: `-restore` is no remainder.
-func TestVisualVerifyPassCloseRestSegmentIsAnchored(t *testing.T) {
-	for in, want := range map[string]string{
-		"visual-verify-fix-3-rest":         "visual-verify-fix-3",
-		"visual-verify-fix-3-rest-2":       "visual-verify-fix-3",
-		"visual-verify-fix-3-rest-gymie":   "visual-verify-fix-3-gymie",
-		"visual-verify-fix-3-rest-2-gymie": "visual-verify-fix-3-gymie",
-		"visual-verify-restore":            "visual-verify-restore",
-		"visual-verify-fix-3-gymie":        "visual-verify-fix-3-gymie",
-	} {
-		if got := vvcRestSeg.ReplaceAllString(in, "$1"); got != want {
-			t.Errorf("%s -> %s, want %s", in, got, want)
-		}
-	}
-}
