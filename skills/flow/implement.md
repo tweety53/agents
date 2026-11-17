@@ -671,11 +671,11 @@ while the slots are reading the tree.
 **A group boundary is one wake, one Bash call and one launch message.** The unit is the group — the decision's `groups`
 entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each boundary, in this order:
 
-1. **Group N+1's implementer commits**, writes its report and ends; its completion notification
+1. **The returned group's implementer commits**, writes its report and ends; its completion notification
    wakes the parent with its summary head (`skills/flow/implementer-brief.md`). Each `correction:`
    and `undeclared:` line the parent judges legitimate is transcribed first (**The record carries
    its own corrections**, below) — the one edit a boundary may add before the call below.
-2. **One Bash call closes group N+1 and readies group N+2**, every verdict echoed: the markers
+2. **One Bash call closes the returned group and prints the ready set**, every verdict echoed: the markers
    verify, then `flow-guard close-task`, then — only on its exit 0 or 3 — the rest.
 
    ```bash
@@ -685,10 +685,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then
      # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below)
-     # group N+2's gather (skills/flow/sdd-dispatch.md), then its marker snapshot:
-     flow-guard check-tree-markers snapshot <worktree> <markers-file> <group N+2's snapshot-file>
-     # on `big`, when a gate fired in group N+1, that bundle's diffs and marker snapshot
-     # (The gated per-task reviewer, below); the hook begins both rows at launch
+     flow-guard ready-groups <changeRoot>/tasks.md <canonical-worktree> <name>; echo "ready-groups: $?"
    fi
    ```
 
@@ -739,9 +736,15 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    make, or a stash entry the parent did not push means the tree is not the one the run
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it.
-3. **The next message launches group N+2's implementer and, when its begin was recorded, group
-   N+1's reviewer bundle**, each with `run_in_background: true`, and the turn ends — the wait of
-   **Turn discipline** (below).
+3. **A second Bash call readies each group that call printed** — a
+   `throwaway` group's copy, its gather (`skills/flow/sdd-dispatch.md`) and its marker snapshot,
+   `flow-guard check-tree-markers snapshot <worktree> <markers-file> <that group's
+   snapshot-file>`, and, on `big`, when a gate fired in the returned group, that bundle's diffs
+   and marker snapshot (**The gated per-task reviewer**, below) — and **the next message
+   launches every printed group's implementer and, when its begin was recorded, the returned
+   group's reviewer bundle**, each with `run_in_background: true`, and the turn ends — the wait
+   of **Turn discipline** (below). A boundary whose ready set is empty launches the reviewer
+   bundle alone.
 
 **When the script cannot be located**, apply its task-commit field rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the

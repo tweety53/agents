@@ -16,22 +16,26 @@ commits with, the partner its `**Squash-with:**` field names.
 `flow-guard plan-dispatch-groups` caps a group at weight 3 — a `**Size:** big` task weighs 3, every other task 1 — so an implementer receives a `big` task alone or at most three others, save one `**Squash-with:**` bundle heavier than that, which stays whole.
 `flow record dispatch begin` refuses a live `task-<ids>-implementer` row whose `+`-joined ids are not one group's tasks, which `flow record decision` resolves from each group's `bundles` when it records the decision.
 
-**Waves — concurrent dispatch of ready groups.** A group is ready when every id in the union of
-its bundles' `after <k>:` lines **that is not itself a task of one of the group's own bundles** has
-landed — committed and guard-passed, by direct commit or pick.
-**At most three implementer dispatches are in flight per wave**, on every `sdd` decision.
-A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
-worktree and commits directly; two or three ready groups launch together in one message,
-each into its own throwaway worktree created by
-`flow-guard throwaway-worktree create <worktree> <worktree>-wave-group-<g>`, each copy then running the
-project's resolved `## worktree setup` command once before its implementer dispatches. A fourth or
-later ready group queues in plan order and launches, into its own throwaway worktree by the same
-call, as soon as one of the three in-flight groups is picked — the cap bounds dispatches in
-flight, never how many groups may be ready at once. Exit 2 means a step failed, named on stderr, and
+**Waves — concurrent dispatch of ready groups.** `flow-guard ready-groups <changeRoot>/tasks.md <canonical-worktree> <name>` prints the groups
+to launch now, one `launch <g>: <ids> <repository> direct|throwaway` line each, and the
+parent launches exactly those — at the stage's first dispatch and at every group boundary
+(`skills/flow/implement.md`), never the next group in plan order. A group is ready when every
+id in the union of its bundles' `after <k>:` lines **that is not itself a task of one of the
+group's own bundles** has landed — committed and guard-passed, by direct commit or pick.
+**At most three implementer dispatches are in flight**, on every `sdd` decision, and a
+repository launches its next groups only once none of its groups is in flight. A `direct`
+group — the only one launching in its repository — dispatches into that repository's
+canonical worktree and commits directly; `throwaway` groups — two or three of one repository
+launching together — each launch into their own throwaway worktree created by
+`flow-guard throwaway-worktree create <worktree> <worktree>-wave-group-<g>`, each copy then
+running the project's resolved `## worktree setup` command once before its implementer
+dispatches. Every printed group launches in one message, whatever its repository. Exit 1 —
+no group can launch while one is unlanded — is a plan defect, reported with the lines it
+printed; exit 2 stops the run. Exit 2 means a step failed, named on stderr, and
 nothing is dispatched into that copy. A group never spans two repositories: `flow-guard plan-dispatch-groups` keeps tasks under different `## <repository>` headings — a one-word heading naming the repository — in different groups, so each group's worktree is its repository's.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
-is picked once every plan-earlier member of its wave is picked. The same
+is picked once every plan-earlier member of its repository's wave is picked. The same
 `flow-guard close-task` call the task-close step (`skills/flow/implement.md`) runs covers each picked
 commit, with one `-end-key <key> -end-commit <picked sha>` pair per picked member in pick order, so each
 member's row closes when it is picked, never at the handoff. A pick conflict or a
