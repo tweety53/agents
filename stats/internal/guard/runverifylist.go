@@ -7,23 +7,21 @@
 // per run, its stdin detach patched in on a second call).
 //
 // Usage: run-verify-list.sh <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
-//        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
+//        flow-guard run-verify-list -only <file> <worktree> visual [<canonical-worktree>]
 //        flow-guard run-verify-list -full <worktree> test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //
-// NARROWED RUNS (decision narrow-via-run-verify-list-flags). `-only <file>`
-// runs the `specs` row only to group its failures by the change's specs, and
-// puts the file's entries -- the visual-failing.txt
-// a failing run wrote -- in the `verify` row's `<specs>`, followed by
-// `--repeat-each 5 --workers 1`; `-detect-flaky` puts there the entries of
-// the worktree's kept visual-failing.txt -- the failing run's own failures
-// (kan-1091: a 44-minute list re-run whole, 37 minutes, for the same 12
-// failures) -- or, with none kept, the `specs` row's output as a plain run
-// does, followed by `--retries=1
-// --fail-on-flaky-tests`, and adds its failures to visual-failing.txt rather
-// than rewriting it. Either takes the `visual` list only and no recording
+// THE NARROWED RUN (decision narrow-via-run-verify-list-flags; kan-1091: the
+// failing-run protocol was three runs -- plain 40 minutes, a flake detector
+// 36, a five-repeat 49). `-only <file>` runs the `specs` row only to group
+// its failures by the change's specs, and puts the file's entries -- the
+// visual-failing.txt a failing run wrote -- in the `verify` row's `<specs>`,
+// followed by `--retries=1`. A test that passes on its retry is flaky, never
+// red: the run exits by the tests that failed twice, and prints
+//   flaky (<n>): <path:line> … — passed on retry: fix each at its source
+// whatever its exit. It takes the `visual` list only and no recording
 // arguments: it records no dispatch row, never reads or writes the green
 // cache, and so never stands as the `verify` gate. A missing or empty
-// -only file, both flags, or a `verify` cell with no `<specs>` exits 2 before
+// -only file, or a `verify` cell with no `<specs>` exits 2 before
 // any command runs.
 //
 // RECORDING (kan-1033 self-review: the parent hand-recorded the verify row and
@@ -168,8 +166,8 @@
 //
 // THE FULL SUITE (decisions full-is-the-list-unskipped,
 // full-runs-the-visual-suite-whole, full-rows-carry-a-suffix,
-// full-failure-names-its-escape). `-full`, a leading flag beside `-only` and
-// `-detect-flaky`, runs the `test` or `visual` list with every skip off, only
+// full-failure-names-its-escape). `-full`, a leading flag beside `-only`,
+// runs the `test` or `visual` list with every skip off, only
 // when the operator asks for it. Every command's environment gains
 // `FLOW_VERIFY_FULL=1` after every inherited entry, so `flow-guard unchanged`
 // answers 1 and each suite runs. Neither green file skips a command and A
@@ -183,8 +181,8 @@
 // `regression checkout` resolved as on any run. A failing command the green
 // sha covers at this HEAD, or the green-commands file lists, gains
 //   escaped the default list — it passed at <sha>
-// in its block, after its output lines. `-full` with `-only` or
-// `-detect-flaky`, with the `lint` list, or with no <worktree> and list exits
+// in its block, after its output lines. `-full` with `-only`, with the
+// `lint` list, or with no <worktree> and list exits
 // 2 before any command runs.
 //
 // THE OPERATOR'S SWITCH. `-full` exits 2 before any command unless
@@ -217,7 +215,7 @@
 // selection does not already name, printed as
 //   - visual selection: plus <n> spec file(s) of visual-failing.txt
 // so its green row covers the round's specs, the earlier failures and the
-// tail the `specs` row prints; green, it empties visual-failing.txt. `-only` and `-detect-flaky`, which carry no key, select
+// tail the `specs` row prints; green, it empties visual-failing.txt. `-only`, which carries no key, selects
 // as the newest verify row of <worktree> did: from its round base when that
 // row's key is a re-run's, from the kickoff base otherwise.
 // ponytail: a re-run whose `specs` row maps nothing runs the smoke set alone,
@@ -235,8 +233,8 @@
 // tail it prints for an empty diff, and prints
 //   - visual selection: <n> spec files reached, more than 40 — narrowed to the <m> the change edits plus the smoke tail; the rest runs only under -full, which the operator starts
 // Narrowed to nothing, it runs the smoke set (THE SMOKE FALLBACK). The
-// failures still group by the whole output, and a `-only` or `-detect-flaky`
-// failing list runs whatever its size.
+// failures still group by the whole output, and a `-only` failing list runs
+// whatever its size.
 //
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
@@ -265,8 +263,8 @@
 //     `<git-path flow-verify-failed>/<list>-<n>-results-<ns>/` no later run
 //     removes, so a flake's first failing run stays traceable
 //   - the visual verify, when it ran, last, as `- `<verify row>` — exit <n>`,
-//     its kept output `visual-<mode>-r<N>.log`, <mode> `plain`, `only` or
-//     `detect-flaky` and <N> one past the highest round already kept, with
+//     its kept output `visual-<mode>-r<N>.log`, <mode> `plain` or `only`
+//     and <N> one past the highest round already kept, with
 //     `result files: <git-path flow-verify-failed>/visual-results-r<N>` --
 //     the newest `test-results/` directory the run wrote, copied -- both kept
 //     until the worktree is removed (decision
@@ -289,8 +287,7 @@
 //      vgFixSuffix, to `verify` or `verify-<s>`, <s> the worktree's basename
 //      or its repository's name (kan-1067 self-review, 1-C: `verify-fix-1b`
 //      formed its own group and verify stayed NOT-GREEN), or `-full` with
-//      `-only` or `-detect-flaky`, with the `lint` list, or with no
-//      <worktree> and list
+//      `-only`, with the `lint` list, or with no <worktree> and list
 //   3  the list is not declared (project-get.sh exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
@@ -331,7 +328,7 @@ import (
 // `## Report` lines.
 //
 // Usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
-//        flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]
+//        flow-guard run-verify-list -only <file> <worktree> visual [<canonical-worktree>]
 //        flow-guard run-verify-list -full <worktree> test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]
 //
 // Exit codes:
@@ -342,10 +339,10 @@ import (
 //      arguments, no flow binary on PATH for those, or <worktree> is not a
 //      directory), a list line holding a `<word>` placeholder — its stderr
 //      line names it — or flow-guard project-get exit 2 — its stderr line says why
-//      -- or a narrowing flag with another list, recording arguments, the
-//      other flag, a missing or empty -only file, or a `verify` cell with no
-//      `<specs>` (its stderr line names the cause) -- or `-full` with `-only`
-//      or `-detect-flaky`, with the `lint` list, or with no <worktree> and list
+//      -- or `-only` with another list, recording arguments, a missing or
+//      empty file, or a `verify` cell with no `<specs>` (its stderr line
+//      names the cause) -- or `-full` with `-only`, with the `lint` list, or
+//      with no <worktree> and list
 //   3  the list is not declared (flow-guard project-get exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
@@ -394,8 +391,8 @@ import (
 //
 // THE FULL SUITE (decisions full-is-the-list-unskipped,
 // full-runs-the-visual-suite-whole, full-rows-carry-a-suffix,
-// full-failure-names-its-escape). `-full`, a leading flag beside `-only` and
-// `-detect-flaky`, runs the `test` or `visual` list with every skip off, only
+// full-failure-names-its-escape). `-full`, a leading flag beside `-only`,
+// runs the `test` or `visual` list with every skip off, only
 // when the operator asks for it. Every command's environment gains
 // `FLOW_VERIFY_FULL=1` after every inherited entry, so `flow-guard unchanged`
 // answers 1 and each suite runs. Neither green file skips a command and A
@@ -409,8 +406,8 @@ import (
 // `regression checkout` resolved as on any run. A failing command the green
 // sha covers at this HEAD, or the green-commands file lists, gains
 //   escaped the default list — it passed at <sha>
-// in its block, after its output lines. `-full` with `-only` or
-// `-detect-flaky`, with the `lint` list, or with no <worktree> and list exits
+// in its block, after its output lines. `-full` with `-only`, with the
+// `lint` list, or with no <worktree> and list exits
 // 2 before any command runs.
 //
 // THE OPERATOR'S SWITCH. `-full` exits 2 before any command unless
@@ -827,19 +824,18 @@ var (
 	rvlFailureLine  = regexp.MustCompile(`^\s+\[[^\]]+\] › (\S+):(\d+):\d+ › `)
 )
 
-// rvlVisualFailures is every test a Playwright list-reporter log names in its
-// summary's failed, interrupted and flaky blocks (generateSummaryMessage,
-// Playwright 1.62.1): a `  N failed|interrupted|flaky` line opens a block, and
-// each following `    [project] › path:line:col › titles` line adds
-// `path:line` until a line that does not match. ANSI colour codes are
-// stripped, and an entry is kept once, at its first appearance. It is the
-// list `-only` re-runs (decision narrow-via-run-verify-list-flags).
-func rvlVisualFailures(log []byte) []string {
+// rvlSummaryBlocks is every test a Playwright list-reporter log names in the
+// summary blocks of the given kinds (generateSummaryMessage, Playwright
+// 1.62.1): a `  N failed|interrupted|flaky` line opens a block, and each
+// following `    [project] › path:line:col › titles` line adds `path:line`
+// until a line that does not match. ANSI colour codes are stripped, and an
+// entry is kept once, at its first appearance.
+func rvlSummaryBlocks(log []byte, kinds ...string) []string {
 	var out []string
 	open := false
 	for _, l := range strings.Split(rvlANSI.ReplaceAllString(string(log), ""), "\n") {
-		if rvlFailureBlock.MatchString(l) {
-			open = true
+		if m := rvlFailureBlock.FindStringSubmatch(l); m != nil {
+			open = slices.Contains(kinds, m[1])
 			continue
 		}
 		m := rvlFailureLine.FindStringSubmatch(l)
@@ -854,26 +850,22 @@ func rvlVisualFailures(log []byte) []string {
 	return out
 }
 
+// rvlVisualFailures is the failed, interrupted and flaky tests of a log: the
+// list `-only` re-runs (decision narrow-via-run-verify-list-flags).
+func rvlVisualFailures(log []byte) []string {
+	return rvlSummaryBlocks(log, "failed", "interrupted", "flaky")
+}
+
 // rvlKeepFailures writes the failures a failing visual run's log names to
 // <keep>/visual-failing.txt, one per line -- an empty file when none parse,
-// so `-only` never re-runs an earlier round's list; with union, the
-// detector's, added to the entries the file already holds -- and prints the file and
+// so `-only` never re-runs an earlier round's list -- and prints the file and
 // the failures grouped as in the change's specs (their path is the path part
 // of a specs token; every failure when specs is nil) or elsewhere (decision
 // untouched-spec-outside-specs-output). A file it cannot write is printed as
 // not written, with the error, and nothing else.
-func rvlKeepFailures(keep string, log []byte, specs []string, union bool, stdout io.Writer) {
+func rvlKeepFailures(keep string, log []byte, specs []string, stdout io.Writer) {
 	file := filepath.Join(keep, "visual-failing.txt")
-	var failures []string
-	if union {
-		b, _ := os.ReadFile(file)
-		failures = strings.Fields(string(b))
-	}
-	for _, f := range rvlVisualFailures(log) {
-		if !slices.Contains(failures, f) {
-			failures = append(failures, f)
-		}
-	}
+	failures := rvlVisualFailures(log)
 	body := ""
 	for _, f := range failures {
 		body += f + "\n"
@@ -1002,45 +994,38 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return p
 	}
 	const usage = "usage: flow-guard run-verify-list <worktree> lint|test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
-	const narrowUsage = "usage: flow-guard run-verify-list [-only <file> | -detect-flaky] <worktree> visual [<canonical-worktree>]"
+	const narrowUsage = "usage: flow-guard run-verify-list -only <file> <worktree> visual [<canonical-worktree>]"
 	const fullUsage = "usage: flow-guard run-verify-list -full <worktree> test|visual [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]"
 	// A narrowing flag re-runs the visual `verify` row alone, narrowed, and
 	// records nothing: no row it ends can stand as the gate (decision
 	// narrow-via-run-verify-list-flags).
 	mode, only, full := "plain", []string(nil), false
-	for len(args) > 0 && (args[0] == "-only" || args[0] == "-detect-flaky" || args[0] == "-full") {
+	for len(args) > 0 && (args[0] == "-only" || args[0] == "-full") {
 		if args[0] == "-full" {
 			full, args = true, args[1:]
 			continue
 		}
-		if mode != "plain" {
-			fmt.Fprintln(stderr, "run-verify-list: pass -only or -detect-flaky, not both")
-			Reason(env, "pass-only-or-detect-flaky")
+		mode = "only"
+		if len(args) < 2 {
+			fmt.Fprintln(stderr, narrowUsage)
+			Reason(env, "usage")
 			return 2
 		}
-		if mode = args[0][1:]; mode == "only" {
-			if len(args) < 2 {
-				fmt.Fprintln(stderr, narrowUsage)
-				Reason(env, "usage")
-				return 2
-			}
-			b, err := os.ReadFile(abs(args[1]))
-			if err != nil {
-				fmt.Fprintf(stderr, "run-verify-list: -only: %v\n", err)
-				Reason(env, "only-list-unreadable")
-				return 2
-			}
-			if only = strings.Fields(string(b)); len(only) == 0 {
-				fmt.Fprintf(stderr, "run-verify-list: -only %s is empty — nothing to re-run\n", args[1])
-				Reason(env, "only-is-empty")
-				return 2
-			}
-			args = args[1:]
+		b, err := os.ReadFile(abs(args[1]))
+		if err != nil {
+			fmt.Fprintf(stderr, "run-verify-list: -only: %v\n", err)
+			Reason(env, "only-list-unreadable")
+			return 2
 		}
-		args = args[1:]
+		if only = strings.Fields(string(b)); len(only) == 0 {
+			fmt.Fprintf(stderr, "run-verify-list: -only %s is empty — nothing to re-run\n", args[1])
+			Reason(env, "only-is-empty")
+			return 2
+		}
+		args = args[2:]
 	}
 	if full && mode != "plain" {
-		fmt.Fprintln(stderr, "run-verify-list: -full runs the whole list — not with -only or -detect-flaky")
+		fmt.Fprintln(stderr, "run-verify-list: -full runs the whole list — not with -only")
 		Reason(env, "full-with-only-refused")
 		return 2
 	}
@@ -1183,7 +1168,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// rawVerify is the `verify` cell, its `<specs>` unfilled; a narrowed run
 	// appends its flag's arguments after the paths it puts there.
-	rawVerify, suffix := "", map[string]string{"only": " --repeat-each 5 --workers 1", "detect-flaky": " --retries=1 --fail-on-flaky-tests"}[mode]
+	rawVerify, suffix := "", map[string]string{"only": " --retries=1"}[mode]
 	if b, err := os.ReadFile(filepath.Join(abs(wt), ".flow", "project.md")); err == nil {
 		rawVerify = vvCells(string(b))["verify"]
 	}
@@ -1483,11 +1468,6 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			return rb
 		}
 		failingFile := filepath.Join(keep, "visual-failing.txt")
-		// The detector re-runs the failing run's own failures; with none
-		// kept it takes the selection, as a plain run does.
-		if b, err := os.ReadFile(failingFile); mode == "detect-flaky" && keep != "" && err == nil {
-			only = strings.Fields(string(b))
-		}
 		if cmd, specs, dir, fallback, nar, ok := rvlVisualVerifyFor(env, abs(wt), unchanged("") && sibSame, full, change, canon, round, stdout); !ok && list == "visual" {
 			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
 		} else if ok && list == "visual" && fallback != "" {
@@ -1626,8 +1606,13 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					} else {
 						os.Remove(dst) // the empty claim
 					}
-					log, _ := os.ReadFile(results[0].out)
-					rvlKeepFailures(keep, log, specTokens, mode == "detect-flaky", stdout)
+					failLog, _ := os.ReadFile(results[0].out)
+					rvlKeepFailures(keep, failLog, specTokens, stdout)
+				}
+				// A retry-pass is flaky, never red (THE NARROWED RUN).
+				log, _ := os.ReadFile(results[0].out)
+				if flaky := rvlSummaryBlocks(log, "flaky"); len(flaky) > 0 {
+					fmt.Fprintf(stdout, "  flaky (%d): %s — passed on retry: fix each at its source\n", len(flaky), strings.Join(flaky, " "))
 				}
 			}
 		}

@@ -29,4 +29,4 @@ func TestCaptureWorkers(t *testing.T) {
 
 // vvpWorkersFlag is the worker flag prepare's shard capture carries on this
 // machine, with its trailing space.
-var vvpWorkersFlag = "--workers=" + strconv.Itoa(captureWorkers(runtime.NumCPU())) + " "
+var vvpWorkersFlag = "--workers=" + strconv.Itoa(captureWorkers(runtime.NumCPU())) + " --retries=1 "

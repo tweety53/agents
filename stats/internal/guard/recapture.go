@@ -24,19 +24,18 @@ import (
 // sorted, each a spec or one test of it, `<spec>:<line>`; <command> is the
 // project's capture command, or its re-baseline command, with `<spec>` where
 // they go. It runs once, through `sh -c` in <capture-root>, with `<spec>`
-// replaced by them space-joined, its output passed through.
+// replaced by them space-joined and followed by ` --retries=1`, its output
+// passed through. A test that passes on its retry is flaky, never failed:
+// the receipt counts it passed and the run prints
+// `recapture: flaky (<n>): <spec>:<line> … — passed on retry: fix each at
+// its source` (kan-1091: one flaky spec in ~680 voided a whole recapture
+// three times).
 //
 // ONLY WHAT HAS NOT PASSED RUNS. A test an earlier receipt of every pair's
 // worktree records as passed on the sources as they stand now -- the same
 // source files of the diff, each at the same blob -- is left out, whether
 // that run took it alone or inside its spec, so a red run is followed by a
-// run of its failing tests alone. When one of the tests left to run failed
-// in an earlier such receipt, ` --repeat-each 5 --workers 1` is appended to
-// the command, as flow-guard run-verify-list -only appends it: a test that
-// failed counts as passed only once it passes five times over at one worker.
-// With nothing left to run nothing runs.
-// ponytail: the flags go on the end of <command>, so a compound command must
-// end in its Playwright call.
+// run of its failing tests alone. With nothing left to run nothing runs.
 //
 // THE RECEIPT is one JSON line appended to `flow-recapture.jsonl` in each
 // source worktree's git directory: what the run took, its exit, the
@@ -48,8 +47,8 @@ import (
 // tracked file.
 //
 // THE FAILED TESTS of a red run are the `<spec>:<line>` entries its
-// Playwright summary names (flow-guard run-verify-list's failed, interrupted
-// and flaky blocks); every other test of the run passed. A red run whose
+// Playwright summary names (flow-guard run-verify-list's failed and
+// interrupted blocks); every other test of the run passed. A red run whose
 // summary names no test, names a file the run did not take, or counts a test
 // that did not run, failed everything it took.
 //
@@ -77,9 +76,9 @@ func rcSpecFile(token string) string {
 // rcLeft is what of token no receipt has passed yet, the receipts oldest
 // first and all on the same sources: token itself until a run takes it --
 // alone or inside its spec -- then the tests that run failed, each until a
-// later run passes it. failed is set once a run failed any of it.
-func rcLeft(token string, receipts []rcReceipt) (left []string, failed bool) {
-	left = []string{token}
+// later run passes it.
+func rcLeft(token string, receipts []rcReceipt) []string {
+	left := []string{token}
 	for _, r := range receipts {
 		var next []string
 		for _, x := range left {
@@ -88,7 +87,7 @@ func rcLeft(token string, receipts []rcReceipt) (left []string, failed bool) {
 				next = append(next, x)
 			case r.Exit == 0:
 			case len(r.Failed) == 0:
-				next, failed = append(next, x), true
+				next = append(next, x)
 			default:
 				for _, f := range r.Failed {
 					if f == x || f == rcSpecFile(x) {
@@ -96,7 +95,7 @@ func rcLeft(token string, receipts []rcReceipt) (left []string, failed bool) {
 					} else if rcSpecFile(f) != x {
 						continue
 					}
-					if failed = true; !slices.Contains(next, f) {
+					if !slices.Contains(next, f) {
 						next = append(next, f)
 					}
 				}
@@ -104,7 +103,7 @@ func rcLeft(token string, receipts []rcReceipt) (left []string, failed bool) {
 		}
 		left = next
 	}
-	return left, failed
+	return left
 }
 
 // rcFile is a worktree's receipt file, "" when git cannot name its directory.
@@ -154,7 +153,7 @@ func rcFailed(log []byte, specs []string) []string {
 	if rcDidNotRun.Match(rvlANSI.ReplaceAll(log, nil)) {
 		return nil
 	}
-	out := rvlVisualFailures(log)
+	out := rvlSummaryBlocks(log, "failed", "interrupted")
 	if slices.ContainsFunc(out, func(e string) bool {
 		return !slices.ContainsFunc(specs, func(s string) bool { return rcSpecFile(s) == rcSpecFile(e) })
 	}) {
@@ -207,17 +206,14 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// ONLY WHAT HAS NOT PASSED RUNS.
 	var specs []string
-	repeat := false
 	for _, s := range all {
 		for _, wt := range order {
 			same := slices.DeleteFunc(rcReceipts(env, wt), func(r rcReceipt) bool { return !maps.Equal(r.Blobs, receipts[wt].Blobs) })
-			left, failed := rcLeft(s, same)
-			for _, l := range left {
+			for _, l := range rcLeft(s, same) {
 				if !slices.Contains(specs, l) {
 					specs = append(specs, l)
 				}
 			}
-			repeat = repeat || (failed && len(left) > 0)
 		}
 	}
 
@@ -229,17 +225,17 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 	case len(specs) == 0:
 		fmt.Fprintf(stdout, "recapture: all %d test selection(s) already passed on these sources — nothing to capture\n", len(all))
 	default:
-		if repeat {
-			command += " --repeat-each 5 --workers 1"
-		}
 		var log bytes.Buffer
-		cmd := exec.Command("sh", "-c", strings.ReplaceAll(command, "<spec>", strings.Join(specs, " ")))
+		cmd := exec.Command("sh", "-c", strings.ReplaceAll(command, "<spec>", strings.Join(specs, " ")+" --retries=1"))
 		cmd.Dir = pcAbs(env, root)
 		cmd.Stdout, cmd.Stderr = io.MultiWriter(stdout, &log), io.MultiWriter(stderr, &log)
 		if rc = exitCode(cmd.Run()); rc != 0 {
 			failed = rcFailed(log.Bytes(), specs)
 		}
 		fmt.Fprintf(stdout, "recapture: %d test selection(s), exit %d\n", len(specs), rc)
+		if flaky := rvlSummaryBlocks(log.Bytes(), "flaky"); len(flaky) > 0 {
+			fmt.Fprintf(stdout, "recapture: flaky (%d): %s — passed on retry: fix each at its source\n", len(flaky), strings.Join(flaky, " "))
+		}
 	}
 	for _, wt := range order {
 		r := receipts[wt]
@@ -290,8 +286,7 @@ func rcCovered(env Env, worktree, captureRoot, sha string, specs []string) bool 
 		return false
 	})
 	return !slices.ContainsFunc(specs, func(s string) bool {
-		left, _ := rcLeft(s, receipts)
-		return len(left) > 0
+		return len(rcLeft(s, receipts)) > 0
 	})
 }
 
@@ -320,7 +315,7 @@ func rcCaptured(env Env, captureRoot string, bases map[string]string) []string {
 		same := slices.DeleteFunc(rcReceipts(env, wt), func(r rcReceipt) bool { return !maps.Equal(r.Blobs, want) })
 		for _, r := range same {
 			for _, s := range r.Specs {
-				if left, _ := rcLeft(s, same); len(left) == 0 && s == rcSpecFile(s) && !slices.Contains(here, s) {
+				if len(rcLeft(s, same)) == 0 && s == rcSpecFile(s) && !slices.Contains(here, s) {
 					here = append(here, s)
 				}
 			}

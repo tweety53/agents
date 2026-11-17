@@ -870,7 +870,7 @@ func TestCloseTaskEnforcesAffectedSpecs(t *testing.T) {
 		t.Fatalf("a covering capture: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
 	}
 	// Both specs are untracked here, so each run's working-tree diff holds them too.
-	if ran, _ := os.ReadFile(fx.wt + "/.git/ran"); string(ran) != strings.Repeat("shots/day.spec.js shots/rooms.spec.js\n", 2) {
+	if ran, _ := os.ReadFile(fx.wt + "/.git/ran"); string(ran) != strings.Repeat("shots/day.spec.js shots/rooms.spec.js --retries=1\n", 2) {
 		t.Errorf("recapture ran %q, want one run of the affected specs per call", ran)
 	}
 }
@@ -960,7 +960,7 @@ func TestCloseTaskTakesTheTaskSet(t *testing.T) {
 	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — shots/rooms.spec.js shots/week.spec.js\n") {
 		t.Fatalf("the failing spec re-run green: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
 	}
-	const want = "shots/rooms.spec.js shots/week.spec.js\nshots/week.spec.js:3 --repeat-each 5 --workers 1\n"
+	const want = "shots/rooms.spec.js shots/week.spec.js --retries=1\nshots/week.spec.js:3 --retries=1\n"
 	if got, _ := os.ReadFile(ran); string(got) != want {
 		t.Errorf("recapture ran %q, want %q", got, want)
 	}

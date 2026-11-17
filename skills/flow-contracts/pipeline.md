@@ -179,7 +179,7 @@ round without progress changes the approach again; none of them stops the run.
 
 **Two consecutive verify rounds whose failures all fall outside the change's specs are a round
 without progress too.** When two narrowed visual re-runs in a row fail only in specs outside the
-`specs` row's output, the next round runs `flow-guard run-verify-list -detect-flaky` and one
+`specs` row's output, the next round takes one
 batched fixer whose prompt opens with `No-progress escalation` and carries every earlier round's
 report (`skills/flow/verify-fix-loop.md`). When the diff touches shared rendering code every spec is
 in that output, so only the same-defect rule above applies.

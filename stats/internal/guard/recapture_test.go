@@ -48,7 +48,7 @@ func TestRecapture(t *testing.T) {
 	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "recapture: 1 test selection(s), exit 0") {
 		t.Errorf("one affected spec: rc=%d out=%q", r.rc, r.out)
 	}
-	if got, _ := os.ReadFile(ran); string(got) != "shots/day.spec.ts\n" {
+	if got, _ := os.ReadFile(ran); string(got) != "shots/day.spec.ts --retries=1\n" {
 		t.Errorf("the command ran with %q, want the day spec alone", got)
 	}
 	if got := receipts(); !strings.Contains(got, `"specs":["shots/day.spec.ts"],"exit":0`) || !strings.Contains(got, `"src/Day.tsx":"`) {
@@ -67,8 +67,8 @@ func TestRecapture(t *testing.T) {
 
 // TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed pins the two halves of
 // the kan-1091 fix: a fixture every spec renders selects the specs the task's
-// Tests name and no other, and a red run is followed by a five-repeat run of
-// its failing test alone, after which nothing is left to run.
+// Tests name and no other, and a red run is followed by one run of its
+// failing test alone, after which nothing is left to run.
 func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
@@ -105,7 +105,7 @@ func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "already passed") {
 		t.Errorf("nothing left: rc=%d out=%q", r.rc, r.out)
 	}
-	const want = "shots/day.spec.ts shots/rooms.spec.ts\nshots/rooms.spec.ts:3 --repeat-each 5 --workers 1\n"
+	const want = "shots/day.spec.ts shots/rooms.spec.ts --retries=1\nshots/rooms.spec.ts:3 --retries=1\n"
 	if got, _ := os.ReadFile(ran); string(got) != want {
 		t.Errorf("the command ran with %q, want %q", got, want)
 	}
@@ -113,8 +113,17 @@ func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 	writeFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 3\n")
 	run("echo <spec> >> " + ran + "; exit 1")
 	run("echo <spec> >> " + ran)
-	if got, _ := os.ReadFile(ran); !strings.HasSuffix(string(got), "shots/day.spec.ts shots/rooms.spec.ts --repeat-each 5 --workers 1\n") {
-		t.Errorf("after an unnamed failure the command ran with %q, want both specs five times over", got)
+	if got, _ := os.ReadFile(ran); !strings.HasSuffix(string(got), "shots/day.spec.ts shots/rooms.spec.ts --retries=1\nshots/day.spec.ts shots/rooms.spec.ts --retries=1\n") {
+		t.Errorf("after an unnamed failure the command ran with %q, want both specs again", got)
+	}
+	// A retry-pass is flaky, never failed: nothing is left to run after it.
+	writeFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 4\n")
+	r := run("printf '  1 flaky\\n    [chromium] › shots/rooms.spec.ts:3:1 › rooms\\n  1 passed\\n'; : <spec>")
+	if r.rc != 0 || !strings.Contains(r.stdout, "recapture: flaky (1): shots/rooms.spec.ts:3 — passed on retry") {
+		t.Errorf("a flaky run: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := run("echo <spec> >> " + ran); !strings.Contains(r.stdout, "already passed") {
+		t.Errorf("after a flaky run: rc=%d out=%q, want nothing left", r.rc, r.out)
 	}
 }
 
@@ -138,7 +147,7 @@ func TestRecaptureLeftIsPerTest(t *testing.T) {
 		{"a.spec.ts:3", []rcReceipt{{Specs: []string{"a.spec.ts"}, Exit: 1}}, "a.spec.ts:3"},
 		{"a.spec.ts:3", []rcReceipt{{Specs: []string{"a.spec.ts"}, Exit: 1, Failed: []string{"a.spec.ts"}}}, "a.spec.ts:3"},
 	} {
-		if left, _ := rcLeft(c.token, c.receipts); strings.Join(left, " ") != c.want {
+		if left := rcLeft(c.token, c.receipts); strings.Join(left, " ") != c.want {
 			t.Errorf("rcLeft(%s, %+v) = %q, want %q", c.token, c.receipts, left, c.want)
 		}
 	}

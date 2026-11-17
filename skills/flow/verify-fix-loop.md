@@ -256,18 +256,18 @@ The clean report of the run that closed the loop is the one the handoff reports.
 
 **A failing visual `verify` row is re-run narrowed, never whole.** When the `## visual verification`
 `verify` row a `test` group ends with fails, its one inline re-run is `flow-guard run-verify-list
--detect-flaky <worktree> visual [<canonical worktree>]`, that run's failures alone run once with
-`--retries=1 --fail-on-flaky-tests`, and one fixer gets the union of both runs' failures in one
-batch, the `visual-failing.txt` file the runs print. Each fix round then re-runs that file alone,
-`flow-guard run-verify-list -only <visual-failing.txt> <worktree> visual [<canonical worktree>]`,
-each entry five times at one worker. Once a narrowed run is green, one plain run of the `test`
+-only <visual-failing.txt> <worktree> visual [<canonical worktree>]`, the `visual-failing.txt` file
+the failing run prints, run once with one retry, and one fixer gets every test that run fails and
+every test it prints as `flaky` in one batch. A flaky test is a failure the fixer fixes at its
+source (`rules/fix-determinism-at-the-source.mdc`), and never a reason to run the selection again.
+Each fix round then re-runs that file the same way. Once a narrowed run is green and prints no
+`flaky` line, one plain run of the `test`
 group under the round's `-fix-<k>` key is the gate, and when it fails the next round narrows to
 its failures. That re-run selects from the round's diff, never the change's, plus the spec file of
-each `visual-failing.txt` entry, and either flag selects as the row it follows did — `flow-guard
+each `visual-failing.txt` entry, and `-only` selects as the row it follows did — `flow-guard
 run-verify-list` reads the round base from the previous verify row itself (THE ROUND'S SELECTION,
-its header canonical). Neither flag records a dispatch row, writes the green cache or stands as the gate.
-The detector's retry only names a flake: a flaky test is a failure the fixer fixes at its source
-(`rules/fix-determinism-at-the-source.mdc`). A plain run is the `specs` row's selection — the
+its header canonical). `-only` records no dispatch row, writes no green cache and never stands as the gate.
+A plain run is the `specs` row's selection — the
 change's tests plus the smoke tail —
 and never the whole suite. A selection naming more than 40 spec files runs the specs the change edits plus that tail, and is never refused (A WIDE SELECTION, `flow-guard run-verify-list`'s header canonical). Each failing run prints its failures in two groups, the
 change's specs and the specs outside the `specs` row's output. Two consecutive rounds whose failures all fall outside it make no progress, and escalate as **Fewest operator actions** states (`skills/flow-contracts/pipeline.md`). A non-visual command keeps its own inline re-run.

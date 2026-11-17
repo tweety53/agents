@@ -45,8 +45,8 @@ reads every number on it as an exit.
    or extended with the spec; `flow-guard affected-specs`'s header is canonical for its lines. Run
    `capture` with `<spec>` substituted for the spec's path. **One `capture` run takes every capture
    spec of the pass**, less every spec the bundle names on a `captured:` line, their paths space-joined for `<spec>`, with
-   `--workers=$(flow-guard capture-workers)` before `--update-snapshots=all` — never one run per
-   spec. A project's page limit for ad-hoc probes does not bind the capture suite. A capture whose
+   `--workers=$(flow-guard capture-workers) --retries=1` before `--update-snapshots=all` — never one run per
+   spec. A test that passes on its retry is flaky: its capture stands, the report names it as a defect fixed at its source, and the capture is never run again for it. A project's page limit for ad-hoc probes does not bind the capture suite. A capture whose
    PNG differs between that count and `--workers=1` is nondeterministic, and is fixed at its source
    (`rules/fix-determinism-at-the-source.mdc`), never tolerated. **Every capture asserts the view is on
    screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the

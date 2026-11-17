@@ -1474,7 +1474,7 @@ func TestRunVerifyListOnlyRunsTheFailingList(t *testing.T) {
 	writeFile(t, list, "fidelity/b.spec.ts:8\ntests/c.spec.ts:4\n")
 	rc, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
 	got, _ := os.ReadFile(argv)
-	if want := "fidelity/b.spec.ts:8 tests/c.spec.ts:4 --repeat-each 5 --workers 1\n"; rc != 0 || string(got) != want {
+	if want := "fidelity/b.spec.ts:8 tests/c.spec.ts:4 --retries=1\n"; rc != 0 || string(got) != want {
 		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
 	}
 	for _, f := range []string{"flow-test-green", "flow-test-green-cmds"} {
@@ -1494,7 +1494,7 @@ func TestRunVerifyListOnlyGroupsFailuresByTheChangeSpecs(t *testing.T) {
 	writeFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\n")
 	_, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
 	got, _ := os.ReadFile(argv)
-	if want := "fidelity/a.spec.ts:20 tests/c.spec.ts:4 --repeat-each 5 --workers 1\n"; string(got) != want {
+	if want := "fidelity/a.spec.ts:20 tests/c.spec.ts:4 --retries=1\n"; string(got) != want {
 		t.Errorf("argv %q, want %q\n%s", got, want, out)
 	}
 	for _, want := range []string{"  failing in the change's specs (1): fidelity/a.spec.ts:20\n", "  failing elsewhere (1): tests/c.spec.ts:4\n"} {
@@ -1516,29 +1516,36 @@ func TestRvlNextRoundIsNumericAndClaimsTheRound(t *testing.T) {
 	}
 }
 
-// TestRunVerifyListDetectFlakyRunsTheFailingListAlone: the detector re-runs
-// the tests the failing run named, never the selection that run took (kan-1091:
-// a 44-minute list re-run whole, 37 minutes, for the same 12 failures), and
-// the selection only when no failing list was kept.
-func TestRunVerifyListDetectFlakyRunsTheFailingListAlone(t *testing.T) {
+// TestRunVerifyListOnlyReportsARetryPassAsFlaky pins the collapsed
+// failing-run protocol (kan-1091: plain 40 minutes, a detector 36, a
+// five-repeat 49): the failing list runs once with one retry, a test that
+// passes on it is reported flaky and never fails the run, and a test that
+// fails twice still does.
+func TestRunVerifyListOnlyReportsARetryPassAsFlaky(t *testing.T) {
 	t.Parallel()
-	wt, argv, _ := rvlNarrowFixture(t, "  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 1)
+	wt, argv, _ := rvlNarrowFixture(t, "  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 0)
 	list := rvlFailingList(t, wt)
-	writeFile(t, list, "tests/c.spec.ts:4\n")
-	rc, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
+	writeFile(t, list, "fidelity/a.spec.ts:20\n")
+	rc, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
 	got, _ := os.ReadFile(argv)
-	if want := "tests/c.spec.ts:4 --retries=1 --fail-on-flaky-tests\n"; rc != 1 || string(got) != want {
-		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+	if want := "fidelity/a.spec.ts:20 --retries=1\n"; rc != 0 || string(got) != want {
+		t.Errorf("exit %d, argv %q, want 0 and %q\n%s", rc, got, want, out)
+	}
+	if !strings.Contains(out, "  flaky (1): fidelity/a.spec.ts:20 — passed on retry: fix each at its source\n") {
+		t.Errorf("the retry-pass is not reported flaky:\n%s", out)
+	}
+	if b, _ := os.ReadFile(list); string(b) != "fidelity/a.spec.ts:20\n" {
+		t.Errorf("a flaky-only run left %q in the failing list, want its entry kept for the fixer", b)
+	}
+	wt, _, _ = rvlNarrowFixture(t, "  1 failed\n    [fidelity] › tests/c.spec.ts:4:3 › c\n  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 1)
+	list = rvlFailingList(t, wt)
+	writeFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\ntests/d.spec.ts:9\n")
+	rc, out = rvlRunIn(t, wt, "", "-only", list, wt, "visual")
+	if rc != 1 || !strings.Contains(out, "  flaky (1): fidelity/a.spec.ts:20 — ") {
+		t.Errorf("a twice-failed test beside a flaky one: exit %d, want 1 and the flaky line\n%s", rc, out)
 	}
 	if b, _ := os.ReadFile(list); string(b) != "tests/c.spec.ts:4\nfidelity/a.spec.ts:20\n" {
-		t.Errorf("the detector left %q, want the union\n%s", b, out)
-	}
-	if err := os.Remove(list); err != nil {
-		t.Fatal(err)
-	}
-	rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
-	if got, _ := os.ReadFile(argv); string(got) != "fidelity/a.spec.ts --retries=1 --fail-on-flaky-tests\n" {
-		t.Errorf("with no failing list kept: argv %q, want the selection", got)
+		t.Errorf("the red run left %q, want what is still to fix", b)
 	}
 }
 
@@ -1557,11 +1564,11 @@ func TestRunVerifyListNarrowedRunRefusals(t *testing.T) {
 	}{
 		{"-only with a missing file", missing, []string{"-only", missing, wt, "visual"}},
 		{"-only with an empty file", "is empty", []string{"-only", empty, wt, "visual"}},
-		{"a verify cell with no <specs>", "echo whole", []string{"-detect-flaky", noSpecs, "visual"}},
-		{"both flags", "not both", []string{"-only", full, "-detect-flaky", wt, "visual"}},
-		{"a flag with the test list", "usage", []string{"-detect-flaky", wt, "test"}},
-		{"a flag with the lint list", "usage", []string{"-detect-flaky", wt, "lint"}},
-		{"a flag with recording arguments", "usage", []string{"-detect-flaky", wt, "visual", "kan-1", "verify", "tok", "opus", "low"}},
+		{"a verify cell with no <specs>", "echo whole", []string{"-only", full, noSpecs, "visual"}},
+		{"the retired detector flag", "usage", []string{"-detect-flaky", wt, "visual"}},
+		{"-only with the test list", "usage", []string{"-only", full, wt, "test"}},
+		{"-only with the lint list", "usage", []string{"-only", full, wt, "lint"}},
+		{"-only with recording arguments", "usage", []string{"-only", full, wt, "visual", "kan-1", "verify", "tok", "opus", "low"}},
 	} {
 		rc, out := rvlRunIn(t, wt, "", tc.args...)
 		_, a := os.Stat(argv)
@@ -1580,10 +1587,12 @@ func TestRunVerifyListKeepsEveryVisualRound(t *testing.T) {
 	wt, _ := rvlVisualSetup(t, verify, "web/src/a.tsx", "", "", false, false, false)
 	keep := filepath.Dir(rvlFailingList(t, wt))
 	rvlRunIn(t, wt, "", wt, "visual")
-	_, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
+	only := filepath.Join(t.TempDir(), "only")
+	writeFile(t, only, "tests/c.spec.ts:4\n")
+	_, out := rvlRunIn(t, wt, "", "-only", only, wt, "visual")
 	for f, want := range map[string]string{
 		"visual-plain-r1.log":             "",
-		"visual-detect-flaky-r2.log":      "",
+		"visual-only-r2.log":              "",
 		"visual-results-r1/shot-diff.png": "1\n",
 		"visual-results-r2/shot-diff.png": "2\n",
 	} {
@@ -1596,7 +1605,7 @@ func TestRunVerifyListKeepsEveryVisualRound(t *testing.T) {
 		t.Errorf("output does not name the kept results:\n%s", out)
 	}
 	rvlRunIn(t, wt, "", wt, "visual")
-	for _, f := range []string{"visual-plain-r1.log", "visual-detect-flaky-r2.log", "visual-plain-r3.log", "visual-results-r1", "visual-results-r2", "visual-results-r3"} {
+	for _, f := range []string{"visual-plain-r1.log", "visual-only-r2.log", "visual-plain-r3.log", "visual-results-r1", "visual-results-r2", "visual-results-r3"} {
 		if _, err := os.Stat(filepath.Join(keep, f)); err != nil {
 			t.Errorf("a third run left no %s: %v", f, err)
 		}
@@ -1703,12 +1712,14 @@ func TestRunVerifyListReadsTheRecordFromTheCanonicalWorktree(t *testing.T) {
 	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "web/src/a.tsx", "", "echo <merge-base>", false, false, false)
 	rvlGit(t, wt, "branch", "-m", "spectre/demo")
 	canon := t.TempDir()
+	only := filepath.Join(t.TempDir(), "only")
+	writeFile(t, only, "tests/c.spec.ts:4\n")
 	for _, tc := range []struct {
 		want string
 		args []string
 	}{
 		{"state get -C " + canon + " kan-9\n", []string{wt, "visual", "kan-9", "verify", "mf-t", "opus", "low", canon}},
-		{"state get -C " + canon + " demo\n", []string{"-detect-flaky", wt, "visual", canon}},
+		{"state get -C " + canon + " demo\n", []string{"-only", only, wt, "visual", canon}},
 		{"state get -C " + wt + " demo\n", []string{wt, "visual"}},
 	} {
 		stub, log := rvlFlowStub(t, "{}", 0)
@@ -1776,7 +1787,6 @@ func TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns(t *testing.T) {
 		{[]string{wt, "visual"}, true},
 		{[]string{wt, "test"}, true},
 		{[]string{"-only", list, wt, "visual"}, false},
-		{[]string{"-detect-flaky", wt, "visual"}, false},
 	} {
 		stub, log := rvlFlowStub(t, "{}", 0)
 		rc, out := rvlRunIn(t, wt, stub, tc.args...)
@@ -2008,7 +2018,6 @@ func TestRunVerifyListFullUsage(t *testing.T) {
 	for _, args := range [][]string{
 		{"-full", repo, "lint"},
 		{"-full", "-only", filepath.Join(repo, "only.txt"), repo, "visual"},
-		{"-detect-flaky", "-full", repo, "visual"},
 		{"-full"},
 	} {
 		var out, errb bytes.Buffer
@@ -2103,7 +2112,6 @@ func TestRunVerifyListNarrowsAWideSelection(t *testing.T) {
 	}{
 		{"tests/s7.spec.ts:3 tests/smoke.spec.ts:1\n", []string{wt, "visual"}},
 		{"tests/s7.spec.ts:3 tests/smoke.spec.ts:1\n", []string{wt, "test"}},
-		{"tests/s7.spec.ts:3 tests/smoke.spec.ts:1 --retries=1 --fail-on-flaky-tests\n", []string{"-detect-flaky", wt, "visual"}},
 	} {
 		os.Remove(argv)
 		rc, out := rvlRunIn(t, wt, "", tc.args...)
@@ -2121,7 +2129,7 @@ func TestRunVerifyListNarrowsAWideSelection(t *testing.T) {
 	if rc, out := rvlRunIn(t, wt, "", "-only", only, wt, "visual"); rc != 0 || strings.Contains(out, "narrowed") {
 		t.Errorf("-only: exit %d, want 0 and no narrowing:\n%.600s", rc, out)
 	}
-	if got, _ := os.ReadFile(argv); !strings.Contains(string(got), "tests/s499.spec.ts:3 --repeat-each 5") {
+	if got, _ := os.ReadFile(argv); !strings.Contains(string(got), "tests/s499.spec.ts:3 --retries=1") {
 		t.Errorf("-only ran %.200q, want all 500 entries", got)
 	}
 	wt, argv = rvlWideFixture(t, 39) // 39 files and the tail's: 40, not over
@@ -2146,16 +2154,6 @@ func TestRunVerifyListWideSelectionWithNothingOfItsOwnRunsTheSmokeSet(t *testing
 	}
 }
 
-// TestRunVerifyListDetectFlakyFallsBackToSmoke: the detector never runs the
-// row with `<specs>` empty either (THE SMOKE FALLBACK).
-func TestRunVerifyListDetectFlakyFallsBackToSmoke(t *testing.T) {
-	t.Parallel()
-	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "", false, false, false)
-	if rc, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL-RAN [--grep @smoke --retries=1 --fail-on-flaky-tests]") {
-		t.Errorf("exit %d, want 0 and the smoke set under the detector's flags:\n%s", rc, out)
-	}
-}
-
 // rvlRoundFixture is a worktree whose change touches a theme file, so the
 // `specs` row maps every spec from the kickoff base, and whose fix round then
 // touches screen b alone. The `verify` row writes its arguments to argv and
@@ -2163,7 +2161,7 @@ func TestRunVerifyListDetectFlakyFallsBackToSmoke(t *testing.T) {
 func rvlRoundFixture(t *testing.T, rc int) (wt, argv, h1 string) {
 	t.Helper()
 	argv = filepath.Join(t.TempDir(), "argv")
-	verify := rvlScript(t, "echo \"$*\" > "+argv+"\nexit "+strconv.Itoa(rc)+"\n") + " <specs>"
+	verify := rvlScript(t, "echo \"$*\" > "+argv+"\ncat "+argv+".summary 2>/dev/null\nexit "+strconv.Itoa(rc)+"\n") + " <specs>"
 	specs := rvlScript(t, `for f in $(git -C "$1" diff --name-only "$2"); do case $f in
 web/src/theme.css) echo a.spec.ts; echo b.spec.ts; echo c.spec.ts;;
 web/src/*.tsx) f=${f##*/}; echo "${f%.tsx}.spec.ts";;
@@ -2229,20 +2227,23 @@ func TestRunVerifyListReRunCoversTheFailingList(t *testing.T) {
 	}
 }
 
-// TestRunVerifyListDetectFlakySelectsAsTheFailingRowDid: the detector carries
-// no key, so it selects as the newest verify row did -- from the kickoff base
-// after a first verify, from the round base after a re-run.
-func TestRunVerifyListDetectFlakySelectsAsTheFailingRowDid(t *testing.T) {
+// TestRunVerifyListOnlyGroupsAsTheFailingRowDid: -only carries no key, so
+// its `specs` row selects as the newest verify row did -- from the kickoff
+// base after a first verify, from the round base after a re-run.
+func TestRunVerifyListOnlyGroupsAsTheFailingRowDid(t *testing.T) {
 	t.Parallel()
-	wt, argv, h1 := rvlRoundFixture(t, 0)
+	wt, argv, h1 := rvlRoundFixture(t, 1)
 	head := rvlGit(t, wt, "rev-parse", "HEAD")
+	writeFile(t, argv+".summary", "  1 failed\n    [p] › a.spec.ts:1:1 › a\n")
+	only := filepath.Join(t.TempDir(), "only")
+	writeFile(t, only, "a.spec.ts:1\n")
 	for want, rows := range map[string]func(string) ([]byte, error){
-		"a.spec.ts b.spec.ts c.spec.ts --retries=1 --fail-on-flaky-tests\n": rvlRows(t, "verify", head),
-		"b.spec.ts --retries=1 --fail-on-flaky-tests\n":                     rvlRows(t, "verify", h1, "verify-fix-1", head),
+		"  failing in the change's specs (1): a.spec.ts:1\n": rvlRows(t, "verify", head),
+		"  failing elsewhere (1): a.spec.ts:1\n":             rvlRows(t, "verify", h1, "verify-fix-1", head),
 	} {
-		rc, out := rvlRunRows(t, wt, "", nil, rows, "-detect-flaky", wt, "visual")
-		if got, _ := os.ReadFile(argv); rc != 0 || string(got) != want {
-			t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+		rc, out := rvlRunRows(t, wt, "", nil, rows, "-only", only, wt, "visual")
+		if rc != 1 || !strings.Contains(out, want) {
+			t.Errorf("exit %d, want 1 and %q\n%s", rc, want, out)
 		}
 	}
 }

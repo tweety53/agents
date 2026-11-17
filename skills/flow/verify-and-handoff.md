@@ -142,7 +142,7 @@ targeted tests and nothing wider: a targeting that is empty or fails falls back 
 never to a whole suite, and no whole-suite command is typed by hand in its place.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
-inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the flake detector of **Narrowed visual re-runs**
+inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the narrowed run of **Narrowed visual re-runs**
 (`skills/flow/verify-fix-loop.md`). Output carrying `WARNING: DATA RACE`
 or `race detected during execution of test` is never that case: the command takes **The loop**
 whatever its re-run exits, since a race that passes once is still a race
