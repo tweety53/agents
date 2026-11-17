@@ -100,6 +100,20 @@ func TestCheckVerifyGreenJudgesEachWorktree(t *testing.T) {
 	}
 }
 
+// TestCheckVerifyGreenIgnoresAStaleBareRow: a blocked bare `verify-fix-5` row from an
+// earlier attempt is superseded by newer suffixed re-runs (kan-1099).
+func TestCheckVerifyGreenIgnoresAStaleBareRow(t *testing.T) {
+	t.Parallel()
+	wa, a := vgRepo(t)
+	stale := `{"key":"verify-fix-5","role":"verifier","sessionToken":"mf-tok","outcome":"blocked","diffBase":"` + a + `"}`
+	if rc, out := vgRun(t, "["+stale+","+vgRow("verify-fix-6-a", a)+"]", wa, "demo", "mf-tok"); rc != 0 {
+		t.Fatalf("stale bare row: exit %d\n%s", rc, out)
+	}
+	if rc, out := vgRun(t, "["+vgRow("verify-fix-6-a", a)+","+stale+"]", wa, "demo", "mf-tok"); rc != 1 {
+		t.Fatalf("a newer bare blocked row still blocks: exit %d\n%s", rc, out)
+	}
+}
+
 // smoke: core — the gate that reads a verify row as green
 func TestCheckVerifyGreen(t *testing.T) {
 	t.Parallel()

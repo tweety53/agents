@@ -6,6 +6,7 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -119,6 +120,17 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 			groups = append(groups, g)
 		}
 		latest[g] = i
+	}
+	// A bare `verify` group older than every suffixed one is a single-worktree
+	// leftover of an earlier attempt, superseded by the suffixed re-runs.
+	if b, ok := latest["verify"]; ok {
+		for g, i := range latest {
+			if g != "verify" && i > b {
+				delete(latest, "verify")
+				groups = slices.DeleteFunc(groups, func(x string) bool { return x == "verify" })
+				break
+			}
+		}
 	}
 	seen := len(groups)
 	git := envGit(env)
