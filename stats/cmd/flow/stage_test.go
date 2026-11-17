@@ -1895,6 +1895,15 @@ func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
 	if code, stderr, reached := end(append(multi[:len(multi):len(multi)], dispatch("verify-3-a", "completed", "10:45")), "completed"); code != 0 || !reached {
 		t.Fatalf("completed verify-3-a newest for a: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
 	}
+	// A blocked bare verify-fix-5 older than the suffixed re-runs is superseded by them.
+	stray := []string{
+		dispatch("verify-fix-5", "blocked", "09:00"),
+		dispatch("verify-fix-6-a", "completed", "10:00"),
+		dispatch("verify-fix-6-b", "completed", "10:05"),
+	}
+	if code, stderr, reached := end(stray, "completed"); code != 0 || !reached {
+		t.Fatalf("stale bare blocked row under newer suffixed rows: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
+	}
 }
 
 // TestStageEndFlowVerifyCountsAVerifyFixRerun pins kan-1117 self-review F5:

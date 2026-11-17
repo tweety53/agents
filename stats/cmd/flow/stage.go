@@ -745,6 +745,16 @@ func gateVerifyNotBlocked(ctx context.Context, f stageIdentityFlags, outcome str
 			newest[repo] = &run.Dispatches[i]
 		}
 	}
+	// A bare-key row older than every suffixed one is a single-worktree leftover
+	// of an earlier attempt, superseded by the suffixed re-runs (kan-1099).
+	if bare := newest[""]; bare != nil {
+		for repo, d := range newest {
+			if repo != "" && d.StartedAt.After(bare.StartedAt) {
+				delete(newest, "")
+				break
+			}
+		}
+	}
 	for _, d := range newest {
 		if d.Outcome == "blocked" {
 			fmt.Fprintf(stderr, "flow: stage end refused: the newest verify dispatch %s ended blocked -- end flow.verify -outcome blocked and verify again in a new attempt\n", d.Key)
