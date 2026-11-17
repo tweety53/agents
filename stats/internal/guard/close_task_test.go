@@ -526,18 +526,19 @@ func TestCloseTaskPrintsUnrecordedLinesInKeyOrder(t *testing.T) {
 
 // kan-1008's self-review: a recorded worktree the commit map leaves out
 // joins the verdict through its newest commit carrying the task's trailer,
-// so a commit there touching an undeclared path is refused; a worktree with
-// no such commit adds nothing.
+// so a commit there touching an undeclared path is judged -- its path joins
+// **Files:** and fires the review gate; a worktree with no such commit adds
+// nothing.
 func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, peerFile, peerTask string
-		rc                       int
+		fires                    bool
 	}{
-		{"a peer commit outside Files is refused", "z.txt", "1", 1},
-		{"a peer commit inside Files passes", "a.txt", "1", 0},
-		{"a peer commit of another task adds nothing", "z.txt", "2", 0},
+		{"a peer commit outside Files fires the gate", "z.txt", "1", true},
+		{"a peer commit inside Files passes", "a.txt", "1", false},
+		{"a peer commit of another task adds nothing", "z.txt", "2", false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -547,15 +548,15 @@ func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
 			fx.commit(t, fx.peer, "one", c.peerTask, c.peerFile, "p\n")
 			s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
 			r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-			if r.rc != c.rc {
-				t.Fatalf("exit %d, want %d\n%s", r.rc, c.rc, r.out)
+			if r.rc != 0 {
+				t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 			}
 			joined := strings.Contains(r.err, "close-task: task 1: joined "+fx.peer+"=")
 			if joined != (c.peerTask == "1") {
 				t.Errorf("joined line present = %v, want %v\n%s", joined, c.peerTask == "1", r.out)
 			}
-			if c.rc == 1 && !strings.Contains(r.stdout, "z.txt") {
-				t.Errorf("want the refusal to name z.txt\n%s", r.out)
+			if fired := strings.Contains(r.stdout, "FIRE: task 1 — undeclared paths: z.txt\n"); fired != c.fires {
+				t.Errorf("gate fired on z.txt = %v, want %v\n%s", fired, c.fires, r.out)
 			}
 		})
 	}
@@ -1100,18 +1101,49 @@ func TestCloseTaskResolvesABareTaskID(t *testing.T) {
 	})
 }
 
-// kan-1058 self-review, F8: a fields refusal naming undeclared paths ends on
-// the ready `flow tasks files … add` line for them.
-func TestCloseTaskPrintsAFilesAddLine(t *testing.T) {
+// TestCloseTaskDerivesFilesFromTheCommit pins the kan-1089/1091/1099 fix
+// (check-task-commit-fields red on 458 of 776 calls, each a refusal, a
+// `flow tasks files` call and a second close): a commit whose only
+// violations are **Files:** ones has the field corrected by close-task
+// itself -- undeclared paths added, untouched declared paths removed -- and
+// closes, the added paths still firing the review gate. Any other violation
+// beside them refuses as before, the field untouched.
+func TestCloseTaskDerivesFilesFromTheCommit(t *testing.T) {
 	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n", "e.txt", "e\n", "f.txt", "f\n")
-	r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-	if r.rc != 1 {
-		t.Fatalf("exit %d, want 1\n%s", r.rc, r.out)
-	}
-	want := "flow tasks files -C " + fx.wt + " demo 1 add e.txt f.txt"
-	if !slices.Contains(strings.Split(r.stdout, "\n"), want) {
-		t.Errorf("stdout lacks the line %q:\n%s", want, r.stdout)
-	}
+	t.Run("undeclared paths are added and fire the gate", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n", "e.txt", "e\n", "f.txt", "f\n")
+		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
+		if r.rc == 1 || !strings.Contains(r.stdout, "close-task: task 1: Files derived from the commit — added e.txt f.txt\n") || !strings.Contains(r.stdout, "FIRE: task 1") {
+			t.Fatalf("exit %d, want no refusal, the derived line and a fired gate\n%s\n%s", r.rc, r.stdout, r.err)
+		}
+		if calls := fx.calls(t); len(calls) == 0 || calls[0] != "flow tasks files -C "+fx.wt+" demo 1 add e.txt f.txt" {
+			t.Errorf("calls %q, want the add first", calls)
+		}
+	})
+	t.Run("an untouched declared path is removed", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `b.txt`", "**Files:** `b.txt`, `g.txt`", 1))
+		s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
+		r := fx.run(fx.wt, "demo", fx.base, "2:"+s2)
+		if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 2: Files derived from the commit — removed g.txt\n") || !strings.Contains(r.stdout, "QUIET: task 2") {
+			t.Fatalf("exit %d, want 0, the derived line and a quiet gate\n%s\n%s", r.rc, r.stdout, r.err)
+		}
+		if calls := fx.calls(t); len(calls) == 0 || calls[0] != "flow tasks files -C "+fx.wt+" demo 2 remove g.txt" {
+			t.Errorf("calls %q, want the remove first", calls)
+		}
+	})
+	t.Run("another violation beside them refuses", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0", "0")
+		s1 := fx.commit(t, fx.wt, "not the subject", "1", "a.txt", "a\n", "e.txt", "e\n")
+		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
+		// kan-1058 self-review, F8: the refusal still ends on the ready line.
+		if want := "flow tasks files -C " + fx.wt + " demo 1 add e.txt"; r.rc != 1 || !slices.Contains(strings.Split(r.stdout, "\n"), want) || strings.Contains(r.stdout, "Files derived") {
+			t.Fatalf("exit %d, want 1 and the line %q\n%s\n%s", r.rc, want, r.stdout, r.err)
+		}
+		ctEqual(t, fx.calls(t), nil)
+	})
 }

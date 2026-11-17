@@ -782,14 +782,14 @@ disagree silently with what the run did. The implementer never edits `<project>/
 `correction:` line of its summary head, the exact field and its corrected value, and the parent transcribes it into the record before the guard runs
 on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is the
 one correction whose disclosure has a mechanical record: `flow-guard check-task-commit-fields` runs
-against the record as it stood, refuses the commit, and names every undeclared path, ending on one ready `flow tasks files … add` line per task; the parent
-judges the deviation legitimate or not on exactly that refusal, and only a legitimate one is
-transcribed and the guard re-run green. The parent transcribes a widening with
+against the record as it stood, refuses the commit, and names every undeclared path, ending on one ready `flow tasks files … add` line per task.
+`flow-guard close-task` transcribes them itself when the verdict holds `**Files:**` lines and no other, printing `Files derived from the commit` — a widening with
 `flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing — a declared path
-the commit legitimately leaves untouched — with
+the commit leaves untouched — with
 `flow tasks files -C <worktree> <change> <id> remove <path>…`, each editing that one task's
-`**Files:**` field, never with a hand `sed` over `tasks.md`. The review gate's undeclared-path arm reads the paths the
-refusal named, so the disclosure cannot disarm the gate. This is expected practice
+`**Files:**` field, never with a hand `sed` over `tasks.md` — and refuses as before when any other violation stands beside them; the parent
+judges the deviation legitimate or not on that line and the gate it fires. The review gate's undeclared-path arm reads the paths
+`close-task` added, so the correction cannot disarm the gate. This is expected practice
 on every task, not one implementer's habit.
 
 **A deviation from the plan records as a dated `Correction:` paragraph.** When a task's commit

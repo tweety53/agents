@@ -50,7 +50,10 @@ implements**, `skills/flow/implement.md`).
 > `git -C <abs-worktree> reset --soft HEAD~1`, re-stage through `flow-guard stage-task-files` and
 > recommit with the task's declared `**Commit:**` subject and `Task-Id: <n>` trailer, until both
 > exit 0: the parent's `flow-guard close-task` runs them again, and a refusal there costs a
-> recommit dispatch. An exit 2 is reported, never worked around.
+> recommit dispatch. A `check-task-commit-fields` exit 1 whose every line names `Files:` — a path
+> the commit needed beyond it, or a declared path the task had no reason to touch — needs no
+> recommit: name each such path on an `undeclared:` or `correction:` line of your summary head,
+> and `close-task` corrects the field from your commit. An exit 2 is reported, never worked around.
 
 **A `Build: red` task is dispatched with its `Squash-with:` partner, in one bundle.** The
 implementer runs the red task first — writes its tests, runs them, and reports the failing

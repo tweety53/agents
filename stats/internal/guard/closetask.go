@@ -58,6 +58,18 @@ import (
 //      <name> for every task, and its commit's — every map pair's — Task-Id:
 //      trailer must name the task or a task its Build: red fold joins (exit 1
 //      otherwise): the trailer is how a task's commit is found again.
+//      A fields verdict (exit 1) whose every line is a **Files:** one -- an
+//      undeclared path, or a declared path the commit does not touch -- is
+//      corrected, not refused (kan-1089/1091/1099: the fields guard was red
+//      on 458 of 776 calls, each a refusal, a `flow tasks files` call and a
+//      second close): per task, `flow tasks files -C <canonical> <name> <id>
+//      add <undeclared>…` and `… remove <untouched>…`, then
+//      `close-task: task <id>: Files derived from the commit — added <path>…;
+//      removed <path>…` on stdout. The added paths join that task's
+//      -undeclared paths, so step 5's gate fires on them, and
+//      flow-guard check-plan-shape runs again on the edited plan. Any other
+//      violation beside them, or a failed `flow tasks files` call, leaves
+//      the verdict a refusal.
 //      A commit — any map pair's — whose diff-tree lists a path named
 //      full-app-suite.zip has that zip rebuilt in its worktree by
 //      flow-guard rebuild-full-app-suite-zip, the zip's directory as <screenshots
@@ -256,8 +268,23 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	if tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical); tasksMD != "" {
 		worst = max(worst, Registry["check-plan-shape"]([]string{tasksMD}, env, stdout, stderr))
 	}
+	derived := false
 	for _, t := range tasks {
-		worst = max(worst, Registry["check-task-commit-fields"]([]string{canonical, t.id, t.commit, "", canonical, name}, env, stdout, stderr))
+		// The fields guard answers into a buffer and its own collector: a
+		// verdict of **Files:** violations alone is corrected, not refused.
+		var fields bytes.Buffer
+		probe := env
+		probe.Reasons = &Reasons{}
+		rc := Registry["check-task-commit-fields"]([]string{canonical, t.id, t.commit, "", canonical, name}, probe, &fields, stderr)
+		if rc == 1 && ctDeriveFiles(env, stdout, stderr, canonical, name, fields.String(), undeclared) {
+			rc, derived = 0, true
+		} else {
+			io.WriteString(stdout, fields.String())
+			for _, id := range probe.Reasons.IDs() {
+				Reason(env, id)
+			}
+		}
+		worst = max(worst, rc)
 		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
 		var others []string
 		for _, o := range tasks {
@@ -266,6 +293,11 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 			}
 		}
 		worst = max(worst, ctCheckSuiteZips(env, stderr, canonical, t.id, t.commit, others))
+	}
+	// A derived **Files:** is a plan edit like any widening: the plan guard
+	// reads it again.
+	if tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical); derived && tasksMD != "" {
+		worst = max(worst, Registry["check-plan-shape"]([]string{tasksMD}, env, stdout, stderr))
 	}
 	worst = max(worst, Registry["check-task-commit-planning-paths"]([]string{canonical, mergeBase}, env, stdout, stderr))
 	// The push below sends every commit origin lacks: one outside every task
@@ -446,6 +478,54 @@ func ctNewestClass(env Env, name, canonical string) string {
 		return ""
 	}
 	return c
+}
+
+// ctUntouchedRE matches the declared-but-untouched violation, capturing the
+// task id and the path.
+var ctUntouchedRE = regexp.MustCompile(`^task (\S+): file (.+) is declared in Files: but the commit does not touch it$`)
+
+// ctDeriveFiles corrects **Files:** from the commit when out, a
+// check-task-commit-fields verdict's stdout, holds **Files:** violations and
+// no other: per task, `flow tasks files … add` of the undeclared paths, which
+// join undeclared for the review gate, and `… remove` of the untouched ones.
+// False, the field as far as it got, when another violation stands beside
+// them or a call fails.
+func ctDeriveFiles(env Env, stdout, stderr io.Writer, canonical, name, out string, undeclared map[string][]string) bool {
+	var ids []string
+	add, remove := map[string][]string{}, map[string][]string{}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		m, into := tcfUndeclaredRE.FindStringSubmatch(line), add
+		if m == nil {
+			m, into = ctUntouchedRE.FindStringSubmatch(line), remove
+		}
+		switch {
+		case m != nil:
+			if add[m[1]] == nil && remove[m[1]] == nil {
+				ids = append(ids, m[1])
+			}
+			into[m[1]] = append(into[m[1]], m[2])
+		case !strings.HasPrefix(line, "flow tasks files "):
+			return false
+		}
+	}
+	for _, id := range ids {
+		var did []string
+		for _, e := range []struct {
+			verb, past string
+			paths      []string
+		}{{"add", "added", add[id]}, {"remove", "removed", remove[id]}} {
+			if len(e.paths) == 0 {
+				continue
+			}
+			if ctFlow(env, io.Discard, stderr, append([]string{"tasks", "files", "-C", canonical, name, id, e.verb}, e.paths...)...) != 0 {
+				return false
+			}
+			did = append(did, e.past+" "+strings.Join(e.paths, " "))
+		}
+		undeclared[id] = append(undeclared[id], add[id]...)
+		fmt.Fprintf(stdout, "close-task: task %s: Files derived from the commit — %s\n", id, strings.Join(did, "; "))
+	}
+	return len(ids) > 0
 }
 
 // ctFlow runs the flow CLI from env's PATH, its output relayed; non-zero
