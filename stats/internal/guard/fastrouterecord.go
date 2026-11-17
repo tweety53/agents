@@ -3,6 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -32,7 +34,10 @@ import (
 // body with no attribution trailer (`Co-Authored-By:`), no AI attribution
 // banner — a `Generated with [<tool>](<url>)` line, optional 🤖 prefix, the
 // copied-in footer's own shape, so prose that merely opens with "Generated
-// with" reads clean — and no `Task-Id:` trailer. A merge commit is judged
+// with" reads clean — and no `Task-Id:` trailer, save one naming a task of
+// the run's own plan, <worktree>/.superpowers/sdd/<branch>/tasks.md, which an
+// `sdd` run's implementers commit under (kan-1131: the guard refused every
+// task commit of a decided `sdd` run). A merge commit is judged
 // like any other: the fast route's series is linear by construction, so one
 // on the branch is exactly the mislabelled commit this guard exists to
 // catch.
@@ -104,6 +109,14 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 	if !ok {
 		return die("cannot-list-head", "cannot list %s..HEAD", mergeBase)
 	}
+	planTasks := map[string]bool{}
+	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers/sdd", branch, "tasks.md")); err == nil && branch != "" {
+		if plan, err := tcfPlanLines(raw); err == nil {
+			for _, id := range tcfTaskIDs(plan) {
+				planTasks[id] = true
+			}
+		}
+	}
 	findings := 0
 	say := func(sha, format string, a ...any) {
 		findings++
@@ -136,7 +149,7 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 				say(sha, "attribution trailer: %s", trimmed)
 			case frrAttrGen.MatchString(line):
 				say(sha, "attribution footer: %s", trimmed)
-			case frrTaskRef.MatchString(line):
+			case frrTaskRef.MatchString(line) && !planTasks[strings.TrimSpace(line[len("task-id:"):])]:
 				say(sha, "Task-Id trailer: %s", trimmed)
 			}
 		}

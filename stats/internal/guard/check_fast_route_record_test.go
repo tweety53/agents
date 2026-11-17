@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -48,6 +49,22 @@ func TestFastRouteRecordClean(t *testing.T) {
 	code, out, errOut := runFastRecord(t, wt, "main", nil)
 	if code != 0 || out != "" || errOut != "" {
 		t.Fatalf("exit %d, stdout %q, stderr %q", code, out, errOut)
+	}
+}
+
+// TestFastRouteRecordAdmitsAPlanTasksTrailer pins that a decided `sdd` run's
+// task commits, which carry `Task-Id: <n>` for a task of the run's own plan,
+// read as the record, while a trailer naming no task of it is still refused.
+func TestFastRouteRecordAdmitsAPlanTasksTrailer(t *testing.T) {
+	wt := fastRecordRepo(t, "kan-838-demo", [2]string{"feat(guard): x", "Task-Id: 1"})
+	writeFile(t, filepath.Join(wt, ".superpowers/sdd/kan-838-demo/tasks.md"),
+		"# demo\n\n- [x] 1. Add alpha\n\n**Commit:** feat(guard): x\n")
+	if code, out, errOut := runFastRecord(t, wt, "main", nil); code != 0 || out != "" || errOut != "" {
+		t.Fatalf("exit %d, stdout %q, stderr %q", code, out, errOut)
+	}
+	gitRun(t, wt, "commit", "--allow-empty", "-q", "-m", "feat(guard): y", "-m", "Task-Id: 7")
+	if code, out, _ := runFastRecord(t, wt, "main", nil); code != 1 || !strings.Contains(out, "Task-Id trailer: Task-Id: 7") {
+		t.Fatalf("exit %d, stdout %q", code, out)
 	}
 }
 
