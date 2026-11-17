@@ -461,7 +461,8 @@ func vvpReceipt(t *testing.T, wt, spec, path, blob string) {
 // TestVisualVerifyPassPrepareNamesCapturedSpecs pins the kan-1091 fix: a
 // scoped row's bundle names the specs the round's own recapture passed on
 // HEAD's sources, so the verifier's capture run does not repeat them -- and
-// names none a receipt on other sources, or an unscoped row, would.
+// names none a receipt on other sources would; an unscoped row names the
+// specs a task's capture still stands for (rcTaskCaptured).
 func TestVisualVerifyPassPrepareNamesCapturedSpecs(t *testing.T) {
 	smoke.Heavy(t)
 	bundle := func(f *vvpFix) string {
@@ -479,10 +480,23 @@ func TestVisualVerifyPassPrepareNamesCapturedSpecs(t *testing.T) {
 	if rc, out, _ := g.prepare("--round-base", g.wt+"="+g.mb); rc != 0 || strings.Contains(bundle(g), "captured:") {
 		t.Errorf("a receipt on an earlier draft: exit %d, bundle names captured specs\n%s\n%s", rc, out, bundle(g))
 	}
+	// An unscoped row names the specs a task captured on its own commit and
+	// nothing has moved since; a later edit of the spec's source un-names it.
 	h := vvpFixture(t, "")
 	vvpReceipt(t, h.wt, "tests/visual/home.spec.ts", "src/ui/app.tsx", tcfGit(t, h.wt, "rev-parse", "HEAD:src/ui/app.tsx"))
-	if rc, out, _ := h.prepare(); rc != 0 || strings.Contains(bundle(h), "captured:") {
-		t.Errorf("an unscoped row: exit %d, bundle names captured specs\n%s\n%s", rc, out, bundle(h))
+	if rc, out, _ := h.prepare(); rc != 0 || !strings.Contains(bundle(h), line) {
+		t.Errorf("an unscoped row over a task's capture: exit %d, bundle lacks %q\n%s\n%s", rc, line, out, bundle(h))
+	}
+	k := vvpFixture(t, "")
+	vvpReceipt(t, k.wt, "tests/visual/home.spec.ts", "src/ui/app.tsx", tcfGit(t, k.wt, "rev-parse", "HEAD:src/ui/app.tsx"))
+	writeFile(t, filepath.Join(k.wt, "tests/visual/home.spec.ts"), "test('home', () => {})\n")
+	writeFile(t, filepath.Join(k.wt, "tests/visual/home.spec.ts.sources"), "src/ui/app.tsx\n")
+	writeFile(t, filepath.Join(k.wt, "src/ui/app.tsx"), "export const later = 1\n")
+	gitRun(t, k.wt, "add", "-A")
+	gitRun(t, k.wt, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "a later edit")
+	k.green()
+	if rc, out, _ := k.prepare(); rc != 0 || strings.Contains(bundle(k), "captured:") {
+		t.Errorf("a source edited after its task's capture: exit %d, the bundle still names it\n%s\n%s", rc, out, bundle(k))
 	}
 }
 

@@ -185,3 +185,68 @@ func TestRecaptureRecordsItsCost(t *testing.T) {
 		t.Errorf("rc=%d out=%q flow calls %q, want %q", r.rc, r.out, calls, want)
 	}
 }
+
+// TestRecaptureTaskCapturedStandsUntilASourceMoves pins rcTaskCaptured: a
+// spec a task captured on its own commit stands for the whole-change pass,
+// and stops standing once a later commit edits a file that reaches it -- a
+// shared file its screen imports included -- or when no task captured it.
+func TestRecaptureTaskCapturedStandsUntilASourceMoves(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	root := t.TempDir()
+	for p, body := range map[string]string{
+		"package.json":                "{}\n",
+		".flow/project.md":            "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `src/**` |\n",
+		"src/Day.tsx":                 "import { Chip } from \"./Chip\";\nexport function Day() {}\n",
+		"src/Rooms.tsx":               "export function Rooms() {}\n",
+		"src/Week.tsx":                "export function Week() {}\n",
+		"src/Chip.tsx":                "export function Chip() {}\n",
+		"shots/day.spec.ts":           "test('day', () => {})\n",
+		"shots/day.spec.ts.sources":   "src/Day.tsx\n",
+		"shots/rooms.spec.ts":         "test('rooms', () => {})\n",
+		"shots/rooms.spec.ts.sources": "src/Rooms.tsx\n",
+		"shots/week.spec.ts":          "test('week', () => {})\n",
+		"shots/week.spec.ts.sources":  "src/Week.tsx\n",
+		"plan/tasks.md":               "- [ ] 1. Day\n\n**Tests:** none\n\n- [ ] 2. Rooms\n\n**Tests:** none\n",
+	} {
+		writeFile(t, filepath.Join(root, p), body)
+	}
+	commit := func(msg string) {
+		t.Helper()
+		gitRun(t, root, "add", "-A")
+		gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", msg)
+	}
+	gitRun(t, root, "init", "-q")
+	commit("base")
+	base := vgHead(t, root)
+	// task edits path, captures its task set, then commits.
+	task := func(id, path string) {
+		t.Helper()
+		old, _ := os.ReadFile(filepath.Join(root, path))
+		writeFile(t, filepath.Join(root, path), string(old)+"export const edited = '"+id+"'\n")
+		if r := runGuard("recapture", []string{root + "/plan/tasks.md:" + id, root, root + "=HEAD", "true <spec>"}, env); r.rc != 0 {
+			t.Fatalf("recapture of task %s: rc=%d out=%q", id, r.rc, r.out)
+		}
+		commit("task " + id)
+	}
+	stands := func() string {
+		return strings.Join(rcTaskCaptured(env, root, map[string]string{root: base}), " ")
+	}
+	task("1", "src/Day.tsx")
+	task("2", "src/Rooms.tsx")
+	if got, want := stands(), "shots/day.spec.ts shots/rooms.spec.ts"; got != want {
+		t.Fatalf("two tasks, each captured: %q, want %q", got, want)
+	}
+	// A shared file the day screen imports moves it; rooms still stands.
+	writeFile(t, filepath.Join(root, "src/Chip.tsx"), "export function Chip() { return 1 }\n")
+	commit("a later edit of a shared file")
+	if got, want := stands(), "shots/rooms.spec.ts"; got != want {
+		t.Errorf("after a shared file moved: %q, want %q", got, want)
+	}
+	// A screen no task captured never stands.
+	writeFile(t, filepath.Join(root, "src/Week.tsx"), "export function Week() { return 1 }\n")
+	commit("an uncaptured edit")
+	if got, want := stands(), "shots/rooms.spec.ts"; got != want {
+		t.Errorf("after an uncaptured edit: %q, want %q", got, want)
+	}
+}

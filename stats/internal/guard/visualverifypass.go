@@ -130,7 +130,8 @@ import (
 //  9a. on a stage with `slice` lines and a key with no shard segment
 //      (decision prepare-captures-sharded): unless a `captured` line is there,
 //      `setup` and one `capture <spec> --update-snapshots=all`, `<spec>`
-//      every `spec` line's path space-joined (kan-1087: its verifier ran 4
+//      every `spec` line's path a task's capture does not stand for
+//      (rcTaskCaptured) space-joined (kan-1087: its verifier ran 4
 //      specs, 70 tests, as one run of 8.5 minutes),
 //      run from the capture root, then `captured` is appended; a non-zero
 //      exit prints `SHARDS: none — <command> exit <n>`, drops the `slice`
@@ -148,7 +149,10 @@ import (
 //      survive, that sibling — and `<merge-base>` its merge base; kan-1083
 //      self-review, F3) and
 //      `screenshots` root (under the regression checkout's worktree when one
-//      is declared); on a row with a round base, `captured: <spec> <spec>…`
+//      is declared); on a row with no round base, `captured: <spec> <spec>…`
+//      naming the specs a task's capture still stands for (rcTaskCaptured,
+//      recapture.go, canonical) — the verifier's capture run leaves them
+//      out and every view is still read; on a row with a round base, `captured: <spec> <spec>…`
 //      when a flow-guard recapture receipt of every worktree given a
 //      --round-base records a pass of those specs on exactly the source
 //      files `<round base>..HEAD` holds there, each at HEAD's blob — the
