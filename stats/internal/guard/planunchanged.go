@@ -79,7 +79,8 @@ import (
 //   2  cannot answer at all — missing arguments, a bad mode, a non-directory
 //      worktree, a change name outside the allowlist, a plan tree that cannot
 //      be walked, or (on verify) a missing or unreadable snapshot file or an
-//      unwritable snapshot path (on snapshot)
+//      unwritable snapshot path (on snapshot), or a snapshot path inside the
+//      plan tree it pins (on snapshot; kan-1099 self-review, F1)
 //
 // The guard itself is Go: stats/internal/guard/planunchanged.go.
 
@@ -204,6 +205,22 @@ func checkPlanUnchanged(args []string, env Env, stdout, stderr io.Writer) int {
 		// `plan_status > "$SNAP"`: the file is opened (truncated) before the
 		// walk, so an unwritable path never reaches it, and any failure
 		// removes the file rather than leave a partial snapshot behind.
+		// A snapshot path inside the plan tree would truncate or plant the
+		// very content it pins (kan-1099 self-review, F1): both sides are
+		// resolved through symlinks and the path refused before anything is
+		// opened. An unresolvable directory falls through to os.Create.
+		if dir, err := filepath.EvalSymlinks(filepath.Dir(snapPath)); err == nil {
+			resolved := filepath.Join(dir, filepath.Base(snapPath))
+			root := filepath.Join(wt, "spectre", "changes", name)
+			if r, err := filepath.EvalSymlinks(root); err == nil {
+				root = r
+			}
+			if rel, err := filepath.Rel(root, resolved); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				fmt.Fprintf(stderr, "check-plan-unchanged: snapshot file %s lies inside spectre/changes/%s — write it outside the tree it pins\n", snap, name)
+				Reason(env, "snapshot-inside-plan-tree")
+				return 2
+			}
+		}
 		f, err := os.Create(snapPath)
 		if err != nil {
 			fmt.Fprintf(stderr, "check-plan-unchanged: %s: %v\n", snap, err)

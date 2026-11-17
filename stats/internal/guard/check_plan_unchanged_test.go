@@ -388,3 +388,50 @@ func TestCheckPlanUnchangedAdmitsCloseTimeEdits(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckPlanUnchangedRefusesASnapshotInsideThePlanTree pins kan-1099
+// self-review F1: a snapshot path inside the plan tree -- the plan file
+// itself, a new file beside it, or either reached through a symlink -- is
+// refused before anything is opened, so the snapshot can never truncate the
+// tree it pins; a path outside the tree is still accepted.
+func TestCheckPlanUnchangedRefusesASnapshotInsideThePlanTree(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	plan := filepath.Join(wt, "spectre", "changes", "x")
+	if err := os.MkdirAll(plan, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tasks := filepath.Join(plan, "tasks.md")
+	const body = "- [ ] 1. a\n"
+	if err := os.WriteFile(tasks, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(plan, filepath.Join(wt, "link")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(wt, ".superpowers", "sdd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	run := func(snap string) (int, string) {
+		var out, errb bytes.Buffer
+		code := checkPlanUnchanged([]string{"snapshot", wt, "x", snap}, Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: wt}, &out, &errb)
+		return code, errb.String()
+	}
+	for _, snap := range []string{tasks, filepath.Join(plan, "snap.txt"), filepath.Join(wt, "link", "s.txt")} {
+		code, stderr := run(snap)
+		if code != 2 || !strings.Contains(stderr, "lies inside spectre/changes/x") {
+			t.Errorf("snapshot %s: expected exit 2 naming the plan tree, got %d\n%s", snap, code, stderr)
+		}
+	}
+	if b, err := os.ReadFile(tasks); err != nil || string(b) != body {
+		t.Errorf("tasks.md changed: %q %v", b, err)
+	}
+	for _, p := range []string{filepath.Join(plan, "snap.txt"), filepath.Join(plan, "s.txt")} {
+		if _, err := os.Lstat(p); err == nil {
+			t.Errorf("%s was created", p)
+		}
+	}
+	if code, stderr := run(filepath.Join(wt, ".superpowers", "sdd", "s.txt")); code != 0 {
+		t.Errorf("snapshot outside the plan tree: expected exit 0, got %d\n%s", code, stderr)
+	}
+}
