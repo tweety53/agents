@@ -34,6 +34,8 @@ type stopFixture struct {
 	notified bool   // that agent's task-notification
 	bgBash   bool   // a Bash command moved to the background after the operator message
 	bgDone   bool   // that command's task-notification
+	refusal  string // error text of the turn's last tool result, an Edit's, after every other entry
+	blocks   int    // refusal-stop blocks the hook already fed back since the operator message
 }
 
 func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string {
@@ -109,6 +111,13 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 	}
 	if f.bgDone {
 		transcript += `{"type":"user","message":{"content":"<task-notification>\n<task-id>b7egj759e</task-id>\n<status>completed</status>\n</task-notification>"}}` + "\n"
+	}
+	for i := 0; i < f.blocks; i++ {
+		transcript += `{"type":"user","isMeta":true,"message":{"content":"Stop hook feedback:\nflow-stop-guard: the turn ends on a refusal -- fix the cause and continue"}}` + "\n"
+	}
+	if f.refusal != "" {
+		transcript += `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_ref1","name":"Edit","input":{}}]}}` + "\n"
+		transcript += fmt.Sprintf(`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_ref1","is_error":true,"content":%q}]}}`+"\n", f.refusal)
 	}
 	if f.lastText != "" {
 		transcript += fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"text","text":%q}]}}`+"\n", f.lastText)
@@ -290,5 +299,94 @@ func TestFlowStopGuardReblocksARepeatedEnd(t *testing.T) {
 	f.lastText = "The report says ## Question mid-line."
 	if out := runStopGuard(t, f, home, true); !strings.Contains(out, `"decision": "block"`) {
 		t.Errorf("## Question mid-line: expected block, got %q", out)
+	}
+}
+
+// TestFlowStopGuardRefusesAStopOnARefusal pins the stop a /flow run made three
+// times (gymie kan-1091 the last): the review panel's merger dispatch was
+// refused over an `-unread` report, the run edited the reviewer's report to
+// pass the check, the auto-mode classifier denied the edit, and the turn ended
+// on a report to the operator -- let through by a background `sleep` that had
+// not notified, and the two times before by a question. A refusal's cure is in
+// the run's reach, so no exemption covers a turn whose last tool result is one;
+// the fourth such end since the operator's message passes, so a real dead end
+// still surfaces.
+// smoke: core — the stop gate
+func TestFlowStopGuardRefusesAStopOnARefusal(t *testing.T) {
+	t.Parallel()
+	const denied = "Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Undermining Oversight]."
+	const fix = "fix the cause and continue"
+	stopping := "I'm stopping: the review panel merger is blocked, and the auto-mode classifier denied my edit of the reviewer's report."
+	refused := func(text string) stopFixture {
+		return stopFixture{state: "STARTED", ticked: 3, total: 7, open: true, refusal: denied, lastText: text}
+	}
+	blocks := func(t *testing.T, f stopFixture) {
+		t.Helper()
+		if out := runStopGuard(t, f, t.TempDir(), false); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, fix) {
+			t.Errorf("expected block saying %q, got %q", fix, out)
+		}
+	}
+	allows := func(t *testing.T, f stopFixture) {
+		t.Helper()
+		if out := runStopGuard(t, f, t.TempDir(), false); out != "" {
+			t.Errorf("expected allow (no output), got %q", out)
+		}
+	}
+	cases := []struct {
+		name string
+		fn   func(t *testing.T)
+	}{
+		{"i: the failure, behind a pending background command, blocks", func(t *testing.T) {
+			f := refused(stopping)
+			f.bgBash = true
+			blocks(t, f)
+		}},
+		{"i: a question on a refusal blocks", func(t *testing.T) {
+			blocks(t, refused("## Question\n\nThe merger refuses to start. How should I proceed?"))
+		}},
+		{"i: a blocked dispatch and a guard refusal block", func(t *testing.T) {
+			for _, text := range []string{
+				"PreToolUse:Agent hook error: Dispatch blocked: flow refused this dispatch's begin:\nflow: -key \"panel-1-merger\": round 1 leaves panel-report-1-failure-modes.md unread",
+				"Exit code 1\nLOOP-DISPATCH-REFUSED: OPEN — pipeline-fix-70-plan has not been closed",
+			} {
+				f := refused(stopping)
+				f.refusal = text
+				blocks(t, f)
+			}
+		}},
+		{"ii: a no-honest-recommendation question allows", func(t *testing.T) {
+			f := refused("## Question\n\nTwo records match this change name and nothing recommends one. Which is it?")
+			f.refusal = ""
+			allows(t, f)
+		}},
+		{"iii: a finished handoff allows", func(t *testing.T) {
+			f := refused("## Finished\n**Learning:** NONE — off\n**Prompt tuning:** NONE\n")
+			f.state = "FINISHED"
+			allows(t, f)
+		}},
+		{"an operator stop allows", func(t *testing.T) {
+			f := refused(stopping)
+			f.lastUser = "stop here"
+			allows(t, f)
+		}},
+		{"a plain failing command is not a refusal", func(t *testing.T) {
+			f := refused("## Question\n\nThe store needs a credential only you hold.")
+			f.refusal = "Exit code 255\nPermission denied (publickey)."
+			allows(t, f)
+		}},
+		{"the third consecutive block still blocks, the fourth end passes", func(t *testing.T) {
+			f := refused(stopping)
+			f.blocks = 2
+			blocks(t, f)
+			f.blocks = 3
+			f.bgBash = true // the end then passes as it did before the rule
+			allows(t, f)
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			c.fn(t)
+		})
 	}
 }

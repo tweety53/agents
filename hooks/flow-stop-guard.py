@@ -21,6 +21,16 @@ stage, and when the session has no /flow run. A repeated end at the same open st
 every time: stop_hook_active never lets one through (kan-1099, where a second status report
 offering to continue passed a fingerprint that had not moved).
 
+None of those allowances covers a turn whose last tool result is a refusal -- a flow guard's
+REFUSED, a hook's "Dispatch blocked", an auto-mode classifier denial -- while the record is
+STARTED: a refusal's cure is in the run's reach (**What still stops**,
+skills/flow-contracts/operator-prompts-auto-resolution.md), so neither a question nor a pending
+background command makes that end legitimate, and the block says to fix the cause. Only an operator
+message saying "stop" passes it. The fourth such end since the operator's last message passes,
+so a real dead end still surfaces; the count is read from this hook's own feedback in the
+transcript. (gymie kan-1091: a merger dispatch refused over an `-unread` report, the reviewer's
+report edited to pass it, the edit denied, the turn ended on a report to the operator.)
+
 Before any of that, it reads the turn's last assistant text: a Finished handoff (a `## Finished`
 line, skills/flow/cleanup.md) or a /flow-fast landing report (recognised by carrying either line)
 that lacks `**Learning:**` or `**Prompt tuning:**` blocks with a reason naming the missing
@@ -65,6 +75,11 @@ STOP_RE = re.compile(r"^\s*(stop|pause|wait)\b", re.IGNORECASE)
 TRANSCRIPT_TAIL_BYTES = 1 << 20
 HANDOFF_LINES = ("**Learning:**", "**Prompt tuning:**")
 QUESTION_RE = re.compile(r"^## Question\s*$", re.MULTILINE)
+
+
+REFUSAL_RE = re.compile(r"\bblocked\b|refused|auto mode classifier", re.IGNORECASE)
+REFUSAL_BLOCK = "flow-stop-guard: the turn ends on a refusal"
+REFUSAL_CAP = 3
 
 
 def store_get(path: str, query: dict) -> dict:
@@ -171,6 +186,33 @@ def transcript_allows(lines: list) -> bool:
     return last_tool == "AskUserQuestion" or bool(STOP_RE.search(last_user))
 
 
+def refusal_stop(lines: list) -> bool:
+    """True when the turn's last tool result is a refusal the operator did not stop on, under the cap."""
+    last_user, refused, blocks = "", False, 0
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(entry, dict):
+            continue
+        content = (entry.get("message") or {}).get("content")
+        if entry.get("type") == "user":
+            texts = _texts(content)
+            if entry.get("isMeta"):
+                blocks += any(REFUSAL_BLOCK in t for t in texts)
+            elif texts:
+                last_user, refused, blocks = " ".join(texts), False, 0
+            for block in content if isinstance(content, list) else []:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    body = block.get("content")
+                    refused = bool(block.get("is_error")) and bool(REFUSAL_RE.search(" ".join(_texts(body))))
+        elif entry.get("type") == "assistant" and isinstance(content, list):
+            if any(isinstance(b, dict) and b.get("type") == "tool_use" for b in content):
+                refused = False  # a later call: the refusal is no longer the last result
+    return refused and blocks < REFUSAL_CAP and not STOP_RE.search(last_user)
+
+
 LAUNCH_RE = re.compile(r'"status":\s*"async_launched",\s*"agentId":\s*"([^"]+)"')
 NOTIFIED_RE = re.compile(r"<task-notification>(?:\\n|\s)*<task-id>([^<]+)</task-id>")
 
@@ -208,7 +250,8 @@ def main() -> int:
             sys.stdout,
         )
         return 0
-    if transcript_allows(lines) or QUESTION_RE.search(last) or agents_pending(lines) or bash_pending(payload.get("transcript_path")):
+    refused = refusal_stop(lines)
+    if not refused and (transcript_allows(lines) or QUESTION_RE.search(last) or agents_pending(lines) or bash_pending(payload.get("transcript_path"))):
         return 0
     session_id = _fac.resolve_session_id(payload)
     if not session_id:
@@ -219,6 +262,21 @@ def main() -> int:
 
     rec = change_record(run)
     if not rec or rec.get("state") != "STARTED":
+        return 0
+    if refused:
+        json.dump(
+            {
+                "decision": "block",
+                "reason": (
+                    f"{REFUSAL_BLOCK} -- a guard refusal, a blocked dispatch or a denied action -- and "
+                    f"/flow change {run['changeName']} has no handoff yet. That is not a stop **What still "
+                    f"stops** names (skills/flow-contracts/operator-prompts-auto-resolution.md): fix the "
+                    f"cause and continue: re-dispatch under a new key, re-run the guard, never edit a report "
+                    f"or a ledger row to pass a gate."
+                ),
+            },
+            sys.stdout,
+        )
         return 0
     ticked, total = task_counts(run)
     if not run.get("endedAt"):
