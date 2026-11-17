@@ -9569,6 +9569,39 @@ func TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchBeginRefusesAFixerOverThreeTasks pins the stage-end
+// fixer cap: a live fix key naming more than three tasks is refused whatever
+// the decision; three tasks, one task, a first-pass key and a back-fill begin.
+func TestRecordDispatchBeginRefusesAFixerOverThreeTasks(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	row := func(key string, extra ...string) []string {
+		return append([]string{"-agent-id", "none", "-role", "implementer", "-key", key, "-model", "opus", "-effort", "low"}, extra...)
+	}
+	cases := []struct {
+		name string
+		args []string
+		code int
+	}{
+		{"four tasks", row("task-1+2+3+4-implementer-fix-1"), 2},
+		{"three tasks", row("task-1+2+3-implementer-fix-1"), 0},
+		{"one task", row("task-7-implementer-fix-2"), 0},
+		{"first pass of four", row("task-1+2+3+4-implementer"), 0},
+		{"back-fill", row("task-1+2+3+4-implementer-fix-1", "-started-at", "2026-01-02T03:04:05Z"), 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code, stderr := beginUnderDecision(t, env, "", tc.args...)
+			if code != tc.code {
+				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
+			}
+			if tc.code == 2 && !strings.Contains(stderr, "gated-review-fix.md") {
+				t.Errorf("stderr %q does not name gated-review-fix.md", stderr)
+			}
+		})
+	}
+}
+
 // TestRecordDecisionStampsEachGroupsTasks pins the stamp `flow record
 // decision` puts on each group: the task ids its bundles resolve to through
 // the plan's own plan-dispatch-bundles output, and no stamp at all when the

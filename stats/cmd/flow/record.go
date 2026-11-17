@@ -1476,6 +1476,12 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		return 2
 	}
 	if *startedAt == "" {
+		if strings.Contains(*key, "-implementer-fix-") {
+			if n := strings.Count(implementerTask(*key), "+") + 1; n > 3 {
+				fmt.Fprintf(stderr, "flow: -key %s fixes %d tasks — a stage-end fixer takes at most three, one repository's tasks up to weight 3 (skills/flow/gated-review-fix.md)\n", *key, n)
+				return 2
+			}
+		}
 		if decided {
 			if (*role == "implementer" || *role == "panel-fix") && *agentID != "inline" &&
 				!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") &&
