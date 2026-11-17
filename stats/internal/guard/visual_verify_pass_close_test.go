@@ -696,7 +696,6 @@ func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 			f := vvcFixture(t, "")
 			gitRun(t, f.wt, "add", "tests/visual/home.spec.ts-home.png")
 			gitRun(t, f.wt, "commit", "-qm", "capture")
-			base := vgHead(t, f.wt)
 			at := time.Now().Add(-time.Minute)
 			capture := filepath.Join(f.wt, "tests/visual/home.spec.ts-home.png")
 			if c.changed {
@@ -723,7 +722,6 @@ func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 			}
 			sdd := filepath.Join(f.wt, ".superpowers/sdd")
 			// The round base is the canonical worktree's sha: it resolves in no other repository.
-			_ = base
 			writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), strings.Repeat("0", 40)+" "+at.UTC().Format(time.RFC3339Nano))
 			pairs := `[{"spec":"` + filepath.Join(f.wt, "tests/visual/home.spec.ts") + `","frame":"f1","capture":"` + capture + `"}]`
 			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), `{"pairs":`+pairs+`}`)
