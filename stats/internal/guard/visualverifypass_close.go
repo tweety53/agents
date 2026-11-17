@@ -206,7 +206,8 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 	for _, id := range list {
 		fresh := false
 		for _, p := range m.Pairs {
-			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil && fi.ModTime().After(at) {
+			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil &&
+				(fi.ModTime().After(at) || (!v.captureChanged(p.Capture, base) && playwrightRanAfter(p.Capture, at))) {
 				fresh = true
 			}
 		}
@@ -567,4 +568,27 @@ func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 	cmd.Env = icChildEnv(v.env)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err == nil
+}
+
+// playwrightRanAfter is whether a Playwright run wrote its output after at
+// (decision identical-recapture-fresh): Playwright leaves a PNG whose
+// recapture is byte-identical untouched, so its mtime cannot prove the
+// recapture; the run's own output directory, `test-results/` beside the
+// nearest ancestor of the capture that holds one, does. A capture unchanged by
+// blob since the round base, with such a directory entry newer than at, was
+// re-captured.
+func playwrightRanAfter(capture string, at time.Time) bool {
+	for dir := filepath.Dir(capture); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		entries, err := os.ReadDir(filepath.Join(dir, "test-results"))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if fi, err := e.Info(); err == nil && fi.ModTime().After(at) {
+				return true
+			}
+		}
+		return false
+	}
+	return false
 }
