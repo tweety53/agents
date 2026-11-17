@@ -281,108 +281,26 @@ func errorsJoinClose(err error, f *os.File) error {
 	return err
 }
 
-// rcCommitReceipts is worktree's receipts that saw the blobs commit sha
-// holds for its own source paths, and whether the commit holds any.
-func rcCommitReceipts(env Env, worktree, captureRoot, sha string) ([]rcReceipt, bool) {
+// rcCovered reports whether worktree's receipts that saw the blobs commit
+// sha holds for its own source paths leave nothing of specs to run (rcLeft).
+func rcCovered(env Env, worktree, captureRoot, sha string, specs []string) bool {
 	git := envGit(env)
 	names, _ := capture(git("-C", worktree, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", sha))
 	want := map[string]string{}
 	for _, f := range rcSourcePaths(env, worktree, captureRoot, strings.Split(names, "\n")) {
 		want[f], _ = capture(git("-C", worktree, "rev-parse", "--verify", "--quiet", sha+":"+f))
 	}
-	return slices.DeleteFunc(rcReceipts(env, worktree), func(r rcReceipt) bool {
+	receipts := slices.DeleteFunc(rcReceipts(env, worktree), func(r rcReceipt) bool {
 		for f, blob := range want {
 			if got, seen := r.Blobs[f]; !seen || got != blob {
 				return true
 			}
 		}
 		return false
-	}), len(want) > 0
-}
-
-// rcCovered reports whether worktree's receipts that saw the blobs commit
-// sha holds for its own source paths leave nothing of specs to run (rcLeft).
-func rcCovered(env Env, worktree, captureRoot, sha string, specs []string) bool {
-	receipts, _ := rcCommitReceipts(env, worktree, captureRoot, sha)
+	})
 	return !slices.ContainsFunc(specs, func(s string) bool {
 		return len(rcLeft(s, receipts)) > 0
 	})
-}
-
-// rcTaskCaptured is the specs of captureRoot whose capture a task of the
-// change took and nothing has moved since, so a pass of the whole change
-// need not take it again (skills/flow/visual-verify-verifier.md step 8;
-// kan-1091: the stage recaptured every spec its tasks had just captured).
-// bases is each worktree of the change and its merge base. In a worktree a
-// spec's anchor is the newest commit since the base that holds a source
-// file and whose receipts passed the whole spec on that commit's sources
-// (rcCovered). A spec stands when at least one worktree anchors it and, in
-// every worktree, flow-guard affected-specs selects nothing of it over
-// `<anchor>..HEAD` -- over `<base>..HEAD` where the worktree has no anchor
-// for it: a shared file a later task edits moves every spec it reaches. Nil
-// when a worktree's commits or affected specs cannot be read.
-// ponytail: a capture is taken as the task commit's state -- a sibling
-// worktree's uncommitted edit at capture time is not seen; record every
-// worktree's HEAD in the receipt if that ever bites.
-func rcTaskCaptured(env Env, captureRoot string, bases map[string]string) []string {
-	git := envGit(env)
-	stands, moved := map[string]bool{}, map[string]bool{}
-	for wt, base := range bases {
-		log, ok := capture(git("-C", wt, "rev-list", base+"..HEAD"))
-		if !ok {
-			return nil
-		}
-		affected := map[string]map[string]bool{} // by range base
-		reach := func(from string) (map[string]bool, bool) {
-			if affected[from] == nil {
-				var out bytes.Buffer
-				if Registry["affected-specs"]([]string{wt, from + "..HEAD", captureRoot}, quietReasons(env), &out, io.Discard) != 0 {
-					return nil, false
-				}
-				affected[from] = map[string]bool{}
-				for _, t := range strings.Fields(out.String()) {
-					affected[from][rcSpecFile(t)] = true
-				}
-			}
-			return affected[from], true
-		}
-		anchor := map[string]string{}
-		for _, sha := range strings.Fields(log) {
-			receipts, sourced := rcCommitReceipts(env, wt, captureRoot, sha)
-			if !sourced {
-				continue
-			}
-			for _, r := range receipts {
-				for _, s := range r.Specs {
-					if anchor[s] == "" && s == rcSpecFile(s) && len(rcLeft(s, receipts)) == 0 {
-						anchor[s] = sha
-					}
-				}
-			}
-		}
-		whole, ok := reach(base)
-		if !ok {
-			return nil
-		}
-		for s := range whole {
-			moved[s] = moved[s] || anchor[s] == ""
-		}
-		for s, sha := range anchor {
-			since, ok := reach(sha)
-			if !ok {
-				return nil
-			}
-			stands[s], moved[s] = true, moved[s] || since[s]
-		}
-	}
-	var out []string
-	for s := range stands {
-		if !moved[s] {
-			out = append(out, s)
-		}
-	}
-	sort.Strings(out)
-	return out
 }
 
 // rcCaptured is the specs a passing receipt already covers on what every

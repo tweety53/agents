@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 	"time"
 )
@@ -435,12 +434,6 @@ func vvpSlices(lines [][3]string, extra []string) [][]string {
 	return out
 }
 
-// taskCaptured is the specs of w's capture root a task's capture still
-// stands for (rcTaskCaptured), over every worktree with a merge base.
-func (v *vvp) taskCaptured(w string) []string {
-	return rcTaskCaptured(v.env, v.captureRoot(w), v.mergeBase)
-}
-
 // captureShards is step 8's capture on a sharded pass (decisions
 // prepare-captures-sharded, capture-failure-falls-back-serial): `setup`, then
 // one `capture <spec> --workers=<flow-guard capture-workers> --retries=1 --update-snapshots=all` with every `spec` line's path
@@ -470,18 +463,12 @@ func (v *vvp) captureShards(survivors []string) {
 	}
 	w := survivors[0]
 	cells := v.cells(w)
-	// A spec a task's capture stands for is not taken again; with none
-	// left nothing runs -- an empty `<spec>` would be the whole suite.
-	stand := v.taskCaptured(w)
-	specs = slices.DeleteFunc(specs, func(s string) bool { return slices.Contains(stand, asSpecOut(v.captureRoot(w), s)) })
 	var cmds []string
-	if c := strings.TrimSpace(cells["setup"]); c != "" && len(specs) > 0 {
+	if c := strings.TrimSpace(cells["setup"]); c != "" {
 		cmds = append(cmds, c)
 	}
-	// One run for every other spec, across capture-workers' count of workers.
-	if len(specs) > 0 {
-		cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " "))+fmt.Sprintf(" --workers=%d --retries=1 --update-snapshots=all", captureWorkers(runtime.NumCPU())))
-	}
+	// One run for every spec, across capture-workers' count of workers.
+	cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " "))+fmt.Sprintf(" --workers=%d --retries=1 --update-snapshots=all", captureWorkers(runtime.NumCPU())))
 	for _, c := range cmds {
 		if rc, _ := kwRun(v.env, v.captureRoot(w), "sh", "-c", c); rc != 0 {
 			v.say("SHARDS: none — %s exit %d", c, rc)
@@ -886,11 +873,6 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 		if c := rcCaptured(v.env, v.captureRoot(w), v.roundBase); len(c) > 0 {
 			line("captured: %s", strings.Join(c, " "))
 		}
-	} else if c := v.taskCaptured(w); len(c) > 0 {
-		line("captured: %s", strings.Join(c, " "))
-		v.writeOut(taskCapturedFile(sdd, key), strings.Join(c, "\n")+"\n")
-	} else {
-		os.Remove(taskCapturedFile(sdd, key))
 	}
 	if m := cells["mockups"]; m != "" {
 		line("mockups: %s", cellPath(w, m))

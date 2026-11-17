@@ -261,18 +261,6 @@ func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool
 			line = strings.Join(changed, " ")
 		}
 		v.say("changed: %s — round base %s", line, base)
-	} else if vvmExists(taskCapturedFile(sdd, key)) {
-		var changed []string
-		for _, p := range m.Pairs {
-			if !slices.Contains(changed, p.Frame) && !vvmStands(sdd, key, p) {
-				changed = append(changed, p.Frame)
-			}
-		}
-		line := "none"
-		if len(changed) > 0 {
-			line = strings.Join(changed, " ")
-		}
-		v.say("changed: %s — task close", line)
 	}
 	var old vvmManifestOut
 	if b, err := os.ReadFile(path); err == nil && json.Unmarshal(b, &old) == nil {
