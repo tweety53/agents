@@ -207,7 +207,7 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 		fresh := false
 		for _, p := range m.Pairs {
 			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil &&
-				(fi.ModTime().After(at) || (!v.captureChanged(p.Capture, base) && playwrightRanAfter(p.Capture, at))) {
+				(fi.ModTime().After(at) || (!v.captureChanged(p.Capture, base) && playwrightRanAfter(w, p.Capture, at))) {
 				fresh = true
 			}
 		}
@@ -571,24 +571,28 @@ func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 }
 
 // playwrightRanAfter is whether a Playwright run wrote its output after at
-// (decision identical-recapture-fresh): Playwright leaves a PNG whose
-// recapture is byte-identical untouched, so its mtime cannot prove the
-// recapture; the run's own output directory, `test-results/` beside the
-// nearest ancestor of the capture that holds one, does. A capture unchanged by
-// blob since the round base, with such a directory entry newer than at, was
-// re-captured.
-func playwrightRanAfter(capture string, at time.Time) bool {
-	for dir := filepath.Dir(capture); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+// (decision identical-recapture-fresh, refining capture-freshness-by-mtime):
+// Playwright leaves a PNG whose recapture is byte-identical untouched, so its
+// mtime cannot prove the recapture; the run's own output directory,
+// `test-results/` in the nearest ancestor of the capture (up to the worktree
+// w) that holds one, does. The guarantee is per run, not per frame: a passing
+// test's own output is removed, so no entry names a spec; the frame still
+// needs its blob unchanged since the round base and its own line in the report.
+// A non-default output directory finds nothing and falls back to the mtime rule.
+func playwrightRanAfter(w, capture string, at time.Time) bool {
+	for dir := filepath.Dir(capture); strings.HasPrefix(dir, w); dir = filepath.Dir(dir) {
 		entries, err := os.ReadDir(filepath.Join(dir, "test-results"))
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if fi, err := e.Info(); err == nil && fi.ModTime().After(at) {
-				return true
+		if err == nil {
+			for _, e := range entries {
+				if fi, err := e.Info(); err == nil && fi.ModTime().After(at) {
+					return true
+				}
 			}
+			return false
 		}
-		return false
+		if dir == w {
+			break
+		}
 	}
 	return false
 }

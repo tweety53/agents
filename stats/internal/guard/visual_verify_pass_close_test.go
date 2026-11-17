@@ -685,10 +685,12 @@ func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 		ran      bool
 		changed  bool
 		wantLoop bool
+		oldRun   bool
 	}{
-		{"identical and a run after the row began", true, false, true},
-		{"identical and no run output", false, false, false},
-		{"a run, but the capture differs from the base blob", true, true, false},
+		{"identical and a run after the row began", true, false, true, false},
+		{"identical and no run output", false, false, false, false},
+		{"a run, but the capture differs from the base blob", true, true, false, false},
+		{"identical and only a run output older than the row", false, false, false, true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := vvcFixture(t, "")
@@ -709,6 +711,13 @@ func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 				run := filepath.Join(f.wt, "tests/visual/test-results/run-1")
 				now := time.Now()
 				if err := os.Chtimes(run, now, now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if c.oldRun {
+				run := filepath.Join(f.wt, "tests/visual/test-results/run-0")
+				writeFile(t, filepath.Join(run, "trace.txt"), "x\n")
+				if err := os.Chtimes(run, old, old); err != nil {
 					t.Fatal(err)
 				}
 			}
