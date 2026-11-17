@@ -26,6 +26,7 @@ func TestCheckPlanDepartures(t *testing.T) {
 		{"a plan naming no sidecar owes nothing", "- [ ] 1. One\n\n**Files:** `a.go`\n", "", true, 0, "PLAN-DEPARTURES-CITED: 0 row(s) of 0 measured spec(s)"},
 		{"a new view has no capture to measure", day, "", false, 0, "PLAN-DEPARTURES-CITED: 0 row(s) of 0 measured spec(s)"},
 		{"a shipped view nobody measured", day, "", true, 1, "PLAN-MEASURE-MISSING: day.spec.ts"},
+		{"a ticked task owes nothing", "`e2e/day.spec.ts.mockups` above every task\n" + strings.Replace(day, "- [ ]", "- [x]", 1), "", true, 0, "PLAN-DEPARTURES-CITED: 0 row(s) of 0 measured spec(s)"},
 		{"a measure of another spec covers nothing", day, manifest("night.spec.ts"), true, 1, "PLAN-MEASURE-MISSING: day.spec.ts"},
 		{"an over row no task cites", day + "Close `v2/D1 #2` and v2/D1 #1.\n", manifest("day.spec.ts"), true, 1, "PLAN-DEPARTURES-UNCITED: v2/D1 #15"},
 		{"every over row cited", day + "Close v2/D1 #2 and `v2/D1 #15`.\n", manifest("day.spec.ts"), true, 0, "PLAN-DEPARTURES-CITED: 2 row(s) of 1 measured spec(s)"},

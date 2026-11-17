@@ -24,11 +24,13 @@ import (
 // Run once, when the plan is written (skills/flow/brainstorm-planner.md),
 // never at a task's close: the manifest it reads is the planner's scratch.
 //
-// A SHIPPED VIEW is a capture spec the plan names by its sidecar — a
-// backticked `<path>.mockups` token anywhere in <tasks.md> — for which
+// A SHIPPED VIEW is a capture spec an unticked task names by its sidecar — a
+// backticked `<path>.mockups` token from the task's `- [ ] ` line to the
+// next task's — for which
 // flow-guard resolve-visual-screenshots <worktree> <spec basename> finds a
 // capture (exit 0). A spec with no capture yet draws a view the change
-// builds, and owes nothing.
+// builds, and owes nothing; so does a ticked task, whose view the change
+// itself captured — a plan revised mid-run is judged on what is left to do.
 //
 // THE PLAN-TIME MEASURE is
 // <worktree>/.superpowers/sdd/visual-manifest-plan.json, what
@@ -92,14 +94,23 @@ func checkPlanDepartures(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	for _, s := range cpdSidecar.FindAllSubmatch(plan, -1) {
-		base := filepath.Base(string(s[1]))
-		if slices.Contains(measured, base) || slices.Contains(missing, base) {
+	open := false // inside an unticked task
+	for _, line := range strings.Split(string(plan), "\n") {
+		if strings.HasPrefix(line, "- [") {
+			open = strings.HasPrefix(line, "- [ ] ")
+		}
+		if !open {
 			continue
 		}
-		var out bytes.Buffer
-		if resolveVisualScreenshots([]string{wt, base}, quietReasons(env), &out, io.Discard) == 0 {
-			missing = append(missing, base)
+		for _, s := range cpdSidecar.FindAllStringSubmatch(line, -1) {
+			base := filepath.Base(s[1])
+			if slices.Contains(measured, base) || slices.Contains(missing, base) {
+				continue
+			}
+			var out bytes.Buffer
+			if resolveVisualScreenshots([]string{wt, base}, quietReasons(env), &out, io.Discard) == 0 {
+				missing = append(missing, base)
+			}
 		}
 	}
 	if len(missing) > 0 {
