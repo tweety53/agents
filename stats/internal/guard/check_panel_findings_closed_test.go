@@ -945,10 +945,15 @@ func TestPanelUnreadUncovered(t *testing.T) {
 		{"a same-round per-repository read", map[string]string{"panel-report-0-primary.md": unread("web"), "panel-report-0-primary-web.md": unread("none")}, nil, false},
 		{"a same-round per-repository report read through its own cover", map[string]string{"panel-report-0-primary-gymie.md": unread("web"), "panel-report-0-primary-web.md": unread("web"), "panel-report-0-primary-web-unread.md": unread("none")}, nil, false},
 		{"mutation is exempt", map[string]string{"panel-report-0-mutation.md": unread("gymie")}, nil, false},
+		{"a cover report is never a subject", map[string]string{"panel-report-0-primary.md": unread("web"), "panel-report-0-primary-unread.md": unread("gymie"), "panel-report-0-primary-web.md": unread("none")}, nil, false},
+		{"per-repository reports naming each other", map[string]string{"panel-report-0-primary-gymie.md": unread("web"), "panel-report-0-primary-web.md": unread("gymie")}, nil, false},
+		{"a per-repository report leaving its own repository unread", map[string]string{"panel-report-0-primary-gymie.md": unread("gymie")}, first, false},
+		{"a bundled slot's cover", map[string]string{"panel-report-0-principles.md": unread("web"), "panel-report-0-primary+principles-unread.md": unread("none")}, nil, false},
+		{"an annotated section", map[string]string{"panel-report-0-primary.md": unread("gymie (frontend only: a, b)"), "panel-report-0-primary-gymie.md": unread("none")}, nil, false},
 	} {
 		wt := t.TempDir()
 		cfcSDD(t, wt, tc.files)
-		got := PanelUnreadUncovered(wt, 0, []string{"primary", "mutation"})
+		got := PanelUnreadUncovered(wt, 0, []string{"primary+principles", "mutation"})
 		ok := slices.Equal(got, tc.want)
 		if tc.has {
 			ok = len(got) > 0
@@ -959,6 +964,30 @@ func TestPanelUnreadUncovered(t *testing.T) {
 		if !ok {
 			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
 		}
+	}
+}
+
+// TestPanelUnreadUncoveredKan1099Round4: kan-1099 round 4's reports (a copy under testdata) --
+// per-repository reports naming each other, role covers, a bundled mutation+failure-modes slot --
+// owe the sections no dispatch of the role read -- gymie-frontend, which the primary and principles
+// covers also left unread, among them.
+func TestPanelUnreadUncoveredKan1099Round4(t *testing.T) {
+	t.Parallel()
+	slots := []string{"primary+principles", "test-sanity+call-efficiency", "mutation+failure-modes"}
+	got := PanelUnreadUncovered(filepath.Join("testdata", "kan-1099-round-4"), 4, slots)
+	want := []string{"panel-report-4-failure-modes.md (gymie)", "panel-report-4-failure-modes.md (gymie-playwright)", "panel-report-4-primary-gymie-frontend.md (gymie-frontend)", "panel-report-4-primary-gymie.md (gymie-frontend)", "panel-report-4-principles-gymie-frontend.md (gymie-frontend)", "panel-report-4-principles-gymie.md (gymie-frontend)"}
+	if !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// TestCfcUnreadKeepsTheLeadingRepositoryName: an entry's annotation is dropped, and a comma
+// inside parentheses does not split an entry.
+func TestCfcUnreadKeepsTheLeadingRepositoryName(t *testing.T) {
+	t.Parallel()
+	got := cfcUnread([]byte("Unread: gymie, gymie-playwright (frontend only: a, b), web\n"))
+	if want := []string{"gymie", "gymie-playwright", "web"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
@@ -1001,5 +1030,28 @@ func TestCheckPanelFindingsClosedResolvesARoleThatRaisedNothing(t *testing.T) {
 	})
 	if strings.Contains(errs, "(web)") {
 		t.Errorf("a role with no findings did not resolve its per-repository reports:\n%s", errs)
+	}
+}
+
+// TestPanelUnreadUncoveredRoleCoverLeavingTheSectionUnread: a role cover whose own `Unread:`
+// names gymie does not read gymie, so a per-repository report naming gymie unread is still owed.
+func TestPanelUnreadUncoveredRoleCoverLeavingTheSectionUnread(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	sdd := filepath.Join(dir, ".superpowers", "sdd")
+	if err := os.MkdirAll(sdd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"panel-report-4-primary-web.md":    "Critical: 0\nImportant: 0\nUnread: gymie\n",
+		"panel-report-4-primary-unread.md": "Critical: 0\nImportant: 0\nUnread: gymie\n",
+	} {
+		if err := os.WriteFile(filepath.Join(sdd, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := PanelUnreadUncovered(dir, 4, []string{"primary"})
+	if want := []string{"panel-report-4-primary-web.md (gymie)"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }

@@ -777,14 +777,21 @@ func cfcUnreadSections(worktree string, findings []cfcFindingRow) ([]string, err
 }
 
 // PanelUnreadUncovered answers each section a round-<round> report's
-// `Unread:` line names -- reports of role mutation exempt -- that neither a
-// written same-round per-repository report panel-report-<round>-<role>-<repo>.md
-// nor the report's own written cover <report name less .md>-unread.md reads,
-// each as `<report name> (<repo>)`. slots are the round's reviewer slots,
+// `Unread:` line names -- reports of role mutation and cover reports
+// (*-unread.md, whose own leftovers are never chased) exempt -- that no
+// dispatch of the report's role reads, each as `<report name> (<repo>)`. A
+// section <repo> is read by the role's same-round per-repository report
+// panel-report-<round>-<role>-<repo>.md when that report reads its own
+// repository or has a written cover, by the report's own written cover
+// <report name less .md>-unread.md, or by a role cover
+// panel-report-<round>-<id>-unread.md that was written and does not name <repo>
+// unread, <id> the role or a slot
+// whose `+`-components include it. slots are the round's reviewer slots,
 // whose ids and `+`-components resolve each report's role as cfcReports does.
 // flow record dispatch begin refuses a panel-<round>-merger row while it
 // answers anything: a section left unread is read in its own round, before
-// the merger (kan-1087 self-review, F21). An unreadable report answers nothing.
+// the merger (kan-1087 self-review, F21; kan-1099 round 4). An unreadable
+// report answers nothing.
 func PanelUnreadUncovered(worktree string, round int, slots []string) []string {
 	var rows []cfcFindingRow
 	for _, s := range slots {
@@ -796,17 +803,44 @@ func PanelUnreadUncovered(worktree string, round int, slots []string) []string {
 	}
 	var out []string
 	for _, r := range reports {
-		if r.round != round || r.role == "mutation" {
+		if r.round != round || r.role == "mutation" || strings.HasSuffix(r.name, "-unread.md") {
 			continue
 		}
 		for _, repo := range cfcUnread(r.body) {
 			same := fmt.Sprintf("panel-report-%d-%s-%s.md", round, r.role, repo)
-			if !(same != r.name && (cfcReportWritten(worktree, same) || cfcReportWritten(worktree, cfcCoverName(same)))) && !cfcReportWritten(worktree, cfcCoverName(r.name)) {
+			if !(same != r.name && (cfcReadsOwnRepo(worktree, same, repo) || cfcReportWritten(worktree, cfcCoverName(same)))) && !cfcReportWritten(worktree, cfcCoverName(r.name)) && !cfcRoleCovered(worktree, round, r.role, repo, slots) {
 				out = append(out, r.name+" ("+repo+")")
 			}
 		}
 	}
 	return out
+}
+
+// cfcRoleCovered reports whether a round-<round> role cover read section repo
+// for role: panel-report-<round>-<id>-unread.md read its own repo as
+// cfcReadsOwnRepo judges, <id> the role or a slot whose `+`-components include
+// it. A section the cover also left unread stays uncovered.
+func cfcRoleCovered(worktree string, round int, role, repo string, slots []string) bool {
+	ids := []string{role}
+	for _, s := range slots {
+		if slices.Contains(strings.Split(s, "+"), role) {
+			ids = append(ids, s)
+		}
+	}
+	for _, id := range ids {
+		if cfcReadsOwnRepo(worktree, fmt.Sprintf("panel-report-%d-%s-unread.md", round, id), repo) {
+			return true
+		}
+	}
+	return false
+}
+
+// cfcReadsOwnRepo reports whether report <name> was written and read its own
+// repository <repo>: non-empty, not the placeholder, and its `Unread:` line
+// does not name <repo>.
+func cfcReadsOwnRepo(worktree, name, repo string) bool {
+	b, err := os.ReadFile(filepath.Join(worktree, ".superpowers", "sdd", name))
+	return err == nil && len(b) > 0 && !bytes.HasPrefix(b, []byte("no verbatim report captured")) && !slices.Contains(cfcUnread(b), repo)
 }
 
 // cfcCoverName is a report's own `-unread` cover: <name less .md>-unread.md.
@@ -829,17 +863,28 @@ func cfcReadInRoundOrLater(worktree string, round int, role, repo string) bool {
 	return false
 }
 
-// cfcUnread is the sections a report's `Unread:` line names; none for
-// `Unread: none` or no such line.
+// cfcUnread is the sections a report's `Unread:` line names -- each
+// comma-separated entry's leading repository name, commas inside parentheses
+// not splitting an entry -- none for `Unread: none` or no such line.
 func cfcUnread(body []byte) []string {
 	m := cfcUnreadRE.FindSubmatch(body)
 	if m == nil || strings.TrimSpace(string(m[1])) == "none" {
 		return nil
 	}
 	var out []string
-	for _, s := range strings.Split(string(m[1]), ",") {
-		if s = strings.TrimSpace(s); s != "" {
-			out = append(out, s)
+	depth, start := 0, 0
+	line := string(m[1]) + ","
+	for i, c := range line {
+		switch {
+		case c == '(':
+			depth++
+		case c == ')':
+			depth--
+		case c == ',' && depth <= 0:
+			if f := strings.Fields(line[start:i]); len(f) > 0 {
+				out = append(out, f[0])
+			}
+			start = i + 1
 		}
 	}
 	return out
