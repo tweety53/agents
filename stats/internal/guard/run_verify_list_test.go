@@ -2227,3 +2227,41 @@ func TestRunVerifyListRefusesAnUnsuffixedKeyInAMultiWorktreeChange(t *testing.T)
 		t.Errorf("unsuffixed key, one worktree: exit %d, calls %q, stderr %q", rc, calls, errs)
 	}
 }
+
+// TestRunVerifyListAppliesPrepareWorkspace pins f16-run-prepares-workspace
+// (kan-1099 self-review, F16): the list runs prepare-workspace itself and
+// gives every command its KEY=value lines, the caller's own value winning; a
+// failing prepare-workspace stops the list, exit 2, before any command.
+func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
+	iso := func(res string) string {
+		return "## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|----------|----------|---------|----------------|\n" +
+			"| `" + res + "` | `FRONTEND_URL` | `http://localhost:3000` | `http://localhost:4290` |\n" + pwCommands +
+			"\n## lint\n\n```bash\ntouch ran\nprintf '%s\\n' \"$FRONTEND_URL\" > out.txt\n```\n"
+	}
+	run := func(wt string, extra ...string) (int, string) {
+		environ := append(append(slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "FRONTEND_URL=") }), "FLOW_GUARD_CACHE_DIR="+guardCache(t)), extra...)
+		getenv := func(k string) string {
+			for i := len(environ) - 1; i >= 0; i-- {
+				if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+					return v
+				}
+			}
+			return ""
+		}
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{wt, "lint"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		b, _ := os.ReadFile(filepath.Join(wt, "out.txt"))
+		return rc, strings.TrimSpace(string(b)) + "\n" + o.String() + e.String()
+	}
+	wt := pwRepo(t, "demo", iso("url"))
+	if _, out := run(wt); !strings.HasPrefix(out, "http://localhost:4290\n") {
+		t.Errorf("unset: out.txt not the workspace value:\n%s", out)
+	}
+	if _, out := run(wt, "FRONTEND_URL=mine"); !strings.HasPrefix(out, "mine\n") {
+		t.Errorf("caller's value: out.txt not mine:\n%s", out)
+	}
+	bad := pwRepo(t, "demo", iso("widget"))
+	if rc, out := run(bad); rc != 2 || strings.Contains(out, "`touch ran`") {
+		t.Errorf("failing prepare-workspace: exit %d, a command ran:\n%s", rc, out)
+	}
+}

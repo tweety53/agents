@@ -196,6 +196,8 @@ turn, never a second key.
 
 `<canonical worktree>` is the worktree holding `<project>/spectre/changes/<name>`; pass it when verifying any other worktree of a multi-repo change.
 
+`flow-guard run-verify-list` runs `flow-guard prepare-workspace <worktree>` itself before its first command and gives every command the `KEY=value` lines it prints, a value the caller's environment already sets winning; the caller exports nothing (kan-1099 self-review, F16).
+
 ### Live check
 
 **Runs only when `design.md` carries a `## Live check` section naming something to exercise**

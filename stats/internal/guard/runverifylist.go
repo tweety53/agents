@@ -89,8 +89,11 @@
 // <worktree>'s branch prints `- visual verify — not run: …` naming it and
 // exits 1 (kan-1052 self-review, R1: the main checkout's build is not the
 // change's).
-// The caller exports the KEY=value lines prepare-workspace.sh printed for
-// <worktree> first; every command inherits them. This script retries
+// The list runs `flow-guard prepare-workspace <worktree>` itself before the
+// `begin` and gives every command the KEY=value lines it prints, a variable
+// the caller's environment already sets winning; a prepare-workspace that
+// exits non-zero prints its output and exits 2 before any command (kan-1099
+// self-review, F16). This script retries
 // nothing — the one inline re-run of a failing command stays the caller's,
 // and a race-marked command takes **The loop** whatever its re-run exits.
 //
@@ -1075,6 +1078,21 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	wt, list := args[0], args[1]
 	childEnv := icChildEnv(env)
+	// The workspace's KEY=value lines, a variable the caller sets winning
+	// (f16-run-prepares-workspace).
+	prep := runSibling(env, "prepare-workspace", abs(wt))
+	prep.Env, prep.Stderr = childEnv, stderr
+	prepOut, prepErr := prep.Output()
+	if prepErr != nil {
+		fmt.Fprintf(stderr, "run-verify-list: flow-guard prepare-workspace failed on %s — no command ran:\n%s", wt, prepOut)
+		Reason(env, "prepare-workspace-failed")
+		return 2
+	}
+	for _, kv := range icLines(string(prepOut)) {
+		if k, _, ok := strings.Cut(kv, "="); ok && icExportable.MatchString(kv) && env.Getenv(k) == "" {
+			childEnv = append(childEnv, kv)
+		}
+	}
 	// rawVerify is the `verify` cell, its `<specs>` unfilled; a narrowed run
 	// appends its flag's arguments after the paths it puts there.
 	rawVerify, suffix := "", map[string]string{"only": " --repeat-each 5 --workers 1", "detect-flaky": " --retries=1 --fail-on-flaky-tests"}[mode]

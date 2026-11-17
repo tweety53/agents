@@ -965,8 +965,9 @@ func (c *ic) writeState(state string, keep []string, pr string) bool {
 // rebaseLint: a textually clean rebase can still break the build — one
 // dropped a Go import no exit code caught (KAN-900) — so the rebased tree
 // runs its project's ## lint list (run-verify-list.sh) under the KEY=value
-// lines prepare-workspace.sh prints for it, as that script's caller
-// contract asks. A failure stops with the list's report above the stop
+// lines prepare-workspace.sh prints for it. run-verify-list applies them
+// itself, the caller's values winning; this call reads them first only to
+// stop with its own reason when prepare-workspace fails. A failure stops with the list's report above the stop
 // line; a project declaring no list (exit 3) has nothing to run. A passing
 // list that rewrote tracked files (a formatter pre-step) stops too: the
 // rewrite would otherwise ride into the reshape unreviewed or be left
