@@ -1245,3 +1245,40 @@ func TestCheckPlanShapeF32(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckPlanShapeF34OpenerDepartures pins F34 (kan-1099 self-review, F22):
+// an unticked visual fix task cites every departure row of its opener report.
+func TestCheckPlanShapeF34OpenerDepartures(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	plan := func(t *testing.T, title, opener, cites string, report bool) string {
+		wt := t.TempDir()
+		p := wt + "/spectre/changes/x/tasks.md"
+		writeFile(t, p, "- [ ] 1. "+title+"\n\n- [ ] **Step 1: fix "+cites+"**\n**Files:** `a.kt`\n**Tests:** `test_1`\n**Commit:** fix 1\n**Opener:** "+opener+"\n**After:** none\n")
+		if report {
+			writeFile(t, wt+"/.superpowers/sdd/verify-report-"+opener+".md", "- v2/SH27 over-tolerance: 3 — #1: departure; #2: expected; #3: departure\n")
+		}
+		return p
+	}
+	fix := "In-run fix 1 — visual-verify: x"
+	if r := runGuard("check-plan-shape", []string{plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #1", true)}, env); r.rc != 1 || strings.Count(r.out, ": F34 ") != 1 || !strings.Contains(r.out, "v2/SH27 #3") {
+		t.Errorf("a dropped departure: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := runGuard("check-plan-shape", []string{plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #1 and xv2/SH27 #3 and v2/SH27 #30", true)}, env); r.rc != 1 || !strings.Contains(r.out, "v2/SH27 #3") {
+		t.Errorf("a departure cited only inside a longer name: rc=%d out=%q", r.rc, r.out)
+	}
+	for name, p := range map[string]string{
+		"every departure cited": plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #1 and v2/SH27 #3", true),
+		"ticked":                plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #1", true),
+		"not a visual opener":   plan(t, fix, "verify-fix-9-gymie", "v2/SH27 #1", true),
+		"no report":             plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #1", false),
+	} {
+		if name == "ticked" {
+			b, _ := os.ReadFile(p)
+			writeFile(t, p, strings.Replace(string(b), "- [ ] 1.", "- [x] 1.", 1))
+		}
+		if r := runGuard("check-plan-shape", []string{p}, env); strings.Contains(r.out, ": F34 ") {
+			t.Errorf("%s: refused: out=%q", name, r.out)
+		}
+	}
+}

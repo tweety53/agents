@@ -54,7 +54,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 
 1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**
    (`skills/flow/document-fix.md`) with the stage's final `## Report` — every defect it names,
-   verbatim — as the fix instructions. Neither of its two asks is made: the fix is appended to
+   verbatim — as the fix instructions. Each over-tolerance row the opener's report classifies `departure` is cited in the task as `<frame> #<row>`, and `flow-guard check-plan-shape` F34 refuses a task without one (kan-1099 self-review, F22). Neither of its two asks is made: the fix is appended to
    `proposal.md` and `tasks.md`, and `**Tasks appended:**` is not raised, since it counts appends
    made at the human gate. The appended task carries the field family the verification-change
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)

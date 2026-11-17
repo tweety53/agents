@@ -36,10 +36,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Thirty-one
-// findings, F1-F33 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Thirty-two
+// findings, F1-F34 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F33's are the rows below).
+// design.md -- not restated here; F7-F34's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -298,6 +298,16 @@ import (
 //	    the earlier round was planned; and an unticked task after an in-run
 //	    fix task that is neither titled so nor counted by
 //	    `**Tasks appended:**`. A ticked task is never reported.
+//	F34 A visual fix task cites every departure row of its opener
+//	    (kan-1099 self-review, F22: a fix task dropped a departure its
+//	    report named). An unticked `In-run fix <k> — …` task whose
+//	    **Opener:** starts `visual-verify` cites `<frame> #<row>` for each
+//	    `#<row>: departure` item of the report's `- <frame> over-tolerance:`
+//	    lines, the report read from
+//	    `<worktree>/.superpowers/sdd/verify-report-<opener>.md`, `<worktree>`
+//	    the plan path above `spectre/changes/<name>/tasks.md`. An absent
+//	    report owes nothing. Reported at the task's title line, one finding
+//	    naming every uncited row.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -345,6 +355,7 @@ var psRules = []struct{ id, sentence string }{
 	{"F31", "No unticked task's line hands the parent an action on the sibling design file; that action is a column-0 Parent line there."},
 	{"F32", "A task's **Size:** value is `small`, `medium` or `big`."},
 	{"F33", "One fix round is one `In-run fix <k> — …` task: no second unticked one unless the two share a **Files:** path, none opened by a report older than the previous round's `-fix-<k>` re-run, and no task under another title after one outside **Tasks appended:**."},
+	{"F34", "An unticked task whose **Opener:** is a `visual-verify…` key cites `<frame> #<row>` for every over-tolerance row its opener's report classifies `departure`."},
 	{"plan-suite-steps", "No step runs a module or repository test suite: go test takes `-run`, Gradle `--tests`, npm test and vitest `-t`."},
 	{"plan-script-paths", "Every `scripts/` path a task cites exists in the repository or is in some task's **Files:**."},
 	{"plan-files-paths", `Every **Files:** path names the directory its file lands in, never one with a segment dropped.`},
@@ -694,7 +705,7 @@ var (
 	psFixSegRE   = regexp.MustCompile(`-fix-([0-9]+)`)
 )
 
-// inRunBatches is F24 and F33: every in-run fix task names the report that
+// inRunBatches is F24, F33 and F34: every in-run fix task names the report that
 // opened its round, and one round is one task carrying every open item --
 // a second task of a round is a slice, and shares a **Files:** path with
 // the task it is cut from.
@@ -754,10 +765,69 @@ func (p *psPlan) inRunBatches(ids []string) []psFinding {
 			case cur.opener != "" && !sliced && newest < prev && p.on("F33"):
 				v = append(v, p.at(found.taskLine, "F33", fmt.Sprintf("task %s's **Opener:** %s predates In-run fix %d's re-run — every departure that report names was known when round %d was planned and belonged in its one task; open a round only from a report keyed `-fix-%d` or later (skills/flow/verify-fix-loop.md step 1)", id, cur.opener, prev, prev, prev)))
 			}
+			if missing := p.uncitedDepartures(cur.opener, strings.Join(found.lines, "\n")); len(missing) > 0 && p.on("F34") {
+				v = append(v, p.at(found.taskLine, "F34", "task "+id+" drops departure rows of its opener "+cur.opener+"'s report: "+strings.Join(missing, ", ")+" — cite each as `<frame> #<row>` (skills/flow/verify-fix-loop.md step 1)"))
+			}
 		}
 		fixes = append(fixes, cur)
 	}
 	return v
+}
+
+// psChangePlanRE is a plan path under `spectre/changes/<name>/tasks.md`,
+// group 1 its worktree.
+var psChangePlanRE = regexp.MustCompile(`^(.*)/spectre/changes/[^/]+/tasks\.md$`)
+
+// uncitedDepartures is F34: the `<frame> #<row>` of every over-tolerance row
+// a `visual-verify…` opener's report classifies `departure` that the task
+// text does not cite. No report, or a plan outside a worktree, owes none.
+func (p *psPlan) uncitedDepartures(opener, text string) []string {
+	m := psChangePlanRE.FindStringSubmatch(filepath.ToSlash(p.path))
+	if m == nil || !strings.HasPrefix(opener, "visual-verify") {
+		return nil
+	}
+	report, err := os.ReadFile(filepath.Join(m[1], ".superpowers", "sdd", "verify-report-"+opener+".md"))
+	if err != nil {
+		return nil
+	}
+	var missing []string
+	for _, line := range strings.Split(string(report), "\n") {
+		over := vrOverLine.FindStringSubmatch(line)
+		if over == nil {
+			continue
+		}
+		_, items, _ := strings.Cut(over[2], "—")
+		for _, item := range strings.Split(items, ";") {
+			it := vrOverItem.FindStringSubmatch(strings.TrimSpace(item))
+			if it == nil || strings.TrimSpace(it[2]) != "departure" {
+				continue
+			}
+			cite := over[1] + " #" + it[1]
+			if !citesWhole(text, cite) {
+				missing = append(missing, cite)
+			}
+		}
+	}
+	return missing
+}
+
+// citesWhole reports whether text carries cite as a whole token: no word
+// rune on either side, so `xframe #3` and `frame #30` do not cite `frame #3`.
+func citesWhole(text, cite string) bool {
+	word := func(r rune) bool { return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r) }
+	for i := 0; ; {
+		j := strings.Index(text[i:], cite)
+		if j < 0 {
+			return false
+		}
+		start, end := i+j, i+j+len(cite)
+		before, _ := utf8.DecodeLastRuneInString(text[:start])
+		after, _ := utf8.DecodeRuneInString(text[end:])
+		if (start == 0 || !word(before)) && (end == len(text) || !word(after)) {
+			return true
+		}
+		i = start + 1
+	}
 }
 
 var (
