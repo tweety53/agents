@@ -874,6 +874,50 @@ func TestCloseTaskEnforcesAffectedSpecs(t *testing.T) {
 	}
 }
 
+// TestCloseTaskRefusesAnUnmeasuredDeparture pins the kan-1099 fix (its in-run
+// fix tasks 53, 55 and 57-59 were handed back with no measure run, and each
+// left a departure the next verifier found): an in-run fix task opened by a
+// visual-verify report closes only once `flow-guard visual-verify-pass
+// measure` has measured, under `implementer-<k>`, every affected spec that
+// carries a `.mockups` sidecar.
+func TestCloseTaskRefusesAnUnmeasuredDeparture(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", bt(ctPlan+"\n- [ ] 4. In-run fix 3 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"))
+	writeFile(t, fx.dispatches, `[{"key":"verify-fix-3","taskId":"4","commitSha":"abc"}]`)
+	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `*.txt` |\n")
+	for _, spec := range []string{"shots/day.spec.js", "shots/night.spec.js"} {
+		writeFile(t, fx.wt+"/"+spec, "test('x', () => {})\n")
+		writeFile(t, fx.wt+"/"+spec+".sources", "e.txt\n")
+	}
+	writeFile(t, fx.wt+"/shots/day.spec.js.mockups", "day 1:2\n")
+	writeFile(t, fx.wt+"/e.txt", "x\n")
+	if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:4", fx.wt, fx.wt + "=HEAD", "true <spec>"}, fx.env); r.rc != 0 {
+		t.Fatalf("recapture: exit %d\n%s", r.rc, r.out)
+	}
+	sha := fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
+	manifest := func(key, spec string) {
+		writeFile(t, fx.wt+"/.superpowers/sdd/visual-manifest-"+key+".json", `{"pairs":[{"spec":"`+fx.wt+"/"+spec+`","frame":"day"}]}`)
+	}
+	// Another round's measure, and a measure of another spec, cover nothing.
+	manifest("implementer-2", "shots/day.spec.js")
+	manifest("implementer-3", "shots/night.spec.js")
+	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
+	if want := "visual-verify-pass measure " + fx.wt + " demo implementer-3 <spec path>"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under implementer-3") || !strings.Contains(r.err, want) || strings.Contains(r.err, "night.spec.js") {
+		t.Fatalf("an unmeasured departure: exit %d, want 1 naming day.spec.js alone and %q\n%s\n%s", r.rc, want, r.out, r.err)
+	}
+	for _, call := range fx.calls(t) {
+		if strings.HasPrefix(call, "flow tasks tick") {
+			t.Errorf("ticked after a refusal: %s", call)
+		}
+	}
+	manifest("implementer-3", "shots/day.spec.js")
+	if r := fx.run(fx.wt, "demo", fx.base, "4:"+sha); r.rc != 0 {
+		t.Fatalf("a measured departure: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
+	}
+}
+
 // TestCloseTaskTakesTheTaskSet pins the kan-1091 fix: an in-run fix task
 // touching only a fixture every spec renders closes on a capture run of the
 // spec its Tests name, never of every spec, and a run red on one spec is

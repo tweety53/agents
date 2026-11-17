@@ -123,6 +123,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    named with its cause, and report every view's measured numbers. It measures each
    pair on the 2× capture and the 2× mockup frame themselves, never on a `flow-guard compose-mockup-frames`
    composite. A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small.
+   `flow-guard close-task` refuses the task while an affected spec carrying a `.mockups` sidecar has no measure under that key (its header canonical).
    **A task fixing a visual departure runs its capture spec before it closes.** Its verify step
    runs the project's `capture` command with the recapture list above for `<spec>`, against the
    stack rebuilt from its fix, and the task closes through `flow-guard close-task`, which prints

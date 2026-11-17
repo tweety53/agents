@@ -81,6 +81,14 @@ import (
 //      that passed it, and saw each source file of the commit at the blob
 //      the commit holds -- is refused, exit 1, nothing ticked or pushed.
 //      Nothing is checked where no worktree holds a sidecar.
+//      Where the task's **Opener:** is a `visual-verify…` key, each such
+//      spec carrying a `<spec>.mockups` sidecar is refused the same way
+//      until a `visual-manifest-implementer-<k>.json` under
+//      `.superpowers/sdd/` of <canonical> or a map worktree pairs it -- the
+//      manifest `flow-guard visual-verify-pass measure <canonical> <name>
+//      implementer-<k> <spec path>` writes (kan-1099: five in-run fix tasks
+//      were handed back unmeasured, and each left a departure the next
+//      verifier found).
 //   3. flow-guard check-task-commit-planning-paths <canonical> <merge-base>, then
 //      flow-guard check-untasked-commits <worktree> refs/remotes/origin/spectre/<name>
 //      once per distinct worktree whose branch origin already holds: the push
@@ -672,19 +680,36 @@ func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string, o
 func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, commit string) int {
 	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical)
 	plan, _ := os.ReadFile(tasksMD)
-	if !regexp.MustCompile(`(?m)^- \[[ xX]\] ` + regexp.QuoteMeta(id) + `\. In-run fix [0-9]+ — `).Match(plan) {
+	title := regexp.MustCompile(`(?m)^- \[[ xX]\] ` + regexp.QuoteMeta(id) + `\. In-run fix ([0-9]+) — `).FindSubmatchIndex(plan)
+	if title == nil {
 		return 0
 	}
+	// A task a visual-verify report opened closes a mockup departure: its
+	// implementer measures before it hands back (verify-fix-loop.md step 2).
+	round := string(plan[title[2]:title[3]])
+	body, _, _ := strings.Cut(string(plan[title[1]:]), "\n- [")
+	departure := regexp.MustCompile("(?m)^\\*\\*Opener:\\*\\*\\s*`?visual-verify").MatchString(body)
 	pairs := []string{canonical + "=" + commit}
 	if strings.Contains(commit, "=") {
 		pairs = strings.Split(commit, ",")
 	}
 	git := envGit(env)
-	var roots []string // every worktree of the map holding a sidecar
+	var roots []string    // every worktree of the map holding a sidecar
+	var measured []string // the spec paths a manifest of this round's key pairs
+	manifests := []string{canonical}
 	for _, p := range pairs {
 		wt, _, _ := strings.Cut(strings.TrimSpace(p), "=")
 		if out, _ := capture(git("-C", wt, "ls-files", "-co", "--exclude-standard", "--", "*.sources")); out != "" {
 			roots = append(roots, wt)
+		}
+		manifests = append(manifests, wt)
+	}
+	for _, wt := range manifests {
+		var m vvmManifestOut
+		if b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "visual-manifest-implementer-"+round+".json")); err == nil && json.Unmarshal(b, &m) == nil {
+			for _, p := range m.Pairs {
+				measured = append(measured, filepath.ToSlash(p.Spec))
+			}
 		}
 	}
 	if len(roots) == 0 {
@@ -706,6 +731,19 @@ func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, com
 			if len(specs) > 0 && !rcCovered(env, wt, root, sha, specs) {
 				fmt.Fprintf(stderr, "close-task: task %s: no passing capture run covers commit %s's sources in %s for %s — run `flow-guard recapture %s:%s %s %s=<round base> '<the capture command with <spec>>'`, commit what it moves, and re-run\n", id, sha, wt, strings.Join(specs, " "), tasksMD, id, root, wt)
 				Reason(env, "affected-specs-not-captured")
+				rc = 1
+			}
+			// ponytail: the round's key alone dates a measure -- one taken
+			// before the round's last recapture still counts; compare the
+			// manifest with the captures' blobs if that ever bites.
+			sidecars, _ := capture(git("-C", root, "ls-files", "-co", "--exclude-standard", "--", "*.mockups"))
+			for _, spec := range specs {
+				if !departure || !slices.ContainsFunc(strings.Split(sidecars, "\n"), func(f string) bool { return f == spec+".mockups" || strings.HasSuffix(f, "/"+spec+".mockups") }) ||
+					slices.ContainsFunc(measured, func(m string) bool { return m == spec || strings.HasSuffix(m, "/"+spec) }) {
+					continue
+				}
+				fmt.Fprintf(stderr, "close-task: task %s: In-run fix %s closes a mockup departure and no measure of %s ran under implementer-%s — run `flow-guard visual-verify-pass measure %s %s implementer-%s <spec path>` on the views the fix touched, close or name every flagged band, seam and `over` row, and re-run\n", id, round, spec, round, canonical, name, round)
+				Reason(env, "departure-not-measured")
 				rc = 1
 			}
 		}
