@@ -449,6 +449,43 @@ func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
 	}
 }
 
+// vvpReceipt appends a passing flow-guard recapture receipt of spec to wt,
+// taken on path at blob.
+func vvpReceipt(t *testing.T, wt, spec, path, blob string) {
+	t.Helper()
+	file := filepath.Join(tcfGit(t, wt, "rev-parse", "--absolute-git-dir"), "flow-recapture.jsonl")
+	old, _ := os.ReadFile(file)
+	writeFile(t, file, string(old)+`{"specs":["`+spec+`"],"exit":0,"blobs":{"`+path+`":"`+blob+`"}}`+"\n")
+}
+
+// TestVisualVerifyPassPrepareNamesCapturedSpecs pins the kan-1091 fix: a
+// scoped row's bundle names the specs the round's own recapture passed on
+// HEAD's sources, so the verifier's capture run does not repeat them -- and
+// names none a receipt on other sources, or an unscoped row, would.
+func TestVisualVerifyPassPrepareNamesCapturedSpecs(t *testing.T) {
+	smoke.Heavy(t)
+	bundle := func(f *vvpFix) string {
+		b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/verify-prompt-visual-verify.md"))
+		return string(b)
+	}
+	const line = "captured: tests/visual/home.spec.ts\n"
+	f := vvpFixture(t, "")
+	vvpReceipt(t, f.wt, "tests/visual/home.spec.ts", "src/ui/app.tsx", tcfGit(t, f.wt, "rev-parse", "HEAD:src/ui/app.tsx"))
+	if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb); rc != 0 || !strings.Contains(bundle(f), line) {
+		t.Errorf("a receipt on HEAD's sources: exit %d, bundle lacks %q\n%s\n%s", rc, line, out, bundle(f))
+	}
+	g := vvpFixture(t, "")
+	vvpReceipt(t, g.wt, "tests/visual/home.spec.ts", "src/ui/app.tsx", tcfGit(t, g.wt, "rev-parse", g.mb+":src/ui/app.tsx"))
+	if rc, out, _ := g.prepare("--round-base", g.wt+"="+g.mb); rc != 0 || strings.Contains(bundle(g), "captured:") {
+		t.Errorf("a receipt on an earlier draft: exit %d, bundle names captured specs\n%s\n%s", rc, out, bundle(g))
+	}
+	h := vvpFixture(t, "")
+	vvpReceipt(t, h.wt, "tests/visual/home.spec.ts", "src/ui/app.tsx", tcfGit(t, h.wt, "rev-parse", "HEAD:src/ui/app.tsx"))
+	if rc, out, _ := h.prepare(); rc != 0 || strings.Contains(bundle(h), "captured:") {
+		t.Errorf("an unscoped row: exit %d, bundle names captured specs\n%s\n%s", rc, out, bundle(h))
+	}
+}
+
 func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	smoke.Heavy(t)
 	f := vvpFixture(t, "")

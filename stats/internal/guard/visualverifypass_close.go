@@ -204,11 +204,20 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 	if len(list) == 0 {
 		return true, "no frame on the change's list"
 	}
+	// A spec the round's own recapture passed on HEAD's sources is fresh
+	// without a second capture (flow-guard recapture's receipt).
+	bases := v.bases
+	if len(bases) == 0 {
+		bases = map[string]string{w: base}
+	}
+	root := v.captureRoot(w)
+	captured := rcCaptured(v.env, root, bases)
 	for _, id := range list {
 		fresh := false
 		for _, p := range m.Pairs {
 			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil &&
-				(fi.ModTime().After(at) || (v.captureIsCommitted(p.Capture) && v.playwrightRanAfter(p.Capture, at))) {
+				(fi.ModTime().After(at) || (v.captureIsCommitted(p.Capture) && v.playwrightRanAfter(p.Capture, at)) ||
+					slices.Contains(captured, asSpecOut(root, p.Spec))) {
 				fresh = true
 			}
 		}

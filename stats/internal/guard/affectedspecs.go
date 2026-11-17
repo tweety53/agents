@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// flow-guard affected-specs <source-root> <base> <spec-root>
+// flow-guard affected-specs [-task <tasks.md>:<task-id>] <source-root> <base> <spec-root>
 //
 // Prints the capture specs a diff can move, one path per line, so a fixer
 // recaptures those and no others (skills/flow/verify-fix-loop.md; kan-1099:
@@ -70,13 +70,24 @@ import (
 // sidecar, whose screen is unknown. A changed file outside `ui paths` that
 // no spec reaches selects nothing and is named `unreached: <path>`.
 //
+// THE TASK SET: with `-task` the list is what an in-run fix task's own
+// capture run takes (skills/flow/verify-fix-loop.md step 2; kan-1091: a
+// fixture edit selected 130 specs inside the task, 36 minutes a run). A
+// changed file selects a spec only when it is that spec, its `.sources` or
+// `.mockups` sidecar, or a file one of its `.sources` globs matches -- no
+// import climb, no `all.sources`, no safe side, nothing on stderr but `test:`
+// lines -- and every spec whose printed path the task's **Tests:** or
+// **Regression:** field names, behind any leading directories, is selected
+// too.
+//
 // A TEST FILE outside every directory holding a spec (asTestRE) moves no capture: changed, it
 // is named `test: <path>` and skipped, and it is never an importer.
 //
 // Exit codes:
 //
 //	0  the list is on stdout, sorted, possibly empty.
-//	2  usage, a root that is not a directory, or a diff git cannot read.
+//	2  usage, a root that is not a directory, a diff git cannot read, or a
+//	   `-task` whose file or task cannot be read.
 func init() { Registry["affected-specs"] = affectedSpecs }
 
 // asExts are the extensions the import walk reads.
@@ -119,8 +130,18 @@ func asImports(cp string, c *asFile, tp string, t *asFile) bool {
 }
 
 func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
+	named, task := "", len(args) == 5 && args[0] == "-task"
+	if task {
+		var ok bool
+		if named, ok = asTaskNames(args[1]); !ok {
+			fmt.Fprintf(stderr, "affected-specs: cannot read the task %s\n", args[1])
+			Reason(env, "cannot-read-task")
+			return 2
+		}
+		args = args[2:]
+	}
 	if len(args) != 3 {
-		fmt.Fprintln(stderr, "usage: flow-guard affected-specs <source-root> <base> <spec-root>")
+		fmt.Fprintln(stderr, "usage: flow-guard affected-specs [-task <tasks.md>:<task-id>] <source-root> <base> <spec-root>")
 		Reason(env, "usage")
 		return 2
 	}
@@ -149,18 +170,6 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		globs    []*regexp.Regexp
 		mapped   bool
 	}
-	// pkgOf is the nearest directory at or above dir holding a package.json,
-	// else the spec root.
-	pkgOf := func(dir string) string {
-		for d := dir; ; d = filepath.Dir(d) {
-			if isFile(filepath.Join(d, "package.json")) {
-				return d
-			}
-			if d == filepath.Dir(d) {
-				return specRoot
-			}
-		}
-	}
 	var specDirs []string // every directory holding a spec
 	var specs []spec
 	_ = filepath.WalkDir(specRoot, func(p string, d fs.DirEntry, err error) error {
@@ -177,7 +186,7 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 			return nil
 		}
 		s := spec{}
-		s.out, _ = filepath.Rel(pkgOf(filepath.Dir(p)), p)
+		s.out = asSpecOut(specRoot, p)
 		if !slices.Contains(specDirs, filepath.Dir(p)) {
 			specDirs = append(specDirs, filepath.Dir(p))
 		}
@@ -268,12 +277,25 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	selected := map[string]bool{}
+	for _, s := range specs {
+		if task && regexp.MustCompile(`(^|[^\w.-])`+regexp.QuoteMeta(s.out)+`($|[^\w/-])`).MatchString(named) {
+			selected[s.out] = true
+		}
+	}
 	for _, f := range strings.Split(diff, "\n") {
 		if f == "" || filepath.Base(f) == "full-app-suite.zip" || strings.Contains(filepath.Dir(f)+"/", "-snapshots/") {
 			continue
 		}
 		if !inSpecRoot(f) && asTestRE.MatchString(f) {
 			fmt.Fprintf(stderr, "test: %s\n", f)
+			continue
+		}
+		if task {
+			for _, s := range specs {
+				if (s.rel != "" && (f == s.rel || f == s.rel+".sources" || f == s.rel+".mockups")) || matches(s.globs, f) {
+					selected[s.out] = true
+				}
+			}
 			continue
 		}
 		if matches(everySpec, f) {
@@ -315,6 +337,46 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, s)
 	}
 	return 0
+}
+
+// asSpecOut is the path a spec is printed as: relative to the nearest
+// directory at or above it holding a package.json, else to specRoot.
+func asSpecOut(specRoot, spec string) string {
+	pkg := specRoot
+	for d := filepath.Dir(spec); ; d = filepath.Dir(d) {
+		if isFile(filepath.Join(d, "package.json")) {
+			pkg = d
+			break
+		}
+		if d == filepath.Dir(d) {
+			break
+		}
+	}
+	out, _ := filepath.Rel(pkg, spec)
+	return out
+}
+
+// asTaskNames is the text of the **Tests:** and **Regression:** fields of the
+// task a `<tasks.md>:<task-id>` argument names; false when it cannot be read.
+func asTaskNames(arg string) (string, bool) {
+	i := strings.LastIndex(arg, ":")
+	if i < 0 {
+		return "", false
+	}
+	raw, err := os.ReadFile(arg[:i])
+	if err != nil {
+		return "", false
+	}
+	lines, err := tcfPlanLines(raw)
+	if err != nil {
+		return "", false
+	}
+	found := tcfSelectTask(lines, arg[i+1:])
+	if found == nil {
+		return "", false
+	}
+	f := tcfBodyFields(found.lines)
+	return strings.Join(append(f["Tests"], f["Regression"]...), " "), true
 }
 
 // asUntracked is the worktree's untracked, unignored paths, newline-joined.

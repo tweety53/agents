@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestRecapture pins flow-guard recapture: one run of the affected specs
+// TestRecapture pins flow-guard recapture: one run of the task's specs
 // alone, a receipt for it, nothing run when no spec is affected, and the
 // command's failure passed on.
 func TestRecapture(t *testing.T) {
@@ -23,6 +23,7 @@ func TestRecapture(t *testing.T) {
 		"shots/rooms.spec.ts":         "test('rooms', () => {})\n",
 		"shots/rooms.spec.ts.sources": "src/Rooms.tsx\n",
 		"docs/notes.md":               "notes\n",
+		"plan/tasks.md":               "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `src/Day.tsx`\n**Tests:** none\n",
 		".flow/project.md":            "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `src/**` |\n",
 	} {
 		writeFile(t, filepath.Join(root, p), body)
@@ -32,7 +33,7 @@ func TestRecapture(t *testing.T) {
 	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
 	ran := filepath.Join(t.TempDir(), "ran")
 	run := func(command string) guardResult {
-		return runGuard("recapture", []string{root, root + "=HEAD", command}, env)
+		return runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", command}, env)
 	}
 	receipts := func() string {
 		raw, _ := os.ReadFile(filepath.Join(root, ".git/flow-recapture.jsonl"))
@@ -53,12 +54,66 @@ func TestRecapture(t *testing.T) {
 	if got := receipts(); !strings.Contains(got, `"specs":["shots/day.spec.ts"],"exit":0`) || !strings.Contains(got, `"src/Day.tsx":"`) {
 		t.Errorf("receipts = %q", got)
 	}
+	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 2 }\n")
 	if r := run("echo <spec>; exit 3"); r.rc != 1 || !strings.Contains(receipts(), `"exit":3`) {
 		t.Errorf("a failing command: rc=%d out=%q receipts=%q", r.rc, r.out, receipts())
 	}
-	for _, args := range [][]string{{root, root + "=HEAD"}, {root, root + "=HEAD", "no placeholder"}, {root, root, "echo <spec>"}} {
+	for _, args := range [][]string{{root, root + "=HEAD", "echo <spec>"}, {root + "/plan/tasks.md:4", root, root + "=HEAD", "no placeholder"}, {root + "/plan/tasks.md:4", root, root, "echo <spec>"}, {root + "/plan/tasks.md:9", root, root + "=HEAD", "echo <spec>"}} {
 		if r := runGuard("recapture", args, env); r.rc != 2 {
 			t.Errorf("%v: rc=%d, want 2", args[1:], r.rc)
 		}
+	}
+}
+
+// TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed pins the two halves of
+// the kan-1091 fix: a fixture every spec renders selects the specs the task's
+// Tests name and no other, and a red run is followed by a five-repeat run of
+// its failing spec alone, after which nothing is left to run.
+func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	root := t.TempDir()
+	for p, body := range map[string]string{
+		"package.json":        "{}\n",
+		"shots/fixtures.ts":   "export const seed = 1\n",
+		"shots/all.sources":   "shots/fixtures.ts\n",
+		"shots/day.spec.ts":   "test('day', () => {})\n",
+		"shots/rooms.spec.ts": "test('rooms', () => {})\n",
+		"shots/week.spec.ts":  "test('week', () => {})\n",
+		"plan/tasks.md":       "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `shots/fixtures.ts`\n**Tests:** `shots/day.spec.ts` › day\n**Regression:** `e2e/shots/rooms.spec.ts`\n",
+	} {
+		writeFile(t, filepath.Join(root, p), body)
+		if strings.HasSuffix(p, ".spec.ts") {
+			writeFile(t, filepath.Join(root, p+".sources"), "src/"+filepath.Base(p)+".tsx\n")
+		}
+	}
+	gitRun(t, root, "init", "-q")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	writeFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 2\n")
+	ran := filepath.Join(t.TempDir(), "ran")
+	run := func(command string) guardResult {
+		return runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", command}, env)
+	}
+	red := "printf '  1 failed\\n    [chromium] › shots/rooms.spec.ts:3:1 › rooms\\n'; echo <spec> >> " + ran + "; exit 1"
+	if r := run(red); r.rc != 1 {
+		t.Fatalf("the red run: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := run("echo <spec> >> " + ran); r.rc != 0 {
+		t.Fatalf("the re-run: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "already passed") {
+		t.Errorf("nothing left: rc=%d out=%q", r.rc, r.out)
+	}
+	const want = "shots/day.spec.ts shots/rooms.spec.ts\nshots/rooms.spec.ts --repeat-each 5 --workers 1\n"
+	if got, _ := os.ReadFile(ran); string(got) != want {
+		t.Errorf("the command ran with %q, want %q", got, want)
+	}
+	// A red run that cannot name its failures failed every spec.
+	writeFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 3\n")
+	run("echo <spec> >> " + ran + "; exit 1")
+	run("echo <spec> >> " + ran)
+	if got, _ := os.ReadFile(ran); !strings.HasSuffix(string(got), "shots/day.spec.ts shots/rooms.spec.ts --repeat-each 5 --workers 1\n") {
+		t.Errorf("after an unnamed failure the command ran with %q, want both specs five times over", got)
 	}
 }

@@ -83,6 +83,27 @@ func TestAffectedSpecs(t *testing.T) {
 		writeFile(t, filepath.Join(root, c.touch), files[c.touch])
 	}
 
+	// The task set: only a file a sidecar names selects a spec, beside the
+	// specs the task's Tests and Regression name.
+	plan := filepath.Join(t.TempDir(), "tasks.md")
+	writeFile(t, plan, "- [ ] 7. In-run fix 1 — visual-verify: x\n\n**Tests:** none\n**Regression:** e2e/tests/rooms.spec.ts renders the seed\n")
+	for touch, want := range map[string]string{
+		"seed/fixture.sql":        rooms,
+		"web/src/shared/Chip.tsx": rooms,
+		"web/src/pages/Home.tsx":  home + " " + rooms,
+		"web/tests/day.spec.ts":   day + " " + rooms,
+	} {
+		writeFile(t, filepath.Join(root, touch), files[touch]+"\n/* edited */\n")
+		r := runGuard("affected-specs", []string{"-task", plan + ":7", root, "HEAD", filepath.Join(root, "web/tests")}, env)
+		if got := strings.Join(strings.Fields(r.stdout), " "); r.rc != 0 || got != want || strings.Contains(r.err, "all:") {
+			t.Errorf("-task, %s: rc=%d stdout=%q err=%q, want %q", touch, r.rc, r.stdout, r.err, want)
+		}
+		writeFile(t, filepath.Join(root, touch), files[touch])
+	}
+	if r := runGuard("affected-specs", []string{"-task", plan + ":8", root, "HEAD", filepath.Join(root, "web/tests")}, env); r.rc != 2 {
+		t.Errorf("-task naming no task: rc=%d, want 2", r.rc)
+	}
+
 	// A spec with no sidecar renders an unknown screen: any UI change selects it.
 	writeFile(t, filepath.Join(root, "web/tests/legacy.spec.ts"), "test('legacy', () => {})\n")
 	writeFile(t, filepath.Join(root, "web/src/pages/Home.tsx"), files["web/src/pages/Home.tsx"]+"// edited\n")

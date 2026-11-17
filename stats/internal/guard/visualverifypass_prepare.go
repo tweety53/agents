@@ -869,6 +869,11 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	}
 	line("specs: %s", vvpOr(v.specsCommand(w)))
 	line("screenshots: %s", vvpOr(cellPath(v.captureRoot(w), cells["screenshots"])))
+	if v.roundBase[w] != "" {
+		if c := rcCaptured(v.env, v.captureRoot(w), v.roundBase); len(c) > 0 {
+			line("captured: %s", strings.Join(c, " "))
+		}
+	}
 	if m := cells["mockups"]; m != "" {
 		line("mockups: %s", cellPath(w, m))
 	}

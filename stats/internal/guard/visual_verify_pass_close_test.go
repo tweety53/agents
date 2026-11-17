@@ -269,6 +269,13 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 		gitRun(t, f.wt, "commit", "-qm", "sidecar")
 	}
 	snapFile := func(f *vvpFix) string { return filepath.Join(f.wt, ".superpowers/sdd/visual-prototype.txt") }
+	// fix commits the round's one source edit and returns its blob.
+	fix := func(f *vvpFix) string {
+		writeFile(t, filepath.Join(f.wt, "src/ui/home.tsx"), "fixed\n")
+		gitRun(t, f.wt, "add", "src/ui/home.tsx")
+		gitRun(t, f.wt, "commit", "-qm", "fix")
+		return tcfGit(t, f.wt, "rev-parse", "HEAD:src/ui/home.tsx")
+	}
 	cases := []struct {
 		name     string
 		setup    func(f *vvpFix)
@@ -280,6 +287,7 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 		isProto  bool
 		extra    string
 		noPairs  bool
+		after    func(f *vvpFix) // runs once the round base is read
 	}{
 		{name: "fresh, the changed frame judged", lines: judged, want: []string{"CLOSES-LOOP: yes"}, closes: true},
 		{name: "an unchanged frame needs no line", setup: func(f *vvpFix) {
@@ -287,6 +295,13 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 			gitRun(t, f.wt, "commit", "-qm", "capture")
 		}, want: []string{"CLOSES-LOOP: yes"}, closes: true},
 		{name: "a stale capture", lines: judged, stale: true, want: []string{"CLOSES-LOOP: no — f1: "}},
+		{name: "a stale capture the round's recapture passed on HEAD's sources", lines: judged, stale: true, after: func(f *vvpFix) {
+			vvpReceipt(t, f.wt, "tests/visual/home.spec.ts", "src/ui/home.tsx", fix(f))
+		}, want: []string{"CLOSES-LOOP: yes"}, closes: true},
+		{name: "a stale capture a recapture passed on an earlier draft", lines: judged, stale: true, after: func(f *vvpFix) {
+			fix(f)
+			vvpReceipt(t, f.wt, "tests/visual/home.spec.ts", "src/ui/home.tsx", "0000000000000000000000000000000000000000")
+		}, want: []string{"CLOSES-LOOP: no — f1: "}},
 		{name: "a changed frame on the frames line alone", lines: "- frames: 0/1 — f1: capture unchanged since x\n", want: []string{"CLOSES-LOOP: no — f1: "}},
 		{name: "a frame the prototype map lists and no pair carries", setup: func(f *vvpFix) {
 			writeFile(t, filepath.Join(vvDir(f), "prototype.mockups"), "x.png f2\n")
@@ -323,6 +338,9 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 				c.setup(f)
 			}
 			base := vgHead(t, f.wt)
+			if c.after != nil {
+				c.after(f)
+			}
 			at := time.Now().Add(-time.Minute)
 			capture := filepath.Join(f.wt, "tests/visual/home.spec.ts-home.png")
 			mtime := time.Now()

@@ -5,32 +5,52 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
 )
 
-// flow-guard recapture <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command>
+// flow-guard recapture <tasks.md>:<task-id> <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command>
 //
-// Runs a fix round's recapture and leaves the receipt close-task asks for
-// (skills/flow/verify-fix-loop.md step 2). The specs are flow-guard
-// affected-specs' for each pair -- `affected-specs <source-worktree> <base>
-// <capture-root>` -- united and sorted; <command> is the project's capture
-// command, or its re-baseline command, with `<spec>` where the spec paths
-// go. It runs once, through `sh -c` in <capture-root>, with `<spec>`
-// replaced by the paths space-joined, its output passed through. With no
-// affected spec nothing runs.
+// Runs an in-run fix task's capture run and leaves the receipt close-task
+// asks for (skills/flow/verify-fix-loop.md step 2). The task's specs are
+// flow-guard affected-specs' task set for each pair -- `affected-specs -task
+// <tasks.md>:<task-id> <source-worktree> <base> <capture-root>` -- united and
+// sorted; <command> is the project's capture command, or its re-baseline
+// command, with `<spec>` where the spec paths go. It runs once, through
+// `sh -c` in <capture-root>, with `<spec>` replaced by the paths
+// space-joined, its output passed through.
+//
+// ONLY WHAT HAS NOT PASSED RUNS. A spec an earlier receipt of every pair's
+// worktree records as passed on the sources as they stand now -- the same
+// source files of the diff, each at the same blob -- is left out, so a red
+// run is followed by a run of its failing specs alone. When one of the specs
+// left to run failed in the newest receipt naming it, ` --repeat-each 5
+// --workers 1` is appended to the command, as flow-guard run-verify-list
+// -only appends it: a spec that failed counts as passed only once it passes
+// five times over at one worker. With nothing left to run nothing runs.
+// ponytail: the flags go on the end of <command>, so a compound command must
+// end in its Playwright call.
 //
 // THE RECEIPT is one JSON line appended to `flow-recapture.jsonl` in each
-// source worktree's git directory: the specs the run took, its exit, and the
-// blob id of every source file of that worktree's diff as it stood when the
-// run began -- a deleted file's is empty. A source file is a path of the
-// diff that is no capture output and no test (affected-specs' header). The
-// receipt is what proves which sources a capture saw: a recapture that
-// leaves every pixel where it was changes no tracked file.
+// source worktree's git directory: the specs the run took, its exit, the
+// specs a red run failed, and the blob id of every source file of that
+// worktree's diff as it stood when the run began -- a deleted file's is
+// empty. A source file is a path of the diff that is no capture output and
+// no test (affected-specs' header). The receipt is what proves which sources
+// a capture saw: a recapture that leaves every pixel where it was changes no
+// tracked file.
+//
+// THE FAILED SPECS of a red run are the files its Playwright summary names
+// (flow-guard run-verify-list's failed, interrupted and flaky blocks); every
+// other spec of the run passed. A red run whose summary names no spec, names
+// a file the run did not take, or counts a test that did not run, failed
+// them all.
 //
 // Exit codes:
 //
@@ -42,9 +62,15 @@ func init() { Registry["recapture"] = recapture }
 
 // rcReceipt is one line of flow-recapture.jsonl.
 type rcReceipt struct {
-	Specs []string          `json:"specs"`
-	Exit  int               `json:"exit"`
-	Blobs map[string]string `json:"blobs"`
+	Specs  []string          `json:"specs"`
+	Exit   int               `json:"exit"`
+	Failed []string          `json:"failed,omitempty"`
+	Blobs  map[string]string `json:"blobs"`
+}
+
+// passed reports whether the receipt's run passed spec.
+func (r rcReceipt) passed(spec string) bool {
+	return slices.Contains(r.Specs, spec) && (r.Exit == 0 || (len(r.Failed) > 0 && !slices.Contains(r.Failed, spec)))
 }
 
 // rcFile is a worktree's receipt file, "" when git cannot name its directory.
@@ -54,6 +80,19 @@ func rcFile(env Env, worktree string) string {
 		return ""
 	}
 	return filepath.Join(dir, "flow-recapture.jsonl")
+}
+
+// rcReceipts is a worktree's receipts, oldest first.
+func rcReceipts(env Env, worktree string) []rcReceipt {
+	raw, _ := os.ReadFile(rcFile(env, worktree))
+	var out []rcReceipt
+	for _, line := range bytes.Split(raw, []byte("\n")) {
+		var r rcReceipt
+		if json.Unmarshal(line, &r) == nil {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // rcSourcePaths keeps the paths of a diff that are sources: no capture
@@ -73,35 +112,56 @@ func rcSourcePaths(env Env, worktree, captureRoot string, paths []string) []stri
 	return out
 }
 
+var rcDidNotRun = regexp.MustCompile(`(?m)^\s+\d+ did not run$`)
+
+// rcFailed is the specs of a red run its log names as failing, nil when the
+// log cannot tell them from the rest (THE FAILED SPECS).
+func rcFailed(log []byte, specs []string) []string {
+	if rcDidNotRun.Match(rvlANSI.ReplaceAll(log, nil)) {
+		return nil
+	}
+	var out []string
+	for _, e := range rvlVisualFailures(log) {
+		file := e[:strings.LastIndex(e, ":")]
+		if !slices.Contains(specs, file) {
+			return nil
+		}
+		if !slices.Contains(out, file) {
+			out = append(out, file)
+		}
+	}
+	return out
+}
+
 func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 	usage := func(msg string) int {
-		fmt.Fprintf(stderr, "recapture: %s\nusage: flow-guard recapture <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command with <spec>>\n", msg)
+		fmt.Fprintf(stderr, "recapture: %s\nusage: flow-guard recapture <tasks.md>:<task-id> <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command with <spec>>\n", msg)
 		Reason(env, "usage")
 		return 2
 	}
-	if len(args) != 3 {
+	if len(args) != 4 {
 		return usage(fmt.Sprintf("got %d argument(s)", len(args)))
 	}
-	root, command := args[0], args[2]
+	task, root, command := args[0], args[1], args[3]
 	if !strings.Contains(command, "<spec>") {
 		return usage("the command names no <spec>")
 	}
 	git := envGit(env)
-	var specs []string
+	var all []string
 	receipts := map[string]*rcReceipt{} // by source worktree
 	var order []string
-	for _, pair := range strings.Split(args[1], ",") {
+	for _, pair := range strings.Split(args[2], ",") {
 		wt, base, ok := strings.Cut(strings.TrimSpace(pair), "=")
 		if !ok || wt == "" || base == "" {
 			return usage("not <source-worktree>=<base>: " + pair)
 		}
 		var out bytes.Buffer
-		if rc := Registry["affected-specs"]([]string{wt, base, root}, env, &out, stderr); rc != 0 {
+		if rc := Registry["affected-specs"]([]string{"-task", task, wt, base, root}, env, &out, stderr); rc != 0 {
 			return rc
 		}
 		for _, s := range strings.Fields(out.String()) {
-			if !slices.Contains(specs, s) {
-				specs = append(specs, s)
+			if !slices.Contains(all, s) {
+				all = append(all, s)
 			}
 		}
 		diff, _ := capture(git("-C", wt, "diff", "--name-only", "--no-renames", base))
@@ -113,21 +173,53 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 		receipts[wt] = r
 		order = append(order, wt)
 	}
-	sort.Strings(specs)
+	sort.Strings(all)
+
+	// ONLY WHAT HAS NOT PASSED RUNS.
+	var specs []string
+	repeat := false
+	for _, s := range all {
+		done, failedLast := true, false
+		for _, wt := range order {
+			earlier := rcReceipts(env, wt)
+			done = done && slices.ContainsFunc(earlier, func(r rcReceipt) bool {
+				return r.passed(s) && maps.Equal(r.Blobs, receipts[wt].Blobs)
+			})
+			for _, r := range earlier {
+				if slices.Contains(r.Specs, s) {
+					failedLast = !r.passed(s)
+				}
+			}
+		}
+		if !done {
+			specs = append(specs, s)
+			repeat = repeat || failedLast
+		}
+	}
 
 	rc := 0
-	if len(specs) == 0 {
+	var failed []string
+	switch {
+	case len(all) == 0:
 		fmt.Fprintln(stdout, "recapture: no affected spec — nothing to capture")
-	} else {
+	case len(specs) == 0:
+		fmt.Fprintf(stdout, "recapture: all %d spec(s) already passed on these sources — nothing to capture\n", len(all))
+	default:
+		if repeat {
+			command += " --repeat-each 5 --workers 1"
+		}
+		var log bytes.Buffer
 		cmd := exec.Command("sh", "-c", strings.ReplaceAll(command, "<spec>", strings.Join(specs, " ")))
 		cmd.Dir = pcAbs(env, root)
-		cmd.Stdout, cmd.Stderr = stdout, stderr
-		rc = exitCode(cmd.Run())
+		cmd.Stdout, cmd.Stderr = io.MultiWriter(stdout, &log), io.MultiWriter(stderr, &log)
+		if rc = exitCode(cmd.Run()); rc != 0 {
+			failed = rcFailed(log.Bytes(), specs)
+		}
 		fmt.Fprintf(stdout, "recapture: %d spec(s), exit %d\n", len(specs), rc)
 	}
 	for _, wt := range order {
 		r := receipts[wt]
-		r.Specs, r.Exit = specs, rc
+		r.Specs, r.Exit, r.Failed = specs, rc, failed
 		line, _ := json.Marshal(r)
 		path := rcFile(env, wt)
 		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
@@ -156,33 +248,62 @@ func errorsJoinClose(err error, f *os.File) error {
 	return err
 }
 
-// rcCovered reports whether a receipt of worktree's file records a passing
-// run of every spec in specs on the blobs commit sha holds for its own
+// rcCovered reports whether, for every spec in specs, a receipt of worktree's
+// file records a passing run of it on the blobs commit sha holds for its own
 // source paths.
 func rcCovered(env Env, worktree, captureRoot, sha string, specs []string) bool {
-	raw, err := os.ReadFile(rcFile(env, worktree))
-	if err != nil {
-		return false
-	}
 	git := envGit(env)
 	names, _ := capture(git("-C", worktree, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", sha))
 	want := map[string]string{}
 	for _, f := range rcSourcePaths(env, worktree, captureRoot, strings.Split(names, "\n")) {
 		want[f], _ = capture(git("-C", worktree, "rev-parse", "--verify", "--quiet", sha+":"+f))
 	}
-	for _, line := range bytes.Split(raw, []byte("\n")) {
-		var r rcReceipt
-		if json.Unmarshal(line, &r) != nil || r.Exit != 0 {
+	receipts := rcReceipts(env, worktree)
+	return !slices.ContainsFunc(specs, func(s string) bool {
+		return !slices.ContainsFunc(receipts, func(r rcReceipt) bool {
+			ok := r.passed(s)
+			for f, blob := range want {
+				got, seen := r.Blobs[f]
+				ok = ok && seen && got == blob
+			}
+			return ok
+		})
+	})
+}
+
+// rcCaptured is the specs a passing receipt already covers on what every
+// worktree of bases -- worktree to round base -- holds at HEAD: each worktree
+// whose `<base>..HEAD` holds a source file has a receipt that passed the spec
+// on exactly those files, each at HEAD's blob. Nil when no range holds one.
+// ponytail: equal blob maps, not a run instant -- a file reverted and
+// re-applied across rounds matches the older receipt; record HEAD's tree in
+// the receipt if that ever bites.
+func rcCaptured(env Env, captureRoot string, bases map[string]string) []string {
+	git := envGit(env)
+	var out []string
+	ranged := false
+	for wt, base := range bases {
+		names, _ := capture(git("-C", wt, "diff", "--name-only", "--no-renames", base, "HEAD"))
+		want := map[string]string{}
+		for _, f := range rcSourcePaths(env, wt, captureRoot, strings.Split(names, "\n")) {
+			want[f], _ = capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "HEAD:"+f))
+		}
+		if len(want) == 0 {
 			continue
 		}
-		ok := !slices.ContainsFunc(specs, func(s string) bool { return !slices.Contains(r.Specs, s) })
-		for f, blob := range want {
-			got, seen := r.Blobs[f]
-			ok = ok && seen && got == blob
+		var here []string
+		for _, r := range rcReceipts(env, wt) {
+			for _, s := range r.Specs {
+				if maps.Equal(r.Blobs, want) && r.passed(s) && !slices.Contains(here, s) {
+					here = append(here, s)
+				}
+			}
 		}
-		if ok {
-			return true
+		if ranged {
+			here = slices.DeleteFunc(here, func(s string) bool { return !slices.Contains(out, s) })
 		}
+		out, ranged = here, true
 	}
-	return false
+	sort.Strings(out)
+	return out
 }

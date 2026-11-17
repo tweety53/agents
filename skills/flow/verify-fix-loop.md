@@ -18,14 +18,17 @@ report names it.
 **A defect whose root cause is a shared source — a style, a token, a component other screens draw
 too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** The round's task never patches the
 changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
-moves is recaptured: every spec `flow-guard affected-specs <worktree> <round base> <capture root>`
+moves is recaptured: every spec `flow-guard affected-specs -task <tasks.md>:<task id> <worktree> <round base> <capture root>`
 prints for the fix's own diff where the capture root holds a `<spec>.sources` sidecar, else every
 spec `specs` prints for it — none when it prints
 nothing — runs through one `capture` run with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
-commits the stage's PNGs to. And every step-4 `visual-verify` re-run of the round, the closing full
+commits the stage's PNGs to. **A baseline the fix moves on another screen is recaptured by naming
+that screen's spec, by path, in the task's `**Regression:**`** — the task's run takes the specs a
+sidecar maps a changed file to and the specs its `**Tests:**` or `**Regression:**` names, never
+every spec a shared file reaches, which step 4's `visual-verify` re-run captures once. And every step-4 `visual-verify` re-run of the round, the closing full
 run included, names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
 spec whose baseline moved — the verifier compares each against its mockup exactly as it does the
 change's own frames, so a screen the shared fix regressed is a departure the next round fixes.
@@ -126,9 +129,10 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    that list as `affected specs`, only on that run's exit
    0 — a red capture is fixed in the same task and folded into its one commit.
    Where the capture root holds a `<spec>.sources` sidecar the run goes through `flow-guard
-   recapture <capture root> <worktree>=<round base>[,<worktree>=<round base>…] '<the capture command>'`,
+   recapture <tasks.md>:<task id> <capture root> <worktree>=<round base>[,<worktree>=<round base>…] '<the capture command>'`,
    one pair per worktree the fix edits, which substitutes the list and leaves the receipt
-   `close-task` refuses the task without; its header is canonical for both.
+   `close-task` refuses the task without; its header is canonical for both, and for the re-run
+   that takes a red run's failing specs alone.
    **A departure observed on a running clock closes on repeated running-clock passes.** When the
    departure was observed on a running clock — a live walk, a recorded frame sequence, any read the
    capture spec's pinned clock (`skills/flow/visual-verify-verifier.md`, step 8) does not
@@ -200,7 +204,9 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    12 of **Steps 3–13** (`skills/flow/visual-verify.md`) read after that worktree's previous
    verifier dispatch: its `motions:` names only the motions `git diff <round
    base>..HEAD` adds, changes or removes, plus every motion this round's defects name. Its verifier still captures every
-   frame on the change's list and judges only the frames step 9's `measure` names on its `changed:`
+   frame on the change's list — save the specs its bundle names on a `captured:` line, which the
+   task's recapture passed on HEAD's sources (`flow-guard visual-verify-pass`'s header) — so the
+   round runs the whole capture suite once, and judges only the frames step 9's `measure` names on its `changed:`
    line, beside the `moved:` frames and every frame this round's defects name, which its prompt names under `defects:` (`skills/flow/visual-verify-verifier.md`). Its
    `prepare` is passed each such worktree's `--round-base`, which the verifier row records, and `--defects <worktree>=<frame>[,<frame>…]` naming that
    worktree's `defects:` frames. A worktree
@@ -225,7 +231,7 @@ like any round's, its round base the HEAD this full run verified: a `-full` run 
 clean scoped re-run, never another round's fix.
 **A scoped re-run that judged every changed frame closes the loop itself.** When its `close`
 prints `CLOSES-LOOP: yes` — every frame on the change's list was re-captured after its row
-began, every frame whose capture changed since its round base, and every `--defects` frame, has a line of its own in the
+began or stands on a `captured:` spec, every frame whose capture changed since its round base, and every `--defects` frame, has a line of its own in the
 report, and no mockup or sidecar changed since that round base (`flow-guard visual-verify-pass`'s
 header) — `close` has ended its row `-closes-loop` and no `-fix-<k>-full` run follows.
 `CLOSES-LOOP: no — <why>`, a `NEXT: judge` whose row the parent ends, or no `CLOSES-LOOP:` line

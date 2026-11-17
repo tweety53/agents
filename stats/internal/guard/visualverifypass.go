@@ -148,7 +148,11 @@ import (
 //      survive, that sibling — and `<merge-base>` its merge base; kan-1083
 //      self-review, F3) and
 //      `screenshots` root (under the regression checkout's worktree when one
-//      is declared); `mockups:` and `mockup frame:` when declared; one `app:`
+//      is declared); on a row with a round base, `captured: <spec> <spec>…`
+//      when a flow-guard recapture receipt of every worktree given a
+//      --round-base records a pass of those specs on exactly the source
+//      files `<round base>..HEAD` holds there, each at HEAD's blob — the
+//      verifier's capture run leaves them out; `mockups:` and `mockup frame:` when declared; one `app:`
 //      line per --app URL; the `## run` commands; `stack:` (`found running` or
 //      `started by this stage`), `fingerprint:` and `verify: <key>@<short sha>`
 //      — this session's newest green inline verify row whose HEAD resolves in
@@ -259,7 +263,8 @@ import (
 //      check-frame-list declares (with `mockups` declared), every frame of
 //      <changeRoot>/visual-verification/prototype.mockups, and every frame of
 //      visual-manifest-<key>.json's pairs — has a pair whose capture's mtime
-//      is after the file's instant, every pair whose capture differs from the
+//      is after the file's instant or whose spec step 10's `captured:` rule
+//      names now, every pair whose capture differs from the
 //      round base has its frame's own per-frame line in the report, every
 //      frame the round file names under --defects has its own per-frame line
 //      in the report, no pair's

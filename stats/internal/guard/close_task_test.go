@@ -843,7 +843,7 @@ func TestCloseTaskEnforcesAffectedSpecs(t *testing.T) {
 	}
 	recapture := func(want int) {
 		t.Helper()
-		if r := runGuard("recapture", []string{fx.wt, fx.wt + "=HEAD", "echo <spec> >> " + fx.wt + "/.git/ran"}, fx.env); r.rc != want {
+		if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:4", fx.wt, fx.wt + "=HEAD", "echo <spec> >> " + fx.wt + "/.git/ran"}, fx.env); r.rc != want {
 			t.Fatalf("recapture: exit %d, want %d\n%s", r.rc, want, r.out)
 		}
 	}
@@ -871,6 +871,53 @@ func TestCloseTaskEnforcesAffectedSpecs(t *testing.T) {
 	// Both specs are untracked here, so each run's working-tree diff holds them too.
 	if ran, _ := os.ReadFile(fx.wt + "/.git/ran"); string(ran) != strings.Repeat("shots/day.spec.js shots/rooms.spec.js\n", 2) {
 		t.Errorf("recapture ran %q, want one run of the affected specs per call", ran)
+	}
+}
+
+// TestCloseTaskTakesTheTaskSet pins the kan-1091 fix: an in-run fix task
+// touching only a fixture every spec renders closes on a capture run of the
+// spec its Tests name, never of every spec, and a run red on one spec is
+// covered by the five-repeat run of that spec alone.
+func TestCloseTaskTakesTheTaskSet(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	tasks := fx.wt + "/spectre/changes/demo/tasks.md"
+	writeFile(t, tasks, bt(ctPlan+"\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Regression:** shots/rooms.spec.js and e2e/shots/week.spec.js render the fixture\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"))
+	writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4","commitSha":"abc"}]`)
+	var setup []string
+	for p, body := range map[string]string{
+		".flow/project.md":  "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `*.txt` |\n",
+		"shots/all.sources": "e.txt\n",
+		"shots/day.spec.js": "test('x', () => {})\n", "shots/day.spec.js.sources": "d.txt\n",
+		"shots/rooms.spec.js": "test('x', () => {})\n", "shots/rooms.spec.js.sources": "r.txt\n",
+		"shots/week.spec.js": "test('x', () => {})\n", "shots/week.spec.js.sources": "w.txt\n",
+	} {
+		setup = append(setup, p, body)
+	}
+	roundBase := fx.commit(t, fx.wt, "specs", "0", setup...)
+	ran := fx.wt + "/.git/ran"
+	recapture := func(command string, want int) {
+		t.Helper()
+		if r := runGuard("recapture", []string{tasks + ":4", fx.wt, fx.wt + "=" + roundBase, command}, fx.env); r.rc != want {
+			t.Fatalf("recapture: exit %d, want %d\n%s", r.rc, want, r.out)
+		}
+	}
+	writeFile(t, fx.wt+"/e.txt", "x\n")
+	recapture("printf '  1 failed\\n    [chromium] › shots/week.spec.js:3:1 › x\\n'; echo <spec> >> "+ran+"; exit 1", 1)
+	sha := fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
+	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
+	if r.rc != 1 || !strings.Contains(r.err, "no passing capture run covers commit "+sha) {
+		t.Fatalf("a run red on one spec: exit %d, want 1\n%s\n%s", r.rc, r.out, r.err)
+	}
+	recapture("echo <spec> >> "+ran, 0)
+	r = fx.run(fx.wt, "demo", fx.base, "4:"+sha)
+	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — shots/rooms.spec.js shots/week.spec.js\n") {
+		t.Fatalf("the failing spec re-run green: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
+	}
+	const want = "shots/rooms.spec.js shots/week.spec.js\nshots/week.spec.js --repeat-each 5 --workers 1\n"
+	if got, _ := os.ReadFile(ran); string(got) != want {
+		t.Errorf("recapture ran %q, want %q", got, want)
 	}
 }
 
