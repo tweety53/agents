@@ -2327,6 +2327,13 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 	if rc, out := run(bad); rc != 2 || strings.Contains(out, "`touch ran`") {
 		t.Errorf("failing prepare-workspace: exit %d, a command ran:\n%s", rc, out)
 	}
+	// A /flow-fast or /flow-interactive worktree is on `<name>`, carries no
+	// workspace, and ran the list before f16: it still does, with no value.
+	fast := pwRepo(t, "demo", iso("url"))
+	gitRun(t, fast, "checkout", "-q", "-b", "kan-1-demo")
+	if rc, out := run(fast); rc != 0 || !strings.HasPrefix(out, "\n") || !strings.Contains(out, "`touch ran`") {
+		t.Errorf("a worktree on a bare <name> branch: exit %d, want 0, the list run and no workspace value:\n%s", rc, out)
+	}
 }
 
 // TestRunVerifyListAbortsTheSupersededOpenRow pins kan-1099 self-review F11:

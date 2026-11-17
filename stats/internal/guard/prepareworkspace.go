@@ -86,6 +86,17 @@ import (
 
 func init() { Registry["prepare-workspace"] = prepareWorkspace }
 
+// pwChangeName is the change a worktree's branch names: the <name> of
+// `spectre/<name>`, or a loop branch whole (`self-review-<name>`,
+// `pipeline-fix-<name>-<k>`); ok false on any other branch, a detached HEAD's
+// "" included.
+func pwChangeName(branch string) (name string, ok bool) {
+	if name, ok = strings.CutPrefix(branch, "spectre/"); ok {
+		return name, true
+	}
+	return branch, strings.HasPrefix(branch, "self-review-") || strings.HasPrefix(branch, "pipeline-fix-")
+}
+
 // pwHeading is the bash's `grep -qiE '^##[[:space:]]+workspace
 // isolation[[:space:]]*$'`, matched against the ASCII-lowered line.
 var pwHeading = regexp.MustCompile(`^##[ \t\n\v\f\r]+workspace isolation[ \t\n\v\f\r]*$`)
@@ -188,10 +199,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// (skills/flow-contracts/workspace-isolation.md).
 	branch, _ := gitExec(env.Dir, nil, io.Discard, "-C", worktree, "symbolic-ref", "--quiet", "--short", "HEAD")
 	branch = strings.TrimRight(branch, "\n")
-	name, ok := strings.CutPrefix(branch, "spectre/")
-	if !ok && (strings.HasPrefix(branch, "self-review-") || strings.HasPrefix(branch, "pipeline-fix-")) {
-		name, ok = branch, true
-	}
+	name, ok := pwChangeName(branch)
 	if !ok {
 		got := branch
 		if got == "" {

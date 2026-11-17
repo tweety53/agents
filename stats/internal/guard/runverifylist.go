@@ -101,7 +101,9 @@
 // change's).
 // The list runs `flow-guard prepare-workspace <worktree>` itself before the
 // `begin` and gives every command the KEY=value lines it prints, a variable
-// the caller's environment already sets winning; a prepare-workspace that
+// the caller's environment already sets winning -- save in a worktree on a
+// named branch that names no change (pwChangeName), /flow-fast's and
+// /flow-interactive's, which carries no workspace; a prepare-workspace that
 // exits non-zero prints its output and exits 2 before any command (kan-1099
 // self-review, F16). This script retries
 // nothing — the one inline re-run of a failing command stays the caller's,
@@ -1160,18 +1162,23 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	wt, list := args[0], args[1]
 	childEnv := icChildEnv(env)
 	// The workspace's KEY=value lines, a variable the caller sets winning
-	// (f16-run-prepares-workspace).
-	prep := runSibling(env, "prepare-workspace", abs(wt))
-	prep.Env, prep.Stderr = childEnv, stderr
-	prepOut, prepErr := prep.Output()
-	if prepErr != nil {
-		fmt.Fprintf(stderr, "run-verify-list: flow-guard prepare-workspace failed on %s — no command ran:\n%s", wt, prepOut)
-		Reason(env, "prepare-workspace-failed")
-		return 2
-	}
-	for _, kv := range icLines(string(prepOut)) {
-		if k, _, ok := strings.Cut(kv, "="); ok && icExportable.MatchString(kv) && env.Getenv(k) == "" {
-			childEnv = append(childEnv, kv)
+	// (f16-run-prepares-workspace). A worktree on a branch that names no
+	// change -- /flow-fast's and /flow-interactive's `<name>` -- carries no
+	// workspace, and prepare-workspace would refuse it.
+	branch, _ := capture(envGit(env)("-C", abs(wt), "symbolic-ref", "--quiet", "--short", "HEAD"))
+	if _, change := pwChangeName(strings.TrimSpace(branch)); change || strings.TrimSpace(branch) == "" {
+		prep := runSibling(env, "prepare-workspace", abs(wt))
+		prep.Env, prep.Stderr = childEnv, stderr
+		prepOut, prepErr := prep.Output()
+		if prepErr != nil {
+			fmt.Fprintf(stderr, "run-verify-list: flow-guard prepare-workspace failed on %s — no command ran:\n%s", wt, prepOut)
+			Reason(env, "prepare-workspace-failed")
+			return 2
+		}
+		for _, kv := range icLines(string(prepOut)) {
+			if k, _, ok := strings.Cut(kv, "="); ok && icExportable.MatchString(kv) && env.Getenv(k) == "" {
+				childEnv = append(childEnv, kv)
+			}
 		}
 	}
 	// rawVerify is the `verify` cell, its `<specs>` unfilled; a narrowed run
