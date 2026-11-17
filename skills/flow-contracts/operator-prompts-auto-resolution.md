@@ -64,6 +64,14 @@ cases is a stop for nothing:
   against a no-blank-first-frame rule, for example: take the reading that satisfies both (the row
   drawn from its first frame and sliding into place, never starting invisible), record it as a
   decision superseding the plan's, and go on to **The loop**. A conflict is never a reason to stop.
+- **A guard that refuses evidence the run really holds** — a freshness check that reads a
+  byte-identical recapture as "not recaptured", a closing check a remainder row cannot satisfy: the
+  guard is the defect. Fix it in an `agents` worktree (**Pipeline defects found mid-run**,
+  `skills/flow-contracts/pipeline.md`), with a test that fails without it, land it and re-run the
+  step. It is never a `## Question`, never "RUN FULL or fix the guard?", and never a request for the
+  operator's go-ahead: the operator's "never a full run unless asked" is kept by fixing the guard,
+  not by asking which way to pass it. Faking the evidence — touching a file, editing a ledger row —
+  stays forbidden.
 
 **A blocked verify never ends the turn.** The report of a blocked `flow.verify` or
 `flow.visual-verify` is the input to **The loop**, dispatched in the same turn; a handoff that
