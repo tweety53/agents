@@ -611,7 +611,7 @@ prescribed course, never accepting the plan while it stands.
 > at the frame, run `flow-guard visual-verify-pass measure <worktree> <name> plan <spec path>` — with
 > `design repo` declared, after `flow-guard render-frames <worktree> <spec>.mockups` — and put the
 > sidecar back as git holds it, since the task that restyles the view commits that line. Its
-> manifest, `<worktree>/.superpowers/sdd/visual-manifest-plan.json`, names what the shipped view
+> manifest, `<abs-worktree>/.superpowers/sdd/visual-manifest-plan.json`, names what the shipped view
 > departs by: the task that restyles the view cites every `over` row as `<frame> #<row>` beside
 > the figures the row carries, and names every flagged band and seam. A row the change leaves
 > standing — a part a sibling ticket builds — is cited the same way with its reason. The task's
