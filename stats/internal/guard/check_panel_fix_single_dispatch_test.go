@@ -448,6 +448,24 @@ func TestCheckPanelFixSingleDispatchAcceptsAChunkRowKeyedToItsRound(t *testing.T
 	pfdExpect(t, pfdCase{dispatches: chunked(head("panel-fix-2")), findings: pfdFindings(11, 0), args: args}, 1, "carries no Flow-Key: panel-fix-1-2 trailer")
 }
 
+// TestCheckPanelFixSingleDispatchReadsAFlowFastPlan pins that a /flow-fast
+// run, whose plan is .superpowers/sdd/<name>/tasks.md and no spectre change,
+// is answered rather than exit 2.
+func TestCheckPanelFixSingleDispatchReadsAFlowFastPlan(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	fixtureRepo(t, wt, repoShape{})
+	writeFile(t, filepath.Join(wt, ".superpowers/sdd/demo/tasks.md"),
+		"# demo\n\n- [ ] 1. Add alpha\n\n**Commit:** feat(alpha): add alpha\n")
+	gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "fix(alpha): review findings", "-m", "Flow-Key: panel-fix-1")
+	out, err := exec.Command(fixtureGit, "-C", wt, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := []byte(`[{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-tok","commitSha":"` + strings.TrimSpace(string(out)) + `"}]`)
+	pfdExpect(t, pfdCase{dispatches: rows, findings: pfdFindings(1, 0), args: []string{wt, "demo", "mf-tok"}}, 0, "OK")
+}
+
 // TestPfdPriorFindingsSkipsGatedReviewerRows pins that a gated per-task
 // reviewer's round-0 rows do not raise a fix round's chunk bound.
 func TestPfdPriorFindingsSkipsGatedReviewerRows(t *testing.T) {

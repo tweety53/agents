@@ -86,8 +86,10 @@ import (
 // commit while its fix landed as its own commit). The commit is looked up
 // in the worktree, then in each peer the spec root's peers file names; a
 // commit none of them holds, or one that is not hex, is a violation, and a
-// tasks.md that cannot be read while such a row exists is exit 2. A row
-// that recorded no commit is not judged.
+// tasks.md that cannot be read while such a row exists is exit 2 -- the
+// spectre change's, else a /flow-fast run's
+// <worktree>/.superpowers/sdd/<name>/tasks.md. A row that recorded no commit
+// is not judged.
 //
 // A FIX ROUND RESUMED UNDER A FRESH SESSION TOKEN keeps its original
 // (KAN-890): an original another session token of the change recorded under
@@ -481,6 +483,11 @@ func pfdCheckCommits(env Env, worktree, name string, fixRows []pfdRow, stderr io
 	}
 	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "check-panel-fix-single-dispatch", worktree, name, worktree)
 	raw, err := os.ReadFile(tasksMD)
+	if err != nil {
+		// A /flow-fast run writes no spectre change: its plan is the worktree's
+		// .superpowers/sdd/<name>/tasks.md (kan-1131: the guard could not answer there).
+		raw, err = os.ReadFile(filepath.Join(worktree, ".superpowers/sdd", name, "tasks.md"))
+	}
 	var plan []string
 	if err == nil {
 		plan, err = tcfPlanLines(raw)
