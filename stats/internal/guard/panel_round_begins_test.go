@@ -15,7 +15,7 @@ func TestPanelRoundBeginsRecordsLiteralKeys(t *testing.T) {
 	dir := t.TempDir()
 	wt := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	stub := "#!/bin/sh\necho \"$*\" >> " + log + "\ncase \"$*\" in *-key\\ panel-4-bad*) echo refused; exit 1;; esac\necho \"recorded: dispatch 7\"\n"
+	stub := "#!/bin/sh\ncase \"$*\" in \"record dispatches\"*) echo '[{\"key\":\"panel-0-mutation\",\"outcome\":\"completed\"}]'; exit 0;; esac\necho \"$*\" >> " + log + "\ncase \"$*\" in *-key\\ panel-4-bad*) echo refused; exit 1;; esac\necho \"recorded: dispatch 7\"\n"
 	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestPanelRoundBeginsLeavesThePassRowToTheBegin(t *testing.T) {
 	dir := t.TempDir()
 	wt := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	stub := "#!/bin/sh\necho \"$*\" >> " + log + "\necho recorded\n"
+	stub := "#!/bin/sh\ncase \"$*\" in \"record dispatches\"*) echo '[{\"key\":\"panel-0-mutation\",\"outcome\":\"completed\"}]'; exit 0;; esac\necho \"$*\" >> " + log + "\necho recorded\n"
 	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestPanelRoundBeginsLeavesThePassRowToTheBegin(t *testing.T) {
 func TestPanelRoundBeginsSnapshotsThePlanTree(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	stub := "#!/bin/sh\necho \"$*\" >> " + log + "\necho recorded\n"
+	stub := "#!/bin/sh\ncase \"$*\" in \"record dispatches\"*) echo '[{\"key\":\"panel-0-mutation\",\"outcome\":\"completed\"}]'; exit 0;; esac\necho \"$*\" >> " + log + "\necho recorded\n"
 	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestPanelRoundBeginsSnapshotsThePlanTree(t *testing.T) {
 // a fresh one.
 func TestPanelRoundBeginsHoldsALoneMutation(t *testing.T) {
 	dir := t.TempDir()
-	stub := "#!/bin/sh\necho recorded\n"
+	stub := "#!/bin/sh\ncase \"$*\" in \"record dispatches\"*) echo '[{\"key\":\"panel-0-mutation\",\"outcome\":\"completed\"}]'; exit 0;; esac\necho recorded\n"
 	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -207,5 +207,54 @@ func TestPanelRoundBeginsHoldsALoneMutation(t *testing.T) {
 	begins("failure-modes:opus:low")
 	if again, _ := os.ReadFile(snap); bytes.Equal(again, second) {
 		t.Error("a call carrying failure-modes without mutation kept the stale snapshot")
+	}
+}
+
+// TestPanelRoundBeginsOwesAMutationPass pins kan-1099 self-review, F24: a
+// round of 1 or later begins only once a mutation pass has completed in an
+// earlier round, or carries one itself.
+func TestPanelRoundBeginsOwesAMutationPass(t *testing.T) {
+	type row struct{ key, outcome string }
+	run := func(t *testing.T, rows []row, round string, slots ...string) (int, string, string) {
+		t.Helper()
+		dir := t.TempDir()
+		wt := t.TempDir()
+		log := filepath.Join(dir, "calls")
+		var js []string
+		for _, r := range rows {
+			js = append(js, `{"key":"`+r.key+`","outcome":"`+r.outcome+`"}`)
+		}
+		stub := "#!/bin/sh\ncase \"$*\" in \"record dispatches\"*) echo '[" + strings.Join(js, ",") + "]'; exit 0;; esac\necho \"$*\" >> " + log + "\necho recorded\n"
+		if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		env := Env{Getenv: func(k string) string {
+			if k == "PATH" {
+				return dir
+			}
+			return ""
+		}}
+		var out, errb bytes.Buffer
+		rc := panelRoundBegins(append([]string{wt, "kan-1", round, "mf-k1"}, slots...), env, &out, &errb)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls), errb.String()
+	}
+	round0 := []row{{"panel-0-primary", "completed"}, {"panel-0-failure-modes", "completed"}}
+	if rc, calls, stderr := run(t, round0, "1", "primary:opus:low"); rc != 1 || calls != "" || !strings.Contains(stderr, "mutation+failure-modes") {
+		t.Errorf("no mutation pass ever ran: rc=%d calls=%q stderr=%q, want rc 1, no begin, stderr naming mutation+failure-modes", rc, calls, stderr)
+	}
+	for _, tc := range []struct {
+		name  string
+		rows  []row
+		round string
+		slots []string
+	}{
+		{"the round carries the mutation pass", round0, "1", []string{"primary:opus:low", "mutation+failure-modes:opus:low"}},
+		{"a mutation pass completed earlier", append(round0, row{"panel-0-mutation+failure-modes", "completed"}), "1", []string{"primary:opus:low"}},
+		{"round 0", nil, "0", []string{"primary:opus:low"}},
+	} {
+		if rc, calls, stderr := run(t, tc.rows, tc.round, tc.slots...); rc != 0 || calls == "" {
+			t.Errorf("%s: rc=%d calls=%q stderr=%q, want the begins recorded", tc.name, rc, calls, stderr)
+		}
 	}
 }

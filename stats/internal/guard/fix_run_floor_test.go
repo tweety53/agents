@@ -234,7 +234,7 @@ func TestPanelRoundBeginsEnforcesTheJudgedRoster(t *testing.T) {
 	}
 	bin := t.TempDir()
 	calls := filepath.Join(bin, "calls")
-	writeExec(t, filepath.Join(bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+calls+"\necho recorded\n")
+	writeExec(t, filepath.Join(bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+calls+"\ncase \"$*\" in \"record dispatches\"*) echo '[{\"key\":\"panel-0-mutation\",\"outcome\":\"completed\"}]'; exit 0;; esac\necho recorded\n")
 	env := fx.env
 	getenv := env.Getenv
 	env.Getenv = func(k string) string {
@@ -257,7 +257,9 @@ func TestPanelRoundBeginsEnforcesTheJudgedRoster(t *testing.T) {
 	if rc, made, _ := begins("4", "primary+principles:opus:low"); rc != 3 || made != "" {
 		t.Errorf("a bundle carrying one omitted role: rc=%d calls=%q, want rc=3 and no begin", rc, made)
 	}
-	if rc, made, stderr := begins("4", "primary:opus:low"); rc != 0 || strings.Count(made, "-key panel-4-primary ") != 1 {
+	// A judged roster omitting mutation owes no mutation pass, so no dispatch row is read (kan-1099 self-review, F24).
+	if rc, made, stderr := begins("4", "primary:opus:low"); rc != 0 || strings.Count(made, "-key panel-4-primary ") != 1 ||
+		strings.Contains(made, "record dispatches") {
 		t.Errorf("the judged roster itself: rc=%d calls=%q stderr=%q", rc, made, stderr)
 	}
 	if rc, made, stderr := begins("5", "mutation+failure-modes:opus:low"); rc != 0 || made == "" {

@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -33,7 +34,11 @@ import (
 // bundle alone, keeps the round's file (self-review-kan-1110 F16).
 //
 // Exit codes: 0 every begin recorded; 1 a begin failed (its output relayed,
-// the later slots still recorded); 2 usage, no flow binary on PATH, or the
+// the later slots still recorded), or a round of 1 or later carries no
+// mutation-carrying slot while no earlier round's completed one
+// (`mutation-pass-missing`, stderr naming mutation+failure-modes, no begin
+// recorded; a judged roster omitting mutation owes none -- kan-1099
+// self-review, F24); 2 usage, the change's dispatch rows unreadable, no flow binary on PATH, or the
 // plan-tree snapshot failed, no begin recorded; 3 a
 // slot carries a role the fix run's judged roster omits -- in the round
 // <worktree>/.superpowers/sdd/fix-run.json governs (flow-guard fix-run-floor,
@@ -58,7 +63,8 @@ import (
 // a stale one; a call recording only a mutation-carrying extra bundle keeps
 // the round's file (self-review-kan-1110 F16).
 // Exit 0 every begin recorded; 1 a begin failed (its output relayed, the
-// rest still recorded); 2 usage, no flow binary on PATH, or a failed
+// rest still recorded) or a mutation pass is owed (no begin recorded); 2
+// usage, unreadable dispatch rows, no flow binary on PATH, or a failed
 // snapshot, no begin recorded; 3 a slot off the fix run's judged roster, no
 // begin recorded.
 func init() {
@@ -68,6 +74,9 @@ func init() {
 const prbUsage = "usage: flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...\n"
 
 var prbRound = regexp.MustCompile(`^[0-9]+$`)
+
+// prbPanelKey splits a panel slot key panel-<round>-<slot> into round and slot.
+var prbPanelKey = regexp.MustCompile(`^panel-([0-9]+)-(.+)$`)
 
 func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 5 || !prbRound.MatchString(args[2]) {
@@ -93,7 +102,9 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// THE JUDGED ROSTER: in the round a fix run's verdict governs, a slot
 	// carrying a role the verdict's roster omits is refused before any begin.
-	if v, ok := fixRunVerdict(env, smcAbs(env, wt)); ok && strconv.Itoa(v.Round) == round {
+	v, judged := fixRunVerdict(env, smcAbs(env, wt))
+	judged = judged && strconv.Itoa(v.Round) == round
+	if judged {
 		for _, s := range slots {
 			for _, role := range strings.Split(s.name, "+") {
 				if !slices.Contains(v.Roster, role) {
@@ -102,6 +113,35 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 					return 3
 				}
 			}
+		}
+	}
+	// THE OWED MUTATION PASS: a round of 1 or later begins only once a
+	// mutation-carrying slot of an earlier round ended completed, or carries
+	// one itself -- a pass that never ran no mutant is owed to the next round
+	// (kan-1099 self-review, F24: rounds 0 to 3 ran none). A judged roster
+	// omitting mutation owes none.
+	if round != "0" && !(judged && !slices.Contains(v.Roster, "mutation")) &&
+		!slices.ContainsFunc(slots, func(s slot) bool { return slices.Contains(strings.Split(s.name, "+"), "mutation") }) {
+		out, _, rc := pcFlow(env, false, "record", "dispatches", "-C", wt, "-change", change)
+		var rows []struct{ Key, Outcome string }
+		if rc != 0 || json.Unmarshal(out, &rows) != nil {
+			fmt.Fprintln(stderr, "panel-round-begins: the change's dispatch rows could not be read — no begin recorded")
+			Reason(env, "dispatches-unreadable")
+			return 2
+		}
+		n, _ := strconv.Atoi(round)
+		ran := slices.ContainsFunc(rows, func(r struct{ Key, Outcome string }) bool {
+			m := prbPanelKey.FindStringSubmatch(r.Key)
+			if m == nil || r.Outcome != "completed" {
+				return false
+			}
+			k, _ := strconv.Atoi(m[1])
+			return k < n && slices.Contains(strings.Split(m[2], "+"), "mutation")
+		})
+		if !ran {
+			fmt.Fprintf(stderr, "panel-round-begins: no mutation pass has completed before round %s — dispatch mutation+failure-modes in this round; no begin recorded\n", round)
+			Reason(env, "mutation-pass-missing")
+			return 1
 		}
 	}
 	// THE ROUND'S PLAN-TREE SNAPSHOT is taken here by the round's first call,

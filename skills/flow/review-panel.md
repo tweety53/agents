@@ -268,7 +268,7 @@ the roster resolves, and outside their `≤2 × ≤3` cap. The docs-only reducti
 `test-sanity+call-efficiency` and `failure-modes` — an `.md`/`.mdc`-only diff adds no test, no
 call and no I/O — each recorded `flow record pass -round 0 -note 'not dispatched — docs-only
 reduction: <slot>'`. **The slot triggers** below drop `test-sanity`, `call-efficiency` and
-`failure-modes` role by role; `mutation` is never dropped by either. The late-fix reduction and the
+`failure-modes` role by role; `mutation` is never dropped by either. A mutation pass that ran no mutant — never dispatched, or its baseline suite red — is dispatched in the next round once the suite is green, and `flow-guard panel-round-begins` refuses a later round's begins until one has completed (kan-1099 self-review, F24). The late-fix reduction and the
 small append each still dispatch both bundles as those reductions leave them. A
 decision with no such key dispatches that bundle on `opus`
 at `low`. A fix run's judged roster alone may drop a role of either (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`).
