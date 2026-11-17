@@ -6092,3 +6092,66 @@ func TestRecordDispatchReBeginClearsClosesLoop(t *testing.T) {
 		t.Fatalf("re-begun row ended without -closes-loop reads ClosesLoop true")
 	}
 }
+
+// TestRestampDispatchEnd pins kan-1099 self-review F11: a closed row's
+// ended_at moves to a given instant; an open row, an unknown id and an
+// instant before started_at are refused; and the inline restamp drops a
+// stale apportioned key.
+func TestRestampDispatchEnd(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-restamp-end-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	base := time.Date(2026, 11, 16, 11, 0, 0, 0, time.UTC)
+	record := func(key string) int64 {
+		in := baseDispatch("verifier", "opus")
+		in.SessionToken, in.Key, in.AgentID, in.StartedAt = "mf-x", key, "inline", base
+		got, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		return got.ID
+	}
+	closed, open := record("verify-a"), record("verify-b")
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: "mf-x", Key: "verify-a", Outcome: "blocked", EndedAt: base.Add(30 * time.Hour)}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+	at := base.Add(2 * time.Hour)
+	if err := st.RestampDispatchEnd(ctx, closed, at); err != nil {
+		t.Fatalf("RestampDispatchEnd: %v", err)
+	}
+	for name, c := range map[string]struct {
+		id int64
+		t  time.Time
+	}{"an open row": {open, at}, "an unknown id": {closed + 1000, at}, "an end before the start": {closed, base.Add(-time.Minute)}} {
+		if err := st.RestampDispatchEnd(ctx, c.id, c.t); !errors.Is(err, store.ErrDispatchNotFound) {
+			t.Errorf("%s: RestampDispatchEnd = %v, want ErrDispatchNotFound", name, err)
+		}
+	}
+	if err := st.MergeDispatchMetrics(ctx, closed, json.RawMessage(`{"apportioned":{"records":153}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if err := st.RestampInlineDispatch(ctx, closed, json.RawMessage(`{"tokens":{"main":{"output":7}}}`)); err != nil {
+		t.Fatalf("RestampInlineDispatch: %v", err)
+	}
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	for _, d := range rec.Dispatches {
+		switch d.ID {
+		case closed:
+			if d.EndedAt == nil || !d.EndedAt.Equal(at) {
+				t.Errorf("closed row ended_at = %v, want %v", d.EndedAt, at)
+			}
+			if strings.Contains(string(d.Metrics), "apportioned") {
+				t.Errorf("closed row metrics keep apportioned: %s", d.Metrics)
+			}
+		case open:
+			if d.EndedAt != nil {
+				t.Errorf("open row ended_at = %v, want nil", d.EndedAt)
+			}
+		}
+	}
+}

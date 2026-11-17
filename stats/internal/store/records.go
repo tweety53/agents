@@ -1686,10 +1686,29 @@ func (s *Store) InlineDispatchID(ctx context.Context, sessionToken, key string) 
 	return id, true, nil
 }
 
+// RestampDispatchEnd moves closed dispatch id's ended_at to t -- the repair
+// for a row ended by hand long after the run that owned it died (kan-1099
+// self-review, F11). An open row, an unknown id and a t before the row's
+// started_at match nothing: ErrDispatchNotFound.
+func (s *Store) RestampDispatchEnd(ctx context.Context, dispatchID int64, t time.Time) error {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE dispatches SET ended_at = $2
+		WHERE id = $1 AND ended_at IS NOT NULL AND started_at <= $2
+	`, dispatchID, t)
+	if err != nil {
+		return fmt.Errorf("store: restamp dispatch end %d: %w", dispatchID, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	return nil
+}
+
 // RestampInlineDispatch replaces an inline row's harvested "tokens" and
-// "signals" with patch, keeping every other key -- RestampDispatch's
-// replacement for a row whose agent is the parent itself, so agent_id is
-// never changed. A row that is not inline is ErrDispatchNotFound and is
+// "signals" with patch, keeping every other key but the write-once
+// attributor's stale "apportioned" (kan-1099 self-review, F11) --
+// RestampDispatch's replacement for a row whose agent is the parent itself,
+// so agent_id is never changed. A row that is not inline is ErrDispatchNotFound and is
 // left untouched.
 func (s *Store) RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
 	if patch == nil {
@@ -1697,7 +1716,7 @@ func (s *Store) RestampInlineDispatch(ctx context.Context, dispatchID int64, pat
 	}
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE dispatches
-		SET metrics = (metrics - 'tokens' - 'signals') || $2::jsonb
+		SET metrics = (metrics - 'tokens' - 'signals' - 'apportioned') || $2::jsonb
 		WHERE id = $1 AND agent_id = 'inline'
 	`, dispatchID, string(patch))
 	if err != nil {

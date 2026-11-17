@@ -746,7 +746,7 @@ func unflagVerdict(args []string) error {
 	return st.UnflagVerdict(ctx, id)
 }
 
-// restampDispatch implements `flowd restamp-dispatch <dispatch-id>
+// restampDispatch implements `flowd restamp-dispatch [-ended-at <RFC 3339>] <dispatch-id>
 // <agent-transcript | parent-transcript>`. Given an agent transcript, it
 // names the row's agent from the file name and replaces the row's figures
 // with that whole transcript's usage (store.Store.RestampDispatch) -- the
@@ -757,11 +757,22 @@ func unflagVerdict(args []string) error {
 // zero tokens when it has none (harvest.ClosedInlinePatch,
 // store.Store.RestampInlineDispatch) -- the repair for a back-filled inline
 // row or one begun without -agent-id inline; a row naming another agent is
-// refused. It talks to the database directly, so it needs no running
+// refused. A leading `-ended-at <RFC 3339>` first moves the closed row's
+// ended_at to that instant (store.Store.RestampDispatchEnd), so the restamp
+// reads the corrected window -- the repair for a row ended by hand long after
+// its run died (kan-1099 self-review, F11). It talks to the database directly, so it needs no running
 // daemon.
 func restampDispatch(args []string) error {
+	var endedAt time.Time
+	if len(args) == 4 && args[0] == "-ended-at" {
+		t, err := time.Parse(time.RFC3339, args[1])
+		if err != nil {
+			return fmt.Errorf("-ended-at %q: %w", args[1], err)
+		}
+		endedAt, args = t, args[2:]
+	}
 	if len(args) != 2 {
-		return fmt.Errorf("usage: flowd restamp-dispatch <dispatch-id> <agent-transcript.jsonl | parent-transcript.jsonl (marks an agentless row inline)>")
+		return fmt.Errorf("usage: flowd restamp-dispatch [-ended-at <RFC 3339>] <dispatch-id> <agent-transcript.jsonl | parent-transcript.jsonl (marks an agentless row inline)>")
 	}
 	id, err := strconv.ParseInt(args[0], 10, 64)
 	if err != nil {
@@ -777,6 +788,11 @@ func restampDispatch(args []string) error {
 		return err
 	}
 	defer st.Close()
+	if !endedAt.IsZero() {
+		if err := st.RestampDispatchEnd(ctx, id, endedAt); err != nil {
+			return err
+		}
+	}
 	agentID, ok := harvest.AgentIDFromTranscriptPath(args[1])
 	if !ok {
 		raw, err := os.ReadFile(args[1])

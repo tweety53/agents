@@ -175,7 +175,7 @@ group was cache-skipped, `-outcome blocked -cause test-failure` when its list ex
 `begin` the store refuses stops the list before its first command, exit 4, its stderr line naming the
 refusal: clear the cause — a tracked modification, most often — and run the list again; a failed
 `end` is a warning line that never changes the exit code. The first `begin` stamps the start and the
-last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand. A verify re-run after a new code commit passes a key no earlier verify row of the change
+last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand. The next verify run of the same group — a key that folds to the same `verify[-<repository name>]` — ends such a row `-outcome aborted` at its own begin (kan-1099 self-review, F11). A verify re-run after a new code commit passes a key no earlier verify row of the change
 used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
 key's first `startedAt`, and a row started before the commit never covers it. `verify-<k>` keys a re-run with no fix; a re-run after a fix carries the fix round's `-fix-<k>` key
 (**The loop**, `skills/flow/verify-fix-loop.md`). Once the one inline re-run is decided, a passing re-run ends a fresh

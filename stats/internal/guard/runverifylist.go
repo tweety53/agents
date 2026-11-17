@@ -43,7 +43,14 @@
 // `verify` is refused, exit 2 before the `begin`, when `flow state get` of the
 // change lists more than one worktree: each repository's row then carries its
 // `-<repository name>` suffix (kan-1099 self-review, F5: `verify-fix-5` was
-// recorded for one repository of a four-worktree change).
+// recorded for one repository of a four-worktree change). Before its `begin`
+// the list reads `flow record dispatches` from that `-C` and ends `-outcome
+// aborted` each row of its session token, role `verifier`, agent `inline`,
+// no outcome, a key other than its own folding by vgFixSuffix to its own
+// key's group: the row a run killed before its end left open (kan-1099
+// self-review, F11). An unreadable store skips this; a failed end prints
+// `run-verify-list: flow record dispatch end of superseded row <key> failed:
+// <its output>` on stderr and the list still runs.
 //
 // THE LIST is every non-blank, non-`#` line inside a ```bash fence of
 // `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
@@ -1027,6 +1034,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	record := func(string, ...string) bool { return true }
+	abortSuperseded := func() {}
 	blockedMark := ""
 	runKey := "" // the recording key, "" on an unrecorded run
 	if len(args) >= 7 {
@@ -1073,6 +1081,31 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "run-verify-list: flow record dispatch %s failed: %s\n", verb, strings.TrimSpace(out))
 			}
 			return false
+		}
+		// The open inline row of this token and group a killed run left
+		// is ended aborted before this begin (f11-abort-superseded-row).
+		abortSuperseded = func() {
+			raw, err := pfdRead(env, env.Dispatches, "dispatches", change, wt)
+			var rows []struct {
+				Key          string `json:"key"`
+				Role         string `json:"role"`
+				AgentID      string `json:"agentId"`
+				SessionToken string `json:"sessionToken"`
+				Outcome      string `json:"outcome"`
+			}
+			if err != nil || json.Unmarshal(raw, &rows) != nil {
+				return
+			}
+			group := vgFixSuffix.ReplaceAllString(key, "verify$2")
+			for _, r := range rows {
+				if r.Role != "verifier" || r.AgentID != "inline" || r.SessionToken != token || r.Outcome != "" ||
+					r.Key == key || vgFixSuffix.ReplaceAllString(r.Key, "verify$2") != group {
+					continue
+				}
+				if rc, out := kwRun(env, "", flow, "record", "dispatch", "end", "-C", wt, "-change", change, "-key", r.Key, "-session-token", token, "-outcome", "aborted"); rc != 0 {
+					fmt.Fprintf(stderr, "run-verify-list: flow record dispatch end of superseded row %s failed: %s\n", r.Key, strings.TrimSpace(out))
+				}
+			}
 		}
 		args = args[:2]
 	}
@@ -1271,6 +1304,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		report(shown, results[0].rc, results[0].out, list+"-"+key)
 	}
 
+	abortSuperseded()
 	if !record("begin") {
 		Reason(env, "record-failed")
 		return 4

@@ -314,7 +314,7 @@ func TestRunVerifyList(t *testing.T) {
 func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -454,7 +454,7 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -513,7 +513,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	smoke.Heavy(t)
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -642,7 +642,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	gate := filepath.Join(dir, "go")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -765,7 +765,7 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 	}
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -1089,7 +1089,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 	smoke.Heavy(t)
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -1145,7 +1145,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 func TestRunVerifyListRecordsHead(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -2263,5 +2263,55 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 	bad := pwRepo(t, "demo", iso("widget"))
 	if rc, out := run(bad); rc != 2 || strings.Contains(out, "`touch ran`") {
 		t.Errorf("failing prepare-workspace: exit %d, a command ran:\n%s", rc, out)
+	}
+}
+
+// TestRunVerifyListAbortsTheSupersededOpenRow pins kan-1099 self-review F11:
+// a verify group's begin ends `-outcome aborted` the open inline verifier row
+// of its own token and group that a killed run left, and nothing else.
+func TestRunVerifyListAbortsTheSupersededOpenRow(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	rows := `[{"key":"verify-a","role":"verifier","agentId":"inline","sessionToken":"mf-k1"},` +
+		`{"key":"verify-b","role":"verifier","agentId":"inline","sessionToken":"mf-k1"},` +
+		`{"key":"verify-fix-1-a","role":"verifier","agentId":"inline","sessionToken":"mf-k1"},` +
+		`{"key":"verify-a","role":"verifier","agentId":"inline","sessionToken":"mf-other"},` +
+		`{"key":"verify-2-a","role":"verifier","agentId":"inline","sessionToken":"mf-k1","outcome":"completed"}]`
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := filepath.Join(wt, "a")
+	fixtureRepo(t, a, repoShape{})
+	writeFile(t, filepath.Join(a, ".flow/project.md"), "## lint\n\n```bash\necho ran >> "+log+"\n```\n")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	run := func(endRC int) (int, string, string) {
+		os.Remove(log)
+		writeExec(t, filepath.Join(dir, "flow"), fmt.Sprintf("#!/bin/sh\n[ \"$1\" = state ] && exit 0\n"+
+			"[ \"$2\" = dispatches ] && { echo '%s'; exit 0; }\necho \"flow $*\" >> %s\n"+
+			"[ \"$3\" = end ] && echo nope && exit %d\nexit 0\n", rows, log, endRC))
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{a, "lint", "kan-1", "verify-fix-1-a", "mf-k1", "opus", "low"},
+			Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: a}, &o, &e)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls), e.String()
+	}
+	abort := "flow record dispatch end -C " + a + " -change kan-1 -key verify-a -session-token mf-k1 -outcome aborted\n"
+	rc, calls, _ := run(0)
+	if i := strings.Index(calls, "dispatch begin"); rc != 0 || !strings.HasPrefix(calls, abort) || i < len(abort) ||
+		strings.Count(calls, "-outcome aborted") != 1 {
+		t.Errorf("the superseded row must be ended aborted before the begin, alone: exit %d, calls:\n%s", rc, calls)
+	}
+	rc, calls, stderr := run(1)
+	if !strings.Contains(stderr, "superseded row verify-a failed") || !strings.Contains(calls, "ran\n") {
+		t.Errorf("a failing abort must warn and run the list: exit %d, stderr %q, calls:\n%s", rc, stderr, calls)
 	}
 }
