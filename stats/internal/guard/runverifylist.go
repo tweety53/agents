@@ -14,8 +14,11 @@
 // runs the `specs` row only to group its failures by the change's specs, and
 // puts the file's entries -- the visual-failing.txt
 // a failing run wrote -- in the `verify` row's `<specs>`, followed by
-// `--repeat-each 5 --workers 1`; `-detect-flaky` runs the `specs` row as a
-// plain run does and puts its output there, followed by `--retries=1
+// `--repeat-each 5 --workers 1`; `-detect-flaky` puts there the entries of
+// the worktree's kept visual-failing.txt -- the failing run's own failures
+// (kan-1091: a 44-minute list re-run whole, 37 minutes, for the same 12
+// failures) -- or, with none kept, the `specs` row's output as a plain run
+// does, followed by `--retries=1
 // --fail-on-flaky-tests`, and adds its failures to visual-failing.txt rather
 // than rewriting it. Either takes the `visual` list only and no recording
 // arguments: it records no dispatch row, never reads or writes the green
@@ -218,6 +221,20 @@
 // ponytail: a re-run whose `specs` row maps nothing runs the smoke set alone,
 // without the visual-failing.txt files -- `--grep` would intersect them; run
 // the row twice if a project's `specs` row ever prints no tail of its own.
+//
+// A WIDE SELECTION (kan-1089, kan-1091, kan-1099: a change touching every
+// screen selected 646-679 of 680 tests, and 17 such runs of 35-50 minutes
+// each all failed). A `specs` output naming more than rvlWideSelection (40)
+// spec files is narrowed, never refused -- the cap 5554c41a refused on
+// stopped a run on a question: `<specs>` takes the tokens whose spec file
+// the diff of the checkout the row runs from names -- since its round base on
+// a re-run, its kickoff base otherwise, none when it has no base -- then the
+// tokens the `specs` row prints with `<merge-base>` filled with `HEAD`, the
+// tail it prints for an empty diff, and prints
+//   - visual selection: <n> spec files reached, more than 40 — narrowed to the <m> the change edits plus the smoke tail; the rest runs only under -full, which the operator starts
+// Narrowed to nothing, it runs the smoke set (THE SMOKE FALLBACK). The
+// failures still group by the whole output, and a `-only` or `-detect-flaky`
+// failing list runs whatever its size.
 //
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
@@ -526,7 +543,26 @@ const (
 	// rvlSmokeSet fills `<specs>` when no selection can: Playwright's own
 	// filter for the tests tagged `@smoke` (THE SMOKE FALLBACK).
 	rvlSmokeSet = "--grep @smoke"
+	// rvlWideSelection is the most spec files a selection names and still
+	// runs as it is (A WIDE SELECTION).
+	rvlWideSelection = 40
 )
+
+// rvlNarrowing is what A WIDE SELECTION narrows with: tail, the `specs` row
+// over an empty diff, and ownBase, the commit the diff of the checkout the
+// row runs from is read from -- "" when no base of it is known.
+type rvlNarrowing struct{ tail, ownBase string }
+
+// rvlSpecFiles is the distinct spec files tokens name, in order.
+func rvlSpecFiles(tokens []string) []string {
+	var files []string
+	for _, tok := range tokens {
+		if p, _, _ := strings.Cut(tok, ":"); !slices.Contains(files, p) {
+			files = append(files, p)
+		}
+	}
+	return files
+}
 
 // rvlVisualVerify is the `## visual verification` `verify` row a `test` list
 // ends with, the directory it runs from, and -- when the section declares a
@@ -543,7 +579,8 @@ const (
 // (verify-list-runs-targeted). fallback is the `regression checkout` dir
 // fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
 func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
-	return rvlVisualVerifyFor(env, wt, covered, false, "", "", func(string) string { return "" }, io.Discard)
+	cmd, specs, dir, fallback, _, ok = rvlVisualVerifyFor(env, wt, covered, false, "", "", func(string) string { return "" }, io.Discard)
+	return
 }
 
 // rvlRound is a re-run key's round, `verify-fix-<k>` or `verify-<k>`, "" for
@@ -665,18 +702,18 @@ func rvlSiblingStamp(env Env, wt, change, canon string) string {
 // (THE FULL SUITE) runs the row whenever it is declared, `<specs>` emptied and
 // no `specs` row, whatever covered, decision.json and the diff say. round
 // answers a root's round base, which replaces the kickoff base in the `specs`
-// row (THE ROUND'S SELECTION).
-func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon string, round func(root string) string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
+// row (THE ROUND'S SELECTION). nar is set beside a substituted `specs` row.
+func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon string, round func(root string) string, stdout io.Writer) (cmd, specs, dir, fallback string, nar rvlNarrowing, ok bool) {
 	if canon == "" {
 		canon = wt
 	}
 	b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
 	if err != nil {
-		return "", "", "", "", false
+		return "", "", "", "", nar, false
 	}
 	cells := vvCells(string(b))
 	if cells["verify"] == "" || (covered && !full) {
-		return "", "", "", "", false
+		return "", "", "", "", nar, false
 	}
 	// checkout resolves the `regression checkout` the row runs from.
 	checkout := func() (dir, fallback string) {
@@ -700,7 +737,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 	}
 	if full {
 		dir, fallback = checkout()
-		return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, true
+		return strings.ReplaceAll(cells["verify"], "<specs>", ""), "", dir, fallback, nar, true
 	}
 	var d struct {
 		Visual struct {
@@ -708,7 +745,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		} `json:"visual"`
 	}
 	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json")); err == nil && json.Unmarshal(raw, &d) == nil && d.Visual.Verify == "skipped" {
-		return "", "", "", "", false
+		return "", "", "", "", nar, false
 	}
 	git := envGit(env)
 	worktrees, bases := rvlKickoffBases(env, change, canon)
@@ -755,20 +792,31 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		return Registry["check-visual-trigger"]([]string{"--repo", filepath.Base(filepath.Dir(common)), wt}, e, io.Discard, io.Discard) == 0
 	})
 	if !own && root == wt {
-		return "", "", "", "", false
+		return "", "", "", "", nar, false
 	}
 	dir, fallback = checkout()
 	if s := cells["specs"]; s != "" {
-		if rb := round(root); rb != "" {
+		rb := round(root)
+		if rb != "" {
 			fmt.Fprintf(stdout, "- visual selection: the round's diff — %s since %s\n", root, vgShort(rb))
 			base = rb
 		}
 		if base == "" {
-			return "", "", dir, fallback, true
+			return "", "", dir, fallback, nar, true
 		}
-		return cells["verify"], strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(s), dir, fallback, true
+		// The row's own checkout is read from its round base on a re-run,
+		// from its kickoff base otherwise.
+		nar = rvlNarrowing{tail: strings.NewReplacer("<frontend-root>", root, "<merge-base>", "HEAD").Replace(s), ownBase: bases[dir]}
+		if dir == root {
+			nar.ownBase = base
+		} else if rb != "" {
+			if r := round(dir); r != "" {
+				nar.ownBase = r
+			}
+		}
+		return cells["verify"], strings.NewReplacer("<frontend-root>", root, "<merge-base>", base).Replace(s), dir, fallback, nar, true
 	}
-	return cells["verify"], "", dir, fallback, true
+	return cells["verify"], "", dir, fallback, nar, true
 }
 
 var (
@@ -1428,7 +1476,12 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			return rb
 		}
 		failingFile := filepath.Join(keep, "visual-failing.txt")
-		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged("") && sibSame, full, change, canon, round, stdout); !ok && list == "visual" {
+		// The detector re-runs the failing run's own failures; with none
+		// kept it takes the selection, as a plain run does.
+		if b, err := os.ReadFile(failingFile); mode == "detect-flaky" && keep != "" && err == nil {
+			only = strings.Fields(string(b))
+		}
+		if cmd, specs, dir, fallback, nar, ok := rvlVisualVerifyFor(env, abs(wt), unchanged("") && sibSame, full, change, canon, round, stdout); !ok && list == "visual" {
 			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
 		} else if ok && list == "visual" && fallback != "" {
 			// /flow-fast and /flow-interactive set up no regression-checkout
@@ -1451,7 +1504,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				failed = 1
 				cmd = ""
 				fmt.Fprintf(stdout, "- visual verify — not run: the `verify` cell has no <specs> placeholder, so it can only run whole, and the whole suite runs only when the operator asks: %s\n", rawVerify)
-			case mode == "only":
+			case len(only) > 0:
 				// The `specs` row runs only to group the failures; the
 				// list alone picks what runs.
 				if cmd != "" && specs != "" {
@@ -1486,7 +1539,33 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					smokeWhy = "the `specs` row mapped no spec"
 				default:
 					tokens, specTokens = paths, paths
-					if b, _ := os.ReadFile(failingFile); rounded && mode == "plain" && keep != "" {
+					if n := len(rvlSpecFiles(paths)); n > rvlWideSelection {
+						// A WIDE SELECTION: the specs the change edits, then
+						// the `specs` row's tail.
+						var kept []string
+						if names, ok := capture(envGit(env)("-C", dir, "diff", "--no-renames", "--relative", "--name-only", nar.ownBase+"..HEAD")); ok && nar.ownBase != "" {
+							edited := strings.Split(names, "\n")
+							for _, tok := range paths {
+								if p, _, _ := strings.Cut(tok, ":"); slices.Contains(edited, p) {
+									kept = append(kept, tok)
+								}
+							}
+						}
+						edited := len(rvlSpecFiles(kept))
+						r := rgtRun(context.Background(), [][]string{{"bash", "-c", rvlStdoutOnly(nar.tail, outDir)}}, 1, outDir, dir, cmdEnv)[0]
+						if out, err := os.ReadFile(r.out); err == nil && r.rc == 0 {
+							for _, tok := range strings.Fields(string(out)) {
+								if !slices.Contains(kept, tok) {
+									kept = append(kept, tok)
+								}
+							}
+						}
+						fmt.Fprintf(stdout, "- visual selection: %d spec files reached, more than %d — narrowed to the %d the change edits plus the smoke tail; the rest runs only under -full, which the operator starts\n", n, rvlWideSelection, edited)
+						if tokens = kept; len(kept) == 0 {
+							smokeWhy = "the wide selection narrowed to no spec"
+						}
+					}
+					if b, _ := os.ReadFile(failingFile); smokeWhy == "" && rounded && mode == "plain" && keep != "" {
 						n := 0
 						for _, f := range strings.Fields(string(b)) {
 							if p, _, _ := strings.Cut(f, ":"); !slices.Contains(tokens, p) {

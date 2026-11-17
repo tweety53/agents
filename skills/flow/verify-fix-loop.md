@@ -254,7 +254,7 @@ The clean report of the run that closed the loop is the one the handoff reports.
 
 **A failing visual `verify` row is re-run narrowed, never whole.** When the `## visual verification`
 `verify` row a `test` group ends with fails, its one inline re-run is `flow-guard run-verify-list
--detect-flaky <worktree> visual [<canonical worktree>]`, the same selection run once with
+-detect-flaky <worktree> visual [<canonical worktree>]`, that run's failures alone run once with
 `--retries=1 --fail-on-flaky-tests`, and one fixer gets the union of both runs' failures in one
 batch, the `visual-failing.txt` file the runs print. Each fix round then re-runs that file alone,
 `flow-guard run-verify-list -only <visual-failing.txt> <worktree> visual [<canonical worktree>]`,
@@ -267,7 +267,7 @@ its header canonical). Neither flag records a dispatch row, writes the green cac
 The detector's retry only names a flake: a flaky test is a failure the fixer fixes at its source
 (`rules/fix-determinism-at-the-source.mdc`). A plain run is the `specs` row's selection — the
 change's tests plus the smoke tail —
-and never the whole suite. Each failing run prints its failures in two groups, the
+and never the whole suite. A selection naming more than 40 spec files runs the specs the change edits plus that tail, and is never refused (A WIDE SELECTION, `flow-guard run-verify-list`'s header canonical). Each failing run prints its failures in two groups, the
 change's specs and the specs outside the `specs` row's output. Two consecutive rounds whose failures all fall outside it make no progress, and escalate as **Fewest operator actions** states (`skills/flow-contracts/pipeline.md`). A non-visual command keeps its own inline re-run.
 
 ## No cap

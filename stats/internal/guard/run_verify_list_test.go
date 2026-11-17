@@ -1516,18 +1516,29 @@ func TestRvlNextRoundIsNumericAndClaimsTheRound(t *testing.T) {
 	}
 }
 
-func TestRunVerifyListDetectFlakyRunsTheSelection(t *testing.T) {
+// TestRunVerifyListDetectFlakyRunsTheFailingListAlone: the detector re-runs
+// the tests the failing run named, never the selection that run took (kan-1091:
+// a 44-minute list re-run whole, 37 minutes, for the same 12 failures), and
+// the selection only when no failing list was kept.
+func TestRunVerifyListDetectFlakyRunsTheFailingListAlone(t *testing.T) {
 	t.Parallel()
 	wt, argv, _ := rvlNarrowFixture(t, "  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 1)
 	list := rvlFailingList(t, wt)
 	writeFile(t, list, "tests/c.spec.ts:4\n")
 	rc, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
 	got, _ := os.ReadFile(argv)
-	if want := "fidelity/a.spec.ts --retries=1 --fail-on-flaky-tests\n"; rc != 1 || string(got) != want {
+	if want := "tests/c.spec.ts:4 --retries=1 --fail-on-flaky-tests\n"; rc != 1 || string(got) != want {
 		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
 	}
 	if b, _ := os.ReadFile(list); string(b) != "tests/c.spec.ts:4\nfidelity/a.spec.ts:20\n" {
 		t.Errorf("the detector left %q, want the union\n%s", b, out)
+	}
+	if err := os.Remove(list); err != nil {
+		t.Fatal(err)
+	}
+	rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual")
+	if got, _ := os.ReadFile(argv); string(got) != "fidelity/a.spec.ts --retries=1 --fail-on-flaky-tests\n" {
+		t.Errorf("with no failing list kept: argv %q, want the selection", got)
 	}
 }
 
@@ -2059,27 +2070,79 @@ func TestRunVerifyListFullNeedsTheOperator(t *testing.T) {
 	}
 }
 
-// TestRunVerifyListRunsALargeSelection: a targeted selection runs whatever
-// its size, with no operator variable set -- nothing caps the spec files a
-// selection may name, whatever picked it.
-func TestRunVerifyListRunsALargeSelection(t *testing.T) {
+// rvlWideFixture is a worktree whose change edits tests/s7.spec.ts beside a
+// UI file, and whose `specs` row prints n spec files for a non-empty diff and
+// tests/smoke.spec.ts:1, its smoke tail, for any diff. The `verify` row writes
+// its arguments to argv.
+func rvlWideFixture(t *testing.T, n int) (wt, argv string) {
+	t.Helper()
+	argv = filepath.Join(t.TempDir(), "argv")
+	verify := rvlScript(t, "echo \"$*\" > "+argv+"\n") + " <specs>"
+	specs := rvlScript(t, `[ -z "$(git -C "$1" diff --name-only "$2")" ] || for i in $(seq 0 `+strconv.Itoa(n-1)+`); do echo "tests/s$i.spec.ts:3"; done
+echo tests/smoke.spec.ts:1
+`) + " <frontend-root> <merge-base>"
+	wt, _ = rvlVisualSetup(t, verify, "web/src/a.tsx", "", specs, false, false, false)
+	writeFile(t, filepath.Join(wt, "tests/s7.spec.ts"), "x\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "spec")
+	return wt, argv
+}
+
+// TestRunVerifyListNarrowsAWideSelection pins A WIDE SELECTION (kan-1089,
+// kan-1091, kan-1099: a change touching every screen selected 646-679 of 680
+// tests, 17 runs of 35-50 minutes): a selection naming more than
+// rvlWideSelection spec files runs the specs the change edits plus the
+// `specs` row's tail, and is never refused; one naming that many or fewer,
+// and a -only list of any size, runs as it is.
+func TestRunVerifyListNarrowsAWideSelection(t *testing.T) {
 	t.Parallel()
+	wt, argv := rvlWideFixture(t, 500)
+	for _, tc := range []struct {
+		want string
+		args []string
+	}{
+		{"tests/s7.spec.ts:3 tests/smoke.spec.ts:1\n", []string{wt, "visual"}},
+		{"tests/s7.spec.ts:3 tests/smoke.spec.ts:1\n", []string{wt, "test"}},
+		{"tests/s7.spec.ts:3 tests/smoke.spec.ts:1 --retries=1 --fail-on-flaky-tests\n", []string{"-detect-flaky", wt, "visual"}},
+	} {
+		os.Remove(argv)
+		rc, out := rvlRunIn(t, wt, "", tc.args...)
+		got, _ := os.ReadFile(argv)
+		if note := "- visual selection: 501 spec files reached, more than 40 — narrowed to the 1 the change edits plus the smoke tail"; rc != 0 || string(got) != tc.want || !strings.Contains(out, note) {
+			t.Errorf("%v: exit %d, argv %q, want %q and %q:\n%.900s", tc.args, rc, got, tc.want, note, out)
+		}
+	}
 	var b strings.Builder
 	for i := range 500 {
 		fmt.Fprintf(&b, "tests/s%d.spec.ts:3 ", i)
 	}
-	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "echo "+b.String(), false, false, false)
 	only := filepath.Join(t.TempDir(), "only")
 	writeFile(t, only, b.String())
-	for _, args := range [][]string{
-		{wt, "visual"},
-		{wt, "test"},
-		{"-detect-flaky", wt, "visual"},
-		{"-only", only, wt, "visual"},
-	} {
-		if rc, out := rvlRunIn(t, wt, "", args...); rc != 0 || !strings.Contains(out, "VISUAL-RAN") || !strings.Contains(out, "tests/s499.spec.ts:3") {
-			t.Errorf("%v: exit %d, want 0 and all 500 spec files run:\n%.600s", args, rc, out)
-		}
+	if rc, out := rvlRunIn(t, wt, "", "-only", only, wt, "visual"); rc != 0 || strings.Contains(out, "narrowed") {
+		t.Errorf("-only: exit %d, want 0 and no narrowing:\n%.600s", rc, out)
+	}
+	if got, _ := os.ReadFile(argv); !strings.Contains(string(got), "tests/s499.spec.ts:3 --repeat-each 5") {
+		t.Errorf("-only ran %.200q, want all 500 entries", got)
+	}
+	wt, argv = rvlWideFixture(t, 39) // 39 files and the tail's: 40, not over
+	if rc, out := rvlRunIn(t, wt, "", wt, "visual"); rc != 0 || strings.Contains(out, "narrowed") {
+		t.Errorf("40 spec files: exit %d, want 0 and no narrowing:\n%.600s", rc, out)
+	}
+	if got, _ := os.ReadFile(argv); !strings.Contains(string(got), "tests/s38.spec.ts:3 tests/smoke.spec.ts:1") {
+		t.Errorf("40 spec files ran %.200q, want the whole selection", got)
+	}
+}
+
+// TestRunVerifyListWideSelectionWithNothingOfItsOwnRunsTheSmokeSet: a wide
+// selection whose change edits no selected spec, under a `specs` row that
+// prints no tail, runs the smoke set (THE SMOKE FALLBACK), never nothing.
+func TestRunVerifyListWideSelectionWithNothingOfItsOwnRunsTheSmokeSet(t *testing.T) {
+	t.Parallel()
+	specs := rvlScript(t, `[ -z "$(git -C "$1" diff --name-only "$2")" ] || for i in $(seq 0 60); do echo "tests/s$i.spec.ts"; done
+`) + " <frontend-root> <merge-base>"
+	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", specs, false, false, false)
+	if rc, out := rvlRunIn(t, wt, "", wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL-RAN [--grep @smoke]") {
+		t.Errorf("exit %d, want 0 and the smoke set:\n%.900s", rc, out)
 	}
 }
 
