@@ -31,7 +31,7 @@ launching together — each launch into their own throwaway worktree created by
 running the project's resolved `## worktree setup` command once before its implementer
 dispatches. Every printed group launches in one message, whatever its repository. Exit 1 —
 no group can launch while one is unlanded — is a plan defect, reported with the lines it
-printed; exit 2 stops the run. Exit 2 means a step failed, named on stderr, and
+printed; exit 2 stops the run. `flow-guard throwaway-worktree create` exit 2 means a step failed, named on stderr, and
 nothing is dispatched into that copy. A group never spans two repositories: `flow-guard plan-dispatch-groups` keeps tasks under different `## <repository>` headings — a one-word heading naming the repository — in different groups, so each group's worktree is its repository's.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
