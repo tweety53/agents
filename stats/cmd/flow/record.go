@@ -2541,6 +2541,12 @@ func runRecordFinding(ctx context.Context, args []string, getenv func(string) st
 	if roundBeyondNext(ctx, f, projectKey, "finding", *round, stderr) {
 		return 2
 	}
+	if *location != "" {
+		if path, line, lines, beyond := findingLineBeyondFile(*location, mutationRoots(ctx, f, projectKey)); beyond {
+			fmt.Fprintf(stderr, "flow: -location %q: line %d is past the last line (%d) of %s in every worktree of the change -- cite a line of the file under review, never of final-review.diff or another diff\n", *location, line, lines, path)
+			return 2
+		}
+	}
 
 	in := records.Finding{
 		Ref:          *ref,
@@ -4677,6 +4683,48 @@ func inlineFloor(ctx context.Context, f recordIdentityFlags, projectKey, key str
 		}
 	}
 	return floor, !floor.IsZero()
+}
+
+// findingLineBeyondFile judges a finding's file:line: path is the text
+// before the first :<digits>, line those digits. A relative path joins each
+// root; an absolute one is read as given. beyond is true only when at least
+// one root holds path as a regular file and every root holding it has fewer
+// than line lines -- a path no root holds is not judged. lines is the
+// longest holding file's line count.
+func findingLineBeyondFile(location string, roots []string) (path string, line, lines int, beyond bool) {
+	loc := locationLineRe.FindStringIndex(location)
+	if loc == nil {
+		return "", 0, 0, false
+	}
+	path = location[:loc[0]]
+	line, _ = strconv.Atoi(location[loc[0]+1 : loc[1]])
+	candidates := []string{path}
+	if !filepath.IsAbs(path) {
+		candidates = nil
+		for _, r := range roots {
+			candidates = append(candidates, filepath.Join(r, path))
+		}
+	}
+	held := false
+	for _, c := range candidates {
+		if fi, err := os.Stat(c); err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		b, err := os.ReadFile(c)
+		if err != nil {
+			continue
+		}
+		held = true
+		n := bytes.Count(b, []byte("\n"))
+		if len(b) > 0 && b[len(b)-1] != '\n' {
+			n++
+		}
+		if n >= line {
+			return path, line, n, false
+		}
+		lines = max(lines, n)
+	}
+	return path, line, lines, held
 }
 
 // mutationRoots is the -C repository's top level plus every key of the

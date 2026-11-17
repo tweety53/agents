@@ -704,7 +704,8 @@ slot's resolved id substituted:
 > `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every
 > finding with its `file:line`, severity, the sentence naming the defect, its reproducer, and the
 > id of the task whose `Task-Id:` commit its `file:line` falls in — none where it spans tasks or
-> falls in none. Your return message is the findings summary, each finding naming its task id
+> falls in none. A finding's `file:line` is a line of that file in the worktree under review,
+> never a line number of `final-review.diff` or of any other diff. Your return message is the findings summary, each finding naming its task id
 > too; the file is the record. Open the file with one `Critical: <n>`, one `Important: <n>` and one
 > `Minor: <n>` line counting the findings it raises at each severity, then one `Unread: none` line, or
 > `Unread: <repository>[, <repository>…]` naming each `# worktree:` section you did not read in

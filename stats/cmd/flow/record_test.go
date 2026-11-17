@@ -6874,6 +6874,11 @@ func TestRecordFindingFromFile(t *testing.T) {
 
 	var posted []records.Finding
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			// The -location line check's read of the change's worktrees.
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		body, _ := io.ReadAll(r.Body)
 		var f records.Finding
 		if err := json.Unmarshal(body, &f); err != nil {
@@ -9777,4 +9782,72 @@ func TestRunRecordDecisionRefusesAnUnbackedJudgePick(t *testing.T) {
 	if _, exists := recordJournalEntries(t, repo, "kan-1", env); exists {
 		t.Error("a refused decision was journalled")
 	}
+}
+
+// TestRecordFindingRefusesALineBeyondItsFile pins decision
+// location-line-checked-at-record: a -location whose first line is past
+// its file's last line in every worktree holding it is refused, nothing
+// posted; a path no worktree holds is admitted as before.
+func TestRecordFindingRefusesALineBeyondItsFile(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	p := filepath.Join(repo, "stats/internal/guard/readygroups.go")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(strings.Repeat("x\n", 281)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	record := func(t *testing.T, args ...string) (int, string, int) {
+		t.Helper()
+		posts := 0
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"worktrees":{}}`))
+				return
+			}
+			posts++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"ref":"F1","round":0,"slot":"mutation","severity":"major","note":"n","status":"open"}`))
+		}))
+		defer srv.Close()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			append([]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-258", "-round", "0", "-slot", "mutation", "-severity", "major",
+				"-status", "open", "-reproducer", "scripts/x.sh", "-note", "n"}, args...),
+			env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String(), posts
+	}
+
+	t.Run("a line past the file's end is refused", func(t *testing.T) {
+		code, stderr, posts := record(t, "-ref", "F1", "-location", "stats/internal/guard/readygroups.go:708")
+		if code != 2 || posts != 0 {
+			t.Fatalf("exit %d, posts %d; want 2, 0; stderr:\n%s", code, posts, stderr)
+		}
+		for _, want := range []string{"stats/internal/guard/readygroups.go", "708", "281"} {
+			if !strings.Contains(stderr, want) {
+				t.Errorf("stderr does not name %q:\n%s", want, stderr)
+			}
+		}
+	})
+	for _, loc := range []string{"stats/internal/guard/readygroups.go:281", "stats/internal/guard/readygroups.go:200-708", "gone/Missing.go:9999"} {
+		t.Run("admits "+loc, func(t *testing.T) {
+			if code, stderr, posts := record(t, "-ref", "F1", "-location", loc); code != 0 || posts != 1 {
+				t.Fatalf("exit %d, posts %d; want 0, 1; stderr:\n%s", code, posts, stderr)
+			}
+		})
+	}
+	t.Run("-from is refused the same way", func(t *testing.T) {
+		file := filepath.Join(t.TempDir(), "findings-0.jsonl")
+		if err := os.WriteFile(file, []byte(`{"ref":"F1","location":"stats/internal/guard/readygroups.go:708"}`+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if code, stderr, posts := record(t, "-from", file); code != 2 || posts != 0 {
+			t.Fatalf("exit %d, posts %d; want 2, 0; stderr:\n%s", code, posts, stderr)
+		}
+	})
 }

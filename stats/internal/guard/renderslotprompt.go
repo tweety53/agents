@@ -51,7 +51,7 @@ import (
 //      each pass's own on a delta bundle; INDEPENDENT PASSES when more than
 //      one slot; FIX-ROUND SCOPE from review-panel-fix-round.md, naming the
 //      -fix-report path(s), only when -fix-report is given; on any -diff
-//      but final, every `final-review.diff` in WORKTREES, ENTRY CONTEXT and
+//      but final, every `final-review.diff` in WORKTREES, ENTRY CONTEXT, REPORT FILE and
 //      INDEPENDENT PASSES reads `the **Diff file:** each PASS section names`;
 //   2. one `## PASS <id>` section per slot, in the order given: the fenced
 //      body of <skill-dir>/<id>-reviewer-prompt.md — an exp-<name> slot's
@@ -397,6 +397,9 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "template-block-missing")
 		return 2
 	}
+	// Its file:line sentence names `final-review.diff`; a pass reading another
+	// diff is told never to cite that one's lines instead.
+	report = named(report)
 	// The mutating pass runs last, whatever position the slot argument gives it
 	// (review-panel-optional-slots.md: mutation is always a bundle's last pass).
 	ordered := slices.DeleteFunc(slices.Clone(slots), func(s string) bool { return s == "mutation" })
