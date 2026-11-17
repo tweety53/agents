@@ -508,6 +508,9 @@ func TestVisualVerifyPassPrepareWritesTheRoundFile(t *testing.T) {
 	if len(fields) != 2 || fields[0] != f.mb {
 		t.Fatalf("round file %q, want `%s <instant>`", b, f.mb)
 	}
+	if bb, err := os.ReadFile(filepath.Join(sdd, "visual-round-visual-verify.bases")); err != nil || !strings.Contains(string(bb), f.wt+" "+f.mb) {
+		t.Fatalf("scoped prepare wrote no per-checkout round bases %q (%v), want a `<worktree> <sha>` line", bb, err)
+	}
 	at, err := time.Parse(time.RFC3339Nano, fields[1])
 	if err != nil || at.Before(before) || at.After(after) {
 		t.Fatalf("round file instant %q (%v), want an RFC3339Nano instant within [%s, %s]", fields[1], err, before.Format(time.RFC3339Nano), after.Format(time.RFC3339Nano))

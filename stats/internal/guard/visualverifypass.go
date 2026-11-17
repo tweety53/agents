@@ -410,6 +410,7 @@ type vvp struct {
 	stdout, stderr io.Writer
 
 	canon, name, key, harness, token string
+	bases                            map[string]string // round base per worktree root, read by loadBases
 	motions                          int
 	worktrees                        []string          // canonical first, then each --worktree
 	mergeBase, since, roundBase      map[string]string // by worktree
@@ -754,6 +755,7 @@ func (v *vvp) captureChanged(path, base string) bool {
 		return true
 	}
 	dir := filepath.Dir(path)
+	base = v.baseIn(dir, base)
 	now, ok := v.git("-C", dir, "hash-object", path)
 	if !ok {
 		return true
@@ -775,4 +777,47 @@ func cellPath(w, cell string) string {
 		return cell
 	}
 	return filepath.Join(w, cell)
+}
+
+// basesFile is <sdd>/visual-round-<key>.bases, one `<worktree root> <sha>` line
+// per --round-base prepare was given (decision round-base-per-checkout): the
+// round file holds the canonical worktree's sha alone, which resolves in no
+// other repository.
+func basesFile(sdd, key string) string {
+	return filepath.Join(sdd, "visual-round-"+key+".bases")
+}
+
+// loadBases reads key's bases file into v.bases; absent, it leaves them empty.
+func (v *vvp) loadBases(sdd, key string) {
+	v.bases = map[string]string{}
+	b, err := os.ReadFile(basesFile(sdd, key))
+	if err != nil {
+		return
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if w, sha, ok := strings.Cut(l, " "); ok {
+			v.bases[w] = strings.TrimSpace(sha)
+		}
+	}
+}
+
+// baseIn is the round base to read in dir's checkout: base itself when that
+// checkout resolves it, else the sha recorded for the checkout's own root.
+func (v *vvp) baseIn(dir, base string) string {
+	if _, ok := v.git("-C", dir, "rev-parse", "--verify", "--quiet", base+"^{commit}"); ok {
+		return base
+	}
+	root, ok := v.git("-C", dir, "rev-parse", "--show-toplevel")
+	if !ok {
+		return base
+	}
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		root = real
+	}
+	for w, sha := range v.bases {
+		if real, err := filepath.EvalSymlinks(w); err == nil && real == root {
+			return sha
+		}
+	}
+	return base
 }

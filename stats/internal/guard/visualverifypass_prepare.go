@@ -762,6 +762,13 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 				line += " " + strings.Join(d, ",")
 			}
 			v.writeOut(rf, line+"\n")
+			var bl strings.Builder
+			for _, w := range v.worktrees {
+				if sha := v.roundBase[w]; sha != "" {
+					bl.WriteString(w + " " + sha + "\n")
+				}
+			}
+			v.writeOut(basesFile(filepath.Join(r.w, ".superpowers", "sdd"), r.key), bl.String())
 		} else if err := os.Remove(rf); err != nil && !os.IsNotExist(err) {
 			// A stale round file would let close read this row as scoped.
 			v.die("cannot-write", "cannot remove %s: %v", rf, err)

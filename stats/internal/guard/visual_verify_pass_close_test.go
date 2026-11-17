@@ -774,3 +774,52 @@ func TestVisualVerifyPassCloseIdenticalRecaptureInAnotherCheckout(t *testing.T) 
 		t.Errorf("a capture in another checkout, identical and run after the row began, did not close the loop\n%s", out)
 	}
 }
+
+// TestVisualVerifyPassCloseReadsEachCheckoutsRoundBase pins decision
+// round-base-per-checkout: a capture in another repository is compared with
+// the round base prepare recorded for that checkout (the .bases file), since
+// the round file's sha is the canonical worktree's and resolves nowhere else.
+// An unchanged capture then needs no line of its own; without the file it
+// reads as changed and does.
+func TestVisualVerifyPassCloseReadsEachCheckoutsRoundBase(t *testing.T) {
+	smoke.Heavy(t)
+	for _, c := range []struct {
+		name  string
+		bases bool
+		want  bool
+	}{
+		{"the checkout's own base recorded", true, true},
+		{"no base for the checkout", false, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := vvcFixture(t, "")
+			other := t.TempDir()
+			gitRun(t, other, "init", "-q")
+			capture := filepath.Join(other, "fidelity/home.spec.ts-snapshots/home-darwin.png")
+			writeFile(t, capture, "png\n")
+			gitRun(t, other, "add", ".")
+			gitRun(t, other, "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "capture")
+			otherBase := vgHead(t, other)
+			at := time.Now().Add(-time.Minute)
+			now := time.Now()
+			if err := os.Chtimes(capture, now, now); err != nil { // fresh by mtime: only the base is under test
+				t.Fatal(err)
+			}
+			sdd := filepath.Join(f.wt, ".superpowers/sdd")
+			writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), strings.Repeat("0", 40)+" "+at.UTC().Format(time.RFC3339Nano))
+			if c.bases {
+				writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.bases"), other+" "+otherBase+"\n")
+			}
+			pairs := `[{"spec":"` + filepath.Join(other, "fidelity/home.spec.ts") + `","frame":"f1","capture":"` + capture + `"}]`
+			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), `{"pairs":`+pairs+`}`)
+			f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
+			rc, out, calls := f.close("visual-verify")
+			if rc != 0 {
+				t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+			}
+			if got := strings.Contains(calls, "-closes-loop"); got != c.want {
+				t.Errorf("-closes-loop %v, want %v\n%s", got, c.want, out)
+			}
+		})
+	}
+}

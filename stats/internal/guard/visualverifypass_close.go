@@ -166,6 +166,7 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 	if !ok {
 		return false, ""
 	}
+	v.loadBases(sdd, key)
 	mpath := filepath.Join(sdd, "visual-manifest-"+key+".json")
 	var m vvmManifestOut
 	b, err := os.ReadFile(mpath)
