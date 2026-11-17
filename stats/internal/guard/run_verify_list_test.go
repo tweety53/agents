@@ -849,6 +849,13 @@ var rvlOperator = []string{rvlOperatorFull + "=1"}
 // entries that make every run a default one no operator asked to widen.
 func rvlRunEnv(t *testing.T, dir, path string, extra []string, args ...string) (int, string) {
 	t.Helper()
+	return rvlRunRows(t, dir, path, extra, nil, args...)
+}
+
+// rvlRunRows is rvlRunEnv with dispatches standing for `flow record
+// dispatches` when set.
+func rvlRunRows(t *testing.T, dir, path string, extra []string, dispatches func(string) ([]byte, error), args ...string) (int, string) {
+	t.Helper()
 	var bare []string
 	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
 		if _, err := os.Stat(filepath.Join(d, "flow")); err != nil {
@@ -871,7 +878,7 @@ func rvlRunEnv(t *testing.T, dir, path string, extra []string, args ...string) (
 		return ""
 	}
 	var o, e bytes.Buffer
-	rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: dir}, &o, &e)
+	rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: dir, Dispatches: dispatches}, &o, &e)
 	return rc, o.String() + e.String()
 }
 
@@ -2083,5 +2090,96 @@ func TestRunVerifyListDetectFlakyFallsBackToSmoke(t *testing.T) {
 	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN [<specs>]", "web/src/a.tsx", "", "", false, false, false)
 	if rc, out := rvlRunIn(t, wt, "", "-detect-flaky", wt, "visual"); rc != 0 || !strings.Contains(out, "VISUAL-RAN [--grep @smoke --retries=1 --fail-on-flaky-tests]") {
 		t.Errorf("exit %d, want 0 and the smoke set under the detector's flags:\n%s", rc, out)
+	}
+}
+
+// rvlRoundFixture is a worktree whose change touches a theme file, so the
+// `specs` row maps every spec from the kickoff base, and whose fix round then
+// touches screen b alone. The `verify` row writes its arguments to argv and
+// exits rc; h1 is the HEAD the first verify ran at.
+func rvlRoundFixture(t *testing.T, rc int) (wt, argv, h1 string) {
+	t.Helper()
+	argv = filepath.Join(t.TempDir(), "argv")
+	verify := rvlScript(t, "echo \"$*\" > "+argv+"\nexit "+strconv.Itoa(rc)+"\n") + " <specs>"
+	specs := rvlScript(t, `for f in $(git -C "$1" diff --name-only "$2"); do case $f in
+web/src/theme.css) echo a.spec.ts; echo b.spec.ts; echo c.spec.ts;;
+web/src/*.tsx) f=${f##*/}; echo "${f%.tsx}.spec.ts";;
+esac; done | sort -u
+`) + " <frontend-root> <merge-base>"
+	wt, _ = rvlVisualSetup(t, verify, "web/src/theme.css", "", specs, false, false, false)
+	h1 = rvlGit(t, wt, "rev-parse", "HEAD")
+	writeFile(t, filepath.Join(wt, "web/src/b.tsx"), "x\n")
+	rvlGit(t, wt, "add", "-A")
+	rvlGit(t, wt, "commit", "-q", "-m", "fix")
+	return wt, argv, h1
+}
+
+// rvlRows is a `flow record dispatches` answer of verifier rows, key then
+// diffBase.
+func rvlRows(t *testing.T, pairs ...string) func(string) ([]byte, error) {
+	t.Helper()
+	var rows []map[string]string
+	for i := 0; i < len(pairs); i += 2 {
+		rows = append(rows, map[string]string{"key": pairs[i], "role": "verifier", "diffBase": pairs[i+1]})
+	}
+	b, err := json.Marshal(rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return func(string) ([]byte, error) { return b, nil }
+}
+
+// TestRunVerifyListReRunSelectsFromTheRoundBase pins THE ROUND'S SELECTION
+// (kan-1099): a first verify selects from the kickoff base -- every spec, the
+// change touching the theme -- and a re-run from the HEAD the previous verify
+// row recorded, never from a row of its own round.
+func TestRunVerifyListReRunSelectsFromTheRoundBase(t *testing.T) {
+	t.Parallel()
+	wt, argv, h1 := rvlRoundFixture(t, 0)
+	head := rvlGit(t, wt, "rev-parse", "HEAD")
+	stub, _ := rvlFlowStub(t, "{}", 1)
+	rows := rvlRows(t, "verify", h1, "verify-fix-1-"+filepath.Base(wt), head)
+	for key, want := range map[string]string{"verify": "a.spec.ts b.spec.ts c.spec.ts\n", "verify-fix-1": "b.spec.ts\n"} {
+		rc, out := rvlRunRows(t, wt, stub, nil, rows, wt, "visual", "work", key, "tok", "opus", "low")
+		if got, _ := os.ReadFile(argv); rc != 0 || string(got) != want {
+			t.Errorf("key %s: exit %d, argv %q, want %q\n%s", key, rc, got, want, out)
+		}
+	}
+}
+
+// TestRunVerifyListReRunCoversTheFailingList: a plain re-run adds the spec
+// file of each visual-failing.txt entry to the round's selection, and a green
+// one empties the file.
+func TestRunVerifyListReRunCoversTheFailingList(t *testing.T) {
+	t.Parallel()
+	wt, argv, h1 := rvlRoundFixture(t, 0)
+	list := rvlFailingList(t, wt)
+	writeFile(t, list, "b.spec.ts:8\ntests/c.spec.ts:4\n")
+	stub, _ := rvlFlowStub(t, "{}", 1)
+	rc, out := rvlRunRows(t, wt, stub, nil, rvlRows(t, "verify", h1), wt, "visual", "work", "verify-fix-1", "tok", "opus", "low")
+	got, _ := os.ReadFile(argv)
+	if want := "b.spec.ts tests/c.spec.ts\n"; rc != 0 || string(got) != want {
+		t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+	}
+	if b, _ := os.ReadFile(list); len(b) != 0 {
+		t.Errorf("a green re-run left %q in the failing list", b)
+	}
+}
+
+// TestRunVerifyListDetectFlakySelectsAsTheFailingRowDid: the detector carries
+// no key, so it selects as the newest verify row did -- from the kickoff base
+// after a first verify, from the round base after a re-run.
+func TestRunVerifyListDetectFlakySelectsAsTheFailingRowDid(t *testing.T) {
+	t.Parallel()
+	wt, argv, h1 := rvlRoundFixture(t, 0)
+	head := rvlGit(t, wt, "rev-parse", "HEAD")
+	for want, rows := range map[string]func(string) ([]byte, error){
+		"a.spec.ts b.spec.ts c.spec.ts --retries=1 --fail-on-flaky-tests\n": rvlRows(t, "verify", head),
+		"b.spec.ts --retries=1 --fail-on-flaky-tests\n":                     rvlRows(t, "verify", h1, "verify-fix-1", head),
+	} {
+		rc, out := rvlRunRows(t, wt, "", nil, rows, "-detect-flaky", wt, "visual")
+		if got, _ := os.ReadFile(argv); rc != 0 || string(got) != want {
+			t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
+		}
 	}
 }

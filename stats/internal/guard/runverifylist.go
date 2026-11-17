@@ -183,6 +183,28 @@
 // failing `specs` row still fail the list. A `verify` cell with no `<specs>`
 // can only run whole: it is not run and fails the list.
 //
+// THE ROUND'S SELECTION (kan-1099: every verify re-run selected from the
+// change's whole diff, which a shared theme file makes every capture, 35
+// minutes a round). A re-run -- a recording <key> check-verify-green's
+// vgFixSuffix folds, `verify-fix-<k>…` or `verify-<k>…` -- fills the `specs`
+// row's `<merge-base>` with the round base of `<frontend-root>`: the
+// `diffBase` of the newest `verifier` row of the change, a `verify…` key of
+// another round, that resolves as a commit there -- the HEAD its previous
+// verify ran at -- read from `flow record dispatches -change <change> -C
+// <canonical-worktree or worktree>`, and printed as
+//   - visual selection: the round's diff — <frontend-root> since <short sha>
+// With no such row, or no `flow`, the kickoff base stands. A plain re-run
+// adds to `<specs>` the spec file of each visual-failing.txt entry the
+// selection does not already name, printed as
+//   - visual selection: plus <n> spec file(s) of visual-failing.txt
+// so its green row covers the round's specs, the earlier failures and the
+// tail the `specs` row prints; green, it empties visual-failing.txt. `-only` and `-detect-flaky`, which carry no key, select
+// as the newest verify row of <worktree> did: from its round base when that
+// row's key is a re-run's, from the kickoff base otherwise.
+// ponytail: a re-run whose `specs` row maps nothing runs the smoke set alone,
+// without the visual-failing.txt files -- `--grep` would intersect them; run
+// the row twice if a project's `specs` row ever prints no tail of its own.
+//
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
 // evidence its lint list ran green). A `lint` run — the appended
 // check-spec-reach included — that exits 0 on a tree clean before and after
@@ -507,7 +529,63 @@ const (
 // (verify-list-runs-targeted). fallback is the `regression checkout` dir
 // fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
 func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
-	return rvlVisualVerifyFor(env, wt, covered, false, "", "", io.Discard)
+	return rvlVisualVerifyFor(env, wt, covered, false, "", "", func(string) string { return "" }, io.Discard)
+}
+
+// rvlRound is a re-run key's round, `verify-fix-<k>` or `verify-<k>`, "" for
+// a first verify's key.
+func rvlRound(key string) string {
+	m := vgFixSuffix.FindStringSubmatch(key)
+	if m == nil {
+		return ""
+	}
+	return strings.TrimSuffix(m[0], m[2])
+}
+
+// rvlRoundBase answers each root's round base for the run keyed key (THE
+// ROUND'S SELECTION): "" for a first verify, or with no earlier row whose
+// diffBase resolves in root. With no key -- a narrowed run -- it answers as
+// for the newest verify row of wt.
+func rvlRoundBase(env Env, wt, change, canon, key string) func(root string) string {
+	none := func(string) string { return "" }
+	if change == "" {
+		return none
+	}
+	if canon == "" {
+		canon = wt
+	}
+	raw, err := pfdRead(env, env.Dispatches, "dispatches", change, canon)
+	var rows []struct{ Key, Role, DiffBase string }
+	if err != nil || json.Unmarshal(raw, &rows) != nil {
+		return none
+	}
+	rows = slices.DeleteFunc(rows, func(r struct{ Key, Role, DiffBase string }) bool {
+		return r.Role != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-"))
+	})
+	if key == "" {
+		i := len(rows) - 1
+		for ; i >= 0 && !verifyKeyOK(env, wt, rows[i].Key); i-- {
+		}
+		if i < 0 {
+			return none
+		}
+		key, rows = rows[i].Key, rows[:i]
+	}
+	tag := rvlRound(key)
+	if tag == "" {
+		return none
+	}
+	git := envGit(env)
+	return func(root string) string {
+		// Rows of this round -- a sibling's, begun beside this one at its
+		// own new HEAD -- are never the previous verify.
+		for i := len(rows) - 1; i >= 0; i-- {
+			if r := rows[i]; r.DiffBase != "" && rvlRound(r.Key) != tag && git("-C", root, "cat-file", "-e", r.DiffBase+"^{commit}").Run() == nil {
+				return r.DiffBase
+			}
+		}
+		return ""
+	}
 }
 
 // rvlKickoffBases is the worktrees map of `flow state get -C <canon>
@@ -571,8 +649,10 @@ func rvlSiblingStamp(env Env, wt, change, canon string) string {
 // name>`, and the `specs` row then reads the first such sibling and its base
 // (siblingFrontend, the rule `visual-verify-pass prepare` follows). full
 // (THE FULL SUITE) runs the row whenever it is declared, `<specs>` emptied and
-// no `specs` row, whatever covered, decision.json and the diff say.
-func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
+// no `specs` row, whatever covered, decision.json and the diff say. round
+// answers a root's round base, which replaces the kickoff base in the `specs`
+// row (THE ROUND'S SELECTION).
+func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon string, round func(root string) string, stdout io.Writer) (cmd, specs, dir, fallback string, ok bool) {
 	if canon == "" {
 		canon = wt
 	}
@@ -665,6 +745,10 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 	}
 	dir, fallback = checkout()
 	if s := cells["specs"]; s != "" {
+		if rb := round(root); rb != "" {
+			fmt.Fprintf(stdout, "- visual selection: the round's diff — %s since %s\n", root, vgShort(rb))
+			base = rb
+		}
 		if base == "" {
 			return "", "", dir, fallback, true
 		}
@@ -937,6 +1021,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	record := func(string, ...string) bool { return true }
 	blockedMark := ""
+	runKey := "" // the recording key, "" on an unrecorded run
 	if len(args) >= 7 {
 		flow, ok := lookPath(env, "flow")
 		if !ok {
@@ -951,6 +1036,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			canon = abs(wt)
 		}
 		key, token, model, effort := args[3], args[4], args[5], args[6]
+		runKey = key
 		if !verifyKeyOK(env, abs(args[0]), key) {
 			fmt.Fprintf(stderr, "run-verify-list: key %q does not fold to verify or verify-<repository name> (skills/flow/verify-and-handoff.md, **Recording.**) — no command ran\n", key)
 			Reason(env, "key-does-not-fold")
@@ -1277,7 +1363,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		sibStamp = rvlSiblingStamp(env, abs(wt), change, canon)
 		sibSame := sibRecorded == sibStamp
-		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged("") && sibSame, full, change, canon, stdout); !ok && list == "visual" {
+		// rounded is set once a round base scopes the `specs` row (THE
+		// ROUND'S SELECTION).
+		rounded := false
+		round := func(root string) string {
+			rb := rvlRoundBase(env, abs(wt), change, canon, runKey)(root)
+			rounded = rounded || rb != ""
+			return rb
+		}
+		failingFile := filepath.Join(keep, "visual-failing.txt")
+		if cmd, specs, dir, fallback, ok := rvlVisualVerifyFor(env, abs(wt), unchanged("") && sibSame, full, change, canon, round, stdout); !ok && list == "visual" {
 			fmt.Fprintln(stdout, "- visual verify — not run: no `verify` row, `visual.verify` skipped, or no `ui paths` change")
 		} else if ok && list == "visual" && fallback != "" {
 			// /flow-fast and /flow-interactive set up no regression-checkout
@@ -1335,6 +1430,17 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					smokeWhy = "the `specs` row mapped no spec"
 				default:
 					tokens, specTokens = paths, paths
+					if b, _ := os.ReadFile(failingFile); rounded && mode == "plain" && keep != "" {
+						n := 0
+						for _, f := range strings.Fields(string(b)) {
+							if p, _, _ := strings.Cut(f, ":"); !slices.Contains(tokens, p) {
+								tokens, n = append(tokens[:len(tokens):len(tokens)], p), n+1
+							}
+						}
+						if n > 0 {
+							fmt.Fprintf(stdout, "- visual selection: plus %d spec file(s) of visual-failing.txt\n", n)
+						}
+					}
 				}
 			}
 			if smokeWhy != "" {
@@ -1368,6 +1474,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				report(cmd, results[0].rc, results[0].out, name)
 				if results[0].rc == 0 {
 					passed = append(passed, cmd)
+					if _, err := os.Stat(failingFile); err == nil && rounded && mode == "plain" && keep != "" {
+						os.WriteFile(failingFile, nil, 0o666) // the run covered its entries
+					}
 				} else if keep != "" {
 					dst := filepath.Join(keep, fmt.Sprintf("visual-results-r%d", round))
 					if kept := rvlKeepPlaywrightResults(dir, dst, started); kept != "" {

@@ -254,7 +254,10 @@ batch, the `visual-failing.txt` file the runs print. Each fix round then re-runs
 `flow-guard run-verify-list -only <visual-failing.txt> <worktree> visual [<canonical worktree>]`,
 each entry five times at one worker. Once a narrowed run is green, one plain run of the `test`
 group under the round's `-fix-<k>` key is the gate, and when it fails the next round narrows to
-its failures. Neither flag records a dispatch row, writes the green cache or stands as the gate.
+its failures. That re-run selects from the round's diff, never the change's, plus the spec file of
+each `visual-failing.txt` entry, and either flag selects as the row it follows did — `flow-guard
+run-verify-list` reads the round base from the previous verify row itself (THE ROUND'S SELECTION,
+its header canonical). Neither flag records a dispatch row, writes the green cache or stands as the gate.
 The detector's retry only names a flake: a flaky test is a failure the fixer fixes at its source
 (`rules/fix-determinism-at-the-source.mdc`). A plain run is the `specs` row's selection — the
 change's tests plus the smoke tail —
