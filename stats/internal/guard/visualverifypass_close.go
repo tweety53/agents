@@ -606,6 +606,6 @@ func (v *vvp) captureIsCommitted(path string) bool {
 	if _, ok := v.git("-C", dir, "ls-files", "--error-unmatch", "--", path); !ok {
 		return false
 	}
-	out, ok := v.git("-C", dir, "status", "--porcelain", "--", path)
+	out, ok := v.git("-C", dir, "status", "--porcelain", "--untracked-files=no", "--", path)
 	return ok && out == ""
 }
