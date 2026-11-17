@@ -604,6 +604,19 @@ prescribed course, never accepting the plan while it stands.
 > The one exception is a region an approved prototype draws alone, captured as an element beside
 > the view's own full-page capture, per step 8 of `skills/flow/visual-verify-verifier.md`.
 
+> **Measure a shipped view against its frame before writing its task.** A view ships when its
+> capture spec already has captures — `flow-guard resolve-visual-screenshots <worktree> <spec basename>`
+> exits 0. For each frame on the change's list that draws such a view, write the task from the
+> measured difference, never from reading the frame: point the spec's `<spec>.mockups` sidecar line
+> at the frame, run `flow-guard visual-verify-pass measure <worktree> <name> plan <spec path>` — with
+> `design repo` declared, after `flow-guard render-frames <worktree> <spec>.mockups` — and put the
+> sidecar back as git holds it, since the task that restyles the view commits that line. Its
+> manifest, `<worktree>/.superpowers/sdd/visual-manifest-plan.json`, names what the shipped view
+> departs by: the task that restyles the view cites every `over` row as `<frame> #<row>` beside
+> the figures the row carries, and names every flagged band and seam. A row the change leaves
+> standing — a part a sibling ticket builds — is cited the same way with its reason. The task's
+> `**Size:**` is read off that list, never off the frame's look.
+
 > **Write a frame a sibling ticket finishes as this change's parts only.** When sibling tickets
 > share a mockup frame family and a frame on this change's list also draws parts a sibling ticket
 > builds, `design.md` records a decision naming the parts of that frame this change builds, and
@@ -619,7 +632,10 @@ reported and stops the plan —
 before continuing. Its exit 1 names a cited frame no file in the mockups root holds: a handoff asset
 **The checklist** above still owes, never a frame to plan against — commit the asset or record its
 location, or drop the citation and every task that rests on it. Its exit 2 is reported and stops
-the plan.
+the plan. Then run `flow-guard check-plan-departures <worktree> <name> <changeRoot>/tasks.md`. Its
+exit 1 names a shipped view the plan restyles with no plan-time measure, or a measured `over` row no
+task cites: measure the view, or cite the row in the task that closes it, and run the guard again.
+Its exit 2 is reported and stops the plan.
 
 With the plan validated, record its size as the change's first task-count observation — the
 planned figure every later fix round's growth is measured against:

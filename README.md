@@ -254,7 +254,8 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 
 **Plan:** `check-plan-shape` (tasks readable by the commit guards; `-rules` prints the rules it holds a plan to), `check-plan-provenance` (every
 code block and number `verified:`/`unverified:`), `check-task-build-green` (a red task names its
-squash partner).
+squash partner), `check-plan-departures` (a shipped view the plan restyles was measured against
+its frame, every measured departure cited by a task).
 
 **Implement:** `check-task-commit-fields` (commit touches exactly its declared files),
 `check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
