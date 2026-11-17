@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -35,7 +34,7 @@ import (
 // banner — a `Generated with [<tool>](<url>)` line, optional 🤖 prefix, the
 // copied-in footer's own shape, so prose that merely opens with "Generated
 // with" reads clean — and no `Task-Id:` trailer, save one naming a task of
-// the run's own plan, <worktree>/.superpowers/sdd/<branch>/tasks.md, which an
+// the run's own plan, as tcfResolveTasksMD resolves it for <branch>, which an
 // `sdd` run's implementers commit under (kan-1131: the guard refused every
 // task commit of a decided `sdd` run). A merge commit is judged
 // like any other: the fast route's series is linear by construction, so one
@@ -110,7 +109,8 @@ func checkFastRouteRecord(args []string, env Env, stdout, stderr io.Writer) int 
 		return die("cannot-list-head", "cannot list %s..HEAD", mergeBase)
 	}
 	planTasks := map[string]bool{}
-	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers/sdd", branch, "tasks.md")); err == nil && branch != "" {
+	planMD, _ := tcfResolveTasksMD(env, io.Discard, "check-fast-route-record", wt, branch, wt)
+	if raw, err := os.ReadFile(planMD); err == nil && branch != "" {
 		if plan, err := tcfPlanLines(raw); err == nil {
 			for _, id := range tcfTaskIDs(plan) {
 				planTasks[id] = true

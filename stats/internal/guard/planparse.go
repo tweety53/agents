@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"math/big"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -111,7 +113,9 @@ func tcfBodyFields(body []string) map[string][]string {
 // change, a satellite link or the glob-path resolves to. An empty path is a
 // refusal -- detail is its could-not-judge text, or empty when stderr
 // already carries the reason (an ambiguous state-record answer). label
-// names the calling guard in that relayed reason.
+// names the calling guard in that relayed reason. Once every spectre shape
+// failed, a /flow-fast run's <worktree>/.superpowers/sdd/<plan>/tasks.md is
+// tried (tcfFastPlan) -- never before, so a /flow plan is never shadowed.
 func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonical string) (string, string) {
 	changes := worktree + "/" + specRootLeaf(worktree, stderr) + "/changes"
 
@@ -147,6 +151,9 @@ func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonic
 			tasksMD = p
 		}
 		if tasksMD == "" || !isFile(tasksMD) {
+			if fast := tcfFastPlan(worktree, name); fast != "" {
+				return fast, ""
+			}
 			return "", fmt.Sprintf("no tasks.md found for change '%s' under %s", name, changes)
 		}
 		return tasksMD, ""
@@ -182,6 +189,9 @@ func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonic
 			tasksMD = p
 		}
 		if tasksMD == "" || !isFile(tasksMD) {
+			if fast := tcfFastPlan(worktree, ""); fast != "" {
+				return fast, ""
+			}
 			return "", "no tasks.md found under " + changes
 		}
 		return tasksMD, ""
@@ -750,4 +760,26 @@ func tcfReadPlanTyped(env Env, path string) ([]string, error) {
 		return nil, err
 	}
 	return tcfPlanLines(b)
+}
+
+// tcfFastPlan is a /flow-fast run's plan, <worktree>/.superpowers/sdd/<plan>/tasks.md,
+// or "" when it is not a file. <plan> is name, else the worktree's current
+// branch -- /flow-fast names its branch after the change; a detached HEAD
+// names none.
+func tcfFastPlan(worktree, name string) string {
+	plan := name
+	if plan == "" {
+		out, err := exec.Command("git", "-C", worktree, "branch", "--show-current").Output()
+		if err != nil {
+			return ""
+		}
+		plan = strings.TrimSpace(string(out))
+	}
+	if plan == "" || plan == "." || plan == ".." || strings.Contains(plan, "/") {
+		return ""
+	}
+	if p := filepath.Join(worktree, ".superpowers/sdd", plan, "tasks.md"); isFile(p) {
+		return p
+	}
+	return ""
 }

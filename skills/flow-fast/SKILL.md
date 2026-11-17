@@ -112,8 +112,8 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
-  written except its task close: `flow-guard close-task` is not run — its fields guard, gate and tick read a spectre plan,
-  and its planning-paths guard a planning tree, neither of which flow-fast writes. A group closes on the implementer's
+  written except its task close: `flow-guard close-task` is not run — its tick writes a spectre plan,
+  and its planning-paths guard reads a planning tree, neither of which flow-fast writes; its fields guard and gate read the run's `<changeRoot>/tasks.md`. A group closes on the implementer's
   `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests. On `inline`, section 4 as this file states it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
   written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs **The extra dispatches**, as **The slot triggers** leave them, and **The findings merger** (`skills/flow/review-panel.md`) alone.

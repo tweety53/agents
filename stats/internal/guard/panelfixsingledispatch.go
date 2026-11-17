@@ -483,11 +483,6 @@ func pfdCheckCommits(env Env, worktree, name string, fixRows []pfdRow, stderr io
 	}
 	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "check-panel-fix-single-dispatch", worktree, name, worktree)
 	raw, err := os.ReadFile(tasksMD)
-	if err != nil {
-		// A /flow-fast run writes no spectre change: its plan is the worktree's
-		// .superpowers/sdd/<name>/tasks.md (kan-1131: the guard could not answer there).
-		raw, err = os.ReadFile(filepath.Join(worktree, ".superpowers/sdd", name, "tasks.md"))
-	}
 	var plan []string
 	if err == nil {
 		plan, err = tcfPlanLines(raw)

@@ -3257,3 +3257,20 @@ func TestTcfFnmatchDoubleStarMatchesZeroDirectories(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckTaskCommitFieldsReadsAFlowFastPlan: a /flow-fast run writes no
+// spectre change; a name-less call reads <worktree>/.superpowers/sdd/<branch>/tasks.md.
+func TestCheckTaskCommitFieldsReadsAFlowFastPlan(t *testing.T) {
+	t.Parallel()
+	fx := tcfNewFixture(t)
+	r := fx.repo(t, "unused")
+	r.git("checkout", "-q", "-b", "demo")
+	writeFile(t, r.dir+"/.superpowers/sdd/demo/tasks.md", bt("- [ ] 1. Fast task\n\n**Files:** ¤a.txt¤\n**Tests:** none — a text file\n**Commit:** add a\n**Build:** green\n"))
+	sha := r.commit("add a", "a.txt", "a\n")
+	res := r.run("1", sha)
+	ok(t, "the fast plan is read", res.rc == 0 && !has(res.out, "COULD NOT JUDGE"), res)
+
+	sha = r.commit("add a", "b.txt", "b\n")
+	res = r.run("1", sha)
+	ok(t, "an undeclared file fails", res.rc == 1, res)
+}
