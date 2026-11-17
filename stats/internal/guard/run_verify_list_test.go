@@ -314,7 +314,7 @@ func TestRunVerifyList(t *testing.T) {
 func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -454,7 +454,7 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -513,7 +513,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	smoke.Heavy(t)
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -642,7 +642,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	gate := filepath.Join(dir, "go")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -765,7 +765,7 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 	}
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -1089,7 +1089,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 	smoke.Heavy(t)
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -1145,7 +1145,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 func TestRunVerifyListRecordsHead(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\necho \"flow $*\" >> "+log+"\n")
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -2025,7 +2025,7 @@ func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
 	rvlGit(t, sib, "commit", "-q", "-m", "ui")
 	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
 	ran := "`echo VISUAL --grep @smoke` — exit 0"
-	args := []string{wt, "test", "demo", "verify", "mf-test", "opus", "low"}
+	args := []string{wt, "test", "demo", "verify-" + filepath.Base(wt), "mf-test", "opus", "low"}
 	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || !strings.Contains(out, ran) {
 		t.Fatalf("run 1: exit %d, the visual row did not run:\n%s", rc, out)
 	}
@@ -2181,5 +2181,49 @@ func TestRunVerifyListDetectFlakySelectsAsTheFailingRowDid(t *testing.T) {
 		if got, _ := os.ReadFile(argv); rc != 0 || string(got) != want {
 			t.Errorf("exit %d, argv %q, want %q\n%s", rc, got, want, out)
 		}
+	}
+}
+
+// TestRunVerifyListRefusesAnUnsuffixedKeyInAMultiWorktreeChange pins
+// f5-verify-key-suffix (kan-1099 self-review, F5): a key folding to bare
+// `verify` is refused when the change's state record holds more than one
+// worktree, before any `begin`; the suffixed key, or a one-worktree change,
+// runs.
+func TestRunVerifyListRefusesAnUnsuffixedKeyInAMultiWorktreeChange(t *testing.T) {
+	tmp, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt := filepath.Join(tmp, "repo-a")
+	if err := os.MkdirAll(wt, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
+	run := func(state, key string) (int, string, string) {
+		dir, log := rvlFlowStub(t, state, 0)
+		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+		getenv := func(k string) string {
+			for i := len(environ) - 1; i >= 0; i-- {
+				if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+					return v
+				}
+			}
+			return ""
+		}
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{wt, "lint", "kan-1", key, "mf-k1", "sonnet", "medium", wt}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		calls, _ := os.ReadFile(log)
+		return rc, string(calls), e.String()
+	}
+	two := rvlStateJSON(t, map[string]string{wt: "abc", filepath.Join(tmp, "repo-b"): "def"})
+	one := rvlStateJSON(t, map[string]string{wt: "abc"})
+	if rc, calls, errs := run(two, "verify-fix-5"); rc != 2 || strings.Contains(calls, "record dispatch begin") || !strings.Contains(errs, "-<repository name>") {
+		t.Errorf("unsuffixed key, two worktrees: exit %d, calls %q, stderr %q", rc, calls, errs)
+	}
+	if rc, calls, errs := run(two, "verify-fix-5-repo-a"); rc != 0 || !strings.Contains(calls, "record dispatch begin") {
+		t.Errorf("suffixed key, two worktrees: exit %d, calls %q, stderr %q", rc, calls, errs)
+	}
+	if rc, calls, errs := run(one, "verify-fix-5"); rc != 0 || !strings.Contains(calls, "record dispatch begin") {
+		t.Errorf("unsuffixed key, one worktree: exit %d, calls %q, stderr %q", rc, calls, errs)
 	}
 }

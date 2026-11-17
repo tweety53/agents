@@ -39,7 +39,11 @@
 // output>` on stderr and exits 4 before any command (kan-1032 self-review: the
 // list ran in full, its row unrecorded, and was re-run only to get the row); a
 // failed `end` prints `run-verify-list: flow record dispatch end failed: <its
-// output>` on stderr and never changes the exit code.
+// output>` on stderr and never changes the exit code. A key folding to bare
+// `verify` is refused, exit 2 before the `begin`, when `flow state get` of the
+// change lists more than one worktree: each repository's row then carries its
+// `-<repository name>` suffix (kan-1099 self-review, F5: `verify-fix-5` was
+// recorded for one repository of a four-worktree change).
 //
 // THE LIST is every non-blank, non-`#` line inside a ```bash fence of
 // `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
@@ -564,7 +568,7 @@ func rvlRoundBase(env Env, wt, change, canon, key string) func(root string) stri
 	})
 	if key == "" {
 		i := len(rows) - 1
-		for ; i >= 0 && !verifyKeyOK(env, wt, rows[i].Key); i-- {
+		for ; i >= 0 && !verifyKeyOK(env, wt, rows[i].Key, "", ""); i-- {
 		}
 		if i < 0 {
 			return none
@@ -1037,8 +1041,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		key, token, model, effort := args[3], args[4], args[5], args[6]
 		runKey = key
-		if !verifyKeyOK(env, abs(args[0]), key) {
-			fmt.Fprintf(stderr, "run-verify-list: key %q does not fold to verify or verify-<repository name> (skills/flow/verify-and-handoff.md, **Recording.**) — no command ran\n", key)
+		if !verifyKeyOK(env, abs(args[0]), key, change, abs(wt)) {
+			fmt.Fprintf(stderr, "run-verify-list: key %q does not fold to verify-<repository name>, or to bare verify when the change has one worktree (skills/flow/verify-and-handoff.md, **Recording.**): a change spanning several worktrees requires the -<repository name> suffix — no command ran\n", key)
 			Reason(env, "key-does-not-fold")
 			return 2
 		}
@@ -1567,10 +1571,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 
 // verifyKeyOK: key folds, by check-verify-green's vgFixSuffix, to `verify` or
 // `verify-<s>`, <s> wt's basename or its repository's name (the directory
-// holding its git common dir); a git failure admits only the basename.
-func verifyKeyOK(env Env, wt, key string) bool {
+// holding its git common dir); a git failure admits only the basename. Bare
+// `verify` is refused when change's state record, read from canon, holds
+// more than one worktree (f5-verify-key-suffix); change "" skips that read.
+func verifyKeyOK(env Env, wt, key, change, canon string) bool {
 	g := vgFixSuffix.ReplaceAllString(key, "verify$2")
-	if g == "verify" || g == "verify-"+filepath.Base(wt) {
+	if g == "verify" {
+		worktrees, _ := rvlKickoffBases(env, change, canon)
+		return len(worktrees) <= 1
+	}
+	if g == "verify-"+filepath.Base(wt) {
 		return true
 	}
 	out, ok := capture(envGit(env)("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
