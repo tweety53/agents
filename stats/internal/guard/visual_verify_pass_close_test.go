@@ -722,7 +722,9 @@ func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 				}
 			}
 			sdd := filepath.Join(f.wt, ".superpowers/sdd")
-			writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), base+" "+at.UTC().Format(time.RFC3339Nano))
+			// The round base is the canonical worktree's sha: it resolves in no other repository.
+			_ = base
+			writeFile(t, filepath.Join(sdd, "visual-round-visual-verify.txt"), strings.Repeat("0", 40)+" "+at.UTC().Format(time.RFC3339Nano))
 			pairs := `[{"spec":"` + filepath.Join(f.wt, "tests/visual/home.spec.ts") + `","frame":"f1","capture":"` + capture + `"}]`
 			writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), `{"pairs":`+pairs+`}`)
 			f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n- f1 sweeps: text done\n")
