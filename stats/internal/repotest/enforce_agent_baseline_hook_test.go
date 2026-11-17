@@ -829,6 +829,32 @@ func TestEnforceAgentBaselineHookBeginsTheRow(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookReadsTheOpenStageRun pins kan-1099 self-review F12: a session whose
+// latest stage run is another project's run, already ended, inside its still-open run of change
+// c1 has its dispatch begun under c1 -- the open run names the session's change, not the later
+// ended one.
+func TestEnforceAgentBaselineHookReadsTheOpenStageRun(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	main, _ := beginRepo(t)
+	env, log := beginEnv(t, `[]`, 0)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": []any{
+			map[string]string{"changeName": "pipeline-fix-c1-72", "projectKey": "other", "sessionToken": "pf", "stage": "flow.pipeline-fix", "endedAt": "2026-11-16T19:47:52Z"},
+			map[string]string{"changeName": "c1", "sessionToken": "mf-t1", "stage": "flow.sdd-tdd"},
+		}})
+	}))
+	t.Cleanup(srv.Close)
+	env = append(env, "FLOW_ADDR="+srv.URL)
+	if denied, out := runBegin(t, beginPayload(t, main, "task-52-implementer-fix-3 finish remainder", "Role: implementer\nKey: task-52-implementer-fix-3\nfix", "flow-low", "opus", ""), env...); denied {
+		t.Fatalf("denied: %s", out)
+	}
+	want := "record dispatch begin -C " + main + " -change c1 -role implementer -model opus -effort low -task 52 -key task-52-implementer-fix-3 -session-token mf-t1"
+	if got := flowCalls(t, log, "record dispatch begin"); len(got) != 1 || got[0] != want {
+		t.Errorf("begins = %q, want [%q]", got, want)
+	}
+}
+
 // TestEnforceAgentBaselineHookPointsAPanelKeyAtPanelRoundBegins pins decision f4-panel-key-deny:
 // a panel reviewer key with no open row is denied with a pointer at panel-round-begins, since a
 // begin from the hook carries no -slot and flow refuses it; the merger and panel-fix keys are

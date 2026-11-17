@@ -277,12 +277,17 @@ def project_key(cwd: str, main: "str | None" = None) -> "str | None":
 
 
 def session_change(session_id: str) -> "tuple[str | None, str | None, str | None, str | None]":
-    """The session's latest stage run: its change, project key, session token and stage."""
+    """The session's latest open stage run, else its latest stage run: its change, project key,
+    session token and stage. An open run wins over a later one already ended, so a pipeline-fix
+    run that began and ended inside an open sdd-tdd run does not name the session's change from
+    then on (kan-1099 self-review, F12: row 139 was never begun)."""
     addr = os.environ.get("FLOW_ADDR") or "http://127.0.0.1:4173"
-    query = parse.urlencode({"session_id": session_id, "sort": "-started_at", "limit": "1"})
+    # ponytail: an open run older than the 50 latest is missed; filter ended_at server-side if that bites.
+    query = parse.urlencode({"session_id": session_id, "sort": "-started_at", "limit": "50"})
     with request.urlopen(f"{addr}/api/v1/stage-runs?{query}", timeout=bound(2)) as resp:
         runs = json.load(resp).get("stageRuns")
-    run = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else {}
+    runs = [r for r in runs if isinstance(r, dict)] if isinstance(runs, list) else []
+    run = next((r for r in runs if not r.get("endedAt")), runs[0] if runs else {})
     values = (run.get("changeName"), run.get("projectKey"), run.get("sessionToken"), run.get("stage"))
     name, key, token, stage = (v if isinstance(v, str) and v else None for v in values)
     return name, key, token, stage

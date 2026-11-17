@@ -16,8 +16,27 @@ func TestLaunchKeyNamesAPlannersAgentRow(t *testing.T) {
 		"Task 3/7":                                       "task-3-",
 		"panel-0-primary over the diff":                  "panel-0-primary",
 	} {
-		if got := launchKey(desc); got != want {
+		if got := launchKey(desc, ""); got != want {
 			t.Errorf("launchKey(%q) = %q, want %q", desc, got, want)
+		}
+	}
+}
+
+// TestLaunchKeyPrefersThePromptKeyLine pins decision f12-launch-key-from-prompt
+// (kan-1099 self-review, F12): a launch whose prompt carries a column-0 Key:
+// line is keyed by it, the row the hook began, not by a description naming a
+// task the row lacks; with no Key: line, or only an indented one, the
+// description rule stands.
+func TestLaunchKeyPrefersThePromptKeyLine(t *testing.T) {
+	t.Parallel()
+	const desc = "Tasks 8+11+13/34 (fix)"
+	for _, c := range []struct{ prompt, want string }{
+		{"Role: implementer\nKey: task-11+13-implementer-fix-2\nfix", "task-11+13-implementer-fix-2"},
+		{"Role: implementer\nfix", "task-8+11+13-"},
+		{"Role: implementer\n  Key: task-11+13-implementer-fix-2\nfix", "task-8+11+13-"},
+	} {
+		if got := launchKey(desc, c.prompt); got != c.want {
+			t.Errorf("launchKey(%q, %q) = %q, want %q", desc, c.prompt, got, c.want)
 		}
 	}
 }

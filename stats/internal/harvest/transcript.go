@@ -465,8 +465,9 @@ type AgentLaunch struct {
 	// transcript carries, so no begin event exists to pair with: the key
 	// names the row instead (KAN-967).
 	LoopKey string
-	// Key is launchKey of the launch's Agent-tool description: the key
-	// prefix "task-<ids>-" for a task launch described "Task <ids>/<n>" or
+	// Key is launchKey of the launch: its prompt's column-0 Key: line when
+	// it carries one (kan-1099 self-review, F12), else from its Agent-tool
+	// description: the key prefix "task-<ids>-" for a task launch described "Task <ids>/<n>" or
 	// "Tasks <ids>/<n>", otherwise the description's first
 	// whitespace-delimited word, "" when it has none. **Every dispatch's
 	// Agent-tool description** (skills/flow/implement.md) opens every
@@ -590,7 +591,7 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 					Timestamp: ts,
 					Line:      lineIndex,
 					LoopKey:   loopKey(raw.ToolUseResult.Prompt),
-					Key:       launchKey(raw.ToolUseResult.Description),
+					Key:       launchKey(raw.ToolUseResult.Description, raw.ToolUseResult.Prompt),
 				})
 			}
 		}
@@ -602,9 +603,19 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 // or "Tasks 2+3+5/12 (...)", capturing its task ids.
 var taskDescriptionRE = regexp.MustCompile(`^Tasks? (\d+(?:\+\d+)*)/\d+(?:\s|$)`)
 
+// promptKeyLineRE is a prompt's column-0 `Key:` line, the one
+// hooks/enforce-agent-baseline.py's KEY_LINE begins the row under.
+var promptKeyLineRE = regexp.MustCompile(`(?m)^Key:[ \t]*(\S+)[ \t]*$`)
+
 // launchKey returns the dispatch key, or key prefix ending in "-", a
-// launch's description names (AgentLaunch.Key).
-func launchKey(description string) string {
+// launch names (AgentLaunch.Key): its prompt's column-0 Key: line first, so
+// the hook and the harvester name one row -- a "Tasks <ids>/<n>"
+// description naming a task the Key: row lacks left that row agentless
+// (kan-1099 self-review, F12) -- else its description's.
+func launchKey(description, prompt string) string {
+	if m := promptKeyLineRE.FindStringSubmatch(prompt); m != nil {
+		return m[1]
+	}
 	if m := taskDescriptionRE.FindStringSubmatch(description); m != nil {
 		return "task-" + m[1] + "-"
 	}
