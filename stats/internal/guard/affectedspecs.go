@@ -19,14 +19,16 @@ import (
 // every fix round recaptured every spec, 34-36 minutes a round).
 //
 // THE DIFF is `git -C <source-root> diff --name-only <base>`: the working
-// tree against <base>, uncommitted edits included, or a commit range when
-// <base> is `<a>..<b>`. A path under a `*-snapshots/` directory and a
+// tree against <base>, uncommitted edits and untracked files that are not
+// ignored included, or a commit range when <base> is `<a>..<b>`. A path under a `*-snapshots/` directory and a
 // `full-app-suite.zip` are a capture's output and are skipped.
 //
-// THE SPECS are every `*.spec.{ts,tsx,js,jsx,mjs,cjs}` under <spec-root>,
-// `node_modules`, `.git` and `*-snapshots` pruned. Each is printed relative to
-// the nearest directory at or above <spec-root> holding a `package.json` —
-// where the project's `capture` command runs — else relative to <spec-root>.
+// THE SPECS are every `*.spec.{ts,tsx,js,jsx,mjs,cjs}` under <spec-root> —
+// the capture root, or any directory of it — `node_modules`, `.git`,
+// `.worktrees`, `test-results` and `*-snapshots` pruned. Each is printed
+// relative to the nearest directory at or above it holding a `package.json`
+// — where the project's `capture` command runs Playwright — else relative to
+// <spec-root>.
 //
 // THE MAP is a `<spec>.sources` sidecar beside the spec: one glob per line,
 // relative to <source-root>, in `ui paths`' own glob syntax, naming the
@@ -34,14 +36,18 @@ import (
 // skipped. A spec's roots are the spec file itself and every file its globs
 // match.
 //
-// `<spec-root>/all.sources` holds the same lines for what every spec
+// An `all.sources` beside the specs holds the same lines for what every spec
 // renders and no import chain shows — a seed, a fixture, the runner's
 // config: a changed file matching one selects every spec.
 //
 // A changed file selects a spec when it is that spec, its `.sources` or
-// `.mockups` sidecar, one of its roots, or a file one of its roots imports,
-// transitively — so a per-screen file selects its own spec and a shared file
-// (a header, a chip, tokens) selects every spec whose screen imports it.
+// `.mockups` sidecar, one of its roots, or a file one of its roots imports
+// through files no sidecar lists — so a per-screen file selects its own spec
+// and a shared file (a header, a chip, tokens) selects every spec whose
+// screen imports it. The climb from a changed file stops at the first root
+// on each chain: a sidecar lists every file of its screen that another
+// listed file imports, since a hub that imports every screen would otherwise
+// join them all.
 // File A imports file B when a line of A that imports (`import`, `from`,
 // `require`, `@import`) quotes a module path whose last segment, extension
 // dropped, is B's stem — the directory's name for an `index.*`. A Kotlin
@@ -58,13 +64,13 @@ import (
 // THE SAFE SIDE: a changed file matching `<source-root>/.flow/project.md`'s
 // `ui paths` — every changed file where that row is absent — selects EVERY
 // spec, named on stderr as `all: <path> — …`, when no spec reaches it, or
-// when a chain of its importers that passes through no spec's root ends at
-// a UI file nothing imports: an entry point draws it in the shell around
-// every screen. A UI change also selects every spec with no `.sources`
+// when a chain of its importers ends, before any spec's root, at a UI file
+// nothing imports: an entry point draws it in the shell around every
+// screen. A UI change also selects every spec with no `.sources`
 // sidecar, whose screen is unknown. A changed file outside `ui paths` that
 // no spec reaches selects nothing and is named `unreached: <path>`.
 //
-// A TEST FILE outside <spec-root> (asTestRE) moves no capture: changed, it
+// A TEST FILE outside every directory holding a spec (asTestRE) moves no capture: changed, it
 // is named `test: <path>` and skipped, and it is never an importer.
 //
 // Exit codes:
@@ -133,6 +139,9 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "cannot-read-diff")
 		return 2
 	}
+	if !strings.Contains(args[1], "..") {
+		diff += "\n" + asUntracked(env, src)
+	}
 	tracked, _ := capture(git("-C", src, "ls-files"))
 
 	type spec struct {
@@ -140,23 +149,26 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		globs    []*regexp.Regexp
 		mapped   bool
 	}
-	pkg := specRoot
-	for d := specRoot; ; d = filepath.Dir(d) {
-		if isFile(filepath.Join(d, "package.json")) {
-			pkg = d
-			break
-		}
-		if d == filepath.Dir(d) {
-			break
+	// pkgOf is the nearest directory at or above dir holding a package.json,
+	// else the spec root.
+	pkgOf := func(dir string) string {
+		for d := dir; ; d = filepath.Dir(d) {
+			if isFile(filepath.Join(d, "package.json")) {
+				return d
+			}
+			if d == filepath.Dir(d) {
+				return specRoot
+			}
 		}
 	}
+	var specDirs []string // every directory holding a spec
 	var specs []spec
 	_ = filepath.WalkDir(specRoot, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if d.IsDir() {
-			if n := d.Name(); n == "node_modules" || n == ".git" || strings.HasSuffix(n, "-snapshots") {
+			if n := d.Name(); n == "node_modules" || n == ".git" || n == ".worktrees" || n == "test-results" || strings.HasSuffix(n, "-snapshots") {
 				return filepath.SkipDir
 			}
 			return nil
@@ -165,7 +177,10 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 			return nil
 		}
 		s := spec{}
-		s.out, _ = filepath.Rel(pkg, p)
+		s.out, _ = filepath.Rel(pkgOf(filepath.Dir(p)), p)
+		if !slices.Contains(specDirs, filepath.Dir(p)) {
+			specDirs = append(specDirs, filepath.Dir(p))
+		}
 		if rel, err := filepath.Rel(src, p); err == nil && !strings.HasPrefix(rel, "..") {
 			s.rel = rel
 		}
@@ -176,7 +191,10 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		return nil
 	})
 
-	everySpec := asGlobs(filepath.Join(specRoot, "all.sources"))
+	var everySpec []*regexp.Regexp
+	for _, d := range specDirs {
+		everySpec = append(everySpec, asGlobs(filepath.Join(d, "all.sources"))...)
+	}
 	// `ui paths`, nil where the row is absent: every changed file is UI then.
 	var ui []*regexp.Regexp
 	if text, err := os.ReadFile(filepath.Join(src, ".flow/project.md")); err == nil {
@@ -192,9 +210,13 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	isUI := func(f string) bool { return ui == nil || matches(ui, f) }
 
+	// inSpecRoot is a file in a directory holding a spec, or below one: the
+	// suite's own helpers, never the application's unit tests.
 	inSpecRoot := func(f string) bool {
 		abs := filepath.Join(src, f)
-		return abs == specRoot || strings.HasPrefix(abs, specRoot+string(filepath.Separator))
+		return slices.ContainsFunc(specDirs, func(d string) bool {
+			return strings.HasPrefix(abs, d+string(filepath.Separator))
+		})
 	}
 	index := map[string]*asFile{}
 	for _, f := range strings.Split(tracked, "\n") {
@@ -218,23 +240,21 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return out
 	}
-	// reach is f and every file that imports it, transitively. shell is true
-	// when a chain of importers that passes through no spec's root ends at a
-	// UI file nothing imports -- an entry point: f is drawn outside every
-	// mapped screen, in the shell around them all.
+	// reach is f and every file that imports it, climbing no further than a
+	// spec's root: the screen a sidecar names is where a chain ends. shell
+	// is true when a chain ends instead at a UI file nothing imports -- an
+	// entry point: f is drawn outside every mapped screen, in the shell
+	// around them all.
 	reach := func(f string) (seen map[string]bool, shell bool) {
 		seen = map[string]bool{f: true}
-		outside := map[string]bool{f: true} // reached through no root
 		for frontier := []string{f}; len(frontier) > 0; {
 			var next []string
 			for _, target := range frontier {
-				in := importers(target)
-				if outside[target] && !isRoot(target) && !inSpecRoot(target) {
-					shell = shell || (len(in) == 0 && isUI(target))
-					for _, c := range in {
-						outside[c] = true
-					}
+				if isRoot(target) {
+					continue
 				}
+				in := importers(target)
+				shell = shell || (len(in) == 0 && isUI(target) && !inSpecRoot(target))
 				for _, c := range in {
 					if !seen[c] {
 						seen[c] = true
@@ -295,6 +315,12 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, s)
 	}
 	return 0
+}
+
+// asUntracked is the worktree's untracked, unignored paths, newline-joined.
+func asUntracked(env Env, worktree string) string {
+	out, _ := capture(envGit(env)("-C", worktree, "ls-files", "--others", "--exclude-standard"))
+	return out
 }
 
 // asGlobs reads a sidecar's globs: one per line, `#` and blank lines skipped;
