@@ -157,7 +157,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 	// d71a2327 on the same fixture.
 	clean := dpCases[0].files
 	noRange := map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplementStub,
-		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange, dpProofRunsBlock)}
+		"implementer-brief.md": dpDoc(dpCleanImplementNoReadonly, dpReadonlyBlock, dpOutputBudgetBlockNoRange, dpProofRunsBlock, dpRewrittenBaselinesBlock)}
 	extras := []struct {
 		label  string
 		files  map[string]string
@@ -168,7 +168,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 		stderr func(root string) string
 	}{
 		{label: "a clean run prints the OK line on stdout alone", files: clean, rc: 0,
-			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 46 site(s) validated\n" }},
+			stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 47 site(s) validated\n" }},
 		{label: "a relative root prints its findings and the INVALID line as given, on stdout alone", files: noRange,
 			env: func(root string) Env {
 				return crEnv(filepath.Dir(root), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": filepath.Base(root)})
@@ -209,7 +209,7 @@ func TestCheckDispatchParagraphs(t *testing.T) {
 			}},
 		{label: "with no override the root is FLOW_GUARD_REPO_ROOT", files: clean,
 			env: func(root string) Env { return crEnv(root, map[string]string{"FLOW_GUARD_REPO_ROOT": root}) },
-			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 46 site(s) validated\n" }},
+			rc:  0, stdout: func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 47 site(s) validated\n" }},
 		{label: "with no override and no FLOW_GUARD_REPO_ROOT it exits 2", files: clean,
 			env: func(root string) Env { return crEnv(root, nil) },
 			rc:  2, stderr: func(string) string {
@@ -1778,7 +1778,8 @@ const (
 		"> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another\n" +
 		"> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the\n" +
 		"> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line."
-	dpProofRunsBlock = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
+	dpRewrittenBaselinesBlock = "> **REWRITTEN BASELINES:** a capture that rewrites a baseline PNG in this task follows **No rewritten baseline is staged unread** (`skills/flow-contracts/known-bugs.md`) before you stage it."
+	dpProofRunsBlock          = "> **PROOF RUNS:** Every process you start — build, test suite, dev stack, probe — runs under\n" +
 		"> `<agents repo>/scripts/flow-guard run-capped --`, which kills it past the project's `## resource cap`\n" +
 		"> (default 4096 MB). A flake fix is proven by forcing its cause, preferably in one isolated run — a\n" +
 		"> delay or fault injected at the seam, the test alone. A load reproduction (backend or frontend) is allowed only under\n" +
@@ -1865,7 +1866,7 @@ var dpCleanImplementStub = dpDoc(dpReviewerBlock, dpForegroundBlock, dpHandshake
 // dpCleanImplementerBrief is skills/flow/implementer-brief.md carrying every
 // implementer dispatch paragraph; dpCleanGatedReviewerBrief is
 // skills/flow/gated-reviewer-brief.md carrying the gated reviewer's.
-var dpCleanImplementerBrief = dpDoc(dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpDelegationBlock, dpOutputBudgetBlock, dpProofRunsBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock)
+var dpCleanImplementerBrief = dpDoc(dpImplementerBlock, dpGuardBitesBlock, dpDecideBlock, dpForegroundBlock, dpTargetedBlock, dpToolsBlock, dpDelegationBlock, dpOutputBudgetBlock, dpProofRunsBlock, dpRewrittenBaselinesBlock, dpSubSkillTDDBlock, dpSubSkillDebuggingBlock)
 var dpCleanGatedReviewerBrief = dpDoc(dpReviewerBlock, dpForegroundBlock, dpToolsBlock, dpDelegationBlock, dpReadonlyBlock)
 
 // dpCleanVisualVerify is one visual-verify site file at its one dispatch
@@ -1951,7 +1952,7 @@ func TestCheckDispatchParagraphsBriefSites(t *testing.T) {
 		want      func(root string) string
 	}{
 		{"every brief carries its paragraphs", dpCleanImplementStub, dpCleanImplementerBrief, dpCleanGatedReviewerBrief, 0,
-			func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 46 site(s) validated\n" }},
+			func(root string) string { return "DISPATCH-PARAGRAPHS-OK: " + root + " — 47 site(s) validated\n" }},
 		{"TARGETED TESTS back in implement.md", dpDoc(dpCleanImplementStub, dpTargetedBlock),
 			strings.Replace(dpCleanImplementerBrief, dpTargetedBlock+"\n\n", "", 1), dpCleanGatedReviewerBrief, 1,
 			func(root string) string {
@@ -1971,6 +1972,36 @@ func TestCheckDispatchParagraphsBriefSites(t *testing.T) {
 			rc, _, stdout, stderr := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
 			if rc != tc.rc || !strings.HasPrefix(stdout, tc.want(root)) || stderr != "" {
 				t.Fatalf("rc=%d stdout=%q stderr=%q; want rc %d and stdout opening %q", rc, stdout, stderr, tc.rc, tc.want(root))
+			}
+		})
+	}
+}
+
+// TestCheckDispatchParagraphsRewrittenBaselines pins the implementer brief's
+// pointer at the rewritten-baseline rule (kan-1099 self-review, F4).
+func TestCheckDispatchParagraphsRewrittenBaselines(t *testing.T) {
+	t.Parallel()
+	label := `"**REWRITTEN BASELINES:**"`
+	cases := []struct {
+		name  string
+		brief string
+		rc    int
+		want  string
+	}{
+		{"the brief carries the block", dpCleanImplementerBrief, 0, "DISPATCH-PARAGRAPHS-OK: "},
+		{"the block is gone", strings.Replace(dpCleanImplementerBrief, dpRewrittenBaselinesBlock+"\n\n", "", 1), 1,
+			"/skills/flow/implementer-brief.md:0: requires at least 1 block(s) carrying the label " + label},
+		{"the block lacks the rule's name", strings.Replace(dpCleanImplementerBrief, "No rewritten baseline is staged unread", "the baseline rule", 1), 1,
+			"No rewritten baseline is staged unread"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplementStub,
+				"implementer-brief.md": tc.brief, "gated-reviewer-brief.md": dpCleanGatedReviewerBrief})
+			rc, _, stdout, _ := dpRun(t, crEnv(t.TempDir(), map[string]string{"CHECK_DISPATCH_PARAGRAPHS_ROOT": root}))
+			if rc != tc.rc || !strings.Contains(stdout, tc.want) {
+				t.Fatalf("rc=%d stdout=%q; want rc %d and %q", rc, stdout, tc.rc, tc.want)
 			}
 		})
 	}

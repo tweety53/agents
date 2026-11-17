@@ -198,6 +198,7 @@ import (
 //   **READ-ONLY REVIEW:**              skills/flow/gated-reviewer-brief.md         1   (none)
 //   **FIX-ROUND SCOPE:**               skills/flow/review-panel-fix-round.md       1   (none)
 //   **PROOF RUNS:**                    skills/flow/implementer-brief.md            1   (none)
+//   **REWRITTEN BASELINES:**           skills/flow/implementer-brief.md            1   (none)
 //   "is allowed only under flow-guard run-capped" rules/fix-determinism-at-the-source.mdc 1 (none)
 //   "is allowed only under flow-guard run-capped" skills/flow/verify-fix-loop.md       1   (none)
 //   **REQUIRED SUB-SKILL:**            skills/flow/implementer-brief.md            2   tdd AND debugging
@@ -449,6 +450,7 @@ var dpEntries = map[string]dpEntry{
 		[]string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "flow-guard pair-judge"}, nil},
 	"proofruns": {"**PROOF RUNS:**",
 		[]string{"flow-guard run-capped", "bounded worker count", "at most 5 capped runs", "straight to code", "shows the check failing with the mechanism removed"}, nil},
+	"rewritten":   {"**REWRITTEN BASELINES:**", []string{"No rewritten baseline is staged unread"}, nil},
 	"cappedrepro": {"is allowed only under flow-guard run-capped", []string{"bounded worker count"}, nil},
 }
 
@@ -509,6 +511,7 @@ var dpSites = []dpSite{
 	{"readonly", "skills/flow/gated-reviewer-brief.md", 1, nil},
 	{"fixround", "skills/flow/review-panel-fix-round.md", 1, nil},
 	{"proofruns", "skills/flow/implementer-brief.md", 1, nil},
+	{"rewritten", "skills/flow/implementer-brief.md", 1, nil},
 	{"cappedrepro", "rules/fix-determinism-at-the-source.mdc", 1, nil},
 	{"cappedrepro", "skills/flow/verify-fix-loop.md", 1, nil},
 	{"subskill", "skills/flow/implementer-brief.md", 2, []string{"tdd", "debugging"}},

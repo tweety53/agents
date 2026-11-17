@@ -158,6 +158,8 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > body says so — that alone waives the mechanism-removed run. Your report states which, with the
 > forced condition, the cap, the worker count and the run count.
 
+> **REWRITTEN BASELINES:** a capture that rewrites a baseline PNG in this task follows **No rewritten baseline is staged unread** (**The sweep**, `skills/flow-contracts/known-bugs.md`) before you stage it.
+
 > **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
 > whole context — a large output is paid for again on every turn after it. Read a file over 200
 > lines by line range — Read with `offset`/`limit`, or `sed -n '<a>,<b>p'`, over the range a
