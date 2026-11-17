@@ -207,7 +207,7 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 		fresh := false
 		for _, p := range m.Pairs {
 			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil &&
-				(fi.ModTime().After(at) || (!v.captureChanged(p.Capture, base) && playwrightRanAfter(w, p.Capture, at))) {
+				(fi.ModTime().After(at) || (v.captureIsCommitted(p.Capture) && playwrightRanAfter(w, p.Capture, at))) {
 				fresh = true
 			}
 		}
@@ -595,4 +595,17 @@ func playwrightRanAfter(w, capture string, at time.Time) bool {
 		}
 	}
 	return false
+}
+
+// captureIsCommitted is whether a capture is tracked and equals its committed
+// version in its own checkout (decision identical-recapture-fresh): the round
+// base is the canonical worktree's sha and resolves in no other repository, so
+// the identical-recapture proof compares a capture with its own HEAD blob.
+func (v *vvp) captureIsCommitted(path string) bool {
+	dir := filepath.Dir(path)
+	if _, ok := v.git("-C", dir, "ls-files", "--error-unmatch", "--", path); !ok {
+		return false
+	}
+	out, ok := v.git("-C", dir, "status", "--porcelain", "--", path)
+	return ok && out == ""
 }
