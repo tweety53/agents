@@ -58,6 +58,8 @@ import (
 //	1  the command exited non-zero; the receipt records the exit.
 //	2  usage, a <command> with no `<spec>`, affected-specs' own exit 2, or
 //	   a receipt that could not be written.
+//	3  the load average stayed over the core count (loadGate): nothing ran
+//	   and no receipt was written.
 func init() { Registry["recapture"] = recapture }
 
 // rcReceipt is one line of flow-recapture.jsonl.
@@ -224,6 +226,9 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "recapture: no affected spec — nothing to capture")
 	case len(specs) == 0:
 		fmt.Fprintf(stdout, "recapture: all %d test selection(s) already passed on these sources — nothing to capture\n", len(all))
+	case !loadGate(env, "recapture", stderr):
+		Reason(env, "load-over-cores")
+		return 3
 	default:
 		var log bytes.Buffer
 		cmd := exec.Command("sh", "-c", strings.ReplaceAll(command, "<spec>", strings.Join(specs, " ")+" --retries=1"))

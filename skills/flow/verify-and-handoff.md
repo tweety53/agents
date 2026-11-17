@@ -159,8 +159,9 @@ above still runs.
 **A test runner's own timeout under outside load is the environment's failure.** A command killed by
 its test runner's own timeout — Go's `panic: test timed out after` — with no failed assertion and no
 data race, while the one-minute load average (`uptime`) exceeds the machine's core count
-(`getconf _NPROCESSORS_ONLN`), takes neither **The loop** nor a `## Question`: its re-run waits until
-that load average is at or under the core count, on a Monitor until-loop, never a foreground sleep. A
+(`getconf _NPROCESSORS_ONLN`), takes neither **The loop** nor a `## Question`: it is re-run, and `flow-guard run-verify-list` holds
+every `test` or `visual` list until that load average is at or under the core count (THE LOAD GATE,
+its header canonical) — its exit 5, the load never having dropped, is re-run the same way. A
 timeout on a run started at or under the core count is the branch's own defect and takes **The loop**. No
 timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`).
 

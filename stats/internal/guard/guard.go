@@ -29,6 +29,11 @@ type Env struct {
 	// LoadAvg returns the one-minute load average run-reproducer names on a
 	// timeout; nil reads it from the machine.
 	LoadAvg func() (float64, error)
+	// LoadGate turns loadGate on: flow-guard's main sets it, so a test's
+	// zero Env never waits on the machine it runs on. LoadPoll is the gate's
+	// re-read interval; zero means 15 s.
+	LoadGate bool
+	LoadPoll time.Duration
 	// SurvivorsExpire, when non-nil, replaces the survivors bound's timer:
 	// the bound fires when it receives, so a test decides when (or never).
 	SurvivorsExpire <-chan time.Time

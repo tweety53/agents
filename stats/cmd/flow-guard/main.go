@@ -81,5 +81,5 @@ func run(args []string, reasons *guard.Reasons, stdout, stderr io.Writer) int {
 		guard.Reason(guard.Env{Reasons: reasons}, "cannot-read-working-dir")
 		return guard.CannotAnswer(args[0])
 	}
-	return fn(args[1:], guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin, Reasons: reasons}, stdout, stderr)
+	return fn(args[1:], guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin, Reasons: reasons, LoadGate: true}, stdout, stderr)
 }

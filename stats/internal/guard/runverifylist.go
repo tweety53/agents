@@ -245,6 +245,10 @@
 // request end -outcome landed` and `flow interactive land` read it, refusing
 // a commit the stamp does not hold.
 //
+// THE LOAD GATE. A `test` or `visual` list first waits until the one-minute
+// load average is at or under the core count, and runs nothing when it never
+// gets there (loadGate, canonical). A `lint` list never waits.
+//
 // OUTPUT, one block per command in list order, stdout and stderr together:
 //   - `<command>` — exit <n>
 //     <each output line, indented two spaces; past 20 lines,
@@ -291,6 +295,8 @@
 //   3  the list is not declared (project-get.sh exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
+//   5  the load average stayed over the core count (THE LOAD GATE): no
+//      command ran and no row was begun
 //
 // project-get, check-spec-reach and run-capped run in this same binary
 // (runSibling, selfExe). The test
@@ -346,6 +352,7 @@ import (
 //   3  the list is not declared (flow-guard project-get exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
+//   5  the load average stayed over the core count: no command ran
 //
 // With the recording arguments the list ends the row it began with one of
 // three outcomes: blocked with cause test-failure when a command failed,
@@ -1067,6 +1074,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, usage)
 		Reason(env, "usage")
 		return 2
+	}
+	// THE LOAD GATE: before the row's begin, so a refused run records none.
+	if args[1] != "lint" && !loadGate(env, "run-verify-list", stderr) {
+		Reason(env, "load-over-cores")
+		return 5
 	}
 	record := func(string, ...string) bool { return true }
 	abortSuperseded := func() {}
