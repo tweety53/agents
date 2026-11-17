@@ -3,6 +3,7 @@ package guard
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -150,5 +151,37 @@ func TestRecaptureLeftIsPerTest(t *testing.T) {
 		if left := rcLeft(c.token, c.receipts); strings.Join(left, " ") != c.want {
 			t.Errorf("rcLeft(%s, %+v) = %q, want %q", c.token, c.receipts, left, c.want)
 		}
+	}
+}
+
+// TestRecaptureRecordsItsCost: a recapture that ran files one `flow record
+// run` row, labelled with its task id and carrying the run's test counts.
+func TestRecaptureRecordsItsCost(t *testing.T) {
+	t.Parallel()
+	stub, log := rvlFlowStub(t, "{}", 0)
+	env := Env{Getenv: func(k string) string {
+		if k == "PATH" {
+			return stub + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}}
+	root := t.TempDir()
+	for p, body := range map[string]string{
+		"package.json":              "{}\n",
+		"src/Day.tsx":               "export function Day() {}\n",
+		"shots/day.spec.ts":         "test('day', () => {})\n",
+		"shots/day.spec.ts.sources": "src/Day.tsx\n",
+		"plan/tasks.md":             "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `src/Day.tsx`\n**Tests:** none\n",
+	} {
+		writeFile(t, filepath.Join(root, p), body)
+	}
+	gitRun(t, root, "init", "-q", "-b", "spectre/demo")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
+	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "printf '  3 passed (2s)\\n'; : <spec>"}, env)
+	calls, _ := os.ReadFile(log)
+	if want := `record run -C ` + regexp.QuoteMeta(root) + ` -change demo -kind recapture -label 4 -seconds \d+ -tests 3 -failed 0 -exit 0\n`; r.rc != 0 || !regexp.MustCompile(want).Match(calls) {
+		t.Errorf("rc=%d out=%q flow calls %q, want %q", r.rc, r.out, calls, want)
 	}
 }

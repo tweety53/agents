@@ -249,6 +249,17 @@
 // load average is at or under the core count, and runs nothing when it never
 // gets there (loadGate, canonical). A `lint` list never waits.
 //
+// THE RUN'S COST (kan-1091: five hours of visual runs showed in no record).
+// A run that reaches its last command files one `flow record run -kind
+// run-verify-list` row under its change -- the recording argument, else the
+// branch name less `spectre/` -- labelled `<list>`, `<list>-full` or
+// `visual-only`: its wall seconds from the load gate's release, its exit,
+// and the visual verify's test counts from its Playwright summary -- passed,
+// failed, flaky and interrupted as run, failed and interrupted as failed, 0
+// where the row did not run. With no `flow` on PATH or a store that refuses
+// the row is lost, silently: it never blocks the list. `flow record runs
+// -change <name>` reads the rows back.
+//
 // OUTPUT, one block per command in list order, stdout and stderr together:
 //   - `<command>` — exit <n>
 //     <each output line, indented two spaces; past 20 lines,
@@ -307,6 +318,7 @@ package guard
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -863,6 +875,28 @@ func rvlVisualFailures(log []byte) []string {
 	return rvlSummaryBlocks(log, "failed", "interrupted", "flaky")
 }
 
+var rvlCountRE = regexp.MustCompile(`(?m)^\s+(\d+) (passed|failed|flaky|interrupted)\b`)
+
+// rvlRecordRun files one `flow record run` row of kind under change (THE
+// RUN'S COST): the wall seconds since start, exit, and the test counts of
+// log's Playwright summary. Its failure is dropped.
+func rvlRecordRun(env Env, dir, change, kind, label string, start time.Time, log []byte, exit int) {
+	flow, ok := lookPath(env, "flow")
+	if !ok || change == "" {
+		return
+	}
+	tests, failed := 0, 0
+	for _, m := range rvlCountRE.FindAllSubmatch(rvlANSI.ReplaceAll(log, nil), -1) {
+		n, _ := strconv.Atoi(string(m[1]))
+		tests += n
+		if k := string(m[2]); k == "failed" || k == "interrupted" {
+			failed += n
+		}
+	}
+	kwRun(env, "", flow, "record", "run", "-C", dir, "-change", change, "-kind", kind, "-label", label,
+		"-seconds", strconv.Itoa(int(time.Since(start).Seconds())), "-tests", strconv.Itoa(tests), "-failed", strconv.Itoa(failed), "-exit", strconv.Itoa(exit))
+}
+
 // rvlKeepFailures writes the failures a failing visual run's log names to
 // <keep>/visual-failing.txt, one per line -- an empty file when none parse,
 // so `-only` never re-runs an earlier round's list -- and prints the file and
@@ -1080,6 +1114,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "load-over-cores")
 		return 5
 	}
+	runStart := time.Now()
+	var visualLog []byte // the visual verify's output, for THE RUN'S COST
 	record := func(string, ...string) bool { return true }
 	abortSuperseded := func() {}
 	blockedMark := ""
@@ -1622,8 +1658,8 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					rvlKeepFailures(keep, failLog, specTokens, stdout)
 				}
 				// A retry-pass is flaky, never red (THE NARROWED RUN).
-				log, _ := os.ReadFile(results[0].out)
-				if flaky := rvlSummaryBlocks(log, "flaky"); len(flaky) > 0 {
+				visualLog, _ = os.ReadFile(results[0].out)
+				if flaky := rvlSummaryBlocks(visualLog, "flaky"); len(flaky) > 0 {
 					fmt.Fprintf(stdout, "  flaky (%d): %s — passed on retry: fix each at its source\n", len(flaky), strings.Join(flaky, " "))
 				}
 			}
@@ -1663,6 +1699,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// stands records no end: the last group to finish ends it, and a sibling
 	// killed before its end leaves the row open for the parent to end by
 	// hand (kan-1086 self-review, F3).
+	// THE RUN'S COST.
+	if change == "" {
+		branch, _ := gitOut("branch", "--show-current")
+		change = strings.TrimPrefix(branch, "spectre/")
+	}
+	label := list + suffixFull
+	if mode != "plain" {
+		label += "-" + mode
+	}
+	rvlRecordRun(env, cmp.Or(canon, abs(wt)), change, "run-verify-list", label, runStart, visualLog, failed)
 	anyBlocked, siblingRunning := false, false
 	if blockedMark != "" {
 		if mark, ok := gitOut("rev-parse", "--path-format=absolute", "--git-path", blockedMark); ok {

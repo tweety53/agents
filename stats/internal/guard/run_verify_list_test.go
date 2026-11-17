@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -337,7 +338,8 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 		if strings.Contains(string(calls), "-tokens") {
 			t.Errorf("an end carries -tokens:\n%s", calls)
 		}
-		return rc, string(calls)
+		// THE RUN'S COST row is TestRunVerifyListRecordsItsCost's.
+		return rc, regexp.MustCompile(`(?m)^flow record run .*\n`).ReplaceAllString(string(calls), "")
 	}
 	project := func(cmds string) {
 		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
@@ -489,7 +491,7 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 				return false
 			}
 		}
-		return len(lines) == 2
+		return len(lines) == 3 // begin, THE RUN'S COST, end
 	}
 
 	if rc, calls := run(append(rec, canon)...); rc != 0 || !allCarry(calls, canon) {
@@ -2384,5 +2386,23 @@ func TestRunVerifyListAbortsTheSupersededOpenRow(t *testing.T) {
 	rc, calls, stderr := run(1)
 	if !strings.Contains(stderr, "superseded row verify-a failed") || !strings.Contains(calls, "ran\n") {
 		t.Errorf("a failing abort must warn and run the list: exit %d, stderr %q, calls:\n%s", rc, stderr, calls)
+	}
+}
+
+// TestRunVerifyListRecordsItsCost pins THE RUN'S COST: one `flow record run`
+// row per run, under the branch's change, with the visual verify's test
+// counts and the list's exit.
+func TestRunVerifyListRecordsItsCost(t *testing.T) {
+	t.Parallel()
+	wt, _, _ := rvlNarrowFixture(t, "  1 failed\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n  1 flaky\n    [fidelity] › tests/c.spec.ts:4:3 › c\n  2 passed (1.0s)\n", 1)
+	only := filepath.Join(t.TempDir(), "only")
+	writeFile(t, only, "fidelity/a.spec.ts:20\n")
+	for label, args := range map[string][]string{"visual": {wt, "visual"}, "visual-only": {"-only", only, wt, "visual"}} {
+		stub, log := rvlFlowStub(t, "{}", 0)
+		rvlRunIn(t, wt, stub, args...)
+		calls, _ := os.ReadFile(log)
+		if want := `record run -C ` + regexp.QuoteMeta(wt) + ` -change work -kind run-verify-list -label ` + label + ` -seconds \d+ -tests 4 -failed 1 -exit 1\n`; !regexp.MustCompile(want).Match(calls) {
+			t.Errorf("%s: flow calls %q, want %q", label, calls, want)
+		}
 	}
 }

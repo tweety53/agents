@@ -13,6 +13,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 )
 
 // flow-guard recapture <tasks.md>:<task-id> <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command>
@@ -45,6 +46,10 @@ import (
 // no test (affected-specs' header). The receipt is what proves which sources
 // a capture saw: a recapture that leaves every pixel where it was changes no
 // tracked file.
+//
+// THE RUN'S COST is one `flow record run -kind recapture` row, labelled
+// with the task id, as flow-guard run-verify-list files its own (THE RUN'S
+// COST there, canonical), under the first pair's worktree.
 //
 // THE FAILED TESTS of a red run are the `<spec>:<line>` entries its
 // Playwright summary names (flow-guard run-verify-list's failed and
@@ -231,6 +236,7 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 		return 3
 	default:
 		var log bytes.Buffer
+		start := time.Now()
 		cmd := exec.Command("sh", "-c", strings.ReplaceAll(command, "<spec>", strings.Join(specs, " ")+" --retries=1"))
 		cmd.Dir = pcAbs(env, root)
 		cmd.Stdout, cmd.Stderr = io.MultiWriter(stdout, &log), io.MultiWriter(stderr, &log)
@@ -238,6 +244,8 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 			failed = rcFailed(log.Bytes(), specs)
 		}
 		fmt.Fprintf(stdout, "recapture: %d test selection(s), exit %d\n", len(specs), rc)
+		branch, _ := capture(git("-C", order[0], "branch", "--show-current"))
+		rvlRecordRun(env, order[0], strings.TrimPrefix(branch, "spectre/"), "recapture", task[strings.LastIndex(task, ":")+1:], start, log.Bytes(), rc)
 		if flaky := rvlSummaryBlocks(log.Bytes(), "flaky"); len(flaky) > 0 {
 			fmt.Fprintf(stdout, "recapture: flaky (%d): %s — passed on retry: fix each at its source\n", len(flaky), strings.Join(flaky, " "))
 		}
