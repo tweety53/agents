@@ -580,7 +580,7 @@ func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 // needs its blob unchanged since the round base and its own line in the report.
 // A non-default output directory finds nothing and falls back to the mtime rule.
 func playwrightRanAfter(w, capture string, at time.Time) bool {
-	for dir := filepath.Dir(capture); strings.HasPrefix(dir, w); dir = filepath.Dir(dir) {
+	for dir := filepath.Dir(capture); dir == w || strings.HasPrefix(dir, w+string(filepath.Separator)); dir = filepath.Dir(dir) {
 		entries, err := os.ReadDir(filepath.Join(dir, "test-results"))
 		if err == nil {
 			for _, e := range entries {
