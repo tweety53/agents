@@ -443,6 +443,27 @@ func (f *fakeStore) RecordSubstitution(_ context.Context, projectKey, change str
 	return out, nil
 }
 
+// RecordVerifyRun mirrors store.Store.RecordVerifyRun: every call inserts
+// a new row; an unknown change is store.ErrChangeNotFound.
+func (f *fakeStore) RecordVerifyRun(_ context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error) {
+	f.recordCalls++
+	key := changeKey(projectKey, change)
+	if _, ok := f.changes[key]; !ok {
+		return records.VerifyRun{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+	if f.verifyRuns == nil {
+		f.verifyRuns = map[string][]records.VerifyRun{}
+	}
+	in.ID = int64(len(f.verifyRuns[key]) + 1)
+	f.verifyRuns[key] = append(f.verifyRuns[key], in)
+	return in, nil
+}
+
+// ListVerifyRuns reads a change's runs in insertion order.
+func (f *fakeStore) ListVerifyRuns(_ context.Context, projectKey, change string) ([]records.VerifyRun, error) {
+	return f.verifyRuns[changeKey(projectKey, change)], nil
+}
+
 // ListSubstitutions mirrors store.Store.ListSubstitutions' filtering:
 // guard == "" means every guard, shape == "" means every topology. It also
 // records the args it was called with, so a test can assert the handler
@@ -2409,6 +2430,57 @@ func TestApplySubstitutionRecord(t *testing.T) {
 		records.Substitution{Guard: "g", Shape: "cross-repo", Substitution: ""})
 	if !errors.Is(err, api.ErrInvalidRecord) {
 		t.Errorf("empty substitution: error = %v, want errors.Is(_, ErrInvalidRecord)", err)
+	}
+}
+
+// TestRecordVerifyRunHandler pins the runs routes: 201 with the stored row,
+// 400 for a kind outside the closed set or a negative seconds (before the
+// store), 404 for an unknown change, and the GET reading rows oldest first.
+func TestRecordVerifyRunHandler(t *testing.T) {
+	t.Parallel()
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/runs"
+
+	ok := records.VerifyRun{Kind: "run-verify-list", Label: "test", Seconds: 12, Tests: 30, Failed: 2, ExitCode: 1}
+	resp, body := postJSON(t, url, ok)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST runs = %d (%s), want 201", resp.StatusCode, body)
+	}
+	second := ok
+	second.Kind, second.Label = "recapture", "visual"
+	if resp, body := postJSON(t, url, second); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST second run = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	calls := fs.recordCalls
+	for name, bad := range map[string]records.VerifyRun{
+		"bad kind":         {Kind: "visual", Label: "test"},
+		"negative seconds": {Kind: "recapture", Label: "test", Seconds: -1},
+		"empty label":      {Kind: "recapture"},
+	} {
+		if resp, body := postJSON(t, url, bad); resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s: POST runs = %d (%s), want 400", name, resp.StatusCode, body)
+		}
+	}
+	if fs.recordCalls != calls {
+		t.Errorf("a refused run reached the store")
+	}
+
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "nope")+"/runs", ok); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("POST runs on unknown change = %d (%s), want 404", resp.StatusCode, body)
+	}
+
+	getResp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("GET runs: %v", err)
+	}
+	defer getResp.Body.Close()
+	var got []records.VerifyRun
+	if err := json.NewDecoder(getResp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode GET runs: %v", err)
+	}
+	if len(got) != 2 || got[0].Kind != "run-verify-list" || got[1].Label != "visual" || got[0].Tests != 30 {
+		t.Errorf("GET runs = %+v, want both rows oldest first", got)
 	}
 }
 

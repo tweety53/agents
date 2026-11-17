@@ -1547,6 +1547,34 @@ func (c *Client) ListSubstitutions(ctx context.Context, project, guard, shape st
 	return out, nil
 }
 
+// RecordVerifyRun records one verify run for project/change.
+func (c *Client) RecordVerifyRun(ctx context.Context, project, change string, in records.VerifyRun) (records.VerifyRun, error) {
+	var out records.VerifyRun
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/runs", in,
+		map[int]bool{http.StatusCreated: true}, &out)
+	if err != nil {
+		return records.VerifyRun{}, err
+	}
+	return out, nil
+}
+
+// ListVerifyRuns reads project/change's verify runs, oldest first.
+func (c *Client) ListVerifyRuns(ctx context.Context, project, change string) ([]records.VerifyRun, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.recordsURL(project, change)+"/runs", nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.VerifyRun
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // --- hazards (KAN-452) ----------------------------------------------------
 
 // hazardsURL is the project-scoped hazards collection, the incidents pair's

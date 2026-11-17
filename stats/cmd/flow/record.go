@@ -23,6 +23,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/guard"
@@ -363,6 +364,10 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -shape single-repo|cross-repo -substitution text
        flow record substitutions [-addr url] [-timeout dur] [-C dir]
                              [-guard guard] [-shape single-repo|cross-repo]
+       flow record run      [-addr url] [-timeout dur] [-C dir]
+                             -change name -kind run-verify-list|recapture
+                             -label text -seconds n [-tests n] [-failed n] [-exit n]
+       flow record runs     [-addr url] [-timeout dur] [-C dir] -change name
        flow record render   [-addr url] [-timeout dur] [-C dir]
                              -change name -kind ledger|panel|all -repo dir
        flow record journal-count [-C dir] -change name
@@ -513,6 +518,12 @@ substitutions back as a JSON array, newest first, restricted by -guard or
 checked against the closed set before the store is ever contacted, the
 recordEfforts precedent -- a write outside it is a caller mistake, and
 letting it journal would only ever be refused a second time on replay.
+
+run records one verify run of a change -- a run-verify-list or a
+recapture -- with its wall-clock -seconds, the -tests it ran, the -failed
+count and its -exit code, journalling on store failure like every other
+write; runs reads a change's verify runs back as a JSON array, oldest
+first.
 
 incident and incidents are a project's log of a guard actually costing
 time: incident records what went wrong, the recovery taken and how many
@@ -698,6 +709,10 @@ func runRecord(ctx context.Context, args []string, getenv func(string) string, s
 		return runRecordSubstitution(ctx, args[1:], getenv, stdout, stderr)
 	case "substitutions":
 		return runRecordSubstitutions(ctx, args[1:], getenv, stdout, stderr)
+	case "run":
+		return runRecordVerifyRun(ctx, args[1:], getenv, stdout, stderr)
+	case "runs":
+		return runRecordVerifyRuns(ctx, args[1:], getenv, stdout, stderr)
 	case "incident":
 		return runRecordIncident(ctx, args[1:], getenv, stdout, stderr)
 	case "incidents":
@@ -920,7 +935,7 @@ func recordJournalPath(projectKey, name string, getenv func(string) string) stri
 // recordJournalBody is what gets journalled for a record write that could
 // not reach the store: the write's own kind ("dispatch", "dispatch-end",
 // "finding", "status", "verdict", "verdict-false-positive", "incident",
-// "substitution", "decision", "pass", "mutation", "suite", "request-begin" or
+// "substitution", "run", "decision", "pass", "mutation", "suite", "request-begin" or
 // "request-end") alongside the exact
 // wire request that would have been sent, so the reconciler has everything
 // it needs to replay it without this file needing a second encoding. It is
@@ -3581,6 +3596,93 @@ func runRecordSubstitution(ctx context.Context, args []string, getenv func(strin
 		fmt.Fprintln(stdout, "recorded: substitution")
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "substitution", in, stderr, getenv)
+}
+
+// runRecordVerifyRun implements `flow record run`: one verify run of a
+// change, stamped time.Now() before the call so a journalled write replays
+// with the moment the run ended.
+func runRecordVerifyRun(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record run", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f, getenv)
+	kind := fset.String("kind", "", "the verify run's kind -- one of: "+strings.Join(api.VerifyRunKinds, ", ")+" (required)")
+	label := fset.String("label", "", "what the run verified, e.g. test, visual or a task id (required)")
+	seconds := fset.Int("seconds", -1, "the run's wall-clock seconds, >= 0 (required)")
+	tests := fset.Int("tests", 0, "tests the run ran")
+	failed := fset.Int("failed", 0, "tests the run failed")
+	exit := fset.Int("exit", 0, "the run's exit code")
+
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-kind", *kind},
+		[2]string{"-label", *label},
+	) {
+		return 2
+	}
+	if *seconds < 0 {
+		fmt.Fprintln(stderr, "flow: -seconds is required (>= 0)")
+		return 2
+	}
+	in := records.VerifyRun{Kind: *kind, Label: *label, Seconds: *seconds, Tests: *tests, Failed: *failed, ExitCode: *exit}
+	// A write the API would refuse is a caller mistake: refuse it here
+	// rather than journal a replay that can never succeed.
+	if err := api.ValidateVerifyRun(in); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in.RecordedAt = time.Now()
+	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.VerifyRun, error) {
+		return cl.RecordVerifyRun(ctx, projectKey, f.change, in)
+	})
+	if callErr == nil {
+		fmt.Fprintln(stdout, "recorded: run")
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "run", in, stderr, getenv)
+}
+
+// runRecordVerifyRuns implements `flow record runs`: a change's verify
+// runs, oldest first, as a JSON array ([] when none).
+func runRecordVerifyRuns(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record runs", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f, getenv)
+
+	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
+		return code
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.VerifyRun, error) {
+		return cl.ListVerifyRuns(ctx, projectKey, f.change)
+	})
+	if callErr != nil {
+		fmt.Fprintf(stderr, "flow: runs: %v\n", callErr)
+		return 1
+	}
+	if out == nil {
+		out = []records.VerifyRun{}
+	}
+	body, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode runs: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
+	return 0
 }
 
 // runRecordSubstitutions implements `flow record substitutions`: a

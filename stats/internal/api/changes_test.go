@@ -94,6 +94,7 @@ type fakeStore struct {
 	// internal/api/records_test.go's fakeStore methods operate on these)
 	// ---
 	substitutions      []substitutionRecord
+	verifyRuns         map[string][]records.VerifyRun
 	nextSubstitutionID int64
 
 	recordSubstitutionErr error

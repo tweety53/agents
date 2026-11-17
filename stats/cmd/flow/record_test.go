@@ -4645,6 +4645,107 @@ func TestRecordSubstitutionCommand(t *testing.T) {
 	})
 }
 
+// TestRecordVerifyRunCommand pins `flow record run`: a live store gets the
+// row and prints "recorded: run", a missing required flag is refused with
+// exit 2, and `flow record runs` prints the change's array verbatim.
+func TestRecordVerifyRunCommand(t *testing.T) {
+	t.Parallel()
+	t.Run("writes the run", func(t *testing.T) {
+		repo := gitRepo(t)
+		env := newTestEnv(t)
+
+		var gotPath string
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			gotBody, _ = readAll(r)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "run", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-9", "-kind", "run-verify-list", "-label", "test",
+				"-seconds", "17", "-tests", "40", "-failed", "2", "-exit", "1"},
+			env.get, strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if got := stdout.String(); got != "recorded: run\n" {
+			t.Errorf("stdout = %q, want %q", got, "recorded: run\n")
+		}
+		if !strings.HasSuffix(gotPath, "/kan-9/runs") {
+			t.Errorf("request path = %s, want it to end in /kan-9/runs", gotPath)
+		}
+		var sent records.VerifyRun
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if sent.Kind != "run-verify-list" || sent.Label != "test" || sent.Seconds != 17 || sent.Tests != 40 || sent.Failed != 2 || sent.ExitCode != 1 || sent.RecordedAt.IsZero() {
+			t.Errorf("sent = %+v, want every flag carried and recordedAt stamped", sent)
+		}
+	})
+
+	for _, tc := range []struct {
+		name, offender string
+		args           []string
+	}{
+		{"missing -seconds", "-seconds", []string{"-kind", "recapture", "-label", "visual"}},
+		{"missing -label", "-label", []string{"-kind", "recapture", "-seconds", "3"}},
+		{"bad -kind", "kind", []string{"-kind", "visual", "-label", "visual", "-seconds", "3"}},
+	} {
+		t.Run("refuses "+tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			env := newTestEnv(t)
+			env["FLOW_STATE_DIR"] = t.TempDir()
+
+			var stdout, stderr bytes.Buffer
+			args := append([]string{"record", "run", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "-change", "kan-9"}, tc.args...)
+			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), tc.offender) {
+				t.Errorf("stderr = %q, want it to name %s", stderr.String(), tc.offender)
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-9", env); exists {
+				t.Errorf("a refused caller mistake was journalled")
+			}
+		})
+	}
+
+	t.Run("runs prints the array", func(t *testing.T) {
+		repo := gitRepo(t)
+		env := newTestEnv(t)
+
+		body := `[{"id":1,"kind":"recapture","label":"visual","seconds":3,"tests":5,"failed":0,"exitCode":0,"recordedAt":"2026-01-02T03:04:05Z"}]`
+		var gotPath string
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "runs", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-9"},
+			env.get, strings.NewReader(""), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if !strings.HasSuffix(gotPath, "/kan-9/runs") {
+			t.Errorf("request path = %s, want it to end in /kan-9/runs", gotPath)
+		}
+		if got := strings.TrimRight(stdout.String(), "\n"); got != body {
+			t.Errorf("stdout = %q, want %q", got, body)
+		}
+	})
+}
+
 // TestRecordSubstitutionsReadback pins `flow record substitutions`' read
 // contract: the array verbatim, newest first as the daemon answers it, []
 // for no rows, and a loud non-zero failure on an unreachable store.

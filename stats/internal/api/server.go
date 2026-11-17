@@ -415,6 +415,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/incidents/{project}", rh.listIncidents)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/substitutions", rh.recordSubstitution)
 	mux.HandleFunc("GET /api/v1/substitutions/{project}", rh.listSubstitutions)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/runs", rh.recordVerifyRun)
+	mux.HandleFunc("GET /api/v1/records/{project}/{change}/runs", rh.listVerifyRuns)
 	mux.HandleFunc("GET /api/v1/finding-patterns/{project}", rh.listFindingPatterns)
 	mux.HandleFunc("GET /api/v1/finding-patterns/{project}/{pattern}", rh.listFindingPatternOccurrences)
 	mux.HandleFunc("POST /api/v1/hazards/{project}", hz.addHazard)

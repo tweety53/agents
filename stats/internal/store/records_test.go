@@ -2605,6 +2605,54 @@ func TestRecordSubstitutionRoundTrip(t *testing.T) {
 	}
 }
 
+// TestRecordVerifyRunRoundTrip asserts RecordVerifyRun allocates an id,
+// ListVerifyRuns reads rows back oldest first, and an unknown change is
+// ErrChangeNotFound.
+func TestRecordVerifyRunRoundTrip(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verify-run-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	later := records.VerifyRun{Kind: "recapture", Label: "visual", Seconds: 30, Tests: 5, Failed: 0, ExitCode: 0,
+		RecordedAt: time.Date(2026, 11, 18, 10, 5, 0, 0, time.UTC)}
+	earlier := records.VerifyRun{Kind: "run-verify-list", Label: "test", Seconds: 12, Tests: 40, Failed: 2, ExitCode: 1,
+		RecordedAt: time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)}
+	for _, in := range []records.VerifyRun{later, earlier} {
+		got, err := st.RecordVerifyRun(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordVerifyRun: %v", err)
+		}
+		if got.ID == 0 {
+			t.Errorf("RecordVerifyRun returned ID 0, want an allocated id")
+		}
+	}
+
+	list, err := st.ListVerifyRuns(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("ListVerifyRuns: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("ListVerifyRuns returned %d rows, want 2", len(list))
+	}
+	for i, want := range []records.VerifyRun{earlier, later} {
+		got := list[i]
+		got.ID = 0
+		if !got.RecordedAt.Equal(want.RecordedAt) {
+			t.Errorf("row %d RecordedAt = %v, want %v", i, got.RecordedAt, want.RecordedAt)
+		}
+		got.RecordedAt = want.RecordedAt
+		if got != want {
+			t.Errorf("row %d = %+v, want %+v", i, got, want)
+		}
+	}
+
+	if _, err := st.RecordVerifyRun(ctx, projectKey, "nope", earlier); !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("RecordVerifyRun on unknown change: error = %v, want ErrChangeNotFound", err)
+	}
+}
+
 // TestStoreRejectsSubstitutionShapeOutsideVocabulary asserts the migration's
 // own CHECK is the schema-level backstop behind ApplySubstitutionRecord's
 // validation: a row written past the API layer with a shape outside the

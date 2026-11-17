@@ -2661,6 +2661,65 @@ func (s *Store) ListSubstitutions(ctx context.Context, projectKey, guard, shape 
 	return out, nil
 }
 
+// verifyRunColumns is the column list every read of a verify_runs row
+// selects, in the order scanVerifyRun scans them.
+const verifyRunColumns = `id, kind, label, seconds, tests, failed, exit_code, recorded_at`
+
+func scanVerifyRun(row dispatchRowScanner) (records.VerifyRun, error) {
+	var v records.VerifyRun
+	err := row.Scan(&v.ID, &v.Kind, &v.Label, &v.Seconds, &v.Tests, &v.Failed, &v.ExitCode, &v.RecordedAt)
+	return v, err
+}
+
+// RecordVerifyRun records one verify run against a change; every call
+// inserts a new row. An unknown (projectKey, change) pair is
+// ErrChangeNotFound.
+func (s *Store) RecordVerifyRun(ctx context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error) {
+	row := s.pool.QueryRow(ctx, `
+		INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, recorded_at)
+		SELECT c.id, $3, $4, $5, $6, $7, $8, $9
+		FROM changes c
+		WHERE c.project_key = $1 AND c.name = $2
+		RETURNING `+verifyRunColumns,
+		projectKey, change, in.Kind, in.Label, in.Seconds, in.Tests, in.Failed, in.ExitCode, in.RecordedAt)
+	out, err := scanVerifyRun(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.VerifyRun{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		return records.VerifyRun{}, fmt.Errorf("store: record verify run for %s/%s: %w", projectKey, change, err)
+	}
+	return out, nil
+}
+
+// ListVerifyRuns reads a change's verify runs, oldest first. An unknown
+// (projectKey, change) pair reads as no runs.
+func (s *Store) ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT v.id, v.kind, v.label, v.seconds, v.tests, v.failed, v.exit_code, v.recorded_at
+		FROM verify_runs v
+		JOIN changes c ON c.id = v.change_id
+		WHERE c.project_key = $1 AND c.name = $2
+		ORDER BY v.recorded_at, v.id
+	`, projectKey, change)
+	if err != nil {
+		return nil, fmt.Errorf("store: list verify runs for %s/%s: %w", projectKey, change, err)
+	}
+	defer rows.Close()
+	var out []records.VerifyRun
+	for rows.Next() {
+		v, err := scanVerifyRun(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: list verify runs for %s/%s: scan: %w", projectKey, change, err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list verify runs for %s/%s: %w", projectKey, change, err)
+	}
+	return out, nil
+}
+
 // incidentColumns is the column list every read of an incidents row
 // selects, in the order scanIncidentRow scans them. ListIncidents qualifies
 // it with qualifiedIncidentColumns; RecordIncident's plain INSERT ...

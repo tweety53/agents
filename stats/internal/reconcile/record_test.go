@@ -86,6 +86,14 @@ func (nopRecordStore) ListSubstitutions(context.Context, string, string, string)
 	return nil, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) RecordVerifyRun(context.Context, string, string, records.VerifyRun) (records.VerifyRun, error) {
+	return records.VerifyRun{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
 	return records.Hazard{}, errRecordStoreNotExercised
 }
@@ -380,6 +388,15 @@ func (f *fakeRecordStore) RecordSubstitution(_ context.Context, projectKey, chan
 }
 
 func (f *fakeRecordStore) ListSubstitutions(context.Context, string, string, string) ([]records.Substitution, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RecordVerifyRun(_ context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error) {
+	f.record(fmt.Sprintf("run %s/%s kind=%s label=%s seconds=%d tests=%d failed=%d exit=%d", projectKey, change, in.Kind, in.Label, in.Seconds, in.Tests, in.Failed, in.ExitCode))
+	return in, nil
+}
+
+func (f *fakeRecordStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
 	return nil, errRecordStoreNotExercised
 }
 
@@ -1335,6 +1352,34 @@ func TestReplaySubstitutionKind(t *testing.T) {
 		`substitution proj-record-substitution/chg-record-substitution guard=gather-dispatch-context shape=cross-repo substitution="composed the dispatch bundle by hand"`,
 	})
 
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (applied entry retired)", n)
+	}
+}
+
+// TestReplayVerifyRunKind pins that a journalled "run" entry reaches the
+// store through applyRecordEntry's own case arm and retires.
+func TestReplayVerifyRunKind(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-run", "chg-record-run"
+
+	appendRecordWrite(t, root, project, change, "run", records.VerifyRun{
+		Kind: "recapture", Label: "visual", Seconds: 42, Tests: 7, Failed: 1, ExitCode: 1,
+	})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Journals != 1 || result.Applied != 1 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Journals:1 Applied:1 Refused:0}", result)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		"run proj-record-run/chg-record-run kind=recapture label=visual seconds=42 tests=7 failed=1 exit=1",
+	})
 	if n := pendingRecordCount(t, root, project, change); n != 0 {
 		t.Fatalf("pending record entries after replay = %d, want 0 (applied entry retired)", n)
 	}

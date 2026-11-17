@@ -970,6 +970,14 @@ func (stubStageStore) ListSubstitutions(context.Context, string, string, string)
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RecordVerifyRun(context.Context, string, string, records.VerifyRun) (records.VerifyRun, error) {
+	return records.VerifyRun{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) ListFindingPatterns(context.Context, string) ([]records.FindingPatternSummary, error) {
 	return nil, errStageStoreNotImplemented
 }

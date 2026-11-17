@@ -413,6 +413,20 @@ type Substitution struct {
 	RecordedAt   time.Time `json:"recordedAt"`
 }
 
+// VerifyRun is one verify run of a change -- a run-verify-list or a
+// recapture -- with its wall-clock seconds and test counts, so a run's cost
+// is visible. Every write inserts a new row.
+type VerifyRun struct {
+	ID         int64     `json:"id"`
+	Kind       string    `json:"kind"`
+	Label      string    `json:"label"`
+	Seconds    int       `json:"seconds"`
+	Tests      int       `json:"tests"`
+	Failed     int       `json:"failed"`
+	ExitCode   int       `json:"exitCode"`
+	RecordedAt time.Time `json:"recordedAt"`
+}
+
 // Incident is one per-project record of a guard actually costing time: what
 // guard, what went wrong, what recovery was taken and how many minutes it
 // cost. Unlike Verdict, an incident is written by hand -- see this change's

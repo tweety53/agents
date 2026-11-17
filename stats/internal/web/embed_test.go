@@ -501,6 +501,14 @@ func (fakeStore) ListSubstitutions(context.Context, string, string, string) ([]r
 	return nil, nil
 }
 
+func (fakeStore) RecordVerifyRun(context.Context, string, string, records.VerifyRun) (records.VerifyRun, error) {
+	return records.VerifyRun{}, nil
+}
+
+func (fakeStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
+	return nil, nil
+}
+
 func (fakeStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
 	return records.Hazard{}, nil
 }

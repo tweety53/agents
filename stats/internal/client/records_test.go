@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -497,6 +498,41 @@ func minimalSubstitution() records.Substitution {
 		Shape:        "cross-repo",
 		Substitution: "composed the dispatch bundle by hand",
 		RecordedAt:   time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC),
+	}
+}
+
+// TestClientVerifyRunRoundTrip pins that RecordVerifyRun POSTs to
+// .../runs and ListVerifyRuns GETs the same path back.
+func TestClientVerifyRunRoundTrip(t *testing.T) {
+	var stored []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/records/proj/kan-1/runs" {
+			t.Errorf("path = %s, want /api/v1/records/proj/kan-1/runs", r.URL.Path)
+		}
+		switch r.Method {
+		case http.MethodPost:
+			body, _ := io.ReadAll(r.Body)
+			stored = body
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write(body)
+		case http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("[" + string(stored) + "]"))
+		}
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	in := records.VerifyRun{Kind: "run-verify-list", Label: "test", Seconds: 9, Tests: 4, Failed: 1, ExitCode: 1}
+	if _, err := c.RecordVerifyRun(context.Background(), "proj", "kan-1", in); err != nil {
+		t.Fatalf("RecordVerifyRun: %v", err)
+	}
+	got, err := c.ListVerifyRuns(context.Background(), "proj", "kan-1")
+	if err != nil {
+		t.Fatalf("ListVerifyRuns: %v", err)
+	}
+	if len(got) != 1 || got[0] != in {
+		t.Errorf("ListVerifyRuns = %+v, want [%+v]", got, in)
 	}
 }
 

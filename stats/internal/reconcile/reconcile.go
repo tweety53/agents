@@ -605,12 +605,12 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 
 // recordJournalBody mirrors cmd/flow/record.go's own recordJournalBody
 // exactly -- {"kind":"dispatch"|"dispatch-end"|"finding"|"status"|"verdict"|
-// "verdict-false-positive"|"incident"|"substitution"|"decision"|"summary"|"pass"|"mutation"|
+// "verdict-false-positive"|"incident"|"substitution"|"run"|"decision"|"summary"|"pass"|"mutation"|
 // "suite"|"request-begin"|"request-end",
 // "request":<the
 // records.Dispatch, records.DispatchEnd, records.Finding, status request,
 // records.Verdict, records.VerdictFlag, records.Incident,
-// records.Substitution, records.Decision, records.ChangeSummary,
+// records.Substitution, records.VerifyRun, records.Decision, records.ChangeSummary,
 // records.Pass, records.Mutation, records.SuiteRun, records.RequestBegin or
 // records.RequestEnd that was journalled>}. It is a
 // second declaration of the same wire shape for the
@@ -750,6 +750,13 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 			return fmt.Errorf("%w: decode substitution: %v", errRecordEntryDecodeFailed, err)
 		}
 		_, err := api.ApplySubstitutionRecord(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "run":
+		var in records.VerifyRun
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode run: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyVerifyRunRecord(ctx, r.recordStore, e.Project, e.Name, in)
 		return err
 	case "decision":
 		var in records.Decision

@@ -106,6 +106,10 @@ type RecordStore interface {
 	RecordSubstitution(ctx context.Context, projectKey, change string, in records.Substitution) (records.Substitution, error)
 	ListSubstitutions(ctx context.Context, projectKey, guard, shape string) ([]records.Substitution, error)
 
+	// RecordVerifyRun and ListVerifyRuns are a change's verify-run cost log.
+	RecordVerifyRun(ctx context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error)
+	ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error)
+
 	// ListFindingPatterns and ListFindingPatternOccurrences are KAN-416's
 	// registry reads -- per-project like the guard-log pair above, and on
 	// RecordStore for the reason that pair states.
@@ -510,6 +514,34 @@ func ApplyIncidentRecord(ctx context.Context, rw RecordStore, projectKey string,
 // composes with. `all` is deliberately absent: it is a bundle-composition
 // wildcard, never a shape a change has.
 var substitutionShapes = []string{"single-repo", "cross-repo"}
+
+// VerifyRunKinds is the closed set a verify run's Kind accepts.
+var VerifyRunKinds = []string{"run-verify-list", "recapture"}
+
+// ValidateVerifyRun refuses a kind outside VerifyRunKinds, an empty label
+// or a negative count as ErrInvalidRecord.
+func ValidateVerifyRun(in records.VerifyRun) error {
+	if !slices.Contains(VerifyRunKinds, in.Kind) {
+		return fmt.Errorf("%w: kind %q is not one of: %s", ErrInvalidRecord, in.Kind, strings.Join(VerifyRunKinds, ", "))
+	}
+	if in.Label == "" {
+		return fmt.Errorf("%w: label is required", ErrInvalidRecord)
+	}
+	if in.Seconds < 0 || in.Tests < 0 || in.Failed < 0 {
+		return fmt.Errorf("%w: seconds, tests and failed must be >= 0", ErrInvalidRecord)
+	}
+	return nil
+}
+
+// ApplyVerifyRunRecord records one verify run against rw after
+// ValidateVerifyRun, before the store is touched. Both the POST route and
+// the reconciler's replay of a journalled "run" entry call it.
+func ApplyVerifyRunRecord(ctx context.Context, rw RecordStore, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error) {
+	if err := ValidateVerifyRun(in); err != nil {
+		return records.VerifyRun{}, err
+	}
+	return rw.RecordVerifyRun(ctx, projectKey, change, in)
+}
 
 // ApplySubstitutionRecord records one guard hand-substitution against rw
 // (KAN-417), refusing an empty guard or substitution, or a shape outside
@@ -1127,6 +1159,44 @@ func (h *recordHandler) recordSubstitution(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, http.StatusCreated, out)
+}
+
+// recordVerifyRun serves POST /api/v1/records/{project}/{change}/runs:
+// one verify run on one change, always a new row (201).
+func (h *recordHandler) recordVerifyRun(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+	var in records.VerifyRun
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	out, err := ApplyVerifyRunRecord(r.Context(), h.store, project, change, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record verify run for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+// listVerifyRuns serves GET /api/v1/records/{project}/{change}/runs: the
+// change's verify runs, oldest first.
+func (h *recordHandler) listVerifyRuns(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+	out, err := h.store.ListVerifyRuns(r.Context(), project, change)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list verify runs for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	if out == nil {
+		out = []records.VerifyRun{}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // listSubstitutions serves GET
