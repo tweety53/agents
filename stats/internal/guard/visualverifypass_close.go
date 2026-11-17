@@ -153,7 +153,7 @@ func (v *vvp) close() {
 }
 
 // closesLoop derives whether this row closes the visual fix loop (decisions
-// closes-loop-derived-in-close, capture-freshness-by-mtime, closing-frame-list,
+// closes-loop-derived-in-close, capture-freshness-by-mtime refined by identical-recapture-fresh, closing-frame-list,
 // frame-map-change-keeps-full-run, prototype-change-keeps-full-run): scoped is
 // false with no round file of the key; why is "" when every condition holds,
 // else the first that fails.
