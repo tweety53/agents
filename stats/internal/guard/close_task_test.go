@@ -960,7 +960,7 @@ func TestCloseTaskTakesTheTaskSet(t *testing.T) {
 	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — shots/rooms.spec.js shots/week.spec.js\n") {
 		t.Fatalf("the failing spec re-run green: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
 	}
-	const want = "shots/rooms.spec.js shots/week.spec.js\nshots/week.spec.js --repeat-each 5 --workers 1\n"
+	const want = "shots/rooms.spec.js shots/week.spec.js\nshots/week.spec.js:3 --repeat-each 5 --workers 1\n"
 	if got, _ := os.ReadFile(ran); string(got) != want {
 		t.Errorf("recapture ran %q, want %q", got, want)
 	}

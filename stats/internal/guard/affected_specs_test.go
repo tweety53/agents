@@ -158,3 +158,58 @@ func TestAffectedSpecsSpecRootEditIsNoUIChange(t *testing.T) {
 		writeFile(t, filepath.Join(root, touch), files[touch])
 	}
 }
+
+// TestAffectedSpecsSelectsByTest pins the kan-1091 fix: a sidecar glob
+// carrying `:<line>,…` and a task field naming `<spec>:<line>` select those
+// tests, never the spec file they sit in, and any whole-spec reach wins.
+func TestAffectedSpecsSelectsByTest(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv}
+	root := t.TempDir()
+	files := map[string]string{
+		"package.json":              "{}\n",
+		"src/Day.tsx":               "export function Day() {}\n",
+		"src/Week.tsx":              "export function Week() {}\n",
+		"src/Whole.tsx":             "export function Whole() {}\n",
+		"docs/notes.md":             "notes\n",
+		"shots/day.spec.ts":         "test('day', () => {})\n",
+		"shots/day.spec.ts.sources": "src/Day.tsx:12,3\nsrc/Week.tsx:12\nsrc/Whole.tsx\n",
+	}
+	for p, body := range files {
+		writeFile(t, filepath.Join(root, p), body)
+	}
+	gitRun(t, root, "init", "-q")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	plan := filepath.Join(t.TempDir(), "tasks.md")
+	writeFile(t, plan, "- [ ] 1. A\n\n**Tests:** none\n\n- [ ] 2. B\n\n**Tests:** `shots/day.spec.ts:40` › probe\n**Regression:** shots/day.spec.ts:7\n")
+	const spec = "shots/day.spec.ts"
+	for _, c := range []struct {
+		touch []string
+		task  string
+		want  string
+	}{
+		{[]string{"src/Day.tsx"}, "", spec + ":3 " + spec + ":12"},
+		{[]string{"src/Day.tsx"}, "1", spec + ":3 " + spec + ":12"},
+		{[]string{"src/Day.tsx", "src/Week.tsx"}, "1", spec + ":3 " + spec + ":12"},
+		{[]string{"src/Day.tsx", "src/Whole.tsx"}, "1", spec},
+		{[]string{"shots/day.spec.ts"}, "1", spec},
+		{[]string{"docs/notes.md"}, "2", spec + ":7 " + spec + ":40"},
+		{[]string{"src/Week.tsx"}, "2", spec + ":7 " + spec + ":12 " + spec + ":40"},
+	} {
+		for _, f := range c.touch {
+			writeFile(t, filepath.Join(root, f), files[f]+"// edited\n")
+		}
+		args := []string{root, "HEAD", filepath.Join(root, "shots")}
+		if c.task != "" {
+			args = append([]string{"-task", plan + ":" + c.task}, args...)
+		}
+		r := runGuard("affected-specs", args, env)
+		if got := strings.Join(strings.Fields(r.stdout), " "); r.rc != 0 || got != c.want {
+			t.Errorf("%v task %q: rc=%d stdout=%q err=%q, want %q", c.touch, c.task, r.rc, r.stdout, r.err, c.want)
+		}
+		for _, f := range c.touch {
+			writeFile(t, filepath.Join(root, f), files[f])
+		}
+	}
+}

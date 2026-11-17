@@ -26,8 +26,9 @@ appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose 
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
 commits the stage's PNGs to. **A baseline the fix moves on another screen is recaptured by naming
-that screen's spec, by path, in the task's `**Regression:**`** — the task's run takes the specs a
-sidecar maps a changed file to and the specs its `**Tests:**` or `**Regression:**` names, never
+that screen's test, `<spec path>:<line>`, in the task's `**Regression:**`** — the task's run takes the tests a
+sidecar maps a changed file to and the tests its `**Tests:**` or `**Regression:**` names, a bare
+spec path its every test, never
 every spec a shared file reaches, which step 4's `visual-verify` re-run captures once. And every step-4 `visual-verify` re-run of the round, the closing full
 run included, names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
 spec whose baseline moved — the verifier compares each against its mockup exactly as it does the

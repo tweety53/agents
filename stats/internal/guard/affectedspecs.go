@@ -1,9 +1,11 @@
 package guard
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -34,7 +36,10 @@ import (
 // relative to <source-root>, in `ui paths`' own glob syntax, naming the
 // source files that spec's screen is made of; `#` lines and blank lines are
 // skipped. A spec's roots are the spec file itself and every file its globs
-// match.
+// match. A glob ending `:<line>[,<line>…]` names the tests of the spec its
+// files reach, each by the line its `test(` call opens on: a changed file
+// that reaches the spec through such globs alone selects those tests, each
+// printed `<spec>:<line>`, and the spec whole through any other.
 //
 // An `all.sources` beside the specs holds the same lines for what every spec
 // renders and no import chain shows — a seed, a fixture, the runner's
@@ -80,14 +85,15 @@ import (
 // import climb, no `all.sources`, no safe side, nothing on stderr but `test:`
 // lines -- and every spec whose printed path the task's **Tests:** or
 // **Regression:** field names, behind any leading directories, is selected
-// too.
+// too -- the one test where the field follows the path with `:<line>`
+// (kan-1091: five specs named whole ran 164 tests, 31-34 minutes).
 //
 // A TEST FILE outside every directory holding a spec (asTestRE) moves no capture: changed, it
 // is named `test: <path>` and skipped, and it is never an importer.
 //
 // Exit codes:
 //
-//	0  the list is on stdout, sorted, possibly empty.
+//	0  the list is on stdout, sorted by spec then line, possibly empty.
 //	2  usage, a root that is not a directory, a diff git cannot read, or a
 //	   `-task` whose file or task cannot be read.
 func init() { Registry["affected-specs"] = affectedSpecs }
@@ -99,7 +105,9 @@ var (
 	asSpecRE = regexp.MustCompile(`\.spec\.[cm]?[jt]sx?$`)
 	// asTestRE is a test file outside the spec root: a test directory, a
 	// `.test.`/`.spec.`/`_test.` name, or a `…Test(s).<ext>` stem.
-	asTestRE   = regexp.MustCompile(`(?i:(?:^|/)[^/]*tests?/|[._-](?:test|spec)\.)|[a-z]Tests?\.\w+$`)
+	asTestRE = regexp.MustCompile(`(?i:(?:^|/)[^/]*tests?/|[._-](?:test|spec)\.)|[a-z]Tests?\.\w+$`)
+	// asLinesRE is a sidecar glob's `:<line>[,<line>…]` suffix.
+	asLinesRE  = regexp.MustCompile(`:(\d+(?:,\d+)*)$`)
 	asWordRE   = regexp.MustCompile(`[A-Za-z_]\w{2,}`)
 	asImportRE = regexp.MustCompile(`(?m)^.*(?:\bimport\b|\bfrom\b|\brequire\b|@import).*$`)
 	// asKotlinDeclRE captures a top-level declared Kotlin name; asQuotedRE a
@@ -107,6 +115,30 @@ var (
 	asKotlinDeclRE = regexp.MustCompile(`(?m)^(?:@\w+(?:\([^)\n]*\))?\s+)*(?:(?:public|internal|data|sealed|open|abstract|enum|annotation|value|inline|const|suspend|actual|expect)\s+)*(?:class|object|interface|fun|val|var|typealias)\s+(?:<[^>\n]+>\s*)?(?:[\w<>?, ]+\.)?([A-Za-z_]\w{2,})`)
 	asQuotedRE     = regexp.MustCompile("[\"'`]([^\"'`\\s]+)[\"'`]")
 )
+
+// asGlob is one sidecar line: its glob, and the test lines a `:<line>,…`
+// suffix names -- nil for the whole spec.
+type asGlob struct {
+	re    *regexp.Regexp
+	lines []string
+}
+
+// asHit reports whether a glob of globs matches path, and the test lines
+// the matching globs name -- nil when one of them names the whole spec.
+func asHit(globs []asGlob, path string) (hit bool, lines []string) {
+	p, whole := vtBytesAsRunes(path), false
+	for _, g := range globs {
+		if !g.re.MatchString(p) {
+			continue
+		}
+		hit, whole = true, whole || g.lines == nil
+		lines = append(lines, g.lines...)
+	}
+	if whole {
+		lines = nil
+	}
+	return hit, lines
+}
 
 // asFile is one source file's index for the import walk.
 type asFile struct {
@@ -169,7 +201,7 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 
 	type spec struct {
 		out, rel string // printed path; path relative to src, "" outside it
-		globs    []*regexp.Regexp
+		globs    []asGlob
 		mapped   bool
 	}
 	var specDirs []string // every directory holding a spec
@@ -202,22 +234,22 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		return nil
 	})
 
-	var everySpec []*regexp.Regexp
+	var everySpec []asGlob
 	for _, d := range specDirs {
 		everySpec = append(everySpec, asGlobs(filepath.Join(d, "all.sources"))...)
 	}
 	// `ui paths`, nil where the row is absent: every changed file is UI then.
-	var ui []*regexp.Regexp
+	var ui []asGlob
 	if text, err := os.ReadFile(filepath.Join(src, ".flow/project.md")); err == nil {
 		for _, g := range strings.Split(vvCells(string(text))["ui paths"], ",") {
 			if g = trimGlobElement(g); g != "" {
-				ui = append(ui, vtGlobRegexp(g))
+				ui = append(ui, asGlob{re: vtGlobRegexp(g)})
 			}
 		}
 	}
-	matches := func(res []*regexp.Regexp, path string) bool {
-		p := vtBytesAsRunes(path)
-		return slices.ContainsFunc(res, func(re *regexp.Regexp) bool { return re.MatchString(p) })
+	matches := func(globs []asGlob, path string) bool {
+		hit, _ := asHit(globs, path)
+		return hit
 	}
 	isUI := func(f string) bool { return ui == nil || matches(ui, f) }
 
@@ -278,10 +310,25 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		return seen, shell
 	}
 
-	selected := map[string]bool{}
+	// selected is, per spec, the test lines picked; "" is the spec whole.
+	selected := map[string]map[string]bool{}
+	pick := func(out string, lines ...string) {
+		if selected[out] == nil {
+			selected[out] = map[string]bool{}
+		}
+		if len(lines) == 0 {
+			lines = []string{""}
+		}
+		for _, l := range lines {
+			selected[out][l] = true
+		}
+	}
 	for _, s := range specs {
-		if task && regexp.MustCompile(`(^|[^\w.-])`+regexp.QuoteMeta(s.out)+`($|[^\w/-])`).MatchString(named) {
-			selected[s.out] = true
+		if !task {
+			break
+		}
+		for _, m := range regexp.MustCompile(`(?:^|[^\w.-])`+regexp.QuoteMeta(s.out)+`(?::(\d+))?(?:$|[^\w/-])`).FindAllStringSubmatch(named, -1) {
+			pick(s.out, strings.Fields(m[1])...)
 		}
 	}
 	for _, f := range strings.Split(diff, "\n") {
@@ -294,8 +341,10 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if task {
 			for _, s := range specs {
-				if (s.rel != "" && (f == s.rel || f == s.rel+".sources" || f == s.rel+".mockups")) || matches(s.globs, f) {
-					selected[s.out] = true
+				if s.rel != "" && (f == s.rel || f == s.rel+".sources" || f == s.rel+".mockups") {
+					pick(s.out)
+				} else if hit, lines := asHit(s.globs, f); hit {
+					pick(s.out, lines...)
 				}
 			}
 			continue
@@ -303,7 +352,7 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		if matches(everySpec, f) {
 			fmt.Fprintf(stderr, "all: %s — listed in all.sources\n", f)
 			for _, s := range specs {
-				selected[s.out] = true
+				pick(s.out)
 			}
 			continue
 		}
@@ -311,12 +360,21 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		seen, shell := reach(f)
 		hit := false
 		for _, s := range specs {
-			own := s.rel != "" && (seen[s.rel] || f == s.rel+".sources" || f == s.rel+".mockups")
+			// whole: the spec itself, or a root reached through a glob naming
+			// no test; lines otherwise.
+			whole := s.rel != "" && (seen[s.rel] || f == s.rel+".sources" || f == s.rel+".mockups")
+			var lines []string
 			for g := range seen {
-				own = own || matches(s.globs, g)
+				if ok, l := asHit(s.globs, g); ok {
+					whole, lines = whole || l == nil, append(lines, l...)
+				}
 			}
-			if own || (ui && !s.mapped) {
-				selected[s.out] = true
+			own := whole || len(lines) > 0
+			switch {
+			case whole || (ui && !s.mapped):
+				pick(s.out)
+			case own:
+				pick(s.out, lines...)
 			}
 			hit = hit || own
 		}
@@ -324,7 +382,7 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		case ui && (shell || !hit):
 			fmt.Fprintf(stderr, "all: %s — a UI path drawn outside every spec's sources\n", f)
 			for _, s := range specs {
-				selected[s.out] = true
+				pick(s.out)
 			}
 		case !hit:
 			fmt.Fprintf(stderr, "unreached: %s\n", f)
@@ -336,7 +394,15 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	sort.Strings(out)
 	for _, s := range out {
-		fmt.Fprintln(stdout, s)
+		if selected[s][""] {
+			fmt.Fprintln(stdout, s)
+			continue
+		}
+		lines := slices.Collect(maps.Keys(selected[s]))
+		slices.SortFunc(lines, func(a, b string) int { return cmp.Or(len(a)-len(b), strings.Compare(a, b)) })
+		for _, l := range lines {
+			fmt.Fprintln(stdout, s+":"+l)
+		}
 	}
 	return 0
 }
@@ -387,14 +453,20 @@ func asUntracked(env Env, worktree string) string {
 	return out
 }
 
-// asGlobs reads a sidecar's globs: one per line, `#` and blank lines skipped;
-// nil when it cannot be read.
-func asGlobs(path string) []*regexp.Regexp {
+// asGlobs reads a sidecar's globs: one per line, `#` and blank lines skipped,
+// a `:<line>,…` suffix kept as the glob's test lines; nil when it cannot be
+// read.
+func asGlobs(path string) []asGlob {
 	raw, _ := os.ReadFile(path)
-	var out []*regexp.Regexp
+	var out []asGlob
 	for _, l := range strings.Split(string(raw), "\n") {
 		if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "#") {
-			out = append(out, vtGlobRegexp(l))
+			g := asGlob{}
+			if m := asLinesRE.FindStringSubmatch(l); m != nil {
+				l, g.lines = l[:len(l)-len(m[0])], strings.Split(m[1], ",")
+			}
+			g.re = vtGlobRegexp(l)
+			out = append(out, g)
 		}
 	}
 	return out

@@ -45,7 +45,7 @@ func TestRecapture(t *testing.T) {
 		t.Errorf("no affected spec: rc=%d out=%q", r.rc, r.out)
 	}
 	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
-	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "recapture: 1 spec(s), exit 0") {
+	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "recapture: 1 test selection(s), exit 0") {
 		t.Errorf("one affected spec: rc=%d out=%q", r.rc, r.out)
 	}
 	if got, _ := os.ReadFile(ran); string(got) != "shots/day.spec.ts\n" {
@@ -68,7 +68,7 @@ func TestRecapture(t *testing.T) {
 // TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed pins the two halves of
 // the kan-1091 fix: a fixture every spec renders selects the specs the task's
 // Tests name and no other, and a red run is followed by a five-repeat run of
-// its failing spec alone, after which nothing is left to run.
+// its failing test alone, after which nothing is left to run.
 func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 	t.Parallel()
 	env := Env{Getenv: os.Getenv}
@@ -105,7 +105,7 @@ func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "already passed") {
 		t.Errorf("nothing left: rc=%d out=%q", r.rc, r.out)
 	}
-	const want = "shots/day.spec.ts shots/rooms.spec.ts\nshots/rooms.spec.ts --repeat-each 5 --workers 1\n"
+	const want = "shots/day.spec.ts shots/rooms.spec.ts\nshots/rooms.spec.ts:3 --repeat-each 5 --workers 1\n"
 	if got, _ := os.ReadFile(ran); string(got) != want {
 		t.Errorf("the command ran with %q, want %q", got, want)
 	}
@@ -115,5 +115,31 @@ func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 	run("echo <spec> >> " + ran)
 	if got, _ := os.ReadFile(ran); !strings.HasSuffix(string(got), "shots/day.spec.ts shots/rooms.spec.ts --repeat-each 5 --workers 1\n") {
 		t.Errorf("after an unnamed failure the command ran with %q, want both specs five times over", got)
+	}
+}
+
+// TestRecaptureLeftIsPerTest pins the receipt fold: a test a run passed --
+// alone or inside its spec -- is never left to run again, and a red spec
+// leaves its failing tests alone.
+func TestRecaptureLeftIsPerTest(t *testing.T) {
+	t.Parallel()
+	whole := rcReceipt{Specs: []string{"a.spec.ts"}, Exit: 1, Failed: []string{"a.spec.ts:9"}}
+	for _, c := range []struct {
+		token    string
+		receipts []rcReceipt
+		want     string
+	}{
+		{"a.spec.ts", nil, "a.spec.ts"},
+		{"a.spec.ts", []rcReceipt{whole}, "a.spec.ts:9"},
+		{"a.spec.ts:3", []rcReceipt{whole}, ""},
+		{"a.spec.ts:9", []rcReceipt{whole}, "a.spec.ts:9"},
+		{"a.spec.ts", []rcReceipt{whole, {Specs: []string{"a.spec.ts:9"}}}, ""},
+		{"a.spec.ts", []rcReceipt{{Specs: []string{"a.spec.ts:9"}}}, "a.spec.ts"},
+		{"a.spec.ts:3", []rcReceipt{{Specs: []string{"a.spec.ts"}, Exit: 1}}, "a.spec.ts:3"},
+		{"a.spec.ts:3", []rcReceipt{{Specs: []string{"a.spec.ts"}, Exit: 1, Failed: []string{"a.spec.ts"}}}, "a.spec.ts:3"},
+	} {
+		if left, _ := rcLeft(c.token, c.receipts); strings.Join(left, " ") != c.want {
+			t.Errorf("rcLeft(%s, %+v) = %q, want %q", c.token, c.receipts, left, c.want)
+		}
 	}
 }

@@ -818,6 +818,7 @@ func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, com
 			// manifest with the captures' blobs if that ever bites.
 			sidecars, _ := capture(git("-C", root, "ls-files", "-co", "--exclude-standard", "--", "*.mockups"))
 			for _, spec := range specs {
+				spec = rcSpecFile(spec)
 				if !departure || !slices.ContainsFunc(strings.Split(sidecars, "\n"), func(f string) bool { return f == spec+".mockups" || strings.HasSuffix(f, "/"+spec+".mockups") }) ||
 					slices.ContainsFunc(measured, func(m string) bool { return m == spec || strings.HasSuffix(m, "/"+spec) }) {
 					continue
