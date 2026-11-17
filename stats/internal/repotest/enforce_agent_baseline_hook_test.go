@@ -56,6 +56,8 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	statusT := transcript("status.jsonl", `{"type":"user","message":{"content":"<command-name>/flow-status</command-name>"}}`)
 	interactiveT := transcript("interactive.jsonl", `{"type":"user","message":{"content":"<command-name>/flow-interactive</command-name>"}}`)
 	toolT := transcript("tool.jsonl", `{"type":"user","message":{"content":[{"type":"tool_result","content":"<command-name>/flow</command-name>"}]}}`)
+	skillT := transcript("skill.jsonl", `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"flow-fast"}}]}}`)
+	otherSkillT := transcript("other-skill.jsonl", `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"flow-status"}}]}}`)
 
 	// described builds an Agent payload; description "" and model "" omit those fields,
 	// transcript "" omits transcript_path.
@@ -93,6 +95,8 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		{"10c fork in a /flow session", hook, payload("run the loop above", "fork", "", flowT), []string{"KAN-1000"}},
 		{"10d fork after /flow-status alone", hook, payload("run the loop above", "fork", "", statusT), nil},
 		{"10e fork whose transcript holds the tag only in a tool result", hook, payload("run the loop above", "fork", "", toolT), nil},
+		{"10f fork in a run the model started through the Skill tool", hook, payload("run the loop above", "fork", "", skillT), []string{"KAN-1000"}},
+		{"10g fork after the Skill tool ran /flow-status alone", hook, payload("run the loop above", "fork", "", otherSkillT), nil},
 		{"11 malformed JSON", hook, "{not json", nil},
 		{"12 a planner citing the verifier file, no marker line", hook, payload("Key: self-review-x-plan\n"+baseline+" Finding 2 cites /x/skills/flow/visual-verify-verifier.md:120.", "flow-medium", "opus", ""), nil},
 		{"12b an implementer citing both files, no marker line", hook, payload(baseline+" Task 4 re-reads .superpowers/sdd/tooling-analysis-1.md and step 8 of skills/flow/visual-verify-verifier.md.", "flow-low", "sonnet", ""), nil},

@@ -96,6 +96,7 @@ PLANNING_AGENT_TYPES = {"Explore", "Plan"}
 
 # A flow run's slash command as the harness writes it into the session transcript.
 FLOW_COMMAND = re.compile(r"<command-name>/flow(?:-fast|-interactive|-plan|-self-review)?</command-name>")
+FLOW_SKILLS = ("flow", "flow-fast", "flow-interactive", "flow-plan", "flow-self-review")
 
 FORK_REASON = (
     "Dispatch blocked: no flow phase, and no loop a phase or the self-review runs, dispatches "
@@ -478,7 +479,9 @@ def in_interactive_session(payload: dict) -> bool:
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             return any(
-                is_flow_command(line) and "<command-name>/flow-interactive</command-name>" in line for line in f
+                is_flow_command(line)
+                and ("<command-name>/flow-interactive</command-name>" in line or '"flow-interactive"' in line)
+                for line in f
             )
     except OSError:
         return False
@@ -523,20 +526,33 @@ def fork_reason(payload: dict, tool_input: dict) -> "str | None":
 
 
 def is_flow_command(line: str) -> bool:
-    # Only a user turn with string content is a typed slash command; a tool result quoting the
-    # tag carries list content and does not count. The substring test spares a json parse of
-    # every line of a long transcript that holds no flow command at all.
-    if "<command-name>/flow" not in line:
+    # A typed slash command is a user turn with string content; a tool result quoting the tag
+    # carries list content and does not count. A run the model started is an assistant turn
+    # calling the Skill tool on a flow skill (kan-1131: a /flow-fast started that way began no
+    # dispatch row). The substring test spares a json parse of every line of a long transcript
+    # that holds neither.
+    if "<command-name>/flow" not in line and '"Skill"' not in line:
         return False
     try:
         entry = json.loads(line)
     except ValueError:
         return False
-    if not isinstance(entry, dict) or entry.get("type") != "user":
+    if not isinstance(entry, dict):
         return False
     message = entry.get("message")
     content = message.get("content") if isinstance(message, dict) else None
-    return isinstance(content, str) and bool(FLOW_COMMAND.search(content))
+    if entry.get("type") == "user":
+        return isinstance(content, str) and bool(FLOW_COMMAND.search(content))
+    if entry.get("type") != "assistant" or not isinstance(content, list):
+        return False
+    return any(
+        isinstance(b, dict)
+        and b.get("type") == "tool_use"
+        and b.get("name") == "Skill"
+        and isinstance(b.get("input"), dict)
+        and b["input"].get("skill") in FLOW_SKILLS
+        for b in content
+    )
 
 
 def deny(reason: str) -> None:
