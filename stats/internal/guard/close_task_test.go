@@ -826,10 +826,11 @@ func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
 	}
 }
 
-// TestCloseTaskPrintsAffectedSpecs pins close-task's `affected specs` line:
-// an in-run fix task's close names the specs flow-guard affected-specs maps
-// its commit to -- the screen its file belongs to, never every spec.
-func TestCloseTaskPrintsAffectedSpecs(t *testing.T) {
+// TestCloseTaskEnforcesAffectedSpecs pins close-task's affected-specs check:
+// an in-run fix task closes only once flow-guard recapture has run the specs
+// its commit maps to -- the screen its file belongs to, never every spec --
+// on the sources the commit holds.
+func TestCloseTaskEnforcesAffectedSpecs(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	fx := ctFixture(t, true, "0", "0")
@@ -840,10 +841,36 @@ func TestCloseTaskPrintsAffectedSpecs(t *testing.T) {
 		writeFile(t, fx.wt+"/"+spec, "test('x', () => {})\n")
 		writeFile(t, fx.wt+"/"+spec+".sources", source+"\n")
 	}
+	recapture := func(want int) {
+		t.Helper()
+		if r := runGuard("recapture", []string{fx.wt, fx.wt + "=HEAD", "echo <spec> >> " + fx.wt + "/.git/ran"}, fx.env); r.rc != want {
+			t.Fatalf("recapture: exit %d, want %d\n%s", r.rc, want, r.out)
+		}
+	}
+	// A capture of an earlier draft of the file does not cover the commit.
+	writeFile(t, fx.wt+"/e.txt", "draft\n")
+	recapture(0)
 	sha := fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
 	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
-	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — day.spec.js\n") {
-		t.Fatalf("exit %d, want 0 naming day.spec.js alone\n%s\n%s", r.rc, r.out, r.err)
+	if r.rc != 1 || !strings.Contains(r.err, "no passing capture run covers commit "+sha) || !strings.Contains(r.err, "shots/day.spec.js") || strings.Contains(r.err, "rooms.spec.js") {
+		t.Fatalf("a stale capture: exit %d, want 1 naming day.spec.js alone\n%s\n%s", r.rc, r.out, r.err)
+	}
+	for _, call := range fx.calls(t) {
+		if strings.HasPrefix(call, "flow tasks tick") {
+			t.Errorf("ticked after a refusal: %s", call)
+		}
+	}
+	// The same sources, captured: the receipt covers the commit.
+	gitRun(t, fx.wt, "reset", "-q", "--soft", "HEAD^")
+	recapture(0)
+	sha = fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
+	r = fx.run(fx.wt, "demo", fx.base, "4:"+sha)
+	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — shots/day.spec.js\n") {
+		t.Fatalf("a covering capture: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
+	}
+	// Both specs are untracked here, so each run's working-tree diff holds them too.
+	if ran, _ := os.ReadFile(fx.wt + "/.git/ran"); string(ran) != strings.Repeat("shots/day.spec.js shots/rooms.spec.js\n", 2) {
+		t.Errorf("recapture ran %q, want one run of the affected specs per call", ran)
 	}
 }
 

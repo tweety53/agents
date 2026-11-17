@@ -125,6 +125,10 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    stack rebuilt from its fix, and the task closes through `flow-guard close-task`, which prints
    that list as `affected specs`, only on that run's exit
    0 — a red capture is fixed in the same task and folded into its one commit.
+   Where the capture root holds a `<spec>.sources` sidecar the run goes through `flow-guard
+   recapture <capture root> <worktree>=<round base>[,<worktree>=<round base>…] '<the capture command>'`,
+   one pair per worktree the fix edits, which substitutes the list and leaves the receipt
+   `close-task` refuses the task without; its header is canonical for both.
    **A departure observed on a running clock closes on repeated running-clock passes.** When the
    departure was observed on a running clock — a live walk, a recorded frame sequence, any read the
    capture spec's pinned clock (`skills/flow/visual-verify-verifier.md`, step 8) does not

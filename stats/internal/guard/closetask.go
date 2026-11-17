@@ -75,10 +75,12 @@ import (
 //      For a task titled `In-run fix <k> — `, once the commit guards pass,
 //      `close-task: task <id>: affected specs — <spec> <spec>…` (or `— none`)
 //      is printed: flow-guard affected-specs over each map pair's own
-//      commit and every directory of the task's worktrees holding a
-//      `<spec>.sources` sidecar -- the specs the task's capture run before
-//      this close covers (skills/flow/verify-fix-loop.md step 2). Nothing
-//      is printed where no worktree holds a sidecar; the line never blocks.
+//      commit and every worktree of the map holding a `<spec>.sources`
+//      sidecar (skills/flow/verify-fix-loop.md step 2). A pair whose specs
+//      no flow-guard recapture receipt covers -- a run that exited 0, took
+//      every one of them, and saw each source file of the commit at the blob
+//      the commit holds -- is refused, exit 1, nothing ticked or pushed.
+//      Nothing is checked where no worktree holds a sidecar.
 //   3. flow-guard check-task-commit-planning-paths <canonical> <merge-base>, then
 //      flow-guard check-untasked-commits <worktree> refs/remotes/origin/spectre/<name>
 //      once per distinct worktree whose branch origin already holds: the push
@@ -279,8 +281,14 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		Reason(env, "commit-guard-cannot-judge")
 		return 2
 	}
+	uncaptured := 0
 	for _, t := range tasks {
-		ctAffectedSpecs(env, stdout, canonical, name, t.id, t.commit)
+		uncaptured = max(uncaptured, ctAffectedSpecs(env, stdout, stderr, canonical, name, t.id, t.commit))
+	}
+	if uncaptured != 0 {
+		fmt.Fprintln(stderr, "close-task: RECAPTURE — an in-run fix task's affected specs have no passing capture run; nothing was ticked or pushed")
+		Reason(env, "affected-specs-not-captured")
+		return 1
 	}
 	if len(undispatched) > 0 {
 		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row carrying its commit; nothing was ticked or pushed")
@@ -657,47 +665,54 @@ func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string, o
 	return worst
 }
 
-// ctAffectedSpecs prints step 2's `affected specs` line for an in-run fix
-// task: the specs flow-guard affected-specs maps its commit to.
-func ctAffectedSpecs(env Env, stdout io.Writer, canonical, name, id, commit string) {
+// ctAffectedSpecs is step 2's affected-specs check for an in-run fix task:
+// it prints the specs flow-guard affected-specs maps the commit to and
+// returns 1 when a map pair's specs have no passing flow-guard recapture
+// receipt on that commit's sources, else 0.
+func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, commit string) int {
 	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical)
 	plan, _ := os.ReadFile(tasksMD)
 	if !regexp.MustCompile(`(?m)^- \[[ xX]\] ` + regexp.QuoteMeta(id) + `\. In-run fix [0-9]+ — `).Match(plan) {
-		return
+		return 0
 	}
 	pairs := []string{canonical + "=" + commit}
 	if strings.Contains(commit, "=") {
 		pairs = strings.Split(commit, ",")
 	}
 	git := envGit(env)
-	var roots []string
+	var roots []string // every worktree of the map holding a sidecar
 	for _, p := range pairs {
 		wt, _, _ := strings.Cut(strings.TrimSpace(p), "=")
-		out, _ := capture(git("-C", wt, "ls-files", "-co", "--exclude-standard", "--", "*.sources"))
-		for _, f := range strings.Fields(out) {
-			if dir := filepath.Join(wt, filepath.Dir(f)); !slices.Contains(roots, dir) {
-				roots = append(roots, dir)
-			}
+		if out, _ := capture(git("-C", wt, "ls-files", "-co", "--exclude-standard", "--", "*.sources")); out != "" {
+			roots = append(roots, wt)
 		}
 	}
 	if len(roots) == 0 {
-		return
+		return 0
 	}
-	var specs []string
+	var all []string
+	rc := 0
 	for _, p := range pairs {
 		wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
 		for _, root := range roots {
 			var out bytes.Buffer
 			Registry["affected-specs"]([]string{wt, sha + "^.." + sha, root}, quietReasons(env), &out, io.Discard)
-			for _, spec := range strings.Fields(out.String()) {
-				if !slices.Contains(specs, spec) {
-					specs = append(specs, spec)
+			specs := strings.Fields(out.String())
+			for _, spec := range specs {
+				if !slices.Contains(all, spec) {
+					all = append(all, spec)
 				}
+			}
+			if len(specs) > 0 && !rcCovered(env, wt, root, sha, specs) {
+				fmt.Fprintf(stderr, "close-task: task %s: no passing capture run covers commit %s's sources in %s for %s — run `flow-guard recapture %s %s=<round base> '<the capture command with <spec>>'`, commit what it moves, and re-run\n", id, sha, wt, strings.Join(specs, " "), root, wt)
+				Reason(env, "affected-specs-not-captured")
+				rc = 1
 			}
 		}
 	}
-	if len(specs) == 0 {
-		specs = []string{"none"}
+	if len(all) == 0 {
+		all = []string{"none"}
 	}
-	fmt.Fprintf(stdout, "close-task: task %s: affected specs — %s\n", id, strings.Join(specs, " "))
+	fmt.Fprintf(stdout, "close-task: task %s: affected specs — %s\n", id, strings.Join(all, " "))
+	return rc
 }
