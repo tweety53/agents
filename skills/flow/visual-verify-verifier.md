@@ -46,7 +46,7 @@ reads every number on it as an exit.
    `capture` with `<spec>` substituted for the spec's path. **One `capture` run takes every capture
    spec of the pass**, less every spec the bundle names on a `captured:` line, their paths space-joined for `<spec>`, with
    `--workers=$(flow-guard capture-workers) --retries=1` before `--update-snapshots=all` — never one run per
-   spec. A test that passes on its retry is flaky: its capture stands, the report names it as a defect fixed at its source, and the capture is never run again for it. A project's page limit for ad-hoc probes does not bind the capture suite. A capture whose
+   spec. With every spec on the `captured:` line, no capture runs. A test that passes on its retry is flaky: its capture stands, the report names it as a defect fixed at its source, and the capture is never run again for it. A project's page limit for ad-hoc probes does not bind the capture suite. A capture whose
    PNG differs between that count and `--workers=1` is nondeterministic, and is fixed at its source
    (`rules/fix-determinism-at-the-source.mdc`), never tolerated. **Every capture asserts the view is on
    screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the
@@ -154,7 +154,12 @@ reads every number on it as an exit.
    frames it names, of the prompt's `moved:` frames and of its `defects:` frames, and every view no frame is composed for,
    and at step 10 only those frames' composites. Every other view's line reads
    `- <view>: <absolute PNG path> — capture unchanged since <round base>`, with no frame, sweeps,
-   spot-check or over-tolerance line for its frame. With no `changed:` line, every view is read.
+   spot-check or over-tolerance line for its frame. On a pass with no round base whose bundle carries a
+   `captured:` line it prints `changed: <frame id> … — task close` instead: a frame it leaves out
+   belongs to a spec a task of the change captured, nothing that reaches it has moved since, and
+   this call's own measure flags nothing on it, so its view's line reads
+   `- <view>: <absolute PNG path> — capture unchanged since task close` and it is left unread the
+   same way. With no `changed:` line, every view is read.
    Each captured PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
    composed for its `per view, no frame composed: <view> sweeps:` line — `flow-guard check-verify-report`
    refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
@@ -337,7 +342,8 @@ reads every number on it as an exit.
    the prompt's `defects:` — the frames this round's defects name, always judged even when their
    capture did not change — names is not read again: an earlier verifier judged that same capture. The `frames:` line names
    it with the reason `capture unchanged since <round base>`, and its view line carries the same
-   reason.
+   reason. A frame a `changed: … — task close` line leaves out is named there with the reason
+   `capture unchanged since task close`.
 
    **Exercise the states below and capture each one; a state nobody drove into is a state nobody
    verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
@@ -739,7 +745,7 @@ names, each then on a line of its own with its cause or attribution beside it.
 - spec reach: exit <n>
 - identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
 - spec: <absolute spec path>
-- <view>: <absolute PNG path> — clean | <the defect seen> | capture unchanged since <round base>
+- <view>: <absolute PNG path> — clean | <the defect seen> | capture unchanged since <round base> | capture unchanged since task close
 - measure: exit <n> — <absolute manifest path>
 - mockups: <not declared | no map for <spec> | exit <n>>
 - <frame id>: <absolute composite path> diff=<ratio> — <match, or each departure seen — a band, a seam or a spot-check `mismeasure` included — with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>

@@ -279,6 +279,48 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 	}
 }
 
+// TestCheckVerifyReportAccountsForATaskCapturedView pins the shrunk stage:
+// on an unscoped row a view reading `capture unchanged since task close`
+// needs no frame line only when its spec is on the key's task-captured list
+// and its pair measured clean in this pass.
+func TestCheckVerifyReportAccountsForATaskCapturedView(t *testing.T) {
+	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
+	const marker = " — capture unchanged since task close"
+	zero := 0
+	for _, tc := range []struct {
+		name, listed string
+		over         []any
+		rc           int
+		want         string
+	}{
+		{"a listed spec's clean view is accounted", "tests/visual/a.spec.ts", []any{}, 0, "VERIFY-REPORT-COMPLETE"},
+		{"a flagged view is still read", "tests/visual/a.spec.ts", []any{map[string]any{"row": 1}}, 1, "a-roles has no frame and no"},
+		{"an unlisted spec's view is still read", "tests/visual/b.spec.ts", []any{}, 1, "a-roles has no frame and no"},
+	} {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection("tests/visual"))
+		spec := filepath.Join(root, "tests/visual/a.spec.ts")
+		snaps := spec + "-snapshots"
+		writeFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
+		sdd := filepath.Join(root, ".superpowers/sdd")
+		m := vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
+			Pairs: []vvmPair{{Spec: spec, Frame: "mock-frame-03", Capture: filepath.Join(snaps, "a-roles-darwin.png"),
+				Exits: vvmExits{Compose: &zero, Bands: &zero, Matrix: &zero}, Bands: []any{}, Seams: []any{}, Over: tc.over, Cells: []any{}}}}
+		mb, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), string(mb))
+		writeFile(t, taskCapturedFile(sdd, "visual-verify"), tc.listed+"\n")
+		path := filepath.Join(sdd, "verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+allDone+"- spec: "+spec+"\n- a-roles: "+filepath.Join(snaps, "a-roles-darwin.png")+marker+"\n")
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}
+
 // TestCheckVerifyReportAccountsForAnUnchangedView pins decision
 // unchanged-view-line: in a scoped row — its key has a round file — a view
 // whose capture a manifest pair holds and whose own line reads `capture

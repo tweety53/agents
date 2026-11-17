@@ -116,7 +116,9 @@ import (
 // view whose own line reads
 // `- <view>: <absolute PNG path> — capture unchanged since <round base>` needs
 // neither line — a scoped fix round's verifier does not read a view whose
-// capture is unchanged (skills/flow/visual-verify-verifier.md step 9). No
+// capture is unchanged (skills/flow/visual-verify-verifier.md step 9) — and
+// neither does one reading `— capture unchanged since task close` on an
+// unscoped row, for a capture a task's capture stands for (vvmStands). No
 // `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
 // than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
 // reports named only the prototype-framed captures). With --frames, a shard's
@@ -452,20 +454,22 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped, slice []stri
 	return gaps
 }
 
-// vrScopedCaptures is every capture key's manifest pairs with a frame, when key
-// has a round file — a scoped row's verifier may leave those unread; an
-// unscoped row, or a view no frame is composed for, is always read (KAN-1122).
+// vrScopedCaptures is the captures of key's manifest pairs a verifier may
+// leave unread: every pair with a frame when key has a round file — a scoped
+// row — and, on an unscoped row, the pairs a task's capture stands for
+// (vvmStands); any other view, or one no frame is composed for, is always
+// read (KAN-1122).
 func vrScopedCaptures(sdd, key string, body []byte, rerr error) []string {
-	if _, _, _, ok := readRound(sdd, key); !ok {
-		return nil
-	}
+	_, _, _, scoped := readRound(sdd, key)
 	var m vvmManifestOut
 	if rerr != nil || json.Unmarshal(body, &m) != nil {
 		return nil
 	}
 	var caps []string
 	for _, p := range m.Pairs {
-		caps = append(caps, p.Capture)
+		if scoped || vvmStands(sdd, key, p) {
+			caps = append(caps, p.Capture)
+		}
 	}
 	return caps
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -130,7 +131,8 @@ import (
 //  9a. on a stage with `slice` lines and a key with no shard segment
 //      (decision prepare-captures-sharded): unless a `captured` line is there,
 //      `setup` and one `capture <spec> --update-snapshots=all`, `<spec>`
-//      every `spec` line's path space-joined (kan-1087: its verifier ran 4
+//      every `spec` line's path a task's capture does not stand for
+//      (rcTaskCaptured) space-joined (kan-1087: its verifier ran 4
 //      specs, 70 tests, as one run of 8.5 minutes),
 //      run from the capture root, then `captured` is appended; a non-zero
 //      exit prints `SHARDS: none — <command> exit <n>`, drops the `slice`
@@ -148,7 +150,11 @@ import (
 //      survive, that sibling — and `<merge-base>` its merge base; kan-1083
 //      self-review, F3) and
 //      `screenshots` root (under the regression checkout's worktree when one
-//      is declared); on a row with a round base, `captured: <spec> <spec>…`
+//      is declared); on a row with no round base, `captured: <spec> <spec>…`
+//      naming the specs a task's capture still stands for (rcTaskCaptured,
+//      recapture.go, canonical), written one per line to
+//      <worktree>/.superpowers/sdd/visual-task-captured-<key less any
+//      -rest[-<n>]>.txt, which a row naming none removes; on a row with a round base, `captured: <spec> <spec>…`
 //      when a flow-guard recapture receipt of every worktree given a
 //      --round-base records a pass of those specs on exactly the source
 //      files `<round base>..HEAD` holds there, each at HEAD's blob — the
@@ -364,8 +370,14 @@ import (
 //        changed: <frame id> … — round base <sha>
 //      — each frame of this call's pairs whose capture is absent, untracked
 //      or differs from its blob at the round base (decision
-//      changed-by-blob-hash) — or `changed: none — round base <sha>`; with no
-//      such file, no `changed:` line. Then it prints
+//      changed-by-blob-hash) — or `changed: none — round base <sha>`. With no
+//      such file and <worktree>/.superpowers/sdd/visual-task-captured-<key>.txt
+//      present (prepare's step 10), it prints
+//        changed: <frame id> … — task close
+//      — each frame of this call's pairs but those of a spec that file
+//      lists whose pair composed and flagged no band, seam or `over` row
+//      (vvmStands) — or `changed: none — task close`; with neither file, no
+//      `changed:` line. Then it prints
 //        MANIFEST: <path>
 //   Exit 0 when every step exited 0, 1 when any did not, 2 on a usage error
 //   or an output directory or file it cannot write.
@@ -750,6 +762,24 @@ func readRound(sdd, key string) (base string, at time.Time, defects []string, ok
 	}
 	at, err = time.Parse(time.RFC3339Nano, f[1])
 	return f[0], at, defects, err == nil
+}
+
+// taskCapturedFile is key's list of the specs a task's capture still stands
+// for (rcTaskCaptured), one printed path per line: prepare writes it beside
+// an unscoped row's bundle, and measure and check-verify-report read it.
+func taskCapturedFile(sdd, key string) string {
+	return filepath.Join(sdd, "visual-task-captured-"+vrRestSegment.ReplaceAllString(key, "")+".txt")
+}
+
+// vvmStands reports whether a pair's view needs no reading on an unscoped
+// row: its spec is on key's task-captured list and this pass's own measure
+// of it composed and flagged no band, seam or over-tolerance row.
+func vvmStands(sdd, key string, p vvmPair) bool {
+	b, err := os.ReadFile(taskCapturedFile(sdd, key))
+	zero := func(e *int) bool { return e != nil && *e == 0 }
+	return err == nil && zero(p.Exits.Compose) && zero(p.Exits.Bands) && zero(p.Exits.Matrix) && p.Cells != nil &&
+		len(p.Bands)+len(p.Seams)+len(p.Over) == 0 &&
+		slices.ContainsFunc(strings.Fields(string(b)), func(s string) bool { return p.Spec == s || strings.HasSuffix(p.Spec, "/"+s) })
 }
 
 // captureChanged reports whether a file differs from its blob at base

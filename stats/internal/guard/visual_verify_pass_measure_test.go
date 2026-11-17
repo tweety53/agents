@@ -630,3 +630,39 @@ func TestVisualVerifyPassMeasureFrames(t *testing.T) {
 		t.Fatalf("--frames with no value: exit %d, stderr %q, want 2 naming it", rc, stderr)
 	}
 }
+
+// TestVisualVerifyPassMeasureLeavesOutTaskCapturedFrames pins the shrunk
+// stage: on an unscoped row whose key has a task-captured list, measure's
+// changed: line leaves out the frames of a listed spec that measure clean,
+// and names a frame of an unlisted spec or one its own measure flags.
+func TestVisualVerifyPassMeasureLeavesOutTaskCapturedFrames(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\nb.png frame-b\n")
+	list := filepath.Join(f.wt, ".superpowers/sdd/visual-task-captured-visual-verify.txt")
+	changed := func(when string) string {
+		t.Helper()
+		_, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts")
+		for _, l := range strings.Split(stdout, "\n") {
+			if strings.HasPrefix(l, "changed:") {
+				return l
+			}
+		}
+		t.Fatalf("%s: no changed: line, stdout %q, stderr %q", when, stdout, stderr)
+		return ""
+	}
+	// The fixture's capture a sits 4px off its frame; b matches its own.
+	writeFile(t, list, "tests/visual/app.spec.ts\n")
+	if got, want := changed("listed, one frame flagged"), "changed: frame-a — task close"; got != want {
+		t.Errorf("listed, one frame flagged: got %q, want %q", got, want)
+	}
+	writeFile(t, list, "tests/visual/other.spec.ts\n")
+	if got, want := changed("unlisted"), "changed: frame-a frame-b — task close"; got != want {
+		t.Errorf("unlisted: got %q, want %q", got, want)
+	}
+	writeFile(t, list, "tests/visual/app.spec.ts\n")
+	vvmPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/a-darwin.png"), 0)
+	if got, want := changed("listed and clean"), "changed: none — task close"; got != want {
+		t.Errorf("listed and clean: got %q, want %q", got, want)
+	}
+}
