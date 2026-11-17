@@ -748,6 +748,11 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			// processed exactly once too.
 			w.stampDispatchAgents(ctx, path, commands, launches, denials)
 			w.measureInlineBackfills(ctx, path, commands, newOffset)
+			for _, c := range commands {
+				for _, agentID := range agentBackfillsFromCommand(c.Command) {
+					w.creditBackfilledAgentFile(ctx, path, agentID)
+				}
+			}
 			w.settleClosedRows(ctx, path, records, commands, launches, denials, newOffset)
 			w.rememberOpenAgentCalls(path, batch.OpenCalls)
 
@@ -1482,6 +1487,27 @@ func panelRoundBeginsFromInvocation(invocation string) []dispatchBeginEvent {
 // inlineBackfillFromInvocation.
 func inlineBackfillsFromCommand(command string) []dispatchBeginEvent {
 	return judgeInvocations(command, inlineBackfillFromInvocation)
+}
+
+// agentBackfillsFromCommand judges one Bash command's text as zero or more
+// `flow record dispatch backfill` invocations whose -agent-id resolves to a
+// literal real agent id -- not InlineAgentID, holding no `$` or backquote --
+// and returns those ids.
+func agentBackfillsFromCommand(command string) []string {
+	var ids []string
+	for _, ev := range judgeInvocations(command, func(invocation string, vars map[string]string) (dispatchBeginEvent, bool) {
+		if !strings.Contains(invocation, "flow record dispatch backfill") {
+			return dispatchBeginEvent{}, false
+		}
+		id, ok := resolvedFlagValue(invocation, "-agent-id", vars)
+		if !ok || id == "" || id == InlineAgentID || strings.ContainsAny(id, "$`") {
+			return dispatchBeginEvent{}, false
+		}
+		return dispatchBeginEvent{Key: id}, true
+	}) {
+		ids = append(ids, ev.Key)
+	}
+	return ids
 }
 
 // inlineBackfillFromInvocation reads one invocation as an inline backfill:
@@ -2386,6 +2412,41 @@ func (w *Watcher) creditStampedAgentFile(ctx context.Context, parentPath, agentI
 		return
 	}
 	w.attributeAgentFile(ctx, ParseAssistantRecords(raw[:offset]), agentPath, agentID)
+}
+
+// creditBackfilledAgentFile measures a row `flow record dispatch backfill
+// -agent-id <real id>` wrote, under creditStampedAgentFile's conditions (the
+// agent file harvested, the agent's sole window), from the agent file's
+// records up to its committed offset. It replaces the row's figures rather
+// than merging them: the row carried the agent id from the CLI's write, so
+// an agent batch harvested before this parent batch has already credited
+// it, and a merge would count those records twice.
+func (w *Watcher) creditBackfilledAgentFile(ctx context.Context, parentPath, agentID string) {
+	agentPath := filepath.Join(strings.TrimSuffix(parentPath, ".jsonl"), subagentsDirName, "agent-"+agentID+".jsonl")
+	if IsAgentTranscriptPath(parentPath) {
+		agentPath = filepath.Join(filepath.Dir(parentPath), "agent-"+agentID+".jsonl")
+	}
+	offset, found, err := w.sink.GetHarvestOffset(ctx, agentPath)
+	if err != nil || !found || offset == 0 {
+		return
+	}
+	windows, err := w.deps.DispatchWindowsForAgent(ctx, agentID)
+	if err != nil || len(windows) != 1 {
+		return
+	}
+	raw, err := os.ReadFile(agentPath)
+	if err != nil || int64(len(raw)) < offset {
+		return
+	}
+	id := windows[0].DispatchID
+	dd := attributeAgentFileRecords(windows, ParseAssistantRecords(raw[:offset]))[id]
+	patch, err := json.Marshal(dd.patch())
+	if err == nil {
+		err = w.deps.RestampDispatch(ctx, id, agentID, patch)
+	}
+	if err != nil {
+		w.warn("harvest: measure back-filled agent row failed, it stays as it was", "path", parentPath, "dispatch_id", id, "agent_id", agentID, "error", err)
+	}
 }
 
 // carriedMessage is the message a path's previous committed read ended

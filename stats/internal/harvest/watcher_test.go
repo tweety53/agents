@@ -5081,3 +5081,63 @@ func TestJudgeInvocationsEndsLoopBodyAtAnyTerminator(t *testing.T) {
 		})
 	}
 }
+
+// backfillAgentDeps is a store whose row 7 carries agent a68cee7239419a7e7
+// from the CLI's back-fill write, and which records every RestampDispatch.
+type backfillAgentDeps struct {
+	harvest.NoDeps
+	fakeDispatchMetricsSink
+
+	restamps []string // "<id> <agent> <patch>"
+}
+
+func (d *backfillAgentDeps) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	return d.fakeDispatchMetricsSink.MergeDispatchMetrics(ctx, dispatchID, patch)
+}
+
+func (d *backfillAgentDeps) DispatchWindowsForAgent(context.Context, string) ([]harvest.DispatchWindow, error) {
+	return []harvest.DispatchWindow{{DispatchID: 7, AgentID: "a68cee7239419a7e7", StartedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}}, nil
+}
+
+func (d *backfillAgentDeps) RestampDispatch(_ context.Context, dispatchID int64, agentID string, patch json.RawMessage) error {
+	d.restamps = append(d.restamps, fmt.Sprintf("%d %s %s", dispatchID, agentID, patch))
+	return nil
+}
+
+// TestWatcherCreditsABackfilledAgentRow pins decision backfill-credit-replaces:
+// a parent batch carrying `flow record dispatch backfill -agent-id <real id>`
+// replaces that agent's sole row's figures with the agent file's share up to
+// its committed offset; an inline back-fill is left to its own path.
+func TestWatcherCreditsABackfilledAgentRow(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		agent string
+		want  int
+	}{{"a68cee7239419a7e7", 1}, {"inline", 0}} {
+		t.Run("-agent-id "+tc.agent, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			parent := writeLateStampFixture(t, dir)
+			deps := &backfillAgentDeps{}
+			w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+			runCycles(t, w, 1)
+
+			command, err := json.Marshal("flow record dispatch backfill -change c -task 1 -role implementer -model opus -agent-id " + tc.agent + " -key task-1-implementer -session-token mf-x -started-at 2026-01-01T00:00:00Z -ended-at 2026-01-01T00:01:00Z -outcome completed")
+			if err != nil {
+				t.Fatal(err)
+			}
+			line := `{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(command) + `}}]}}` + "\n"
+			if err := os.WriteFile(parent, []byte(line), 0o644); err != nil {
+				t.Fatalf("write parent: %v", err)
+			}
+			runCycles(t, w, 2)
+
+			if len(deps.restamps) != tc.want {
+				t.Fatalf("restamps = %v, want %d", deps.restamps, tc.want)
+			}
+			if tc.want == 1 && (!strings.HasPrefix(deps.restamps[0], "7 a68cee7239419a7e7 ") || !strings.Contains(deps.restamps[0], `"input":9`)) {
+				t.Errorf("restamp = %s, want row 7, agent a68cee7239419a7e7, input 9", deps.restamps[0])
+			}
+		})
+	}
+}

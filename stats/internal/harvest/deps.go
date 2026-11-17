@@ -63,6 +63,13 @@ type Deps interface {
 	AgentWindowSource
 	DispatchAgentStamper
 	InlineDispatchRestamper
+	DispatchRestamper
+}
+
+// DispatchRestamper replaces a dispatch row's agent id and figures
+// (Watcher.creditBackfilledAgentFile); store.Store.RestampDispatch.
+type DispatchRestamper interface {
+	RestampDispatch(ctx context.Context, dispatchID int64, agentID string, patch json.RawMessage) error
 }
 
 // InlineDispatchRestamper finds a back-filled inline row and replaces its
@@ -179,5 +186,10 @@ func (NoDeps) InlineDispatchID(ctx context.Context, sessionToken, key string) (i
 
 // RestampInlineDispatch restamps nothing and never fails.
 func (NoDeps) RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	return nil
+}
+
+// RestampDispatch restamps nothing and never fails.
+func (NoDeps) RestampDispatch(ctx context.Context, dispatchID int64, agentID string, patch json.RawMessage) error {
 	return nil
 }
