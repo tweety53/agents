@@ -76,8 +76,6 @@
     --series-5: #8f3bb8;
     --series-6: #db2777;
     --series-7: #65a30d;
-  --marker: #8250df;
-  --heat: 31, 111, 235;
     --marker: #8250df;
     --heat: 31, 111, 235;
     --status-critical: #e34948;
@@ -108,6 +106,8 @@
   --series-5: #8f3bb8;
   --series-6: #db2777;
   --series-7: #65a30d;
+  --marker: #8250df;
+  --heat: 31, 111, 235;
   --status-critical: #e34948;
   --status-ok: #3d8b3d;
   --delta-up: #c62828;
