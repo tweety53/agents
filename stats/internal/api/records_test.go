@@ -2521,6 +2521,7 @@ func TestRecordVerifyRunHandler(t *testing.T) {
 		"bad kind":         {Kind: "visual", Label: "test"},
 		"negative seconds": {Kind: "recapture", Label: "test", Seconds: -1},
 		"empty label":      {Kind: "recapture"},
+		"negative flaky":   {Kind: "recapture", Label: "test", Flaky: new(-1)},
 	} {
 		if resp, body := postJSON(t, url, bad); resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("%s: POST runs = %d (%s), want 400", name, resp.StatusCode, body)

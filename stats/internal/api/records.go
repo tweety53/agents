@@ -537,8 +537,8 @@ func ValidateVerifyRun(in records.VerifyRun) error {
 	if in.Label == "" {
 		return fmt.Errorf("%w: label is required", ErrInvalidRecord)
 	}
-	if in.Seconds < 0 || in.Tests < 0 || in.Failed < 0 {
-		return fmt.Errorf("%w: seconds, tests and failed must be >= 0", ErrInvalidRecord)
+	if in.Seconds < 0 || in.Tests < 0 || in.Failed < 0 || (in.Flaky != nil && *in.Flaky < 0) {
+		return fmt.Errorf("%w: seconds, tests, failed and flaky must be >= 0", ErrInvalidRecord)
 	}
 	return nil
 }
