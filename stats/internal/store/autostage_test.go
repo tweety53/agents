@@ -111,10 +111,11 @@ func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
 	}{{day(9, 30), 0}, {day(10, 0), 1}, {day(10, 30), 1}} {
 		projectKey := fmt.Sprintf("proj-auto-backdated-%d", time.Now().UnixNano())
 		seedChange(t, st, projectKey, "kan-1")
-		if _, err := pool.Exec(ctx, `
+		var recorded int64
+		if err := pool.QueryRow(ctx, `
 			INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics, auto_opened)
 			SELECT id, 'claude-code', '/flow', 'flow.verify', 1, $2, $3, '{}'::jsonb, false
-			FROM changes WHERE project_key = $1 AND name = 'kan-1'`, projectKey, day(9, 0), day(10, 0)); err != nil {
+			FROM changes WHERE project_key = $1 AND name = 'kan-1' RETURNING id`, projectKey, day(9, 0), day(10, 0)).Scan(&recorded); err != nil {
 			t.Fatalf("seed stage run: %v", err)
 		}
 		got, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("mf-auto-1", "task-6-implementer", tc.at))
@@ -124,8 +125,12 @@ func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
 		runs := autoRuns(t, st, projectKey)
 		// At 09:30 the begin lies inside the recorded run and links to it
 		// (dispatch_stage_run); afterwards it lands in a new auto run.
-		if len(runs) != tc.want || got.StageRunID == nil {
-			t.Errorf("dispatch at %s: auto runs %+v, stage_run_id %v; want %d", tc.at, runs, got.StageRunID, tc.want)
+		wantID := recorded
+		if len(runs) == 1 {
+			wantID = runs[0].ID
+		}
+		if len(runs) != tc.want || got.StageRunID == nil || *got.StageRunID != wantID {
+			t.Errorf("dispatch at %s: auto runs %+v, stage_run_id %v; want %d, linked to %d", tc.at, runs, got.StageRunID, tc.want, wantID)
 		}
 	}
 }
