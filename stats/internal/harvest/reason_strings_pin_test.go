@@ -11,7 +11,7 @@ import (
 
 // TestUnattributedReasonStringsMatchTheLedgersCopy pins internal/records'
 // duplicated copy of the "unattributed" reason strings this package still
-// declares -- reasonSessionNeverBound and reasonSessionAmbiguous -- against
+// declares -- reasonSessionNeverBound, reasonSessionAmbiguous and the per-row give-up reasons -- against
 // the actual constants, rather than against a second hand-typed copy of
 // them.
 //
@@ -67,6 +67,24 @@ func TestUnattributedReasonStringsMatchTheLedgersCopy(t *testing.T) {
 			reason: reasonSessionAmbiguous,
 			bag:    `{"unattributed":{"reason":` + jsonString(reasonSessionAmbiguous) + `,"candidates":2}}`,
 			want:   "cost unattributed — the session token matched 2 sessions",
+		},
+		{
+			name:   "reasonSettleDropped",
+			reason: reasonSettleDropped,
+			bag:    `{"unattributed":{"reason":` + jsonString(reasonSettleDropped) + `}}`,
+			want:   "cost unattributed — settle candidates overflowed",
+		},
+		{
+			name:   "reasonStampPairingDropped",
+			reason: reasonStampPairingDropped,
+			bag:    `{"unattributed":{"reason":` + jsonString(reasonStampPairingDropped) + `}}`,
+			want:   "cost unattributed — launch pairing overflowed",
+		},
+		{
+			name:   "reasonDispatchMetaGaveUp",
+			reason: reasonDispatchMetaGaveUp,
+			bag:    `{"unattributed":{"reason":` + jsonString(reasonDispatchMetaGaveUp) + `}}`,
+			want:   "cost unattributed — dispatch-meta sidecar never arrived",
 		},
 		// reasonDispatchAmbiguous's case is gone with KAN-414: the
 		// dispatch-grain ambiguity it named is an apportionment now, not

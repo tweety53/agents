@@ -555,19 +555,18 @@ func tokenLine(raw json.RawMessage) string {
 		}
 		return line
 	}
-	if m.Unattributed != nil && m.Unattributed.Reason != "" {
-		switch m.Unattributed.Reason {
-		case reasonSessionNeverBound:
-			return "cost unattributed — session never bound"
-		case reasonSessionAmbiguous:
-			return fmt.Sprintf("cost unattributed — the session token matched %d sessions", m.Unattributed.Candidates)
-		case reasonDispatchAmbiguous:
-			return fmt.Sprintf("cost unattributed — indistinguishable from %d concurrent dispatches", m.Unattributed.Candidates)
-		default:
-			return "cost unattributed — " + neutraliseMarkers(m.Unattributed.Reason)
-		}
+	switch reason := CostReason(Dispatch{Metrics: raw}); reason {
+	case reasonNotMeasured:
+		return reasonNotMeasured
+	case reasonSessionNeverBound:
+		return "cost unattributed — session never bound"
+	case reasonSessionAmbiguous:
+		return fmt.Sprintf("cost unattributed — the session token matched %d sessions", m.Unattributed.Candidates)
+	case reasonDispatchAmbiguous:
+		return fmt.Sprintf("cost unattributed — indistinguishable from %d concurrent dispatches", m.Unattributed.Candidates)
+	default:
+		return "cost unattributed — " + neutraliseMarkers(reason)
 	}
-	return reasonNotMeasured
 }
 
 // orElse is what an unrecorded optional field renders as. A dispatch that

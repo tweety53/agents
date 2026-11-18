@@ -6471,3 +6471,106 @@ func TestOpenDispatchBySessionKey(t *testing.T) {
 		t.Fatalf("unknown key: found %v, err %v, want false, nil", found, err)
 	}
 }
+
+// TestMarkDispatchUnattributedStampsOneRow pins the per-row twin of
+// MarkDispatchesUnattributed: the named row gets the reason, a sibling under
+// the same token is untouched, and a row carrying tokens is never stamped.
+func TestMarkDispatchUnattributedStampsOneRow(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-unattributed-one-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	record := func(role string) records.Dispatch {
+		t.Helper()
+		in := baseDispatch(role, "opus")
+		in.SessionToken = "mf-unattributed-one"
+		out, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", role, err)
+		}
+		return out
+	}
+	target, sibling, measured := record("implementer"), record("reviewer"), record("panel-fix")
+	if err := st.MergeDispatchMetrics(ctx, measured.ID, json.RawMessage(`{"tokens":{"input":10}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+
+	for _, id := range []int64{target.ID, measured.ID} {
+		if err := st.MarkDispatchUnattributed(ctx, id, "settle candidates overflowed"); err != nil {
+			t.Fatalf("MarkDispatchUnattributed %d: %v", id, err)
+		}
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	want := map[int64]string{
+		target.ID:   `{"unattributed":{"reason":"settle candidates overflowed"}}`,
+		sibling.ID:  `{}`,
+		measured.ID: `{"tokens":{"input":10}}`,
+	}
+	for _, d := range rec.Dispatches {
+		if !jsonEqual(t, d.Metrics, json.RawMessage(want[d.ID])) {
+			t.Errorf("dispatch %d metrics = %s, want %s", d.ID, d.Metrics, want[d.ID])
+		}
+	}
+}
+
+// TestClosedUnmeasuredInlineRows pins the settle pass's store-derived
+// candidates: the session's closed inline rows ended at or before the
+// cut-off with neither tokens nor an unattributed stamp, and nothing else.
+func TestClosedUnmeasuredInlineRows(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-closed-inline-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const sessionID = "session-closed-inline"
+	start := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	before := start.Add(10 * time.Minute)
+	record := func(key, agent, session string, ended *time.Time) records.Dispatch {
+		t.Helper()
+		in := baseDispatch("verifier", "opus")
+		in.Key = key
+		in.SessionToken = "mf-closed-" + key
+		in.SessionID = session
+		in.AgentID = agent
+		in.EndedAt = ended
+		if ended != nil {
+			in.Outcome = "completed"
+		}
+		out, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+		return out
+	}
+	at := func(d time.Duration) *time.Time { v := start.Add(d); return &v }
+
+	want := record("verify-fix-1-a", "inline", sessionID, at(time.Minute))
+	record("verify-open", "inline", sessionID, nil)
+	measured := record("verify-measured", "inline", sessionID, at(time.Minute))
+	stamped := record("verify-stamped", "inline", sessionID, at(time.Minute))
+	record("task-1-implementer", "a68cee7239419a7e7", sessionID, at(time.Minute))
+	record("verify-later", "inline", sessionID, at(time.Hour))
+	record("verify-elsewhere", "inline", "session-someone-else", at(time.Minute))
+	if err := st.MergeDispatchMetrics(ctx, measured.ID, json.RawMessage(`{"tokens":{"input":1}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if err := st.MarkDispatchUnattributed(ctx, stamped.ID, "settle candidates overflowed"); err != nil {
+		t.Fatalf("MarkDispatchUnattributed: %v", err)
+	}
+
+	rows, err := st.ClosedUnmeasuredInlineRows(ctx, sessionID, before)
+	if err != nil {
+		t.Fatalf("ClosedUnmeasuredInlineRows: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != want.ID || rows[0].Key != "verify-fix-1-a" || rows[0].SessionToken != "mf-closed-verify-fix-1-a" ||
+		!rows[0].StartedAt.Equal(start) || !rows[0].EndedAt.Equal(*at(time.Minute)) {
+		t.Fatalf("rows = %+v, want only row %d", rows, want.ID)
+	}
+}

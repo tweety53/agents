@@ -715,17 +715,33 @@ func CostStatusOf(r Run) CostStatus {
 		if err := json.Unmarshal(d.Metrics, &m); err != nil {
 			continue
 		}
-		if m.Tokens != nil {
+		reason := CostReason(d)
+		if reason == "" {
 			continue
 		}
-		if m.Unattributed == nil || m.Unattributed.Reason == "" {
-			reasons[reasonNotMeasured]++
-		} else {
-			reasons[m.Unattributed.Reason]++
-		}
+		reasons[reason]++
 		unattributedCount++
 	}
 	return CostStatus{Unattributed: unattributedCount, Reasons: reasons}
+}
+
+// CostReason is why d carries no cost figure: "" when its bag has a real
+// "tokens" figure (a stale "unattributed" stamp beside it loses), else the
+// stamped "unattributed.reason", else reasonNotMeasured -- an empty or
+// unreadable bag included. The one precedence CostStatusOf, the ledger's
+// tokenLine (render.go) and the dashboard all read.
+func CostReason(d Dispatch) string {
+	var m dispatchMetrics
+	if err := json.Unmarshal(d.Metrics, &m); err != nil {
+		return reasonNotMeasured
+	}
+	if m.Tokens != nil {
+		return ""
+	}
+	if m.Unattributed != nil && m.Unattributed.Reason != "" {
+		return m.Unattributed.Reason
+	}
+	return reasonNotMeasured
 }
 
 // GuardRun is one invocation of a flow-guard guard, as the binary itself

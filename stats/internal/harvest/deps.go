@@ -64,6 +64,11 @@ type Deps interface {
 	DispatchAgentStamper
 	InlineDispatchRestamper
 	DispatchRestamper
+	// MarkDispatchUnattributed stamps the one row id with reason, never a
+	// row carrying tokens -- the give-up sites that hold a row, not a
+	// session token (settleClosedRows' trim, the stamp-pairing trim, the
+	// dispatch-meta give-up).
+	MarkDispatchUnattributed(ctx context.Context, id int64, reason string) error
 }
 
 // DispatchRestamper replaces a dispatch row's agent id and figures
@@ -78,6 +83,20 @@ type DispatchRestamper interface {
 type InlineDispatchRestamper interface {
 	InlineDispatchID(ctx context.Context, sessionToken, key string) (id int64, found bool, err error)
 	RestampInlineDispatch(ctx context.Context, dispatchID int64, patch json.RawMessage) error
+	// ClosedUnmeasuredInlineRows lists sessionID's closed inline rows ended
+	// at or before before with neither tokens nor an unattributed stamp --
+	// the settle pass's candidates whatever their begin command looked like
+	// (Watcher.settleClosedRows).
+	ClosedUnmeasuredInlineRows(ctx context.Context, sessionID string, before time.Time) ([]InlineRow, error)
+}
+
+// InlineRow is one closed inline dispatch row ClosedUnmeasuredInlineRows
+// returns.
+type InlineRow struct {
+	ID                int64
+	SessionToken, Key string
+	StartedAt         time.Time
+	EndedAt           time.Time
 }
 
 // AgentWindowSource answers which dispatch rows carry an agentId -- the
@@ -137,6 +156,16 @@ func (NoDeps) MarkDispatchesUnattributed(ctx context.Context, token, reason stri
 // MergeDispatchMetrics merges nothing and never fails.
 func (NoDeps) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
 	return nil
+}
+
+// MarkDispatchUnattributed stamps nothing and never fails.
+func (NoDeps) MarkDispatchUnattributed(ctx context.Context, id int64, reason string) error {
+	return nil
+}
+
+// ClosedUnmeasuredInlineRows always reports no rows.
+func (NoDeps) ClosedUnmeasuredInlineRows(ctx context.Context, sessionID string, before time.Time) ([]InlineRow, error) {
+	return nil, nil
 }
 
 // DispatchWindowsForSession always reports no dispatch windows.

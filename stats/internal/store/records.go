@@ -1787,6 +1787,62 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 	return nil
 }
 
+// MarkDispatchUnattributed is MarkDispatchesUnattributed for one row: it
+// stamps dispatch id with reason, the same "||" patch, for a harvest give-up
+// that holds the row rather than its session token. A row already carrying
+// tokens is left alone -- its measurement is the answer, and a stamp there
+// would only be a stale contradiction.
+func (s *Store) MarkDispatchUnattributed(ctx context.Context, id int64, reason string) error {
+	patch, err := json.Marshal(map[string]any{"unattributed": map[string]any{"reason": reason}})
+	if err != nil {
+		return fmt.Errorf("store: marshal unattributed patch for dispatch %d: %w", id, err)
+	}
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE dispatches SET metrics = metrics || $2::jsonb
+		WHERE id = $1 AND NOT (metrics ? 'tokens')
+	`, id, patch); err != nil {
+		return fmt.Errorf("store: mark dispatch %d unattributed: %w", id, err)
+	}
+	return nil
+}
+
+// ClosedUnmeasuredInlineRows returns sessionID's closed inline rows ended at
+// or before before whose metrics carry neither tokens nor an unattributed
+// stamp, ordered by (started_at, id): the settle pass's candidates read from
+// the store, so a row settles whatever form its begin command took and after
+// a restart (kan-1091's verifier rows begun through a shell function). The
+// session binds as DispatchWindowsForSession binds it.
+func (s *Store) ClosedUnmeasuredInlineRows(ctx context.Context, sessionID string, before time.Time) ([]harvest.InlineRow, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT d.id, COALESCE(d.session_token, ''), COALESCE(d.dispatch_key, ''), d.started_at, d.ended_at
+		FROM dispatches d
+		WHERE (d.session_id = $1 OR d.session_token IN (
+			SELECT sr.session_token FROM stage_runs sr
+			WHERE sr.session_id = $1 AND sr.session_token IS NOT NULL
+		))
+		  AND d.agent_id = 'inline'
+		  AND d.ended_at IS NOT NULL AND d.ended_at <= $2
+		  AND NOT (d.metrics ? 'tokens') AND NOT (d.metrics ? 'unattributed')
+		ORDER BY d.started_at, d.id
+	`, sessionID, before)
+	if err != nil {
+		return nil, fmt.Errorf("store: closed unmeasured inline rows for session %s: %w", sessionID, err)
+	}
+	defer rows.Close()
+	var out []harvest.InlineRow
+	for rows.Next() {
+		var r harvest.InlineRow
+		if err := rows.Scan(&r.ID, &r.SessionToken, &r.Key, &r.StartedAt, &r.EndedAt); err != nil {
+			return nil, fmt.Errorf("store: closed unmeasured inline rows for session %s: scan: %w", sessionID, err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: closed unmeasured inline rows for session %s: %w", sessionID, err)
+	}
+	return out, nil
+}
+
 // DispatchWindowsForSession returns every dispatch attributable to
 // sessionID, as the harvest.DispatchWindow shape attribution needs and
 // nothing more -- the dispatch-grain counterpart of the stage windows

@@ -165,3 +165,33 @@ func TestRunHasRowsSeesEveryRowKind(t *testing.T) {
 		}
 	}
 }
+
+// TestCostReasonPrecedence pins the one precedence the cost status, the
+// render and the dashboard share: tokens outrank a stamp, a stamp outranks
+// `not measured`, and CostStatusOf and the ledger's token line agree on it.
+func TestCostReasonPrecedence(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, bag, want, line string
+	}{
+		{"tokens outrank a stamp", `{"tokens":{"main":{"input":1}},"unattributed":{"reason":"session never bound"}}`, "", "input 1"},
+		{"stamped reason", `{"unattributed":{"reason":"settle candidates overflowed"}}`, "settle candidates overflowed", "cost unattributed — settle candidates overflowed"},
+		{"neither", `{}`, "not measured", "not measured"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			d := records.Dispatch{Seq: 1, Role: "implementer", Model: "opus", Metrics: json.RawMessage(tc.bag)}
+			if got := records.CostReason(d); got != tc.want {
+				t.Errorf("CostReason = %q, want %q", got, tc.want)
+			}
+			status := records.CostStatusOf(records.Run{Dispatches: []records.Dispatch{d}})
+			if (tc.want == "") != (status.Unattributed == 0) || (tc.want != "" && status.Reasons[tc.want] != 1) {
+				t.Errorf("CostStatusOf = %+v, want it counted under %q", status, tc.want)
+			}
+			if out := records.RenderLedger(records.Run{Change: "demo", Dispatches: []records.Dispatch{d}}); !bytes.Contains([]byte(out), []byte("- Tokens: "+tc.line)) {
+				t.Errorf("ledger token line lacks %q:\n%s", tc.line, out)
+			}
+		})
+	}
+}
