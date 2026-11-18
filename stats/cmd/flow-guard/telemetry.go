@@ -194,3 +194,33 @@ func workingDir() string {
 	}
 	return d
 }
+
+// guardWorktree is the worktree a guard run is recorded against (decision
+// guard-run-worktree-arg): the first of args[1:] that is an existing
+// directory whose cleaned absolute path carries a `-worktrees/<change>`
+// segment -- a guard driven from the main checkout at a change's worktree --
+// else cwd, the directory the guard ran in.
+func guardWorktree(args []string, cwd string) string {
+	for _, a := range args[min(1, len(args)):] {
+		p, err := filepath.Abs(a)
+		if err != nil || !underWorktrees(p) {
+			continue
+		}
+		if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+			return p
+		}
+	}
+	return cwd
+}
+
+// underWorktrees reports whether path p has a segment ending `-worktrees`
+// followed by a further segment.
+func underWorktrees(p string) bool {
+	parts := strings.Split(filepath.ToSlash(p), "/")
+	for i, s := range parts[:max(0, len(parts)-1)] {
+		if strings.HasSuffix(s, "-worktrees") && len(s) > len("-worktrees") && parts[i+1] != "" {
+			return true
+		}
+	}
+	return false
+}

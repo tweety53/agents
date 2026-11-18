@@ -57,7 +57,7 @@ func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) s
 	code := run(args, reasons, out, stderr)
 	if name, ok := dispatched(args); ok {
 		if dir := workingDir(); dir != "" {
-			recordRun(getenv, dir, name, code, string(out.line), reasons.IDs(), time.Since(start), client)
+			recordRun(getenv, guardWorktree(args, dir), name, code, string(out.line), reasons.IDs(), time.Since(start), client)
 		}
 	}
 	return code
