@@ -1119,6 +1119,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	pairPick := fset.String("pair-pick", "", "the pair judge's `<source>: <reason>` for this dispatch's pair -- optional: omitted where no judge picked the pair (skills/flow/brainstorm-planner.md, Model and effort)")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
+	wsCommit := fset.String("whitespace-only-commit", "", "a back-filled inline panel-fix's commit, admitted under an sdd decision only where it changes nothing but whitespace and blank lines -- set by back-fill, optional")
 	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")
 
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
@@ -1486,7 +1487,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	var execution string
 	if decided && (*role == "implementer" || *role == "panel-fix") && *agentID == "inline" &&
 		(strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "full-suite-fix-") || strings.HasPrefix(*key, "panel-fix-")) &&
-		json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" {
+		json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" &&
+		!(*role == "panel-fix" && *wsCommit != "" && whitespaceOnlyCommit(*wsCommit, mutationRoots(ctx, f, projectKey))) {
 		fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
 		return 2
 	}
@@ -2130,6 +2132,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 	})
 	if derived != nil {
 		begin = append(begin, derived[:2]...)
+		if *v["role"] == "panel-fix" {
+			begin = append(begin, "-whitespace-only-commit", *v["commit"])
+		}
 		end = append(end, derived[2:]...)
 	}
 	// backfill keeps -effort optional; begin requires it, so an omitted one
@@ -5057,5 +5062,20 @@ func panelFixKeyOK(key string, stderr io.Writer) bool {
 		return true
 	}
 	fmt.Fprintf(stderr, "flow: -key %q: panel-fix-<round> counts fix rounds from 1 — the fix after panel-0 is panel-fix-1 (skills/flow/review-panel-fix-round.md)\n", key)
+	return false
+}
+
+// whitespaceOnlyCommit reports whether sha changes nothing but whitespace and
+// blank lines in the first of roots that knows it: a parent's inline
+// panel-fix of such a commit is no judgement the one-shot rule exists to
+// hand to a fresh dispatch.
+func whitespaceOnlyCommit(sha string, roots []string) bool {
+	for _, r := range roots {
+		if exec.Command("git", "-C", r, "cat-file", "-e", sha+"^{commit}").Run() != nil {
+			continue
+		}
+		return exec.Command("git", "-C", r, "diff", "--quiet", sha+"^", sha).Run() != nil &&
+			exec.Command("git", "-C", r, "diff", "-w", "--ignore-blank-lines", "--quiet", sha+"^", sha).Run() == nil
+	}
 	return false
 }

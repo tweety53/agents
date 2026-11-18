@@ -9977,3 +9977,61 @@ func TestRecordDispatchBackfillIgnoresUnreadRowsInThePanelFixFloor(t *testing.T)
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
 	}
 }
+
+// An inline panel-fix of a whitespace-only commit is recorded under sdd; one
+// that changes code is still refused.
+func TestRecordDispatchBackfillAdmitsAWhitespaceOnlyInlinePanelFixUnderSdd(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	repo := recordRepo(t, "kan-258")
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	commitFile := func(body, at string) string {
+		if err := os.WriteFile(filepath.Join(repo, "a.kt"), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		for _, args := range [][]string{{"add", "a.kt"}, {"commit", "-q", "-m", "edit " + at}} {
+			cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+			cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=t@e.com", "GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=t@e.com", "GIT_AUTHOR_DATE="+at, "GIT_COMMITTER_DATE="+at)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		out, _ := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
+		return strings.TrimSpace(string(out))
+	}
+	commitFile("/** doc */\n\n@A\nfun f() = 1\n", "2026-10-23T09:25:00Z")
+	blank := commitFile("/** doc */\n@A\nfun f() = 1\n", "2026-10-23T09:30:03Z")
+	code := commitFile("/** doc */\n@A\nfun f() = 2\n", "2026-10-23T09:31:03Z")
+	record := `{"change":"kan-258","dispatches":[` +
+		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:10:00Z","endedAt":"2026-10-23T09:15:00Z"},` +
+		`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-23T09:15:00Z","endedAt":"2026-10-23T09:16:00Z","outcome":"completed"}]}`
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/decisions") {
+			_, _ = w.Write([]byte(decisionsBody(`{"execution":"sdd"}`)))
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+			_, _ = w.Write([]byte(record))
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+	}))
+	t.Cleanup(srv.Close)
+	for _, tc := range []struct {
+		sha  string
+		code int
+	}{{blank, 0}, {code, 2}} {
+		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-1",
+			"-session-token", "mf-record-ws-backfill", "-outcome", "completed", "-agent-id", "inline", "-commit", tc.sha}
+		var stdout, stderr bytes.Buffer
+		if got := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); got != tc.code {
+			t.Fatalf("%s: exit %d, want %d; stderr:\n%s", tc.sha[:7], got, tc.code, stderr.String())
+		}
+	}
+}
