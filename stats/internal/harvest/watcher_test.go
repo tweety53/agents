@@ -5326,3 +5326,36 @@ func TestGiveUpStampsTheRowsReason(t *testing.T) {
 		}
 	})
 }
+
+// TestSettleOverflowDropsTheOldestBegin pins the begin-time sort ahead of the
+// overflow trim: store rows are appended after the command-derived ones, so
+// a trim by position alone would drop the newest begin, not the oldest.
+func TestSettleOverflowDropsTheOldestBegin(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	command, err := json.Marshal("flow record dispatch begin -change c -role implementer -key late -session-token mf-s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, stampFixtureLines(
+		`{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(command)+`}}]}}`,
+		mainThreadLine("00:06:00", 1),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &settleDeps{rows: map[string]*settleRow{"late": {id: 1}}, restamps: map[int64]json.RawMessage{}}
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 64 {
+		key := fmt.Sprintf("store-%d", i)
+		deps.rows[key] = &settleRow{id: int64(100 + i)}
+		deps.inline = append(deps.inline, harvest.InlineRow{ID: int64(100 + i), SessionToken: "mf-s", Key: key, StartedAt: start.Add(time.Duration(i) * time.Second), EndedAt: start.Add(time.Minute)})
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if want := []string{"100 settle candidates overflowed"}; !slices.Equal(deps.marks, want) {
+		t.Fatalf("marks = %v, want %v", deps.marks, want)
+	}
+}
