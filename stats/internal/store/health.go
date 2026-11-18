@@ -174,3 +174,44 @@ func (s *Store) GuardHealthProjects(ctx context.Context, period Period) ([]Proje
 	}
 	return out, nil
 }
+
+// ChangeGuardRuns reads the guard runs a change's run window holds
+// (decision parent-time-guard-runs). claimed are every project's runs whose
+// worktree carries the path segment -worktrees/<change> followed by "/" or
+// the end -- any repository's worktree directory of the change -- and whose
+// [recorded_at - duration_ms, recorded_at) overlaps [from, to), oldest
+// first. unclaimed counts projectKey's runs in the same window whose
+// worktree carries no -worktrees/ segment: main-checkout runs no change can
+// claim.
+func (s *Store) ChangeGuardRuns(ctx context.Context, projectKey, change string, from, to time.Time) (claimed []records.GuardRun, unclaimed int, err error) {
+	const inWindow = `recorded_at > $1 AND recorded_at - duration_ms * interval '1 millisecond' < $2`
+	seg := "-worktrees/" + change
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons
+		FROM guard_runs
+		WHERE `+inWindow+`
+		  AND (strpos(worktree, $3 || '/') > 0 OR right(worktree, length($3)) = $3)
+		ORDER BY recorded_at, id
+	`, from, to, seg)
+	if err != nil {
+		return nil, 0, fmt.Errorf("store: guard runs of %s/%s: %w", projectKey, change, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r records.GuardRun
+		if err := rows.Scan(&r.ID, &r.Guard, &r.Worktree, &r.ExitCode, &r.Outcome, &r.DurationMS, &r.RecordedAt, &r.Reasons); err != nil {
+			return nil, 0, fmt.Errorf("store: guard runs of %s/%s: scan: %w", projectKey, change, err)
+		}
+		claimed = append(claimed, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("store: guard runs of %s/%s: %w", projectKey, change, err)
+	}
+	if err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int FROM guard_runs
+		WHERE `+inWindow+` AND project_key = $3 AND strpos(worktree, '-worktrees/') = 0
+	`, from, to, projectKey).Scan(&unclaimed); err != nil {
+		return nil, 0, fmt.Errorf("store: unclaimed guard runs of %s: %w", projectKey, err)
+	}
+	return claimed, unclaimed, nil
+}

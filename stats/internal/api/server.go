@@ -205,6 +205,7 @@ type serverOptions struct {
 	repricer    Repricer
 	experiments ExperimentStore
 	changeFiles ChangeFileStore
+	runTimings  RunTimingsStore
 	rolesTable  []byte
 	commitBase  string
 	build       string
@@ -450,6 +451,10 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.guardRuns != nil {
 		grh := &guardRunHandler{store: so.guardRuns, logger: logger}
 		mux.HandleFunc("POST /api/v1/guard-runs/{project}", grh.record)
+	}
+	if so.runTimings != nil {
+		rth := &runTimingsHandler{store: so.runTimings, saved: sth.savedFile, now: time.Now, log: logger}
+		mux.Handle("GET /api/v1/stats/run/{project}/{change}", http.TimeoutHandler(http.HandlerFunc(rth.get), statsWriteTimeout, statsTimeoutMessage))
 	}
 	if so.changeFiles != nil {
 		cfh := &changeFileHandler{store: so.changeFiles, logger: logger}
