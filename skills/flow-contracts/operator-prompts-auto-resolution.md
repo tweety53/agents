@@ -64,6 +64,12 @@ cases is a stop for nothing:
   against a no-blank-first-frame rule, for example: take the reading that satisfies both (the row
   drawn from its first frame and sliding into place, never starting invisible), record it as a
   decision superseding the plan's, and go on to **The loop**. A conflict is never a reason to stop.
+- **A verify or visual-verify loop that keeps finding departures** — round after round, the same
+  frames again or new ones: run another fix round. There is no round count, no usage or time
+  threshold, and no "land with leftovers or keep going?" question: the departures are fixed until a
+  round reports none (`skills/flow/verify-fix-loop.md`). A departure no round can close — two frames
+  that contradict each other — is recorded on the handoff with both frames cited, and the loop goes on
+  with the rest.
 - **A guard that refuses evidence the run really holds** — a freshness check that reads a
   byte-identical recapture as "not recaptured", a closing check a remainder row cannot satisfy: the
   guard is the defect. Fix it in an `agents` worktree (**Pipeline defects found mid-run**,
