@@ -470,7 +470,7 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		}
 		firstLine, _, _ := strings.Cut(r, "\n")
 		token := reproducerToken(firstLine)
-		if token == "" || pcExists(worktree+"/"+token) {
+		if token == "" || !strings.Contains(token, "/") || pcExists(worktree+"/"+token) {
 			continue
 		}
 		if !recordedTrees("a fixed finding's reproducer is absent from the worktree") {
@@ -735,7 +735,7 @@ func cfcUncounted(worktree string, findings []cfcFindingRow) (over, under []stri
 			if slices.Contains(strings.Split(f.slot, "+"), g.role) {
 				recorded++
 			}
-			if f.slot == g.role {
+			if f.slot == g.role && !strings.HasPrefix(f.status, "withdrawn duplicate") {
 				exact++
 			}
 		}
@@ -874,7 +874,8 @@ func cfcReadInRoundOrLater(worktree string, round int, role, repo string) bool {
 // not splitting an entry -- none for `Unread: none` or no such line.
 func cfcUnread(body []byte) []string {
 	m := cfcUnreadRE.FindSubmatch(body)
-	if m == nil || strings.TrimSpace(string(m[1])) == "none" {
+	// `Unread: none (a note)` reads everything: the first word decides, a parenthetical after it is the note.
+	if m == nil || strings.HasPrefix(strings.TrimSpace(string(m[1]))+" ", "none ") {
 		return nil
 	}
 	var out []string

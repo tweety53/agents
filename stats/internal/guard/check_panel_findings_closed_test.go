@@ -1069,3 +1069,29 @@ func TestCheckPanelFindingsClosedAcceptsARoleCover(t *testing.T) {
 		t.Errorf("a role cover did not cover the section:\n%s", errs)
 	}
 }
+
+// TestCfcUnreadNoneWithANoteReadsEverything: `Unread: none (<note>)` names no section.
+func TestCfcUnreadNoneWithANoteReadsEverything(t *testing.T) {
+	t.Parallel()
+	for _, line := range []string{"Unread: none\n", "Unread: none (PNG hunks are binary; read as file names only)\n"} {
+		if got := cfcUnread([]byte(line)); len(got) != 0 {
+			t.Errorf("%q named sections %q", line, got)
+		}
+	}
+	if got := cfcUnread([]byte("Unread: nonexistent-repo\n")); !slices.Equal(got, []string{"nonexistent-repo"}) {
+		t.Errorf("a repository whose name starts with none: %q", got)
+	}
+}
+
+// TestCheckPanelFindingsClosedDuplicateWithdrawalsAreBookkeeping: a row withdrawn as a duplicate of
+// another never counts as a row the report did not count, and a bare-command reproducer on a fixed
+// row is no script to resolve.
+func TestCheckPanelFindingsClosedDuplicateWithdrawalsAreBookkeeping(t *testing.T) {
+	t.Parallel()
+	const line = "store row(s) a slot's reports do not count: "
+	f1 := cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 0, Slot: "principles"}
+	f2 := cfcFinding{Ref: "F2", Severity: "Minor", Status: "withdrawn duplicate of F1: same defect", Round: 0, Slot: "principles", Supersedes: "F1"}
+	if _, errs := cfcCase(t, cfcJSON(f1, f2), "[]", map[string]string{"panel-report-0-principles.md": "Critical: 0\nImportant: 1\nMinor: 0\n"}); strings.Contains(errs, line) {
+		t.Errorf("a duplicate withdrawal counted against the report: %s", errs)
+	}
+}
