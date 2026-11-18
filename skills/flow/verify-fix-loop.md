@@ -45,11 +45,28 @@ remains, and a capture with a blob outside it is a defect per **The sweep**
 (`skills/flow-contracts/known-bugs.md`), never copied.
 
 **Mockup departures are classified before the round's task is written.** Where every frame that
-draws the departing component agrees, the departure is a defect this round fixes. Where frames
-disagree on a shared component, the component's own design source wins — the frame that draws it
-as its subject, or the design-system frame it is taken from: the departures that source backs are
-fixed, and the other frame's departure closes as a mockup conflict, named on the handoff's
-`**Decisions:**` lines beside the frame it lost to — never fixed, and never asked.
+draws the departing component agrees, the departure is a defect this round fixes.
+
+**A size the frames, or the agents reading them, disagree on is picked once, from a value a frame
+draws, and never reopened.** Where frames disagree on one element's size, position, spacing or
+radius — or two verifiers, fixers or rounds read it off the frames at different values — the
+parent picks one value a frame draws: the element's own design source when one exists (the frame
+that draws it as its subject, or the design-system frame it is taken from), else the value most
+frames draw, else the first of those frames in the handoff's order. The pick is written once, before
+the round's task, as a `design.md` decision whose `**ID:**` is `drift-<element slug>` and whose
+`**Chosen:**` names the element, the property, the kept value and its frame, and every other frame
+with the value it draws; and as that drift in the store, a withdrawn finding of the parent's:
+
+```bash
+flow record finding -change <name> -ref <the ref `flow record next-ref -change <name>` prints> -slot parent -severity minor -location '<element> <property>' -status 'withdrawn drift: kept <value> from <frame>' -note '<every frame and the value it draws>'
+```
+
+From then on every verifier attributes the rows that pick explains `decision drift-<element slug>`
+(step 10's closed list, `skills/flow/visual-verify-verifier.md`), so they count as no departure; no
+round fixes the element toward another frame's value, picks it again or asks about it, and the
+handoff's `**Decisions:**` lines name each drift. Whatever looks wrong in use the operator reports
+after landing (kan-1091 and kan-1089: rounds swung one element between the values two frames draw,
+each round's fixer siding with a different frame).
 
 **A shared element that departs on some screens and not on others is fixed where those screens
 differ, never by a per-screen offset.** When the frames agree on where an element sits and the
