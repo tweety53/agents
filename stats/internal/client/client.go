@@ -624,6 +624,9 @@ func (c *Client) FindState(ctx context.Context, name string) ([]StateChange, err
 // `flow stage sessions` the session, `flow state set`'s IN_PROGRESS gate the
 // outcome.
 type StageRunRow struct {
+	// ID and Stage let the handoff's **Stages:** line name each open run.
+	ID        int64   `json:"stageRunId"`
+	Stage     string  `json:"stage"`
 	SessionID *string `json:"sessionId,omitempty"`
 	Outcome   *string `json:"outcome,omitempty"`
 	// Request and StartedAt let a caller pick a request's latest run
@@ -638,7 +641,7 @@ type StageRunRow struct {
 }
 
 // ListStageRuns reads a change's stage runs of one command and stage
-// (GET /api/v1/stage-runs, limit 1000).
+// (GET /api/v1/stage-runs, limit 1000); an empty command or stage is no filter.
 func (c *Client) ListStageRuns(ctx context.Context, project, change, command, stage string) ([]StageRunRow, error) {
 	q := url.Values{"project_key": {project}, "name": {change}, "command": {command}, "stage": {stage}, "limit": {"1000"}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/stage-runs?"+q.Encode(), nil)

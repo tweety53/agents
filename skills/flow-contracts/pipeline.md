@@ -493,7 +493,8 @@ substitution.**
 **A mark never blocks, delays, or alters the stage it marks.** The only nonzero exit is a caller mistake — an
 undocumented stage key, a missing required flag, or a session token carrying a substitution shape —
 which is a defect in the skill's own call, not an outcome of the stage, and is fixed by correcting the
-call rather than worked around. On any store failure the CLI journals the intent, prints one warning
+call rather than worked around — and a `stage end` the store answers with no open stage run, which
+prints the missing-begin line and exits 1: the begin was never recorded, a slip in the call. On any store failure the CLI journals the intent, prints one warning
 line, and exits 0 — the same never-block guarantee **State file**
 (`skills/flow-contracts/state-file.md`) already states for `state set`. Do not branch on
 `flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store

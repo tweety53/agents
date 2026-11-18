@@ -5296,13 +5296,30 @@ func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
 
 // --- handoff-lines ------------------------------------------------------
 
-// handoffDaemon serves the one read `record handoff-lines` makes: the cost
-// status. Any other request fails the test.
+// handoffDaemon serves the two reads `record handoff-lines` makes: the cost
+// status, and a stage-runs listing with no runs. Any other request fails the
+// test.
 func handoffDaemon(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return handoffDaemonWithStageRuns(t, `{"stageRuns":[]}`)
+}
+
+// handoffDaemonWithStageRuns is handoffDaemon answering the stage-runs
+// listing with stageRuns; an empty stageRuns answers it 500.
+func handoffDaemonWithStageRuns(t *testing.T, stageRuns string) http.HandlerFunc {
 	t.Helper()
 	return genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("handoff-lines sent a %s request; it only reads", r.Method)
+		}
+		if r.URL.Path == "/api/v1/stage-runs" {
+			if stageRuns == "" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(stageRuns))
+			return
 		}
 		if !strings.HasSuffix(r.URL.Path, "/cost-status") {
 			t.Errorf("handoff-lines requested %s; it reads cost-status only", r.URL.Path)
@@ -5349,9 +5366,9 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 		journal int // -1: make the journal unreadable
 		want    string
 	}{
-		{"clean", 0, "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n"},
-		{"journalled", 2, "**Records:** 2 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n"},
-		{"uncountable", -1, "**Records:** unknown — the journal could not be counted\n**Costs:** 0 unattributed\n"},
+		{"clean", 0, "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"},
+		{"journalled", 2, "**Records:** 2 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"},
+		{"uncountable", -1, "**Records:** unknown — the journal could not be counted\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -5383,6 +5400,48 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 	}
 }
 
+// TestHandoffLinesNamesOpenStageRuns pins the **Stages:** line: the change's
+// stage runs still open, in start order, so a handoff names a stage whose end
+// was never marked; an unreadable listing is "unknown", never "0 open".
+func TestHandoffLinesNamesOpenStageRuns(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name      string
+		stageRuns string
+		want      string
+	}{
+		{"one open", `{"stageRuns":[` +
+			`{"stageRunId":41,"stage":"flow.verify","startedAt":"2026-11-18T10:05:00Z"},` +
+			`{"stageRunId":40,"stage":"flow.implement","startedAt":"2026-11-18T10:00:00Z","endedAt":"2026-11-18T10:04:00Z","outcome":"done"}]}`,
+			"**Stages:** 1 open — flow.verify (run 41)"},
+		{"two open in start order", `{"stageRuns":[` +
+			`{"stageRunId":43,"stage":"flow.verify","startedAt":"2026-11-18T10:05:00Z"},` +
+			`{"stageRunId":42,"stage":"flow.implement","startedAt":"2026-11-18T10:00:00Z"}]}`,
+			"**Stages:** 2 open — flow.implement (run 42), flow.verify (run 43)"},
+		{"none open", `{"stageRuns":[` +
+			`{"stageRunId":40,"stage":"flow.implement","startedAt":"2026-11-18T10:00:00Z","endedAt":"2026-11-18T10:04:00Z","outcome":"done"}]}`,
+			"**Stages:** 0 open"},
+		{"unreachable", "", "**Stages:** unknown — the stage runs could not be read"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			env := newTestEnv(t)
+			srv := httptest.NewServer(handoffDaemonWithStageRuns(t, tc.stageRuns))
+			defer srv.Close()
+
+			code, out, errOut := runHandoffLines(t, env, "-addr", srv.URL, "-C", repo, "-change", "demo")
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
+			}
+			lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+			if len(lines) != 3 || lines[2] != tc.want {
+				t.Errorf("stdout =\n%s\nwant third line %q", out, tc.want)
+			}
+		})
+	}
+}
+
 // TestRecordHandoffLinesDedupByProject pins the aggregation: the journal is
 // keyed per project, so two worktrees of one project are counted once, never
 // double-counted.
@@ -5403,7 +5462,7 @@ func TestRecordHandoffLinesDedupByProject(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
-	want := "**Records:** 3 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n"
+	want := "**Records:** 3 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"
 	if out != want {
 		t.Errorf("stdout =\n%s\nwant\n%s", out, want)
 	}
@@ -5422,6 +5481,11 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 			_, _ = w.Write([]byte(`{"unattributed":0,"reasons":{}}`))
 			return
 		}
+		if r.URL.Path == "/api/v1/stage-runs" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"stageRuns":[]}`))
+			return
+		}
 		recordReads++
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -5431,7 +5495,7 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
-	want := "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n"
+	want := "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"
 	if out != want {
 		t.Errorf("stdout =\n%s\nwant\n%s", out, want)
 	}

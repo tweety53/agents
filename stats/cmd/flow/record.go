@@ -2862,8 +2862,8 @@ const (
 )
 
 // runRecordHandoffLines implements `flow record handoff-lines`: the
-// handoff's Records and Costs lines, from journal-count's and cost-status's
-// own helpers.
+// handoff's Records, Costs and Stages lines, from journal-count's and
+// cost-status's own helpers and the change's stage-run listing.
 //
 // The journal is keyed per project, so the canonical worktree (-C) and every
 // -worktree are deduplicated by fallback.ProjectKey before it is counted --
@@ -2938,7 +2938,44 @@ func runRecordHandoffLines(ctx context.Context, args []string, getenv func(strin
 
 	fmt.Fprintf(stdout, "**Records:** %s\n", recordsLine)
 	fmt.Fprintf(stdout, "**Costs:** %s\n", costs)
+
+	stages := handoffStagesUnknown
+	if canonicalKey != "" {
+		line, err := readOpenStagesLine(ctx, f, canonicalKey)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: stage runs: %v\n", err)
+		} else {
+			stages = line
+		}
+	}
+	fmt.Fprintf(stdout, "**Stages:** %s\n", stages)
 	return 0
+}
+
+// handoffStagesUnknown is the **Stages:** line when the listing could not be
+// read -- never "0 open", which would claim every stage was ended.
+const handoffStagesUnknown = "unknown — the stage runs could not be read"
+
+// readOpenStagesLine renders the change's stage runs still open as
+// `0 open` or `<n> open — <stage> (run <id>), …` in start order.
+func readOpenStagesLine(ctx context.Context, f recordIdentityFlags, projectKey string) (string, error) {
+	rows, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
+		return cl.ListStageRuns(ctx, projectKey, f.change, "", "")
+	})
+	if err != nil {
+		return "", err
+	}
+	var open []string
+	slices.SortStableFunc(rows, func(a, b client.StageRunRow) int { return strings.Compare(a.StartedAt, b.StartedAt) })
+	for _, r := range rows {
+		if r.EndedAt == nil {
+			open = append(open, fmt.Sprintf("%s (run %d)", r.Stage, r.ID))
+		}
+	}
+	if len(open) == 0 {
+		return "0 open", nil
+	}
+	return fmt.Sprintf("%d open — %s", len(open), strings.Join(open, ", ")), nil
 }
 
 // recordStatusRequest is the journalled form of a status write. The wire
