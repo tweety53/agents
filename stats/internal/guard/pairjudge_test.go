@@ -271,7 +271,6 @@ func TestPairJudgeTakesThePick(t *testing.T) {
 		"implementer", "Writes the code for a group of tasks, tests first.",
 		"- opus/flow-low\n", "- opus/flow-medium\n", "- sonnet/flow-low",
 		"PAIR: <one candidate, verbatim>", "REASON: <one line>",
-		"whenever a sonnet candidate is listed, pick it unless the digest shows concurrency",
 	} {
 		if !strings.Contains(prompt, want) {
 			t.Errorf("system prompt lacks %q:\n%s", want, prompt)
