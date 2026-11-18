@@ -8,12 +8,16 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -291,20 +295,61 @@ func TestRunTimingsRouteServesTheResult(t *testing.T) {
 	}
 }
 
-// TestRunTimingsCountsAndDataQuality: the counts fold fix rounds, findings,
-// flaky retries and row outcomes, and data quality names the open row with
-// no tokens and an unknown journal.
-func TestRunTimingsCountsAndDataQuality(t *testing.T) {
+// rtDataQualityInput is rtInput carrying every gap data quality names:
+// rows open, aborted (one with tokens) and blocked, verify-fix,
+// visual-verify-fix and panel-fix rounds, a row without tokens with a
+// reason and one without, an unlinked row with an other: key, a retimed
+// row, an open and a superseded stage run, unclaimed guard runs and a
+// tasks.md readable nowhere. openCost prices the open stage run: at 2.5 the
+// stage runs' cost equals the dispatch rows' $12.50.
+func rtDataQualityInput(openCost string) runInput {
 	in := rtInput()
-	in.Dispatches = append(in.Dispatches, rtDispatch("panel-fix-1-gymie", "implementer", 140, 145, "1"))
+	aborted, abortedRan, blocked := rtDispatch("task-6-implementer", "implementer", 142, 143, ""), rtDispatch("task-5-implementer", "implementer", 140, 142, "1"), rtDispatch("task-7-implementer", "implementer", 143, 144, "1")
+	aborted.Outcome, abortedRan.Outcome, blocked.Outcome = "aborted", "aborted", "blocked"
+	reasoned := rtDispatch("task-8-implementer", "implementer", 144, 145, "")
+	reasoned.Metrics = json.RawMessage(`{"unattributed":{"reason":"harness lost it"}}`)
+	in.Dispatches = append(in.Dispatches,
+		rtDispatch("visual-verify-fix-2-gymie", "implementer", 130, 135, "1"),
+		rtDispatch("panel-fix-1-gymie", "implementer", 135, 140, "1"),
+		abortedRan, aborted, blocked, reasoned,
+		rtDispatch("mystery-1", "oddball", 145, 146, "0.5"),
+	)
+	link := int64(1)
+	for i := range in.Dispatches {
+		if in.Dispatches[i].Key != "mystery-1" {
+			in.Dispatches[i].StageRunID = &link
+		}
+	}
+	in.Dispatches[1].Retimed = &records.Retime{Reason: "clock skew", At: rtAt(50), StartedAt: rtAt(19)}
+	open := store.StageRun{ID: 3, Stage: "flow.integrate", StartedAt: rtAt(160), Metrics: json.RawMessage(`{"cost_usd":` + openCost + `}`)}
+	superseded := rtStage("flow.implement", 0, 10, "0")
+	superseded.ID, superseded.Outcome = 4, new("superseded")
+	in.Stages = append(in.Stages, open, superseded)
+	in.Unclaimed = 3
 	in.Findings = []records.Finding{{Severity: "Critical"}, {Severity: "important"}, {Severity: "Minor"}, {Severity: "minor"}}
-	two := 2
-	in.VerifyRuns = []records.VerifyRun{{Flaky: &two}, {}}
+	in.VerifyRuns = []records.VerifyRun{{Flaky: new(2)}, {}}
 	in.Departures = []roundDepartures{{Round: "visual-verify-1-gymie", Departures: 3}}
-	in.PlanRead = true
-	out := computeRun(in, rtAt(200))
+	in.PlanRead = false
+	return in
+}
+
+func rtDataQuality(out RunTimings) map[string]dqItem {
+	got := map[string]dqItem{}
+	for _, d := range out.DataQuality {
+		got[d.ID] = d
+	}
+	return got
+}
+
+// TestRunTimingsCountsAndDataQuality: the counts fold fix rounds, findings,
+// flaky retries and row outcomes; data quality names every gap the fixture
+// carries; the unreconciled-cost item fires from one cent; the journal is
+// counted at the state root and reads unknown when it cannot be read.
+func TestRunTimingsCountsAndDataQuality(t *testing.T) {
+	t.Parallel()
+	out := computeRun(rtDataQualityInput("2.5"), rtAt(200))
 	c := out.Counts
-	if c.FixRounds.Value != (fixRoundCounts{Verify: 1, Panel: 1}) {
+	if c.FixRounds.Value != (fixRoundCounts{Verify: 2, Panel: 1}) {
 		t.Errorf("fix rounds = %+v", c.FixRounds.Value)
 	}
 	if c.Findings.Value != (severityCounts{Critical: 1, Important: 1, Minor: 2}) {
@@ -313,31 +358,101 @@ func TestRunTimingsCountsAndDataQuality(t *testing.T) {
 	if c.FlakyRetries.Value != (flakyCounts{Retries: 2, Runs: 1}) {
 		t.Errorf("flaky = %+v", c.FlakyRetries.Value)
 	}
-	if c.Rows.Value != (outcomeCounts{Open: 1}) {
+	if c.Rows.Value != (outcomeCounts{Open: 1, Aborted: 2, Blocked: 1}) {
 		t.Errorf("rows = %+v", c.Rows.Value)
 	}
 	if len(c.Departures.Value) != 1 || c.Departures.Value[0].Departures != 3 {
 		t.Errorf("departures = %+v", c.Departures.Value)
 	}
-	got := map[string]dqItem{}
-	for _, d := range out.DataQuality {
-		got[d.ID] = d
+	if out.Totals.UnclaimedGuardRuns != 3 {
+		t.Errorf("unclaimed guard runs total = %d, want 3", out.Totals.UnclaimedGuardRuns)
 	}
-	if len(out.DataQuality) != 11 {
-		t.Errorf("data quality items = %d, want 11", len(out.DataQuality))
+	want := map[string]int{
+		"open-stage-runs": 1, "superseded-stage-runs": 1, "unlinked": 1, "no-tokens": 3, "aborted-ran": 1,
+		"uncategorised": 1, "unreadable-openers": 8, "unreconciled-cost": 0, "journal": 0, "retimed": 1,
+		"unclaimed-guard-runs": 3,
 	}
-	if d := got["no-tokens"]; d.Count != 1 {
-		t.Errorf("no-tokens = %+v", d)
+	got := rtDataQuality(out)
+	if len(out.DataQuality) != len(want) {
+		t.Errorf("data quality items = %d, want %d", len(out.DataQuality), len(want))
+	}
+	for id, n := range want {
+		if d, ok := got[id]; !ok || d.Count != n {
+			t.Errorf("%s = %+v, want count %d", id, d, n)
+		}
+	}
+	for id, detail := range map[string]string{
+		"open-stage-runs": "flow.integrate (run 3)", "superseded-stage-runs": "flow.implement (run 4)",
+		"unlinked": "mystery-1", "aborted-ran": "task-5-implementer", "uncategorised": "mystery-1 · other:oddball",
+		"retimed": "task-1-reviewer", "no-tokens": "task-8-implementer · harness lost it",
+	} {
+		if !slices.Contains(got[id].Detail, detail) {
+			t.Errorf("%s detail = %q, want it to name %q", id, got[id].Detail, detail)
+		}
 	}
 	if !got["journal"].Unknown {
-		t.Errorf("journal = %+v, want unknown", got["journal"])
+		t.Errorf("journal = %+v, want unknown without a state root", got["journal"])
 	}
-	if got["unreadable-openers"].Count != 0 {
-		t.Errorf("unreadable openers = %+v", got["unreadable-openers"])
+
+	planned := rtDataQualityInput("2.5")
+	planned.PlanRead = true
+	if n := rtDataQuality(computeRun(planned, rtAt(200)))["unreadable-openers"].Count; n != 0 {
+		t.Errorf("tasks.md read: unreadable openers = %d, want 0", n)
 	}
-	b, _ := json.Marshal(out.Counts.JournalPending)
-	if !json.Valid(b) || !strings.Contains(string(b), `"unknown"`) {
-		t.Errorf("journal json = %s", b)
+	for openCost, n := range map[string]int{"2.49": 1, "2.490001": 0} {
+		if d := rtDataQuality(computeRun(rtDataQualityInput(openCost), rtAt(200)))["unreconciled-cost"]; d.Count != n {
+			t.Errorf("open stage $%s: unreconciled cost = %+v, want count %d", openCost, d, n)
+		}
+	}
+	rtJournalAtStateRoot(t)
+}
+
+// rtJournalAtStateRoot: the route counts the change's record journal under
+// WithStateRoot, and serves unknown when the journal cannot be read.
+func rtJournalAtStateRoot(t *testing.T) {
+	t.Helper()
+	root := t.TempDir()
+	path := fallback.RecordJournalPath(root, "p", "kan-1-a")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("{\"a\":1}\n{\"a\":2}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(fallback.RecordJournalPath(root, "p", "kan-2-b"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, nil, WithRunTimings(runTimingsFake{}), WithStateRoot(root))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	for change, want := range map[string]string{"kan-1-a": "2", "kan-2-b": `"unknown"`} {
+		resp, err := http.Get(ts.URL + "/api/v1/stats/run/p/" + change)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		var got struct {
+			Counts struct {
+				JournalPending struct {
+					Value json.RawMessage `json:"value"`
+				} `json:"journalPending"`
+			} `json:"counts"`
+			DataQuality []dqItem `json:"dataQuality"`
+		}
+		if err := json.Unmarshal(body, &got); err != nil {
+			t.Fatalf("%s: decode %s: %v", change, body, err)
+		}
+		if string(got.Counts.JournalPending.Value) != want {
+			t.Errorf("%s: journal pending = %s, want %s", change, got.Counts.JournalPending.Value, want)
+		}
+		j := rtDataQuality(RunTimings{DataQuality: got.DataQuality})["journal"]
+		if wantN := map[string]int{"kan-1-a": 2}[change]; j.Count != wantN || j.Unknown != (change == "kan-2-b") {
+			t.Errorf("%s: journal item = %+v", change, j)
+		}
 	}
 }
 
@@ -362,8 +477,10 @@ func TestEveryRunTimingsMetricCarriesADefinition(t *testing.T) {
 				if d, _ := x["definition"].(string); d == "" {
 					t.Errorf("%s: no definition", path)
 				}
-				if k, _ := x["kind"].(string); k == "" {
-					t.Errorf("%s: no kind", path)
+			}
+			if _, ok := x["definition"]; ok {
+				if k, _ := x["kind"].(string); !slices.Contains([]string{kindMeasured, kindDerived, kindEstimated}, k) {
+					t.Errorf("%s: kind %q is not measured|derived|estimated", path, k)
 				}
 			}
 			for k, c := range x {
@@ -376,6 +493,19 @@ func TestEveryRunTimingsMetricCarriesADefinition(t *testing.T) {
 		}
 	}
 	walk("$", v)
+	var out struct {
+		Definitions []definition `json:"definitions"`
+	}
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, d := range out.Definitions {
+		if seen[d.Name] {
+			t.Errorf("definitions list %q twice", d.Name)
+		}
+		seen[d.Name] = true
+	}
 	if n < 12 {
 		t.Errorf("metrics found = %d, want at least 12", n)
 	}
