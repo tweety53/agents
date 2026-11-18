@@ -43,6 +43,7 @@ export type ViewName =
   | "stage-leaderboard"
   | "trend"
   | "weekly-costs"
+  | "run-costs"
   | "reviewers"
   | "decisions"
   | "flow-health"
@@ -55,6 +56,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "stage-leaderboard",
   "trend",
   "weekly-costs",
+  "run-costs",
   "reviewers",
   "decisions",
   "flow-health",
@@ -692,14 +694,17 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return handleResponse<T>(res);
 }
 
-/** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= */
+/** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= --
+ * `run-costs` answers its raw RunCostsResult, every other view the envelope. */
+export async function fetchStatsView(view: "run-costs", params: StatsViewParams, init?: RequestInit): Promise<RunCostsResult>;
 export async function fetchStatsView<Row = unknown, Project = ProjectSpend>(
   view: StatsViewSlug,
   params: StatsViewParams,
   init?: RequestInit,
-): Promise<StatsResponse<Row, Project>> {
+): Promise<StatsResponse<Row, Project>>;
+export async function fetchStatsView(view: StatsViewSlug, params: StatsViewParams, init?: RequestInit): Promise<unknown> {
   const qs = buildStatsViewQuery(params);
-  return getJSON<StatsResponse<Row, Project>>(`/api/v1/stats/${view}?${qs.toString()}`, init);
+  return getJSON<unknown>(`/api/v1/stats/${view}?${qs.toString()}`, init);
 }
 
 /** GET /api/v1/projects -- every registered project key, in key order. */
@@ -909,6 +914,24 @@ export interface RunTimings {
   };
   dataQuality: { id: string; label: string; count: number; unknown?: boolean; detail: string[] }[];
   definitions: RunDefinition[];
+}
+
+/** Mirrors api.runCosts, GET /api/v1/stats/run-costs's result: every
+ * finished run in the period folded by category, and each run's line. */
+export interface RunCostsResult {
+  columns: RunDefinition[];
+  categories: { category: string; runs: number; rows: number; seconds: number; cost: number; shareOfCost: number }[];
+  runs: {
+    project: string;
+    change: string;
+    wallClockMs: RunMetric<number>;
+    agentTimeMs: RunMetric<number>;
+    idleMs: RunMetric<number>;
+    cost: RunMetric<number>;
+    tasks: RunMetric<number>;
+    fixRounds: RunMetric<{ verify: number; panel: number }>;
+    categoryCost: Record<string, number>;
+  }[];
 }
 
 /** GET /api/v1/stats/run/{project}/{change} -- one run's timings and costs. */

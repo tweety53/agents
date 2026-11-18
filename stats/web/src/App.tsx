@@ -19,6 +19,7 @@ import { Decisions } from "./views/Decisions";
 import { Experiments } from "./views/Experiments";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
+import { RunCosts } from "./views/RunCosts";
 import { RunTimings } from "./views/RunTimings";
 import { ReviewDynamics } from "./views/ReviewDynamics";
 import { Reviewers } from "./views/Reviewers";
@@ -35,6 +36,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "stage-leaderboard": "Stage leaderboard",
   trend: "Trend over time",
   "weekly-costs": "Weekly costs",
+  "run-costs": "Run costs",
   reviewers: "Reviewers",
   decisions: "Decisions",
   "flow-health": "Flow health",
@@ -48,6 +50,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "stage-leaderboard": StageLeaderboard,
   trend: Trend,
   "weekly-costs": WeeklyCosts,
+  "run-costs": RunCosts,
   reviewers: Reviewers,
   decisions: Decisions,
   "flow-health": FlowHealth,
@@ -249,9 +252,11 @@ export function App() {
             own Period, Project and Rank by chips (decision reviewers-chip-filters-period-project);
             Decisions carries its own Period, Project, Class and Review grouping chips (decision
             decisions-chip-filters); Flow health carries its own Period, Project and Rank by chips
-            (decision chip-filters-period-project-rank); Experiments spans each experiment's own window. */}
+            (decision chip-filters-period-project-rank); Run costs carries its own Period and Project chips;
+            Experiments spans each experiment's own window. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
+          route.view !== "run-costs" &&
           route.view !== "state-board" &&
           route.view !== "stage-leaderboard" &&
           route.view !== "trend" &&
