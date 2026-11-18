@@ -4553,7 +4553,7 @@ func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role,
 	var floor time.Time
 	for _, d := range run.Dispatches {
 		n, ok := records.PanelDispatchRound(d)
-		if !ok || d.EndedAt == nil || !d.EndedAt.After(floor) {
+		if !ok || d.EndedAt == nil || !d.EndedAt.After(floor) || strings.HasSuffix(d.Key, "-unread") {
 			continue
 		}
 		if (round >= 0 && n == round) || (round < 0 && !d.EndedAt.After(endT)) {
@@ -4719,7 +4719,7 @@ func panelFixAfterReports(ctx context.Context, f recordIdentityFlags, projectKey
 	var late *records.Dispatch
 	for i, d := range run.Dispatches {
 		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && d.Role == "reviewer" && d.EndedAt != nil &&
-			d.EndedAt.After(commitAt) && (late == nil || d.EndedAt.After(*late.EndedAt)) {
+			!strings.HasSuffix(d.Key, "-unread") && d.EndedAt.After(commitAt) && (late == nil || d.EndedAt.After(*late.EndedAt)) {
 			late = &run.Dispatches[i]
 		}
 	}

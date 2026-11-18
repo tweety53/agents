@@ -8373,9 +8373,15 @@ func TestRecordDispatchBackfillRefusesPanelFixOverOpenRound(t *testing.T) {
 // mutationEnd, the fix commit sitting at 09:30:03Z, and counts every POST.
 func reportsDaemon(t *testing.T, mutationEnd string) (*httptest.Server, *int, *[]map[string]any) {
 	t.Helper()
+	return reportsDaemonKeyed(t, "panel-0-mutation", mutationEnd)
+}
+
+// reportsDaemonKeyed is reportsDaemon with the late reviewer row's key chosen.
+func reportsDaemonKeyed(t *testing.T, lateKey, mutationEnd string) (*httptest.Server, *int, *[]map[string]any) {
+	t.Helper()
 	record := `{"change":"kan-258","dispatches":[` +
 		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:20:01Z","endedAt":"2026-10-23T09:25:00Z"},` +
-		`{"key":"panel-0-mutation","role":"reviewer","slot":"mutation","startedAt":"2026-10-23T09:20:01Z","endedAt":"` + mutationEnd + `"},` +
+		`{"key":"` + lateKey + `","role":"reviewer","slot":"mutation","startedAt":"2026-10-23T09:20:01Z","endedAt":"` + mutationEnd + `"},` +
 		`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-01T00:00:00Z","endedAt":"2026-10-01T00:01:00Z","outcome":"completed"}]}`
 	posts := 0
 	var bodies []map[string]any
@@ -9951,4 +9957,23 @@ func TestRecordFindingRefusesALineBeyondItsFile(t *testing.T) {
 			t.Fatalf("exit %d, posts %d; want 2, 0; stderr:\n%s", code, posts, stderr)
 		}
 	})
+}
+
+// An -unread read of a section no fix names ends after the fix commit without
+// refusing it: the floor is the reports the fix fixes, never a side-section read.
+func TestRecordDispatchBackfillIgnoresUnreadRowsInThePanelFixFloor(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	repo := recordRepo(t, "kan-258")
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
+	srv, _, _ := reportsDaemonKeyed(t, "panel-0-primary-unread", "2026-10-23T09:32:00Z")
+	args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-1",
+		"-session-token", "mf-record-unread-floor", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
+	}
 }
