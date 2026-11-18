@@ -1256,13 +1256,19 @@ func TestCheckPlanShapeF34OpenerDepartures(t *testing.T) {
 		p := wt + "/spectre/changes/x/tasks.md"
 		writeFile(t, p, "- [ ] 1. "+title+"\n\n- [ ] **Step 1: fix "+cites+"**\n**Files:** `a.kt`\n**Tests:** `test_1`\n**Commit:** fix 1\n**Opener:** "+opener+"\n**After:** none\n")
 		if report {
-			writeFile(t, wt+"/.superpowers/sdd/verify-report-"+opener+".md", "- v2/SH27 over-tolerance: 3 — #1: departure; #2: expected; #3: departure\n")
+			// A real item quotes its row's figures after its cause (kan-1089:
+			// `#1: departure — gap a=37 b=43; ink.width a=705 b=701`), which F34
+			// once read as part of the cause and so found no departure at all.
+			writeFile(t, wt+"/.superpowers/sdd/verify-report-"+opener+".md", "- v2/SH27 over-tolerance: 3 — #1: departure — gap a=37 b=43; ink.width a=705 b=701; #2: expected — height a=30 b=36; #3: departure\n")
 		}
 		return p
 	}
 	fix := "In-run fix 1 — visual-verify: x"
 	if r := runGuard("check-plan-shape", []string{plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #1", true)}, env); r.rc != 1 || strings.Count(r.out, ": F34 ") != 1 || !strings.Contains(r.out, "v2/SH27 #3") {
 		t.Errorf("a dropped departure: rc=%d out=%q", r.rc, r.out)
+	}
+	if r := runGuard("check-plan-shape", []string{plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #3", true)}, env); r.rc != 1 || !strings.Contains(r.out, "v2/SH27 #1") || strings.Contains(r.out, "v2/SH27 #2") {
+		t.Errorf("a dropped departure quoting its figures: rc=%d out=%q", r.rc, r.out)
 	}
 	if r := runGuard("check-plan-shape", []string{plan(t, fix, "visual-verify-fix-9-gymie", "v2/SH27 #1 and xv2/SH27 #3 and v2/SH27 #30", true)}, env); r.rc != 1 || !strings.Contains(r.out, "v2/SH27 #3") {
 		t.Errorf("a departure cited only inside a longer name: rc=%d out=%q", r.rc, r.out)

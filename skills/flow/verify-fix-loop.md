@@ -51,6 +51,16 @@ as its subject, or the design-system frame it is taken from: the departures that
 fixed, and the other frame's departure closes as a mockup conflict, named on the handoff's
 `**Decisions:**` lines beside the frame it lost to — never fixed, and never asked.
 
+**A shared element that departs on some screens and not on others is fixed where those screens
+differ, never by a per-screen offset.** When the frames agree on where an element sits and the
+captures put it in different places on different screens, the cause is what those screens draw
+differently around it — a title block, an inset, a hero — and the round fixes that. A constant
+added for one screen or one tab to land the element where that frame puts it moves the element off
+the frames the other screens matched, and the next round reports them (kan-1091: the frames put
+the Body tab band at y≈170 on every tab; `BODY_SIDE`, `CALORIES_HERO_EXTRA` and a band 3dp under
+the title on one tab but 11dp on the others left the captures at 149 on some screens and 170 on
+the rest, over rounds 4 to 8).
+
 One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 
 1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**
@@ -72,7 +82,10 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    that file states.
    **One round appends one task**, carrying every defect the report names, every reviewer finding
    still open and every leftover a fixer named with its cause — never a task or a
-   round per defect, and never a second task under another title. A second task of a round is a
+   round per defect, and never a second task under another title. Its departures are one item per
+   cause the report's `## Verdict` names, each item citing every `<frame> #<row>` that cause
+   accounts for — never one item per frame or per row (kan-1089: task 67 listed every
+   over-tolerance row of a 432-departure report on its own). A second task of a round is a
    slice, cut only where two of its items edit one file in conflicting ways: it carries the
    round's `<k>` and `**Opener:**`, names that file in its `**Files:**` as the first task does, and
    has its own fixer. `flow-guard check-plan-shape` F24 and F33 refuse any other second task, and

@@ -791,24 +791,39 @@ func (p *psPlan) uncitedDepartures(opener, text string) []string {
 		return nil
 	}
 	var missing []string
-	for _, line := range strings.Split(string(report), "\n") {
+	_, rows := reportDepartures(string(report))
+	for _, cite := range rows {
+		if !citesWhole(text, cite) {
+			missing = append(missing, cite)
+		}
+	}
+	return missing
+}
+
+// psDepartureItem is an over-tolerance item the verifier classified a
+// departure: its cause alone, or followed by ` — <its row's figures>`.
+var psDepartureItem = regexp.MustCompile(`^#(\d+):\s*departure\s*(?:—.*)?$`)
+
+// reportDepartures reads a verifier report's `- <frame> over-tolerance:`
+// lines: every frame they judge, in order, and the `<frame> #<row>` of every
+// item classified `departure`. An item quotes its row's figures after its
+// cause (`#1: departure — gap a=37 b=43; ink.width a=705 b=701`), so the
+// cause is read before any ` — `, and a figure split off at a `;` is no item.
+func reportDepartures(report string) (judged, rows []string) {
+	for _, line := range strings.Split(report, "\n") {
 		over := vrOverLine.FindStringSubmatch(line)
 		if over == nil {
 			continue
 		}
+		judged = append(judged, over[1])
 		_, items, _ := strings.Cut(over[2], "—")
 		for _, item := range strings.Split(items, ";") {
-			it := vrOverItem.FindStringSubmatch(strings.TrimSpace(item))
-			if it == nil || strings.TrimSpace(it[2]) != "departure" {
-				continue
-			}
-			cite := over[1] + " #" + it[1]
-			if !citesWhole(text, cite) {
-				missing = append(missing, cite)
+			if it := psDepartureItem.FindStringSubmatch(strings.TrimSpace(item)); it != nil {
+				rows = append(rows, over[1]+" #"+it[1])
 			}
 		}
 	}
-	return missing
+	return judged, rows
 }
 
 // citesWhole reports whether text carries cite as a whole token: no word

@@ -714,7 +714,9 @@ n/a — `<why it does not apply>`, `clean` or the defect, never a narration of w
 else. `exits:` names every exit the `## Report` carries, `not declared` where a command is not;
 `cause:` appears only when a step is `blocked`, naming `environment`, `test-failure` or
 `missing-fixture` from the report's own facts; `departures:` counts every departure the `## Report`
-names, each then on a line of its own with its cause or attribution beside it.
+names, and the lines under it name each cause once, with every frame or view it shows on and its
+attribution beside it — one cause drawn on 34 frames is one line, never one line per frame
+(kan-1089: a 432-departure verdict listed one calendar header frame by frame).
 
 ```text
 ## Verdict
@@ -723,7 +725,7 @@ names, each then on a line of its own with its cause or attribution beside it.
 - steps: <the ## Report's steps: line, after `steps: `>
 - cause: environment | test-failure | missing-fixture
 - departures: <n>
-- <frame id or view>: <the departure, with its cause or attribution>
+- <every frame id or view it shows on>: <the departure's cause, with its attribution>
 ```
 
 ```text
