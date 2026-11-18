@@ -533,7 +533,8 @@ func repoOf(key string, repos []string) string {
 }
 
 // costPerTask splits each task-naming row's cost and time share evenly
-// across the task ids it names, a group's marked estimated.
+// across the task ids it names, a group's marked estimated; a task
+// several group keys name is labelled with the first.
 func costPerTask(rows []row) []taskCost {
 	idx := map[string]int{}
 	out := []taskCost{}
@@ -551,7 +552,7 @@ func costPerTask(rows []row) []taskCost {
 			c.ShareMs += splitPart(r.share, n, j)
 			c.Cost += usd(splitPart(int64(r.cost), n, j))
 			c.Estimated = c.Estimated || n > 1
-			if n > 1 {
+			if n > 1 && c.Group == "" {
 				c.Group = strings.Join(r.tasks, "+")
 			}
 		}

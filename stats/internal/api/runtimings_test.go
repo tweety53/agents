@@ -194,6 +194,16 @@ func TestRunTimingsSplitsAGroupKeyEvenly(t *testing.T) {
 	}
 }
 
+// TestRunTimingsTaskInTwoGroupsKeepsTheFirst: a task two group keys name
+// is labelled with the first group it appears in, not the last.
+func TestRunTimingsTaskInTwoGroupsKeepsTheFirst(t *testing.T) {
+	t.Parallel()
+	got := costPerTask([]row{{tasks: []string{"3", "4"}}, {tasks: []string{"3", "5"}}})
+	if got[0].Task != "3" || got[0].Group != "3+4" {
+		t.Errorf("task 3 = %+v, want group 3+4", got[0])
+	}
+}
+
 // TestRunTimingsRepoFromTheKeySuffix: the longest repository suffix wins,
 // and a key naming none is change-wide.
 func TestRunTimingsRepoFromTheKeySuffix(t *testing.T) {

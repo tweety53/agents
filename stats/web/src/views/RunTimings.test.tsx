@@ -12,7 +12,11 @@ const { runTimingsMock } = vi.hoisted(() => ({ runTimingsMock: vi.fn() }));
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, getRunTimings: runTimingsMock };
+  return {
+    ...actual,
+    getRunTimings: runTimingsMock,
+    fetchStatsView: vi.fn(async () => ({ rows: [{ name: C, project: P, state: "FINISHED", tasks: [] }] })),
+  };
 });
 
 const P = "gymie-7c1f238a";
@@ -110,6 +114,12 @@ async function page() {
 }
 
 describe("RunTimings", () => {
+  it("run timings heading carries the change's state pill", async () => {
+    render(<RunTimings project={P} change={C} />);
+    const title = (await screen.findByRole("heading", { level: 2 })).parentElement!;
+    expect(await within(title).findByTitle("state FINISHED")).toHaveClass("lb-pill");
+  });
+
   it("run timings page draws the totals strip", async () => {
     render(<RunTimings project={P} change={C} />);
     const root = await page();
@@ -180,6 +190,7 @@ describe("RunTimings", () => {
     expect(items[2].querySelector(".n")).toHaveClass("lb-err");
     const detail = [...items[2].querySelectorAll("details li")].map((l) => l.textContent);
     expect(detail).toEqual(["task-13+14-reviewer · transcript harvested late", "verify-fix-13-gymie · skipped, 0 s"]);
+    expect(items[2].querySelector("summary ul")).toBeNull();
   });
 
   it("run timings cost per task marks a split group estimated", async () => {

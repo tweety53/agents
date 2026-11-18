@@ -4,10 +4,11 @@
 // (GET /api/v1/stats/run/{project}/{change}); each carries its definition
 // and kind as a `src` badge.
 import { useEffect, useState, type ReactNode } from "react";
-import { getRunTimings, type RunMetric, type RunTimings as RunTimingsDTO } from "../api";
+import { fetchStatsView, getRunTimings, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow } from "../api";
 import { Chip } from "../components/Chip";
 import { RunTimeline, hm } from "../components/RunTimeline";
 import { projectLabel } from "../lib/projectLabel";
+import { StatePill } from "./StateBoard";
 
 const usd = (v: number) => `$${v.toFixed(2)}`;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -45,19 +46,10 @@ function Lbl({ name, m }: { name: string; m: RunMetric<unknown> }) {
   );
 }
 
-function Kpi({ name, m, value, hint }: { name: string; m: RunMetric<unknown>; value: ReactNode; hint?: ReactNode }) {
+// Kpi is one labelled figure: a totals-strip tile, or (bare) a counts-panel cell.
+function Kpi({ name, m, value, hint, bare }: { name: string; m: RunMetric<unknown>; value: ReactNode; hint?: ReactNode; bare?: boolean }) {
   return (
-    <div className="lb-kpi">
-      <Lbl name={name} m={m} />
-      <span className="lb-kpi-val lb-num">{value}</span>
-      {hint !== undefined && <span className="lb-hint">{hint}</span>}
-    </div>
-  );
-}
-
-function Count({ name, m, value, hint }: { name: string; m: RunMetric<unknown>; value: ReactNode; hint?: ReactNode }) {
-  return (
-    <div>
+    <div className={bare ? undefined : "lb-kpi"}>
       <Lbl name={name} m={m} />
       <span className="lb-kpi-val lb-num">{value}</span>
       {hint !== undefined && <span className="lb-hint">{hint}</span>}
@@ -182,14 +174,12 @@ function Body({ run }: { run: RunTimingsDTO }) {
                   <span>
                     {d.detail.length ? (
                       <details>
-                        <summary>
-                          {d.label}
-                          <ul>
-                            {d.detail.map((x) => (
-                              <li key={x}>{x}</li>
-                            ))}
-                          </ul>
-                        </summary>
+                        <summary>{d.label}</summary>
+                        <ul>
+                          {d.detail.map((x) => (
+                            <li key={x}>{x}</li>
+                          ))}
+                        </ul>
                       </details>
                     ) : (
                       d.label
@@ -205,12 +195,12 @@ function Body({ run }: { run: RunTimingsDTO }) {
       <section className="lb-panel" aria-label="Counts">
         <div className="lb-panel-h"><span>Counts</span></div>
         <div className="counts">
-          <Count name="Fix rounds" m={c.fixRounds} value={`${c.fixRounds.value.verify} · ${c.fixRounds.value.panel}`} hint="verify / visual · panel" />
-          <Count name="Departures / visual round" m={c.departures} value={deps.length ? `${deps[0]} → ${deps[deps.length - 1]}` : "—"} hint={deps.join(" · ")} />
-          <Count name="Findings" m={c.findings} value={`${c.findings.value.critical} · ${c.findings.value.important} · ${c.findings.value.minor}`} hint="critical · important · minor" />
-          <Count name="Flaky retries" m={c.flakyRetries} value={c.flakyRetries.value.retries} hint={`over ${c.flakyRetries.value.runs} verify runs`} />
-          <Count name="Rows open · aborted · blocked" m={c.rows} value={`${c.rows.value.open} · ${c.rows.value.aborted} · ${c.rows.value.blocked}`} />
-          <Count name="Journal pending" m={c.journalPending} value={c.journalPending.value} />
+          <Kpi bare name="Fix rounds" m={c.fixRounds} value={`${c.fixRounds.value.verify} · ${c.fixRounds.value.panel}`} hint="verify / visual · panel" />
+          <Kpi bare name="Departures / visual round" m={c.departures} value={deps.length ? `${deps[0]} → ${deps[deps.length - 1]}` : "—"} hint={deps.join(" · ")} />
+          <Kpi bare name="Findings" m={c.findings} value={`${c.findings.value.critical} · ${c.findings.value.important} · ${c.findings.value.minor}`} hint="critical · important · minor" />
+          <Kpi bare name="Flaky retries" m={c.flakyRetries} value={c.flakyRetries.value.retries} hint={`over ${c.flakyRetries.value.runs} verify runs`} />
+          <Kpi bare name="Rows open · aborted · blocked" m={c.rows} value={`${c.rows.value.open} · ${c.rows.value.aborted} · ${c.rows.value.blocked}`} />
+          <Kpi bare name="Journal pending" m={c.journalPending} value={c.journalPending.value} />
         </div>
       </section>
 
@@ -295,6 +285,17 @@ export function RunTimings({ project, change }: { project: string; change: strin
     );
     return () => ctl.abort();
   }, [project, change]);
+  // The heading's state pill, as run detail fetches it; a failed fetch leaves the heading without it.
+  const [board, setBoard] = useState<StateBoardRow>();
+  useEffect(() => {
+    const ctl = new AbortController();
+    setBoard(undefined);
+    fetchStatsView<StateBoardRow[]>("state-board", { from: new Date(0), to: new Date(Date.now() + 86_400_000), project, change }, { signal: ctl.signal }).then(
+      (r) => setBoard(r.rows.find((x) => x.name === change)),
+      () => undefined,
+    );
+    return () => ctl.abort();
+  }, [project, change]);
 
   return (
     <section aria-label={`Run timings and costs: ${project}/${change}`} className="dashboard lb lb-run">
@@ -304,6 +305,7 @@ export function RunTimings({ project, change }: { project: string; change: strin
       <div className="lb-runhead">
         <div className="lb-title">
           <h2>{`${change} · timings and costs`}</h2>
+          {board && <StatePill row={board} />}
         </div>
         <p className="lb-sub">
           Project {projectLabel(project)} · <a href="#/run-costs">Compare with another run →</a>
