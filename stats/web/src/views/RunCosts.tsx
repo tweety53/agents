@@ -3,7 +3,7 @@
 // and the runs table from GET /api/v1/stats/run-costs, Compare joining two
 // ticked runs' one-run results (getRunTimings) client-side, and the
 // Definitions those results carry.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchProjects, fetchStatsView, getRunTimings, type RunCostsResult, type RunTimings } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { hm } from "../components/RunTimeline";
@@ -46,6 +46,8 @@ export function RunCosts() {
   // The two compared runs, older pick first; ticking a third drops the older.
   const [picks, setPicks] = useState<string[]>([]);
   const [timings, setTimings] = useState<Record<string, RunTimings>>({});
+  // gen counts period/project loads; a timings request outlived by one is stale.
+  const gen = useRef(0);
 
   useEffect(() => {
     fetchProjects().then(setProjects, () => setProjects([]));
@@ -53,6 +55,7 @@ export function RunCosts() {
 
   useEffect(() => {
     let live = true;
+    gen.current++;
     setError(null);
     fetchStatsView("run-costs", { from: win.from, to: win.to, project }).then(
       (d) => {
@@ -67,16 +70,27 @@ export function RunCosts() {
     };
   }, [win, project]);
 
+  // Each picked run is fetched once: requested holds the ids asked for, and a
+  // result or error that lands after the period or project changed is dropped
+  // (its id released so the next pick asks again).
+  const requested = useRef(new Set<string>());
   useEffect(() => {
     for (const id of picks) {
       const r = data?.runs.find((x) => runId(x) === id);
-      if (!r || timings[id]) continue;
+      if (!r || requested.current.has(id)) continue;
+      requested.current.add(id);
+      const g = gen.current;
+      const stale = () => gen.current !== g && requested.current.delete(id);
       getRunTimings(r.project, r.change).then(
-        (t) => setTimings((prev) => ({ ...prev, [id]: t })),
-        (e: unknown) => setError(e instanceof Error ? e.message : String(e)),
+        (t) => stale() || setTimings((prev) => ({ ...prev, [id]: t })),
+        (e: unknown) => {
+          if (stale()) return;
+          requested.current.delete(id);
+          setError(e instanceof Error ? e.message : String(e));
+        },
       );
     }
-  }, [picks, data, timings]);
+  }, [picks, data]);
 
   const tick = (id: string) => setPicks((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id].slice(-2)));
   const pick = (slot: 0 | 1, id: string) => setPicks((p) => (slot === 0 ? [id, p[1]] : [p[0], id]));
@@ -117,22 +131,22 @@ export function RunCosts() {
             <thead>
               <tr>
                 <th>Category</th>
-                <th>Runs</th>
-                <th>Rows</th>
-                <th>Time (union)</th>
-                <th>Cost</th>
-                <th>Share of cost</th>
+                <th className="r">Runs</th>
+                <th className="r">Rows</th>
+                <th className="r">Time (union)</th>
+                <th className="r">Cost</th>
+                <th className="r">Share of cost</th>
               </tr>
             </thead>
             <tbody>
               {(data?.categories ?? []).map((c) => (
                 <tr key={c.category}>
                   <td>{c.category}</td>
-                  <td>{c.runs}</td>
-                  <td>{c.rows}</td>
-                  <td>{hm(c.seconds * 1000)}</td>
-                  <td>{usd(c.cost)}</td>
-                  <td>{`${(100 * c.shareOfCost).toFixed(1)}%`}</td>
+                  <td className="r lb-num">{c.runs}</td>
+                  <td className="r lb-num">{c.rows}</td>
+                  <td className="r lb-num">{hm(c.seconds * 1000)}</td>
+                  <td className="r lb-num">{usd(c.cost)}</td>
+                  <td className="r lb-num">{`${(100 * c.shareOfCost).toFixed(1)}%`}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,7 +2,7 @@
 // view C), drawn from GET /api/v1/stats/run-costs with Compare joining two
 // runs' one-run results. fetchStatsView, fetchProjects and getRunTimings are
 // mocked at the module boundary, so these tests assert the view's own drawing.
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunCostsResult, RunMetric, RunTimings as RunTimingsDTO } from "../api";
@@ -154,6 +154,9 @@ describe("RunCosts", () => {
     const catTable = within(cat).getByRole("table");
     expect(within(catTable).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Category", "Runs", "Rows", "Time (union)", "Cost", "Share of cost"]);
     expect(within(catTable).getAllByRole("row")[1].textContent).toBe("planned implementer3936h 54m$95.4727.4%");
+    const catRow = within(catTable).getAllByRole("row")[1];
+    expect(within(catTable).getAllByRole("columnheader").map((h) => h.className)).toEqual(["", "r", "r", "r", "r", "r"]);
+    expect([...catRow.children].map((c) => c.className)).toEqual(["", "r lb-num", "r lb-num", "r lb-num", "r lb-num", "r lb-num"]);
     expect(within(cat).getByText("3 finished runs · union per run, summed across runs")).toBeInTheDocument();
 
     const runs = screen.getByRole("region", { name: "Runs" });
@@ -208,5 +211,29 @@ describe("RunCosts", () => {
     expect([...terms].map((t) => t.textContent)).toEqual(DEFS.map((d) => `${d.name} ${d.kind}`));
     expect([...defs.querySelectorAll("dd")].map((d) => d.textContent)).toEqual(DEFS.map((d) => d.definition));
     expect(terms[5].querySelector(".src.estimated")).not.toBeNull();
+  });
+
+  it("run costs fetches each picked run once and drops a stale error", async () => {
+    const pending: Record<string, (t: RunTimingsDTO) => void> = {};
+    let fail: (e: Error) => void = () => {};
+    runTimingsMock.mockImplementation(
+      (_p: string, c: string) =>
+        new Promise<RunTimingsDTO>((res, rej) => {
+          pending[c] = res;
+          fail = rej;
+        }),
+    );
+    render(<RunCosts />);
+    await vi.waitFor(() => expect(runTimingsMock).toHaveBeenCalledTimes(2));
+    pending[C1](T[C1]);
+    await screen.findByText("Wall clock", { selector: "dt" });
+    const failC2 = fail;
+    await userEvent.click(screen.getByRole("checkbox", { name: `Compare ${C3}` }));
+    expect(runTimingsMock.mock.calls.map((c) => c[1])).toEqual([C1, C2, C3]);
+
+    await userEvent.click(screen.getByRole("button", { name: "90 days" }));
+    await act(async () => {});
+    await act(async () => failC2(new Error("late failure")));
+    expect(screen.queryByText("late failure")).toBeNull();
   });
 });
