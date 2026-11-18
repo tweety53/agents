@@ -321,7 +321,8 @@ func checkPanelFindingsClosed(args []string, env Env, stdout, stderr io.Writer) 
 		// reproducer exiting non-zero on the fix -- is not in the store, so it
 		// is admitted unchecked here; the fix-mutation-row and regression-test
 		// checks below still hold it.
-		if strings.EqualFold(f.severity, "minor") || f.slot == cfcMutationSlot {
+		// A finding the parent raised itself (slot `parent`) has no panel slot to re-run.
+		if strings.EqualFold(f.severity, "minor") || f.slot == cfcMutationSlot || f.slot == "parent" {
 			continue
 		}
 		covered, missing := covers(f.slot, f.round)

@@ -1095,3 +1095,13 @@ func TestCheckPanelFindingsClosedDuplicateWithdrawalsAreBookkeeping(t *testing.T
 		t.Errorf("a duplicate withdrawal counted against the report: %s", errs)
 	}
 }
+
+// TestCheckPanelFindingsClosedParentRaisedFindingNeedsNoSlotRerun: a fixed finding the parent raised
+// itself (slot parent) has no panel slot a later round could re-run.
+func TestCheckPanelFindingsClosedParentRaisedFindingNeedsNoSlotRerun(t *testing.T) {
+	t.Parallel()
+	f := cfcFinding{Ref: "F1", Severity: "Important", Status: "fixed", Round: 0, Slot: "parent"}
+	if _, errs := cfcCase(t, cfcJSON(f), "[]", nil); strings.Contains(errs, "no clean re-run dispatch") {
+		t.Errorf("a parent-raised finding asked for a slot re-run: %s", errs)
+	}
+}
