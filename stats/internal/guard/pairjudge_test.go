@@ -551,3 +551,19 @@ func TestPjSampleSonnetSwapsOnlyAnOpusLowPick(t *testing.T) {
 		}
 	}
 }
+
+// TestPjSampledNamesTheSwapInTheReason: a sampled swap says so; a kept pick does not.
+func TestPjSampledNamesTheSwapInTheReason(t *testing.T) {
+	opusLow := pjCandidate{"opus/flow-low", "opus", "low"}
+	sonnetLow := pjCandidate{"sonnet/flow-low", "sonnet", "low"}
+	cands := []pjCandidate{opusLow, sonnetLow}
+	defer func(f func() float64) { pjSample = f }(pjSample)
+	pjSample = func() float64 { return 0 }
+	if got := pjSampled(opusLow, cands, false, "judge", "why"); got != "sonnet low judge why [sampled from opus low for data]" {
+		t.Errorf("swapped line = %q", got)
+	}
+	pjSample = func() float64 { return 1 }
+	if got := pjSampled(opusLow, cands, false, "judge", "why"); got != "opus low judge why" {
+		t.Errorf("kept line = %q", got)
+	}
+}

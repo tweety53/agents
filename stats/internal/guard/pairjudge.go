@@ -216,9 +216,9 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(cands) == 1 {
 		line = cands[0].line("single", "the only candidate")
 	} else if pick, reason, cause := pjAsk(env, rows, role, cands, digest); cause != "" {
-		line = pjSampleSonnet(cands[0], cands, opusOnly).line("fallback", cause)
+		line = pjSampled(cands[0], cands, opusOnly, "fallback", cause)
 	} else {
-		line = pjSampleSonnet(pick, cands, opusOnly).line("judge", reason)
+		line = pjSampled(pick, cands, opusOnly, "judge", reason)
 	}
 	line += "\n"
 	pickFile := strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"
@@ -251,6 +251,17 @@ func pjSampleSonnet(pick pjCandidate, cands []pjCandidate, opusOnly bool) pjCand
 		return pick
 	}
 	return cands[i]
+}
+
+// pjSampled prints pick's line, or the sampled sonnet/low candidate's with
+// ` [sampled from opus low for data]` added to the reason, so the swap can be
+// told from a pick the judge made.
+func pjSampled(pick pjCandidate, cands []pjCandidate, opusOnly bool, source, reason string) string {
+	got := pjSampleSonnet(pick, cands, opusOnly)
+	if got != pick {
+		reason += " [sampled from opus low for data]"
+	}
+	return got.line(source, reason)
 }
 
 // pjCandidates is role's base row, parsed and filtered.
