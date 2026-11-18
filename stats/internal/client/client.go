@@ -1169,6 +1169,30 @@ func (c *Client) GetRunRecord(ctx context.Context, project, change string) (reco
 	return out, nil
 }
 
+// OpenDispatch fetches the open dispatch row harness session session holds
+// under key (GET /api/v1/dispatches/open). A 404 -- no such open row -- is
+// found false with no error; every other failure is classified as
+// GetRunRecord's read is.
+func (c *Client) OpenDispatch(ctx context.Context, session, key string) (records.OpenDispatch, bool, error) {
+	q := url.Values{"session": {session}, "key": {key}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/dispatches/open?"+q.Encode(), nil)
+	if err != nil {
+		return records.OpenDispatch{}, false, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return records.OpenDispatch{}, false, err
+	}
+	if status == http.StatusNotFound {
+		return records.OpenDispatch{}, false, nil
+	}
+	var out records.OpenDispatch
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.OpenDispatch{}, false, err
+	}
+	return out, true, nil
+}
+
 // GetCostStatus fetches project/change's cost-status: how many of its
 // dispatches carry no cost figure yet, and why. Unlike `flow record
 // journal-count`, this genuinely contacts the store -- only the store can

@@ -1431,3 +1431,7 @@ func TestGetChangeIgnoresStaleRestartMarker(t *testing.T) {
 func (stubStageStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
 	return nil, nil
 }
+
+func (stubStageStore) OpenDispatchBySessionKey(context.Context, string, string) (int64, string, string, bool, error) {
+	return 0, "", "", false, nil
+}

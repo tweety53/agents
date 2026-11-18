@@ -10170,3 +10170,142 @@ func TestRecordDispatchBackfillAdmitsAWhitespaceOnlyInlinePanelFixUnderSdd(t *te
 		}
 	}
 }
+
+// newHandbackStore is newPlanEndStore with the hand-back reads answered
+// (decision gated-bracket-handback): GET /api/v1/dispatches/open answers
+// row 77 of change for key task-3-reviewer (404 for any other key), and the
+// run record lists row 77 open under that key and planEnd's session token.
+func newHandbackStore(t *testing.T, change string) planEndStore {
+	t.Helper()
+	var begins, ends atomic.Int32
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/dispatches/open":
+			if r.URL.Query().Get("key") != "task-3-reviewer" {
+				http.Error(w, `{"error":"no open dispatch"}`, http.StatusNotFound)
+				return
+			}
+			_, _ = fmt.Fprintf(w, `{"id":77,"projectKey":"p","change":%q}`, change)
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/records/"):
+			_, _ = w.Write([]byte(`{"dispatches":[{"id":77,"seq":1,"key":"task-3-reviewer","sessionToken":"mf-plan-verify-end","startedAt":"2026-01-02T03:04:05Z"}]}`))
+		default:
+			if strings.HasSuffix(r.URL.Path, "/dispatches/end") {
+				ends.Add(1)
+			}
+			_, _ = w.Write([]byte(`{"id":77,"seq":1,"role":"reviewer","model":"sonnet","startedAt":"2026-01-02T03:04:05Z","endedAt":"2026-01-02T03:44:05Z"}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return planEndStore{srv.URL, &begins, &ends}
+}
+
+// handback runs `flow record dispatch handback` against store from dir.
+func handback(t *testing.T, store planEndStore, dir, key string) (int, string) {
+	t.Helper()
+	env := newTestEnv(t)
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"record", "dispatch", "handback", "-addr", store.url, "-timeout", "500ms",
+		"-session", "s1", "-key", key, "-C", dir}, env.get, strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String()
+}
+
+func readMarker(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("marker: %v", err)
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// TestDispatchHandbackWritesAPassingMarker: the hand-back checks the plan
+// tree for the session's open row and writes "pass" beside the snapshot;
+// a key with no snapshot or no open row writes nothing, and all exit 0.
+func TestDispatchHandbackWritesAPassingMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	if code, errs := handback(t, store, repo, "task-3-reviewer"); code != 0 {
+		t.Fatalf("exit %d; stderr:\n%s", code, errs)
+	}
+	sdd := filepath.Join(repo, ".superpowers", "sdd")
+	if got := readMarker(t, filepath.Join(sdd, "plan-snapshot-task-3-reviewer.txt.handback-77")); got != "pass" {
+		t.Fatalf("marker = %q, want pass", got)
+	}
+	for _, key := range []string{"task-3-implementer", "task-4-reviewer"} {
+		if code, errs := handback(t, store, repo, key); code != 0 {
+			t.Errorf("%s: exit %d; stderr:\n%s", key, code, errs)
+		}
+	}
+	entries, _ := os.ReadDir(sdd)
+	if len(entries) != 2 {
+		t.Errorf("sdd holds %d files, want the snapshot and one marker", len(entries))
+	}
+}
+
+// TestDispatchEndTrustsAPassingHandbackMarker: a pass marker for the open
+// row lets the end proceed past the parent's later plan edit; a pass marker
+// for another row id is not trusted.
+func TestDispatchEndTrustsAPassingHandbackMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	snap := filepath.Join(repo, ".superpowers", "sdd", "plan-snapshot-task-3-reviewer.txt")
+	if err := os.WriteFile(snap+".handback-76", []byte("pass\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writePlanDesign(t, repo, change, "# design, the parent's edit\n")
+	if code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean"); code == 0 || store.ends.Load() != 0 {
+		t.Fatalf("stale marker: exit %d, ends %d, want non-zero and 0; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+	if err := os.WriteFile(snap+".handback-77", []byte("pass\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean"); code != 0 || store.ends.Load() != 1 {
+		t.Fatalf("pass marker: exit %d, ends %d, want 0 and 1; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestDispatchEndRefusesAFailingHandbackMarker: the reviewer edited the
+// plan before handing back, so the marker is fail; the parent's restore
+// does not rescue the end.
+func TestDispatchEndRefusesAFailingHandbackMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	writePlanDesign(t, repo, change, "# design, the reviewer's edit\n")
+	if code, errs := handback(t, store, repo, "task-3-reviewer"); code != 0 {
+		t.Fatalf("handback exit %d; stderr:\n%s", code, errs)
+	}
+	snap := filepath.Join(repo, ".superpowers", "sdd", "plan-snapshot-task-3-reviewer.txt")
+	if got := readMarker(t, snap+".handback-77"); !strings.HasPrefix(got, "fail ") {
+		t.Fatalf("marker = %q, want fail <exit>", got)
+	}
+	writePlanDesign(t, repo, change, "# design\n")
+	code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean")
+	if code != 1 || store.ends.Load() != 0 || !strings.Contains(errs, "the plan tree check refused this end") {
+		t.Fatalf("exit %d, ends %d, want 1, 0 and the refusal; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestDispatchEndWithoutAMarkerChecksTheLivePlan: with no marker the end
+// checks the live tree as before, its refusal telling the parent to end
+// the row before editing the plan.
+func TestDispatchEndWithoutAMarkerChecksTheLivePlan(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	writePlanDesign(t, repo, change, "# design, edited\n")
+	code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean")
+	if code == 0 || store.ends.Load() != 0 || !strings.Contains(errs, "-- end the row before editing the plan") {
+		t.Fatalf("exit %d, ends %d, want non-zero, 0 and the hint; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}

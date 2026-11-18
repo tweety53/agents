@@ -2090,6 +2090,30 @@ func (s *Store) StampSessionDispatchAgent(ctx context.Context, sessionID, key, a
 	return tag.RowsAffected() > 0, nil
 }
 
+// OpenDispatchBySessionKey answers the open dispatch row recorded under
+// harness session sessionID and dispatch key, newest (started_at, id)
+// first, with its change's project key and name -- the row `flow record
+// dispatch handback` keys its plan-check marker by (decision
+// gated-bracket-handback). An ended row, or one under another session,
+// never answers; found is false when no row does.
+func (s *Store) OpenDispatchBySessionKey(ctx context.Context, sessionID, key string) (id int64, projectKey, change string, found bool, err error) {
+	err = s.pool.QueryRow(ctx, `
+		SELECT d.id, c.project_key, c.name
+		FROM dispatches d
+		JOIN changes c ON c.id = d.change_id
+		WHERE d.session_id = $1 AND d.dispatch_key = $2 AND d.ended_at IS NULL
+		ORDER BY d.started_at DESC, d.id DESC
+		LIMIT 1
+	`, sessionID, key).Scan(&id, &projectKey, &change)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, "", "", false, nil
+	}
+	if err != nil {
+		return 0, "", "", false, fmt.Errorf("store: open dispatch for session %s key %s: %w", sessionID, key, err)
+	}
+	return id, projectKey, change, true, nil
+}
+
 // RunRecord returns one change's whole derived record: its dispatches in
 // seq order and its findings in the order the numbers their refs spell,
 // which is the order every rendering of the record reads them in.
