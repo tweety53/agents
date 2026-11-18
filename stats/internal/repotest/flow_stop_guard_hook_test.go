@@ -36,6 +36,7 @@ type stopFixture struct {
 	bgDone   bool   // that command's task-notification
 	refusal  string // error text of the turn's last tool result, an Edit's, after every other entry
 	blocks   int    // refusal-stop blocks the hook already fed back since the operator message
+	loopRun  bool   // an open loop stage run, newer than the change's own
 }
 
 func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string {
@@ -63,6 +64,9 @@ func runStopGuard(t *testing.T, f stopFixture, home string, active bool) string 
 	row := fmt.Sprintf(`{"stageRunId":7,"command":"/flow","stage":"flow.implement","startedAt":"2026-10-27T09:00:00Z"%s,"changeName":%q,"projectKey":"p","repoRoot":%q}`, ended, stopChange, root)
 	if f.noRun {
 		row = ""
+	}
+	if f.loopRun {
+		row = `{"stageRunId":8,"command":"/flow","stage":"flow.pipeline-fix","startedAt":"2026-10-27T09:30:00Z","changeName":"pipeline-fix-fixture-change-81","projectKey":"p"},` + row
 	}
 	recs := ""
 	if f.state != "" {
@@ -282,6 +286,17 @@ func TestFlowStopGuardHook(t *testing.T) {
 // Every repeat is refused; an operator stop passes only as an AskUserQuestion
 // or a ## Question.
 // smoke: core — the stop gate
+// TestFlowStopGuardSkipsALoopRun: a loop's own open stage run, newer than the change's, carries the
+// parent's session id; the guard still judges the STARTED change and its open stage.
+func TestFlowStopGuardSkipsALoopRun(t *testing.T) {
+	t.Parallel()
+	out := runStopGuard(t, stopFixture{state: "STARTED", ticked: 3, total: 7, open: true, loopRun: true}, t.TempDir(), false)
+	want := "/flow change fixture-change is mid-phase (stage flow.implement is still open)"
+	if !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, want) {
+		t.Errorf("expected block naming %q, got %q", want, out)
+	}
+}
+
 func TestFlowStopGuardReblocksARepeatedEnd(t *testing.T) {
 	t.Parallel()
 	offer := "Stopped here because the turn has been long and each step is a real dispatch or build. Send /flow to continue."

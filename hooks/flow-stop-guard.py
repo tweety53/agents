@@ -3,7 +3,8 @@
 
 `skills/flow-contracts/pipeline.md` says a turn ends only at a gate, a block, or the run's
 final handoff; prose alone failed five times (kan-1015, kan-1017, kan-1018, kan-1033,
-kan-1024). This hook reads this session's last /flow stage run from the flow store and the
+kan-1024). This hook reads this session's last /flow stage run, skipping a loop's own runs
+(`pipeline-fix-...`, `self-review-...`), from the flow store and the
 change's record, and answers {"decision":"block","reason":...} when the record is
 STARTED and:
 
@@ -92,12 +93,13 @@ def store_get(path: str, query: dict) -> dict:
 def last_flow_run(session_id: str) -> Optional[dict]:
     body = store_get(
         "/api/v1/stage-runs",
-        {"session_id": session_id, "command": "/flow", "sort": "-started_at", "limit": "1"},
+        {"session_id": session_id, "command": "/flow", "sort": "-started_at", "limit": "50"},
     )
     runs = body.get("stageRuns")
-    if not isinstance(runs, list) or not runs or not runs[0].get("changeName"):
+    run = _fac.first_run(runs) if isinstance(runs, list) else None
+    if run is None or not run.get("changeName"):
         return None
-    return runs[0]
+    return run
 
 
 def change_record(run: dict) -> Optional[dict]:

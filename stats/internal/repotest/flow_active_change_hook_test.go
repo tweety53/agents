@@ -140,11 +140,11 @@ func TestFlowActiveChangeHook(t *testing.T) {
 				t.Errorf("expected no command filter in query=%s", q)
 			}
 		}},
-		{"case 1: newest-mark-first, one row", func(t *testing.T) {
+		{"case 1: newest-mark-first, 50 rows", func(t *testing.T) {
 			_, _, s := case1(t)
 			q := s.last()
-			if i := strings.Index(q, "sort=-started_at"); i < 0 || !strings.Contains(q[i:], "limit=1") {
-				t.Errorf("expected sort=-started_at&limit=1 in query=%s", q)
+			if i := strings.Index(q, "sort=-started_at"); i < 0 || !strings.Contains(q[i:], "limit=50") {
+				t.Errorf("expected sort=-started_at&limit=50 in query=%s", q)
 			}
 		}},
 		// Case 2: two /flow marks for different changes — the store answers newest
@@ -215,6 +215,20 @@ func TestFlowActiveChangeHook(t *testing.T) {
 // session's latest stage run — /flow-interactive before flow.write-finished
 // names the session's change and the request protocol, a finished one and a
 // /flow-fast one inject nothing, and /flow keeps its fix-run line.
+// TestFlowActiveChangeHookSkipsALoopRun: a loop's own stage run, newer than the change's, carries
+// the parent's session id; the context line still names the change, never the loop's.
+func TestFlowActiveChangeHookSkipsALoopRun(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	loop := `{"stageRunId":8,"command":"/flow","stage":"flow.pipeline-fix","startedAt":"2026-09-17T10:00:00Z","changeName":"pipeline-fix-fixture-one-81"}`
+	s := newStageStore(t, 200, stageBody(2, loop, stageRow("fixture-one")))
+	out, errOut, rc := runHook(t, "flow-active-change.py", []byte(`{"prompt":"still broken","session_id":"abc"}`), "FLOW_ADDR="+s.addr)
+	out += errOut
+	if rc != 0 || !strings.Contains(out, "marked change fixture-one") || strings.Contains(out, "pipeline-fix-") {
+		t.Errorf("rc=%d out=%s", rc, out)
+	}
+}
+
 func TestFlowActiveChangeHookInteractive(t *testing.T) {
 	t.Parallel()
 	row := func(command, stage string) string {

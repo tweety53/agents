@@ -7,7 +7,8 @@ is not carried in session state a hook can read directly, but every /flow run ma
 own stages with `flow stage begin -command '/flow' ... -session-token mf-<token> <name>`,
 and the stats daemon harvests those marks out of the session's transcript into its store,
 binding each to the session that made it. This hook asks the store for this session's latest
-stage-begin mark of any command -- one GET against /api/v1/stage-runs, whose rows carry
+stage-begin mark of any command, skipping a loop's own runs -- a change named `pipeline-fix-...`
+or `self-review-...`, whose stage runs a loop dispatch's begins open in the parent's session -- one GET against /api/v1/stage-runs, whose rows carry
 the owning change's name, the command and the stage -- and branches on its command: a
 /flow mark injects the fix-run line naming the change; a /flow-interactive mark, unless
 it is flow.write-finished, injects the line pointing a plain message at the session's
@@ -36,6 +37,9 @@ STORE_TIMEOUT_SECONDS = 2
 # as the basename minus the model-io-sess_ prefix and the .jsonl suffix.
 ROLLOUT_NAME_RE = re.compile(r"^model-io-sess_(.+)\.jsonl$")
 
+# A pipeline-fix or self-review loop's own change: its stage runs carry the parent's session id.
+LOOP_CHANGE_PREFIXES = ("pipeline-fix-", "self-review-")
+
 
 def resolve_session_id(payload: dict) -> Optional[str]:
     session_id = payload.get("session_id")
@@ -58,11 +62,21 @@ def resolve_session_id(payload: dict) -> Optional[str]:
     return None
 
 
+def first_run(runs) -> Optional[dict]:
+    """The first dict row of runs that is not a loop's own (`pipeline-fix-...`, `self-review-...`);
+    a row with no changeName is kept."""
+    for run in runs:
+        if isinstance(run, dict) and not str(run.get("changeName") or "").startswith(LOOP_CHANGE_PREFIXES):
+            return run
+    return None
+
+
 def last_stage_run(session_id: str) -> Optional[tuple]:
-    """The (change, command, stage) of the session's latest stage run, any command."""
+    """The (change, command, stage) of the session's latest stage run, any command, skipping a
+    loop's own runs."""
     addr = os.environ.get("FLOW_ADDR") or DEFAULT_STORE_ADDR
     query = parse.urlencode(
-        {"session_id": session_id, "sort": "-started_at", "limit": "1"}
+        {"session_id": session_id, "sort": "-started_at", "limit": "50"}
     )
     with request.urlopen(
         f"{addr}/api/v1/stage-runs?{query}", timeout=STORE_TIMEOUT_SECONDS
@@ -70,9 +84,11 @@ def last_stage_run(session_id: str) -> Optional[tuple]:
         body = json.load(resp)
 
     runs = body.get("stageRuns")
-    if not isinstance(runs, list) or not runs:
+    if not isinstance(runs, list):
         return None
-    run = runs[0]
+    run = first_run(runs)
+    if run is None:
+        return None
     name = run.get("changeName")
     if not isinstance(name, str) or not name:
         return None
