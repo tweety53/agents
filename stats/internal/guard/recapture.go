@@ -290,13 +290,20 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// rcTitleSpecs is the task's backticked Tests/Regression names that are no
-// path -- test titles -- and every `*.spec.ts` under the capture root, relative
+// rcIsTitle reports whether n can be a Playwright test title.
+func rcIsTitle(n string) bool {
+	return strings.Contains(n, " ") && !strings.ContainsAny(n, "/{};=") && !strings.HasSuffix(n, ".ts")
+}
+
+// rcTitleSpecs is the task's backticked Tests/Regression names that can be
+// Playwright test titles -- holding a space, and no `/`, `.ts` suffix or code
+// punctuation, so a Go test name, a `<spec>:<line>` ref or a code fragment is
+// none -- and every `*.spec.ts` under the capture root, relative
 // to it, whose source holds one of them as a whole quoted string.
 func rcTitleSpecs(task, root string) (titles, specs []string) {
 	named, _ := asTaskNames(task)
 	for _, m := range regexp.MustCompile("`([^`]+)`").FindAllStringSubmatch(named, -1) {
-		if n := m[1]; !strings.Contains(n, "/") && !strings.HasSuffix(n, ".ts") && !slices.Contains(titles, n) {
+		if n := m[1]; rcIsTitle(n) && !slices.Contains(titles, n) {
 			titles = append(titles, n)
 		}
 	}

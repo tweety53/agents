@@ -301,9 +301,11 @@ func TestRecaptureFailsWhenNoSpecHoldsATitle(t *testing.T) {
 		t.Errorf("rc=%d stdout=%q ran=%v, want rc 1, %q, nothing run, no receipt", r.rc, r.stdout, isFile(ran), want)
 	}
 
-	root = recaptureTitleFixture(t, "none")
-	r = runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
-	if r.rc != 0 || r.stdout != "recapture: no affected spec — nothing to capture\n" || isFile(ran) {
-		t.Errorf("no test named: rc=%d stdout=%q", r.rc, r.stdout)
+	for _, named := range []string{"none", "`TestGoalSheet`, `a.spec.ts:12`, `x := f()`"} {
+		root = recaptureTitleFixture(t, named)
+		r = runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
+		if r.rc != 0 || r.stdout != "recapture: no affected spec — nothing to capture\n" || isFile(ran) {
+			t.Errorf("no title named in %q: rc=%d stdout=%q", named, r.rc, r.stdout)
+		}
 	}
 }
