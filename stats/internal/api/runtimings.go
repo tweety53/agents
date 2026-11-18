@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -34,6 +35,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -43,6 +45,7 @@ type RunTimingsStore interface {
 	RunRecord(ctx context.Context, projectKey, change string) (records.Run, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	ChangeGuardRuns(ctx context.Context, projectKey, change string, from, to time.Time) ([]records.GuardRun, int, error)
+	ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error)
 }
 
 var _ RunTimingsStore = (*store.Store)(nil)
@@ -51,6 +54,13 @@ var _ RunTimingsStore = (*store.Store)(nil)
 // against st.
 func WithRunTimings(st RunTimingsStore) Option {
 	return func(o *serverOptions) { o.runTimings = st }
+}
+
+// WithStateRoot names the state root flowd counts a change's record
+// journal under (decision flowd-counts-journal); without it the journal
+// reads "unknown".
+func WithStateRoot(root string) Option {
+	return func(o *serverOptions) { o.stateRoot = root }
 }
 
 // usd is an amount in micro-dollars, served as dollars.
@@ -92,6 +102,9 @@ type RunTimings struct {
 	Breakdowns         map[string]breakdown `json:"breakdowns"`
 	CostPerTask        []taskCost           `json:"costPerTask"`
 	CostPerVerifyRound []roundCost          `json:"costPerVerifyRound"`
+	Counts             runCounts            `json:"counts"`
+	DataQuality        []dqItem             `json:"dataQuality"`
+	Definitions        []definition         `json:"definitions"`
 }
 
 type runTotals struct {
@@ -160,6 +173,11 @@ type runInput struct {
 	Unclaimed  int
 	Openers    map[string]string // task id -> **Opener:**
 	Repos      []string          // the change's repository names
+	Findings   []records.Finding
+	VerifyRuns []records.VerifyRun
+	Journal    journalCount // the change's record journal, counted by flowd
+	PlanRead   bool         // tasks.md was read, live or saved
+	Departures []roundDepartures
 }
 
 var breakdownColumns = []definition{
@@ -241,13 +259,13 @@ func computeRun(in runInput, now time.Time) RunTimings {
 	out := RunTimings{
 		From: time.UnixMilli(wall.from).UTC(), To: time.UnixMilli(wall.to).UTC(), Open: open,
 		Totals: runTotals{
-			WallClockMs:        metric[int64]{wallMs, "First stage begin to last stage end; now while a stage is open.", kindMeasured},
-			AgentTimeMs:        metric[int64]{agent, "Union of every dispatch row's interval.", kindDerived},
+			WallClockMs:        metric[int64]{wallMs, "First stage begin to last stage end (now while a stage is open).", kindDerived},
+			AgentTimeMs:        metric[int64]{agent, "Union of every dispatch row's [begin, end) — overlapping dispatches count once.", kindDerived},
 			ParentCommandsMs:   metric[int64]{parentMs, "Union of recorded parent-side runs (flow-guard commands) outside every dispatch.", kindMeasured},
 			IdleMs:             metric[int64]{idleMs, "Wall clock minus the union of dispatches and parent commands: the parent's own turns, plan edits and waits.", kindDerived},
 			Cost:               metric[usd]{total, "Sum of every dispatch row's priced cost_usd plus the parent session's own cost.", kindMeasured},
 			ParentSessionCost:  metric[usd]{parentSession, "Stage-run cost minus the dispatch rows' cost, floored at zero.", kindDerived},
-			VisualVerifyShare:  metric[float64]{visualShare(rows, wallMs), "Union of visual verifier rows, in-run fixes from visual verify and their gated reviewers and fixers, over wall clock.", kindDerived},
+			VisualVerifyShare:  metric[float64]{visualShare(rows, wallMs), "Union of visual verifier rows, in-run fixes from visual verify and their gated reviewers, over wall clock.", kindDerived},
 			Dispatches:         len(rows),
 			NoTokens:           noTokens,
 			ParentCommandRuns:  parentRuns,
@@ -277,6 +295,9 @@ func computeRun(in runInput, now time.Time) RunTimings {
 		out.Breakdowns[by] = breakdown{Columns: breakdownColumns, Rows: append(group(rows, label), tail...), Total: totalRow}
 	}
 	out.Lanes = lanes(in.Stages, rows, parentSegs, idleSegs, wall.to)
+	out.Counts = counts(in, rows)
+	out.DataQuality = dataQuality(in, rows, dispatchCost, stageCost)
+	out.Definitions = runDefinitions(out)
 	return out
 }
 
@@ -663,10 +684,11 @@ func lanes(stages []store.StageRun, rows []row, parent, idle []span, wallEnd int
 
 // runTimingsHandler serves the per-run route.
 type runTimingsHandler struct {
-	store RunTimingsStore
-	saved func(ctx context.Context) savedFile
-	now   func() time.Time
-	log   *slog.Logger
+	store     RunTimingsStore
+	stateRoot string
+	saved     func(ctx context.Context) savedFile
+	now       func() time.Time
+	log       *slog.Logger
 }
 
 func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
@@ -709,14 +731,300 @@ func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
 	for _, g := range guards {
 		paths = append(paths, g.Worktree)
 	}
+	verifyRuns, err := h.store.ListVerifyRuns(ctx, project, change)
+	if err != nil {
+		fail("read the verify runs", err)
+		return
+	}
+	saved := h.saved(ctx)
 	openers := map[string]string{}
-	if b, ok := readPlanFile(store.LiveStateRow{ProjectKey: project, Name: change, RepoRoots: roots}, change, h.saved(ctx)); ok {
+	b, planRead := readPlanFile(store.LiveStateRow{ProjectKey: project, Name: change, RepoRoots: roots}, change, saved)
+	if planRead {
 		openers = records.TaskOpeners(b)
 	}
 	out := computeRun(runInput{
 		Dispatches: run.Dispatches, Stages: stages, Guards: guards, Unclaimed: unclaimed,
 		Openers: openers, Repos: repoNames(paths),
+		Findings: run.Findings, VerifyRuns: verifyRuns, PlanRead: planRead,
+		Journal:    h.journal(project, change),
+		Departures: departures(project, change, run.Dispatches, roots, saved),
 	}, now)
 	out.Project, out.Change = project, change
 	writeJSON(w, http.StatusOK, out)
+}
+
+// journalCount is the change's pending record writes, served as a number,
+// or as "unknown" when flowd could not read the journal: a failed count is
+// never reported as the clean zero.
+type journalCount struct {
+	n     int
+	known bool
+}
+
+func (j journalCount) MarshalJSON() ([]byte, error) {
+	if !j.known {
+		return []byte(`"unknown"`), nil
+	}
+	return []byte(strconv.Itoa(j.n)), nil
+}
+
+// roundDepartures is one visual round's departures: line.
+type roundDepartures struct {
+	Round      string `json:"round"`
+	Departures int    `json:"departures"`
+}
+
+type fixRoundCounts struct {
+	Verify int `json:"verify"` // verify-fix-N and visual-verify-fix-N
+	Panel  int `json:"panel"`
+}
+
+type severityCounts struct {
+	Critical  int `json:"critical"`
+	Important int `json:"important"`
+	Minor     int `json:"minor"`
+}
+
+type flakyCounts struct {
+	Retries int `json:"retries"`
+	Runs    int `json:"runs"` // verify runs that recorded a flaky count
+}
+
+type outcomeCounts struct {
+	Open    int `json:"open"`
+	Aborted int `json:"aborted"`
+	Blocked int `json:"blocked"`
+}
+
+type runCounts struct {
+	FixRounds      metric[fixRoundCounts]    `json:"fixRounds"`
+	Departures     metric[[]roundDepartures] `json:"departures"`
+	Findings       metric[severityCounts]    `json:"findings"`
+	FlakyRetries   metric[flakyCounts]       `json:"flakyRetries"`
+	Rows           metric[outcomeCounts]     `json:"rows"`
+	JournalPending metric[journalCount]      `json:"journalPending"`
+}
+
+// The counts' terms, worded as the prototype's titles.
+var (
+	defFixRounds  = definition{"Fix rounds", "Distinct verify-fix-N and visual-verify-fix-N rounds, plus panel-fix rounds.", kindDerived}
+	defDepartures = definition{"Departures / visual round", "The departures: line of each visual-verify report, by round.", kindMeasured}
+	defFindings   = definition{"Findings", "Recorded review findings by canonical severity.", kindMeasured}
+	defFlaky      = definition{"Flaky retries", "Tests that passed only on their one retry, summed over recorded verify runs.", kindMeasured}
+	defRows       = definition{"Rows open · aborted · blocked", "Dispatch rows by outcome.", kindMeasured}
+	defJournal    = definition{"Journal pending", "Record writes for this change still in the local journal.", kindMeasured}
+	defPerTask    = definition{"Cost per task", "Every dispatch whose key names the task (implementer, fixer, reviewer); a group key's cost is split evenly across its tasks and marked estimated.", kindDerived}
+	defPerRound   = definition{"Cost per verify round", "A round's verify rows plus the in-run fix tasks whose Opener names that round, with their gated reviewers.", kindDerived}
+)
+
+// prototypeDefinitions is the Definitions panel's own list, in its order.
+var prototypeDefinitions = []definition{
+	{"Wall clock", "First stage begin to last stage end; now while a stage is open.", kindDerived},
+	{"Agent time", "Union of dispatch rows' [begin, end) — overlap counted once. A category's time is the union of its own rows.", kindDerived},
+	{"Parent commands", "Recorded parent-side command runs (flow-guard), union outside every dispatch.", kindMeasured},
+	{"Idle / parent", "Wall clock minus the union of dispatches and parent commands.", kindDerived},
+	{"Cost", "Priced cost_usd from harvested tokens; a row with no tokens states its reason in Data quality.", kindMeasured},
+	{"Apportioned cost", "A row whose tokens were shared across overlapping inline windows and split by time.", kindEstimated},
+	{"Category", "Read from the dispatch key and, for a task implementer, the task's Opener — one table; changing it re-labels history.", kindDerived},
+}
+
+func measure[T any](v T, d definition) metric[T] {
+	return metric[T]{Value: v, Definition: d.Definition, Kind: d.Kind}
+}
+
+func counts(in runInput, rows []row) runCounts {
+	verify, panel := map[string]bool{}, map[string]bool{}
+	var oc outcomeCounts
+	for _, r := range rows {
+		switch fr := fixRound(r); {
+		case strings.HasPrefix(fr, "panel-fix-"):
+			panel[fr] = true
+		case strings.HasPrefix(fr, "verify-fix-"), strings.HasPrefix(fr, "visual-verify-fix-"):
+			verify[fr] = true
+		}
+		switch {
+		case r.d.EndedAt == nil:
+			oc.Open++
+		case r.d.Outcome == "aborted":
+			oc.Aborted++
+		case r.d.Outcome == "blocked":
+			oc.Blocked++
+		}
+	}
+	var sev severityCounts
+	for _, f := range in.Findings {
+		switch strings.ToLower(f.Severity) {
+		case "critical":
+			sev.Critical++
+		case "important":
+			sev.Important++
+		case "minor":
+			sev.Minor++
+		}
+	}
+	var fl flakyCounts
+	for _, v := range in.VerifyRuns {
+		if v.Flaky != nil {
+			fl.Retries += *v.Flaky
+			fl.Runs++
+		}
+	}
+	deps := in.Departures
+	if deps == nil {
+		deps = []roundDepartures{}
+	}
+	return runCounts{
+		FixRounds:      measure(fixRoundCounts{len(verify), len(panel)}, defFixRounds),
+		Departures:     measure(deps, defDepartures),
+		Findings:       measure(sev, defFindings),
+		FlakyRetries:   measure(fl, defFlaky),
+		Rows:           measure(oc, defRows),
+		JournalPending: measure(in.Journal, defJournal),
+	}
+}
+
+// dqItem is one gap the run still carries. Unknown marks a count flowd
+// could not take, which is never reported as zero.
+type dqItem struct {
+	ID      string   `json:"id"`
+	Label   string   `json:"label"`
+	Count   int      `json:"count"`
+	Unknown bool     `json:"unknown,omitempty"`
+	Detail  []string `json:"detail"`
+}
+
+// unreconciledAt is the gap between the dispatch rows' cost and the stage
+// runs' at which the totals stop being believable: one cent.
+const unreconciledAt usd = 10_000
+
+func dataQuality(in runInput, rows []row, dispatchCost, stageCost usd) []dqItem {
+	item := func(id, label string) dqItem { return dqItem{ID: id, Label: label, Detail: []string{}} }
+	add := func(it *dqItem, detail string) { it.Count++; it.Detail = append(it.Detail, detail) }
+	open, superseded := item("open-stage-runs", "open stage runs"), item("superseded-stage-runs", "superseded stage runs")
+	for _, s := range in.Stages {
+		name := fmt.Sprintf("%s (run %d)", s.Stage, s.ID)
+		if s.EndedAt == nil {
+			add(&open, name)
+		}
+		if s.Outcome != nil && *s.Outcome == "superseded" {
+			add(&superseded, name)
+		}
+	}
+	unlinked := item("unlinked", "dispatch rows with no stage link")
+	noTokens := item("no-tokens", "dispatch rows with no tokens — reason stated")
+	abortedRan := item("aborted-ran", "aborted rows that ran")
+	other := item("uncategorised", "uncategorised dispatch keys")
+	openers := item("unreadable-openers", "task rows whose Opener could not be read")
+	retimed := item("retimed", "retimed dispatch rows")
+	for _, r := range rows {
+		key := r.d.Key
+		if r.d.StageRunID == nil {
+			add(&unlinked, key)
+		}
+		reason := records.CostReason(r.d)
+		if reason != "" {
+			add(&noTokens, key+" · "+reason)
+		}
+		if r.d.Outcome == "aborted" && reason == "" {
+			add(&abortedRan, key)
+		}
+		if strings.HasPrefix(r.category, "other:") {
+			add(&other, key+" · "+r.category)
+		}
+		if r.tasks != nil && !in.PlanRead {
+			add(&openers, key)
+		}
+		if r.d.Retimed != nil {
+			add(&retimed, key)
+		}
+	}
+	unreconciled := item("unreconciled-cost", "dispatch cost above stage cost")
+	if dispatchCost-stageCost >= unreconciledAt {
+		add(&unreconciled, fmt.Sprintf("dispatch rows $%.2f · stage runs $%.2f", float64(dispatchCost)/1e6, float64(stageCost)/1e6))
+	}
+	journal := item("journal", "record writes pending in the journal")
+	journal.Count, journal.Unknown = in.Journal.n, !in.Journal.known
+	unclaimed := item("unclaimed-guard-runs", "main-checkout guard runs no change claimed")
+	unclaimed.Count = in.Unclaimed
+	return []dqItem{open, superseded, unlinked, noTokens, abortedRan, other, openers, unreconciled, journal, retimed, unclaimed}
+}
+
+// runDefinitions lists every term the result serves once: the prototype's
+// Definitions panel first, in its order, then each other metric's.
+func runDefinitions(out RunTimings) []definition {
+	t := out.Totals
+	more := []definition{
+		{"Parent session cost", t.ParentSessionCost.Definition, t.ParentSessionCost.Kind},
+		{"Visual-verify loops", t.VisualVerifyShare.Definition, t.VisualVerifyShare.Kind},
+	}
+	more = append(more, breakdownColumns...)
+	more = append(more, defFixRounds, defDepartures, defFindings, defFlaky, defRows, defJournal, defPerTask, defPerRound)
+	defs := slices.Clone(prototypeDefinitions)
+	for _, d := range more {
+		if !slices.ContainsFunc(defs, func(e definition) bool { return e.Name == d.Name }) {
+			defs = append(defs, d)
+		}
+	}
+	return defs
+}
+
+// departuresLine is the visual verifier report's `- departures: <n>` line
+// in its ## Verdict (skills/flow/visual-verify-verifier.md).
+var departuresLine = regexp.MustCompile(`(?m)^- departures:\s*(\d+)\s*$`)
+
+// parseDepartures reads a visual verifier report's departures, false when
+// the report carries no such line.
+func parseDepartures(report []byte) (int, bool) {
+	m := departuresLine.FindSubmatch(report)
+	if m == nil {
+		return 0, false
+	}
+	n, err := strconv.Atoi(string(m[1]))
+	return n, err == nil
+}
+
+// journal counts the change's record journal at flowd's state root, the
+// path the CLI appends to (fallback.RecordJournalPath).
+func (h *runTimingsHandler) journal(project, change string) journalCount {
+	if h.stateRoot == "" {
+		return journalCount{}
+	}
+	path := fallback.RecordJournalPath(h.stateRoot, project, change)
+	n, err := fallback.CountJournalEntries(path)
+	if err != nil {
+		h.log.Warn("count the record journal", "path", path, "err", err)
+		return journalCount{}
+	}
+	return journalCount{n: n, known: true}
+}
+
+// departures reads each visual verifier row's report: the worktree's
+// .superpowers/sdd/verify-report-<key>.md first, then the saved
+// reports.<repo>.verify-report-<key>.md copy. A round whose report is found
+// nowhere, or carries no departures: line, is left out.
+func departures(project, change string, ds []records.Dispatch, roots []string, saved savedFile) []roundDepartures {
+	var out []roundDepartures
+	for _, d := range ds {
+		if id, _ := records.Category(d.Key, d.Role, ""); id != "visual-verifier" {
+			continue
+		}
+		file := "verify-report-" + d.Key + ".md"
+		var report []byte
+		for _, root := range roots {
+			if b, err := os.ReadFile(filepath.Join(root, ".superpowers", "sdd", file)); err == nil {
+				report = b
+				break
+			}
+		}
+		for _, repo := range repoNames(roots) {
+			if report != nil || saved == nil {
+				break
+			}
+			report, _ = saved(project, change, "reports."+repo+"."+file)
+		}
+		if n, ok := parseDepartures(report); ok {
+			out = append(out, roundDepartures{Round: d.Key, Departures: n})
+		}
+	}
+	return out
 }

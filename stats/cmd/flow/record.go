@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"maps"
 	"net/http"
 	"os"
@@ -932,8 +931,11 @@ func requireRecordFlags(stderr io.Writer, pairs ...[2]string) bool {
 // entry after it fail to decode on replay. Using a third sibling file
 // instead reuses fallback's own AppendJournalEntry unchanged, without
 // touching either existing replay contract.
+//
+// flowd counts the same file through fallback.RecordJournalPath, so the
+// path is built in one place.
 func recordJournalPath(projectKey, name string, getenv func(string) string) string {
-	return fallback.JournalFilePath(fallback.StateRoot(getenv), projectKey, name) + ".record"
+	return fallback.RecordJournalPath(fallback.StateRoot(getenv), projectKey, name)
 }
 
 // recordJournalBody is what gets journalled for a record write that could
@@ -2882,7 +2884,7 @@ func runRecordJournalCount(args []string, getenv func(string) string, stdout, st
 	}
 
 	path := recordJournalPath(projectKey, f.change, getenv)
-	n, err := countRecordJournalEntries(path)
+	n, err := fallback.CountJournalEntries(path)
 	if err != nil {
 		fmt.Fprintln(stdout, recordJournalCountUnknown)
 		fmt.Fprintf(stderr, "flow: count %s: %v\n", path, err)
@@ -2897,47 +2899,6 @@ func runRecordJournalCount(args []string, getenv func(string) string, stdout, st
 // clean run, and reporting a failed count as one would turn a filesystem
 // problem into a claim that everything reached the store.
 const recordJournalCountUnknown = "unknown"
-
-// countRecordJournalEntries counts the complete entries in the record
-// journal at path. An ABSENT file is 0 rather than an error -- the
-// ordinary case is that every write reached the store and nothing was ever
-// journalled.
-//
-// A PARTIAL TRAILING LINE IS NOT AN ENTRY, which is why this is not a line
-// count. internal/reconcile's splitCompleteLines already draws exactly
-// this line for replay: fallback.AppendJournalEntry writes an entry and
-// its newline in one Write, so the only way bytes can trail the last
-// newline is a process that died mid-syscall, and that span is never
-// parsed and never retired. Counting it would report one more pending
-// write than a replay will ever apply -- and the count is read at a gate
-// whose whole job is to be believable.
-//
-// Blank lines are skipped for the same reason parseCompleteEntries treats
-// them as blank rather than as entries: they carry no write to replay.
-func countRecordJournalEntries(path string) (int, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return 0, nil
-		}
-		return 0, err
-	}
-
-	n := 0
-	for {
-		idx := bytes.IndexByte(raw, '\n')
-		if idx < 0 {
-			// Whatever trails the last newline is the partial write
-			// above, or nothing at all. Either way it is not an entry.
-			break
-		}
-		if len(bytes.TrimSpace(raw[:idx])) > 0 {
-			n++
-		}
-		raw = raw[idx+1:]
-	}
-	return n, nil
-}
 
 // costStatusUnknown is the one word runRecordCostStatus prints instead of
 // a figure, on the identical reasoning recordJournalCountUnknown carries:
@@ -3093,7 +3054,7 @@ func runRecordHandoffLines(ctx context.Context, args []string, getenv func(strin
 		total := 0
 		for _, key := range keys {
 			path := recordJournalPath(key, f.change, getenv)
-			n, err := countRecordJournalEntries(path)
+			n, err := fallback.CountJournalEntries(path)
 			if err != nil {
 				fmt.Fprintf(stderr, "flow: count %s: %v\n", path, err)
 				total = -1

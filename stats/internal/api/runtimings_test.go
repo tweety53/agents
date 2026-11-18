@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -205,6 +206,10 @@ func (runTimingsFake) QueryStageRuns(context.Context, store.Query) ([]store.Stag
 	return rtInput().Stages, 2, nil
 }
 
+func (runTimingsFake) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
+	return nil, nil
+}
+
 func (runTimingsFake) ChangeGuardRuns(context.Context, string, string, time.Time, time.Time) ([]records.GuardRun, int, error) {
 	return rtInput().Guards, 1, nil
 }
@@ -246,5 +251,95 @@ func TestRunTimingsRouteServesTheResult(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("unknown change: status %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestRunTimingsCountsAndDataQuality: the counts fold fix rounds, findings,
+// flaky retries and row outcomes, and data quality names the open row with
+// no tokens and an unknown journal.
+func TestRunTimingsCountsAndDataQuality(t *testing.T) {
+	in := rtInput()
+	in.Dispatches = append(in.Dispatches, rtDispatch("panel-fix-1-gymie", "implementer", 140, 145, "1"))
+	in.Findings = []records.Finding{{Severity: "Critical"}, {Severity: "important"}, {Severity: "Minor"}, {Severity: "minor"}}
+	two := 2
+	in.VerifyRuns = []records.VerifyRun{{Flaky: &two}, {}}
+	in.Departures = []roundDepartures{{Round: "visual-verify-1-gymie", Departures: 3}}
+	in.PlanRead = true
+	out := computeRun(in, rtAt(200))
+	c := out.Counts
+	if c.FixRounds.Value != (fixRoundCounts{Verify: 1, Panel: 1}) {
+		t.Errorf("fix rounds = %+v", c.FixRounds.Value)
+	}
+	if c.Findings.Value != (severityCounts{Critical: 1, Important: 1, Minor: 2}) {
+		t.Errorf("findings = %+v", c.Findings.Value)
+	}
+	if c.FlakyRetries.Value != (flakyCounts{Retries: 2, Runs: 1}) {
+		t.Errorf("flaky = %+v", c.FlakyRetries.Value)
+	}
+	if c.Rows.Value != (outcomeCounts{Open: 1}) {
+		t.Errorf("rows = %+v", c.Rows.Value)
+	}
+	if len(c.Departures.Value) != 1 || c.Departures.Value[0].Departures != 3 {
+		t.Errorf("departures = %+v", c.Departures.Value)
+	}
+	got := map[string]dqItem{}
+	for _, d := range out.DataQuality {
+		got[d.ID] = d
+	}
+	if len(out.DataQuality) != 11 {
+		t.Errorf("data quality items = %d, want 11", len(out.DataQuality))
+	}
+	if d := got["no-tokens"]; d.Count != 1 {
+		t.Errorf("no-tokens = %+v", d)
+	}
+	if !got["journal"].Unknown {
+		t.Errorf("journal = %+v, want unknown", got["journal"])
+	}
+	if got["unreadable-openers"].Count != 0 {
+		t.Errorf("unreadable openers = %+v", got["unreadable-openers"])
+	}
+	b, _ := json.Marshal(out.Counts.JournalPending)
+	if !json.Valid(b) || !strings.Contains(string(b), `"unknown"`) {
+		t.Errorf("journal json = %s", b)
+	}
+}
+
+// TestEveryRunTimingsMetricCarriesADefinition: every object with a value
+// in the result carries a non-empty definition and kind.
+func TestEveryRunTimingsMetricCarriesADefinition(t *testing.T) {
+	b, err := json.Marshal(computeRun(rtInput(), rtAt(200)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v any
+	if err := json.Unmarshal(b, &v); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	var walk func(path string, v any)
+	walk = func(path string, v any) {
+		switch x := v.(type) {
+		case map[string]any:
+			if _, ok := x["value"]; ok {
+				n++
+				if d, _ := x["definition"].(string); d == "" {
+					t.Errorf("%s: no definition", path)
+				}
+				if k, _ := x["kind"].(string); k == "" {
+					t.Errorf("%s: no kind", path)
+				}
+			}
+			for k, c := range x {
+				walk(path+"."+k, c)
+			}
+		case []any:
+			for i, c := range x {
+				walk(fmt.Sprintf("%s[%d]", path, i), c)
+			}
+		}
+	}
+	walk("$", v)
+	if n < 12 {
+		t.Errorf("metrics found = %d, want at least 12", n)
 	}
 }

@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -146,4 +148,53 @@ func ReadJournalEntries(path string) ([]Entry, error) {
 		return nil, fmt.Errorf("fallback: scan journal %s: %w", path, err)
 	}
 	return entries, nil
+}
+
+// CountJournalEntries counts the complete entries in the record
+// journal at path. An ABSENT file is 0 rather than an error -- the
+// ordinary case is that every write reached the store and nothing was ever
+// journalled.
+//
+// A PARTIAL TRAILING LINE IS NOT AN ENTRY, which is why this is not a line
+// count. internal/reconcile's splitCompleteLines already draws exactly
+// this line for replay: fallback.AppendJournalEntry writes an entry and
+// its newline in one Write, so the only way bytes can trail the last
+// newline is a process that died mid-syscall, and that span is never
+// parsed and never retired. Counting it would report one more pending
+// write than a replay will ever apply -- and the count is read at a gate
+// whose whole job is to be believable.
+//
+// Blank lines are skipped for the same reason parseCompleteEntries treats
+// them as blank rather than as entries: they carry no write to replay.
+func CountJournalEntries(path string) (int, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	n := 0
+	for {
+		idx := bytes.IndexByte(raw, '\n')
+		if idx < 0 {
+			// Whatever trails the last newline is the partial write
+			// above, or nothing at all. Either way it is not an entry.
+			break
+		}
+		if len(bytes.TrimSpace(raw[:idx])) > 0 {
+			n++
+		}
+		raw = raw[idx+1:]
+	}
+	return n, nil
+}
+
+// RecordJournalPath is a change's record journal: the third sibling of its
+// state file and state journal, where `flow record` journals a write the
+// store did not take. The CLI appends to it and flowd counts it, so both
+// build the path here.
+func RecordJournalPath(root, projectKey, name string) string {
+	return JournalFilePath(root, projectKey, name) + ".record"
 }
