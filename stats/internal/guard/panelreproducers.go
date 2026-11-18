@@ -227,6 +227,7 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		return 2
 	}
 	rounds, slots, open, ok := cprRoundsAndSlots([]byte(findingsText))
+	withdrawn := cprWithdrawn([]byte(findingsText))
 	if !ok {
 		fmt.Fprintln(stderr, cprJQFailed)
 		Reason(env, "records-unparseable")
@@ -278,6 +279,11 @@ func checkPanelReproducers(args []string, env Env, stdout, stderr io.Writer) int
 		// A gated per-task reviewer's row carries the `none — …` exemption
 		// at any severity and no script (records.GatedReviewerSlot).
 		if slots[fi] == records.GatedReviewerSlot {
+			continue
+		}
+		// A withdrawn finding is not a defect to reproduce: its reproducer
+		// may never have been written, whatever its severity.
+		if fi < len(withdrawn) && withdrawn[fi] {
 			continue
 		}
 		ref := f.refText
@@ -528,4 +534,19 @@ func cprRoundsAndSlots(b []byte) ([]int, []string, []bool, bool) {
 // cprSpace is the C locale's [[:space:]].
 func cprSpace(c byte) bool {
 	return strings.IndexByte(" \t\n\v\f\r", c) >= 0
+}
+
+// cprWithdrawn marks each finding whose status starts `withdrawn`, index-aligned with pcParseFindings' result.
+func cprWithdrawn(b []byte) []bool {
+	var raw []struct {
+		Status string `json:"status"`
+	}
+	if json.Unmarshal(b, &raw) != nil {
+		return nil
+	}
+	out := make([]bool, len(raw))
+	for i, r := range raw {
+		out[i] = strings.HasPrefix(r.Status, "withdrawn")
+	}
+	return out
 }

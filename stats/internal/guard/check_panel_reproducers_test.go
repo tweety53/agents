@@ -338,3 +338,12 @@ func TestPanelReproducersSkipsGatedRows(t *testing.T) {
 	got, out := cprRun(t, okBin, t.TempDir(), "demo", b)
 	cprExpect(t, got, out, 0, "REPRODUCERS-OK")
 }
+
+// A withdrawn Important needs no reproducer: the exemption is legal once it is withdrawn.
+func TestPanelReproducersSkipsWithdrawnRows(t *testing.T) {
+	t.Parallel()
+	okBin := cprBin(t, `cat "$(dirname -- "$0")/state.json"; exit 0`, `exit 1`)
+	b, _ := json.Marshal([]map[string]any{{"ref": "F1", "round": 0, "slot": "primary", "status": "withdrawn a false positive", "severity": "Important", "reproducer": "none — withdrawn"}})
+	got, out := cprRun(t, okBin, t.TempDir(), "demo", b)
+	cprExpect(t, got, out, 0, "REPRODUCERS-OK")
+}
