@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -601,6 +602,9 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 		return err
 	}
 	if err := seedDecisions(ctx, st); err != nil {
+		return err
+	}
+	if err := seedRunCosts(ctx, st); err != nil {
 		return err
 	}
 
@@ -1287,6 +1291,251 @@ func seedDecisionsRun(ctx context.Context, st *store.Store, i int, r decisionsRu
 			Severity: fd.severity, Note: "seeded decisions finding", Status: cmp.Or(fd.status, "fixed"),
 		}); err != nil {
 			return fmt.Errorf("uitest-seed: upsert finding %s for %s: %w", ref, name, err)
+		}
+	}
+	return nil
+}
+
+// runCostsAt is the run-costs fixture's first instant. Every row the two
+// runs hold falls on the morning of 2026-07-16, before the 30 days before
+// fixtureNow that the default-period views (flow health, stage leaderboard,
+// reviewers) read and outside PINNED_QUERY; only the changes' updated_at
+// falls inside those 30 days, so the Run costs view lists both runs.
+var runCostsAt = time.Date(2026, 7, 16, 0, 30, 0, 0, time.UTC)
+
+// runCostsStage is one stage run of a run-costs fixture change, in minutes
+// from runCostsAt; open leaves it for the next begin to supersede.
+type runCostsStage struct {
+	stage      string
+	from, to   int
+	cost       float64
+	superseded bool
+}
+
+// runCostsDispatch is one dispatch row in minutes from runCostsAt; a zero
+// cost leaves it without tokens, its reason stated.
+type runCostsDispatch struct {
+	key, role, slot, model, effort string
+	from, to                       int
+	cost                           float64
+}
+
+// runCostsGuard is one guard run ending at minute to, taking minutes.
+type runCostsGuard struct {
+	guard, worktree string
+	to, minutes     int
+}
+
+// runCostsRun is one run-costs fixture change.
+type runCostsRun struct {
+	name       string
+	updatedAt  time.Time
+	stages     []runCostsStage
+	dispatches []runCostsDispatch
+	guards     []runCostsGuard
+	verify     []records.VerifyRun
+	findings   []string // severities, recorded against the first panel reviewer
+	tasks      string   // the saved tasks.md
+	reports    map[string]string
+}
+
+// runCostsTasks is kan-301's saved tasks.md: tasks 15 and 16 open from a
+// verify and a visual-verify round, so their implementers class as in-run
+// fixes.
+const runCostsTasks = `# Tasks
+
+- [x] 1. Seed the store
+- [x] 2. Draw the timeline
+- [x] 13. Add the totals strip
+- [x] 14. Add the breakdown table
+- [x] 15. Fix the failing smoke spec
+**Opener:** verify-1
+- [x] 16. Fix the header drift
+**Opener:** visual-verify-1
+`
+
+// runCostsRuns is the run-costs fixture (decision prototype-is-the-spec):
+// kan-301 holds a row of every lane the prototype draws -- planner,
+// explorer, planned implementer, gated reviewer and fixer, verify list
+// per repo, visual verifier, in-run fixes, panel reviewers, merger, panel
+// fixer -- a group key, a row without tokens, a superseded stage, claimed
+// guard runs in two repositories' worktrees, one unclaimed main-checkout
+// run, flaky verify runs and findings of each severity; kan-302 is a
+// smaller run for Compare.
+func runCostsRuns() []runCostsRun {
+	const (
+		beta    = "/tmp/uitest-beta-worktrees/kan-301-run-costs-a"
+		betaWeb = "/tmp/uitest-beta-web-worktrees/kan-301-run-costs-a"
+	)
+	return []runCostsRun{{
+		name:      "kan-301-run-costs-a",
+		updatedAt: time.Date(2026, 7, 20, 10, 0, 0, 0, time.UTC),
+		stages: []runCostsStage{
+			{stage: "flow.brainstorm", from: 0, to: 50, cost: 4.10},
+			{stage: "flow.plan", from: 50, superseded: true, cost: 1.20},
+			{stage: "flow.plan", from: 80, to: 110, cost: 3.40},
+			{stage: "flow.sdd-tdd", from: 110, to: 330, cost: 22.80},
+			{stage: "flow.verify", from: 330, to: 400, cost: 3.90},
+			{stage: "flow.visual-verify", from: 400, to: 455, cost: 3.10},
+			{stage: "flow.review-panel", from: 455, to: 505, cost: 5.20},
+		},
+		dispatches: []runCostsDispatch{
+			{"design-1", "planner", "", "opus", "high", 5, 40, 2.10},
+			{"explore-1", "explorer", "", "sonnet", "low", 10, 25, 0.40},
+			{"plan-1", "planner", "", "opus", "high", 82, 105, 1.80},
+			{"task-1-implementer", "implementer", "", "opus", "medium", 115, 150, 2.50},
+			{"task-1-reviewer", "reviewer", "", "sonnet", "medium", 152, 165, 0.60},
+			{"task-1-implementer-fix-1", "implementer", "", "opus", "medium", 167, 180, 0.90},
+			{"task-2-implementer", "implementer", "", "opus", "medium", 140, 200, 3.10},
+			{"task-2-reviewer", "reviewer", "", "sonnet", "medium", 202, 212, 0.50},
+			{"task-13+14-implementer", "implementer", "", "opus", "high", 215, 260, 4.20},
+			{"task-13+14-reviewer", "reviewer", "", "sonnet", "medium", 262, 275, 0},
+			{"verify-1-uitest-beta", "verifier", "", "sonnet", "low", 335, 360, 0.30},
+			{"verify-1-uitest-beta-web", "verifier", "", "sonnet", "low", 340, 370, 0.35},
+			{"task-15-implementer", "implementer", "", "opus", "medium", 372, 390, 1.10},
+			{"visual-verify-1", "verifier", "", "opus", "medium", 405, 430, 0.90},
+			{"task-16-implementer", "implementer", "", "opus", "medium", 432, 445, 0.80},
+			{"visual-verify-2", "verifier", "", "opus", "medium", 447, 454, 0.50},
+			{"panel-1-primary", "panel", "primary", "opus", "high", 456, 475, 1.40},
+			{"panel-1-secondary", "panel", "secondary", "sonnet", "medium", 456, 478, 0.80},
+			{"panel-1-merger", "merger", "", "sonnet", "medium", 480, 488, 0.40},
+			{"panel-fix-1", "implementer", "", "opus", "medium", 490, 500, 1.00},
+		},
+		guards: []runCostsGuard{
+			{"check-plan-shape", beta, 112, 2},
+			{"run-capped", beta, 125, 5},
+			{"close-task", beta, 214, 2},
+			{"run-verify-list", beta, 334, 4},
+			{"run-verify-list", betaWeb, 398, 6},
+			{"visual-verify-pass", beta, 404, 3},
+			{"check-references", "/tmp/uitest-beta", 282, 2},
+		},
+		verify: []records.VerifyRun{
+			{Kind: "run-verify-list", Label: "verify-1-uitest-beta", Seconds: 240, Tests: 118, Failed: 1, ExitCode: 1, Flaky: intPtr(2)},
+			{Kind: "run-verify-list", Label: "verify-1-uitest-beta-web", Seconds: 360, Tests: 42, Flaky: intPtr(1)},
+		},
+		findings: []string{"critical", "important", "important", "minor", "minor", "minor"},
+		tasks:    runCostsTasks,
+		reports: map[string]string{
+			"reports.uitest-beta.verify-report-visual-verify-1.md": "# Visual verify\n\n- departures: 3\n",
+			"reports.uitest-beta.verify-report-visual-verify-2.md": "# Visual verify\n\n- departures: 0\n",
+		},
+	}, {
+		name:      "kan-302-run-costs-b",
+		updatedAt: time.Date(2026, 7, 25, 10, 0, 0, 0, time.UTC),
+		stages: []runCostsStage{
+			{stage: "flow.plan", from: 0, to: 40, cost: 2.60},
+			{stage: "flow.sdd-tdd", from: 40, to: 200, cost: 14.30},
+			{stage: "flow.review-panel", from: 200, to: 240, cost: 3.70},
+		},
+		dispatches: []runCostsDispatch{
+			{"plan-1", "planner", "", "opus", "high", 5, 35, 1.50},
+			{"task-1-implementer", "implementer", "", "opus", "medium", 45, 110, 3.80},
+			{"task-1-reviewer", "reviewer", "", "sonnet", "medium", 112, 125, 0.70},
+			{"task-1-implementer-fix-1", "implementer", "", "opus", "medium", 127, 150, 1.60},
+			{"task-1-implementer-fix-2", "implementer", "", "opus", "medium", 152, 170, 1.20},
+			{"panel-1-primary", "panel", "primary", "opus", "high", 205, 225, 1.30},
+			{"panel-1-merger", "merger", "", "sonnet", "medium", 227, 232, 0.30},
+		},
+		guards: []runCostsGuard{
+			{"check-plan-shape", "/tmp/uitest-beta-worktrees/kan-302-run-costs-b", 42, 2},
+		},
+		findings: []string{"important", "minor"},
+		tasks:    "# Tasks\n\n- [x] 1. Seed the store\n",
+	}}
+}
+
+// seedRunCosts writes the run-costs fixture: the per-run page, the Run
+// costs view and run detail's header captures read it.
+func intPtr(n int) *int { return &n }
+
+func seedRunCosts(ctx context.Context, st *store.Store) error {
+	for _, r := range runCostsRuns() {
+		if err := seedRunCostsRun(ctx, st, r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func seedRunCostsRun(ctx context.Context, st *store.Store, r runCostsRun) error {
+	const project, root = "uitest-beta", "/tmp/uitest-beta"
+	at := func(minute int) time.Time { return runCostsAt.Add(time.Duration(minute) * time.Minute) }
+	token := "uitest-" + r.name
+	if err := st.PutChange(ctx, store.Change{ProjectKey: project, MainCheckoutPath: "/tmp/" + project,
+		Name: r.name, State: store.StateFinished, UpdatedAt: r.updatedAt, UpdatedBy: "uitest-seed",
+		Repos: []store.Repo{{RepoRoot: root}, {RepoRoot: root + "-web"}}}); err != nil {
+		return fmt.Errorf("uitest-seed: put change %s: %w", r.name, err)
+	}
+	for _, s := range r.stages {
+		// The repo root is what the page reads the saved verify reports'
+		// repository names from (departures, internal/api/runtimings.go).
+		in := store.BeginStageInput{ProjectKey: project, ChangeName: r.name, Harness: "claude-code", RepoRoot: strPtr(root),
+			SessionID: strPtr(token), SessionToken: strPtr(token), Command: "/flow", Stage: s.stage, StartedAt: at(s.from)}
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			return fmt.Errorf("uitest-seed: begin %s for %s: %w", s.stage, r.name, err)
+		}
+		if err := mergeJSON(ctx, st, run.ID, fmt.Sprintf(`{"cost_usd": %g, "models": {"claude-opus-5": {"cost_usd": %g}}}`, s.cost, s.cost)); err != nil {
+			return err
+		}
+		if s.superseded {
+			continue // the next begin closes it as superseded
+		}
+		if err := st.EndStage(ctx, run.ID, at(s.to), "completed"); err != nil {
+			return fmt.Errorf("uitest-seed: end %s for %s: %w", s.stage, r.name, err)
+		}
+	}
+
+	var panelSeq *int
+	for _, d := range r.dispatches {
+		out, err := st.RecordDispatch(ctx, project, r.name, records.Dispatch{
+			Key: d.key, Role: d.role, Slot: d.slot, Model: d.model, Effort: d.effort, AgentID: strings.ReplaceAll(r.name+"-"+d.key, "+", "-"),
+			Outcome: "completed", SessionToken: token, StartedAt: at(d.from), EndedAt: timePtr(at(d.to)),
+		})
+		if err != nil {
+			return fmt.Errorf("uitest-seed: record dispatch %s for %s: %w", d.key, r.name, err)
+		}
+		metrics := `{"unattributed": {"reason": "transcript harvested late"}}`
+		if d.cost > 0 {
+			// Store.MergeDispatchMetrics re-prices the row from its tokens at
+			// the rate flowd's SeedPricing holds for modelVersion, so the
+			// alias is spelled as the priced model id and cost_usd is that
+			// rate's figure rather than d.cost.
+			metrics = fmt.Sprintf(`{"modelVersion": "claude-%s-5-5", "tokens": {"main": {"input": %d, "output": %d, "cache_read": 0, "cache_creation": 0},`+
+				` "sidechain": {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0}}}`, d.model, int(d.cost*40000), int(d.cost*4000))
+		}
+		if err := st.MergeDispatchMetrics(ctx, out.ID, json.RawMessage(metrics)); err != nil {
+			return fmt.Errorf("uitest-seed: metrics for %s of %s: %w", d.key, r.name, err)
+		}
+		if panelSeq == nil && d.role == "panel" {
+			panelSeq = &out.Seq
+		}
+	}
+
+	for _, g := range r.guards {
+		if _, err := st.RecordGuardRun(ctx, project, records.GuardRun{Guard: g.guard, Worktree: g.worktree,
+			Outcome: "clear", DurationMS: g.minutes * 60000, RecordedAt: at(g.to)}); err != nil {
+			return fmt.Errorf("uitest-seed: guard run %s for %s: %w", g.guard, r.name, err)
+		}
+	}
+	for i, v := range r.verify {
+		v.RecordedAt = at(360 + 10*i)
+		if _, err := st.RecordVerifyRun(ctx, project, r.name, v); err != nil {
+			return fmt.Errorf("uitest-seed: verify run %s for %s: %w", v.Label, r.name, err)
+		}
+	}
+	for i, sev := range r.findings {
+		if _, _, err := st.UpsertFinding(ctx, project, r.name, records.Finding{Ref: fmt.Sprintf("F%d", i+1), DispatchSeq: panelSeq,
+			Round: 1, Slot: "primary", Severity: sev, Note: "seeded run-costs finding", Status: "fixed"}); err != nil {
+			return fmt.Errorf("uitest-seed: finding F%d for %s: %w", i+1, r.name, err)
+		}
+	}
+	files := map[string]string{"tasks.md": r.tasks}
+	maps.Copy(files, r.reports)
+	for path, body := range files {
+		if err := st.SaveChangeFile(ctx, project, r.name, path, body); err != nil {
+			return fmt.Errorf("uitest-seed: save %s for %s: %w", path, r.name, err)
 		}
 	}
 	return nil
