@@ -515,3 +515,39 @@ func TestPairJudgeRunsWithoutAutoMemory(t *testing.T) {
 		t.Errorf("CLAUDE_CODE_DISABLE_AUTO_MEMORY = %q in the judge's environment, want 1", got)
 	}
 }
+
+// init pins the sonnet sampling die off for every test; the ones that need a
+// draw set their own.
+func init() { pjSample = func() float64 { return 1 } }
+
+// TestPjSampleSonnetSwapsOnlyAnOpusLowPick: below pjSonnetShare an opus/low
+// pick becomes the sonnet/low candidate; at or above it, a sonnet pick, an
+// opus pick at another effort, an -opus-only dispatch and a role with no
+// sonnet/low candidate stay as picked (60/40 opus-sonnet where opus is picked).
+func TestPjSampleSonnetSwapsOnlyAnOpusLowPick(t *testing.T) {
+	opusLow := pjCandidate{"opus/flow-low", "opus", "low"}
+	opusMed := pjCandidate{"opus/flow-medium", "opus", "medium"}
+	sonnetLow := pjCandidate{"sonnet/flow-low", "sonnet", "low"}
+	both := []pjCandidate{opusLow, opusMed, sonnetLow}
+	defer func(f func() float64) { pjSample = f }(pjSample)
+	for _, c := range []struct {
+		name     string
+		draw     float64
+		pick     pjCandidate
+		cands    []pjCandidate
+		opusOnly bool
+		want     pjCandidate
+	}{
+		{"swaps below the share", 0.39, opusLow, both, false, sonnetLow},
+		{"stays at the share", 0.4, opusLow, both, false, opusLow},
+		{"a sonnet pick stays", 0.0, sonnetLow, both, false, sonnetLow},
+		{"opus at medium stays", 0.0, opusMed, both, false, opusMed},
+		{"-opus-only stays", 0.0, opusLow, both, true, opusLow},
+		{"no sonnet candidate stays", 0.0, opusLow, []pjCandidate{opusLow, opusMed}, false, opusLow},
+	} {
+		pjSample = func() float64 { return c.draw }
+		if got := pjSampleSonnet(c.pick, c.cands, c.opusOnly); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}

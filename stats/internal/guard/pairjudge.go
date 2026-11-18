@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -215,9 +216,9 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(cands) == 1 {
 		line = cands[0].line("single", "the only candidate")
 	} else if pick, reason, cause := pjAsk(env, rows, role, cands, digest); cause != "" {
-		line = cands[0].line("fallback", cause)
+		line = pjSampleSonnet(cands[0], cands, opusOnly).line("fallback", cause)
 	} else {
-		line = pick.line("judge", reason)
+		line = pjSampleSonnet(pick, cands, opusOnly).line("judge", reason)
 	}
 	line += "\n"
 	pickFile := strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"
@@ -226,6 +227,30 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprint(stdout, line)
 	return 0
+}
+
+// pjSonnetShare is the share of opus/low picks swapped to a sonnet/low
+// candidate of the same role, so the operator has data on whether sonnet at
+// low effort can carry the work (a 60/40 opus-sonnet split). Only an opus pick
+// at low effort is sampled; every pick already on sonnet, every other effort
+// and any -opus-only dispatch stay as picked.
+const pjSonnetShare = 0.4
+
+// pjSample draws the sampling die; a test replaces it.
+var pjSample = rand.Float64
+
+// pjSampleSonnet returns pick, or the role's sonnet/low candidate in its place
+// for pjSonnetShare of the opus/low picks. The swap is named in the reason by
+// the caller's line only through the pair it prints; the judge's reason is kept.
+func pjSampleSonnet(pick pjCandidate, cands []pjCandidate, opusOnly bool) pjCandidate {
+	if opusOnly || pick.model != "opus" || pick.effort != "low" {
+		return pick
+	}
+	i := slices.IndexFunc(cands, func(c pjCandidate) bool { return c.model == "sonnet" && c.effort == "low" })
+	if i < 0 || pjSample() >= pjSonnetShare {
+		return pick
+	}
+	return cands[i]
 }
 
 // pjCandidates is role's base row, parsed and filtered.
