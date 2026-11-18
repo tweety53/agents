@@ -1445,10 +1445,10 @@ func runCostsRuns() []runCostsRun {
 	}}
 }
 
-// seedRunCosts writes the run-costs fixture: the per-run page, the Run
-// costs view and run detail's header captures read it.
 func intPtr(n int) *int { return &n }
 
+// seedRunCosts writes the run-costs fixture: the per-run page, the Run
+// costs view and run detail's header captures read it.
 func seedRunCosts(ctx context.Context, st *store.Store) error {
 	for _, r := range runCostsRuns() {
 		if err := seedRunCostsRun(ctx, st, r); err != nil {
