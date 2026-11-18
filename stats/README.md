@@ -246,6 +246,13 @@ transcripts still on disk — only the bytes already harvested, before the
 watcher's first cycle — and the `harvest_backfills` row `stage-gap-cost`
 records that it ran, so it never runs again.
 
+The run costs views count the parent's own command time from
+`guard_runs`: a guard run belongs to the change whose `-worktrees/<change>`
+segment the worktree it was pointed at carries — the first argument that
+is a directory under such a path, else its working directory. Parent
+commands are those runs' union outside every dispatch row, and idle /
+parent is the wall clock left over.
+
 ## Checking attribution by hand
 
 KAN-16 shipped a measurement system that could not measure: every stage run
@@ -282,6 +289,13 @@ minutes after it should have flushed, across every change — that is
 exactly what KAN-16 looked like. On Claude Code `sessionId` is set by the mark itself from
 `CLAUDE_CODE_SESSION_ID` (on Muse, from `MUSE_SESSION_ID`) and is present before the first harvest
 cycle; only `metrics` waits on the harvester.
+
+A dispatch row begun late is corrected with `flow record dispatch retime`, which requires
+`-reason`; the row's first original instants are kept in its `retimed` column across later
+retimes, beside the latest reason. There is no `flowd` verb for it. A gated reviewer's or merger's
+plan check runs at its hand-back: `hooks/await-own-agents.py` runs `flow record dispatch handback`
+when the agent stops, and the parent's later `flow record dispatch end` trusts the marker it
+leaves, so a plan edit after the hand-back no longer blocks the end.
 
 ## Running the daemon at login
 

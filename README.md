@@ -304,6 +304,12 @@ every `/flow*` command writes through the `flow` CLI.**
 - planner decisions (implementer choice and review grouping per class), reviewers, review dynamics, experiments
 - self-review, flow health (which guards fire, which never fire, and what they cost in run time), run detail
 
+Run detail's **Timings and costs →** opens that run's own page (`#/run-costs/<project>/<change>`):
+totals, a timeline with a lane per dispatch category plus parent commands and idle, a group-by
+breakdown, counts, cost per task and per verify round, and a data-quality panel. The **Run costs**
+view (`#/run-costs`) shows the category table across runs and compares two runs side by side
+(Compare); every metric states its definition and whether it is measured, derived or estimated.
+
 ```bash
 cd stats && docker compose up -d   # PostgreSQL
 make build                          # flowd + flow CLI (builds the SPA first)

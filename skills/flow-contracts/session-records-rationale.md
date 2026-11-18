@@ -20,3 +20,13 @@ path. Neither call exists: the records live in the store, the script is retired,
 ordering** — `/flow`'s implement phase renders only into the gitignored `<abs-worktree>/.superpowers/sdd/`, and run 1 renders before staging
 so the record lands in the same commit as the implementation it describes. Reading a rule back out
 of where the two call sites now sit would be reading an accident as a design.
+
+## Dispatch categories
+
+Every dispatch row is classed into a category by one table, `Categories` in
+`<agents repo>/stats/internal/records/category.go`: its rows are ordered, the first row whose key pattern matches
+wins, and it is read at every read rather than stored per row, so changing the table re-labels
+history. A task implementer is classed by its first task's `**Opener:**` in the change's tasks.md. A
+key no row matches reads `other:<role>` and is listed in the run page's data quality. Adding a
+category is one row in the table, one entry in `<agents repo>/stats/internal/records/testdata/dispatch-keys.json`,
+and the `describe` string `describeDispatch` returns for it.
