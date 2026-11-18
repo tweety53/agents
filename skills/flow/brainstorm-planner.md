@@ -359,7 +359,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > (`skills/flow/brainstorm.md`) or in **2. Isolate the workspace** (`skills/flow/implement.md`), so a task names that worktree's path and no step
 > carries a `git worktree add` (self-review-backlog-flow-6).
 
-> **Sort a multi-repository plan's tasks under `## <repository>` headings.** Each repository's tasks sit under a one-word `## <repository>` heading naming it (`## agents`, `## gymie`); `flow-guard plan-dispatch-groups` reads those headings and never groups tasks of two repositories together. A heading with spaces is not a repository heading.
+> **Sort a multi-repository plan's tasks under `## <repository>` headings.** Each repository's tasks sit under a `## <repository>` heading naming it by the basename of its `Repo root` in `<project>/.flow/project.md`'s `## apps` (`## agents`, `## gymie`); `flow-guard plan-dispatch-groups` reads those headings and never groups tasks of two repositories together. Any other heading — `## Dashboard`, `## Global constraints`, or a root nested in another declared root, agents' `## stats` — is a section of the repository above it, never a repository of its own.
 
 > **Put a scratch clone in the change's state dir.** A clone a task prescribes — `git clone --local <worktree> <dir>` to try something on a copy — lives under the path `flow state dir` prints, never in a `<project>-worktrees/` directory, and the task removes it with `rm -rf <dir>`.
 

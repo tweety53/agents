@@ -32,7 +32,7 @@ running the project's resolved `## worktree setup` command once before its imple
 dispatches. Every printed group launches in one message, whatever its repository. Exit 1 —
 no group can launch while one is unlanded — is a plan defect, reported with the lines it
 printed; exit 2 stops the run. `flow-guard throwaway-worktree create` exit 2 means a step failed, named on stderr, and
-nothing is dispatched into that copy. A group never spans two repositories: `flow-guard plan-dispatch-groups` keeps tasks under different `## <repository>` headings — a one-word heading naming the repository — in different groups, so each group's worktree is its repository's.
+nothing is dispatched into that copy. A group never spans two repositories: `flow-guard plan-dispatch-groups` keeps tasks under different `## <repository>` headings — a heading naming a repository `<project>/.flow/project.md`'s `## apps` declares (**Sort a multi-repository plan's tasks under `## <repository>` headings.**, `skills/flow/brainstorm-planner.md`) — in different groups, so each group's worktree is its repository's.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its repository's wave is picked. The same
