@@ -350,10 +350,8 @@ func dispatchSpan(d records.Dispatch, wallEnd int64) span {
 }
 
 func clip(s, w span) span {
-	s.from, s.to = max(s.from, w.from), min(s.to, w.to)
-	if s.to < s.from {
-		s.to = s.from
-	}
+	s.from, s.to = min(max(s.from, w.from), w.to), max(min(s.to, w.to), w.from)
+	s.to = max(s.to, s.from)
 	return s
 }
 

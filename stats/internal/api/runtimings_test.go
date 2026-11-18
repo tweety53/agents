@@ -128,7 +128,11 @@ func TestRunTimingsBreakdownsSumToTheirTotals(t *testing.T) {
 // twice; busy is a row's own union.
 func TestRunTimingsShareSumsToWallClock(t *testing.T) {
 	t.Parallel()
-	got := computeRun(rtInput(), rtAt(200))
+	in := rtInput()
+	// A dispatch starting after the last stage run ended clips to an empty
+	// span at the wall clock's end, never past it.
+	in.Dispatches = append(in.Dispatches, rtDispatch("task-9-implementer", "implementer", 170, 180, "1"))
+	got := computeRun(in, rtAt(200))
 	tot := got.Totals
 	if tot.WallClockMs.Value != rtMin(160) {
 		t.Fatalf("wall clock = %d, want %d", tot.WallClockMs.Value, rtMin(160))
