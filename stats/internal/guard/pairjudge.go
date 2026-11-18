@@ -143,6 +143,8 @@ The user message is a digest of the dispatch's work. Weigh what the work is, not
 
 Pick the cheapest candidate that is near-certain to succeed on the first try.
 
+The operator is collecting data on whether sonnet at low effort can carry this work, so whenever a sonnet candidate is listed, pick it unless the digest shows concurrency, a data-model or migration change, platform interop, performance-sensitive work, a cross-repository change of more than two tasks, or a retry of work that already failed once; then pick the opus candidate. Where no sonnet candidate is listed, this paragraph changes nothing.
+
 Answer with exactly two lines and nothing else:
 PAIR: <one candidate, verbatim>
 REASON: <one line>
