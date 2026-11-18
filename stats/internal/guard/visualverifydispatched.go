@@ -433,7 +433,6 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 			newest = v
 		}
 	}
-	newestKey, newestRoundBase, newestClosesLoop := newest.key, newest.roundBase, newest.closesLoop
 	for _, head := range shas {
 		if !resolves(head) {
 			continue
@@ -494,24 +493,9 @@ func checkVisualVerifyDispatched(args []string, env Env, stdout, stderr io.Write
 			found, missingRecord = false, changes+name+"/visual-verification.md"
 		}
 	}
-	// ONE FULL RUN CLOSES THE LOOP (skills/flow/verify-fix-loop.md): a
-	// scoped re-run is begun with -round-base, so a newest qualifying row
-	// carrying one means the closing unscoped run was never recorded, unless
-	// the row itself closed the loop (closesLoop). The line ends on the HEAD
-	// it judged, as every MISSING verdict does.
-	if found && newestRoundBase != "" && !newestClosesLoop {
-		headSHA, ok := capture(envGit(env)("-C", worktree, "rev-parse", "HEAD"))
-		if !ok {
-			fmt.Fprintf(stderr, "%sgit cannot name HEAD in %s — cannot answer\n", vvdPrefix, worktree)
-			Reason(env, "cannot-name-head")
-			return 2
-		}
-		verdict := "VISUAL-VERIFY-MISSING: the newest verifier row '" + newestKey + "' ran scoped to round base " + newestRoundBase + " — the loop's closing unscoped run is not recorded (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD " + headSHA
-		record(verdict)
-		fmt.Fprintln(stdout, verdict)
-		Reason(env, "closing-run-missing")
-		return 1
-	}
+	// A SCOPED RE-RUN CLOSES THE LOOP: the operator runs a full pass only on
+	// request, so a newest completed verifier row carrying a roundBase counts
+	// as the loop's closing run (skills/flow/verify-fix-loop.md).
 	if found {
 		verdict := "VISUAL-VERIFY-OK: UI paths touched and a completed (or ended-but-unclosed) verifier dispatch is recorded for '" + name + "'"
 		record(verdict)

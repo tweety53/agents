@@ -4936,7 +4936,7 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 	maxFull := -1
 	for _, d := range run.Dispatches {
 		m := fullRunKey.FindStringSubmatch(d.Key)
-		if m == nil && d.ClosesLoop {
+		if m == nil && (d.ClosesLoop || d.RoundBase != "") {
 			m = fixRoundKey.FindStringSubmatch(d.Key)
 		}
 		if completed(d) && m != nil {

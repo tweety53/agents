@@ -255,7 +255,14 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    does not cover is reported the way any stage-found defect is, never absorbed into the fix's
    confirmation.
 
-**One full run closes the loop.** A scoped re-run whose final report carries no fixable defect is
+**A scoped re-run closes the loop; a full run is the operator's to ask for.** A scoped re-run whose
+final report carries no fixable defect closes the loop, `CLOSES-LOOP:` line or not: no `-fix-<k>-full`
+run is dispatched unless the operator asks for one in this session, and `flow-guard
+check-visual-verify-dispatched` and `flow record dispatch begin` count a completed scoped row (one
+begun with `-round-base`) as the closing run. The paragraph below states the former rule and applies
+only on that request.
+
+**One full run closes the loop (only on the operator's request).** A scoped re-run whose final report carries no fixable defect is
 followed by **Visual verification** once more from its `begin` mark, unscoped — no round base,
 every motion of the change — its dispatch keys suffixed `-fix-<k>-full` before any `-<repository
 name>` suffix. A fixable defect it reports opens the next round, whose step-4 re-run is scoped

@@ -7852,9 +7852,8 @@ func TestRecordDispatchBeginRefusesAnUnscopedVisualVerifyAfterAnInRunFix(t *test
 }
 
 // TestInRunFixRefusalCountsAClosingScopedRow pins that a completed -fix-<j>
-// verifier row carrying closesLoop closes every In-run fix up to <j>, as a
-// completed -fix-<j>-full row does, and that a scoped row without it, or an
-// aborted one with it, closes nothing (KAN-1122).
+// verifier row carrying a round base closes every In-run fix up to <j>, as a
+// completed -fix-<j>-full row does, and that an aborted one closes nothing.
 func TestInRunFixRefusalCountsAClosingScopedRow(t *testing.T) {
 	scoped := records.Dispatch{Key: "visual-verify-fix-2-gymie", Role: "verifier", Outcome: "completed", RoundBase: "abc1234"}
 	closing := scoped
@@ -7868,7 +7867,7 @@ func TestInRunFixRefusalCountsAClosingScopedRow(t *testing.T) {
 		refused bool
 	}{
 		{"a completed closing row closes its fix", []string{"2"}, []records.Dispatch{closing}, false},
-		{"a scoped row without the field leaves its fix open", []string{"2"}, []records.Dispatch{scoped}, true},
+		{"a scoped row closes its fix without the field", []string{"2"}, []records.Dispatch{scoped}, false},
 		{"an aborted closing row leaves its fix open", []string{"2"}, []records.Dispatch{aborted}, true},
 		{"a closing row of a lower fix leaves a higher one open", []string{"2", "3"}, []records.Dispatch{closing}, true},
 	} {
