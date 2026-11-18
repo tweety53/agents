@@ -67,9 +67,11 @@ cases is a stop for nothing:
 - **A verify or visual-verify loop that keeps finding departures** — round after round, the same
   frames again or new ones: run another fix round. There is no round count, no usage or time
   threshold, and no "land with leftovers or keep going?" question: the departures are fixed until a
-  round reports none (`skills/flow/verify-fix-loop.md`). A departure no round can close — two frames
-  that contradict each other — is recorded on the handoff with both frames cited, and the loop goes on
-  with the rest.
+  round reports none (`skills/flow/verify-fix-loop.md`). **The run never lands, and never writes
+  its handoff, with a departure open** — no "leftovers", no "known departures" list. Two frames that
+  contradict each other are settled by taking the frame of the screen's own section (the one the
+  ticket names for that screen), recording that as a decision superseding the other frame's reading,
+  and fixing to it; the other frame's departure is then closed, not carried.
 - **A guard that refuses evidence the run really holds** — a freshness check that reads a
   byte-identical recapture as "not recaptured", a closing check a remainder row cannot satisfy: the
   guard is the defect. Fix it in an `agents` worktree (**Pipeline defects found mid-run**,
