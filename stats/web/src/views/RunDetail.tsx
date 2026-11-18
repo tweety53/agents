@@ -707,6 +707,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
         <div className="lb-title">
           <h2>{change}</h2>
           {board && <StatePill row={board} />}
+          <button type="button" className="lb-fchip" onClick={() => (window.location.hash = `#/run-costs/${encodeURIComponent(project)}/${encodeURIComponent(change)}`)}>
+            Timings and costs →
+          </button>
         </div>
         {/* The header names the project (kan-183), it does not key it -- the
             section's own aria-label and useRunDetail's request keep the full

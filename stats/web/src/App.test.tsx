@@ -260,3 +260,18 @@ describe("the live state board carries its own filters", () => {
     window.location.hash = "";
   });
 });
+
+it("run-costs route resolves to the run timings page", async () => {
+  window.location.hash = "#/run-costs/p/c";
+  render(<App />);
+  expect(await screen.findByRole("region", { name: "Run timings and costs: p/c" })).toBeInTheDocument();
+  expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
+  window.location.hash = "";
+});
+
+it("run-costs route leaves #/run on run detail", async () => {
+  window.location.hash = "#/run/p/c";
+  render(<App />);
+  expect(await screen.findByRole("region", { name: "Run detail: p/c" })).toBeInTheDocument();
+  window.location.hash = "";
+});

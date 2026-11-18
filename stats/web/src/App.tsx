@@ -19,6 +19,7 @@ import { Decisions } from "./views/Decisions";
 import { Experiments } from "./views/Experiments";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
+import { RunTimings } from "./views/RunTimings";
 import { ReviewDynamics } from "./views/ReviewDynamics";
 import { Reviewers } from "./views/Reviewers";
 import { SelfReview } from "./views/SelfReview";
@@ -68,7 +69,10 @@ function isViewName(v: string): v is ViewName {
  * VIEW_NAMES without forcing every other view-name check in this file to
  * also handle a "name" that isn't really one.
  */
-type Route = { kind: "view"; view: ViewName } | { kind: "run"; project: string; change: string };
+type Route =
+  | { kind: "view"; view: ViewName }
+  | { kind: "run"; project: string; change: string }
+  | { kind: "run-costs"; project: string; change: string };
 
 /**
  * Matches "run/<project>/<change>" against the hash (already stripped of
@@ -78,8 +82,8 @@ type Route = { kind: "view"; view: ViewName } | { kind: "run"; project: string; 
  * URL-significant character (a literal "/", "#", "?", ...) survive the
  * round trip without being mistaken for a route separator.
  */
-function parseRunRoute(hash: string): { project: string; change: string } | null {
-  const match = /^run\/([^/]+)\/([^/]+)$/.exec(hash);
+function parseRunRoute(hash: string, re = /^run\/([^/]+)\/([^/]+)$/): { project: string; change: string } | null {
+  const match = re.exec(hash);
   if (!match) return null;
   return { project: decodeURIComponent(match[1]), change: decodeURIComponent(match[2]) };
 }
@@ -103,6 +107,10 @@ function currentRoute(): Route {
   const run = parseRunRoute(path);
   if (run) {
     return { kind: "run", ...run };
+  }
+  const runCosts = parseRunRoute(path, /^run-costs\/([^/]+)\/([^/]+)$/);
+  if (runCosts) {
+    return { kind: "run-costs", ...runCosts };
   }
   return { kind: "view", view: isViewName(path) ? path : DEFAULT_VIEW };
 }
@@ -173,9 +181,7 @@ function currentPeriod(): Period {
 }
 
 function routePath(route: Route): string {
-  return route.kind === "run"
-    ? `run/${encodeURIComponent(route.project)}/${encodeURIComponent(route.change)}`
-    : route.view;
+  return route.kind === "view" ? route.view : `${route.kind}/${encodeURIComponent(route.project)}/${encodeURIComponent(route.change)}`;
 }
 
 /**
@@ -269,6 +275,8 @@ export function App() {
       <main>
         {route.kind === "run" ? (
           <RunDetail project={route.project} change={route.change} />
+        ) : route.kind === "run-costs" ? (
+          <RunTimings project={route.project} change={route.change} />
         ) : (
           ActiveView && (
             <ActiveView

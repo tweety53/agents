@@ -539,6 +539,29 @@ th button {
 .lb-sw.completed { background: var(--status-ok); }
 .lb-sw.failed { background: var(--status-critical); }
 .lb-sw.open { background: repeating-linear-gradient(45deg, var(--st-progress) 0 3px, transparent 3px 6px); }
+.lb-sw.idle { background: repeating-linear-gradient(45deg, var(--text-muted) 0 2px, transparent 2px 5px); }
+.lb-timeline rect.bar:hover { stroke: var(--text-primary); stroke-width: 1; }
+.lb-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 14px; }
+.src { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .04em; padding: 0 5px; border-radius: 2px; margin-left: 6px; text-transform: lowercase; vertical-align: 1px; cursor: help; }
+.src.measured { color: var(--status-ok); background: color-mix(in srgb, var(--status-ok) 14%, transparent); }
+.src.derived { color: var(--series-1); background: color-mix(in srgb, var(--series-1) 16%, transparent); }
+.src.estimated { color: var(--series-3); background: color-mix(in srgb, var(--series-3) 16%, transparent); }
+.dq li { padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: baseline; }
+.dq li:last-child { border-bottom: 0; }
+.dq ul { list-style: none; margin: 0; padding: 0; }
+.dq .ok { color: var(--status-ok); font-weight: 600; }
+.dq .n { min-width: 34px; text-align: right; }
+.dq details summary { cursor: pointer; color: var(--text-secondary); }
+.dq details ul { padding-left: 44px; color: var(--text-muted); font-family: var(--font-mono); font-size: 12px; }
+.dq details li { border: 0; padding: 1px 0; }
+.counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; }
+.counts > div { padding: 8px 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: grid; gap: 2px; }
+.defs dt { font-weight: 600; margin-top: 8px; }
+.defs dd { margin: 2px 0 0; color: var(--text-secondary); }
+.delta-up { color: var(--delta-up); }
+.delta-down { color: var(--delta-down); }
+.cmp-pick { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.cmp-pick select { background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--panel-radius); padding: 0.3rem 0.5rem; font: inherit; }
 .lb-timeline { min-width: 640px; display: block; }
 .lb-timeline text { fill: var(--text-secondary); font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .lb-timeline .lb-grid { stroke: var(--border); }

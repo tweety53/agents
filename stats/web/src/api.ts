@@ -851,6 +851,71 @@ export function getRunRecord(project: string, change: string, init?: RequestInit
   return getJSON<{ dispatches: RecordDispatch[] }>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
 }
 
+/** Mirrors api.metric: one figure with what it means and how it was obtained. */
+export interface RunMetric<T> {
+  value: T;
+  definition: string;
+  kind: "measured" | "derived" | "estimated";
+}
+
+/** Mirrors api.definition. */
+export interface RunDefinition {
+  name: string;
+  definition: string;
+  kind: RunMetric<unknown>["kind"];
+}
+
+/** Mirrors api.breakdownRow; cost is in dollars. */
+export interface RunBreakdownRow {
+  label: string;
+  rows: number;
+  shareMs: number;
+  busyMs: number;
+  cost: number;
+  noTokens: number;
+}
+
+/** Mirrors api.RunTimings, the per-run route's result. */
+export interface RunTimings {
+  project: string;
+  change: string;
+  from: string;
+  to: string;
+  open: boolean;
+  totals: {
+    wallClockMs: RunMetric<number>;
+    agentTimeMs: RunMetric<number>;
+    parentCommandsMs: RunMetric<number>;
+    idleMs: RunMetric<number>;
+    cost: RunMetric<number>;
+    parentSessionCost: RunMetric<number>;
+    visualVerifyShare: RunMetric<number>;
+    dispatches: number;
+    noTokens: number;
+    parentCommandRuns: number;
+    unclaimedGuardRuns: number;
+  };
+  lanes: { label: string; kind: "stage" | "category" | "parent" | "idle"; intervals: { from: string; to: string; class: string }[] }[];
+  breakdowns: Record<"category" | "role" | "model" | "repo" | "round", { columns: RunDefinition[]; rows: RunBreakdownRow[]; total: RunBreakdownRow }>;
+  costPerTask: { task: string; rows: number; shareMs: number; cost: number; estimated: boolean; group?: string }[];
+  costPerVerifyRound: { round: string; rows: number; shareMs: number; cost: number }[];
+  counts: {
+    fixRounds: RunMetric<{ verify: number; panel: number }>;
+    departures: RunMetric<{ round: string; departures: number }[]>;
+    findings: RunMetric<{ critical: number; important: number; minor: number }>;
+    flakyRetries: RunMetric<{ retries: number; runs: number }>;
+    rows: RunMetric<{ open: number; aborted: number; blocked: number }>;
+    journalPending: RunMetric<number | "unknown">;
+  };
+  dataQuality: { id: string; label: string; count: number; unknown?: boolean; detail: string[] }[];
+  definitions: RunDefinition[];
+}
+
+/** GET /api/v1/stats/run/{project}/{change} -- one run's timings and costs. */
+export function getRunTimings(project: string, change: string, init?: RequestInit): Promise<RunTimings> {
+  return getJSON<RunTimings>(`/api/v1/stats/run/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
+}
+
 /** GET /api/v1/records/{project}/{change}/decisions -- the change's recorded decisions, newest first. */
 export function getDecisions(project: string, change: string, init?: RequestInit): Promise<{ decision: Decision }[]> {
   return getJSON<{ decision: Decision }[]>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}/decisions`, init);

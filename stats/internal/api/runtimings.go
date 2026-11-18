@@ -157,6 +157,9 @@ type taskCost struct {
 	ShareMs   int64  `json:"shareMs"`
 	Cost      usd    `json:"cost"`
 	Estimated bool   `json:"estimated"`
+	// Group is the task ids of the group key the task's cost was split
+	// from, "13+14+16+20"; empty for a task only its own keys name.
+	Group string `json:"group,omitempty"`
 }
 
 type roundCost struct {
@@ -561,6 +564,9 @@ func costPerTask(rows []row) []taskCost {
 			c.ShareMs += splitPart(r.share, n, j)
 			c.Cost += usd(splitPart(int64(r.cost), n, j))
 			c.Estimated = c.Estimated || n > 1
+			if n > 1 {
+				c.Group = strings.Join(r.tasks, "+")
+			}
 		}
 	}
 	slices.SortFunc(out, func(a, b taskCost) int {

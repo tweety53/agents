@@ -743,6 +743,17 @@ describe("the reworked run view (kan-1048)", () => {
     expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
   });
 
+  it("run detail's button opens the run's timings page", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const heading = await screen.findByRole("heading", { name: CHANGE });
+    await waitFor(() => expect(heading.parentElement).toHaveTextContent("Integrating"));
+    const button = screen.getByRole("button", { name: "Timings and costs →" });
+    expect(heading.nextElementSibling?.nextElementSibling).toBe(button);
+    fireEvent.click(button);
+    expect(window.location.hash).toBe(`#/run-costs/${PROJECT}/${CHANGE}`);
+    window.location.hash = "";
+  });
+
   it("run detail header and kpis", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     expect(await screen.findByRole("link", { name: "← Live state board" })).toHaveAttribute("href", "#/state-board");

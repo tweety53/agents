@@ -164,7 +164,7 @@ func TestRunTimingsSplitsAGroupKeyEvenly(t *testing.T) {
 	}
 	for _, id := range []string{"13", "14"} {
 		c := byTask[id]
-		if c.Cost != 1_500_000 || c.ShareMs != rtMin(8.75) || !c.Estimated {
+		if c.Cost != 1_500_000 || c.ShareMs != rtMin(8.75) || !c.Estimated || c.Group != "13+14" {
 			t.Errorf("task %s = %+v, want $1.50, 8.75m, estimated", id, c)
 		}
 	}
