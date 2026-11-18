@@ -457,6 +457,10 @@ func (fakeStore) SetFindingStatus(context.Context, string, string, string, strin
 	return nil
 }
 
+func (fakeStore) RetimeDispatch(context.Context, string, string, records.DispatchRetime) (records.Dispatch, error) {
+	return records.Dispatch{}, nil
+}
+
 func (fakeStore) RunRecord(context.Context, string, string) (records.Run, error) {
 	return records.Run{}, nil
 }

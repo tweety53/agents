@@ -4774,50 +4774,126 @@ func TestEndDispatchRefusesAnyRowBegunAfterItsCommit(t *testing.T) {
 	}
 }
 
-// TestRetimeDispatchSetsInstantsAndCommit pins flowd retime-dispatch's store
-// half: the instants and commit land exactly, an unknown id is
-// ErrDispatchNotFound, and inverted instants change nothing.
-func TestRetimeDispatchSetsInstantsAndCommit(t *testing.T) {
+// TestRetimeDispatchKeepsTheOriginalInstants pins `flow record dispatch
+// retime`'s store half (decision retime-jsonb-drop-old): a retime moves the
+// instants and commit and records its reason with the instants it replaced;
+// a later retime keeps those first originals and takes its own reason; an
+// empty commit keeps the stored one.
+func TestRetimeDispatchKeepsTheOriginalInstants(t *testing.T) {
 	t.Parallel()
-	st, pool := newRecordStore(t)
+	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-retime-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
+	begun := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	ended := time.Date(2026, 11, 16, 10, 30, 0, 0, time.UTC)
+	row := recordRetimeFixture(t, st, projectKey, begun, ended)
+
+	early := time.Date(2026, 11, 16, 9, 40, 0, 0, time.UTC)
+	got, err := st.RetimeDispatch(ctx, projectKey, "kan-1", records.DispatchRetime{
+		ID: row.ID, StartedAt: early, EndedAt: ended, CommitSHA: "abc1234", Reason: "begin recorded after the work",
+	})
+	if err != nil {
+		t.Fatalf("RetimeDispatch: %v", err)
+	}
+	if !got.StartedAt.Equal(early) || got.EndedAt == nil || !got.EndedAt.Equal(ended) || got.CommitSHA != "abc1234" {
+		t.Fatalf("row = %v %v %q, want %v %v abc1234", got.StartedAt, got.EndedAt, got.CommitSHA, early, ended)
+	}
+	assertRetimed(t, got, "begin recorded after the work", begun, ended)
+
+	later := time.Date(2026, 11, 16, 9, 50, 0, 0, time.UTC)
+	laterEnd := time.Date(2026, 11, 16, 10, 20, 0, 0, time.UTC)
+	got, err = st.RetimeDispatch(ctx, projectKey, "kan-1", records.DispatchRetime{
+		ID: row.ID, StartedAt: later, EndedAt: laterEnd, Reason: "second look",
+	})
+	if err != nil {
+		t.Fatalf("second RetimeDispatch: %v", err)
+	}
+	if !got.StartedAt.Equal(later) || !got.EndedAt.Equal(laterEnd) || got.CommitSHA != "abc1234" {
+		t.Fatalf("second retime row = %v %v %q, want %v %v abc1234 (an empty commit keeps the stored one)", got.StartedAt, got.EndedAt, got.CommitSHA, later, laterEnd)
+	}
+	assertRetimed(t, got, "second look", begun, ended)
+
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(run.Dispatches) != 1 {
+		t.Fatalf("RunRecord dispatches = %d, want 1", len(run.Dispatches))
+	}
+	assertRetimed(t, run.Dispatches[0], "second look", begun, ended)
+}
+
+// TestRetimeDispatchRefusesBadInput pins the refusals: an empty reason,
+// started after ended, an unknown id and another change's id each refuse
+// and leave the row as it was.
+func TestRetimeDispatchRefusesBadInput(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-retime-bad-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	begun := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	ended := time.Date(2026, 11, 16, 10, 30, 0, 0, time.UTC)
+	row := recordRetimeFixture(t, st, projectKey, begun, ended)
+	early := begun.Add(-20 * time.Minute)
+
+	for _, c := range []struct {
+		name   string
+		change string
+		in     records.DispatchRetime
+		want   error
+	}{
+		{"empty reason", "kan-1", records.DispatchRetime{ID: row.ID, StartedAt: early, EndedAt: ended}, store.ErrInvalidRetime},
+		{"started after ended", "kan-1", records.DispatchRetime{ID: row.ID, StartedAt: ended, EndedAt: early, Reason: "x"}, store.ErrInvalidRetime},
+		{"unknown id", "kan-1", records.DispatchRetime{ID: 1 << 62, StartedAt: early, EndedAt: ended, Reason: "x"}, store.ErrDispatchNotFound},
+		{"another change's id", "kan-2", records.DispatchRetime{ID: row.ID, StartedAt: early, EndedAt: ended, Reason: "x"}, store.ErrDispatchNotFound},
+	} {
+		if _, err := st.RetimeDispatch(ctx, projectKey, c.change, c.in); !errors.Is(err, c.want) {
+			t.Errorf("%s: err = %v, want %v", c.name, err, c.want)
+		}
+	}
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	d := run.Dispatches[0]
+	if !d.StartedAt.Equal(begun) || d.EndedAt == nil || !d.EndedAt.Equal(ended) || d.Retimed != nil {
+		t.Fatalf("refused retimes changed the row: %v %v %+v", d.StartedAt, d.EndedAt, d.Retimed)
+	}
+}
+
+// recordRetimeFixture records one inline row of kan-1 begun at begun and
+// moved to end at ended, the shape a retime corrects.
+func recordRetimeFixture(t *testing.T, st *store.Store, projectKey string, begun, ended time.Time) records.Dispatch {
+	t.Helper()
+	ctx := context.Background()
 	b := baseDispatch("implementer", "opus")
 	b.Key = "task-1-implementer"
 	b.SessionToken = "mf-retime"
 	b.AgentID = "inline"
+	b.StartedAt = begun
 	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", b)
 	if err != nil {
 		t.Fatalf("RecordDispatch: %v", err)
 	}
-	started := time.Date(2026, 10, 21, 11, 2, 0, 0, time.UTC)
-	ended := time.Date(2026, 10, 21, 11, 10, 31, 0, time.UTC)
-	read := func() (time.Time, *time.Time, *string) {
-		var s time.Time
-		var e *time.Time
-		var c *string
-		if err := pool.QueryRow(ctx, `SELECT started_at, ended_at, commit_sha FROM dispatches WHERE id = $1`, row.ID).Scan(&s, &e, &c); err != nil {
-			t.Fatalf("read row: %v", err)
-		}
-		return s, e, c
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: b.SessionToken, Key: b.Key, Outcome: "blocked", EndedAt: ended}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
 	}
-	if err := st.RetimeDispatch(ctx, row.ID, started, ended, "22c9796f"); err != nil {
-		t.Fatalf("RetimeDispatch: %v", err)
+	return row
+}
+
+func assertRetimed(t *testing.T, d records.Dispatch, reason string, started, ended time.Time) {
+	t.Helper()
+	r := d.Retimed
+	if r == nil {
+		t.Fatalf("row %d: retimed = nil, want {%s %v %v}", d.ID, reason, started, ended)
 	}
-	s, e, c := read()
-	if !s.Equal(started) || e == nil || !e.Equal(ended) || c == nil || *c != "22c9796f" {
-		t.Fatalf("row = %v %v %v, want %v %v 22c9796f", s, e, c, started, ended)
-	}
-	if err := st.RetimeDispatch(ctx, 1<<62, started, ended, "x"); !errors.Is(err, store.ErrDispatchNotFound) {
-		t.Fatalf("RetimeDispatch unknown id: err = %v, want store.ErrDispatchNotFound", err)
-	}
-	if err := st.RetimeDispatch(ctx, row.ID, ended, started, "other"); err == nil {
-		t.Fatal("RetimeDispatch with started after ended: err = nil")
-	}
-	if s2, e2, c2 := read(); !s2.Equal(s) || !e2.Equal(*e) || *c2 != *c {
-		t.Fatalf("inverted retime changed the row: %v %v %v", s2, e2, *c2)
+	if r.Reason != reason || !r.StartedAt.Equal(started) || r.EndedAt == nil || !r.EndedAt.Equal(ended) || r.At.IsZero() {
+		t.Fatalf("row %d: retimed = %+v, want reason %q startedAt %v endedAt %v and an at", d.ID, *r, reason, started, ended)
 	}
 }
 
@@ -5789,7 +5865,7 @@ func TestRestampStampedEnds(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RecordDispatch(%s): %v", c.agent, err)
 		}
-		if err := st.RetimeDispatch(ctx, row.ID, start, c.end, ""); err != nil {
+		if _, err := st.RetimeDispatch(ctx, projectKey, "kan-1", records.DispatchRetime{ID: row.ID, StartedAt: start, EndedAt: c.end, Reason: "fixture"}); err != nil {
 			t.Fatalf("RetimeDispatch(%s): %v", c.agent, err)
 		}
 		agentEnds[c.agent] = c.agEnd

@@ -1083,8 +1083,8 @@ func TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit(t *testing.T) {
 				}
 				return
 			}
-			if r.rc != 1 || !strings.Contains(r.err, "dispatch row 8623 carries no commit") || !strings.Contains(r.err, "flowd retime-dispatch 8623") {
-				t.Fatalf("exit %d, want 1 naming row 8623 and flowd retime-dispatch\n%s", r.rc, r.out)
+			if r.rc != 1 || !strings.Contains(r.err, "dispatch row 8623 carries no commit") || !strings.Contains(r.err, "flow record dispatch retime -change demo -id 8623") {
+				t.Fatalf("exit %d, want 1 naming row 8623 and flow record dispatch retime\n%s", r.rc, r.out)
 			}
 			ctEqual(t, fx.calls(t), []string{"flow record dispatches -change demo -C " + fx.wt})
 		})

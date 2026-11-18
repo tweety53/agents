@@ -146,7 +146,7 @@ var ErrInlineCommitMissing = errors.New("store: inline task dispatch closed with
 // so the harvester's window misses the work entirely. It covers every row,
 // inline or not (kan-1083 self-review, F13: row 9825 was not inline at its
 // end), and keeps its name for its HTTP and reconcile mappings; its message's
-// remedy is flow record dispatch backfill with the real instants.
+// remedy is flow record dispatch retime with the real instants.
 var ErrInlineBegunAfterCommit = errors.New("store: inline dispatch begun after its commit")
 
 // minInlineWindow is the shortest window an inline row may close with.
@@ -395,7 +395,7 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
 	          cause, session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-	          diff_base, effort, round_base, pair_pick, request, closes_loop`
+	          diff_base, effort, round_base, pair_pick, request, closes_loop, retimed`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
 // alias, for the one statement that needs it -- an UPDATE ... FROM, where
@@ -441,13 +441,20 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 		roundBase    *string
 		pairPick     *string
 		bag          []byte
+		retimed      []byte
 	)
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&cause, &sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
-		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &d.ClosesLoop,
+		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &d.ClosesLoop, &retimed,
 	); err != nil {
 		return records.Dispatch{}, err
+	}
+	if retimed != nil {
+		d.Retimed = &records.Retime{}
+		if err := json.Unmarshal(retimed, d.Retimed); err != nil {
+			return records.Dispatch{}, fmt.Errorf("dispatch %d: retimed: %w", d.ID, err)
+		}
 	}
 	d.AgentID = derefOrEmpty(agentID)
 	d.TaskID = derefOrEmpty(taskID)
@@ -738,7 +745,7 @@ func insertDispatch(ctx context.Context, q interface {
 //
 // A closed row keeps its end: a second end -- the run's re-point after an
 // autosquash -- updates its commit and outcome only, and a closed row's end
-// moves only through flowd retime-dispatch (kan-1046 self-review, 1a).
+// moves only through flow record dispatch retime (kan-1046 self-review, 1a).
 func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
 	// Held as a string, never a []byte: pgx binds a []byte as bytea, and a
 	// bytea reaching the statement's tokens cast reads as NULL -- the
@@ -804,7 +811,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	// recorded after the work it opens (kan-1083 self-review, F13: row 9825
 	// was not inline at its end, and nothing refused it).
 	if readErr == nil && in.CommitAt != nil && in.CommitAt.Before(startedAt.Truncate(time.Second)) {
-		return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, its commit made %s -- record begin when the work starts, or record it with flow record dispatch backfill and the real instants", ErrInlineBegunAfterCommit, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339), in.CommitAt.UTC().Format(time.RFC3339))
+		return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, its commit made %s -- record begin when the work starts, or correct it with flow record dispatch retime and the real instants", ErrInlineBegunAfterCommit, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339), in.CommitAt.UTC().Format(time.RFC3339))
 	}
 	if in.Outcome == "completed" {
 		err := readErr
@@ -1489,25 +1496,45 @@ func (s *Store) RestampDispatch(ctx context.Context, dispatchID int64, agentID s
 	return nil
 }
 
-// RetimeDispatch sets dispatch id's started_at, ended_at and commit_sha
-// outright -- the repair for an inline row whose begin and end were recorded
-// after the work (kan-1003). started after ended is refused and changes
-// nothing.
-func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended time.Time, commit string) error {
-	if started.After(ended) {
-		return fmt.Errorf("store: retime dispatch %d: started %s after ended %s", id, started.Format(time.RFC3339), ended.Format(time.RFC3339))
+// ErrInvalidRetime is returned by RetimeDispatch for a retime with no
+// reason, or one whose start falls after its end: an unaudited or inverted
+// retime changes nothing.
+var ErrInvalidRetime = errors.New("store: invalid retime")
+
+// RetimeDispatch sets row in.ID's started_at and ended_at outright, and its
+// commit_sha when in.CommitSHA is set -- the repair for a row whose begin or
+// end was recorded after the work (kan-1003) -- and records the retime in
+// the row's retimed audit: the reason and instant of this retime, and the
+// instants the first retime replaced, kept across later ones (decision
+// retime-jsonb-drop-old). The row must belong to projectKey/change; any
+// other id is ErrDispatchNotFound.
+func (s *Store) RetimeDispatch(ctx context.Context, projectKey, change string, in records.DispatchRetime) (records.Dispatch, error) {
+	if strings.TrimSpace(in.Reason) == "" {
+		return records.Dispatch{}, fmt.Errorf("%w: dispatch %d: a reason is required", ErrInvalidRetime, in.ID)
 	}
-	tag, err := s.pool.Exec(ctx, `
-		UPDATE dispatches SET started_at = $2, ended_at = $3, commit_sha = $4
-		WHERE id = $1
-	`, id, started, ended, nullIfEmpty(commit))
+	if in.StartedAt.After(in.EndedAt) {
+		return records.Dispatch{}, fmt.Errorf("%w: dispatch %d: started %s after ended %s", ErrInvalidRetime, in.ID, in.StartedAt.Format(time.RFC3339), in.EndedAt.Format(time.RFC3339))
+	}
+	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
+		UPDATE dispatches d SET
+			started_at = $4,
+			ended_at = $5,
+			commit_sha = COALESCE(NULLIF($6, ''), d.commit_sha),
+			retimed = jsonb_build_object(
+				'reason', $7::text,
+				'at', now(),
+				'startedAt', COALESCE(d.retimed -> 'startedAt', to_jsonb(d.started_at)),
+				'endedAt', COALESCE(d.retimed -> 'endedAt', to_jsonb(d.ended_at)))
+		FROM changes c
+		WHERE d.id = $1 AND d.change_id = c.id AND c.project_key = $2 AND c.name = $3
+		RETURNING `+qualifiedDispatchColumns("d"), in.ID, projectKey, change, in.StartedAt, in.EndedAt, in.CommitSHA, in.Reason))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return records.Dispatch{}, fmt.Errorf("%w: %d in %s/%s", ErrDispatchNotFound, in.ID, projectKey, change)
+	}
 	if err != nil {
-		return fmt.Errorf("store: retime dispatch %d: %w", id, err)
+		return records.Dispatch{}, fmt.Errorf("store: retime dispatch %d: %w", in.ID, err)
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
-	}
-	return nil
+	return out, nil
 }
 
 // RestampStampedEnds moves every non-inline agent row ended at or after since

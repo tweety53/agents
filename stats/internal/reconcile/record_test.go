@@ -90,6 +90,10 @@ func (nopRecordStore) RecordVerifyRun(context.Context, string, string, records.V
 	return records.VerifyRun{}, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) RetimeDispatch(context.Context, string, string, records.DispatchRetime) (records.Dispatch, error) {
+	return records.Dispatch{}, errRecordStoreNotExercised
+}
+
 func (nopRecordStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
 	return nil, errRecordStoreNotExercised
 }
@@ -394,6 +398,10 @@ func (f *fakeRecordStore) ListSubstitutions(context.Context, string, string, str
 func (f *fakeRecordStore) RecordVerifyRun(_ context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error) {
 	f.record(fmt.Sprintf("run %s/%s kind=%s label=%s seconds=%d tests=%d failed=%d exit=%d", projectKey, change, in.Kind, in.Label, in.Seconds, in.Tests, in.Failed, in.ExitCode))
 	return in, nil
+}
+
+func (f *fakeRecordStore) RetimeDispatch(context.Context, string, string, records.DispatchRetime) (records.Dispatch, error) {
+	return records.Dispatch{}, nil
 }
 
 func (f *fakeRecordStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {

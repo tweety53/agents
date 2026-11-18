@@ -974,6 +974,10 @@ func (stubStageStore) RecordVerifyRun(context.Context, string, string, records.V
 	return records.VerifyRun{}, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RetimeDispatch(context.Context, string, string, records.DispatchRetime) (records.Dispatch, error) {
+	return records.Dispatch{}, nil
+}
+
 func (stubStageStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
 	return nil, errStageStoreNotImplemented
 }

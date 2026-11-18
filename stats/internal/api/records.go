@@ -108,6 +108,11 @@ type RecordStore interface {
 
 	// RecordVerifyRun and ListVerifyRuns are a change's verify-run cost log.
 	RecordVerifyRun(ctx context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error)
+	// RetimeDispatch is `flow record dispatch retime`'s write: a row's
+	// instants corrected with a required reason, the originals kept in its
+	// retimed audit (decision retime-jsonb-drop-old). It is never journalled,
+	// so it sits here rather than on RecordWriter.
+	RetimeDispatch(ctx context.Context, projectKey, change string, in records.DispatchRetime) (records.Dispatch, error)
 	ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error)
 
 	// ListFindingPatterns and ListFindingPatternOccurrences are KAN-416's
@@ -668,6 +673,25 @@ func (h *recordHandler) endDispatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("end dispatch %q for %s/%s", in.Key, project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// retimeDispatchRow is POST /api/v1/records/{project}/{change}/dispatches/retime:
+// `flow record dispatch retime`'s correction of a row's instants. A missing
+// reason or inverted instants are 400, an id this change does not hold 404.
+func (h *recordHandler) retimeDispatchRow(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+	var in records.DispatchRetime
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	out, err := h.store.RetimeDispatch(r.Context(), project, change, in)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("retime dispatch %d for %s/%s", in.ID, project, change), err)
 		writeError(w, status, msg)
 		return
 	}

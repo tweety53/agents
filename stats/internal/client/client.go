@@ -1106,6 +1106,19 @@ func (c *Client) EndDispatch(ctx context.Context, project, change string, in rec
 	return out, nil
 }
 
+// RetimeDispatch corrects a dispatch row's instants through
+// `POST .../dispatches/retime` -- `flow record dispatch retime`. It is never
+// journalled: a correction is the operator's act, retried by hand.
+func (c *Client) RetimeDispatch(ctx context.Context, project, change string, in records.DispatchRetime) (records.Dispatch, error) {
+	var out records.Dispatch
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/dispatches/retime", in,
+		map[int]bool{http.StatusOK: true}, &out)
+	if err != nil {
+		return records.Dispatch{}, err
+	}
+	return out, nil
+}
+
 // RecordFinding records one review-panel finding for project/change, or
 // replaces the one already recorded under the same ref, and returns the
 // row the daemon stored together with which of the two it did.

@@ -124,14 +124,6 @@ func main() {
 		return
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "retime-dispatch" {
-		if err := retimeDispatch(os.Args[2:]); err != nil {
-			logger.Error("flowd retime-dispatch failed", "error", err)
-			os.Exit(1)
-		}
-		return
-	}
-
 	if len(os.Args) > 1 && os.Args[1] == "reoutcome-dispatch" {
 		if err := reoutcomeDispatch(os.Args[2:]); err != nil {
 			logger.Error("flowd reoutcome-dispatch failed", "error", err)
@@ -1238,38 +1230,4 @@ func restampEnds(args []string) error {
 	})
 	fmt.Printf("restamped: %d\n", n)
 	return err
-}
-
-// retimeDispatch implements `flowd retime-dispatch <dispatch-id>
-// <started-at> <ended-at> <commit>` (store.Store.RetimeDispatch): the repair
-// for an inline row whose begin and end were recorded after the work
-// (kan-1003). It talks to the database directly, so it needs no running
-// daemon.
-func retimeDispatch(args []string) error {
-	if len(args) != 4 {
-		return fmt.Errorf("usage: flowd retime-dispatch <dispatch-id> <started-at> <ended-at> <commit>")
-	}
-	id, err := strconv.ParseInt(args[0], 10, 64)
-	if err != nil {
-		return fmt.Errorf("dispatch id %q: %w", args[0], err)
-	}
-	started, err := time.Parse(time.RFC3339, args[1])
-	if err != nil {
-		return fmt.Errorf("started-at %q: %w", args[1], err)
-	}
-	ended, err := time.Parse(time.RFC3339, args[2])
-	if err != nil {
-		return fmt.Errorf("ended-at %q: %w", args[2], err)
-	}
-	cfg, err := config.FromEnv()
-	if err != nil {
-		return err
-	}
-	ctx := context.Background()
-	st, err := store.Open(ctx, cfg.DSN)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	return st.RetimeDispatch(ctx, id, started, ended, args[3])
 }

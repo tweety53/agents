@@ -407,6 +407,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/projects", lh.projects)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/retime", rh.retimeDispatchRow)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/findings", rh.recordFinding)
 	mux.HandleFunc("PATCH /api/v1/records/{project}/{change}/findings/{ref}", rh.setFindingStatus)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/verdicts", rh.recordVerdict)
@@ -676,7 +677,7 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):
 		return http.StatusNotFound, err.Error()
-	case errors.Is(err, store.ErrAgentIDInvalid):
+	case errors.Is(err, store.ErrAgentIDInvalid), errors.Is(err, store.ErrInvalidRetime):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrInlineWindowTooShort), errors.Is(err, store.ErrDispatchWindowTooShort), errors.Is(err, store.ErrDispatchEndsBeforeStart), errors.Is(err, store.ErrInlineCommitMissing), errors.Is(err, store.ErrInlineBegunAfterCommit),
 		errors.Is(err, store.ErrTokensOnHarvestedSession), errors.Is(err, store.ErrPlannerKeyOutOfSequence):

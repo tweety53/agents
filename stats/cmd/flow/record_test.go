@@ -10309,3 +10309,58 @@ func TestDispatchEndWithoutAMarkerChecksTheLivePlan(t *testing.T) {
 		t.Fatalf("exit %d, ends %d, want non-zero, 0 and the hint; stderr:\n%s", code, store.ends.Load(), errs)
 	}
 }
+
+// TestRecordDispatchRetimeCommand pins `flow record dispatch retime`: it posts
+// the row id, both instants, the commit and the reason to the retime route,
+// prints the row's seq, refuses a missing -reason before any request, and is
+// never journalled when the store is unreachable.
+func TestRecordDispatchRetimeCommand(t *testing.T) {
+	t.Parallel()
+	repo := recordRepo(t, "kan-258")
+	env := newTestEnv(t)
+
+	var gotPath string
+	var got records.DispatchRetime
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_ = json.NewEncoder(w).Encode(records.Dispatch{Seq: 4})
+	}))
+	defer srv.Close()
+
+	args := []string{"record", "dispatch", "retime", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-id", "8623", "-started-at", "2026-11-18T10:00:00Z",
+		"-ended-at", "2026-11-18T10:05:00Z", "-commit", "abc1234abc1234abc1234abc1234abc1234abc12"}
+
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 {
+		t.Fatalf("missing -reason: exit = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "-reason") || gotPath != "" {
+		t.Errorf("missing -reason: stderr = %q, path = %q; want -reason named and no request", stderr.String(), gotPath)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	ok := append(slices.Clone(args), "-reason", "inline row began after its commit")
+	if code := run(context.Background(), ok, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.HasSuffix(gotPath, "/dispatches/retime") || got.ID != 8623 || got.Reason != "inline row began after its commit" ||
+		got.CommitSHA != "abc1234abc1234abc1234abc1234abc1234abc12" || !got.StartedAt.Equal(time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)) {
+		t.Errorf("request = %s %+v", gotPath, got)
+	}
+	if stdout.String() != "updated: dispatch 4\n" {
+		t.Errorf("stdout = %q", stdout.String())
+	}
+
+	srv.Close()
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(context.Background(), ok, env.get, strings.NewReader(""), &stdout, &stderr); code != 1 {
+		t.Fatalf("unreachable: exit = %d, want 1; stderr:\n%s", code, stderr.String())
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
+		t.Error("an unreachable retime was journalled")
+	}
+}

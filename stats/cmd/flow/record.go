@@ -321,6 +321,9 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              [-diff-base sha[,sha...]] -started-at instant -ended-at instant
                              -key key -session-token token [-commit sha]
                              -outcome outcome [-cause cause] [-tokens k=v,...]
+       flow record dispatch retime [-addr url] [-timeout dur] [-C dir]
+                             -change name -id row -started-at instant -ended-at instant
+                             [-commit sha] -reason text
        flow record dispatch handback [-addr url] [-timeout dur] -session id -key key [-C dir]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
@@ -1029,6 +1032,8 @@ func runRecordDispatchVerb(ctx context.Context, args []string, getenv func(strin
 		return runRecordDispatchBackfill(ctx, args[1:], getenv, stdout, stderr)
 	case "handback":
 		return runRecordDispatchHandback(ctx, args[1:], getenv, stderr)
+	case "retime":
+		return runRecordDispatchRetime(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record dispatch command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -2107,6 +2112,75 @@ func recordModelAlias(model string) string {
 		}
 	}
 	return model
+}
+
+// runRecordDispatchRetime implements `flow record dispatch retime`: it
+// corrects one dispatch row's instants (and optionally its commit), keeping
+// the first original instants and the reason in the row's retimed audit.
+// It is never journalled: an unreachable store exits 1 and the operator
+// retries by hand.
+func runRecordDispatchRetime(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record dispatch retime", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f, getenv)
+	id := fset.String("id", "", "the dispatch row id")
+	startedAt := fset.String("started-at", "", "corrected start instant")
+	endedAt := fset.String("ended-at", "", "corrected end instant")
+	commit := fset.String("commit", "", "corrected commit sha")
+	reason := fset.String("reason", "", "why the row is retimed")
+	if err := fset.Parse(args); err != nil || fset.NArg() != 0 {
+		return 2
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-id", *id},
+		[2]string{"-started-at", *startedAt},
+		[2]string{"-ended-at", *endedAt},
+		[2]string{"-reason", strings.TrimSpace(*reason)},
+	) {
+		return 2
+	}
+	if err := finishRecordConnFlags(fset, &f); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	rowID, err := strconv.ParseInt(*id, 10, 64)
+	if err != nil || rowID <= 0 {
+		fmt.Fprintf(stderr, "flow: -id %q is not a dispatch row id\n", *id)
+		return 2
+	}
+	started, ok := parseBackfillInstant("-started-at", *startedAt, stderr)
+	if !ok {
+		return 2
+	}
+	ended, ok := parseBackfillInstant("-ended-at", *endedAt, stderr)
+	if !ok {
+		return 2
+	}
+	if started.After(ended) {
+		fmt.Fprintf(stderr, "flow: -started-at %s is later than -ended-at %s\n", *startedAt, *endedAt)
+		return 2
+	}
+	if err := validateCommitSHA("-commit", *commit); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	d, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
+		return cl.RetimeDispatch(ctx, projectKey, f.change, records.DispatchRetime{
+			ID: rowID, StartedAt: started, EndedAt: ended, CommitSHA: *commit, Reason: *reason,
+		})
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: retime dispatch %d: %v\n", rowID, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "updated: dispatch %d\n", d.Seq)
+	return 0
 }
 
 // runRecordDispatchBackfill implements `flow record dispatch backfill`: a

@@ -130,6 +130,30 @@ type Dispatch struct {
 	EndedAt      *time.Time      `json:"endedAt,omitempty"`
 	Metrics      json.RawMessage `json:"metrics,omitempty"`
 	Notes        string          `json:"notes,omitempty"`
+	// Retimed is the audit `flow record dispatch retime` leaves; nil on a
+	// row never retimed.
+	Retimed *Retime `json:"retimed,omitempty"`
+}
+
+// Retime is a retimed dispatch row's audit (decision retime-jsonb-drop-old):
+// Reason and At are the latest retime's; StartedAt and EndedAt the instants
+// the first retime replaced, kept across later retimes.
+type Retime struct {
+	Reason    string     `json:"reason"`
+	At        time.Time  `json:"at"`
+	StartedAt time.Time  `json:"startedAt"`
+	EndedAt   *time.Time `json:"endedAt"`
+}
+
+// DispatchRetime is one `flow record dispatch retime` request: row ID's new
+// instants, an optional commit (empty keeps the stored one) and the
+// required reason.
+type DispatchRetime struct {
+	ID        int64     `json:"id"`
+	StartedAt time.Time `json:"startedAt"`
+	EndedAt   time.Time `json:"endedAt"`
+	CommitSHA string    `json:"commitSha,omitempty"`
+	Reason    string    `json:"reason"`
 }
 
 // DispatchEnd is the closing half of a dispatch's record: the three facts
