@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"os/exec"
@@ -22,7 +23,10 @@ import (
 // asks for (skills/flow/verify-fix-loop.md step 2). The task's tests are
 // flow-guard affected-specs' task set for each pair -- `affected-specs -task
 // <tasks.md>:<task-id> <source-worktree> <base> <capture-root>` -- united and
-// sorted, each a spec or one test of it, `<spec>:<line>`; <command> is the
+// sorted, each a spec or one test of it, `<spec>:<line>` -- or, when that
+// selects nothing, every `*.spec.ts` under <capture-root> whose source holds
+// a backticked Tests/Regression name that is no path (a test title) as a
+// whole quoted string; <command> is the
 // project's capture command, or its re-baseline command, with `<spec>` where
 // they go. It runs once, through `sh -c` in <capture-root>, with `<spec>`
 // replaced by them space-joined and followed by ` --retries=1`, its output
@@ -60,7 +64,11 @@ import (
 // Exit codes:
 //
 //	0  the command exited 0, or there was nothing to capture.
-//	1  the command exited non-zero; the receipt records the exit.
+//	1  the command exited non-zero; the receipt records the exit. Or the
+//	   task's diff reaches no spec, its Tests/Regression name test titles,
+//	   and no spec under <capture-root> holds one as a quoted string:
+//	   `recapture: task <id> names tests no spec under <capture-root> holds:
+//	   <title>, …`, nothing run, no receipt written.
 //	2  usage, a <command> with no `<spec>`, affected-specs' own exit 2, or
 //	   a receipt that could not be written.
 //	3  the load average stayed over the core count (loadGate): nothing ran
@@ -209,6 +217,15 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 		receipts[wt] = r
 		order = append(order, wt)
 	}
+	if len(all) == 0 {
+		titles, found := rcTitleSpecs(task, pcAbs(env, root))
+		if len(titles) > 0 && len(found) == 0 {
+			fmt.Fprintf(stdout, "recapture: task %s names tests no spec under %s holds: %s\n", task[strings.LastIndex(task, ":")+1:], root, strings.Join(titles, ", "))
+			Reason(env, "no-spec-for-title")
+			return 1
+		}
+		all = found
+	}
 	sort.Strings(all)
 
 	// ONLY WHAT HAS NOT PASSED RUNS.
@@ -271,6 +288,50 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// rcTitleSpecs is the task's backticked Tests/Regression names that are no
+// path -- test titles -- and every `*.spec.ts` under the capture root, relative
+// to it, whose source holds one of them as a whole quoted string.
+func rcTitleSpecs(task, root string) (titles, specs []string) {
+	named, _ := asTaskNames(task)
+	for _, m := range regexp.MustCompile("`([^`]+)`").FindAllStringSubmatch(named, -1) {
+		if n := m[1]; !strings.Contains(n, "/") && !strings.HasSuffix(n, ".ts") && !slices.Contains(titles, n) {
+			titles = append(titles, n)
+		}
+	}
+	if len(titles) == 0 {
+		return nil, nil
+	}
+	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if n := d.Name(); n == "node_modules" || n == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(p, ".spec.ts") {
+			return nil
+		}
+		src, err := os.ReadFile(p)
+		if err != nil {
+			return nil
+		}
+		for _, t := range titles {
+			for _, q := range []string{`"`, "'", "`"} {
+				if bytes.Contains(src, []byte(q+t+q)) {
+					rel, _ := filepath.Rel(root, p)
+					specs = append(specs, rel)
+					return nil
+				}
+			}
+		}
+		return nil
+	})
+	return titles, specs
 }
 
 // errorsJoinClose closes f and returns err, else the close's error.
