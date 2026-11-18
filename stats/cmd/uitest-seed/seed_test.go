@@ -121,8 +121,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 		t.Fatalf("guard refused the test's own throwaway database: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
@@ -280,8 +279,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 func TestSeedInteractiveSessions(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -333,8 +331,7 @@ func TestSeedInteractiveSessions(t *testing.T) {
 func TestSeedTrendFinishedChanges(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -410,8 +407,7 @@ func TestSeedTrendFinishedChanges(t *testing.T) {
 func TestSeedPricesReviewerDispatches(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
@@ -458,8 +454,7 @@ func TestSeedPricesReviewerDispatches(t *testing.T) {
 func TestSeedDrawsReviewerStates(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
@@ -532,8 +527,7 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -626,8 +620,7 @@ func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 func TestSeedGuardRunsDrawEveryState(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -717,8 +710,7 @@ func TestSeedGuardRunsDrawEveryState(t *testing.T) {
 func TestSeedRunCostsFixture(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
