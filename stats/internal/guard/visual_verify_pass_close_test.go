@@ -232,6 +232,58 @@ func TestVisualVerifyPassCloseJudge(t *testing.T) {
 	}
 }
 
+// vvcDepartures is a verdict naming n departures, every exit zero.
+func vvcDepartures(n int) string {
+	return "- exits: setup not declared, capture 0, full app suite 0, spec reach 0\n- steps: " + vvcSteps +
+		fmt.Sprintf("\n- departures: %d\n- home: the card is 3px narrower — this change", n)
+}
+
+// TestVisualVerifyPassCloseEscalates pins the ESCALATE: line (kan-1091: fix
+// rounds 4 to 8 ran on the base pair while the departures went 9, 19, 26,
+// 24): a round whose report names more departures than the newest visual
+// opener of its round, or any failed round from the third on, makes the next
+// round a No-progress escalation.
+func TestVisualVerifyPassCloseEscalates(t *testing.T) {
+	smoke.Heavy(t)
+	f := vvcFixture(t, "")
+	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/tasks.md"),
+		"- [x] 1. In-run fix 1 — flow.visual-verify: two departures\n**Opener:** visual-verify\n\n"+
+			"- [ ] 2. In-run fix 2 — flow.verify: one test fails\n**Opener:** verify-demo\n")
+	f.report("visual-verify", f.wt, vvcDepartures(2), "- steps: "+vvcSteps+"\n")
+
+	// Round 2 opened from a verify report: its baseline is round 1's visual opener.
+	f.appendRow("visual-verify-fix-2", f.wt)
+	f.report("visual-verify-fix-2", f.wt, vvcDepartures(3), "- steps: "+vvcSteps+"\n")
+	rc, out, _ := f.close("visual-verify-fix-2")
+	if rc != 0 || !strings.Contains(out, "ESCALATE: departures 2 → 3 since visual-verify — the next round is a No-progress escalation\nNEXT: judge") {
+		t.Fatalf("grown: exit %d\n%s", rc, out)
+	}
+
+	// As many departures as the opener is no escalation in round 2.
+	f.appendRow("visual-verify-fix-2-full", f.wt)
+	f.report("visual-verify-fix-2-full", f.wt, vvcDepartures(2), "- steps: "+vvcSteps+"\n")
+	if rc, out, _ := f.close("visual-verify-fix-2-full"); rc != 0 || strings.Contains(out, "ESCALATE:") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: judge") {
+		t.Fatalf("equal: exit %d\n%s", rc, out)
+	}
+
+	// The third failed round escalates whatever its count, on judge and on loop.
+	f.appendRow("visual-verify-fix-3", f.wt)
+	f.report("visual-verify-fix-3", f.wt, vvcDepartures(1), "- steps: "+vvcSteps+"\n")
+	if rc, out, _ := f.close("visual-verify-fix-3"); rc != 0 || !strings.Contains(out, "ESCALATE: round 3 is the loop's third failed round or later — the next round is a No-progress escalation\nNEXT: judge") {
+		t.Fatalf("third, judge: exit %d\n%s", rc, out)
+	}
+	f.appendRow("visual-verify-fix-4", f.wt)
+	f.report("visual-verify-fix-4", f.wt, vvcVerdict("1", vvcBlocked, "test-failure"), "- steps: "+vvcBlocked+"\n")
+	if rc, out, _ := f.close("visual-verify-fix-4"); rc != 0 || strings.Contains(out, "ESCALATE:") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: redispatch visual-verify-2-fix-4") {
+		t.Fatalf("first block is a redispatch, no round failed: exit %d\n%s", rc, out)
+	}
+	f.appendRow("visual-verify-2-fix-4", f.wt)
+	f.report("visual-verify-2-fix-4", f.wt, vvcVerdict("1", vvcBlocked, "test-failure"), "- steps: "+vvcBlocked+"\n")
+	if rc, out, _ := f.close("visual-verify-2-fix-4"); rc != 0 || !strings.Contains(out, "ESCALATE: round 4 is the loop's third failed round or later — the next round is a No-progress escalation\nNEXT: loop") {
+		t.Fatalf("fourth, loop: exit %d\n%s", rc, out)
+	}
+}
+
 // TestVisualVerifyPassCloseClosesTheLoop pins decisions closes-loop-writer,
 // closes-loop-derived-in-close, capture-freshness-by-mtime,
 // freshness-derived-in-close, closing-frame-list,

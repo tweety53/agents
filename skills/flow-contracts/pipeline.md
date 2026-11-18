@@ -193,6 +193,12 @@ its prompt opening with the line `No-progress escalation`, carrying every earlie
 verbatim and naming the approach that failed; a role with no marked pair runs it on its base
 pair. It is never a stop and never an ask.
 
+**A visual round whose report names more departures than the visual report that opened its round
+is a round without progress too.** The visual stage's `close` prints `ESCALATE:` for it and for
+every failed round from the third on (`flow-guard visual-verify-pass`'s header canonical), and the
+next round is the escalation above, never another dispatch on the base pair (kan-1091: rounds 4 to
+8 ran on the base pair while the departures went 9, 19, 26, 24).
+
 ### Caps never stop the run
 
 **Every cap, ceiling, budget or count limit this pipeline names bounds an approach, never the

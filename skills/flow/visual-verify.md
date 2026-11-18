@@ -128,6 +128,9 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
   `CLOSES-LOOP: no — <why>`, which keeps the closing unscoped run of the **One full run closes the
   loop** paragraph of **The loop** (`skills/flow/verify-fix-loop.md`).
 
+**An `ESCALATE:` line above `NEXT: loop` or `NEXT: judge` makes the next round a No-progress
+escalation** (**Three failed rounds**, `skills/flow-contracts/pipeline.md`).
+
 **Except after `rest`, `redispatch` and `cure-environment`, `close` has run step 12** and printed
 `ROUND-BASE:`; and once the newest row of every surviving worktree, and of every shard index on a sharded pass, is closed it has ended the
 stage — `stopped` when any is `blocked`, else `completed` — and rendered the ledger, printing

@@ -118,6 +118,7 @@ func (v *vvp) close() {
 		v.commit(w, body)
 		v.joinRecords(changeRoot)
 		v.endStage()
+		v.escalate(w, changeRoot, departures)
 		v.next("loop")
 	}
 	if departures > 0 || judgeGap != "" {
@@ -127,6 +128,7 @@ func (v *vvp) close() {
 		}
 		v.commit(w, body)
 		v.joinRecords(changeRoot)
+		v.escalate(w, changeRoot, departures)
 		v.next("judge")
 	}
 	snap := protoSnapshot(filepath.Dir(design))
@@ -387,7 +389,48 @@ func vvpSlice(stage [][2]string, key string) string {
 
 // vvcFixRound is a key's `-fix-<k>[-full]` segment, which a redispatch keeps
 // (decision redispatch-key-keeps-round).
-var vvcFixRound = regexp.MustCompile(`-fix-[0-9]+(-full)?`)
+var vvcFixRound = regexp.MustCompile(`-fix-([0-9]+)(-full)?`)
+
+// vvcOpener is one `In-run fix <k>` task's title and its `**Opener:**` key.
+var vvcOpener = regexp.MustCompile(`(?m)In-run fix ([0-9]+) —[^\n]*\n\*\*Opener:\*\* *(\S+)`)
+
+// escalate prints `ESCALATE: <why>` when the round this row closes failed
+// without progress, so the loop's next round is the No-progress escalation:
+// round 3 or later, or more departures than the newest visual report that
+// opened a round from this one's down — read from <changeRoot>/tasks.md's
+// **Opener:** lines, its report in w (kan-1091: rounds 4 to 8 ran on the
+// base pair while the departures went 9, 19, 26, 24).
+func (v *vvp) escalate(w, changeRoot string, departures int) {
+	m := vvcFixRound.FindStringSubmatch(v.key)
+	if m == nil {
+		return
+	}
+	k, _ := strconv.Atoi(m[1])
+	why := ""
+	if k >= 3 {
+		why = fmt.Sprintf("round %d is the loop's third failed round or later", k)
+	} else if tasks, err := os.ReadFile(filepath.Join(changeRoot, "tasks.md")); err == nil {
+		openers := map[int]string{}
+		for _, o := range vvcOpener.FindAllStringSubmatch(string(tasks), -1) {
+			j, _ := strconv.Atoi(o[1])
+			openers[j] = o[2]
+		}
+		for j := k; j >= 1; j-- {
+			key := openers[j]
+			body, err := os.ReadFile(filepath.Join(w, ".superpowers", "sdd", "verify-report-"+key+".md"))
+			if !strings.HasPrefix(key, "visual-verify") || err != nil {
+				continue
+			}
+			if _, _, base := vvcParseVerdict(vvcVerdictBlock(string(body))); departures > base {
+				why = fmt.Sprintf("departures %d → %d since %s", base, departures, key)
+			}
+			break
+		}
+	}
+	if why != "" {
+		v.say("ESCALATE: %s — the next round is a No-progress escalation", why)
+	}
+}
 
 // joinRecords rewrites <changeRoot>/visual-verification.md as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a
 // shard's close (decision record-parts-merged-by-close).

@@ -260,6 +260,15 @@ import (
 //   4. `departures:` above 0, or a `no sidecar line` frame-list gap alone:
 //      prints the `## Verdict` block (and the gap line), commits, and prints
 //      `NEXT: judge` — the row and the stage left open for **Blocking**.
+//   On `NEXT: loop` and `NEXT: judge` a key carrying `-fix-<k>` prints, right
+//   before its `NEXT:` line,
+//        ESCALATE: <why> — the next round is a No-progress escalation
+//   when <k> is 3 or more (`round <k> is the loop's third failed round or
+//   later`), or when its `departures:` exceed those of the report the newest
+//   visual-verify key opened a round with — the `**Opener:**` of the
+//   `In-run fix <j>` tasks of <changeRoot>/tasks.md, <j> from <k> down, its
+//   report in the row's worktree (`departures <opener's> → <this> since
+//   <opener key>`).
 //   5. otherwise the row ends `-outcome completed`, commits, ends the stage,
 //      and prints `NEXT: done`. For a row with
 //      <worktree>/.superpowers/sdd/visual-round-<key>.txt, the end carries
