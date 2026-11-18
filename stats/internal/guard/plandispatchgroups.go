@@ -3,6 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -53,9 +55,10 @@ import (
 //
 // Tasks under different repository headings never share a group (kan-1107
 // self-review F4): a task's repository is the text of the nearest `## `
-// heading above it, outside code fences, that passes plainChangeName (one
-// word such as `agents` or `gymie-playwright`; `## Global constraints` is not
-// one), "" when none. A bundle takes its first task's repository; the chain
+// heading above it, outside code fences, that names a repository the plan's
+// project declares (pdgDeclaredRepos) -- `## agents`, `## gymie-playwright`;
+// `## Dashboard` in a single-repository plan is not one (kan-1132 pipeline fix
+// 80), "" when none. A bundle takes its first task's repository; the chain
 // pass joins only a group of the same repository, and the fold pass buckets
 // on repository plus ready set.
 //
@@ -113,7 +116,7 @@ func planDispatchGroups(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "cannot-read-file")
 		return 2
 	}
-	for g, ids := range pdgComputeGroups(bundles, afterSets, pdgRepositories(lines)) {
+	for g, ids := range pdgComputeGroups(bundles, afterSets, pdgRepositories(env, args[0], lines)) {
 		words := make([]string, len(ids))
 		for i, id := range ids {
 			words[i] = strconv.Itoa(id)
@@ -130,12 +133,13 @@ type pdgGroup struct {
 }
 
 // pdgRepositories maps each line number (1-based) to the repository heading
-// in force there.
-func pdgRepositories(lines []string) []string {
+// in force there: a `## <name>` heading whose name pdgDeclaredRepos holds.
+func pdgRepositories(env Env, path string, lines []string) []string {
+	repos := pdgDeclaredRepos(psAbs(env, path))
 	repo := make([]string, len(lines)+1)
 	cur := ""
 	tcfUnfenced(lines, func(i int, line string) bool {
-		if h, ok := strings.CutPrefix(line, "## "); ok && plainChangeName(strings.TrimSpace(h)) {
+		if h, ok := strings.CutPrefix(line, "## "); ok && repos[strings.TrimSpace(h)] {
 			cur = strings.TrimSpace(h)
 		}
 		repo[i+1] = cur
@@ -148,6 +152,30 @@ func pdgRepositories(lines []string) []string {
 		}
 	}
 	return repo
+}
+
+// pdgDeclaredRepos is the basename of every `Repo root` the `## apps` table
+// of the nearest `.flow/project.md` above the plan declares, save a root lying
+// inside another declared root (agents' `stats`), which is part of that
+// repository and no repository of its own. A plan under no project file
+// declares none, so every task is under "", one repository.
+func pdgDeclaredRepos(plan string) map[string]bool {
+	for d := filepath.Dir(plan); ; d = filepath.Dir(d) {
+		cfg := filepath.Join(d, ".flow", "project.md")
+		if _, err := os.Stat(cfg); err == nil {
+			roots := tcfAppRoots(projectSection(cfg, "apps"))
+			repos := map[string]bool{}
+			for _, r := range roots {
+				if !slices.ContainsFunc(roots, func(o string) bool { return strings.HasPrefix(r, o+"/") }) {
+					repos[filepath.Base(r)] = true
+				}
+			}
+			return repos
+		}
+		if d == filepath.Dir(d) {
+			return nil
+		}
+	}
 }
 
 // pdgComputeGroups is compute_groups: groups as 1-based bundle ids, each in

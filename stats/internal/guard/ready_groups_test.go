@@ -31,7 +31,7 @@ func readyRun(t *testing.T, plan, groups string, rows string) guardResult {
 		Decisions: func(string) ([]byte, error) {
 			return []byte(`[{"id":1,"decision":{"groups":[{"tasks":["9"]}]}},{"id":2,"decision":{"groups":` + groups + `}}]`), nil
 		}}
-	return runGuard("ready-groups", []string{psFixture(t, plan), t.TempDir(), "c"}, env)
+	return runGuard("ready-groups", []string{pdgProjectFixture(t, plan, "a", "b", "c", "d", "e", "backend", "frontend"), t.TempDir(), "c"}, env)
 }
 
 func TestReadyGroupsLaunchesOneLanePerRepository(t *testing.T) {
@@ -50,6 +50,18 @@ func TestReadyGroupsLaunchesOneLanePerRepository(t *testing.T) {
 	r = readyRun(t, four, `[{"tasks":["1"]},{"tasks":["2"]},{"tasks":["3"]},{"tasks":["4"]}]`, `[]`)
 	if r.rc != 0 || r.stdout != "launch 1: 1 a throwaway\nlaunch 2: 2 a throwaway\nlaunch 4: 4 b direct\n" {
 		t.Errorf("four groups: rc=%d out=%q", r.rc, r.stdout)
+	}
+}
+
+// TestReadyGroupsUndeclaredHeadingIsNoRepository pins kan-1132 pipeline fix
+// 80: `## Dashboard` names no repository the project declares, so its group
+// shares the one worktree with the group before it and neither launches direct.
+func TestReadyGroupsUndeclaredHeadingIsNoRepository(t *testing.T) {
+	t.Parallel()
+	plan := readyPlan("## Recording fixes", "1|none", "## Dashboard", "2|none")
+	r := readyRun(t, plan, `[{"tasks":["1"]},{"tasks":["2"]}]`, `[]`)
+	if r.rc != 0 || r.stdout != "launch 1: 1 - throwaway\nlaunch 2: 2 - throwaway\n" {
+		t.Errorf("rc=%d out=%q", r.rc, r.stdout)
 	}
 }
 

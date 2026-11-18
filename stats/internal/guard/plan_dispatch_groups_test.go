@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -104,7 +105,7 @@ func TestPlanDispatchGroupsKeepsRepositoriesApart(t *testing.T) {
 		return "- [ ] " + id + ". Task " + id + "\n\n**Files:**\n- Create: `f" + id + ".txt`\n\n  - [ ] **Step 1: do it**\n\n"
 	}
 	run := func(body string) guardResult {
-		return runGuard("plan-dispatch-groups", []string{psFixture(t, body)}, Env{Getenv: os.Getenv})
+		return runGuard("plan-dispatch-groups", []string{pdgProjectFixture(t, body, "agents", "gymie", "gymie-playwright")}, Env{Getenv: os.Getenv})
 	}
 	r := run("## Global constraints\n\nnone\n\n## agents\n\n" + task("1") + task("2") + task("3") +
 		"## Narrowed notes\n\n" + task("4") + "## gymie\n\n" + task("5") + task("6") +
@@ -115,6 +116,36 @@ func TestPlanDispatchGroupsKeepsRepositoriesApart(t *testing.T) {
 	r = run(task("1") + task("2") + task("3") + task("4") + task("5") + task("6") + task("7"))
 	if r.rc != 0 || r.out != "group 1: 1 2 3\ngroup 2: 4 5 6\ngroup 3: 7" {
 		t.Fatalf("b: rc=%d out=%q", r.rc, r.out)
+	}
+}
+
+// pdgProjectFixture writes plan as tasks.md beside a .flow/project.md whose
+// `## apps` table declares each of repos as the Repo root /repos/<repo>.
+func pdgProjectFixture(t *testing.T, plan string, repos ...string) string {
+	t.Helper()
+	p := psFixture(t, plan)
+	apps := "## apps\n\n| App | Repo root | Kind | URL | Notes |\n|-----|-----------|------|-----|-------|\n"
+	for _, r := range repos {
+		apps += "| " + r + " | `/repos/" + r + "` | Go | — | — |\n"
+	}
+	writeFile(t, filepath.Join(filepath.Dir(p), ".flow", "project.md"), apps)
+	return p
+}
+
+// TestPlanDispatchGroupsOnlyDeclaredRepositoriesSplit pins kan-1132 pipeline
+// fix 80: a `## <name>` heading is a repository heading only when the plan's
+// project declares <name> in `## apps`, a root nested in another declared
+// root excepted -- `## Dashboard` and `## stats` in an agents plan split
+// nothing, so task 3 joins task 1's group.
+func TestPlanDispatchGroupsOnlyDeclaredRepositoriesSplit(t *testing.T) {
+	t.Parallel()
+	task := func(id, after string) string {
+		return "- [ ] " + id + ". Task " + id + "\n\n**Files:** `f" + id + ".txt`\n**After:** " + after + "\n\n"
+	}
+	p := pdgProjectFixture(t, "## Recording fixes\n\n"+task("1", "none")+"## Dashboard\n\n"+task("2", "none")+"## stats\n\n"+task("3", "Task 1"), "agents", "agents/stats")
+	r := runGuard("plan-dispatch-groups", []string{p}, Env{Getenv: os.Getenv})
+	if r.rc != 0 || r.out != "group 1: 1 3\ngroup 2: 2" {
+		t.Fatalf("rc=%d out=%q", r.rc, r.out)
 	}
 }
 

@@ -116,7 +116,7 @@ func readyGroups(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	tasks := pdbParseTasks(lines)
-	repoAt := pdgRepositories(lines)
+	repoAt := pdgRepositories(env, args[0], lines)
 	index := map[string]int{}
 	for i, t := range tasks {
 		if _, ok := index[t.id]; !ok {

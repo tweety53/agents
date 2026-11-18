@@ -629,13 +629,19 @@ func TestCheckPlanShapeF11PerRepository(t *testing.T) {
 	task := func(n string) string {
 		return "- [ ] " + n + ". Task " + n + "\n\n**Files:** `README.md`\n**Tests:** `scripts/test-" + n + ".sh`\n**Commit:** `fix: task " + n + "`\n**After:** none\n\n"
 	}
-	r := runGuard("check-plan-shape", []string{psFixture(t, "## gymie\n\n"+task("1")+"## gymie-frontend\n\n"+task("2"))}, env)
+	r := runGuard("check-plan-shape", []string{pdgProjectFixture(t, "## gymie\n\n"+task("1")+"## gymie-frontend\n\n"+task("2"), "gymie", "gymie-frontend")}, env)
 	if r.rc != 0 || strings.Contains(r.out, "also names") {
 		t.Errorf("one path in two repositories is two files: rc=%d out=%q", r.rc, r.out)
 	}
 	r = runGuard("check-plan-shape", []string{psFixture(t, "## gymie\n\n"+task("1")+task("2"))}, env)
 	if r.rc != 1 || !strings.Contains(r.out, "task 2's **Files:** also names `README.md`, first named by task 1") {
 		t.Errorf("one path twice in one repository is F11: rc=%d out=%q", r.rc, r.out)
+	}
+	// kan-1132 pipeline fix 80: headings the project does not declare are
+	// sections of one repository, never two.
+	r = runGuard("check-plan-shape", []string{pdgProjectFixture(t, "## Setup\n\n"+task("1")+"## Dashboard\n\n"+task("2"), "gymie")}, env)
+	if r.rc != 1 || !strings.Contains(r.out, "task 2's **Files:** also names `README.md`, first named by task 1") {
+		t.Errorf("undeclared headings are one repository: rc=%d out=%q", r.rc, r.out)
 	}
 }
 

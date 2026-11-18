@@ -134,7 +134,7 @@ import (
 //	    default notes nothing and `none` declares independence, not an
 //	    order. Reported once per unordered pair at the LATER task's Files
 //	    line; a task whose fence never closes is no owner. A file is its
-//	    path under its task's `## <repository>` heading (pdgRepositories):
+//	    path under its task's `## <repository>` heading, one naming a repository the plan's project declares (pdgRepositories):
 //	    one path under two headings is two repositories' files, never a
 //	    shared one (kan-1112 self-review); a task under no heading is
 //	    under "", one repository as before.
@@ -1175,7 +1175,7 @@ func (p *psPlan) fileOwnership() []psFinding {
 	type file struct{ repo, name string }
 	owners := map[file][]string{}
 	var order []file
-	repoAt := pdgRepositories(p.lines)
+	repoAt := pdgRepositories(p.env, p.path, p.lines)
 	filesLines := map[string]int{}
 	declared := map[string][]string{}
 	seen := map[string]bool{}
