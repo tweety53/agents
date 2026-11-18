@@ -2782,11 +2782,11 @@ func (s *Store) ListSubstitutions(ctx context.Context, projectKey, guard, shape 
 
 // verifyRunColumns is the column list every read of a verify_runs row
 // selects, in the order scanVerifyRun scans them.
-const verifyRunColumns = `id, kind, label, seconds, tests, failed, exit_code, recorded_at`
+const verifyRunColumns = `id, kind, label, seconds, tests, failed, exit_code, flaky, recorded_at`
 
 func scanVerifyRun(row dispatchRowScanner) (records.VerifyRun, error) {
 	var v records.VerifyRun
-	err := row.Scan(&v.ID, &v.Kind, &v.Label, &v.Seconds, &v.Tests, &v.Failed, &v.ExitCode, &v.RecordedAt)
+	err := row.Scan(&v.ID, &v.Kind, &v.Label, &v.Seconds, &v.Tests, &v.Failed, &v.ExitCode, &v.Flaky, &v.RecordedAt)
 	return v, err
 }
 
@@ -2795,12 +2795,12 @@ func scanVerifyRun(row dispatchRowScanner) (records.VerifyRun, error) {
 // ErrChangeNotFound.
 func (s *Store) RecordVerifyRun(ctx context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error) {
 	row := s.pool.QueryRow(ctx, `
-		INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, recorded_at)
-		SELECT c.id, $3, $4, $5, $6, $7, $8, $9
+		INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, flaky, recorded_at)
+		SELECT c.id, $3, $4, $5, $6, $7, $8, $10, $9
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		RETURNING `+verifyRunColumns,
-		projectKey, change, in.Kind, in.Label, in.Seconds, in.Tests, in.Failed, in.ExitCode, in.RecordedAt)
+		projectKey, change, in.Kind, in.Label, in.Seconds, in.Tests, in.Failed, in.ExitCode, in.RecordedAt, in.Flaky)
 	out, err := scanVerifyRun(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -2815,7 +2815,7 @@ func (s *Store) RecordVerifyRun(ctx context.Context, projectKey, change string, 
 // (projectKey, change) pair reads as no runs.
 func (s *Store) ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT v.id, v.kind, v.label, v.seconds, v.tests, v.failed, v.exit_code, v.recorded_at
+		SELECT v.id, v.kind, v.label, v.seconds, v.tests, v.failed, v.exit_code, v.flaky, v.recorded_at
 		FROM verify_runs v
 		JOIN changes c ON c.id = v.change_id
 		WHERE c.project_key = $1 AND c.name = $2

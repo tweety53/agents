@@ -10364,3 +10364,53 @@ func TestRecordDispatchRetimeCommand(t *testing.T) {
 		t.Error("an unreachable retime was journalled")
 	}
 }
+
+// TestRecordRunPassesTheFlakyFlag pins `flow record run -flaky`: a count is
+// posted as "flaky", an absent flag posts none, a negative one exits 2.
+func TestRecordRunPassesTheFlakyFlag(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		extra []string
+		want  string // "" asserts no flaky key
+	}{
+		{"given", []string{"-flaky", "2"}, `"flaky":2`},
+		{"absent", nil, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			env := newTestEnv(t)
+			var gotBody []byte
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				gotBody, _ = readAll(r)
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			args := append([]string{"record", "run", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-9", "-kind", "run-verify-list", "-label", "visual", "-seconds", "3"}, tc.extra...)
+			if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+				t.Fatalf("exit code = %d; stderr:\n%s", code, stderr.String())
+			}
+			if tc.want != "" && !strings.Contains(string(gotBody), tc.want) {
+				t.Errorf("body = %s, want %s", gotBody, tc.want)
+			}
+			if tc.want == "" && strings.Contains(string(gotBody), `"flaky"`) {
+				t.Errorf("body = %s, want no flaky", gotBody)
+			}
+		})
+	}
+	t.Run("refuses a negative count", func(t *testing.T) {
+		repo := gitRepo(t)
+		env := newTestEnv(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{"record", "run", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-change", "kan-9", "-kind", "run-verify-list", "-label", "visual", "-seconds", "3", "-flaky", "-1"},
+			env.get, strings.NewReader(""), &stdout, &stderr)
+		if code != 2 || !strings.Contains(stderr.String(), "-flaky") {
+			t.Errorf("exit code = %d stderr = %q, want 2 naming -flaky", code, stderr.String())
+		}
+	})
+}

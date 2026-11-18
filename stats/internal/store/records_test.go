@@ -6650,3 +6650,33 @@ func TestClosedUnmeasuredInlineRows(t *testing.T) {
 		t.Fatalf("rows = %+v, want only row %d", rows, want.ID)
 	}
 }
+
+// TestRecordVerifyRunKeepsTheFlakyCount pins the flaky column: a count given
+// reads back, and a run recorded without one reads back nil.
+func TestRecordVerifyRunKeepsTheFlakyCount(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verify-flaky-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	three := 3
+	at := time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)
+	for _, in := range []records.VerifyRun{
+		{Kind: "run-verify-list", Label: "visual", Flaky: &three, RecordedAt: at},
+		{Kind: "run-verify-list", Label: "test", RecordedAt: at.Add(time.Minute)},
+	} {
+		if _, err := st.RecordVerifyRun(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("RecordVerifyRun: %v", err)
+		}
+	}
+	list, err := st.ListVerifyRuns(ctx, projectKey, "kan-1")
+	if err != nil || len(list) != 2 {
+		t.Fatalf("ListVerifyRuns = %d rows, %v; want 2", len(list), err)
+	}
+	if list[0].Flaky == nil || *list[0].Flaky != 3 {
+		t.Errorf("flaky = %v, want 3", list[0].Flaky)
+	}
+	if list[1].Flaky != nil {
+		t.Errorf("flaky = %d, want nil when not recorded", *list[1].Flaky)
+	}
+}

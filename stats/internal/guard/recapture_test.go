@@ -181,7 +181,7 @@ func TestRecaptureRecordsItsCost(t *testing.T) {
 	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
 	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "printf '  3 passed (2s)\\n'; : <spec>"}, env)
 	calls, _ := os.ReadFile(log)
-	if want := `record run -C ` + regexp.QuoteMeta(root) + ` -change demo -kind recapture -label 4 -seconds \d+ -tests 3 -failed 0 -exit 0\n`; r.rc != 0 || !regexp.MustCompile(want).Match(calls) {
+	if want := `record run -C ` + regexp.QuoteMeta(root) + ` -change demo -kind recapture -label 4 -seconds \d+ -tests 3 -failed 0 -exit 0 -flaky 0\n`; r.rc != 0 || !regexp.MustCompile(want).Match(calls) {
 		t.Errorf("rc=%d out=%q flow calls %q, want %q", r.rc, r.out, calls, want)
 	}
 }

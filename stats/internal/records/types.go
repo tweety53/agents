@@ -448,6 +448,7 @@ type VerifyRun struct {
 	Tests      int       `json:"tests"`
 	Failed     int       `json:"failed"`
 	ExitCode   int       `json:"exitCode"`
+	Flaky      *int      `json:"flaky,omitempty"` // tests passed only on retry; nil when not recorded
 	RecordedAt time.Time `json:"recordedAt"`
 }
 

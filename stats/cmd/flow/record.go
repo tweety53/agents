@@ -3843,6 +3843,7 @@ func runRecordVerifyRun(ctx context.Context, args []string, getenv func(string) 
 	tests := fset.Int("tests", 0, "tests the run ran")
 	failed := fset.Int("failed", 0, "tests the run failed")
 	exit := fset.Int("exit", 0, "the run's exit code")
+	flaky := fset.Int("flaky", -1, "tests that passed only on retry, >= 0 (absent unless given)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
@@ -3858,6 +3859,15 @@ func runRecordVerifyRun(ctx context.Context, args []string, getenv func(string) 
 		return 2
 	}
 	in := records.VerifyRun{Kind: *kind, Label: *label, Seconds: *seconds, Tests: *tests, Failed: *failed, ExitCode: *exit}
+	flakyGiven := false
+	fset.Visit(func(fl *flag.Flag) { flakyGiven = flakyGiven || fl.Name == "flaky" })
+	if flakyGiven {
+		if *flaky < 0 {
+			fmt.Fprintln(stderr, "flow: -flaky must be >= 0")
+			return 2
+		}
+		in.Flaky = flaky
+	}
 	// A write the API would refuse is a caller mistake: refuse it here
 	// rather than journal a replay that can never succeed.
 	if err := api.ValidateVerifyRun(in); err != nil {

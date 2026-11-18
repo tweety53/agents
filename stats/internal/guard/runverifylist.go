@@ -255,8 +255,8 @@
 // branch name less `spectre/` -- labelled `<list>`, `<list>-full` or
 // `visual-only`: its wall seconds from the load gate's release, its exit,
 // and the visual verify's test counts from its Playwright summary -- passed,
-// failed, flaky and interrupted as run, failed and interrupted as failed, 0
-// where the row did not run. With no `flow` on PATH or a store that refuses
+// failed, flaky and interrupted as run, failed and interrupted as failed, flaky
+// as `-flaky` (verify_runs' flaky column), 0 where the row did not run. With no `flow` on PATH or a store that refuses
 // the row is lost, silently: it never blocks the list. `flow record runs
 // -change <name>` reads the rows back.
 //
@@ -885,16 +885,18 @@ func rvlRecordRun(env Env, dir, change, kind, label string, start time.Time, log
 	if !ok || change == "" {
 		return
 	}
-	tests, failed := 0, 0
+	tests, failed, flaky := 0, 0, 0
 	for _, m := range rvlCountRE.FindAllSubmatch(rvlANSI.ReplaceAll(log, nil), -1) {
 		n, _ := strconv.Atoi(string(m[1]))
 		tests += n
 		if k := string(m[2]); k == "failed" || k == "interrupted" {
 			failed += n
+		} else if k == "flaky" {
+			flaky += n
 		}
 	}
 	kwRun(env, "", flow, "record", "run", "-C", dir, "-change", change, "-kind", kind, "-label", label,
-		"-seconds", strconv.Itoa(int(time.Since(start).Seconds())), "-tests", strconv.Itoa(tests), "-failed", strconv.Itoa(failed), "-exit", strconv.Itoa(exit))
+		"-seconds", strconv.Itoa(int(time.Since(start).Seconds())), "-tests", strconv.Itoa(tests), "-failed", strconv.Itoa(failed), "-exit", strconv.Itoa(exit), "-flaky", strconv.Itoa(flaky))
 }
 
 // rvlKeepFailures writes the failures a failing visual run's log names to

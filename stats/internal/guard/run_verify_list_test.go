@@ -2401,8 +2401,26 @@ func TestRunVerifyListRecordsItsCost(t *testing.T) {
 		stub, log := rvlFlowStub(t, "{}", 0)
 		rvlRunIn(t, wt, stub, args...)
 		calls, _ := os.ReadFile(log)
-		if want := `record run -C ` + regexp.QuoteMeta(wt) + ` -change work -kind run-verify-list -label ` + label + ` -seconds \d+ -tests 4 -failed 1 -exit 1\n`; !regexp.MustCompile(want).Match(calls) {
+		if want := `record run -C ` + regexp.QuoteMeta(wt) + ` -change work -kind run-verify-list -label ` + label + ` -seconds \d+ -tests 4 -failed 1 -exit 1 -flaky 1\n`; !regexp.MustCompile(want).Match(calls) {
 			t.Errorf("%s: flow calls %q, want %q", label, calls, want)
+		}
+	}
+}
+
+// TestRunVerifyListRecordsItsFlakyCount pins that the recorded run carries
+// the summary's flaky count, 0 when the summary has no flaky block.
+func TestRunVerifyListRecordsItsFlakyCount(t *testing.T) {
+	t.Parallel()
+	for summary, want := range map[string]string{
+		"  1 flaky\n    [fidelity] › tests/c.spec.ts:4:3 › c\n  2 passed (1.0s)\n": "-flaky 1\n",
+		"  2 passed (1.0s)\n": "-flaky 0\n",
+	} {
+		wt, _, _ := rvlNarrowFixture(t, summary, 0)
+		stub, log := rvlFlowStub(t, "{}", 0)
+		rvlRunIn(t, wt, stub, wt, "visual")
+		calls, _ := os.ReadFile(log)
+		if !regexp.MustCompile(`record run .* -exit 0 ` + want).Match(calls) {
+			t.Errorf("summary %q: flow calls %q, want the run to end %q", summary, calls, want)
 		}
 	}
 }
