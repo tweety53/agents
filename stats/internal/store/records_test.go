@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -6201,5 +6202,232 @@ func TestRestampDispatchEnd(t *testing.T) {
 				t.Errorf("open row ended_at = %v, want nil", d.EndedAt)
 			}
 		}
+	}
+}
+
+// linkDay is the day every stage-link case below is set on.
+func linkDay(h, m int) time.Time { return time.Date(2026, 8, 22, h, m, 0, 0, time.UTC) }
+
+// seedLinkRun inserts one stage run of projectKey's kan-1 directly, so a case
+// can hold several runs open at once -- BeginStage supersedes the open run.
+// A nil end leaves the run open; it returns the run's id.
+func seedLinkRun(t *testing.T, pool *pgxpool.Pool, projectKey, token string, attempt int, start time.Time, end *time.Time) int64 {
+	t.Helper()
+	var id int64
+	if err := pool.QueryRow(context.Background(), `
+		INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, session_token, metrics)
+		SELECT id, 'claude-code', '/flow', 'flow.sdd-tdd', $2, $3, $4, $5, '{}'::jsonb
+		FROM changes WHERE project_key = $1 AND name = 'kan-1'
+		RETURNING id`, projectKey, attempt, start, end, token).Scan(&id); err != nil {
+		t.Fatalf("seed stage run: %v", err)
+	}
+	return id
+}
+
+func linkDispatch(token, key string, at time.Time) records.Dispatch {
+	d := baseDispatch("implementer", "opus")
+	d.SessionToken = token
+	d.Key = key
+	d.StartedAt = at
+	return d
+}
+
+// TestDispatchBegunInsideAStageRunIsLinked pins that a begin landing inside a
+// marked stage run carries that run's id (kan-1091: almost every row was
+// unlinked), opening no auto run, while one begun before every run behaves
+// as it did.
+func TestDispatchBegunInsideAStageRunIsLinked(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-inside-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	run := seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), nil)
+
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t1", "task-1-implementer", linkDay(10, 5)))
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != run {
+		t.Fatalf("stage_run_id = %v, want %d", got.StageRunID, run)
+	}
+	early, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t1", "task-2-implementer", linkDay(9, 59)))
+	if err != nil {
+		t.Fatalf("RecordDispatch early: %v", err)
+	}
+	if early.StageRunID != nil {
+		t.Fatalf("early stage_run_id = %v, want nil", *early.StageRunID)
+	}
+	if runs := autoRuns(t, st, projectKey); len(runs) != 0 {
+		t.Fatalf("auto runs = %+v, want none", runs)
+	}
+}
+
+// TestDispatchLinkPrefersTheSameSessionToken pins that among concurrent runs
+// holding the begin, the one of the dispatch's own session wins.
+func TestDispatchLinkPrefersTheSameSessionToken(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-token-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), nil)
+	t2 := seedLinkRun(t, pool, projectKey, "t2", 2, linkDay(10, 1), nil)
+
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t2", "task-1-implementer", linkDay(10, 5)))
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != t2 {
+		t.Fatalf("stage_run_id = %v, want the t2 run %d", got.StageRunID, t2)
+	}
+}
+
+// TestDispatchLinkLeavesAnAmbiguousBeginUnlinked pins that a tie -- among
+// same-token runs, or among all runs when none shares the token -- is never
+// guessed onto a run, and opens no auto run while a run is open.
+func TestDispatchLinkLeavesAnAmbiguousBeginUnlinked(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-ambiguous-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedLinkRun(t, pool, projectKey, "t3", 1, linkDay(10, 0), nil)
+	seedLinkRun(t, pool, projectKey, "t3", 2, linkDay(10, 1), nil)
+
+	for _, token := range []string{"t3", "t4"} {
+		got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch(token, "task-1-implementer-"+token, linkDay(10, 5)))
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", token, err)
+		}
+		if got.StageRunID != nil {
+			t.Errorf("%s: stage_run_id = %d, want nil", token, *got.StageRunID)
+		}
+	}
+	if runs := autoRuns(t, st, projectKey); len(runs) != 0 {
+		t.Fatalf("auto runs = %+v, want none", runs)
+	}
+}
+
+// TestDispatchLinkUsesTheBeginInstantOnReplay pins that a journal replay
+// recorded after its run ended links to the run holding its begin, never
+// the run open at replay time.
+func TestDispatchLinkUsesTheBeginInstantOnReplay(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-replay-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	end := linkDay(10, 10)
+	a := seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), &end)
+	seedLinkRun(t, pool, projectKey, "t1", 2, end, nil)
+
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t1", "task-1-implementer", linkDay(10, 5)))
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != a {
+		t.Fatalf("stage_run_id = %v, want run A %d", got.StageRunID, a)
+	}
+}
+
+// TestStageLinkBackfillLinksOnlyUnambiguousRows pins 0069's back-fill: it
+// links a NULL row inside a unique window, leaves an ambiguous or uncovered
+// one NULL, and a second run changes nothing.
+func TestStageLinkBackfillLinksOnlyUnambiguousRows(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-backfill-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	aEnd, bEnd := linkDay(8, 30), linkDay(9, 30)
+	a := seedLinkRun(t, pool, projectKey, "x", 1, linkDay(8, 0), &aEnd)
+	seedLinkRun(t, pool, projectKey, "y", 2, linkDay(9, 0), &bEnd)
+	seedLinkRun(t, pool, projectKey, "y", 3, linkDay(9, 0), &bEnd)
+
+	keys := map[string]time.Time{"unique": linkDay(8, 10), "ambiguous": linkDay(9, 10), "before": linkDay(7, 0)}
+	for key, at := range keys {
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("y", key, at)); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE dispatches SET stage_run_id = NULL
+		WHERE change_id = (SELECT id FROM changes WHERE project_key = $1)`, projectKey); err != nil {
+		t.Fatalf("unlink: %v", err)
+	}
+	sql, err := os.ReadFile("migrations/0069_dispatch_stage_run.sql")
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+	if _, err := pool.Exec(ctx, string(sql)); err != nil {
+		t.Fatalf("run migration: %v", err)
+	}
+	links := func() map[string]*int64 {
+		t.Helper()
+		rows, err := pool.Query(ctx, `SELECT d.dispatch_key, d.stage_run_id FROM dispatches d
+			JOIN changes c ON c.id = d.change_id WHERE c.project_key = $1`, projectKey)
+		if err != nil {
+			t.Fatalf("read links: %v", err)
+		}
+		defer rows.Close()
+		out := map[string]*int64{}
+		for rows.Next() {
+			var k string
+			var id *int64
+			if err := rows.Scan(&k, &id); err != nil {
+				t.Fatalf("scan link: %v", err)
+			}
+			out[k] = id
+		}
+		return out
+	}
+	got := links()
+	if got["unique"] == nil || *got["unique"] != a || got["ambiguous"] != nil || got["before"] != nil {
+		t.Fatalf("links after back-fill = unique %v, ambiguous %v, before %v; want %d, nil, nil",
+			got["unique"], got["ambiguous"], got["before"], a)
+	}
+	tag, err := pool.Exec(ctx, string(sql))
+	if err != nil {
+		t.Fatalf("re-run migration: %v", err)
+	}
+	if tag.RowsAffected() != 0 || !reflect.DeepEqual(links(), got) {
+		t.Fatalf("re-run changed links: %d rows affected", tag.RowsAffected())
+	}
+}
+
+// TestLinkedOpenDispatchKeepsItsNextBeginCap pins that an inline row now
+// linked to a still-open marked run is still capped at the next inline begin
+// of its session, so it never takes every later main-thread record.
+func TestLinkedOpenDispatchKeepsItsNextBeginCap(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-cap-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const sessionID = "session-link-cap"
+	run := seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), nil)
+
+	first := linkDispatch("t1", "verify-1", linkDay(10, 5))
+	first.SessionID = sessionID
+	first.AgentID = "inline"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", first)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != run {
+		t.Fatalf("first stage_run_id = %v, want %d", got.StageRunID, run)
+	}
+	next := first
+	next.Key = "verify-2"
+	next.StartedAt = linkDay(11, 0)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", next); err != nil {
+		t.Fatalf("RecordDispatch next: %v", err)
+	}
+	windows, err := st.DispatchWindowsForSession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("DispatchWindowsForSession: %v", err)
+	}
+	if len(windows) != 2 || windows[0].EndedAt == nil || !windows[0].EndedAt.Equal(next.StartedAt) {
+		t.Fatalf("windows = %+v, want the first capped at %v", windows, next.StartedAt)
 	}
 }

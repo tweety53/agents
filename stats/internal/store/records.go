@@ -495,8 +495,9 @@ const reBegin = `(dispatches.outcome = 'aborted' AND EXCLUDED.ended_at IS NULL)`
 // dispatches begun together with no stage open share one auto run.
 const autoStageLockNamespace = 185_005
 
-// recordDispatchTx inserts the dispatch in one transaction with the auto
-// stage run openAutoStageRun opens for it, if any.
+// recordDispatchTx inserts the dispatch in one transaction, linked to the
+// stage run holding its begin instant (dispatch_stage_run) or, when none
+// resolves, to the auto stage run openAutoStageRun opens for it, if any.
 func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -505,6 +506,16 @@ func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string,
 	defer func() { _ = tx.Rollback(ctx) }()
 	if err := checkPlannerKey(ctx, tx, projectKey, change, in); err != nil {
 		return records.Dispatch{}, err
+	}
+	if in.StageRunID == nil {
+		// The stage run holding the begin instant, by the rule
+		// 0069_dispatch_stage_run.sql states; NULL (or an unknown change,
+		// which insertDispatch reports) falls through to the auto run.
+		err := tx.QueryRow(ctx, `SELECT dispatch_stage_run(c.id, $3, $4) FROM changes c WHERE c.project_key = $1 AND c.name = $2`,
+			projectKey, change, nullIfEmpty(in.SessionToken), in.StartedAt).Scan(&in.StageRunID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return records.Dispatch{}, err
+		}
 	}
 	if in.StageRunID == nil {
 		if in.StageRunID, err = openAutoStageRun(ctx, tx, projectKey, change, in); err != nil {
@@ -541,8 +552,9 @@ func autoStageFor(key string) string {
 	}
 }
 
-// openAutoStageRun opens a stage run marked auto_opened when the change has
-// no open stage run, so every dispatch begin lands inside one: work a run
+// openAutoStageRun opens a stage run marked auto_opened when the begin links
+// to no recorded run (dispatch_stage_run) and the change has no open stage
+// run, so every dispatch begin lands inside one: work a run
 // marked no stage for is otherwise invisible to every stage-run view. It
 // returns the new run's id, or nil when a run is open, the change is
 // unknown (insertDispatch reports that), or the begin replays a row already
@@ -1818,14 +1830,14 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 // stage run bound to the session, so an open window -- a begin whose end
 // never came -- would otherwise contain every later record of the session,
 // and an open inline window would take all of the parent's main-thread
-// spend from then on. A dispatch cannot outlive the stage run it ran under;
-// while that run is itself open, the window stays open with it.
+// spend from then on. A dispatch cannot outlive the stage run it ran under.
 //
-// Production begins set no stage_run_id (aggregate.go says so), so a
-// stage-less row -- one matched by its own session_id, a loop row or the
-// inline row of a run that marks no stage -- is capped instead at the next
-// inline begin in the same session: a later run taking the main thread is
-// the point the never-ended one stopped holding it. A begin under
+// A row whose stage run is still open, or that has none -- one matched by
+// its own session_id, a loop row, the inline row of a run that marks no
+// stage, or one linked at its begin (dispatch_stage_run) to a run still
+// open -- is capped instead at the next inline begin in the same session:
+// a later run taking the main thread is the point the never-ended one
+// stopped holding it. A begin under
 // minInlineWindow after the row's own is no such successor but a sibling
 // begun beside it -- the per-worktree inline verifier rows one Bash call
 // begins together (skills/flow/verify-and-handoff.md, **Recording.**) --
@@ -1843,7 +1855,7 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 	rows, err := s.pool.Query(ctx, `
 		SELECT d.id, d.started_at, COALESCE(d.ended_at, sr.ended_at, (
 			SELECT MIN(n.started_at) FROM dispatches n
-			WHERE (d.stage_run_id IS NULL OR sr.auto_opened) AND n.session_id = d.session_id
+			WHERE n.session_id = d.session_id
 			  AND n.agent_id = 'inline' AND n.id <> d.id
 			  AND n.started_at >= d.started_at + $2::float8 * interval '1 second'
 		)), d.agent_id, (d.metrics -> 'tokens') IS NOT NULL

@@ -75,7 +75,7 @@ func TestRecordDispatchOpensAutoStageRun(t *testing.T) {
 	}
 }
 
-// A dispatch begun while a stage is open opens nothing.
+// A dispatch begun while a stage is open opens nothing: it links to that run.
 func TestRecordDispatchInsideOpenStageOpensNothing(t *testing.T) {
 	t.Parallel()
 	st, _ := newRecordStore(t)
@@ -84,15 +84,16 @@ func TestRecordDispatchInsideOpenStageOpensNothing(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 	begin := baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd")
 	begin.SessionToken = ptr("mf-auto-2")
-	if _, err := st.BeginStage(ctx, begin); err != nil {
+	run, err := st.BeginStage(ctx, begin)
+	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
 	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("mf-auto-2", "task-1-implementer", time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)))
 	if err != nil {
 		t.Fatalf("RecordDispatch: %v", err)
 	}
-	if runs := autoRuns(t, st, projectKey); len(runs) != 0 || got.StageRunID != nil {
-		t.Errorf("auto runs %+v, stage_run_id %v; want none", runs, got.StageRunID)
+	if runs := autoRuns(t, st, projectKey); len(runs) != 0 || got.StageRunID == nil || *got.StageRunID != run.ID {
+		t.Errorf("auto runs %+v, stage_run_id %v; want none, linked to %d", runs, got.StageRunID, run.ID)
 	}
 }
 
@@ -121,7 +122,9 @@ func TestRecordDispatchBackdatedOpensNoAutoStageRun(t *testing.T) {
 			t.Fatalf("RecordDispatch at %s: %v", tc.at, err)
 		}
 		runs := autoRuns(t, st, projectKey)
-		if len(runs) != tc.want || (tc.want == 0) != (got.StageRunID == nil) {
+		// At 09:30 the begin lies inside the recorded run and links to it
+		// (dispatch_stage_run); afterwards it lands in a new auto run.
+		if len(runs) != tc.want || got.StageRunID == nil {
 			t.Errorf("dispatch at %s: auto runs %+v, stage_run_id %v; want %d", tc.at, runs, got.StageRunID, tc.want)
 		}
 	}
