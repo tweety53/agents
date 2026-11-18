@@ -1203,8 +1203,14 @@ func (w *Watcher) settleClosedRows(ctx context.Context, path string, records []R
 	}
 	// A closed inline row the store still holds unmeasured is a candidate
 	// whatever its begin command looked like: a shell function's `$` key
-	// names no row (kan-1091), and a restart forgets every candidate.
-	for _, sessionID := range sessionsOf(records) {
+	// names no row (kan-1091), and a restart forgets every candidate. Only
+	// the parent transcript settles them: a subagent file carries the
+	// parent's sessionId, and settling over its bytes would zero the row.
+	storeSessions := sessionsOf(records)
+	if IsAgentTranscriptPath(path) {
+		storeSessions = nil
+	}
+	for _, sessionID := range storeSessions {
 		rows, err := w.deps.ClosedUnmeasuredInlineRows(ctx, sessionID, newest)
 		if err != nil {
 			w.warn("harvest: closed inline rows lookup failed, they wait", "path", path, "session_id", sessionID, "error", err)
@@ -1216,6 +1222,8 @@ func (w *Watcher) settleClosedRows(ctx context.Context, path string, records []R
 			}
 		}
 	}
+	// The overflow trim keeps the newest by position, so order by begin.
+	slices.SortStableFunc(cands, func(a, b settleCandidate) int { return a.StartedAt.Compare(b.StartedAt) })
 	if len(cands) > maxSettleCandidates {
 		dropped := make([]dispatchBeginEvent, 0, len(cands)-maxSettleCandidates)
 		for _, c := range cands[:len(cands)-maxSettleCandidates] {
