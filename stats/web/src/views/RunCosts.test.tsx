@@ -213,7 +213,7 @@ describe("RunCosts", () => {
     expect(terms[5].querySelector(".src.estimated")).not.toBeNull();
   });
 
-  it("run costs fetches each picked run once and drops a stale error", async () => {
+  it("run costs fetches each picked run once and drops a stale error or result", async () => {
     const pending: Record<string, (t: RunTimingsDTO) => void> = {};
     let fail: (e: Error) => void = () => {};
     runTimingsMock.mockImplementation(
@@ -235,5 +235,10 @@ describe("RunCosts", () => {
     await act(async () => {});
     await act(async () => failC2(new Error("late failure")));
     expect(screen.queryByText("late failure")).toBeNull();
+
+    // A late success is dropped too, and its run asked for again when picked.
+    await act(async () => pending[C3](T[C3]));
+    await userEvent.click(screen.getByRole("checkbox", { name: `Compare ${C3}` }));
+    expect(runTimingsMock.mock.calls.map((c) => c[1]).slice(3)).toContain(C3);
   });
 });
