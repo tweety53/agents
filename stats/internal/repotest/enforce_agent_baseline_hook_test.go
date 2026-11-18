@@ -859,6 +859,41 @@ func TestEnforceAgentBaselineHookReadsTheOpenStageRun(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookSkipsALoopsOpenStageRun pins decision skip-loop-runs-by-change-prefix:
+// a loop's own open stage run, newer than the run's own, never names the session's change. In
+// kan-1132's run, task-3-implementer was denied and task-1+2-reviewer begun under
+// pipeline-fix-kan-1132-flow-stats-run-timings-costs-dashboard-80 while the run's flow.sdd-tdd
+// was open.
+func TestEnforceAgentBaselineHookSkipsALoopsOpenStageRun(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct{ prefix, stage string }{
+		{"pipeline-fix-", "flow.pipeline-fix"},
+		{"self-review-", "flow.self-review"},
+	} {
+		t.Run(c.prefix, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, log := beginEnv(t, `[]`, 0)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": []any{
+					map[string]string{"changeName": c.prefix + "c1-81", "sessionToken": c.prefix + "c1-81", "stage": c.stage},
+					map[string]string{"changeName": "c1", "sessionToken": "mf-t1", "stage": "flow.sdd-tdd"},
+				}})
+			}))
+			t.Cleanup(srv.Close)
+			env = append(env, "FLOW_ADDR="+srv.URL)
+			if denied, out := runBegin(t, beginPayload(t, main, "task-3-implementer finish", "Role: implementer\nKey: task-3-implementer\nfix", "flow-low", "opus", ""), env...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			want := "record dispatch begin -C " + main + " -change c1 -role implementer -model opus -effort low -task 3 -key task-3-implementer -session-token mf-t1"
+			if got := flowCalls(t, log, "record dispatch begin"); len(got) != 1 || got[0] != want {
+				t.Errorf("begins = %q, want [%q]", got, want)
+			}
+		})
+	}
+}
+
 // TestEnforceAgentBaselineHookPointsAPanelKeyAtPanelRoundBegins pins decision f4-panel-key-deny:
 // a panel reviewer key with no open row is denied with a pointer at panel-round-begins, since a
 // begin from the hook carries no -slot and flow refuses it; the merger and panel-fix keys are

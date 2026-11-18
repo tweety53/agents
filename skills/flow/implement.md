@@ -110,7 +110,7 @@ word off the **Key shape** column above is another way. The `Role:` line is the 
 `hooks/enforce-agent-baseline.py` runs `flow record dispatch begin` itself once its other checks
 pass — the key from the prompt's `Key:` line, else the description's first word; the role from the
 prompt's `Role:` line; the model and effort from the Agent call; the session token and change from
-the session's latest stage run; the pair pick from
+the session's latest stage run that is not a loop's own (`pipeline-fix-…`, `self-review-…`); the pair pick from
 `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.pick` — and denies the launch with `flow`'s
 stderr when that begin is refused. The parent runs no `begin` of its own for such a row. A row
 whose begin needs a flag the Agent call cannot carry — a panel slot's `-diff-base`, an
