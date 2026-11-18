@@ -129,6 +129,8 @@ describe("RunTimings", () => {
     const totals = within(root).getByRole("region", { name: "Run totals" });
     const labels = [...totals.querySelectorAll(".lb-kpi > .lb-lbl")].map((l) => l.firstChild?.textContent);
     expect(labels).toEqual(["Wall clock", "Agent time", "Parent commands", "Idle / parent", "Cost", "Visual-verify loops"]);
+    // The counts panel's cells are bare, not totals-strip tiles.
+    expect(within(root).getByRole("region", { name: "Counts" }).querySelector(".lb-kpi")).toBeNull();
     const vals = [...totals.querySelectorAll(".lb-kpi-val")].map((v) => v.textContent);
     expect(vals).toEqual(["49h 21m", "30h 00m", "6h 12m", "12h 28m", "$348.51", "28%"]);
     const wall = totals.querySelector(".lb-kpi .src");
