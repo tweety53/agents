@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -71,16 +70,6 @@ type usd int64
 
 func (u usd) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatFloat(float64(u)/1e6, 'f', -1, 64)), nil
-}
-
-// UnmarshalJSON reads the dollars MarshalJSON writes back to micro-dollars.
-func (u *usd) UnmarshalJSON(b []byte) error {
-	f, err := strconv.ParseFloat(string(b), 64)
-	if err != nil {
-		return err
-	}
-	*u = usd(math.Round(f * 1e6))
-	return nil
 }
 
 const (

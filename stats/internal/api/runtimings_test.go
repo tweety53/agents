@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,17 @@ import (
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
+
+// UnmarshalJSON reads the dollars MarshalJSON writes back to micro-dollars,
+// so the route tests can decode a response into the result types.
+func (u *usd) UnmarshalJSON(b []byte) error {
+	f, err := strconv.ParseFloat(string(b), 64)
+	if err != nil {
+		return err
+	}
+	*u = usd(math.Round(f * 1e6))
+	return nil
+}
 
 var rtT0 = time.Date(2034, 1, 1, 10, 0, 0, 0, time.UTC)
 
