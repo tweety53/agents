@@ -905,7 +905,7 @@ func TestCloseTaskRefusesAnUnmeasuredDeparture(t *testing.T) {
 	manifest("implementer-2", "shots/day.spec.js")
 	manifest("implementer-3", "shots/night.spec.js")
 	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
-	if want := "visual-verify-pass measure " + fx.wt + " demo implementer-3 <spec path>"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under implementer-3") || !strings.Contains(r.err, want) || strings.Contains(r.err, "night.spec.js") {
+	if want := "visual-verify-pass measure " + fx.wt + " demo implementer-3 shots/day.spec.js`"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under implementer-3") || !strings.Contains(r.err, want) || strings.Contains(r.err, "night.spec.js") {
 		t.Fatalf("an unmeasured departure: exit %d, want 1 naming day.spec.js alone and %q\n%s\n%s", r.rc, want, r.out, r.err)
 	}
 	for _, call := range fx.calls(t) {
@@ -942,7 +942,7 @@ func TestCloseTaskVerifiesAPlannedUITaskAgainstItsMockup(t *testing.T) {
 		t.Fatalf("recapture: exit %d\n%s", r.rc, r.out)
 	}
 	r = fx.run(fx.wt, "demo", fx.base, "1:"+sha)
-	if want := "visual-verify-pass measure " + fx.wt + " demo task-1 <spec path>"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under task-1") || !strings.Contains(r.err, want) {
+	if want := "visual-verify-pass measure " + fx.wt + " demo task-1 shots/day.spec.js`"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under task-1") || !strings.Contains(r.err, want) {
 		t.Fatalf("an unmeasured mocked-up view: exit %d, want 1 and %q\n%s\n%s", r.rc, want, r.out, r.err)
 	}
 	for _, call := range fx.calls(t) {
@@ -954,6 +954,33 @@ func TestCloseTaskVerifiesAPlannedUITaskAgainstItsMockup(t *testing.T) {
 	r = fx.run(fx.wt, "demo", fx.base, "1:"+sha)
 	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 1: affected specs — shots/day.spec.js\n") {
 		t.Fatalf("a captured, measured view: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
+	}
+}
+
+// TestCloseTaskTakesAMeasureThatPairedNothing pins the pipeline-fix-82 fix
+// (kan-1132 task 15 was refused after every measure): a measure that ran over
+// a spec whose sidecar finds no frame in this worktree pairs nothing, yet
+// counts; and the refusal names the spec as measure takes it, from the
+// worktree root, never as affected-specs prints it from its app's root.
+func TestCloseTaskTakesAMeasureThatPairedNothing(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	fx := ctFixture(t, true, "0", "0")
+	writeFile(t, fx.wt+"/web/package.json", "{}\n")
+	writeFile(t, fx.wt+"/web/shots/day.spec.js", "test('x', () => {})\n")
+	writeFile(t, fx.wt+"/web/shots/day.spec.js.sources", "a.txt\n")
+	writeFile(t, fx.wt+"/web/shots/day.spec.js.mockups", "day 1:2\n")
+	sha := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+	if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:1", fx.wt, fx.wt + "=HEAD^", "true <spec>"}, fx.env); r.rc != 0 {
+		t.Fatalf("recapture: exit %d\n%s", r.rc, r.out)
+	}
+	r := fx.run(fx.wt, "demo", fx.base, "1:"+sha)
+	if want := "visual-verify-pass measure " + fx.wt + " demo task-1 web/shots/day.spec.js`"; r.rc != 1 || !strings.Contains(r.err, want) {
+		t.Fatalf("an unmeasured view: exit %d, want 1 and %q\n%s\n%s", r.rc, want, r.out, r.err)
+	}
+	writeFile(t, fx.wt+"/.superpowers/sdd/visual-manifest-task-1.json", `{"specs":["`+fx.wt+`/web/shots/day.spec.js"],"pairs":null}`)
+	if r := fx.run(fx.wt, "demo", fx.base, "1:"+sha); r.rc != 0 {
+		t.Fatalf("a measure that paired nothing: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
 	}
 }
 

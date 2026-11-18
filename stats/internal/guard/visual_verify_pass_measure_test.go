@@ -181,6 +181,32 @@ func TestVisualVerifyPassMeasureCarriesOn(t *testing.T) {
 	}
 }
 
+// TestVisualVerifyPassMeasureRecordsItsSpec pins the pipeline-fix-82 fix: a
+// measure that pairs nothing -- no `mockups` root declared, so no sidecar
+// frame resolves -- still names the spec it ran over, and a later measure of
+// another spec keeps it, so close-task can tell the measure ran.
+func TestVisualVerifyPassMeasureRecordsItsSpec(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSection)
+	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
+	vvmPNG(t, filepath.Join(f.wt, "tests/visual/other.spec.ts-snapshots/c-darwin.png"), 60)
+	for _, spec := range []string{"tests/visual/app.spec.ts", "tests/visual/other.spec.ts"} {
+		if rc, _, stderr := f.run(t, f.wt, "demo", "task-1", spec); rc != 0 {
+			t.Fatalf("%s: exit %d, stderr %q", spec, rc, stderr)
+		}
+	}
+	b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-task-1.json"))
+	var m struct{ Specs []string }
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.Join(f.wt, "tests/visual/app.spec.ts"), filepath.Join(f.wt, "tests/visual/other.spec.ts")}
+	if strings.Join(m.Specs, " ") != strings.Join(want, " ") {
+		t.Fatalf("specs %q, want %q", m.Specs, want)
+	}
+}
+
 func TestVisualVerifyPassMeasureUsage(t *testing.T) {
 	t.Parallel()
 	f := vvmFixture(t, "b.png frame-b\n")

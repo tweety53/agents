@@ -798,8 +798,13 @@ func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, com
 	for _, wt := range manifests {
 		var m vvmManifestOut
 		if b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "visual-manifest-"+key+".json")); err == nil && json.Unmarshal(b, &m) == nil {
+			// A measure over a spec whose sidecar finds no frame here pairs
+			// nothing, yet ran: its spec is recorded all the same.
 			for _, p := range m.Pairs {
 				measured = append(measured, filepath.ToSlash(p.Spec))
+			}
+			for _, s := range m.Specs {
+				measured = append(measured, filepath.ToSlash(s))
 			}
 		}
 	}
@@ -814,13 +819,20 @@ func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, com
 			var out bytes.Buffer
 			Registry["affected-specs"]([]string{"-task", tasksMD + ":" + id, wt, sha + "^.." + sha, root}, quietReasons(env), &out, io.Discard)
 			sidecars, _ := capture(git("-C", root, "ls-files", "-co", "--exclude-standard", "--", "*.mockups"))
-			mocked := func(token string) bool {
+			// sidecar is the root-relative spec path of token's `.mockups`
+			// sidecar -- the path measure takes -- or "" when it has none.
+			sidecar := func(token string) string {
 				spec := rcSpecFile(token)
-				return slices.ContainsFunc(strings.Split(sidecars, "\n"), func(f string) bool { return f == spec+".mockups" || strings.HasSuffix(f, "/"+spec+".mockups") })
+				for _, f := range strings.Split(sidecars, "\n") {
+					if f == spec+".mockups" || strings.HasSuffix(f, "/"+spec+".mockups") {
+						return strings.TrimSuffix(f, ".mockups")
+					}
+				}
+				return ""
 			}
 			specs := strings.Fields(out.String())
 			if !inRun {
-				specs = slices.DeleteFunc(specs, func(s string) bool { return !mocked(s) })
+				specs = slices.DeleteFunc(specs, func(s string) bool { return sidecar(s) == "" })
 			}
 			for _, spec := range specs {
 				if !slices.Contains(all, spec) {
@@ -837,10 +849,11 @@ func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, com
 			// with the captures' blobs if that ever bites.
 			for _, spec := range specs {
 				spec = rcSpecFile(spec)
-				if !departure || !mocked(spec) || slices.ContainsFunc(measured, func(m string) bool { return m == spec || strings.HasSuffix(m, "/"+spec) }) {
+				path := sidecar(spec)
+				if !departure || path == "" || slices.ContainsFunc(measured, func(m string) bool { return m == spec || strings.HasSuffix(m, "/"+spec) }) {
 					continue
 				}
-				fmt.Fprintf(stderr, "close-task: task %s: %s and no measure of %s ran under %s — run `flow-guard visual-verify-pass measure %s %s %s <spec path>` on the views the fix touched, close or name every flagged band, seam and `over` row, and re-run\n", id, why, spec, key, canonical, name, key)
+				fmt.Fprintf(stderr, "close-task: task %s: %s and no measure of %s ran under %s — run `flow-guard visual-verify-pass measure %s %s %s %s` on the views the fix touched, close or name every flagged band, seam and `over` row, and re-run\n", id, why, spec, key, root, name, key, path)
 				Reason(env, "departure-not-measured")
 				rc = 1
 			}

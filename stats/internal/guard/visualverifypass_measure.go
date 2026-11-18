@@ -43,6 +43,7 @@ type vvmPair struct {
 }
 
 type vvmManifestOut struct {
+	Specs     []string           `json:"specs"` // every spec a measure ran over, pairs or none
 	Captures  []string           `json:"captures"`
 	Identical []string           `json:"identical"`
 	Steps     map[string]vvmStep `json:"steps"`
@@ -115,7 +116,7 @@ func (v *vvp) measure(args []string) {
 		}
 		return ip(rc)
 	}
-	m := vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{}, Pairs: []vvmPair{}}
+	m := vvmManifestOut{Specs: []string{spec}, Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{}, Pairs: []vvmPair{}}
 
 	rc, out, serr := run(resolveVisualScreenshots, "", w, filepath.Base(spec))
 	resolveExit := note(rc)
@@ -275,6 +276,7 @@ func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool
 			}
 		}
 		m.Pairs = append(pairs, m.Pairs...)
+		m.Specs = vvmUnion(old.Specs, m.Specs)
 		m.Captures = vvmUnion(old.Captures, m.Captures)
 		m.Identical = vvmUnion(old.Identical, m.Identical)
 	}
