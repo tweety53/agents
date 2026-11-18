@@ -478,6 +478,12 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.git("-C", rwt, "commit", "-q", "-m", "fix(app): review Minors")
 	f.bash("109 the real checker still lists the change's own untasked commit", "deny", "{ROOT}", `git -C {RWT} push --force-with-lease origin spectre/chg4`)
 
+	// 110-113: a `go test` over a whole heavy package is the operator's to ask for; a named test run is not.
+	f.bash("110 go test over the whole guard package", "deny", "{ROOT}", `cd {SIB} && go test ./internal/guard/`)
+	f.bash("111 go test over ./... with -count", "deny", "{ROOT}", `cd {SIB}/stats && go test -count=1 ./...`)
+	f.bash("112 go test of the guard package naming its tests", "allow", "{ROOT}", `cd {SIB}/stats && go test ./internal/guard/ -run 'PairJudge|PjSample'`)
+	f.bash("113 go test of a light package", "allow", "{ROOT}", `cd {SIB}/stats && go test ./internal/modelpolicy/`)
+
 	// 138-142: a `>` inside quotes is data, never a redirect (kan-1003's self-review); every
 	// operator that writes a file is still judged.
 	f.bash("138 a quoted '>Save<' argument, cwd = main", "allow", "{MAIN}", `python3 grab.py "{SIB}/a.html" '>Save<' 1 1200`)

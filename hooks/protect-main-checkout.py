@@ -120,6 +120,29 @@ BARE_CAT_REASON = (
     "call times out — write the file with the Write tool, or give cat a heredoc "
     "(`cat > <file> <<'EOF'`)"
 )
+# A `go test` over a whole heavy package of the agents repo — the guard package (~5 minutes), the flow
+# command or `./...` — with no `-run`: a session ran the whole guard package to check a six-second
+# change. The operator's own `!` run is not a tool call, so it is never judged; a session names the
+# tests it touched with `-run`.
+FULL_GO_TEST_RE = re.compile(r"(?:^|\s)\./(?:internal/guard|cmd/flow|\.\.\.)/?(?=\s|$)")
+FULL_GO_TEST_REASON = (
+    "`go test` over a whole heavy package (./internal/guard, ./cmd/flow or ./...) takes minutes — name "
+    "the tests the change touches with `-run '<TestName|OtherTest>'`. A full package run is the "
+    "operator's to ask for, and runs from their own `!` prompt."
+)
+
+
+def full_go_test(command):
+    for segment in re.split(r"[;&|\n]+", command):
+        if (
+            re.search(r"\bgo\s+test\b", segment)
+            and FULL_GO_TEST_RE.search(segment)
+            and not re.search(r"(?:^|\s)-run[\s=]", segment)
+        ):
+            return True
+    return False
+
+
 LOOP_BRANCH_RE = re.compile(r"^(pipeline-fix-.+-[0-9]+|self-review-.+|spectre/.+)$")
 
 # The whole budget for flow-guard check-loop-landing calls in one command (every push it makes), well under the
@@ -1260,6 +1283,8 @@ def main():
             landings = []
             if BARE_CAT_RE.search(command):
                 landings.append(BARE_CAT_REASON)
+            if full_go_test(command):
+                landings.append(FULL_GO_TEST_REASON)
             candidates.extend(bash_hits(command, cwd, landings))
             if landings:
                 json.dump(
