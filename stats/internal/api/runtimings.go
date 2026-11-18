@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,6 +47,8 @@ type RunTimingsStore interface {
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	ChangeGuardRuns(ctx context.Context, projectKey, change string, from, to time.Time) ([]records.GuardRun, int, error)
 	ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error)
+	FinishedChangesInPeriod(ctx context.Context, period store.Period, project *string) ([]store.Change, error)
+	ProjectKeysByDisplayName(ctx context.Context, displayName string) ([]string, error)
 }
 
 var _ RunTimingsStore = (*store.Store)(nil)
@@ -68,6 +71,16 @@ type usd int64
 
 func (u usd) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatFloat(float64(u)/1e6, 'f', -1, 64)), nil
+}
+
+// UnmarshalJSON reads the dollars MarshalJSON writes back to micro-dollars.
+func (u *usd) UnmarshalJSON(b []byte) error {
+	f, err := strconv.ParseFloat(string(b), 64)
+	if err != nil {
+		return err
+	}
+	*u = usd(math.Round(f * 1e6))
+	return nil
 }
 
 const (
@@ -692,16 +705,29 @@ type runTimingsHandler struct {
 }
 
 func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	project, change := r.PathValue("project"), r.PathValue("change")
-	fail := func(what string, err error) {
-		status, msg := mapStoreError(h.log, fmt.Sprintf("%s for %s/%s", what, project, change), err)
+	out, err := h.run(r.Context(), project, change)
+	if err != nil {
+		status, msg := mapStoreError(h.log, fmt.Sprintf("%s for %s/%s", err.what, project, change), err.err)
 		writeError(w, status, msg)
+		return
 	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// runError names the read that failed computing one run.
+type runError struct {
+	what string
+	err  error
+}
+
+// run computes one change's result from the store; the per-run route and
+// the run-costs fold both call it, so the two never disagree.
+func (h *runTimingsHandler) run(ctx context.Context, project, change string) (RunTimings, *runError) {
+	fail := func(what string, err error) (RunTimings, *runError) { return RunTimings{}, &runError{what, err} }
 	run, err := h.store.RunRecord(ctx, project, change)
 	if err != nil {
-		fail("read the run record", err)
-		return
+		return fail("read the run record", err)
 	}
 	stages, _, err := h.store.QueryStageRuns(ctx, store.Query{
 		Filters: []store.Filter{
@@ -711,15 +737,13 @@ func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
 		Limit: store.NoLimit,
 	})
 	if err != nil {
-		fail("read the stage runs", err)
-		return
+		return fail("read the stage runs", err)
 	}
 	now := h.now()
 	wall, _ := wallClock(stages, run.Dispatches, now)
 	guards, unclaimed, err := h.store.ChangeGuardRuns(ctx, project, change, time.UnixMilli(wall.from), time.UnixMilli(wall.to))
 	if err != nil {
-		fail("read the guard runs", err)
-		return
+		return fail("read the guard runs", err)
 	}
 	var roots, paths []string
 	for _, s := range stages {
@@ -733,8 +757,7 @@ func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	verifyRuns, err := h.store.ListVerifyRuns(ctx, project, change)
 	if err != nil {
-		fail("read the verify runs", err)
-		return
+		return fail("read the verify runs", err)
 	}
 	saved := h.saved(ctx)
 	openers := map[string]string{}
@@ -750,7 +773,7 @@ func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
 		Departures: departures(project, change, run.Dispatches, roots, saved),
 	}, now)
 	out.Project, out.Change = project, change
-	writeJSON(w, http.StatusOK, out)
+	return out, nil
 }
 
 // journalCount is the change's pending record writes, served as a number,
@@ -1027,4 +1050,116 @@ func departures(project, change string, ds []records.Dispatch, roots []string, s
 		}
 	}
 	return out
+}
+
+// runCostsCategory is one category folded over the period's runs.
+type runCostsCategory struct {
+	Category    string  `json:"category"`
+	Runs        int     `json:"runs"`
+	Rows        int     `json:"rows"`
+	Seconds     int64   `json:"seconds"` // the runs' busy (union) time, summed
+	Cost        usd     `json:"cost"`
+	ShareOfCost float64 `json:"shareOfCost"`
+}
+
+// runCostsRun is one finished run's line, its values copied from its
+// one-run result.
+type runCostsRun struct {
+	Project      string                 `json:"project"`
+	Change       string                 `json:"change"`
+	WallClockMs  metric[int64]          `json:"wallClockMs"`
+	AgentTimeMs  metric[int64]          `json:"agentTimeMs"`
+	IdleMs       metric[int64]          `json:"idleMs"`
+	Cost         metric[usd]            `json:"cost"`
+	Tasks        metric[int]            `json:"tasks"`
+	FixRounds    metric[fixRoundCounts] `json:"fixRounds"`
+	CategoryCost map[string]usd         `json:"categoryCost"`
+}
+
+type runCosts struct {
+	Columns    []definition       `json:"columns"`
+	Categories []runCostsCategory `json:"categories"`
+	Runs       []runCostsRun      `json:"runs"`
+}
+
+var (
+	defTasks        = definition{"Tasks", "Task ids with a cost-per-task row.", kindDerived}
+	runCostsColumns = []definition{
+		{"Runs", "Finished runs in the period with a row of the category.", kindDerived},
+		{"Rows", "Dispatch rows of the category, summed over the runs.", kindMeasured},
+		{"Time (union)", "Each run's Busy for the category, summed over the runs.", kindDerived},
+		{"Cost", "Each run's category cost, summed over the runs.", kindMeasured},
+		{"Share of cost", "The category's cost over every category's cost.", kindDerived},
+	}
+)
+
+// foldRunCosts folds each run's one-run result into the across-runs view.
+func foldRunCosts(results []RunTimings) runCosts {
+	out := runCosts{Columns: runCostsColumns, Categories: []runCostsCategory{}, Runs: []runCostsRun{}}
+	byCat := map[string]*runCostsCategory{}
+	var order []string
+	var total usd
+	for _, r := range results {
+		catCost := map[string]usd{}
+		for _, row := range r.Breakdowns["category"].Rows {
+			if row.Label == labelParent || row.Label == labelIdle {
+				continue
+			}
+			c, ok := byCat[row.Label]
+			if !ok {
+				c = &runCostsCategory{Category: row.Label}
+				byCat[row.Label] = c
+				order = append(order, row.Label)
+			}
+			c.Runs++
+			c.Rows += row.Rows
+			c.Seconds += row.BusyMs
+			c.Cost += row.Cost
+			total += row.Cost
+			catCost[row.Label] = row.Cost
+		}
+		out.Runs = append(out.Runs, runCostsRun{
+			Project: r.Project, Change: r.Change,
+			WallClockMs: r.Totals.WallClockMs, AgentTimeMs: r.Totals.AgentTimeMs, IdleMs: r.Totals.IdleMs,
+			Cost: r.Totals.Cost, Tasks: measure(len(r.CostPerTask), defTasks), FixRounds: r.Counts.FixRounds,
+			CategoryCost: catCost,
+		})
+	}
+	for _, k := range order {
+		c := byCat[k]
+		c.Seconds /= 1000
+		if total > 0 {
+			c.ShareOfCost = float64(c.Cost) / float64(total)
+		}
+		out.Categories = append(out.Categories, *c)
+	}
+	return out
+}
+
+// costs serves GET /api/v1/stats/run-costs: every finished run in the
+// period computed by the per-run function and folded.
+func (h *runTimingsHandler) costs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	period, project, err := parsePeriodAndProject(ctx, h.store, r.URL.Query())
+	if err != nil {
+		writeParseOrStoreError(w, h.log, "resolve project for run-costs", err)
+		return
+	}
+	changes, err := h.store.FinishedChangesInPeriod(ctx, period, project)
+	if err != nil {
+		status, msg := mapStoreError(h.log, "list finished changes for run-costs", err)
+		writeError(w, status, msg)
+		return
+	}
+	results := make([]RunTimings, 0, len(changes))
+	for _, c := range changes {
+		res, rerr := h.run(ctx, c.ProjectKey, c.Name)
+		if rerr != nil {
+			status, msg := mapStoreError(h.log, fmt.Sprintf("%s for %s/%s", rerr.what, c.ProjectKey, c.Name), rerr.err)
+			writeError(w, status, msg)
+			return
+		}
+		results = append(results, res)
+	}
+	writeJSON(w, http.StatusOK, foldRunCosts(results))
 }

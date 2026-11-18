@@ -196,10 +196,34 @@ func TestRunTimingsRepoFromTheKeySuffix(t *testing.T) {
 type runTimingsFake struct{}
 
 func (runTimingsFake) RunRecord(_ context.Context, project, change string) (records.Run, error) {
-	if change != "kan-1-a" {
-		return records.Run{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, project, change)
+	switch change {
+	case "kan-1-a":
+		return records.Run{Change: change, Dispatches: rtInput().Dispatches}, nil
+	case "kan-2-b":
+		return records.Run{Change: change, Dispatches: rtInput().Dispatches[:3]}, nil
 	}
-	return records.Run{Change: change, Dispatches: rtInput().Dispatches}, nil
+	return records.Run{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, project, change)
+}
+
+var rtChanges = []store.Change{{ProjectKey: "gymie-7c1f238a", Name: "kan-1-a"}, {ProjectKey: "agents-0a1b2c3d", Name: "kan-2-b"}}
+
+func (runTimingsFake) FinishedChangesInPeriod(_ context.Context, _ store.Period, project *string) ([]store.Change, error) {
+	var out []store.Change
+	for _, c := range rtChanges {
+		if project == nil || *project == c.ProjectKey {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (runTimingsFake) ProjectKeysByDisplayName(_ context.Context, name string) ([]string, error) {
+	for _, c := range rtChanges {
+		if strings.HasPrefix(c.ProjectKey, name+"-") {
+			return []string{c.ProjectKey}, nil
+		}
+	}
+	return nil, nil
 }
 
 func (runTimingsFake) QueryStageRuns(context.Context, store.Query) ([]store.StageRun, int, error) {
@@ -341,5 +365,105 @@ func TestEveryRunTimingsMetricCarriesADefinition(t *testing.T) {
 	walk("$", v)
 	if n < 12 {
 		t.Errorf("metrics found = %d, want at least 12", n)
+	}
+}
+
+// TestRunCostsFoldsEachRunResult: the across-runs view is each finished
+// run's one-run result folded — categories sum the runs' category rows and
+// each run line copies its own result.
+func TestRunCostsFoldsEachRunResult(t *testing.T) {
+	t.Parallel()
+	srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, nil, WithRunTimings(runTimingsFake{}))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	get := func(path string, v any) int {
+		t.Helper()
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		if v != nil && resp.StatusCode == http.StatusOK {
+			if err := json.Unmarshal(body, v); err != nil {
+				t.Fatalf("decode %s: %v", body, err)
+			}
+		}
+		return resp.StatusCode
+	}
+	period := "from=2034-01-01T00:00:00Z&to=2034-02-01T00:00:00Z"
+	var got runCosts
+	if s := get("/api/v1/stats/run-costs?"+period, &got); s != http.StatusOK {
+		t.Fatalf("status %d", s)
+	}
+	// oneRun is the slice of a one-run result the fold copies.
+	type oneRun struct {
+		Totals      runTotals            `json:"totals"`
+		Breakdowns  map[string]breakdown `json:"breakdowns"`
+		CostPerTask []taskCost           `json:"costPerTask"`
+		Counts      struct {
+			FixRounds metric[fixRoundCounts] `json:"fixRounds"`
+		} `json:"counts"`
+	}
+	one := map[string]oneRun{}
+	for _, c := range rtChanges {
+		var r oneRun
+		if s := get("/api/v1/stats/run/"+c.ProjectKey+"/"+c.Name, &r); s != http.StatusOK {
+			t.Fatalf("run %s: status %d", c.Name, s)
+		}
+		one[c.Name] = r
+	}
+	want := map[string]runCostsCategory{}
+	for _, r := range one {
+		for _, row := range r.Breakdowns["category"].Rows {
+			if row.Label == labelParent || row.Label == labelIdle {
+				continue
+			}
+			w := want[row.Label]
+			w.Runs++
+			w.Rows += row.Rows
+			w.Seconds += row.BusyMs
+			w.Cost += row.Cost
+			want[row.Label] = w
+		}
+	}
+	if len(got.Categories) != len(want) {
+		t.Fatalf("categories = %d, want %d", len(got.Categories), len(want))
+	}
+	share := 0.0
+	for _, c := range got.Categories {
+		w := want[c.Category]
+		if c.Runs != w.Runs || c.Rows != w.Rows || c.Seconds != w.Seconds/1000 || c.Cost != w.Cost {
+			t.Errorf("%s = %+v, want %+v", c.Category, c, w)
+		}
+		share += c.ShareOfCost
+	}
+	if share < 0.999999 || share > 1.000001 {
+		t.Errorf("share of cost sums to %v", share)
+	}
+	if len(got.Runs) != 2 {
+		t.Fatalf("runs = %d, want 2", len(got.Runs))
+	}
+	for _, run := range got.Runs {
+		r := one[run.Change]
+		if run.WallClockMs != r.Totals.WallClockMs || run.AgentTimeMs != r.Totals.AgentTimeMs || run.IdleMs != r.Totals.IdleMs ||
+			run.Cost != r.Totals.Cost || run.Tasks.Value != len(r.CostPerTask) || run.FixRounds != r.Counts.FixRounds {
+			t.Errorf("run %s = %+v disagrees with its one-run result", run.Change, run)
+		}
+		for _, row := range r.Breakdowns["category"].Rows {
+			if row.Label != labelParent && row.Label != labelIdle && run.CategoryCost[row.Label] != row.Cost {
+				t.Errorf("run %s %s cost = %d, want %d", run.Change, row.Label, run.CategoryCost[row.Label], row.Cost)
+			}
+		}
+	}
+	var narrowed runCosts
+	if s := get("/api/v1/stats/run-costs?"+period+"&project=gymie", &narrowed); s != http.StatusOK || len(narrowed.Runs) != 1 || narrowed.Runs[0].Change != "kan-1-a" {
+		t.Errorf("project=gymie: status %d, runs %+v", s, narrowed.Runs)
+	}
+	if s := get("/api/v1/stats/run-costs?to=2034-02-01T00:00:00Z", nil); s != http.StatusBadRequest {
+		t.Errorf("missing from: status %d, want 400", s)
 	}
 }

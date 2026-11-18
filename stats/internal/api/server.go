@@ -456,6 +456,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.runTimings != nil {
 		rth := &runTimingsHandler{store: so.runTimings, stateRoot: so.stateRoot, saved: sth.savedFile, now: time.Now, log: logger}
 		mux.Handle("GET /api/v1/stats/run/{project}/{change}", http.TimeoutHandler(http.HandlerFunc(rth.get), statsWriteTimeout, statsTimeoutMessage))
+		mux.Handle("GET /api/v1/stats/run-costs", http.TimeoutHandler(http.HandlerFunc(rth.costs), statsWriteTimeout, statsTimeoutMessage))
 	}
 	if so.changeFiles != nil {
 		cfh := &changeFileHandler{store: so.changeFiles, logger: logger}
