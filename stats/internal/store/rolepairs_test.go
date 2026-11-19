@@ -42,6 +42,8 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"visual-verifier":         {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"tooling-analyst":         {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-pass":        {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
+		"prompt-tuning-replay":    {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
+		"prompt-tuning-grader":    {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-plan":        {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-fix":         {Base: []string{"opus/flow-medium", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-review-1":    {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},

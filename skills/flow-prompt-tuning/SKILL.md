@@ -33,9 +33,10 @@ git -C <agents repo> worktree add -b prompt-tuning-<date> <agents repo>-worktree
 
 ## Every dispatch
 
-Every dispatch below — replay and grader — runs on the `self-review-pass` role's pair (**Model and
-effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the line
-`Role: self-review-pass` and carrying these two sentences verbatim:
+A replay dispatch runs on the `prompt-tuning-replay` role's pair and a grader dispatch on the
+`prompt-tuning-grader` role's (**Model and effort**, `skills/flow/brainstorm-planner.md`), its
+prompt opening with the line `Role: prompt-tuning-replay` or `Role: prompt-tuning-grader` and
+carrying these two sentences verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
