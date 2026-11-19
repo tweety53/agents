@@ -121,15 +121,14 @@ token spend.
    lines, the decisions the round settled and what is still open, which is the settled prose the
    convergence confirm shows — the design draft, then `## Questions` — each question with two to
    four options, one marked recommended where one honestly is, the convergence confirm last when
-   nothing else is open. `## Questions` holds only questions headed `[architectural]` or
-   `[impactful: <criterion>]`; the round's auto-taken ones sit under `## Auto-taken`.
+   nothing else is open. `## Questions` holds only the questions the operator is asked; the
+   round's auto-taken ones sit under `## Auto-taken`.
    It asks the operator nothing.
 2. **Relay.** When the round wrote or changed the prototype, the parent publishes it with the
    Artifact tool. The parent prints the round's `## Summary` verbatim and the round file's
    absolute path — the design draft stays in the file — with the prototype's Artifact URL beside
    them whenever a prototype exists, asks its `## Questions` verbatim and no other —
-   the `[architectural]` ones first, four to an **AskUserQuestion** call, then the
-   `[impactful: <criterion>]` ones, four to a call, the convergence confirm last, in round-file order — the URL appended to the text of the question that depends on the
+   four to an **AskUserQuestion** call in round-file order, the convergence confirm last — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the

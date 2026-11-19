@@ -18,18 +18,18 @@ states.
 
 ### The checklist
 
-- **Every ambiguity is classified, and only an `[architectural]` or `[impactful: <criterion>]` one
-  is asked — in `/flow`'s planning up to its plan gate and in a `/flow-plan` session, and nowhere
-  else.** An ambiguity is any requirement, scenario, name, format, state, edge case, ordering,
-  error behaviour or scope boundary of the change that the request, the ticket, a mockup and the
-  code leave open — any point two competent implementers could read differently. One is
-  impactful when one of four criteria holds, named in its heading: `no-recommendation` — no
-  option can honestly be recommended, an answer contradicting an earlier one included;
-  `irreversible` — a wrong pick is costly to undo once landed: persisted or migrated data, a
-  public API, file format, CLI or cross-repository contract, a deletion, permissions, security,
-  privacy, money; `scope` — the pick adds or drops something the ticket or a mockup states;
-  `plan-size` — the options differ by a task or more and the ticket gives no lead. An asked
-  question carries a recommended option where one honestly exists and is asked until the user's
+- **Every ambiguity is either asked or auto-taken — asked only in `/flow`'s planning up to its
+  plan gate and in a `/flow-plan` session, and nowhere else.** An ambiguity is any requirement,
+  scenario, name, format, state, edge case, ordering, error behaviour or scope boundary of the
+  change that the request, the ticket, a mockup and the code leave open — any point two competent
+  implementers could read differently. It is asked, as `### Q<n>. <question>` under the round
+  file's `## Questions`, when the operator would care about the pick: the options are different
+  approaches; no option can honestly be recommended — an answer contradicting an earlier answer
+  or a recorded decision included, both quoted verbatim and asked with no recommended option; a
+  wrong pick is costly to undo once landed — persisted or migrated data, a public API, file
+  format, CLI or cross-repository contract, a deletion, permissions, security, privacy, money;
+  the pick adds or drops something the ticket or a mockup states; or the options differ by a task
+  or more and the ticket gives no lead. An asked question carries a recommended option where one honestly exists and is asked until the user's
   own answer closes it (**Convergence**, `skills/spectre-planning/SKILL.md`). Silence answers
   nothing: the question stays held and is asked again in the next round. Any other ambiguity
   takes its recommended option: it is recorded as a `## Decisions` entry and as one line,
@@ -57,27 +57,13 @@ states.
 
 - **A change too big for one plan is raised in the rounds, never after the plan is written.**
   When the design would take more than about 15 tasks or 25 mockup frames, the round asks an
-  `[impactful: scope]` question naming the slices it would split into; the answer narrows this
+  asked question naming the slices it would split into; the answer narrows this
   change's design to the first slice, and the rest is filed as follow-up issues once planning
   ends (**Follow-up issues**, `skills/flow-contracts/jira-followups.md`).
 
 - **Now or later is never asked.** Where the options are doing work the design needs in this
   change or deferring it to a later change or ticket, now is taken and recorded under
   `## Decisions`.
-
-- **An architectural question is marked, and each of its options says what it fails under**. A question whose options are approaches — the alternatives the competing-designs
-  step produces, each becoming a `**Considered:**` line — and not a name, a format, a wording or
-  a scope detail is headed `### Q<n>. [architectural] <question>` in the round file, and each of
-  its options closes with `Fails under: <the condition this option stops working in>`. The
-  recommended mark stays. The parent asks the architectural questions first, four to an
-  **AskUserQuestion** call, in round-file order; then the impactful ones, four to a call; the
-  convergence confirm last, in the last call when it has room.
-
-- **An answer that contradicts an earlier one is asked about, never applied**. When
-  an answer in `answers-<r>.md` contradicts an earlier answer or a decision the design draft
-  records, change nothing on that point: quote both verbatim in the next `round-<r>.md` and ask
-  which stands, with no recommended option — so it is asked under the `## decisions:
-  recommended` mode too. This holds in planning only; past the plan gate nothing changes.
 
 - **A round file opens with `## Summary`** — at most ten lines: the decisions the operator's answers settled
   and what is still open. The Summary names no auto-taken decision — an auto-taken pick lives only
