@@ -1,40 +1,33 @@
 # The unfinished-work gate (run 1)
 
-**Loaded by `skills/flow/integrate.md`'s step 1 only when** a worktree reported `OUTSTANDING` or
-`UNTASKED`. `VISUAL-VERIFY-MISSING` never loads it: that verdict is `STOP: visual-verify`, which no
-course here passes. The verdicts and the stage mark are `flow-guard integrate-change`'s, the stop-and-ask rows that step's;
+**Loaded by `skills/flow/integrate.md`'s step 1 only when** a worktree reported `OUTSTANDING`. The verdicts and the stage mark are `flow-guard integrate-change`'s, the stop-and-ask rows that step's;
 **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) is canonical
 for the guards.
 
 ## Finish it — never a prompt
 
-On `OUTSTANDING` or `UNTASKED` — from either guard — **nothing is asked: the parent finishes the
+On `OUTSTANDING` **nothing is asked: the parent finishes the
 unfinished work itself and re-runs the guard**, at integrate as at **Write `IN_PROGRESS`**
 (`skills/flow/verify-and-handoff.md`). An
 unfinished-work verdict is work to do, never a stop and never a question. Three re-runs of one
-guard that each print `OUTSTANDING`, `UNTASKED` or `VISUAL-VERIFY-MISSING` take **Three failed
+guard that each print `OUTSTANDING` take **Three failed
 rounds** (`skills/flow-contracts/pipeline.md`), applied inline by the parent from every earlier
 verdict.
 
-- A missing dispatch, review, pass row or inline verify is run and recorded — never recorded after
+- A missing inline verify is run and recorded — never recorded after
   the fact for work that did not run.
 - A verify failure is fixed at its source, held to `~/.claude/rules/fix-determinism-at-the-source.md`
   when it does not fail every run.
-- An untasked commit is covered as **Commits outside every task**
-  (`skills/flow-contracts/git-boundaries.md`) states.
 
-**An item no change to the tree can finish** — a verdict the guard reaches over a report line that
-names a passing spec — is recorded as a guard false positive per **A verdict the operator calls
-structural** below, its `-reason` naming that spec's passing run, and the run continues to the
-landing route. A verify failure that does not recur is never such an item: it is fixed anyway, as
-**The loop** (`skills/flow/verify-fix-loop.md`) states for an observed failure that does not
-reproduce. The outstanding items and their dispositions go into the
+**An item no change to the tree can finish** is recorded as a guard false positive per **A verdict the operator calls
+structural** below, and the run continues to the
+landing route. The outstanding items and their dispositions go into the
 message of the commit that carries the planning artifacts and into the handoff's `**Decisions:**`
 lines. The three courses below are never offered.
 
 ## The three courses
 
-On `OUTSTANDING` — from either guard — the operator is offered **exactly three** courses:
+On `OUTSTANDING` the operator is offered **exactly three** courses:
 
 | Course | What run 1 then does |
 |--------|----------------------|
@@ -92,12 +85,5 @@ every worktree's verdict under the canonical project (THE STORE CALLS ANCHOR AT 
 `<agents repo>/scripts/flow-guard check-unfinished-work`), and the command flags that project's newest verdict for the
 change — a satellite's `-C` names a project holding none, and the store refuses it.
 
-**A flagged verify failure stays cleared.** `flow-guard check-unfinished-work` clears a verify failure
-whose `<spec>:<line>` an earlier false-positive verdict of the change names, so the `-reason`
-names each verify failure it flags by the `<spec>:<line>` the verdict printed.
-
 A write that falls back to the journal is one warning line and the run continues.
 
-**An `UNTASKED` listing is never flagged this way.** `flow-guard check-untasked-commits` records no
-verdict, so the flag would land on `check-unfinished-work`'s newest row, a `CLEAR`. A listed commit's author is the identity every session commits under, so the relay
-never calls it the operator's own.

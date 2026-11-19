@@ -249,25 +249,8 @@ project names its create and remove commands in its own configuration, per **Pro
 (`skills/flow-contracts/project-configuration.md`), and whether it reuses a command it already had
 or adds one is its decision to record there.
 
-**Removal is not verification, so a project declares a third command that reports survivors.** The
-registry row promises that a workspace's database and bucket are *gone*,
-and "ran the removal" is not *verified gone* — a removal that reported success against a stale
-connection, or a bucket a policy refused to delete, both leave the promise broken with nothing
-having failed. A survivor is therefore established by asking, never inferred from the removal's exit
-code. The project owns the question and answers it in its
-own configuration, exactly as it owns creation and removal —
-see **Project configuration — workspace isolation** (`skills/flow-contracts/project-configuration-isolation.md`), canonical for how
-the commands are written, what the survivor report prints, what its exit code means, what a
-non-empty report does to the terminal state, and what a project that declares no survivor report at
-all gets in place of the verification.
-
 **A service that is not running is reported and skipped, rather than failed.** If the database
 server is down when run 2 reaches cleanup, there is nothing to remove at that moment: the skip is
-reported by name and the run continues. This is deliberately unlike a reported survivor, which
-blocks the terminal state under **Project configuration — workspace isolation**
-(`skills/flow-contracts/project-configuration-isolation.md`), and the asymmetry is stated here rather than
-left for a reader to find and mistake for an oversight. A change whose project declares no
+reported by name and the run continues. A change whose project declares no
 isolation passes the same way: a step whose artifact is already absent is a success, which is the
 re-entrancy rule run 2 follows everywhere else.
-
-**That skip is signalled by one non-zero exit rather than two, deliberately.**

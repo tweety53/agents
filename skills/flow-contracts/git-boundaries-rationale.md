@@ -36,11 +36,6 @@ Each passage below sat inline in a run-loaded file beside the rule it motivated;
 in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
 attribution; the text after it is the passage, verbatim.
 
-### git-boundaries.md — Commits outside every task
-
-- *judged there — run 1's unfinished-work gate lists it and handles `UNTASKED`* — (kan-941 pushed four such commits before either check existed)
-- *and no `chore` subject, and its pathspec is not limited to `<project>/<spec-root>/changes/`* — (kan-1003: the design handoff 0497d943 was committed and pushed in one command, and run 1's gate listed it)
-
 ### git-boundaries.md — Revert and back-out commits
 
 - *with the artifact instead of re-deriving the rejected position from indirect evidence* — KAN-703 is the case that paid for it: a run whose design space held a reverted prototype re-derived the prototype's intended polarity from contract wording because the revert's body recorded only `This reverts commit <sha>` — that the code left, never why.

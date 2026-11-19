@@ -31,14 +31,14 @@ on `spectre/<name>` a `Task-Id: <n>` would name the change's own task of that nu
 the archive commit, made before item 4's lint lines because the since-deleted `check-task-records` reads a live
 unticked task whose subject a commit carries as a violation.
 
-## SKILL.md — 2. Read the bundle and run the eight angles
+## SKILL.md — 2. Read the bundle and run the four angles
 
 The harness refuses a subagent's Write of `findings.md` and `report-draft.md` ("Subagents should
 return findings as text, not write report files" — kan-1051 self-review F6, kan-1073 self-review
 F15), while the pass's case files were written, so the pass returns the two files' text and this
 session writes them (decision pass-hands-back-file-text).
 
-### Angle 8 — prompt tuning
+### Angle 4 — prompt tuning
 
 The angle borrows from `/claude-api prompt-audit` and its eval-hillclimb guide: describe the
 behaviour, never paste the incident's content into the prompt; scale a change to how many cases
@@ -60,11 +60,11 @@ Each passage below sat inline in a run-loaded file beside the rule it motivated;
 in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
 attribution; the text after it is the passage, verbatim.
 
-### SKILL.md — 2. Read the bundle and run the eight angles
+### SKILL.md — 2. Read the bundle and run the four angles
 
 - *action is `big`, reaches production (`rules/never-touch-production.mdc`) or deletes what cannot be restored* — (kan-995: "feature/cardio lacks develop's fix 98da4aad; a branch decision for the operator" was recorded `noted` and relayed as an open decision, and the operator then had the run merge the branch)
 
-### SKILL.md — 3. Fix every finding that is not `big`
+### SKILL.md — 3. Fix every `flow-fix` finding that is not `big`
 
 - *the objection as a constraint, never offered for filing in step 4* — (kan-982: the `Task-Id:` guard and the scope check were dropped as imprecise and offered for filing; the operator answered "fix them now")
 - *never left as a forward-only fix with the repair an operator's option* — (kan-995: decision `k995-rows-left` left three mis-stamped ledger rows wrong, and `flowd restamp-dispatch`, `b2555b98`, repaired them once the operator asked)

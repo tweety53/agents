@@ -189,5 +189,4 @@ this file in full first: its prompt is a stub naming this file, never these para
 > of the `agents` repository that wrongly blocks your task is named in your REPORT FILE — the
 > command, its output and the defect — for the parent's in-run pipeline-fix loop (**Pipeline
 > defects found mid-run**, `skills/flow-contracts/pipeline.md`), and never edited in this worktree
-> unless your task's own `**Files:**` names that file. `flow-guard check-untasked-commits` lists a
-> commit carrying your `Flow-Key:` and no `Task-Id:`.
+> unless your task's own `**Files:**` names that file.

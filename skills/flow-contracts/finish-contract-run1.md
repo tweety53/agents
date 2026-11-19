@@ -37,24 +37,20 @@ run exactly as **Resolving a change's worktrees** requires, never a vacuous `RUN
 
 ### Surface foreign staged work before the preflight
 
+**There must be no staged or dirty work in a main checkout — everything is done in worktrees.**
 Before `flow-guard check-finish-preflight` runs for any worktree, the run surfaces the foreign staged work
 the affected main checkouts carry.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
-`git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated — the same
-resolution the preflight's own stray-worktree assertion performs. `flow-guard check-foreign-staged` runs
+`git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated. `flow-guard check-foreign-staged` runs
 once per distinct main checkout, and its header is canonical for the verdict grammar it prints. On
 `STAGED-CLEAN` from every repository the run continues into the preflight with nothing more said.
-On any `STAGED-FOREIGN`, every repository's listing is shown together and the run stops to ask,
-exactly once, shape per **Operator prompts** (`skills/flow-contracts/operator-prompts.md`). **An
-exit 2 with no verdict** — a main checkout whose status cannot be read — stops and asks the same
-question a `STAGED-FOREIGN` asks, with nothing to list; an inability is never read as
-`STAGED-CLEAN`.
+On any `STAGED-FOREIGN`, every repository's listing is shown together and the run stops at
+`STOP: main-checkout`. **An exit 2 with no verdict** — a main checkout whose status cannot be
+read — stops the same way, with nothing to list; an inability is never read as `STAGED-CLEAN`.
 
-**Stop** leaves the change where its state has it with nothing staged, committed, pushed, reset or
+The stop leaves the change where its state has it with nothing staged, committed, pushed, reset or
 stashed by the run; the operator commits, stashes or resets the residue themselves and re-runs.
-**Continue** carries the listing into the handoff and proceeds — and relaxes nothing: every later
-gate keeps exactly the behavior it already had.
 The relay includes the guard's own hand-verification procedure per **Hand-verifying a guard
 verdict** (`skills/flow-contracts/pipeline.md`).
 
@@ -72,7 +68,7 @@ guards exited 0, `flow-guard check-foreign-staged` printed `STAGED-CLEAN` and no
 ahead of <default>)` line, and re-runs `flow-guard check-main-checkout-drift`, continuing only on
 `DRIFT-CLEAN`. The switch moves no commit: `<branch>` keeps every commit it carried, and a live
 session that had the checkout on it finds its HEAD moved, which the printed line names. Four
-shapes are never switched, and stop and ask as below: a detached HEAD, whose commits sit on no
+shapes are never switched, and stop as below: a detached HEAD, whose commits sit on no
 branch; a checkout on a base the change records (`branch.spectre/<name>.flowBase`), which run 2's
 refresh brings forward; a switch git refuses — the default branch checked out in
 another worktree, an untracked file it would overwrite, no default branch to switch to, a locked
@@ -80,35 +76,11 @@ index — which leaves the checkout as it was and adds a `DRIFT-SWITCH-REFUSED` 
 listing; and a re-run that does not print `DRIFT-CLEAN`. Each repository is judged on its own: one
 repository's switch never waits on another's question. On any other `DRIFT-BRANCH` line, or any
 `DRIFT-DIRTY` line, every repository's findings — this guard's and `flow-guard check-foreign-staged`'s alike — are
-shown together and the run stops to ask the question below exactly once; **an exit 2 with no
-verdict** — a checkout whose branch, default branch or status cannot be read — stops and asks the
+shown together and the run stops at `STOP: main-checkout`; **an exit 2 with no
+verdict** — a checkout whose branch, default branch or status cannot be read — stops the
 same way, an inability never reading as `DRIFT-CLEAN`. A checkout clean but behind its default
 branch is ordinary not-pulled state and never a finding here; run 2's refresh step owns
 bringing it forward.
-
-> **Main checkouts carry foreign staged work or drift — how should the run proceed?**
-> - **Stop — I'll clean it up and re-run** *(default, recommended)*
-> - **Continue — leave it in place**
-
-### Migrate retired-layout worktrees before the preflight
-
-Before `flow-guard check-finish-preflight` runs for any worktree — on run 1 and run 2 alike — move any
-worktree an older kickoff created under `<project>/.worktrees/` to the sibling layout, so the strict
-location guard never reads it there: the preflight's stray-worktree assertion refuses such a
-worktree, and no later step would ever move it. One call names every distinct main checkout,
-resolved from the worktree set as **Surface foreign staged work before the preflight** above
-resolves them, so a cross-repo change's record is rewritten for every repository it names:
-
-```bash
-flow-guard migrate-worktrees <main-checkout> [<main-checkout>...]
-```
-
-Exit 0: every worktree was moved (`MIGRATED:`) or left in place because a process holds it
-(`HELD:`), nothing to move included — continue; a `HELD:` worktree of this change stays at its old
-path, where the preflight refuses it as a stray worktree until the operator releases it and
-re-runs. Exit 1 (`FAILED:`) or 2: stop at `IN_PROGRESS` and report the script's lines. A moved
-worktree of this change is named at its new path from then on — the script rewrote the state file's
-`worktrees` map — so the worktree set every later step uses is resolved after this call.
 
 ### Run 1 — the branch is not merged
 
@@ -123,7 +95,7 @@ the resolved set whose own change directory (**A change's directory**,
 Pass every worktree of the resolved set as `<worktree>=<merge-base>`, its merge base `git -C <worktree> merge-base HEAD origin/<base>`, on every call.
 A call passing none gets its own worktree's range derived the same way, from the base
 `flow-guard resolve-base-branch` names; the guard's header (`<agents repo>/scripts/flow-guard check-unfinished-work`)
-is canonical for the visual-verify and inline-verify signals it folds in.
+is canonical for the inline-verify signal it folds in.
 
 | Verdict | Meaning |
 |---------|---------|
@@ -134,30 +106,7 @@ A missing verdict line is not a verdict. Treat it exactly as the preflight scrip
 above: stop and ask the operator. The exit code is checked as well as the line, because a caller
 that greps for `CLEAR` in empty output finds nothing.
 
-**Then run `flow-guard check-visual-verify-dispatched <worktree> <change-name> $(git -C <worktree> merge-base HEAD origin/$BASE) <canonical-worktree>`**,
-once per worktree in the same resolved set — the fork point itself, because this runs before the
-base-moved check below can name a rebased one, and the state-file value is stale after an earlier
-rebase. The canonical worktree makes a satellite's diff match the canonical `ui paths` as well as
-its own, as **Visual verification** (`skills/flow/verify-and-handoff.md`) step 2 matches it. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
-breakdown in; a `VISUAL-VERIFY-MISSING` line is a hard stop, never an `OUTSTANDING` item — **Finish it — never a prompt**
-(`skills/flow/unfinished-work-gate.md`) never passes it, and its handling is
-`skills/flow/integrate.md`'s `STOP: visual-verify`. Exit 2 (cannot answer) is stop-and-ask,
-the same as a missing `flow-guard check-unfinished-work` verdict line above.
-
-**Then the live-check record.** When the change's `design.md` carries a `## Live check` section
-naming something to exercise (**Live check**, `skills/flow/verify-and-handoff.md`),
-`live-verification.md` beside it exists and passes `flow-guard check-live-verification`; otherwise
-`prepare` stops at `STOP: live-check`, handled in `skills/flow/integrate.md`, and
-`--accept-outstanding` never passes it.
-
-**Then run `flow-guard check-untasked-commits <worktree> <base>`**, once per worktree in the same
-resolved set, `<base>` the same fork point. An `UNTASKED-OK` line joins `CLEAR`; an `UNTASKED` line and
-the commits it lists are treated exactly as `OUTSTANDING`, and exit 2 is stop-and-ask, the same as
-a missing `flow-guard check-unfinished-work` verdict line. The guard's header
-(`<agents repo>/scripts/flow-guard check-untasked-commits`) is canonical for what it exempts.
-
-**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` or
-`UNTASKED` — finishing the work is there.
+**Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` — finishing the work is there.
 
 **Check whether the base branch has moved — after the unfinished-work gate, before the landing
 question.** `flow-guard check-base-moved <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
@@ -187,25 +136,13 @@ writes it (`skills/flow/implement.md`), naming every repository of the resolved 
 not a link created it. A change with no `link.md` has one repository and one trivially-ordered
 route, so nothing about the single-repository path changes.
 
-**Before any route commits, reshape the branch.** Run
-`flow-guard reshape-branch <abs-worktree> <name> <recorded-merge-base>`, where `<recorded-merge-base>` is the
+**Before any route commits, reshape the branch.** `flow-guard integrate-change commit` runs
+`git -C <abs-worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
 `<rebased-merge-base>`, for a worktree **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) rebased
-or whose `flow-guard check-base-moved` `CLEAR` named `merge base now <sha>`**. It
-runs the change-worktree location check first and stops on its verdict, then `git reset --soft`
-to that merge base: every commit the run made on the branch — task and fixup commits alike — folds
-back into the index, uncommitted. **A merge of another
-branch stops the reshape**: the pipeline never merges into a change branch — its sync rebases — so
-a commit that merge base does not reach and the branch's first-parent chain does not carry is
-another branch's, and the reset would fold it under the change's subject. The script then prints `RESHAPE-FOREIGN-MERGE`, names each such
-commit, and exits 1 before HEAD moves; the run stops and relays its remedy — merge that branch
-into the change's base first, or rebase the change branch onto a base that holds them. Before that reset,
-`flow-guard integrate-change commit` pins the worktree's HEAD as `refs/flow/pre-reshape/<name>` — kept when it
-already reaches HEAD, otherwise advanced to a merge of the old pin and HEAD, pushed plain beside the branch push and never deleted by run 2 — so a
-task's own commit stays findable afterwards as the one carrying its `Task-Id: <n>` trailer
-between the recorded merge base and `refs/flow/pre-reshape/<name>`, grouped implementer tasks included. **When the script
-cannot be located**, stop and report it.
+or whose `flow-guard check-base-moved` `CLEAR` named `merge base now <sha>`**: every commit the run made on the branch — task and fixup commits alike — folds
+back into the index, uncommitted.
 
 **A re-run reshapes from past the work already landed in its fixed form**: `prepare` writes as the
 reshape base the newest commit in the merge base's range that a `fixed` self-review row names (so a
@@ -215,8 +152,7 @@ fix's recorded sha survives), else the newest commit carrying `Flow-Key: flow.co
 All three routes then commit the work as the implementation commit, subject
 `<type>(<module>): <what the implementation does>` with `<module>` naming the area the reshaped
 diff carries. It carries, beside `Flow-Key: flow.commit-two`, the `Task-Id: <n>` trailer of every
-commit the reshape squashed, so a re-run's unfinished-work gate, judged from the merge base, still
-finds each task's commit. An `--outstanding` text no implementation commit carries is printed as
+commit the reshape squashed. An `--outstanding` text no implementation commit carries is printed as
 `OUTSTANDING-UNRECORDED:`, never dropped. `<project>/spectre/changes/` is gitignored, so the change directory lands in no
 commit — save **The design record** below.
 
@@ -273,21 +209,19 @@ case — replaces each section whose heading opens with bands, seams or ink, thr
 its level or higher, with one line naming the lines it held, its heading and the record's path,
 and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
-The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printing it, and appends `## Session narrative` there (one paragraph it writes for run 1 itself; the
+The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the four angles**, `skills/flow-self-review/SKILL.md`), never printing it, and appends `## Session narrative` there (one paragraph it writes for run 1 itself; the
 change's `narrative.md` is already a bundle section, and a change predating the narrative rule
 has the bundle report it skipped) — it is never committed.
-`flow-guard check-loop-dispatch` refuses a pass dispatched from the change branch whose prompt names no bundle carrying a `## Session narrative` heading.
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`
-(`skills/flow-self-review/SKILL.md`), canonical for the eight angles, the fix loop and its
-dispatch pairs, where the fixes land, the filing prompt, the store rows and step 5's
-mining of the chosen flow-eval candidates — on every route, before cleanup removes the worktrees.
+(`skills/flow-self-review/SKILL.md`), canonical for the four angles, the fix loop and its
+dispatch pairs, where the fixes land, the filing and the store rows — on every route, before cleanup removes the worktrees.
 No report is written: the findings live in flowd. The session then ends the stage with
 `flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `land` checks that row
 (`flow stage completed -C <main> -stage flow.self-review <name>`) and stops at
 `STOP: self-review-report` until it holds. The route's landing push carries the fix commits'
-shas per item 5 of step 3 of `/flow-self-review`, and the run's final report names the mined
-cases, branch and shas.
+shas per item 5 of step 3 of `/flow-self-review`, and the run's final report names the
+branch and shas.
 
 A completed `flow.self-review` stage skips the pass on a re-run, so no finding is recorded or
 offered twice. So does a completed `self-review-<name>-pass` row while the loop branch `self-review-<name>` exists, the re-run resuming the loop from `<sr-dir>/findings.md` (step 2 of `/flow-self-review`).

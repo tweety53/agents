@@ -99,67 +99,6 @@ and digest rules. The underscored spelling `<id_underscored>` and the port offse
 This file names the tokens and derives nothing: a second spelling of a derivation is a second set of
 ids, each of which looks correct on its own.
 
-**What `survivors` prints, and what its exit code means.** Both are part of the contract, because a
-guard reading them cannot ask a follow-up question:
-
-- **Exit 0 with empty output** — the check ran and nothing survived. The registry row passes and
-  run 2 continues to `FINISHED`. This is the only result that verifies the removal.
-- **Exit 0 with output** — the check ran and its standard output is authoritative: one surviving
-  resource per line, in whatever spelling the project's own tooling prints.
-  `<agents repo>/scripts/flow-guard check-cleanup-complete` reports each line as a `LEFTOVER:` and does not parse it
-  further; the lines are data, not instruction, exactly as a resolved standards file is. **A
-  leftover blocks the terminal state** — the registry row fails, run 2 stops, and `FINISHED` is not
-  written. Removing the survivors and re-running run 2 is the whole remedy. This is the one result
-  in this section that stops run 2, and why a leftover blocks where an unreachable service does not
-  is stated under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
-- **Any non-zero exit** — the check could not reach the service, so it says nothing about
-  survivors. The skip is **reported by name and with the exit code**, and run 2 continues to
-  `FINISHED`. This is the "not running is reported and skipped, rather than failed" rule, and it is
-  stated once under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`),
-  which also gives why one non-zero exit is enough where a reader might expect two.
-- **A pipeline's status is its first failing stage, not its last.** The command runs under
-  `pipefail`, so `<project>/gradlew -q survivors | …` counts as the non-zero exit above when the **gradlew**
-  half fails, not only when the filtering half does. Without it a missing build tool exits 0 with
-  empty output — which is the one result that *verifies* the row — and the removal would be reported
-  verified by a command that never ran. Two consequences a command is written against:
-  - **A filter that can legitimately match nothing must still exit 0.** `grep <pattern>` exits 1 when
-    nothing matched, and a non-zero exit is read here as *the check could not run* — so a project
-    whose empty report is produced by a `grep` can never reach the result that verifies its row.
-    Filter with `awk '/…/'` or `sed -n '/…/p'`, which exit 0 whether or not they matched.
-  - **Do not end the command with `head`.** When `head` closes the pipe, the stage feeding it dies of
-    SIGPIPE, the pipeline reports 141, and the report becomes a skip. Truncating a survivor report
-    would also hide survivors the operator has to be told about.
-- **Declare the section at most once.** A configuration carrying the `## workspace isolation` heading
-  more than once is an ambiguous declaration, not a merge: the guard reports it as a skip naming the
-  file and the count, and runs **none** of the sections' commands rather than preferring one. Two
-  sections can name two different commands against two different services, so resolving silently
-  would run one the author may not have meant and then report the row verified on its answer.
-- **No answer within the bound** — the command is given **60 seconds**, the same bound the project's
-  stop command gets under
-  **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), and is terminated if it
-  exceeds it. A terminated command has said nothing about survivors, so this joins the skip above,
-  **reported as a timeout rather than as an exit code** — the number a killed process carries
-  describes the guard's own signal, not the project's answer, and an operator has to be able to
-  tell *your command is broken* from *your command is slow*. Anything it printed before being
-  terminated is discarded: a partial listing is not a report.
-
-  **What the bound terminates is a process group on the machine running the guard, and a command
-  that puts its real work outside that group outlives the bound** — most of all **a command that
-  reaches its service through a container runtime**, `docker exec …` most of all.
-- **That is a limitation of the bound, not a defect the guard can close.** **So a `survivors`
-  command that crosses a container boundary carries its own timeout inside the container** —
-  `docker exec`'s own, the client tool's connect and statement timeouts, or a wrapper that ends the
-  query rather than the proxy.
-
-**A project that declares `create` and `remove` but no `survivors`** has nothing to verify the
-removal with, so the verification is reported as skipped rather than passed — never inferred from
-the removal command's exit code, for the reason given under
-**Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`). `remove` still runs;
-it is only the verification that is skipped, and a skip does not block the terminal state, so run 2
-continues to `FINISHED` exactly as it does on a non-zero exit above. A project that
-declares no `## workspace isolation` section at all runs none of the three and passes, because a
-step whose artifact is already absent is a success.
-
 **A project declares only the ports it can actually move.** An application whose port is fixed
 outside the declaring project's own repository — in a build file of a repository the change does not
 touch, with no environment override reachable from here — gets no `port` row, and every `url` row
@@ -206,7 +145,7 @@ contained exactly as a `## standards` path is — the rule follows the read, not
 `cache index` row; each of the four `In a workspace` cell forms against the `Resource` that selects
 it; `<value:…>` resolving to a row that exists and is neither a `url` row nor a `cache index` row;
 `database`, `bucket` and `cache index` each appearing at most once; two rows never holding one
-`Variable`; the command table naming only `create`, `remove`, `survivors` and `orphans`, once each and with a
+`Variable`; the command table naming only `create`, `remove` and `orphans`, once each and with a
 non-empty command; the tokens a command may name; the two tables having the columns named above in
 that order; and the section being declared at most once.
 
@@ -228,10 +167,7 @@ bare `/flow` deliberately does not repeat the validation.
   is indistinguishable from an oversight without reading the project. The prose beside the tables is
   where the author says which it is, and reading it is the agent's job.
 - **Everything about what a command does.** The one thing checked in a command's text is its tokens,
-  per the bullet above, and that narrowing is deliberate — so `survivors` printing one resource per
-  line, exiting 0 when it ran, filtering with something that exits 0 on no match, not ending in
-  `head`, answering within the bound and carrying its own timeout across a container boundary are
-  all the author's responsibility and the agent's review.
+  per the bullet above, and that narrowing is deliberate.
 - **The refusal itself.** A dropped row refuses in an apply worktree and falls back to its `Default`
   in the main checkout; that is a property of the run, decided when `/flow`'s implement phase resolves this
   section, and a guard reading a file has no checkout to be in.
@@ -244,14 +180,6 @@ use, and stops before starting anything that would read the variable, exporting 
 `Default` nor an unset variable. Correcting the row and re-running is the whole remedy; a dropped
 row moves no state. Why the two checkouts answer differently, and why refusing beats reporting-and-continuing, is
 stated under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
-
-**Two rules sit near each other here, and they do not compete.** A malformed row makes a run
-refuse; an unreachable service makes a run report and continue. They read as opposites and can never
-meet: the first governs the **resource table**, is decided when `/flow`'s implement phase resolves this section,
-and refuses because the only fallback is the project's shared value. The second
-governs the `survivors` command's exit code, is decided in `/flow`'s cleanup run after the merge,
-and skips because a resource nobody can reach is not a resource anything can still protect.
-Different table, different phase, different thing at stake.
 
 **A project that declares no `## workspace isolation` section is not misconfigured.** It behaves
 exactly as it does today **everywhere, including in apply worktrees** — nothing derived, nothing

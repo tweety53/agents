@@ -42,8 +42,8 @@ that is no screenshot mismatch — a timeout, a screen only production serves, a
 never re-baselined: it is reported, and blocks as above.
 
 **A product defect the self-review pass meets is never dropped.** It stays out of the pass's
-report and filing prompt, and stops the landing. Met inside a run, the pass stops at the end of its
-step 2 — no fix, no prompt, no store row, no report: nothing is committed for the pass, so the
+report and filing, and stops the landing. Met inside a run, the pass stops at the end of its
+step 2 — no fix, no filing, no store row, no report: nothing is committed for the pass, so the
 next run meets no committed report, runs the pass again, and meets the defect again if it was not
 fixed. The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its
 state, and the run continues straight into the fix run that defect names, in the same invocation —

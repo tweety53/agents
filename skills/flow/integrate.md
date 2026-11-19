@@ -48,15 +48,14 @@ header (`<agents repo>/scripts/flow-guard integrate-change`) is canonical for ea
 the exit contract. A stop closes the stage mark it was in `stopped`; the parent re-runs the call
 that stopped once the stop is handled. Three stops in a row of one call take **Three failed
 rounds** (`skills/flow-contracts/pipeline.md`), applied inline from every earlier `STOP:` line — only
-stops the parent can cure itself. A stop that exists to ask the operator — `STOP: foreign-staged`,
+stops the parent can cure itself. A stop that exists to ask the operator — `STOP: main-checkout`,
 `STOP: base-mismatch` — is never counted toward it: it is asked as its bullet below says, every time.
 
 - **`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
-- **`STOP: foreign-staged`** → ask the question of **Surface foreign staged work before the
-  preflight** (`skills/flow-contracts/finish-contract-run1.md`) once, every repository's lines
-  shown together; **Continue** re-runs `prepare` with `--accept-foreign`. A `DRIFT-SWITCHED:` line is relayed as printed and asks nothing: `prepare` already switched that clean checkout back to its default branch and carried on, per **Surface foreign staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
-- **`STOP: migrate`** → stop at `IN_PROGRESS` and report the script's lines, per **Migrate
-  retired-layout worktrees before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
+- **`STOP: main-checkout`** → stop at `IN_PROGRESS` and report every repository's lines together,
+  per **Surface foreign staged work before the preflight**
+  (`skills/flow-contracts/finish-contract-run1.md`); the operator cleans the main checkout and
+  re-runs. A `DRIFT-SWITCHED:` line is relayed as printed and asks nothing: `prepare` already switched that clean checkout back to its default branch and carried on, per **Surface foreign staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 - **`STOP: preflight` or `STOP: base`** → stop, report what the script reported, relay the guard's
   hand-verification procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask
   the operator.
@@ -75,35 +74,8 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 - **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the run
   finishes the unfinished work itself, asks nothing, and re-runs `prepare`, per its
   **Finish it — never a prompt**.
-  A breakdown naming `no change summary recorded` is closed by recording the summary first — the
-  `**Summary:**` bullets the last run printed, or, where this session never saw them, bullets
-  written from the change's `tasks.md` and `narrative.md` — with the command the breakdown names,
-  then re-running `prepare`.
-- **`STOP: live-check`** → the change's `design.md` names a live check and `live-verification.md`
-  beside it is missing or fails `flow-guard check-live-verification`. Run **Live check**
-  (`skills/flow/verify-and-handoff.md`) now, through the stand-in the section states wherever a
-  step would write this change's integrate state, then re-run `prepare`. `--accept-outstanding`
-  never passes it.
 - **`STOP: no-verdict`** → a guard of the gate printed no verdict line, or exited non-zero without
-  one: stop and ask, reporting its output. `--accept-outstanding` never passes it.
-- **`STOP: visual-verify`** → a worktree printed `VISUAL-VERIFY-MISSING`: the UI about to land was
-  never shown to a verifier at this HEAD. It is never a Continue, and `--accept-outstanding` never
-  passes it. Run **Visual verification** (`skills/flow/verify-and-handoff.md`) from its `begin`
-  mark on each such worktree's current HEAD, take every departure through **The loop**
-  (`skills/flow/verify-fix-loop.md`) without asking, then re-run `prepare`. The one other pass is
-  an operator who hand-verified that HEAD's UI and calls the verdict wrong: record it with
-  `flow record verdict false-positive -change <name> -guard check-visual-verify-dispatched -reason
-  "<the operator's reason, verbatim>" -C <canonical-worktree>` right after the stop, and re-run `prepare`. The
-  command flags the guard's newest verdict, and `prepare` stops at the first `MISSING` worktree
-  so that row is the newest; `prepare` passes only on a flag on that worktree's own row whose
-  verdict names its current HEAD (`— HEAD <sha>`), so a later commit or a rebase needs a new
-  verifier or a new flag. A flag made at `prepare` does not carry to `land`: the reshape moves
-  HEAD, so `land` stops again and the operator flags that HEAD anew. The gate runs
-  again on each worktree a base move rebases in
-  `prepare`, before every push `commit` and `land` make on every route — `land`'s stop names the
-  worktrees already pushed — and again after a re-sync on a rejected push. So the gate covers
-  every push the pipeline makes, and the forge merge of an opened PR is of the verified head; run 2
-  `cleanup` adds no check, since it could only report after landing.
+  one: stop and ask, reporting its output.
 
 ## 2. Ask how the branch should land
 
@@ -154,16 +126,8 @@ commit's body as `Outstanding: <text>`.
 `commit` reshapes, renders the ledger, runs the guarded commit chain per worktree in `## Merge order`
 and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the branch is not merged**
 (`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-two`,
-`push`, `pre-reshape` — is reported with the script's lines and leaves the change at
+`push` — is reported with the script's lines and leaves the change at
 `IN_PROGRESS`.
-
-**`STOP: pre-reshape`** → pinning the worktree's HEAD failed, or origin holds a `refs/flow/pre-reshape/<name>` the local pin does not descend from: report both shas and git's output; never overwrite either pin.
-
-**`STOP: narrative`** → an `In-run pipeline fix:` line in the narrative is off the format **Pipeline defects found mid-run** fixes for it (`skills/flow-contracts/pipeline.md`): rewrite that line to that format and re-run `commit`.
-
-A `flow-fix` row `flow self-review findings -change <name>` lists as `fixed` whose sha no `In-run pipeline fix:` line names has that line appended to `narrative.md` by `commit` itself, from the row's ref, note and blast radius, and printed as `narrative: appended <the line>`. **`STOP: narrative`** stops on such a row only when it carries no note or no blast radius: append that line by hand, in that format, and re-run `commit`.
-
-**`STOP: narrative`** also stops on a fix or integrate run whose section `narrative.md` lacks (`flow-guard check-narrative-runs`, the check `flow.write-in-progress` runs): append the missing section and re-run `commit`.
 
 ## 4. Run the self-review pass
 
@@ -181,8 +145,7 @@ flow stage end -command '/flow' -stage flow.self-review -outcome stopped <name>
 
 ## 5. Take the chosen route, write the state, and transition Jira
 
-Call it with the parent's own shell outside every worktree in the set, per check 6 of **Worktree
-cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
+Call it with the parent's own shell outside every worktree in the set.
 
 ```bash
 flow-guard integrate-change land <main-checkout> <name> [--route "<route>"] --harness <harness> --session-token mf-<literal-token>
@@ -204,12 +167,6 @@ of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) — and writes `IN_P
 
 `STOP: landing-route` — no route given or configured — asks the landing question of step 2, then
 re-runs `land` with `--route`.
-
-`STOP: loop-landing` — on the merge-and-push route, before each landing push,
-`<agents repo>/scripts/flow-guard check-loop-landing <canonical worktree> spectre/<name>` refused (or could not answer)
-the self-review loop run on the change's own branch: nothing more is pushed to the base, the change
-stays `IN_PROGRESS`, and the `LOOP-LANDING-REFUSED` lines are relayed — finish the loop they name,
-then re-run `land`. A branch with no loop rows answers `LOOP-LANDING-NA` and passes.
 
 **Every git step here can fail, and none of them may fail silently.** `STOP: push`, `STOP: sync`,
 `STOP: sync-conflict`, `STOP: rebase-lint`, `STOP: self-review-report` and `STOP: state` are

@@ -29,22 +29,17 @@ procedure for them is there.
 
    The removal runs the project's `remove` command, read from the command table below, with the workspace id substituted into its text by the token rule below it.
 
-   The command table has up to four rows and two columns:
+   The command table has up to three rows and two columns:
 
    | Command | Runs |
    |---------|------|
    | `create` | The command that creates this workspace's resources when they are absent. Whatever starts the project's applications calls it. |
    | `remove` | The command that removes them. `/flow`'s cleanup run calls it, and nothing else does. |
-   | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/flow-guard check-cleanup-complete` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
    | `orphans` | Optional. The command that prints, one per line, the id of every workspace on the machine that no live worktree derives. Run 2 calls it from the main checkout after its own `remove`, runs `remove` for each id printed with that id substituted, and reports `WORKSPACE-ORPHAN-REMOVED: <id>` or `WORKSPACE-ORPHAN-REMOVE-FAILED: <id> — exit <rc>`, and `WORKSPACE-ORPHANS-FAILED: <repo> — exit <rc>` when `orphans` itself fails; no failure of either stops run 2. |
-
-   Why a third verb rather than two — why "ran `remove`" is not "verified gone", and why a guard in the
-   agents repository cannot ask the question itself — is stated under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 
    **Each command runs with a repository root as its working directory, and which root is fixed here
    rather than left to the caller.**
 
-   - **`survivors` runs from the main checkout**, and that is not a convention invented here.
    - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
      step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
    - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
@@ -57,52 +52,15 @@ procedure for them is there.
    project names is the project's own decision**, reusing one
    it already ships or adding one, per **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 
-   **A failed removal does not stop run 2 here; it is reported, and step 4 decides the verdict** —
-   from the project's survivor report and never from this command's exit code, per
-   **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
+   **A failed removal does not stop run 2 here; it is reported.**
 3. **Remove the proposal artifact source** from the state directory, per its row in
    **Temporary artifacts registry** (`artifacts-registry.md`); a change that published none has
    nothing to remove, and says so.
-4. **Verify the cleanup.** Run `flow-guard check-cleanup-complete <repo> <name> <state-dir>` once
-   per repository, **after** every removal above — it is there to judge what the run actually left
-   behind. `<state-dir>` is the path `flow state dir` prints for this repository — the same
-   resolution serving step 3's removal; a run that has not recently resolved it guesses, and
-   a guessed path is how this guard answers exit 2 with no verdict at all.
-
-   | Verdict | What run 2 does |
-   |---------|-----------------|
-   | `COMPLETE:` | report the cleanup as verified, **relay every clause the line carries after ` — ` word for word**, and go on to step 5 |
-   | `LEFTOVER:` | name what remains, **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
-
-   **A `SKIPPED:` clause on a `COMPLETE:` line is relayed, never dropped, and the two rows are
-   symmetric for that reason.** The guard appends its notes to the verdict after ` — `, and a
-   `SKIPPED:` note there says a registry row was *not* verified — reached, for instance, as
-   `COMPLETE: <repo> — … — SKIPPED: the workspace survivor verification — '<cmd>' exited 7, so the
-   service could not be reached`. **A skip
-   is never a pass**: `<agents repo>/scripts/flow-guard check-cleanup-complete`'s own header is canonical for why, and it
-   is the reason the clause is quoted rather than summarised — the row it leaves unverified and the
-   reason it could not be verified are both inside it. The relay does **not** block step 5; why an
-   unreachable service must not strand an already-merged change is stated once under
-   **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
-
-   A non-zero exit with **no verdict line** is the third outcome and not a verdict: report it, leave
-   the affected `worktrees` entries in the state file, and treat it exactly as `LEFTOVER` — an
-   unverified cleanup is not a verified one. The exit code is checked as well as the line, because a
-   caller that greps for `COMPLETE` in empty output finds nothing.
-
-   **None of this is a cue to bring the stack back up.**
-
-   **A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**
-
-   **Run 2 is re-entrant, which is what makes that safe.** Every step is remove-or-move *if present*
-   and a step whose artifact is already gone is success, not an error — so a re-run after the
-   operator clears the leftover repeats the verification and nothing else.
-
-5. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
+4. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** — see **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
-   forward. This step is reached only on `COMPLETE:`.
-6. **Bring the main checkout forward** — after `FINISHED` is written, once per repository, with
+   forward.
+5. **Bring the main checkout forward** — after `FINISHED` is written, once per repository, with
    `<base>` the branch `refs/remotes/origin/HEAD` names, its `origin/` prefix stripped — the
    worktree `flow-guard resolve-base-branch` reads is gone by now:
 
@@ -129,46 +87,14 @@ Once per repository, from outside every worktree in the set, with `<merge-base>`
 file's `worktrees` map records for it (`-` when none):
 
 ```bash
-flow-guard remove-change-worktrees <repo> <name> <merge-base|->   # --proceed on the second call only
+flow-guard remove-change-worktrees <repo> <name> <merge-base|->
 ```
 
-Exit 0: every check passed; each `REMOVED:` entry is one step 5 clears, and each `REMOTE-*` line is
-the handoff's **Remote branch:** — deleted, already gone, or not deleted. Exit 1: a `REFUSED:` or
-`HELD:` line — a failed check, nothing removed; or a failed removal, whose entry stays in
-`worktrees`. Exit 2: stop and report. Exit 3: the disclosure stop — nothing removed and nothing
-run; relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the wave-group copies below,
-ask only what they ask, then call again with `--proceed`. Every repository's exit 3 is gathered
-first, so one disclosure stop names every repository that made one, and one answer covers them all.
-An unclassified entry at the worktree root, or at any depth when its bytes equal the main checkout's file at that path, that is a regular file with a distinct regular file at the same path in the repository's main checkout — a per-worktree copy of a main-checkout local config such as `.env` — or a symlink resolving to the regular file at that path, as a project's dev tooling links one in, is preserved: its `UNCLASSIFIED:` line ends `— preserved: identical in <main-checkout>`, `— preserved: differs from <main-checkout>` when the bytes differ, or `— preserved: linked to <main-checkout>` for the symlink, it never makes the disclosure stop, and it is relayed per check 4 whatever the exit; an entry with no counterpart there is unpreserved and still stops.
-
-**Check 6 requires the orchestrating shell's own cwd to be outside every worktree in the resolved
-set before it runs.** `cd` out first, for every worktree, before
-this check runs for any of them.
-
-**Check 6 is a gate, and both of its bad outcomes are failures.** `HELD:` names each process
-holding the worktree, and exit 2 says the guard could not answer at all — the scanning tool is
-absent, or the worktree path is not readable. On either, stop
-at `IN_PROGRESS`, leave every worktree alone, and report each pid, its working directory, and the
-command that reaches it:
-
-```bash
-ps -o pid,command -p <pid>
-```
-
-**There is no confirmation to proceed past check 6**, unlike check 4's one ask. The remedy is to clear the
-process and re-run, while
-the worktree still exists and the project's own stop command can still read what it started.
-
-**Check 4 is a disclosure, not a gate — it asks only about an irreplaceable entry nothing preserved.**
-
-An empty unclassified bucket → **show the regeneratable bucket's count and proceed without
-asking**. A
-non-empty unclassified bucket → **show that bucket in full** (the regeneratable one named only by
-count), saying of each entry whether it is irreplaceable and whether it was already preserved,
-**and proceed without asking** — by this point the change's own work is committed and step 1
-proved it merged, and the ledger and panel record ride nothing: both render from the store's rows. **The one
-ask:** an entry that is irreplaceable and *unpreserved* → stop and ask for explicit confirmation
-before removing that worktree.
+Exit 0: every check passed; each `REMOVED:` entry is one step 4 clears, and each `REMOTE-*` line is
+the handoff's **Remote branch:** — deleted, already gone, or not deleted. Exit 1: a `REFUSED:`
+line — a failed check, nothing removed; or a failed removal, whose entry stays in
+`worktrees`. Exit 2: stop and report. Ignored files go with the worktree's `--force` removal,
+never asked about.
 
 **`/flow-fast` runs none of these checks.** Its cleanup (**8. Clean up**, `skills/flow-fast/SKILL.md`)
 removes its worktree without `--force`, so git itself refuses one holding modified or untracked
@@ -185,16 +111,13 @@ files.
 **Wave-group copies go with the apply worktree they were copied from.** For each `$WT`, every
 entry `git -C "$REPO" worktree list --porcelain` lists at `$WT-wave-group-<g>`, `detached` or on its own branch under `flow-copy`, is a
 copy **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) made and a run that died mid-wave never
-removed. Checks 5 and 6 above run on each such `$COPY` in `$WT`'s place and stay gates. Checks 1–4
+removed. Check 5 above runs on each such `$COPY` in `$WT`'s place and stays a gate. Checks 1–3
 do not: a copy starts from the canonical worktree's uncommitted state, and run 1's reshape folds
-every picked commit into one, so a clean tree or a patch-id match proves nothing about it. Instead
-**disclose** `git -C "$COPY" status --short` and `git -C "$COPY" log --oneline <merge-base>..HEAD`,
-then ask once — **Remove the wave-group copies?** — **Yes — remove them** *(recommended)* / **No —
-stop and keep them**. Every task the copy ran is either ticked in `tasks.md` and landed through the
-reshape, or unticked and re-run by a later implement run, so what the disclosure shows is
-diagnostic, not work. On Yes each copy is removed before `$WT`, with
+every picked commit into one, so a clean tree or a patch-id match proves nothing about it. Every
+task the copy ran is either ticked in `tasks.md` and landed through the reshape, or unticked and
+re-run by a later implement run, so each copy is removed without asking, before `$WT`, with
 `git -C "$REPO" worktree remove --force "$COPY"` and no `git branch -d` (a copy has no branch); on
-No, or a failed check 5 or 6, every worktree is left alone, exactly as above.
+a failed check 5, every worktree is left alone, exactly as above.
 
 The stack-stopped check reads the optional `## stop` key from `<project>/.flow/project.md` —
 see **Project configuration** in `skills/flow-contracts/project-configuration.md`. When the key

@@ -643,7 +643,7 @@ one of the guards it already named performs the check by hand without printing t
 
 ## Hand-verifying a guard verdict
 
-**Load `skills/flow-contracts/guard-verdict-verification.md`** only when a gate guard's verdict fires — `STAGED-FOREIGN`, `REFUSE`, `OUTSTANDING`, `MOVED` or `LEFTOVER`.
+**Load `skills/flow-contracts/guard-verdict-verification.md`** only when a gate guard's verdict fires — `STAGED-FOREIGN`, `REFUSE`, `OUTSTANDING` or `MOVED`.
 
 ## State file
 

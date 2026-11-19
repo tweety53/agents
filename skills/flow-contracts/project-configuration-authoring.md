@@ -29,6 +29,5 @@ no project's databases, ports or task names, per **Project configuration**
 |---------|------|
 | `create` | `./scripts/workspace create` |
 | `remove` | `./scripts/workspace remove` |
-| `survivors` | `./scripts/workspace survivors` |
 ```
 

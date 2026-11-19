@@ -24,17 +24,6 @@ which is the evidence, not a guess, that nothing removed them. The archive branc
 since 2026-10-04: run 1 archives on the change branch, which run 2 removes (**one task, one
 worktree**, `skills/flow-contracts/finish-contract-rationale.md`).
 
-**This is the one row whose removal is verified by asking rather than by looking**, and the reason
-is that "ran the removal" is not "verified gone": a removal that reported success against a stale
-connection leaves this row's promise broken with nothing having failed. So a survivor is established
-from the project's own survivor report, never inferred from the removal's exit code — stated once
-under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`), with the report's
-output and exit-code contract under
-**Project configuration** (`skills/flow-contracts/project-configuration.md`). A report that could
-not reach its service is skipped rather than failed, so this is the one row a stopped service leaves
-unverified without stranding an already-merged change; that asymmetry is likewise
-**Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
-
 **Nothing removes the claimed cache index, and nothing in this pipeline can — which is why the row
 says so instead of naming a remover it does not have.** The rule one paragraph above is that an
 artifact no row accounts for is a defect in the registry; the row exists for that reason, and an
@@ -60,18 +49,6 @@ this contract exists to remove. The remedy is the operator flushing the cache, a
 exactly the reason the leftovers are: nothing durable is in there. A project may ship its own
 command to list or flush its stale indices; that is the project's tooling, and this row does not
 claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
-
-**Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
-ends at run 2 is checked back by `<agents repo>/scripts/flow-guard check-cleanup-complete`, whose header explains which
-rows that leaves it reading and why; step 7 of
-**Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) is where its
-verdict is acted on.
-
-**That derivation is declared, not left implicit.** The guard carries one marker line per row of
-this table saying whether it checks that row or deliberately does not, with the reason; its harness
-reads this table and those markers and fails when the two disagree in either direction. So a row
-added here goes nowhere until someone records a decision about it — which is what stops a future
-artifact from being confirmed clean by a guard that never looked for it.
 
 The terminal
 state file keeps `artifactUrl` indefinitely, so deleting the only source that could republish that

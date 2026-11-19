@@ -214,15 +214,7 @@ detached worktree at the merge base** — `git -C <worktree> worktree add --deta
 removed with `git worktree remove` once the figure is written — never by checking base sources out
 over the change worktree. A before figure already in
 `<abs-worktree>/.superpowers/sdd/live-before.md`, measured while pass 1's panel read
-(`skills/flow/review-panel.md`), is copied into the record only when the merge-base sha it records equals the current `git -C <abs-worktree> merge-base` — a round-boundary rebase moves the base (`skills/flow/review-panel-fix-round.md`) — and is measured again otherwise. Then run
-`flow-guard check-live-verification
-<changeRoot>/live-verification.md`; its header is canonical for the record it accepts. Exit 1 → the
-record carries no before figure, or states one was not measured: measure it from the merge base as
-above and rewrite the record, never proceed past it. The check is never deferred past this stage:
-`flow-guard integrate-change prepare` stops at `STOP: live-check` while the section names something to
-exercise and `live-verification.md` is missing or fails `flow-guard check-live-verification`.
-Exit 2 → it cannot answer; correct
-the input and run it again. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
+(`skills/flow/review-panel.md`), is copied into the record only when the merge-base sha it records equals the current `git -C <abs-worktree> merge-base` — a round-boundary rebase moves the base (`skills/flow/review-panel-fix-round.md`) — and is measured again otherwise. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
 shows the failure look is the branch's own defect and takes **The loop**
 (`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
 command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
@@ -258,12 +250,6 @@ Read the outcome word, not the exit code. `rendered: <dest>` is ordinary. **`MIS
 rows for <name>` means this run recorded no dispatch at all**, reported plainly here rather than
 discovered later. The outcome words are the table under
 **Rendering the session records** (`skills/flow-contracts/session-records.md`).
-
-**The live check gates the stage end.** `flow stage end` runs `flow-guard check-live-verification`'s
-check in-process on the change's directory under `-C`, and refuses a `completed` end on its exit 1
-or 2; its header is canonical for the verdict. A refusal on exit 1 → run **Live check** above and
-rewrite the record, never end the stage past it; on exit 2 → pass `-C` the canonical worktree, or
-correct the input it names, and end again.
 
 ```bash
 flow stage end -C <canonical-worktree> -command '/flow' -stage flow.verify -outcome completed <name>
@@ -314,7 +300,7 @@ A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<
    **On a fix run, both calls read the fix run's own diff.** Each worktree is passed
    `--since <worktree>=<its fix-start sha>` (`skills/flow/document-fix.md`), so a fix run whose delta touches no `ui paths` skips this
    stage at step 2 as exit 1 does.
-   No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/flow-guard check-visual-verify-dispatched` counts), or on a sharded pass the newest row of any shard index, does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
+   No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify`), or on a sharded pass the newest row of any shard index, does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
@@ -457,7 +443,7 @@ Resolve the run instructions the start below uses, the handoff's `**Running:**` 
   because a port it needs is already held, this stage does not retry, does not pick another port,
   and does not stop the holder. It prints that command's output verbatim, then the holder's own
   `devStop`-style stop command when the output names the holder's worktree (or, when it does not,
-  a note to run `flow-guard check-worktree-processes`-style diagnosis and stop the holder's stack by hand).
+  a note to stop the holder's stack by hand).
   This run then ends at `IN_PROGRESS` with the diff still staged, and the handoff names `/flow
   <name>` as the next command — the same change, re-run once the holder is stopped. It never stops
   a stack this run did not start.
@@ -494,10 +480,7 @@ durable process lesson this run paid for is promoted to the lessons home (**Proc
 `skills/flow-contracts/lessons.md`) — the brief is repo content, landed with this change's own
 work. The narrative itself is gitignored, written on disk and nothing else; nothing stages it.
 
-**Then check the narrative against the runs the store marked:** `flow-guard check-narrative-runs <abs-worktree> <name> <narrative.md>`. Exit 1 names a fix or integrate run whose `## <YYYY-MM-DD> — fix run` or `— integrate run` section the file lacks: append that run's section from the change's ledger and history, and run the check again. Exit 2 is reported and stops the write.
-
-**Close every open dispatch row of the change** before the state is written — integrate's
-**1. Check for unfinished work** (`skills/flow/integrate.md`) stops a landing on one, and only this
+**Close every open dispatch row of the change** before the state is written — only this
 run knows how its own dispatches ended. List them from the canonical worktree:
 
 ```bash
@@ -520,41 +503,20 @@ transcript's last write, as each panel `end` does (`skills/flow/review-panel.md`
 file's mtime — never the moment it is closed. An implementer row carries
 `-commit` with its task commit's full sha.
 
-**Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`), since the guard below finds a change with no recorded summary unfinished.
+**Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`).
 
 **A hold a decision set names what it waits on.** When a `design.md` decision, not the operator, set `reviewBeforeLanding`, one `**Summary:**` bullet names what the change waits on and the instruction that ends the wait.
 
 **Every run writing `IN_PROGRESS` then runs the unfinished-work guard on itself**, a creating run
 as well as a fix run, once per worktree of the resolved
 set, with the arguments **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) passes it —
-`flow-guard check-unfinished-work <worktree> <name> <canonical-worktree> <worktree>=<merge-base>...` — so an appended task left
-unrecorded or unreviewed, or a panel round dispatched with no pass row, stops this run rather than the next integrate. An `OUTSTANDING:` line is
-this run's own unfinished work: finish what its breakdown names — a missing dispatch or review is
+`flow-guard check-unfinished-work <worktree> <name> <canonical-worktree> <worktree>=<merge-base>...`. An `OUTSTANDING:` line is
+this run's own unfinished work: finish what its breakdown names — a missing inline verify is
 run and recorded, never recorded after the fact for work that did not run — and run the guard
 again, per **Finish it — never a prompt** (`skills/flow/unfinished-work-gate.md`), whose false-positive record covers an item no change can finish; the state is written once every worktree prints `CLEAR:` or every remaining item is so recorded — never a stop or a question. A missing verdict line or an
 exit 2 is reported and stops the run at the state it read.
-The guard folds in `flow-guard check-visual-verify-dispatched`'s verdict for its own worktree and finds a
-code commit no later completed `verify` row covers unfinished, so a skipped visual verification or
-an unrecorded inline verify stops this run too.
-
-**Every run then runs the visual guard on itself** — creating, resuming and fix runs alike — once
-per worktree of the resolved set, with the arguments integrate's gate passes it (**Run 1 — the
-branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`):
-
-```bash
-flow-guard check-visual-verify-dispatched <worktree> <name> $(git -C <worktree> merge-base HEAD origin/<base>) <canonical-worktree>
-```
-
-A `VISUAL-VERIFY-MISSING:` line means a UI-path commit landed after the last HEAD a verifier saw —
-a visual-fix task's, a panel fix's, a full-suite fix's or a fix run's own. Run **Visual
-verification** above again from its `begin` mark on the current HEAD, take every departure through
-**The loop** (`skills/flow/verify-fix-loop.md`), and run the guard again; the state is written,
-and the handoff printed, only once every worktree prints `VISUAL-VERIFY-OK:`. When the line names a
-verified HEAD and the paths changed since it, that re-run is scoped as a round of **The loop** is
-(`skills/flow/verify-fix-loop.md`): the named HEAD is its round base, its `motions:` names only the
-motions `git diff <that HEAD>..HEAD` adds, changes or removes. Integrate stops on
-the same verdict and no operator course there passes it. An exit 2 is reported and stops the run
-at the state it read.
+The guard finds a
+code commit no later completed `verify` row covers unfinished, so an unrecorded inline verify stops this run too.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 `worktrees` should already carry one absolute-path key per affected worktree and its merge base,

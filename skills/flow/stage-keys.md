@@ -26,4 +26,4 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/integrate.md`, through `flow-guard integrate-change` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.self-review`, `flow.landing-routes` |
 | `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when `flow-guard integrate-change` stops on `unfinished-work`; begins no mark |
 | `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when `flow-guard integrate-change` stops on `sync-conflict` or `sync`; begins and closes no mark |
-| `skills/flow/cleanup.md`, through `flow-guard integrate-change` | `flow.verify-merge`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+| `skills/flow/cleanup.md`, through `flow-guard integrate-change` | `flow.verify-merge`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |

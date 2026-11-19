@@ -133,10 +133,11 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   worktree with a test that fails without the fix, pushed to `main`, and the run continues; that push
   is not asked (`rules/work-end-to-end.mdc`).
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, deleting, and
-  every Jira write — the follow-up filing and the self-review filing included — and the
-  self-review's flow-eval mining.
+  every Jira write — the follow-up filing included.
   The global rules require these confirmed.
   One push is not asked: creating a `--base` a repository's origin lacks, from that repository's default branch — kickoff's (`skills/flow/SKILL.md`) and integrate's `prepare` (`BASE-CREATED:`, `skills/flow/integrate.md`) — adds a branch at the default branch's own tip, overwrites nothing, and is what the operator's `--base` already asked for.
   Nor is the base sync `flow-guard check-base-behind` prints: a merge commit of the tracked branch onto the
   `--base`, pushed fast-forward — it rewrites no history and only brings the base up to what it
   tracks.
+  Nor is the self-review pass's filing (step 5, `skills/flow-self-review/SKILL.md`): it creates
+  new issues only, by the operator's standing decision, and touches no existing one.

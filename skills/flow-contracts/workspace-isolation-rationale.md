@@ -178,14 +178,6 @@ change from finishing, over a service that happens to be stopped, trades a real 
 stranded short of its terminal state — for a few megabytes of stale storage. It also matches how the
 project-supplied stop check already treats an unreachable stack.
 
-Telling "the service
-is stopped" apart from "the survivor report is broken" would need a second exit-code convention that
-every project implements identically, and at this point in the pipeline both have the same correct
-response: run 2 is past the merge, and blocking an already-merged change over a service that happens
-to be down is what the paragraph above forbids. The cost is real and is named rather than hidden — a
-genuinely broken survivor report is indistinguishable here from a stopped service — which is why the
-skip carries the command's name and its exit code instead of being noted in passing.
-
 ## Moved by KAN-858
 
 Moved verbatim from `skills/flow-contracts/workspace-isolation.md`; each heading names the section
@@ -219,10 +211,6 @@ Identity replaces it: a claim naming its holder can be released, reported and li
 
 **A project whose claim is visible can do better than the pipeline
 can**, and the ceiling above is the reason to: releasing the claim in its own `remove` command,
-reporting a claim that outlived cleanup through `survivors`, and listing every claim on the machine
+and listing every claim on the machine
 without needing an id — which is what an abandoned change does not leave behind. None of that is
 required here, and none of it changes the registry row.
-
-### Creation and cleanup
-
-Why a third verb rather than two, rather than reading the removal's own result: the guard that checks the row lives in the agents repository and must stay project-agnostic, so it cannot hold `psql -l` or one project's object-store client.

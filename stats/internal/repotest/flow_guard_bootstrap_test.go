@@ -233,13 +233,13 @@ func TestFlowGuardBootstrap(t *testing.T) {
 		if err := os.Symlink(realBoot, link); err != nil {
 			t.Fatal(err)
 		}
-		r := runBootstrap(t, realTree, withPath(realEnv, noGoPath), link, "check-cleanup-complete")
+		r := runBootstrap(t, realTree, withPath(realEnv, noGoPath), link, "check-base-moved")
 		if r.rc != 2 || !strings.Contains(r.out(), "usage") || strings.Contains(r.out(), "cannot build flow-guard") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out())
 		}
 	})
 	t.Run("case 14: ./flow-guard run from scripts/ answers every real guard from the cache", func(t *testing.T) {
-		for _, name := range []string{"check-cleanup-complete", "check-base-moved",
+		for _, name := range []string{"check-base-moved",
 			"close-task", "render-slot-prompt", "run-reproducer"} {
 			r := runBootstrap(t, filepath.Join(realTree, "scripts"), withPath(realEnv, noGoPath), "./flow-guard", name)
 			out := r.out()
