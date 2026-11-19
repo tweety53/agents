@@ -31,7 +31,8 @@ a `blocker`.
 
 - Does the change treat the root cause, or a symptom of it?
 - Is each part needed now (`rules/build-the-simplest-thing.mdc`)? A part built for a need the
-  artifacts do not state is a `finding`.
+  artifacts do not state is a `finding`. A part that is needed but placed or built wrongly is
+  **Design critic**'s.
 - Is each part placed at the right layer — the guard, contract, prompt or store that already
   owns that concern?
 - **Mandatory search.** For each new function, guard, file or contract section the plan adds,
@@ -40,7 +41,8 @@ a `blocker`.
 
 ## Design critic
 
-- A claim with no evidence in the artifacts or the code.
+- A claim about why the design works — a premise, a benefit, a cost — with no evidence. A
+  statement about existing code is **Codebase details**', not this lens's.
 - A single point of failure the design does not name.
 - A `## Decisions` entry whose `**Considered:**` names no real alternative, or no reason it lost.
 - A risk the design runs that `## Risks` does not name.
@@ -54,7 +56,7 @@ Four questions, asked of `proposal.md`. Cost and timeline are not asked.
 - Does it say how this is done today, and what limits that?
 - Does it say what is new in this change?
 - Which check proves success — does `design.md`'s `## Verification` name it, and does a task
-  run it?
+  run it? (A risk the check would miss is **Design critic**'s.)
 
 ## Implementation readiness
 

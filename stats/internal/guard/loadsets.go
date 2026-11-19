@@ -76,13 +76,13 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	row("router (command + SKILL.md + pipeline.md)", router...)
 
 	fmt.Fprintln(stdout, "--- planning session (creating run) ---")
-	pd := cat(in(f, "brainstorm.md", "brainstorm-planner.md"), []string{r + "/skills/spectre-planning/SKILL.md"}, in(c, "jira-integration.md", "plan-provenance.md", "build-green.md"))
+	pd := cat(in(f, "brainstorm.md", "brainstorm-planner.md"), in(c, "jira-integration.md", "plan-provenance.md", "build-green.md"))
 	pc := in(c, "worktree-resolution.md", "git-boundaries.md", "operator-prompts.md", "operator-prompts-auto-resolution.md")
-	px := in(f, "withdrawal.md", "seeded-note.md", "resume.md")
+	px := in(f, "withdrawal.md", "resume.md")
 	row("  phase files + load directives", pd...)
 	row("  + cited at point of use", pc...)
 	row("  TOTAL definite", cat(always, router, pd)...)
-	row("  + conditional (flow-fix/flow-cost, seeded note, resume)", px...)
+	row("  + conditional (flow-fix/flow-cost, resume)", px...)
 	row("  TOTAL incl. cited", cat(always, router, pd, pc)...)
 
 	fmt.Fprintln(stdout, "--- implementation session (enters via Resuming at STARTED) ---")

@@ -42,8 +42,7 @@ run reads them from the recorded `decision.json`.
 **A plain-language session instruction overrides the pair(s) it names for this run only** —
 "use opus for the panel", "implement on sonnet" — per **Model policy**
 (`skills/flow-contracts/model-policy.md`).
-Record the instruction with the dispatch it changes; an override nobody wrote down is
-indistinguishable from a mistake. The override never rewrites the settings store; it lands in the decision's `overrides`.
+The override never rewrites the settings store; the dispatch hook records the pair each dispatch ran on.
 
 ## Reading the state
 

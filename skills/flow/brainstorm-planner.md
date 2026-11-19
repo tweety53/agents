@@ -12,8 +12,6 @@ In a `planner` dispatch, every **AskUserQuestion** these sections name is writte
 the round file instead, and the parent asks it, with the silence outcome the naming section
 states.
 
-**Load `skills/spectre-planning/SKILL.md`** — the generic prompts of sections B, C and D; this file carries the flow-only parts.
-
 ## B. Basic Workflow #1 — Brainstorming
 
 ### The checklist
@@ -30,7 +28,7 @@ states.
   format, CLI or cross-repository contract, a deletion, permissions, security, privacy, money;
   the pick adds or drops something the ticket or a mockup states; or the options differ by a task
   or more and the ticket gives no lead. An asked question carries a recommended option where one honestly exists and is asked until the user's
-  own answer closes it (**Convergence**, `skills/spectre-planning/SKILL.md`). Silence answers
+  own answer closes it (**Convergence**, below). Silence answers
   nothing: the question stays held and is asked again in the next round. Any other ambiguity
   takes its recommended option: it is recorded as a `## Decisions` entry and as one line,
   `<decision id>: <chosen> — <what it was chosen over>`, under the round file's `## Auto-taken`,
@@ -38,14 +36,22 @@ states.
   planner and the final planner read it from the file. A round asks every question it holds — four
   is only the limit of one **AskUserQuestion** call, so more questions take more calls in the same
   round, never a later round. Each question is asked in the round it
-  appears: from an answer, an agent's findings or the builder check, or, once the design is
+  appears: from an answer or an agent's findings, or, once the design is
   approved, from writing the artifacts or the plan, then asked before the plan review gate and its
-  answer revising the design. This is a scoped override of every call `brainstorming` makes for
-  the user — its **Minor** pile among them — of the single round of questions its builder check
-  allows, and of **The checklist**'s display-only-formatting bullet and one-call batching
-  (`skills/spectre-planning/SKILL.md`). The self-review planner never apply it:
-  they take the recommendation (**Auto-resolution**,
+  answer revising the design. The self-review planner never asks:
+  it takes the recommendation (**Auto-resolution**,
   `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+
+- **A reported defect is confirmed on the base before its fix is designed.** One already fixed
+  there is recorded in the design as fixed, with the commit that fixed it, and planned no task.
+
+- **A ticket that already carries the design answers the questions it settles** — a fully worked
+  issue, a `/flow-plan` capture or a handoff note. Only what it leaves open is asked; the design
+  approval is never taken from it. The note is input, never the plan: the plan is written through
+  C and D like any other, with full repo-relative paths, and is never copied back into the note.
+
+- **The design is approved before `spectre new` runs.** The approval is the operator's explicit
+  **approve the design** answer (**Convergence**, below); nothing is created before it.
 
 - **Every asked question explains itself.** Under its heading, before its options, a question
   carries `**Context:**` — two to five plain sentences an operator who has not read the code can
@@ -74,18 +80,11 @@ states.
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree kickoff created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
-  path is gitignored: never stage or commit it, even where the brainstorming skill says to, and
+  path is gitignored: never stage or commit it, and
   never write it to the main checkout.
-- **Mockup frames are read where the design lives, never copied into a frontend or backend
-  repository.** When the design's specification is a drawn frame — a mockup the implementation
-  must match (**Design mockups are a specification, not an inspiration**,
-  `rules/design-mockups-are-specs.mdc`) — the design is not approvable, and no task whose
-  specification is that frame is written, until the frames sit in the project's declared design
-  repository or mockups folder (the `design repo` and `mockups` rows of `## visual verification` —
-  **Project configuration — visual verification**,
-  `skills/flow-contracts/project-configuration-visual.md`). A frame that is not there yet is added
-  to the design repository or folder, or to the Playwright repository beside its capture spec —
-  never to an app repository.
+- **A mockup is read from where the project declares mockups** (`## visual verification`,
+  `skills/flow-contracts/project-configuration-visual.md`), never copied into an app repository; a
+  design specified by a mockup that is not there yet is not approvable until it is.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
@@ -112,10 +111,6 @@ states.
   verify or `flow.verify` — is fixed to match it, auto-resolved and never asked; a UI
   change the operator wants after using it is a later change, not this one.
 
-**Load `skills/flow/seeded-note.md`** only when the ask arrives as a seeded research note — a
-fully-worked issue description, a `/flow-plan` capture or a handoff package that already carries
-the design, its decisions and the acceptance criteria.
-
 ### Explore and design agents
 
 **Every Explore and Plan agent** runs on its role's pair (**Model and effort** below) — `explorer`
@@ -141,11 +136,9 @@ its return) and dispatches them.
 loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
 whole context; each exit-1 return of the wait below is one cache read, and re-arms the cache.
 Once your own work is done, call
-`AWAIT_SUB_AGENTS_SECONDS=240 <agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with
-the agent ids your launches returned and the Bash tool's `timeout` at 250000, so a call returns
-within four minutes. Exit 0: every agent finished or is stale — silent for 30 minutes — so read
-each hand-back, treat a `stale:` agent as returning nothing and say so in the round file. Exit 1:
-call again at once, doing nothing between calls. Exit 2: a usage error, reported. The
+`<agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with the agent ids your launches
+returned, as its header states, and read each hand-back; say in the round file when an agent
+returned nothing. The
 `await-own-agents` SubagentStop hook refuses your turn end while one runs.
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
@@ -155,13 +148,15 @@ take the recommendation without asking, per **Auto-resolution**
 
 ### Convergence
 
-Under the `## decisions: recommended` mode (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended
-**approve the design and move on** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires.
+**A round ends on one question, asked last:** state what you believe settled — the answers and
+the decisions the design now rests on — then ask **Anything unclear before I move on?** with two
+options: **Approve the design and move on** *(recommended)* and **Another round — I have
+something**. Only an explicit **approve** ends the rounds and approves the design; any other
+answer, silence included, is another round, and the operator's words are that round's input. No
+round count ends planning.
 
-The explicit **approve the design and move on** answer is at once the convergence exit that closes
-the checklist and the design approval the HARD GATE requires (**The checklist**,
-`skills/spectre-planning/SKILL.md`).
+Under the `## decisions: recommended` mode (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`) the question is not asked and **approve** is taken.
 
 ## C. Create the change and its artifacts
 
@@ -169,19 +164,59 @@ the checklist and the design approval the HARD GATE requires (**The checklist**,
 spectre new "<name>"   # working directory: the worktree kickoff created
 ```
 
-`STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
-`STARTED` handoff prints at the end of the run, so its `Open questions` line shows what this section holds
-(**The `STARTED` handoff block**, `skills/flow/brainstorm.md`).
+It scaffolds `<changeRoot>` — `<project>-worktrees/<name>/spectre/changes/<name>/`, gitignored,
+never staged — with stub `proposal.md`, `design.md` and `tasks.md`. Its exit 1 `already exists` is
+the ordinary case on a resumed run: revise the artifacts in place, never `--force`. Keep every
+stub heading and fill:
 
-**`design.md` also carries `## Non-goals` and `## Risks`**: what the change
-deliberately does not do, and what can go wrong and what limits it. Each may be the one line
-`none — <reason>`.
+- **`proposal.md`** — `## Why` and `## What changes`.
+- **`design.md`** — `## Context`; `## Decisions` and `## Open questions` (below);
+  `## Recommended approach` (the chosen approach, one line per rejected alternative pointing at
+  its decision ID); `## Critical files` (every file the change edits or depends on, one line on
+  its role each); `## Existing code to reuse` (by path and symbol, or `none — <reason>`);
+  `## Verification` (how the change is proved end to end, beyond each task's own verify step);
+  `## Non-goals` and `## Risks` (each may be `none — <reason>`); and `## Live check` when the
+  change touches a running service or stored state — what to run against the real thing before
+  landing and what "not working" looks like, else one line opening with `None`.
+- **`tasks.md`** — written in **D**.
 
-A `/flow` or `/flow-plan` final planner continues straight into section **D** in the same dispatch.
+A change that alters user-visible behaviour, a command, a flag, a file format or the pipeline
+plans a task naming `<project>/README.md`; one that alters a capability's requirements plans a
+task naming `<project>/spectre/specs/<capability>.md`. Neither is written here.
+
+### Decisions
+
+`## Decisions` records every choice the design made — small ones too: where a file lives, a
+name, a task's scope — each with the alternatives and why they lost. A design that forced no
+choice records none.
+
+```markdown
+### <the decision>
+
+**ID:** <kebab-case-slug>
+**Status:** active
+**Chosen:** <option> — <one-line rationale>
+**Considered:** <other options, each with the tradeoff that ruled it out>
+```
+
+**ID** is mandatory, assigned once and never changed. A later round supersedes a decision by
+setting its `**Status:**` to `superseded by <new-id>`, appending one `**Superseded because:**
+<trigger>` line to it, and adding a new entry; a recorded entry is never deleted or rewritten.
+
+### Open questions
+
+`## Open questions` is present and empty: planning leaves nothing open. An entry an earlier
+design recorded there (`**ID:**`, `**Status:** open`, `**Why it is open:**`, `**What it
+affects:**`) is asked before any plan is written; its answer sets `**Status:** answered by
+<decision-id>`. IDs are unique across both sections.
+
+A final planner continues straight into section **D** in the same dispatch.
 
 ## D. Basic Workflow #3 — Writing plans
 
-**Tell writing-plans the task shape, because it is spectre's and not writing-plans' own.** A task
+Invoke the **writing-plans** skill to write `<changeRoot>/tasks.md` to plan quality — exact paths,
+verification commands, bite-sized steps, no placeholders — and run its self-review before
+finishing. **Tell writing-plans the task shape, because it is spectre's and not writing-plans' own.** A task
 is a column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's
 steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
 
@@ -198,18 +233,26 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
 **Keep the plan plain:**
 
 - A behaviour the design decides is pinned by a test some task names.
-- A task's verify step runs its own lint and its own tests by name — never the whole suite.
-- Run only tools already on the machine or declared in `<project>/.flow/project.md`; never `npx`
-  without `--no-install`.
-- A change that touches a running service or stored state gets a `## Live check` section in
-  `design.md`: what to run against the real thing before landing, and what "not working" would
-  look like. With nothing to check live, the section is one line opening with `None`.
+- A task's verify step runs its own lint and its own tests by name — never the whole suite — and
+  installs nothing.
+- A premise a task depends on — how a tool, a library or the harness behaves — is checked before
+  the plan relies on it, and the task says what the check showed.
 - A multi-repository plan sorts its tasks under `## <repository>` headings, named by the basename
   of each `## apps` repository root.
-- A premise about how a tool or harness behaves is tried at plan time (five minutes at most) and
-  the task says what the try showed.
-- A frame-specified view gets a full-page capture for every frame `design.md` cites, its fixture
-  seeding the data every element and state of the frame needs.
+- A task cites the decision it implements as `**Decision:** <id>`, never restating it.
+- A task that verifies a reported behaviour opens with "reproduce on the untouched tree before any
+  edit".
+- A test the plan spells out is built so the nearest wrong version of the rule fails it — its
+  fixture and step order tell the rule apart from that version.
+- A test that clicks, types or captures reaches each control by role, label, text or test id,
+  never a coordinate, and never waits out a production timeout or backoff — the task adds a
+  test-only override.
+- A task that grows an existing type plans the split itself when the project's size lints would
+  otherwise fail.
+- A changed rule whose reasoning lives in a `*-rationale.md` appendix lists that appendix in its
+  task's `**Files:**`.
+- A view a mockup specifies gets a full-page capture for every frame `design.md` cites, its
+  fixture seeding every element and state the frame shows.
 
 Before returning, run `spectre validate "<name>"` and repair any exit-1 finding; its exit 2 is
 reported and stops the plan.
@@ -247,8 +290,7 @@ writes `<abs-worktree>/.superpowers/sdd/plan-check.md`, whose last line is `PLAN
 stderr. Gate **No** re-runs it as `plan-check … -decide-only`, which rewrites
 `decision.json` and leaves `plan-check.md` as it is.
 
-The parent fills `overrides` — session instructions that change a dispatch's pair for this run,
-left empty unless one was given — then renders the file and prints the output verbatim; the `STARTED`
+The parent renders the file and prints the output verbatim; the `STARTED`
 handoff prints it again (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`):
 
 ```bash
@@ -258,7 +300,7 @@ flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -sessio
 It exits 0 on a printed block and 2 on a usage error or an unreadable file.
 
 **The plan is never acted on unread.** Once the plan-check step has printed its `## Decision` block,
-print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`) and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
+print the plan summary — plain prose on what will be built and how: the behaviour added or changed, the approach, the seams and decisions that matter and what was left out; no per-task rows — and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
 summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
 `**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> contested, <n>
 accepted | not run`.
@@ -304,5 +346,4 @@ A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
 `opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. Every dispatch has a
 role from **Allowed pairs** (`skills/flow-contracts/model-policy.md`). A plain-language session instruction overrides the pair it names
-for this run only (**Model policy**, `skills/flow-contracts/model-policy.md`), recorded in the
-decision's `overrides`.
+for this run only (**Model policy**, `skills/flow-contracts/model-policy.md`).

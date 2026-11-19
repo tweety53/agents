@@ -13,9 +13,6 @@ exactly when `<abs-worktree>/.superpowers/sdd/planner/triage.md` holds `TRIAGE: 
 `planner` (**Judge easy or hard**, `skills/flow/brainstorm.md`); a resume that finds no
 `triage.md` and no round file runs the judge first.
 
-**Load `skills/flow/seeded-note.md`** only when the change was seeded from a note and the resume
-point is point 3 below, which never reopens the checklist that otherwise loads it.
-
 ### Resuming at `STARTED`
 
 A run finding `"state": "STARTED"` already recorded is resuming a creating run that stopped before

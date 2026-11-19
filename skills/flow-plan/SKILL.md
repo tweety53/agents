@@ -66,7 +66,7 @@ against (decision `flow-plan-records-nothing`). After it, every `plan-<n>`,
 `explore-<n>` and `design-<n>` dispatch is recorded against the change, `<n>` counting from 1 per
 change.
 
-Plan mode (**Plan mode**, `skills/spectre-planning/SKILL.md`) is entered at session start. Call `ExitPlanMode` only once the session reaches a capturable topic, right before the capture
+Plan mode is entered at session start (`EnterPlanMode` on Claude Code; on Cursor, switch to Plan mode or ask the user to). Call `ExitPlanMode` only once the session reaches a capturable topic, right before the capture
 question, which is still asked. A research session
 that ends without a capture never calls `ExitPlanMode`. A declined `EnterPlanMode` consent is one
 line, and the session continues without plan mode.

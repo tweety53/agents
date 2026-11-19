@@ -22,8 +22,8 @@ model and its model escalation in fix rounds 4–5.
 
 **An explicit operator instruction overrides a role's pair, in either direction**, for the run in
 which it is given — raising the implementer to Opus for a change that warrants it, or lowering it
-to Sonnet for genuinely mechanical work. Record it in the decision's `overrides`; an override
-nobody wrote down is indistinguishable from a mistake.
+to Sonnet for genuinely mechanical work. The dispatch hook records the pair each dispatch
+actually ran on.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 
