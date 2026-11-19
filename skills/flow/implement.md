@@ -8,7 +8,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 |------|-------|------|
 | **2** | resume the workspace created at kickoff, stated in **2. Isolate the workspace** below | Before the first code change, every run |
 | **3** | **superpowers:writing-plans** | Validate the plan; repair `tasks.md` if it is not apply-ready |
-| **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks — only when the recorded decision's `execution` is `sdd`; an `inline` run (**Inline — the parent implements** below) never loads it |
+| **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks |
 | **5** | **superpowers:test-driven-development** | Every implementer dispatch, every task |
 | **6** | the review panel | The final whole-branch panel |
 | **7** | **superpowers:systematic-debugging** | An unexpected test failure during implementation, or a review-panel finding confirmed as a real defect |
@@ -38,10 +38,9 @@ call inherits no cwd, so every path it names is absolute or `-C`-given — the s
 FOREGROUND BUILDS paragraph of section 4 already states for long-running commands
 (`skills/flow/implement.md`).
 
-**Resolve `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and
-run the guard-presence check, before this run's first dispatch — on a fix run, before section
+**Run the guard-presence check** before this run's first dispatch — on a fix run, before section
 **3**'s re-decision. Read the decision JSON
-(`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `execution` and `panel` — per the `## Decision` block of **Decide** (`skills/flow/brainstorm-planner.md`) — and for the recorded
+(`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `panel` — per **Decide** (`skills/flow/brainstorm-planner.md`) — and for the recorded
 `groups` field, which section **4** below
 dispatches by.
 
@@ -57,9 +56,9 @@ These nine rows are **every** Agent-tool dispatch the parent may make, across se
 
 | Site | Role | Role line | Key shape | Owning section |
 |---|---|---|---|---|
-| implementer, one per group; under `sdd`, a fixer per fix | `implementer` | `implementer` | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
-| gated reviewer bundle, one per implementer group the review gate fires in, on `big` alone | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
-| panel bundle, at most two per round, plus at most one citation send-back per re-run dispatch outside that cap | `reviewer` | `panel-reviewer` on pass 1; `panel-sanity-efficiency` for the `test-sanity+call-efficiency` extra dispatch and `panel-mutation-failure` for the `mutation+failure-modes` one; `panel-rerun` for a re-run, its send-back and a decided panel's late-fix pass; `late-fix` for a `default` panel's late-fix pass | `panel-<round>-<slot\|slot+slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
+| implementer, one per group; a fixer per fix | `implementer` | `implementer` | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+| gated reviewer bundle, one per implementer group | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| panel bundle, one per decided `panel` bundle, plus at most one citation send-back per re-run dispatch | `reviewer` | `panel-reviewer` on pass 1; `panel-rerun` for a re-run, its send-back and a late-fix pass | `panel-<round>-<slot\|slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree, or one per shard of a sharded pass | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
@@ -78,7 +77,7 @@ The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dis
 the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its
 own change.
 
-**Everything else in those six sections is the parent's own Bash and Read work, never
+**Everything else in those sections is the parent's own Bash and Read work, never
 delegated** — every `flow-guard check-*`, `flow-guard run-reproducer`, `flow-guard gather-dispatch-context`,
 `flow-guard prepare-workspace`, `## lint` and `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
@@ -111,7 +110,7 @@ prompt's `Role:` line; the model and effort from the Agent call; the session tok
 the session's latest stage run that is not a loop's own (`pipeline-fix-…`, `self-review-…`) — and denies the launch with `flow`'s
 stderr when that begin is refused. The parent runs no `begin` of its own for such a row. A row
 whose begin needs a flag the Agent call cannot carry — a panel slot's `-diff-base`, an
-operator-asked row's `-request`, an inline row's `-agent-id inline` — is still begun by its own
+operator-asked row's `-request` — is still begun by its own
 site, and the hook then finds it open and writes nothing. The end stays the parent's, riding the
 Bash call it already makes on each return.
 
@@ -119,13 +118,12 @@ Bash call it already makes on each return.
 The parent never sends a `SendMessage` to a child that has written its report, save an immediate
 send-back `flow-guard resume-or-fresh` answers `resume` for. Whatever a
 finished child's work still needs — a guard refusal, a pick conflict, a reviewer's `fix`, a
-full-suite failure — goes to a fresh fixer under `sdd` (**Every fix is a fresh one-shot**, below)
-and is the parent's own inline fix under `inline`, under the commit mechanics and records
-**Inline — the parent implements** below states; a re-review is a fresh dispatch.
+full-suite failure — goes to a fresh fixer (**Every fix is a fresh one-shot**, below); a re-review
+is a fresh dispatch.
 
 **An immediate send-back runs `flow-guard resume-or-fresh` first.** Two send-backs are found at the
 agent's own hand-back, while its prompt cache is still warm: a `flow-guard close-task` exit 1 a
-re-commit repairs, under `sdd`, and a `flow-guard check-rerun-citations` exit 1
+re-commit repairs, and a `flow-guard check-rerun-citations` exit 1
 (`skills/flow/review-panel-fix-round.md`). Right after that row's `dispatch end`, before any other
 dispatch or wait, the parent runs `flow-guard resume-or-fresh <worktree> <change> <the closed row's key>`.
 On exit 0 it sends the send-back to the agent its `resume <agentId>` line names with `SendMessage`;
@@ -144,17 +142,11 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 — three definitions, one per effort, each carrying `effort:` and no
 `model:`) carries a `tools:` allowlist that omits
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
-structurally does not have, not by prompt text alone. This covers the panel bundle and
-panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
-**The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on the
-`gated-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
-row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
-so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside it. On harness `muse` no `subagent_type` is named — the harness
+structurally does not have, not by prompt text alone. This covers the panel bundle,
+panel-fix and gated per-task reviewer rows. The verifier
+row dispatches on the `visual-verifier` role's pair (`skills/flow/visual-verify.md`),
+a `flow-<effort>` definition, so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside it. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
-
-**Inline — the parent implements** below takes this same table minus the implementer, gated reviewer bundle and panel-fix
-rows — the parent's only permitted dispatches inline are the panel-bundle,
-verifier, tooling-analyst and fix-run judge rows. `flow record dispatch begin` refuses an implementer or panel-fix row with a subagent behind it under an inline decision (exit 2).
 
 **The handshake.** Every dispatched role in this
 pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst, fix-run judge, in-run pipeline fix — opens its first reply with the `Model:`
@@ -200,59 +192,6 @@ flow record dispatch end -change <name> -key <the key currently open> -session-t
 `/flow <name>` for the operator — a re-run resumes from whatever was left (checkbox state, the
 state file's worktrees, findings in the store) through this file's own re-entry rules.
 
-## Inline — the parent implements
-
-Entered instead of dispatching an implementer per group when the recorded decision's `execution`
-is `inline` — on `micro` alone (**Decide**, `skills/flow/brainstorm-planner.md`). The parent itself runs sections **1**, **2**
-and **4** below, then `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`, with
-these substitutions:
-
-- **No implementer, no panel-fix dispatch.** The parent does each bundle's TDD work in the
-  canonical worktree, commits per task with the same `Task-Id:` trailer and declared `**Commit:**`
-  subject, and runs `flow-guard close-task` exactly as section **4** states, its `-end-*` flags closing
-  the bundle's own `implementer` row.
-  Waves are not parallel inline: bundles run in plan order, one at a time, never launched into a
-  throwaway worktree.
-- **Every dispatch-prompt paragraph that instructs an implementer or fixer in its work** — FLOW —
-  COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, DRIFT CHECK, MUTATION PROOF, PLAN FIELDS,
-  FOREGROUND BUILDS, PROJECT HAZARDS, and the rest `skills/flow/implementer-brief.md` and
-  `skills/flow/review-panel.md` carry — **binds the parent in the same words**, as if the parent
-  had dispatched itself. **Load `skills/flow/implementer-brief.md` only when** the recorded
-  decision's `execution` is `inline`, once, before the first bundle's first edit. **Six
-  paragraphs govern only a dispatched child's own channel and never bind the parent**: NO
-  DELEGATION (inline, the parent keeps the dispatch rows the closed list above leaves it), MODEL
-  HANDSHAKE, TOOLS, CONTEXT BUNDLE, REPORT FILE and FIX DISPATCH. Without a bundle, REQUIRED READING's principles
-  are read from `engineering-principles.md` beside this file, and PROJECT HAZARDS' warnings as the
-  next bullet states. A question REPORT, DON'T DECIDE would carry in a report file goes to the
-  operator in the parent's own output instead.
-- **Project hazards are read by the parent itself.** Inline gathers no context bundle, so the
-  `## hazards` section PROJECT HAZARDS points at never reaches it. Once per run, before the first
-  bundle's first edit, the parent runs `flow hazards -C <canonical-worktree> -shape <shape>`,
-  where `<shape>` is the value section **4** computes for its gathers, and holds every row it
-  prints to PROJECT HAZARDS' terms. `[]` means no hazards. A failed call is reported in one line
-  and never blocks, just as the gather's own hazards read never does.
-- **Panel slots and the visual-verify verifier dispatch exactly as in
-  sdd mode** — a session reviewing its own diff is not a review. Panel fixes are applied by the parent instead of a panel-fix subagent;
-  the parent still runs every reproducer and the fix-diff walk
-  (`skills/flow/review-panel.md`) before recording a finding `fixed`. `flow.verify` runs inline
-  for the parent exactly as under `sdd` execution.
-- **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
-  <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
-  model> -effort <parent effort> -agent-id inline` (**Harness mapping**,
-  `skills/flow-contracts/model-policy.md`) — so cost attribution and the stats views see
-  inline work under the same roles a dispatched run would use. Every inline row's `dispatch
-  begin` is recorded when the parent starts that work, before its first edit, and its `dispatch
-  end` once the work's commit lands — never the two together, which records the work as taking
-  no time; `flow record dispatch end` refuses a `completed` inline row closed under three seconds
-  after its begin when it carries no `-tokens` report — which only a harness without a
-  harvested transcript may pass; `-tokens` is refused where `CLAUDE_CODE_SESSION_ID` is set.
-  `flow record dispatch begin -agent-id inline` refuses while the worktree carries a tracked
-  modification other than the change's own `tasks.md`, naming each dirty path — work already
-  under way when its row begins.
-  It also refuses a `completed` inline row on a task's key (`task-<ids>-implementer…`) that
-  carries no `-commit`, and one whose `-commit` — found in any of the change's worktrees — was
-  made before the row's begin, a begin recorded after the work it opens.
-
 ## 1. Load context and validate the plan
 
 ```bash
@@ -284,7 +223,7 @@ lines in order as **Verify** (`skills/flow/verify-and-handoff.md`) runs them, an
 again. Exit 2 → name its stderr in the handoff and continue.
 
 **The plan is refreshed against the base before task 1 runs.** Before the
-first task dispatches — inline or as an implementer — run, with this run's working-notes merge
+first task dispatches, run, with this run's working-notes merge
 base and every capability spec the proposal names as `<spec-path>` — the spec's
 `<project>/spectre/specs/<capability>.md`, relative to `<project>`:
 
@@ -335,9 +274,6 @@ to repair it before touching code.
 
 Extract the **Global constraints** verbatim from the capability specs the proposal names and
 `design.md` for the reviewers.
-
-On an implementation run, not a fix run, compose the learning note per **Learning**
-(`skills/flow-contracts/learning.md`) once the plan validates, and write its file.
 
 ```bash
 flow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
@@ -475,10 +411,7 @@ call for all (step 2 of **A group boundary is one wake, one Bash call and one la
 `-agent-id`: the daemon captures the agent's identifier. A launch whose row is not yet open is
 refused by `hooks/enforce-agent-baseline.py`, and the harvester fills the row's empty
 `agent_id` from the launch result afterwards. `-agent-id` is accepted on both
-calls as recorded intent the daemon never overwrites, for a caller that knows the id — the
-literal `inline` on a row the parent's own inline work records included. A row whose work runs
-in a launched agent never carries `-agent-id inline` — the daemon stamps no id onto such a row, so
-its tokens are never measured. `-key` is this dispatch's own literal label,
+calls as recorded intent the daemon never overwrites, for a caller that knows the id. `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<ids>-implementer`, reused identically in both calls.
 Inside a `for` loop it may expand the loop variable — `$k`, `${k}`, or a `#`/`%` strip of it — the
 only shapes the harvester reads; any other expansion leaves the row without its agent.
@@ -488,12 +421,6 @@ flat integer id, omitted for a dispatch against no single task. `-session-token`
 never a shell substitution. The start and end instants are the daemon's own — never
 caller inputs.
 **A dispatch recorded only after it finished is a back-fill, and is one call** — `flow record dispatch backfill`, carrying `begin`'s flags and `end`'s together with the dispatch's real `-started-at` and `-ended-at`, both required — never a `begin` and `end` pair, whose instants would read the back-fill's own moment.
-An inline back-fill (`-agent-id inline`) carrying `-commit` takes neither instant:
-`backfill` derives `-ended-at` from that commit's committer time and `-started-at` from the newest
-commit before it in any of the change's worktrees — for a `panel-fix-<r>` key never earlier than the
-last end among round `<r-1>`'s reviewer rows, whose reports the fix works from — and refuses either
-flag beside it — a
-hand-written instant there is a guess.
 
 **`-model` is the model this dispatch was actually given — the `implementer` role's pair**
 (**Model and effort**, `skills/flow/brainstorm-planner.md`, or the run's session-instruction
@@ -522,7 +449,7 @@ those exact commands, and an explicit **stop and report** instruction — a repe
 never self-recovered. A generic warning ("be careful with git") is not a carry. The child's own claim that nothing went wrong
 never closes an incident.
 
-Run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md` for this plan's bundles:
+Run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md`:
 
 ```bash
 flow-guard plan-dispatch-bundles <changeRoot>/tasks.md
@@ -531,10 +458,9 @@ flow-guard plan-dispatch-bundles <changeRoot>/tasks.md
 Exit 0 proceeds. A non-zero exit is a plan defect: exit 1 names a task missing its `**Files:**`
 field, repaired by `superpowers:writing-plans` before any dispatch happens; exit 2 stops the run.
 
-**Load `skills/flow/sdd-dispatch.md` only when** the recorded decision's `execution` is `sdd` — it
+**Load `skills/flow/sdd-dispatch.md`** — it
 carries the per-group implementer dispatch, the **Waves**, the per-group context-bundle gather and
-its failure handling, and the sixth-argument scoping; an `inline` run (**Inline — the parent
-implements**, above) never loads it.
+its failure handling, and the sixth-argument scoping.
 
 `<shape>` is this change's shape, computed once per run from the resolved worktree set — more than
 one repository → `cross-repo`, otherwise `single-repo` — and passed on every gather this run
@@ -611,7 +537,7 @@ The parent compares that line against its role's pair's model (or the run's sess
 and applies **The handshake** stated above, unchanged.
 
 **The parent runs the test list — never an implementer.** Once the plan-last group — the group
-holding the last `bundle <k>` line `flow-guard plan-dispatch-bundles` printed — has passed the guard, by
+holding the plan's last task — has passed the guard, by
 direct commit or by its wave's final pick, **the parent itself** runs the resolved `## test` list
 once per worktree in this run's resolved set, one worktree after another, in the foreground, as
 `flow-guard run-verify-list <worktree> test` — skipping a worktree the skip rule of **Inline verify**
@@ -620,16 +546,11 @@ once per worktree in this run's resolved set, one worktree after another, in the
 through `tail`; the green sha each run records in its own worktree is what lets **Inline verify**
 (`skills/flow/verify-and-handoff.md`) skip what no later commit touched. Every failure, wherever it lies, is fixed at its root
 cause and the list re-run until it passes. A fourth `full-suite-fix-<n>` after three failed ones
-is the fresh dispatch of **Three failed rounds** (`skills/flow-contracts/pipeline.md`). Under `sdd` the fix is a fresh one-shot, the
+is the fresh dispatch of **Three failed rounds** (`skills/flow-contracts/pipeline.md`). The fix is a fresh one-shot, the
 `full-suite-fix-<n>` row of **Every fix is a fresh one-shot** below, its `FIX INPUT:` the failing
-block, and a failing visual `verify` row in it is re-run narrowed as **Narrowed visual re-runs** states (`skills/flow/verify-fix-loop.md`). Under `inline` the parent fixes it itself, as inline fixes are applied: it edits, commits on
-the route the branch's push state dictates (**Panel re-runs**,
-`skills/flow/review-panel-fix-round.md`), and records the round as one `dispatches` pair
-`-role panel-fix -model <parent model> -effort <parent effort> -agent-id inline` under
-`full-suite-fix-<n>`.
+block, and a failing visual `verify` row in it is re-run narrowed as **Narrowed visual re-runs** states (`skills/flow/verify-fix-loop.md`).
 The commit carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`).
 Before the parent pushes it, the untasked-commit check of **Commits outside every task** (`skills/flow-contracts/git-boundaries.md`) runs.
-The pair's `end` carries `-commit` with the sha `git -C <worktree> rev-parse HEAD` prints once that commit is made, never a task's commit.
 A fix for a failure that does not recur on every run is a determinism fix, held to the PROOF RUNS paragraph (`skills/flow/implementer-brief.md`): the failure is shown returning with the fix reverted before the fix is committed; one that never returns is handled as **The loop** (`skills/flow/verify-fix-loop.md`) states for an observed failure that does not reproduce.
 `flow-guard run-verify-list`'s `test` list ends with that section's `verify` run on the specs its `specs`
 row maps for the diff — the smoke set alone when it maps nothing or no `specs` row is declared, the
@@ -656,11 +577,11 @@ opens a pass 1, the test-list run above waits for that pass: the parent closes `
 enters the panel, and runs the list there, between recording the pass-1 begins and the round's
 wait, as that file's **Bundled dispatch** states. The reading slots are read-only, so their verdict and the
 suite's arrive together rather than one after the other.
-The mutation slot is not read-only: it runs the tests once per mutant on the same CPUs, so the `mutation+failure-modes` dispatch is begun and launched only once the suite has exited. A full-suite fix is applied only after the round's wait ends, never
+The mutation slot is not read-only: it runs the tests once per mutant on the same CPUs, so a `mutation` bundle is begun and launched only once the suite has exited. A full-suite fix is applied only after the round's wait ends, never
 while the slots are reading the tree.
 
 **A group boundary is one wake, one Bash call and one launch message.** The unit is the group — the decision's `groups`
-entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each boundary, in this order:
+entry. At each boundary, in this order:
 
 1. **The returned group's implementer commits**, writes its report and ends; its completion notification
    wakes the parent with its summary head (`skills/flow/implementer-brief.md`). Each `correction:`
@@ -684,8 +605,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    `flow-guard close-task` runs the implementer's `record dispatch end`, the `Task-Id:` trailer check on every commit
    whose sha is new and `flow-guard check-task-commit-planning-paths <canonical-worktree> <merge-base>`
    over every commit since the merge base recorded in this run's working notes; only when both
-   pass, the **review gate** on every
-   task, `flow tasks tick` per **The guard's pass ticks an ungated task.** (below), and
+   pass, `flow tasks tick` per **The guard's pass ticks the task.** (below), and
    `git -C <worktree> push origin spectre/<name>` per **Branch backup**
    (`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer.
 
@@ -706,15 +626,14 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    launches: **exit 1** — a task commit whose diff touches
    `<project>/spectre/changes/` (leaf resolved per project) or `<project>/docs/superpowers/`, or
    a task commit carrying no `Task-Id:` trailer naming the task —
-   is a re-commit, with nothing ticked or pushed — under `sdd` the re-commit row of **Every fix is a
-   fresh one-shot** (below), under `inline` the parent's own, without the swept paths and carrying
-   `Task-Id: <n>` — and `flow-guard close-task` re-runs without the `-end-*` flags before anything below; **exit 1 with `close-task: RECORD —`** is an appended task no dispatch row
+   is a re-commit, with nothing ticked or pushed — the re-commit row of **Every fix is a
+   fresh one-shot** (below) — and `flow-guard close-task` re-runs without the `-end-*` flags before anything below; **exit 1 with `close-task: RECORD —`** is an appended task no dispatch row
    names — record its implementer dispatch (`flow record dispatch backfill … -task <n>`, the
    back-fill above), then re-run
    `flow-guard close-task` without the `-end-*` flags; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
-   the re-commit loop. Exit 0 prints every task's `FIRE:` or `QUIET:` gate line. **Exit 3 with `close-task: UNRECORDED —`** closed every task — ticked and
+   the re-commit loop. **Exit 3 with `close-task: UNRECORDED —`** closed every task — ticked and
    pushed — but the implementer dispatch's end never reached the store: run the `flow record
    dispatch end` command that line prints before the next dispatch goes out. The same line closes
    an exit 1 or 2 as well, and is run the same way: the re-run without the `-end-*` flags never
@@ -729,34 +648,14 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
 3. **A second Bash call readies each group that call printed** — a
    `throwaway` group's copy, its gather (`skills/flow/sdd-dispatch.md`) and its marker snapshot,
    `flow-guard check-tree-markers snapshot <worktree> <markers-file> <that group's
-   snapshot-file>`, and, on `big`, when a gate fired in the returned group, that bundle's diffs
-   and marker snapshot (**The gated per-task reviewer**, below) — and **the next message
-   launches every printed group's implementer and, when its begin was recorded, the returned
-   group's reviewer bundle**, each with `run_in_background: true`, and the turn ends — the wait
+   snapshot-file>`, and the returned group's reviewer bundle's diffs and marker snapshot (**The
+   gated per-task reviewer**, below) — and **the next message launches every printed group's
+   implementer and the returned group's reviewer bundle**, each with `run_in_background: true`, and the turn ends — the wait
    of **Turn discipline** (below). A boundary whose ready set is empty launches the reviewer
    bundle alone.
 
-**The review gate.** After the guard passes a task's commit, `flow-guard close-task` judges that commit's
-gate through `flow-guard check-review-gate`:
-
-```bash
-flow-guard check-review-gate <worktree> <task-id> <task-sha|map> <canonical-worktree> <name> [<refused-path>…]
-```
-
-**The gate fires when the commit changes more than 40 lines, or touches any path outside
-the task's `**Files:**`**; the
-script's header (`<agents repo>/scripts/flow-guard check-review-gate`) is canonical for how both are
-counted. It prints `FIRE: task <id> — …` or `QUIET: task <id> — …` and exits 0; **exit 2 — it
-could not judge — stops the run**, as the guard's own exit 2 does.
-
-**The guard's pass ticks an ungated task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
-once `flow-guard close-task`'s checks pass on its commit and the gate does not fire — no reviewer
-runs on that task; the whole-branch panel (`skills/flow/review-panel.md`) is still this branch's
-review. **On `big`, a gated task's tick defers until its reviewer closes clean**; on `micro`,
-`small` and `regular` it ticks at the guard's pass too, with the panel as its review (**The gated
-per-task reviewer**, below). A fired task `flow-guard close-task` reports as `close-task: task <id> tick
-waits — decision class unreadable` is ticked by the parent with `flow tasks tick` once `flow record
-decisions` reads a class other than `big`. A step's checkbox tracks
+**The guard's pass ticks the task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
+once `flow-guard close-task`'s checks pass on its commit. A step's checkbox tracks
 the step and gates nothing.
 
 **The record carries its own corrections.** When a measurement or a commit disproves what a task
@@ -766,7 +665,7 @@ paths the commit really needed — never left to
 disagree silently with what the run did. The implementer never edits `<project>/spectre/changes/`
 (FLOW — COMMIT-PER-TASK, `skills/flow/implementer-brief.md`): it discloses each correction as a
 `correction:` line of its summary head, the exact field and its corrected value, and the parent transcribes it into the record before the guard runs
-on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is
+on the commit. A `**Files:**` widening is
 transcribed with `flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing with
 `flow tasks files -C <worktree> <change> <id> remove <path>…`, never with a hand `sed` over
 `tasks.md`. This is expected practice on every task, not one implementer's habit.
@@ -777,7 +676,7 @@ the plan did not name — the parent appends a paragraph opening `Correction (YY
 that task's entry in `tasks.md`, at the task-close boundary where the task's other corrections
 are transcribed (before the guard runs on the commit), stating what the plan declared, what
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
-reports the deviation, the parent transcribes it; inline, the session is both halves. A `design.md` statement the plan or a task's commit is found to
+reports the deviation, the parent transcribes it. A `design.md` statement the plan or a task's commit is found to
 contradict is corrected in place in the same transcription, never recorded as left.
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
@@ -803,16 +702,13 @@ outside a fix run's, which re-decides on its own — the parent re-runs **Decide
 (`skills/flow/brainstorm-planner.md`) and records the new row as **The appended plan is re-decided
 before load-context.** (`skills/flow/document-fix.md`) does — its own `flow.decide` begin/record/end
 block, opened and closed while `flow.sdd-tdd` stays open — before the added task is implemented. The
-tasks still to run follow the new row's groups and panel roster, never the first
+tasks still to run follow the new row's groups and panel, never the first
 row's.
 
-**The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
-code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
+**The gated per-task reviewer.** One combined review per task — spec compliance and
+code quality together — but **one dispatch per implementer group, never one per task**,
 the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
-**The gated reviewer runs on `big` alone.** On `micro`, `small` and `regular` no gated reviewer
-dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
-(the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
-**The bundle is the implementer group**: at a boundary, every task of the returned group whose gate fired
+**The bundle is the implementer group**: at a boundary, every task of the returned group
 goes out in one reviewer Agent call beside the implementers the boundary launches, on the
 `gated-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
 line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
@@ -825,27 +721,25 @@ file. Record the bundle as one `dispatches` row (`-role reviewer`, `-key task-<n
 with the task ids `+`-joined in plan order, the same convention as `panel-<round>-<slot|slot+slot+slot>`;
 `-task <n>` only on a one-task bundle, omitted otherwise) and close it with **`-outcome clean`
 when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's own verdict is
-its report file's `## Verdict`, so per-task review yield stays measurable against the gate.
+its report file's `## Verdict`, so per-task review yield stays measurable.
 The reviewer writes every finding its passes raise to the bundle's findings file,
 `<abs-worktree>/.superpowers/sdd/findings-gated-<n+n+n>.jsonl`, one line per finding and no ref
 (`skills/flow/gated-reviewer-brief.md`), and the parent records them all in one call,
 `flow record finding -change <name> -slot gated-reviewer -round 0 -dispatch-seq <the bundle's seq>
 -status open -reproducer 'none — gated per-task review; its report file holds the evidence' -from
 <that file>`, which gives each line the change's next free ref, so the run's Findings count holds
-what the gate caught; the panel's guards and its rendered record skip `gated-reviewer` rows.
+what the gated reviewer caught; the panel's guards and its rendered record skip `gated-reviewer` rows.
 **A returning bundle is one Bash call**, its verdicts read from its final message — one line per
 pass — never its report bodies: `flow-guard check-tree-markers verify` first, then the record's end,
 which runs the plan-tree verify itself (**The plan tree survives every reviewer dispatch**, below),
-then, on both exit 0, the findings call above and `flow tasks tick` for every clean task — riding the
+then, on both exit 0, the findings call above — riding the
 boundary call above when the next group's implementer returns in the same wake.
 A gated bundle's `verify` appends the `**Files:**` paths of the implementer group dispatched beside it, `flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file> <path>…`, so that group's uncommitted edits are not read as the reviewer's; every other bracket passes none.
-**A pass whose findings are all Minor is `clean`** — no re-review; its task ticks in the call
-that closes the record, and its Minors stay open findings for the stage-end fixer
+**A pass whose findings are all Minor is `clean`** — no re-review; its Minors stay open findings for the stage-end fixer
 (`skills/flow/gated-review-fix.md`). A Minor no change to the tree can resolve is named,
 one clause, in the parent's output, and recorded `withdrawn <that clause>`. A `fix` pass
-sends its Minors to the same fixer. **A mixed-verdict bundle is handled per task**: every clean task is ticked in the same call that
-closes the record, and every `fix` task waits, unticked, for the stage-end fix path on its own
-sha, independently of its bundle-mates.
+sends its Minors to the same fixer. **A mixed-verdict bundle is handled per task**: every `fix` task waits for the stage-end fix path
+on its own sha, independently of its bundle-mates.
 
 **Load `skills/flow/gated-review-fix.md` only when**, once the last group's guard has passed and
 every gated bundle has returned, a gated pass closed `fix` or left a Minor open — it carries the stage-end fix path.
@@ -868,7 +762,7 @@ fields:
 
 **Every gated reviewer bundle's prompt is a stub too; its brief is
 `skills/flow/gated-reviewer-brief.md`**, read in full first. The prompt is these lines, in this order,
-then one `PASS task-<n>` block per gate-fired task in plan order, each carrying its three Scope
+then one `PASS task-<n>` block per task of the group in plan order, each carrying its three Scope
 values and its own REPORT FILE line:
 
 ```text
@@ -941,8 +835,7 @@ read afterwards — and launches that do not depend on one another share one mes
 `flow stage begin` rides its first command and its `flow stage end` its last, in the same Bash
 call. **A wait on a child is the end of the turn, never a call:** every child goes out with
 `run_in_background: true`, the parent ends its turn once the launch message is sent, and the
-harness's completion notification wakes it, carrying the child's final message —
-`hooks/flow-stop-guard.py` lets a turn end while a launched agent has not notified. While any child
+harness's completion notification wakes it, carrying the child's final message. While any child
 is out and no shorter timer is armed — a slot's ceiling (**No forking, and a wall-clock ceiling on
 every slot**, `skills/flow/review-panel.md`) is one — one background `sleep 3000`, launched with
 `run_in_background: true` beside the launches, wakes the parent before its one-hour prompt cache
@@ -993,7 +886,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
   — and `document-fix.md`, `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`,
   `implementer-brief.md`, `review-panel-late-fix.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
-  `review-panel-experimental-slot.md`, `visual-verify.md` and `visual-verify-tooling-analysis.md` when their load directive or stage loads them — are each read in full
+  `visual-verify.md` and `visual-verify-tooling-analysis.md` when their load directive or stage loads them — are each read in full
   once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;
@@ -1017,28 +910,6 @@ On BLOCKED: pause and report. Never guess. A question the report carries that ta
 recommended option is not a guess: **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`)
 takes it, and only a question with none pauses the run.
 
-**Before closing the stage**, the parent runs this guard:
-
-```bash
-flow-guard check-task-reviewer-single-dispatch <worktree> <change> <session-token>
-```
-
-— the token this run stamped on its own dispatches, `<worktree>` the canonical one. Exit 0
-proceeds to the stage close below. Exit 1 names every violation of the gated-
-per-task-reviewer bundling contract above — a bundle carrying more than one non-retry dispatch, a
-retry with no original, a key outside the canonical shape, two gate-fired tasks of the same
-implementer group split across separate reviewer bundles, or (on `micro`/`small`/`regular`) any
-gated reviewer row at all — and is a prompt, resolved on its recommended **Continue** per
-**Auto-resolution** (`skills/flow-contracts/operator-prompts.md`), the same shape
-`skills/flow/review-panel.md`'s own `flow-guard check-panel-fix-single-dispatch` handback carries:
-
-> **The gated per-task reviewer broke the bundled-dispatch shape:** <the guard's violation lines>
-> - **Continue — the violation stays recorded in this run's output** *(default, recommended)* —
->   the tasks may already be reviewed clean, and the work is real
-> - **Stop the run**
-
-Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
-
 ```bash
 flow stage end -command '/flow' -stage flow.sdd-tdd -outcome completed <name>
 ```
@@ -1047,7 +918,7 @@ Once this stage completes, continue into `skills/flow/review-panel.md`.
 
 ### Every fix is a fresh one-shot
 
-**Under `sdd` the parent edits no code.** Whatever a task's close, a wave's pick, a gated pass or
+**The parent edits no code.** Whatever a task's close, a wave's pick, a gated pass or
 the test list still needs changed in the tree goes to a fresh one-shot dispatch — never the
 parent, never a resumed child save an immediate send-back `flow-guard resume-or-fresh` answered
 `resume` for (**Every dispatch is one-shot**, above) — on its row below. Its prompt is the implementer stub (section
@@ -1071,10 +942,7 @@ Every row is `-role implementer`, its prompt's `Role:` line `implementer`, recor
 dispatch begin` and `end` as a group's implementer is — its `-model` and `-effort` the pair the
 table names, the end's `-commit` its last commit — and launched with `run_in_background: true` like
 every child. `<k>` counts that key's fixes from 1. A fixer is a mutator: it goes out only while no
-implementer writes its worktree. `flow record dispatch begin` refuses an `implementer` or
-`panel-fix` row begun `-agent-id inline` on a `task-*`, `full-suite-fix-*` or `panel-fix-*` key
-under an `sdd` decision, a back-fill included (exit 2), so the record never carries the parent's own fix under `sdd`.
-
+implementer writes its worktree. 
 **The parent keeps every judgement**, and delegates none: whether a correction or an undeclared
 path is legitimate — an undeclared path transcribed with `flow tasks files` is a plan edit, never a
 fix; whether a finding stands, or is withdrawn with its one clause; a BLOCKED report or a question,
@@ -1082,13 +950,10 @@ per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`); a pivot a
 re-decision; every `flow record finding`, `status` and `incident` call; and whether a fixer or a
 re-review goes out. No child dispatches, waits on or resumes another.
 
-Under `inline` the parent applies each of these fixes itself (**Inline — the parent implements**,
-above).
-
 ### One stack for the verification tasks
 
 **Before the first task whose `**Files:**` only add end-to-end specs, fidelity captures or their
-baselines goes out** — dispatched under `sdd`, or started by the parent on an `inline` run — the
+baselines goes out**, the
 parent starts the canonical worktree's stack once, by the start rule of **Resolve the run
 instructions** (`skills/flow/verify-and-handoff.md`) — its failure, refused-start and
 protected-service handling included — then runs any build the plan's Global Constraints name

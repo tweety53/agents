@@ -68,7 +68,7 @@ every call site of the code the fix replaces and every test exercising it; the a
 `**Files:**` covers each, or the task names why one stays.
 
 **An appended task is implemented and panel-checked exactly as plan-time work — by the full
-decided roster, or by `primary` alone where its delta is a small append.** The operator flag that prompted it is not a verification of its premise: its
+decided panel, or by `primary` alone where its delta is a small append.** The operator flag that prompted it is not a verification of its premise: its
 work lands in the fix run's diff and takes the panel beside every other task's, and the narrow
 late-fix path stays closed to an append (**The late-fix reduction**, `skills/flow/review-panel.md`).
 Its read scope is the since-close delta under **The append scope** or **The small append**
@@ -111,28 +111,10 @@ describe, sync the issue **description** per **Description sync** in Jira integr
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
 ```
 
-**The appended plan is re-decided before load-context.** Appended tasks can move the plan's
-class, and the run executes by the newest decision row, so on every fix run — **Re-plan** and
-**Append anyway** alike — the decision follows the plan here. Run `flow-guard plan-class` over
-the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry in the state file's
-`worktrees` map.
-
-When the `class:` line it prints equals the newest recorded row's `classMechanical`, the row is
-carried: `decision.json` is that row's file with two things rewritten and nothing else
-re-chosen — `groups` from `flow-guard plan-dispatch-bundles` and `flow-guard plan-dispatch-groups`
-over the appended plan (**Decide** step 3, `skills/flow/brainstorm-planner.md`), left `null` where
-the row's `execution` is `inline`; and `visual` raised to `required` when the append can change what a user
-sees, never lowered. **Decide** is not read on this path.
-
-When the printed class differs from the row's `classMechanical`, read **Decide**
-(`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from that
-`flow-guard plan-class` output. Everything Decide outputs is recomputed — `class`, `execution`,
-`groups`, the panel roster (a class move can add or drop slots, and `micro` makes it
-the string `default`) and a free grouping's shape — and the run follows the new row, never the
-first row's panel.
-
-On either path, write the
-decision JSON and print the `## Decision` block, then record the second
+**The appended plan is re-decided before load-context.** The run executes by the newest decision
+row, so on every fix run — **Re-plan** and **Append anyway** alike — the decision follows the
+plan here: run **Decide** (`skills/flow/brainstorm-planner.md`) over the appended `tasks.md`, and
+the run follows the new row, never the first row's panel. Then record the second
 row below. **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
 
 ```bash

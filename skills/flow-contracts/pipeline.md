@@ -27,7 +27,6 @@ A change is always in exactly one of three states, recorded in its state file.
 
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
-/flow  (reachability end)  → FINISHED (withdrawn)     nothing to plan — the operator may withdraw
 /flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
 /flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route — see the finish contract
@@ -45,7 +44,7 @@ command is what carries the change forward.
 |-------|-------|-----------|
 | `STARTED` | The change exists; planning is under way or the plan awaits implementation | you — `/clear`, then `/flow <name>` |
 | `IN_PROGRESS` | The implementation is staged and the stack is running | you — review the diff — the stack is running |
-| `FINISHED` | Dropped, pushed, worktrees removed — or withdrawn: a change abandoned before planning, its worktree and branches deleted and its record's `withdrawn` field set (`state-file.md`) | — |
+| `FINISHED` | Dropped, pushed, worktrees removed | — |
 
 **Reviewing and testing are one gate.** A creating or fix run of `/flow` produces both surfaces in
 the same run, so the human does both at one sitting. There is no state between implementation and
@@ -56,8 +55,8 @@ finishing — integration is not a stage, it is the first half of finishing.
 One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
 one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony
 variant that writes no state file (`/flow-fast`), one conversational session that lands each
-request as it goes and writes no state file (`/flow-interactive`) and two standalone,
-non-pipeline commands (`/flow-settings`, `/flow-self-review`). **No command accepts
+request as it goes and writes no state file (`/flow-interactive`) and one standalone,
+non-pipeline command (`/flow-self-review`). **No command accepts
 a flag**, save one: `--base <branch>` on a run that creates a change — `/flow`, `/flow-plan`,
 `/flow-fast` — names the branch it is cut from and lands on, in place of the one `origin/HEAD`
 points at (`skills/flow/SKILL.md`). The only argument is the optional change name — see **Change name resolution** — or,
@@ -71,8 +70,8 @@ An argument that is none of those is **reported**, not silently ignored.
 
 | Command | Accepts | Ends at |
 |---------|---------|---------|
-| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`); or `FINISHED` (withdrawn) when the reachability check ends the run and the operator answers the withdraw ask |
-| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true` or an open question is left, otherwise continuing into integrate and ending as an integrate run ends; or `FINISHED` (withdrawn) on an explicit withdraw answer at a planless resume (**The withdrawal route**, `skills/flow/withdrawal.md`) |
+| `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`) |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true` or an open question is left, otherwise continuing into integrate and ending as an integrate run ends |
 | `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless `reviewBeforeLanding` is `true` or an open question is left, integrate in the same invocation |
 | *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) — then, unless `reviewBeforeLanding` is `true` or an open question is left, integrate in the same invocation |
 | `/flow` | `IN_PROGRESS`, bare — or the change's name alone (**Change name resolution (all `/flow*` commands)**) | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
@@ -152,11 +151,9 @@ phase — findings recorded and the fix round not yet made, a fix committed and 
 yet launched, a dispatch returned and its result not yet acted on — the next step is taken in the
 same turn, never announced as "next". A turn whose last action is anything other than an operator
 prompt **What still stops** names, a blocked report, or the handoff the state's run ends on is
-this rule broken. The `Stop` hook `hooks/flow-stop-guard.py` refuses such a turn end. Ending on
+this rule broken. Ending on
 "the turn has been long", "each step is a real dispatch or build", "send `/flow` to continue" or
-any status report that offers to continue is this rule broken too, and the hook refuses it again
-however often it recurs, letting an operator stop through only as an `AskUserQuestion` or a
-`## Question` (kan-1099).
+any status report that offers to continue is this rule broken too (kan-1099).
 
 **A wait on background subagents is the one turn end inside a phase.** The parent ends its turn on
 the one-shots it launched, and the harness's completion notifications resume it — never a poll;
@@ -262,8 +259,7 @@ behaviour. For this section alone `<agents repo>` is a repository the run was gi
 
 **Predict the class before any work, from the blast radius — never from a plan.** Count the
 files the fix must touch: the defective file, its test, and every file `grep -rl` finds in
-`<agents repo>` citing the name or section the fix changes. The fix is `big` — `flow-guard plan-class`'s
-own `files>=60` threshold — when that count is 60 or more. A `big` fix is
+`<agents repo>` citing the name or section the fix changes. The fix is `big` when that count is 60 or more. A `big` fix is
 deferred to self-review, and so is one found `big` once under way, which stops there. **Nothing
 else is ever deferred** — not "after the loop", not to the self-review, not to the operator: a
 non-`big` fix lands before the run's final report, and `flow-guard integrate-change commit` stops on a
@@ -362,7 +358,7 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 **Change:** <name>
 **Current state:** <actual> (set by <updatedBy>, <updatedAt>)
 **This command expects:** <expected>
-**Suggested instead:** <what to do instead, e.g. "nothing — the change is dropped (or withdrawn, per the record's `withdrawn` field)">
+**Suggested instead:** <what to do instead, e.g. "nothing — the change is dropped">
 ```
 
 ## Progress visibility
@@ -516,8 +512,7 @@ Next:
   command's fence stays last.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
-  **completed** cleanup — or completed a withdrawal (**The withdrawal route**,
-  `skills/flow/withdrawal.md`) — is terminal and names nothing; a run that stopped on a cleanup
+  **completed** cleanup is terminal and names nothing; a run that stopped on a cleanup
   leftover names itself too, for the same reason: the operator clears what remains and runs it
   again.
 - **A red check is fixed, never handed off.** Every lint, guard, test or build the run executes

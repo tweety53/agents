@@ -1,6 +1,6 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, a one-shot opus dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*)
 license: MIT
 compatibility: Standalone, requires the change's default branch, or its `--base` branch, to be checked out and a context bundle saved in flowd.
@@ -278,7 +278,7 @@ did not solve — the same finding back on the same evidence — never leaves th
 review loop or of the verify loop are answered the same way, by the next re-plan (**Three failed
 rounds**, `skills/flow-contracts/pipeline.md`), its prompt carrying every `review-<r>.md` and
 `verify-<v>.log` of those rounds. Every planning dispatch runs on
-`opus` at effort `low` or `medium` only: no planner here escalates to `flow-planner-high` or `flow-planner-xhigh`. **This session plans,
+the `self-review-plan` role's pair (`pipeline-fix-plan` in a pipeline-fix loop), never an escalation. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
 ticks and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE
 paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) and the TOOLS, FOREGROUND BUILDS and
@@ -332,8 +332,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    plans them all in full as one spectre change, `self-review-<name>`, in that worktree, per
    `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
    `proposal.md`, and `design.md` with `## Context`, `## Decisions` and `## Open questions`) and
-   writing plans (section D — a `tasks.md` in which each finding is carried by exactly one task). `flow-planner-medium`, like the
-   `flow-<effort>` definitions it copies, carries no Skill tool, so the prompt names the path of the installed superpowers plugin's
+   writing plans (section D — a `tasks.md` in which each finding is carried by exactly one task). The `flow-planner-<effort>` agent types, like the
+   `flow-<effort>` definitions they copy, carry no Skill tool, so the prompt names the path of the installed superpowers plugin's
    `skills/brainstorming/SKILL.md` and `skills/writing-plans/SKILL.md` — on Claude Code the
    newest `~/.claude/plugins/cache/*/superpowers/*/skills/<skill>/SKILL.md` — and the planner reads and
    follows each file where those sections invoke its skill. **Every question it meets is

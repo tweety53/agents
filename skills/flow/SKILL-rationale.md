@@ -21,12 +21,6 @@ records.
 > one state file, the same three states, content reorganized by topic rather than by the old
 > start/do/finish boundary (design.md's `flow-rename-content-split`). This file is the router: it
 
-## SKILL.md — Model resolution
-
-> An empty list can never reach this table from `/flow-settings`: `<agents repo>/stats/cmd/flow/settings.go`'s
-> `settings set` reads an empty `-reviewers` as not given, keeping the stored list. The empty-list row exists because this resolver must still define a value for a state the
-> store's schema permits, not because an operator can produce one.
-
 ## SKILL.md — Guardrails
 
 > **Generate this run's session token once, right here, before the first mark any phase file below

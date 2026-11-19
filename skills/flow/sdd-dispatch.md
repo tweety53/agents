@@ -1,27 +1,23 @@
 # Execute — `sdd` dispatch
 
 Loaded during `flow.sdd-tdd` by the load directive of **4. Execute (SDD + TDD)**
-(`skills/flow/implement.md`), only when the recorded decision's `execution` is `sdd`. `<shape>`,
+(`skills/flow/implement.md`). `<shape>`,
 `<changeRoot>`, `<principles-path>` and `<canonical-worktree>` are the values that section defines
-(`skills/flow/implement.md`). An `inline` run never loads this file (**Inline — the parent
-implements**, `skills/flow/implement.md`).
+(`skills/flow/implement.md`).
 
-**Dispatch one implementer per group, not per bundle.** The unit is the recorded decision's
-`groups` entry — `{bundles}`, an array of bundle ids from the same
-`flow-guard plan-dispatch-bundles` output above, its implementer on the `implementer` role's pair; a
-`null` `groups` field, which only inline execution ever records, never reaches this section, since
-inline runs bundles in plan order with no implementer dispatch at all. A group's implementer works
-its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer.
-`flow-guard plan-dispatch-groups` caps a group at weight 3 — a `**Size:** big` task weighs 3, every other task 1 — so an implementer receives a `big` task alone or at most three others.
-`flow record dispatch begin` refuses a live `task-<ids>-implementer` row whose `+`-joined ids are not one group's tasks, which `flow record decision` resolves from each group's `bundles` when it records the decision.
+**Dispatch one implementer per group.** The unit is the recorded decision's
+`groups` entry — its `tasks` (`skills/flow/decider-prompt.md` is canonical for how they are
+grouped), its implementer on the `implementer` role's pair. A group's implementer works
+its tasks in plan order, one commit per task, carrying that task's own `Task-Id:` trailer.
+`flow record dispatch begin` refuses a live `task-<ids>-implementer` row whose `+`-joined ids are not one group's tasks.
 
 **Waves — concurrent dispatch of ready groups.** `flow-guard ready-groups <changeRoot>/tasks.md <canonical-worktree> <name>` prints the groups
 to launch now, one `launch <g>: <ids> <repository> direct|throwaway` line each, and the
 parent launches exactly those — at the stage's first dispatch and at every group boundary
 (`skills/flow/implement.md`), never the next group in plan order. A group is ready when every
-id in the union of its bundles' `after <k>:` lines **that is not itself a task of one of the
-group's own bundles** has landed — committed and guard-passed, by direct commit or pick.
-**At most three implementer dispatches are in flight**, on every `sdd` decision, and a
+task its tasks build on **that is not itself a task of the group** has landed — committed and
+guard-passed, by direct commit or pick (the guard's header is canonical).
+**At most three implementer dispatches are in flight**, and a
 repository launches its next groups only once none of its groups is in flight. A `direct`
 group — the only one launching in its repository — dispatches into that repository's
 canonical worktree and commits directly; `throwaway` groups — two or three of one repository
@@ -31,7 +27,7 @@ running the project's resolved `## worktree setup` command once before its imple
 dispatches. Every printed group launches in one message, whatever its repository. Exit 1 —
 no group can launch while one is unlanded — is a plan defect, reported with the lines it
 printed; exit 2 stops the run. `flow-guard throwaway-worktree create` exit 2 means a step failed, named on stderr, and
-nothing is dispatched into that copy. A group never spans two repositories: `flow-guard plan-dispatch-groups` keeps tasks under different `## <repository>` headings — a heading naming a repository `<project>/.flow/project.md`'s `## apps` declares (**Sort a multi-repository plan's tasks under `## <repository>` headings.**, `skills/flow/brainstorm-planner.md`) — in different groups, so each group's worktree is its repository's.
+nothing is dispatched into that copy. A group never spans two repositories (`skills/flow/decider-prompt.md`), so each group's worktree is its repository's.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its repository's wave is picked. The same
@@ -46,15 +42,8 @@ members, queued groups and already-ready later waves are unaffected. A copy is r
 `flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g> --fold-back`, which first copies the group's context bundle and implementer reports back into `<worktree>` for its gated review — its own Bash call with literal absolute paths, never chained into a compound command, which the harness's rm safety check refuses. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
-**Map every group to its tasks once, before the first group goes out.** Run
-`flow-guard plan-group-tasks <changeRoot>/tasks.md <abs-worktree>/.superpowers/sdd/decision.json` right
-after the `flow-guard plan-dispatch-bundles` run (`skills/flow/implement.md`), while no task is
-ticked yet and the decision's bundle ids still number the plan's open tasks. It prints one
-`tasks <g>: <id>,<id>…` line per recorded group — the task ids its `bundles` name — and exits 2 on
-a bundle id the plan does not carry.
-
 **Gather one context bundle per group, immediately before that group's implementer goes out.**
-Take `<g>` and the ids its `tasks <g>:` line printed, verbatim:
+Take `<g>` and the group's `tasks`, verbatim:
 
 ```bash
 mkdir -p <worktree>/.superpowers/sdd

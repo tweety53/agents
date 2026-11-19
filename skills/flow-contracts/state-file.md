@@ -70,8 +70,8 @@ reaches the network.
 }
 ```
 
-This is the whole wire shape `state get` prints and `state set` reads (`withdrawn` and `reviewBeforeLanding`
-are omitted when `false`) — the same shape the on-disk
+This is the whole wire shape `state get` prints and `state set` reads (`reviewBeforeLanding`
+is omitted when `false`) — the same shape the on-disk
 fallback file and each journal entry's payload carry, unchanged, so replay needs no translation
 step.
 
@@ -139,20 +139,12 @@ field is how it gets erased.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`
   that a fix must be committed and pushed rather than merely staged.
-- `withdrawn` — the withdrawal marker: `true` on a record the withdrawal route terminated — a
-  change abandoned before planning, closed `FINISHED` (**The withdrawal
-  route**, `skills/flow/withdrawal.md`). Absent or `false` on every record any other route wrote,
-  and refused by the store paired with any state other than `FINISHED`
-  (`store.ErrInvalidState`). The CLI carries the field byte-transparently — `state set` validates
-  the object and the worktree values and forwards the body — so no CLI change writes it; `state
-  get` prints it as stored.
 - `reviewBeforeLanding` — `true` keeps a run that writes `IN_PROGRESS` at its review handoff;
   absent or `false`, the default, lets that run, unless it leaves an open question, continue straight into integrate in the same
   invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`). Written by any `/flow`
   run of the change the moment the operator asks to review before landing, or to land without
   review (**Review-before-landing instruction**, `skills/flow/SKILL.md`); every other write
-  **carries it forward verbatim**. The CLI carries the field byte-transparently, as it does
-  `withdrawn`.
+  **carries it forward verbatim**. The CLI carries the field byte-transparently.
 - `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `flow state set`
   stamps it on every write from its own clock, at full precision, overwriting whatever value the
   payload carried. The stamped instant is the one the store row, the on-disk fallback file and the

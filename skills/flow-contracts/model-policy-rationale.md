@@ -67,7 +67,7 @@ answerable afterwards. An after-the-fact audit of which model implemented which 
 reads the store rather than a transcript nobody kept.
 
 Every panel slot is a prompt-driven role, with no agent
-definition of its own (**The roster**, `skills/flow/review-panel.md`) — and no
+definition of its own (**The panel**, `skills/flow/review-panel.md`) — and no
 exception from either mechanism.
 
 Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A

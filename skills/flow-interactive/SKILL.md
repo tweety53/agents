@@ -82,7 +82,7 @@ by that directory, and it holds the session's edit scripts. The main checkout is
 
 **Hook registrations.** Grep the harness's hook config for every identifier `<agents repo>/setup.sh`'s
 `warn_unregistered_hook` checks for that harness (on Claude Code: `enforce-agent-baseline`,
-`enforce-loop-dispatch`, `flow-active-change`, `flow-session-activity`, `flow-stop-guard`, `await-own-agents`,
+`enforce-loop-dispatch`, `flow-active-change`, `flow-session-activity`, `await-own-agents`,
 `protect-main-checkout` in `~/.claude/settings.json`). Any missing gets one line naming them and
 `<agents repo>/setup.sh global`, which prints each registration snippet. Never edit that file, ask
 nothing about it, and continue.
@@ -139,8 +139,7 @@ flow stage end   -command '/flow-interactive' -stage flow.brainstorm -outcome co
 for each behaviour change; edits through the Edit tool, or a script written to `<changeRoot>` and
 run by path that asserts each anchor matched exactly once; never a symlinked build input (`make -s
 web-dist` runs `npm ci` itself); commit with the module as scope, no trailer; push the branch —
-otherwise as section 4 of `/flow-fast` commits (`skills/flow-fast/SKILL.md`). No learning note is
-composed.
+otherwise as section 4 of `/flow-fast` commits (`skills/flow-fast/SKILL.md`).
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -harness <harness> -session-token mf-<literal-token> <name>
@@ -204,8 +203,7 @@ flow record request end -change <name> -n <n> -outcome answered
 flow record request end -change <name> -n <n> -outcome dropped
 ```
 
-`landed` runs the **Request-end guard**, below. Then a short report carrying neither
-`**Learning:**` nor `**Prompt tuning:**`.
+`landed` runs the **Request-end guard**, below. Then a short report.
 
 A resumed request whose base was never noted passes the parent of its earliest commit found on
 `origin/<base>`, or any older ancestor: a wider range can only demand a UI check, never skip one.
@@ -230,8 +228,7 @@ flow record dispatch begin -change <name> -role implementer -model <model> -effo
 The Agent call's `description` opens with `operator-<k>`, its prompt carries `Role:
 operator-asked` and the baseline pointer, and its `subagent_type` / `model` is a pair the
 `operator-asked` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`) admits; an effort
-the operator names above the agent type's own (xhigh, max) rides on the Agent call's `effort`, on
-`flow-high`. The agent works in the session's
+the operator names above the agent type's own (xhigh, max) rides on the Agent call's `effort`. The agent works in the session's
 worktree, commits on `<name>` and never pushes; the request lands its commits through steps 4–8
 as any other. Its report is relayed, not re-told.
 
@@ -304,9 +301,6 @@ as a request and the session stays open, saying so in one line. Stop:
    ```bash
    flow stage mark  -command '/flow-interactive' -stages flow.write-finished -harness <harness> <name>
    ```
-
-7. The stop report carries `**Learning:** NONE — /flow-interactive composes no note` and the
-   `**Prompt tuning:**` line the self-review pass leaves.
 
 ## Resume
 

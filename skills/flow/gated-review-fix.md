@@ -8,8 +8,7 @@ passed and every gated bundle has returned, a gated pass closed `fix` or left a 
 and never a resumed implementer: once the last group's guard has passed and every gated bundle
 has returned, the `fix` reports and the Minors a gated pass left open are split, in plan
 order, into groups of whole tasks of one repository, each of at most weight 3 — a
-`**Size:** big` task weighs 3, every other task 1, the cap `flow-guard plan-dispatch-groups`
-puts on an implementer group — and one fresh dispatch per group carries its tasks' reports and
+`**Size:** big` task weighs 3, every other task 1 — and one fresh dispatch per group carries its tasks' reports and
 Minors. Fixers of one worktree run in series, each launched once the previous one's return has
 run; fixers of different worktrees run at once. `flow record dispatch begin` refuses a fixer
 key naming more than three tasks — the gated row of **Every fix is a
@@ -37,7 +36,7 @@ for one task — so the `flow-task-list` mod shows its row as a re-review. It ca
 the task back through this file's fix path.
 
 A clean re-review pass closes each finding its task's earlier pass raised, `flow record status
--change <name> -ref F<n> -status fixed`, and ticks its task; a finding a re-review pass raises is
+-change <name> -ref F<n> -status fixed`; a finding a re-review pass raises is
 recorded as "The gated per-task reviewer" (`skills/flow/implement.md`) records a first pass's, and
 a `fix` sends its task through this file again under the next `<k>`. A fourth `<k>` after three
 failed re-reviews of one task is the fresh dispatch of **Three failed rounds**
