@@ -59,8 +59,8 @@ is canonical for what dispatching it means):
 | Reachable, list empty | `primary` alone |
 | Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value |
 
-**Every dispatch runs on its role's first base pair** from `flow policy get` — **Model and
-effort** (`skills/flow/brainstorm-planner.md`) is canonical.
+**Every dispatch runs on its role's pair, picked by `flow-guard pair-judge` at dispatch time** —
+**Model and effort** (`skills/flow/brainstorm-planner.md`) is canonical.
 
 **A plain-language session instruction overrides the pair(s) it names for this run only** —
 "use opus for the panel", "implement on sonnet" — per **Model policy**

@@ -819,6 +819,7 @@ var GuardHelpers = []string{
 	"load-sets",
 	"measure-visual-properties",
 	"migrate-worktrees",
+	"pair-judge",
 	"panel-round-begins",
 	"pipeline-fix",
 	"plan-class",

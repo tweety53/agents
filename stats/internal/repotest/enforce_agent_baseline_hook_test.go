@@ -692,3 +692,39 @@ func TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree(t *testing.T)
 		})
 	}
 }
+
+// TestEnforceAgentBaselineHookRecordsThePairPick pins pair-pick-file: the begin the hook writes
+// carries the `<source>: <reason>` of the .pick line flow-guard pair-judge saved for the key, and
+// an undecodable .pick is read as no pick while the row is still begun.
+func TestEnforceAgentBaselineHookRecordsThePairPick(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct {
+		name, pick, want string
+	}{
+		{"judged", "opus low judge cheap fix\n", " -pair-pick judge: cheap fix"},
+		{"undecodable", "\xff\xfe\n", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			main, wt := beginRepo(t)
+			dir := filepath.Join(wt, ".superpowers", "sdd", "pair-judge")
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "panel-fix-2.pick"), []byte(c.pick), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			env, log := beginEnv(t, `[]`, 0)
+			if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), env...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			begins := flowCalls(t, log, "record dispatch begin")
+			if len(begins) != 1 {
+				t.Fatalf("begins = %q, want one", begins)
+			}
+			if got := strings.Contains(begins[0], "-pair-pick"); got != (c.want != "") || (c.want != "" && !strings.HasSuffix(begins[0], c.want)) {
+				t.Errorf("begin = %q, want suffix %q", begins[0], c.want)
+			}
+		})
+	}
+}

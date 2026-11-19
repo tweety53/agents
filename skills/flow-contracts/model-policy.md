@@ -12,9 +12,10 @@ The reasoning behind this file lives in `skills/flow-contracts/model-policy-rati
 
 ## Model policy
 
-**Every dispatch runs on its role's pair, never on a judged or recorded one**: the role's first
-pair in `flow experiment overrides` when an open experiment names the role, else its first `base`
-pair in `flow policy get` (**Model and effort**, `skills/flow/brainstorm-planner.md`). The parent
+**Every dispatch runs on its role's pair**: the pair `flow-guard pair-judge` picks from the role's
+allowed pairs at dispatch time, or, for a role the judge does not cover, the role's first pair
+(**Model and effort**, `skills/flow/brainstorm-planner.md`). Nothing records a pair ahead of the
+dispatch. The parent
 session runs on the harness's own model for the whole of `/flow`. This **explicitly overrides**
 superpowers:subagent-driven-development's model guidance, its final review on the most capable
 model and its model escalation in fix rounds 4–5.
@@ -125,11 +126,17 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | `pipeline-fix-review-1` | First review of the tooling fix. |
 | `pipeline-fix-review-r` | Re-review once that fix is corrected. |
 
+### Pair choice
+
+| Role | Does |
+|---|---|
+| `pair-judge` | Picks each dispatch's model and effort from its role's allowed pairs. |
+
 ## Experiments
 
 **An open experiment overrides roles' base pairs.** `flow experiment open -name <n>
 -cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, `flow experiment overrides` prints its pairs, which replace
-that role's base pairs, and marked and opt-in pairs are never overridden. One
+that role's base pairs for the pair judge and every other reader, and marked and opt-in pairs are never overridden. One
 experiment may carry several roles; a role is in at most one open experiment. Role `main` names
 the parent session's `<model>@<effort>`; only matching runs count in its after figures. flowd unreachable → no
 experiment applies. **Make permanent** (`POST /api/v1/experiments/{id}/promote`, the Experiments

@@ -410,13 +410,22 @@ render again.
 
 #### Model and effort
 
-**Every dispatch runs on its role's first base pair**, read from:
+**A dispatch's pair is picked by the pair judge**, at dispatch time: write the dispatch's prompt
+to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, `<key>` the dispatch's key or, for an
+Explore or Plan agent, `explore-<n>` / `design-<n>`, then
 
 ```bash
-flow policy get
+flow-guard pair-judge <role> <abs-worktree>/.superpowers/sdd/pair-judge/<key>.md [-opus-only]
 ```
 
-— the role's `base` list, its first entry. A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
+It prints one line, `<model> <effort> <judge|fallback|single> <reason>`, and saves it beside the
+prompt as `<key>.pick`, which the dispatch hook records with the row. `-opus-only` marks a hard
+seam — concurrency, platform interop, a data-model change, performance-sensitive code. A judge
+that cannot answer never blocks: it prints the role's first candidate with source `fallback`. A
+role the judge does not cover (it exits 2) runs on its first pair in `flow experiment overrides`
+when an open experiment names it, else its first `base` pair in `flow policy get`.
+
+A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
 `opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. A dispatch outside every
 role runs on `opus` or `sonnet`. A plain-language session instruction overrides the pair it names

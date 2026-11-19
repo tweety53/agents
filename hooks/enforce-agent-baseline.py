@@ -293,11 +293,25 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
     if single:
         args += ["-task", single.group(1)]
     args += ["-key", key, "-session-token", token]
+    pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
+    if pick:
+        args += ["-pair-pick", pick]
     snapshot = None
     if GATED_REVIEWER_KEY.match(key):
         snapshot = [*PLAN_SNAPSHOT, "snapshot", worktree, change,
                     os.path.join(worktree, ".superpowers", "sdd", f"plan-snapshot-{key}.txt")]
     return [snapshot, args]
+
+
+def read_pick(path: str) -> "str | None":
+    """The `<source>: <reason>` of the `<model> <effort> <source> <reason…>` line flow-guard
+    pair-judge saved, or None when the file is absent or its first line does not parse."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            fields = f.readline().split(maxsplit=3)
+    except (OSError, ValueError):
+        return None
+    return f"{fields[2]}: {fields[3].strip()}" if len(fields) == 4 else None
 
 
 def write_begin(begin: list) -> None:
