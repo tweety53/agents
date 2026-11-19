@@ -76,18 +76,18 @@ func TestFlowActiveChangeHook(t *testing.T) {
 		out, errOut, rc := runHook(t, "flow-active-change.py", []byte(stdin), "FLOW_ADDR="+addr)
 		return strings.TrimRight(out+errOut, "\n"), rc
 	}
-	// rollout is a payload naming a rollout transcript under a temp dir.
-	rollout := func(t *testing.T, extra string) string {
-		return fmt.Sprintf(`{"prompt":%s"transcript_path":"%s/model-io-sess_abc.jsonl"}`, extra, t.TempDir())
+	// transcript is a payload naming a transcript under a temp dir.
+	transcript := func(t *testing.T, extra string) string {
+		return fmt.Sprintf(`{"prompt":%s"transcript_path":"%s/abc.jsonl"}`, extra, t.TempDir())
 	}
 	case1 := func(t *testing.T) (string, int, *stageStore) {
 		s := newStageStore(t, 200, stageBody(1, stageRow("fixture-one")))
-		out, rc := run(t, s.addr, rollout(t, `"the button is misaligned",`))
+		out, rc := run(t, s.addr, transcript(t, `"the button is misaligned",`))
 		return out, rc, s
 	}
 	case2 := func(t *testing.T) (string, int) {
 		s := newStageStore(t, 200, stageBody(2, stageRow("fixture-two"), stageRow("fixture-one")))
-		return run(t, s.addr, rollout(t, `"still broken","session_id":"abc",`))
+		return run(t, s.addr, transcript(t, `"still broken","session_id":"abc",`))
 	}
 	case4 := func(t *testing.T) (string, int, *stageStore) {
 		s := newStageStore(t, 200, stageBody(1, stageRow("fixture-one")))
@@ -123,14 +123,14 @@ func TestFlowActiveChangeHook(t *testing.T) {
 		fn   func(t *testing.T)
 	}{
 		// Case 1: the store holds the session's /flow mark — the context line names its
-		// change, and the query filters by the session id derived from the rollout
+		// change, and the query filters by the session id derived from the
 		// transcript's filename, newest mark of any command first, one row.
 		{"case 1: exit 0", func(t *testing.T) { out, rc, _ := case1(t); exit0(t, out, rc) }},
 		{"case 1: context line names fixture-one", func(t *testing.T) {
 			out, _, _ := case1(t)
 			has(t, "out", out, "marked change fixture-one")
 		}},
-		{"case 1: session_id derived from the rollout filename", func(t *testing.T) {
+		{"case 1: session_id derived from the transcript filename", func(t *testing.T) {
 			_, _, s := case1(t)
 			has(t, "query", s.last(), "session_id=abc")
 		}},

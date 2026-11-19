@@ -24,18 +24,12 @@ this hook exists to avoid.
 
 import json
 import os
-import re
 import sys
 from typing import Optional
 from urllib import parse, request
 
 DEFAULT_STORE_ADDR = "http://127.0.0.1:4173"
 STORE_TIMEOUT_SECONDS = 2
-
-# A zcode rollout transcript is named model-io-sess_<id>.jsonl; a claude-code
-# transcript is named after the bare session id. Either way the id survives
-# as the basename minus the model-io-sess_ prefix and the .jsonl suffix.
-ROLLOUT_NAME_RE = re.compile(r"^model-io-sess_(.+)\.jsonl$")
 
 # A pipeline-fix or self-review loop's own change: its stage runs carry the parent's session id.
 LOOP_CHANGE_PREFIXES = ("pipeline-fix-", "self-review-")
@@ -48,11 +42,8 @@ def resolve_session_id(payload: dict) -> Optional[str]:
 
     transcript_path = payload.get("transcript_path")
     if isinstance(transcript_path, str) and transcript_path:
-        basename = os.path.basename(transcript_path)
-        m = ROLLOUT_NAME_RE.match(basename)
-        if m:
-            return m.group(1)
-        stem, ext = os.path.splitext(basename)
+        # A claude-code transcript is named after the bare session id.
+        stem, ext = os.path.splitext(os.path.basename(transcript_path))
         if stem and ext == ".jsonl":
             return stem
 
