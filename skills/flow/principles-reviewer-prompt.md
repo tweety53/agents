@@ -21,11 +21,7 @@
     **Project standards:** [STANDARDS_PATHS]
     **Global constraints:** [GLOBAL_CONSTRAINTS]
 
-    Read the principles FIRST: the context bundle your prompt names carries the
-    principles file whole, under a section headed with the Principles path above —
-    read it there and never re-open that file. Open the Principles path itself only
-    when your prompt names the bundle as absent or the bundle's census lists that
-    path as skipped. Then read the project standards files, then the diff, then do the required step below. Grep the touched files to confirm each suspected violation before
+    Read the principles FIRST. Then read the project standards files, then the diff, then do the required step below. Grep the touched files to confirm each suspected violation before
     reporting it — a diff hunk alone rarely proves a structural claim.
 
     **Stored state that summarises other state — a required step, done before anything else:**
@@ -140,10 +136,8 @@
     #### Minor (Nice to Have)
 
     For each issue: File:line, the principle name or the rule it violates (quote or
-    cite it), the concrete fix, and a **reproducer** — a runnable command that
-    demonstrates the violation, or the literal form `none — <reason>` when no such
-    command exists. A command that merely passes against the diff is not a
-    reproducer.
+    cite it), the concrete fix, and a runnable command that
+    demonstrates the violation, where one exists.
 
     ### Assessment
     **Principles-compliant?** [Yes | No | With fixes]
