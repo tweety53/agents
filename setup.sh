@@ -3,13 +3,12 @@
 #
 # Usage: ./setup.sh <harness> [project-dir]
 #
-# Harnesses: claude-code | zcode | muse | global
+# Harnesses: claude-code | global
 #
 # Examples:
 #   ./setup.sh claude-code                    # current directory
-#   ./setup.sh zcode /path/to/other-project
-#   ./setup.sh muse /path/to/other-project
-#   ./setup.sh global                         # user-level install (~/.claude, ~/.zcode)
+#   ./setup.sh claude-code /path/to/other-project
+#   ./setup.sh global                         # user-level install (~/.claude)
 
 set -euo pipefail
 
@@ -32,17 +31,6 @@ CLAUDE_MD_END='<!-- flow:end -->'
 # occurrence and refuses a placeholder it cannot resolve, so a managed block can never name
 # a command the project does not declare.
 LINT_COMMANDS_PLACEHOLDER='{{lint-commands}}'
-
-# ZCODE_COMPACT_WINDOW — the auto-compact window the zcode wrapper is expected to run
-# with, written into the user's shell rc inside a managed block (see install_zcode_env).
-# The wrapper (/usr/local/bin/zcode) reads Z_COMPACT_WINDOW at launch and defaults it to
-# 1000000 — the full declared [1m] context — which is how sessions grew past 300k tokens
-# and re-billed the whole pile on every one of ~1600 requests a day (the wrapper's own
-# 30.08.2026 note: a five-hour limit gone in fourteen minutes). 500000 keeps long
-# sessions workable while capping the per-request re-billing.
-ZCODE_COMPACT_WINDOW=500000
-ZCODE_RC_BEGIN='# flow:zcode-env:begin'
-ZCODE_RC_END='# flow:zcode-env:end'
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 info() { echo "→ $*"; }
@@ -67,7 +55,7 @@ TMP_FILES=()
 cleanup_tmp() { [[ ${#TMP_FILES[@]} -eq 0 ]] || rm -f "${TMP_FILES[@]}"; }
 trap cleanup_tmp EXIT
 
-[[ -n "$HARNESS" ]] || die "Usage: $0 <claude-code|zcode|muse|global> [project-dir]"
+[[ -n "$HARNESS" ]] || die "Usage: $0 <claude-code|global> [project-dir]"
 [[ -d "$SKILLS_SRC" ]] || die "skills/ directory not found at $SKILLS_SRC"
 
 # Count of items that could not be linked. A skip must never be reportable as a
@@ -234,56 +222,6 @@ install_claude_code() {
   echo "   Next: in a Claude Code session, run /plugin install prime-radiant-inc/superpowers"
 }
 
-install_zcode() {
-  local skipped_before=$SKIPPED
-  info "Setting up for ZCode in $PROJECT_DIR"
-  install_skills "$PROJECT_DIR/.zcode/skills"
-  # ZCode's command format is the same .md-plus-frontmatter form Claude Code reads,
-  # so the claude command set is the right source here.
-  install_commands "$COMMANDS_CLAUDE_SRC" "$PROJECT_DIR/.zcode/commands"
-  if [[ ! -f "$PROJECT_DIR/AGENTS.md" ]]; then
-    cp "$SCRIPT_DIR/templates/AGENTS.md" "$PROJECT_DIR/AGENTS.md"
-    info "Copied templates/AGENTS.md to project root"
-  else
-    info "AGENTS.md already exists — skipping copy (diff manually if needed)"
-  fi
-  echo ""
-  finish_banner "ZCode" "$skipped_before"
-  echo "   Skills → .zcode/skills/  Commands → .zcode/commands/"
-  echo "   Always-on rules are NOT installed per project — run './setup.sh global' for those;"
-  echo "   it writes the managed block into ~/.zcode/AGENTS.md, which every ZCode session reads."
-  echo "   Superpowers is not vendored by this repo for any harness. For ZCode, copy its"
-  echo "   skills/ directories into ~/.zcode/skills/ — they are plain skills with no plugin"
-  echo "   machinery of their own."
-}
-
-install_muse() {
-  local skipped_before=$SKIPPED
-  info "Setting up for Muse in $PROJECT_DIR"
-  # Muse's project skill scope is .agents/skills/; it has no commands directory
-  # (skills are the invocable surface), no project agent-definition directory
-  # (dispatches use the harness default type), no hooks surface, and no global
-  # rules file — its rules are project scope only, read from AGENTS.md, which
-  # is why this mode installs skills and that file and nothing else.
-  install_skills "$PROJECT_DIR/.agents/skills"
-  if [[ ! -f "$PROJECT_DIR/AGENTS.md" ]]; then
-    cp "$SCRIPT_DIR/templates/AGENTS.md" "$PROJECT_DIR/AGENTS.md"
-    info "Copied templates/AGENTS.md to project root"
-  else
-    info "AGENTS.md already exists — skipping copy (diff manually if needed)"
-  fi
-  echo ""
-  finish_banner "Muse" "$skipped_before"
-  echo "   Skills → .agents/skills/"
-  echo "   Muse discovers the global flow skills and always-on rules through the Claude Code"
-  echo "   layer — run './setup.sh global' for those; there is no Muse-native global layer"
-  echo "   to install, by the harness's own design."
-  echo "   Superpowers is not vendored by this repo for any harness. For Muse, install its"
-  echo "   skills with 'muse skills install <path>' per skill, or copy them into the"
-  echo "   project's .agents/skills/ — they are plain skills with no plugin machinery"
-  echo "   of their own."
-}
-
 # install_rules_claude <target-dir>
 # Installs the FULL text of every always-on rule as ~/.claude/rules/<name>.md, plus the
 # agent baseline that dispatched subagents read.
@@ -320,68 +258,11 @@ install_rules_claude() {
   fi
 }
 
-# install_hooks <claude-dir>
-# Installs the harness hooks, then reports on the one thing this installer will not do for
-# the user: registering them.
-#
-# settings.json is the user's own file — model, theme, permissions, their own hooks. Editing
-# JSON from bash means either a dependency this script does not have or a hand-rolled parser
-# that eventually eats a config it did not understand. The hook file is installed and the
-# exact snippet is printed instead; registering it is one paste, and it stays the user's call.
-# install_rules_zcode <target-dir>
-# Installs the same full-text rule links as install_rules_claude, but generates
-# agent-baseline.md instead of linking it.
-#
-# The baseline's whole job is paths: its propagation sentences and its table point at
-# `~/.claude/rules/<name>.md`, because Claude Code's global install is where they were
-# written first. ZCode's copies live under ~/.zcode/rules/, and a zcode-dispatched
-# subagent must find them THERE — pointing it at ~/.claude would make one harness's
-# install a dependency of another's, which is exactly the coupling this harness's
-# install must not create. So the baseline is rendered from the same source with the
-# prefix rewritten: generated content, regenerated on every run, no second source to
-# drift. The full-text rule links themselves are the same symlinks as Claude's.
-#
-# A pre-existing agent-baseline.md that does not carry the generation marker is backed
-# up once before the first overwrite, the same promise backup_once makes elsewhere.
-ZCODE_BASELINE_MARKER='<!-- Generated by agents/setup.sh from rules/agent-baseline.md — edit the source, not this file. -->'
-
-install_rules_zcode() {
-  local target_dir="$1" baseline_src="$RULES_SRC/agent-baseline.md" rule_name rule_file
-  [[ -d "$RULES_SRC" ]] || return 0
-  info "Installing full rule texts into $target_dir"
-  mkdir -p "$target_dir"
-  prune_stale_links "$target_dir"
-  while IFS= read -r rule_name; do
-    rule_file="$RULES_SRC/$rule_name"
-    [[ -f "$rule_file" ]] || continue
-    link_into "$rule_file" "$target_dir/${rule_name%.mdc}.md" "${rule_name%.mdc}.md"
-  done < <(always_on_rules)
-  if [[ ! -f "$baseline_src" ]]; then
-    warn "$baseline_src is missing — subagent dispatches point at a file that does not exist"
-    SKIPPED=$((SKIPPED + 1))
-    return 0
-  fi
-  if [[ -f "$target_dir/agent-baseline.md" ]] \
-     && ! grep -qF "$ZCODE_BASELINE_MARKER" "$target_dir/agent-baseline.md"; then
-    backup_once "$target_dir/agent-baseline.md"
-  fi
-  # The rewrite targets `~/.claude/` generally, not just `~/.claude/rules/`: the baseline
-  # also names `~/.claude/hooks/enforce-agent-baseline.py`, and that hook is linked into
-  # ~/.zcode/hooks by install_hooks_zcode. Escaped dots so the sed is a literal prefix
-  # match, not a pattern that would also match `~/xclaude/`.
-  {
-    printf '%s\n' "$ZCODE_BASELINE_MARKER"
-    sed 's|~/\.claude/|~/.zcode/|g' "$baseline_src"
-  } >"$target_dir/agent-baseline.md"
-  echo "  ✓ generated agent-baseline.md (paths rewritten to ~/.zcode)"
-}
-
 # warn_unregistered_hook <config-file> <hook-identifier> <label> [warning-line...]
-# The one per-hook registration check and warning that install_hooks and
-# install_hooks_zcode share: grep <config-file> for <hook-identifier> and, when the
-# hook is not registered — including when the config file does not exist yet — print
-# a blank line, each warning-line, the registration snippet read from stdin, and a
-# closing blank line. A registered hook prints nothing, so a caller whose hooks are
+# The per-hook registration check and warning install_hooks runs: grep <config-file> for
+# <hook-identifier> and, when the hook is not registered — including when the config file
+# does not exist yet — print a blank line, each warning-line, the registration snippet read
+# from stdin, and a closing blank line. A registered hook prints nothing, so a caller whose hooks are
 # all registered needs no early return of its own.
 #
 # `set -e` is on, so grep's normal "no match" (rc 1) must not be allowed to kill the
@@ -432,131 +313,14 @@ PY
   printf '\n'
 }
 
-# install_hooks_zcode <zcode-dir>
-# Same contract as install_hooks: link the hook files, report on registration, never
-# edit the JSON. ZCode's registration target differs from Claude's twice over — it is
-# ~/.zcode/cli/config.json rather than settings.json, and hooks are nested under
-# `hooks.events.<Event>` behind `hooks.enabled: true` — so the printed snippet is
-# ZCode-shaped, not a copy of the Claude one.
-install_hooks_zcode() {
-  local zcode_dir="$1" hooks_src="$SCRIPT_DIR/hooks" hook_file hook_name config
-  [[ -d "$hooks_src" ]] || return 0
-  info "Installing hooks into $zcode_dir/hooks"
-  mkdir -p "$zcode_dir/hooks"
-  prune_stale_links "$zcode_dir/hooks"
-  for hook_file in "$hooks_src"/*; do
-    [[ -f "$hook_file" ]] || continue
-    hook_name=$(basename "$hook_file")
-    link_into "$hook_file" "$zcode_dir/hooks/$hook_name" "$hook_name"
-  done
-  config="$zcode_dir/cli/config.json"
-  warn_unregistered_hook "$config" enforce-agent-baseline agent-baseline \
-    "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces" \
-    "    that subagent dispatches carry the rules. Register it in $config under the" \
-    "    top-level \"hooks\" key (note: enabled must be true, events nested one level down):" <<'SNIPPET'
-
-  {
-    "enabled": true,
-    "events": {
-      "PreToolUse": [
-        { "matcher": "Agent|Task", "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/enforce-agent-baseline.py\"" }
-        ] }
-      ]
-    }
-  }
-SNIPPET
-  warn_unregistered_hook "$config" enforce-loop-dispatch enforce-loop-dispatch \
-    "  ⚠ The enforce-loop-dispatch hook is installed but NOT registered, so nothing yet admits" \
-    "    a pipeline-fix or self-review loop dispatch off its pairs row, or records it. Add" \
-    "    this entry to \"PreToolUse\" under \"hooks\".\"events\" in $config:" <<'SNIPPET'
-
-        { "matcher": "Agent|Task", "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/enforce-loop-dispatch.py\"", "timeout": 300 }
-        ] }
-SNIPPET
-  warn_unregistered_hook "$config" flow-active-change flow-active-change \
-    "  ⚠ The flow-active-change hook is installed but NOT registered, so a plain problem" \
-    "    report is never named as a fix of the open change. Register it in $config under the" \
-    "    top-level \"hooks\" key, beside PreToolUse (enabled must be true, events nested one" \
-    "    level down):" <<'SNIPPET'
-
-  {
-    "enabled": true,
-    "events": {
-      "UserPromptSubmit": [
-        { "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/flow-active-change.py\"" }
-        ] }
-      ]
-    }
-  }
-SNIPPET
-}
-
-# install_zcode_env <home-dir>
-# Writes the zcode wrapper's compact window into the user's shell rc inside a managed
-# block — the same own-your-delimiters discipline as install_managed_block, scaled to a
-# two-line block. The wrapper reads Z_COMPACT_WINDOW from the environment at launch, so
-# the shell rc is the only durable place to set it, and the value is generated content:
-# it is bumped by editing ZCODE_COMPACT_WINDOW here and re-running global, never by
-# hand-editing the block.
+# install_hooks <claude-dir>
+# Installs the harness hooks, then reports on the one thing this installer will not do for
+# the user: registering them.
 #
-# Exactly three outcomes per rc file, mirroring the managed-block contract:
-#   - managed block present → rewrite just that span
-#   - an UNMANAGED `export Z_COMPACT_WINDOW=` line → left strictly alone, warned about.
-#     The user put it there on purpose (the wrapper's own docs suggest exactly that);
-#     this installer overriding it would silently change how their heaviest harness
-#     bills its quota.
-#   - neither → append the block
-#
-# ~/.zshrc is always ensured (created if missing — the zcode wrapper is typically
-# launched from zsh). ~/.bashrc is only touched when it already exists: creating a
-# bash rc on a machine that does not use bash is noise, and the wrapper inherits the
-# launching shell's environment either way.
-install_zcode_env() {
-  local home="$1" rc_file rc_block tmp
-  rc_block="$ZCODE_RC_BEGIN
-# The zcode wrapper (/usr/local/bin/zcode) reads Z_COMPACT_WINDOW at launch and
-# defaults to the full 1M context, which is how one long session re-bills its whole
-# history on every request. Managed by agents/setup.sh: change ZCODE_COMPACT_WINDOW
-# there and re-run './setup.sh global' — do not edit this block.
-export Z_COMPACT_WINDOW=$ZCODE_COMPACT_WINDOW
-$ZCODE_RC_END"
-  for rc_file in "$home/.zshrc" "$home/.bashrc"; do
-    if [[ "$rc_file" == *.zshrc ]]; then
-      [[ -f "$rc_file" ]] || : >"$rc_file"
-    elif [[ ! -f "$rc_file" ]]; then
-      continue
-    fi
-    local rc=0
-    grep -qFx "$ZCODE_RC_BEGIN" "$rc_file" || rc=$?
-    require_grep_ok "$rc" "checking $rc_file for the zcode-env block"
-    if (( rc == 0 )); then
-      # The block is handed to awk as a FILE, not a -v value: an awk -v assignment
-      # cannot carry a literal newline, and the block is seven lines of one.
-      tmp="$(mktemp)"
-      TMP_FILES+=("$tmp")
-      local block_tmp
-      block_tmp="$(mktemp)"
-      TMP_FILES+=("$block_tmp")
-      printf '%s\n' "$rc_block" >"$block_tmp"
-      awk -v b="$ZCODE_RC_BEGIN" -v e="$ZCODE_RC_END" -v blockfile="$block_tmp" '
-        $0 == b { inblk = 1; while ((getline l < blockfile) > 0) print l; next }
-        $0 == e { inblk = 0; next }
-        !inblk  { print }
-      ' "$rc_file" >"$tmp" || die "failed rewriting the zcode-env block in $rc_file"
-      cat "$tmp" >"$rc_file"
-      info "Refreshed the zcode compact-window block in $rc_file"
-    elif grep -q '^[[:space:]]*export Z_COMPACT_WINDOW=' "$rc_file"; then
-      warn "$rc_file sets Z_COMPACT_WINDOW outside the managed block — left as-is (remove the line to let this installer manage it)"
-    else
-      { printf '\n'; printf '%s\n' "$rc_block"; } >>"$rc_file"
-      info "Added the zcode compact-window block to $rc_file (Z_COMPACT_WINDOW=$ZCODE_COMPACT_WINDOW)"
-    fi
-  done
-}
-
+# settings.json is the user's own file — model, theme, permissions, their own hooks. Editing
+# JSON from bash means either a dependency this script does not have or a hand-rolled parser
+# that eventually eats a config it did not understand. The hook file is installed and the
+# exact snippet is printed instead; registering it is one paste, and it stays the user's call.
 install_hooks() {
   local claude_dir="$1" hooks_src="$SCRIPT_DIR/hooks" hook_file hook_name settings
   [[ -d "$hooks_src" ]] || return 0
@@ -658,8 +422,7 @@ install_commands() {
 
 # install_mods <claude-skills-dir>
 # Links each mods/<name>/ — a Claude Code plugin of function hooks — into the user's
-# skills folder, from which Claude Code auto-loads a plugin folder and hot-reloads it on save. Claude Code only:
-# ZCode has no function-hooks surface, so its skills folder never gets one. Runs after
+# skills folder, from which Claude Code auto-loads a plugin folder and hot-reloads it on save. Runs after
 # install_skills on the same folder, whose prune already dropped links to deleted mods.
 install_mods() {
   local target_dir="$1" mod_dir mod_name
@@ -690,13 +453,13 @@ install_agents() {
 #
 # Render rule bodies as the content of the managed block. With no arguments the set is the
 # always-on rules — the global layer. With arguments it is exactly those rules, which is how
-# a project's opted-in standards are rendered into its own CLAUDE.md / AGENTS.md.
+# a project's opted-in standards are rendered into its own CLAUDE.md.
 #
 # One renderer, two callers, deliberately: the delimiter guard below, the frontmatter
 # stripping, and the `<!-- rule: … -->` labelling are the same guarantees in both cases, and
 # a second renderer would be a second place for them to drift out of.
 #
-# This block is the only global rule layer both harnesses read — the rule text is inlined
+# This block is the only global rule layer the harness reads — the rule text is inlined
 # rather than referenced.
 #
 # Rendering refuses to proceed if a rule body contains a delimiter on a line of its own.
@@ -844,7 +607,7 @@ generated_only() {
 
 # preflight_managed_block <file>
 # Refuse, with context, the two shapes that would otherwise surface as a raw tool error from
-# the middle of the run: `mkdir: …/.zcode: File exists` when the parent is a regular file, or
+# the middle of the run: `mkdir: …/.claude: File exists` when the parent is a regular file, or
 # a burst of `grep: … Is a directory` followed by `cp: … is a directory` when the instruction
 # file itself is a directory. Both already failed safe; neither told the user which harness
 # step it was, that earlier steps had already installed, or what to do about it.
@@ -862,17 +625,9 @@ preflight_managed_block() {
 # install_managed_block <target-file> [rule-name…]
 #
 # Rewrite ONLY the delimited block in an agent instruction file — globally
-# (~/.claude/CLAUDE.md for Claude Code, ~/.zcode/AGENTS.md for ZCode) or in a project (<project>/CLAUDE.md and <project>/AGENTS.md, carrying that
-# project's opted-in rules). Trailing arguments are the rule list, forwarded verbatim to
+# (~/.claude/CLAUDE.md) or in a project (<project>/CLAUDE.md, carrying that project's
+# opted-in rules). Trailing arguments are the rule list, forwarded verbatim to
 # render_managed_block; with none, the always-on set is rendered.
-#
-# MANAGED_BLOCK_POSTPROCESS, when set, is a command string (word-split, as in
-# `MANAGED_BLOCK_POSTPROCESS='sed s|a|b|g'`) piped the rendered block on stdin and
-# expected to write the final block on stdout. It exists for the ZCode target alone:
-# rule cores and the renderer's `Full rule:` pointers name ~/.claude/ paths, and ZCode's
-# copies live under ~/.zcode/, so its global install rewrites the prefix on the way in.
-# Empty (the default) writes the rendered block byte-identical, which is the contract
-# every other target relies on.
 #
 # Exactly three outcomes, and no other:
 #   - no delimiters at all  → append a fresh block (the next run then sees 1 + 1)
@@ -893,16 +648,6 @@ install_managed_block() {
   block_tmp="$(mktemp)"
   TMP_FILES+=("$block_tmp")
   render_managed_block "${@:2}" >"$block_tmp"
-  if [[ -n "${MANAGED_BLOCK_POSTPROCESS:-}" ]]; then
-    # The postprocess sees only generated content, so a failure means no block is written
-    # at all — refuse rather than install a half-transformed one.
-    local pp_tmp
-    pp_tmp="$(mktemp)"
-    TMP_FILES+=("$pp_tmp")
-    # shellcheck disable=SC2086 # the contract is a command string; word splitting is the point
-    $MANAGED_BLOCK_POSTPROCESS <"$block_tmp" >"$pp_tmp" || die "MANAGED_BLOCK_POSTPROCESS failed on $target_file"
-    cat "$pp_tmp" >"$block_tmp"
-  fi
 
   if [[ ! -s "$target_file" ]]; then
     # Missing or empty file — write the block as the whole content.
@@ -1059,11 +804,11 @@ project_lint_commands_block() {
 
 # install_project_standards <project-dir>
 # Render the shared rules this project opted into — its `.flow/project.md` `## standards`
-# entries — into a managed block in BOTH <project>/CLAUDE.md and <project>/AGENTS.md.
+# entries — into a managed block in <project>/CLAUDE.md.
 #
 # Opt-in rules are installed nowhere by path, on purpose: the Kotlin standard's globs would
 # match every Kotlin repo on the machine. That left a project no way to actually load one
-# except to paste a copy into each of its instruction files by hand — which is what gymie
+# except to paste a copy into its instruction file by hand — which is what gymie
 # did, twice, with nothing keeping either copy in step with the rule. This is that copy,
 # generated.
 #
@@ -1115,14 +860,14 @@ install_project_standards() {
   done < <(project_standards_entries "$project_md")
 
   if (( ${#selected[@]} == 0 )); then
-    # Nothing to render. Writing an empty block would create CLAUDE.md and AGENTS.md in
-    # projects that never asked for either.
+    # Nothing to render. Writing an empty block would create a CLAUDE.md in a project
+    # that never asked for one.
     (( SKIPPED == skipped_before )) || finish_banner "Project standards" "$skipped_before"
     return 0
   fi
 
   echo ""
-  info "Rendering opt-in standards into $project_dir/CLAUDE.md and AGENTS.md (from .flow/project.md)"
+  info "Rendering opt-in standards into $project_dir/CLAUDE.md (from .flow/project.md)"
   for rule_name in "${selected[@]}"; do
     echo "  ✓ $rule_name"
   done
@@ -1130,10 +875,8 @@ install_project_standards() {
     echo "  – $rule_name is always-on — it already reaches every session through the global block"
   done
 
-  # Same all-or-nothing preflight as install_global, for the same reason: validate every
-  # rule body and stat every target before the first write, so a refusal cannot leave
-  # CLAUDE.md rendered and AGENTS.md not — two harnesses reading the same project under
-  # different rules.
+  # Same all-or-nothing preflight as install_global: validate every rule body and stat the
+  # target before the first write.
   # Compute the lint-commands payload once, before the all-or-nothing preflight below: a
   # rule carrying {{lint-commands}} renders from this project's own ## lint section, and a
   # project opting into such a rule without declaring ## lint is refused here — before any
@@ -1147,12 +890,8 @@ install_project_standards() {
   done
 
   render_managed_block "${selected[@]}" >/dev/null
-  for target in "$project_dir/CLAUDE.md" "$project_dir/AGENTS.md"; do
-    preflight_managed_block "$target"
-  done
-  for target in "$project_dir/CLAUDE.md" "$project_dir/AGENTS.md"; do
-    install_managed_block "$target" "${selected[@]}"
-  done
+  preflight_managed_block "$project_dir/CLAUDE.md"
+  install_managed_block "$project_dir/CLAUDE.md" "${selected[@]}"
   finish_banner "Project standards" "$skipped_before"
 }
 
@@ -1186,79 +925,51 @@ install_script_shims() {
 install_global() {
   local home_dir="${HOME:?HOME must be set}"
   local skipped_before=$SKIPPED
-  # The managed-block targets, declared once so the preflight below and the install below
-  # can never scan a different set than they write.
-  #   - ~/.claude/CLAUDE.md — the only global rule layer Claude Code reads.
-  #   - ~/.zcode/AGENTS.md  — ZCode's user instruction file, the same role for that client.
-  local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.zcode/AGENTS.md")
-  local managed_file
+  # The managed-block target — ~/.claude/CLAUDE.md, the only global rule layer Claude Code
+  # reads.
+  local managed_file="$home_dir/.claude/CLAUDE.md"
   info "Setting up flow globally under $home_dir"
 
   # PREFLIGHT — everything that can refuse this run must refuse BEFORE the first symlink.
-  # These checks used to fire midway: an offending rule was already linked into one harness's
-  # rules directory by the time render_managed_block refused it, so that harness picked the
-  # rule up while the others got no managed block at all — harnesses running the same repo
-  # under different rules, reproduced identically on every later run.
+  # These checks used to fire midway: an offending rule was already linked into the rules
+  # directory by the time render_managed_block refused it, so the harness picked the rule up
+  # while the managed block was never written, reproduced identically on every later run.
   # The refusals themselves are correct; only their ordering was wrong. Render into nothing purely
-  # to validate every rule body, and stat the block targets, before installing anything.
+  # to validate every rule body, and stat the block target, before installing anything.
   render_managed_block >/dev/null
-  for managed_file in "${managed_files[@]}"; do
-    preflight_managed_block "$managed_file"
-  done
+  preflight_managed_block "$managed_file"
 
   install_skills "$home_dir/.claude/skills"
   install_mods "$home_dir/.claude/skills"
-  # ZCode needs its own copy: its AGENTS.md block names the /flow* skills, and user scope
-  # (~/.zcode/skills) is where that client resolves them from.
-  install_skills "$home_dir/.zcode/skills"
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.claude/commands"
-  install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.zcode/commands"
   install_agents "$home_dir/.claude/agents"
   # Claude Code's layer is two halves of one source: the core of each rule goes into the
   # managed block below, the full text is linked here, and the block's `Full rule:` pointer
   # is what joins them. Install the links BEFORE the block, so a pointer is never written to
   # a path that does not exist yet.
   install_rules_claude "$home_dir/.claude/rules"
-  # ZCode gets the same two halves at its own paths — see install_rules_zcode for why its
-  # agent-baseline.md is generated with the prefix rewritten rather than linked.
-  install_rules_zcode "$home_dir/.zcode/rules"
   install_hooks "$home_dir/.claude"
-  install_hooks_zcode "$home_dir/.zcode"
   install_script_shims "$home_dir/.local/bin"
-  install_zcode_env "$home_dir"
-  install_managed_block "$home_dir/.claude/CLAUDE.md"
-  # The ZCode block is rendered from the same rules as the Claude Code one, then has its
-  # ~/.claude/ pointers rewritten to the ~/.zcode/ copies installed above — see
-  # MANAGED_BLOCK_POSTPROCESS. The prefix assignment scopes the rewrite to this one call,
-  # so no later block can inherit it. Installed last and separately for that reason; the
-  # preflight above already stat'ed this target with the rest of managed_files.
-  MANAGED_BLOCK_POSTPROCESS='sed s|~/\.claude/|~/.zcode/|g' \
-    install_managed_block "$home_dir/.zcode/AGENTS.md"
+  install_managed_block "$managed_file"
   echo ""
   finish_banner "Global" "$skipped_before"
-  echo "   Skills   → $home_dir/.claude/skills/ and $home_dir/.zcode/skills/"
+  echo "   Skills   → $home_dir/.claude/skills/"
   echo "   Mods     → $home_dir/.claude/skills/ (Claude Code function-hooks plugins)"
-  echo "   Commands → $home_dir/.claude/commands/ and $home_dir/.zcode/commands/"
+  echo "   Commands → $home_dir/.claude/commands/"
   echo "   Agents   → $home_dir/.claude/agents/"
   echo "   Scripts  → $home_dir/.local/bin/"
-  echo "   Rules    → the managed block in $home_dir/.claude/CLAUDE.md and"
-  echo "              $home_dir/.zcode/AGENTS.md"
-  echo "              Full texts → $home_dir/.claude/rules/ and $home_dir/.zcode/rules/, which"
-  echo "              the core excerpts in the respective managed blocks point at. Same source,"
-  echo "              one link per target, no copies."
-  echo "   Hooks    → $home_dir/.claude/hooks/ and $home_dir/.zcode/hooks/ — installed, but"
-  echo "              registered only if the harness's config already names them (see any"
-  echo "              warning above)."
-  echo "   Shell env → Z_COMPACT_WINDOW=$ZCODE_COMPACT_WINDOW in a managed block in"
-  echo "              $home_dir/.zshrc — the auto-compact window the /usr/local/bin/zcode"
-  echo "              wrapper runs with."
+  echo "   Rules    → the managed block in $home_dir/.claude/CLAUDE.md"
+  echo "              Full texts → $home_dir/.claude/rules/, which the core excerpts in the"
+  echo "              managed block point at. Same source, one link each, no copies."
+  echo "   Hooks    → $home_dir/.claude/hooks/ — installed, but registered only if"
+  echo "              settings.json already names them (see any warning above)."
   echo "   Subagents inherit NO rules. Every dispatch must carry the two-sentence pointer to"
   echo "   $home_dir/.claude/rules/agent-baseline.md — that file is the whole rule set for a"
   echo "   dispatched agent, and it propagates itself to any depth."
   echo "   Opt-in rules (e.g. kotlin-backend-development-standard) are NOT installed globally."
   echo "   A project adopts one by naming it under ## standards in its own .flow/project.md;"
   echo "   run './setup.sh <harness> /path/to/that/project' to render it into that project's"
-  echo "   own CLAUDE.md and AGENTS.md. This mode never writes project files."
+  echo "   own CLAUDE.md. This mode never writes project files."
   echo ""
   echo "   Source   → $SCRIPT_DIR"
   echo "   Every link above points back into that directory, so global agent behavior"
@@ -1280,18 +991,16 @@ fi
 case "$HARNESS" in
   global)      install_global ;;
   claude-code) install_claude_code ;;
-  zcode)       install_zcode ;;
-  muse)        install_muse ;;
-  *) die "Unknown harness '$HARNESS'. Choose: claude-code | zcode | muse | global" ;;
+  *) die "Unknown harness '$HARNESS'. Choose: claude-code | global" ;;
 esac
 
-# Opt-in standards are rendered after the mode, so that the CLAUDE.md / AGENTS.md a
-# first-time `claude-code`, `zcode` or `muse` install copies in is the file the block lands in.
+# Opt-in standards are rendered after the mode, so that the CLAUDE.md a first-time
+# `claude-code` install copies in is the file the block lands in.
 # `global` installs no project files at all, so it is deliberately not in this list — a
 # user-level install must not start writing into whatever directory it happened to be run
 # from.
 case "$HARNESS" in
-  claude-code|zcode|muse) install_project_standards "$PROJECT_DIR" ;;
+  claude-code) install_project_standards "$PROJECT_DIR" ;;
 esac
 
 # A run that could not link something is not a successful install, and a caller (CI, a

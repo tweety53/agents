@@ -33,16 +33,15 @@ func TestMalformedDelimitersAbortByteIdentical(t *testing.T) {
 	g.assertIdentical("reversed: CLAUDE.md is byte-identical afterwards", target, expected)
 	g.assertAbsent("reversed: no .flow.bak was written", target+".flow.bak")
 
-	// --- duplicated: two begins and two ends, seeded in the ZCODE target so the second
-	// managed file is exercised too (the first one is written before this is reached).
+	// --- duplicated: two begins and two ends.
 	home = g.newHome()
-	target = filepath.Join(home, ".zcode/AGENTS.md")
+	target = filepath.Join(home, ".claude/CLAUDE.md")
 	g.seedFile(target, 0o644, "# My own notes\n\n"+begin+"\nfirst block\n"+end+"\n\n"+begin+"\nsecond block\n"+end+"\n")
 	expected = filepath.Join(g.dir, "duplicated-expected.md")
 	copyFile(t, target, expected)
 	g.runSetup(fixture, home, "global", "")
 	g.assertRCNonzero("duplicated delimiters abort the run", g.rc)
-	g.assertIdentical("duplicated: AGENTS.md is byte-identical afterwards", target, expected)
+	g.assertIdentical("duplicated: CLAUDE.md is byte-identical afterwards", target, expected)
 	g.assertAbsent("duplicated: no .flow.bak was written", target+".flow.bak")
 
 	// --- CRLF markers: the installer matches LF-terminated lines, so these count zero and
@@ -63,13 +62,13 @@ func TestMalformedDelimitersAbortByteIdentical(t *testing.T) {
 
 // An unbalanced pair — a lone begin or a lone end — is the second data-loss shape: it once took
 // the append branch, which never converges (1/0 became 2/1 became 3/2). It must abort with the
-// target untouched, in either managed file. The bash harness never seeded this shape.
+// target untouched. The bash harness never seeded this shape.
 func TestUnbalancedDelimitersAbortByteIdentical(t *testing.T) {
 	smoke.Heavy(t)
 	g := newGroup(t)
 	for _, c := range []struct{ name, rel, body string }{
 		{"lone begin", ".claude/CLAUDE.md", "# My own notes\n\n" + begin + "\nhalf a block\n"},
-		{"lone end", ".zcode/AGENTS.md", "# My own notes\n\nhalf a block\n" + end + "\n"},
+		{"lone end", ".claude/CLAUDE.md", "# My own notes\n\nhalf a block\n" + end + "\n"},
 	} {
 		home := g.newHome()
 		target := filepath.Join(home, c.rel)
@@ -86,30 +85,24 @@ func TestUnbalancedDelimitersAbortByteIdentical(t *testing.T) {
 // Repeated runs converge, and the user's own content survives them.
 //
 // The append-forever defect showed up only on the SECOND and THIRD run, so one run proves
-// nothing here. Three runs, counting the delimiters in both managed files each time, and
+// nothing here. Three runs, counting the delimiters in the managed file each time, and
 // requiring run 3 to be byte-identical to run 2 — the definition of converged.
 func TestThreeGlobalRunsConverge(t *testing.T) {
 	smoke.Heavy(t)
 	g := newGroup(t)
 	home := g.newHome()
 	claudeMD := filepath.Join(home, ".claude/CLAUDE.md")
-	zcodeMD := filepath.Join(home, ".zcode/AGENTS.md")
 	claude2 := filepath.Join(g.dir, "converge-claude-run2.md")
-	zcode2 := filepath.Join(g.dir, "converge-zcode-run2.md")
 	for run := 1; run <= 3; run++ {
 		g.runSetup(fixture, home, "global", "")
 		g.assertRCZero(fmt.Sprintf("run %d succeeds", run), g.rc, g.log)
 		g.assertEq(fmt.Sprintf("run %d: exactly one begin in CLAUDE.md", run), 1, countLinesMatching(claudeMD, begin))
 		g.assertEq(fmt.Sprintf("run %d: exactly one end in CLAUDE.md", run), 1, countLinesMatching(claudeMD, end))
-		g.assertEq(fmt.Sprintf("run %d: exactly one begin in AGENTS.md", run), 1, countLinesMatching(zcodeMD, begin))
-		g.assertEq(fmt.Sprintf("run %d: exactly one end in AGENTS.md", run), 1, countLinesMatching(zcodeMD, end))
 		if run == 2 {
 			copyFile(t, claudeMD, claude2)
-			copyFile(t, zcodeMD, zcode2)
 		}
 	}
 	g.assertIdentical("run 3 leaves CLAUDE.md byte-identical to run 2", claudeMD, claude2)
-	g.assertIdentical("run 3 leaves AGENTS.md byte-identical to run 2", zcodeMD, zcode2)
 }
 
 func TestHandWrittenContentAndModeSurvive(t *testing.T) {
@@ -157,8 +150,8 @@ func TestHandWrittenContentAndModeSurvive(t *testing.T) {
 // All-or-nothing preflight.
 //
 // A rule the renderer must refuse has to be refused BEFORE anything is installed. A partial
-// install is the worst outcome available: one harness picks up rules the other never
-// receives, and every later run reproduces the split identically.
+// install is the worst outcome available: the rules directory picks up rules the managed
+// block never receives, and every later run reproduces the split identically.
 func TestDelimiterRuleInstallsNothing(t *testing.T) {
 	smoke.Heavy(t)
 	g := newGroup(t)
@@ -171,9 +164,7 @@ func TestDelimiterRuleInstallsNothing(t *testing.T) {
 	g.assertRCNonzero("a rule body carrying a delimiter aborts the run", g.rc)
 	g.assertContains("the abort names the offending rule", g.log, "bad-delimiter.mdc")
 	for _, leftover := range []string{
-		".claude/skills", ".zcode/skills",
-		".claude/commands", ".zcode/commands", ".claude/rules", ".zcode/rules",
-		".claude/CLAUDE.md", ".zcode/AGENTS.md",
+		".claude/skills", ".claude/commands", ".claude/rules", ".claude/CLAUDE.md",
 	} {
 		p := filepath.Join(home, leftover)
 		g.assertAbsent("nothing installed: "+strings.TrimPrefix(p, home+"/"), p)

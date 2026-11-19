@@ -59,8 +59,6 @@ func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 	g.assertNotContains("the block stops at the closing marker", claudeMD, "BODY-AFTER-CORE")
 	g.assertNotContains("no core marker survives into the block", claudeMD, "<!-- core -->")
 	g.assertContains("the block points at the installed full rule", claudeMD, "Full rule: `~/.claude/rules/cored.md`.")
-	// ZCode reads the same rendered text, so its block must carry the same core.
-	g.assertContains("AGENTS.md carries the core too", filepath.Join(home, ".zcode/AGENTS.md"), "BODY-CORE-EXCERPT")
 
 	rules := filepath.Join(home, ".claude/rules")
 	g.assertExists("the full text is linked into ~/.claude/rules", filepath.Join(rules, "cored.md"))
@@ -114,7 +112,7 @@ func TestKotlinRuleInstalledByNoMode(t *testing.T) {
 		g.fail("the opt-in Kotlin rule is present to be tested", filepath.Join(repoRoot, "rules", kotlinRule)+" is missing")
 		return
 	}
-	for _, mode := range []string{"global", "claude-code", "zcode"} {
+	for _, mode := range []string{"global", "claude-code"} {
 		home := g.newHome()
 		proj := filepath.Join(g.dir, fmt.Sprintf("project-%d", g.seq))
 		g.runSetup(repoRoot, home, mode, proj)
@@ -129,18 +127,16 @@ func TestKotlinRuleInstalledByNoMode(t *testing.T) {
 			})
 		}
 		g.assertEq("mode "+mode+" installs no "+kotlinRule, "", strings.Join(hits, "\n"))
-		// Only `global` writes a managed block. For the other two modes the files do not exist,
-		// and assertNotContains passes on a missing file — so asserting "no Kotlin rule inlined"
+		// Only `global` writes a managed block. For claude-code the file does not exist, and
+		// assertNotContains passes on a missing file — so asserting "no Kotlin rule inlined"
 		// there proves nothing. Assert the real property per mode instead: global must have the
-		// block WITHOUT the opt-in rule; the rest must have no block.
-		for _, rel := range []string{".claude/CLAUDE.md", ".zcode/AGENTS.md"} {
-			managed := filepath.Join(home, rel)
-			if mode == "global" {
-				g.assertFileExists("mode "+mode+": "+rel+" exists", managed)
-				g.assertNotContains("mode "+mode+": "+rel+" has no inlined Kotlin rule", managed, "<!-- rule: "+kotlinRule+" -->")
-			} else {
-				g.assertAbsent("mode "+mode+" writes no managed block at "+rel, managed)
-			}
+		// block WITHOUT the opt-in rule; claude-code must have no block.
+		managed := filepath.Join(home, ".claude/CLAUDE.md")
+		if mode == "global" {
+			g.assertFileExists("mode "+mode+": .claude/CLAUDE.md exists", managed)
+			g.assertNotContains("mode "+mode+": .claude/CLAUDE.md has no inlined Kotlin rule", managed, "<!-- rule: "+kotlinRule+" -->")
+		} else {
+			g.assertAbsent("mode "+mode+" writes no managed block at .claude/CLAUDE.md", managed)
 		}
 	}
 }
@@ -153,24 +149,22 @@ func TestGlobalInstallPopulatesSkillDirs(t *testing.T) {
 	g.assertRCZero("the real-repo global install succeeds", g.rc, g.log)
 
 	expectedSkills := len(repoDirs(t, "skills"))
-	// install_mods links each mods/<name>/ beside the skills in Claude Code's folder alone.
-	expected := map[string]int{".claude/skills": expectedSkills + len(repoDirs(t, "mods")), ".zcode/skills": expectedSkills}
 	if expectedSkills == 0 {
 		g.fail("the repo has skills to install", filepath.Join(repoRoot, "skills")+" contains no directories")
 	}
-	for _, rel := range []string{".claude/skills", ".zcode/skills"} {
-		skillsDir := filepath.Join(home, rel)
-		installed, linked := 0, 0
-		for _, name := range visibleEntries(skillsDir) {
-			installed++
-			entry := filepath.Join(skillsDir, name)
-			if fi, err := os.Stat(entry); isSymlink(entry) && err == nil && fi.IsDir() {
-				linked++
-			}
+	// install_mods links each mods/<name>/ beside the skills.
+	expected := expectedSkills + len(repoDirs(t, "mods"))
+	skillsDir := filepath.Join(home, ".claude/skills")
+	installed, linked := 0, 0
+	for _, name := range visibleEntries(skillsDir) {
+		installed++
+		entry := filepath.Join(skillsDir, name)
+		if fi, err := os.Stat(entry); isSymlink(entry) && err == nil && fi.IsDir() {
+			linked++
 		}
-		g.assertEq(rel+" holds every skill", expected[rel], installed)
-		g.assertEq(rel+" holds only resolvable symlinks", expected[rel], linked)
 	}
+	g.assertEq(".claude/skills holds every skill", expected, installed)
+	g.assertEq(".claude/skills holds only resolvable symlinks", expected, linked)
 
 	var dangling []string
 	_ = filepath.WalkDir(home, func(p string, d fs.DirEntry, err error) error {
@@ -187,12 +181,9 @@ func TestGlobalInstallPopulatesSkillDirs(t *testing.T) {
 	// inlined into the managed block — that is the whole point of extracting it from the
 	// always-on rule.
 	g.assertExists("flow-contracts installs into .claude/skills", filepath.Join(home, ".claude/skills/flow-contracts/SKILL.md"))
-	g.assertExists("flow-contracts installs into .zcode/skills", filepath.Join(home, ".zcode/skills/flow-contracts/SKILL.md"))
 	g.assertExists("flow-contracts installs state-file.md", filepath.Join(home, ".claude/skills/flow-contracts/state-file.md"))
 	g.assertNotContains("the managed CLAUDE.md does not inline the state-file write template",
 		filepath.Join(home, ".claude/CLAUDE.md"), `PROJECT_KEY="$(basename`)
-	g.assertNotContains("the managed AGENTS.md does not inline the state-file write template",
-		filepath.Join(home, ".zcode/AGENTS.md"), `PROJECT_KEY="$(basename`)
 
 	// The commit-scope-is-the-module rule is an always-on rule like any other: its core excerpt
 	// renders into the managed block with a pointer to the installed full text, and the full

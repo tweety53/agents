@@ -1,7 +1,7 @@
 // Package setuptest is the regression harness for setup.sh.
 //
-// Every case runs against a throwaway HOME created under /tmp, and the real ~/.claude and
-// ~/.zcode are fingerprinted before the first case and again after the last one — a mismatch
+// Every case runs against a throwaway HOME created under /tmp, and the real ~/.claude is
+// fingerprinted before the first case and again after the last one — a mismatch
 // fails the run. Nothing here writes outside the sandbox. Each assertion group is one
 // top-level test marked parallel, with its own sub-sandbox; the project's `## test` Go suite
 // (`go test ./...` under stats/) runs the package.
@@ -172,7 +172,7 @@ func runMain(m *testing.M) int {
 	fmt.Printf("setup.sh regression harness\n  repo    : %s\n  sandbox : %s\n", repoRoot, sandbox)
 	code := m.Run()
 	return exitCode(code, closeOut(os.Stdout, []fpCheck{
-		{"~/.claude and ~/.zcode are unchanged", homeBefore, func() string { return realHomeFingerprint(realHome) }},
+		{"~/.claude is unchanged", homeBefore, func() string { return realHomeFingerprint(realHome) }},
 		{"the repo's own skills, rules and commands are unchanged", srcBefore, func() string { return sourceTreeFingerprint(repoRoot) }},
 		{"leak detection: the shared fixture repo is unchanged after every group", fixtureBefore, func() string { return treeFingerprint(fixture) }},
 	}))
@@ -294,9 +294,7 @@ func makeFixtureRepo(d string, badRule bool) error {
 		{"setup.sh", string(src), 0o755},
 		{"skills/demo-skill/SKILL.md", "# demo skill\n", 0o644},
 		{"CLAUDE.md", "# fixture CLAUDE.md\n", 0o644},
-		{"AGENTS.md", "# fixture AGENTS.md\n", 0o644},
 		{"templates/CLAUDE.md", "# fixture template CLAUDE.md\n", 0o644},
-		{"templates/AGENTS.md", "# fixture template AGENTS.md\n", 0o644},
 		{"commands-claude/demo.md", "# demo command\n", 0o644},
 		// Always-on: the one rule that must install.
 		{"rules/good-always.mdc", "---\ndescription: fixture always-on rule\nalwaysApply: true\n---\n\n# Good\nBODY-GOOD-ALWAYS\n", 0o644},
@@ -321,16 +319,16 @@ func makeFixtureRepo(d string, badRule bool) error {
 		// install_hooks reports on registration by looking for that name in settings.json.
 		{"hooks/enforce-agent-baseline.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
 		// The UserPromptSubmit hook that names the session's active flow change. Named as the
-		// real one is, because install_hooks/install_hooks_zcode report on its registration by
-		// looking for that name in settings.json / config.json.
+		// real one is, because install_hooks reports on its registration by looking for that
+		// name in settings.json.
 		{"hooks/flow-active-change.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
 		// The main-checkout protection hook. Named as the real one is, because install_hooks
 		// reports on its registration by looking for that name in settings.json — the pins in
 		// the "Core excerpts" group assert that warning, so the fixture has to install the hook
 		// the warning names for their precondition to be real.
 		{"hooks/protect-main-checkout.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
-		// The loop-dispatch hook. Named as the real one is, because install_hooks and
-		// install_hooks_zcode report on its registration by looking for that name.
+		// The loop-dispatch hook. Named as the real one is, because install_hooks reports on
+		// its registration by looking for that name.
 		{"hooks/enforce-loop-dispatch.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
 	}
 	if badRule {

@@ -272,7 +272,6 @@ are readable only in history.
 ## standards
 
 - `CLAUDE.md`
-- `AGENTS.md`
 
 ## jira
 

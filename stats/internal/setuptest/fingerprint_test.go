@@ -24,33 +24,27 @@ func statLine(p string) string {
 
 func sha256hex(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
 
-// realHomeFingerprint samples only the paths setup.sh can write under home — the two harness
-// directories, their skills/commands/rules subtrees one level down, the two managed
-// instruction files, and any .flow.bak beside them. A full recursive listing of ~/.claude would
-// be dominated by session state that changes on its own while this runs, which would make the
-// check noisy and therefore ignored. For ~/.zcode the same shape holds a fortiori: the
-// client's own state lives under ~/.zcode/cli and ~/.zcode/v2, neither of which is sampled.
-// The zcode layer also writes the user's shell rc files (install_zcode_env), so the sample
-// covers them too — a global run in a sandboxed HOME that leaked into the real ~/.zshrc must
-// fail the comparison.
+// realHomeFingerprint samples only the paths setup.sh can write under home — ~/.claude, its
+// skills/commands/rules subtrees one level down, the managed instruction file, and any
+// .flow.bak beside it. A full recursive listing of ~/.claude would be dominated by session
+// state that changes on its own while this runs, which would make the check noisy and
+// therefore ignored.
 func realHomeFingerprint(home string) string {
 	var b strings.Builder
-	for _, d := range []string{".claude", ".zcode"} {
-		for _, sub := range []string{"", "skills", "commands", "rules"} {
-			p := filepath.Join(home, d, sub)
-			if fi, err := os.Stat(p); err != nil || !fi.IsDir() {
-				fmt.Fprintf(&b, "absent %s\n", p)
-				continue
-			}
-			fmt.Fprintf(&b, "dir %s\n", p)
-			entries, _ := os.ReadDir(p)
-			for _, e := range entries {
-				fmt.Fprintf(&b, "  %s\n", e.Name())
-			}
+	for _, sub := range []string{"", "skills", "commands", "rules"} {
+		p := filepath.Join(home, ".claude", sub)
+		if fi, err := os.Stat(p); err != nil || !fi.IsDir() {
+			fmt.Fprintf(&b, "absent %s\n", p)
+			continue
 		}
-		for _, f := range []string{"CLAUDE.md", "AGENTS.md", "CLAUDE.md.flow.bak", "AGENTS.md.flow.bak"} {
-			b.WriteString(statLine(filepath.Join(home, d, f)))
+		fmt.Fprintf(&b, "dir %s\n", p)
+		entries, _ := os.ReadDir(p)
+		for _, e := range entries {
+			fmt.Fprintf(&b, "  %s\n", e.Name())
 		}
+	}
+	for _, f := range []string{"CLAUDE.md", "CLAUDE.md.flow.bak"} {
+		b.WriteString(statLine(filepath.Join(home, ".claude", f)))
 	}
 	// ~/.local/bin holds setup.sh's script shims: list it the way skills is listed, so a shim
 	// leaking into the real home fails the closing comparison.
@@ -62,9 +56,6 @@ func realHomeFingerprint(home string) string {
 		for _, e := range entries {
 			fmt.Fprintf(&b, "  %s\n", e.Name())
 		}
-	}
-	for _, f := range []string{".zshrc", ".bashrc"} {
-		b.WriteString(statLine(filepath.Join(home, f)))
 	}
 	return sha256hex(b.String())
 }
@@ -103,7 +94,7 @@ func treeFingerprint(paths ...string) string {
 // blind spot a write-through incident would exploit twice.
 func sourceTreeFingerprint(root string) string {
 	var ps []string
-	for _, p := range []string{"skills", "rules", "commands-claude", "scripts", "setup.sh", "CLAUDE.md", "AGENTS.md", "templates", "README.md"} {
+	for _, p := range []string{"skills", "rules", "commands-claude", "scripts", "setup.sh", "CLAUDE.md", "templates", "README.md"} {
 		ps = append(ps, filepath.Join(root, p))
 	}
 	return treeFingerprint(ps...)
@@ -144,18 +135,15 @@ func TestContainmentChecksDetectLeaks(t *testing.T) {
 	g := newGroup(t)
 	home := filepath.Join(g.dir, "fake-home")
 	var homeTargets []string
-	for _, d := range []string{".claude", ".zcode"} {
-		for _, sub := range []string{"", "skills", "commands", "rules"} {
-			mkdirAll(t, filepath.Join(home, d, sub))
-			homeTargets = append(homeTargets, filepath.Join(d, sub, "leaked-entry"))
-		}
-		for _, f := range []string{"CLAUDE.md", "AGENTS.md", "CLAUDE.md.flow.bak", "AGENTS.md.flow.bak"} {
-			homeTargets = append(homeTargets, filepath.Join(d, f))
-		}
+	for _, sub := range []string{"", "skills", "commands", "rules"} {
+		mkdirAll(t, filepath.Join(home, ".claude", sub))
+		homeTargets = append(homeTargets, filepath.Join(".claude", sub, "leaked-entry"))
 	}
-	homeTargets = append(homeTargets, ".zshrc", ".bashrc")
+	for _, f := range []string{"CLAUDE.md", "CLAUDE.md.flow.bak"} {
+		homeTargets = append(homeTargets, filepath.Join(".claude", f))
+	}
+	homeTargets = append(homeTargets, ".local/bin/leaked-entry")
 	g.seedFile(filepath.Join(home, ".claude/CLAUDE.md"), 0o644, "# mine\n")
-	g.seedFile(filepath.Join(home, ".zshrc"), 0o644, "# mine\n")
 	for _, rel := range homeTargets {
 		before := realHomeFingerprint(home)
 		leak(t, filepath.Join(home, rel))
@@ -166,7 +154,7 @@ func TestContainmentChecksDetectLeaks(t *testing.T) {
 	g.seedFile(filepath.Join(src, "skills/demo/SKILL.md"), 0o644, "# demo\n")
 	g.seedFile(filepath.Join(src, "setup.sh"), 0o755, "#!/usr/bin/env bash\n")
 	for _, rel := range []string{"skills/demo/leaked.md", "rules/leaked.mdc", "commands-claude/leaked.md", "scripts/leaked.sh",
-		"setup.sh", "CLAUDE.md", "AGENTS.md", "README.md"} {
+		"setup.sh", "CLAUDE.md", "README.md"} {
 		before := sourceTreeFingerprint(src)
 		leak(t, filepath.Join(src, rel))
 		g.assertNe("leak detection: a write to "+rel+" moves the source-tree fingerprint", before, sourceTreeFingerprint(src))
