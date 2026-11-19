@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,7 +39,8 @@ import (
 //   config section with it. --fold-back first copies each
 //   non-empty `.superpowers/sdd/panel-report-*.md`,
 //   `.superpowers/sdd/reproducers/*.sh`, `.superpowers/sdd/dispatch-context-group-*.md`
-//   and `.superpowers/sdd/implementer-report-*.md` from the copy back into the worktree,
+//   `.superpowers/sdd/implementer-report-*.md` and every file under each
+//   `.superpowers/sdd/*-frames/` directory from the copy back into the worktree,
 //   unless the worktree already holds a non-empty file the copy's is not
 //   newer than. By the same rule it also folds each non-empty
 //   `panel-report-*.md` at the copy's root (copied) and at the worktree's root
@@ -231,6 +233,17 @@ func twFoldBack(env Env, wt, cp string) error {
 		"/.superpowers/sdd/dispatch-context-group-*.md", "/.superpowers/sdd/implementer-report-*.md"} {
 		m, _ := filepath.Glob(smcAbs(env, cp) + pat)
 		found = append(found, m...)
+	}
+	// A plan's frames directory carries a render script and its frames at any
+	// depth (kan-1132 self-review, F5).
+	dirs, _ := filepath.Glob(smcAbs(env, cp) + "/.superpowers/sdd/*-frames")
+	for _, d := range dirs {
+		_ = filepath.WalkDir(d, func(p string, e fs.DirEntry, err error) error {
+			if err == nil && e.Type().IsRegular() {
+				found = append(found, p)
+			}
+			return nil
+		})
 	}
 	prefix := smcAbs(env, cp) + "/.superpowers/sdd/"
 	for _, f := range found {

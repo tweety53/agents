@@ -325,6 +325,36 @@ func TestThrowawayWorktreeFoldBackCarriesTheGroupBundle(t *testing.T) {
 	}
 }
 
+func TestThrowawayWorktreeFoldBackCarriesFrames(t *testing.T) {
+	t.Parallel()
+	wt := twRepo(t)
+	cp := wt + "-wave-group-3"
+	gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
+	fr := "/.superpowers/sdd/demo-frames/"
+	writeFile(t, cp+fr+"render.cjs", "render\n")
+	writeFile(t, cp+fr+"sub/a.png", "png a\n")
+	writeFile(t, cp+fr+"empty.png", "")
+	writeFile(t, cp+fr+"kept.png", "copy kept\n")
+	writeFile(t, wt+fr+"kept.png", "worktree kept\n")
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(wt+fr+"kept.png", later, later); err != nil {
+		t.Fatal(err)
+	}
+	twGuard(t, "remove", wt, cp, "--fold-back")
+	for name, want := range map[string]string{
+		"render.cjs": "render\n",
+		"sub/a.png":  "png a\n",
+		"kept.png":   "worktree kept\n",
+	} {
+		if b, err := os.ReadFile(wt + fr + name); err != nil || string(b) != want {
+			t.Errorf("%s = %q (%v), want %q", name, b, err, want)
+		}
+	}
+	if _, err := os.Stat(wt + fr + "empty.png"); err == nil {
+		t.Error("empty.png was folded back; only non-empty files are")
+	}
+}
+
 // A failed fold-back still exits 2 but never leaves the copy registered: the
 // fence removed the copy whatever the fold-back did.
 func TestThrowawayWorktreeRemoveFoldBackFailureStillRemoves(t *testing.T) {
