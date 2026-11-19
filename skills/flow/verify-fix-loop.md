@@ -88,10 +88,8 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    this run's round, counted across both stages, so no two rounds share a `-fix-<k>` key. On a `flow.visual-verify` round the task rewrites, beside the
    fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
    CHECK (`skills/flow/implement.md`) requires; the record is never in its `**Files:**`
-   — it is written on disk only, the change directory gitignored, and flow-guard stage-task-files refuses
-   an ignored path. The round's evidence directory,
-   `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` —
-   `check-task-commit-planning-paths` sweeps it — and is written on disk only. The re-decide runs as
+   — it is written on disk only, the change directory gitignored. The round's evidence directory,
+   `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**`, and is written on disk only. The re-decide runs as
    that file states.
    **One round appends one task**, carrying every defect the report names, every reviewer finding
    still open and every leftover a fixer named with its cause — never a task or a
@@ -116,7 +114,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    (`skills/flow/gated-review-fix.md`) and no re-review bundle — each finding
    closes `fixed` on that fixer's guard pass, and step 3's panel reads the fix in `late-fix.diff`.
    Step 4 follows: `verify`, then one `visual-verify`.
-   The task closes through `flow-guard close-task` before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task. The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
+   The task closes through `flow-guard close-task` before step 3 opens any `panel-<round>-*` dispatch. The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
    and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`) by pointer (`skills/flow/implement.md`), and the round closes only when every reported
    `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
    what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
@@ -146,7 +144,6 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    named with its cause, and report every view's measured numbers. It measures each
    pair on the 2× capture and the 2× mockup frame themselves, never on a `flow-guard compose-mockup-frames`
    composite. A leftover of any size — a 1dp offset included — is closed or named with its cause, never reported clean because it is small.
-   `flow-guard close-task` refuses the task while an affected spec carrying a `.mockups` sidecar has no measure under that key (its header canonical).
    **A task fixing a visual departure runs its capture spec before it closes.** Its verify step
    runs the project's `capture` command with the recapture list above for `<spec>`, against the
    stack rebuilt from its fix, and the task closes through `flow-guard close-task`, which prints

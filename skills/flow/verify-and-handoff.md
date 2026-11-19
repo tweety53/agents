@@ -361,12 +361,12 @@ edited at the human gate, and pushes
 everything to the PR branch; otherwise this step commits nothing more.
 
 **Load `skills/flow-contracts/git-boundaries-commit-chain.md`** only when the state file records a
-`prUrl` — `flow-guard commit-split` below runs that chain.
+`prUrl`.
 
 On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <canonical-worktree>` (the same member the
-ledger render above targets); then `flow-guard commit-split <worktree>
-<name> "<impl-msg>" "chore: the rest of <name>"`; then push the branch
+ledger render above targets); then that chain in `<worktree>`, `<impl-msg>` its
+message; then push the branch
 `--force-with-lease`, since the split reshaped it. `<impl-msg>`
 covers working-tree edits the operator made at the human gate without staging them — derive it the
 same way a fixup commit's subject is derived — `fix(<module>): <what changed since the last task

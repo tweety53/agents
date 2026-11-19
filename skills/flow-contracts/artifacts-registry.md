@@ -21,7 +21,6 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 | SDD ledger | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Rendered ledger and panel record | `flow record render` | the canonical worktree's `<abs-worktree>/.superpowers/sdd/`, under the change-keyed filename — the renders target the canonical worktree only; never copied into the change directory or committed | with the worktree, at run 2 — the self-review bundle renders them from the store |
 | Brainstorm design document | `/flow`'s creating run | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Dispatch context bundle | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | nothing — `/flow` publishes no proposal artifact (`publish-proposal-removed`), so the file is absent on every change it creates | the state directory | run 2, unconditionally |
 | Worktree | `/flow`'s kickoff | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |

@@ -24,8 +24,7 @@ instructions — says about browser-driving agents.**
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
 tooling analysis** below. `subagent_type` and the Agent tool's `model` parameter are the ones the
-`DISPATCH:` line names — `flow-<effort>` and the model of the verifier's pair, never a session override — which the handshake below then
-compares against. Its prompt opens with the line `Role: visual-verifier` and carries, verbatim:
+`DISPATCH:` line names — `flow-<effort>` and the model of the verifier's pair, never a session override. Its prompt opens with the line `Role: visual-verifier` and carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
@@ -35,8 +34,7 @@ runs every command in the foreground. Its turn ends with its report's `## Verdic
 its last act before that is writing that `## Verdict`, with the full `## Report` under it, to
 `<abs-worktree>/.superpowers/sdd/verify-report-<key>.md` — `<key>` this dispatch's own key from
 **Recording** below — which is what the parent waits on (the turn discipline of **4. Execute
-(SDD + TDD)**, `skills/flow/implement.md`); the parent reads the `## Verdict` alone. The first line of its first reply is `Model: <the model named in its
-own system prompt>`.
+(SDD + TDD)**, `skills/flow/implement.md`); the parent reads the `## Verdict` alone.
 
 **The prompt also carries the TOOLS paragraph**:
 
@@ -52,11 +50,6 @@ own system prompt>`.
 > you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
 > parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
-
-**The prompt also carries the MODEL HANDSHAKE paragraph**:
-
-> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
-> system prompt>` and nothing else on that line. Answer it before any tool call.
 
 **The prompt also carries the REPORT FORMAT paragraph**, `<agents repo>` resolved:
 
@@ -174,9 +167,6 @@ failed; `missing-fixture` — a fixture or baseline the verify needed and the wo
 carry. A report with every exit zero still
 closes `-outcome completed`.
 
-**Handshake.** Compare the `Model:` line against the `DISPATCH:` line's model (never a session override) and apply **The handshake** (`skills/flow/implement.md`, **The parent
-orchestrates directly**), unchanged — its first- and second-mismatch course and its
-single-model-harness case alike, that model the requested model it names.
 
 A verifier that ends without writing its report file, or whose agent dies, is closed by `close`
 `-outcome aborted` with `STOP: no report`, and blocks this handoff exactly as a failed command would,

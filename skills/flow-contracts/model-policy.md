@@ -91,9 +91,7 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | `decider` | Decides the implementer groups, the review panel's bundles and visual verification from the approved plan (headless). |
 | `gated-reviewer` | Reviews each implementer group's tasks as they land. |
 | `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
-| `panel-reviewer` | Reviews the whole branch, first pass: the primary + principles bundle, primary alone on a small change. |
-| `panel-sanity-efficiency` | Extra bundle, each role only when the change gives it something to read: checks each new test would fail if its behaviour broke, and spots wasted calls. |
-| `panel-mutation-failure` | Extra bundle: breaks the code on purpose to prove the tests notice, on every change, and checks error, timeout and partial-write paths where the change does I/O, persistence or concurrency. |
+| `panel-reviewer` | Reviews the whole branch, first pass. |
 | `panel-rerun` | Re-reviews the branch after a fix round. |
 | `fix-run-judge` | Picks which review slots a fix run's changes need. |
 | `panel-merger` | Merges the reviewers' findings into one list without duplicates. |

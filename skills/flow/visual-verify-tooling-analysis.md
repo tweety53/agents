@@ -24,11 +24,6 @@ Its pair is its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`).
 > parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
-**The prompt also carries the MODEL HANDSHAKE paragraph**:
-
-> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
-> system prompt>` and nothing else on that line. Answer it before any tool call.
-
 It also states: the absolute worktree path; each missed defect, verbatim from the fix
 instructions; the paths of the earlier round's `verify-report-*.md` under
 `<abs-worktree>/.superpowers/sdd/` and
@@ -53,7 +48,7 @@ this task, as written:
 and `-effort` the pair its row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`)
 admits, `-key tooling-analysis-<n>`, suffixed `-<repository name>` under
 the verifier's rule — the pair's semantics are section 4 of `skills/flow/implement.md`, cited here,
-not restated. **Handshake** as **The verifier dispatch** (`skills/flow/visual-verify.md`) states it, compared against that pair's model.
+not restated.
 
 **The re-run.** The verifier's prompt then carries `sweeps-<n>.md`'s path, and the verifier runs
 its sweeps in step 10 beside the sweeps listed there, on every view and frame the change touches

@@ -95,12 +95,11 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   directory holding this run's `tasks.md` and no `design.md`, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
 - **sdd-tdd**: **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
-  written except its task close: `flow-guard close-task` is not run — its tick writes a spectre plan,
-  and its planning-paths guard reads a planning tree, neither of which flow-fast writes. A group closes on the implementer's
+  written except its task close: `flow-guard close-task` is not run — its tick writes a spectre plan, which flow-fast never writes. A group closes on the implementer's
   `flow record dispatch end` and `git -C <worktree> push origin <name>`, its gated per-task reviewer
   running at that close, then section 5's lint and tests.
 - **review-panel**: `skills/flow/review-panel.md` as
-  written, **Check base movement first** through **Panel re-runs**.
+  written, **The panel** through **Panel re-runs**.
 
 The change summary in section 5 then also carries the `## Decision` block and each finding with
 its status.

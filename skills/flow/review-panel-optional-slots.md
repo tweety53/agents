@@ -54,6 +54,4 @@ The fold-back runs inside the removal step itself — on every path that removes
 completed, timed out or run stopped — because a report the slot resolved onto its dispatched root
 dies with the copy.
 
-Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
-reproducer still runs against the real `<worktree>` at verification time, never against any slot's
-throwaway copy.
+Findings are unaffected: a finding's `file:line` is repo-relative.
