@@ -25,9 +25,8 @@ nothing — runs through one `capture` run with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the task, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
-commits the stage's PNGs to. **A baseline the fix moves on another screen is recaptured by naming
-that screen's test, `<spec path>:<line>`, in the task's `**Regression:**`** — the task's run takes the tests a
-sidecar maps a changed file to and the tests its `**Tests:**` or `**Regression:**` names, a bare
+commits the stage's PNGs to. The task's run takes the tests a
+sidecar maps a changed file to and the tests its `**Tests:**` names, a bare
 spec path its every test, never
 every spec a shared file reaches, which step 4's `visual-verify` re-run captures once. And every step-4 `visual-verify` re-run of the round names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
 spec whose baseline moved — the verifier compares each against its mockup exactly as it does the
@@ -81,19 +80,17 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 
 1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**
    (`skills/flow/document-fix.md`) with the stage's final `## Report` — every defect it names,
-   verbatim — as the fix instructions. Each over-tolerance row the opener's report classifies `departure` is cited in the task as `<frame> #<row>`, and `flow-guard check-plan-shape` F34 refuses a task without one (kan-1099 self-review, F22). Neither of its two asks is made: the fix is appended to
+   verbatim — as the fix instructions. Each over-tolerance row the opener's report classifies `departure` is cited in the task as `<frame> #<row>`. Neither of its two asks is made: the fix is appended to
    `proposal.md` and `tasks.md`, and `**Tasks appended:**` is not raised, since it counts appends
    made at the human gate. The appended task carries the field family the verification-change
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
-   this run's round, counted across both stages, so no two rounds share a `-fix-<k>` key. Run `flow-guard check-plan-shape -rules` before writing the task, and meet every rule it prints. On a `flow.visual-verify` round the task rewrites, beside the
+   this run's round, counted across both stages, so no two rounds share a `-fix-<k>` key. On a `flow.visual-verify` round the task rewrites, beside the
    fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
    CHECK (`skills/flow/implement.md`) requires; the record is never in its `**Files:**`
    — it is written on disk only, the change directory gitignored, and flow-guard stage-task-files refuses
-   an ignored path — and `close-task` runs the plan guard on
-   the task before ticking it. The round's evidence directory,
-   `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` or
-   `**Allowed-collateral:**` — `check-plan-shape` F23 refuses it and
+   an ignored path. The round's evidence directory,
+   `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**` —
    `check-task-commit-planning-paths` sweeps it — and is written on disk only. The re-decide runs as
    that file states.
    **One round appends one task**, carrying every defect the report names, every reviewer finding
@@ -104,9 +101,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    over-tolerance row of a 432-departure report on its own). A second task of a round is a
    slice, cut only where two of its items edit one file in conflicting ways: it carries the
    round's `<k>` and `**Opener:**`, names that file in its `**Files:**` as the first task does, and
-   has its own fixer. `flow-guard check-plan-shape` F24 and F33 refuse any other second task, and
-   a round opened by a report older than the previous round's `-fix-<k>` re-run, whose departures
-   were known when that round was planned. The task carries `**Opener:** <the dispatch key whose report it transcribes>`.
+   has its own fixer. The task carries `**Opener:** <the dispatch key whose report it transcribes>`.
    On a sharded pass (`skills/flow/visual-verify.md`) the one task transcribes every shard report
    that names a defect, and its `**Opener:**` is the pass key without the `-s<i>of<n>` segment.
    Before the append, the stage's failing row is closed with `flow record dispatch
@@ -114,7 +109,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    round's rows open. The failing stage's mark — `flow.verify` or `flow.visual-verify` — is closed beside that row, `flow stage end -command '/flow' -stage <that stage> -outcome stopped <name>`, save a `flow.visual-verify` mark whose `flow-guard visual-verify-pass close` printed `STAGE:`, which that close already ended, and a run that re-enters this loop while `flow.write-in-progress` is open closes that mark the same way first, so the round's next `flow stage begin` supersedes no open run.
    On `NEXT: loop`, `flow-guard visual-verify-pass close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
-   task exactly as a plan-time task: the decision's implementer pair, `flow-guard close-task` with its
+   task exactly as a plan-time task: the `implementer` role's pair, `flow-guard close-task` with its
    guard and its review gate. **The gated reviewer runs once per round, after its last fixer.**
    On `big`, the round's gate-fired tasks, its slices included, go out in one reviewer bundle once
    the last of them has closed through `flow-guard close-task`; a `fix` verdict takes one fixer
@@ -141,8 +136,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    difference.
    **Every new branch the fix adds lands a test of its own in the same commit.** A condition, flag,
    guard or state the fix introduces beyond the departure it closes — a hidden placeholder, a reset
-   on return, a skipped refresh — carries a test that fails with that branch removed, and the task's
-   `**Regression:**` names each such test beside the departure's probe, never the probe alone.
+   on return, a skipped refresh — carries a test that fails with that branch removed.
    **The implementer measures before it hands back.** When the round's defects include a mockup
    departure, its dispatch names the absolute path of `skills/flow/visual-verify-verifier.md`, the
    capture spec with its `<spec>.mockups` sidecar, the resolved `mockups` root and `mockup frame`

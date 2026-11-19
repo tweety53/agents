@@ -10,7 +10,7 @@ worktree, and a stream of **requests**, each shipped to the base branch on its o
 marks existing `flow.*` stage keys, so labels, phases, cost by stage and the timeline read as they
 do for `/flow` and `/flow-fast`. Each request is a row the store keeps (`flow record request`),
 and every stage run made for it carries its request number (`-request <n>`). This session does the
-work inline: no review panel per request, no spectre artifacts, no plan file, no decision roll, no
+work inline: no review panel per request, no spectre artifacts, no plan file, no decision, no
 state file, and no workspace isolation beyond the worktree.
 
 **Announce at start:** "Using flow-interactive for change `<name>`."
@@ -22,8 +22,8 @@ interactive change; report anything else rather than ignoring it. The base is th
 
 **Every mark is a literal call.** `<harness>` is this harness's name, `fi-<literal-token>` is one
 token generated once per invocation, shaped as **Stage marks** (`skills/flow-contracts/pipeline.md`)
-states, and typed the same at every `stage begin` and `stage mark` — never a shell substitution,
-per the CLI's own usage text. `<n>` is the request's number in the session.
+states, and typed the same in every `flow record` command — never a shell substitution, per the
+CLI's own usage text. A mark carries none. `<n>` is the request's number in the session.
 
 **Guardrails, the whole list.** Never dispatch a subagent, save the self-review pass's own
 dispatches (`skills/flow-self-review/SKILL.md`), the in-run fix loop of **Pipeline defects found
@@ -52,8 +52,6 @@ stop's stages carry no `-request`.
 below); one matching a finished change ends the run with one line saying so. Anything else starts
 a new session, save as **Name.** below states, a non-empty argument being its first request.
 
-**Main-agent experiment.** An open main-agent experiment is checked, never enforced, as **Model resolution** (`skills/flow/SKILL.md`) states for `/flow`: run its `flow experiment main-check` line once at session start.
-
 **Jira.** Resolve the issue per **Resolution (how `jiraIssue` is decided)**
 (`skills/flow-contracts/jira-integration.md`): with no key given, reuse the In Progress `Interactive session` issue, whoever it is assigned to, when one exists, else file a Task through its creation
 path, summary `Interactive session <YYYY-MM-DD>`, labelled per **Labels on issues the pipeline
@@ -67,7 +65,7 @@ change — the reused `Interactive session` issue's included — resumes it (**R
 a new session numbering from 1.
 
 ```bash
-flow stage mark  -command '/flow-interactive' -stages flow.kickoff -harness <harness> -session-token fi-<literal-token> <name>
+flow stage mark  -command '/flow-interactive' -stages flow.kickoff -harness <harness> <name>
 ```
 
 **Landing route.** `flow-guard project-get <project> "default landing route" --enum "pull request" "merge
@@ -112,7 +110,7 @@ defect met mid-session is fixed per **Pipeline defects found mid-run**
 itself, the log — then the code. Never answer from code alone.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.load-context -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.load-context -request <n> -harness <harness> <name>
 flow stage end   -command '/flow-interactive' -stage flow.load-context -outcome completed <name>
 ```
 
@@ -132,7 +130,7 @@ ask the operator through **AskUserQuestion**, per **Unanswered mid-run asks**
 (`skills/flow-contracts/pipeline.md`):
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.brainstorm -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.brainstorm -request <n> -harness <harness> <name>
 flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.brainstorm -outcome completed <name>
 ```
@@ -146,7 +144,7 @@ otherwise as section 4 of `/flow-fast` commits (`skills/flow-fast/SKILL.md`). No
 composed.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -harness <harness> <name>
 flow stage end   -command '/flow-interactive' -stage flow.sdd-tdd -outcome completed <name>
 ```
 
@@ -158,7 +156,7 @@ exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `
 request's last commit.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> <name>
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
 ```
 
@@ -181,7 +179,7 @@ must answer before anything reads it. A skipped pull is one line; on a request s
 check, the request stays open (⛔ blocked), since the live page cannot show the landed code.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.refresh-main-checkout -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.refresh-main-checkout -request <n> -harness <harness> <name>
 flow stage end   -command '/flow-interactive' -stage flow.refresh-main-checkout -outcome completed <name>
 ```
 
@@ -195,7 +193,7 @@ again inside the same request. The stage's end is its own call, made after the s
 never chained to its begin.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> -session-token fi-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> <name>
 flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
@@ -224,8 +222,7 @@ stage, record the row (store role `implementer`, key `operator-<k>`, which flowd
 `operator-asked` role), dispatch, and end the row when the agent reports — never a fork.
 Each agent gets its own row: `<k>` is one past the highest `operator-` key the change records, so
 two agents of one request never share a key. A dispatch the hook refuses ends its row `aborted` at
-once. `flow stage end` of the request's `flow.sdd-tdd` refuses while an `operator-` row of the
-change is open.
+once.
 
 ```bash
 flow record dispatch begin -change <name> -role implementer -model <model> -effort <level> -key operator-<k> -request <n> -session-token fi-<literal-token>
@@ -284,7 +281,7 @@ as a request and the session stays open, saying so in one line. Stop:
    session's requests, never the stop invocation's diff.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> -session-token fi-<literal-token> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> <name>
    flow stage end   -command '/flow-interactive' -stage flow.self-review -outcome completed <name>
    ```
 
@@ -296,7 +293,7 @@ as a request and the session stays open, saying so in one line. Stop:
    --delete <name>`.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.cleanup -harness <harness> -session-token fi-<literal-token> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.cleanup -harness <harness> <name>
    flow stage end   -command '/flow-interactive' -stage flow.cleanup -outcome completed <name>
    ```
 
@@ -306,7 +303,7 @@ as a request and the session stays open, saying so in one line. Stop:
 6. Move the change to `FINISHED`:
 
    ```bash
-   flow stage mark  -command '/flow-interactive' -stages flow.write-finished -harness <harness> -session-token fi-<literal-token> <name>
+   flow stage mark  -command '/flow-interactive' -stages flow.write-finished -harness <harness> <name>
    ```
 
 7. The stop report carries `**Learning:** NONE — /flow-interactive composes no note` and the
@@ -316,7 +313,7 @@ as a request and the session stays open, saying so in one line. Stop:
 
 `/flow-interactive <key or name>` on an open session reuses its worktree — recreated from the
 remote branch, else `origin/<base>`, when gone, with `flow-guard ignore-scratch <worktree>` and
-`mkdir -p <changeRoot>` run in it — marks `flow.kickoff` under a new token, continues
+`mkdir -p <changeRoot>` run in it — marks `flow.kickoff`, generates a new token, continues
 numbering after the highest recorded request,
 and takes an open request from the dead session as the current one: its stages re-run as new
 attempts under the same number.

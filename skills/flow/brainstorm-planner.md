@@ -92,7 +92,9 @@ states.
   are committed into the repository or their location is recorded in
   `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
   mockups directory lives — **Project configuration — visual verification**,
-  `skills/flow-contracts/project-configuration-visual.md`).
+  `skills/flow-contracts/project-configuration-visual.md`). A commit of the assets carries
+  `-m "Flow-Key: flow.brainstorm"` (**Commits outside every task**,
+  `skills/flow-contracts/git-boundaries.md`).
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and

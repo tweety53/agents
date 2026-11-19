@@ -23,11 +23,10 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 | Brainstorm design document | `/flow`'s creating run | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Dispatch context bundle | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | nothing — `/flow` publishes no proposal artifact (`publish-proposal-removed`), so the file is absent on every change it creates | the state directory | run 2, unconditionally |
-| Worktree | `/flow`'s `flow.kickoff` | per the `worktrees` keys | run 2, after its existing checks |
+| Worktree | `/flow`'s kickoff | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
 | Change directory | `/flow`'s creating run | `<project>/spectre/changes/<name>/` — gitignored; on disk in the worktree; `tasks.md` saved to flowd at cleanup, `design.md` committed as **The design record** (`skills/flow-contracts/finish-contract-run1.md`) | with the worktree, at run 2 |
-| Plan snapshots | `/flow`'s creating run, `/flow-plan`'s capture and a fix run's tasks append, per **Plan snapshots** (`skills/flow/brainstorm.md`) | `<abs-worktree>/.superpowers/sdd/<name>/plan-snapshots/<k>/`, never committed; read by flow-eval's `case add impl` | with the worktree, at run 2 |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/flow`'s implement phase, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |

@@ -62,9 +62,7 @@ It hands back every case file under `<sr-dir>/cases/<case-id>/` and every file f
 Beside those contents it hands back its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. Before step 2a, this session writes each returned file to its target path, byte for byte. This session keeps the filing prompt, the
 store rows. The pass's dispatch row is opened under `<name>` by the hook that admits it;
 when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
-self-review-<name>-pass -session-token self-review-<name> -outcome completed` — `flow stage end`
-refuses a `flow.self-review` end while it is open, and a completed one when the change holds no
-completed pass row.
+self-review-<name>-pass -session-token self-review-<name> -outcome completed`.
 
 **Every suspected defect is traced to a verdict before the pass returns it.** Reproduced, it is
 fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it in its line. "Not
@@ -289,13 +287,11 @@ it returns. The `self-review-fix` row carries no no-progress escalation: a self-
 dispatch off, a key's suffix naming its row — `pass`, `plan`, `fix`, `review-1` and `review-r` for
 every re-review.
 
-**Each loop dispatch runs on the pair `flow-guard pair-judge <role> <prompt file>` prints for its
-row's role**, per **Model and effort** (`skills/flow/brainstorm-planner.md`), its prompt carrying
-the line `Pair pick: <source>: <reason>` — **the planner pair** on the `plan` row, the
+**Each loop dispatch runs on its row's role's pair**, per **Model and effort**
+(`skills/flow/brainstorm-planner.md`) — **the planner pair** on the `plan` row, the
 `flow-planner-<effort>` definitions being the `flow-<effort>` ones plus `Agent` (decision
 `planner-carries-agent`); **the fixer pair** on the `fix` row; and **the review pair** on the two
-`review` rows, save the first review, which runs on the pair the planner recorded — `flow-medium`
-when it recorded none, a type the role's allowed pairs do not admit standing aside for the pair they do.
+`review` rows.
 
 **Every loop dispatch is admitted and recorded mechanically.**
 `<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
@@ -330,8 +326,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    plans them all in full as one spectre change, `self-review-<name>`, in that worktree, per
    `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
    `proposal.md`, and `design.md` with `## Context`, `## Decisions` and `## Open questions`) and
-   writing plans (section D — a `tasks.md` in which each finding is carried by exactly one task, a
-   `Build: red` task counting with the partner it folds into). `flow-planner-medium`, like the
+   writing plans (section D — a `tasks.md` in which each finding is carried by exactly one task). `flow-planner-medium`, like the
    `flow-<effort>` definitions it copies, carries no Skill tool, so the prompt names the path of the installed superpowers plugin's
    `skills/brainstorming/SKILL.md` and `skills/writing-plans/SKILL.md` — on Claude Code the
    newest `~/.claude/plugins/cache/*/superpowers/*/skills/<skill>/SKILL.md` — and the planner reads and
@@ -343,14 +338,11 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `<agents repo>-worktrees/<name>/.superpowers/sdd/` on the change's own branch. When it writes
    or changes a prototype, its report names the file's absolute path, and this session publishes it
    and prints its URL in its final report (**The checklist**, `skills/flow/brainstorm-planner.md`). Section D's
-   guards — `spectre validate "self-review-<name>"`, `flow-guard check-plan-shape`,
-   `flow-guard check-plan-provenance` and `flow-guard check-task-build-green` — pass before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no
-   `flow tasks count`, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
-   review gate**. `design.md`'s decisions record instead this pass's dynamic choices: the first
-   review's pair and the grouping of tasks into fixer dispatches. The pair is the entry `**ID:** first-review-effort`,
-   its `**Chosen:**` line the pair `flow-guard pair-judge self-review-review-1 <changeRoot>/tasks.md`
-   prints (`pipeline-fix-review-1` in a pipeline-fix loop), written `` `flow-<effort>` on `<model>` ``
-   beside the guard's source and reason — the ID `flow-guard check-loop-dispatch` parses;
+   `spectre validate "self-review-<name>"` passes before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
+   review gate**. `design.md`'s decisions record instead the first review's pair and the grouping
+   of tasks into fixer dispatches. The pair is the entry `**ID:** first-review-effort`,
+   its `**Chosen:**` line the `self-review-review-1` role's pair (`pipeline-fix-review-1` in a
+   pipeline-fix loop), written `` `flow-<effort>` on `<model>` `` — the ID `flow-guard check-loop-dispatch` parses;
    under any other ID the guard sees no decision and wants `flow-medium`. It commits
    none of the artifacts — `<agents repo>/spectre/changes/` is gitignored — and never merges or pushes.
    A run-1 re-run never folds the loop's fix commits: the newest commit a `fixed` row names is its
@@ -360,9 +352,8 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
 
    > **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
    > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
-   > `fork`, and never an agent that edits files or commits. Each dispatch's model and effort come
-   > from `flow-guard pair-judge <role> <prompt file>`, `<role>` that dispatch's own Role and
-   > `<prompt file>` its prompt written first to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, and every dispatch prompt carries the line
+   > `fork`, and never an agent that edits files or commits. Each dispatch runs on its own Role's pair
+   > (**Model and effort**, `skills/flow/brainstorm-planner.md`), and every dispatch prompt carries the line
    > `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
    > (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
    > decide, and every choice is auto-resolved to its recommended option. Fixing, implementing and
@@ -514,8 +505,7 @@ this session: print `⚠ Jira: skipped — <reason>` and record that finding `de
 
 Mine each chosen candidate into the `flow-eval` checkout here, on every route, while the change's
 worktrees exist — inside integrate run 1, before cleanup removes them — because `case add
-impl|review` reads the change's plan snapshots (`<project>/.superpowers/sdd/<name>/plan-snapshots/`,
-**Plan snapshots** in `skills/flow/brainstorm.md`), ledger and panel record (`<project>/.superpowers/sdd/`)
+impl|review` reads the change's ledger and panel record (`<project>/.superpowers/sdd/`)
 from the worktree on disk, never from git history. Once cleanup removed the worktree it refuses with
 `plan files gone — mine before cleanup`, and that candidate is left unmined under the failed
 `case add` sentence below. The mining runs in a worktree, never

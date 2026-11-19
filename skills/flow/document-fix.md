@@ -7,11 +7,11 @@ section **1** runs. Every "you" here addresses the parent (**The parent orchestr
 **Parent work, run before the plan is executed** — see **The parent orchestrates directly**
 (`skills/flow/implement.md`). Everything below is the parent's own.
 
-**Fix runs only** — a first run resumes the worktree `flow.kickoff` created, per **2. Isolate the workspace** (`skills/flow/implement.md`), and
+**Fix runs only** — a first run resumes the worktree kickoff created, per **2. Isolate the workspace** (`skills/flow/implement.md`), and
 marks nothing here:
 
 ```bash
-flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> <name>
 ```
 
 **Before the planning pass, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
@@ -67,15 +67,8 @@ carried one.
 every call site of the code the fix replaces and every test exercising it; the appended task's
 `**Files:**` covers each, or the task names why one stays.
 
-**The appended task's verification tags are evidence-checked like a seeded note's.** An appended
-task carries a `verified:`/`measured:` tag only when its evidence is in hand; an unverifiable one
-is written `unverified:`/`predicted:` instead, never appended as a verification tag. The append
-is where a fix round is most tempted to assert a check nobody made: `flow-guard check-task-commit-fields`
-refuses the close of a task whose record carries the evidence-free shape, per **Plan
-provenance**'s evidence rule (`skills/flow-contracts/plan-provenance.md`).
-
 **An appended task is implemented and panel-checked exactly as plan-time work — by the full
-decided roster, or by `primary` alone on `opus` where its delta is a small append.** The operator flag that prompted it is not a verification of its premise: its
+decided roster, or by `primary` alone where its delta is a small append.** The operator flag that prompted it is not a verification of its premise: its
 work lands in the fix run's diff and takes the panel beside every other task's, and the narrow
 late-fix path stays closed to an append (**The late-fix reduction**, `skills/flow/review-panel.md`).
 Its read scope is the since-close delta under **The append scope** or **The small append**
@@ -112,28 +105,7 @@ named, never the screen area the complaint happens to sit in.
 describe, sync the issue **description** per **Description sync** in Jira integration
 (`skills/flow-contracts/jira-integration.md`). Never transition the issue here.
 
-**The appended plan's growth is recorded.** After the planning pass writes its appends and bumps
-`**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's
-plan-growth series:
-
-```bash
-flow tasks count -C <worktree> <name>
-```
-
-**The appended plan passes the plan guards before it is snapshotted.** Run
-`flow-guard check-plan-shape <changeRoot>/tasks.md`, a shipped guard among this skill's scripts, and the
-project's configured plan-provenance guard, at the path the project's `<project>/.flow/project.md` `## lint`
-section names — the project's own script, never one under this skill's scripts — and handle each
-exit as **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) handles it,
-before the plan snapshot below.
-
-Then take a plan snapshot of the appended plan (**Plan snapshots**, `skills/flow/brainstorm.md`),
-after the plan guards pass and before any implementer is dispatched; the change directory is still
-on disk, since cleanup runs only after the merge. **Every appended task is written unticked**: the task is ticked only once its commit passes `flow-guard check-task-commit-fields`.
-
-The count, `flow-guard check-plan-shape`, the project's plan-provenance guard and the snapshot
-command run as one Bash call, joined with `&&` in that order; the first non-zero exit is handled as
-its own paragraph above states, and the call is repeated from the start once it is repaired.
+**Every appended task is written unticked**: the task is ticked only once its commit lands.
 
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
@@ -146,29 +118,25 @@ the appended `tasks.md`, with `<merge-base>` the resolved worktree's entry in th
 `worktrees` map.
 
 When the `class:` line it prints equals the newest recorded row's `classMechanical`, the row is
-carried: `decision.json` is that row's file with three things rewritten and nothing else
-re-chosen — `inputs` from the `inputs:` line; `groups_mechanical` and `groups` from
-`flow-guard plan-dispatch-bundles` and `flow-guard plan-dispatch-groups` over the appended plan,
-each group on the pair `flow-guard pair-judge implementer` prints over its own tasks, `-opus-only` for a group carrying a hard seam (**Decide** step 5, `skills/flow/brainstorm-planner.md`),
-`groups_override` `null` and `groups_reason` `mechanical`, all left `null` where the row's
-`execution` is `inline`; and `visual` raised to `required` when the append can change what a user
+carried: `decision.json` is that row's file with two things rewritten and nothing else
+re-chosen — `groups` from `flow-guard plan-dispatch-bundles` and `flow-guard plan-dispatch-groups`
+over the appended plan (**Decide** step 3, `skills/flow/brainstorm-planner.md`), left `null` where
+the row's `execution` is `inline`; and `visual` raised to `required` when the append can change what a user
 sees, never lowered. **Decide** is not read on this path.
 
 When the printed class differs from the row's `classMechanical`, read **Decide**
 (`skills/flow/brainstorm-planner.md`) by its heading, that section alone, and run it from that
-`flow-guard plan-class` output. The rolls are name-derived, so they come out identical to the
-first row's; everything else Decide outputs is recomputed — `class`, `execution`, the implementer
-and fixer pairs, `groups`, the panel roster (a class move can add or drop slots, and `micro` makes it
+`flow-guard plan-class` output. Everything Decide outputs is recomputed — `class`, `execution`,
+`groups`, the panel roster (a class move can add or drop slots, and `micro` makes it
 the string `default`) and a free grouping's shape — and the run follows the new row, never the
-first row's panel or pairs.
+first row's panel.
 
 On either path, write the
 decision JSON and print the `## Decision` block, then record the second
-row below. The section's closing `flow.writing-plans` mark belongs to the planning run and never
-runs here, and **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
+row below. **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
 
 ```bash
-flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.decide -harness <harness> <name>
 flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```

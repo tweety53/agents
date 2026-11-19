@@ -35,10 +35,10 @@ roster, never for the read scope; exit 4 → **The small append** below.
 this stage's start, reading not the whole `final-review.diff` but only
 `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by
 `flow-guard write-panel-diff late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`,
-whose exits read as the pass-1 write's. On a decided panel the dispatch runs on the decision's `panel.rerun_dispatch`
+whose exits read as the pass-1 write's. On a decided panel the dispatch runs on the `panel-rerun` role's
 pair, its Role line `panel-rerun`, under the fix-round re-run's 5-minute ceiling; on a `default`
-panel, which carries no decision to read a pair from, on the pair `flow-guard pair-judge late-fix <prompt file>`
-prints (**Model and effort**, `skills/flow/brainstorm-planner.md`) under the ordinary 15-minute ceiling. Each dropped slot is recorded
+panel on the `late-fix` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`)
+under the ordinary 15-minute ceiling. Each dropped slot is recorded
 with `flow record pass -round <round> -note 'not dispatched — late-fix reduction: <slot>'`, the
 docs-only reduction's own convention. Every entry check above still runs as any round's — base
 movement, the diff-size cap, the docs-only guard — and where both reductions fire, the late-fix
@@ -69,7 +69,7 @@ rule — leaves every slot it did not dispatch current the same way.
 
 **A fix run whose late-fix check fails on its size or scope-growth condition alone — exit 3 —
 keeps the decided roster and narrows only the read scope.** Pass 1 runs the roster a full pass 1
-would: the same `panel.dispatches`, pairs and ceilings, and on a `default` panel its
+would: the same `panel.dispatches`, role pairs and ceilings, and on a `default` panel its
 settings-store grouping. Every dispatch reads `<abs-worktree>/.superpowers/sdd/late-fix.diff`,
 written over the since-close range by the same `flow-guard write-panel-diff late-fix` call the late-fix
 reduction makes, whose exits read as the pass-1 write's, and rendered with `-diff late-fix`,
@@ -90,10 +90,10 @@ narrow. A clean close moves the close sha to the round's HEAD, as any close does
 
 **A fix run whose late-fix check exits 4 — the append scope's verdict on a countable delta of at
 most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside **The extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the
-operator named at this stage's start, on the pair `flow-guard pair-judge late-fix <prompt file>`
-prints (**Model and effort**, `skills/flow/brainstorm-planner.md`) under the ordinary 15-minute ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders
+operator named at this stage's start, on the `late-fix` role's pair (**Model and effort**,
+`skills/flow/brainstorm-planner.md`) under the ordinary 15-minute ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders
 it. `primary` reads every line of the new source, so nothing appended goes unreviewed; what the
-small append drops is the second lens and the higher effort. It runs on that judged pair, never the rerun pair: the delta is new
+small append drops is the second lens and the higher effort. It runs on that pair, never the rerun pair: the delta is new
 source, a first read rather than a re-run. Every other slot pass 1 would carry — the experimental
 slot included — is not dispatched, each recorded with
 `flow record pass -round <round> -note 'not dispatched — small append: <slot>'`, and the small
@@ -184,8 +184,8 @@ a verdict below the floor, or no JSON — and exit 2 take the full path. A judge
 answered within 5 minutes, or whose agent dies, is closed `-outcome aborted` and takes the full
 path too.
 
-**Recording.** The parent records the dispatch `-role planner`, `-task` omitted, on its pair's
-model and effort, `-key fix-run-judge-<n>`, and compares its `Model:` line as the handshake
+**Recording.** The parent records the dispatch `-role planner`, `-task` omitted, on the
+`fix-run-judge` role's model and effort, `-key fix-run-judge-<n>`, and compares its `Model:` line as the handshake
 paragraph of **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states. The outcome is one row of the pass log:
 `flow record pass -round <round> -note 'fix-run judge: <the guard's verdict: line> · floor <class> — <the reasons>'`,
 or `fix-run judge: full path — <the guard's stderr, or aborted>`.

@@ -164,15 +164,8 @@ text after it is the passage, verbatim.
 - ***A task cites the decision it implements, never restates it.** Restated decision prose drifts from its entry the first time either is edited* — which is why gymie kan-468's seeded plan cited instead
 - ***End a removal task on an absence sweep.*** — (KAN-569) every kan-485 copy-removal task ended on a `git grep -n -F` over its cut strings in the shared sources, so each task's done was mechanical rather than a judgment call.
 - *Its paths never cover a later task's `**Files:**` while that file still holds a string the sweep removes* — (kan-1021) Tasks 5 and 6 swept `stats`, which covered Task 10's `<agents repo>/stats/internal/guard/pipelinefix.go` and `<agents repo>/stats/internal/guard/pipeline_fix_test.go`, still naming the removed harnesses, so each sweep printed hits at its own commit and needed a `Correction:`; Tasks 1–4's sweeps likewise hit doc comments the plan told them to keep.
-- *`**Baseline:**` … record a command whose stdout is one integer* — (the `| grep -c` pipelines in kan-271 and kan-298's plans are the shape)
 - *`**Files:**` … is expanded by the writer, never left in the field for the guard to expand* — (KAN-636); kan-579's plan declared gs/core/... behind its own legend and hand-repaired every field back to literal paths at its first task boundary, which is the repair this rule removes.
 - *A block of `**Decision:**` lines sits between blank lines … never glued to the `**Commit:**` subject above it* — (KAN-636): a citation with no blank line rode in the subject's continuation in every reader that had not learned the field's name, and kan-579's run repaired each such field by hand at its task boundary.
-
-### brainstorm-planner.md — D. Writing plans (plan guards)
-
-- *The refusal exits are never repaired by editing the plan* — (KAN-601)
-- *…record its size as the change's first task-count observation — the planned figure every later fix round's growth is measured against* — (KAN-415)
-- *When the project declares `mockups`, also run `flow-guard check-mockup-citations`* — (KAN-558, KAN-565) kan-469's `design.md` and `tasks.md` cited `P6.png`, which no file in the mockups root held, and the gap surfaced only when visual verification skipped the comparison; kan-30 had planned fidelity specs believing no mockups existed. The guard reads only the path form because a bare `<frame id>.png` cannot be told from a capture screenshot's name: gymie's archived plans carried 178 bare `.png` tokens naming no mockup file, nearly all screenshots, against 100 path-form citations that all resolved.
 
 ### brainstorm-planner.md — D. Writing plans (live check)
 
@@ -683,11 +676,6 @@ decision fixer-weight-cap).
 > implementation WIP (KAN-628, the improvised WIP-commit dance
 > two runs performed to get past exactly this).
 
-### implement.md — 3. Documenting a fix, before implementing it (plan growth)
-
-> gate-time re-planning visible as a trend in the app rather than a
-> per-change surprise (KAN-415)
-
 ## Moved by KAN-856 — planning-session trims
 
 Verbatim passages KAN-856 moved out of the planning session's run-loaded files; each is the reason behind a rule that stays where it was.
@@ -728,20 +716,6 @@ KAN-750's task 11 was blocked for
 35 minutes on a plan that assumed Playwright's `reducedMotion` took effect under `use`, where it
 takes effect only under `contextOptions`.
 
-`**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, counted statically from
-test declarations (`@Test` and its language equivalents), never from a test run, and each
-task's delta its own: `after` is `before` plus the tests the task's own `**Tests:**` field
-names, so two tasks dispatched in parallel count independently — neither's baseline depends on
-the other's edits.
-
-The recorded command names no ref of its own — no tree, sha, branch
-or revision argument anywhere inside it: the re-measurement checks each of its two points out
-itself and runs the command in that working tree, so a command naming a ref measures that one
-tree at both points, reports identical counts, and fails any nonzero declared delta.
-
-This line is required and explicit on every plan — never omitted, per
-this repository's "missing rather than dropped" convention.
-
 ## Moved by KAN-857 — implementation-session trims
 
 Sentences `skills/flow/implement.md` and the files split out of it (`document-fix.md`,
@@ -752,7 +726,7 @@ in the run-loaded file.
 
 A subagent's prompt cache lives five minutes, so a child woken later re-writes its whole context at the cache-write price.
 
-**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md` — three definitions, one per effort, each carrying `effort:` and no `model:`, since the Agent tool's dispatch-time `model` parameter overrides a definition's `model`, and a loop dispatch's effort is read off its `subagent_type` by `flow-guard check-loop-dispatch`; the Agent tool's dispatch-time `effort` parameter is the one a planning dispatch passes from `flow-guard pair-judge`) carries a `tools:` allowlist that omits `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent structurally does not have, not by prompt text alone.
+**The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md` — three definitions, one per effort, each carrying `effort:` and no `model:`, since the Agent tool's dispatch-time `model` parameter overrides a definition's `model`, and a loop dispatch's effort is read off its `subagent_type` by `flow-guard check-loop-dispatch`) carries a `tools:` allowlist that omits `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent structurally does not have, not by prompt text alone.
 
 **A dispatch whose agent dies is closed with `-outcome aborted`, reported, and not retried**: print `/flow <name>` for the operator — a re-run resumes from whatever was left (checkbox state, the state file's worktrees, findings in the store) through this file's own re-entry rules, and the operator should see the death rather than have it hidden by a second dispatch.
 
@@ -777,12 +751,6 @@ The working directory is what resolves the peers file's relative entries — `Re
 When the count has reached **6**, the re-plan budget, this fix round is offered the planning pass before anything is appended: an append past this budget is how a change outgrows its own proposal without anyone deciding it should.
 
 The glance that passed the control is what the operator is contesting, and repeating it answers nothing.
-
-After the planning pass writes its appends and bumps `**Tasks appended:**`, the plan's new size is recorded as the next observation of the change's plan-growth series — gate-time re-planning visible as a trend in the app rather than a per-change surprise:
-
-```bash
-flow tasks count -C <worktree> <name>
-```
 
 ### implement.md — 4. Execute (SDD + TDD) (KAN-857)
 
@@ -1212,7 +1180,6 @@ attribution; the text after it is the passage, verbatim.
 - *is what lets Inline verify (`skills/flow/verify-and-handoff.md`) skip what no later commit touched* — (kan-1084 self-review, F1: the frontend's `## test` list first ran at `flow.verify`, after three panel rounds had reviewed that tree)
 - *verdict and the suite's arrive together rather than one after the other* — (kan-920: the panel waited six and a half minutes for a suite it did not read)
 - *`mutation+failure-modes` dispatch is begun and launched only once the suite has exited* — (kan-1039: the guard package hit `go test`'s 10-minute timeout under the mutation slot's runs, and passed alone in 332 s)
-- *each numeric claim its `measured:` comment or word it without a count* — (kan-1020: a bare count in a Correction was refused only at verify)
 - *first row's. So the newest row's `inputs` count the plan that ran* — (kan-1028: Task 6, added mid-run, left the only row at `tasks=5 files=20` against `tasks=6 files=23`)
 - *dispatch's `verify`, and the next bracket's snapshot is taken after the edit* — (kan-1104 self-review, F4: the parent's own mid-run edits to `design.md` and `tasks.md` landed between a snapshot and its `verify`, and the guard stopped the run)
 - *blocked, a human gate, or a question only the operator can settle* — (gymie KAN-1015: the parent ticked Tasks 15–19 and ended its turn with "the review panel is next")
@@ -1221,21 +1188,12 @@ attribution; the text after it is the passage, verbatim.
 
 - *and chart size of the sibling views — never a standalone restyle* — (kan-1057: a hard-coded dark, centered page did not match the existing pages)
 - *the capture's frame; a note to the operator goes in the message* — (kan-1047: a caption over a JPEG of the live page never paired with a capture)
-- *, so integrate never stops on a criterion the plan already overruled* — (kan-1003: decision `lands-on-develop` left "Branch `feature/one-block` in both repos, <!-- citations-guard:allow --> never develop" standing, and integrate stopped and asked again)
-
-### brainstorm-planner.md — Explore and design agents
-
-- *row is never back-filled with instants not read from its agent's transcript* — (kan-1075 self-review, F1: a `begin` refused for a missing `-model`, its error piped through `tail`, left both Explore agents unrecorded, and their back-filled rows began before their planner did)
 
 ### brainstorm-planner.md — D. Basic Workflow #3 — Writing plans
 
 - *runs a package the machine lacks: the external code auto mode denies* — (kan-1079 self-review, F3: a diagram render step was denied and the diagrams shipped unrendered)
 - *service, a scratch copy of the record — named in the section* — (kan-1019: a check deferred to integrate was never run)
-- *`measured:` per Plan provenance (`skills/flow-contracts/plan-provenance.md`), never left `unverified:` for `flow.verify` to find* — (kan-1075 self-review, F3: three `unverified:` inputs failed one at a time at verify and cost 37 minutes)
-- *over is tagged `unverified:flow-guard run-verify-list lint on the applied copy`, never `verified:`* — (kan-1064 self-review: task 2's prose diff, tagged `verified:` after a scratch apply, failed `check-installed-citations` and `check-guard-symlinks` at implementation)
-- *its accepting ones, and the tag names each rejecting input it ran* — (kan-1075 self-review, F6: a `verified:` regex was run on four accepting lines and on none of the empty reason its step promised to refuse)
 - *resolving; cite a path on the default branch and the ticket instead* — (kan-1034: task 2's vendored `UPSTREAM.md` named the task 1 commit, unreachable once the branch was reshaped)
-- *a decision gives the parent is a tracked line, never prose alone* — (kan-1079 self-review, F1: a chore commit and a clutter deletion two decisions assigned outside every task were never done)
 - *sweep — is pinned by a test some task names in `Tests:`* — (kan-1075 self-review, F6: decisions `judge-on-last-trial` and `judge-deadline` named no test, and the panel found both behaviours untested)
 - *guard and stage the paragraph cites resolves in what that destination ships* — (kan-1034: flow-only paragraphs classed generic moved into the vendored `skills/spectre-planning/SKILL.md`, and a fix round moved about 230 lines back)
 - *The loop (`skills/flow/verify-fix-loop.md`) states for a fix round, applied at plan time* — (kan-1007: a plan-time capture was judged by eye)
@@ -1324,7 +1282,6 @@ attribution; the text after it is the passage, verbatim.
 ### document-fix.md — Documenting a fix, before implementing it
 
 - *appended task's `Files:` covers each, or the task names why one stays* — (kan-1075 self-review, F18: task 5 replaced `signal.NotifyContext` in `run` alone, and the panel found `regrade` and `TestSIGTERMCancelsARun` still on it)
-- *unticked: the task is ticked only once its commit passes `flow-guard check-task-commit-fields`* — (kan-1010: a fix run appended Task 3 ticked and skipped implement, panel and handoff)
 
 ### unfinished-work-gate.md — A verdict the operator calls structural
 

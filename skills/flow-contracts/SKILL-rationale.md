@@ -34,7 +34,6 @@ nothing checks it:
 | [handoff-blocks-rationale.md](handoff-blocks-rationale.md) | [handoff-blocks.md](handoff-blocks.md) |
 | [jira-integration-rationale.md](jira-integration-rationale.md) | [jira-integration.md](jira-integration.md) |
 | [project-configuration-rationale.md](project-configuration-rationale.md) | [project-configuration.md](project-configuration.md) |
-| [plan-provenance-guard-rationale.md](plan-provenance-guard-rationale.md) | [plan-provenance-guard.md](plan-provenance-guard.md) |
 | [workspace-isolation-rationale.md](workspace-isolation-rationale.md) | [workspace-isolation.md](workspace-isolation.md) |
 
 They exist for whoever *edits* a contract — the
@@ -77,10 +76,6 @@ attribution; the text after it is the passage, verbatim.
 ### operator-prompts-auto-resolution.md — What still stops
 
 - *no history and only brings the base up to what it tracks* — (gymie KAN-1015: the run stopped mid-verify to ask it, and the operator said to answer it automatically)
-
-### plan-provenance.md — A prerequisite is measured on the worktree's own HEAD
-
-- *branch carrying the prerequisite says nothing about a worktree based before it* — (KAN-698: confirmed against `origin/develop` while the backend worktree's HEAD lacked KAN-361, so the feature was silently absent on the stack)
 
 ### known-bugs.md — The sweep
 

@@ -7,7 +7,7 @@ reviewer. Adapted from the review standards and reviewer personas of the Elephan
 flow already owns a rule, a lens cites it and adds only the reviewer's question.
 
 Apply the lenses in the order below. Structure and prose style are not lenses:
-`flow-guard check-plan-shape` and the prose guards own them.
+`spectre validate` and the prose guards own them.
 
 ## How to read
 
@@ -58,13 +58,10 @@ Four questions, asked of `proposal.md`. Cost and timeline are not asked.
 
 ## Implementation readiness
 
-A `tasks.md` that is still the title-only scaffold — the review before writing-plans — skips this
-lens.
-
 Asked of each task in `tasks.md`: from this text alone, do I know exactly what to write, where
 and how? Any choice left to the implementer is a `finding` naming the choice — the ambiguity
 rule of **The checklist** (`skills/flow/brainstorm-planner.md`), tested from a fresh reader's
-seat. File boundaries and build state are guard-enforced and not re-checked.
+seat.
 
 ## Codebase details
 

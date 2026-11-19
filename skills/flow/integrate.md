@@ -39,7 +39,7 @@ checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH`.
 flow-guard integrate-change prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
 ```
 
-Every call takes the same `--harness` and `--session-token` its stage marks carry, relays each
+Every call takes the run's `--harness` and `--session-token`, relays each
 guard's own lines, and ends on one machine-readable line — `NEXT:` (exit 0) or `STOP: <kind>` (exit
 1); exit 2 is a usage error or an unreadable state record, reported and stopped on — or a guard
 missing beside the script, whose steps then run by hand from

@@ -1,6 +1,6 @@
 ---
 name: flow-contracts
-description: The flow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/flow-manual-review.mdc.
+description: The flow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/flow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -34,10 +34,7 @@ flow's pipeline and its contract definitions.
 | [jira-integration-finish.md](jira-integration-finish.md) | The In Review timing, the join carve-out and echo, and labels on created issues. **Cited by every command that creates an issue; loaded by `/flow`'s integrate run 1 at the In Review transition** |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, and the create path. **Loaded by `/flow`'s integrate run** |
 | [jira-followups-join.md](jira-followups-join.md) | Join the follow-up the search found: the confirmation, the append and its per-write guards, and the three ordered writes a join makes. **Loaded by jira-followups.md only when the join search returned a candidate** |
-| [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty |
 | [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan. **Cited by `/flow`'s implementer dispatch** |
-| [plan-provenance-guard.md](plan-provenance-guard.md) | What flow-guard check-plan-provenance enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
-| [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
 | [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, that the change directory is never committed, and the branch backup. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, `/flow-plan` and `/flow-fast`** |
 | [git-boundaries-commit-chain.md](git-boundaries-commit-chain.md) | The guarded commit chain that commits the implementation and leaves the gitignored change directory out. **Loaded by bare `/flow`'s run 1, and by `/flow`'s implement phase only when a `prUrl` is recorded** |

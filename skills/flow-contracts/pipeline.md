@@ -202,10 +202,9 @@ next round is the escalation above, never another dispatch on the base pair (kan
 ### Caps never stop the run
 
 **Every cap, ceiling, budget or count limit this pipeline names bounds an approach, never the
-run** — a planner's agent cap, a dispatch's wall-clock ceiling, the two plan
-reviews a session token admits, a decision's `session_cap`, a read or git budget. Meeting or being
+run** — a planner's agent cap, a dispatch's wall-clock ceiling, a read or git budget. Meeting or being
 refused by one is a failed round of that approach: the next attempt differs — a smaller scope, a
-split dispatch, the highest pair the row admits at or under the bound, another route — and where
+split dispatch, another route — and where
 no different approach exists the work goes past the bound with the fact recorded. It is never a
 stop and never an ask, and it counts toward **Three failed rounds** above.
 
@@ -551,9 +550,9 @@ covers:
 - **what this changes for a user of the app, and why** — the feature or fix in product terms
   (what was added, changed, fixed or removed, and the purpose stated in the plan's own `## Why`),
   never only the mechanics of the run. A reader who never opens the diff still learns what shipped.
-- the models the recorded decision chose for this run's dispatches — each pair, per **Model and
-  effort** (`skills/flow/brainstorm-planner.md`) — so the operator reads the run's model policy
-  off the summary without opening the ledger;
+- the pair each of this run's dispatches ran on, per **Model and effort**
+  (`skills/flow/brainstorm-planner.md`) — so the operator reads the run's model policy off the
+  summary without opening the ledger;
 - findings fixed, and findings withdrawn;
 - commits made — repo and a one-line description each, each commit named by its subject, never by
   a sha integrate's reshape rewrites;
@@ -597,9 +596,7 @@ of those is a defect, not a brief artifact.
 
 **Never compressed** — a guard or a contract parses each of these byte for byte:
 
-- a task's `Files:`, `Tests:`, `Regression:`, `Baseline:`, `Commit:`, `Build:` and `Squash-with:`
-  fields;
-- a plan's `verified:` / `unverified:` / `measured:` / `predicted:` provenance tags;
+- a task's `Files:`, `Tests:`, `After:`, `Size:` and `Commit:` fields;
 - a decision's or an open question's `ID:` and `Status:` lines;
 - a spec's normative statements and their scenarios;
 - the review panel record's marker blocks and its findings table.

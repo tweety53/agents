@@ -134,7 +134,7 @@ token spend.
    prototype's latest Artifact URL. An explicit approve of the convergence confirm closes
    brainstorming; any other answer dispatches round `<r+1>`. An operator message mid-planning is
    written to the next `answers-<r>.md` and relayed the same way.
-3. **Artifacts and plan.** One final planner dispatch runs sections **C** and **D** of
+3. **Artifacts and plan.** One final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow -->
    `skills/flow/brainstorm-planner.md` — `spectre new`, the three artifacts from the approved
    design (read from the approved round file, its answers and `findings.md`), the plan,
    `spectre validate` — and returns `PLAN-WRITTEN`. It returns `QUESTIONS` instead the moment

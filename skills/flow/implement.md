@@ -6,7 +6,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 
 | Step | Skill | When |
 |------|-------|------|
-| **2** | resume the workspace created at `flow.kickoff`, stated in **2. Isolate the workspace** below | Before the first code change, every run |
+| **2** | resume the workspace created at kickoff, stated in **2. Isolate the workspace** below | Before the first code change, every run |
 | **3** | **superpowers:writing-plans** | Validate the plan; repair `tasks.md` if it is not apply-ready |
 | **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks — only when the recorded decision's `execution` is `sdd`; an `inline` run (**Inline — the parent implements** below) never loads it |
 | **5** | **superpowers:test-driven-development** | Every implementer dispatch, every task |
@@ -41,8 +41,7 @@ FOREGROUND BUILDS paragraph of section 4 already states for long-running command
 **Resolve `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and
 run the guard-presence check, before this run's first dispatch — on a fix run, before section
 **3**'s re-decision. Read the decision JSON
-(`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `execution`, `implementer`,
-`fixer` and `panel` — per the `## Decision` block of **Decide** (`skills/flow/brainstorm-planner.md`) — and for the recorded
+(`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `execution` and `panel` — per the `## Decision` block of **Decide** (`skills/flow/brainstorm-planner.md`) — and for the recorded
 `groups` field, which section **4** below
 dispatches by.
 
@@ -73,8 +72,7 @@ the **Role line** column names — and runs on a pair that role's rows of **Allo
 (`skills/flow-contracts/model-policy.md`) admit; `hooks/enforce-agent-baseline.py` refuses, in a
 flow run, a dispatch with no Role line, an unknown role, or a pair off its role's rows. A
 no-progress escalation carries its fixer's own Role line — `panel-fix`, or `implementer` for a
-verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line, and a panel dispatch the operator approved at `high`
-`Role: panel-reviewer` with its `Operator-approved high` line.
+verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line.
 
 The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under
 the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its
@@ -110,8 +108,7 @@ word off the **Key shape** column above is another way. The `Role:` line is the 
 `hooks/enforce-agent-baseline.py` runs `flow record dispatch begin` itself once its other checks
 pass — the key from the prompt's `Key:` line, else the description's first word; the role from the
 prompt's `Role:` line; the model and effort from the Agent call; the session token and change from
-the session's latest stage run that is not a loop's own (`pipeline-fix-…`, `self-review-…`); the pair pick from
-`<abs-worktree>/.superpowers/sdd/pair-judge/<key>.pick` — and denies the launch with `flow`'s
+the session's latest stage run that is not a loop's own (`pipeline-fix-…`, `self-review-…`) — and denies the launch with `flow`'s
 stderr when that begin is refused. The parent runs no `begin` of its own for such a row. A row
 whose begin needs a flag the Agent call cannot carry — a panel slot's `-diff-base`, an
 operator-asked row's `-request`, an inline row's `-agent-id inline` — is still begun by its own
@@ -150,9 +147,9 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 structurally does not have, not by prompt text alone. This covers the panel bundle and
 panel-fix rows whenever the decision's `panel` is an object (`skills/flow/review-panel.md`'s own
 **The roster**), and the gated per-task reviewer row, which dispatches on `big` alone, on the
-pair `flow-guard pair-judge gated-reviewer` prints (**Model and effort**, `skills/flow/brainstorm-planner.md`), never its group's pair. On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
+`gated-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). On a `default` panel a panel-bundle row dispatches `flow-low`, so the reviewer rows are structurally fork-free on every class and both panel shapes. The verifier
 row dispatches `flow-low` unconditionally, regardless of the decision (`skills/flow/visual-verify.md`),
-so it is structurally fork-free too. **`flow-high` is dispatched in exactly two cases and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included, and a pass-1 panel dispatch the operator approved at `high` at the plan gate (**Model and effort**, `skills/flow/brainstorm-planner.md`); every other row takes the effort its recorded pair or its contract names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside the two. On harness `muse` no `subagent_type` is named — the harness
+so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside it. On harness `muse` no `subagent_type` is named — the harness
 offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
 
 **Inline — the parent implements** below takes this same table minus the implementer, gated reviewer bundle and panel-fix
@@ -166,9 +163,9 @@ this pipeline carries that paragraph verbatim. A child launched in the backgroun
 reply, its final message, and that message's first line is the one compared — an implementer's or
 fixer's summary head opens with it (`skills/flow/implementer-brief.md`), and so does a gated
 reviewer bundle's (`skills/flow/gated-reviewer-brief.md`). Compare the line against the model this dispatch
-requested — the dispatch's recorded pair's model (the literal `opus` where none is recorded), or
+requested — the model of the dispatch's role's pair, or
 the run's session override, mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`)
-on harnesses `zcode` and `muse`. Effort is not handshaken; a decision's `session_cap` holds it instead, `flow record dispatch begin` refusing a row above the cap (exit 2), and the refused dispatch is made again on the highest pair its row admits at or under the cap, never a stop (**Caps never stop the run**, `skills/flow-contracts/pipeline.md`). A match proceeds. A reply that opens with no `Model:` line is a mismatch too, counted as a first or a second like any other. A **first** mismatch
+on harnesses `zcode` and `muse`. Effort is not handshaken. A match proceeds. A reply that opens with no `Model:` line is a mismatch too, counted as a first or a second like any other. A **first** mismatch
 closes the open dispatch row `-outcome fallback` and re-dispatches once, on the same requested
 model and `subagent_type`, under `<key>-retry`:
 
@@ -259,24 +256,15 @@ these substitutions:
 ## 1. Load context and validate the plan
 
 ```bash
-flow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.load-context -harness <harness> <name>
 spectre validate "<name>"
 spectre list --json
-flow-guard check-plan-shape "<changeRoot>/tasks.md"
 ```
 
 Exit `0` from `validate` is the only exit that proceeds. Exit `1` names findings in this change's
 own artifacts — most often a step checkbox left at column 0 — and each is repaired here, before any
 code is touched. Exit `2` is a usage or IO error, and `no such change "<name>"` is the one worth
 naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`.
-
-Exit `0` from `flow-guard check-plan-shape` proceeds. Exit `1` names a shape defect in this plan's own
-`**Files:**`, `**Tests:**` or other declared fields — repaired here, before any task is dispatched
-and before any code is touched, exactly as an exit-1 from `spectre validate` already is. Exit `2`
-stops the run.
-
-On a fix run `flow-guard check-plan-shape` is not run here — `skills/flow/document-fix.md` ran it on
-this plan in this run; `spectre validate` and `spectre list --json` run on every run.
 
 **The change root is the change's directory** (**A change's directory**,
 `skills/flow-contracts/pipeline.md`). Read:
@@ -358,10 +346,10 @@ flow stage end -command '/flow' -stage flow.load-context -outcome completed <nam
 ## 2. Isolate the workspace
 
 ```bash
-flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> <name>
 ```
 
-Resume `<project>-worktrees/<name>`, created at `flow.kickoff`. Never implement on the
+Resume `<project>-worktrees/<name>`, created at kickoff. Never implement on the
 default branch without explicit consent.
 
 **Persist each worktree's merge base and absolute path to the state file as soon as the worktree
@@ -438,18 +426,12 @@ description sync and plan growth, and a first run marks nothing there.
 ## 4. Execute (SDD + TDD)
 
 ```bash
-flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> <name>
 ```
 
 `flow record dispatch begin` refuses an implementer row keyed `task-…` or `operator-…` while no
 `flow.sdd-tdd` run of the change is open, under any of `/flow`, `/flow-fast` and
 `/flow-interactive`.
-
-**The parent performs every `- [ ] Parent:` line in `design.md`** (**An action a decision gives the
-parent is a tracked line, never prose alone**, in **D. Basic Workflow #3 — Writing plans**,
-`skills/flow/brainstorm-planner.md`) at the stage the line names — before the first task dispatch when it names none — and ticks it `- [x]` in place once
-done. `flow-guard check-unfinished-work` reports each one left unticked at run 1 as
-`<n> unticked parent action(s)`.
 
 **At most one mutator — any Edit/Write-capable dispatch: an implementer, a panel-fix, a fix-round
 agent of any name — may be in flight against a given worktree at any moment** — a reviewer is not
@@ -513,10 +495,10 @@ last end among round `<r-1>`'s reviewer rows, whose reports the fix works from �
 flag beside it — a
 hand-written instant there is a guess.
 
-**`-model` is the model this dispatch was actually given — the group's own `model` from the
-decision's `groups` entry** (chosen per **Model and effort**, `skills/flow/brainstorm-planner.md`,
-or the run's session-instruction override when one was given for the implementer role), `-effort` its `effort`, and the dispatch's `subagent_type` is
-`flow-<effort>` with the group's `model` passed as the Agent tool's own `model` parameter — the
+**`-model` is the model this dispatch was actually given — the `implementer` role's pair**
+(**Model and effort**, `skills/flow/brainstorm-planner.md`, or the run's session-instruction
+override when one was given for the implementer role), `-effort` its effort, and the dispatch's `subagent_type` is
+`flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
 omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). On harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own (`<parent model>` / `<parent effort>`, per **Harness mapping**, `skills/flow-contracts/model-policy.md`). A slot whose model the dispatcher cannot
 read records the literal `unknown (agent-defined)` and never a guess.
@@ -576,7 +558,7 @@ incidents and HEAD (`<agents repo>/scripts/flow-guard gather-dispatch-context`'s
 the resolution).
 
 **A guard you could not run is hand-substituted only on the record.** When a guard this
-file calls — the gather above, `flow-guard check-task-commit-fields` at task close — exits non-zero,
+file calls — the gather above, `flow-guard close-task` at task close — exits non-zero,
 cannot resolve this change's topology, or is absent, and you go on by composing its facts,
 checking its contract, or running its step by hand, record the substitution at the moment you
 make it, never in the handoff prose alone:
@@ -625,7 +607,7 @@ instead of finding it.
 A fixer's prompt is the same stub under its own `Key:`, its `Tasks:` line the tasks it fixes and a
 `FIX INPUT:` line before its REPORT FILE line (**Every fix is a fresh one-shot**, below).
 
-The parent compares that line against the group's recorded model (or the run's session override)
+The parent compares that line against its role's pair's model (or the run's session override)
 and applies **The handshake** stated above, unchanged.
 
 **The parent runs the test list — never an implementer.** Once the plan-last group — the group
@@ -699,7 +681,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    fi
    ```
 
-   `flow-guard close-task` runs the implementer's `record dispatch end`, the guard on every commit
+   `flow-guard close-task` runs the implementer's `record dispatch end`, the `Task-Id:` trailer check on every commit
    whose sha is new and `flow-guard check-task-commit-planning-paths <canonical-worktree> <merge-base>`
    over every commit since the merge base recorded in this run's working notes; only when both
    pass, the **review gate** on every
@@ -711,19 +693,18 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    above, `<name>` this run's resolved name. **On a change whose resolved worktree set spans more
    than one repository, a task's sha is the per-repository commit map instead** —
    `<task-id>:<worktree>=<sha>[,<worktree>=<sha>…]`, one pair per repository carrying any of the
-   task's commits; the guard's own header (`<agents repo>/scripts/flow-guard check-task-commit-fields`,
-   THE COMMIT MAP) is canonical for the form. A task that landed in one repository passes that repository's
-   pair alone, which is the single-sha form; skipping the guard on a cross-repo change and
-   checking fields by hand is the substitution shape **A guard you could not run is
+   task's commits. A task that landed in one repository passes that repository's
+   pair alone, which is the single-sha form; skipping the guard on a cross-repo change
+   is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
    A bare `<task-id>` resolves to the newest commit since `<merge-base>` in the canonical worktree whose `Task-Id:` trailer names it.
-   `-undeclared` carries the paths a fields refusal named for that task (**The record carries
+   `-undeclared` carries the paths the implementer's `undeclared:` lines name for that task (**The record carries
    its own corrections**, below). The script's header (`<agents repo>/scripts/flow-guard close-task`) is
    canonical for its arguments and its order.
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
-   launches: **exit 1** — a fields refusal, a task commit whose diff touches
+   launches: **exit 1** — a task commit whose diff touches
    `<project>/spectre/changes/` (leaf resolved per project) or `<project>/docs/superpowers/`, or
    a task commit carrying no `Task-Id:` trailer naming the task —
    is a re-commit, with nothing ticked or pushed — under `sdd` the re-commit row of **Every fix is a
@@ -756,54 +737,41 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    of **Turn discipline** (below). A boundary whose ready set is empty launches the reviewer
    bundle alone.
 
-**When the script cannot be located**, apply its task-commit field rules by hand: check the
-commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
-commit's diff, and its `Commit:` against the commit's actual subject line.
-
 **The review gate.** After the guard passes a task's commit, `flow-guard close-task` judges that commit's
-gate through `flow-guard check-review-gate`, with every path the guard's refusal named for that task —
-the paths its `-undeclared` flag carries:
+gate through `flow-guard check-review-gate`, with the paths its `-undeclared` flag carries for that task:
 
 ```bash
 flow-guard check-review-gate <worktree> <task-id> <task-sha|map> <canonical-worktree> <name> [<refused-path>…]
 ```
 
 **The gate fires when the commit changes more than 40 lines, or touches any path outside
-the task's declared set** — its `**Files:**` plus its `**Allowed-collateral:**` globs; the
+the task's `**Files:**`**; the
 script's header (`<agents repo>/scripts/flow-guard check-review-gate`) is canonical for how both are
 counted. It prints `FIRE: task <id> — …` or `QUIET: task <id> — …` and exits 0; **exit 2 — it
 could not judge — stops the run**, as the guard's own exit 2 does.
 
 **The guard's pass ticks an ungated task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
-once `flow-guard check-task-commit-fields` exits 0 on its commit and the gate does not fire — no reviewer
+once `flow-guard close-task`'s checks pass on its commit and the gate does not fire — no reviewer
 runs on that task; the whole-branch panel (`skills/flow/review-panel.md`) is still this branch's
 review. **On `big`, a gated task's tick defers until its reviewer closes clean**; on `micro`,
 `small` and `regular` it ticks at the guard's pass too, with the panel as its review (**The gated
 per-task reviewer**, below). A fired task `flow-guard close-task` reports as `close-task: task <id> tick
 waits — decision class unreadable` is ticked by the parent with `flow tasks tick` once `flow record
 decisions` reads a class other than `big`. A step's checkbox tracks
-the step and gates nothing. A red task's checkbox is ticked together with its partner's, on their
-one commit's gate verdict.
+the step and gates nothing.
 
 **The record carries its own corrections.** When a measurement or a commit disproves what a task
 record declares, the record is corrected in place, at the task-close boundary and where the wrong
-claim sits — a `predicted:` or `unverified:` tag the run has answered retagged `measured:` with
-the command and ref that answered it, a wrong number replaced, a `**Files:**` field widened to the
-paths the commit really needed, a fold into a squash partner stated in the task — never left to
+claim sits — a wrong number replaced, a `**Files:**` field widened to the
+paths the commit really needed — never left to
 disagree silently with what the run did. The implementer never edits `<project>/spectre/changes/`
 (FLOW — COMMIT-PER-TASK, `skills/flow/implementer-brief.md`): it discloses each correction as a
 `correction:` line of its summary head, the exact field and its corrected value, and the parent transcribes it into the record before the guard runs
-on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is the
-one correction whose disclosure has a mechanical record: `flow-guard check-task-commit-fields` runs
-against the record as it stood, refuses the commit, and names every undeclared path, ending on one ready `flow tasks files … add` line per task.
-`flow-guard close-task` transcribes them itself when the verdict holds `**Files:**` lines and no other, printing `Files derived from the commit` — a widening with
-`flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing — a declared path
-the commit leaves untouched — with
-`flow tasks files -C <worktree> <change> <id> remove <path>…`, each editing that one task's
-`**Files:**` field, never with a hand `sed` over `tasks.md` — and refuses as before when any other violation stands beside them; the parent
-judges the deviation legitimate or not on that line and the gate it fires. The review gate's undeclared-path arm reads the paths
-`close-task` added, so the correction cannot disarm the gate. This is expected practice
-on every task, not one implementer's habit.
+on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is
+transcribed with `flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing with
+`flow tasks files -C <worktree> <change> <id> remove <path>…`, never with a hand `sed` over
+`tasks.md`; the widened paths ride `close-task`'s `-undeclared`, so the correction cannot disarm
+the gate. This is expected practice on every task, not one implementer's habit.
 
 **A deviation from the plan records as a dated `Correction:` paragraph.** When a task's commit
 departs from what the plan declares — a file swap, a renamed helper, an added step, any course
@@ -811,11 +779,7 @@ the plan did not name — the parent appends a paragraph opening `Correction (YY
 that task's entry in `tasks.md`, at the task-close boundary where the task's other corrections
 are transcribed (before the guard runs on the commit), stating what the plan declared, what
 shipped instead, and why. The disclosure route is the same as any correction's: the implementer
-reports the deviation, the parent transcribes it; inline, the session is both halves. A `Correction:` paragraph is plan prose the plan-provenance guard reads.
-Run `flow-guard check-plan-provenance` when transcribing it, and give each numeric claim its `measured:` comment or word it without a count. Once a `Correction:`
-paragraph is transcribed, the parent runs `flow tasks count -C <worktree> <change>`, which
-records the plan's correction count beside its task count — the plan-corrections metric
-experiments compare. A `design.md` statement the plan or a task's commit is found to
+reports the deviation, the parent transcribes it; inline, the session is both halves. A `design.md` statement the plan or a task's commit is found to
 contradict is corrected in place in the same transcription, never recorded as left.
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
@@ -833,7 +797,7 @@ decision the pivot displaces is superseded by ID per **Decisions**
 <new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a
 fresh entry appended, nothing deleted or rewritten — so the record carries the
 superseded decision beside its replacement. The amended plan is
-re-validated — `spectre validate` and `flow-guard check-plan-shape` — before the next task dispatches.
+re-validated — `spectre validate` — before the next task dispatches.
 
 **A task added after the decision row is re-decided before it runs.** Whenever `tasks.md` gains a
 task once the run's decision is recorded — a pivot, an operator's mid-run request, any append
@@ -841,9 +805,8 @@ outside a fix run's, which re-decides on its own — the parent re-runs **Decide
 (`skills/flow/brainstorm-planner.md`) and records the new row as **The appended plan is re-decided
 before load-context.** (`skills/flow/document-fix.md`) does — its own `flow.decide` begin/record/end
 block, opened and closed while `flow.sdd-tdd` stays open — before the added task is implemented. The
-tasks still to run follow the new row's implementer and fixer pairs and panel roster, never the first
-row's. So the newest row's `inputs` count the plan that
-ran.
+tasks still to run follow the new row's groups and panel roster, never the first
+row's.
 
 **The gated per-task reviewer.** One combined review per gate-fired task — spec compliance and
 code quality together — but **one dispatch per bundle of gate-fired tasks, never one per task**,
@@ -852,8 +815,8 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 dispatches: every gate-fired task goes to the whole-branch panel as review focus instead
 (the GATE FOCUS paragraph of **Bundled dispatch**, `skills/flow/review-panel.md`).
 **The bundle is the implementer group**: at a boundary, every task of the returned group whose gate fired
-goes out in one reviewer Agent call beside the implementers the boundary launches, on the pair `flow-guard
-pair-judge gated-reviewer <prompt file>` prints (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
+goes out in one reviewer Agent call beside the implementers the boundary launches, on the
+`gated-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
 line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
 with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps
 its original bundle's pair and Role line. On harnesses `zcode` and `muse`, **Harness mapping**
@@ -1096,10 +1059,10 @@ FIX DISPATCH paragraph (`skills/flow/implementer-brief.md`).
 
 | Fix | Key | Pair | When |
 |---|---|---|---|
-| every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the decision's `fixer` | at the stage's end, one per group of at most weight 3, in series within a worktree (`skills/flow/gated-review-fix.md`) |
-| a `flow-guard close-task` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the decision's `fixer` | at once, before the next group launches, behind `flow-guard resume-or-fresh` on the group's closed `task-<ids>-implementer` row |
-| a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the group's own pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
-| a full-suite failure | `full-suite-fix-<n>` | the decision's `fixer` | each time the list fails (**The parent runs the test list**, above) |
+| every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the `panel-fix` role's pair | at the stage's end, one per group of at most weight 3, in series within a worktree (`skills/flow/gated-review-fix.md`) |
+| a `flow-guard close-task` exit 1 a re-commit repairs — a swept planning path, a missing `Task-Id:` trailer | `task-<n>-implementer-recommit-<k>` | the `panel-fix` role's pair | at once, before the next group launches, behind `flow-guard resume-or-fresh` on the group's closed `task-<ids>-implementer` row |
+| a wave member's pick conflict | `task-<ids>-implementer-pick-<k>`, the member's task ids | the `implementer` role's pair | at once, the pick aborted first (`skills/flow/sdd-dispatch.md`) |
+| a full-suite failure | `full-suite-fix-<n>` | the `panel-fix` role's pair | each time the list fails (**The parent runs the test list**, above) |
 
 A full-suite fix takes its name from its key: the run it repairs is the test list, never the
 full suite, which is `flow-guard run-verify-list -full` and runs only when the operator asks.
