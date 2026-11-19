@@ -24,6 +24,12 @@ import (
 // they run in order.
 func TestLiveStoreCopy(t *testing.T) {
 	smoke.Heavy(t)
+	// The stub flowd answers and dies within milliseconds; a 1 s poll would
+	// make each up and restart wait out a whole second for it. Not parallel,
+	// so no other test reads lscPoll meanwhile.
+	poll := lscPoll
+	lscPoll = 10 * time.Millisecond
+	t.Cleanup(func() { lscPoll = poll })
 	stub := t.TempDir()
 	log := stub + "/log"
 	name := fmt.Sprintf("lsc-test%d", os.Getpid())

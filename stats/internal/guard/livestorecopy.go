@@ -324,13 +324,16 @@ func (l *lsc) stopFlowd() {
 	}
 	alive := func() bool { return syscall.Kill(pid, 0) == nil }
 	_ = syscall.Kill(pid, syscall.SIGTERM)
-	for i := 0; i < 30 && alive(); i++ {
-		time.Sleep(time.Second)
+	for end := time.Now().Add(30 * time.Second); alive() && time.Now().Before(end); {
+		time.Sleep(lscPoll)
 	}
 	if alive() {
 		l.die("flowd-did-not-exit", 1, "flowd %d did not exit within 30s", pid)
 	}
 }
+
+// lscPoll is how often stopFlowd and launch look again; a test shortens it.
+var lscPoll = time.Second
 
 // launch starts the scratch flowd on the port against the copy, detached
 // as nohup did, and returns once it answers; it ends the run with 1 when it
@@ -355,11 +358,10 @@ func (l *lsc) launch(transcripts string) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	l.check(cmd.Start())
 	go func() { _ = cmd.Wait() }()
-	for i := 0; i < 60; i++ {
+	for end := time.Now().Add(60 * time.Second); time.Now().Before(end); time.Sleep(lscPoll) {
 		if l.answers() {
 			return
 		}
-		time.Sleep(time.Second)
 	}
 	l.die("flowd-did-not-answer", 1, "flowd did not answer on :%s within 60s -- see %s/log", l.port, l.dir)
 }

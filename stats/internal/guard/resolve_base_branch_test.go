@@ -341,13 +341,10 @@ func TestResolveBaseBranchBoundsAStalledRemote(t *testing.T) {
 		rbbGit(t, wt, args...)
 	}
 	stub := t.TempDir() + "/ssh"
-	writeFile(t, stub, "#!/bin/sh\nexec sleep 60\n")
-	if err := os.Chmod(stub, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeExec(t, stub, "#!/bin/sh\nexec sleep 60\n")
 	t.Setenv("GIT_SSH_COMMAND", stub)
 	old := rbbRemoteTimeout
-	rbbRemoteTimeout = time.Second
+	rbbRemoteTimeout = 100 * time.Millisecond
 	t.Cleanup(func() { rbbRemoteTimeout = old })
 
 	start := time.Now()
