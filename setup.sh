@@ -614,18 +614,6 @@ SNIPPET
 
           { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-session-activity.py\"" }
 SNIPPET
-  warn_unregistered_hook "$settings" flow-stop-guard flow-stop-guard \
-    "  ⚠ The flow-stop-guard hook is installed but NOT registered, so nothing yet refuses a" \
-    "    /flow turn ending mid-phase. Add this to \"hooks\" in $settings:" <<'SNIPPET'
-
-    "Stop": [
-      {
-        "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-stop-guard.py\"" }
-        ]
-      }
-    ]
-SNIPPET
   warn_unregistered_hook "$settings" await-own-agents await-own-agents \
     "  ⚠ The await-own-agents hook is installed but NOT registered, so a subagent may still" \
     "    end its turn while its own agents run and lose its prompt cache waiting on them." \
