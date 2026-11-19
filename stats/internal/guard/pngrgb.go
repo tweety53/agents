@@ -3,13 +3,17 @@ package guard
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"syscall"
+	"unicode"
+	"unicode/utf8"
 )
 
 // rgbImage is an 8-bit RGB raster: 3 bytes per pixel, row-major.
@@ -124,4 +128,76 @@ func pilImageError(err error, file, name string) string {
 		}
 	}
 	return err.Error()
+}
+
+// ppIsWord is Python's Unicode `\w`: str.isalnum() or the underscore, read
+// against Go's Unicode tables (unicode.Version) rather than the host Python's:
+// a character a newer Unicode version made a letter or number is a word
+// character to Python and not to Go, so the two can differ on those, and
+// only ever by Go reporting a claim Python would not.
+func ppIsWord(r rune) bool { return r == '_' || unicode.IsLetter(r) || unicode.IsNumber(r) }
+
+// ppStrerror is `exc.strerror or exc`: the C library's text for the errno,
+// which Go's own tables carry with the first letter lowered.
+func ppStrerror(err error) string {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
+		return err.Error()
+	}
+	msg := errno.Error()
+	r, n := utf8.DecodeRuneInString(msg)
+	return string(unicode.ToUpper(r)) + msg[n:]
+}
+
+// ppOSError is str(exc) for an OSError raised on path:
+// `[Errno N] <strerror>: '<path>'`.
+func ppOSError(err error, path string) string {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
+		return err.Error()
+	}
+	return fmt.Sprintf("[Errno %d] %s: %s", int(errno), ppStrerror(err), ppRepr(path))
+}
+
+// ppRepr is Python's repr() of a str: single quotes unless the text holds a
+// single quote and no double quote; backslash and quote escaped, and every
+// character str.isprintable() rejects escaped as \xNN, \uNNNN or
+// \UNNNNNNNN. strconv.IsPrint is the same category test (letters, marks,
+// numbers, punctuation, symbols and the ASCII space), read against Go's
+// Unicode tables rather than the host Python's. A byte that is not UTF-8 is
+// the surrogate os.fsdecode made of it, \udcNN.
+func ppRepr(s string) string {
+	q := byte('\'')
+	if strings.Contains(s, "'") && !strings.Contains(s, "\"") {
+		q = '"'
+	}
+	var b strings.Builder
+	b.WriteByte(q)
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		i += size
+		switch {
+		case r == utf8.RuneError && size == 1:
+			fmt.Fprintf(&b, `\udc%02x`, s[i-1])
+		case r == '\\' || r == rune(q):
+			b.WriteByte('\\')
+			b.WriteRune(r)
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case strconv.IsPrint(r):
+			b.WriteRune(r)
+		case r < 0x100:
+			fmt.Fprintf(&b, `\x%02x`, r)
+		case r < 0x10000:
+			fmt.Fprintf(&b, `\u%04x`, r)
+		default:
+			fmt.Fprintf(&b, `\U%08x`, r)
+		}
+	}
+	b.WriteByte(q)
+	return b.String()
 }

@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1819,93 +1817,6 @@ func decisionWithModels(impl, fixer, dispatch, rerun, group string) string {
 		impl, fixer, dispatch, rerun, group)
 }
 
-// TestRecordDecisionRejectsHighImplementerEffort pins that
-// ApplyDecisionRecord refuses effort "high" on the implementer, fixer and
-// any groups[] pair, naming the JSON path, before the store is touched,
-// while a panel dispatch keeps "high" (no-high-implementer).
-func TestRecordDecisionRejectsHighImplementerEffort(t *testing.T) {
-	t.Parallel()
-	base := decisionWithModels("opus", "opus", "opus", "sonnet", "sonnet")
-	t.Run("panel.dispatches[0].effort high accepted", func(t *testing.T) {
-		_, fs := recordTestServer(t, "proj", "kan-1")
-		_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-			records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(base)})
-		if err != nil {
-			t.Fatalf("ApplyDecisionRecord error = %v, want nil", err)
-		}
-		if fs.recordCalls != 1 {
-			t.Errorf("recordCalls = %d, want 1", fs.recordCalls)
-		}
-	})
-	for path, pair := range map[string]string{
-		"implementer.effort": `"implementer":{"model":"opus","effort":"%s"`,
-		"fixer.effort":       `"fixer":{"model":"opus","effort":"%s"`,
-		"groups[0].effort":   `{"bundles":[1],"model":"opus","effort":"%s"`,
-	} {
-		t.Run(path, func(t *testing.T) {
-			from := fmt.Sprintf(pair, "medium")
-			if path == "groups[0].effort" {
-				from = fmt.Sprintf(pair, "low")
-			}
-			if !strings.Contains(base, from) {
-				t.Fatalf("fixture lacks %s", from)
-			}
-			body := strings.Replace(base, from, fmt.Sprintf(pair, "high"), 1)
-			_, fs := recordTestServer(t, "proj", "kan-1")
-			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body)})
-			if !errors.Is(err, api.ErrInvalidRecord) {
-				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
-			}
-			if want := fmt.Sprintf("%s %q", path, "high"); !strings.Contains(err.Error(), want) {
-				t.Errorf("error = %q, want it to contain %q", err.Error(), want)
-			}
-			if fs.recordCalls != 0 || len(fs.decisions) != 0 {
-				t.Errorf("the store was reached for a high %s", path)
-			}
-		})
-	}
-}
-
-// TestRecordDecisionRejectsOffPolicyModel pins that ApplyDecisionRecord
-// refuses a decision naming a model outside store.ValidModels in any one
-// nested pair, naming that pair's JSON path and the value, before the
-// store is touched (refuse-off-policy-models).
-func TestRecordDecisionRejectsOffPolicyModel(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		path string
-		body string
-		bad  string
-	}{
-		{"implementer.model", decisionWithModels("haiku", "opus", "opus", "sonnet", "sonnet"), "haiku"},
-		{"fixer.model", decisionWithModels("opus", "haiku", "opus", "sonnet", "sonnet"), "haiku"},
-		{"panel.dispatches[0].model", decisionWithModels("opus", "opus", "haiku", "sonnet", "sonnet"), "haiku"},
-		{"panel.rerun_dispatch.model", decisionWithModels("opus", "opus", "opus", "haiku", "sonnet"), "haiku"},
-		{"groups[1].model", decisionWithModels("opus", "opus", "opus", "sonnet", "haiku"), "haiku"},
-		{"groups[1].model", decisionWithModels("opus", "opus", "opus", "sonnet", "fable"), "fable"},
-		{"panel.rerun_dispatch.model", decisionWithModels("opus", "opus", "opus", "fable", "sonnet"), "fable"},
-		{"implementer.model", decisionWithModels("fable", "opus", "opus", "sonnet", "sonnet"), "fable"},
-		{"implementer.model", decisionWithModels("", "opus", "opus", "sonnet", "sonnet"), ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.path+"="+tt.bad, func(t *testing.T) {
-			_, fs := recordTestServer(t, "proj", "kan-1")
-			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(tt.body)})
-			if !errors.Is(err, api.ErrInvalidRecord) {
-				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
-			}
-			if want := fmt.Sprintf("%s %q", tt.path, tt.bad); !strings.Contains(err.Error(), want) {
-				t.Errorf("error = %q, want it to contain %q", err.Error(), want)
-			}
-			if fs.recordCalls != 0 || len(fs.decisions) != 0 {
-				t.Errorf("the store was reached for an off-policy %s", tt.path)
-			}
-		})
-	}
-}
-
 // TestRecordDecisionAcceptsFableReviewer pins that a panel.dispatches[]
 // pair, and only that, may name fable (an operator-granted opt-in panel-reviewer pair).
 func TestRecordDecisionAcceptsFableReviewer(t *testing.T) {
@@ -1915,37 +1826,6 @@ func TestRecordDecisionAcceptsFableReviewer(t *testing.T) {
 		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(decisionWithModels("opus", "opus", "fable", "sonnet", "sonnet"))})
 	if err != nil {
 		t.Fatalf("fable on panel.dispatches[0] refused: %v", err)
-	}
-}
-
-// TestRecordDecisionRejectsCaseVariantKeys pins that a case-variant
-// duplicate key cannot mask an off-policy pair: the check reads the exact
-// key the stored jsonb carries, so "Implementer" never stands in for
-// "implementer".
-func TestRecordDecisionRejectsCaseVariantKeys(t *testing.T) {
-	t.Parallel()
-	_, fs := recordTestServer(t, "proj", "kan-1")
-	body := `{"implementer":{"model":"haiku","effort":"high","reason":"r"},"Implementer":"skipped — inline"}`
-	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body)})
-	if !errors.Is(err, api.ErrInvalidRecord) {
-		t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
-	}
-	if fs.recordCalls != 0 {
-		t.Errorf("the store was reached for a masked off-policy implementer")
-	}
-}
-
-// TestRecordDecisionRefusalNamesValidModels pins that the refusal lists
-// store.ValidModels itself, so the message cannot drift from the set.
-func TestRecordDecisionRefusalNamesValidModels(t *testing.T) {
-	t.Parallel()
-	_, fs := recordTestServer(t, "proj", "kan-1")
-	_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-		records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(decisionWithModels("haiku", "opus", "opus", "opus", "opus"))})
-	want := strings.Join(slices.Sorted(maps.Keys(store.ValidModels)), ", ")
-	if err == nil || !strings.HasSuffix(err.Error(), "is not one of "+want) {
-		t.Errorf("error = %v, want it to name %q", err, want)
 	}
 }
 
@@ -2798,79 +2678,6 @@ func TestRecordSummaryRoute(t *testing.T) {
 
 	if resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-none")+"/summary", map[string]any{"summary": "s"}); resp.StatusCode != http.StatusNotFound {
 		t.Errorf("POST summary for an unknown change = %d (%s), want 404", resp.StatusCode, respBody)
-	}
-}
-
-// TestRecordDecisionChecksExtraDispatchModel pins kan-959: the always-on
-// extra_dispatch pair is checked like every other pair — an off-policy model
-// is refused naming extra_dispatch.model; sonnet and opus record.
-func TestRecordDecisionChecksExtraDispatchModel(t *testing.T) {
-	t.Parallel()
-	body := func(model string) string {
-		return `{"class":"micro","execution":"inline","implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null,` +
-			`"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"` + model + `","effort":"low","reason":"r"}}`
-	}
-	for _, bad := range []string{"haiku", "fable", ""} {
-		t.Run("refuses "+bad, func(t *testing.T) {
-			_, fs := recordTestServer(t, "proj", "kan-1")
-			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body(bad))})
-			if !errors.Is(err, api.ErrInvalidRecord) {
-				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
-			}
-			if want := fmt.Sprintf("extra_dispatch.model %q", bad); !strings.Contains(err.Error(), want) {
-				t.Errorf("error = %q, want it to contain %q", err.Error(), want)
-			}
-			if fs.recordCalls != 0 {
-				t.Errorf("the store was reached for an off-policy extra_dispatch")
-			}
-		})
-	}
-	for _, good := range []string{"sonnet", "opus"} {
-		t.Run("records "+good, func(t *testing.T) {
-			_, fs := recordTestServer(t, "proj", "kan-1")
-			if _, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body(good))}); err != nil {
-				t.Fatalf("ApplyDecisionRecord: %v", err)
-			}
-		})
-	}
-}
-
-// TestRecordDecisionChecksExtraDispatchMutationModel pins kan-1028: the
-// always-on extra_dispatch_mutation pair is checked like extra_dispatch — an
-// off-policy model is refused naming extra_dispatch_mutation.model; sonnet
-// and opus record.
-func TestRecordDecisionChecksExtraDispatchMutationModel(t *testing.T) {
-	t.Parallel()
-	body := func(model string) string {
-		return `{"class":"micro","execution":"inline","implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null,` +
-			`"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"` + model + `","effort":"low","reason":"r"}}`
-	}
-	for _, bad := range []string{"haiku", "fable", ""} {
-		t.Run("refuses "+bad, func(t *testing.T) {
-			_, fs := recordTestServer(t, "proj", "kan-1")
-			_, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body(bad))})
-			if !errors.Is(err, api.ErrInvalidRecord) {
-				t.Fatalf("ApplyDecisionRecord error = %v, want ErrInvalidRecord", err)
-			}
-			if want := fmt.Sprintf("extra_dispatch_mutation.model %q", bad); !strings.Contains(err.Error(), want) {
-				t.Errorf("error = %q, want it to contain %q", err.Error(), want)
-			}
-			if fs.recordCalls != 0 {
-				t.Errorf("the store was reached for an off-policy extra_dispatch_mutation")
-			}
-		})
-	}
-	for _, good := range []string{"sonnet", "opus"} {
-		t.Run("records "+good, func(t *testing.T) {
-			_, fs := recordTestServer(t, "proj", "kan-1")
-			if _, _, err := api.ApplyDecisionRecord(context.Background(), fs, "proj", "kan-1",
-				records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(body(good))}); err != nil {
-				t.Fatalf("ApplyDecisionRecord: %v", err)
-			}
-		})
 	}
 }
 

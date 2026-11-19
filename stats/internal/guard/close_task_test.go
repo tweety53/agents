@@ -160,16 +160,6 @@ func TestCloseTaskOrder(t *testing.T) {
 			t.Errorf("origin spectre/demo at %s, want %s", got, s2)
 		}
 	})
-	t.Run("fields refusal: exit 1, no tick, no push", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		s1 := fx.commit(t, fx.wt, "wrong subject", "1", "a.txt", "a\n")
-		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-		if r.rc != 1 {
-			t.Fatalf("exit %d, want 1\n%s", r.rc, r.out)
-		}
-		ctEqual(t, fx.calls(t), nil)
-	})
 	t.Run("planning-paths refusal: exit 1, no tick, no push", func(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0", "0")
@@ -219,16 +209,6 @@ func TestCloseTaskOrder(t *testing.T) {
 		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
 			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 		}
-	})
-	t.Run("undeclared path from a refusal fires the gate", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		r := fx.run("-undeclared", "1=a.txt", fx.wt, "demo", fx.base, "1:"+s1)
-		if r.rc != 0 || !strings.Contains(r.stdout, "FIRE: task 1 — undeclared paths: a.txt\n") {
-			t.Fatalf("exit %d, want 0 and a fired gate\n%s", r.rc, r.out)
-		}
-		ctEqual(t, fx.calls(t), []string{"flow record decisions -change demo -C " + fx.wt, "git -C " + fx.wt + " push origin spectre/demo"})
 	})
 	// KAN-934: no gated reviewer runs below big, so a fired task ticks with
 	// the quiet ones and the panel reviews it.
@@ -778,55 +758,6 @@ func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
 	}
 }
 
-// TestCloseTaskRunsPlanShapeOnInRunFix pins the kan-1046 self-review fix
-// (1f): closing an in-run visual-verify fix task runs the plan guard first,
-// so one with no **Opener:** is refused with F24's line and nothing ticked;
-// with the Opener named it closes; and a planned
-// task over the same bad plan is refused too (kan-1067 self-review, 1-B).
-func TestCloseTaskRunsPlanShapeOnInRunFix(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fix := func(opener string) string {
-		return ctPlan + "\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Commit:** four\n" + opener + "**Build:** green\n"
-	}
-	const f24 = "is an in-run fix with no **Opener:** field"
-	for _, c := range []struct {
-		name, plan, task, subject string
-		files                     []string
-		refused                   bool
-	}{
-		{"an in-run fix with no Opener is refused", fix(""), "4", "four", []string{"e.txt", "x\n"}, true},
-		{"an in-run fix naming its Opener closes", fix("**Opener:** ¤visual-verify¤\n"), "4", "four", []string{"e.txt", "x\n"}, false},
-		{"a planned task over the same plan is refused", fix(""), "2", "two", []string{"b.txt", "x\n"}, true},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			fx := ctFixture(t, true, "0", "0")
-			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", bt(c.plan))
-			writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4","commitSha":"abc"}]`)
-			sha := fx.commit(t, fx.wt, c.subject, c.task, c.files...)
-			r := fx.run(fx.wt, "demo", fx.base, c.task+":"+sha)
-			if got := strings.Contains(r.out+r.err, f24); got != c.refused {
-				t.Errorf("F24 line present %v, want %v\n%s\n%s", got, c.refused, r.out, r.err)
-			}
-			if c.refused {
-				if r.rc != 1 {
-					t.Fatalf("exit %d, want 1\n%s\n%s", r.rc, r.out, r.err)
-				}
-				for _, call := range fx.calls(t) {
-					if strings.HasPrefix(call, "flow tasks tick") {
-						t.Errorf("ticked after a refusal: %s", call)
-					}
-				}
-				return
-			}
-			if r.rc != 0 {
-				t.Fatalf("exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
-			}
-		})
-	}
-}
-
 // TestCloseTaskEnforcesAffectedSpecs pins close-task's affected-specs check:
 // an in-run fix task closes only once flow-guard recapture has run the specs
 // its commit maps to -- the screen its file belongs to, never every spec --
@@ -1031,29 +962,6 @@ func TestCloseTaskTakesTheTaskSet(t *testing.T) {
 	}
 }
 
-// TestCloseTaskRunsPlanShapeOnAWidenedPlannedTask pins the kan-1067
-// self-review fix, 1-B: a planned task widened to a test path while its
-// **Tests:** stays none is refused at close, nothing ticked.
-func TestCloseTaskRunsPlanShapeOnAWidenedPlannedTask(t *testing.T) {
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	plan := strings.Replace(ctPlan, "**Files:** `b.txt`", "**Files:** `b.txt`, `b_test.go`", 1)
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", plan)
-	sha := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n", "b_test.go", "package b\n")
-	r := fx.run(fx.wt, "demo", fx.base, "2:"+sha)
-	if r.rc != 1 {
-		t.Fatalf("exit %d, want 1\n%s\n%s", r.rc, r.out, r.err)
-	}
-	if !strings.Contains(r.out+r.err, "opens with `none` but **Files:** names a test-shaped path") {
-		t.Errorf("no plan-shape line\n%s\n%s", r.out, r.err)
-	}
-	for _, call := range fx.calls(t) {
-		if strings.HasPrefix(call, "flow tasks tick") {
-			t.Errorf("ticked after a refusal: %s", call)
-		}
-	}
-}
-
 // TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit pins the kan-1059
 // self-review fix, 5a: an appended task none of whose naming rows carries a
 // commit is refused, exit 1, nothing ticked, naming the row and the repair;
@@ -1161,53 +1069,6 @@ func TestCloseTaskResolvesABareTaskID(t *testing.T) {
 		r := fx.run(fx.wt, "demo", fx.base, "9")
 		if r.rc != 2 || !strings.Contains(r.err, "task 9") {
 			t.Fatalf("exit %d, want 2 and stderr naming task 9\n%s", r.rc, r.out)
-		}
-		ctEqual(t, fx.calls(t), nil)
-	})
-}
-
-// TestCloseTaskDerivesFilesFromTheCommit pins the kan-1089/1091/1099 fix
-// (check-task-commit-fields red on 458 of 776 calls, each a refusal, a
-// `flow tasks files` call and a second close): a commit whose only
-// violations are **Files:** ones has the field corrected by close-task
-// itself -- undeclared paths added, untouched declared paths removed -- and
-// closes, the added paths still firing the review gate. Any other violation
-// beside them refuses as before, the field untouched.
-func TestCloseTaskDerivesFilesFromTheCommit(t *testing.T) {
-	t.Parallel()
-	t.Run("undeclared paths are added and fire the gate", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n", "e.txt", "e\n", "f.txt", "f\n")
-		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-		if r.rc == 1 || !strings.Contains(r.stdout, "close-task: task 1: Files derived from the commit — added e.txt f.txt\n") || !strings.Contains(r.stdout, "FIRE: task 1") {
-			t.Fatalf("exit %d, want no refusal, the derived line and a fired gate\n%s\n%s", r.rc, r.stdout, r.err)
-		}
-		if calls := fx.calls(t); len(calls) == 0 || calls[0] != "flow tasks files -C "+fx.wt+" demo 1 add e.txt f.txt" {
-			t.Errorf("calls %q, want the add first", calls)
-		}
-	})
-	t.Run("an untouched declared path is removed", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `b.txt`", "**Files:** `b.txt`, `g.txt`", 1))
-		s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-		r := fx.run(fx.wt, "demo", fx.base, "2:"+s2)
-		if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 2: Files derived from the commit — removed g.txt\n") || !strings.Contains(r.stdout, "QUIET: task 2") {
-			t.Fatalf("exit %d, want 0, the derived line and a quiet gate\n%s\n%s", r.rc, r.stdout, r.err)
-		}
-		if calls := fx.calls(t); len(calls) == 0 || calls[0] != "flow tasks files -C "+fx.wt+" demo 2 remove g.txt" {
-			t.Errorf("calls %q, want the remove first", calls)
-		}
-	})
-	t.Run("another violation beside them refuses", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		s1 := fx.commit(t, fx.wt, "not the subject", "1", "a.txt", "a\n", "e.txt", "e\n")
-		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-		// kan-1058 self-review, F8: the refusal still ends on the ready line.
-		if want := "flow tasks files -C " + fx.wt + " demo 1 add e.txt"; r.rc != 1 || !slices.Contains(strings.Split(r.stdout, "\n"), want) || strings.Contains(r.stdout, "Files derived") {
-			t.Fatalf("exit %d, want 1 and the line %q\n%s\n%s", r.rc, want, r.stdout, r.err)
 		}
 		ctEqual(t, fx.calls(t), nil)
 	})

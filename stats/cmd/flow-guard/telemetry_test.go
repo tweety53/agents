@@ -27,16 +27,16 @@ func TestOutcomeForUsesTheGuardsOwnCannotAnswerCode(t *testing.T) {
 		first string
 		want  string
 	}{
-		{"check-plan-shape", 0, "", "clear"},
-		{"check-plan-shape", 1, "", "fired"},
-		{"check-plan-shape", 2, "", "cannot-answer"},
+		{"check-references", 0, "", "clear"},
+		{"check-references", 1, "", "fired"},
+		{"check-references", 2, "", "cannot-answer"},
 		{"run-reproducer", 2, "", "fired"},
 		{"run-reproducer", 4, "", "cannot-answer"},
 		{"mutate-and-verify", 4, "", "cannot-answer"},
 		// KAN-1110: check-unfinished-work exits 0 on its OUTSTANDING verdict.
 		{"check-unfinished-work", 0, "OUTSTANDING: task 3 has no implementer row", "fired"},
 		{"check-unfinished-work", 0, "CLEAR: nothing outstanding", "clear"},
-		{"check-plan-shape", 0, "OUTSTANDING: not this guard's verdict", "clear"},
+		{"check-references", 0, "OUTSTANDING: not this guard's verdict", "clear"},
 	} {
 		if got := outcomeFor(tc.name, tc.code, tc.first); got != tc.want {
 			t.Errorf("outcomeFor(%q, %d, %q) = %q, want %q", tc.name, tc.code, tc.first, got, tc.want)
@@ -125,12 +125,12 @@ func TestRecordRunPostsTheRun(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	recordRun(func(k string) string { return env[k] }, dir, "check-plan-shape", 1, "", nil, 1500*time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, dir, "check-references", 1, "", nil, 1500*time.Millisecond, srv.Client())
 
 	if gotPath != "/api/v1/guard-runs/"+key {
 		t.Errorf("path = %q, want the project's guard-runs route", gotPath)
 	}
-	if got.Guard != "check-plan-shape" || got.ExitCode != 1 || got.Outcome != "fired" || got.DurationMS != 1500 || got.Worktree != dir {
+	if got.Guard != "check-references" || got.ExitCode != 1 || got.Outcome != "fired" || got.DurationMS != 1500 || got.Worktree != dir {
 		t.Errorf("body = %+v", got)
 	}
 }
@@ -145,7 +145,7 @@ func TestRecordRunHonoursTheOptOut(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_TELEMETRY": "off"}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", nil, time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, time.Millisecond, srv.Client())
 	if called.Load() {
 		t.Fatal("FLOW_GUARD_TELEMETRY=off still posted a run")
 	}
@@ -162,7 +162,7 @@ func TestRecordRunIsBoundedByItsTimeout(t *testing.T) {
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
 	start := time.Now()
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-plan-shape", 0, "", nil, 0, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, 0, srv.Client())
 	if elapsed := time.Since(start); elapsed > 3*telemetryTimeout {
 		t.Fatalf("recordRun took %v against a hung daemon, want it bounded near %v", elapsed, telemetryTimeout)
 	}
@@ -212,7 +212,7 @@ func TestRunAndRecordPassesTheFirstLine(t *testing.T) {
 // Not parallel: it swaps a registry entry.
 func TestRunAndRecordPostsTheReasons(t *testing.T) {
 	dir := gitRepo(t)
-	const name = "check-plan-shape"
+	const name = "check-references"
 	orig := registry[name]
 	defer func() { registry[name] = orig }()
 	var body []byte
@@ -297,7 +297,7 @@ func TestRunAndRecordRecordsTheTargetWorktree(t *testing.T) {
 	if out, err := exec.Command("git", "init", "-q", wt).CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v: %s", err, out)
 	}
-	const name = "check-plan-shape"
+	const name = "check-references"
 	orig := registry[name]
 	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
 	defer func() { registry[name] = orig }()
@@ -323,7 +323,7 @@ func TestRunAndRecordFallsBackToTheCwd(t *testing.T) {
 	if err := os.MkdirAll(stale, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	const name = "check-plan-shape"
+	const name = "check-references"
 	orig := registry[name]
 	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
 	defer func() { registry[name] = orig }()

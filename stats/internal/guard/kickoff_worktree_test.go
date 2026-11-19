@@ -68,8 +68,7 @@ func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 // fixture of a refusal kickoff makes before it reads any repository.
 func kwNoRepo(t *testing.T, withFlow bool) kwFx {
 	t.Helper()
-	// Physical, as git records a worktree's path and the location guard
-	// compares it.
+	// Physical, as git records a worktree's path.
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -264,21 +263,6 @@ func TestKickoffWorktree(t *testing.T) {
 		}
 	})
 
-	t.Run("location guard refusal: exit 1 with its lines, nothing added", func(t *testing.T) {
-		t.Parallel()
-		fx := kwNew(t, "", true)
-		fx.started(t)
-		stray := t.TempDir() + "/stray"
-		fx.git(t, fx.project, "worktree", "add", "-q", "-b", "stray", stray)
-		r := fx.run(t, fx.project, kwName)
-		if r.rc != 1 || !strings.Contains(r.out, "STRAY: ") || !strings.Contains(r.out, "LOCATION-STRAY: ") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
-		}
-		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
-			t.Errorf("a worktree was added after the location guard refused")
-		}
-	})
-
 	t.Run("no STARTED record: exit 1 after the add, nothing pushed", func(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "", true)
@@ -448,8 +432,7 @@ func TestKickoffWorktreeSiblingLayout(t *testing.T) {
 }
 
 // A project reached through a symlink gets its worktree beside the physical
-// checkout — the root the location guard resolves — so the next kickoff's
-// location check does not report it STRAY.
+// checkout.
 func TestKickoffWorktreeSymlinkedProject(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -464,9 +447,6 @@ func TestKickoffWorktreeSymlinkedProject(t *testing.T) {
 	wt := fx.project + "-worktrees/" + kwName
 	if r.rc != 0 || !strings.HasPrefix(r.stdout, "worktree: "+wt+"\n") {
 		t.Fatalf("rc=%d out=%s", r.rc, r.out)
-	}
-	if loc := runGuard("check-worktree-location", []string{link}, Env{Getenv: os.Getenv}); loc.rc != 0 {
-		t.Errorf("location check after kickoff: %+v", loc)
 	}
 }
 

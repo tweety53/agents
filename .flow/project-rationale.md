@@ -35,16 +35,6 @@ make it lazily instead.
 
 ## .flow/project.md — lint
 
-**`flow-guard check-plan-shape` sits beside `flow-guard check-plan-provenance` and `flow-guard check-task-build-green` in
-this list but is not one of them.** Those two are project-configured — resolved through a project's
-own `.flow/project.md` and run only where a project declares them — while `flow-guard check-plan-shape` is
-**shipped**, run as `flow-guard check-plan-shape` per **Guard resolution**
-(`skills/flow-contracts/pipeline.md`), because the guard it protects
-(`flow-guard check-task-commit-fields`) is itself shipped and runs in every project `/flow` touches. It
-answers a bare-tree question exactly like `flow-guard check-plan-provenance` and `flow-guard check-task-build-green`
-do — no arguments scans every live `<spec-root>/changes/*/tasks.md`, and every archived one the base does not carry yet — which is why it
-belongs in this list at all, for the same reason those two do.
-
 **Its place in this list is a self-check on this repository, not how it covers the projects flow
 is installed into** — and conflating the two made a permanently vacuous lint step read as
 enforcement. The run here checks this repository's own `## workspace isolation` section below; a

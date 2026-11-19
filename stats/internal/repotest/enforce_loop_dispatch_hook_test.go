@@ -51,7 +51,7 @@ func newLoopStub(t *testing.T, rc string) loopStub {
 		t.Fatal(err)
 	}
 	body := "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" >\"" + s.log + "\"\npwd -P >\"" + s.cwdFile +
-		"\"\necho \"LOOP-DISPATCH-REFUSED: PAIR — stub\"\nexit \"$(cat \"" + dir + "/rc\")\"\n"
+		"\"\necho \"LOOP-DISPATCH-REFUSED: OPEN — stub\"\nexit \"$(cat \"" + dir + "/rc\")\"\n"
 	if err := os.WriteFile(s.check, []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 			}
 		}},
 		{"3 refused", func(t *testing.T) {
-			deny(t, hook(t, newLoopStub(t, "1").check, payload("Task", loopPrompt, "")), "LOOP-DISPATCH-REFUSED: PAIR")
+			deny(t, hook(t, newLoopStub(t, "1").check, payload("Task", loopPrompt, "")), "LOOP-DISPATCH-REFUSED: OPEN")
 		}},
 		{"4 cannot answer", func(t *testing.T) {
 			deny(t, hook(t, newLoopStub(t, "2").check, payload("Agent", loopPrompt, "")), "exit 2")

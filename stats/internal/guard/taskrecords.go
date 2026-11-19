@@ -20,10 +20,8 @@ import (
 //
 // All parsing and checking logic lives in `flow-guard check-task-records`
 // (stats/internal/guard/taskrecords.go), which reads the shared plan grammar
-// (stats/internal/guard/planparse.go) that check-task-commit-fields and
-// check-plan-shape read. taskrecords.go's header is canonical for the three
-// checks (tick state vs commit existence, declared Files vs the commit's real
-// files in both directions, Build tag format) and the exit-code contract.
+// (stats/internal/guard/planparse.go). taskrecords.go's header is canonical
+// for its checks and the exit-code contract.
 //
 //   flow-guard check-task-records [repo-root] [base-ref]
 //
@@ -36,16 +34,9 @@ import (
 // the commits on its branch (KAN-410). Ported from check-task-records.py at
 // bbfe685e.
 //
-// The per-commit guard, check-task-commit-fields, checks ONE task's fields
-// against ONE real commit at the moment that commit is made. Its findings in
-// kan-29's self-review (F14, F1 and the malformed **Build:** lines of tasks
-// 43-45) were all drift it cannot see, because it runs before the drift
-// happens: a checkbox ticked with no commit behind it, a commit that touched
-// files its task never declared, a Build tag mangled by a later hand edit.
-// This guard is the retroactive, whole-plan pass those findings asked for:
-// every live spectre/changes/*/tasks.md — every task, checked against the
-// branch's commits since the base ref.
-// Zero plans in flight is clean — the bare-tree case a lint step runs in.
+// Every live spectre/changes/*/tasks.md — every task, checked against the
+// branch's commits since the base ref. Zero plans in flight is clean — the
+// bare-tree case a lint step runs in.
 //
 // Usage: check-task-records.sh [repo-root] [base-ref]
 //
@@ -57,7 +48,7 @@ import (
 // resolve-base-branch.sh reads it), else the branch `refs/remotes/origin/HEAD`
 // points at. The commit range is `<base-ref>..HEAD`.
 //
-// Three checks, per task:
+// Per task:
 //
 //  1. Tick state vs commit existence. A task declaring a `**Commit:**`
 //     subject that is ticked must have a commit carrying that subject
@@ -74,42 +65,13 @@ import (
 //     directory carries a `link.md`, the change's other worktrees — the
 //     `worktrees` map of its state record, `flow state get -C <repo-root>
 //     <change>` — are searched too, and a commit found reachable from one's
-//     HEAD is judged in that repository by check 2; a listed path that is not
+//     HEAD satisfies the task; a listed path that is not
 //     a git worktree is skipped. No record, or no `flow` on PATH, searches
 //     nothing and the violation stands.
-//  2. Declared `**Files:**` vs the commit's real files. For each ticked
-//     task's subject, the files `git diff-tree` reports for the newest
-//     reachable commit carrying it are checked against the union of the
-//     declaring tasks' `**Files:**` plus `**Allowed-collateral:**` globs — in
-//     both directions, which is the part the per-commit guard cannot do: a
-//     file the commit touched that nothing declared, and a file the record
-//     declares that the commit never touched. Tasks sharing one subject (a
-//     red fold: every partner declares the folded commit's agreed subject)
-//     form one group keyed on that subject, so the fold's union is what the
-//     commit is checked against — the same semantics resolve_folded_task
-//     enforces at commit time, reached here from the subjects themselves
-//     without re-implementing bundle resolution. A merge commit yields no
-//     diff-tree file list and is accepted silently; a flow branch carries
-//     none. The files of every non-merge `<base-ref>..HEAD` commit whose
-//     `Task-Id:` trailer names one of the group's tasks are joined to the
-//     subject commit's (the rule check-task-commit-fields' tcfTaskIDCommits
-//     applies, KAN-976), so a gated review's fix commit is judged with its
-//     task (kan-1067 self-review, 1-A). Task-Id numbers belong to one plan:
-//     a fix commit whose number matches groups of several plans joins only
-//     the plans declaring one of its files.
-//  3. `**Build:**` tag format. First column-0 `**Build:**` line per task, via
-//     the shared grammar's tcfSelectBuildTag: absent is a violation, and a
-//     value opening with neither green nor red is a violation naming the
-//     line. This deliberately re-states a check the plan-time lint
-//     (check-task-build-green) already makes: a record drifts after plan
-//     time — kan-29's tasks 43-45 are the case that motivated this guard —
-//     and because both guards read the same shared grammar (planparse.go),
-//     the overlap carries no second definition to drift apart.
+//  2. One commit per subject: a subject carried by more than one commit in
+//     `<base-ref>..HEAD` is a violation.
 //
-// Parsing is shared, never re-stated: task lines, bodies, Build tags and
-// fences, field parsing (continuation joining, backtick stripping,
-// collateral globs) and the undeclared-file check are the tcf* twins
-// check-task-commit-fields and check-plan-shape read.
+// A ticked task holding an unticked step is a violation too.
 //
 // Output: one violation per line on stdout, `<tasks.md path relative to the
 // repo root>: task <id> ...`, in first-come order. Exit codes:
@@ -131,10 +93,9 @@ func init() { Registry["check-task-records"] = checkTaskRecords }
 type trDie struct{ detail string }
 
 type trGroup struct {
-	sha, repo, rel    string
-	ids               []string
-	files, collateral []string
-	commitCount       int
+	rel         string
+	ids         []string
+	commitCount int
 }
 
 type trPeer struct {
@@ -260,12 +221,6 @@ func trCheck(args []string, env Env) []string {
 				})
 			}
 
-			if tag := tcfSelectBuildTag(task.lines); tag == nil {
-				violations = append(violations, fmt.Sprintf("%s: task %s has no **Build:** tag", rel, task.id))
-			} else if tag.kind == "" {
-				violations = append(violations, fmt.Sprintf("%s: task %s has a malformed **Build:** tag: '%s'", rel, task.id, tcfStrip(tag.value)))
-			}
-
 			fields, ok := tcfParseTask(lines, task.id)
 			if !ok {
 				trFail("task %s found by the grammar but not by the field parser in %s", task.id, p.path)
@@ -281,14 +236,13 @@ func trCheck(args []string, env Env) []string {
 				}
 				continue
 			}
-			repo := root
 			if len(shas) == 0 {
 				if !peersRead {
 					peers, peersRead = trPeerHeads(env, git, root, filepath.Dir(p.path)), true
 				}
 				for _, peer := range peers {
 					if s := peer.subjects[subject]; len(s) > 0 {
-						repo, shas = peer.path, s
+						shas = s
 						break
 					}
 				}
@@ -299,36 +253,11 @@ func trCheck(args []string, env Env) []string {
 			}
 			g := groups[subject]
 			if g == nil {
-				g = &trGroup{sha: shas[0], repo: repo, rel: rel, commitCount: len(rangeSubjects[subject])}
+				g = &trGroup{rel: rel, commitCount: len(rangeSubjects[subject])}
 				groups[subject] = g
 				order = append(order, subject)
 			}
 			g.ids = trAppendNew(g.ids, task.id)
-			for _, f := range fields.files {
-				g.files = trAppendNew(g.files, f)
-			}
-			for _, c := range fields.allowedCollateral {
-				g.collateral = trAppendNew(g.collateral, c)
-			}
-		}
-	}
-
-	// Task-Id numbers belong to one plan, so a fix commit whose number matches
-	// groups of several plans joins only the plans declaring one of its files
-	// (kan-1067 self-review review 1, 1-A); matching one plan, it always joins.
-	fixes := map[string][]string{}
-	fixPlans := map[string][]string{}
-	for _, subject := range order {
-		g := groups[subject]
-		// A self-review or pipeline-fix loop's commits carry no Task-Id:
-		// trailer, so a trailer numbered like a loop task is the change's
-		// own and never joins it (kan-1073 self-review).
-		if loop := filepath.Base(filepath.Dir(g.rel)); strings.HasPrefix(loop, "self-review-") || strings.HasPrefix(loop, "pipeline-fix-") {
-			continue
-		}
-		fixes[subject] = trTaskIDCommits(git, g.repo, base, g.ids, g.sha)
-		for _, fix := range fixes[subject] {
-			fixPlans[fix] = trAppendNew(fixPlans[fix], g.rel)
 		}
 	}
 
@@ -338,58 +267,8 @@ func trCheck(args []string, env Env) []string {
 		if g.commitCount > 1 {
 			violations = append(violations, fmt.Sprintf("%s: task %s: subject '%s' is carried by %d commits in %s..HEAD; expected one", g.rel, id, subject, g.commitCount, base))
 		}
-		changed := trCommitFiles(git, g.repo, g.sha)
-		if len(changed) == 0 {
-			// A merge commit: diff-tree lists no files for it, so there is no
-			// file comparison to make — it is accepted silently, as the
-			// header states. A flow branch carries none.
-			continue
-		}
-		for _, fix := range fixes[subject] {
-			files := trCommitFiles(git, g.repo, fix)
-			if len(fixPlans[fix]) > 1 && !slices.ContainsFunc(files, func(f string) bool {
-				return slices.Contains(g.files, f) || slices.Contains(g.collateral, f)
-			}) {
-				continue
-			}
-			for _, f := range files {
-				changed = trAppendNew(changed, f)
-			}
-		}
-		merged := tcfTask{id: id, files: g.files, allowedCollateral: g.collateral}
-		for _, v := range tcfCheckFiles(merged, changed) {
-			violations = append(violations, g.rel+": "+v)
-		}
-		for _, path := range merged.files {
-			if !slices.Contains(changed, path) {
-				violations = append(violations, fmt.Sprintf("%s: task %s: declared file %s is not touched by its commit %s", g.rel, id, path, g.sha[:12]))
-			}
-		}
 	}
 	return violations
-}
-
-// trTaskIDCommits lists the non-merge base..HEAD commits other than self whose
-// Task-Id: trailer names one of ids, read as tcfTaskIDCommits reads it.
-func trTaskIDCommits(git func(...string) *exec.Cmd, repo, base string, ids []string, self string) []string {
-	out, ok := capture(git("-C", repo, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD"))
-	if !ok {
-		return nil
-	}
-	var shas []string
-	for _, line := range tcfSplitLines(out) {
-		sha, val, _ := strings.Cut(line, " ")
-		if sha == "" || sha == self {
-			continue
-		}
-		for _, n := range ctTaskNumberRE.FindAllString(val, -1) {
-			if slices.Contains(ids, n) {
-				shas = append(shas, sha)
-				break
-			}
-		}
-	}
-	return shas
 }
 
 func trAppendNew(list []string, s string) []string {
@@ -495,14 +374,4 @@ func trPeerHeads(env Env, git func(...string) *exec.Cmd, root, changeDir string)
 		}
 	}
 	return peers
-}
-
-func trCommitFiles(git func(...string) *exec.Cmd, repo, sha string) []string {
-	var files []string
-	for _, l := range tcfSplitLines(trGitOut(git, repo, "diff-tree", "--no-renames", "--root", "-r", "--name-only", "--no-commit-id", sha)) {
-		if l != "" {
-			files = append(files, l)
-		}
-	}
-	return files
 }

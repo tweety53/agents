@@ -50,7 +50,7 @@ func TestCheckGuardCallsUnknownName(t *testing.T) {
 		t.Fatalf("typo of an unhyphenated guard: code %d, out %q", code, out)
 	}
 	out, code = gcTree(t, map[string]string{
-		"skills/x/SKILL.md": "Run `flow-guard unchanged`, `flow-guard workspace port`, `flow-guard <name>` or every `flow-guard check-*`, then `flow-guard check-plan-shape`; `flow-guard check-…`; flow-guard not found on PATH.\n",
+		"skills/x/SKILL.md": "Run `flow-guard unchanged`, `flow-guard workspace port`, `flow-guard <name>` or every `flow-guard check-*`, then `flow-guard check-references`; `flow-guard check-…`; flow-guard not found on PATH.\n",
 	})
 	if code != 0 || !strings.Contains(out, "GUARD-CALLS-OK") {
 		t.Fatalf("placeholder and glob: code %d, out %q", code, out)
@@ -60,15 +60,15 @@ func TestCheckGuardCallsUnknownName(t *testing.T) {
 func TestCheckGuardCallsOldSpelling(t *testing.T) {
 	t.Parallel()
 	out, code := gcTree(t, map[string]string{
-		"rules/r.mdc": "x\nrun scripts/check-plan-shape.sh here\n",
+		"rules/r.mdc": "x\nrun scripts/check-references.sh here\n",
 	})
 	if code != 1 || !strings.Contains(out, "rules/r.mdc:2:") {
 		t.Fatalf("old spelling: code %d, out %q", code, out)
 	}
 	out, code = gcTree(t, map[string]string{
 		"CLAUDE.md":            "Run ./setup.sh global, then .superpowers/sdd/reproducers/repro.sh.\n",
-		"docs/old.md":          "scripts/check-plan-shape.sh\n",
-		"spectre/changes/a.md": "check-plan-shape.sh\n",
+		"docs/old.md":          "scripts/check-references.sh\n",
+		"spectre/changes/a.md": "check-references.sh\n",
 	})
 	if code != 0 {
 		t.Fatalf("setup.sh, repro.sh, docs/: code %d, out %q", code, out)

@@ -62,8 +62,7 @@ var stepCheckboxPattern = regexp.MustCompile(`^  - \[ \] `)
 //
 // A task's body runs from its own task line to the next task line, the
 // next level-2/3 heading, or the end of the file -- build-green.md's
-// Placement rule, applied here exactly as check-task-build-green
-// (stats/internal/guard/taskbuildgreen.go) already applies it when scanning the same file. Fence state is
+// Placement rule. Fence state is
 // tracked across the whole scan (mirroring stats/internal/guard/planparse.go's
 // task iteration), so a task line, heading or step checkbox shown inside a
 // fenced example opens no task, closes no body and is never ticked --

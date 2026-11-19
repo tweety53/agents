@@ -1,11 +1,9 @@
 package guard
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,34 +13,19 @@ import (
 // Every case of scripts/test-check-finish-preflight.sh at d71a2327, one
 // subtest per ok: label, over the same main-checkout-plus-linked-worktree
 // repositories, built fresh per case: a linked worktree records absolute
-// paths, so it cannot be copied from a template. The guard runs in-process
-// with FLOW_GUARD_WORKTREE_LOCATION set as the shim exports it, so the
-// stray-worktree assertion execs this checkout's real
-// scripts/check-worktree-location.sh —
-// except case 20, whose root carries a non-executable copy. The shared
-// plumbing (fxGit, stubGit, runGuard, the bm* checks) is
+// paths, so it cannot be copied from a template. The guard runs in-process.
+// The shared plumbing (fxGit, stubGit, runGuard, the bm* checks) is
 // check_base_moved_test.go's.
 
-// fpRepoRoot is this checkout's root, the tree the bash guard sat in.
-var fpRepoRoot = func() string {
-	root, err := filepath.Abs("../../..")
-	if err != nil {
-		panic(err)
-	}
-	return root
-}()
-
 // fpFx is one case's sandbox: main is new_repo's MAIN_REPO, repo its linked
-// worktree REPO on demo/branch, root the checkout whose scripts/ holds the
-// check-worktree-location.sh the guard execs.
+// worktree REPO on demo/branch.
 type fpFx struct {
 	bmFx
-	main, root string
+	main string
 }
 
 // newRepo is new_repo: MAIN_REPO on main with file.txt in one commit, and
-// REPO a linked worktree of it under MAIN_REPO-worktrees/ — the sibling
-// layout, so check-worktree-location reports no stray — on demo/branch at
+// REPO a linked worktree of it under MAIN_REPO-worktrees/ on demo/branch at
 // that commit.
 func (fx *fpFx) newRepo(cloneOf string) {
 	fx.main = fx.dir + "/main"
@@ -92,16 +75,11 @@ func (fx *fpFx) mergeOrigin() {
 	fx.g.git(fx.repo, "fetch", "-q", "origin")
 }
 
-// fpEnv is the process's environment with FLOW_GUARD_WORKTREE_LOCATION set to
-// root's scripts/check-worktree-location.sh, as the shim exports it, and PATH
-// led by stub when there is one.
-func fpEnv(dir, root, stub string) Env {
+// fpEnv is the process's environment with PATH led by stub when there is
+// one.
+func fpEnv(dir, stub string) Env {
 	lookup := func(k string) (string, bool) {
 		switch {
-		case k == "FLOW_GUARD_WORKTREE_LOCATION" && root == fpRepoRoot:
-			return "", false // unset: check-worktree-location runs in this binary
-		case k == "FLOW_GUARD_WORKTREE_LOCATION":
-			return root + "/scripts/check-worktree-location.sh", true
 		case k == "PATH" && stub != "":
 			return stub + ":" + os.Getenv("PATH"), true
 		}
@@ -262,71 +240,12 @@ func TestCheckFinishPreflight(t *testing.T) {
 			}}}},
 		// 17-18: the main checkout's branch and tracked state are not
 		// asserted — run 2 only fast-forwards it — so neither turns a RUN2
-		// into a REFUSE. 19: a stray worktree still does.
+		// into a REFUSE.
 		{setup: func(fx *fpFx) { merged(fx); fx.g.git(fx.main, "checkout", "-q", "-b", "other") }, checks: []bmCheck{
 			bmPrefix("main checkout off base -> RUN2", "RUN2"),
 			bmRC("main checkout off base: exit 0", 0)}},
 		{setup: func(fx *fpFx) { merged(fx); fx.g.appendLine(fx.main+"/file.txt", "dirty") }, checks: []bmCheck{
 			bmPrefix("main checkout has tracked changes -> RUN2", "RUN2")}},
-		{setup: func(fx *fpFx) {
-			merged(fx)
-			fx.g.git(fx.main, "worktree", "add", "-q", "--detach", fpStray(fx.dir), "main")
-		}, checks: []bmCheck{
-			bmPrefix("stray worktree -> REFUSE", "REFUSE"),
-			bmHas("stray worktree: REFUSE names the reason", "stray worktree"),
-			{"stray worktree: REFUSE names the offending path", func(r guardResult, fx *bmFx) bool {
-				return strings.Contains(r.out, fpStray(fx.dir))
-			}}}},
-		// 20: the assertion's own dependency unusable is "cannot determine
-		// anything", never an implicit pass (KAN-462 panel fix, F2).
-		{setup: merged, prep: func(t *testing.T, fx *fpFx) {
-			fx.root = fx.dir + "/root"
-			writeFile(t, fx.root+"/scripts/check-worktree-location.sh", "#!/bin/sh\n")
-		}, checks: []bmCheck{
-			bmRC("check-worktree-location.sh not executable -> exit 2", 2),
-			noVerdict("check-worktree-location.sh not executable: emits no verdict line", notVerdict...),
-			{"check-worktree-location.sh not executable: names the failure", func(r guardResult, _ *bmFx) bool {
-				i := strings.Index(r.out, "check-worktree-location.sh")
-				return i >= 0 && strings.Contains(r.out[i:], "missing or not executable")
-			}}}},
-		// Beyond the harness: check-worktree-location's other exits, each as
-		// the bash handled it, through a stub in the fixture's root.
-		{setup: merged, prep: fpLocation("printf 'STRAY: /x;y (b)\\nnoise\\nSTRAY: /z (detached)\\n'; exit 1"), checks: []bmCheck{
-			{"port: stray lines are joined with '; ', a ';' inside a path included", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 0 && r.stdout == "REFUSE: stray worktree(s): /x; y (b); /z (detached)\n"
-			}}}},
-		{setup: merged, prep: fpLocation("echo not-a-stray; exit 1"), checks: []bmCheck{
-			{"port: exit 1 with no STRAY line exits 1 with nothing printed, as set -e did", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 1 && r.out == ""
-			}}}},
-		{setup: merged, prep: fpLocation("echo out; printf 'boom\\n\\n' >&2; exit 2"), checks: []bmCheck{
-			{"port: exit 2 relays its stderr once, trailing newlines collapsed", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 2 && r.stdout == "" && r.err == "boom\n"
-			}}}},
-		{setup: merged, prep: fpLocation("echo out; echo err >&2; exit 3"), checks: []bmCheck{
-			{"port: any other exit is named, its output dropped", func(r guardResult, fx *bmFx) bool {
-				return r.rc == 2 && r.stdout == "" && strings.HasPrefix(r.err,
-					"check-finish-preflight: flow-guard check-worktree-location exited 3 against ") &&
-					strings.HasSuffix(r.err, " — cannot determine anything\n")
-			}}}},
-		{setup: merged, prep: fpLocation("kill -TERM $$"), checks: []bmCheck{
-			{"port: a location check killed by a signal is named by bash's 128+n", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 2 && strings.HasPrefix(r.err, "check-finish-preflight: flow-guard check-worktree-location exited 143 against ")
-			}}}},
-		// Without the override, the sibling runs in this same binary.
-		{setup: merged, run: func(fx *fpFx) (guardResult, error) {
-			lookup := func(k string) (string, bool) {
-				if k == "FLOW_GUARD_WORKTREE_LOCATION" {
-					return "", false
-				}
-				return os.LookupEnv(k)
-			}
-			env := Env{Dir: fx.dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
-			return runGuard("check-finish-preflight", []string{fx.repo, "main", fx.recorded}, env), nil
-		}, checks: []bmCheck{
-			{"port: an unset FLOW_GUARD_WORKTREE_LOCATION runs check-worktree-location in this binary", func(r guardResult, _ *bmFx) bool {
-				return r.rc == 0 && strings.HasPrefix(r.stdout, "RUN2: ")
-			}}}},
 		// A relative worktree argument resolves against the working directory.
 		{setup: merged, args: func(fx *fpFx) []string { return []string{"main-worktrees/demo", "main", fx.recorded} },
 			checks: []bmCheck{
@@ -338,7 +257,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 	for i, c := range cases {
 		// The sandbox belongs to the parent test, so it outlives the
 		// parallel subtest reading this case's one run.
-		fx := &fpFx{bmFx: bmFx{dir: t.TempDir()}, root: fpRepoRoot}
+		fx := &fpFx{bmFx: bmFx{dir: t.TempDir()}}
 		if c.stub != "" {
 			fx.stub = fx.dir + "/shim"
 			stubGit(t, fx.stub, c.stub, c.msg)
@@ -362,7 +281,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 			if c.run != nil {
 				return c.run(fx)
 			}
-			return runGuard("check-finish-preflight", args, fpEnv(fx.dir, fx.root, fx.stub)), nil
+			return runGuard("check-finish-preflight", args, fpEnv(fx.dir, fx.stub)), nil
 		}
 		// One parallel subtest runs the case, its checks nested beneath it:
 		// a parallel subtest per check held a -parallel slot apiece while
@@ -382,89 +301,4 @@ func TestCheckFinishPreflight(t *testing.T) {
 			}
 		})
 	}
-
-	// Beyond the harness (panel review of task 12): the dirty-entry count and
-	// the main checkout's physical path (`pwd -P`) reach the verdict line,
-	// so each is run against the bash at d71a2327 live on the same fixture.
-	bashDir := filepath.Join(t.TempDir(), "scripts")
-	for _, rel := range []string{"check-finish-preflight.sh", "check-worktree-location.sh", "lib/resolve-remote-base.sh"} {
-		src := historicalFile(t, fpRepoRoot, "d71a2327", "scripts/"+rel)
-		writeFile(t, filepath.Join(bashDir, rel), string(src))
-		if err := os.Chmod(filepath.Join(bashDir, rel), 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// The location rule itself moved to the sibling layout after d71a2327
-	// (kan-916), so both sides exec this checkout's location guard — the
-	// comparison stays on check-finish-preflight's own logic.
-	writeExec(t, filepath.Join(bashDir, "check-worktree-location.sh"),
-		"#!/usr/bin/env bash\nexec "+fpRepoRoot+"/scripts/flow-guard check-worktree-location \"$@\"\n")
-	parity := []struct {
-		label string
-		setup func(fx *fpFx) (dir string, args []string)
-	}{
-		{"port: the dirty-entry count matches the bash", func(fx *fpFx) (string, []string) {
-			merged(fx)
-			fx.g.write(fx.repo+"/one.txt", "dirty")
-			fx.g.write(fx.repo+"/two.txt", "dirty")
-			return fx.dir, []string{fx.repo, "main", fx.recorded}
-		}},
-		{"port: the main checkout is resolved to its physical path, as pwd -P gave it", func(fx *fpFx) (string, []string) {
-			merged(fx)
-			fx.g.git(fx.main, "worktree", "add", "-q", "--detach", fpStray(fx.dir), "main")
-			// Only a relative --git-common-dir (the main checkout's own `.git`)
-			// leaves the physical path to pwd -P; git prints a linked
-			// worktree's already resolved.
-			link := fx.dir + "/link"
-			if err := os.Symlink(fx.dir, link); err != nil {
-				fx.g.err = err
-			}
-			return link, []string{"main", "main", fx.recorded}
-		}},
-	}
-	for _, x := range parity {
-		t.Run(x.label, func(t *testing.T) {
-			t.Parallel()
-			fx := &fpFx{bmFx: bmFx{dir: t.TempDir()}, root: fpRepoRoot}
-			dir, args := x.setup(fx)
-			if fx.g.err != nil {
-				t.Fatal(fx.g.err)
-			}
-			r := runGuard("check-finish-preflight", args, fpEnv(dir, fx.root, ""))
-			cmd := exec.Command("bash", append([]string{filepath.Join(bashDir, "check-finish-preflight.sh")}, args...)...)
-			cmd.Dir = dir
-			var bout, berr bytes.Buffer
-			cmd.Stdout, cmd.Stderr = &bout, &berr
-			brc := 0
-			if err := cmd.Run(); err != nil {
-				ee, ok := err.(*exec.ExitError)
-				if !ok {
-					t.Fatal(err)
-				}
-				brc = ee.ExitCode()
-			}
-			if r.rc != brc || r.stdout != bout.String() || r.err != berr.String() {
-				t.Fatalf("port rc=%d stdout=%q stderr=%q\nbash rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err, brc, bout.String(), berr.String())
-			}
-		})
-	}
-}
-
-// fpLocation is a prep writing <root>/scripts/check-worktree-location.sh as
-// a stub running body.
-func fpLocation(body string) func(t *testing.T, fx *fpFx) {
-	return func(t *testing.T, fx *fpFx) {
-		fx.root = fx.dir + "/root"
-		writeExec(t, fx.root+"/scripts/check-worktree-location.sh", "#!/usr/bin/env bash\n"+body+"\n")
-	}
-}
-
-// fpStray is case 19's worktree outside <main>-worktrees/, physical as the
-// harness's `pwd -P` made it.
-func fpStray(dir string) string {
-	real, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		return dir + "/unresolvable"
-	}
-	return real + "/stray"
 }

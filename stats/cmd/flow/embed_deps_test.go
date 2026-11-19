@@ -7,8 +7,8 @@ import (
 )
 
 // TestFlowCLIDoesNotImportEmbeddedPolicy: modelpolicy/embedded embeds a file
-// only make copies, and guards build and run cmd/flow without make
-// (check-stage-mark-calls' `go run ./cmd/flow stage keys`), so no package
+// only make copies, and cmd/flow is built and run without make (`go run
+// ./cmd/flow stage keys`), so no package
 // cmd/flow depends on may import it (KAN-1067).
 func TestFlowCLIDoesNotImportEmbeddedPolicy(t *testing.T) {
 	t.Parallel()

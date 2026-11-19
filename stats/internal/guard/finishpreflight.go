@@ -1,13 +1,9 @@
 package guard
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
-	"syscall"
 )
 
 // The contract below moved here from the header of the deleted
@@ -28,16 +24,6 @@ import (
 // protocol makes "cannot determine" indistinguishable from "violation", which
 // is the exact confusion this script exists to remove. Exit 2 keeps the
 // meaning this repository's other guards give it.
-//
-// THE STRAY-WORKTREE ASSERTION. A would-be RUN2 verdict is REFUSEd instead
-// — `REFUSE: stray worktree(s): …` — when `flow-guard check-worktree-location
-// <main-checkout>` exits 1, relaying its STRAY lines; the main checkout is
-// resolved from <worktree> via `git rev-parse --git-common-dir`, never taken
-// as an argument. This check runs last, immediately before the RUN2 line it
-// can still turn into a REFUSE — it never affects a RUN1 or an earlier
-// REFUSE. The main checkout's own branch and tracked state are not asserted:
-// run 2 only fast-forwards it, flow-guard refresh-main-checkout refuses by name what
-// it cannot fast-forward, and that refusal never blocks FINISHED.
 //
 // WHY SIGNAL ORDER IS THE WHOLE FIX. A branch with no commits of its own is an
 // ancestor of EVERY branch, so `merge-base --is-ancestor` answers "merged" on a
@@ -66,8 +52,8 @@ import (
 // than the raw argument, so each names the ref the test actually ran against.
 //
 // HOW TO HAND-VERIFY A REFUSE VERDICT (KAN-446). Re-derive the refused signal
-// by hand: which of the branch states, the worktree's uncommitted entries, or
-// stray worktrees fired — fix the cause, never the verdict.
+// by hand: which of the branch states or the worktree's uncommitted entries
+// fired — fix the cause, never the verdict.
 
 // checkFinishPreflight is `flow-guard check-finish-preflight`: the comment above is the contract -- one RUN1/RUN2/REFUSE verdict line on
 // stdout, exit 0 whenever a verdict was reached, exit 2 when the tree cannot
@@ -174,72 +160,6 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		fmt.Fprintf(stdout, "REFUSE: %s contains HEAD, but %s has %d uncommitted entries — a merged change should have nothing left to commit\n",
 			ref, worktree, strings.Count(status, "\n")+1)
 		return 0
-	}
-
-	// (e) The stray-worktree assertion — see "THE STRAY-WORKTREE ASSERTION"
-	//     in the comment above for the REFUSE grammar below. The main
-	//     checkout's branch and tracked state are not asserted: run 2 only
-	//     fast-forwards it, and refresh-main-checkout.sh refuses by name
-	//     whatever it cannot fast-forward.
-	common, ok := capture(git("-C", worktree, "rev-parse", "--git-common-dir"))
-	if !ok {
-		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve the main checkout from %s\n", worktree)
-		Reason(env, "cannot-resolve-the-main-checkout")
-		return 2
-	}
-	if !strings.HasPrefix(common, "/") {
-		common = worktree + "/" + common
-	}
-	// `cd "$(dirname "$COMMON_DIR")" && pwd -P`: the physical path.
-	mainCheckout, err := filepath.EvalSymlinks(smcAbs(env, filepath.Dir(common)))
-	if err == nil && !isDir(mainCheckout) {
-		err = errors.New("not a directory")
-	}
-	if err != nil {
-		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve the main checkout from %s\n", worktree)
-		Reason(env, "cannot-resolve-the-main-checkout")
-		return 2
-	}
-
-	// check-worktree-location runs in this same binary (runSibling), or as
-	// the executable FLOW_GUARD_WORKTREE_LOCATION names.
-	if location := env.Getenv("FLOW_GUARD_WORKTREE_LOCATION"); location != "" && syscall.Access(location, 1) != nil { // `[ -x ]`
-		fmt.Fprintf(stderr, "check-finish-preflight: %s is missing or not executable — cannot determine anything\n", location)
-		Reason(env, "missing-or-not-executable")
-		return 2
-	}
-	var locOut, locErr bytes.Buffer
-	cmd := siblingCmd(env, "FLOW_GUARD_WORKTREE_LOCATION", "check-worktree-location", mainCheckout)
-	cmd.Stdout, cmd.Stderr = &locOut, &locErr
-	rc := exitCode(cmd.Run())
-	switch {
-	case rc == 1:
-		// The bash's `grep '^STRAY: ' | sed | paste -sd ';' | sed 's/;/; /g'`:
-		// every `;` becomes `; `, one inside a path included. With no STRAY
-		// line at all, grep's failure aborted the bash under `set -e` with
-		// exit 1 and nothing printed; that is kept.
-		var strays []string
-		for _, l := range strings.Split(strings.TrimRight(locOut.String(), "\n"), "\n") {
-			if s, ok := strings.CutPrefix(l, "STRAY: "); ok {
-				strays = append(strays, s)
-			}
-		}
-		if len(strays) == 0 {
-			Reason(env, "worktree-location-refused")
-			return 1
-		}
-		fmt.Fprintf(stdout, "REFUSE: stray worktree(s): %s\n", strings.ReplaceAll(strings.Join(strays, ";"), ";", "; "))
-		return 0
-	case rc == 2:
-		if e := strings.TrimRight(locErr.String(), "\n"); e != "" {
-			fmt.Fprintln(stderr, e)
-		}
-		Reason(env, "worktree-location-cannot-answer")
-		return 2
-	case rc != 0:
-		fmt.Fprintf(stderr, "check-finish-preflight: flow-guard check-worktree-location exited %d against %s — cannot determine anything\n", rc, mainCheckout)
-		Reason(env, "worktree-location-failed")
-		return 2
 	}
 
 	fmt.Fprintf(stdout, "RUN2: HEAD is an ancestor of %s, differs from the recorded merge base, and the worktree is clean\n", ref)

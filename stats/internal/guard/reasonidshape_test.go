@@ -17,13 +17,7 @@ var fragmentIDRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*-(for|with|is|the|
 
 // reasonIDExempt holds multi-word ids the rule would flag that still name a
 // reason, each with why (decision sub-guard-names-exempt).
-var reasonIDExempt = map[string]string{
-	"plan-files-paths":  "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
-	"plan-script-paths": "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
-	"plan-step-files":   "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
-	"plan-suite-steps":  "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
-	"plan-task-id-rule": "the sub-guard records its own name, the rule id `check-plan-shape -rules` prints",
-}
+var reasonIDExempt = map[string]string{}
 
 // reasonVerdictWords are the state, verdict and predicate words: a multi-word
 // id names a reason only when one of its words is among them; without one it
@@ -173,7 +167,7 @@ func TestMultiWordReasonIDsCarryAVerdict(t *testing.T) {
 		"git-refused-to-rebase-onto": true, "target-file-is-outside": true, "change-name": true,
 		"not-a-worktree": false, "cannot-read-file": false, "line-is-a-template": false,
 		"worktree-vanished": false, "bundle-violations": false, "base-behind": false,
-		"usage": false, "plan-files-paths": false,
+		"usage": false,
 	} {
 		if got := badReasonID(id); got != want {
 			t.Errorf("badReasonID(%q) = %v, want %v", id, got, want)

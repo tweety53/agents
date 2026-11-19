@@ -54,7 +54,7 @@ type dpCase struct {
 const dpCleanPlanning = `1. **Plan, then fix**
 
    > **PLANNING DELEGATION:** You may dispatch fresh ` + "`Explore` and `Plan`" + ` subagents, never a
-   > ` + "`fork`" + `, and never an agent that edits files; pairs from flow-guard pair-judge.
+   > ` + "`fork`" + `, and never an agent that edits files.
 `
 
 // dpFixture is new_root plus the case's files: every root carries a
@@ -1883,7 +1883,7 @@ var dpCleanFixRound = dpDoc(dpFixRoundScopeBlock)
 // dpEntries is caught: a self-review block missing one fails naming it.
 func TestCheckDispatchParagraphsPlanningPhrases(t *testing.T) {
 	t.Parallel()
-	for _, phrase := range []string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files", "flow-guard pair-judge"} {
+	for _, phrase := range []string{"fresh `Explore` and `Plan` subagents", "never a `fork`", "never an agent that edits files"} {
 		t.Run(phrase, func(t *testing.T) {
 			t.Parallel()
 			root := dpFixture(t, map[string]string{"review-panel.md": dpCleanReviewPanel, "implement.md": dpCleanImplement})

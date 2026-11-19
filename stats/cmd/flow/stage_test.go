@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -179,39 +180,6 @@ func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T) 
 }
 
 // --- stage begin: a sessionToken that cannot identify anything is rejected ---
-
-// TestStageBeginRequiresSessionToken pins tasks.md's "A missing -session-token is a
-// caller mistake, not a stage outcome": exit non-zero, name the flag, and
-// never contact the store -- exactly like an undocumented stage key.
-func TestStageBeginRequiresSessionToken(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-
-	contacted := false
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		contacted = true
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{}`))
-	}))
-	defer srv.Close()
-
-	var stdout, stderr bytes.Buffer
-	code := run(context.Background(),
-		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/flow", "-stage", "flow.sdd-tdd", "kan-16"},
-		env.get, strings.NewReader(""), &stdout, &stderr)
-
-	if code != 2 {
-		t.Fatalf("exit code = %d, want 2 (a missing -session-token is a usage error); stderr:\n%s", code, stderr.String())
-	}
-	if contacted {
-		t.Error("the store was contacted with no -session-token -- it must be rejected before any network call")
-	}
-	if !strings.Contains(stderr.String(), "-session-token") {
-		t.Errorf("stderr = %q, want it to name -session-token", stderr.String())
-	}
-}
 
 // TestStageBeginRejectsShellSubstitutionSessionToken pins design.md's "the sessionToken
 // is a literal, never a shell substitution": each of the three shapes the
@@ -1183,8 +1151,7 @@ func TestRunStageWrapStoreUnreachableStillRunsChild(t *testing.T) {
 }
 
 // TestRunStageWrapUsageErrorsRunNoChild pins that every caller mistake --
-// no "--" separator, an empty child after it, a missing -session-token --
-// exits 2 with the usage text and never runs the child.
+// no "--" separator, an empty child after it -- exits 2 with the usage text and never runs the child.
 func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -1198,9 +1165,6 @@ func TestRunStageWrapUsageErrorsRunNoChild(t *testing.T) {
 		{"empty child", []string{
 			"-command", "/flow-fast", "-stage", "flow.brainstorm",
 			"-session-token", "ff-session-token-wrap-empty-20261024T000000Z", "kan-323", "--"}},
-		{"missing session token", []string{
-			"-command", "/flow-fast", "-stage", "flow.brainstorm", "kan-323",
-			"--", "sh", "-c", "echo should-not-run"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1420,10 +1384,8 @@ func TestRunStageWrapChildKilledBySignalExitsConventional128PlusSig(t *testing.T
 
 // TestStageKeysSubcommandPrintsServedKeys pins `flow stage keys` to the
 // served source: stdout is exactly stages.Keys(), one key per line, with a
-// clean exit and no store contact. The check-stage-mark-calls guard
-// consumes this output as the stage-key vocabulary's one served source, so
-// an empty, padded or reordered printing would move the guard off the
-// documented table this package validates marks against.
+// clean exit and no store contact: the stage-key vocabulary's one served
+// source.
 func TestStageKeysSubcommandPrintsServedKeys(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
@@ -1569,8 +1531,8 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
 // TestStageMarkValidatesAllKeysFirst pins that every -stages key is
 // validated before any store call: one undocumented key anywhere in the
 // list is a usage error (exit 2) and the store is never contacted, so no
-// earlier key is left half-marked. A missing -stages, a stray -stage and a
-// missing -session-token are usage errors the same way.
+// earlier key is left half-marked. A missing -stages and a stray -stage are
+// usage errors the same way.
 func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 	t.Parallel()
 	cases := map[string][]string{
@@ -1579,7 +1541,6 @@ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 		"empty key":       {"-stages", "flow.preflight,", "-session-token", "ff-mark-empty-key-20261024T000000Z"},
 		"missing -stages": {"-session-token", "ff-mark-no-stages-20261024T000000Z"},
 		"stray -stage":    {"-stage", "flow.preflight", "-stages", "flow.preflight", "-session-token", "ff-mark-stray-20261024T000000Z"},
-		"missing token":   {"-stages", "flow.preflight"},
 	}
 	for name, extra := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -1612,6 +1573,33 @@ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 				t.Errorf("store calls = %d, want 0 -- every key is validated before any store call", hits)
 			}
 		})
+	}
+}
+
+// TestStageBeginDefaultsSessionToken: a begin given no -session-token is
+// marked under <change>-<UTC time to the second>.
+func TestStageBeginDefaultsSessionToken(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	var token string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			SessionToken string `json:"sessionToken"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		token = body.SessionToken
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.plan", "kan-860"},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || !regexp.MustCompile(`^kan-860-\d{8}T\d{6}Z$`).MatchString(token) {
+		t.Fatalf("exit %d token %q, want 0 and kan-860-<stamp>; stderr:\n%s", code, token, stderr.String())
 	}
 }
 
@@ -1761,359 +1749,6 @@ func TestRunStageSessions(t *testing.T) {
 	})
 }
 
-// TestStageEndFlowVerifyRunsLiveCheck pins the in-process gate on a
-// completed /flow flow.verify end (kan-1029's self-review: the parent ended
-// the stage with no check-live-verification chained before it). A refused
-// end never reaches the store.
-func TestStageEndFlowVerifyRunsLiveCheck(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		name, design, record string // design "" writes no change directory
-		command, outcome     string // "" means /flow and completed
-		want                 int
-	}{
-		{"a named check with no record is refused", "## Live check\n\nRun the daemon.\n", "", "", "", 1},
-		{"a named check with a measured record ends", "## Live check\n\nRun the daemon.\n", "- Before: 3\n- After: 0\n", "", "", 0},
-		{"a design naming no check ends", "## Context\n", "", "", "", 0},
-		{"no change directory under -C is refused", "", "", "", "", 1},
-		{"a /flow-fast end passes through", "", "", "/flow-fast", "", 0},
-		{"a blocked /flow end passes through", "", "", "", "blocked", 0},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			repo := gitRepo(t)
-			env := newTestEnv(t)
-			if c.design != "" {
-				root := filepath.Join(repo, "spectre", "changes", "kan-1")
-				if err := os.MkdirAll(root, 0o755); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join(root, "design.md"), []byte(c.design), 0o644); err != nil {
-					t.Fatal(err)
-				}
-				if c.record != "" {
-					if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte(c.record), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
-			reached := false
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				reached = true
-				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-			}))
-			defer srv.Close()
-
-			command, outcome := "/flow", "completed"
-			if c.command != "" {
-				command = c.command
-			}
-			if c.outcome != "" {
-				outcome = c.outcome
-			}
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", command, "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != c.want || reached != (c.want == 0) {
-				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
-			}
-		})
-	}
-}
-
-// TestStageEndFlowVerifyRefusesOverBlockedVerify pins the verify gate: a
-// completed /flow flow.verify end is refused, exit 1 with no end request,
-// while the change's newest verify dispatch -- `verify`, `verify-<n>` or
-// `verify-fix-<k>` -- ended blocked. The set's newest dispatch of any key
-// (visual-verify) completed, and its verify-fix-1 completed before verify-2
-// began, so a gate reading either passes wrongly. A newer completed
-// verify-3 ends it, and so does a blocked end over the same set.
-func TestStageEndFlowVerifyRefusesOverBlockedVerify(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	root := filepath.Join(repo, "spectre", "changes", "kan-1")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "design.md"), []byte("## Live check\n\nRun the daemon.\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte("- Before: 3\n- After: 0\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	dispatch := func(key, outcome, at string) string {
-		return fmt.Sprintf(`{"key":%q,"outcome":%q,"startedAt":"2026-11-01T%s:00Z","endedAt":"2026-11-01T%s:30Z"}`, key, outcome, at, at)
-	}
-	set := []string{
-		dispatch("verify", "completed", "09:00"),
-		dispatch("verify-2", "blocked", "10:00"),
-		dispatch("verify-fix-1", "completed", "09:30"),
-		dispatch("visual-verify", "completed", "11:00"),
-	}
-	end := func(dispatches []string, outcome string) (int, string, bool) {
-		t.Helper()
-		record := `{"change":"kan-1","dispatches":[` + strings.Join(dispatches, ",") + `]}`
-		reached := false
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				_, _ = w.Write([]byte(record))
-				return
-			}
-			reached = true
-			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-		}))
-		defer srv.Close()
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(),
-			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-				"-command", "/flow", "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		return code, stderr.String(), reached
-	}
-	if code, stderr, reached := end(set, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-2 ended blocked") {
-		t.Fatalf("blocked verify-2 newest: exit=%d reached=%v, want 1 naming verify-2; stderr:\n%s", code, reached, stderr)
-	}
-	if code, stderr, reached := end(append(set[:len(set):len(set)], dispatch("verify-3", "completed", "10:45")), "completed"); code != 0 || !reached {
-		t.Fatalf("completed verify-3 newest: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-	if code, stderr, reached := end(set, "blocked"); code != 0 || !reached {
-		t.Fatalf("blocked end: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-	// Multi-worktree: each worktree's verify rows carry a repository suffix.
-	// Worktree a's verify-2-a ended blocked; worktree b's verify-2-b started
-	// later and completed, so the newest row across both reads completed.
-	multi := []string{
-		dispatch("verify-a", "completed", "09:00"),
-		dispatch("verify-b", "completed", "09:05"),
-		dispatch("verify-2-a", "blocked", "10:00"),
-		dispatch("verify-2-b", "completed", "10:05"),
-	}
-	if code, stderr, reached := end(multi, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-2-a ended blocked") {
-		t.Fatalf("blocked verify-2-a under a newer verify-2-b: exit=%d reached=%v, want 1 naming verify-2-a; stderr:\n%s", code, reached, stderr)
-	}
-	if code, stderr, reached := end(append(multi[:len(multi):len(multi)], dispatch("verify-3-a", "completed", "10:45")), "completed"); code != 0 || !reached {
-		t.Fatalf("completed verify-3-a newest for a: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-	// A blocked bare verify-fix-5 older than the suffixed re-runs is superseded by them.
-	stray := []string{
-		dispatch("verify-fix-5", "blocked", "09:00"),
-		dispatch("verify-fix-6-a", "completed", "10:00"),
-		dispatch("verify-fix-6-b", "completed", "10:05"),
-	}
-	if code, stderr, reached := end(stray, "completed"); code != 0 || !reached {
-		t.Fatalf("stale bare blocked row under newer suffixed rows: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-}
-
-// TestStageEndFlowVerifyCountsAVerifyFixRerun pins kan-1117 self-review F5:
-// a verify-fix-<k>[-<repository name>] row is a verify re-run (step 4 of The
-// loop, skills/flow/verify-fix-loop.md), so a completed one started after a
-// blocked verify lets the end through, a blocked newest one refuses it, and
-// verify-fix-2-a is read under repository a, not fix-2-a.
-func TestStageEndFlowVerifyCountsAVerifyFixRerun(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	root := filepath.Join(repo, "spectre", "changes", "kan-1")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "design.md"), []byte("## Live check\n\nRun the daemon.\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte("- Before: 3\n- After: 0\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	dispatch := func(key, outcome, at string) string {
-		return fmt.Sprintf(`{"key":%q,"outcome":%q,"startedAt":"2026-11-01T%s:00Z","endedAt":"2026-11-01T%s:30Z"}`, key, outcome, at, at)
-	}
-	end := func(dispatches []string, outcome string) (int, string, bool) {
-		t.Helper()
-		record := `{"change":"kan-1","dispatches":[` + strings.Join(dispatches, ",") + `]}`
-		reached := false
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				_, _ = w.Write([]byte(record))
-				return
-			}
-			reached = true
-			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-		}))
-		defer srv.Close()
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(),
-			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-				"-command", "/flow", "-stage", "flow.verify", "-outcome", outcome, "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		return code, stderr.String(), reached
-	}
-	if code, stderr, reached := end([]string{dispatch("verify", "blocked", "09:00"), dispatch("verify-fix-1", "completed", "10:00")}, "completed"); code != 0 || !reached {
-		t.Fatalf("completed verify-fix-1 after blocked verify: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-	if code, stderr, reached := end([]string{dispatch("verify", "completed", "09:00"), dispatch("verify-fix-1", "blocked", "10:00")}, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-fix-1 ended blocked") {
-		t.Fatalf("blocked verify-fix-1 newest: exit=%d reached=%v, want 1 naming verify-fix-1; stderr:\n%s", code, reached, stderr)
-	}
-	multi := []string{
-		dispatch("verify-a", "completed", "09:00"),
-		dispatch("verify-b", "completed", "09:05"),
-		dispatch("verify-fix-2-a", "blocked", "10:00"),
-		dispatch("verify-fix-2-b", "completed", "10:05"),
-	}
-	if code, stderr, reached := end(multi, "completed"); code != 1 || reached || !strings.Contains(stderr, "verify-fix-2-a ended blocked") {
-		t.Fatalf("blocked verify-fix-2-a: exit=%d reached=%v, want 1 naming verify-fix-2-a; stderr:\n%s", code, reached, stderr)
-	}
-	// A later completed verify-3-a supersedes verify-fix-2-a only when both
-	// are read under repository a.
-	if code, stderr, reached := end(append(multi[:len(multi):len(multi)], dispatch("verify-3-a", "completed", "10:45")), "completed"); code != 0 || !reached {
-		t.Fatalf("completed verify-3-a after verify-fix-2-a: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-}
-
-// TestStageBeginRefusesUnstampedSessionToken pins the token's UTC start-time
-// suffix (kan-1029's self-review: `mf-k1029-PLACEHOLDER` opened two stage
-// runs bound to no run). begin and wrap both refuse before any network call.
-func TestStageBeginRefusesUnstampedSessionToken(t *testing.T) {
-	t.Parallel()
-	for _, sub := range []string{"begin", "wrap"} {
-		for _, token := range []string{"mf-k1029-PLACEHOLDER", "mf-k1028b", "mf-k1029-20261024T002513", "mf-20261024T002513Z-x"} {
-			t.Run(sub+" "+token, func(t *testing.T) {
-				repo := gitRepo(t)
-				env := newTestEnv(t)
-				contacted := false
-				srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-					contacted = true
-					_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-				}))
-				defer srv.Close()
-
-				args := []string{"stage", sub, "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", token, "kan-16"}
-				if sub == "wrap" {
-					args = append(args, "--", "true")
-				}
-				var stdout, stderr bytes.Buffer
-				code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
-				if code != 2 || contacted || !strings.Contains(stderr.String(), "UTC") {
-					t.Fatalf("exit=%d contacted=%v, want 2 and no store call; stderr:\n%s", code, contacted, stderr.String())
-				}
-			})
-		}
-	}
-}
-
-// TestStageEndReviewPanelRunsFindingsClosed pins that a completed /flow
-// flow.review-panel end runs check-panel-findings-closed in process and is
-// refused while a finding is open (kan-1017: rounds 2-7 closed unguarded),
-// and that a stopped end is never gated.
-func TestStageEndReviewPanelRunsFindingsClosed(t *testing.T) {
-	smoke.Heavy(t)
-	cases := []struct {
-		name, findings, outcome string
-		want                    int
-	}{
-		{"an open finding refuses a completed close", `[{"ref":"F1","status":"open","round":1}]`, "completed", 1},
-		{"every finding closed ends", `[{"ref":"F1","status":"withdrawn: duplicate","round":1}]`, "completed", 0},
-		{"a stopped close passes through an open finding", `[{"ref":"F1","status":"open","round":1}]`, "stopped", 0},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			repo := gitRepo(t)
-			env := newTestEnv(t)
-			bin := t.TempDir()
-			if err := os.WriteFile(filepath.Join(bin, "findings.json"), []byte(c.findings), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			script := "#!/usr/bin/env bash\ndir=\"$(dirname -- \"$0\")\"\ncase \"$*\" in\n" +
-				"  *\"record dispatches\"*) echo '[]' ;;\n" +
-				"  *\"state get\"*) echo '{\"worktrees\":{}}' ;;\n" +
-				"  *) cat \"$dir/findings.json\" ;;\nesac\n"
-			if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-			reached := false
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				reached = true
-				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-			}))
-			defer srv.Close()
-
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", c.outcome, "kan-1"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != c.want || reached != (c.want == 0) {
-				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, c.want, stderr.String())
-			}
-			if c.want == 1 && !strings.Contains(stderr.String(), "check-panel-findings-closed") {
-				t.Fatalf("stderr does not name check-panel-findings-closed:\n%s", stderr.String())
-			}
-		})
-	}
-}
-
-// TestStageEndReviewPanelRefusesARoundWithoutItsMerger pins that a
-// completed /flow flow.review-panel end is refused while the highest round
-// holding a reviewer row has no completed panel-<r>-merger row, even when an
-// earlier round's merger ran (kan-1075 self-review, F14), and that a
-// stopped end is never gated.
-func TestStageEndReviewPanelRefusesARoundWithoutItsMerger(t *testing.T) {
-	smoke.Heavy(t)
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	bin := t.TempDir()
-	script := "#!/usr/bin/env bash\ncase \"$*\" in\n" +
-		"  *\"record dispatches\"*) echo '[]' ;;\n" +
-		"  *\"state get\"*) echo '{\"worktrees\":{}}' ;;\n" +
-		"  *) echo '[]' ;;\nesac\n"
-	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	row := func(key, role string) string {
-		return `{"key":"` + key + `","role":"` + role + `","outcome":"completed","startedAt":"2026-11-02T15:00:00Z","endedAt":"2026-11-02T15:01:00Z"}`
-	}
-	record := func(rows ...string) string {
-		return `{"change":"kan-1","dispatches":[` + strings.Join(rows, ",") + `]}`
-	}
-	for _, tc := range []struct {
-		name, record, outcome string
-		want                  int
-	}{
-		{"the last round lacks its merger", record(row("panel-0-primary", "reviewer"), row("panel-0-merger", "merger"), row("panel-1-primary", "reviewer")), "completed", 1},
-		{"every round has its merger", record(row("panel-0-primary", "reviewer"), row("panel-0-merger", "merger"), row("panel-1-primary", "reviewer"), row("panel-1-merger", "merger")), "completed", 0},
-		{"a stopped close is not gated", record(row("panel-1-primary", "reviewer")), "stopped", 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			reached := false
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodGet {
-					_, _ = w.Write([]byte(tc.record))
-					return
-				}
-				reached = true
-				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-					"-command", "/flow", "-stage", "flow.review-panel", "-outcome", tc.outcome, "kan-1"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != tc.want || reached != (tc.want == 0) {
-				t.Fatalf("exit=%d reached=%v, want exit %d; stderr:\n%s", code, reached, tc.want, stderr.String())
-			}
-			if tc.want == 1 && !strings.Contains(stderr.String(), "panel-1-merger") {
-				t.Fatalf("stderr does not name panel-1-merger:\n%s", stderr.String())
-			}
-		})
-	}
-}
-
 // TestStageEndReviewPanelResolvesWorktreeWithoutC pins that a completed
 // /flow flow.review-panel end run with no -C from the main checkout runs
 // check-panel-findings-closed against the linked worktree carrying the
@@ -2205,88 +1840,6 @@ func TestStageBeginAcceptsChangeFlag(t *testing.T) {
 	}
 }
 
-// TestStageEndVisualVerifyRefusesAnUntaskedCommit pins kan-1016's
-// self-review: a regression-checkout commit with no trailer was pushed
-// before integrate's gate saw it. A completed /flow flow.visual-verify end
-// runs check-untasked-commits over every worktree of the state map
-// (design.md visual-verify-end-trailer-gate).
-func TestStageEndVisualVerifyRefusesAnUntaskedCommit(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	root := t.TempDir()
-	peer, origin := filepath.Join(root, "peer"), filepath.Join(root, "origin.git")
-	git := func(dir string, args ...string) string {
-		t.Helper()
-		out, err := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-		return strings.TrimSpace(string(out))
-	}
-	git(root, "init", "-q", "--bare", "-b", "main", origin)
-	git(root, "init", "-q", "-b", "main", peer)
-	git(peer, "commit", "-q", "--allow-empty", "-m", "base")
-	git(peer, "remote", "add", "origin", origin)
-	git(peer, "push", "-q", "origin", "main")
-	git(peer, "remote", "set-head", "origin", "main")
-	git(peer, "checkout", "-q", "-b", "spectre/kan-1")
-	if err := os.WriteFile(filepath.Join(peer, "spec.ts"), []byte("x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	git(peer, "add", "spec.ts")
-	git(peer, "commit", "-q", "-m", "test: recapture")
-	sha := git(peer, "rev-parse", "--short=12", "HEAD")
-
-	mapStatus := http.StatusOK
-	dir := repo
-	end := func(outcome string) (int, string, bool) {
-		t.Helper()
-		reached := false
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				w.WriteHeader(mapStatus)
-				_, _ = fmt.Fprintf(w, `{"worktrees":{%q:"x"}}`, peer)
-				return
-			}
-			reached = true
-			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-		}))
-		defer srv.Close()
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(),
-			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", dir,
-				"-command", "/flow", "-stage", "flow.visual-verify", "-outcome", outcome, "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		return code, stderr.String(), reached
-	}
-
-	if code, stderr, reached := end("completed"); code != 1 || reached || !strings.Contains(stderr, sha) || !strings.Contains(stderr, "Flow-Key: flow.visual-verify") {
-		t.Fatalf("a trailerless commit: exit=%d reached=%v, want 1 naming %s; stderr:\n%s", code, reached, sha, stderr)
-	}
-	if code, stderr, reached := end("stopped"); code != 0 || !reached {
-		t.Fatalf("a stopped end: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-	git(peer, "commit", "-q", "--amend", "--no-edit", "-m", "test: recapture", "-m", "Flow-Key: flow.visual-verify")
-	if code, stderr, reached := end("completed"); code != 0 || !reached {
-		t.Fatalf("the amended commit: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-
-	// A trailerless commit already on the remote cannot be amended, so it is not refused.
-	git(peer, "commit", "-q", "--allow-empty", "-m", "test: already pushed")
-	git(peer, "push", "-q", "origin", "spectre/kan-1")
-	if code, stderr, reached := end("completed"); code != 0 || !reached {
-		t.Fatalf("a pushed trailerless commit: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-
-	// A state map that cannot be read is a guard that cannot answer.
-	mapStatus = http.StatusInternalServerError
-	if code, stderr, reached := end("completed"); code != 1 || reached || !strings.Contains(stderr, "worktree map") {
-		t.Fatalf("an unreadable map: exit=%d reached=%v, want 1; stderr:\n%s", code, reached, stderr)
-	}
-	mapStatus = http.StatusOK
-}
-
 // TestStageResolvesTheRecordsAddress pins flow stage to the record family
 // (kan-1038): with FLOW_ADDR at a dead port and FLOW_RECORDS_ADDR at a fake
 // store, a stage begin reaches the records store, so a mark outlives the
@@ -2312,193 +1865,6 @@ func TestStageResolvesTheRecordsAddress(t *testing.T) {
 		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || !reached {
 		t.Fatalf("stage begin exit = %d, reached FLOW_RECORDS_ADDR = %v; stderr:\n%s", code, reached, stderr.String())
-	}
-}
-
-// TestStageEndBrainstormRefusesOpenDispatch pins the kan-1046 self-review
-// fix (1e): a /flow or /flow-plan flow.brainstorm end is refused, exit 1 with
-// no end mark sent, while a dispatch row of the change is open, naming its
-// key; with the row ended it passes, and another stage over the same open row
-// passes.
-func TestStageEndBrainstormRefusesOpenDispatch(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	open := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","sessionToken":"tok-9","startedAt":"2026-10-28T12:35:02Z"}]}`
-	closed := `{"change":"kan-1","dispatches":[{"key":"explore-1","agentId":"a1","role":"planner","startedAt":"2026-10-28T12:35:02Z","endedAt":"2026-10-28T12:36:38Z"}]}`
-	end := func(record, command, stage string) (int, string, bool) {
-		t.Helper()
-		reached := false
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				_, _ = w.Write([]byte(record))
-				return
-			}
-			reached = true
-			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-		}))
-		defer srv.Close()
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(),
-			[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-				"-command", command, "-stage", stage, "-outcome", "completed", "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		return code, stderr.String(), reached
-	}
-	if code, stderr, reached := end(open, "/flow", "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") || !strings.Contains(stderr, "-session-token tok-9") {
-		t.Fatalf("open row: exit=%d reached=%v, want 1 naming explore-1 and its token; stderr:\n%s", code, reached, stderr)
-	}
-	if code, stderr, reached := end(closed, "/flow", "flow.brainstorm"); code != 0 || !reached {
-		t.Fatalf("closed row: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-	if code, stderr, reached := end(open, "/flow", "flow.create-artifacts"); code != 0 || !reached {
-		t.Fatalf("another stage: exit=%d reached=%v, want 0; stderr:\n%s", code, reached, stderr)
-	}
-	if code, stderr, reached := end(open, "/flow-plan", "flow.brainstorm"); code != 1 || reached || !strings.Contains(stderr, "explore-1") {
-		t.Fatalf("/flow-plan open row: exit=%d reached=%v, want 1 naming explore-1; stderr:\n%s", code, reached, stderr)
-	}
-}
-
-// TestStageEndRefusesOpenSelfReviewPass pins that a flow.self-review end is
-// refused while the change still has an open dispatch row -- the pass row
-// enforce-loop-dispatch.py opens under the change -- naming the end call
-// that closes it, and passes once every row has ended.
-func TestStageEndRefusesOpenSelfReviewPass(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	for _, tc := range []struct {
-		name, record string
-		code         int
-	}{
-		{"open pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 1},
-		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`, 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
-					_, _ = w.Write([]byte(tc.record))
-					return
-				}
-				_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", "/flow", "-stage", "flow.self-review",
-					"-outcome", "completed", "kan-16"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != tc.code {
-				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
-			}
-			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key self-review-kan-16-pass -session-token self-review-kan-16") {
-				t.Errorf("stderr = %q, want the end call that closes the pass row", stderr.String())
-			}
-		})
-	}
-}
-
-// TestStageEndRefusesOpenSelfReviewPassInteractive: the open-pass gate covers
-// a /flow-interactive flow.self-review end too (self-review-gate-interactive).
-func TestStageEndRefusesOpenSelfReviewPassInteractive(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	for _, tc := range []struct {
-		name, record string
-		code         int
-	}{
-		{"open pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z"}],"findings":[],"passes":[],"mutations":[]}`, 1},
-		{"ended pass", `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`, 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
-					_, _ = w.Write([]byte(tc.record))
-					return
-				}
-				_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", "/flow-interactive", "-stage", "flow.self-review",
-					"-outcome", "completed", "kan-16"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != tc.code {
-				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
-			}
-			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key self-review-kan-16-pass -session-token self-review-kan-16") {
-				t.Errorf("stderr = %q, want the end call that closes the pass row", stderr.String())
-			}
-		})
-	}
-}
-
-// TestStageEndRefusesSelfReviewWithNoPassRow pins sr1-pass-row-gate: a
-// completed flow.self-review end, through `stage end` or `stage mark`, is
-// refused for /flow, /flow-fast and /flow-interactive unless the change holds
-// a completed self-review-<name>-pass row; a stopped end, or a record read
-// that fails, refuses nothing (kan-1070 self-review, F1).
-func TestStageEndRefusesSelfReviewWithNoPassRow(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	const (
-		none      = `{"change":"kan-16","dispatches":[],"findings":[],"passes":[],"mutations":[]}`
-		aborted   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"aborted"}],"findings":[],"passes":[],"mutations":[]}`
-		completed = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-10-29T13:57:00Z","endedAt":"2026-10-29T14:09:00Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`
-	)
-	for _, command := range []string{"/flow", "/flow-fast", "/flow-interactive"} {
-		for _, verb := range []string{"end", "mark"} {
-			for _, tc := range []struct {
-				name, record, outcome string
-				recordStatus          int
-				code                  int
-			}{
-				{"no dispatches", none, "completed", http.StatusOK, 1},
-				{"aborted pass", aborted, "completed", http.StatusOK, 1},
-				{"completed pass", completed, "completed", http.StatusOK, 0},
-				{"stopped", none, "stopped", http.StatusOK, 0},
-				{"record read fails", none, "completed", http.StatusInternalServerError, 0},
-			} {
-				if verb == "mark" && tc.outcome != "completed" {
-					continue // stage mark always ends completed
-				}
-				t.Run(command+"/"+verb+"/"+tc.name, func(t *testing.T) {
-					srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-						if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
-							w.WriteHeader(tc.recordStatus)
-							_, _ = w.Write([]byte(tc.record))
-							return
-						}
-						w.WriteHeader(http.StatusOK)
-						_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
-					}))
-					defer srv.Close()
-					args := []string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-						"-command", command, "-stage", "flow.self-review", "-outcome", tc.outcome, "kan-16"}
-					if verb == "mark" {
-						args = []string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-							"-command", command, "-stages", "flow.self-review",
-							"-session-token", "sr-gate-token-20261107T000000Z", "kan-16"}
-					}
-					var stdout, stderr bytes.Buffer
-					code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
-					if code != tc.code {
-						t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
-					}
-					if tc.code == 1 && !strings.Contains(stderr.String(), "self-review-kan-16-pass") {
-						t.Errorf("stderr = %q, want it to name self-review-kan-16-pass", stderr.String())
-					}
-				})
-			}
-		}
 	}
 }
 
@@ -2556,276 +1922,6 @@ func TestStageBeginRequestFlag(t *testing.T) {
 	}
 	if len(bodies) != 1 {
 		t.Errorf("daemon got %d requests, want only the accepted one", len(bodies))
-	}
-}
-
-// TestStageBeginDecideRefusesOpenPlanningDispatch pins the kan-1057
-// self-review fix (F4) for /flow and /flow-plan: a flow.decide begin is
-// refused, exit 1 with no begin sent, while a plan-, explore- or design-
-// dispatch row of the change is open, naming its key and session token; an
-// ended planner row, an open row of another role, and another stage over the
-// open planner row all pass.
-func TestStageBeginDecideRefusesOpenPlanningDispatch(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	row := func(key, end string) string {
-		return `{"change":"kan-1","dispatches":[{"key":"` + key + `","agentId":"a1","role":"planner","sessionToken":"tok-9","startedAt":"2026-11-02T12:29:53Z"` + end + `}]}`
-	}
-	const ended = `,"endedAt":"2026-11-02T12:39:40Z"`
-	begin := func(record, command, stage string) (int, string, bool) {
-		t.Helper()
-		reached := false
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				_, _ = w.Write([]byte(record))
-				return
-			}
-			reached = true
-			_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-		}))
-		defer srv.Close()
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(),
-			[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-				"-command", command, "-stage", stage, "-session-token", "mf-k1-20261102T000000Z", "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		return code, stderr.String(), reached
-	}
-	for _, tc := range []struct {
-		name, record, command, stage string
-		code                         int
-	}{
-		{"open plan row", row("plan-3", ""), "/flow", "flow.decide", 1},
-		{"open plan-review row", row("plan-review-1", ""), "/flow", "flow.decide", 1},
-		{"open explore row", row("explore-1", ""), "/flow", "flow.decide", 1},
-		{"/flow-plan open plan row", row("plan-3", ""), "/flow-plan", "flow.decide", 1},
-		{"/flow-plan ended plan row", row("plan-3", ended), "/flow-plan", "flow.decide", 0},
-		{"ended plan row", row("plan-3", ended), "/flow", "flow.decide", 0},
-		{"open implementer row", row("task-1-implementer", ""), "/flow", "flow.decide", 0},
-		{"another stage", row("plan-3", ""), "/flow", "flow.load-context", 0},
-		{"brainstorm begin", row("plan-3", ""), "/flow", "flow.brainstorm", 0},
-		{"self-review begin", row("task-1-implementer", ""), "/flow-fast", "flow.self-review", 0},
-	} {
-		code, stderr, reached := begin(tc.record, tc.command, tc.stage)
-		if code != tc.code || reached != (tc.code == 0) {
-			t.Errorf("%s: exit=%d reached=%v, want exit %d; stderr:\n%s", tc.name, code, reached, tc.code, stderr)
-			continue
-		}
-		if tc.name == "open plan row" && (!strings.Contains(stderr, "plan-3") || !strings.Contains(stderr, "-session-token tok-9")) {
-			t.Errorf("%s: stderr names neither plan-3 nor its token:\n%s", tc.name, stderr)
-		}
-	}
-}
-
-// TestStageEndRefusesOpenOperatorRow pins that a /flow-interactive
-// flow.sdd-tdd end is refused while an operator- dispatch row of the change
-// has no end, naming the end call that closes it, and passes once it has
-// ended, or when the open row is no operator- row (kan-1080 self-review, F4).
-func TestStageEndRefusesOpenOperatorRow(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	const (
-		open   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"operator-82","role":"implementer","model":"opus","sessionToken":"fi-tok","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
-		ended  = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"operator-82","role":"implementer","model":"opus","sessionToken":"fi-tok","startedAt":"2026-11-08T09:43:49Z","endedAt":"2026-11-08T09:55:32Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`
-		others = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"self-review-kan-16-pass","role":"reviewer","model":"opus","sessionToken":"self-review-kan-16","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
-	)
-	for _, tc := range []struct {
-		name, record, command, stage string
-		code                         int
-	}{
-		{"open operator row", open, "/flow-interactive", "flow.sdd-tdd", 1},
-		{"ended operator row", ended, "/flow-interactive", "flow.sdd-tdd", 0},
-		{"open non-operator row", others, "/flow-interactive", "flow.sdd-tdd", 0},
-		{"another stage", open, "/flow-interactive", "flow.verify", 0},
-		{"another command", open, "/flow-fast", "flow.sdd-tdd", 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
-					_, _ = w.Write([]byte(tc.record))
-					return
-				}
-				_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", tc.command, "-stage", tc.stage, "-outcome", "completed", "kan-16"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != tc.code {
-				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
-			}
-			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key operator-82 -session-token fi-tok") {
-				t.Errorf("stderr = %q, want the end call that closes operator-82", stderr.String())
-			}
-		})
-	}
-}
-
-// TestStageEndSddTddRefusesOpenTaskDispatch pins that a /flow flow.sdd-tdd
-// end is refused while a task- dispatch row of the change has no end, naming
-// the end call that closes it, and passes once it has ended or when the open
-// row is no task- row; /flow-interactive keeps its operator- gate alone
-// (kan-1086 self-review, F4).
-func TestStageEndSddTddRefusesOpenTaskDispatch(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	const (
-		open   = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"task-12+13-implementer-fix-1","role":"implementer","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
-		ended  = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"task-12+13-implementer-fix-1","role":"implementer","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z","endedAt":"2026-11-08T09:55:32Z","outcome":"completed"}],"findings":[],"passes":[],"mutations":[]}`
-		others = `{"change":"kan-16","dispatches":[{"id":1,"seq":1,"key":"verify","role":"verifier","model":"opus","sessionToken":"fl-tok","startedAt":"2026-11-08T09:43:49Z"}],"findings":[],"passes":[],"mutations":[]}`
-	)
-	for _, tc := range []struct {
-		name, record, command string
-		code                  int
-	}{
-		{"open task row", open, "/flow", 1},
-		{"ended task row", ended, "/flow", 0},
-		{"open non-task row", others, "/flow", 0},
-		{"interactive with an open task row", open, "/flow-interactive", 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				if strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
-					_, _ = w.Write([]byte(tc.record))
-					return
-				}
-				_, _ = w.Write([]byte(`{"stageRunId":42,"attempt":1}`))
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", tc.command, "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != tc.code {
-				t.Fatalf("exit code = %d, want %d; stderr:\n%s", code, tc.code, stderr.String())
-			}
-			if tc.code == 1 && !strings.Contains(stderr.String(), "flow record dispatch end -key task-12+13-implementer-fix-1") {
-				t.Errorf("stderr = %q, want the end call that closes task-12+13-implementer-fix-1", stderr.String())
-			}
-		})
-	}
-}
-
-// TestStageEndVerifyFindsTheChangeWorktree pins kan-1086 self-review, F5: a
-// /flow flow.verify end with no -C, run from the main checkout, reads the
-// live-verification record in the linked worktree carrying the change.
-func TestStageEndVerifyFindsTheChangeWorktree(t *testing.T) {
-	for _, c := range []struct {
-		name, record string
-		want         int
-	}{
-		{"a passing record in the worktree ends", "- Before: 3\n- After: 0\n", 0},
-		{"a failing record in the worktree is refused", "| Check | After |\n", 1},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			repo := gitRepo(t)
-			env := newTestEnv(t)
-			wt := filepath.Join(t.TempDir(), "kan-1")
-			if out, err := exec.Command("git", "-C", repo, "worktree", "add", "-q", "-b", "spectre/kan-1", wt).CombinedOutput(); err != nil {
-				t.Fatalf("worktree add: %v\n%s", err, out)
-			}
-			wt, _ = filepath.EvalSymlinks(wt)
-			root := filepath.Join(wt, "spectre", "changes", "kan-1")
-			if err := os.MkdirAll(root, 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(root, "design.md"), []byte("## Live check\n\nRun the daemon.\n"), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(root, "live-verification.md"), []byte(c.record), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			t.Chdir(repo)
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms",
-					"-command", "/flow", "-stage", "flow.verify", "-outcome", "completed", "kan-1"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != c.want {
-				t.Fatalf("exit %d, want %d; stderr:\n%s", code, c.want, stderr.String())
-			}
-			if c.want == 1 && !strings.Contains(stderr.String(), root) {
-				t.Errorf("stderr %q does not name the worktree's change directory %s", stderr.String(), root)
-			}
-		})
-	}
-}
-
-// TestStageEndRefusesAFallbackWithoutItsRetry pins kan-1087 self-review F8: a completed /flow
-// end of flow.sdd-tdd, flow.review-panel or flow.verify refuses while a fallback row has no retry.
-func TestStageEndRefusesAFallbackWithoutItsRetry(t *testing.T) {
-	smoke.Heavy(t)
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	bin := t.TempDir()
-	script := "#!/usr/bin/env bash\ncase \"$*\" in\n" +
-		"  *\"record dispatches\"*) echo '[]' ;;\n" +
-		"  *\"state get\"*) echo '{\"worktrees\":{}}' ;;\n" +
-		"  *) echo '[]' ;;\nesac\n"
-	if err := os.WriteFile(filepath.Join(bin, "flow"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	row := func(key, outcome string) string {
-		return `{"key":"` + key + `","role":"reviewer","outcome":"` + outcome + `","startedAt":"2026-11-02T15:00:00Z","endedAt":"2026-11-02T15:01:00Z"}`
-	}
-	record := func(rows ...string) string {
-		return `{"change":"kan-1","dispatches":[` + strings.Join(rows, ",") + `]}`
-	}
-	unretried := record(row("task-55-reviewer", "fallback"))
-	root := filepath.Join(repo, "spectre", "changes", "kan-1")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	for name, body := range map[string]string{"design.md": "## Live check\n\nRun the daemon.\n", "live-verification.md": "- Before: 3\n- After: 0\n"} {
-		if err := os.WriteFile(filepath.Join(root, name), []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, tc := range []struct {
-		name, record, stage, outcome string
-		want                         int
-	}{
-		{"an unretried fallback", unretried, "flow.sdd-tdd", "completed", 1},
-		{"a retried fallback", record(row("task-55-reviewer", "fallback"), row("task-55-reviewer-retry", "completed")), "flow.sdd-tdd", "completed", 0},
-		{"a retry's own fallback", record(row("task-55-reviewer-retry", "fallback")), "flow.sdd-tdd", "completed", 0},
-		{"review-panel", unretried, "flow.review-panel", "completed", 1},
-		{"verify", unretried, "flow.verify", "completed", 1},
-		{"a failed end", unretried, "flow.sdd-tdd", "failed", 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodGet {
-					_, _ = w.Write([]byte(tc.record))
-					return
-				}
-				_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"stage", "end", "-addr", srv.URL, "-timeout", "2s", "-C", repo,
-					"-command", "/flow", "-stage", tc.stage, "-outcome", tc.outcome, "kan-1"},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != tc.want {
-				t.Fatalf("exit=%d, want %d; stderr:\n%s", code, tc.want, stderr.String())
-			}
-			if tc.want == 1 && (!strings.Contains(stderr.String(), "task-55-reviewer ") || !strings.Contains(stderr.String(), "task-55-reviewer-retry")) {
-				t.Fatalf("stderr does not name task-55-reviewer and its retry:\n%s", stderr.String())
-			}
-		})
 	}
 }
 

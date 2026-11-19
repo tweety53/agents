@@ -19,8 +19,7 @@ import (
 // ambiguous store answer) and writes its stderr lines to stderr.
 //
 // One owner for "where is this change's tasks.md, really" — KAN-363 task 7,
-// called by check-unfinished-work (task 8) and check-task-commit-fields
-// (task 9) in place of composing `<worktree>/<spec-root>/changes/<name>`
+// called by check-unfinished-work (task 8) in place of composing `<worktree>/<spec-root>/changes/<name>`
 // directly. KAN-343 shipped a cross-repository change by hand: the second
 // repository's worktree carried no plan at all, and every guard that looked
 // for one there reported the absence as a verdict — `OUTSTANDING: no plan at

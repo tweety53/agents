@@ -402,23 +402,17 @@ var reasonPinExempt = map[string]string{
 	"wsExitCode":            "returns a child process's exit status",
 }
 
-// reasonIDRE is a reason id outside check-plan-shape: local kebab-case
-// (decision reason-id-shape).
+// reasonIDRE is a reason id: local kebab-case (decision reason-id-shape).
 var reasonIDRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // TestEveryExitSiteRecordsAReason is the package-wide reason pin (decisions
 // refusal-site-pin, pin-per-range): every non-zero exit site of every
-// non-test file records a reason first, and every literal id is kebab-case
-// or a check-plan-shape rule id.
+// non-test file records a reason first, and every literal id is kebab-case.
 func TestEveryExitSiteRecordsAReason(t *testing.T) {
 	t.Parallel()
 	files := reasonPinRange(t, func(string) bool { return true })
 	for _, v := range exitSiteViolations(files, reasonPinExempt) {
 		t.Error(v)
-	}
-	rules := map[string]bool{}
-	for _, r := range psRules {
-		rules[r.id] = true
 	}
 	fset := token.NewFileSet()
 	for name, src := range files {
@@ -436,8 +430,8 @@ func TestEveryExitSiteRecordsAReason(t *testing.T) {
 				return true
 			}
 			id, _ := strconv.Unquote(lit.Value)
-			if !reasonIDRE.MatchString(id) && !rules[id] {
-				t.Errorf("%s: reason id %q is neither kebab-case nor a check-plan-shape rule id", fset.Position(lit.Pos()), id)
+			if !reasonIDRE.MatchString(id) {
+				t.Errorf("%s: reason id %q is not kebab-case", fset.Position(lit.Pos()), id)
 			}
 			return true
 		})

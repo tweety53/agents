@@ -14,9 +14,9 @@ halves live in the one repo and are covered below.
 | flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-plan-provenance`, `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-stage-mark-calls`, `check-guard-calls`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `check-mockup-citations`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `check-plan-shape`, `check-task-build-green`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
+**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-guard-calls`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
 
-**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_dispatch_pair_test.go` for `flow-guard check-dispatch-pair` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_task_records_test.go` for `flow-guard check-task-records` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
 
 ### artifact tree
 
@@ -189,9 +189,6 @@ scan.
 ```bash
 scripts/flow-guard check-references
 scripts/flow-guard check-python-suppressions
-scripts/flow-guard check-plan-provenance
-scripts/flow-guard check-task-build-green
-scripts/flow-guard check-plan-shape
 scripts/flow-guard check-task-records
 scripts/flow-guard check-workspace-isolation
 scripts/flow-guard check-visual-verification .
@@ -200,7 +197,6 @@ scripts/flow-guard check-spec-reach .
 scripts/flow-guard resolve-visual-screenshots . baseline.spec.ts
 scripts/flow-guard check-uitest-overrides
 scripts/flow-guard check-markdown-integrity
-scripts/flow-guard check-stage-mark-calls
 scripts/flow-guard check-guard-calls
 scripts/flow-guard check-no-bash
 scripts/flow-guard check-dispatch-paragraphs
@@ -212,8 +208,6 @@ scripts/flow-guard check-hand-notes-in-step
 scripts/flow-guard check-normative-inventory
 scripts/flow-guard check-verbatim-moves
 scripts/flow-guard check-ask-silence
-scripts/flow-guard check-done-when-paths .
-scripts/flow-guard check-worktree-location "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
 cd stats && gofmt -l .
 cd stats && make -s web-dist && go vet ./...
 cd stats && make -s web-dist && cd web && npx tsc -b
@@ -248,7 +242,7 @@ listing every sentence its tasks add or reword, with the plan** — one sentence
 guard's FAIL line prints it after `::`; a reworded sentence is listed in both its old and its new form; it lives on disk only, in the
 gitignored change directory — a `/flow` implementer never writes
 `spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
-review panel. `flow-guard check-plan-shape` F28 refuses such a plan while the file is missing; a plan that only moves text verbatim writes it with `#` comment lines alone.
+review panel. A plan that only moves text verbatim writes it with `#` comment lines alone.
 A panel fix round that adds or rewords such a sentence is acknowledged by the parent, never the fixer, with
 `flow-guard check-verbatim-moves -ack <change> -reason <text>` before the re-review
 (`skills/flow/review-panel-fix-round.md`).
@@ -274,13 +268,7 @@ keeps them runnable in CI and a fresh clone. A partial install is a failure.
 **Every guard in the list is currently expected to exit 0.** `flow-guard check-workspace-isolation` reports
 `ISOLATION-OK` and validates this repository's own declared section; its own header carries its
 full exit-code contract: 0 every project checked is well formed, 1 violations found, 2 it cannot
-answer at all. `flow-guard check-plan-provenance` reports
-"all provenance stated" — see the script's own header for the full exit-code contract: 0
-clean/nothing-in-flight, 1 violations found, 2 environment, 3 containment, 4
-content-classification; a caller that treats "non-zero" uniformly, as this repository's own lint
-step does, is unaffected by that split. A future non-zero exit is a real hit on a plan in flight:
-fix the offending line by stating its provenance, never by narrowing the guard's scope or adding a
-suppression marker.
+answer at all.
 
 ## stop
 

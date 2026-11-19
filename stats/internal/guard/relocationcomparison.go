@@ -63,7 +63,7 @@ import (
 //     no-op.
 //  2. On `yes`, every task in the plan (pdbParseTasks, checked and unchecked
 //     alike -- the header is plan-level) contributes its **Files:** paths as
-//     check-task-commit-fields reads them (tcfPythonFiles: inline or
+//     the shared grammar reads them (tcfPythonFiles: inline or
 //     bulleted, KAN-860 F5 -- pdbParseTasks reads bullets alone), plan order
 //     preserved, duplicates dropped. An empty union is the no-op.
 //  3. For each scoped path, passages are extracted from the blob at

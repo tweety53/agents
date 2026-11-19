@@ -217,13 +217,13 @@ func TestFlowGuardBootstrap(t *testing.T) {
 	t.Run("case 1: a flow-guard on PATH is ignored; the checkout-built guard answers", func(t *testing.T) {
 		stale := t.TempDir()
 		writeFile(t, filepath.Join(stale, "flow-guard"), "#!/bin/sh\necho STALE-BINARY-ANSWERED\nexit 0\n", 0o755)
-		r := runBootstrap(t, realTree, withPath(realEnv, stale+":"+path), realBoot, "check-task-commit-fields")
+		r := runBootstrap(t, realTree, withPath(realEnv, stale+":"+path), realBoot, "close-task")
 		if r.rc != 2 || strings.Contains(r.out(), "STALE-BINARY-ANSWERED") || !strings.Contains(r.out(), "usage") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out())
 		}
 	})
 	t.Run("case 2: a cached flow-guard answers with no go on PATH", func(t *testing.T) {
-		r := runBootstrap(t, realTree, withPath(realEnv, noGoPath), realBoot, "check-task-commit-fields")
+		r := runBootstrap(t, realTree, withPath(realEnv, noGoPath), realBoot, "close-task")
 		if r.rc != 2 || !strings.Contains(r.out(), "usage") || strings.Contains(r.out(), "cannot build flow-guard") {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out())
 		}
@@ -240,7 +240,7 @@ func TestFlowGuardBootstrap(t *testing.T) {
 	})
 	t.Run("case 14: ./flow-guard run from scripts/ answers every real guard from the cache", func(t *testing.T) {
 		for _, name := range []string{"check-cleanup-complete", "check-panel-reproducer-exit-contract",
-			"check-task-commit-fields", "gather-dispatch-context", "run-reproducer"} {
+			"close-task", "gather-dispatch-context", "run-reproducer"} {
 			r := runBootstrap(t, filepath.Join(realTree, "scripts"), withPath(realEnv, noGoPath), "./flow-guard", name)
 			out := r.out()
 			if !(strings.HasPrefix(out, name+": ") || strings.HasPrefix(out, "usage:")) || strings.Contains(out, "cannot build flow-guard") {
@@ -455,7 +455,7 @@ func TestFlowGuardBootstrapRepoRootAndCodes(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		code int
-	}{{"run-reproducer", 4}, {"check-installed-rules", 1}, {"check-plan-shape", 2}} {
+	}{{"run-reproducer", 4}, {"check-installed-rules", 1}, {"check-references", 2}} {
 		t.Run(c.name+" cannot answer with no go and nothing cached", func(t *testing.T) {
 			fresh := newBootstrapFixture(t, "codes")
 			r := runBootstrap(t, fresh, withPath(bootstrapEnv(t.TempDir()), noGoPath), filepath.Join(fresh, "scripts", "flow-guard"), c.name)

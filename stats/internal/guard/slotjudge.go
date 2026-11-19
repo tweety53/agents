@@ -1,12 +1,19 @@
 package guard
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 )
 
 // flow-guard slot-judge <digest-file> — ask the pair-judge model, at Decide
@@ -25,8 +32,7 @@ import (
 // fallback all three print as `<slot>: run — fallback: <cause>`, the cause
 // carrying the spend whenever the command ran (decision slot-judge-fail-open).
 //
-// The judge is pair-judge's call, shared through pjRun (decision
-// slot-judge-reuses-pair-judge-call): headless `claude -p` -- or
+// The judge is pjRun: headless `claude -p` -- or
 // FLOW_PAIR_JUDGE_CMD -- on the pair-judge row's first base pair, read with
 // `flow policy get`; the 60 s deadline (Env.PairJudgeTimeout); the digest
 // on stdin, cut at 204800 bytes and followed by `[digest truncated at
@@ -34,8 +40,7 @@ import (
 // with the ticket's condition. The digest is Decide's: the plan's tasks and
 // its `inputs:` line.
 //
-// Fallback causes: every cause pair-judge falls back on -- no pair-judge
-// pair, claude not on PATH, the command not runnable, a non-zero exit, the
+// Fallback causes: no pair-judge pair, claude not on PATH, the command not runnable, a non-zero exit, the
 // deadline, an answer that is not JSON; `policy unreadable: <err>`; and
 // `judge answer is malformed: <answer>` when a slot's line is missing, a
 // slot is answered twice, or a line opening with a slot name is not
@@ -126,4 +131,91 @@ func sjAsk(env Env, digest []byte) (map[string]string, string) {
 		return nil, malformed
 	}
 	return verdicts, ""
+}
+
+var (
+	pjPairShape = regexp.MustCompile(`^([^/]+)/(?:[A-Za-z]+@|[a-z-]*-)(low|medium|high|xhigh|max)$`)
+	pjSpace     = regexp.MustCompile(`\s+`)
+)
+
+const (
+	pjDigestCap    = 204800
+	pjTruncated    = "\n[digest truncated at 200 KB]\n"
+	pjDefaultLimit = 60 * time.Second
+)
+
+// pjCandidate is one parsed pair.
+type pjCandidate struct{ pair, model, effort string }
+
+func pjParse(pair string) (pjCandidate, bool) {
+	m := pjPairShape.FindStringSubmatch(pair)
+	if m == nil {
+		return pjCandidate{}, false
+	}
+	return pjCandidate{pair, m[1], m[2]}, true
+}
+
+// pjRun runs the judge -- headless `claude -p` (or FLOW_PAIR_JUDGE_CMD) on
+// the pair-judge row's first base pair, under the deadline, with system as
+// its system prompt and digest on stdin. It runs with
+// CLAUDE_CODE_DISABLE_AUTO_MEMORY=1: `--setting-sources ""` still loads the
+// cwd project's auto-memory index. FLOW_PAIR_JUDGE_CMD, when set, names the
+// command run in place of `claude`. result is
+// the answer JSON's `result` text; spend the ` (judge <s>s[, $<cost>])`
+// suffix; cause, when non-empty, why there is no usable answer, already
+// carrying spend whenever the command ran.
+func pjRun(env Env, rows map[string][]policyRow, system string, digest []byte) (result, spend, cause string) {
+	var judge pjCandidate
+	if rs := rows["pair-judge"]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
+		judge, _ = pjParse(rs[0].Pairs[0])
+	}
+	if judge.model == "" {
+		return "", "", "no pair-judge pair"
+	}
+	bin := env.Getenv("FLOW_PAIR_JUDGE_CMD")
+	if bin == "" {
+		var ok bool
+		if bin, ok = lookPath(env, "claude"); !ok {
+			return "", "", "claude not on PATH"
+		}
+	}
+	limit := env.PairJudgeTimeout
+	if limit == 0 {
+		limit = pjDefaultLimit
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "-p", "--model", judge.model, "--effort", judge.effort,
+		"--tools", "", "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
+		"--output-format", "json", "--system-prompt", system)
+	cmd.Dir = env.Dir
+	cmd.Env = append(os.Environ(), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
+	cmd.Stdin = bytes.NewReader(digest)
+	cmd.WaitDelay = time.Second // an orphaned child holding the pipes cannot outlast the deadline by more
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	start := time.Now()
+	err := cmd.Run()
+	var ans struct {
+		Result string   `json:"result"`
+		Cost   *float64 `json:"total_cost_usd"`
+	}
+	jerr := json.Unmarshal(out.Bytes(), &ans)
+	spend = fmt.Sprintf(" (judge %.1fs", time.Since(start).Seconds())
+	if jerr == nil && ans.Cost != nil {
+		spend += fmt.Sprintf(", $%.4f", *ans.Cost)
+	}
+	spend += ")"
+	var ee *exec.ExitError
+	switch {
+	case ctx.Err() != nil:
+		return "", spend, fmt.Sprintf("judge timed out after %v", limit) + spend
+	case errors.As(err, &ee):
+		return "", spend, fmt.Sprintf("judge %s exit %d: %s", filepath.Base(bin), ee.ExitCode(), strings.TrimSpace(errb.String())) + spend
+	case err != nil:
+		return "", spend, fmt.Sprintf("judge command %s not runnable: %v", bin, err) + spend
+	case jerr != nil:
+		return "", spend, "judge answer is not JSON: " + strings.TrimSpace(out.String()) + spend
+	}
+	return ans.Result, spend, ""
 }

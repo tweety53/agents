@@ -19,7 +19,7 @@ import (
 // the guard's own output gave them nothing to notice. This type makes
 // "nothing was checked for this member" a visible, failing fact on a
 // healthy tree, and keeps the guards using it (check-guard-symlinks,
-// check-references, check-stage-mark-calls) from disagreeing about how —
+// check-references) from disagreeing about how —
 // the five-copy `resolve_file` drift KAN-73's own review raised as a
 // Critical.
 //

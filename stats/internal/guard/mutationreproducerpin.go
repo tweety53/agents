@@ -60,8 +60,7 @@ import (
 // more than one can, or its marker or window is not extractable from it —
 // is not a drift this guard interprets: it cannot tell what the new
 // reading would be, so it exits 2 and the pin waits to be re-pointed
-// deliberately, the same not-a-verdict course flow-guard check-plan-shape's exit 2
-// takes.
+// deliberately.
 //
 // Argument-free and self-scoped exactly like flow-guard check-dispatch-paragraphs:
 // the scan root is this repository's own root, FLOW_GUARD_REPO_ROOT, which scripts/flow-guard exports. CHECK_MUTATION_REPRODUCER_PIN_ROOT is an explicit,

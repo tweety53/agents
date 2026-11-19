@@ -1382,29 +1382,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		}
 	}
 
-	// Nothing is reviewed a third time (skills/flow/brainstorm.md, Plan
-	// review): a live plan-review-<n> reviewer begins only while its session
-	// token holds fewer than two plan-review rows completed or still open; a
-	// failed reviewer's row ends aborted and does not count. A failed read
-	// refuses nothing, and a back-filled row is admitted.
-	if *role == "reviewer" && planReviewKeyRE.MatchString(*key) && *startedAt == "" {
-		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-			return cl.GetRunRecord(ctx, projectKey, f.change)
-		})
-		if err == nil {
-			var done []string
-			for _, d := range run.Dispatches {
-				if d.Role == "reviewer" && (d.Outcome == "completed" || d.Outcome == "") && d.SessionToken == *sessionToken && planReviewKeyRE.MatchString(d.Key) {
-					done = append(done, d.Key)
-				}
-			}
-			if len(done) >= 2 {
-				fmt.Fprintf(stderr, "flow: -key %q is a third plan review under session token %s, which already began or completed %s -- nothing is reviewed a third time (skills/flow/brainstorm.md)\n", *key, *sessionToken, strings.Join(done, " and "))
-				return 2
-			}
-		}
-	}
-
 	// A task already holding a completed implementer row is not begun again
 	// inline (kan-1044 self-review, F1-b); a back-fill carries its own
 	// commit check, and a failed read refuses nothing.
@@ -1484,17 +1461,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	// brainstorm-planner.md, Decide), and so is a model the cap cannot rank.
 	// The cap limits dispatches, not the parent: an inline row is exempt.
 	// One read serves both checks.
-	// Implementation begins only inside an open flow.sdd-tdd: a live task-
-	// or operator- implementer row is refused while every flow.sdd-tdd run
-	// of the change under /flow, /flow-fast and /flow-interactive is ended
-	// (skills/flow/implement.md; self-review-kan-1110 F8). Any failed read
-	// skips the check.
-	if *startedAt == "" && *role == "implementer" && (strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "operator-")) &&
-		!sddTddOpen(ctx, f, projectKey) {
-		fmt.Fprintf(stderr, "flow: -key %q begins implementation while the change has no open flow.sdd-tdd run — begin the stage first (skills/flow/implement.md)\n", *key)
-		return 2
-	}
-
+	//
 	// A panel-fix inline row whose key fixes a Minor-only round is the
 	// round-close inline fix the contract names (skills/flow/review-panel-fix-round.md)
 	// and is admitted under sdd; a failed record read keeps the refusal.
@@ -1539,23 +1506,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 					fmt.Fprintf(stderr, "flow: -model %s -effort %s is above the session cap %s/%s (%s) the change's decision records — dispatch at or under it (skills/flow/brainstorm-planner.md, Decide)\n", *model, *effort, c.Model, c.Effort, c.Instruction)
 					return 2
 				}
-			}
-		}
-		// A live row begun on a pair its derived role does not admit is
-		// refused here rather than by the Agent hook after the row is
-		// written (kan-1112 self-review, F2). A marked pair is admitted,
-		// since only the hook sees its marker line; an unstated default
-		// effort and an inline row are not judged; every policy read that
-		// fails counts as absent, so with flowd's policy unreachable the
-		// row is begun unchecked.
-		if roleID := launchRoleID(*role, *key); *agentID != "inline" && *effort != "default" && roleID != "" {
-			overrides, policy, granted := readPairPolicy(ctx, f)
-			admitted, judged := roleAdmitted(roleID, overrides, policy, granted)
-			pair := *model + "/flow-" + *effort
-			marked := slices.ContainsFunc(policy[roleID].Marked, func(m struct{ Pair string }) bool { return m.Pair == pair })
-			if judged && !marked && !slices.Contains(admitted, pair) {
-				fmt.Fprintf(stderr, "flow: -model %s -effort %s, pair %s, is not admitted for role %s, whose admitted pairs are [%s] (`flow policy get`) — begin the row on an admitted pair (skills/flow-contracts/model-policy.md, Allowed pairs)\n", *model, *effort, pair, roleID, strings.Join(admitted, " "))
-				return 2
 			}
 		}
 	}
@@ -2094,9 +2044,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	}
 	return classifyDispatchEnd(callErr, projectKey, f.change, in, stderr, getenv)
 }
-
-// planReviewKeyRE matches a plan reviewer's key, plan-review-<n>.
-var planReviewKeyRE = regexp.MustCompile(`^plan-review-[0-9]+$`)
 
 // recordModelFamilyRe matches every Claude model spelling: the family, with
 // or without the claude- prefix, and any numeric version suffix.
@@ -4039,27 +3986,6 @@ func runRecordIncidents(ctx context.Context, args []string, getenv func(string) 
 	return 0
 }
 
-// readPairPolicy reads the open experiments' overrides, flowd's policy and
-// the change's grants -- what roleAdmitted judges a pair against.
-func readPairPolicy(ctx context.Context, f recordIdentityFlags) (overrides map[string][]string, policy map[string]policyRole, granted []string) {
-	// ponytail: each read that fails -- flowd down, or a flowd predating
-	// /api/v1/policy answering 404 -- counts as absent, so with flowd down a
-	// decision is journalled unchecked; Experiments in model-policy.md reads
-	// the same "flowd unreachable -> no experiment applies".
-	overrides, _ = callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (map[string][]string, error) {
-		return cl.ExperimentOverrides(ctx)
-	})
-	if raw, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
-		return cl.Policy(ctx)
-	}); err == nil {
-		_ = json.Unmarshal(raw, &policy)
-	}
-	granted, _ = callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]string, error) {
-		return cl.Grants(ctx, f.change)
-	})
-	return overrides, policy, granted
-}
-
 // runRecordDecision implements `flow record decision`: one run's dynamic
 // decision, recorded once per -session-token so a resumed run can read it
 // back rather than re-rolling. -file names the whole JSON body -- a path,
@@ -4073,13 +3999,6 @@ func readPairPolicy(ctx context.Context, f recordIdentityFlags) (overrides map[s
 // requireRecordFlags, a shell-substitution token by validateSessionToken,
 // and a body that is not valid JSON by json.Valid, all before callRecord
 // ever dials out.
-//
-// Before the write it refuses, with exit 2 and no journal, an implementer,
-// fixer or group pair the role's admitted pairs -- the open experiments'
-// overrides, else the policy's base pairs plus granted opt-ins -- do not
-// admit (decisionPairsAdmitted; kan-1103 self-review, F3), and a group
-// whose reason claims a judge pick no saved pick backs
-// (groupJudgePicksBacked).
 func runRecordDecision(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record decision", flag.ContinueOnError)
 	fset.SetOutput(stderr)
@@ -4122,19 +4041,6 @@ func runRecordDecision(ctx context.Context, args []string, getenv func(string) s
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
-	}
-
-	overrides, policy, granted := readPairPolicy(ctx, f)
-	if err := decisionPairsAdmitted(body, overrides, policy, granted); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		return 2
-	}
-
-	if *file != "-" {
-		if err := groupJudgePicksBacked(body, filepath.Join(filepath.Dir(*file), "pair-judge")); err != nil {
-			fmt.Fprintf(stderr, "flow: %v\n", err)
-			return 2
-		}
 	}
 
 	body = stampGroupTasks(body, f, getenv)
@@ -4210,26 +4116,6 @@ func runRecordSummary(ctx context.Context, args []string, getenv func(string) st
 		fmt.Fprintf(stdout, "recorded: summary %d\n", out.ID)
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "summary", in, stderr, getenv)
-}
-
-// sddTddOpen is false only when the change's flow.sdd-tdd runs under
-// /flow, /flow-fast and /flow-interactive were all read and none is open; a
-// failed read answers true, so it never refuses.
-func sddTddOpen(ctx context.Context, f recordIdentityFlags, projectKey string) bool {
-	for _, cmd := range []string{"/flow", "/flow-fast", "/flow-interactive"} {
-		runs, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
-			return cl.ListStageRuns(ctx, projectKey, f.change, cmd, "flow.sdd-tdd")
-		})
-		if err != nil {
-			return true
-		}
-		for _, r := range runs {
-			if r.EndedAt == nil {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // latestDecision is the change's newest recorded decision (highest ID) as

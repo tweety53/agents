@@ -60,8 +60,6 @@ import (
 //
 //   0. `flow` must be on PATH, checked first: a worktree step 2 could not
 //      persist is never created.
-//   1. flow-guard check-worktree-location <project> — its exit 1 or 2 stops the run
-//      with its own lines, as this script's exit 1 or 2.
 //   2. `git fetch origin`; when origin/spectre/<name> exists, `git worktree
 //      add <project>-worktrees/<name> spectre/<name>`, a local branch
 //      tracking it, otherwise `-b spectre/<name> origin/<default-branch>`,
@@ -235,17 +233,8 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		return rc
 	}
 
-	// 1. The location guard: its exit 1 or 2 stops the run with its lines.
-	if rc, out := kwCombined(siblingCmd(env, "FLOW_GUARD_WORKTREE_LOCATION", "check-worktree-location", project)); rc != 0 {
-		if rc != 1 {
-			rc = 2
-		}
-		return relay("worktree-location-refused", rc, out)
-	}
-
 	// 2. Fetch, add in one of two forms, persist before anything else runs.
-	// The worktree lives beside the main checkout's physical path — the
-	// root the location guard resolves — outside the repository, so nothing
+	// The worktree lives beside the main checkout's physical path, outside the repository, so nothing
 	// needs ignoring; `git worktree add` creates the root on first use.
 	physical, err := filepath.EvalSymlinks(project)
 	if err != nil {

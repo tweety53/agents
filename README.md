@@ -197,6 +197,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | Key | Name | Commands |
 |-----|------|----------|
 | `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.plan` | Plan — kickoff to the plan gate | `/flow`, `/flow-plan` |
 | `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast`, `/flow-interactive`, `/flow-plan` |
 | `flow.design-approval` | Design approval | `/flow`, `/flow-plan` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast`, `/flow-plan` |

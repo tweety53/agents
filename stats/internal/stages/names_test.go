@@ -477,8 +477,7 @@ func TestFlowPlanMarksThePlanningStages(t *testing.T) {
 }
 
 // TestKeysServesTableInOrder pins the serving function to the table it
-// serves: Keys() is what `flow stage keys` prints and what the
-// check-stage-mark-calls guard consumes, so it must carry Table's keys in
+// serves: Keys() is what `flow stage keys` prints, so it must carry Table's keys in
 // Table's order -- a serving path that reordered, dropped or invented a
 // key would silently move every consumer off the documented vocabulary.
 // The mutation half pins the fresh-allocation contract: a caller mutating

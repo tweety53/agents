@@ -2,6 +2,8 @@ package guard
 
 import (
 	"bytes"
+	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -10,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1113,4 +1116,244 @@ func TestFixtureRepoCopiesTheShape(t *testing.T) {
 	if l, err := os.Readlink(dst + "/link"); err != nil || l != "sub/x" {
 		t.Errorf("copied symlink = %q, %v; want sub/x", l, err)
 	}
+}
+
+// testPolicy is `flow policy get` as 0061_role_pairs.sql seeds it: the
+// Allowed pairs table as it stood when the pairs moved into flowd
+// (testdata/policy.json, which internal/repotest's hook tests read too).
+// Embedded, not read off the working directory: a test binary self-exec'd
+// as a guard (runSibling) runs from wherever its caller is, and -trimpath
+// makes a runtime.Caller path module-relative, so neither locates the file
+// (kan-1090 self-review planning).
+//
+//go:embed testdata/policy.json
+var testPolicyJSON string
+
+var testPolicy = strings.TrimSpace(testPolicyJSON)
+
+// policyStub is the arm of a fake `flow` answering `policy get` with
+// testPolicy; every fake flow of this package's policy readers opens with it.
+var policyStub = "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '" + testPolicy + "'; exit 0; }\n"
+
+// noFlowEnv is an env whose only `flow` answers `policy get` with
+// testPolicy and fails everything else: the seeded pairs, no experiment.
+func noFlowEnv(t *testing.T) Env {
+	t.Helper()
+	return fakeFlowEnv(t, "exit 1\n")
+}
+
+// fakeFlowEnv is an env whose PATH holds only a `flow` answering `policy
+// get` with testPolicy and running script for everything else.
+func fakeFlowEnv(t *testing.T, script string, over ...string) Env {
+	t.Helper()
+	return fakeFlowEnvBare(t, policyStub+script, over...)
+}
+
+// policyFlowEnv is an env whose only `flow` answers `policy get` with
+// policy and fails everything else.
+func policyFlowEnv(t *testing.T, policy string, over ...string) Env {
+	t.Helper()
+	return fakeFlowEnvBare(t, "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '"+policy+"'; exit 0; }\nexit 1\n", over...)
+}
+
+// fakeFlowEnvBare is an env whose PATH holds only a `flow` running script.
+func fakeFlowEnvBare(t *testing.T, script string, over ...string) Env {
+	t.Helper()
+	bin := t.TempDir()
+	writeExec(t, bin+"/flow", "#!/bin/sh\n"+script)
+	return envWith(t, append([]string{"PATH=" + bin}, over...))
+}
+
+var (
+	psScripts, _ = filepath.Abs("../../../scripts")
+	psBoot       = psScripts + "/flow-guard"
+)
+
+func psFixture(t *testing.T, body string) string {
+	t.Helper()
+	p := t.TempDir() + "/tasks.md"
+	writeFile(t, p, body)
+	return p
+}
+
+func psGetenv(vars map[string]string) func(string) string {
+	return func(k string) string {
+		if v, ok := vars[k]; ok {
+			return v
+		}
+		if k == "PATH" {
+			return os.Getenv(k)
+		}
+		return ""
+	}
+}
+
+func psCopy(t *testing.T, src, dst string) {
+	t.Helper()
+	b, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, dst, string(b))
+	if err := os.Chmod(dst, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func psLink(t *testing.T, target, link string) {
+	t.Helper()
+	mkdir(t, filepath.Dir(link))
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// psExec runs a script with bash from a directory outside any repository.
+func psExec(t *testing.T, extra []string, args ...string) guardResult {
+	t.Helper()
+	cmd := exec.Command("bash", args...)
+	cmd.Dir = t.TempDir()
+	cmd.Env = append(append(os.Environ(), "CHECK_PLAN_SHAPE_ROOT="), extra...)
+	var o, e bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &o, &e
+	rc := 0
+	if err := cmd.Run(); err != nil {
+		ee, ok := err.(*exec.ExitError)
+		if !ok {
+			t.Fatal(err)
+		}
+		rc = ee.ExitCode()
+	}
+	return guardResult{rc, strings.TrimRight(o.String()+e.String(), "\n"), o.String(), e.String()}
+}
+
+// bt turns the ¤ placeholder into a backtick: a Go raw string cannot hold one.
+func bt(s string) string { return strings.ReplaceAll(s, "¤", "`") }
+
+// tcfGit runs git -C dir under fixtureGitEnv, returning
+// stdout without its trailing newline.
+func tcfGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(os.Environ(), fixtureGitEnv...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, stderr.String())
+	}
+	return strings.TrimRight(string(out), "\n")
+}
+
+// has is the harness's `case "$OUT" in *a*b*)`: every part, in order.
+func has(s string, parts ...string) bool {
+	for _, p := range parts {
+		i := strings.Index(s, p)
+		if i < 0 {
+			return false
+		}
+		s = s[i+len(p):]
+	}
+	return true
+}
+
+func tcfScriptsDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.Abs("../../../scripts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// pjJudgeRow is the pair-judge role's seeded row, as 0065 seeds it.
+const pjJudgeRow = `"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`
+
+// pjPolicy is a `flow policy get` answer carrying the pair-judge row beside
+// the given role rows.
+func pjPolicy(rows ...string) string {
+	return "{" + strings.Join(append(rows, pjJudgeRow), ",") + "}"
+}
+
+// pjStub is a judge command in a fresh directory: it saves its argv
+// (NUL-separated) to argv and its stdin to stdin, then runs answer.
+type pjStub struct{ dir string }
+
+func newPJStub(t *testing.T, answer string) pjStub {
+	t.Helper()
+	s := pjStub{t.TempDir()}
+	writeExec(t, s.cmd(), "#!/bin/sh\nprintf '%s\\0' \"$@\" > '"+s.dir+"/argv'\n/bin/cat > '"+s.dir+"/stdin'\n"+answer)
+	return s
+}
+
+func (s pjStub) cmd() string { return s.dir + "/judge" }
+
+// ran is whether the stub was invoked at all.
+func (s pjStub) ran() bool {
+	_, err := os.Stat(s.dir + "/argv")
+	return err == nil
+}
+
+func (s pjStub) argv(t *testing.T) []string {
+	t.Helper()
+	b, err := os.ReadFile(s.dir + "/argv")
+	if err != nil {
+		t.Fatalf("the judge was never run: %v", err)
+	}
+	return strings.Split(strings.TrimSuffix(string(b), "\x00"), "\x00")
+}
+
+func (s pjStub) stdin(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile(s.dir + "/stdin")
+	if err != nil {
+		t.Fatalf("the judge's stdin was never saved: %v", err)
+	}
+	return string(b)
+}
+
+// systemPrompt is the value the stub was given after --system-prompt.
+func (s pjStub) systemPrompt(t *testing.T) string {
+	t.Helper()
+	a := s.argv(t)
+	i := slices.Index(a, "--system-prompt")
+	if i < 0 || i+1 >= len(a) {
+		t.Fatalf("argv %q carries no --system-prompt value", a)
+	}
+	return a[i+1]
+}
+
+// pjRepoRoot is the agents checkout these tests run in, whose roles table
+// the guard reads the Does line from.
+func pjRepoRoot(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+// pjEnv is an env whose `flow` answers policy with policy, whose judge
+// command is stub, and whose repository root is this checkout.
+func pjEnv(t *testing.T, policy string, stub pjStub) Env {
+	t.Helper()
+	return policyFlowEnv(t, policy, "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd())
+}
+
+// pjDigest writes body to a digest file and returns its path.
+func pjDigest(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "digest.md")
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// pjJSON is a stub answer printing the judge's text as `claude -p
+// --output-format json` does, with extra JSON fields (a cost) appended.
+func pjJSON(text, extra string) string {
+	b, _ := json.Marshal(text)
+	return "printf '%s\\n' '{\"type\":\"result\",\"result\":" + string(b) + extra + "}'\n"
 }

@@ -1232,8 +1232,8 @@ func uwCountUnticked(path string) (int, bool) {
 }
 
 // uwCountParentActions counts design.md's column-0 `- [ ] Parent:` lines: the
-// actions a decision gives the orchestrating session outside every task
-// (check-plan-shape F25), each held open until ticked. A missing design.md
+// actions a decision gives the orchestrating session outside every task,
+// each held open until ticked. A missing design.md
 // counts none — a plan predating the line has no such action to hold — and
 // false is an existing file that cannot be read.
 func uwCountParentActions(path string) (int, bool) {

@@ -52,7 +52,7 @@ func TestRecordGuardRunStoresReasons(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 	ctx := context.Background()
 
-	in := guardRun("check-plan-shape", "fired", 1, 1, time.Now())
+	in := guardRun("check-references", "fired", 1, 1, time.Now())
 	in.Reasons = []string{"F2", "plan-step-files"}
 	got, err := st.RecordGuardRun(ctx, projectKey, in)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestRecordGuardRunStoresReasons(t *testing.T) {
 	}
 
 	for name, reasons := range map[string][]string{"nil": nil, "empty": {}} {
-		in := guardRun("check-plan-shape", "clear", 0, 1, time.Now())
+		in := guardRun("check-references", "clear", 0, 1, time.Now())
 		in.Reasons = reasons
 		got, err := st.RecordGuardRun(ctx, projectKey, in)
 		if err != nil {
@@ -74,7 +74,7 @@ func TestRecordGuardRunStoresReasons(t *testing.T) {
 		}
 	}
 
-	in = guardRun("check-plan-shape", "fired", 1, 1, time.Now())
+	in = guardRun("check-references", "fired", 1, 1, time.Now())
 	in.Reasons = []string{"F2", ""}
 	if _, err := st.RecordGuardRun(ctx, projectKey, in); !errors.Is(err, store.ErrInvalidGuardRun) {
 		t.Errorf("empty id: err = %v, want ErrInvalidGuardRun", err)
@@ -231,7 +231,7 @@ func TestRecordGuardRunFindsAPeerWorktreesProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, wt := range []string{"/w/peer-worktrees/kan-1", "/w/peer-worktrees/kan-1/fidelity", "/w/peer-worktrees/kan-1-wave-group-2"} {
-		in := guardRun("check-plan-shape", "clear", 0, 1, time.Now())
+		in := guardRun("check-references", "clear", 0, 1, time.Now())
 		in.Worktree = wt
 		if _, err := st.RecordGuardRun(ctx, "peer-0000beef", in); err != nil {
 			t.Errorf("%s: err = %v, want the run recorded", wt, err)
@@ -267,7 +267,7 @@ func TestChangeGuardRunsMatchesTheWorktreeSegment(t *testing.T) {
 	to := from.Add(time.Hour)
 	at := from.Add(30 * time.Minute)
 	run := func(wt string, when time.Time) records.GuardRun {
-		r := guardRun("check-plan-shape", "clear", 0, 1000, when)
+		r := guardRun("check-references", "clear", 0, 1000, when)
 		r.Worktree = wt
 		return r
 	}

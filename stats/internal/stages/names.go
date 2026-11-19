@@ -17,9 +17,8 @@
 // already holds for the project-key recipe.
 //
 // Table is also the vocabulary's one SERVED source: Keys() hands the keys
-// to `flow stage keys`, whose output the check-stage-mark-calls guard
-// consumes in place of a transcription of its own, so no served consumer
-// of the vocabulary keeps a copy that could drift from it. (Table itself
+// to `flow stage keys`, so no served consumer of the vocabulary keeps a
+// copy that could drift from it. (Table itself
 // stays an exported slice deliberately -- the package's own external test
 // reads its rows from here.)
 //
@@ -70,6 +69,7 @@ var Table = []Stage{
 	// /flow -- mints its own flow.* namespace rather than reusing start./do./finish.,
 	// per design.md's flow-rename-content-split (see README.md's Level 1 table for why).
 	{Key: "flow.kickoff", Name: "Kickoff — write `STARTED`", Commands: []Command{Flow, FlowFast, FlowInteractive}},
+	{Key: "flow.plan", Name: "Plan — kickoff to the plan gate", Commands: []Command{Flow, FlowPlan}},
 	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{Flow, FlowFast, FlowInteractive, FlowPlan}},
 	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow, FlowPlan}},
 	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow, FlowFast, FlowPlan}},
@@ -137,10 +137,8 @@ func init() {
 // Keys returns every documented stage key, in Table's row order, on a
 // slice freshly allocated for the caller -- mutating the result never
 // reaches package state. This is the serving half of the vocabulary: the
-// `flow stage keys` subcommand prints it and the stage-mark-calls guard
-// consumes that output, so every served consumer reads the same list this
-// package validates marks against, and no second or third transcription
-// of the key set can exist to drift away from it.
+// `flow stage keys` subcommand prints it, so every served consumer reads
+// the same list this package validates marks against.
 func Keys() []string {
 	out := make([]string, len(Table))
 	for i, s := range Table {

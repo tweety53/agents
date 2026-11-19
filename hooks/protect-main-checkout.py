@@ -242,10 +242,8 @@ def protected(path):
     if worktree_root(d) and os.path.abspath(path) != d:
         # the nearest existing ancestor is a worktree root, so a missing component
         # below it is a future worktree — never main-checkout content; a
-        # not-yet-existing worktree is where work goes. The root convention is owned
-        # by flow-guard check-worktree-location; this rule mirrors it for path
-        # resolution, and the root itself — path == d — stays protected like any
-        # other main-checkout directory.
+        # not-yet-existing worktree is where work goes. The root itself — path == d —
+        # stays protected like any other main-checkout directory.
         return None
     top = git(d, "rev-parse", "--show-toplevel")
     if not top:
@@ -494,7 +492,7 @@ def may_run_code(text, target):
     `eval "$(`), a word that runs code (RUNNER_WORDS, matched by file name so `/bin/bash`
     counts as `bash`) anywhere, or any command whose words may name target (`names_target` —
     the same spelling, the same file name, a bare `x.sh`, an expansion) unless that command is
-    one `reads_only` allows. A command naming another file (`flow-guard check-plan-shape /x/o.md`,
+    one `reads_only` allows. A command naming another file (`lint.sh /x/o.md`,
     `./gradlew`) leaves the body as data; `php $T`, `setsid $T`, `find . -exec`, `ssh h $T`
     keep it scanned, as does any command behind a leading `NAME=value` or run under
     `env`/`export` — save an `export` whose every argument is `NAME=value` with a literal value:

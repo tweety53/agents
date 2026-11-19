@@ -13,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"unicode"
+	"unicode/utf8"
 )
 
 // The contract below moved here from the header of the deleted
@@ -585,4 +587,80 @@ func bpRelativePathHit(name, dir string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// smcBackslashed is the set bash's printf %q backslash-escapes anywhere in a
+// word; `#` and `~` are escaped only as its first byte.
+const smcBackslashed = " !\"$&'()*,;<>?[\\]^`{|}"
+
+// smcQuote is bash's `printf %q`: ” for an empty word, $'...' ANSI-C
+// quoting when any character is unprintable in the locale, else each shell
+// metacharacter backslash-escaped.
+func smcQuote(s string, utf8Locale bool) string {
+	if s == "" {
+		return "''"
+	}
+	if smcUnprintable(s, utf8Locale) {
+		return smcANSIC(s, utf8Locale)
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if strings.IndexByte(smcBackslashed, c) >= 0 || (i == 0 && (c == '#' || c == '~')) {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
+}
+
+func smcUnprintable(s string, utf8Locale bool) bool {
+	if !utf8Locale {
+		for i := 0; i < len(s); i++ {
+			if s[i] < 0x20 || s[i] >= 0x7f {
+				return true
+			}
+		}
+		return false
+	}
+	for _, r := range s {
+		if r == utf8.RuneError || !unicode.IsPrint(r) {
+			return true
+		}
+	}
+	return false
+}
+
+var smcEscapes = map[byte]string{'\a': `\a`, '\b': `\b`, 0x1b: `\E`, '\f': `\f`, '\n': `\n`,
+	'\r': `\r`, '\t': `\t`, '\v': `\v`, '\\': `\\`, '\'': `\'`}
+
+// smcANSIC is bash's ansic_quote: $'...' with the C escapes, \' and \\, a
+// printable character as itself and any other byte as \ooo.
+func smcANSIC(s string, utf8Locale bool) string {
+	var b strings.Builder
+	b.WriteString("$'")
+	for i := 0; i < len(s); {
+		c := s[i]
+		if esc, ok := smcEscapes[c]; ok {
+			b.WriteString(esc)
+			i++
+			continue
+		}
+		if c >= 0x20 && c < 0x7f {
+			b.WriteByte(c)
+			i++
+			continue
+		}
+		if utf8Locale && c >= 0x80 {
+			if r, n := utf8.DecodeRuneInString(s[i:]); r != utf8.RuneError && unicode.IsPrint(r) {
+				b.WriteString(s[i : i+n])
+				i += n
+				continue
+			}
+		}
+		fmt.Fprintf(&b, `\%03o`, c)
+		i++
+	}
+	b.WriteString("'")
+	return b.String()
 }

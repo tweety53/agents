@@ -343,7 +343,7 @@ func pdbCutBundle(members []pdbTask) [][]pdbTask {
 
 // pdbBundleCycle searches the bundle graph -- bundle k waits on every bundle
 // holding a task of k's after-set that is not k's own -- depth-first in
-// bundle order, as check-plan-shape's F10 searches the task graph, and
+// bundle order, and
 // renders the first cycle as a violation, or "" when there is none
 // (kan-1090 self-review, F1).
 func pdbBundleCycle(bundles [][]pdbTask, afterSets [][]string) string {

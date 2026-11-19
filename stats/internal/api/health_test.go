@@ -186,7 +186,7 @@ func postGuardRun(t *testing.T, ts *httptest.Server, project string, in records.
 
 func TestRecordGuardRunRoute(t *testing.T) {
 	t.Parallel()
-	run := records.GuardRun{Guard: "check-plan-shape", Worktree: "/w/kan-1", ExitCode: 1,
+	run := records.GuardRun{Guard: "check-references", Worktree: "/w/kan-1", ExitCode: 1,
 		Outcome: "fired", DurationMS: 120, RecordedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)}
 
 	t.Run("records the run against the project", func(t *testing.T) {
@@ -228,7 +228,7 @@ func TestRecordGuardRunRoute(t *testing.T) {
 // unchanged, in order, through the route's strict decoder.
 func TestRecordGuardRunRouteCarriesReasons(t *testing.T) {
 	t.Parallel()
-	run := records.GuardRun{Guard: "check-plan-shape", Worktree: "/w/kan-1", ExitCode: 1,
+	run := records.GuardRun{Guard: "check-references", Worktree: "/w/kan-1", ExitCode: 1,
 		Outcome: "fired", DurationMS: 120, RecordedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
 		Reasons: []string{"F2", "F6"}}
 	f := &guardRunFake{}

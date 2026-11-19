@@ -6,8 +6,8 @@ A loop dispatch is an Agent/Task call whose prompt carries a `Key: pipeline-fix-
 mid-run**, skills/flow-self-review/SKILL.md step 3). The loops were prose only, and a parent
 skipped their steps: fixers dispatched on flow-high without a planner, fixes landed with no
 review. This hook hands every such call to flow-guard check-loop-dispatch in the agents
-checkout it is installed from, which refuses a pair off the canonical table, a fix with no
-completed plan, a dispatch while an earlier one is still open -- and records the admitted
+checkout it is installed from, which refuses a fix with no completed plan, a dispatch while an
+earlier one is still open -- and records the admitted
 dispatch in flowd, so flow-guard check-loop-landing can refuse a landing those records do not cover.
 The checker runs in the payload's `cwd`, so a self-review on a change's own branch in another
 project files its rows in that project's flowd project, not the agents checkout's.

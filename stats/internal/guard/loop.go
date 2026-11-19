@@ -26,12 +26,8 @@ import (
 //   KEY          the key's suffix is no loop suffix;
 //   NOT-STARTED  a pipeline-fix key with no pipeline-fix-<name>-<k> branch
 //                (flow-guard pipeline-fix start makes it);
-//   PAIR         subagent_type or model off the role's rows, or a marked
-//                row's marker (`No-progress escalation`) not a prompt line;
 //   EFFORT       a review-1 whose loop plan records a first-review-effort
 //                decision naming no effort on its **Chosen:** line;
-//   ESCALATION   the role's marked escalation pair with no recorded escalation
-//                (flow-guard pipeline-fix escalate);
 //   KEY-REUSED   the key already has a row;
 //   OPEN         an earlier row of the loop is not closed
 //                (flow-guard pipeline-fix end);
@@ -46,10 +42,7 @@ import (
 // dispatch begin` under the loop's change, its session token the loop's
 // branch name — except a `pass`, which is opened under the change <name>
 // itself in the caller's project, its token self-review-<name>, the parent
-// closing it when the pass hands back. A prompt line `Pair pick: <source>:
-// <reason>` is recorded as the row's -pair-pick (KAN-1119, decision
-// loop-pair-pick-prompt-line). A
-// self-review on the change's own branch (no self-review-<name> branch in
+// closing it when the pass hands back. A self-review on the change's own branch (no self-review-<name> branch in
 // <agents-repo>) reads and records in the flowd project of the working
 // directory it runs in — the hook runs it in the payload's cwd.
 // LOOP-DISPATCH-NA, exit 0: the key is no loop key.
@@ -79,7 +72,6 @@ var (
 	lpDigits      = regexp.MustCompile(`^[0-9]+$`)
 	lpBundlePath  = regexp.MustCompile("(?:^|[\\s`(])(/[^\\s`]*/bundle\\.md)")
 	lpSuffix      = regexp.MustCompile(`^(?:pass|plan(?:-[0-9]+)?|fix(?:-[0-9]+|-g[0-9]+|-v[0-9]+)?|review-[0-9]+)$`)
-	lpPairPick    = regexp.MustCompile(`(?m)^Pair pick: (.+)$`)
 )
 
 // lpRole is the allowed-pairs role id (skills/flow-contracts/model-policy.md)
@@ -99,17 +91,6 @@ func lpRole(prefix, suffix string) string {
 		fam = "review-r"
 	}
 	return prefix + "-" + fam
-}
-
-// lpEscalation is the marker of the marked row of role that lists pair, ""
-// when no marked row does -- the no-progress escalation's pair.
-func lpEscalation(rows map[string][]policyRow, role, pair string) string {
-	for _, r := range rows[role] {
-		if r.Marker != "" && !r.Grant && slices.Contains(r.Pairs, pair) {
-			return r.Marker
-		}
-	}
-	return ""
 }
 
 // lpEscalatable is whether role has any marked row needing no grant: a
@@ -250,14 +231,6 @@ func lpFamily(suffix string) string {
 	return ""
 }
 
-// lpEscalated is whether `flow-guard pipeline-fix escalate` recorded key for
-// this loop: the marker is `<loop branch>:<key>`, so another loop reusing the
-// key never inherits it, and land and drop clear the loop's markers.
-func lpEscalated(env Env, git, repo string, lp lpLoop, key string) bool {
-	_, out := kwRun(env, "", git, "-C", repo, "config", "--get-all", "flow.escalation")
-	return slices.Contains(strings.Fields(out), lp.token+":"+key)
-}
-
 // lpEarlierRound is whether rows hold a completed earlier round of suffix's
 // kind -- any fix family for a fix -- the no-progress escalation's premise,
 // re-read from the rows on every admission so a hand-set marker alone admits
@@ -369,10 +342,6 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	var pairPick []string
-	if m := lpPairPick.FindSubmatch(prompt); m != nil {
-		pairPick = []string{"-pair-pick", strings.TrimSpace(string(m[1]))}
-	}
 	lp, suffix, role, msg, ok := lpFromKey(env, git, main, key)
 	if !ok {
 		if msg == "" {
@@ -390,18 +359,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	if err := policyAllows(rows, role, typ, model, "", "", false); err != nil {
-		// Off the unmarked rows: only the role's marked escalation row can admit it.
-		if lpEscalation(rows, role, policyPair(typ, model, "")) == "" {
-			return refuse("pair-not-allowed", "PAIR — "+err.Error())
-		}
-		if !lpEscalated(env, git, lp.main, lp, key) || !lpEarlierRound(lp, suffix, mine) {
-			return refuse("escalation-not-recorded", fmt.Sprintf("ESCALATION — %s on %s needs a completed earlier round and its no-progress escalation recorded first: flow-guard pipeline-fix escalate %s", key, typ, key))
-		}
-		if err := policyAllows(rows, role, typ, model, "", string(prompt), false); err != nil {
-			return refuse("pair-not-allowed", "PAIR — "+err.Error())
-		}
-	} else if suffix == "review-1" {
+	if suffix == "review-1" {
 		want, ok := lpFirstReviewType(env, git, lp.main, lp)
 		if !ok {
 			return refuse("first-review-effort-missing", fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
@@ -434,8 +392,8 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		if msg := lpNarrative(env, git, key, change, string(prompt)); msg != "" {
 			return refuse("narrative-refused", msg)
 		}
-		if out, _, rc := pcFlow(env, true, append([]string{"record", "dispatch", "begin", "-C", main, "-change", change,
-			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token}, pairPick...)...); rc != 0 {
+		if out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", main, "-change", change,
+			"-role", "reviewer", "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token); rc != 0 {
 			fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 			Reason(env, "flow-record-dispatch-begin-failed")
 			return 2
@@ -459,8 +417,8 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("plan-dispatch-incomplete", fmt.Sprintf("PLAN — %s needs a completed %splan dispatch first", key, lp.prefix))
 	}
 	recordRole := map[string]string{"plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
-	out, _, rc := pcFlow(env, true, append([]string{"record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
-		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token}, pairPick...)...)
+	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", lp.main, "-change", lp.change,
+		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- cannot answer:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: flow-guard pipeline-fix start creates it\n", self)

@@ -496,9 +496,12 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 // purely so that RETURNING yields the existing row; DO NOTHING would return
 // no row at all and leave the caller unable to tell a replayed write from a
 // change that does not exist.
-// reBegin is a begin (no ended_at) replayed onto a row that ended aborted: the
-// re-dispatch of an aborted loop key reopens that row, so the OPEN check and
-// its attribution window see the re-run rather than the aborted attempt. An open
+// reBegin is a begin (no ended_at) onto a row that ended aborted, or that
+// ended before this begin started: the re-dispatch of an aborted loop key, or
+// of the same key after its row closed, reopens that row with the new
+// begin's diff base, so the OPEN check and its attribution window see the
+// re-run rather than the earlier attempt. A journal replay of the original
+// begin started before the row ended and reopens nothing. An open
 // row takes an earlier re-begin's instant, so `flow record dispatch backfill`
 // repairs a row begun after its commit.
 //
@@ -508,7 +511,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 // That holds only for in-order replay: the reconciler replays the journal
 // asynchronously, so a begin journaled before a newer begin reached the store
 // is replayed after it and sets the row back to the older pair.
-const reBegin = `(dispatches.outcome = 'aborted' AND EXCLUDED.ended_at IS NULL)`
+const reBegin = `(EXCLUDED.ended_at IS NULL AND (dispatches.outcome = 'aborted' OR EXCLUDED.started_at > dispatches.ended_at))`
 
 // autoStageLockNamespace serialises openAutoStageRun per change, so two
 // dispatches begun together with no stage open share one auto run.
@@ -681,6 +684,7 @@ func insertDispatch(ctx context.Context, q interface {
 			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END,
 			closes_loop = CASE WHEN `+reBegin+` THEN false ELSE dispatches.closes_loop END,
 			agent_id = CASE WHEN `+reBegin+` THEN EXCLUDED.agent_id ELSE dispatches.agent_id END,
+			diff_base = CASE WHEN `+reBegin+` THEN COALESCE(EXCLUDED.diff_base, dispatches.diff_base) ELSE dispatches.diff_base END,
 			slot = EXCLUDED.slot,
 			model = EXCLUDED.model,
 			effort = EXCLUDED.effort,

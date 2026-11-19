@@ -5098,6 +5098,36 @@ func TestRecordDispatchReopensAnAbortedKey(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchReopensACompletedKeyBegunLater pins that a begin of key K
+// started after K's row ended completed reopens it with the new diff base: K
+// begun with diff_base A, ended completed, then begun again later with B
+// leaves the row open on B.
+func TestRecordDispatchReopensACompletedKeyBegunLater(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-reopen-done-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	d := baseDispatch("implementer", "opus")
+	d.SessionToken, d.Key, d.DiffBase = "tok", "task-1-implementer", "aaaaaaa"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
+		SessionToken: "tok", Key: d.Key, Outcome: "completed", EndedAt: d.StartedAt.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
+	}
+	d.StartedAt, d.DiffBase = d.StartedAt.Add(time.Hour), "bbbbbbb"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+	if err != nil {
+		t.Fatalf("re-begin: %v", err)
+	}
+	if got.EndedAt != nil || got.Outcome != "" || got.DiffBase != "bbbbbbb" {
+		t.Errorf("re-begin after completed = ended %v outcome %q diff_base %q, want open on bbbbbbb", got.EndedAt, got.Outcome, got.DiffBase)
+	}
+}
+
 // rebeginSlotModelEffort begins panel-1-primary on primary/opus/high,
 // optionally ends it aborted, begins it again on principles/sonnet/medium,
 // and asserts the row -- returned and as RunRecord reads it -- carries the

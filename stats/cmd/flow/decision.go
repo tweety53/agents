@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -95,6 +94,15 @@ func (p *dPair) UnmarshalJSON(b []byte) error {
 
 // pair is a pair as the block prints it: "<model>/<effort>".
 func (p dPair) pair() string { return p.Model + "/" + p.Effort }
+
+// dPairSuffix is " <model>/<effort>", or "" for a dispatch recorded without
+// a model.
+func dPairSuffix(model, effort string) string {
+	if model == "" {
+		return ""
+	}
+	return " " + dPair{Model: model, Effort: effort}.pair()
+}
 
 type dDecision struct {
 	Class           string  `json:"class"`
@@ -204,12 +212,13 @@ type dPanel struct {
 
 // dRequired names every key a decision must carry, by dotted path; a key
 // under panel is required only when panel is an object, and groups_reason
-// only when groups is not null.
+// only when groups is not null. No pair -- implementer, fixer, a group's or
+// a dispatch's model and effort -- is required: the dispatcher runs each role
+// on its first base pair.
 var dRequired = []string{
-	"class", "classMechanical", "override", "inputs", "rolls", "execution", "implementer", "fixer", "panel", "groups",
+	"class", "classMechanical", "override", "inputs", "execution", "panel", "groups",
 	"inputs.tasks", "inputs.files", "inputs.repos", "inputs.migration", "inputs.spec", "inputs.red", "inputs.unverified",
-	"rolls.compact", "rolls.experimental", "rolls.bundle",
-	"panel.compact", "panel.rerun", "panel.grouping", "panel.dispatches", "panel.rerun_dispatch",
+	"panel.compact", "panel.rerun", "panel.grouping", "panel.dispatches",
 	"groups_reason",
 }
 
@@ -220,7 +229,7 @@ func dMissing(body []byte) (string, error) {
 		return "", err
 	}
 	sub := map[string]map[string]json.RawMessage{}
-	for _, k := range []string{"inputs", "rolls", "panel"} {
+	for _, k := range []string{"inputs", "panel"} {
 		var m map[string]json.RawMessage
 		if json.Unmarshal(top[k], &m) == nil {
 			sub[k] = m
@@ -332,7 +341,10 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 		parts := make([]string, len(d.Groups))
 		for i, g := range d.Groups {
 			gp := dPair{Model: g.Model, Effort: g.Effort}
-			parts[i] = dRange(g.Bundles) + " " + gp.pair()
+			parts[i] = dRange(g.Bundles)
+			if g.Model != "" {
+				parts[i] += " " + gp.pair()
+			}
 			if !d.Implementer.isPair || gp.pair() != d.Implementer.pair() {
 				parts[i] += " (" + g.Reason + ")"
 			}
@@ -352,19 +364,21 @@ func renderDecision(body []byte, _, reviewers string) (string, error) {
 			parts[0] = "compact"
 		}
 		for _, disp := range p.Dispatches {
-			parts = append(parts, strings.Join(disp.Slots, "+")+" "+dPair{Model: disp.Model, Effort: disp.Effort}.pair())
+			parts = append(parts, strings.Join(disp.Slots, "+")+dPairSuffix(disp.Model, disp.Effort))
 		}
-		parts = append(parts, "reruns "+p.RerunDispatch.pair())
+		if p.RerunDispatch.isPair {
+			parts = append(parts, "reruns "+p.RerunDispatch.pair())
+		}
 		if p.Experimental == "skipped — bundle cap" {
 			parts = append(parts, "experimental skipped — bundle cap")
 		}
 		line("Panel", strings.Join(parts, " · "))
 	}
 	if x := d.ExtraDispatch; x != nil {
-		line("Extra dispatch", strings.Join(x.Slots, "+")+" "+dPair{Model: x.Model, Effort: x.Effort}.pair())
+		line("Extra dispatch", strings.Join(x.Slots, "+")+dPairSuffix(x.Model, x.Effort))
 	}
 	if x := d.ExtraDispatchMutation; x != nil {
-		line("Extra dispatch", strings.Join(x.Slots, "+")+" "+dPair{Model: x.Model, Effort: x.Effort}.pair())
+		line("Extra dispatch", strings.Join(x.Slots, "+")+dPairSuffix(x.Model, x.Effort))
 	}
 	if d.SlotTriggers != nil {
 		var slots []string
@@ -409,106 +423,4 @@ func dRange(raws []json.RawMessage) string {
 		return fmt.Sprintf("%d–%d", ids[0], ids[len(ids)-1])
 	}
 	return dIDs(raws)
-}
-
-// policyRole is one role's entry in flowd's policy (`flow policy get`).
-type policyRole struct {
-	Base, Optin []string
-	Marked      []struct{ Pair string }
-}
-
-// roleAdmitted is the pairs role admits -- the open experiments' overrides,
-// else the policy's base pairs, plus the opt-in pairs when the change holds a
-// grant for it -- and whether the role is judged at all: a role neither the
-// overrides nor the policy list is not.
-func roleAdmitted(role string, overrides map[string][]string, policy map[string]policyRole, granted []string) (admitted []string, judged bool) {
-	p, judged := policy[role]
-	admitted = slices.Clone(overrides[role])
-	if len(admitted) == 0 {
-		admitted = slices.Clone(p.Base)
-	} else {
-		judged = true
-	}
-	if slices.Contains(granted, role) {
-		admitted = append(admitted, p.Optin...)
-	}
-	return admitted, judged
-}
-
-// decisionPairsAdmitted refuses a decision whose implementer, fixer or
-// group pair, spelled <model>/flow-<effort>, its role's admitted pairs do
-// not admit (kan-1103 self-review, F3): implementer and every groups[i] are
-// role implementer, fixer is role panel-fix. A role's admitted pairs are its
-// open experiments' overrides when it has any, else its policy base pairs,
-// plus its opt-in pairs when granted lists the role -- an override replaces
-// only the base pairs (Experiments, model-policy.md). A role neither names is
-// not judged, and a string or null pair always passes.
-func decisionPairsAdmitted(body []byte, overrides map[string][]string, policy map[string]policyRole, granted []string) error {
-	// Only the pairs are read, so a body render would refuse elsewhere is
-	// not refused here.
-	var d struct {
-		Implementer, Fixer dPair
-		Groups             []struct{ Model, Effort string }
-	}
-	if err := json.Unmarshal(body, &d); err != nil {
-		return fmt.Errorf("decision body: %v", err)
-	}
-	type check struct{ path, role, model, effort string }
-	var checks []check
-	if d.Implementer.isPair {
-		checks = append(checks, check{"implementer", "implementer", d.Implementer.Model, d.Implementer.Effort})
-	}
-	if d.Fixer.isPair {
-		checks = append(checks, check{"fixer", "panel-fix", d.Fixer.Model, d.Fixer.Effort})
-	}
-	for i, g := range d.Groups {
-		if g.Model != "" {
-			checks = append(checks, check{fmt.Sprintf("groups[%d]", i), "implementer", g.Model, g.Effort})
-		}
-	}
-	for _, c := range checks {
-		admitted, judged := roleAdmitted(c.role, overrides, policy, granted)
-		pair := c.model + "/flow-" + c.effort
-		if judged && !slices.Contains(admitted, pair) {
-			return fmt.Errorf("record decision: %s pair %s is not admitted for role %s, whose admitted pairs are [%s]", c.path, pair, c.role, strings.Join(admitted, " "))
-		}
-	}
-	return nil
-}
-
-// groupJudgePicksBacked refuses a decision in which a group's reason opens
-// `judge:` while pickDir -- the pair-judge directory beside the decision
-// file -- holds no pick `flow-guard pair-judge` saved for that group on that
-// model and effort: decide-group-<g>.pick, <g> the group's place counting
-// from 1, or decide-implementer.pick for a plan of one group, which takes
-// the plan's own pick. kan-1089 recorded 31 and then 38 groups as `judge:
-// see decide-implementer`, all on the plan's pair, with no group judged. A
-// reason that does not claim the judge is not checked.
-func groupJudgePicksBacked(body []byte, pickDir string) error {
-	var d struct {
-		Groups []struct{ Model, Effort, Reason string }
-	}
-	if json.Unmarshal(body, &d) != nil {
-		return nil
-	}
-	for i, g := range d.Groups {
-		if !strings.HasPrefix(g.Reason, "judge:") {
-			continue
-		}
-		names := []string{fmt.Sprintf("decide-group-%d.pick", i+1)}
-		if len(d.Groups) == 1 {
-			names = append(names, "decide-implementer.pick")
-		}
-		backed := false
-		for _, n := range names {
-			b, _ := os.ReadFile(filepath.Join(pickDir, n))
-			if f := strings.Fields(string(b)); len(f) >= 2 && f[0] == g.Model && f[1] == g.Effort {
-				backed = true
-			}
-		}
-		if !backed {
-			return fmt.Errorf("record decision: groups[%d] is recorded as a judge pick of %s %s, but %s holds no such pick -- run `flow-guard pair-judge implementer` on that group's own digest and record its line, or give the reason the pair was chosen for", i, g.Model, g.Effort, filepath.Join(pickDir, names[0]))
-		}
-	}
-	return nil
 }

@@ -614,8 +614,7 @@ func pcRoot(t *testing.T) string {
 // TestPlanClassExtraLinesNameTheBundleAlone: plan-class reads no allowed
 // pairs -- it runs with no `flow` answering at all -- its rolls line carries
 // no effort roll, and its two extra lines name their bundle alone, the pair
-// being Decide's flow-guard pair-judge call (KAN-1119, decision
-// delete-dead-rolls).
+// being the dispatcher's (decision delete-dead-rolls).
 func TestPlanClassExtraLinesNameTheBundleAlone(t *testing.T) {
 	t.Parallel()
 	tasks := pcTasks(t, "plan-class-pin", "# x\n\n- [ ] 1. a\n**Files:** `a.go`\n")

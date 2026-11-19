@@ -44,8 +44,8 @@ import (
 // panel and is otherwise `skipped — bundle cap`. On
 // micro, panel is `default` and grouping/experimental read `not
 // consulted — micro`.
-// The extra line is printed on every class, micro included: it names the test-sanity+call-efficiency bundle (kan-959), whose pair Decide's `flow-guard pair-judge` call picks (KAN-1119).
-// The second extra line names the mutation+failure-modes bundle (kan-1028), whose pair Decide's `flow-guard pair-judge` call picks the same way.
+// The extra line is printed on every class, micro included: it names the test-sanity+call-efficiency bundle (kan-959), whose pair is the dispatcher's (the role's first base pair).
+// The second extra line names the mutation+failure-modes bundle (kan-1028), its pair chosen the same way.
 //
 // -class may equal class_mechanical or sit one step above it
 // (micro→small→regular→big) — the planner's recorded raise; the class: line

@@ -388,8 +388,8 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.bash("116 a cp inside a subshell is scanned", "deny", "{ROOT}", `(cp a {MAIN}/y)`)
 	f.bash("117 an escaped backtick does not pair with a real span", "deny", "{MAIN}", "cat > {SIB}/r.md <<EOF\n\\` `rm {MAIN}/x` \\`\nEOF")
 	planBody := "C={SIB}; cat > $C/t.md <<'EOF'\n> **Execution:** a > b; rm x\nEOF\n"
-	f.bash("118 a data heredoc's target named again as an argument keeps its body as data", "allow", "{MAIN}", planBody+"check-plan-shape.sh $C/t.md")
-	f.bash("119 a path-named command naming another file keeps the body as data", "allow", "{MAIN}", planBody+"~/.claude/skills/flow/scripts/check-plan-shape.sh /x/o.md")
+	f.bash("118 a data heredoc's target named again as an argument keeps its body as data", "allow", "{MAIN}", planBody+"check-references.sh $C/t.md")
+	f.bash("119 a path-named command naming another file keeps the body as data", "allow", "{MAIN}", planBody+"~/.claude/skills/flow/scripts/lint.sh /x/o.md")
 	f.bash("120 a data heredoc's target run as a command keeps its body scanned", "deny", "{MAIN}", planBody+"chmod +x $C/t.md && $C/t.md")
 	xsh := "cat > {SIB}/x.sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\n"
 	f.bash("121 a heredoc's file name run under another path keeps its body scanned", "deny", "{ROOT}", xsh+"/elsewhere/x.sh")

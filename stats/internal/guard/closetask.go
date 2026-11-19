@@ -23,7 +23,7 @@ import (
 // returning implementer committed.
 //
 // Usage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…]
-//          [-undeclared <task-id>=<path>[,<path>…]]…
+//
 //          <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…
 //
 // A bare <task-id> resolves to the newest commit since <merge-base> in the
@@ -53,23 +53,9 @@ import (
 //      Task-Id: trailer — a bare sha is the canonical worktree's pair — each
 //      named on stderr as `close-task: task <id>: joined <worktree>=<sha>`
 //      (kan-1008's self-review: a map omitting the backend repository left
-//      its commits unjudged). Then
-//      flow-guard check-task-commit-fields <canonical> <id> <sha|map> "" <canonical>
-//      <name> for every task, and its commit's — every map pair's — Task-Id:
-//      trailer must name the task or a task its Build: red fold joins (exit 1
-//      otherwise): the trailer is how a task's commit is found again.
-//      A fields verdict (exit 1) whose every line is a **Files:** one -- an
-//      undeclared path, or a declared path the commit does not touch -- is
-//      corrected, not refused (kan-1089/1091/1099: the fields guard was red
-//      on 458 of 776 calls, each a refusal, a `flow tasks files` call and a
-//      second close): per task, `flow tasks files -C <canonical> <name> <id>
-//      add <undeclared>…` and `… remove <untouched>…`, then
-//      `close-task: task <id>: Files derived from the commit — added <path>…;
-//      removed <path>…` on stdout. The added paths join that task's
-//      -undeclared paths, so step 5's gate fires on them, and
-//      flow-guard check-plan-shape runs again on the edited plan. Any other
-//      violation beside them, or a failed `flow tasks files` call, leaves
-//      the verdict a refusal.
+//      its commits unjudged). Then every task's commit's — every map pair's —
+//      Task-Id: trailer must name the task or a task its red fold joins (exit
+//      1 otherwise): the trailer is how a task's commit is found again.
 //      A commit — any map pair's — whose diff-tree lists a path named
 //      full-app-suite.zip has that zip rebuilt in its worktree by
 //      flow-guard rebuild-full-app-suite-zip, the zip's directory as <screenshots
@@ -80,10 +66,6 @@ import (
 //      output — rebuild it with that script and re-commit` (exit 1); a
 //      screenshots root git status reports dirty, or a rebuild exit other
 //      than 0, is exit 2 (kan-1016's self-review: a hand-built zip).
-//      When a task it closes is one step 1 counts as appended or in-run,
-//      flow-guard check-plan-shape <the change's tasks.md> runs too, its exit
-//      folded in at step 4 (kan-1046 self-review, 1f: an in-run fix closed
-//      with a **Files:** the plan guard refuses).
 //      For a task titled `In-run fix <k> — `, once the commit guards pass,
 //      `close-task: task <id>: affected specs — <spec> <spec>…` (or `— none`)
 //      is printed: flow-guard affected-specs' task set (`-task`) over each
@@ -115,7 +97,7 @@ import (
 //      appended task step 1 found no row naming → exit 1. Nothing is ticked
 //      or pushed either way, so a refused commit is never pushed.
 //   5. flow-guard check-review-gate <canonical> <id> <sha|map> <canonical> <name>
-//      [<the task's -undeclared paths>…] for every task; its FIRE:/QUIET:
+//      for every task; its FIRE:/QUIET:
 //      line is printed. A gate exit 2 → exit 2, nothing ticked or pushed.
 //   6. `flow tasks tick -C <canonical> <name> <id>` for every task the gate
 //      left QUIET — and, when a gate fired, for every task once `flow record
@@ -149,7 +131,7 @@ func init() { Registry["close-task"] = closeTask }
 func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	usage := func(id, msg string) int {
 		Reason(env, id)
-		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…] [-undeclared <task-id>=<path>[,<path>…]]… <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…\n", msg)
+		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…] <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…\n", msg)
 		return 2
 	}
 	fset := flag.NewFlagSet("close-task", flag.ContinueOnError)
@@ -162,15 +144,6 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	token := fset.String("session-token", "", "the run's literal session token, for the dispatch end")
 	fset.Func("end-commit", "the commit the -end-key in the same position produced, for its dispatch end", func(v string) error {
 		endCommits = append(endCommits, v)
-		return nil
-	})
-	undeclared := map[string][]string{}
-	fset.Func("undeclared", "<task-id>=<path>[,<path>…]: paths the fields guard's refusal named for that task", func(v string) error {
-		id, paths, ok := strings.Cut(v, "=")
-		if !ok || id == "" || paths == "" {
-			return fmt.Errorf("not <task-id>=<path>[,<path>…]: %q", v)
-		}
-		undeclared[id] = append(undeclared[id], strings.Split(paths, ",")...)
 		return nil
 	})
 	if fset.Parse(args) != nil {
@@ -265,31 +238,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	// Both commit guards run before anything is ticked or pushed, so a
 	// refused commit is never pushed (design.md: close-task-push-after-guards).
 	worst := 0
-	// The plan guard runs on every close, before any commit guard: an
-	// appended or in-run fix task was written after it last ran (kan-1046
-	// self-review, 1f), and a `flow tasks files add` widening of a planned
-	// task can break plan shape too (kan-1067 self-review, 1-B: a test path
-	// under `Tests: none`, found only at verify).
-	if tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical); tasksMD != "" {
-		worst = max(worst, Registry["check-plan-shape"]([]string{tasksMD}, env, stdout, stderr))
-	}
-	derived := false
 	for _, t := range tasks {
-		// The fields guard answers into a buffer and its own collector: a
-		// verdict of **Files:** violations alone is corrected, not refused.
-		var fields bytes.Buffer
-		probe := env
-		probe.Reasons = &Reasons{}
-		rc := Registry["check-task-commit-fields"]([]string{canonical, t.id, t.commit, "", canonical, name}, probe, &fields, stderr)
-		if rc == 1 && ctDeriveFiles(env, stdout, stderr, canonical, name, fields.String(), undeclared) {
-			rc, derived = 0, true
-		} else {
-			io.WriteString(stdout, fields.String())
-			for _, id := range probe.Reasons.IDs() {
-				Reason(env, id)
-			}
-		}
-		worst = max(worst, rc)
 		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
 		var others []string
 		for _, o := range tasks {
@@ -298,11 +247,6 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 			}
 		}
 		worst = max(worst, ctCheckSuiteZips(env, stderr, canonical, t.id, t.commit, others))
-	}
-	// A derived **Files:** is a plan edit like any widening: the plan guard
-	// reads it again.
-	if tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical); derived && tasksMD != "" {
-		worst = max(worst, Registry["check-plan-shape"]([]string{tasksMD}, env, stdout, stderr))
 	}
 	worst = max(worst, Registry["check-task-commit-planning-paths"]([]string{canonical, mergeBase}, env, stdout, stderr))
 	// The push below sends every commit origin lacks: one outside every task
@@ -344,7 +288,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	var quiet, all, fired []string
 	for _, t := range tasks {
 		var verdict bytes.Buffer
-		rc := Registry["check-review-gate"](append([]string{canonical, t.id, t.commit, canonical, name}, undeclared[t.id]...), env, io.MultiWriter(stdout, &verdict), stderr)
+		rc := Registry["check-review-gate"]([]string{canonical, t.id, t.commit, canonical, name}, env, io.MultiWriter(stdout, &verdict), stderr)
 		if rc != 0 {
 			fmt.Fprintln(stderr, "close-task: STOP — the review gate could not judge; nothing was ticked or pushed")
 			Reason(env, "review-gate-cannot-judge")
@@ -483,54 +427,6 @@ func ctNewestClass(env Env, name, canonical string) string {
 		return ""
 	}
 	return c
-}
-
-// ctUntouchedRE matches the declared-but-untouched violation, capturing the
-// task id and the path.
-var ctUntouchedRE = regexp.MustCompile(`^task (\S+): file (.+) is declared in Files: but the commit does not touch it$`)
-
-// ctDeriveFiles corrects **Files:** from the commit when out, a
-// check-task-commit-fields verdict's stdout, holds **Files:** violations and
-// no other: per task, `flow tasks files … add` of the undeclared paths, which
-// join undeclared for the review gate, and `… remove` of the untouched ones.
-// False, the field as far as it got, when another violation stands beside
-// them or a call fails.
-func ctDeriveFiles(env Env, stdout, stderr io.Writer, canonical, name, out string, undeclared map[string][]string) bool {
-	var ids []string
-	add, remove := map[string][]string{}, map[string][]string{}
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		m, into := tcfUndeclaredRE.FindStringSubmatch(line), add
-		if m == nil {
-			m, into = ctUntouchedRE.FindStringSubmatch(line), remove
-		}
-		switch {
-		case m != nil:
-			if add[m[1]] == nil && remove[m[1]] == nil {
-				ids = append(ids, m[1])
-			}
-			into[m[1]] = append(into[m[1]], m[2])
-		case !strings.HasPrefix(line, "flow tasks files "):
-			return false
-		}
-	}
-	for _, id := range ids {
-		var did []string
-		for _, e := range []struct {
-			verb, past string
-			paths      []string
-		}{{"add", "added", add[id]}, {"remove", "removed", remove[id]}} {
-			if len(e.paths) == 0 {
-				continue
-			}
-			if ctFlow(env, io.Discard, stderr, append([]string{"tasks", "files", "-C", canonical, name, id, e.verb}, e.paths...)...) != 0 {
-				return false
-			}
-			did = append(did, e.past+" "+strings.Join(e.paths, " "))
-		}
-		undeclared[id] = append(undeclared[id], add[id]...)
-		fmt.Fprintf(stdout, "close-task: task %s: Files derived from the commit — %s\n", id, strings.Join(did, "; "))
-	}
-	return len(ids) > 0
 }
 
 // ctFlow runs the flow CLI from env's PATH, its output relayed; non-zero

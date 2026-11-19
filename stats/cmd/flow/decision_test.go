@@ -170,12 +170,11 @@ func TestDecisionRenderRefusals(t *testing.T) {
 		{"stray argument", good, append([]string{"render", "-file", "<file>", "x"}, flags...), "flow: decision render: unexpected argument \"x\"\n" + decisionUsage},
 		{"unreadable file", "", append([]string{"render", "-file", "/nonexistent/decision.json"}, flags...), "flow: decision render: open /nonexistent/decision.json: no such file or directory\n"},
 		{"not JSON", "{", append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: not a decision: unexpected end of JSON input\n"},
-		{"missing rolls.bundle", strings.Replace(good, `,"bundle":43`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"rolls.bundle\"\n"},
+		{"missing inputs.tasks", strings.Replace(good, `"tasks":1,`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"inputs.tasks\"\n"},
 		{"missing groups", strings.Replace(good, `,"groups":null`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"groups\"\n"},
 		{"visual.verify outside the set", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skip","reason":"x"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.verify \"skip\" is not one of required, skipped, not configured\n"},
 		{"visual with a blank reason", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skipped","reason":" "}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.reason is required\n"},
 		{"parent.effort outside the -effort set", strings.Replace(good, `"groups":null`, `"groups":null,"parent":{"model":"unknown (agent-defined)","effort":"unknown"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: parent.effort \"unknown\" is not one of: low, medium, high, default, xhigh, max\n"},
-		{"missing panel.rerun_dispatch", strings.Replace(good, `"panel":"default"`, `"panel":{"compact":true,"rerun":"delta","grouping":"static","dispatches":[]}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"panel.rerun_dispatch\"\n"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -184,6 +183,22 @@ func TestDecisionRenderRefusals(t *testing.T) {
 				t.Fatalf("rc=%d stdout=%q\nstderr=%q\nwant  =%q", rc, out, errs, c.stderr)
 			}
 		})
+	}
+}
+
+// TestDecisionRenderWithoutPairs: a decision carrying no pair at all -- no
+// implementer, fixer or rolls, groups and panel dispatches without model or
+// effort -- renders, each line without a pair.
+func TestDecisionRenderWithoutPairs(t *testing.T) {
+	t.Parallel()
+	body := `{"class":"small","classMechanical":"small","override":null,
+		"inputs":{"tasks":2,"files":3,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
+		"execution":"sdd","groups":[{"bundles":[1,2],"reason":"one module"}],"groups_reason":"r",
+		"panel":{"compact":true,"rerun":"delta","grouping":"static","dispatches":[{"slots":["primary"]}]}}`
+	rc, out, errs := decisionRun(t, body, newTestEnv(t), "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
+	want := "## Decision\n\n- **Class:** small · tasks 2 · files 3 · repos 1\n- **Execution:** sdd\n- **Groups:** 1–2 (one module)\n- **Panel:** compact · primary\n"
+	if rc != 0 || out != want {
+		t.Fatalf("rc=%d stdout=%q stderr=%q\nwant %q", rc, out, errs, want)
 	}
 }
 
@@ -354,37 +369,5 @@ func TestDecisionParentModel(t *testing.T) {
 	rc, _, errs := decisionRun(t, withParent(`{"model":"opus","effort":"ultra"}`), env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
 	if rc != 2 || !strings.Contains(errs, `parent.effort "ultra" is not one of: low, medium, high, default, xhigh, max`) {
 		t.Fatalf("effort ultra: rc=%d stderr=%q, want 2 naming the set", rc, errs)
-	}
-}
-
-// TestGroupJudgePicksBacked: a group whose reason claims the judge needs the
-// judge's saved pick for it on the same pair; a plan of one group may stand
-// on the plan's own pick; any other reason is not checked.
-func TestGroupJudgePicksBacked(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	for name, line := range map[string]string{
-		"decide-group-1.pick":     "sonnet low judge test-only work\n",
-		"decide-group-3.pick":     "opus low judge a guard change\n",
-		"decide-implementer.pick": "opus medium judge the whole plan\n",
-	} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for name, c := range map[string]struct {
-		groups string
-		ok     bool
-	}{
-		"each judged group backed":     {`[{"model":"sonnet","effort":"low","reason":"judge: test-only"},{"model":"opus","effort":"medium","reason":"carries the data-model seam"},{"model":"opus","effort":"low","reason":"judge: guard"}]`, true},
-		"a judge claim with no pick":   {`[{"model":"sonnet","effort":"low","reason":"judge: test-only"},{"model":"opus","effort":"medium","reason":"judge: see decide-implementer"}]`, false},
-		"a pick on another pair":       {`[{"model":"opus","effort":"medium","reason":"judge: see decide-implementer"}, {"model":"opus","effort":"low","reason":"mechanical"}]`, false},
-		"one group on the plan's pick": {`[{"model":"opus","effort":"medium","reason":"judge: the whole plan"}]`, true},
-		"no groups":                    {`null`, true},
-	} {
-		err := groupJudgePicksBacked([]byte(`{"groups":`+c.groups+`}`), dir)
-		if (err == nil) != c.ok {
-			t.Errorf("%s: err = %v, want ok=%v", name, err, c.ok)
-		}
 	}
 }

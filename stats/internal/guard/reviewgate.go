@@ -13,17 +13,14 @@ import (
 // scripts/check-review-gate.sh shim (KAN-1058).
 //
 // flow-guard check-review-gate — judge the per-task review gate of skills/flow/implement.md
-// (**The review gate.**) for one task commit flow-guard check-task-commit-fields passed.
+// (**The review gate.**) for one task commit.
 //
 // Usage: flow-guard check-review-gate <worktree> <task-id> <commit-sha|worktree=sha[,worktree=sha…]>
 //          <canonical-worktree> <change-name> [refused-path…]
 //
-// The first five arguments are flow-guard check-task-commit-fields's, less its empty
-// parent placeholder, and the plan resolves the same way (one shared helper,
-// so the two cannot drift). The commit map sums changed lines and unions paths
-// across its repositories. Each trailing refused path is one the fields guard
-// named undeclared before a Files: widening was transcribed: it stays
-// undeclared, so the widening cannot disarm the gate.
+// The plan resolves through the shared helper. The commit map sums changed
+// lines and unions paths across its repositories. Each trailing refused path
+// stays undeclared, so a Files: widening cannot disarm the gate.
 //
 // The gate fires when the commit changes more than 40 lines (inserted plus
 // deleted, `git diff --no-renames --numstat`, a binary file's `-` counted as

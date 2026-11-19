@@ -106,35 +106,6 @@ func TestLoopSuffixRoles(t *testing.T) {
 	}
 }
 
-// TestLoopDispatchReadsPolicyTable: the pair comes from the role's pairs in
-// flowd (`flow policy get`), never a table of the loop's own.
-func TestLoopDispatchReadsPolicyTable(t *testing.T) {
-	t.Parallel()
-	rows := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 fix")
-	fx := lpNew(t, rows, lpBranch)
-	policy := strings.Replace(testPolicy, `"pipeline-fix-review-r":{"base":["sonnet/flow-low"]`, `"pipeline-fix-review-r":{"base":["opus/flow-low"]`, 1)
-	if policy == testPolicy {
-		t.Fatal("the seeded pairs carry no pipeline-fix-review-r base to rewrite")
-	}
-	// A `flow` ahead of the fixture's own answers `policy get` with the
-	// rewritten pairs and hands every other call to the fixture's.
-	wrap := t.TempDir()
-	writeExec(t, wrap+"/flow", "#!/bin/sh\n[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '"+policy+"'; exit 0; }\nexec "+filepath.Dir(fx.repo)+"/bin/flow \"$@\"\n")
-	inner := fx.env.Getenv
-	fx.env.Getenv = func(k string) string {
-		if k == "PATH" {
-			return wrap + ":" + inner(k)
-		}
-		return inner(k)
-	}
-	if rc, out := fx.run(t, "pipeline-fix-6-review-2", "flow-low", "sonnet"); rc != 1 || !strings.Contains(out, "PAIR —") {
-		t.Fatalf("sonnet/flow-low off the fixture row: rc %d: %s", rc, out)
-	}
-	if rc, out := fx.run(t, "pipeline-fix-6-review-2", "flow-low", "opus"); rc != 0 {
-		t.Fatalf("opus/flow-low on the fixture row: rc %d: %s", rc, out)
-	}
-}
-
 // TestLoopDispatchFirstReviewOffPolicy: a first-review-effort the role's
 // allowed pairs do not admit never refuses the pair they do (smoke-test-set,
 // pipeline-fix 67).
@@ -177,19 +148,10 @@ func TestCheckLoopDispatch(t *testing.T) {
 		{name: "fix after an open plan", rows: lpPlanOpen, key: "pipeline-fix-6-fix", typ: "flow-low", model: "opus", branches: []string{lpBranch}, rc: 1, out: "OPEN — pipeline-fix-6-plan"},
 		{name: "fix after a completed plan", rows: lpPlanDone, key: "pipeline-fix-6-fix", typ: "flow-low", model: "opus", branches: []string{lpBranch},
 			out: "LOOP-DISPATCH-OK", begin: "-role implementer -model opus -effort low -key pipeline-fix-6-fix"},
-		{name: "fix on flow-high unescalated", rows: lpPlanDone, key: "pipeline-fix-6-fix", typ: "flow-high", model: "opus", branches: []string{lpBranch}, rc: 1, out: "ESCALATION —"},
 		{name: "fix on flow-high escalated", rows: lpFixRound, key: "pipeline-fix-6-fix-1", typ: "flow-high", model: "opus", branches: []string{lpBranch},
 			escalated: []string{lpBranch + ":pipeline-fix-6-fix-1"}, prompt: "No-progress escalation\n", out: "LOOP-DISPATCH-OK", begin: "-effort high"},
-		{name: "fix on flow-high escalated without its marker", rows: lpFixRound, key: "pipeline-fix-6-fix-1", typ: "flow-high", model: "opus", branches: []string{lpBranch},
-			escalated: []string{lpBranch + ":pipeline-fix-6-fix-1"}, rc: 1, out: "PAIR —"},
-		{name: "a hand-set marker with no earlier round", rows: lpPlanDone, key: "pipeline-fix-6-fix", typ: "flow-high", model: "opus", branches: []string{lpBranch},
-			escalated: []string{lpBranch + ":pipeline-fix-6-fix"}, rc: 1, out: "ESCALATION —"},
-		{name: "another loop's marker for the same key", rows: lpFixRound, key: "pipeline-fix-6-fix-1", typ: "flow-high", model: "opus", branches: []string{lpBranch},
-			escalated: []string{"pipeline-fix-other-6:pipeline-fix-6-fix-1", "pipeline-fix-6-fix-1"}, rc: 1, out: "ESCALATION —"},
 		{name: "an aborted key is begun again", rows: lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix aborted"), key: "pipeline-fix-6-fix", typ: "flow-low", model: "opus", branches: []string{lpBranch},
 			out: "LOOP-DISPATCH-OK", begin: "-key pipeline-fix-6-fix"},
-		{name: "fix on sonnet", rows: lpPlanDone, key: "pipeline-fix-6-fix", typ: "flow-low", model: "sonnet", branches: []string{lpBranch}, rc: 1, out: "PAIR —"},
-		{name: "re-review on opus", rows: lpPlanDone, key: "pipeline-fix-6-review-2", typ: "flow-low", model: "opus", branches: []string{lpBranch}, rc: 1, out: "PAIR —"},
 		{name: "first review on flow-low as the planner recorded", rows: lpPlanDone, key: "pipeline-fix-6-review-1", typ: "flow-low", model: "opus", branches: []string{lpBranch},
 			design: lpDesignLow, out: "LOOP-DISPATCH-OK", begin: "-role reviewer"},
 		{name: "first review on flow-medium against a recorded flow-low", rows: lpPlanDone, key: "pipeline-fix-6-review-1", typ: "flow-medium", model: "opus", branches: []string{lpBranch},
@@ -209,7 +171,6 @@ func TestCheckLoopDispatch(t *testing.T) {
 			out: "LOOP-DISPATCH-OK", begin: "-change kan-1-demo -role reviewer -model opus -effort medium -key self-review-kan-1-demo-pass -session-token self-review-kan-1-demo"},
 		{name: "the pass stays under the change while its loop branch exists", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-medium", model: "opus", branches: []string{"self-review-kan-1-demo"},
 			out: "LOOP-DISPATCH-OK", begin: "-change kan-1-demo -role reviewer"},
-		{name: "the pass off its pair", rows: `[]`, key: "self-review-kan-1-demo-pass", typ: "flow-low", model: "opus", rc: 1, out: "PAIR —"},
 		{name: "flowd unreadable", rows: "", key: "pipeline-fix-6-fix", typ: "flow-low", model: "opus", branches: []string{lpBranch}, rc: 2, out: "cannot answer"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -232,75 +193,6 @@ func TestCheckLoopDispatch(t *testing.T) {
 			}
 			if tc.begin != "" && !strings.Contains(calls, tc.begin) {
 				t.Fatalf("flow calls %q carry no %q", calls, tc.begin)
-			}
-		})
-	}
-}
-
-// TestCheckLoopDispatchForwardsPairPick: a loop dispatch's prompt line
-// `Pair pick: <source>: <reason>` is recorded as its row's -pair-pick, on a
-// loop row and on the pass's own begin alike; no such line, no -pair-pick
-// (KAN-1119, decision loop-pair-pick-prompt-line).
-func TestCheckLoopDispatchForwardsPairPick(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	const line = "Pair pick: judge: two mechanical findings\n"
-	const want = "-pair-pick judge: two mechanical findings"
-	for _, tc := range []struct {
-		name, key, typ, prompt string
-		branches               []string
-		forwarded              bool
-	}{
-		{"a plan carrying the line", "pipeline-fix-6-plan", "flow-planner-medium", "Key: x\n" + line, []string{lpBranch}, true},
-		{"a plan without it", "pipeline-fix-6-plan", "flow-planner-medium", "Key: x\n", []string{lpBranch}, false},
-		{"a pass carrying the line", "self-review-kan-1-demo-pass", "flow-medium", line, nil, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			fx := lpNew(t, `[]`, tc.branches...)
-			fx.prompt = tc.prompt
-			if rc, out := fx.run(t, tc.key, tc.typ, "opus"); rc != 0 || !strings.Contains(out, "LOOP-DISPATCH-OK") {
-				t.Fatalf("rc %d, output %q, want LOOP-DISPATCH-OK", rc, out)
-			}
-			calls := fx.calls(t)
-			if !strings.Contains(calls, "dispatch begin") {
-				t.Fatalf("no begin was recorded:\n%s", calls)
-			}
-			if got := strings.Contains(calls, "-pair-pick"); got != tc.forwarded || (tc.forwarded && !strings.Contains(calls, want)) {
-				t.Fatalf("flow calls %q: -pair-pick forwarded %v, want %v (%q)", calls, got, tc.forwarded, want)
-			}
-		})
-	}
-}
-
-// TestLoopDispatchPlannerTypes pins the plan row's planner definitions
-// (kan-1033, decision planner-carries-agent): flow-planner-medium and
-// flow-planner-low are admitted, a leaf flow-medium is refused, and
-// flow-planner-high is refused even on a recorded escalation.
-func TestLoopDispatchPlannerTypes(t *testing.T) {
-	t.Parallel()
-	const plan2 = `[{"seq":1,"key":"self-review-x-plan","outcome":"completed","sessionToken":"self-review-x","endedAt":"2026-10-16T10:00:00Z"}]`
-	for _, tc := range []struct {
-		name, rows, key, typ string
-		escalated            bool
-		rc                   int
-		out                  string
-	}{
-		{"medium planner", `[]`, "self-review-x-plan", "flow-planner-medium", false, 0, "-effort medium"},
-		{"low planner", `[]`, "self-review-x-plan", "flow-planner-low", false, 0, "-effort low"},
-		{"leaf flow-medium", `[]`, "self-review-x-plan", "flow-medium", false, 1, "PAIR — self-review-plan runs on opus/flow-planner-medium, opus/flow-planner-low"},
-		{"high planner unescalated", plan2, "self-review-x-plan-2", "flow-planner-high", false, 1, "PAIR —"},
-		{"high planner escalated", plan2, "self-review-x-plan-2", "flow-planner-high", true, 1, "PAIR —"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			fx := lpNew(t, tc.rows, "self-review-x")
-			if tc.escalated {
-				gitRun(t, fx.repo, "config", "--add", "flow.escalation", "self-review-x:"+tc.key)
-			}
-			rc, out := fx.run(t, tc.key, tc.typ, "opus")
-			if rc != tc.rc || !strings.Contains(out+fx.calls(t), tc.out) {
-				t.Fatalf("rc %d, want %d; output %q, calls %q, want %q", rc, tc.rc, out, fx.calls(t), tc.out)
 			}
 		})
 	}
@@ -399,38 +291,6 @@ func TestCheckLoopDispatchFirstReviewEffort(t *testing.T) {
 			}
 			writeFile(t, fx.repo+"-worktrees/"+lpBranch+"/spectre/changes/"+lpBranch+"/design.md", h+tc.chosen)
 			if rc, out := fx.run(t, "pipeline-fix-6-review-1", tc.typ, "opus"); rc != tc.rc || !strings.Contains(out, tc.out) {
-				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
-			}
-		})
-	}
-}
-
-// TestCheckLoopDispatchSelfReviewFixPairs pins kan-1064's self-review-fix
-// row: the fixer runs on opus or sonnet at flow-medium, flow-low is off its
-// row, and with no marked row an escalated flow-high fix is refused as a
-// pair -- the no-progress answer is a fresh re-plan, never flow-high.
-func TestCheckLoopDispatchSelfReviewFixPairs(t *testing.T) {
-	t.Parallel()
-	const token = "self-review-kan-1-demo"
-	for _, tc := range []struct {
-		name, key, typ, model, prompt string
-		escalated                     bool
-		rc                            int
-		out                           string
-	}{
-		{"opus medium", token + "-fix-1", "flow-medium", "opus", "", false, 0, "LOOP-DISPATCH-OK"},
-		{"sonnet medium", token + "-fix-1", "flow-medium", "sonnet", "", false, 0, "LOOP-DISPATCH-OK"},
-		{"opus low", token + "-fix-1", "flow-low", "opus", "", false, 1, "PAIR —"},
-		{"escalated opus high", token + "-fix-1", "flow-high", "opus", "No-progress escalation\n", true, 1, "PAIR —"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			fx := lpNew(t, lpRowsJSON(token+"-", token, "plan completed", "fix completed"), token)
-			if tc.escalated {
-				gitRun(t, fx.repo, "config", "--add", "flow.escalation", token+":"+tc.key)
-			}
-			fx.prompt = tc.prompt
-			if rc, out := fx.run(t, tc.key, tc.typ, tc.model); rc != tc.rc || !strings.Contains(out, tc.out) {
 				t.Fatalf("rc %d, want %d; output %q, want it to carry %q", rc, tc.rc, out, tc.out)
 			}
 		})

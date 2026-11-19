@@ -21,7 +21,7 @@ func TestCannotAnswerCodes(t *testing.T) {
 		"break-and-prove":          4,
 		"check-hand-notes-in-step": 1,
 		"check-installed-rules":    1,
-		"check-task-commit-fields": 2,
+		"close-task":               2,
 		"check-cleanup-complete":   2,
 		"no-such-guard":            2,
 		"":                         2,
@@ -43,18 +43,18 @@ func TestRunSiblingSelfExec(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	cmd := runSibling(Env{Dir: dir}, "check-task-commit-fields", "a", "b")
-	if cmd.Path != self || !slices.Equal(cmd.Args, []string{self, "check-task-commit-fields", "a", "b"}) || cmd.Dir != dir {
-		t.Fatalf("path %q args %q dir %q; want %q running check-task-commit-fields a b in %q", cmd.Path, cmd.Args, cmd.Dir, self, dir)
+	cmd := runSibling(Env{Dir: dir}, "close-task", "a", "b")
+	if cmd.Path != self || !slices.Equal(cmd.Args, []string{self, "close-task", "a", "b"}) || cmd.Dir != dir {
+		t.Fatalf("path %q args %q dir %q; want %q running close-task a b in %q", cmd.Path, cmd.Args, cmd.Dir, self, dir)
 	}
 	// The real exec: this test binary dispatches a guard name as flow-guard
 	// does, so the sibling answers with its own usage refusal.
-	cmd = runSibling(Env{Dir: dir}, "check-task-commit-fields")
+	cmd = runSibling(Env{Dir: dir}, "close-task")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err = cmd.Run()
 	var ee *exec.ExitError
-	if !errors.As(err, &ee) || ee.ExitCode() != 2 || !strings.Contains(stderr.String(), "usage: flow-guard check-task-commit-fields") {
+	if !errors.As(err, &ee) || ee.ExitCode() != 2 || !strings.Contains(stderr.String(), "usage: flow-guard close-task") {
 		t.Fatalf("the self-exec'd sibling: %v, stderr %q; want exit 2 and its usage", err, stderr.String())
 	}
 }
@@ -97,10 +97,10 @@ func cwdEnv(root, dir string) Env {
 func TestCwdCheckoutReexec(t *testing.T) {
 	t.Parallel()
 	main, wt, bare := cwdFixture(t)
-	if got, ok := CwdCheckout(cwdEnv(main, wt), "check-plan-shape"); !ok || got != wt+"/scripts/flow-guard" {
+	if got, ok := CwdCheckout(cwdEnv(main, wt), "check-references"); !ok || got != wt+"/scripts/flow-guard" {
 		t.Errorf("from another worktree: %q %v; want %s/scripts/flow-guard", got, ok, wt)
 	}
-	if got, ok := CwdCheckout(cwdEnv(main, wt+"/scripts"), "check-plan-shape"); !ok || got != wt+"/scripts/flow-guard" {
+	if got, ok := CwdCheckout(cwdEnv(main, wt+"/scripts"), "check-references"); !ok || got != wt+"/scripts/flow-guard" {
 		t.Errorf("from inside another worktree: %q %v; want %s/scripts/flow-guard", got, ok, wt)
 	}
 
@@ -121,7 +121,7 @@ func TestCwdCheckoutReexec(t *testing.T) {
 		{"a worktree without scripts/flow-guard", main, bare},
 		{"no FLOW_GUARD_REPO_ROOT", "", wt},
 	} {
-		if got, ok := CwdCheckout(cwdEnv(c.root, c.dir), "check-plan-shape"); ok {
+		if got, ok := CwdCheckout(cwdEnv(c.root, c.dir), "check-references"); ok {
 			t.Errorf("from %s: re-exec'd %q; want no re-exec", c.what, got)
 		}
 	}
@@ -134,8 +134,8 @@ func TestCwdCheckoutGuardSet(t *testing.T) {
 	want := []string{
 		"check-ask-silence", "check-dev-stack-fresh", "check-dispatch-paragraphs", "check-guard-calls",
 		"check-installed-citations", "check-markdown-integrity", "check-mutation-reproducer-pin", "check-no-bash",
-		"check-normative-inventory", "check-plan-provenance", "check-plan-shape", "check-python-suppressions",
-		"check-references", "check-spec-reach", "check-stage-mark-calls", "check-task-build-green",
+		"check-normative-inventory", "check-python-suppressions",
+		"check-references", "check-spec-reach",
 		"check-uitest-overrides", "check-verbatim-moves", "plan-dispatch-bundles",
 	}
 	if got := slices.Sorted(maps.Keys(selfJudging)); !slices.Equal(got, want) {

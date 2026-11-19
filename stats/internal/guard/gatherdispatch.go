@@ -154,7 +154,7 @@ import (
 // directory stats/internal/guard/changeplan.go's rules resolve through the optional
 // seventh argument <canonical-worktree>, or — only when that argument is
 // empty — through <worktree>/<spec-root>/peers, the same resolution order
-// flow-guard check-unfinished-work and flow-guard check-task-commit-fields have used since
+// flow-guard check-unfinished-work has used since
 // KAN-363. The caller (skills/flow/implement.md's per-bundle gather,
 // skills/flow/review-panel.md's rebuild) passes the canonical worktree on
 // every call: the member of the run's resolved worktree set whose own

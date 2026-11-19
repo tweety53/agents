@@ -57,40 +57,6 @@ func TestCheckTaskRecords(t *testing.T) {
 	want("case 3 commit without tick reported", r.rc == 1 && has(r, "task 1 not ticked but commit"), r)
 
 	fx = trRepo(t)
-	fx.task(1, "x", "feat(a): sneaky", "green")
-	fx.commitAll("docs(plan): fixture plan")
-	fx.commitFile("src/f1.go", "feat(a): declared")
-	fx.commitFile("src/undeclared.go", "feat(a): sneaky")
-	r = run(Env{}, fx.root)
-	want("case 4 undeclared commit file reported", r.rc == 1 && has(r, "src/undeclared.go is not declared"), r)
-
-	fx = trRepo(t)
-	writeFile(t, fx.tasks, "- [x] 1. Task 1\n**Files:** `src/f1.go` `src/f9.go`\n**Tests:** none\n**Commit:** `feat(a): partial`\n**Build:** green\n**After:** none\n")
-	fx.commitAll("docs(plan): fixture plan")
-	fx.commitFile("src/f1.go", "feat(a): partial")
-	r = run(Env{}, fx.root)
-	want("case 5 declared-but-untouched file reported", r.rc == 1 && has(r, "src/f9.go is not touched"), r)
-
-	fx = trRepo(t)
-	fx.task(1, "x", "feat(a): collateral", "green", "**Allowed-collateral:** `gen/**`")
-	fx.commitAll("docs(plan): fixture plan")
-	writeFile(t, fx.root+"/src/f1.go", "f1\n")
-	writeFile(t, fx.root+"/gen/generated.go", "gen\n")
-	fx.commitAll("feat(a): collateral")
-	r = run(Env{}, fx.root)
-	want("case 6 allowed-collateral glob passes", r.rc == 0, r)
-
-	fx = trRepo(t)
-	fx.task(1, " ", "-", "yellow")
-	r = run(Env{}, fx.root)
-	want("case 7 malformed Build tag reported", r.rc == 1 && has(r, "malformed **Build:** tag"), r)
-
-	fx = trRepo(t)
-	writeFile(t, fx.tasks, "- [ ] 1. Task 1\n**Files:** `src/f1.go`\n**Tests:** none\n**After:** none\n")
-	r = run(Env{}, fx.root)
-	want("case 8 missing Build tag reported", r.rc == 1 && has(r, "has no **Build:** tag"), r)
-
-	fx = trRepo(t)
 	if err := os.RemoveAll(fx.root + "/spectre"); err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +169,6 @@ func TestCheckTaskRecords(t *testing.T) {
 	fx.task(4, "x", "feat(a): partial", "green", "**Allowed-collateral:** `gen/**`")
 	fx.commitAll("docs(plan): fixture plan")
 	fx.commitFile("src/undeclared.go", "feat(a): sneaky")
-	sneaky := fx.head(t)[:12]
 	fx.commitFile("src/f2.go", "feat(a): early")
 	early := fx.head(t)[:12]
 	fx.commitFile("gen/x.go", "feat(a): partial")
@@ -211,13 +176,9 @@ func TestCheckTaskRecords(t *testing.T) {
 	rel := "spectre/changes/fixture-change/tasks.md"
 	r = run(Env{Dir: fx.root})
 	want("pin: every violation shape on stdout, in order, from the working directory's root", r.rc == 1 && r.err == "" && r.stdout == ""+
-		rel+": task 1 has a malformed **Build:** tag: 'yellow'\n"+
 		rel+": task 2 not ticked but commit with subject 'feat(a): early' exists in origin/main..HEAD ("+early+")\n"+
 		rel+": task 3 ticked but no commit with subject 'feat(a): gone' reachable from HEAD\n"+
-		rel+": task 1: file src/undeclared.go is not declared in Files: and not covered by Allowed-collateral:\n"+
-		rel+": task 1: declared file src/f1.go is not touched by its commit "+sneaky+"\n"+
-		rel+": task 4: subject 'feat(a): partial' is carried by 2 commits in origin/main..HEAD; expected one\n"+
-		rel+": task 4: declared file src/f4.go is not touched by its commit "+fx.head(t)[:12]+"\n", r)
+		rel+": task 4: subject 'feat(a): partial' is carried by 2 commits in origin/main..HEAD; expected one\n", r)
 	r = run(Env{}, "a", "b", "c")
 	want("pin: the usage line", r.rc == 2 && r.stdout == "" && r.err == "usage: flow-guard check-task-records [repo-root] [base-ref]\n", r)
 	missing := t.TempDir() + "/nope"
@@ -380,44 +341,6 @@ func TestCheckTaskRecordsRefusesATickedTaskWithAnUntickedStep(t *testing.T) {
 			got := strings.Contains(r.out, "task 1") && strings.Contains(r.out, "unticked step")
 			if got != c.want || (r.rc == 1) != c.want {
 				t.Fatalf("rc=%d out=%q, want violation %v", r.rc, r.out, c.want)
-			}
-		})
-	}
-}
-
-// TestCheckTaskRecordsJoinsTaskIdFixCommits: a non-merge commit whose
-// Task-Id: trailer names the task joins its files to the subject commit's
-// (kan-1067 self-review, 1-A).
-func TestCheckTaskRecordsJoinsTaskIdFixCommits(t *testing.T) {
-	smoke.Heavy(t)
-	cases := []struct {
-		name, path, ids string
-		rc              int
-		has             []string
-	}{
-		{"own fix commit joins", "src/f2.go", "1", 0, nil},
-		{"shared trailer joins", "src/f2.go", "1+2", 0, nil},
-		{"another task's fix adds nothing", "src/f2.go", "2", 1, []string{"src/f2.go is not touched"}},
-		{"undeclared fix path reported", "src/f9.go", "1", 1, []string{"src/f9.go is not declared", "src/f2.go is not touched"}},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			fx := trRepo(t)
-			writeFile(t, fx.tasks, "- [x] 1. Task 1\n**Files:** `src/f1.go` `src/f2.go`\n**Tests:** none\n**Commit:** `feat(a): one`\n**Build:** green\n**After:** none\n")
-			fx.commitAll("docs(plan): fixture plan")
-			fx.commitFile("src/f1.go", "feat(a): one")
-			fx.commitFile(c.path, "fix(a): review fix\n\nTask-Id: "+c.ids)
-			r := runGuard("check-task-records", []string{fx.root}, Env{Getenv: os.Getenv})
-			if r.rc != c.rc {
-				t.Fatalf("rc=%d want %d out=%q", r.rc, c.rc, r.out)
-			}
-			if c.rc == 0 && r.out != "" {
-				t.Fatalf("want silent, out=%q", r.out)
-			}
-			for _, s := range c.has {
-				if !strings.Contains(r.out, s) {
-					t.Fatalf("out %q lacks %q", r.out, s)
-				}
 			}
 		})
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,15 +14,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
-	"github.com/tweety53/agents/stats/internal/guard"
-	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/stages"
 )
 
@@ -68,9 +64,7 @@ reached or a usage mistake (KAN-1073: integrate's land step checks
 flow.self-review this way).
 
 stage keys prints every documented stage key, one per line, from this
-checkout's own internal/stages table -- the vocabulary's one served source;
-the check-stage-mark-calls guard consumes this output rather than keeping a
-transcription of its own.
+checkout's own internal/stages table -- the vocabulary's one served source.
 
 -request tags a begin with the /flow-interactive request it works on: a
 positive integer, refused (exit 2) with any other -command.
@@ -291,23 +285,11 @@ func validateSessionToken(sessionToken string) error {
 	return nil
 }
 
-// sessionTokenStampPattern is the run's UTC start time a stage mark's token
-// ends in -- Stage marks (skills/flow-contracts/pipeline.md).
-var sessionTokenStampPattern = regexp.MustCompile(`-\d{8}T\d{6}Z$`)
-
-// validateSessionTokenStamp refuses a stage mark's token that does not end in
-// the run's start time, UTC to the second (kan-1029's self-review:
-// `mf-k1029-PLACEHOLDER` was accepted and its rows bound to no run). Only the
-// stage marks check it: a record command's token is the same literal, and a
-// run that began before the rule switches to a stamped token at its next
-// mark, attributed to the same session as the old one.
-func validateSessionTokenStamp(sessionToken string) error {
-	if !sessionTokenStampPattern.MatchString(sessionToken) {
-		return fmt.Errorf("-session-token %q does not end in the run's start time, UTC to the second -- "+
-			"read it once with `date -u +%%Y%%m%%dT%%H%%M%%SZ` and type it as a literal, e.g. mf-k1029-20261024T002513Z, "+
-			"then use that token at every later mark of this run", sessionToken)
-	}
-	return nil
+// defaultSessionToken is the token a mark given no -session-token carries:
+// the change name (or the -jira-key mark's journal name) and the mark's UTC
+// time to the second.
+func defaultSessionToken(f stageIdentityFlags) string {
+	return journalName(f) + "-" + time.Now().UTC().Format("20060102T150405Z")
 }
 
 // stageJournalPath is where a stage mark's fallback intent is journalled:
@@ -382,7 +364,7 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
-	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (required)")
+	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (optional: defaults to <change>-<UTC start time>)")
 	requestFlag := fset.Int("request", 0, "the /flow-interactive request this run works on, a positive integer (only with -command /flow-interactive)")
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
@@ -413,18 +395,9 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 		request = requestFlag
 	}
 	if *sessionTokenFlag == "" {
-		// A missing -session-token is a caller mistake, not a stage outcome:
-		// exit non-zero naming the flag, exactly as -command/-stage above
-		// already do -- the one class of nonzero exit the never-block
-		// rule permits (tasks.md, "Step 1: The column and the flags").
-		stageErr(stderr, "begin", errors.New("-session-token is required"))
-		return 2
+		*sessionTokenFlag = defaultSessionToken(f)
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
-		stageErr(stderr, "begin", err)
-		return 2
-	}
-	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
 		stageErr(stderr, "begin", err)
 		return 2
 	}
@@ -433,15 +406,6 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 		stageErr(stderr, "begin", err)
 		return 2
 	}
-	// On a begin only flow.decide is gated (the gate picks which commands);
-	// the brainstorm and self-review triggers inside it belong to the end
-	// path.
-	if f.stage == "flow.decide" {
-		if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
-			return code
-		}
-	}
-
 	projectKey, mainCheckout, err := fallback.ProjectKey(f.dir)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
@@ -614,31 +578,6 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 		return 2
 	}
 
-	if code := gateLiveVerification(f, *outcome, stderr, getenv); code != 0 {
-		return code
-	}
-	if code := gateVerifyNotBlocked(ctx, f, *outcome, stderr); code != 0 {
-		return code
-	}
-	if code := gateBrainstormDispatchesClosed(ctx, f, stderr); code != 0 {
-		return code
-	}
-	if code := gatePanelFindingsClosed(f, *outcome, stderr, getenv); code != 0 {
-		return code
-	}
-	if code := gatePanelMergerRan(ctx, f, *outcome, stderr); code != 0 {
-		return code
-	}
-	if code := gateSelfReviewPassRan(ctx, f, *outcome, stderr); code != 0 {
-		return code
-	}
-	if code := gateVisualVerifyTrailers(ctx, f, *outcome, stderr, getenv); code != 0 {
-		return code
-	}
-	if code := gateFallbackRetried(ctx, f, *outcome, stderr); code != 0 {
-		return code
-	}
-
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
@@ -682,305 +621,6 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 	}
 }
 
-// gateLiveVerification refuses a completed /flow flow.verify end until
-// check-live-verification passes on the change's directory under -C, run
-// in-process (kan-1029: the parent ended the stage with no gate chained
-// before it). Exit 1 or 2 both refuse: a directory the guard cannot read is
-// a gate that did not pass. Every other end passes through. With no -C it
-// reads the checkout carrying the change, a linked worktree first, as
-// gateVisualVerifyTrailers does: a /flow parent ends from the main checkout,
-// which holds no change directory (kan-1086 self-review, F5).
-func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer, getenv func(string) string) int {
-	if f.command != "/flow" || f.stage != "flow.verify" || outcome != "completed" {
-		return 0
-	}
-	dir := f.dir
-	if !f.dirGiven {
-		if main, carrying, err := changeCheckouts(dir, f.name); err == nil {
-			for _, wt := range carrying {
-				dir = wt
-				if wt != main {
-					break
-				}
-			}
-		}
-	}
-	plan, err := planPath(dir, f.name)
-	if err != nil {
-		stageErr(stderr, "end", err)
-		return 2
-	}
-	root := filepath.Dir(plan)
-	if code := guard.Registry["check-live-verification"]([]string{root}, guard.Env{Getenv: getenv, Dir: dir}, stderr, stderr); code != 0 {
-		fmt.Fprintf(stderr, "flow: stage end refused: check-live-verification exited %d on %s -- "+
-			"run **Live check** and write its record, or pass -C the worktree holding the change\n", code, root)
-		return 1
-	}
-	return 0
-}
-
-// gateVerifyNotBlocked refuses a completed /flow flow.verify end while any
-// worktree's newest verify dispatch by start -- key `verify[-<n>]` or a
-// re-run `verify-fix-<k>` (step 4 of The loop, skills/flow/verify-fix-loop.md;
-// kan-1117 self-review, F5), suffixed `-<repository name>` on a
-// multi-worktree run -- ended blocked: the stage would read completed over a verify that did not
-// pass (KAN-1071 self-review: stage run 18938). A failed record read refuses
-// nothing.
-func gateVerifyNotBlocked(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
-	if f.command != "/flow" || f.stage != "flow.verify" || outcome != "completed" {
-		return 0
-	}
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		return 0
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.name)
-	})
-	if err != nil {
-		return 0
-	}
-	newest := map[string]*records.Dispatch{}
-	for i, d := range run.Dispatches {
-		isVerify := d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")
-		if !isVerify {
-			continue
-		}
-		repo := verifyKeyRepository(d.Key)
-		if n := newest[repo]; n == nil || d.StartedAt.After(n.StartedAt) {
-			newest[repo] = &run.Dispatches[i]
-		}
-	}
-	// A bare-key row older than every suffixed one is a single-worktree leftover
-	// of an earlier attempt, superseded by the suffixed re-runs (kan-1099).
-	if bare := newest[""]; bare != nil {
-		for repo, d := range newest {
-			if repo != "" && d.StartedAt.After(bare.StartedAt) {
-				delete(newest, "")
-				break
-			}
-		}
-	}
-	for _, d := range newest {
-		if d.Outcome == "blocked" {
-			fmt.Fprintf(stderr, "flow: stage end refused: the newest verify dispatch %s ended blocked -- end flow.verify -outcome blocked and verify again in a new attempt\n", d.Key)
-			return 1
-		}
-	}
-	return 0
-}
-
-// verifyKeyRepository returns the `-<repository name>` suffix of a verify
-// dispatch key `verify[-<n>][-<repository name>]` or
-// `verify-fix-<k>[-<repository name>]` (step 4 of The loop,
-// skills/flow/verify-fix-loop.md; kan-1117 self-review, F5), "" when it has
-// none.
-func verifyKeyRepository(key string) string {
-	rest := strings.TrimPrefix(strings.TrimPrefix(key, "verify"), "-")
-	rest = strings.TrimPrefix(rest, "fix-")
-	round, tail, _ := strings.Cut(rest, "-")
-	if _, err := strconv.Atoi(round); err == nil {
-		return tail
-	}
-	return rest
-}
-
-// gateFallbackRetried refuses a completed /flow end of flow.sdd-tdd,
-// flow.review-panel or flow.verify while a dispatch row ended `fallback` --
-// a key not itself ending `-retry` or `-retry-<n>` -- has no `<key>-retry`
-// row: skills/flow/implement.md (The handshake) retries a first mismatch
-// under that key, and a stage ended without it shipped the mismatched work
-// (kan-1087 self-review, F8). A failed record read refuses nothing.
-func gateFallbackRetried(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
-	if f.command != "/flow" || outcome != "completed" ||
-		f.stage != "flow.sdd-tdd" && f.stage != "flow.review-panel" && f.stage != "flow.verify" {
-		return 0
-	}
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		return 0
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.name)
-	})
-	if err != nil {
-		return 0
-	}
-	keys := map[string]bool{}
-	for _, d := range run.Dispatches {
-		keys[d.Key] = true
-	}
-	var unretried []string
-	for _, d := range run.Dispatches {
-		if d.Outcome == "fallback" && !retryKey.MatchString(d.Key) && !keys[d.Key+"-retry"] {
-			unretried = append(unretried, fmt.Sprintf("%s (retry under %s-retry, skills/flow/implement.md, The handshake)", d.Key, d.Key))
-		}
-	}
-	if len(unretried) == 0 {
-		return 0
-	}
-	fmt.Fprintf(stderr, "flow: stage end refused: %s ends with fallback row(s) never retried: %s\n", f.stage, strings.Join(unretried, "; "))
-	return 1
-}
-
-// retryKey is a dispatch key that is itself a retry: its fallback needs no further row.
-var retryKey = regexp.MustCompile(`-retry(-[0-9]+)?$`)
-
-// gateBrainstormDispatchesClosed refuses a /flow or /flow-plan flow.brainstorm end, of any
-// outcome, while a dispatch row of the change has no end: brainstorm hands
-// over to a different session, which can only close the row with a guessed
-// end (kan-1046 self-review, 1e: explore-1 ended 21 minutes after its agent
-// handed back). It refuses a /flow, /flow-fast or /flow-interactive
-// flow.self-review end the
-// same way: the self-review pass's row, which enforce-loop-dispatch.py opens
-// under the change, is closed by this session when the pass hands back, and
-// a stage ended over it would leave it running on the board for good. It
-// refuses a /flow or /flow-plan flow.decide begin while a planning dispatch row -- a key
-// opening plan-, explore- or design- -- has no end: decide follows the
-// planners, so a row still open there was left open past its planner's
-// hand-back and would be closed hours late (kan-1057 self-review, F4: plan-3
-// and plan-4 ended at the next session's sweep). /flow-plan shares both
-// planning gates because its capture plans through the same planner role and
-// records the same rows. It refuses a
-// /flow-interactive flow.sdd-tdd end, of any outcome, while an operator-
-// dispatch row has no end: the request that dispatched an operator-asked
-// subagent closes its row when the agent reports, and a request ended over
-// it left the row open for good (kan-1080 self-review, F4: 8 of 9 rows). It
-// refuses a /flow flow.sdd-tdd end, of any outcome, while a task- dispatch
-// row has no end (kan-1086 self-review, F4: an implementer row stayed open
-// past the stage end until visual-verify's begin refused). A failed record
-// read refuses nothing.
-func gateBrainstormDispatchesClosed(ctx context.Context, f stageIdentityFlags, stderr io.Writer) int {
-	plans := f.command == "/flow" || f.command == "/flow-plan"
-	brainstorm := plans && f.stage == "flow.brainstorm"
-	selfReview := (f.command == "/flow" || f.command == "/flow-fast" || f.command == "/flow-interactive") && f.stage == "flow.self-review"
-	decide := plans && f.stage == "flow.decide"
-	request := f.command == "/flow-interactive" && f.stage == "flow.sdd-tdd"
-	tasks := f.command == "/flow" && f.stage == "flow.sdd-tdd"
-	if !brainstorm && !selfReview && !decide && !request && !tasks {
-		return 0
-	}
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		return 0
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.name)
-	})
-	if err != nil {
-		return 0
-	}
-	var open []string
-	for _, d := range run.Dispatches {
-		planning := strings.HasPrefix(d.Key, "plan-") || strings.HasPrefix(d.Key, "explore-") || strings.HasPrefix(d.Key, "design-")
-		if d.EndedAt == nil && (!decide || planning) && (!request || strings.HasPrefix(d.Key, "operator-")) && (!tasks || strings.HasPrefix(d.Key, "task-")) {
-			open = append(open, fmt.Sprintf("%s (session %s: `flow record dispatch end -key %s -session-token %s -outcome completed|aborted`)", d.Key, d.SessionToken, d.Key, d.SessionToken))
-		}
-	}
-	if len(open) == 0 {
-		return 0
-	}
-	if decide {
-		fmt.Fprintf(stderr, "flow: stage begin refused: flow.decide begins with planning dispatch rows still open: %s -- end each when its agent hands back\n", strings.Join(open, "; "))
-		return 1
-	}
-	fmt.Fprintf(stderr, "flow: stage end refused: %s ends with dispatch rows still open: %s -- end each when its agent hands back\n", f.stage, strings.Join(open, "; "))
-	return 1
-}
-
-// gatePanelFindingsClosed refuses a completed /flow flow.review-panel end
-// the findings-closed guard refuses, so a round closed without the guard
-// never reaches integrate (kan-1017). Every other end passes through. With
-// no -C it runs against the checkout carrying the change, a linked worktree
-// first: a /flow parent ends from the main checkout, which holds none of the
-// change's report files (kan-1025).
-func gatePanelFindingsClosed(f stageIdentityFlags, outcome string, stderr io.Writer, getenv func(string) string) int {
-	if f.command != "/flow" || f.stage != "flow.review-panel" || outcome != "completed" {
-		return 0
-	}
-	dir := f.dir
-	if !f.dirGiven {
-		if main, carrying, err := changeCheckouts(dir, f.name); err == nil {
-			for _, wt := range carrying {
-				if wt != main {
-					dir = wt
-					break
-				}
-				dir = wt
-			}
-		}
-	}
-	if code := guard.Registry["check-panel-findings-closed"]([]string{dir, f.name}, guard.Env{Getenv: getenv, Dir: dir}, stderr, stderr); code != 0 {
-		fmt.Fprintf(stderr, "flow: stage end refused: check-panel-findings-closed exited %d\n", code)
-		return 1
-	}
-	return 0
-}
-
-// gatePanelMergerRan refuses a completed /flow flow.review-panel end while
-// the highest panel round holding a reviewer row holds no completed
-// panel-<r>-merger row: mergerMissing otherwise runs only at the next
-// round's begin, which a round that closes the panel never reaches
-// (kan-1075 self-review, F14). A failed record read refuses nothing.
-func gatePanelMergerRan(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
-	if f.command != "/flow" || f.stage != "flow.review-panel" || outcome != "completed" {
-		return 0
-	}
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		return 0
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.name)
-	})
-	if err != nil {
-		return 0
-	}
-	top := -1
-	for _, d := range run.Dispatches {
-		if r, ok := records.PanelDispatchRound(d); ok && r > top {
-			top = r
-		}
-	}
-	if top < 0 || !mergerMissing(run, top) {
-		return 0
-	}
-	fmt.Fprintf(stderr, "flow: stage end refused: %s\n", mergerMissingMsg(top))
-	return 1
-}
-
-// gateSelfReviewPassRan refuses a completed /flow, /flow-fast or
-// /flow-interactive flow.self-review end while the change holds no
-// self-review-<name>-pass dispatch row ended completed: an explicit stop
-// marked the stage completed without running the pass (kan-1070
-// self-review, F1). Any other outcome passes; a failed record read refuses
-// nothing.
-func gateSelfReviewPassRan(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer) int {
-	if (f.command != "/flow" && f.command != "/flow-fast" && f.command != "/flow-interactive") ||
-		f.stage != "flow.self-review" || outcome != "completed" {
-		return 0
-	}
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		return 0
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.name)
-	})
-	if err != nil {
-		return 0
-	}
-	key := "self-review-" + f.name + "-pass"
-	for _, d := range run.Dispatches {
-		if d.Key == key && d.Outcome == "completed" {
-			return 0
-		}
-	}
-	fmt.Fprintf(stderr, "flow: stage end refused: flow.self-review ends completed with no completed %s dispatch row -- "+
-		"run the self-review pass (step 2 of skills/flow-self-review/SKILL.md) before ending the stage\n", key)
-	return 1
-}
-
 // gateVisualVerifyTrailers refuses a completed /flow flow.visual-verify end
 // while a worktree of the change's state map carries a commit outside every
 // task with no Flow-Key: trailer, so the fix loop's own commits are amended
@@ -1017,46 +657,6 @@ func changeWorktreeMap(ctx context.Context, addr string, timeout time.Duration, 
 	}
 	slices.Sort(worktrees)
 	return worktrees, nil
-}
-
-func gateVisualVerifyTrailers(ctx context.Context, f stageIdentityFlags, outcome string, stderr io.Writer, getenv func(string) string) int {
-	if f.command != "/flow" || f.stage != "flow.visual-verify" || outcome != "completed" {
-		return 0
-	}
-	dir := f.dir
-	if !f.dirGiven {
-		if main, carrying, err := changeCheckouts(dir, f.name); err == nil {
-			for _, wt := range carrying {
-				dir = wt
-				if wt != main {
-					break
-				}
-			}
-		}
-	}
-	worktrees, err := changeWorktreeMap(ctx, f.addr, f.timeout, dir, f.name)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: stage end refused: cannot read %s's worktree map: %v\n", f.name, err)
-		return 1
-	}
-	env := guard.Env{Getenv: getenv, Dir: dir}
-	for _, wt := range worktrees {
-		var base bytes.Buffer
-		if code := guard.Registry["resolve-base-branch"]([]string{wt}, env, &base, stderr); code != 0 {
-			fmt.Fprintf(stderr, "flow: stage end refused: resolve-base-branch exited %d on %s\n", code, wt)
-			return 1
-		}
-		mb, err := exec.Command("git", "-C", wt, "merge-base", "HEAD", "origin/"+strings.TrimSpace(base.String())).Output()
-		if err != nil {
-			fmt.Fprintf(stderr, "flow: stage end refused: no merge base with origin/%s in %s\n", strings.TrimSpace(base.String()), wt)
-			return 1
-		}
-		if code := guard.Registry["check-untasked-commits"]([]string{wt, strings.TrimSpace(string(mb)), "--not-remotes"}, env, stderr, stderr); code != 0 {
-			fmt.Fprintf(stderr, "flow: stage end refused: commits outside every task lack their Flow-Key: trailer in %s — amend each with -m \"Flow-Key: flow.visual-verify\" before anything is pushed\n", wt)
-			return 1
-		}
-	}
-	return 0
 }
 
 // buildEndMetrics assembles the metrics patch `stage end`'s own flags
@@ -1138,10 +738,9 @@ func endStage(ctx context.Context, addr string, timeout time.Duration, req clien
 
 // runStageKeys implements `flow stage keys`: the served stage-key
 // vocabulary, one key per line, exit 0. It is deliberately pure local
-// output -- no store contact, no project resolution, no flags -- because
-// its consumer, the check-stage-mark-calls guard, runs it from any
-// checkout at lint time and must get the checked-out tree's own
-// internal/stages table, never a daemon's and never an installed binary's.
+// output -- no store contact, no project resolution, no flags -- so it
+// prints the checked-out tree's own internal/stages table, never a
+// daemon's and never an installed binary's.
 // An unexpected positional argument is the one usage error it reports:
 // the same exit-2 contract `flow state list` holds, so a mistyped
 // invocation fails loudly instead of printing a vocabulary nobody asked
@@ -1204,7 +803,7 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
-	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (required)")
+	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (optional: defaults to <change>-<UTC start time>)")
 	pos, err := parseInterspersed(fset, args[:sep])
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -1220,14 +819,9 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 		return 2
 	}
 	if *sessionTokenFlag == "" {
-		stageErr(stderr, "wrap", errors.New("-session-token is required"))
-		return 2
+		*sessionTokenFlag = defaultSessionToken(f)
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
-		stageErr(stderr, "wrap", err)
-		return 2
-	}
-	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
 		stageErr(stderr, "wrap", err)
 		return 2
 	}
@@ -1396,7 +990,7 @@ func runStageMark(ctx context.Context, args []string, getenv func(string) string
 	stagesFlag := fset.String("stages", "", "comma-separated stage keys, each marked begin then end completed, in order")
 	fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
-	fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (required)")
+	fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (optional: defaults to <change>-<UTC start time>)")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			fmt.Fprint(stderr, stageUsage)

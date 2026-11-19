@@ -605,10 +605,7 @@ type cicCandidate struct {
 }
 
 // cicCandidates is scan_file_for_citations. THE CLASSIFIER — block
-// structure before tokens, following the ordering check-plan-provenance's
-// own docstring records as the reason it is not a regular expression,
-// though far narrower in scope than that guard's fence/container parser:
-// this one only needs to know whether a line sits inside a fenced
+// structure before tokens, not a regular expression: this one only needs to know whether a line sits inside a fenced
 // bash/sh/zsh block, tracked the same way guardsymlinks.go's gsScanMD
 // does (a fence's opening backtick run sets
 // its length and language; closing requires a run at least as long, with
@@ -855,9 +852,7 @@ func cicIsCitation(token string, rootFiles map[string]bool) bool {
 		return false
 	}
 	// A NON-FINAL `/`-delimited segment ending in `:` is not a path segment
-	// — this excludes a fragment of check-plan-provenance's own error
-	// message (`measured:/predicted:`), quoted verbatim rather than
-	// reworded. Narrowed to non-final (panel round 3) after the first cut
+	// — this excludes a fragment like `measured:/predicted:`. Narrowed to non-final (panel round 3) after the first cut
 	// silently dropped a real citation ending its own span in a bare colon
 	// (`.flow/project.md:`, from prose reading "see `.flow/project.md:` for
 	// the list") — a final segment's trailing colon is just punctuation.

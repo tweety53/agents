@@ -17,6 +17,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
+	"unicode"
+	"unicode/utf8"
 )
 
 // tcfPlanLines is open(encoding="utf-8").read().splitlines(): strict UTF-8
@@ -108,7 +111,7 @@ func tcfBodyFields(body []string) map[string][]string {
 	return fields
 }
 
-// tcfResolveTasksMD is the plan resolution check-task-commit-fields and
+// tcfResolveTasksMD is the plan resolution close-task and
 // check-review-gate share, so the two cannot drift: the tasks.md the named
 // change, a satellite link or the glob-path resolves to. An empty path is a
 // refusal -- detail is its could-not-judge text, or empty when stderr
@@ -518,13 +521,6 @@ var (
 	tcfDottedIDRE    = regexp.MustCompile(`[0-9]+(?:\.[0-9]+)*`)
 )
 
-// tcfRepairsOpenRE is REPAIRS_OPEN_RE, the test-repair annotation (KAN-794):
-// a Tests value opening with `none` (bold `**none**` included), an optional em dash,
-// en dash or `--`, then `repairs existing tests:` -- the phrase and its colon required, so
-// "none added — repairs existing tests" is not the form. Its only effect is
-// check-plan-shape's F4 exemption.
-var tcfRepairsOpenRE = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b[*_]*[` + tcfWS + `]*(?:[—–]|--)?[` + tcfWS + `]*repairs[` + tcfWS + `]+existing[` + tcfWS + `]+tests[` + tcfWS + `]*:`)
-
 // AFTER_FIELD_RE is the field's presence on one physical line; AFTER_VALUE_RE
 // the gate: a value is `Task <ids>` or the literal `none`, nothing else.
 var (
@@ -748,8 +744,7 @@ func tcfReadPlan(env Env, path string) ([]string, error) {
 }
 
 // tcfReadPlanTyped is tcfReadPlan keeping a decode failure's
-// "UnicodeDecodeError: " prefix, which check-plan-shape and
-// check-task-build-green print after "cannot read file: ".
+// "UnicodeDecodeError: " prefix.
 func tcfReadPlanTyped(env Env, path string) ([]string, error) {
 	b, err := os.ReadFile(psAbs(env, path))
 	if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
@@ -782,4 +777,807 @@ func tcfFastPlan(worktree, name string) string {
 		return p
 	}
 	return ""
+}
+
+// psWorse combines two exit codes as the wrapper's check_one did: 2 beats
+// any other failure, which beats 0.
+func psWorse(a, b int) int {
+	switch {
+	case a == 2 || b == 2:
+		return 2
+	case a != 0 || b != 0:
+		return 1
+	}
+	return 0
+}
+
+func psAbs(env Env, p string) string {
+	if p == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(env.Dir, p)
+}
+
+// tcfRepoCommit is one "<worktree>=<sha>" pair of the third argument's
+// per-repository commit map — or the single-commit form's one implicit pair.
+type tcfRepoCommit struct{ worktree, commit string }
+
+// tcfCrash is an exception check-task-commit-fields.py's main does not
+// catch: Python printed a traceback and exited 1. Its message is the
+// traceback's last line; the frames above it have no Go equivalent.
+type tcfCrash struct{ msg string }
+
+func (c tcfCrash) Error() string { return c.msg }
+
+// ---- lib/plan_grammar.py ----
+
+// tcfWS is Python's str \s: the characters str.isspace() accepts.
+const tcfWS = `\t\n\v\f\r \x{1c}-\x{1f}\x{85}\p{Z}`
+
+var (
+	tcfFenceRE    = regexp.MustCompile("^ {0,3}(`{3,}|~{3,})")
+	tcfTaskLineRE = regexp.MustCompile(`^- \[([ x])\] ([0-9]+)\. `)
+	tcfBoundaryRE = regexp.MustCompile(`^#{2,3}(?:[` + tcfWS + `]|$)`)
+)
+
+func tcfIsSpace(r rune) bool { return unicode.IsSpace(r) || r >= 0x1c && r <= 0x1f }
+
+// tcfStrip is str.strip().
+func tcfStrip(s string) string { return strings.TrimFunc(s, tcfIsSpace) }
+
+type tcfTaskBody struct {
+	id       string
+	taskLine int // 1-based line of the task line; the body starts right after it
+	lines    []string
+}
+
+// tcfIterTasks is iter_tasks.
+func tcfIterTasks(lines []string) []tcfTaskBody {
+	var tasks []tcfTaskBody
+	open, openID, inFence := -1, "", false
+	closeAt := func(end int) {
+		if open >= 0 {
+			tasks = append(tasks, tcfTaskBody{openID, open + 1, lines[open+1 : end]})
+		}
+	}
+	for i, line := range lines {
+		if tcfFenceRE.MatchString(line) {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		if m := tcfTaskLineRE.FindStringSubmatch(line); m != nil {
+			closeAt(i)
+			open, openID = i, m[2]
+			continue
+		}
+		if tcfBoundaryRE.MatchString(line) {
+			closeAt(i)
+			open = -1
+		}
+	}
+	closeAt(len(lines))
+	return tasks
+}
+
+// tcfSelectTask is select_task: the first task carrying taskID, or nil.
+func tcfSelectTask(lines []string, taskID string) *tcfTaskBody {
+	for _, t := range tcfIterTasks(lines) {
+		if t.id == taskID {
+			return &t
+		}
+	}
+	return nil
+}
+
+// ---- check-task-commit-fields.py: field grammar ----
+
+var (
+	tcfBacktickRE  = regexp.MustCompile("`([^`]+)`")
+	tcfCaseLabelRE = regexp.MustCompile(`(?i)\bCase[` + tcfWS + `]+([0-9]+[a-z]?)\b`)
+	tcfNoneOpenRE  = regexp.MustCompile(`(?i)^[` + tcfWS + `*_]*none\b`)
+)
+
+type tcfTestSpec struct {
+	label   string
+	pattern *regexp.Regexp
+}
+
+// tcfTask is TaskFields; a nil pointer is Python's None.
+type tcfTask struct {
+	id                string
+	files             []string
+	tests             []tcfTestSpec
+	testsValue        string
+	allowedCollateral []string
+	commit            *string
+	baseline          *[2]*big.Int
+	baselineMeasured  []string
+	build             string
+	squashValue       *string
+	squashPartners    []string
+	unclosedFenceLine int // 0: every fence the body opens is closed
+}
+
+// tcfText is Python's text-mode decode: strict UTF-8, then universal
+// newlines.
+func tcfText(b []byte) (string, error) {
+	if !utf8.Valid(b) {
+		return "", tcfDecodeError(b)
+	}
+	return strings.ReplaceAll(strings.ReplaceAll(string(b), "\r\n", "\n"), "\r", "\n"), nil
+}
+
+// tcfDecodeError is the UnicodeDecodeError line CPython's utf-8 codec
+// raises for b's first invalid sequence.
+func tcfDecodeError(b []byte) error {
+	i := 0
+	for i < len(b) {
+		r, size := utf8.DecodeRune(b[i:])
+		if r == utf8.RuneError && size == 1 {
+			break
+		}
+		i += size
+	}
+	lead, need, lo, hi := b[i], 0, byte(0x80), byte(0xBF)
+	switch {
+	case lead >= 0xC2 && lead <= 0xDF:
+		need = 1
+	case lead >= 0xE0 && lead <= 0xEF:
+		need = 2
+		if lead == 0xE0 {
+			lo = 0xA0
+		} else if lead == 0xED {
+			hi = 0x9F
+		}
+	case lead >= 0xF0 && lead <= 0xF4:
+		need = 3
+		if lead == 0xF0 {
+			lo = 0x90
+		} else if lead == 0xF4 {
+			hi = 0x8F
+		}
+	}
+	reason, n := "invalid start byte", 1
+	if need > 0 {
+		reason = "invalid continuation byte"
+		for k := 1; k <= need; k++ {
+			if i+k >= len(b) {
+				reason = "unexpected end of data"
+				break
+			}
+			if c := b[i+k]; c < lo || c > hi {
+				break
+			}
+			lo, hi = 0x80, 0xBF
+			n++
+		}
+	}
+	if n == 1 {
+		return tcfCrash{fmt.Sprintf("UnicodeDecodeError: 'utf-8' codec can't decode byte 0x%02x in position %d: %s", lead, i, reason)}
+	}
+	return tcfCrash{fmt.Sprintf("UnicodeDecodeError: 'utf-8' codec can't decode bytes in position %d-%d: %s", i, i+n-1, reason)}
+}
+
+// tcfSplitLines is str.splitlines().
+func tcfSplitLines(s string) []string {
+	var out []string
+	start := 0
+	for i, r := range s {
+		switch r {
+		case '\n', '\r', '\v', '\f', 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029:
+			if r == '\n' && i > 0 && s[i-1] == '\r' {
+				start = i + 1
+				continue
+			}
+			out = append(out, s[start:i])
+			start = i + utf8.RuneLen(r)
+		}
+	}
+	if start < len(s) {
+		out = append(out, s[start:])
+	}
+	return out
+}
+
+// tcfTaskIDs is collect_task_ids.
+func tcfTaskIDs(lines []string) []string {
+	var ids []string
+	for _, t := range tcfIterTasks(lines) {
+		if !slices.Contains(ids, t.id) {
+			ids = append(ids, t.id)
+		}
+	}
+	return ids
+}
+
+// tcfShorthand is path_shorthand's answer, keys in insertion order.
+type tcfShorthand struct {
+	keys []string
+	to   map[string]string
+}
+
+// expand is _expand_shorthand: longest abbreviation first.
+func (sh tcfShorthand) expand(tokens []string) []string {
+	if len(sh.keys) == 0 {
+		return tokens
+	}
+	byLength := slices.Clone(sh.keys)
+	sort.SliceStable(byLength, func(a, b int) bool {
+		return utf8.RuneCountInString(byLength[a]) > utf8.RuneCountInString(byLength[b])
+	})
+	out := make([]string, 0, len(tokens))
+	for _, tok := range tokens {
+		for _, a := range byLength {
+			if strings.HasPrefix(tok, a+"/") {
+				tok = sh.to[a] + tok[len(a):]
+				break
+			}
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+// Moved from check-task-commit-fields.py's _fold_group (KAN-760 deleted the
+// Python copy once this port replaced it; panel round 0, F9):
+//
+// Resolve every partner a `Build: red` task's `Squash-with:` names —
+// "one or more other tasks in the same plan", per **The build-green tag**
+// (`skills/flow-contracts/build-green.md`). Returns `(partner files,
+// partner allowed-collateral, the folded commit's expected subject,
+// violations)`.
+//
+// The whole set is ONE unit folding into ONE commit ("whose commit this
+// task's commit folds into" — singular, over a plural set). So every named
+// partner has to declare the SAME `Commit:` subject: two partners naming
+// different subjects cannot both describe the one surviving commit, and
+// that disagreement is a plan defect reported here rather than a subject
+// mismatch blamed on the commit. Taking the first-listed partner's subject
+// and checking the commit against that would instead report a false
+// mismatch whenever the real subject is a later-listed partner's.
+//
+// A partner declaring NO `Commit:` field contributes no subject (fix round
+// 2, F5/F6). It is skipped rather than counted, so it cannot manufacture a
+// disagreement with a partner that did declare one. Whether the fold ends
+// up with no subject at all is NOT decided here (fix round 4, item 2):
+// this red's partners declaring none is only half the question when
+// another red joined to the same commit supplies one, so
+// `resolve_folded_task` asks it of the combined group and this function
+// simply returns `None` for the subject.
+//
+// Whether a partner is missing, itself red, or disagrees about the
+// subject, the violation names the RED task — that is where the defective
+// field is, whichever id the guard was invoked for.
+//
+// Scope is ONE red task's own `Squash-with:` list. Where two red tasks
+// share a partner their folds are one combined unit, and it is
+// `resolve_folded_task` that walks every red in that unit and reconciles
+// what each of them returns here (fix round 3, F8).
+//
+// Inside the function:
+//
+// partner_error: this fold already has a defect in the partner SET
+// itself — a partner that does not exist, or one that is itself red
+// (fix round 3, F7). The disagreement check below is about the subjects
+// the partners declared, which is only a meaningful question once the
+// set resolved; and a fold with an unresolvable partner reporting a
+// second violation would name one defect twice. The flag states that
+// precondition instead of inferring it from `violations` being empty,
+// which was true only because these are the sole violations that can
+// precede it. Case 47 pins it: an unresolvable partner alongside two
+// disagreeing resolvable ones reports the missing partner and nothing
+// else.
+//
+// tcfFoldGroup is _fold_group.
+func tcfFoldGroup(lines []string, red tcfTask) (files, collateral []string, subject *string, violations []string) {
+	var subjects []string
+	partnerError := false
+	for _, id := range red.squashPartners {
+		partner, found := tcfParseTask(lines, id)
+		if !found {
+			violations = append(violations, fmt.Sprintf("task %s: Squash-with: names Task %s, which does not exist in this plan", red.id, id))
+			partnerError = true
+			continue
+		}
+		if partner.build == "red" {
+			violations = append(violations, fmt.Sprintf("task %s: Squash-with: names Task %s, which is itself red", red.id, id))
+			partnerError = true
+			continue
+		}
+		files = append(files, partner.files...)
+		collateral = append(collateral, partner.allowedCollateral...)
+		if partner.commit != nil && !slices.Contains(subjects, *partner.commit) {
+			subjects = append(subjects, *partner.commit)
+		}
+	}
+	if !partnerError && len(subjects) > 1 {
+		violations = append(violations, fmt.Sprintf("task %s: Squash-with: names partners declaring different Commit: subjects %s — one folded unit is one commit, so one subject", red.id, tcfReprList(subjects)))
+	}
+	if len(subjects) == 1 {
+		subject = &subjects[0]
+	}
+	return files, collateral, subject, violations
+}
+
+// Moved from check-task-commit-fields.py's _red_tasks (KAN-760 deleted the
+// Python copy once this port replaced it; panel round 0, F9):
+//
+// Every `Build: red` task in the plan that carries a `Squash-with:`
+// field at all, in document order — the reds whose folds and whose
+// defective fields both have to be accounted for before any task in this
+// plan can be checked.
+//
+// tcfRedTasks is _red_tasks.
+func tcfRedTasks(lines []string) []tcfTask {
+	var reds []tcfTask
+	for _, id := range tcfTaskIDs(lines) {
+		if t, _ := tcfParseTask(lines, id); t.build == "red" && t.squashValue != nil {
+			reds = append(reds, t)
+		}
+	}
+	return reds
+}
+
+// Moved from check-task-commit-fields.py's _joined_partners (KAN-760 deleted the
+// Python copy once this port replaced it; panel round 0, F9):
+//
+// The partner ids of `red` that RESOLVE — the named task exists in this
+// plan and is not itself red — and therefore actually join `red`'s commit
+// to theirs.
+//
+// An edge that does not resolve is not an edge (fix round 6, F15). It is
+// a plan defect, reported by `_fold_group` against the red task carrying
+// the field; but it names no commit, so it must not pull the named task —
+// nor, transitively, the valid fold that task belongs to — into this red's
+// membership set. Growing the group through such an edge made one red's
+// broken reference fail a separate, entirely valid folded commit from
+// every id in it.
+//
+// tcfJoinedPartners is _joined_partners.
+func tcfJoinedPartners(lines []string, red tcfTask) []string {
+	var joined []string
+	for _, id := range red.squashPartners {
+		if p, found := tcfParseTask(lines, id); found && p.build != "red" {
+			joined = append(joined, id)
+		}
+	}
+	return joined
+}
+
+// Moved from check-task-commit-fields.py's _fold_reds (KAN-760 deleted the
+// Python copy once this port replaced it; panel round 0, F9):
+//
+// Every red task whose fold folds into the ONE commit `task` belongs to,
+// in document order (fix round 3, F8). `reds` is `_red_tasks(lines)`,
+// already known to name at least one partner each.
+//
+// `Squash-with:` is an edge, not a tree. Two red tasks may name the SAME
+// green partner, and each of their commits then folds into that one
+// partner's commit — so both folds, and every task in either, are one
+// combined unit carried by one commit. Resolving only the first red found
+// in document order gave the shared partner's id a narrower file union and
+// a different subject from the red ids: two verdicts on one commit, which
+// is exactly what "either id gives the same verdict" forbids.
+//
+// The group is therefore grown to a fixed point: a red belongs if it IS a
+// member or NAMES one through a RESOLVING edge, and admitting it makes
+// those partners members in turn, which may admit further reds. Membership
+// is grown over `_joined_partners`, never over the raw `squash_partners`
+// list (fix round 6, F15). A task that is neither a red with partners nor
+// named by one yields the empty list and is left alone — the union widens
+// a fold, never an ordinary task.
+//
+// tcfFoldReds is _fold_reds.
+func tcfFoldReds(lines []string, task tcfTask, reds []tcfTask) []string {
+	edges := map[string][]string{}
+	for _, red := range reds {
+		edges[red.id] = tcfJoinedPartners(lines, red)
+	}
+	members := map[string]bool{task.id: true}
+	for growing := true; growing; {
+		growing = false
+		for _, red := range reds {
+			joined := edges[red.id]
+			if !members[red.id] && !slices.ContainsFunc(joined, func(p string) bool { return members[p] }) {
+				continue
+			}
+			for _, id := range append([]string{red.id}, joined...) {
+				if !members[id] {
+					members[id], growing = true, true
+				}
+			}
+		}
+	}
+	var out []string
+	for _, red := range reds {
+		if members[red.id] {
+			out = append(out, red.id)
+		}
+	}
+	return out
+}
+
+// Moved from check-task-commit-fields.py's _shared_partner (KAN-760 deleted the
+// Python copy once this port replaced it; panel round 0, F9):
+//
+// The first task named by more than one of `reds` — the join that made
+// their folds one unit, and the task a disagreement between those folds is
+// reported against. `None` when the reds share nobody, which a group of
+// two or more reds cannot be (they are only in one group because they
+// share a partner or because one names the other, and the latter is
+// already a violation); the caller falls back rather than assume it.
+//
+// tcfSharedPartner is _shared_partner; "" is None.
+func tcfSharedPartner(reds []tcfTask) string {
+	var seen []string
+	for _, red := range reds {
+		for _, p := range red.squashPartners {
+			if slices.Contains(seen, p) {
+				return p
+			}
+			seen = append(seen, p)
+		}
+	}
+	return ""
+}
+
+// Moved from check-task-commit-fields.py's resolve_folded_task (KAN-760 deleted the
+// Python copy once this port replaced it; panel round 0, F9):
+//
+// Resolve a folded task against the whole fold its commit carries, per
+// `flow-task-commit-fields`'s requirement **A folded red task is checked
+// against its partner's commit**. Returns `(task to check, violations found
+// resolving it)`; a non-empty violation list is a plan defect and the caller
+// reports it instead of checking anything.
+//
+// After the fold a red task has no commit of its own: its declared
+// `Commit:` subject exists nowhere, and one commit carries every folded
+// task's files. So every task in the fold — the red tasks and their green
+// partners alike — is checked against the fold's agreed `Commit:` subject
+// with the UNION of the whole fold's `Files:`/`Allowed-collateral:` sets.
+// Either id therefore reaches one verdict, invalid folds included: every
+// red in the group is re-validated from every id, so a fold one id rejects
+// cannot pass through another's.
+//
+// The fold is `_fold_reds`'s combined group, not one red's partner list
+// (fix round 3, F8): where two reds name the same partner, both commits
+// fold into that partner's one commit. Their partner sets must then agree
+// about that commit's subject exactly as one red's partners must, and a
+// disagreement between the two folds is the same plan defect — reported
+// against the shared task that joined them, and naming the reds, rather
+// than silently taking the first red in document order.
+//
+// The no-subject rule is asked of that same combined group (fix round 4,
+// item 2): it fires only when NO red in the group has a partner declaring
+// a `Commit:` subject. A red whose own partners declared none takes the
+// subject a joined red's partner supplied, because there is one commit and
+// therefore one subject.
+//
+// A task that neither declares a `Squash-with:` nor is named by a red task
+// in the same plan is returned unchanged.
+//
+// Inside the function:
+//
+// A red whose `Squash-with:` value names no partner the grammar admits
+// is reported from EVERY id in the plan, not only from its own (fix
+// round 6, F16). The guard cannot know which commit that task folded
+// into — that is the whole content of the defect — so it cannot know
+// which folds the plan really has, and no verdict it reaches for any
+// task in this plan is one it can vouch for. Reported only from the red
+// itself, the defect was invisible from the task its free text names,
+// which was instead told that the folded commit's other file was
+// undeclared collateral: true of the commit, and about the wrong field.
+//
+// This is deliberately NOT how an unresolvable EDGE is treated. There
+// the named partner and the reason the edge is illegal are both known,
+// so the guard knows the fold does not exist and reports it against the
+// red task alone (see `_joined_partners`). Here nothing is known.
+// A red's own files, plus its partners' — including this task's own
+// where it is one of them (a harmless duplicate), its SIBLING
+// partners', and every task in a fold joined to this one.
+// One combined fold is one commit, so it carries exactly one subject.
+// Both failures — the folds disagreeing, and nobody declaring one at all
+// — are asked of the COMBINED group (fix round 4, item 2 for the second
+// of them): a red whose own partners declared no subject is no defect
+// where a red joined to the same commit supplied one, since that is the
+// fold's subject. Both are gated the same way `_fold_group` gates its own
+// disagreement check: a group already carrying an unresolvable partner
+// has its violation, and what its remaining partners happened to declare
+// is not a second, separate defect. Both are anchored on the shared task
+// that joined the folds, where there is one.
+//
+// Moved from check-task-commit-fields.py's _widen (KAN-760 deleted the
+// Python copy once this port replaced it; panel round 0, F9):
+//
+// The one widening step both of `resolve_folded_task`'s branches use:
+// add the rest of the fold's declared paths to this task's own, and set
+// the subject the surviving commit is expected to carry. Written once so
+// the two branches cannot drift apart.
+//
+// tcfResolveFolded is resolve_folded_task.
+func tcfResolveFolded(lines []string, task tcfTask) (tcfTask, []string) {
+	reds := tcfRedTasks(lines)
+	var unresolved []string
+	for _, red := range reds {
+		if len(red.squashPartners) == 0 {
+			unresolved = append(unresolved, fmt.Sprintf("task %s: Squash-with: value %s is not `Task <id>[, <id>...]`, so no merge partner can be resolved from it", red.id, tcfRepr(*red.squashValue)))
+		}
+	}
+	if unresolved != nil {
+		return task, unresolved
+	}
+	foldReds := tcfFoldReds(lines, task, reds)
+	if len(foldReds) == 0 {
+		return task, nil
+	}
+	var extraFiles, extraCollateral, subjects, violations []string
+	for _, id := range foldReds {
+		red, _ := tcfParseTask(lines, id)
+		files, collateral, subject, groupViolations := tcfFoldGroup(lines, red)
+		violations = append(violations, groupViolations...)
+		if id != task.id {
+			extraFiles = append(extraFiles, red.files...)
+			extraCollateral = append(extraCollateral, red.allowedCollateral...)
+		}
+		extraFiles = append(extraFiles, files...)
+		extraCollateral = append(extraCollateral, collateral...)
+		if subject != nil && !slices.Contains(subjects, *subject) {
+			subjects = append(subjects, *subject)
+		}
+	}
+	if violations == nil && len(subjects) != 1 {
+		var group []tcfTask
+		for _, id := range foldReds {
+			red, _ := tcfParseTask(lines, id)
+			group = append(group, red)
+		}
+		anchor := tcfSharedPartner(group)
+		if anchor == "" {
+			anchor = foldReds[0]
+		}
+		if len(subjects) > 0 {
+			violations = append(violations, fmt.Sprintf("task %s: Task %s is folded by Tasks %s, whose partners declare different Commit: subjects %s — one folded unit is one commit, so one subject", anchor, anchor, strings.Join(foldReds, ", "), tcfReprList(subjects)))
+		} else {
+			violations = append(violations, fmt.Sprintf("task %s: no partner named by Squash-with: declares a Commit: subject in the fold carried by Tasks %s — the folded commit's subject would be checked against nothing", anchor, strings.Join(foldReds, ", ")))
+		}
+	}
+	if violations != nil {
+		return task, violations
+	}
+	task.files = append(slices.Clone(task.files), extraFiles...)
+	task.allowedCollateral = append(slices.Clone(task.allowedCollateral), extraCollateral...)
+	task.commit = &subjects[0]
+	return task, nil
+}
+
+// ---- check-task-commit-fields.py: the checks against git ----
+
+// tcfExec runs a command in dir and returns its raw output and exit code;
+// err is set only when it could not run at all (Python's OSError).
+func tcfExec(dir string, stdin []byte, name string, args ...string) (stdout, stderr []byte, code int, err error) {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	if stdin != nil {
+		cmd.Stdin = bytes.NewReader(stdin)
+	}
+	var o, e bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &o, &e
+	err = cmd.Run()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		return o.Bytes(), e.Bytes(), exitErr.ExitCode(), nil
+	}
+	if err != nil {
+		return nil, nil, 0, tcfOSError(name, err)
+	}
+	return o.Bytes(), e.Bytes(), 0, nil
+}
+
+// tcfOSError renders an error the way str(OSError) does.
+func tcfOSError(name string, err error) error {
+	if errors.Is(err, exec.ErrNotFound) {
+		return fmt.Errorf("[Errno 2] No such file or directory: %s", tcfRepr(name))
+	}
+	var pathErr *fs.PathError
+	var errno syscall.Errno
+	if errors.As(err, &pathErr) && errors.As(pathErr.Err, &errno) {
+		msg := errno.Error()
+		return fmt.Errorf("[Errno %d] %s: %s", int(errno), strings.ToUpper(msg[:1])+msg[1:], tcfRepr(pathErr.Path))
+	}
+	return err
+}
+
+// tcfTextOutput decodes both streams as subprocess.run(text=True) does.
+func tcfTextOutput(stdout, stderr []byte) (string, string, error) {
+	so, err := tcfText(stdout)
+	if err != nil {
+		return "", "", err
+	}
+	se, err := tcfText(stderr)
+	return so, se, err
+}
+
+// tcfRunGit is run_git.
+func tcfRunGit(env Env, worktree string, args ...string) (string, error) {
+	out, errOut, code, err := tcfExec(env.Dir, nil, "git", append([]string{"-C", worktree}, args...)...)
+	if err != nil {
+		return "", err
+	}
+	so, se, err := tcfTextOutput(out, errOut)
+	if err != nil {
+		return "", err
+	}
+	if code != 0 {
+		return "", fmt.Errorf("git -C %s %s failed: %s", worktree, strings.Join(args, " "), tcfStrip(se))
+	}
+	return so, nil
+}
+
+// tcfAppRoots is every absolute, backticked `Repo root` cell of an `## apps`
+// table body.
+func tcfAppRoots(apps string) []string {
+	var roots []string
+	for _, line := range strings.Split(apps, "\n") {
+		cells := strings.Split(line, "|")
+		if len(cells) < 4 {
+			continue
+		}
+		cell := strings.Trim(strings.TrimSpace(cells[2]), "`")
+		if strings.HasPrefix(cell, "/") {
+			roots = append(roots, cell)
+		}
+	}
+	return roots
+}
+
+// tcfRepr is repr() of a str.
+func tcfRepr(s string) string {
+	quote := '\''
+	if strings.ContainsRune(s, '\'') && !strings.ContainsRune(s, '"') {
+		quote = '"'
+	}
+	var b strings.Builder
+	b.WriteRune(quote)
+	for _, r := range s {
+		switch {
+		case r == quote || r == '\\':
+			b.WriteRune('\\')
+			b.WriteRune(r)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r < 0x20 || r == 0x7f || r >= 0x80 && r < 0x100 && !unicode.IsPrint(r):
+			fmt.Fprintf(&b, `\x%02x`, r)
+		case !unicode.IsPrint(r) && r < 0x10000:
+			fmt.Fprintf(&b, `\u%04x`, r)
+		case !unicode.IsPrint(r):
+			fmt.Fprintf(&b, `\U%08x`, r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteRune(quote)
+	return b.String()
+}
+
+// tcfReprList is ", ".join(repr(s) for s in list).
+func tcfReprList(list []string) string {
+	out := make([]string, len(list))
+	for i, s := range list {
+		out[i] = tcfRepr(s)
+	}
+	return strings.Join(out, ", ")
+}
+
+// tcfFnmatch is fnmatch.fnmatch on POSIX: the pattern translated as
+// Python 3.14's fnmatch.translate translates it -- `*` crosses `/`, and a
+// backslash is a literal -- save that `**/` at a segment start matches zero
+// or more directories, as git reads it (kan-1090 self-review, F2).
+func tcfFnmatch(name, pattern string) bool {
+	re, err := regexp.Compile(`^(?s:` + tcfTranslate(pattern) + `)\z`)
+	return err == nil && re.MatchString(name)
+}
+
+func tcfTranslate(pattern string) string {
+	p := []rune(pattern)
+	n := len(p)
+	var b strings.Builder
+	for i := 0; i < n; {
+		c := p[i]
+		i++
+		switch c {
+		case '*':
+			start := i - 1
+			for i < n && p[i] == '*' {
+				i++
+			}
+			if i-start >= 2 && (start == 0 || p[start-1] == '/') && i < n && p[i] == '/' {
+				b.WriteString("(?:.*/)?")
+				i++
+			} else {
+				b.WriteString(".*")
+			}
+		case '?':
+			b.WriteString(".")
+		case '[':
+			j := i
+			if j < n && p[j] == '!' {
+				j++
+			}
+			if j < n && p[j] == ']' {
+				j++
+			}
+			for j < n && p[j] != ']' {
+				j++
+			}
+			if j >= n {
+				b.WriteString(`\[`)
+				continue
+			}
+			stuff := string(p[i:j])
+			if strings.Contains(stuff, "-") {
+				var chunks []string
+				k := i + 1
+				if p[i] == '!' {
+					k = i + 2
+				}
+				for {
+					dash := slices.Index(p[min(k, j):j], '-')
+					if dash < 0 {
+						break
+					}
+					dash += min(k, j)
+					chunks = append(chunks, string(p[i:dash]))
+					i, k = dash+1, dash+3
+				}
+				if chunk := string(p[i:j]); chunk != "" {
+					chunks = append(chunks, chunk)
+				} else if len(chunks) > 0 {
+					chunks[len(chunks)-1] += "-"
+				}
+				for k := len(chunks) - 1; k > 0; k-- {
+					prev, cur := []rune(chunks[k-1]), []rune(chunks[k])
+					if prev[len(prev)-1] > cur[0] {
+						chunks[k-1] = string(prev[:len(prev)-1]) + string(cur[1:])
+						chunks = slices.Delete(chunks, k, k+1)
+					}
+				}
+				for k, s := range chunks {
+					chunks[k] = strings.ReplaceAll(strings.ReplaceAll(s, `\`, `\\`), "-", `\-`)
+				}
+				stuff = strings.Join(chunks, "-")
+			} else {
+				stuff = strings.ReplaceAll(stuff, `\`, `\\`)
+			}
+			i = j + 1
+			switch {
+			case stuff == "":
+				b.WriteString(`[^\x00-\x{10FFFF}]`) // Python's (?!): never matches
+			case stuff == "!":
+				b.WriteString(".")
+			default:
+				// Python's re reads a `[` inside a class as a literal; Go's
+				// reads `[:alpha:]` as a POSIX class. Escape it.
+				stuff = strings.ReplaceAll(stuff, "[", `\[`)
+				for _, op := range []string{"&", "~", "|"} {
+					stuff = strings.ReplaceAll(stuff, op, `\`+op)
+				}
+				if stuff[0] == '!' {
+					stuff = "^" + stuff[1:]
+				} else if stuff[0] == '^' || stuff[0] == '[' {
+					stuff = `\` + stuff
+				}
+				b.WriteString("[" + stuff + "]")
+			}
+		default:
+			b.WriteString(regexp.QuoteMeta(string(c)))
+		}
+	}
+	return b.String()
 }

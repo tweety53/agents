@@ -76,18 +76,14 @@ var selfJudging = map[string]bool{
 	"check-guard-calls":             true,
 	"check-no-bash":                 true,
 	"check-dispatch-paragraphs":     true,
-	"check-plan-shape":              true,
 	"check-references":              true,
 	"check-markdown-integrity":      true,
-	"check-task-build-green":        true,
 	"check-spec-reach":              true,
 	"check-uitest-overrides":        true,
 	"check-mutation-reproducer-pin": true,
 	"check-normative-inventory":     true,
-	"check-plan-provenance":         true,
 	"check-python-suppressions":     true,
 	"check-verbatim-moves":          true,
-	"check-stage-mark-calls":        true,
 	"plan-dispatch-bundles":         true,
 }
 
