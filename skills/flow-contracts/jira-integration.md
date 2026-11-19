@@ -49,7 +49,7 @@ discarded too.
   directly (still fetch it, to confirm it exists and to get the summary).
 - **An argument asking for a new issue** — "create a jira task" and the like — files one first
   (`createJiraIssue`, on the `twg` route `twg jira workitem create`) in the `## jira` project, typed
-  Task, its summary and description drawn from the request, labelled per **Labels on issues the
+  Task, its summary and description drawn from the request, labelled per **Labels and body of issues the
   pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`); the new key is then the
   user-supplied key, unfetched — the create's response is the confirmation. Filing it is part of resolving the issue — never the whole request and never a
   stop: the run continues into the In Progress transition and planning. A failed create is one `⚠ Jira: skipped — <reason>` line and resolves

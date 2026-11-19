@@ -168,7 +168,7 @@ already, at `STARTED`, and a **No** there revises the plan rather than removing 
 the argument or resolved from the conversation per **Resolution (how `jiraIssue` is decided)**
 (`skills/flow-contracts/jira-integration.md`). With no key, create one before anything else: a
 Jira issue of type **Task** in the project `## jira` names (`<project>/.flow/project.md`), summary
-the session's `<Topic>`, description one paragraph stating the topic, labels per **Labels on
+the session's `<Topic>`, description one paragraph stating the topic, labels per **Labels and body of
 issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), so `AI-generated`
 alone. The created key is then the known key, and this session's `plan.session` mark fires now
 when it did not at start. The creation is a Jira write like any other: `## jira` absent or

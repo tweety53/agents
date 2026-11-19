@@ -54,7 +54,7 @@ a new session, save as **Name.** below states, a non-empty argument being its fi
 
 **Jira.** Resolve the issue per **Resolution (how `jiraIssue` is decided)**
 (`skills/flow-contracts/jira-integration.md`): with no key given, reuse the In Progress `Interactive session` issue, whoever it is assigned to, when one exists, else file a Task through its creation
-path, summary `Interactive session <YYYY-MM-DD>`, labelled per **Labels on issues the pipeline
+path, summary `Interactive session <YYYY-MM-DD>`, labelled per **Labels and body of issues the pipeline
 creates** (`skills/flow-contracts/jira-integration-finish.md`), unless the argument declines an
 issue ("no jira"). Move it to **In Progress** per **Transitions** there. Every Jira failure is the
 one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
