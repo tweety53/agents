@@ -5,7 +5,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -30,344 +29,74 @@ func decisionRun(t *testing.T, body string, env testEnv, args ...string) (int, s
 	return rc, out.String(), errb.String()
 }
 
-// TestDecisionRenderGolden pins the compact `## Decision` list: micro (the
-// `default` panel naming the roster, no Groups line), a small inline run
-// (kan-863's `skipped` visual with its reason), a regular run (a raised class
-// with its reason, a full roster over two dispatches, no visual line), a big
-// sdd run with a split group (a range, a reason only on the group departing
-// from the implementer pair, the split reason), and a big run whose
-// experimental slot was skipped for the bundle cap.
+// TestDecisionRenderGolden pins the `## Decision` block: one line each for
+// the groups, the panel's bundles and visual verification, a reason beside
+// each group and bundle, overrides only when given, and any key a decision
+// recorded before the decider carried ignored.
 // smoke: core — the Decision block every run prints
 func TestDecisionRenderGolden(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	inputs := func(tasks, files int, red string) string {
-		return `"inputs":{"tasks":` + strconv.Itoa(tasks) + `,"files":` + strconv.Itoa(files) + `,"repos":1,"migration":false,"spec":false,"red":` + red + `,"unverified":` + red + `}`
-	}
 	cases := []struct {
 		name, body, want string
 	}{
-		{"micro", `{"class":"micro","classMechanical":"micro","override":null,` + inputs(1, 1, "false") + `,
-			"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",
-			"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",
-			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,
-			"visual":{"verify":"required","reason":"the Files list carries a page component"},
-			"parent":{"model":"claude-opus-5-5","effort":"default"},"overrides":[]}`,
+		{"decider", `{"groups":[{"tasks":["1","2"],"reason":"2 builds on 1"},{"tasks":["3"],"reason":"independent"}],
+			"panel":[{"slots":["primary","principles"],"reason":"always"},{"slots":["mutation"],"reason":"new logic"}],
+			"visual":{"verify":"skipped","reason":"no page changes"},"overrides":[]}`,
 			"## Decision\n\n" +
-				"- **Class:** micro · tasks 1 · files 1 · repos 1\n" +
-				"- **Execution:** inline\n" +
-				"- **Panel:** default — primary=opus, principles=opus\n" +
-				"- **Visual verify:** required\n" +
-				"- **Parent:** claude-opus-5-5@default\n"},
-		{"small inline", `{"class":"small","classMechanical":"small","override":null,` + inputs(2, 3, "false") + `,
-			"rolls":{"compact":85,"experimental":84,"bundle":17,"effort":40},"execution":"inline",
-			"implementer":"skipped — inline","fixer":"skipped — inline",
-			"panel":{"compact":true,"rerun":"delta","roster":[{"slot":"primary","experimental":false},{"slot":"principles","experimental":false}],
-				"grouping":"static","dispatches":[{"slots":["primary","principles"],"model":"opus","effort":"medium","reason":"git refusals punish a sloppy reading"}],
-				"rerun_dispatch":{"model":"opus","effort":"low","reason":"a delta re-run reads a fix against its finding"},"grouping_reason":null},
-			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,
-			"visual":{"verify":"skipped","reason":"actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses"}}`,
+				"- **Groups:** 1+2 (2 builds on 1) · 3 (independent)\n" +
+				"- **Panel:** primary+principles (always) · mutation (new logic)\n" +
+				"- **Visual verify:** skipped — no page changes\n"},
+		{"overrides and old keys", `{"class":"big","execution":"sdd","groups":[{"tasks":["1"],"bundles":[1],"reason":"one"}],
+			"panel":[{"slots":["primary"],"reason":"r"}],
+			"visual":{"verify":"not configured","reason":""},"overrides":["implementer opus/flow-medium: operator asked"]}`,
 			"## Decision\n\n" +
-				"- **Class:** small · tasks 2 · files 3 · repos 1\n" +
-				"- **Execution:** inline\n" +
-				"- **Panel:** compact · primary+principles opus/medium · reruns opus/low\n" +
-				"- **Visual verify:** skipped — actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route the frontend uses\n"},
-		{"regular free grouping", `{"class":"regular","classMechanical":"small","override":"touches the store seam",` + inputs(6, 12, "true") + `,
-			"rolls":{"compact":95,"experimental":12,"bundle":60,"effort":85},"execution":"inline",
-			"implementer":"skipped — inline","fixer":"skipped — inline",
-			"panel":{"compact":false,"rerun":"delta","roster":[{"slot":"primary","experimental":false},{"slot":"principles","experimental":false},
-				{"slot":"failure-modes","experimental":false},{"slot":"mutation","experimental":false},
-				{"slot":"exp-a","experimental":true,"prompt":"skills/flow/experimental/a.md","description":"first probe"}],
-				"grouping":"free","dispatches":[{"slots":["primary","principles"],"model":"opus","effort":"high","reason":"floor"},
-				{"slots":["failure-modes","mutation","exp-a"],"model":"opus","effort":"medium","reason":"edge cases"}],
-				"rerun_dispatch":{"model":"sonnet","effort":"low","reason":"confirms a delta"},"grouping_reason":"failure paths read together"},
-			"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null}`,
-			"## Decision\n\n" +
-				"- **Class:** regular · tasks 6 · files 12 · repos 1 (raised from small: touches the store seam)\n" +
-				"- **Execution:** inline\n" +
-				"- **Panel:** full · primary+principles opus/high · failure-modes+mutation+exp-a opus/medium · reruns sonnet/low\n"},
-		{"big sdd split group", `{"class":"big","classMechanical":"big","override":null,` + inputs(26, 43, "false") + `,
-			"rolls":{"compact":26,"experimental":38,"bundle":35,"effort":12},"execution":"sdd",
-			"implementer":{"model":"opus","effort":"high","reason":"Go guards with git fixtures"},
-			"fixer":{"model":"opus","effort":"medium","reason":"fix rounds are narrower"},
-			"panel":{"compact":true,"rerun":"delta","roster":[{"slot":"primary","experimental":false},{"slot":"principles","experimental":false}],
-				"grouping":"free","dispatches":[{"slots":["primary","principles"],"model":"opus","effort":"high","reason":"wide diff"}],
-				"rerun_dispatch":{"model":"sonnet","effort":"low","reason":"confirms a delta"},"grouping_reason":"compact roster is the floor bundle alone"},
-			"groups":[{"bundles":["1","2"],"model":"opus","effort":"high","reason":"store seam"},{"bundles":[3],"model":"sonnet","effort":"low","reason":"docs only"}],
-			"groups_mechanical":[["1","2",3]],"groups_override":"split docs out","groups_reason":"split: docs task apart"}`,
-			"## Decision\n\n" +
-				"- **Class:** big · tasks 26 · files 43 · repos 1\n" +
-				"- **Execution:** sdd · implementer opus/high · fixer opus/medium\n" +
-				"- **Groups:** 1–2 opus/high · 3 sonnet/low (docs only) — split: split docs out\n" +
-				"- **Panel:** compact · primary+principles opus/high · reruns sonnet/low\n"},
-		{"experimental skipped for the bundle cap", `{"class":"big","classMechanical":"big","override":null,` + inputs(22, 30, "false") + `,
-			"rolls":{"compact":71,"experimental":0,"bundle":16,"effort":77},"execution":"sdd",
-			"implementer":{"model":"opus","effort":"xhigh","reason":"concurrency seam"},
-			"fixer":{"model":"opus","effort":"high","reason":"same seam"},
-			"panel":{"compact":true,"rerun":"delta","roster":[{"slot":"primary","experimental":false},{"slot":"principles","experimental":false}],
-				"experimental":"skipped — bundle cap",
-				"grouping":"static","dispatches":[{"slots":["primary","principles"],"model":"opus","effort":"high","reason":"floor"}],
-				"rerun_dispatch":{"model":"opus","effort":"low","reason":"short re-read"},"grouping_reason":null},
-			"groups":[{"bundles":[1],"model":"opus","effort":"xhigh","reason":"the seam"}],
-			"groups_mechanical":[[1]],"groups_override":null,"groups_reason":"mechanical"}`,
-			"## Decision\n\n" +
-				"- **Class:** big · tasks 22 · files 30 · repos 1\n" +
-				"- **Execution:** sdd · implementer opus/xhigh · fixer opus/high\n" +
-				"- **Groups:** 1 opus/xhigh\n" +
-				"- **Panel:** compact · primary+principles opus/high · reruns opus/low · experimental skipped — bundle cap\n"},
+				"- **Groups:** 1 (one)\n" +
+				"- **Panel:** primary (r)\n" +
+				"- **Visual verify:** not configured\n" +
+				"- **Overrides:** implementer opus/flow-medium: operator asked\n"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rc, out, errs := decisionRun(t, c.body, env, "render", "-file", "<file>",
-				"-session-model", "claude-opus-5-5", "-reviewers", "primary=opus, principles=opus")
-			if rc != 0 || out != c.want || errs != "" {
-				t.Fatalf("rc=%d stderr=%q\ngot:\n%s\nwant:\n%s", rc, errs, out, c.want)
-			}
-		})
-	}
-}
-
-// TestDecisionRenderWithoutEffortRoll: a decision whose rolls carry no
-// effort renders, exactly as the same decision carrying one does -- the
-// effort roll is gone, and an older file still holding it still renders
-// (KAN-1119, decision delete-dead-rolls).
-func TestDecisionRenderWithoutEffortRoll(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	with := `{"class":"micro","classMechanical":"micro","override":null,
-		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
-		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
-		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
-	without := strings.Replace(with, `,"effort":50`, "", 1)
-	args := []string{"render", "-file", "<file>", "-session-model", "m", "-reviewers", "r"}
-	rcWith, outWith, errWith := decisionRun(t, with, env, args...)
-	rc, out, errs := decisionRun(t, without, env, args...)
-	if rc != 0 || errs != "" || rcWith != 0 || errWith != "" || out != outWith {
-		t.Fatalf("without effort: rc=%d stderr=%q stdout=%q\nwith effort: rc=%d stderr=%q stdout=%q", rc, errs, out, rcWith, errWith, outWith)
-	}
-}
-
-// TestDecisionRenderRefusals pins exit 2 with nothing on stdout for a usage
-// error, an unreadable file, a body that is not a decision, a decision
-// missing a required field, and a malformed visual.
-func TestDecisionRenderRefusals(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	good := `{"class":"micro","classMechanical":"micro","override":null,
-		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
-		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
-		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
-	flags := []string{"-session-model", "m", "-reviewers", "r"}
-	cases := []struct {
-		name, body string
-		args       []string
-		stderr     string
-	}{
-		{"no subcommand", "", nil, decisionUsage},
-		{"unknown subcommand", "", []string{"print"}, "flow: unknown decision subcommand \"print\"\n" + decisionUsage},
-		{"no -file", "", append([]string{"render"}, flags...), "flow: decision render: -file, -session-model and -reviewers are required\n" + decisionUsage},
-		{"no -reviewers", good, []string{"render", "-file", "<file>", "-session-model", "m"}, "flow: decision render: -file, -session-model and -reviewers are required\n" + decisionUsage},
-		{"stray argument", good, append([]string{"render", "-file", "<file>", "x"}, flags...), "flow: decision render: unexpected argument \"x\"\n" + decisionUsage},
-		{"unreadable file", "", append([]string{"render", "-file", "/nonexistent/decision.json"}, flags...), "flow: decision render: open /nonexistent/decision.json: no such file or directory\n"},
-		{"not JSON", "{", append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: not a decision: unexpected end of JSON input\n"},
-		{"missing inputs.tasks", strings.Replace(good, `"tasks":1,`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"inputs.tasks\"\n"},
-		{"missing groups", strings.Replace(good, `,"groups":null`, "", 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: missing required field \"groups\"\n"},
-		{"visual.verify outside the set", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skip","reason":"x"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.verify \"skip\" is not one of required, skipped, not configured\n"},
-		{"visual with a blank reason", strings.Replace(good, `"groups":null`, `"groups":null,"visual":{"verify":"skipped","reason":" "}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: visual.reason is required\n"},
-		{"parent.effort outside the -effort set", strings.Replace(good, `"groups":null`, `"groups":null,"parent":{"model":"unknown (agent-defined)","effort":"unknown"}`, 1), append([]string{"render", "-file", "<file>"}, flags...), "flow: decision render: parent.effort \"unknown\" is not one of: low, medium, high, default, xhigh, max\n"},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			rc, out, errs := decisionRun(t, c.body, env, c.args...)
-			if rc != 2 || out != "" || errs != c.stderr {
-				t.Fatalf("rc=%d stdout=%q\nstderr=%q\nwant  =%q", rc, out, errs, c.stderr)
-			}
-		})
-	}
-}
-
-// TestDecisionRenderWithoutPairs: a decision carrying no pair at all -- no
-// implementer, fixer or rolls, groups and panel dispatches without model or
-// effort -- renders, each line without a pair.
-func TestDecisionRenderWithoutPairs(t *testing.T) {
-	t.Parallel()
-	body := `{"class":"small","classMechanical":"small","override":null,
-		"inputs":{"tasks":2,"files":3,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
-		"execution":"sdd","groups":[{"bundles":[1,2],"reason":"one module"}],"groups_reason":"r",
-		"panel":{"compact":true,"rerun":"delta","grouping":"static","dispatches":[{"slots":["primary"]}]}}`
-	rc, out, errs := decisionRun(t, body, newTestEnv(t), "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
-	want := "## Decision\n\n- **Class:** small · tasks 2 · files 3 · repos 1\n- **Execution:** sdd\n- **Groups:** 1–2 (one module)\n- **Panel:** compact · primary\n"
-	if rc != 0 || out != want {
-		t.Fatalf("rc=%d stdout=%q stderr=%q\nwant %q", rc, out, errs, want)
-	}
-}
-
-// TestDecisionRenderExtraDispatch pins kan-959's extra_dispatch: present,
-// it prints one Extra dispatch line with its bundle and pair, on a micro
-// decision too; absent (a decision written before kan-959), the render is
-// unchanged and still exits 0.
-func TestDecisionRenderExtraDispatch(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
-		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
-		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
-		`"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",` +
-		`"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null`
-	with := micro + `,"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"}}`
-	rc, out, errOut := decisionRun(t, with, env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
-	if rc != 0 {
-		t.Fatalf("exit %d: %s", rc, errOut)
-	}
-	if want := "- **Extra dispatch:** test-sanity+call-efficiency sonnet/low\n"; !strings.Contains(out, want) {
-		t.Errorf("render lacks %q:\n%s", want, out)
-	}
-	rc, out, errOut = decisionRun(t, micro+"}", env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
-	if rc != 0 {
-		t.Fatalf("a decision without extra_dispatch: exit %d: %s", rc, errOut)
-	}
-	if strings.Contains(out, "Extra dispatch") {
-		t.Errorf("a decision without extra_dispatch renders an Extra dispatch line:\n%s", out)
-	}
-}
-
-// TestDecisionRenderExtraDispatchMutation pins kan-1028's
-// extra_dispatch_mutation: present, a second Extra dispatch line follows the
-// first; absent (a decision written before kan-1028), nothing is printed for
-// it and the render still exits 0.
-func TestDecisionRenderExtraDispatchMutation(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
-		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
-		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
-		`"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",` +
-		`"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,` +
-		`"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"}`
-	with := micro + `,"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"opus","effort":"low","reason":"extramf roll 70"}}`
-	rc, out, errOut := decisionRun(t, with, env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
-	if rc != 0 {
-		t.Fatalf("exit %d: %s", rc, errOut)
-	}
-	if want := "- **Extra dispatch:** test-sanity+call-efficiency sonnet/low\n- **Extra dispatch:** mutation+failure-modes opus/low\n"; !strings.Contains(out, want) {
-		t.Errorf("render lacks %q:\n%s", want, out)
-	}
-	rc, out, errOut = decisionRun(t, micro+"}", env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
-	if rc != 0 {
-		t.Fatalf("a decision without extra_dispatch_mutation: exit %d: %s", rc, errOut)
-	}
-	if strings.Contains(out, "mutation+failure-modes") {
-		t.Errorf("a decision without extra_dispatch_mutation renders its line:\n%s", out)
-	}
-}
-
-// TestDecisionRenderSlotTriggers pins kan-1126's slot_triggers: present, one
-// Slot judge line follows the Extra dispatch lines, each gated slot in a fixed
-// order and a slot the map leaves out rendered run (decision
-// slot-judge-fail-open); absent (a decision written before kan-1126), no Slot
-// judge line and the render still exits 0.
-func TestDecisionRenderSlotTriggers(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	micro := `{"class":"micro","classMechanical":"micro","override":null,` +
-		`"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},` +
-		`"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":96},"execution":"inline",` +
-		`"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default",` +
-		`"groups":null,"groups_mechanical":null,"groups_override":null,"groups_reason":null,` +
-		`"extra_dispatch":{"slots":["test-sanity","call-efficiency"],"model":"sonnet","effort":"low","reason":"extra roll 12"},` +
-		`"extra_dispatch_mutation":{"slots":["mutation","failure-modes"],"model":"opus","effort":"low","reason":"extramf roll 70"}`
-	render := func(body string) (int, string, string) {
-		return decisionRun(t, body, env, "render", "-file", "<file>", "-session-model", "opus", "-reviewers", "primary=opus, principles=opus")
-	}
-	for _, c := range []struct{ name, triggers, want string }{
-		{"every slot", `{"test-sanity":{"verdict":"skip","reason":"r"},"call-efficiency":{"verdict":"run","reason":"r"},"failure-modes":{"verdict":"skip","reason":"r"}}`,
-			"- **Extra dispatch:** mutation+failure-modes opus/low\n- **Slot judge:** test-sanity skip · call-efficiency run · failure-modes skip\n"},
-		{"a slot left out", `{"test-sanity":{"verdict":"skip","reason":"r"},"call-efficiency":{"verdict":"skip","reason":"r"}}`,
-			"- **Slot judge:** test-sanity skip · call-efficiency skip · failure-modes run\n"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			rc, out, errOut := render(micro + `,"slot_triggers":` + c.triggers + `}`)
+			t.Parallel()
+			rc, out, errOut := decisionRun(t, c.body, env, "render", "-file", "<file>", "-session-model", "claude-opus-5-5")
 			if rc != 0 {
 				t.Fatalf("exit %d: %s", rc, errOut)
 			}
-			if !strings.Contains(out, c.want) {
-				t.Errorf("render lacks %q:\n%s", c.want, out)
+			if out != c.want {
+				t.Errorf("got:\n%s\nwant:\n%s", out, c.want)
 			}
 		})
 	}
-	rc, out, errOut := render(micro + "}")
-	if rc != 0 {
-		t.Fatalf("a decision without slot_triggers: exit %d: %s", rc, errOut)
-	}
-	if strings.Contains(out, "Slot judge") {
-		t.Errorf("a decision without slot_triggers renders a Slot judge line:\n%s", out)
-	}
 }
 
-// TestDecisionRenderSessionCap pins session_cap's shape: a well-formed cap,
-// null or absent renders; a value outside the sets refuses naming it.
-func TestDecisionRenderSessionCap(t *testing.T) {
+// TestDecisionRenderRefusals pins exit 2 on a usage error and on a body a
+// consumer could not act on.
+func TestDecisionRenderRefusals(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	good := `{"class":"micro","classMechanical":"micro","override":null,
-		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
-		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
-		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
-	withCap := func(c string) string {
-		return strings.Replace(good, `"groups":null`, `"groups":null,"session_cap":`+c, 1)
-	}
-	cases := []struct {
-		name, body string
-		rc         int
-	}{
-		{"cap", withCap(`{"model":"opus","effort":"low","instruction":"x"}`), 0},
-		{"null", withCap(`null`), 0},
-		{"absent", good, 0},
-		{"effort ultra", withCap(`{"model":"opus","effort":"ultra","instruction":"x"}`), 2},
-		{"effort xhigh", withCap(`{"model":"opus","effort":"xhigh","instruction":"x"}`), 0},
-		{"model haiku", withCap(`{"model":"haiku","effort":"low","instruction":"x"}`), 2},
+	ok := `"visual":{"verify":"required","reason":"r"}`
+	cases := []struct{ name, body, want string }{
+		{"not json", `nope`, "not a decision"},
+		{"no groups", `{"panel":[],` + ok + `}`, "groups is empty"},
+		{"a group without tasks", `{"groups":[{"tasks":[]}],` + ok + `}`, "groups[0] names no tasks"},
+		{"a bundle of three", `{"groups":[{"tasks":["1"]}],"panel":[{"slots":["a","b","c"]}],` + ok + `}`, "panel[0] holds 3 slots"},
+		{"an empty bundle", `{"groups":[{"tasks":["1"]}],"panel":[{"slots":[]}],` + ok + `}`, "panel[0] holds 0 slots"},
+		{"no visual", `{"groups":[{"tasks":["1"]}]}`, "visual.verify"},
+		{"a bad visual", `{"groups":[{"tasks":["1"]}],"visual":{"verify":"maybe"}}`, "visual.verify \"maybe\""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rc, _, errs := decisionRun(t, c.body, env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
-			if rc != c.rc {
-				t.Fatalf("rc=%d, want %d; stderr=%q", rc, c.rc, errs)
-			}
-			if c.rc == 2 && !strings.Contains(errs, "session_cap") {
-				t.Errorf("stderr %q does not name session_cap", errs)
+			t.Parallel()
+			rc, _, errOut := decisionRun(t, c.body, env, "render", "-file", "<file>")
+			if rc != 2 || !strings.Contains(errOut, c.want) {
+				t.Errorf("exit %d, stderr %q; want 2 naming %q", rc, errOut, c.want)
 			}
 		})
 	}
-}
-
-// TestDecisionParentModel pins the parent line: parent.model renders with
-// parent.effort as <model>@<effort>, an effort of xhigh or max is accepted
-// (a main-agent experiment's pair), and one outside the set is refused.
-func TestDecisionParentModel(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	good := `{"class":"micro","classMechanical":"micro","override":null,
-		"inputs":{"tasks":1,"files":1,"repos":1,"migration":false,"spec":false,"red":false,"unverified":false},
-		"rolls":{"compact":65,"experimental":0,"bundle":43,"effort":50},"execution":"inline",
-		"implementer":"skipped — inline","fixer":"skipped — inline","panel":"default","groups":null}`
-	withParent := func(p string) string { return strings.Replace(good, `"groups":null`, `"groups":null,"parent":`+p, 1) }
-	for _, c := range []struct{ name, body, line string }{
-		{"opus xhigh", withParent(`{"model":"opus","effort":"xhigh"}`), "- **Parent:** opus@xhigh\n"},
-		{"max", withParent(`{"model":"claude-opus-5-5","effort":"max"}`), "- **Parent:** claude-opus-5-5@max\n"},
-		{"effort only", withParent(`{"effort":"default"}`), "- **Parent:** default\n"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			rc, out, errs := decisionRun(t, c.body, env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
-			if rc != 0 || !strings.HasSuffix(out, c.line) {
-				t.Fatalf("rc=%d stderr=%q out=%q, want it to end with %q", rc, errs, out, c.line)
-			}
-		})
-	}
-	if rc, out, _ := decisionRun(t, good, env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r"); rc != 0 || strings.Contains(out, "Parent") {
-		t.Fatalf("no parent: rc=%d out=%q, want no Parent line", rc, out)
-	}
-	rc, _, errs := decisionRun(t, withParent(`{"model":"opus","effort":"ultra"}`), env, "render", "-file", "<file>", "-session-model", "m", "-reviewers", "r")
-	if rc != 2 || !strings.Contains(errs, `parent.effort "ultra" is not one of: low, medium, high, default, xhigh, max`) {
-		t.Fatalf("effort ultra: rc=%d stderr=%q, want 2 naming the set", rc, errs)
+	for _, args := range [][]string{{}, {"draw"}, {"render"}, {"render", "-reviewers", "x", "-file", "<file>"}} {
+		if rc, _, _ := decisionRun(t, `{}`, env, args...); rc != 2 {
+			t.Errorf("args %q: exit %d, want 2", args, rc)
+		}
 	}
 }

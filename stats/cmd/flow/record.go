@@ -1129,7 +1129,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	pairPick := fset.String("pair-pick", "", "the pair judge's `<source>: <reason>` for this dispatch's pair -- optional: omitted where no judge picked the pair (skills/flow/brainstorm-planner.md, Model and effort)")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
-	wsCommit := fset.String("whitespace-only-commit", "", "a back-filled inline panel-fix's commit, admitted under an sdd decision only where it changes nothing but whitespace and blank lines -- set by back-fill, optional")
 	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")
 
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
@@ -1444,68 +1443,11 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		}
 	}
 
-	// An inline decision has the parent implement and fix itself, so an
-	// implementer or panel-fix row with a subagent behind it breaches it
-	// (skills/flow/implement.md, Inline -- the parent implements). The
-	// mirror: an sdd decision has every task and every fix go to a fresh
-	// one-shot, so an implementer or panel-fix row begun -agent-id inline on
-	// a task-, full-suite-fix- or panel-fix- key is the parent's own work and
-	// breaches it (skills/flow/implement.md, Every fix is a fresh one-shot) --
-	// a back-fill (-started-at) is judged by this sdd check too (kan-1117
-	// self-review, F1); the other decision checks judge live rows only.
-	// Either way a self-review or pipeline fixer is exempt, and a decisions
-	// read that fails skips the check.
-	//
-	// A decision's session_cap is the run's model and effort ceiling: a row
-	// above it, an unstated default effort included, is refused (skills/flow/
-	// brainstorm-planner.md, Decide), and so is a model the cap cannot rank.
-	// The cap limits dispatches, not the parent: an inline row is exempt.
-	// One read serves both checks.
-	//
-	// A panel-fix inline row whose key fixes a Minor-only round is the
-	// round-close inline fix the contract names (skills/flow/review-panel-fix-round.md)
-	// and is admitted under sdd; a failed record read keeps the refusal.
-	d, decided := latestDecision(ctx, f, projectKey)
-	var execution string
-	if decided && (*role == "implementer" || *role == "panel-fix") && *agentID == "inline" &&
-		(strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "full-suite-fix-") || strings.HasPrefix(*key, "panel-fix-")) &&
-		json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" &&
-		!(*role == "panel-fix" && *wsCommit != "" && whitespaceOnlyCommit(*wsCommit, mutationRoots(ctx, f, projectKey))) &&
-		!(*role == "panel-fix" && inlineFixesMinorOnlyRound(ctx, f, projectKey, *key)) {
-		fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
-		return 2
-	}
 	if *startedAt == "" {
 		if strings.Contains(*key, "-implementer-fix-") {
 			if n := strings.Count(implementerTask(*key), "+") + 1; n > 3 {
 				fmt.Fprintf(stderr, "flow: -key %s fixes %d tasks — a stage-end fixer takes at most three, one repository's tasks up to weight 3 (skills/flow/gated-review-fix.md)\n", *key, n)
 				return 2
-			}
-		}
-		if decided {
-			if (*role == "implementer" || *role == "panel-fix") && *agentID != "inline" &&
-				!strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") &&
-				json.Unmarshal(d["execution"], &execution) == nil && execution == "inline" {
-				fmt.Fprintf(stderr, "flow: -role %s -key %s dispatches a subagent, but the change's recorded decision is execution: inline — the parent implements and fixes itself, beginning the row with -agent-id inline (skills/flow/implement.md, Inline — the parent implements)\n", *role, *key)
-				return 2
-			}
-			// One implementer per decision group: a live key whose ids
-			// are not one group's tasks is refused (kan-1123 self-review, F2).
-			if *role == "implementer" && *agentID != "inline" {
-				if why := offDecisionGroups(d, *key); why != "" {
-					fmt.Fprintf(stderr, "flow: %s\n", why)
-					return 2
-				}
-			}
-			var c *sessionCap
-			if *agentID != "inline" && json.Unmarshal(d["session_cap"], &c) == nil && c != nil {
-				m := *model
-				aboveModel := capModelRank[m] == 0 || (capModelRank[c.Model] > 0 && capModelRank[m] > capModelRank[c.Model])
-				aboveEffort := *effort == "default" || capEffortRank[*effort] > capEffortRank[c.Effort]
-				if aboveModel || aboveEffort {
-					fmt.Fprintf(stderr, "flow: -model %s -effort %s is above the session cap %s/%s (%s) the change's decision records — dispatch at or under it (skills/flow/brainstorm-planner.md, Decide)\n", *model, *effort, c.Model, c.Effort, c.Instruction)
-					return 2
-				}
 			}
 		}
 	}
@@ -2276,9 +2218,6 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 	})
 	if derived != nil {
 		begin = append(begin, derived[:2]...)
-		if *v["role"] == "panel-fix" {
-			begin = append(begin, "-whitespace-only-commit", *v["commit"])
-		}
 		end = append(end, derived[2:]...)
 	}
 	// backfill keeps -effort optional; begin requires it, so an omitted one
@@ -3997,8 +3936,8 @@ func runRecordIncidents(ctx context.Context, args []string, getenv func(string) 
 // contacted, the identical caller-mistake contract every other required
 // flag on this command carries: an empty token is refused by
 // requireRecordFlags, a shell-substitution token by validateSessionToken,
-// and a body that is not valid JSON by json.Valid, all before callRecord
-// ever dials out.
+// a body that is not valid JSON by json.Valid, and one parseDecision
+// refuses, all before callRecord ever dials out.
 func runRecordDecision(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record decision", flag.ContinueOnError)
 	fset.SetOutput(stderr)
@@ -4043,7 +3982,10 @@ func runRecordDecision(ctx context.Context, args []string, getenv func(string) s
 		return 1
 	}
 
-	body = stampGroupTasks(body, f, getenv)
+	if _, err := parseDecision(body); err != nil {
+		fmt.Fprintf(stderr, "flow: -file: %v\n", err)
+		return 2
+	}
 	in := records.Decision{SessionToken: *sessionToken, Decision: json.RawMessage(body)}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Decision, error) {
 		d, _, err := cl.RecordDecision(ctx, projectKey, f.change, in)
@@ -4116,110 +4058,6 @@ func runRecordSummary(ctx context.Context, args []string, getenv func(string) st
 		fmt.Fprintf(stdout, "recorded: summary %d\n", out.ID)
 	}
 	return classifyRecordWrite(callErr, projectKey, f.change, "summary", in, stderr, getenv)
-}
-
-// latestDecision is the change's newest recorded decision (highest ID) as
-// its top-level fields, or false when the read fails or none is recorded.
-// stampGroupTasks sets each decision group's `tasks` to the task ids its
-// `bundles` resolve to through the plan's plan-dispatch-bundles output, so
-// `flow record dispatch begin` can hold an implementer key to one group
-// (kan-1123 self-review, F2). Any group naming a bundle the plan lacks, an
-// unreadable plan or a body without groups leaves the body unchanged.
-func stampGroupTasks(body []byte, f recordIdentityFlags, getenv func(string) string) []byte {
-	var d map[string]json.RawMessage
-	var groups []map[string]json.RawMessage
-	if json.Unmarshal(body, &d) != nil || json.Unmarshal(d["groups"], &groups) != nil || groups == nil {
-		return body
-	}
-	plan, err := planPath(f.dir, f.change)
-	if err != nil {
-		return body
-	}
-	var out bytes.Buffer
-	if guard.Registry["plan-dispatch-bundles"]([]string{plan}, guard.Env{Getenv: getenv}, &out, io.Discard) != 0 {
-		return body
-	}
-	bundles := map[string][]string{}
-	for line := range strings.Lines(out.String()) {
-		if k, ids, ok := strings.Cut(strings.TrimPrefix(strings.TrimSpace(line), "bundle "), ": "); ok && strings.HasPrefix(line, "bundle ") {
-			bundles[k] = strings.Fields(ids)
-		}
-	}
-	for _, g := range groups {
-		var bs []json.RawMessage
-		if json.Unmarshal(g["bundles"], &bs) != nil {
-			return body
-		}
-		tasks := []string{}
-		for _, b := range bs {
-			ids, ok := bundles[dScalar(b)]
-			if !ok {
-				return body
-			}
-			tasks = append(tasks, ids...)
-		}
-		raw, _ := json.Marshal(tasks)
-		g["tasks"] = raw
-	}
-	raw, _ := json.Marshal(groups)
-	d["groups"] = raw
-	stamped, err := json.Marshal(d)
-	if err != nil {
-		return body
-	}
-	return stamped
-}
-
-var groupImplementerKeyRE = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-implementer(?:-retry)?$`)
-
-// offDecisionGroups reports why key's task ids are not one decision group's
-// tasks, or "" when they are or the decision does not say: an sdd decision
-// whose every group carries a non-empty `tasks` is the only one judged.
-func offDecisionGroups(d map[string]json.RawMessage, key string) string {
-	m := groupImplementerKeyRE.FindStringSubmatch(key)
-	var execution string
-	var groups []struct {
-		Tasks []string `json:"tasks"`
-	}
-	if m == nil || json.Unmarshal(d["execution"], &execution) != nil || execution != "sdd" ||
-		json.Unmarshal(d["groups"], &groups) != nil || len(groups) == 0 {
-		return ""
-	}
-	ids := strings.Split(m[1], "+")
-	slices.Sort(ids)
-	var sets []string
-	for _, g := range groups {
-		if len(g.Tasks) == 0 {
-			return ""
-		}
-		ts := slices.Clone(g.Tasks)
-		slices.Sort(ts)
-		if slices.Equal(ts, ids) {
-			return ""
-		}
-		sets = append(sets, "["+strings.Join(g.Tasks, " ")+"]")
-	}
-	return fmt.Sprintf("-key %s names tasks [%s], which are not one of the change's recorded decision groups %s — dispatch one implementer per group (skills/flow/sdd-dispatch.md)", key, strings.Join(ids, " "), strings.Join(sets, " "))
-}
-
-func latestDecision(ctx context.Context, f recordIdentityFlags, projectKey string) (map[string]json.RawMessage, bool) {
-	ds, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.Decision, error) {
-		return cl.ListDecisions(ctx, projectKey, f.change)
-	})
-	if err != nil || len(ds) == 0 {
-		return nil, false
-	}
-	top := ds[0]
-	for _, d := range ds[1:] {
-		if d.ID > top.ID {
-			top = d
-		}
-	}
-	var m map[string]json.RawMessage
-	if json.Unmarshal(top.Decision, &m) != nil {
-		return nil, false
-	}
-	return m, true
 }
 
 // runRecordDecisions implements `flow record decisions`: a change's
@@ -5127,20 +4965,6 @@ func minorOnlyRound(run records.Run, round int) bool {
 	return found
 }
 
-// inlineFixesMinorOnlyRound reports whether key is a well-formed panel-fix
-// key whose review round is Minor-only; a failed read reports false.
-func inlineFixesMinorOnlyRound(ctx context.Context, f recordIdentityFlags, projectKey, key string) bool {
-	m := panelFixRoundRE.FindStringSubmatch(key)
-	if m == nil || !panelFixKeyRE.MatchString(key) {
-		return false
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	r, _ := strconv.Atoi(m[1])
-	return err == nil && minorOnlyRound(run, r-1)
-}
-
 // panelFixBeginRefusal is why run refuses a panel-fix begin under key, whose
 // round is round, from session token — "" when it is admitted: review round
 // <round>-1 must hold a Critical or Important finding, and no dispatch of
@@ -5185,20 +5009,5 @@ func panelFixKeyOK(key string, stderr io.Writer) bool {
 		return true
 	}
 	fmt.Fprintf(stderr, "flow: -key %q: panel-fix-<round> counts fix rounds from 1 — the fix after panel-0 is panel-fix-1 (skills/flow/review-panel-fix-round.md)\n", key)
-	return false
-}
-
-// whitespaceOnlyCommit reports whether sha changes nothing but whitespace and
-// blank lines in the first of roots that knows it: a parent's inline
-// panel-fix of such a commit is no judgement the one-shot rule exists to
-// hand to a fresh dispatch.
-func whitespaceOnlyCommit(sha string, roots []string) bool {
-	for _, r := range roots {
-		if exec.Command("git", "-C", r, "cat-file", "-e", sha+"^{commit}").Run() != nil {
-			continue
-		}
-		return exec.Command("git", "-C", r, "diff", "--quiet", sha+"^", sha).Run() != nil &&
-			exec.Command("git", "-C", r, "diff", "-w", "--ignore-blank-lines", "--quiet", sha+"^", sha).Run() == nil
-	}
 	return false
 }

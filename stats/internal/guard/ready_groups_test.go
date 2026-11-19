@@ -170,3 +170,21 @@ func TestReadyGroupsReturnedRowAwaitingItsEnd(t *testing.T) {
 		t.Errorf("open fix row stays in flight: out=%q err=%q", r.stdout, r.err)
 	}
 }
+
+// TestReadyGroupsReadsADeciderDecision pins that the decider's whole
+// decision.json -- groups beside panel, visual and overrides -- launches its
+// groups' tasks.
+func TestReadyGroupsReadsADeciderDecision(t *testing.T) {
+	t.Parallel()
+	env := Env{Getenv: os.Getenv,
+		Dispatches: func(string) ([]byte, error) { return []byte(`[]`), nil },
+		Decisions: func(string) ([]byte, error) {
+			return []byte(`[{"id":3,"decision":{"groups":[{"tasks":["1","2"],"reason":"2 builds on 1"},{"tasks":["3"],"reason":"r"}],` +
+				`"panel":[{"slots":["primary","principles"],"reason":"r"}],"visual":{"verify":"skipped","reason":"r"},"overrides":[]}}]`), nil
+		}}
+	plan := readyPlan("## backend", "1|none", "2|1", "3|none")
+	r := runGuard("ready-groups", []string{pdgProjectFixture(t, plan, "backend"), t.TempDir(), "c"}, env)
+	if r.rc != 0 || r.stdout != "launch 1: 1+2 backend throwaway\nlaunch 2: 3 backend throwaway\n" {
+		t.Errorf("rc=%d out=%q\n%s", r.rc, r.stdout, r.out)
+	}
+}

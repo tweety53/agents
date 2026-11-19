@@ -3496,41 +3496,44 @@ func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
 
 // TestRunRecordDecisionRefusesBadBody pins the caller-mistake path `flow
 // record decision` shares with every other write verb: a body that is not
-// valid JSON is refused before the store is ever contacted, exit 2, no
+// valid JSON, or no decision (no groups), is refused before the store is
+// ever contacted, exit 2, no
 // journal entry -- the validateFindingStatus posture the dispatch prompt
 // names.
 func TestRunRecordDecisionRefusesBadBody(t *testing.T) {
 	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
+	for _, body := range []string{"not json", `{"class":"regular"}`} {
+		repo := gitRepo(t)
+		env := newTestEnv(t)
 
-	file := filepath.Join(t.TempDir(), "decision.json")
-	if err := os.WriteFile(file, []byte("not json"), 0o644); err != nil {
-		t.Fatalf("write decision file: %v", err)
-	}
+		file := filepath.Join(t.TempDir(), "decision.json")
+		if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
+			t.Fatalf("write decision file: %v", err)
+		}
 
-	contacted := false
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
-		contacted = true
-		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{}`))
-	}))
-	defer srv.Close()
+		contacted := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+			contacted = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer srv.Close()
 
-	var stdout, stderr bytes.Buffer
-	code := run(context.Background(),
-		[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-		env.get, strings.NewReader(""), &stdout, &stderr)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
+			env.get, strings.NewReader(""), &stdout, &stderr)
 
-	if code != 2 {
-		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
-	}
-	if contacted {
-		t.Error("the store was contacted for a non-JSON body -- it must be refused first")
-	}
-	if _, exists := recordJournalEntries(t, repo, "kan-472", env); exists {
-		t.Error("a caller mistake wrote a record journal")
+		if code != 2 {
+			t.Fatalf("%s: exit code = %d, want 2; stderr:\n%s", body, code, stderr.String())
+		}
+		if contacted {
+			t.Errorf("%s: the store was contacted for a body that is no decision -- it must be refused first", body)
+		}
+		if _, exists := recordJournalEntries(t, repo, "kan-472", env); exists {
+			t.Errorf("%s: a caller mistake wrote a record journal", body)
+		}
 	}
 }
 
@@ -3543,7 +3546,7 @@ func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
 	env := newTestEnv(t)
 
 	file := filepath.Join(t.TempDir(), "decision.json")
-	body := `{"toggles":{"executionMode":"dynamic"},"class":"regular"}`
+	body := `{"groups":[{"tasks":["1"],"reason":"r"}],"panel":[{"slots":["primary"],"reason":"r"}],"visual":{"verify":"skipped","reason":"r"},"overrides":[]}`
 	if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
 		t.Fatalf("write decision file: %v", err)
 	}
@@ -7457,260 +7460,6 @@ func decisionsBody(decision string) string {
 		`{"id":2,"sessionToken":"mf-b","recordedAt":"2026-01-02T00:00:00Z","decision":` + decision + `}]`
 }
 
-// TestRecordDispatchBeginRefusesSubagentUnderInline pins the inline
-// decision's enforcement: an implementer or panel-fix row with a subagent
-// behind it is refused, while an inline row, a reviewer, a self-review
-// fixer, a subagent decision and a failed decisions read all begin.
-func TestRecordDispatchBeginRefusesSubagentUnderInline(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	inline := decisionsBody(`{"execution":"inline"}`)
-	impl := []string{"-role", "implementer", "-key", "task-1-implementer", "-model", "opus", "-effort", "low"}
-	fix := []string{"-role", "panel-fix", "-key", "panel-fix-1", "-model", "opus", "-effort", "low"}
-	cases := []struct {
-		name, decisions string
-		args            []string
-		code            int
-	}{
-		{"subagent implementer", inline, append([]string{"-agent-id", "none"}, impl...), 2},
-		{"subagent panel-fix", inline, append([]string{"-agent-id", "none"}, fix...), 2},
-		{"inline implementer", inline, append([]string{"-agent-id", "inline"}, impl...), 0},
-		{"inline panel-fix", inline, append([]string{"-agent-id", "inline"}, fix...), 0},
-		{"reviewer", inline, []string{"-agent-id", "none", "-role", "reviewer", "-key", "panel-1-primary", "-slot", "primary", "-model", "opus", "-effort", "low"}, 0},
-		{"self-review fixer", inline, []string{"-agent-id", "none", "-role", "implementer", "-key", "self-review-x-fix", "-model", "opus", "-effort", "low"}, 0},
-		{"subagent decision", decisionsBody(`{"execution":"subagent"}`), append([]string{"-agent-id", "none"}, impl...), 0},
-		{"decisions read fails", "", append([]string{"-agent-id", "none"}, impl...), 0},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
-			if code != tc.code {
-				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
-			}
-			if tc.code == 2 && !strings.Contains(stderr, "execution: inline") {
-				t.Errorf("stderr %q does not name execution: inline", stderr)
-			}
-		})
-	}
-}
-
-// TestRecordDispatchBeginRefusesInlineUnderSdd pins the sdd decision's
-// enforcement: an implementer or panel-fix row begun -agent-id inline on a
-// task- or full-suite-fix- key is the parent's own work and is refused,
-// while a self-review or panel fixer, a subagent row, a back-fill and a
-// failed decisions read all begin.
-func TestRecordDispatchBeginRefusesInlineUnderSdd(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	sdd := decisionsBody(`{"execution":"sdd"}`)
-	row := func(agentID, role, key string, extra ...string) []string {
-		return append([]string{"-agent-id", agentID, "-role", role, "-key", key, "-model", "opus", "-effort", "low"}, extra...)
-	}
-	cases := []struct {
-		name, decisions string
-		args            []string
-		code            int
-		want            string
-	}{
-		{"inline task implementer", sdd, row("inline", "implementer", "task-1-implementer"), 2, "execution: sdd"},
-		{"inline full-suite implementer", sdd, row("inline", "implementer", "full-suite-fix-1"), 2, "execution: sdd"},
-		{"inline full-suite panel-fix", sdd, row("inline", "panel-fix", "full-suite-fix-1"), 2, "execution: sdd"},
-		{"inline self-review fixer", sdd, row("inline", "implementer", "self-review-x-fix"), 0, ""},
-		{"inline panel-fix round", sdd, row("inline", "panel-fix", "panel-fix-1"), 2, "execution: sdd"},
-		{"inline panel-fix chunk", sdd, row("inline", "panel-fix", "panel-fix-1-2"), 2, "execution: sdd"},
-		{"inline panel-fix under inline", decisionsBody(`{"execution":"inline"}`), row("inline", "panel-fix", "panel-fix-1"), 0, ""},
-		{"subagent implementer", sdd, row("none", "implementer", "task-1-implementer"), 0, ""},
-		{"back-fill", sdd, row("inline", "implementer", "task-1-implementer", "-started-at", "2026-01-02T03:04:05Z"), 2, "execution: sdd"},
-		{"inline self-review back-fill", sdd, row("inline", "implementer", "self-review-x-fix", "-started-at", "2026-01-02T03:04:05Z"), 0, ""},
-		{"decisions read fails", "", row("inline", "implementer", "task-1-implementer"), 0, ""},
-		// Every fixer key an sdd parent dispatches is an implementer key
-		// (skills/flow/implement.md, Every fix is a fresh one-shot).
-		{"subagent full-suite fixer", sdd, row("none", "implementer", "full-suite-fix-1"), 0, ""},
-		{"subagent recommit fixer", sdd, row("none", "implementer", "task-2-implementer-recommit-1"), 0, ""},
-		{"subagent pick fixer", sdd, row("none", "implementer", "task-5+6-implementer-pick-1"), 0, ""},
-		{"subagent operator-asked", sdd, row("none", "implementer", "operator-58"), 0, ""},
-		{"malformed operator key", sdd, row("none", "implementer", "operator-x"), 2, "is not task-<ids>-implementer"},
-		{"malformed full-suite key", sdd, row("none", "implementer", "full-suite-fixes"), 2, "is not task-<ids>-implementer"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
-			if code != tc.code {
-				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
-			}
-			if !strings.Contains(stderr, tc.want) {
-				t.Errorf("stderr %q does not name %q", stderr, tc.want)
-			}
-		})
-	}
-}
-
-// TestRecordDispatchBackfillRefusesInlinePanelFixUnderSdd pins kan-1117
-// self-review F1: an inline panel-fix back-fill under an execution: sdd
-// decision is refused before any store write, while an inline self-review
-// fixer's back-fill under the same decision is still recorded.
-func TestRecordDispatchBackfillRefusesInlinePanelFixUnderSdd(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	env["CLAUDE_CODE_SESSION_ID"] = ""
-	repo := recordRepo(t, "kan-258")
-	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
-	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
-	record := `{"change":"kan-258","dispatches":[` +
-		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:10:00Z","endedAt":"2026-10-23T09:15:00Z"},` +
-		`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-23T09:15:00Z","endedAt":"2026-10-23T09:16:00Z","outcome":"completed"}]}`
-	posts := 0
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/decisions") {
-			_, _ = w.Write([]byte(decisionsBody(`{"execution":"sdd"}`)))
-			return
-		}
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
-			_, _ = w.Write([]byte(record))
-			return
-		}
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		posts++
-		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
-	}))
-	t.Cleanup(srv.Close)
-	for _, tc := range []struct {
-		role, key string
-		code      int
-	}{
-		{"panel-fix", "panel-fix-1", 2},
-		{"implementer", "self-review-x-fix", 0},
-	} {
-		posts = 0
-		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", tc.role, "-model", "opus", "-key", tc.key,
-			"-session-token", "mf-record-sdd-backfill", "-outcome", "completed", "-agent-id", "inline", "-commit", sha}
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
-		if code != tc.code {
-			t.Fatalf("%s: exit %d, want %d; stderr:\n%s", tc.key, code, tc.code, stderr.String())
-		}
-		if tc.code == 2 && (!strings.Contains(stderr.String(), "execution: sdd") || posts != 0) {
-			t.Errorf("%s: stderr %q, %d POSTs; want execution: sdd named and no POST", tc.key, stderr.String(), posts)
-		}
-	}
-}
-
-// TestRecordDispatchAdmitsInlinePanelFixOfAMinorOnlyRoundUnderSdd pins
-// pipeline-fix 84: under execution: sdd the parent's round-close inline fix of
-// a Minor-only round (skills/flow/review-panel-fix-round.md) is recorded, by
-// back-fill or live begin, while a round holding an Important finding still
-// refuses the inline row and a non-inline begin on the Minor-only round is
-// still refused.
-func TestRecordDispatchAdmitsInlinePanelFixOfAMinorOnlyRoundUnderSdd(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	env["CLAUDE_CODE_SESSION_ID"] = ""
-	repo := recordRepo(t, "kan-258")
-	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
-	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
-	recordWith := func(severity, held string) string {
-		return `{"change":"kan-258","dispatches":[` + held +
-			`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:10:00Z","endedAt":"2026-10-23T09:15:00Z"},` +
-			`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-23T09:15:00Z","endedAt":"2026-10-23T09:16:00Z","outcome":"completed"}],` +
-			`"findings":[{"ref":"F1","round":0,"slot":"primary","severity":"` + severity + `","note":"n","status":"open"}]}`
-	}
-	for _, tc := range []struct {
-		name, severity, verb, agentID, held, want string
-		code                                      int
-	}{
-		{"backfill inline minor", "Minor", "backfill", "inline", "", "", 0},
-		{"begin inline minor", "Minor", "begin", "inline", "", "", 0},
-		{"backfill inline important", "Important", "backfill", "inline", "", "execution: sdd", 2},
-		{"begin subagent minor", "Minor", "begin", "none", "", "holds no Critical or Important", 2},
-		{"begin inline minor held by another session", "Minor", "begin", "inline",
-			`{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-other","startedAt":"2026-10-23T09:20:00Z"},`,
-			"is already used by session", 2},
-	} {
-		record := recordWith(tc.severity, tc.held)
-		posts := 0
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasSuffix(r.URL.Path, "/decisions") {
-				_, _ = w.Write([]byte(decisionsBody(`{"execution":"sdd"}`)))
-				return
-			}
-			if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
-				_, _ = w.Write([]byte(record))
-				return
-			}
-			if r.Method != http.MethodPost {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			posts++
-			_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
-		}))
-		args := []string{"record", "dispatch", tc.verb, "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-1",
-			"-session-token", "mf-record-sdd-minor", "-agent-id", tc.agentID}
-		if tc.verb == "backfill" {
-			args = append(args, "-outcome", "completed", "-commit", sha)
-		} else {
-			args = append(args, "-effort", "high")
-		}
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
-		srv.Close()
-		if code != tc.code {
-			t.Fatalf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.code, stderr.String())
-		}
-		if tc.code == 0 && posts == 0 {
-			t.Errorf("%s: no POST, want the row written", tc.name)
-		}
-		if tc.code == 2 && (!strings.Contains(stderr.String(), tc.want) || posts != 0) {
-			t.Errorf("%s: stderr %q, %d POSTs; want %q named and no POST", tc.name, stderr.String(), posts, tc.want)
-		}
-	}
-}
-
-// TestRecordDispatchBeginRefusesAboveSessionCap pins the decision's
-// session_cap: a row above the cap's model or effort, an unstated default
-// effort included, is refused; a row at or under it, and a decision with no
-// cap, begins.
-func TestRecordDispatchBeginRefusesAboveSessionCap(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	capped := func(model string) string {
-		return decisionsBody(`{"execution":"subagent","session_cap":{"model":"` + model + `","effort":"low","instruction":"opus/low until 2026-10-28"}}`)
-	}
-	begin := func(model, effort string) []string {
-		return []string{"-agent-id", "none", "-role", "reviewer", "-key", "panel-1-primary", "-slot", "primary", "-model", model, "-effort", effort}
-	}
-	cases := []struct {
-		name, decisions string
-		args            []string
-		code            int
-	}{
-		{"effort above", capped("opus"), begin("opus", "medium"), 2},
-		{"default effort", capped("opus"), begin("opus", "default"), 2},
-		{"at the cap", capped("opus"), begin("opus", "low"), 0},
-		{"lower model", capped("opus"), begin("sonnet", "low"), 0},
-		{"model above", capped("sonnet"), begin("opus", "low"), 2},
-		{"unranked model", capped("opus"), begin("inherit", "low"), 2},
-		{"inline default effort", capped("opus"), []string{"-agent-id", "inline", "-role", "implementer", "-key", "task-1-implementer", "-model", "opus", "-effort", "default"}, 0},
-		{"no cap", decisionsBody(`{"execution":"subagent","session_cap":null}`), begin("opus", "high"), 0},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
-			if code != tc.code {
-				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
-			}
-			if tc.code == 2 && !strings.Contains(stderr, "session cap") {
-				t.Errorf("stderr %q does not name the session cap", stderr)
-			}
-		})
-	}
-}
-
 // TestRecordFindingRejectsAbsoluteReproducer pins kan-1014's self-review: a
 // reproducer whose path token is absolute can never be resolved by
 // check-panel-findings-closed, so it is refused before the store is
@@ -9513,46 +9262,6 @@ func TestRecordDispatchAdmitsFirstReviewAfterPlanningPassRows(t *testing.T) {
 	}
 }
 
-// TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups pins the group
-// refusal (kan-1123 self-review, F2): under an sdd decision whose groups
-// carry their tasks, a live task-<ids>-implementer row whose ids are not one
-// group's tasks is refused; a fix key, a back-fill, a decision without
-// tasks and a failed decisions read all begin.
-func TestRecordDispatchBeginRefusesAKeyOffTheDecisionGroups(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	g := decisionsBody(`{"execution":"sdd","groups":[{"bundles":[1],"tasks":["1","3"]},{"bundles":["2"],"tasks":["2"]}]}`)
-	row := func(key string, extra ...string) []string {
-		return append([]string{"-agent-id", "none", "-role", "implementer", "-key", key, "-model", "opus", "-effort", "low"}, extra...)
-	}
-	cases := []struct {
-		name, decisions string
-		args            []string
-		code            int
-	}{
-		{"one group", g, row("task-1+3-implementer"), 0},
-		{"other group", g, row("task-2-implementer"), 0},
-		{"two groups joined", g, row("task-1+2+3-implementer"), 2},
-		{"part of a group", g, row("task-1-implementer"), 2},
-		{"retry off the groups", g, row("task-1+2+3-implementer-retry"), 2},
-		{"fix key", g, row("task-1+2+3-implementer-fix-1"), 0},
-		{"back-fill", g, row("task-1+2+3-implementer", "-started-at", "2026-01-02T03:04:05Z"), 0},
-		{"groups without tasks", decisionsBody(`{"execution":"sdd","groups":[{"bundles":[1]}]}`), row("task-1+2+3-implementer"), 0},
-		{"decisions read fails", "", row("task-1+2+3-implementer"), 0},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			code, stderr := beginUnderDecision(t, env, tc.decisions, tc.args...)
-			if code != tc.code {
-				t.Fatalf("exit %d, want %d; stderr:\n%s", code, tc.code, stderr)
-			}
-			if tc.code == 2 && !strings.Contains(stderr, "sdd-dispatch.md") {
-				t.Errorf("stderr %q does not name sdd-dispatch.md", stderr)
-			}
-		})
-	}
-}
-
 // TestRecordDispatchBeginRefusesAFixerOverThreeTasks pins the stage-end
 // fixer cap: a live fix key naming more than three tasks is refused whatever
 // the decision; three tasks, one task, a first-pass key and a back-fill begin.
@@ -9581,84 +9290,6 @@ func TestRecordDispatchBeginRefusesAFixerOverThreeTasks(t *testing.T) {
 			}
 			if tc.code == 2 && !strings.Contains(stderr, "gated-review-fix.md") {
 				t.Errorf("stderr %q does not name gated-review-fix.md", stderr)
-			}
-		})
-	}
-}
-
-// TestRecordDecisionStampsEachGroupsTasks pins the stamp `flow record
-// decision` puts on each group: the task ids its bundles resolve to through
-// the plan's own plan-dispatch-bundles output, and no stamp at all when the
-// plan is absent or a group names a bundle the plan does not have.
-func TestRecordDecisionStampsEachGroupsTasks(t *testing.T) {
-	t.Parallel()
-	plan := "- [ ] 1. One\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n\n" +
-		"- [ ] 2. Two\n\n**Files:**\n- Modify: `a.go`\n\n  - [ ] **Step 1: do it**\n\n" +
-		"- [ ] 3. Three\n\n**Files:**\n- Modify: `b.go`\n\n  - [ ] **Step 1: do it**\n"
-	cases := []struct {
-		name, groups string
-		plan         bool
-		want         [][]string
-	}{
-		{"stamped", `[{"bundles":[1],"slots":[]},{"bundles":["2"],"slots":[]}]`, true, [][]string{{"1", "2"}, {"3"}}},
-		{"no plan", `[{"bundles":[1]},{"bundles":["2"]}]`, false, [][]string{nil, nil}},
-		{"unknown bundle", `[{"bundles":[1]},{"bundles":[9]}]`, true, [][]string{nil, nil}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			repo := recordRepo(t, "kan-472")
-			env := newTestEnv(t)
-			if tc.plan {
-				if err := os.WriteFile(filepath.Join(repo, "spectre", "changes", "kan-472", "tasks.md"), []byte(plan), 0o644); err != nil {
-					t.Fatal(err)
-				}
-			}
-			file := filepath.Join(t.TempDir(), "decision.json")
-			if err := os.WriteFile(file, []byte(`{"execution":"sdd","groups":`+tc.groups+`}`), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			var posted []byte
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodPost {
-					posted, _ = io.ReadAll(r.Body)
-					w.WriteHeader(http.StatusCreated)
-					_, _ = w.Write([]byte(`{}`))
-					return
-				}
-				w.WriteHeader(http.StatusNotFound)
-			}))
-			defer srv.Close()
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
-				env.get, strings.NewReader(""), &stdout, &stderr)
-			if code != 0 {
-				t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
-			}
-			var got struct {
-				Decision struct {
-					Groups []map[string]json.RawMessage `json:"groups"`
-				} `json:"decision"`
-			}
-			if err := json.Unmarshal(posted, &got); err != nil {
-				t.Fatalf("posted body %q: %v", posted, err)
-			}
-			if len(got.Decision.Groups) != len(tc.want) {
-				t.Fatalf("posted groups %s, want %d", posted, len(tc.want))
-			}
-			for i, w := range tc.want {
-				raw, has := got.Decision.Groups[i]["tasks"]
-				if w == nil {
-					if has {
-						t.Errorf("group %d carries tasks %s, want none", i, raw)
-					}
-					continue
-				}
-				var tasks []string
-				if err := json.Unmarshal(raw, &tasks); err != nil || !slices.Equal(tasks, w) {
-					t.Errorf("group %d tasks = %s, want %v", i, raw, w)
-				}
 			}
 		})
 	}
@@ -9822,64 +9453,6 @@ func TestRecordDispatchBackfillIgnoresUnreadRowsInThePanelFixFloor(t *testing.T)
 	var stdout, stderr bytes.Buffer
 	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
 		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
-	}
-}
-
-// An inline panel-fix of a whitespace-only commit is recorded under sdd; one
-// that changes code is still refused.
-func TestRecordDispatchBackfillAdmitsAWhitespaceOnlyInlinePanelFixUnderSdd(t *testing.T) {
-	t.Parallel()
-	env := newTestEnv(t)
-	env["CLAUDE_CODE_SESSION_ID"] = ""
-	repo := recordRepo(t, "kan-258")
-	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
-	commitFile := func(body, at string) string {
-		if err := os.WriteFile(filepath.Join(repo, "a.kt"), []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		for _, args := range [][]string{{"add", "a.kt"}, {"commit", "-q", "-m", "edit " + at}} {
-			cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
-			cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=t@e.com", "GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=t@e.com", "GIT_AUTHOR_DATE="+at, "GIT_COMMITTER_DATE="+at)
-			if out, err := cmd.CombinedOutput(); err != nil {
-				t.Fatalf("git %v: %v\n%s", args, err, out)
-			}
-		}
-		out, _ := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
-		return strings.TrimSpace(string(out))
-	}
-	commitFile("/** doc */\n\n@A\nfun f() = 1\n", "2026-10-23T09:25:00Z")
-	blank := commitFile("/** doc */\n@A\nfun f() = 1\n", "2026-10-23T09:30:03Z")
-	code := commitFile("/** doc */\n@A\nfun f() = 2\n", "2026-10-23T09:31:03Z")
-	record := `{"change":"kan-258","dispatches":[` +
-		`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:10:00Z","endedAt":"2026-10-23T09:15:00Z"},` +
-		`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-23T09:15:00Z","endedAt":"2026-10-23T09:16:00Z","outcome":"completed"}]}`
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/decisions") {
-			_, _ = w.Write([]byte(decisionsBody(`{"execution":"sdd"}`)))
-			return
-		}
-		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
-			_, _ = w.Write([]byte(record))
-			return
-		}
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
-	}))
-	t.Cleanup(srv.Close)
-	for _, tc := range []struct {
-		sha  string
-		code int
-	}{{blank, 0}, {code, 2}} {
-		args := []string{"record", "dispatch", "backfill", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-1",
-			"-session-token", "mf-record-ws-backfill", "-outcome", "completed", "-agent-id", "inline", "-commit", tc.sha}
-		var stdout, stderr bytes.Buffer
-		if got := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); got != tc.code {
-			t.Fatalf("%s: exit %d, want %d; stderr:\n%s", tc.sha[:7], got, tc.code, stderr.String())
-		}
 	}
 }
 
