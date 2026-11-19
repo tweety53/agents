@@ -1251,8 +1251,12 @@ func launchRoleID(role, key string) string {
 	switch {
 	case role == "merger":
 		return "panel-merger"
+	case role == "panel-fix" && strings.HasPrefix(key, "panel-") && strings.HasSuffix(key, "-minor-fix"):
+		return "minor-fix"
 	case role == "panel-fix":
 		return "panel-fix"
+	case role == "planner" && strings.HasPrefix(key, "fix-plan-"):
+		return "fix-planner"
 	case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
 		return "visual-verifier"
 	case role == "planner" && strings.HasPrefix(key, "tooling-analysis-"):

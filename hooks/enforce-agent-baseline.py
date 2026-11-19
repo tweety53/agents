@@ -105,12 +105,13 @@ DENY_REASON = (
 
 # A key the hook begins a row under, by a Key shape the closed list names (**Dispatch sites -- the
 # parent's closed list**, skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`,
-# `full-suite-fix-2`, a planner's `plan-2`, the plan reviewer's `plan-review-1`, a /flow-interactive
+# `full-suite-fix-2`, a fix run's planner `fix-plan-1`, a planner's `plan-2`, the plan reviewer's `plan-review-1`, a /flow-interactive
 # request's operator-asked `operator-58`.
 ROW_KEY = (
     r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
     r"|panel-\d+-[a-z][a-z0-9+-]*"
     r"|panel-fix-\d+(?:-\d+)?(?:-retry)?"
+    r"|fix-plan-\d+"
     r"|full-suite-fix-\d+"
     r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
     r"|tooling-analysis-\d+(?:-[a-z0-9][a-z0-9-]*)?"
@@ -163,9 +164,9 @@ ROW_ROLE = {
     "gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
     "panel-reviewer": "reviewer", "panel-rerun": "reviewer",
     "panel-merger": "merger",
-    "panel-fix": "panel-fix",
+    "panel-fix": "panel-fix", "minor-fix": "panel-fix",
     "visual-verifier": "verifier",
-    "planner": "planner", "plan-designer": "planner", "tooling-analyst": "planner",
+    "planner": "planner", "plan-designer": "planner", "tooling-analyst": "planner", "fix-planner": "planner",
     "explorer": "explorer",
 }
 

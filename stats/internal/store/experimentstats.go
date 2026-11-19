@@ -69,9 +69,9 @@ func roleMetrics(role string) []string {
 	switch role {
 	case "main":
 		return mainMetrics
-	case "planner", "plan-designer", "explorer", "self-review-plan", "pipeline-fix-plan":
+	case "planner", "plan-designer", "explorer", "fix-planner", "self-review-plan", "pipeline-fix-plan":
 		return plannerMetrics
-	case "implementer", "panel-fix", "operator-asked", "self-review-fix", "pipeline-fix-fix", "late-fix":
+	case "implementer", "panel-fix", "minor-fix", "operator-asked", "self-review-fix", "pipeline-fix-fix", "late-fix":
 		return fixerMetrics
 	case "design-reviewer", "panel-reviewer", "panel-sanity-efficiency", "panel-mutation-failure", "panel-rerun", "gated-reviewer", "gated-re-reviewer",
 		"self-review-review-1", "self-review-review-r", "pipeline-fix-review-1", "pipeline-fix-review-r":
@@ -96,9 +96,11 @@ var roleDispatchSQL = map[string]string{
 	"plan-designer":           `d.role = 'planner' AND d.dispatch_key ~ '^design-[0-9]+'`,
 	"explorer":                `d.role = 'explorer'`,
 	"tooling-analyst":         `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,
+	"fix-planner":             `d.role = 'planner' AND d.dispatch_key ~ '^fix-plan-[0-9]+$'`,
 	"fix-run-judge":           `d.role = 'planner' AND d.dispatch_key LIKE 'fix-run-judge-%'`,
 	"implementer":             `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%' AND d.dispatch_key !~ '-implementer-(fix|recommit|pick)-'`,
-	"panel-fix":               `d.role = 'panel-fix'`,
+	"panel-fix":               `d.role = 'panel-fix' AND d.dispatch_key !~ '^panel-[0-9]+-minor-fix$'`,
+	"minor-fix":               `d.role = 'panel-fix' AND d.dispatch_key ~ '^panel-[0-9]+-minor-fix$'`,
 	"design-reviewer":         `d.role = 'reviewer' AND d.dispatch_key ~ '^plan-review-[0-9]+$'`,
 	"operator-asked":          `d.role = 'implementer' AND d.dispatch_key LIKE 'operator-%'`,
 	"panel-reviewer":          `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-' AND d.dispatch_key !~ '^panel-0-(test-sanity\+call-efficiency|mutation\+failure-modes)'`,

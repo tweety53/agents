@@ -215,5 +215,19 @@
     "opener": "",
     "category": "other:analyst",
     "describe": "tooling-analysis-1"
+  },
+  {
+    "key": "panel-2-minor-fix",
+    "role": "panel-fix",
+    "opener": "",
+    "category": "minor-fixer",
+    "describe": "Code review round 2: minor fix"
+  },
+  {
+    "key": "fix-plan-1",
+    "role": "planner",
+    "opener": "",
+    "category": "fix-planner",
+    "describe": "fix-plan-1"
   }
 ]
