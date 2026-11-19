@@ -694,6 +694,19 @@ func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
 	if rc, out := fx.pf(t, "verify", wt); rc != 0 || !strings.Contains(out, `green: test "web/a.spec.ts" = web/a.spec.ts`) {
 		t.Fatalf("(a) rc %d, specs paths not substituted: %s", rc, out)
 	}
+	// A specs row that maps nothing, and no specs row at all, run the smoke
+	// set in `<specs>`, never a literal `<specs>` (kan-1132).
+	const smokeVis = `test "<specs>" = "--grep @smoke"`
+	smokeSection := func(specsRow string) string {
+		return base + "\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n" +
+			"\n| Command | Runs |\n|---------|------|\n" + specsRow + "| `verify` | `" + smokeVis + "` |\n"
+	}
+	for name, row := range map[string]string{"empty specs row": "| `specs` | `true` |\n", "no specs row": ""} {
+		writeFile(t, wt+"/.flow/project.md", smokeSection(row))
+		if rc, out := fx.pf(t, "verify", wt); rc != 0 || !strings.Contains(out, `green: test "--grep @smoke" = "--grep @smoke"`) {
+			t.Fatalf("(%s) rc %d, smoke set not filled: %s", name, rc, out)
+		}
+	}
 	// No `ui paths` row: the trigger cannot answer, no merge base is read,
 	// so a specs row has nothing to scope to and the visual line is red.
 	writeFile(t, wt+"/.flow/project.md", section(""))

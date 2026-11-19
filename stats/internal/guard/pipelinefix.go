@@ -585,12 +585,13 @@ func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 			case src != 0:
 				fail(specs, src, out)
 			case len(paths) == 0:
-				fmt.Fprintf(stdout, "green: %s (mapped no spec)\n", specs)
+				report(strings.ReplaceAll(cmd, "<specs>", rvlSmokeSet), dir)
 			default:
 				report(strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " ")), dir)
 			}
 		default:
-			report(cmd, dir)
+			// No `specs` row: THE SMOKE FALLBACK fills `<specs>` (kan-1132).
+			report(strings.ReplaceAll(cmd, "<specs>", rvlSmokeSet), dir)
 		}
 	}
 	if red > 0 {
