@@ -17,7 +17,6 @@ package repotest
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -349,7 +348,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 	})
 }
 
-// flowCalls returns the argv lines the fake `flow` (or the snapshot stub) logged to log that open
+// flowCalls returns the argv lines the fake `flow` logged to log that open
 // with prefix; a log never written holds none.
 func flowCalls(t *testing.T, log, prefix string) []string {
 	t.Helper()
@@ -384,17 +383,10 @@ func beginRepo(t *testing.T) (main, wt string) {
 	return main, main + "-worktrees/c1"
 }
 
-// beginEnv is openRowFixture's env plus a check-plan-unchanged stand-in that logs
-// `check-plan-unchanged <argv>` to the same argv log and exits snapshotRC.
-func beginEnv(t *testing.T, rows string, snapshotRC int) (env []string, log string) {
+// beginEnv is openRowFixture's env: no row open beyond rows, no incident.
+func beginEnv(t *testing.T, rows string) (env []string, log string) {
 	t.Helper()
-	env, log = openRowFixture(t, rows, false)
-	stub := filepath.Join(t.TempDir(), "check-plan-unchanged")
-	script := fmt.Sprintf("#!/bin/sh\nprintf 'check-plan-unchanged %%s\\n' \"$*\" >> %s\nexit %d\n", log, snapshotRC)
-	if err := os.WriteFile(stub, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return append(env, "DISPATCH_PLAN_SNAPSHOT="+stub), log
+	return openRowFixture(t, rows, false)
 }
 
 // beginPayload is a /flow-session Agent payload for session s1 run from cwd, its prompt carrying
@@ -440,7 +432,7 @@ func TestEnforceAgentBaselineHookBeginsTheRow(t *testing.T) {
 	t.Parallel()
 	main, _ := beginRepo(t)
 	want := "record dispatch begin -C " + main + " -change c1 -role panel-fix -model opus -effort low -key panel-fix-2 -session-token mf-t1"
-	env, log := beginEnv(t, `[]`, 0)
+	env, log := beginEnv(t, `[]`)
 	if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), env...); denied {
 		t.Fatalf("denied: %s", out)
 	}
@@ -457,7 +449,7 @@ func TestEnforceAgentBaselineHookReadsTheOpenStageRun(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	main, _ := beginRepo(t)
-	env, log := beginEnv(t, `[]`, 0)
+	env, log := beginEnv(t, `[]`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": []any{
 			map[string]string{"changeName": "pipeline-fix-c1-72", "projectKey": "other", "sessionToken": "pf", "stage": "flow.pipeline-fix", "endedAt": "2026-11-16T19:47:52Z"},
@@ -490,7 +482,7 @@ func TestEnforceAgentBaselineHookSkipsALoopsOpenStageRun(t *testing.T) {
 		t.Run(c.prefix, func(t *testing.T) {
 			t.Parallel()
 			main, _ := beginRepo(t)
-			env, log := beginEnv(t, `[]`, 0)
+			env, log := beginEnv(t, `[]`)
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewEncoder(w).Encode(map[string]any{"stageRuns": []any{
 					map[string]string{"changeName": c.prefix + "c1-81", "sessionToken": c.prefix + "c1-81", "stage": c.stage},
@@ -519,15 +511,14 @@ func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
 	for id, role := range map[string]string{
 		"implementer": "implementer", "operator-asked": "implementer",
 		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
-		"panel-reviewer": "reviewer", "panel-sanity-efficiency": "reviewer",
-		"panel-mutation-failure": "reviewer", "panel-rerun": "reviewer",
+		"panel-reviewer": "reviewer", "panel-rerun": "reviewer",
 		"panel-merger": "merger", "panel-fix": "panel-fix", "visual-verifier": "verifier",
 		"planner": "planner", "tooling-analyst": "planner",
 	} {
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
 			main, _ := beginRepo(t)
-			env, log := beginEnv(t, `[]`, 0)
+			env, log := beginEnv(t, `[]`)
 			if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-3 x", "Role: "+id+"\nwork", "flow-low", "opus", ""), env...); denied {
 				t.Fatalf("denied: %s", out)
 			}
@@ -560,7 +551,7 @@ func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			main, _ := beginRepo(t)
-			env, log := beginEnv(t, `[]`, 0)
+			env, log := beginEnv(t, `[]`)
 			denied, out := runBegin(t, beginPayload(t, main, c.description, c.prompt, c.typ, "opus", ""), env...)
 			begins := flowCalls(t, log, "record dispatch begin")
 			if c.want == nil {
@@ -585,8 +576,7 @@ func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
 	}
 }
 
-// TestEnforceAgentBaselineHookSkipsAnOpenRow pins decisions panel-round-begins-kept and
-// explicit-begin-fallback: a row already open is never begun again.
+// TestEnforceAgentBaselineHookSkipsAnOpenRow pins decision explicit-begin-fallback: a row already open is never begun again.
 func TestEnforceAgentBaselineHookSkipsAnOpenRow(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -597,43 +587,12 @@ func TestEnforceAgentBaselineHookSkipsAnOpenRow(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			main, _ := beginRepo(t)
-			env, log := beginEnv(t, c.rows, 0)
+			env, log := beginEnv(t, c.rows)
 			if denied, out := runBegin(t, beginPayload(t, main, c.description, c.prompt, "flow-low", "opus", ""), env...); denied {
 				t.Fatalf("denied: %s", out)
 			}
 			if begins := flowCalls(t, log, "record dispatch begin"); len(begins) != 0 {
 				t.Errorf("an open row begun again: %q", begins)
-			}
-		})
-	}
-}
-
-// TestEnforceAgentBaselineHookSnapshotsAGatedReviewer pins decision plan-check-rides-row: a gated
-// reviewer's plan tree is snapshotted to plan-snapshot-<key>.txt before its row is begun, and a
-// failed snapshot begins no row and lets the launch through.
-func TestEnforceAgentBaselineHookSnapshotsAGatedReviewer(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	for _, rc := range []int{0, 2} {
-		t.Run(fmt.Sprintf("snapshot exit %d", rc), func(t *testing.T) {
-			t.Parallel()
-			main, wt := beginRepo(t)
-			env, log := beginEnv(t, `[]`, rc)
-			denied, out := runBegin(t, beginPayload(t, main, "Task 3/9 (review)", "Role: gated-reviewer\nKey: task-3-reviewer\nreview", "flow-medium", "opus", ""), env...)
-			snap := "check-plan-unchanged snapshot " + wt + " c1 " + wt + "/.superpowers/sdd/plan-snapshot-task-3-reviewer.txt"
-			calls := append(flowCalls(t, log, "check-plan-unchanged"), flowCalls(t, log, "record dispatch begin")...)
-			if rc != 0 {
-				if denied || len(calls) != 1 || calls[0] != snap {
-					t.Fatalf("want the snapshot alone and an allow: out=%s calls=%q", out, calls)
-				}
-				return
-			}
-			b, err := os.ReadFile(log)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if denied || len(calls) != 2 || calls[0] != snap || strings.Index(string(b), snap) > strings.Index(string(b), "record dispatch begin") {
-				t.Fatalf("want the snapshot, then the begin: out=%s log=%s", out, b)
 			}
 		})
 	}
@@ -663,7 +622,7 @@ func TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree(t *testing.T)
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			main, _ := beginRepo(t)
-			env, log := beginEnv(t, `[]`, 0)
+			env, log := beginEnv(t, `[]`)
 			if c.stage != "" {
 				if err := os.WriteFile(filepath.Join(filepath.Dir(log), "stage"), []byte(c.stage), 0o644); err != nil {
 					t.Fatal(err)
@@ -714,7 +673,7 @@ func TestEnforceAgentBaselineHookRecordsThePairPick(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "panel-fix-2.pick"), []byte(c.pick), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			env, log := beginEnv(t, `[]`, 0)
+			env, log := beginEnv(t, `[]`)
 			if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), env...); denied {
 				t.Fatalf("denied: %s", out)
 			}
