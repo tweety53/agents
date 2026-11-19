@@ -90,7 +90,7 @@ import (
 // `low`, `medium`, `high`, or `default` where none was set.
 //
 // SessionID is the harness session the begin ran in, from
-// CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID. It binds the row to its
+// CLAUDE_CODE_SESSION_ID. It binds the row to its
 // session where no stage run carries SessionToken -- a fix run that marks
 // no stage -- so an inline row still takes the parent's main-thread usage
 // (KAN-967). It is written at begin and never read back.

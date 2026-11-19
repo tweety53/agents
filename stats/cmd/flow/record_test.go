@@ -7383,7 +7383,7 @@ func TestRecordDispatchRefusesAnInventedAgentID(t *testing.T) {
 			t.Errorf("%s -agent-id %s: exit %d, %d requests, stderr %q; want exit 2, 0 requests, the value named and omit -agent-id", c.verb, c.id, code, requests, stderr)
 		}
 	}
-	for _, id := range []string{"a30f48a5e14b11392", "agent_541a9582-890b-417e-a3c3-419047bb4ee6", "inline", "none"} {
+	for _, id := range []string{"a30f48a5e14b11392", "inline", "none"} {
 		if code, stderr, _ := dispatchCall(t, env, "begin", "-key", "verify-gymie", "-agent-id", id); code != 0 {
 			t.Errorf("begin -agent-id %s: exit %d, stderr %q; want 0", id, code, stderr)
 		}

@@ -644,7 +644,7 @@ time the end lands; main-thread records inside the window that are
 harvested after it still add on top. Where CLAUDE_CODE_SESSION_ID is set
 the harvester reads that transcript, so -tokens is refused there -- and the
 daemon refuses it for any session token begun on a harness whose
-transcript it harvests (claude-code, zcode), whatever the caller's
+transcript it harvests (claude-code), whatever the caller's
 environment holds; a begin and commit made in one call is recorded with
 "flow record dispatch backfill -agent-id inline -commit <sha>". The value
 is comma-separated key=value pairs; the keys are input, output, cache-read
@@ -1043,9 +1043,8 @@ func runRecordDispatchVerb(ctx context.Context, args []string, getenv func(strin
 	}
 }
 
-// harnessAgentID is the id shape each harness writes: Claude Code's
-// a<16 hex>, ZCode's agent_<uuid> (harvest.AgentIDFromRolloutPath).
-var harnessAgentID = regexp.MustCompile(`^(a[0-9a-f]{16}|agent_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$`)
+// harnessAgentID is the id shape Claude Code writes: a<16 hex>.
+var harnessAgentID = regexp.MustCompile(`^a[0-9a-f]{16}$`)
 
 // validAgentIDFlag reports whether -agent-id is absent, inline, none or a
 // harness id. A dispatch label passed instead blocks the daemon's stamp and

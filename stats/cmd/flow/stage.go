@@ -191,15 +191,10 @@ func resolveHarness(harnessFlag string, getenv func(string) string) string {
 	return defaultHarness
 }
 
-// sessionIDFromEnv returns the harness session id from the environment, or
-// nil when neither harness exposes one. CLAUDE_CODE_SESSION_ID wins over
-// MUSE_SESSION_ID: no session sets both, so the order only settles a
-// hypothetical overlap deterministically.
+// sessionIDFromEnv returns the harness session id from the environment
+// (CLAUDE_CODE_SESSION_ID), or nil when it is unset.
 func sessionIDFromEnv(getenv func(string) string) *string {
 	if v := getenv("CLAUDE_CODE_SESSION_ID"); v != "" {
-		return &v
-	}
-	if v := getenv("MUSE_SESSION_ID"); v != "" {
 		return &v
 	}
 	return nil
@@ -363,7 +358,7 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
-	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
+	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (optional: defaults to <change>-<UTC start time>)")
 	requestFlag := fset.Int("request", 0, "the /flow-interactive request this run works on, a positive integer (only with -command /flow-interactive)")
 	pos, err := parseInterspersed(fset, args)
@@ -417,10 +412,9 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 	// harvester's search (internal/harvest's sessionTokensInMark). A row
 	// born with its session_id already set skips that search entirely
 	// (store.UnresolvedSessionTokens selects session_id IS NULL): binding
-	// from CLAUDE_CODE_SESSION_ID (or MUSE_SESSION_ID on Muse) here, when the
-	// caller did not pass -session, makes the mark self-attributing on that
-	// harness. The token search remains the fallback for a mark made where
-	// both variables are unset.
+	// from CLAUDE_CODE_SESSION_ID here, when the caller did not pass
+	// -session, makes the mark self-attributing on that harness. The token
+	// search remains the fallback for a mark made where it is unset.
 	var sessionID *string
 	switch {
 	case *sessionFlag != "":
@@ -802,7 +796,7 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
-	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
+	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (optional: defaults to <change>-<UTC start time>)")
 	pos, err := parseInterspersed(fset, args[:sep])
 	if err != nil {
@@ -989,7 +983,7 @@ func runStageMark(ctx context.Context, args []string, getenv func(string) string
 	registerStageIdentityFlags(fset, &f, getenv)
 	stagesFlag := fset.String("stages", "", "comma-separated stage keys, each marked begin then end completed, in order")
 	fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
-	fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID or MUSE_SESSION_ID when set")
+	fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
 	fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (optional: defaults to <change>-<UTC start time>)")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {

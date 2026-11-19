@@ -373,50 +373,6 @@ func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
 	}
 }
 
-// TestStageBeginDefaultsSessionFromMuseEnv is the Muse half of
-// TestStageBeginDefaultsSessionFromClaudeCodeEnv: when -session is not given and
-// CLAUDE_CODE_SESSION_ID is unset, a begin mark picks up MUSE_SESSION_ID so the
-// row is born with session_id set.
-func TestStageBeginDefaultsSessionFromMuseEnv(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	env["CLAUDE_CODE_SESSION_ID"] = ""
-	env["MUSE_SESSION_ID"] = "01a1252a-531b-7a13-8cf8-0f07531311ea"
-
-	var gotBody []byte
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		var err error
-		gotBody, err = readAll(r)
-		if err != nil {
-			t.Fatalf("read request body: %v", err)
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
-	}))
-	defer srv.Close()
-
-	var stdout, stderr bytes.Buffer
-	code := run(context.Background(),
-		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-muse-env-20261024T000000Z", "kan-16"},
-		env.get, strings.NewReader(""), &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
-	}
-
-	var got map[string]any
-	if err := json.Unmarshal(gotBody, &got); err != nil {
-		t.Fatalf("decode request body: %v", err)
-	}
-	if got["sessionId"] != "01a1252a-531b-7a13-8cf8-0f07531311ea" {
-		t.Errorf("sessionId = %v, want the MUSE_SESSION_ID value", got["sessionId"])
-	}
-	if got["sessionToken"] != "mf-session-token-muse-env-20261024T000000Z" {
-		t.Errorf("sessionToken = %v, want mf-session-token-muse-env-20261024T000000Z", got["sessionToken"])
-	}
-}
-
 // TestStageBeginSessionFlagWinsOverClaudeCodeEnv pins the precedence design.md
 // states: -session, when given, wins over CLAUDE_CODE_SESSION_ID.
 func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
@@ -460,7 +416,7 @@ func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
 }
 
 // TestStageBeginOmitsSessionWhenEnvUnset pins that when -session is not given and
-// neither CLAUDE_CODE_SESSION_ID nor MUSE_SESSION_ID is set, the begin mark omits
+// CLAUDE_CODE_SESSION_ID is not set, the begin mark omits
 // sessionId entirely rather than sending it as an empty string (a mutation slot
 // finding: a mark born with session_id = "" would skip the harvester's transcript
 // search the same way a real session id does, but attribute nothing).
@@ -469,7 +425,6 @@ func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
 	repo := gitRepo(t)
 	env := newTestEnv(t)
 	env["CLAUDE_CODE_SESSION_ID"] = ""
-	env["MUSE_SESSION_ID"] = ""
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
@@ -873,7 +828,7 @@ func TestRunStageWrapEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
+			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "test-harness",
 			"-session-token", "ff-session-token-wrap-noopen-20261024T000000Z", "kan-700-demo",
 			"--", "sh", "-c", "true"},
 		env.get, strings.NewReader(""), &stdout, &stderr)
@@ -1005,7 +960,7 @@ func TestRunStageWrapRunsChildAndMarksPair(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "wrap", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "zcode",
+			"-command", "/flow-fast", "-stage", "flow.brainstorm", "-harness", "test-harness",
 			"-session-token", "ff-session-token-wrap-happy-20261024T000000Z", "kan-323",
 			"--", "sh", "-c", "sleep 0.2; echo wrapped-output"},
 		env.get, strings.NewReader(""), &stdout, &stderr)
@@ -1505,7 +1460,7 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate", "-harness", "zcode",
+			"-command", "/flow-fast", "-stages", "flow.preflight,flow.unfinished-work-gate", "-harness", "test-harness",
 			"-session-token", "ff-session-token-mark-happy-20261024T000000Z", "kan-860"},
 		env.get, strings.NewReader(""), &stdout, &stderr)
 
@@ -1516,9 +1471,9 @@ func TestStageMarkBeginsAndEndsEachKey(t *testing.T) {
 		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
 	}
 	want := []string{
-		"begin flow.preflight ff-session-token-mark-happy-20261024T000000Z zcode kan-860",
+		"begin flow.preflight ff-session-token-mark-happy-20261024T000000Z test-harness kan-860",
 		"end flow.preflight completed kan-860",
-		"begin flow.unfinished-work-gate ff-session-token-mark-happy-20261024T000000Z zcode kan-860",
+		"begin flow.unfinished-work-gate ff-session-token-mark-happy-20261024T000000Z test-harness kan-860",
 		"end flow.unfinished-work-gate completed kan-860",
 	}
 	mu.Lock()
@@ -1559,7 +1514,7 @@ func TestStageMarkValidatesAllKeysFirst(t *testing.T) {
 			defer srv.Close()
 
 			args := append([]string{"stage", "mark", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-				"-command", "/flow-fast", "-harness", "zcode"}, extra...)
+				"-command", "/flow-fast", "-harness", "test-harness"}, extra...)
 			args = append(args, "kan-860")
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
