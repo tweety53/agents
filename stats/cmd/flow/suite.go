@@ -93,8 +93,9 @@ func runSuite(ctx context.Context, args []string, getenv func(string) string, st
 const suiteJournalName = "_suite-runs"
 
 // suiteWaitDelay is how long record waits, once the child has exited, for
-// its stdout to close: a descendant still holding it is cut off there.
-const suiteWaitDelay = time.Second
+// its stdout to close: a descendant still holding it is cut off there. A var
+// only so a test can shorten it (TestSuiteRecordReturnsWhenTheChildExits).
+var suiteWaitDelay = time.Second
 
 // runSuiteRecord implements `flow suite record`: the child runs with
 // inherited stdin and stderr, its stdout decoded by copyDecodingGoTestJSON,

@@ -120,6 +120,7 @@ func TestInteractiveLand(t *testing.T) {
 	}
 
 	t.Run("landed", func(t *testing.T) {
+		t.Parallel()
 		fx := newFixture(t)
 		before := originMain(fx)
 		head := commit(t, fx, "docs/a.md")
@@ -143,6 +144,7 @@ func TestInteractiveLand(t *testing.T) {
 		}
 	})
 	t.Run("dirty", func(t *testing.T) {
+		t.Parallel()
 		fx := newFixture(t)
 		before := originMain(fx)
 		stamp(t, fx, commit(t, fx, "docs/a.md"))
@@ -151,6 +153,7 @@ func TestInteractiveLand(t *testing.T) {
 		refused(t, fx, before, code, stderr, "not clean")
 	})
 	t.Run("not stamped", func(t *testing.T) {
+		t.Parallel()
 		fx := newFixture(t)
 		before := originMain(fx)
 		commit(t, fx, "docs/a.md")
@@ -158,6 +161,7 @@ func TestInteractiveLand(t *testing.T) {
 		refused(t, fx, before, code, stderr, "flow-lint-green")
 	})
 	t.Run("rebased", func(t *testing.T) {
+		t.Parallel()
 		fx := newFixture(t)
 		stamp(t, fx, commit(t, fx, "docs/a.md"))
 		other := filepath.Join(t.TempDir(), "other")
@@ -171,6 +175,7 @@ func TestInteractiveLand(t *testing.T) {
 		refused(t, fx, before, code, stderr, "flow-lint-green", "HEAD "+fx.git(fx.wt, "rev-parse", "HEAD"))
 	})
 	t.Run("tracked scratch", func(t *testing.T) {
+		t.Parallel()
 		fx := newFixture(t)
 		before := originMain(fx)
 		path := ".superpowers/sdd/kan-1-x/land.sh"
@@ -182,6 +187,7 @@ func TestInteractiveLand(t *testing.T) {
 		refused(t, fx, before, code, stderr, path)
 	})
 	t.Run("rejected", func(t *testing.T) {
+		t.Parallel()
 		fx := newFixture(t)
 		before := originMain(fx)
 		stamp(t, fx, commit(t, fx, "docs/a.md"))
@@ -203,6 +209,7 @@ func TestInteractiveLand(t *testing.T) {
 		}
 	})
 	t.Run("usage", func(t *testing.T) {
+		t.Parallel()
 		fx := newFixture(t)
 		for name, args := range map[string][]string{
 			"no -n":             {"-change", "kan-1-x", "-harness", "h", "-session-token", "fi-k1-20261109T100000Z"},

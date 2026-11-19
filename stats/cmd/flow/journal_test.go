@@ -13,10 +13,15 @@ import (
 	"github.com/tweety53/agents/stats/internal/storetest"
 )
 
-// TestMain drops the package's template database once every test has run.
+// TestMain drops the package's template database, and removes gitRepo's
+// template repository, once every test has run.
 func TestMain(m *testing.M) {
 	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
-	os.Exit(storetest.Main(m))
+	code := storetest.Main(m)
+	if gitRepoTemplate.dir != "" {
+		os.RemoveAll(gitRepoTemplate.dir)
+	}
+	os.Exit(code)
 }
 
 // newTestStoreDSN returns the DSN of a throwaway, migrated database -- a

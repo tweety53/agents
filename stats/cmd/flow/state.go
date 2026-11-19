@@ -112,8 +112,9 @@ func noteAddrUsage(fset *flag.FlagSet, stderr io.Writer, addr string, getenv fun
 // store before taking the fallback path. It is short on purpose: every
 // second spent waiting on a store that turns out to be down is a second
 // added to every `/flow` command's runtime, and the whole point of the
-// fallback is that the pipeline must not feel an outage.
-const defaultTimeout = 2 * time.Second
+// fallback is that the pipeline must not feel an outage. A var only so a
+// test can shorten it (shortDefaultTimeout in state_test.go).
+var defaultTimeout = 2 * time.Second
 
 // maxStdinBytes caps how much `state set` reads from stdin -- the same cap
 // the daemon itself enforces on a PUT body (internal/api.maxRequestBodyBytes),

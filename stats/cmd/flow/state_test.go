@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,28 +31,64 @@ import (
 // returns its path -- required by TestProjectKeyIsIdenticalFromAWorktree's
 // own instruction to use a real worktree, not a simulated path, and used
 // as the -C target by every other test here so ProjectKey has something
-// real to resolve.
+// real to resolve. The repository is built once per test binary
+// (gitRepoTemplate) and copied: two hundred tests ask for the same
+// one-commit repository, and the copy spawns no git.
 func gitRepo(t *testing.T) string {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
+	gitRepoTemplate.once.Do(buildGitRepoTemplate)
+	if gitRepoTemplate.err != nil {
+		t.Fatal(gitRepoTemplate.err)
+	}
 	dir := t.TempDir()
-	run := func(args ...string) {
+	if err := os.CopyFS(dir, os.DirFS(gitRepoTemplate.dir)); err != nil {
+		t.Fatalf("copy the template repository: %v", err)
+	}
+	return dir
+}
+
+// gitRepoTemplate is the one-commit repository gitRepo copies; TestMain
+// removes its directory.
+var gitRepoTemplate struct {
+	once sync.Once
+	dir  string
+	err  error
+}
+
+func buildGitRepoTemplate() {
+	dir, err := os.MkdirTemp("", "flow-cli-gitrepo-")
+	if err != nil {
+		gitRepoTemplate.err = err
+		return
+	}
+	gitRepoTemplate.dir = dir
+	for _, args := range [][]string{{"init", "-q"}, {"commit", "--allow-empty", "-q", "-m", "initial"}} {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = dir
 		cmd.Env = append(os.Environ(),
 			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
 			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
 		)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			gitRepoTemplate.err = fmt.Errorf("git %v: %v\n%s", args, err, out)
+			return
 		}
 	}
-	run("init", "-q")
-	run("commit", "--allow-empty", "-q", "-m", "initial")
-	return dir
+}
+
+// shortDefaultTimeout shortens defaultTimeout to 250ms for one test, so a
+// test proving a deadline outlives it, or that a WaitDelay bounded by it
+// fires, does not wait the real 2s out. It writes a package var: its caller
+// must not call t.Parallel -- a sequential test finishes before any parallel
+// one resumes, so no other test ever reads the shortened value.
+func shortDefaultTimeout(t *testing.T) {
+	t.Helper()
+	old := defaultTimeout
+	defaultTimeout = 250 * time.Millisecond
+	t.Cleanup(func() { defaultTimeout = old })
 }
 
 // testEnv is one test's environment, handed to run as its getenv: the keys
