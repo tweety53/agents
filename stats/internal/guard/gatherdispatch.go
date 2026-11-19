@@ -232,7 +232,7 @@ import (
 
 func init() { Registry["gather-dispatch-context"] = gatherDispatchContext }
 
-const gdcUsage = "usage: flow-guard gather-dispatch-context <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]\n"
+const gdcUsage = "usage: flow-guard gather-dispatch-context <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree> [<shape>]]]\n"
 
 var gdcTaskIDs = regexp.MustCompile(`^[0-9]+(,[0-9]+)*$`)
 
@@ -251,10 +251,15 @@ func gatherDispatchContext(args []string, env Env, _, stderr io.Writer) int {
 	worktree, changeRoot, name, principles, output := arg(0), arg(1), arg(2), arg(3), arg(4)
 	taskIDs, canonical, shape := arg(5), arg(6), arg(7)
 
-	if worktree == "" || changeRoot == "" || name == "" || principles == "" || output == "" {
-		fmt.Fprint(stderr, gdcUsage)
-		Reason(env, "usage")
-		return 2
+	// Name the first empty positional: an empty one is almost always a shell
+	// variable set in an earlier Bash call (kan-1132 self-review, F4).
+	for i, n := range []string{"<worktree>", "<change-root>", "<name>", "<principles-path>", "<output-path>"} {
+		if arg(i) == "" {
+			fmt.Fprintf(stderr, "gather-dispatch-context: %s is empty — a shell variable set in an earlier Bash call does not persist\n", n)
+			fmt.Fprint(stderr, gdcUsage)
+			Reason(env, "usage")
+			return 2
+		}
 	}
 	if taskIDs != "" && !gdcTaskIDs.MatchString(taskIDs) {
 		hint := ""

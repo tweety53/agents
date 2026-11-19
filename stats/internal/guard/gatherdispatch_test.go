@@ -820,3 +820,24 @@ func TestGatherDispatchContextRefusesAnUnsplitTaskIDList(t *testing.T) {
 		t.Fatalf("exit %d stderr %q, want exit 2 without the zsh hint", r.rc, r.err)
 	}
 }
+
+func TestGatherDispatchContextNamesAnEmptyArgument(t *testing.T) {
+	t.Parallel()
+	names := []string{"<worktree>", "<change-root>", "<name>", "<principles-path>", "<output-path>"}
+	for i, n := range names {
+		args := []string{"w", "c", "n", "p", "o"}
+		args[i] = ""
+		r := runGuard("gather-dispatch-context", args, Env{Getenv: func(string) string { return "" }})
+		if r.rc != 2 {
+			t.Fatalf("%s empty: exit %d, want 2\n%s", n, r.rc, r.out)
+		}
+		lines := strings.Split(r.err, "\n")
+		want := "gather-dispatch-context: " + n + " is empty — a shell variable set in an earlier Bash call does not persist"
+		if len(lines) < 2 || lines[0] != want {
+			t.Fatalf("%s empty: first line %q, want %q", n, lines[0], want)
+		}
+		if !strings.HasPrefix(lines[1], "usage: ") || !strings.HasSuffix(lines[1], "[<task-ids> [<canonical-worktree> [<shape>]]]") {
+			t.Fatalf("%s empty: usage line %q", n, lines[1])
+		}
+	}
+}
