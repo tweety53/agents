@@ -1360,7 +1360,7 @@ describe("interactive session card", () => {
   });
 
   it("a /flow change whose planning ended asks for /clear and the implementing run, and needs the operator", async () => {
-    const planned = { ...flow, currentStage: undefined, currentStageStartedAt: undefined, lastStage: "flow.decide", lastStageEndedAt: minutesAgo(4), activity: "idle", activitySince: minutesAgo(4), sessionSeenAt: minutesAgo(3) };
+    const planned = { ...flow, currentStage: undefined, currentStageStartedAt: undefined, lastStage: "flow.plan", lastStageEndedAt: minutesAgo(4), activity: "idle", activitySince: minutesAgo(4), sessionSeenAt: minutesAgo(3) };
     fetchStatsViewMock.mockImplementation(() => Promise.resolve(envelope("state-board", [planned])));
     render(<StateBoard />);
     const c = await screen.findByTestId("running-card");

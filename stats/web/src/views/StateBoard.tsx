@@ -77,9 +77,9 @@ function isPipelineFix(row: StateBoardRow): boolean {
   return row.name.startsWith("pipeline-fix-") || row.name.startsWith("self-review-");
 }
 
-/** A /flow change whose planning run ended (flow.decide its last stage, none open): it waits for the operator to /clear and run /flow again. */
+/** A /flow change whose planning run ended (flow.plan its last stage, none open): it waits for the operator to /clear and run /flow again. */
 function plannedHandoff(row: StateBoardRow): boolean {
-  return row.command === "/flow" && row.state === "STARTED" && row.currentStage === undefined && row.lastStage === "flow.decide";
+  return row.command === "/flow" && row.state === "STARTED" && row.currentStage === undefined && row.lastStage === "flow.plan";
 }
 
 function needsOperator(row: StateBoardRow): boolean {

@@ -73,7 +73,7 @@ var Table = []Stage{
 	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{FlowFast, FlowInteractive}},
 	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{FlowFast}},
 	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{FlowFast}},
-	{Key: "flow.decide", Name: "Decide — execution, panel (a `/flow` fix run)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.decide", Name: "Decide — execution, panel", Commands: []Command{FlowFast}},
 	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.isolate-workspace", Name: "Isolate the workspace", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow, FlowFast}},

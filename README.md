@@ -179,7 +179,7 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.brainstorm` | Brainstorm ▸ | `/flow-fast`, `/flow-interactive` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow-fast` |
 | `flow.writing-plans` | Writing-plans ▸ | `/flow-fast` |
-| `flow.decide` | Decide — execution, panel (a `/flow` fix run) | `/flow`, `/flow-fast` |
+| `flow.decide` | Decide — execution, panel | `/flow-fast` |
 | `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
 | `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
