@@ -18,7 +18,6 @@ import (
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
 	"github.com/tweety53/agents/stats/internal/records"
-	"github.com/tweety53/agents/stats/internal/smoke"
 	"github.com/tweety53/agents/stats/internal/store"
 	"github.com/tweety53/agents/stats/internal/storetest"
 )
@@ -389,10 +388,10 @@ func statsRunMatches(r statsRun, filters []store.Filter) bool {
 
 var _ api.StatsStore = (*statsFake)(nil)
 
-func newStatsTestServer(t *testing.T, sts api.StatsStore) *httptest.Server {
+func newStatsTestServer(t *testing.T, sts api.StatsStore, opts ...api.Option) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), newFakeStore(), nil)
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), newFakeStore(), nil, opts...)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -1662,14 +1661,13 @@ func (f *slowStatsFake) CostPerChange(ctx context.Context, _ store.Period, _, _,
 	return nil, ctx.Err()
 }
 
+// The server runs on a 50ms stats timeout (export_test.go's
+// WithStatsTimeout) instead of statsWriteTimeout's 20s: what is proven is
+// the TimeoutHandler's clean, daemon-headed 503, not the 20s figure.
 func TestStatsViewTimesOutCleanly(t *testing.T) {
-	smoke.Heavy(t)
 	t.Parallel()
-	if os.Getenv("FLOW_STATS_SKIP_SLOW_TESTS") != "" {
-		t.Skip("FLOW_STATS_SKIP_SLOW_TESTS set")
-	}
 	sts := &slowStatsFake{}
-	ts := newStatsTestServer(t, sts)
+	ts := newStatsTestServer(t, sts, api.WithStatsTimeout(50*time.Millisecond))
 	start := time.Now()
 
 	resp, err := http.Get(ts.URL + periodPath("cost-per-change"))
