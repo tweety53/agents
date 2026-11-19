@@ -49,7 +49,7 @@ verify before choosing, per **Hand-verifying a guard verdict** (`skills/flow-con
 
 There is no fourth course, and in particular none that hands back to `/flow`'s implement phase inline. The filed
 issue is labelled and linked per
-**Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`).
+**Labels and body of issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`).
 
 **File or join a Jira follow-up** puts the outstanding items on a follow-up issue and continues.
 See **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) for the search, the

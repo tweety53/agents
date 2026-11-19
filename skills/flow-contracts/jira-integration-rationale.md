@@ -48,7 +48,7 @@ here, and a compare-and-swap the client performs against its own earlier read is
 bounded, known gap: the loss it permits is one concurrent edit, the append is the only writer this
 pipeline has, and the pre-edit text reaches the handoff on the runs where it is echoed.
 
-### Labels on issues the pipeline creates
+### Labels and body of issues the pipeline creates
 
 ### Follow-up issues
 

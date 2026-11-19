@@ -250,7 +250,16 @@ design choice never is, since the planner takes the recommended option, and neit
 reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
-**Every finding that is not `big` is fixed and landed without asking**, on one branch for the
+**A finding whose fix adds a guard or an automation is never built by the pass.** Any finding
+whose fix would add or extend a guard, check, hook, refusal, lint rule, script or other automation —
+every angle-4 (`flow-automation`) finding included — is filed instead, all of them together as
+**one** Jira task per pass: its summary `Self-review <name>: guard and automation proposals`, its
+description one `## Why` / `## How` / `## DoD` block per finding (**Labels and body of issues the
+pipeline creates**, `skills/flow-contracts/jira-integration-finish.md`), each finding a `###`
+heading inside each section. The operator reviews it by hand and decides; the pass records each
+such finding `filed` under that issue's key and never asks about it.
+
+**Every other finding that is not `big` is fixed and landed without asking**, on one branch for the
 whole pass. A pass with none creates no worktree and dispatches nothing. No scope or cost question
 with a recommended option is put to the operator anywhere in this pass, as a prompt or as prose in
 a message (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
@@ -363,7 +372,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    the planner recorded more than one group — on the fixer pair, its prompt naming its tasks. It
    implements them in that worktree, one commit per task with its declared `**Commit:**` subject
    and no `Task-Id:` trailer, never writing `<agents repo>/spectre/changes/` — the ticks are item
-   4's — adding one test or guard that fails without the fix wherever the fix changes behaviour, and running
+   4's — adding one test that fails without the fix wherever the fix changes behaviour, and running
    the `<agents repo>/.flow/project.md` `## lint` lines its files need, save
    `flow-guard check-task-records`, which judges those ticks. It reports each task's
    commit, or a finding it found `big` once under way, left uncommitted. It never merges or
@@ -499,7 +508,7 @@ the self-review filing and mining asks, choose the empty set: silence selects
 
 ### 5. File chosen findings
 
-File each chosen finding as a Jira issue per **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), carrying its angle's label on top of that set.
+File each chosen finding as a Jira issue per **Labels and body of issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), carrying its angle's label on top of that set.
 `## jira` absent or `none` in `<project>/.flow/project.md`, or no Atlassian tooling available in
 this session: print `⚠ Jira: skipped — <reason>` and record that finding `declined` instead.
 

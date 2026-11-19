@@ -445,8 +445,9 @@ still asked.
 **A plan with `## Story split` asks one question first**, in `/flow` and `/flow-plan` alike, the
 slices printed above it: **Split into <n> stories?** — **Split** *(recommended)* / **Build it
 whole**. On **Split**, create one Jira story per slice after the first — its summary the slice
-title, its description the slice's line, the task titles it takes and the absolute path of this
-change's `design.md` — linked to this change's issue (**Follow-up issues**,
+title; its `## Why` the slice's line, its `## How` the task titles it takes and the absolute path
+of this change's `design.md`, its `## DoD` what the slice delivers on its own — linked to this
+change's issue (**Follow-up issues**,
 `skills/flow-contracts/jira-followups.md`), then dispatch a fresh final planner that narrows
 `tasks.md` to the first slice and removes `## Story split`, and re-run Decide. On **Build it
 whole**, remove `## Story split` and go on. Under the `## decisions: recommended` mode the question
