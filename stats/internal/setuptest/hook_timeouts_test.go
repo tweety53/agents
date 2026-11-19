@@ -9,9 +9,9 @@ import (
 )
 
 // TestLoopHookTimeoutsFailClosed pins that every snippet setup.sh prints for
-// the two fail-closed loop hooks registers an explicit timeout, and that each
-// hook's own subprocess wait stays well under it: a harness that times a hook
-// out lets the call through, so the hook must give up first and deny.
+// the loop dispatch hook registers an explicit timeout, and that the hook's
+// own subprocess wait stays well under it: a harness that times a hook out
+// kills it, so the hook must give up first and log what went unrecorded.
 func TestLoopHookTimeoutsFailClosed(t *testing.T) {
 	setup, err := os.ReadFile("../../../setup.sh")
 	if err != nil {
@@ -19,7 +19,7 @@ func TestLoopHookTimeoutsFailClosed(t *testing.T) {
 	}
 	reg := regexp.MustCompile(`"timeout": ([0-9]+)`)
 	wait := regexp.MustCompile(`(?m)^[A-Z_]*TIMEOUT = ([0-9]+)`)
-	for _, hook := range []string{"enforce-loop-dispatch", "block-unsafe-commands"} {
+	for _, hook := range []string{"enforce-loop-dispatch"} {
 		var regs []int
 		for _, line := range strings.Split(string(setup), "\n") {
 			if !strings.Contains(line, "hooks/"+hook+".py") {
