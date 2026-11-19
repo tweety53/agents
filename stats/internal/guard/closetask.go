@@ -654,7 +654,7 @@ func ctUndispatched(env Env, canonical, name string, closed []string) []string {
 			lines = append(lines, fmt.Sprintf("close-task: appended task %s has no dispatch row naming it — record its dispatch (`flow record dispatch backfill … -task %s -started-at <instant> -ended-at <instant> -outcome <outcome>`), then re-run without the -end-* flags", id, id))
 		case !committed[id]:
 			for _, row := range named[id] {
-				lines = append(lines, fmt.Sprintf("close-task: appended task %s: dispatch row %d carries no commit — stamp it (`flowd retime-dispatch %d <started-at> <ended-at> <the task's sha>`, or `-commit` on the back-fill), then re-run without the -end-* flags", id, row, row))
+				lines = append(lines, fmt.Sprintf("close-task: appended task %s: dispatch row %d carries no commit — stamp it (`flow record dispatch retime -change %s -id %d -started-at <t> -ended-at <t> -commit <the task's sha> -reason <why>`, or `-commit` on the back-fill), then re-run without the -end-* flags", id, row, name, row))
 			}
 		}
 	}

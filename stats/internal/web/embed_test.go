@@ -457,6 +457,10 @@ func (fakeStore) SetFindingStatus(context.Context, string, string, string, strin
 	return nil
 }
 
+func (fakeStore) RetimeDispatch(context.Context, string, string, records.DispatchRetime) (records.Dispatch, error) {
+	return records.Dispatch{}, nil
+}
+
 func (fakeStore) RunRecord(context.Context, string, string) (records.Run, error) {
 	return records.Run{}, nil
 }
@@ -624,4 +628,8 @@ func (fakeStore) ListLearningTopics(context.Context) ([]store.LearningTopicCount
 
 func (fakeStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
 	return nil, nil
+}
+
+func (fakeStore) OpenDispatchBySessionKey(context.Context, string, string) (int64, string, string, bool, error) {
+	return 0, "", "", false, nil
 }

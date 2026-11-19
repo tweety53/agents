@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
@@ -47,6 +48,9 @@ other byte unchanged. It refuses (exit 1) an unknown task or one with no
 tasks files ... remove narrows it, dropping each backticked <path> entry
 -- a field left empty becomes "none" -- and refuses (exit 1), leaving the
 plan unchanged, a <path> the field does not name.
+
+Both refuse (exit 1), before reading the plan, a <path> that is empty or
+carries whitespace or a newline.
 
 tasks count counts the plan's column-0 task checkbox lines and records
 the figure as one observation of the change's plan-growth series
@@ -221,6 +225,12 @@ func runTasksFiles(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "flow: expected <change> <task-id> add|remove <path>...")
 		fmt.Fprint(stderr, tasksUsage)
 		return 2
+	}
+	for _, p := range pos[3:] {
+		if p == "" || strings.ContainsFunc(p, unicode.IsSpace) {
+			fmt.Fprintf(stderr, "flow: tasks files: path %q is empty or carries whitespace\n", p)
+			return 1
+		}
 	}
 	resolvedDir := *dir
 	if resolvedDir == "" {

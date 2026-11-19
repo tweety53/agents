@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"maps"
 	"net/http"
 	"os"
@@ -321,6 +320,10 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              [-diff-base sha[,sha...]] -started-at instant -ended-at instant
                              -key key -session-token token [-commit sha]
                              -outcome outcome [-cause cause] [-tokens k=v,...]
+       flow record dispatch retime [-addr url] [-timeout dur] [-C dir]
+                             -change name -id row -started-at instant -ended-at instant
+                             [-commit sha] -reason text
+       flow record dispatch handback [-addr url] [-timeout dur] -session id -key key [-C dir]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -928,8 +931,11 @@ func requireRecordFlags(stderr io.Writer, pairs ...[2]string) bool {
 // entry after it fail to decode on replay. Using a third sibling file
 // instead reuses fallback's own AppendJournalEntry unchanged, without
 // touching either existing replay contract.
+//
+// flowd counts the same file through fallback.RecordJournalPath, so the
+// path is built in one place.
 func recordJournalPath(projectKey, name string, getenv func(string) string) string {
-	return fallback.JournalFilePath(fallback.StateRoot(getenv), projectKey, name) + ".record"
+	return fallback.RecordJournalPath(fallback.StateRoot(getenv), projectKey, name)
 }
 
 // recordJournalBody is what gets journalled for a record write that could
@@ -1026,6 +1032,10 @@ func runRecordDispatchVerb(ctx context.Context, args []string, getenv func(strin
 		return runRecordDispatchEnd(ctx, args[1:], getenv, stdout, stderr)
 	case "backfill":
 		return runRecordDispatchBackfill(ctx, args[1:], getenv, stdout, stderr)
+	case "handback":
+		return runRecordDispatchHandback(ctx, args[1:], getenv, stderr)
+	case "retime":
+		return runRecordDispatchRetime(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record dispatch command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -1592,6 +1602,11 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		// allocated -- which is exactly why `end` closes the row by -key
 		// and not by seq.
 		fmt.Fprintf(stdout, "recorded: dispatch %d\n", out.Seq)
+		// A re-begin of an aborted row keeps its id, so the earlier
+		// attempt's hand-back marker would vouch for this one: drop it.
+		if name := planSnapshotName(*key); name != "" {
+			_ = os.Remove(handbackMarker(filepath.Join(planWorktree(f.dir, f.change), ".superpowers", "sdd", name), out.ID))
+		}
 	}
 	code := classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr, getenv)
 	// A panel slot's begin writes that slot's `dispatched:` pass row from
@@ -1661,31 +1676,136 @@ func planSnapshotName(key string) string {
 	return ""
 }
 
-// verifyPlanTreeForEnd runs `flow-guard check-plan-unchanged verify`
-// in-process for a gated reviewer or panel merger row's end, against the
-// snapshot planSnapshotName names under the change's worktree
-// (<main>-worktrees/<change> when it exists, else carryingWorktree), and
-// returns the guard's exit code: 0 lets the end proceed, 1 (the tree
-// changed) or 2 (a missing or unreadable snapshot among others) refuses
-// it. -outcome aborted, a row whose dispatch never ran, skips the verify.
-func verifyPlanTreeForEnd(f recordIdentityFlags, key, outcome string, getenv func(string) string, stderr io.Writer) int {
-	name := planSnapshotName(key)
-	if name == "" || outcome == "aborted" {
-		return 0
-	}
-	wt := carryingWorktree(f.dir, f.change)
-	if main, _, err := changeCheckouts(f.dir, f.change); err == nil {
-		cand := main + "-worktrees/" + f.change
+// planWorktree is the worktree a change's plan tree is checked in:
+// <main>-worktrees/<change> when it exists, else carryingWorktree.
+func planWorktree(dir, change string) string {
+	wt := carryingWorktree(dir, change)
+	if main, _, err := changeCheckouts(dir, change); err == nil {
+		cand := main + "-worktrees/" + change
 		if fi, err := os.Stat(cand); err == nil && fi.IsDir() {
 			wt = cand
 		}
 	}
+	return wt
+}
+
+// handbackMarker is the file `flow record dispatch handback` writes beside
+// snap for open row id: "pass", or "fail <exit>" (decision
+// gated-bracket-handback). The row id keeps a marker of an earlier row
+// under the same key from vouching for this one; a begin removes its own
+// row's marker, since a re-begun aborted row keeps its id.
+func handbackMarker(snap string, id int64) string {
+	return fmt.Sprintf("%s.handback-%d", snap, id)
+}
+
+// verifyPlanTreeForEnd runs `flow-guard check-plan-unchanged verify`
+// in-process for a gated reviewer or panel merger row's end, against the
+// snapshot planSnapshotName names under planWorktree, and returns the
+// guard's exit code: 0 lets the end proceed, 1 (the tree changed) or 2 (a
+// missing or unreadable snapshot among others) refuses it. -outcome
+// aborted, a row whose dispatch never ran, skips the verify.
+//
+// rowID is the open row this end closes, 0 where none is known. A
+// hand-back marker for that row decides instead of the live tree (decision
+// gated-bracket-handback): the hook checked the plan the moment the
+// reviewer handed back, so the parent's later plan edits never block the
+// end -- "pass" lets it proceed, "fail" refuses it.
+func verifyPlanTreeForEnd(f recordIdentityFlags, key, outcome string, rowID int64, getenv func(string) string, stderr io.Writer) int {
+	name := planSnapshotName(key)
+	if name == "" || outcome == "aborted" {
+		return 0
+	}
+	wt := planWorktree(f.dir, f.change)
 	snap := filepath.Join(wt, ".superpowers", "sdd", name)
+	refused := "flow: -key %q: the plan tree check refused this end (%s) -- skills/flow/implement.md, The plan tree survives every reviewer dispatch%s\n"
+	if rowID > 0 {
+		if b, err := os.ReadFile(handbackMarker(snap, rowID)); err == nil {
+			if strings.TrimSpace(string(b)) == "pass" {
+				return 0
+			}
+			fmt.Fprintf(stderr, refused, key, snap, ", at the reviewer's hand-back")
+			return 1
+		}
+	}
 	code := guard.Registry["check-plan-unchanged"]([]string{"verify", wt, f.change, snap}, guard.Env{Getenv: getenv, Dir: wt}, stderr, stderr)
 	if code != 0 {
-		fmt.Fprintf(stderr, "flow: -key %q: the plan tree check refused this end (%s) -- skills/flow/implement.md, The plan tree survives every reviewer dispatch\n", key, snap)
+		fmt.Fprintf(stderr, refused, key, snap, " -- end the row before editing the plan")
 	}
 	return code
+}
+
+// openRowID is the id of the open row key holds under sessionToken in the
+// change's run record, 0 when there is none, the key verifies no plan, or
+// the record cannot be read.
+func openRowID(ctx context.Context, f recordIdentityFlags, key, sessionToken string) int64 {
+	if planSnapshotName(key) == "" {
+		return 0
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		return 0
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	if err != nil {
+		return 0
+	}
+	for _, d := range run.Dispatches {
+		if d.Key == key && d.SessionToken == sessionToken && d.EndedAt == nil {
+			return d.ID
+		}
+	}
+	return 0
+}
+
+// runRecordDispatchHandback implements `flow record dispatch handback`,
+// which hooks/await-own-agents.py runs the moment a subagent hands back
+// (decision gated-bracket-handback): for a key whose end verifies the plan
+// tree, it checks the tree now and writes the result as handbackMarker for
+// the session's open row, so that end judges the reviewer's own edits
+// rather than the parent's later ones. It never fails the hook: every path
+// exits 0, an unreachable daemon or a missing row with one stderr line.
+func runRecordDispatchHandback(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record dispatch handback", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f, getenv)
+	session := fset.String("session", "", "the harness session id the dispatch ran in (required)")
+	key := fset.String("key", "", "the dispatch key that handed back (required)")
+	if err := fset.Parse(args); err != nil {
+		return 0
+	}
+	if err := finishRecordConnFlags(fset, &f); err != nil || *session == "" || *key == "" {
+		fmt.Fprintln(stderr, "flow: record dispatch handback: -session and -key are required")
+		return 0
+	}
+	name := planSnapshotName(*key)
+	if name == "" {
+		return 0
+	}
+	type openRow struct {
+		row   records.OpenDispatch
+		found bool
+	}
+	r, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (openRow, error) {
+		row, found, err := cl.OpenDispatch(ctx, *session, *key)
+		return openRow{row, found}, err
+	})
+	if err != nil || !r.found {
+		fmt.Fprintf(stderr, "flow: record dispatch handback: no open row for session %s key %s (%v) -- the end checks the live plan tree\n", *session, *key, err)
+		return 0
+	}
+	wt := planWorktree(f.dir, r.row.Change)
+	snap := filepath.Join(wt, ".superpowers", "sdd", name)
+	result := "pass"
+	if code := guard.Registry["check-plan-unchanged"]([]string{"verify", wt, r.row.Change, snap}, guard.Env{Getenv: getenv, Dir: wt}, stderr, stderr); code != 0 {
+		result = fmt.Sprintf("fail %d", code)
+	}
+	if err := os.WriteFile(handbackMarker(snap, r.row.ID), []byte(result+"\n"), 0o644); err != nil {
+		fmt.Fprintf(stderr, "flow: record dispatch handback: %v\n", err)
+	}
+	return 0
 }
 
 // launchRoleID is the policy role a dispatch's -role and -key derive, or ""
@@ -1897,7 +2017,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	if *agentID == "none" {
 		*agentID = ""
 	}
-	if code := verifyPlanTreeForEnd(f, *key, *outcome, getenv, stderr); code != 0 {
+	if code := verifyPlanTreeForEnd(f, *key, *outcome, openRowID(ctx, f, *key, *sessionToken), getenv, stderr); code != 0 {
 		return code
 	}
 
@@ -2000,6 +2120,75 @@ func recordModelAlias(model string) string {
 		}
 	}
 	return model
+}
+
+// runRecordDispatchRetime implements `flow record dispatch retime`: it
+// corrects one dispatch row's instants (and optionally its commit), keeping
+// the first original instants and the reason in the row's retimed audit.
+// It is never journalled: an unreachable store exits 1 and the operator
+// retries by hand.
+func runRecordDispatchRetime(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record dispatch retime", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f, getenv)
+	id := fset.String("id", "", "the dispatch row id")
+	startedAt := fset.String("started-at", "", "corrected start instant")
+	endedAt := fset.String("ended-at", "", "corrected end instant")
+	commit := fset.String("commit", "", "corrected commit sha")
+	reason := fset.String("reason", "", "why the row is retimed")
+	if err := fset.Parse(args); err != nil || fset.NArg() != 0 {
+		return 2
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-id", *id},
+		[2]string{"-started-at", *startedAt},
+		[2]string{"-ended-at", *endedAt},
+		[2]string{"-reason", strings.TrimSpace(*reason)},
+	) {
+		return 2
+	}
+	if err := finishRecordConnFlags(fset, &f); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	rowID, err := strconv.ParseInt(*id, 10, 64)
+	if err != nil || rowID <= 0 {
+		fmt.Fprintf(stderr, "flow: -id %q is not a dispatch row id\n", *id)
+		return 2
+	}
+	started, ok := parseBackfillInstant("-started-at", *startedAt, stderr)
+	if !ok {
+		return 2
+	}
+	ended, ok := parseBackfillInstant("-ended-at", *endedAt, stderr)
+	if !ok {
+		return 2
+	}
+	if started.After(ended) {
+		fmt.Fprintf(stderr, "flow: -started-at %s is later than -ended-at %s\n", *startedAt, *endedAt)
+		return 2
+	}
+	if err := validateCommitSHA("-commit", *commit); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		return 2
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	d, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
+		return cl.RetimeDispatch(ctx, projectKey, f.change, records.DispatchRetime{
+			ID: rowID, StartedAt: started, EndedAt: ended, CommitSHA: *commit, Reason: *reason,
+		})
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: retime dispatch %d: %v\n", rowID, err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "updated: dispatch %d\n", d.Seq)
+	return 0
 }
 
 // runRecordDispatchBackfill implements `flow record dispatch backfill`: a
@@ -2121,7 +2310,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 	}
 	// The end's plan-tree verify runs before the begin, so a refused
 	// reviewer or merger back-fill leaves no open row.
-	if code := verifyPlanTreeForEnd(f, *v["key"], *v["outcome"], getenv, stderr); code != 0 {
+	// A back-fill opens its row after this check, so no hand-back marker
+	// can name it: the live tree decides (rowID 0).
+	if code := verifyPlanTreeForEnd(f, *v["key"], *v["outcome"], 0, getenv, stderr); code != 0 {
 		return code
 	}
 	var begin, end []string
@@ -2699,7 +2890,7 @@ func runRecordJournalCount(args []string, getenv func(string) string, stdout, st
 	}
 
 	path := recordJournalPath(projectKey, f.change, getenv)
-	n, err := countRecordJournalEntries(path)
+	n, err := fallback.CountJournalEntries(path)
 	if err != nil {
 		fmt.Fprintln(stdout, recordJournalCountUnknown)
 		fmt.Fprintf(stderr, "flow: count %s: %v\n", path, err)
@@ -2714,47 +2905,6 @@ func runRecordJournalCount(args []string, getenv func(string) string, stdout, st
 // clean run, and reporting a failed count as one would turn a filesystem
 // problem into a claim that everything reached the store.
 const recordJournalCountUnknown = "unknown"
-
-// countRecordJournalEntries counts the complete entries in the record
-// journal at path. An ABSENT file is 0 rather than an error -- the
-// ordinary case is that every write reached the store and nothing was ever
-// journalled.
-//
-// A PARTIAL TRAILING LINE IS NOT AN ENTRY, which is why this is not a line
-// count. internal/reconcile's splitCompleteLines already draws exactly
-// this line for replay: fallback.AppendJournalEntry writes an entry and
-// its newline in one Write, so the only way bytes can trail the last
-// newline is a process that died mid-syscall, and that span is never
-// parsed and never retired. Counting it would report one more pending
-// write than a replay will ever apply -- and the count is read at a gate
-// whose whole job is to be believable.
-//
-// Blank lines are skipped for the same reason parseCompleteEntries treats
-// them as blank rather than as entries: they carry no write to replay.
-func countRecordJournalEntries(path string) (int, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return 0, nil
-		}
-		return 0, err
-	}
-
-	n := 0
-	for {
-		idx := bytes.IndexByte(raw, '\n')
-		if idx < 0 {
-			// Whatever trails the last newline is the partial write
-			// above, or nothing at all. Either way it is not an entry.
-			break
-		}
-		if len(bytes.TrimSpace(raw[:idx])) > 0 {
-			n++
-		}
-		raw = raw[idx+1:]
-	}
-	return n, nil
-}
 
 // costStatusUnknown is the one word runRecordCostStatus prints instead of
 // a figure, on the identical reasoning recordJournalCountUnknown carries:
@@ -2862,8 +3012,8 @@ const (
 )
 
 // runRecordHandoffLines implements `flow record handoff-lines`: the
-// handoff's Records and Costs lines, from journal-count's and cost-status's
-// own helpers.
+// handoff's Records, Costs and Stages lines, from journal-count's and
+// cost-status's own helpers and the change's stage-run listing.
 //
 // The journal is keyed per project, so the canonical worktree (-C) and every
 // -worktree are deduplicated by fallback.ProjectKey before it is counted --
@@ -2910,7 +3060,7 @@ func runRecordHandoffLines(ctx context.Context, args []string, getenv func(strin
 		total := 0
 		for _, key := range keys {
 			path := recordJournalPath(key, f.change, getenv)
-			n, err := countRecordJournalEntries(path)
+			n, err := fallback.CountJournalEntries(path)
 			if err != nil {
 				fmt.Fprintf(stderr, "flow: count %s: %v\n", path, err)
 				total = -1
@@ -2938,7 +3088,44 @@ func runRecordHandoffLines(ctx context.Context, args []string, getenv func(strin
 
 	fmt.Fprintf(stdout, "**Records:** %s\n", recordsLine)
 	fmt.Fprintf(stdout, "**Costs:** %s\n", costs)
+
+	stages := handoffStagesUnknown
+	if canonicalKey != "" {
+		line, err := readOpenStagesLine(ctx, f, canonicalKey)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: stage runs: %v\n", err)
+		} else {
+			stages = line
+		}
+	}
+	fmt.Fprintf(stdout, "**Stages:** %s\n", stages)
 	return 0
+}
+
+// handoffStagesUnknown is the **Stages:** line when the listing could not be
+// read -- never "0 open", which would claim every stage was ended.
+const handoffStagesUnknown = "unknown — the stage runs could not be read"
+
+// readOpenStagesLine renders the change's stage runs still open as
+// `0 open` or `<n> open — <stage> (run <id>), …` in start order.
+func readOpenStagesLine(ctx context.Context, f recordIdentityFlags, projectKey string) (string, error) {
+	rows, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]client.StageRunRow, error) {
+		return cl.ListStageRuns(ctx, projectKey, f.change, "", "")
+	})
+	if err != nil {
+		return "", err
+	}
+	var open []string
+	slices.SortStableFunc(rows, func(a, b client.StageRunRow) int { return strings.Compare(a.StartedAt, b.StartedAt) })
+	for _, r := range rows {
+		if r.EndedAt == nil {
+			open = append(open, fmt.Sprintf("%s (run %d)", r.Stage, r.ID))
+		}
+	}
+	if len(open) == 0 {
+		return "0 open", nil
+	}
+	return fmt.Sprintf("%d open — %s", len(open), strings.Join(open, ", ")), nil
 }
 
 // recordStatusRequest is the journalled form of a status write. The wire
@@ -3623,6 +3810,7 @@ func runRecordVerifyRun(ctx context.Context, args []string, getenv func(string) 
 	tests := fset.Int("tests", 0, "tests the run ran")
 	failed := fset.Int("failed", 0, "tests the run failed")
 	exit := fset.Int("exit", 0, "the run's exit code")
+	flaky := fset.Int("flaky", -1, "tests that passed only on retry, >= 0 (absent unless given)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
@@ -3638,6 +3826,15 @@ func runRecordVerifyRun(ctx context.Context, args []string, getenv func(string) 
 		return 2
 	}
 	in := records.VerifyRun{Kind: *kind, Label: *label, Seconds: *seconds, Tests: *tests, Failed: *failed, ExitCode: *exit}
+	flakyGiven := false
+	fset.Visit(func(fl *flag.Flag) { flakyGiven = flakyGiven || fl.Name == "flaky" })
+	if flakyGiven {
+		if *flaky < 0 {
+			fmt.Fprintln(stderr, "flow: -flaky must be >= 0")
+			return 2
+		}
+		in.Flaky = flaky
+	}
 	// A write the API would refuse is a caller mistake: refuse it here
 	// rather than journal a replay that can never succeed.
 	if err := api.ValidateVerifyRun(in); err != nil {

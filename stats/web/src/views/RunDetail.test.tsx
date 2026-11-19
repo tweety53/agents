@@ -537,8 +537,9 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
     // The three surviving statistics views from design.md's `stats-ui-cut`
     // (cache efficiency and runs cut by KAN-989) plus `weekly-costs`,
     // `reviewers`, `decisions`, `flow-health`, `self-review` and
-    // `review-dynamics` (KAN-1046) and `experiments` (KAN-1067).
-    expect(VIEW_NAMES).toHaveLength(10);
+    // `review-dynamics` (KAN-1046), `experiments` (KAN-1067) and Run costs,
+    // `run-costs` (KAN-1132).
+    expect(VIEW_NAMES).toHaveLength(11);
     // Per-dispatch rows appear only under an expanded stage run.
     expect(screen.queryByTestId("dispatch-row")).not.toBeInTheDocument();
   });
@@ -741,6 +742,17 @@ describe("the reworked run view (kan-1048)", () => {
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+  });
+
+  it("run detail's button opens the run's timings page", async () => {
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const heading = await screen.findByRole("heading", { name: CHANGE });
+    await waitFor(() => expect(heading.parentElement).toHaveTextContent("Integrating"));
+    const button = screen.getByRole("button", { name: "Timings and costs →" });
+    expect(heading.nextElementSibling?.nextElementSibling).toBe(button);
+    fireEvent.click(button);
+    expect(window.location.hash).toBe(`#/run-costs/${PROJECT}/${CHANGE}`);
+    window.location.hash = "";
   });
 
   it("run detail header and kpis", async () => {

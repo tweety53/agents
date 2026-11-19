@@ -1,5 +1,6 @@
 // describeDispatch turns each documented dispatch-key shape into plain words;
 // a key matching none comes back unchanged so nothing reads as invented.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { describeDispatch } from "./describeDispatch";
 
@@ -36,4 +37,14 @@ describe("describeDispatch", () => {
   it("falls back to the role without a key", () => {
     expect(describeDispatch(undefined, "explorer")).toBe("explorer");
   });
+});
+
+// The Go category table (stats/internal/records/category.go) reads the same
+// key grammar; both sides run over one shared fixture so neither drifts.
+it("describeDispatch agrees with the shared key fixture", () => {
+  const rows: { key: string; role: string; describe: string }[] = JSON.parse(
+    readFileSync(`${process.cwd()}/../internal/records/testdata/dispatch-keys.json`, "utf8"),
+  );
+  expect(rows.length).toBeGreaterThan(0);
+  for (const r of rows) expect(describeDispatch(r.key, r.role), r.key).toBe(r.describe);
 });

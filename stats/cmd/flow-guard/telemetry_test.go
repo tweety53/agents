@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -250,5 +251,91 @@ func TestRunAndRecordPostsTheReasons(t *testing.T) {
 	}
 	if _, ok := clear["reasons"]; ok {
 		t.Errorf("clear run posted %s; want no reasons key", body)
+	}
+}
+
+// TestGuardWorktreePrefersAWorktreeArgument pins guard-run-worktree-arg: the
+// first argument that is an existing directory under a `-worktrees/<change>`
+// path is the run's worktree, else the cwd.
+func TestGuardWorktreePrefersAWorktreeArgument(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	wt := filepath.Join(tmp, "gymie-worktrees", "kan-1-x")
+	sub := filepath.Join(wt, "sub")
+	other := filepath.Join(tmp, "gymie-worktrees", "kan-3-z")
+	plain := filepath.Join(tmp, "plain")
+	for _, d := range []string{sub, other, plain} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	missing := filepath.Join(tmp, "gymie-worktrees", "kan-2-y")
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"worktree argument", []string{"run-verify-list", wt, "test"}, wt},
+		{"a subdirectory counts", []string{"run-verify-list", sub}, sub},
+		{"plain directory", []string{"recapture", plain}, "/repo"},
+		{"missing worktree skipped", []string{"recapture", missing, other}, other},
+		{"first match wins", []string{"recapture", wt, other}, wt},
+		{"guard name never counts", []string{wt}, "/repo"},
+	} {
+		if got := guardWorktree(tc.args, "/repo"); got != tc.want {
+			t.Errorf("%s: guardWorktree = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestRunAndRecordRecordsTheTargetWorktree: a guard driven from the main
+// checkout at a change's worktree is recorded against that worktree. Not
+// parallel: it swaps a registry entry.
+func TestRunAndRecordRecordsTheTargetWorktree(t *testing.T) {
+	main := gitRepo(t)
+	wt := filepath.Join(t.TempDir(), "gymie-worktrees", "kan-1-x")
+	if out, err := exec.Command("git", "init", "-q", wt).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+	const name = "check-plan-shape"
+	orig := registry[name]
+	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
+	defer func() { registry[name] = orig }()
+	var got guardRun
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	runAndRecord([]string{name, wt}, io.Discard, io.Discard, func(k string) string { return env[k] }, func() string { return main }, srv.Client())
+	if got.Worktree != wt {
+		t.Errorf("posted worktree %q, want the argument %q", got.Worktree, wt)
+	}
+}
+
+// TestRunAndRecordFallsBackToTheCwd: a `-worktrees/<x>` argument that is no
+// git checkout records the run under the cwd rather than dropping it. Not
+// parallel: it swaps a registry entry.
+func TestRunAndRecordFallsBackToTheCwd(t *testing.T) {
+	main := gitRepo(t)
+	stale := filepath.Join(t.TempDir(), "gymie-worktrees", "kan-1-x")
+	if err := os.MkdirAll(stale, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const name = "check-plan-shape"
+	orig := registry[name]
+	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
+	defer func() { registry[name] = orig }()
+	var got guardRun
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	runAndRecord([]string{name, stale}, io.Discard, io.Discard, func(k string) string { return env[k] }, func() string { return main }, srv.Client())
+	if got.Worktree != main {
+		t.Errorf("posted worktree %q, want the cwd %q", got.Worktree, main)
 	}
 }

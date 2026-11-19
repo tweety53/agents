@@ -43,6 +43,7 @@ export type ViewName =
   | "stage-leaderboard"
   | "trend"
   | "weekly-costs"
+  | "run-costs"
   | "reviewers"
   | "decisions"
   | "flow-health"
@@ -55,6 +56,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "stage-leaderboard",
   "trend",
   "weekly-costs",
+  "run-costs",
   "reviewers",
   "decisions",
   "flow-health",
@@ -692,14 +694,17 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return handleResponse<T>(res);
 }
 
-/** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= */
+/** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= --
+ * `run-costs` answers its raw RunCostsResult, every other view the envelope. */
+export async function fetchStatsView(view: "run-costs", params: StatsViewParams, init?: RequestInit): Promise<RunCostsResult>;
 export async function fetchStatsView<Row = unknown, Project = ProjectSpend>(
   view: StatsViewSlug,
   params: StatsViewParams,
   init?: RequestInit,
-): Promise<StatsResponse<Row, Project>> {
+): Promise<StatsResponse<Row, Project>>;
+export async function fetchStatsView(view: StatsViewSlug, params: StatsViewParams, init?: RequestInit): Promise<unknown> {
   const qs = buildStatsViewQuery(params);
-  return getJSON<StatsResponse<Row, Project>>(`/api/v1/stats/${view}?${qs.toString()}`, init);
+  return getJSON<unknown>(`/api/v1/stats/${view}?${qs.toString()}`, init);
 }
 
 /** GET /api/v1/projects -- every registered project key, in key order. */
@@ -849,6 +854,93 @@ export interface RecordDispatch {
 /** GET /api/v1/records/{project}/{change} -- the change's run record; the run view reads its dispatches. */
 export function getRunRecord(project: string, change: string, init?: RequestInit): Promise<{ dispatches: RecordDispatch[] }> {
   return getJSON<{ dispatches: RecordDispatch[] }>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
+}
+
+/** Mirrors api.metric: one figure with what it means and how it was obtained. */
+export interface RunMetric<T> {
+  value: T;
+  definition: string;
+  kind: "measured" | "derived" | "estimated";
+}
+
+/** Mirrors api.definition. */
+export interface RunDefinition {
+  name: string;
+  definition: string;
+  kind: RunMetric<unknown>["kind"];
+}
+
+// The breakdown rows that are not categories and carry no category cost:
+// runtimings.go's labelParent and labelIdle, the source of these labels.
+export const NOT_CATEGORIES = new Set(["parent commands", "idle / parent"]);
+
+/** Mirrors api.breakdownRow; cost is in dollars. */
+export interface RunBreakdownRow {
+  label: string;
+  rows: number;
+  shareMs: number;
+  busyMs: number;
+  cost: number;
+  noTokens: number;
+}
+
+/** Mirrors api.RunTimings, the per-run route's result. */
+export interface RunTimings {
+  project: string;
+  change: string;
+  from: string;
+  to: string;
+  open: boolean;
+  totals: {
+    wallClockMs: RunMetric<number>;
+    agentTimeMs: RunMetric<number>;
+    parentCommandsMs: RunMetric<number>;
+    idleMs: RunMetric<number>;
+    cost: RunMetric<number>;
+    parentSessionCost: RunMetric<number>;
+    visualVerifyShare: RunMetric<number>;
+    dispatches: number;
+    noTokens: number;
+    parentCommandRuns: number;
+    unclaimedGuardRuns: number;
+  };
+  lanes: { label: string; kind: "stage" | "category" | "parent" | "idle"; intervals: { from: string; to: string; class: string }[] }[];
+  breakdowns: Record<"category" | "role" | "model" | "repo" | "round", { columns: RunDefinition[]; rows: RunBreakdownRow[]; total: RunBreakdownRow }>;
+  costPerTask: { task: string; rows: number; shareMs: number; cost: number; estimated: boolean; group?: string }[];
+  costPerVerifyRound: { round: string; rows: number; shareMs: number; cost: number }[];
+  counts: {
+    fixRounds: RunMetric<{ verify: number; panel: number }>;
+    departures: RunMetric<{ round: string; departures: number }[]>;
+    findings: RunMetric<{ critical: number; important: number; minor: number }>;
+    flakyRetries: RunMetric<{ retries: number; runs: number }>;
+    rows: RunMetric<{ open: number; aborted: number; blocked: number }>;
+    journalPending: RunMetric<number | "unknown">;
+  };
+  dataQuality: { id: string; label: string; count: number; unknown?: boolean; detail: string[] }[];
+  definitions: RunDefinition[];
+}
+
+/** Mirrors api.runCosts, GET /api/v1/stats/run-costs's result: every
+ * finished run in the period folded by category, and each run's line. */
+export interface RunCostsResult {
+  columns: RunDefinition[];
+  categories: { category: string; runs: number; rows: number; seconds: number; cost: number; shareOfCost: number }[];
+  runs: {
+    project: string;
+    change: string;
+    wallClockMs: RunMetric<number>;
+    agentTimeMs: RunMetric<number>;
+    idleMs: RunMetric<number>;
+    cost: RunMetric<number>;
+    tasks: RunMetric<number>;
+    fixRounds: RunMetric<{ verify: number; panel: number }>;
+    categoryCost: Record<string, number>;
+  }[];
+}
+
+/** GET /api/v1/stats/run/{project}/{change} -- one run's timings and costs. */
+export function getRunTimings(project: string, change: string, init?: RequestInit): Promise<RunTimings> {
+  return getJSON<RunTimings>(`/api/v1/stats/run/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
 }
 
 /** GET /api/v1/records/{project}/{change}/decisions -- the change's recorded decisions, newest first. */

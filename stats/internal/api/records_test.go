@@ -120,6 +120,32 @@ func (f *fakeStore) EndDispatch(_ context.Context, projectKey, change string, in
 	return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q", store.ErrDispatchNotFound, projectKey, change, in.Key)
 }
 
+// RetimeDispatch mirrors store.Store.RetimeDispatch: a reason is required,
+// the row must be this change's, and the first retime's replaced instants
+// are kept across later ones.
+func (f *fakeStore) RetimeDispatch(_ context.Context, projectKey, change string, in records.DispatchRetime) (records.Dispatch, error) {
+	if in.Reason == "" || in.StartedAt.After(in.EndedAt) {
+		return records.Dispatch{}, fmt.Errorf("%w: dispatch %d", store.ErrInvalidRetime, in.ID)
+	}
+	for i := range f.dispatches {
+		d := &f.dispatches[i]
+		if d.projectKey != projectKey || d.changeName != change || d.dispatch.ID != in.ID {
+			continue
+		}
+		r := records.Retime{Reason: in.Reason, At: time.Now(), StartedAt: d.dispatch.StartedAt, EndedAt: d.dispatch.EndedAt}
+		if d.dispatch.Retimed != nil {
+			r.StartedAt, r.EndedAt = d.dispatch.Retimed.StartedAt, d.dispatch.Retimed.EndedAt
+		}
+		ended := in.EndedAt
+		d.dispatch.StartedAt, d.dispatch.EndedAt, d.dispatch.Retimed = in.StartedAt, &ended, &r
+		if in.CommitSHA != "" {
+			d.dispatch.CommitSHA = in.CommitSHA
+		}
+		return d.dispatch, nil
+	}
+	return records.Dispatch{}, fmt.Errorf("%w: %d", store.ErrDispatchNotFound, in.ID)
+}
+
 // UpsertFinding mirrors store.Store.UpsertFinding: a ref is unique per
 // change, so a second write for the same ref rewrites the row rather than
 // appending a second one, and the boolean reports which of the two
@@ -926,6 +952,44 @@ func TestRecordDispatchRouteStampsAZeroStartedAt(t *testing.T) {
 	}
 	if got := fs.dispatches[1].dispatch.StartedAt; !got.Equal(supplied) {
 		t.Errorf("supplied startedAt = %s, want the caller's instant kept as the replay override %s", got, supplied)
+	}
+}
+
+// TestRetimeDispatchRoute pins `flow record dispatch retime`'s route: a
+// retime answers 200 with the row, its retimed audit set; a missing reason
+// is 400; an unknown id is 404.
+func TestRetimeDispatchRoute(t *testing.T) {
+	t.Parallel()
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	if resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus")); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST dispatches = %d (%s), want 201", resp.StatusCode, body)
+	}
+	id := fs.dispatches[0].dispatch.ID
+	path := ts.URL + recordsPath("proj", "kan-1") + "/dispatches/retime"
+	body := map[string]any{
+		"id": id, "startedAt": "2026-11-16T10:00:00Z", "endedAt": "2026-11-16T10:30:00Z",
+		"commitSha": "abc1234", "reason": "late begin",
+	}
+	resp, respBody := postJSON(t, path, body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST dispatches/retime = %d (%s), want 200", resp.StatusCode, respBody)
+	}
+	var got records.Dispatch
+	if err := json.Unmarshal([]byte(respBody), &got); err != nil {
+		t.Fatalf("decode %s: %v", respBody, err)
+	}
+	want := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	if got.ID != id || !got.StartedAt.Equal(want) || got.CommitSHA != "abc1234" || got.Retimed == nil || got.Retimed.Reason != "late begin" {
+		t.Fatalf("retimed row = %+v, want id %d started %v commit abc1234 retimed by \"late begin\"", got, id, want)
+	}
+
+	delete(body, "reason")
+	if resp, b := postJSON(t, path, body); resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("POST dispatches/retime without a reason = %d (%s), want 400", resp.StatusCode, b)
+	}
+	body["reason"], body["id"] = "late begin", id+999
+	if resp, b := postJSON(t, path, body); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("POST dispatches/retime for an unknown id = %d (%s), want 404", resp.StatusCode, b)
 	}
 }
 
@@ -2457,6 +2521,7 @@ func TestRecordVerifyRunHandler(t *testing.T) {
 		"bad kind":         {Kind: "visual", Label: "test"},
 		"negative seconds": {Kind: "recapture", Label: "test", Seconds: -1},
 		"empty label":      {Kind: "recapture"},
+		"negative flaky":   {Kind: "recapture", Label: "test", Flaky: new(-1)},
 	} {
 		if resp, body := postJSON(t, url, bad); resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("%s: POST runs = %d (%s), want 400", name, resp.StatusCode, body)
@@ -2806,5 +2871,39 @@ func TestRecordDecisionChecksExtraDispatchMutationModel(t *testing.T) {
 				t.Fatalf("ApplyDecisionRecord: %v", err)
 			}
 		})
+	}
+}
+
+func (f *fakeStore) OpenDispatchBySessionKey(_ context.Context, sessionID, key string) (int64, string, string, bool, error) {
+	o, ok := f.openDispatches[sessionID+"/"+key]
+	return o.ID, o.ProjectKey, o.Change, ok, nil
+}
+
+// TestOpenDispatchRouteAnswersTheOpenRow pins GET /api/v1/dispatches/open
+// (decision gated-bracket-handback): the open row with its change, 404 when
+// none, 400 when session or key is missing.
+func TestOpenDispatchRouteAnswersTheOpenRow(t *testing.T) {
+	ts, fs := recordTestServer(t, "flow-agents", "kan-1")
+	fs.openDispatches = map[string]records.OpenDispatch{"s1/task-3-reviewer": {ID: 77, ProjectKey: "flow-agents", Change: "kan-1"}}
+
+	status, body := doGet(t, ts, "/api/v1/dispatches/open?session=s1&key=task-3-reviewer")
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, body %s", status, body)
+	}
+	var got records.OpenDispatch
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	if want := (records.OpenDispatch{ID: 77, ProjectKey: "flow-agents", Change: "kan-1"}); got != want {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for path, want := range map[string]int{
+		"/api/v1/dispatches/open?session=s1&key=task-9-reviewer": http.StatusNotFound,
+		"/api/v1/dispatches/open?key=task-3-reviewer":            http.StatusBadRequest,
+		"/api/v1/dispatches/open?session=s1":                     http.StatusBadRequest,
+	} {
+		if status, body := doGet(t, ts, path); status != want {
+			t.Errorf("%s: status = %d, want %d (body %s)", path, status, want, body)
+		}
 	}
 }

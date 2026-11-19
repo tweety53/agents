@@ -72,10 +72,12 @@ func (e testEnv) stateRoot() string { return e["FLOW_STATE_DIR"] }
 
 // newTestEnv is a test environment whose FLOW_STATE_DIR is a fresh temp
 // directory, so the test never touches the real state tree or another
-// test's.
+// test's. FLOW_RECORDS_ADDR and FLOW_ADDR are pinned empty (read as unset):
+// a worktree's environment exports them, and get's process fallback would
+// otherwise leak that export into every test -- a test that wants one sets it.
 func newTestEnv(t *testing.T) testEnv {
 	t.Helper()
-	return testEnv{"FLOW_STATE_DIR": t.TempDir()}
+	return testEnv{"FLOW_STATE_DIR": t.TempDir(), "FLOW_RECORDS_ADDR": "", "FLOW_ADDR": ""}
 }
 
 func deadPortAddr(t *testing.T) string {

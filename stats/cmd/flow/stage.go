@@ -97,7 +97,7 @@ line, not a variable holding it.
 
 func runStage(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprint(stderr, stageUsage)
+		fmt.Fprintln(stderr, "flow: stage: a command is required (flow stage -h for usage)")
 		return 2
 	}
 
@@ -116,11 +116,20 @@ func runStage(ctx context.Context, args []string, getenv func(string) string, st
 		return runStageSessions(ctx, args[1:], getenv, stdout, stderr)
 	case "completed":
 		return runStageCompleted(ctx, args[1:], getenv, stderr)
-	default:
-		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
+	case "-h", "-help", "--help":
 		fmt.Fprint(stderr, stageUsage)
+		return 0
+	default:
+		stageErr(stderr, args[0], errors.New("unknown stage command"))
 		return 2
 	}
+}
+
+// stageErr prints a stage verb's error as the one line every `flow stage`
+// error takes, pointing at -h rather than dumping the usage block, which
+// drowned the error it followed.
+func stageErr(stderr io.Writer, verb string, err error) {
+	fmt.Fprintf(stderr, "flow: stage %s: %v (flow stage -h for usage)\n", verb, err)
 }
 
 // stageIdentityFlags is common to `stage begin` and `stage end`: the store
@@ -368,7 +377,7 @@ func warnNoOpenStageRun(stderr io.Writer, name, stage string) {
 // implementation) and one warning line is printed.
 func runStageBegin(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage begin", flag.ContinueOnError)
-	fset.SetOutput(stderr)
+	fset.SetOutput(io.Discard)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
@@ -378,16 +387,15 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stderr, stageUsage)
 			return 0
 		}
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "begin", err)
 		return 2
 	}
 	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "begin", err)
 		return 2
 	}
 	var request *int
@@ -395,11 +403,11 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 	fset.Visit(func(fl *flag.Flag) { requestGiven = requestGiven || fl.Name == "request" })
 	if requestGiven {
 		if f.command != string(stages.FlowInteractive) {
-			fmt.Fprintf(stderr, "flow: -request is only valid with -command %s, not %s\n", stages.FlowInteractive, f.command)
+			stageErr(stderr, "begin", fmt.Errorf("-request is only valid with -command %s, not %s", stages.FlowInteractive, f.command))
 			return 2
 		}
 		if *requestFlag <= 0 {
-			fmt.Fprintf(stderr, "flow: -request must be a positive integer, got %d\n", *requestFlag)
+			stageErr(stderr, "begin", fmt.Errorf("-request must be a positive integer, got %d", *requestFlag))
 			return 2
 		}
 		request = requestFlag
@@ -409,21 +417,20 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 		// exit non-zero naming the flag, exactly as -command/-stage above
 		// already do -- the one class of nonzero exit the never-block
 		// rule permits (tasks.md, "Step 1: The column and the flags").
-		fmt.Fprintln(stderr, "flow: -session-token is required")
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "begin", errors.New("-session-token is required"))
 		return 2
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "begin", err)
 		return 2
 	}
 	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "begin", err)
 		return 2
 	}
 
 	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "begin", err)
 		return 2
 	}
 	// On a begin only flow.decide is gated (the gate picks which commands);
@@ -545,11 +552,11 @@ func beginStage(ctx context.Context, addr string, timeout time.Duration, req cli
 // itself -- the daemon finds the currently open run for
 // (project, change, command, stage), exactly as design.md's own example
 // (`flow stage end --change ... --outcome completed`) never names one
-// either. Its never-block and fallback behaviour mirror runStageBegin's
-// exactly.
+// either. Its never-block and fallback behaviour mirror runStageBegin's,
+// save one: a definitive "no open stage run" answer exits 1.
 func runStageEnd(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage end", flag.ContinueOnError)
-	fset.SetOutput(stderr)
+	fset.SetOutput(io.Discard)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
 	outcome := fset.String("outcome", "", "the stage's outcome, e.g. completed")
@@ -561,26 +568,24 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stderr, stageUsage)
 			return 0
 		}
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "end", err)
 		return 2
 	}
 	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "end", err)
 		return 2
 	}
 	if *outcome == "" {
-		fmt.Fprintln(stderr, "flow: -outcome is required")
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "end", errors.New("-outcome is required"))
 		return 2
 	}
 
 	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "end", err)
 		return 2
 	}
 
@@ -597,7 +602,7 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 			}
 		}
 		if err != nil {
-			fmt.Fprintf(stderr, "flow: -screenshot %s: %v\n", *screenshot, err)
+			stageErr(stderr, "end", fmt.Errorf("-screenshot %s: %w", *screenshot, err))
 			return 2
 		}
 		*screenshot = abs
@@ -605,8 +610,7 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 
 	metrics, err := buildEndMetrics(*fixRounds, *panelRounds, *findings, *reason, *screenshot)
 	if err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "end", err)
 		return 2
 	}
 
@@ -665,8 +669,10 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 		// outage -- name the missing begin, and journal nothing:
 		// replaying an end for a run that never opened can only fail
 		// the same way again (KAN-700).
+		// It exits 1: an end that closes nothing is not a success, and
+		// a zero exit let the slip go unnoticed (KAN-1132).
 		warnNoOpenStageRun(stderr, journalName(f), f.stage)
-		return 0
+		return 1
 	default:
 		// ErrUnavailable or ErrRefused: neither may block the
 		// pipeline. (ErrNotFound no longer lands here -- a definitive
@@ -701,7 +707,7 @@ func gateLiveVerification(f stageIdentityFlags, outcome string, stderr io.Writer
 	}
 	plan, err := planPath(dir, f.name)
 	if err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "end", err)
 		return 2
 	}
 	root := filepath.Dir(plan)
@@ -1142,8 +1148,7 @@ func endStage(ctx context.Context, addr string, timeout time.Duration, req clien
 // for.
 func runStageKeys(args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 {
-		fmt.Fprintf(stderr, "flow: stage keys takes no positional arguments\n")
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "keys", errors.New("takes no positional arguments"))
 		return 2
 	}
 	for _, key := range stages.Keys() {
@@ -1184,19 +1189,17 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 		}
 	}
 	if sep < 0 {
-		fmt.Fprintln(stderr, `flow: stage wrap requires "--" followed by the work command to run`)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "wrap", errors.New(`requires "--" followed by the work command to run`))
 		return 2
 	}
 	childArgs := args[sep+1:]
 	if len(childArgs) == 0 {
-		fmt.Fprintln(stderr, `flow: stage wrap requires a work command after "--"`)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "wrap", errors.New(`requires a work command after "--"`))
 		return 2
 	}
 
 	fset := flag.NewFlagSet("flow stage wrap", flag.ContinueOnError)
-	fset.SetOutput(stderr)
+	fset.SetOutput(io.Discard)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
@@ -1205,34 +1208,32 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 	pos, err := parseInterspersed(fset, args[:sep])
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stderr, stageUsage)
 			return 0
 		}
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "wrap", err)
 		return 2
 	}
 	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if err := finishStageIdentityFlags(fset, pos, &f); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "wrap", err)
 		return 2
 	}
 	if *sessionTokenFlag == "" {
-		fmt.Fprintln(stderr, "flow: -session-token is required")
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "wrap", errors.New("-session-token is required"))
 		return 2
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "wrap", err)
 		return 2
 	}
 	if err := validateSessionTokenStamp(*sessionTokenFlag); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "wrap", err)
 		return 2
 	}
 
 	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "wrap", err)
 		return 2
 	}
 
@@ -1389,7 +1390,7 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 // first nonzero exit stops the run and is returned.
 func runStageMark(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage mark", flag.ContinueOnError)
-	fset.SetOutput(stderr)
+	fset.SetOutput(io.Discard)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
 	stagesFlag := fset.String("stages", "", "comma-separated stage keys, each marked begin then end completed, in order")
@@ -1398,22 +1399,21 @@ func runStageMark(ctx context.Context, args []string, getenv func(string) string
 	fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (required)")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stderr, stageUsage)
 			return 0
 		}
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "mark", err)
 		return 2
 	}
 	noteAddrUsage(fset, stderr, f.addr, getenv)
 	if *stagesFlag == "" || f.stage != "" {
-		fmt.Fprintln(stderr, "flow: stage mark takes -stages, never -stage")
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "mark", errors.New("takes -stages, never -stage"))
 		return 2
 	}
 	keys := strings.Split(*stagesFlag, ",")
 	for _, key := range keys {
 		if err := stages.Validate(stages.Command(f.command), key); err != nil {
-			fmt.Fprintf(stderr, "flow: %v\n", err)
+			stageErr(stderr, "mark", err)
 			return 2
 		}
 	}
@@ -1452,7 +1452,7 @@ func runStageMark(ctx context.Context, args []string, getenv func(string) string
 // narrative-runs-from-stage-marks).
 func runStageSessions(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage sessions", flag.ContinueOnError)
-	fset.SetOutput(stderr)
+	fset.SetOutput(io.Discard)
 	var addr string
 	registerRecordsAddrFlag(fset, &addr, getenv)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
@@ -1462,10 +1462,10 @@ func runStageSessions(ctx context.Context, args []string, getenv func(string) st
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stderr, stageUsage)
 			return 0
 		}
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "sessions", err)
 		return 2
 	}
 	if *change != "" && len(pos) == 0 {
@@ -1474,12 +1474,11 @@ func runStageSessions(ctx context.Context, args []string, getenv func(string) st
 		pos = nil
 	}
 	if len(pos) != 1 || *stage == "" {
-		fmt.Fprintln(stderr, "flow: stage sessions takes -stage and one <change> or -change")
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "sessions", errors.New("takes -stage and one <change> or -change"))
 		return 2
 	}
 	if err := stages.Validate(stages.Command("/flow"), *stage); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
+		stageErr(stderr, "sessions", err)
 		return 2
 	}
 	projectKey, _, err := fallback.ProjectKey(*dir)
@@ -1512,7 +1511,7 @@ func runStageSessions(ctx context.Context, args []string, getenv func(string) st
 // a completed run of -stage, 1 when it does not, 2 when flowd cannot answer.
 func runStageCompleted(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow stage completed", flag.ContinueOnError)
-	fset.SetOutput(stderr)
+	fset.SetOutput(io.Discard)
 	var addr string
 	registerRecordsAddrFlag(fset, &addr, getenv)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
@@ -1521,27 +1520,26 @@ func runStageCompleted(ctx context.Context, args []string, getenv func(string) s
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stderr, stageUsage)
 			return 0
 		}
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "completed", err)
 		return 2
 	}
 	if len(pos) != 1 || *stage == "" {
-		fmt.Fprintln(stderr, "flow: stage completed takes -stage and one <change>")
-		fmt.Fprint(stderr, stageUsage)
+		stageErr(stderr, "completed", errors.New("takes -stage and one <change>"))
 		return 2
 	}
 	projectKey, _, err := fallback.ProjectKey(*dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		stageErr(stderr, "completed", fmt.Errorf("resolve project key: %w", err))
 		return 2
 	}
 	done, err := callRecord(ctx, addr, *timeout, func(ctx context.Context, cl *client.Client) (bool, error) {
 		return cl.StageCompleted(ctx, projectKey, pos[0], *stage)
 	})
 	if err != nil {
-		fmt.Fprintf(stderr, "flow: stage completed: %v\n", err)
+		stageErr(stderr, "completed", err)
 		return 2
 	}
 	if !done {

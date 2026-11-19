@@ -1,0 +1,219 @@
+[
+  {
+    "key": "task-7-implementer",
+    "role": "implementer",
+    "opener": "",
+    "category": "planned-implementer",
+    "describe": "Implementing task 7"
+  },
+  {
+    "key": "task-7-implementer",
+    "role": "implementer",
+    "opener": "verify-gymie",
+    "category": "in-run-fix-verify",
+    "describe": "Implementing task 7"
+  },
+  {
+    "key": "task-7-implementer",
+    "role": "implementer",
+    "opener": "visual-verify-fix-1-rest-gymie",
+    "category": "in-run-fix-visual-verify",
+    "describe": "Implementing task 7"
+  },
+  {
+    "key": "task-13+14-implementer",
+    "role": "implementer",
+    "opener": "",
+    "category": "planned-implementer",
+    "describe": "Implementing tasks 13, 14"
+  },
+  {
+    "key": "task-7-implementer-fix-1",
+    "role": "implementer",
+    "opener": "",
+    "category": "gated-fixer",
+    "describe": "Fixing review findings on task 7, round 1"
+  },
+  {
+    "key": "task-7-implementer-retry",
+    "role": "implementer",
+    "opener": "",
+    "category": "planned-implementer",
+    "describe": "task-7-implementer-retry"
+  },
+  {
+    "key": "task-7-reviewer",
+    "role": "reviewer",
+    "opener": "",
+    "category": "gated-reviewer",
+    "describe": "Reviewing task 7"
+  },
+  {
+    "key": "task-7-reviewer-1",
+    "role": "reviewer",
+    "opener": "",
+    "category": "gated-reviewer",
+    "describe": "task-7-reviewer-1"
+  },
+  {
+    "key": "task-7-reviewer-fix-1",
+    "role": "reviewer",
+    "opener": "",
+    "category": "gated-reviewer",
+    "describe": "Reviewing task 7 after fix 1"
+  },
+  {
+    "key": "panel-1-primary+principles-gymie",
+    "role": "reviewer",
+    "opener": "",
+    "category": "panel-reviewer",
+    "describe": "Code review round 1: primary, principles gymie"
+  },
+  {
+    "key": "panel-2-test-sanity-unread",
+    "role": "reviewer",
+    "opener": "",
+    "category": "panel-reviewer",
+    "describe": "Code review round 2: test sanity unread"
+  },
+  {
+    "key": "panel-1-merger",
+    "role": "merger",
+    "opener": "",
+    "category": "merger",
+    "describe": "Code review round 1: merger"
+  },
+  {
+    "key": "panel-fix-1",
+    "role": "implementer",
+    "opener": "",
+    "category": "panel-fixer",
+    "describe": "Fixing code review findings, round 1"
+  },
+  {
+    "key": "panel-fix-2-1",
+    "role": "implementer",
+    "opener": "",
+    "category": "panel-fixer",
+    "describe": "panel-fix-2-1"
+  },
+  {
+    "key": "full-suite-fix-1",
+    "role": "implementer",
+    "opener": "",
+    "category": "full-suite-fixer",
+    "describe": "Fixing the full test suite, round 1"
+  },
+  {
+    "key": "plan-3",
+    "role": "planner",
+    "opener": "",
+    "category": "planner",
+    "describe": "Planning the change"
+  },
+  {
+    "key": "plan-review-1",
+    "role": "reviewer",
+    "opener": "",
+    "category": "plan-reviewer",
+    "describe": "plan-review-1"
+  },
+  {
+    "key": "design-2",
+    "role": "planner",
+    "opener": "",
+    "category": "planner",
+    "describe": "design-2"
+  },
+  {
+    "key": "explore-4",
+    "role": "explorer",
+    "opener": "",
+    "category": "explorer",
+    "describe": "Exploring the code"
+  },
+  {
+    "key": "verify-gymie",
+    "role": "verifier",
+    "opener": "",
+    "category": "verify-list",
+    "describe": "Running lint and tests · gymie"
+  },
+  {
+    "key": "verify-fix-3-gymie-frontend",
+    "role": "verifier",
+    "opener": "",
+    "category": "verify-list",
+    "describe": "Running lint and tests after fix 3 · gymie-frontend"
+  },
+  {
+    "key": "visual-verify-fix-2-rest-gymie",
+    "role": "verifier",
+    "opener": "",
+    "category": "visual-verifier",
+    "describe": "Checking the UI after fix 2 · rest-gymie"
+  },
+  {
+    "key": "self-review-kan-1-pass",
+    "role": "reviewer",
+    "opener": "",
+    "category": "self-review-reviewer",
+    "describe": "Self-review: review pass"
+  },
+  {
+    "key": "self-review-kan-1-plan",
+    "role": "planner",
+    "opener": "",
+    "category": "self-review-planner",
+    "describe": "Self-review: planning fixes"
+  },
+  {
+    "key": "self-review-kan-1-fix-2",
+    "role": "implementer",
+    "opener": "",
+    "category": "self-review-fixer",
+    "describe": "Self-review: fix round 2"
+  },
+  {
+    "key": "self-review-kan-1-review-1",
+    "role": "reviewer",
+    "opener": "",
+    "category": "self-review-reviewer",
+    "describe": "Self-review: review round 1"
+  },
+  {
+    "key": "pipeline-fix-3-plan",
+    "role": "planner",
+    "opener": "",
+    "category": "pipeline-fix-planner",
+    "describe": "Pipeline fix 3: planning"
+  },
+  {
+    "key": "pipeline-fix-3-fix-1",
+    "role": "implementer",
+    "opener": "",
+    "category": "pipeline-fix-fixer",
+    "describe": "Pipeline fix 3: fixing, round 1"
+  },
+  {
+    "key": "pipeline-fix-3-review-1",
+    "role": "reviewer",
+    "opener": "",
+    "category": "pipeline-fix-reviewer",
+    "describe": "Pipeline fix 3: reviewing, round 1"
+  },
+  {
+    "key": "operator-2",
+    "role": "implementer",
+    "opener": "",
+    "category": "operator-request",
+    "describe": "operator-2"
+  },
+  {
+    "key": "tooling-analysis-1",
+    "role": "analyst",
+    "opener": "",
+    "category": "other:analyst",
+    "describe": "tooling-analysis-1"
+  }
+]

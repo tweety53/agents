@@ -130,6 +130,30 @@ type Dispatch struct {
 	EndedAt      *time.Time      `json:"endedAt,omitempty"`
 	Metrics      json.RawMessage `json:"metrics,omitempty"`
 	Notes        string          `json:"notes,omitempty"`
+	// Retimed is the audit `flow record dispatch retime` leaves; nil on a
+	// row never retimed.
+	Retimed *Retime `json:"retimed,omitempty"`
+}
+
+// Retime is a retimed dispatch row's audit (decision retime-jsonb-drop-old):
+// Reason and At are the latest retime's; StartedAt and EndedAt the instants
+// the first retime replaced, kept across later retimes.
+type Retime struct {
+	Reason    string     `json:"reason"`
+	At        time.Time  `json:"at"`
+	StartedAt time.Time  `json:"startedAt"`
+	EndedAt   *time.Time `json:"endedAt"`
+}
+
+// DispatchRetime is one `flow record dispatch retime` request: row ID's new
+// instants, an optional commit (empty keeps the stored one) and the
+// required reason.
+type DispatchRetime struct {
+	ID        int64     `json:"id"`
+	StartedAt time.Time `json:"startedAt"`
+	EndedAt   time.Time `json:"endedAt"`
+	CommitSHA string    `json:"commitSha,omitempty"`
+	Reason    string    `json:"reason"`
 }
 
 // DispatchEnd is the closing half of a dispatch's record: the three facts
@@ -424,6 +448,7 @@ type VerifyRun struct {
 	Tests      int       `json:"tests"`
 	Failed     int       `json:"failed"`
 	ExitCode   int       `json:"exitCode"`
+	Flaky      *int      `json:"flaky,omitempty"` // tests passed only on retry; nil when not recorded
 	RecordedAt time.Time `json:"recordedAt"`
 }
 
@@ -715,17 +740,34 @@ func CostStatusOf(r Run) CostStatus {
 		if err := json.Unmarshal(d.Metrics, &m); err != nil {
 			continue
 		}
-		if m.Tokens != nil {
+		reason := CostReason(d)
+		if reason == "" {
 			continue
 		}
-		if m.Unattributed == nil || m.Unattributed.Reason == "" {
-			reasons[reasonNotMeasured]++
-		} else {
-			reasons[m.Unattributed.Reason]++
-		}
+		reasons[reason]++
 		unattributedCount++
 	}
 	return CostStatus{Unattributed: unattributedCount, Reasons: reasons}
+}
+
+// CostReason is why d carries no cost figure: "" when its bag has a real
+// "tokens" figure (a stale "unattributed" stamp beside it loses), else the
+// stamped "unattributed.reason", else reasonNotMeasured. The one precedence
+// CostStatusOf, the ledger's tokenLine (render.go) and the dashboard all
+// read; CostStatusOf skips an empty or unreadable bag before asking, which
+// the store never holds (metrics is NOT NULL DEFAULT '{}').
+func CostReason(d Dispatch) string {
+	var m dispatchMetrics
+	if err := json.Unmarshal(d.Metrics, &m); err != nil {
+		return reasonNotMeasured
+	}
+	if m.Tokens != nil {
+		return ""
+	}
+	if m.Unattributed != nil && m.Unattributed.Reason != "" {
+		return m.Unattributed.Reason
+	}
+	return reasonNotMeasured
 }
 
 // GuardRun is one invocation of a flow-guard guard, as the binary itself
@@ -872,4 +914,14 @@ func PanelFindings(fs []Finding) []Finding {
 		}
 	}
 	return out
+}
+
+// OpenDispatch is the open dispatch row a harness session holds under one
+// key, as GET /api/v1/dispatches/open answers it: the id `flow record
+// dispatch handback` keys its plan-check marker by, and the change the row
+// belongs to (decision gated-bracket-handback).
+type OpenDispatch struct {
+	ID         int64  `json:"id"`
+	ProjectKey string `json:"projectKey"`
+	Change     string `json:"change"`
 }

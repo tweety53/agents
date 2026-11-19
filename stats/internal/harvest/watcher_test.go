@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -4681,6 +4682,23 @@ type settleDeps struct {
 	rows     map[string]*settleRow
 	windows  []harvest.DispatchWindow
 	restamps map[int64]json.RawMessage
+	inline   []harvest.InlineRow
+	marks    []string // "<id> <reason>", every MarkDispatchUnattributed
+}
+
+func (d *settleDeps) ClosedUnmeasuredInlineRows(ctx context.Context, sessionID string, before time.Time) ([]harvest.InlineRow, error) {
+	var out []harvest.InlineRow
+	for _, r := range d.inline {
+		if _, done := d.restamps[r.ID]; !done && !r.EndedAt.After(before) {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+func (d *settleDeps) MarkDispatchUnattributed(ctx context.Context, id int64, reason string) error {
+	d.marks = append(d.marks, fmt.Sprintf("%d %s", id, reason))
+	return nil
 }
 
 func (d *settleDeps) DispatchEndedAt(ctx context.Context, sessionToken, key string) (int64, time.Time, string, bool, error) {
@@ -5139,5 +5157,249 @@ func TestWatcherCreditsABackfilledAgentRow(t *testing.T) {
 				t.Errorf("restamp = %s, want row 7, agent a68cee7239419a7e7, input 9", deps.restamps[0])
 			}
 		})
+	}
+}
+
+// TestSettleMeasuresAnInlineRowItsBeginCommandCannotName pins kan-1091's
+// verifier rows: begun through a shell function, the run-verify-list call's
+// key carries `$`, so no command-derived candidate names the row. The
+// store's closed unmeasured inline rows are candidates too, so the row is
+// still settled -- here with a zero patch, no parent turn falling inside it.
+func TestSettleMeasuresAnInlineRowItsBeginCommandCannotName(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	start := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
+	end := start.Add(30 * time.Second)
+	command, err := json.Marshal(`run(){ r=$1; w=$2; flow-guard run-verify-list $w lint kan-1091 verify-fix-1-$r mf-s opus low; }; run a /wt/a`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, stampFixtureLines(
+		`{"type":"assistant","timestamp":"2026-01-01T00:01:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(command)+`}}]}}`,
+		mainThreadLine("00:03:00", 4),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &settleDeps{
+		rows:     map[string]*settleRow{"verify-fix-1-a": {id: 9, endedAt: end, agentID: harvest.InlineAgentID}},
+		windows:  []harvest.DispatchWindow{{DispatchID: 9, AgentID: harvest.InlineAgentID, StartedAt: start, EndedAt: &end}},
+		restamps: map[int64]json.RawMessage{},
+		inline:   []harvest.InlineRow{{ID: 9, SessionToken: "mf-s", Key: "verify-fix-1-a", StartedAt: start, EndedAt: end}},
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	var zero map[string]json.RawMessage
+	if p, ok := deps.restamps[9]; !ok || json.Unmarshal(p, &zero) != nil || zero["tokens"] == nil || mainOutput(t, p) != 0 {
+		t.Fatalf("row 9 restamp = %s (%v), want a zero patch carrying tokens", p, ok)
+	}
+}
+
+// guessedWindowBackfillDeps is backfillAgentDeps with the window kan-1091's
+// `task-13+14+16+20-reviewer` back-fill guessed: it ends before the agent's
+// last record.
+type guessedWindowBackfillDeps struct {
+	backfillAgentDeps
+}
+
+func (d *guessedWindowBackfillDeps) DispatchWindowsForAgent(context.Context, string) ([]harvest.DispatchWindow, error) {
+	end := time.Date(2026, 1, 1, 0, 1, 0, 0, time.UTC)
+	return []harvest.DispatchWindow{{DispatchID: 7, AgentID: "a68cee7239419a7e7", StartedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), EndedAt: &end}}, nil
+}
+
+// TestBackfilledAgentRowAfterItsFileWasHarvestedIsCredited pins kan-1091's
+// group reviewer: its file fully harvested first, then a back-fill whose
+// guessed window ends before the agent's last record -- the row is credited
+// every record of the file, the ones past the guessed end included.
+func TestBackfilledAgentRowAfterItsFileWasHarvestedIsCredited(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	parent := writeLateStampFixture(t, dir)
+	agent := filepath.Join(dir, "session", "subagents", "agent-a68cee7239419a7e7.jsonl")
+	f, err := os.OpenFile(agent, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(`{"type":"assistant","timestamp":"2026-01-01T00:02:00Z","sessionId":"s","isSidechain":true,"agentId":"a68cee7239419a7e7","message":{"id":"m2","model":"claude-sonnet-5","usage":{"input_tokens":20,"output_tokens":3}}}` + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	deps := &guessedWindowBackfillDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	runCycles(t, w, 1)
+
+	command, err := json.Marshal("flow record dispatch backfill -change c -task 13 -role reviewer -model opus -agent-id a68cee7239419a7e7 -key task-13-reviewer -session-token mf-x -started-at 2026-01-01T00:00:00Z -ended-at 2026-01-01T00:01:00Z -outcome clean")
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := `{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(command) + `}}]}}` + "\n"
+	if err := os.WriteFile(parent, []byte(line), 0o644); err != nil {
+		t.Fatalf("write parent: %v", err)
+	}
+	runCycles(t, w, 2)
+
+	if len(deps.restamps) != 1 || !strings.HasPrefix(deps.restamps[0], "7 a68cee7239419a7e7 ") || !strings.Contains(deps.restamps[0], `"input":29`) {
+		t.Fatalf("restamps = %v, want row 7 credited input 29", deps.restamps)
+	}
+}
+
+// metaGiveUpDeps answers agent-example0001's one row and records every
+// per-row give-up stamp.
+type metaGiveUpDeps struct {
+	harvest.NoDeps
+	marks []string
+}
+
+func (d *metaGiveUpDeps) DispatchWindowsForAgent(_ context.Context, agentID string) ([]harvest.DispatchWindow, error) {
+	if agentID != "agent-example0001" {
+		return nil, nil
+	}
+	return []harvest.DispatchWindow{{DispatchID: 7, AgentID: agentID}}, nil
+}
+
+func (d *metaGiveUpDeps) MarkDispatchUnattributed(_ context.Context, id int64, reason string) error {
+	d.marks = append(d.marks, fmt.Sprintf("%d %s", id, reason))
+	return nil
+}
+
+// TestGiveUpStampsTheRowsReason pins decision unattributed-reason-in-metrics:
+// every give-up that loses a row's figures for good stamps the row's reason.
+func TestGiveUpStampsTheRowsReason(t *testing.T) {
+	t.Parallel()
+	begins := func(t *testing.T, n int) (string, *settleDeps) {
+		t.Helper()
+		dir := t.TempDir()
+		var lines []string
+		rows := map[string]*settleRow{}
+		for i := range n {
+			key := fmt.Sprintf("fix-%d", i)
+			c, err := json.Marshal("flow record dispatch begin -change c -role implementer -key " + key + " -session-token mf-s")
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines = append(lines, `{"type":"assistant","timestamp":"2026-01-01T00:00:20Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(c)+`}}]}}`)
+			rows[key] = &settleRow{id: int64(i + 1)}
+		}
+		if err := os.WriteFile(filepath.Join(dir, "session.jsonl"), stampFixtureLines(lines...), 0o644); err != nil {
+			t.Fatalf("write fixture: %v", err)
+		}
+		return dir, &settleDeps{rows: rows, restamps: map[int64]json.RawMessage{}}
+	}
+	run := func(t *testing.T, dir string, deps harvest.Deps) {
+		t.Helper()
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+	}
+
+	t.Run("settle candidate trimmed", func(t *testing.T) {
+		t.Parallel()
+		dir, deps := begins(t, 65)
+		run(t, dir, deps)
+		if !slices.Contains(deps.marks, "1 settle candidates overflowed") || slices.Contains(deps.marks, "2 settle candidates overflowed") {
+			t.Errorf("marks = %v, want row 1 alone stamped `settle candidates overflowed`", deps.marks)
+		}
+	})
+	t.Run("stamp pairing list dropped", func(t *testing.T) {
+		t.Parallel()
+		dir, deps := begins(t, 9)
+		run(t, dir, deps)
+		if !slices.Equal(deps.marks, []string{"1 launch pairing overflowed"}) {
+			t.Errorf("marks = %v, want row 1 stamped `launch pairing overflowed`", deps.marks)
+		}
+	})
+	t.Run("dropped row already naming an agent", func(t *testing.T) {
+		t.Parallel()
+		dir, deps := begins(t, 9)
+		deps.rows["fix-0"].agentID = "agent-named"
+		run(t, dir, deps)
+		if len(deps.marks) != 0 {
+			t.Errorf("marks = %v, want none: a dropped row naming an agent is someone else's to measure", deps.marks)
+		}
+	})
+	t.Run("dispatch-meta sidecar given up", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+		copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+		deps := &metaGiveUpDeps{}
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{bySession: openWindowForMainSession(1)}), deps, nil)
+		runCycles(t, w, 70)
+		if !slices.Equal(deps.marks, []string{"7 dispatch-meta sidecar never arrived"}) {
+			t.Errorf("marks = %v, want row 7 stamped once `dispatch-meta sidecar never arrived`", deps.marks)
+		}
+	})
+}
+
+// TestSettleOverflowDropsTheOldestBegin pins the begin-time sort ahead of the
+// overflow trim: store rows are appended after the command-derived ones, so
+// a trim by position alone would drop the newest begin, not the oldest.
+func TestSettleOverflowDropsTheOldestBegin(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	command, err := json.Marshal("flow record dispatch begin -change c -role implementer -key late -session-token mf-s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, stampFixtureLines(
+		`{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(command)+`}}]}}`,
+		mainThreadLine("00:06:00", 1),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &settleDeps{rows: map[string]*settleRow{"late": {id: 1}}, restamps: map[int64]json.RawMessage{}}
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 64 {
+		key := fmt.Sprintf("store-%d", i)
+		deps.rows[key] = &settleRow{id: int64(100 + i)}
+		deps.inline = append(deps.inline, harvest.InlineRow{ID: int64(100 + i), SessionToken: "mf-s", Key: key, StartedAt: start.Add(time.Duration(i) * time.Second), EndedAt: start.Add(time.Minute)})
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if want := []string{"100 settle candidates overflowed"}; !slices.Equal(deps.marks, want) {
+		t.Fatalf("marks = %v, want %v", deps.marks, want)
+	}
+}
+
+// TestSettleCountsAStoreRowItsTranscriptBeginNamesOnce pins the de-dup of a
+// closed inline store row against the transcript begin naming the same
+// token and key: 63 store rows plus one row both sources name fill the
+// candidate list exactly, so nothing overflows and no row is stamped.
+func TestSettleCountsAStoreRowItsTranscriptBeginNamesOnce(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	command, err := json.Marshal("flow record dispatch begin -change c -role implementer -key late -session-token mf-s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, stampFixtureLines(
+		`{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(command)+`}}]}}`,
+		mainThreadLine("00:06:00", 1),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	deps := &settleDeps{rows: map[string]*settleRow{"late": {id: 1}}, restamps: map[int64]json.RawMessage{}}
+	deps.inline = append(deps.inline, harvest.InlineRow{ID: 1, SessionToken: "mf-s", Key: "late", StartedAt: start.Add(5 * time.Minute), EndedAt: start.Add(5 * time.Minute)})
+	for i := range 63 {
+		key := fmt.Sprintf("store-%d", i)
+		deps.rows[key] = &settleRow{id: int64(100 + i)}
+		deps.inline = append(deps.inline, harvest.InlineRow{ID: int64(100 + i), SessionToken: "mf-s", Key: key, StartedAt: start.Add(time.Duration(i) * time.Second), EndedAt: start.Add(time.Minute)})
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if len(deps.marks) != 0 {
+		t.Fatalf("marks = %v, want none: the row both sources name is one candidate", deps.marks)
 	}
 }

@@ -5296,13 +5296,30 @@ func TestRunRecordSummaryJournalsWhenStoreDown(t *testing.T) {
 
 // --- handoff-lines ------------------------------------------------------
 
-// handoffDaemon serves the one read `record handoff-lines` makes: the cost
-// status. Any other request fails the test.
+// handoffDaemon serves the two reads `record handoff-lines` makes: the cost
+// status, and a stage-runs listing with no runs. Any other request fails the
+// test.
 func handoffDaemon(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return handoffDaemonWithStageRuns(t, `{"stageRuns":[]}`)
+}
+
+// handoffDaemonWithStageRuns is handoffDaemon answering the stage-runs
+// listing with stageRuns; an empty stageRuns answers it 500.
+func handoffDaemonWithStageRuns(t *testing.T, stageRuns string) http.HandlerFunc {
 	t.Helper()
 	return genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("handoff-lines sent a %s request; it only reads", r.Method)
+		}
+		if r.URL.Path == "/api/v1/stage-runs" {
+			if stageRuns == "" {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(stageRuns))
+			return
 		}
 		if !strings.HasSuffix(r.URL.Path, "/cost-status") {
 			t.Errorf("handoff-lines requested %s; it reads cost-status only", r.URL.Path)
@@ -5349,9 +5366,9 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 		journal int // -1: make the journal unreadable
 		want    string
 	}{
-		{"clean", 0, "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n"},
-		{"journalled", 2, "**Records:** 2 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n"},
-		{"uncountable", -1, "**Records:** unknown — the journal could not be counted\n**Costs:** 0 unattributed\n"},
+		{"clean", 0, "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"},
+		{"journalled", 2, "**Records:** 2 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"},
+		{"uncountable", -1, "**Records:** unknown — the journal could not be counted\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -5383,6 +5400,48 @@ func TestRecordHandoffLinesFormat(t *testing.T) {
 	}
 }
 
+// TestHandoffLinesNamesOpenStageRuns pins the **Stages:** line: the change's
+// stage runs still open, in start order, so a handoff names a stage whose end
+// was never marked; an unreadable listing is "unknown", never "0 open".
+func TestHandoffLinesNamesOpenStageRuns(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name      string
+		stageRuns string
+		want      string
+	}{
+		{"one open", `{"stageRuns":[` +
+			`{"stageRunId":41,"stage":"flow.verify","startedAt":"2026-11-18T10:05:00Z"},` +
+			`{"stageRunId":40,"stage":"flow.implement","startedAt":"2026-11-18T10:00:00Z","endedAt":"2026-11-18T10:04:00Z","outcome":"done"}]}`,
+			"**Stages:** 1 open — flow.verify (run 41)"},
+		{"two open in start order", `{"stageRuns":[` +
+			`{"stageRunId":43,"stage":"flow.verify","startedAt":"2026-11-18T10:05:00Z"},` +
+			`{"stageRunId":42,"stage":"flow.implement","startedAt":"2026-11-18T10:00:00Z"}]}`,
+			"**Stages:** 2 open — flow.implement (run 42), flow.verify (run 43)"},
+		{"none open", `{"stageRuns":[` +
+			`{"stageRunId":40,"stage":"flow.implement","startedAt":"2026-11-18T10:00:00Z","endedAt":"2026-11-18T10:04:00Z","outcome":"done"}]}`,
+			"**Stages:** 0 open"},
+		{"unreachable", "", "**Stages:** unknown — the stage runs could not be read"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			env := newTestEnv(t)
+			srv := httptest.NewServer(handoffDaemonWithStageRuns(t, tc.stageRuns))
+			defer srv.Close()
+
+			code, out, errOut := runHandoffLines(t, env, "-addr", srv.URL, "-C", repo, "-change", "demo")
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
+			}
+			lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+			if len(lines) != 3 || lines[2] != tc.want {
+				t.Errorf("stdout =\n%s\nwant third line %q", out, tc.want)
+			}
+		})
+	}
+}
+
 // TestRecordHandoffLinesDedupByProject pins the aggregation: the journal is
 // keyed per project, so two worktrees of one project are counted once, never
 // double-counted.
@@ -5403,7 +5462,7 @@ func TestRecordHandoffLinesDedupByProject(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
-	want := "**Records:** 3 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n"
+	want := "**Records:** 3 write(s) journalled — the store was unreachable\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"
 	if out != want {
 		t.Errorf("stdout =\n%s\nwant\n%s", out, want)
 	}
@@ -5422,6 +5481,11 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 			_, _ = w.Write([]byte(`{"unattributed":0,"reasons":{}}`))
 			return
 		}
+		if r.URL.Path == "/api/v1/stage-runs" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"stageRuns":[]}`))
+			return
+		}
 		recordReads++
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -5431,7 +5495,7 @@ func TestRecordHandoffLinesReadsNoFindings(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, errOut)
 	}
-	want := "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n"
+	want := "**Records:** all writes reached the store\n**Costs:** 0 unattributed\n**Stages:** 0 open\n"
 	if out != want {
 		t.Errorf("stdout =\n%s\nwant\n%s", out, want)
 	}
@@ -10104,5 +10168,283 @@ func TestRecordDispatchBackfillAdmitsAWhitespaceOnlyInlinePanelFixUnderSdd(t *te
 		if got := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); got != tc.code {
 			t.Fatalf("%s: exit %d, want %d; stderr:\n%s", tc.sha[:7], got, tc.code, stderr.String())
 		}
+	}
+}
+
+// newHandbackStore is newPlanEndStore with the hand-back reads answered
+// (decision gated-bracket-handback): GET /api/v1/dispatches/open answers
+// row 77 of change for key task-3-reviewer (404 for any other key), and the
+// run record lists row 77 open under that key and planEnd's session token.
+func newHandbackStore(t *testing.T, change string) planEndStore {
+	t.Helper()
+	var begins, ends atomic.Int32
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/dispatches/open":
+			if r.URL.Query().Get("key") != "task-3-reviewer" {
+				http.Error(w, `{"error":"no open dispatch"}`, http.StatusNotFound)
+				return
+			}
+			_, _ = fmt.Fprintf(w, `{"id":77,"projectKey":"p","change":%q}`, change)
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/records/"):
+			_, _ = w.Write([]byte(`{"dispatches":[{"id":77,"seq":1,"key":"task-3-reviewer","sessionToken":"mf-plan-verify-end","startedAt":"2026-01-02T03:04:05Z"}]}`))
+		default:
+			if strings.HasSuffix(r.URL.Path, "/dispatches/end") {
+				ends.Add(1)
+			}
+			_, _ = w.Write([]byte(`{"id":77,"seq":1,"role":"reviewer","model":"sonnet","startedAt":"2026-01-02T03:04:05Z","endedAt":"2026-01-02T03:44:05Z"}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return planEndStore{srv.URL, &begins, &ends}
+}
+
+// handback runs `flow record dispatch handback` against store from dir.
+func handback(t *testing.T, store planEndStore, dir, key string) (int, string) {
+	t.Helper()
+	env := newTestEnv(t)
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"record", "dispatch", "handback", "-addr", store.url, "-timeout", "500ms",
+		"-session", "s1", "-key", key, "-C", dir}, env.get, strings.NewReader(""), &stdout, &stderr)
+	return code, stderr.String()
+}
+
+func readMarker(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("marker: %v", err)
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// TestDispatchHandbackWritesAPassingMarker: the hand-back checks the plan
+// tree for the session's open row and writes "pass" beside the snapshot;
+// a key with no snapshot or no open row writes nothing, and all exit 0.
+func TestDispatchHandbackWritesAPassingMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	if code, errs := handback(t, store, repo, "task-3-reviewer"); code != 0 {
+		t.Fatalf("exit %d; stderr:\n%s", code, errs)
+	}
+	sdd := filepath.Join(repo, ".superpowers", "sdd")
+	if got := readMarker(t, filepath.Join(sdd, "plan-snapshot-task-3-reviewer.txt.handback-77")); got != "pass" {
+		t.Fatalf("marker = %q, want pass", got)
+	}
+	for _, key := range []string{"task-3-implementer", "task-4-reviewer"} {
+		if code, errs := handback(t, store, repo, key); code != 0 {
+			t.Errorf("%s: exit %d; stderr:\n%s", key, code, errs)
+		}
+	}
+	entries, _ := os.ReadDir(sdd)
+	if len(entries) != 2 {
+		t.Errorf("sdd holds %d files, want the snapshot and one marker", len(entries))
+	}
+}
+
+// TestDispatchEndTrustsAPassingHandbackMarker: a pass marker for the open
+// row lets the end proceed past the parent's later plan edit; a pass marker
+// for another row id is not trusted.
+func TestDispatchEndTrustsAPassingHandbackMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	snap := filepath.Join(repo, ".superpowers", "sdd", "plan-snapshot-task-3-reviewer.txt")
+	if err := os.WriteFile(snap+".handback-76", []byte("pass\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writePlanDesign(t, repo, change, "# design, the parent's edit\n")
+	if code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean"); code == 0 || store.ends.Load() != 0 {
+		t.Fatalf("stale marker: exit %d, ends %d, want non-zero and 0; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+	if err := os.WriteFile(snap+".handback-77", []byte("pass\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean"); code != 0 || store.ends.Load() != 1 {
+		t.Fatalf("pass marker: exit %d, ends %d, want 0 and 1; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestDispatchEndRefusesAFailingHandbackMarker: the reviewer edited the
+// plan before handing back, so the marker is fail; the parent's restore
+// does not rescue the end.
+func TestDispatchEndRefusesAFailingHandbackMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	writePlanDesign(t, repo, change, "# design, the reviewer's edit\n")
+	if code, errs := handback(t, store, repo, "task-3-reviewer"); code != 0 {
+		t.Fatalf("handback exit %d; stderr:\n%s", code, errs)
+	}
+	snap := filepath.Join(repo, ".superpowers", "sdd", "plan-snapshot-task-3-reviewer.txt")
+	if got := readMarker(t, snap+".handback-77"); !strings.HasPrefix(got, "fail ") {
+		t.Fatalf("marker = %q, want fail <exit>", got)
+	}
+	writePlanDesign(t, repo, change, "# design\n")
+	code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean")
+	if code != 1 || store.ends.Load() != 0 || !strings.Contains(errs, "the plan tree check refused this end") {
+		t.Fatalf("exit %d, ends %d, want 1, 0 and the refusal; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestDispatchEndWithoutAMarkerChecksTheLivePlan: with no marker the end
+// checks the live tree as before, its refusal telling the parent to end
+// the row before editing the plan.
+func TestDispatchEndWithoutAMarkerChecksTheLivePlan(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	store := newHandbackStore(t, change)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	writePlanDesign(t, repo, change, "# design, edited\n")
+	code, errs := planEnd(t, store, repo, change, "task-3-reviewer", "clean")
+	if code == 0 || store.ends.Load() != 0 || !strings.Contains(errs, "-- end the row before editing the plan") {
+		t.Fatalf("exit %d, ends %d, want non-zero, 0 and the hint; stderr:\n%s", code, store.ends.Load(), errs)
+	}
+}
+
+// TestRecordDispatchRetimeCommand pins `flow record dispatch retime`: it posts
+// the row id, both instants, the commit and the reason to the retime route,
+// prints the row's seq, refuses a missing -reason before any request, and is
+// never journalled when the store is unreachable.
+func TestRecordDispatchRetimeCommand(t *testing.T) {
+	t.Parallel()
+	repo := recordRepo(t, "kan-258")
+	env := newTestEnv(t)
+
+	var gotPath string
+	var got records.DispatchRetime
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_ = json.NewEncoder(w).Encode(records.Dispatch{Seq: 4})
+	}))
+	defer srv.Close()
+
+	args := []string{"record", "dispatch", "retime", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-258", "-id", "8623", "-started-at", "2026-11-18T10:00:00Z",
+		"-ended-at", "2026-11-18T10:05:00Z", "-commit", "abc1234abc1234abc1234abc1234abc1234abc12"}
+
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 2 {
+		t.Fatalf("missing -reason: exit = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "-reason") || gotPath != "" {
+		t.Errorf("missing -reason: stderr = %q, path = %q; want -reason named and no request", stderr.String(), gotPath)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	ok := append(slices.Clone(args), "-reason", "inline row began after its commit")
+	if code := run(context.Background(), ok, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.HasSuffix(gotPath, "/dispatches/retime") || got.ID != 8623 || got.Reason != "inline row began after its commit" ||
+		got.CommitSHA != "abc1234abc1234abc1234abc1234abc1234abc12" || !got.StartedAt.Equal(time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)) {
+		t.Errorf("request = %s %+v", gotPath, got)
+	}
+	if stdout.String() != "updated: dispatch 4\n" {
+		t.Errorf("stdout = %q", stdout.String())
+	}
+
+	srv.Close()
+	stdout.Reset()
+	stderr.Reset()
+	if code := run(context.Background(), ok, env.get, strings.NewReader(""), &stdout, &stderr); code != 1 {
+		t.Fatalf("unreachable: exit = %d, want 1; stderr:\n%s", code, stderr.String())
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258", env); exists {
+		t.Error("an unreachable retime was journalled")
+	}
+}
+
+// TestRecordRunPassesTheFlakyFlag pins `flow record run -flaky`: a count is
+// posted as "flaky", an absent flag posts none, a negative one exits 2.
+func TestRecordRunPassesTheFlakyFlag(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		extra []string
+		want  string // "" asserts no flaky key
+	}{
+		{"given", []string{"-flaky", "2"}, `"flaky":2`},
+		{"absent", nil, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			env := newTestEnv(t)
+			var gotBody []byte
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				gotBody, _ = readAll(r)
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":1}`))
+			}))
+			defer srv.Close()
+			var stdout, stderr bytes.Buffer
+			args := append([]string{"record", "run", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-9", "-kind", "run-verify-list", "-label", "visual", "-seconds", "3"}, tc.extra...)
+			if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+				t.Fatalf("exit code = %d; stderr:\n%s", code, stderr.String())
+			}
+			if tc.want != "" && !strings.Contains(string(gotBody), tc.want) {
+				t.Errorf("body = %s, want %s", gotBody, tc.want)
+			}
+			if tc.want == "" && strings.Contains(string(gotBody), `"flaky"`) {
+				t.Errorf("body = %s, want no flaky", gotBody)
+			}
+		})
+	}
+	t.Run("refuses a negative count", func(t *testing.T) {
+		repo := gitRepo(t)
+		env := newTestEnv(t)
+		env["FLOW_STATE_DIR"] = t.TempDir()
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{"record", "run", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-change", "kan-9", "-kind", "run-verify-list", "-label", "visual", "-seconds", "3", "-flaky", "-1"},
+			env.get, strings.NewReader(""), &stdout, &stderr)
+		if code != 2 || !strings.Contains(stderr.String(), "-flaky") {
+			t.Errorf("exit code = %d stderr = %q, want 2 naming -flaky", code, stderr.String())
+		}
+	})
+}
+
+// TestDispatchBeginDropsItsRowsHandbackMarker: a re-begun aborted row keeps
+// its id, so begin removes that row's hand-back marker -- the earlier
+// attempt's "pass" never vouches for the new attempt's end.
+func TestDispatchBeginDropsItsRowsHandbackMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/dispatches") {
+			w.WriteHeader(http.StatusCreated)
+		}
+		_, _ = w.Write([]byte(`{"id":77,"seq":1,"role":"reviewer","model":"sonnet","startedAt":"2026-11-15T10:00:00Z"}`))
+	}))
+	t.Cleanup(srv.Close)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	marker := filepath.Join(repo, ".superpowers", "sdd", "plan-snapshot-task-3-reviewer.txt.handback-77")
+	if err := os.WriteFile(marker, []byte("pass\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := newTestEnv(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none",
+		"-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", change, "-key", "task-3-reviewer", "-role", "reviewer",
+		"-model", "sonnet", "-session-token", "mf-plan-verify-end", "-started-at", "2026-11-15T10:00:00Z"},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("begin: exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Errorf("row 77's hand-back marker survived its re-begin (stat err %v)", err)
 	}
 }

@@ -399,3 +399,24 @@ func TestJournalIsOneEntryPerLine(t *testing.T) {
 		}
 	}
 }
+
+// TestCountJournalEntries: an absent journal is nothing pending; a partial
+// trailing line is not an entry; a path that cannot be read is an error,
+// never a count.
+func TestCountJournalEntries(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if n, err := fallback.CountJournalEntries(filepath.Join(dir, "absent.record")); err != nil || n != 0 {
+		t.Errorf("absent: %d, %v; want 0, nil", n, err)
+	}
+	path := filepath.Join(dir, "j.record")
+	if err := os.WriteFile(path, []byte("{\"a\":1}\n\n{\"a\":2}\n{\"a\":3}\n{\"a\":"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := fallback.CountJournalEntries(path); err != nil || n != 3 {
+		t.Errorf("three entries and a partial line: %d, %v; want 3, nil", n, err)
+	}
+	if _, err := fallback.CountJournalEntries(dir); err == nil {
+		t.Error("a directory: want an error")
+	}
+}

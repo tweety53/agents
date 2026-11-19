@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -4773,50 +4774,126 @@ func TestEndDispatchRefusesAnyRowBegunAfterItsCommit(t *testing.T) {
 	}
 }
 
-// TestRetimeDispatchSetsInstantsAndCommit pins flowd retime-dispatch's store
-// half: the instants and commit land exactly, an unknown id is
-// ErrDispatchNotFound, and inverted instants change nothing.
-func TestRetimeDispatchSetsInstantsAndCommit(t *testing.T) {
+// TestRetimeDispatchKeepsTheOriginalInstants pins `flow record dispatch
+// retime`'s store half (decision retime-jsonb-drop-old): a retime moves the
+// instants and commit and records its reason with the instants it replaced;
+// a later retime keeps those first originals and takes its own reason; an
+// empty commit keeps the stored one.
+func TestRetimeDispatchKeepsTheOriginalInstants(t *testing.T) {
 	t.Parallel()
-	st, pool := newRecordStore(t)
+	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-record-retime-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
+	begun := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	ended := time.Date(2026, 11, 16, 10, 30, 0, 0, time.UTC)
+	row := recordRetimeFixture(t, st, projectKey, begun, ended)
+
+	early := time.Date(2026, 11, 16, 9, 40, 0, 0, time.UTC)
+	got, err := st.RetimeDispatch(ctx, projectKey, "kan-1", records.DispatchRetime{
+		ID: row.ID, StartedAt: early, EndedAt: ended, CommitSHA: "abc1234", Reason: "begin recorded after the work",
+	})
+	if err != nil {
+		t.Fatalf("RetimeDispatch: %v", err)
+	}
+	if !got.StartedAt.Equal(early) || got.EndedAt == nil || !got.EndedAt.Equal(ended) || got.CommitSHA != "abc1234" {
+		t.Fatalf("row = %v %v %q, want %v %v abc1234", got.StartedAt, got.EndedAt, got.CommitSHA, early, ended)
+	}
+	assertRetimed(t, got, "begin recorded after the work", begun, ended)
+
+	later := time.Date(2026, 11, 16, 9, 50, 0, 0, time.UTC)
+	laterEnd := time.Date(2026, 11, 16, 10, 20, 0, 0, time.UTC)
+	got, err = st.RetimeDispatch(ctx, projectKey, "kan-1", records.DispatchRetime{
+		ID: row.ID, StartedAt: later, EndedAt: laterEnd, Reason: "second look",
+	})
+	if err != nil {
+		t.Fatalf("second RetimeDispatch: %v", err)
+	}
+	if !got.StartedAt.Equal(later) || !got.EndedAt.Equal(laterEnd) || got.CommitSHA != "abc1234" {
+		t.Fatalf("second retime row = %v %v %q, want %v %v abc1234 (an empty commit keeps the stored one)", got.StartedAt, got.EndedAt, got.CommitSHA, later, laterEnd)
+	}
+	assertRetimed(t, got, "second look", begun, ended)
+
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(run.Dispatches) != 1 {
+		t.Fatalf("RunRecord dispatches = %d, want 1", len(run.Dispatches))
+	}
+	assertRetimed(t, run.Dispatches[0], "second look", begun, ended)
+}
+
+// TestRetimeDispatchRefusesBadInput pins the refusals: an empty reason,
+// started after ended, an unknown id and another change's id each refuse
+// and leave the row as it was.
+func TestRetimeDispatchRefusesBadInput(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-record-retime-bad-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	begun := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	ended := time.Date(2026, 11, 16, 10, 30, 0, 0, time.UTC)
+	row := recordRetimeFixture(t, st, projectKey, begun, ended)
+	early := begun.Add(-20 * time.Minute)
+
+	for _, c := range []struct {
+		name   string
+		change string
+		in     records.DispatchRetime
+		want   error
+	}{
+		{"empty reason", "kan-1", records.DispatchRetime{ID: row.ID, StartedAt: early, EndedAt: ended}, store.ErrInvalidRetime},
+		{"started after ended", "kan-1", records.DispatchRetime{ID: row.ID, StartedAt: ended, EndedAt: early, Reason: "x"}, store.ErrInvalidRetime},
+		{"unknown id", "kan-1", records.DispatchRetime{ID: 1 << 62, StartedAt: early, EndedAt: ended, Reason: "x"}, store.ErrDispatchNotFound},
+		{"another change's id", "kan-2", records.DispatchRetime{ID: row.ID, StartedAt: early, EndedAt: ended, Reason: "x"}, store.ErrDispatchNotFound},
+	} {
+		if _, err := st.RetimeDispatch(ctx, projectKey, c.change, c.in); !errors.Is(err, c.want) {
+			t.Errorf("%s: err = %v, want %v", c.name, err, c.want)
+		}
+	}
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	d := run.Dispatches[0]
+	if !d.StartedAt.Equal(begun) || d.EndedAt == nil || !d.EndedAt.Equal(ended) || d.Retimed != nil {
+		t.Fatalf("refused retimes changed the row: %v %v %+v", d.StartedAt, d.EndedAt, d.Retimed)
+	}
+}
+
+// recordRetimeFixture records one inline row of kan-1 begun at begun and
+// moved to end at ended, the shape a retime corrects.
+func recordRetimeFixture(t *testing.T, st *store.Store, projectKey string, begun, ended time.Time) records.Dispatch {
+	t.Helper()
+	ctx := context.Background()
 	b := baseDispatch("implementer", "opus")
 	b.Key = "task-1-implementer"
 	b.SessionToken = "mf-retime"
 	b.AgentID = "inline"
+	b.StartedAt = begun
 	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", b)
 	if err != nil {
 		t.Fatalf("RecordDispatch: %v", err)
 	}
-	started := time.Date(2026, 10, 21, 11, 2, 0, 0, time.UTC)
-	ended := time.Date(2026, 10, 21, 11, 10, 31, 0, time.UTC)
-	read := func() (time.Time, *time.Time, *string) {
-		var s time.Time
-		var e *time.Time
-		var c *string
-		if err := pool.QueryRow(ctx, `SELECT started_at, ended_at, commit_sha FROM dispatches WHERE id = $1`, row.ID).Scan(&s, &e, &c); err != nil {
-			t.Fatalf("read row: %v", err)
-		}
-		return s, e, c
+	if _, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{SessionToken: b.SessionToken, Key: b.Key, Outcome: "blocked", EndedAt: ended}); err != nil {
+		t.Fatalf("EndDispatch: %v", err)
 	}
-	if err := st.RetimeDispatch(ctx, row.ID, started, ended, "22c9796f"); err != nil {
-		t.Fatalf("RetimeDispatch: %v", err)
+	return row
+}
+
+func assertRetimed(t *testing.T, d records.Dispatch, reason string, started, ended time.Time) {
+	t.Helper()
+	r := d.Retimed
+	if r == nil {
+		t.Fatalf("row %d: retimed = nil, want {%s %v %v}", d.ID, reason, started, ended)
 	}
-	s, e, c := read()
-	if !s.Equal(started) || e == nil || !e.Equal(ended) || c == nil || *c != "22c9796f" {
-		t.Fatalf("row = %v %v %v, want %v %v 22c9796f", s, e, c, started, ended)
-	}
-	if err := st.RetimeDispatch(ctx, 1<<62, started, ended, "x"); !errors.Is(err, store.ErrDispatchNotFound) {
-		t.Fatalf("RetimeDispatch unknown id: err = %v, want store.ErrDispatchNotFound", err)
-	}
-	if err := st.RetimeDispatch(ctx, row.ID, ended, started, "other"); err == nil {
-		t.Fatal("RetimeDispatch with started after ended: err = nil")
-	}
-	if s2, e2, c2 := read(); !s2.Equal(s) || !e2.Equal(*e) || *c2 != *c {
-		t.Fatalf("inverted retime changed the row: %v %v %v", s2, e2, *c2)
+	if r.Reason != reason || !r.StartedAt.Equal(started) || r.EndedAt == nil || !r.EndedAt.Equal(ended) || r.At.IsZero() {
+		t.Fatalf("row %d: retimed = %+v, want reason %q startedAt %v endedAt %v and an at", d.ID, *r, reason, started, ended)
 	}
 }
 
@@ -5788,7 +5865,7 @@ func TestRestampStampedEnds(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RecordDispatch(%s): %v", c.agent, err)
 		}
-		if err := st.RetimeDispatch(ctx, row.ID, start, c.end, ""); err != nil {
+		if _, err := st.RetimeDispatch(ctx, projectKey, "kan-1", records.DispatchRetime{ID: row.ID, StartedAt: start, EndedAt: c.end, Reason: "fixture"}); err != nil {
 			t.Fatalf("RetimeDispatch(%s): %v", c.agent, err)
 		}
 		agentEnds[c.agent] = c.agEnd
@@ -6201,5 +6278,413 @@ func TestRestampDispatchEnd(t *testing.T) {
 				t.Errorf("open row ended_at = %v, want nil", d.EndedAt)
 			}
 		}
+	}
+}
+
+// linkDay is the day every stage-link case below is set on.
+func linkDay(h, m int) time.Time { return time.Date(2026, 8, 22, h, m, 0, 0, time.UTC) }
+
+// seedLinkRun inserts one stage run of projectKey's kan-1 directly, so a case
+// can hold several runs open at once -- BeginStage supersedes the open run.
+// A nil end leaves the run open; it returns the run's id.
+func seedLinkRun(t *testing.T, pool *pgxpool.Pool, projectKey, token string, attempt int, start time.Time, end *time.Time) int64 {
+	t.Helper()
+	var id int64
+	if err := pool.QueryRow(context.Background(), `
+		INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, session_token, metrics)
+		SELECT id, 'claude-code', '/flow', 'flow.sdd-tdd', $2, $3, $4, $5, '{}'::jsonb
+		FROM changes WHERE project_key = $1 AND name = 'kan-1'
+		RETURNING id`, projectKey, attempt, start, end, token).Scan(&id); err != nil {
+		t.Fatalf("seed stage run: %v", err)
+	}
+	return id
+}
+
+func linkDispatch(token, key string, at time.Time) records.Dispatch {
+	d := baseDispatch("implementer", "opus")
+	d.SessionToken = token
+	d.Key = key
+	d.StartedAt = at
+	return d
+}
+
+// TestDispatchBegunInsideAStageRunIsLinked pins that a begin landing inside a
+// marked stage run carries that run's id (kan-1091: almost every row was
+// unlinked), opening no auto run, while one begun before every run behaves
+// as it did.
+func TestDispatchBegunInsideAStageRunIsLinked(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-inside-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	run := seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), nil)
+
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t1", "task-1-implementer", linkDay(10, 5)))
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != run {
+		t.Fatalf("stage_run_id = %v, want %d", got.StageRunID, run)
+	}
+	early, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t1", "task-2-implementer", linkDay(9, 59)))
+	if err != nil {
+		t.Fatalf("RecordDispatch early: %v", err)
+	}
+	if early.StageRunID != nil {
+		t.Fatalf("early stage_run_id = %v, want nil", *early.StageRunID)
+	}
+	if runs := autoRuns(t, st, projectKey); len(runs) != 0 {
+		t.Fatalf("auto runs = %+v, want none", runs)
+	}
+}
+
+// TestDispatchLinkPrefersTheSameSessionToken pins that among concurrent runs
+// holding the begin, the one of the dispatch's own session wins.
+func TestDispatchLinkPrefersTheSameSessionToken(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-token-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), nil)
+	t2 := seedLinkRun(t, pool, projectKey, "t2", 2, linkDay(10, 1), nil)
+
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t2", "task-1-implementer", linkDay(10, 5)))
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != t2 {
+		t.Fatalf("stage_run_id = %v, want the t2 run %d", got.StageRunID, t2)
+	}
+}
+
+// TestDispatchLinkLeavesAnAmbiguousBeginUnlinked pins that a tie -- among
+// same-token runs, or among all runs when none shares the token -- is never
+// guessed onto a run, and opens no auto run while a run is open.
+func TestDispatchLinkLeavesAnAmbiguousBeginUnlinked(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-ambiguous-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedLinkRun(t, pool, projectKey, "t3", 1, linkDay(10, 0), nil)
+	seedLinkRun(t, pool, projectKey, "t3", 2, linkDay(10, 1), nil)
+
+	for _, token := range []string{"t3", "t4"} {
+		got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch(token, "task-1-implementer-"+token, linkDay(10, 5)))
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", token, err)
+		}
+		if got.StageRunID != nil {
+			t.Errorf("%s: stage_run_id = %d, want nil", token, *got.StageRunID)
+		}
+	}
+	if runs := autoRuns(t, st, projectKey); len(runs) != 0 {
+		t.Fatalf("auto runs = %+v, want none", runs)
+	}
+}
+
+// TestDispatchLinkUsesTheBeginInstantOnReplay pins that a journal replay
+// recorded after its run ended links to the run holding its begin, never
+// the run open at replay time.
+func TestDispatchLinkUsesTheBeginInstantOnReplay(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-replay-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	end := linkDay(10, 10)
+	a := seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), &end)
+	seedLinkRun(t, pool, projectKey, "t1", 2, end, nil)
+
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("t1", "task-1-implementer", linkDay(10, 5)))
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != a {
+		t.Fatalf("stage_run_id = %v, want run A %d", got.StageRunID, a)
+	}
+}
+
+// TestStageLinkBackfillLinksOnlyUnambiguousRows pins 0069's back-fill: it
+// links a NULL row inside a unique window, leaves an ambiguous or uncovered
+// one NULL, and a second run changes nothing.
+func TestStageLinkBackfillLinksOnlyUnambiguousRows(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-backfill-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	aEnd, bEnd := linkDay(8, 30), linkDay(9, 30)
+	a := seedLinkRun(t, pool, projectKey, "x", 1, linkDay(8, 0), &aEnd)
+	seedLinkRun(t, pool, projectKey, "y", 2, linkDay(9, 0), &bEnd)
+	seedLinkRun(t, pool, projectKey, "y", 3, linkDay(9, 0), &bEnd)
+
+	keys := map[string]time.Time{"unique": linkDay(8, 10), "ambiguous": linkDay(9, 10), "before": linkDay(7, 0)}
+	for key, at := range keys {
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", linkDispatch("y", key, at)); err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE dispatches SET stage_run_id = NULL
+		WHERE change_id = (SELECT id FROM changes WHERE project_key = $1)`, projectKey); err != nil {
+		t.Fatalf("unlink: %v", err)
+	}
+	sql, err := os.ReadFile("migrations/0069_dispatch_stage_run.sql")
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+	if _, err := pool.Exec(ctx, string(sql)); err != nil {
+		t.Fatalf("run migration: %v", err)
+	}
+	links := func() map[string]*int64 {
+		t.Helper()
+		rows, err := pool.Query(ctx, `SELECT d.dispatch_key, d.stage_run_id FROM dispatches d
+			JOIN changes c ON c.id = d.change_id WHERE c.project_key = $1`, projectKey)
+		if err != nil {
+			t.Fatalf("read links: %v", err)
+		}
+		defer rows.Close()
+		out := map[string]*int64{}
+		for rows.Next() {
+			var k string
+			var id *int64
+			if err := rows.Scan(&k, &id); err != nil {
+				t.Fatalf("scan link: %v", err)
+			}
+			out[k] = id
+		}
+		return out
+	}
+	got := links()
+	if got["unique"] == nil || *got["unique"] != a || got["ambiguous"] != nil || got["before"] != nil {
+		t.Fatalf("links after back-fill = unique %v, ambiguous %v, before %v; want %d, nil, nil",
+			got["unique"], got["ambiguous"], got["before"], a)
+	}
+	tag, err := pool.Exec(ctx, string(sql))
+	if err != nil {
+		t.Fatalf("re-run migration: %v", err)
+	}
+	if tag.RowsAffected() != 0 || !reflect.DeepEqual(links(), got) {
+		t.Fatalf("re-run changed links: %d rows affected", tag.RowsAffected())
+	}
+}
+
+// TestLinkedOpenDispatchKeepsItsNextBeginCap pins that an inline row now
+// linked to a still-open marked run is still capped at the next inline begin
+// of its session, so it never takes every later main-thread record.
+func TestLinkedOpenDispatchKeepsItsNextBeginCap(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-link-cap-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	const sessionID = "session-link-cap"
+	run := seedLinkRun(t, pool, projectKey, "t1", 1, linkDay(10, 0), nil)
+
+	first := linkDispatch("t1", "verify-1", linkDay(10, 5))
+	first.SessionID = sessionID
+	first.AgentID = "inline"
+	got, err := st.RecordDispatch(ctx, projectKey, "kan-1", first)
+	if err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != run {
+		t.Fatalf("first stage_run_id = %v, want %d", got.StageRunID, run)
+	}
+	next := first
+	next.Key = "verify-2"
+	next.StartedAt = linkDay(11, 0)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", next); err != nil {
+		t.Fatalf("RecordDispatch next: %v", err)
+	}
+	windows, err := st.DispatchWindowsForSession(ctx, sessionID)
+	if err != nil {
+		t.Fatalf("DispatchWindowsForSession: %v", err)
+	}
+	if len(windows) != 2 || windows[0].EndedAt == nil || !windows[0].EndedAt.Equal(next.StartedAt) {
+		t.Fatalf("windows = %+v, want the first capped at %v", windows, next.StartedAt)
+	}
+}
+
+// TestOpenDispatchBySessionKey: the hand-back's lookup answers the open row
+// under the session and key -- never an ended row under the same pair, nor
+// the same key open under another session (decision gated-bracket-handback).
+func TestOpenDispatchBySessionKey(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	const projectKey = "proj-open-dispatch"
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+
+	ended := time.Date(2026, 8, 22, 9, 30, 0, 0, time.UTC)
+	done := baseDispatch("reviewer", "sonnet")
+	done.Key, done.SessionID, done.SessionToken, done.EndedAt = "task-3-reviewer", "s1", "mf-open-a", &ended
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", done); err != nil {
+		t.Fatalf("RecordDispatch (ended): %v", err)
+	}
+	open := baseDispatch("reviewer", "sonnet")
+	open.Key, open.SessionID, open.SessionToken = "task-3-reviewer", "s1", "mf-open-b"
+	open.StartedAt = ended
+	want, err := st.RecordDispatch(ctx, projectKey, "kan-2", open)
+	if err != nil {
+		t.Fatalf("RecordDispatch (open s1): %v", err)
+	}
+	other := baseDispatch("reviewer", "sonnet")
+	other.Key, other.SessionID, other.SessionToken = "task-3-reviewer", "s2", "mf-open-c"
+	other.StartedAt = ended.Add(time.Minute)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", other); err != nil {
+		t.Fatalf("RecordDispatch (open s2): %v", err)
+	}
+
+	id, pk, change, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-3-reviewer")
+	if err != nil || !found || id != want.ID || pk != projectKey || change != "kan-2" {
+		t.Fatalf("OpenDispatchBySessionKey = (%d, %q, %q, %v, %v), want (%d, %q, kan-2, true, nil)", id, pk, change, found, err, want.ID, projectKey)
+	}
+	if _, _, _, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-9-reviewer"); err != nil || found {
+		t.Fatalf("unknown key: found %v, err %v, want false, nil", found, err)
+	}
+	only := baseDispatch("reviewer", "sonnet")
+	only.Key, only.SessionID, only.SessionToken, only.EndedAt = "task-4-reviewer", "s1", "mf-open-d", &ended
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", only); err != nil {
+		t.Fatalf("RecordDispatch (only ended): %v", err)
+	}
+	if _, _, _, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-4-reviewer"); err != nil || found {
+		t.Fatalf("only an ended row under the key: found %v, err %v, want false, nil", found, err)
+	}
+}
+
+// TestMarkDispatchUnattributedStampsOneRow pins the per-row twin of
+// MarkDispatchesUnattributed: the named row gets the reason, a sibling under
+// the same token is untouched, and a row carrying tokens is never stamped.
+func TestMarkDispatchUnattributedStampsOneRow(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-unattributed-one-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	record := func(role string) records.Dispatch {
+		t.Helper()
+		in := baseDispatch(role, "opus")
+		in.SessionToken = "mf-unattributed-one"
+		out, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", role, err)
+		}
+		return out
+	}
+	target, sibling, measured := record("implementer"), record("reviewer"), record("panel-fix")
+	if err := st.MergeDispatchMetrics(ctx, measured.ID, json.RawMessage(`{"tokens":{"input":10}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+
+	for _, id := range []int64{target.ID, measured.ID} {
+		if err := st.MarkDispatchUnattributed(ctx, id, "settle candidates overflowed"); err != nil {
+			t.Fatalf("MarkDispatchUnattributed %d: %v", id, err)
+		}
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	want := map[int64]string{
+		target.ID:   `{"unattributed":{"reason":"settle candidates overflowed"}}`,
+		sibling.ID:  `{}`,
+		measured.ID: `{"tokens":{"input":10}}`,
+	}
+	for _, d := range rec.Dispatches {
+		if !jsonEqual(t, d.Metrics, json.RawMessage(want[d.ID])) {
+			t.Errorf("dispatch %d metrics = %s, want %s", d.ID, d.Metrics, want[d.ID])
+		}
+	}
+}
+
+// TestClosedUnmeasuredInlineRows pins the settle pass's store-derived
+// candidates: the session's closed inline rows ended at or before the
+// cut-off with neither tokens nor an unattributed stamp, and nothing else.
+func TestClosedUnmeasuredInlineRows(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-closed-inline-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const sessionID = "session-closed-inline"
+	start := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	before := start.Add(10 * time.Minute)
+	record := func(key, agent, session string, ended *time.Time) records.Dispatch {
+		t.Helper()
+		in := baseDispatch("verifier", "opus")
+		in.Key = key
+		in.SessionToken = "mf-closed-" + key
+		in.SessionID = session
+		in.AgentID = agent
+		in.EndedAt = ended
+		if ended != nil {
+			in.Outcome = "completed"
+		}
+		out, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		if err != nil {
+			t.Fatalf("RecordDispatch %s: %v", key, err)
+		}
+		return out
+	}
+	at := func(d time.Duration) *time.Time { v := start.Add(d); return &v }
+
+	want := record("verify-fix-1-a", "inline", sessionID, at(time.Minute))
+	record("verify-open", "inline", sessionID, nil)
+	measured := record("verify-measured", "inline", sessionID, at(time.Minute))
+	stamped := record("verify-stamped", "inline", sessionID, at(time.Minute))
+	record("task-1-implementer", "a68cee7239419a7e7", sessionID, at(time.Minute))
+	record("verify-later", "inline", sessionID, at(time.Hour))
+	record("verify-elsewhere", "inline", "session-someone-else", at(time.Minute))
+	if err := st.MergeDispatchMetrics(ctx, measured.ID, json.RawMessage(`{"tokens":{"input":1}}`)); err != nil {
+		t.Fatalf("MergeDispatchMetrics: %v", err)
+	}
+	if err := st.MarkDispatchUnattributed(ctx, stamped.ID, "settle candidates overflowed"); err != nil {
+		t.Fatalf("MarkDispatchUnattributed: %v", err)
+	}
+
+	rows, err := st.ClosedUnmeasuredInlineRows(ctx, sessionID, before)
+	if err != nil {
+		t.Fatalf("ClosedUnmeasuredInlineRows: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != want.ID || rows[0].Key != "verify-fix-1-a" || rows[0].SessionToken != "mf-closed-verify-fix-1-a" ||
+		!rows[0].StartedAt.Equal(start) || !rows[0].EndedAt.Equal(*at(time.Minute)) {
+		t.Fatalf("rows = %+v, want only row %d", rows, want.ID)
+	}
+}
+
+// TestRecordVerifyRunKeepsTheFlakyCount pins the flaky column: a count given
+// reads back, and a run recorded without one reads back nil.
+func TestRecordVerifyRunKeepsTheFlakyCount(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verify-flaky-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	three := 3
+	at := time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)
+	for _, in := range []records.VerifyRun{
+		{Kind: "run-verify-list", Label: "visual", Flaky: &three, RecordedAt: at},
+		{Kind: "run-verify-list", Label: "test", RecordedAt: at.Add(time.Minute)},
+	} {
+		if _, err := st.RecordVerifyRun(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("RecordVerifyRun: %v", err)
+		}
+	}
+	list, err := st.ListVerifyRuns(ctx, projectKey, "kan-1")
+	if err != nil || len(list) != 2 {
+		t.Fatalf("ListVerifyRuns = %d rows, %v; want 2", len(list), err)
+	}
+	if list[0].Flaky == nil || *list[0].Flaky != 3 {
+		t.Errorf("flaky = %v, want 3", list[0].Flaky)
+	}
+	if list[1].Flaky != nil {
+		t.Errorf("flaky = %d, want nil when not recorded", *list[1].Flaky)
 	}
 }

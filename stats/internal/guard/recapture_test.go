@@ -181,7 +181,7 @@ func TestRecaptureRecordsItsCost(t *testing.T) {
 	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
 	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "printf '  3 passed (2s)\\n'; : <spec>"}, env)
 	calls, _ := os.ReadFile(log)
-	if want := `record run -C ` + regexp.QuoteMeta(root) + ` -change demo -kind recapture -label 4 -seconds \d+ -tests 3 -failed 0 -exit 0\n`; r.rc != 0 || !regexp.MustCompile(want).Match(calls) {
+	if want := `record run -C ` + regexp.QuoteMeta(root) + ` -change demo -kind recapture -label 4 -seconds \d+ -tests 3 -failed 0 -exit 0 -flaky 0\n`; r.rc != 0 || !regexp.MustCompile(want).Match(calls) {
 		t.Errorf("rc=%d out=%q flow calls %q, want %q", r.rc, r.out, calls, want)
 	}
 }
@@ -248,5 +248,64 @@ func TestRecaptureTaskCapturedStandsUntilASourceMoves(t *testing.T) {
 	commit("an uncaptured edit")
 	if got, want := stands(), "shots/rooms.spec.ts"; got != want {
 		t.Errorf("after an uncaptured edit: %q, want %q", got, want)
+	}
+}
+
+// recaptureTitleFixture is a git repo whose task 4 names tests by title only:
+// a capture root with tests/visual/a.spec.ts holding "goal sheet at rest" and
+// tests/visual/b.spec.ts holding another, and no spec the diff reaches.
+func recaptureTitleFixture(t *testing.T, tests string) string {
+	t.Helper()
+	root := t.TempDir()
+	for p, body := range map[string]string{
+		"package.json":           "{}\n",
+		"src/Goal.tsx":           "export function Goal() {}\n",
+		"tests/visual/a.spec.ts": "test(\"goal sheet at rest\", () => {})\ntest(\"goal sheet at rest open\", () => {})\n",
+		"tests/visual/b.spec.ts": "test(\"goal sheet\", () => {})\n",
+		"plan/tasks.md":          "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `src/Goal.tsx`\n**Tests:** " + tests + "\n",
+	} {
+		writeFile(t, filepath.Join(root, p), body)
+	}
+	gitRun(t, root, "init", "-q")
+	gitRun(t, root, "add", "-A")
+	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	writeFile(t, filepath.Join(root, "src/Goal.tsx"), "export function Goal() { return 1 }\n")
+	return root
+}
+
+// TestRecaptureSelectsSpecsByTitle pins that a task naming only a test title
+// recaptures the spec whose source holds that title as a whole quoted string.
+func TestRecaptureSelectsSpecsByTitle(t *testing.T) {
+	t.Parallel()
+	root := recaptureTitleFixture(t, "`goal sheet at rest`")
+	ran := filepath.Join(t.TempDir(), "ran")
+	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
+	if r.rc != 0 {
+		t.Fatalf("rc=%d out=%q", r.rc, r.out)
+	}
+	if got, _ := os.ReadFile(ran); string(got) != "tests/visual/a.spec.ts --retries=1\n" {
+		t.Errorf("the command ran with %q, want tests/visual/a.spec.ts alone", got)
+	}
+}
+
+// TestRecaptureFailsWhenNoSpecHoldsATitle pins the loud failure: a title no
+// spec holds exits 1 with one line, runs nothing and writes no receipt; a task
+// naming no test still has nothing to capture.
+func TestRecaptureFailsWhenNoSpecHoldsATitle(t *testing.T) {
+	t.Parallel()
+	root := recaptureTitleFixture(t, "`no such title`")
+	ran := filepath.Join(t.TempDir(), "ran")
+	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
+	want := "recapture: task 4 names tests no spec under " + root + " holds: no such title\n"
+	if r.rc != 1 || r.stdout != want || isFile(ran) || isFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
+		t.Errorf("rc=%d stdout=%q ran=%v, want rc 1, %q, nothing run, no receipt", r.rc, r.stdout, isFile(ran), want)
+	}
+
+	for _, named := range []string{"none", "`TestGoalSheet`, `a.spec.ts:12`, `x := f()`"} {
+		root = recaptureTitleFixture(t, named)
+		r = runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
+		if r.rc != 0 || r.stdout != "recapture: no affected spec — nothing to capture\n" || isFile(ran) {
+			t.Errorf("no title named in %q: rc=%d stdout=%q", named, r.rc, r.stdout)
+		}
 	}
 }

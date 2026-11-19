@@ -269,6 +269,15 @@ const (
 	reasonSessionAmbiguous  = "matched more than one session"
 )
 
+// The per-row give-up reasons (decision unattributed-reason-in-metrics):
+// each names the bound that dropped the row's figures for good, stamped by
+// MarkDispatchUnattributed. internal/records renders them verbatim.
+const (
+	reasonSettleDropped       = "settle candidates overflowed"
+	reasonStampPairingDropped = "launch pairing overflowed"
+	reasonDispatchMetaGaveUp  = "dispatch-meta sidecar never arrived"
+)
+
 // Source is one transcript source: a root to walk for *.jsonl files and the
 // read and parse functions for those files' own line shape. The Claude
 // transcript format and ZCode's rollout format share the offset, attribution
@@ -1137,7 +1146,8 @@ type settleCandidate struct {
 }
 
 // ponytail: fixed per-path caps; a run with more rows open at once than
-// maxSettleCandidates leaves its oldest unsettled. Raise if that shows.
+// maxSettleCandidates leaves its oldest agentless rows unsettled, stamped
+// reasonSettleDropped. Raise if that shows.
 const (
 	maxSettleCandidates = 64
 	maxLaunchInstants   = 256
@@ -1191,7 +1201,35 @@ func (w *Watcher) settleClosedRows(ctx context.Context, path string, records []R
 			}
 		}
 	}
+	// A closed inline row the store still holds unmeasured is a candidate
+	// whatever its begin command looked like: a shell function's `$` key
+	// names no row (kan-1091), and a restart forgets every candidate. Only
+	// the parent transcript settles them: a subagent file carries the
+	// parent's sessionId, and settling over its bytes would zero the row.
+	storeSessions := sessionsOf(records)
+	if IsAgentTranscriptPath(path) {
+		storeSessions = nil
+	}
+	for _, sessionID := range storeSessions {
+		rows, err := w.deps.ClosedUnmeasuredInlineRows(ctx, sessionID, newest)
+		if err != nil {
+			w.warn("harvest: closed inline rows lookup failed, they wait", "path", path, "session_id", sessionID, "error", err)
+			continue
+		}
+		for _, r := range rows {
+			if !slices.ContainsFunc(cands, func(c settleCandidate) bool { return c.SessionToken == r.SessionToken && c.Key == r.Key }) {
+				cands = append(cands, settleCandidate{dispatchBeginEvent: dispatchBeginEvent{SessionToken: r.SessionToken, Key: r.Key, StartedAt: r.StartedAt}, Inline: true})
+			}
+		}
+	}
+	// The overflow trim keeps the newest by position, so order by begin.
+	slices.SortStableFunc(cands, func(a, b settleCandidate) int { return a.StartedAt.Compare(b.StartedAt) })
 	if len(cands) > maxSettleCandidates {
+		dropped := make([]dispatchBeginEvent, 0, len(cands)-maxSettleCandidates)
+		for _, c := range cands[:len(cands)-maxSettleCandidates] {
+			dropped = append(dropped, c.dispatchBeginEvent)
+		}
+		w.markAgentlessUnattributed(ctx, path, dropped, reasonSettleDropped)
 		cands = cands[len(cands)-maxSettleCandidates:]
 	}
 	var raw []byte
@@ -2257,7 +2295,9 @@ func (w *Watcher) stampDispatchAgents(ctx context.Context, path string, commands
 	// passes and let a stale begin claim a later launch. Bounded: oldest
 	// dropped, so neither list can grow without end. A dropped event never
 	// stamps -- the ordinary silence, never a wrong pairing.
-	w.pendingBegins[path] = appendPending(nil, survivors(begins, takenBegin))
+	left := survivors(begins, takenBegin)
+	w.pendingBegins[path] = appendPending(nil, left)
+	w.markAgentlessUnattributed(ctx, path, left[:len(left)-len(w.pendingBegins[path])], reasonStampPairingDropped)
 	w.pendingLaunches[path] = appendPending(nil, unclaimed(launches, claimed))
 	w.pendingDenials[path] = appendPending(w.pendingDenials[path], denials)
 }
@@ -2524,6 +2564,42 @@ func unclaimed(launches []AgentLaunch, claimed []bool) []AgentLaunch {
 	return out
 }
 
+// markAgentlessUnattributed stamps reason on each dropped begin's row that
+// still names no agent: nothing pairs or settles it any more, so its
+// figures are lost for good. A row already named is someone else's to
+// measure and is left alone.
+func (w *Watcher) markAgentlessUnattributed(ctx context.Context, path string, dropped []dispatchBeginEvent, reason string) {
+	for _, ev := range dropped {
+		id, _, agentID, found, err := w.deps.DispatchEndedAt(ctx, ev.SessionToken, ev.Key)
+		if err == nil && found && agentID == "" {
+			err = w.deps.MarkDispatchUnattributed(ctx, id, reason)
+		}
+		if err != nil {
+			w.warn("harvest: stamp a dropped row's reason failed", "path", path, "key", ev.Key, "reason", reason, "error", err)
+		}
+	}
+}
+
+// markAgentRowsUnattributed stamps reason on every row agentID names; a
+// measured row keeps its tokens (MarkDispatchUnattributed).
+func (w *Watcher) markAgentRowsUnattributed(ctx context.Context, path, agentID, reason string) {
+	windows, err := w.deps.DispatchWindowsForAgent(ctx, agentID)
+	for _, win := range windows {
+		if err = w.deps.MarkDispatchUnattributed(ctx, win.DispatchID, reason); err != nil {
+			break
+		}
+	}
+	if err != nil {
+		w.warn("harvest: stamp an agent's rows' reason failed", "path", path, "agent_id", agentID, "reason", reason, "error", err)
+	}
+}
+
+// sessionsOf lists records' distinct session ids in first-seen order.
+func sessionsOf(records []Record) []string {
+	_, order := groupBySession(records, func(Record) bool { return true })
+	return order
+}
+
 // appendPending appends new pending events behind the old and enforces
 // the bound, dropping from the front.
 func appendPending[T any](pending, added []T) []T {
@@ -2587,6 +2663,9 @@ func (w *Watcher) maybeBackfillDispatchMeta(ctx context.Context, path string) {
 		w.gaveUpDispatchMeta[path] = true
 		delete(w.dispatchMetaCycles, path)
 		delete(w.pendingDispatchMeta, path)
+		for _, agentID := range pending {
+			w.markAgentRowsUnattributed(ctx, path, agentID, reasonDispatchMetaGaveUp)
+		}
 		return
 	}
 	delete(w.dispatchMetaCycles, path)

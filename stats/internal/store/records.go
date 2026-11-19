@@ -146,7 +146,7 @@ var ErrInlineCommitMissing = errors.New("store: inline task dispatch closed with
 // so the harvester's window misses the work entirely. It covers every row,
 // inline or not (kan-1083 self-review, F13: row 9825 was not inline at its
 // end), and keeps its name for its HTTP and reconcile mappings; its message's
-// remedy is flow record dispatch backfill with the real instants.
+// remedy is flow record dispatch retime with the real instants.
 var ErrInlineBegunAfterCommit = errors.New("store: inline dispatch begun after its commit")
 
 // minInlineWindow is the shortest window an inline row may close with.
@@ -395,7 +395,7 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
 	          cause, session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-	          diff_base, effort, round_base, pair_pick, request, closes_loop`
+	          diff_base, effort, round_base, pair_pick, request, closes_loop, retimed`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
 // alias, for the one statement that needs it -- an UPDATE ... FROM, where
@@ -413,6 +413,18 @@ func qualifiedDispatchColumns(alias string) string {
 // result), so the insert path and the read path share one decode.
 type dispatchRowScanner interface {
 	Scan(dest ...any) error
+}
+
+// prefixScanner scans a row's leading column into first, then the rest
+// through the wrapped scanner's caller -- a batch read's change_id ahead
+// of a shared column list.
+type prefixScanner struct {
+	row   dispatchRowScanner
+	first any
+}
+
+func (p prefixScanner) Scan(dest ...any) error {
+	return p.row.Scan(append([]any{p.first}, dest...)...)
 }
 
 // scanDispatchRow decodes one row of dispatchColumns into a records.Dispatch,
@@ -441,13 +453,20 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 		roundBase    *string
 		pairPick     *string
 		bag          []byte
+		retimed      []byte
 	)
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&cause, &sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
-		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &d.ClosesLoop,
+		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &d.ClosesLoop, &retimed,
 	); err != nil {
 		return records.Dispatch{}, err
+	}
+	if retimed != nil {
+		d.Retimed = &records.Retime{}
+		if err := json.Unmarshal(retimed, d.Retimed); err != nil {
+			return records.Dispatch{}, fmt.Errorf("dispatch %d: retimed: %w", d.ID, err)
+		}
 	}
 	d.AgentID = derefOrEmpty(agentID)
 	d.TaskID = derefOrEmpty(taskID)
@@ -495,8 +514,9 @@ const reBegin = `(dispatches.outcome = 'aborted' AND EXCLUDED.ended_at IS NULL)`
 // dispatches begun together with no stage open share one auto run.
 const autoStageLockNamespace = 185_005
 
-// recordDispatchTx inserts the dispatch in one transaction with the auto
-// stage run openAutoStageRun opens for it, if any.
+// recordDispatchTx inserts the dispatch in one transaction, linked to the
+// stage run holding its begin instant (dispatch_stage_run) or, when none
+// resolves, to the auto stage run openAutoStageRun opens for it, if any.
 func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -505,6 +525,16 @@ func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string,
 	defer func() { _ = tx.Rollback(ctx) }()
 	if err := checkPlannerKey(ctx, tx, projectKey, change, in); err != nil {
 		return records.Dispatch{}, err
+	}
+	if in.StageRunID == nil {
+		// The stage run holding the begin instant, by the rule
+		// 0069_dispatch_stage_run.sql states; NULL (or an unknown change,
+		// which insertDispatch reports) falls through to the auto run.
+		err := tx.QueryRow(ctx, `SELECT dispatch_stage_run(c.id, $3, $4) FROM changes c WHERE c.project_key = $1 AND c.name = $2`,
+			projectKey, change, nullIfEmpty(in.SessionToken), in.StartedAt).Scan(&in.StageRunID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return records.Dispatch{}, err
+		}
 	}
 	if in.StageRunID == nil {
 		if in.StageRunID, err = openAutoStageRun(ctx, tx, projectKey, change, in); err != nil {
@@ -541,8 +571,9 @@ func autoStageFor(key string) string {
 	}
 }
 
-// openAutoStageRun opens a stage run marked auto_opened when the change has
-// no open stage run, so every dispatch begin lands inside one: work a run
+// openAutoStageRun opens a stage run marked auto_opened when the begin links
+// to no recorded run (dispatch_stage_run) and the change has no open stage
+// run, so every dispatch begin lands inside one: work a run
 // marked no stage for is otherwise invisible to every stage-run view. It
 // returns the new run's id, or nil when a run is open, the change is
 // unknown (insertDispatch reports that), or the begin replays a row already
@@ -642,6 +673,8 @@ func insertDispatch(ctx context.Context, q interface {
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
 			dispatch_key = EXCLUDED.dispatch_key,
+			-- a moved begin re-links to the run holding the new instant (EXCLUDED's link is that derivation)
+			stage_run_id = CASE WHEN `+reBegin+` OR (dispatches.ended_at IS NULL AND dispatches.outcome IS NULL AND EXCLUDED.started_at < dispatches.started_at) THEN EXCLUDED.stage_run_id ELSE dispatches.stage_run_id END,
 			started_at = CASE WHEN `+reBegin+` THEN EXCLUDED.started_at WHEN dispatches.ended_at IS NULL AND dispatches.outcome IS NULL AND EXCLUDED.started_at < dispatches.started_at THEN EXCLUDED.started_at ELSE dispatches.started_at END,
 			ended_at = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.ended_at END,
 			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
@@ -726,7 +759,7 @@ func insertDispatch(ctx context.Context, q interface {
 //
 // A closed row keeps its end: a second end -- the run's re-point after an
 // autosquash -- updates its commit and outcome only, and a closed row's end
-// moves only through flowd retime-dispatch (kan-1046 self-review, 1a).
+// moves only through flow record dispatch retime (kan-1046 self-review, 1a).
 func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
 	// Held as a string, never a []byte: pgx binds a []byte as bytea, and a
 	// bytea reaching the statement's tokens cast reads as NULL -- the
@@ -792,7 +825,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	// recorded after the work it opens (kan-1083 self-review, F13: row 9825
 	// was not inline at its end, and nothing refused it).
 	if readErr == nil && in.CommitAt != nil && in.CommitAt.Before(startedAt.Truncate(time.Second)) {
-		return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, its commit made %s -- record begin when the work starts, or record it with flow record dispatch backfill and the real instants", ErrInlineBegunAfterCommit, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339), in.CommitAt.UTC().Format(time.RFC3339))
+		return records.Dispatch{}, fmt.Errorf("%w: %s/%s key %q begun %s, its commit made %s -- record begin when the work starts, or correct it with flow record dispatch retime and the real instants", ErrInlineBegunAfterCommit, projectKey, change, in.Key, startedAt.UTC().Format(time.RFC3339), in.CommitAt.UTC().Format(time.RFC3339))
 	}
 	if in.Outcome == "completed" {
 		err := readErr
@@ -1477,25 +1510,46 @@ func (s *Store) RestampDispatch(ctx context.Context, dispatchID int64, agentID s
 	return nil
 }
 
-// RetimeDispatch sets dispatch id's started_at, ended_at and commit_sha
-// outright -- the repair for an inline row whose begin and end were recorded
-// after the work (kan-1003). started after ended is refused and changes
-// nothing.
-func (s *Store) RetimeDispatch(ctx context.Context, id int64, started, ended time.Time, commit string) error {
-	if started.After(ended) {
-		return fmt.Errorf("store: retime dispatch %d: started %s after ended %s", id, started.Format(time.RFC3339), ended.Format(time.RFC3339))
+// ErrInvalidRetime is returned by RetimeDispatch for a retime with no
+// reason, or one whose start falls after its end: an unaudited or inverted
+// retime changes nothing.
+var ErrInvalidRetime = errors.New("store: invalid retime")
+
+// RetimeDispatch sets row in.ID's started_at and ended_at outright, and its
+// commit_sha when in.CommitSHA is set -- the repair for a row whose begin or
+// end was recorded after the work (kan-1003) -- and records the retime in
+// the row's retimed audit: the reason and instant of this retime, and the
+// instants the first retime replaced, kept across later ones (decision
+// retime-jsonb-drop-old). The row must belong to projectKey/change; any
+// other id is ErrDispatchNotFound.
+func (s *Store) RetimeDispatch(ctx context.Context, projectKey, change string, in records.DispatchRetime) (records.Dispatch, error) {
+	if strings.TrimSpace(in.Reason) == "" {
+		return records.Dispatch{}, fmt.Errorf("%w: dispatch %d: a reason is required", ErrInvalidRetime, in.ID)
 	}
-	tag, err := s.pool.Exec(ctx, `
-		UPDATE dispatches SET started_at = $2, ended_at = $3, commit_sha = $4
-		WHERE id = $1
-	`, id, started, ended, nullIfEmpty(commit))
+	if in.StartedAt.After(in.EndedAt) {
+		return records.Dispatch{}, fmt.Errorf("%w: dispatch %d: started %s after ended %s", ErrInvalidRetime, in.ID, in.StartedAt.Format(time.RFC3339), in.EndedAt.Format(time.RFC3339))
+	}
+	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
+		UPDATE dispatches d SET
+			started_at = $4,
+			ended_at = $5,
+			stage_run_id = dispatch_stage_run(d.change_id, d.session_token, $4),
+			commit_sha = COALESCE(NULLIF($6, ''), d.commit_sha),
+			retimed = jsonb_build_object(
+				'reason', $7::text,
+				'at', now(),
+				'startedAt', COALESCE(d.retimed -> 'startedAt', to_jsonb(d.started_at)),
+				'endedAt', COALESCE(d.retimed -> 'endedAt', to_jsonb(d.ended_at)))
+		FROM changes c
+		WHERE d.id = $1 AND d.change_id = c.id AND c.project_key = $2 AND c.name = $3
+		RETURNING `+qualifiedDispatchColumns("d"), in.ID, projectKey, change, in.StartedAt, in.EndedAt, in.CommitSHA, in.Reason))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return records.Dispatch{}, fmt.Errorf("%w: %d in %s/%s", ErrDispatchNotFound, in.ID, projectKey, change)
+	}
 	if err != nil {
-		return fmt.Errorf("store: retime dispatch %d: %w", id, err)
+		return records.Dispatch{}, fmt.Errorf("store: retime dispatch %d: %w", in.ID, err)
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
-	}
-	return nil
+	return out, nil
 }
 
 // RestampStampedEnds moves every non-inline agent row ended at or after since
@@ -1775,6 +1829,62 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 	return nil
 }
 
+// MarkDispatchUnattributed is MarkDispatchesUnattributed for one row: it
+// stamps dispatch id with reason, the same "||" patch, for a harvest give-up
+// that holds the row rather than its session token. A row already carrying
+// tokens is left alone -- its measurement is the answer, and a stamp there
+// would only be a stale contradiction.
+func (s *Store) MarkDispatchUnattributed(ctx context.Context, id int64, reason string) error {
+	patch, err := json.Marshal(map[string]any{"unattributed": map[string]any{"reason": reason}})
+	if err != nil {
+		return fmt.Errorf("store: marshal unattributed patch for dispatch %d: %w", id, err)
+	}
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE dispatches SET metrics = metrics || $2::jsonb
+		WHERE id = $1 AND NOT (metrics ? 'tokens')
+	`, id, patch); err != nil {
+		return fmt.Errorf("store: mark dispatch %d unattributed: %w", id, err)
+	}
+	return nil
+}
+
+// ClosedUnmeasuredInlineRows returns sessionID's closed inline rows ended at
+// or before before whose metrics carry neither tokens nor an unattributed
+// stamp, ordered by (started_at, id): the settle pass's candidates read from
+// the store, so a row settles whatever form its begin command took and after
+// a restart (kan-1091's verifier rows begun through a shell function). The
+// session binds as DispatchWindowsForSession binds it.
+func (s *Store) ClosedUnmeasuredInlineRows(ctx context.Context, sessionID string, before time.Time) ([]harvest.InlineRow, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT d.id, COALESCE(d.session_token, ''), COALESCE(d.dispatch_key, ''), d.started_at, d.ended_at
+		FROM dispatches d
+		WHERE (d.session_id = $1 OR d.session_token IN (
+			SELECT sr.session_token FROM stage_runs sr
+			WHERE sr.session_id = $1 AND sr.session_token IS NOT NULL
+		))
+		  AND d.agent_id = 'inline'
+		  AND d.ended_at IS NOT NULL AND d.ended_at <= $2
+		  AND NOT (d.metrics ? 'tokens') AND NOT (d.metrics ? 'unattributed')
+		ORDER BY d.started_at, d.id
+	`, sessionID, before)
+	if err != nil {
+		return nil, fmt.Errorf("store: closed unmeasured inline rows for session %s: %w", sessionID, err)
+	}
+	defer rows.Close()
+	var out []harvest.InlineRow
+	for rows.Next() {
+		var r harvest.InlineRow
+		if err := rows.Scan(&r.ID, &r.SessionToken, &r.Key, &r.StartedAt, &r.EndedAt); err != nil {
+			return nil, fmt.Errorf("store: closed unmeasured inline rows for session %s: scan: %w", sessionID, err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: closed unmeasured inline rows for session %s: %w", sessionID, err)
+	}
+	return out, nil
+}
+
 // DispatchWindowsForSession returns every dispatch attributable to
 // sessionID, as the harvest.DispatchWindow shape attribution needs and
 // nothing more -- the dispatch-grain counterpart of the stage windows
@@ -1818,14 +1928,14 @@ func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason st
 // stage run bound to the session, so an open window -- a begin whose end
 // never came -- would otherwise contain every later record of the session,
 // and an open inline window would take all of the parent's main-thread
-// spend from then on. A dispatch cannot outlive the stage run it ran under;
-// while that run is itself open, the window stays open with it.
+// spend from then on. A dispatch cannot outlive the stage run it ran under.
 //
-// Production begins set no stage_run_id (aggregate.go says so), so a
-// stage-less row -- one matched by its own session_id, a loop row or the
-// inline row of a run that marks no stage -- is capped instead at the next
-// inline begin in the same session: a later run taking the main thread is
-// the point the never-ended one stopped holding it. A begin under
+// A row whose stage run is still open, or that has none -- one matched by
+// its own session_id, a loop row, the inline row of a run that marks no
+// stage, or one linked at its begin (dispatch_stage_run) to a run still
+// open -- is capped instead at the next inline begin in the same session:
+// a later run taking the main thread is the point the never-ended one
+// stopped holding it. A begin under
 // minInlineWindow after the row's own is no such successor but a sibling
 // begun beside it -- the per-worktree inline verifier rows one Bash call
 // begins together (skills/flow/verify-and-handoff.md, **Recording.**) --
@@ -1843,7 +1953,7 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 	rows, err := s.pool.Query(ctx, `
 		SELECT d.id, d.started_at, COALESCE(d.ended_at, sr.ended_at, (
 			SELECT MIN(n.started_at) FROM dispatches n
-			WHERE (d.stage_run_id IS NULL OR sr.auto_opened) AND n.session_id = d.session_id
+			WHERE n.session_id = d.session_id
 			  AND n.agent_id = 'inline' AND n.id <> d.id
 			  AND n.started_at >= d.started_at + $2::float8 * interval '1 second'
 		)), d.agent_id, (d.metrics -> 'tokens') IS NOT NULL
@@ -2078,6 +2188,30 @@ func (s *Store) StampSessionDispatchAgent(ctx context.Context, sessionID, key, a
 	return tag.RowsAffected() > 0, nil
 }
 
+// OpenDispatchBySessionKey answers the open dispatch row recorded under
+// harness session sessionID and dispatch key, newest (started_at, id)
+// first, with its change's project key and name -- the row `flow record
+// dispatch handback` keys its plan-check marker by (decision
+// gated-bracket-handback). An ended row, or one under another session,
+// never answers; found is false when no row does.
+func (s *Store) OpenDispatchBySessionKey(ctx context.Context, sessionID, key string) (id int64, projectKey, change string, found bool, err error) {
+	err = s.pool.QueryRow(ctx, `
+		SELECT d.id, c.project_key, c.name
+		FROM dispatches d
+		JOIN changes c ON c.id = d.change_id
+		WHERE d.session_id = $1 AND d.dispatch_key = $2 AND d.ended_at IS NULL
+		ORDER BY d.started_at DESC, d.id DESC
+		LIMIT 1
+	`, sessionID, key).Scan(&id, &projectKey, &change)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, "", "", false, nil
+	}
+	if err != nil {
+		return 0, "", "", false, fmt.Errorf("store: open dispatch for session %s key %s: %w", sessionID, key, err)
+	}
+	return id, projectKey, change, true, nil
+}
+
 // RunRecord returns one change's whole derived record: its dispatches in
 // seq order and its findings in the order the numbers their refs spell,
 // which is the order every rendering of the record reads them in.
@@ -2284,24 +2418,32 @@ func readPanelMutations(ctx context.Context, tx pgx.Tx, changeID int64) ([]recor
 }
 
 func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Dispatch, error) {
+	m, err := readDispatchesOf(ctx, tx, []int64{changeID})
+	return m[changeID], err
+}
+
+// readDispatchesOf reads every listed change's dispatches in one query,
+// keyed by change id, each in seq order.
+func readDispatchesOf(ctx context.Context, tx pgx.Tx, changeIDs []int64) (map[int64][]records.Dispatch, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT `+dispatchColumns+`
+		SELECT change_id, `+dispatchColumns+`
 		FROM dispatches
-		WHERE change_id = $1
-		ORDER BY seq
-	`, changeID)
+		WHERE change_id = ANY($1)
+		ORDER BY change_id, seq
+	`, changeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read dispatches: %w", err)
 	}
 	defer rows.Close()
 
-	var out []records.Dispatch
+	out := map[int64][]records.Dispatch{}
 	for rows.Next() {
-		d, err := scanDispatchRow(rows)
+		var id int64
+		d, err := scanDispatchRow(prefixScanner{rows, &id})
 		if err != nil {
 			return nil, fmt.Errorf("read dispatches: scan: %w", err)
 		}
-		out = append(out, d)
+		out[id] = append(out[id], d)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read dispatches: %w", err)
@@ -2322,23 +2464,31 @@ func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.D
 // LEFT JOIN so a finding no dispatch raised still returns. Seq is the
 // identifier the wire shape carries; the row id never leaves this package.
 func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Finding, error) {
+	m, err := readFindingsOf(ctx, tx, []int64{changeID})
+	return m[changeID], err
+}
+
+// readFindingsOf reads every listed change's findings in one query, keyed
+// by change id, each in readFindings' order.
+func readFindingsOf(ctx context.Context, tx pgx.Tx, changeIDs []int64) (map[int64][]records.Finding, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.deferral_category, f.reproducer,
+		SELECT f.change_id, f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.deferral_category, f.reproducer,
 		       f.supersedes, f.regression_of, fp.pattern, f.task_id
 		FROM findings f
 		LEFT JOIN dispatches d ON d.id = f.dispatch_id
 		LEFT JOIN finding_patterns fp ON fp.change_id = f.change_id AND fp.finding_ref = f.ref
-		WHERE f.change_id = $1
-		ORDER BY NULLIF(regexp_replace(f.ref, '\D', '', 'g'), '')::int NULLS LAST, f.ref
-	`, changeID)
+		WHERE f.change_id = ANY($1)
+		ORDER BY f.change_id, NULLIF(regexp_replace(f.ref, '\D', '', 'g'), '')::int NULLS LAST, f.ref
+	`, changeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read findings: %w", err)
 	}
 	defer rows.Close()
 
-	var out []records.Finding
+	out := map[int64][]records.Finding{}
 	for rows.Next() {
 		var (
+			changeID    int64
 			f           records.Finding
 			dispatchSeq *int
 			location    *string
@@ -2349,7 +2499,7 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 			pattern     *string
 			taskID      *string
 		)
-		if err := rows.Scan(&f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
+		if err := rows.Scan(&changeID, &f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
 			&f.Note, &f.Status, &category, &reproducer, &supersedes, &regression, &pattern, &taskID); err != nil {
 			return nil, fmt.Errorf("read findings: scan: %w", err)
 		}
@@ -2361,7 +2511,7 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 		f.RegressionOf = derefOrEmpty(regression)
 		f.Pattern = derefOrEmpty(pattern)
 		f.TaskID = derefOrEmpty(taskID)
-		out = append(out, f)
+		out[changeID] = append(out[changeID], f)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read findings: %w", err)
@@ -2663,11 +2813,11 @@ func (s *Store) ListSubstitutions(ctx context.Context, projectKey, guard, shape 
 
 // verifyRunColumns is the column list every read of a verify_runs row
 // selects, in the order scanVerifyRun scans them.
-const verifyRunColumns = `id, kind, label, seconds, tests, failed, exit_code, recorded_at`
+const verifyRunColumns = `id, kind, label, seconds, tests, failed, exit_code, flaky, recorded_at`
 
 func scanVerifyRun(row dispatchRowScanner) (records.VerifyRun, error) {
 	var v records.VerifyRun
-	err := row.Scan(&v.ID, &v.Kind, &v.Label, &v.Seconds, &v.Tests, &v.Failed, &v.ExitCode, &v.RecordedAt)
+	err := row.Scan(&v.ID, &v.Kind, &v.Label, &v.Seconds, &v.Tests, &v.Failed, &v.ExitCode, &v.Flaky, &v.RecordedAt)
 	return v, err
 }
 
@@ -2676,12 +2826,12 @@ func scanVerifyRun(row dispatchRowScanner) (records.VerifyRun, error) {
 // ErrChangeNotFound.
 func (s *Store) RecordVerifyRun(ctx context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error) {
 	row := s.pool.QueryRow(ctx, `
-		INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, recorded_at)
-		SELECT c.id, $3, $4, $5, $6, $7, $8, $9
+		INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, flaky, recorded_at)
+		SELECT c.id, $3, $4, $5, $6, $7, $8, $10, $9
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		RETURNING `+verifyRunColumns,
-		projectKey, change, in.Kind, in.Label, in.Seconds, in.Tests, in.Failed, in.ExitCode, in.RecordedAt)
+		projectKey, change, in.Kind, in.Label, in.Seconds, in.Tests, in.Failed, in.ExitCode, in.RecordedAt, in.Flaky)
 	out, err := scanVerifyRun(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -2696,7 +2846,7 @@ func (s *Store) RecordVerifyRun(ctx context.Context, projectKey, change string, 
 // (projectKey, change) pair reads as no runs.
 func (s *Store) ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT v.id, v.kind, v.label, v.seconds, v.tests, v.failed, v.exit_code, v.recorded_at
+		SELECT v.id, v.kind, v.label, v.seconds, v.tests, v.failed, v.exit_code, v.flaky, v.recorded_at
 		FROM verify_runs v
 		JOIN changes c ON c.id = v.change_id
 		WHERE c.project_key = $1 AND c.name = $2

@@ -23,6 +23,12 @@ merely read -- a Read of a transcript, a diff of a test, a grep of a JSONL line 
 woke again after its parent had moved on -- kan-1085's fixer left a build running in the background
 and its parent waited 44 minutes on it.
 
+When the agent may stop, the hook hands its dispatch key -- its prompt's `Key:` line, else the first word of the
+`description` in its own `agent-<id>.meta.json` -- to `flow record dispatch handback` (decision
+gated-bracket-handback): a gated reviewer's plan tree is checked the moment it hands back, so the
+parent's later plan edits never block that row's end. FLOW_HOOK_HANDBACK_CMD overrides the `flow`
+binary. The hand-back is fail-open and never changes this hook's output.
+
 Fails open: any error -- bad input, unreadable folder -- exits 0 with no output.
 """
 
@@ -30,6 +36,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -104,6 +111,37 @@ def running_background(transcript: str) -> "list[str]":
     return [i for i in launched if i not in done]
 
 
+KEY_LINE = re.compile(r"^Key:[ \t]*(\S+)[ \t]*$", re.M)
+
+
+def dispatch_key(transcript: str) -> str:
+    """The row key the dispatch was begun under, read as enforce-agent-baseline.py's begin_key
+    reads it: the prompt's column-0 `Key:` line (the transcript's first user message), else the
+    meta description's first word."""
+    try:
+        with open(transcript) as f:
+            prompt = (json.loads(f.readline()).get("message") or {}).get("content")
+        line = KEY_LINE.search(prompt) if isinstance(prompt, str) else None
+        if line:
+            return line.group(1)
+    except Exception:  # an unreadable transcript falls back to the description
+        pass
+    with open(transcript[: -len(".jsonl")] + ".meta.json") as f:
+        return (json.load(f).get("description") or "").split()[0]
+
+
+def handback(payload: dict, transcript: str) -> None:
+    try:
+        key = dispatch_key(transcript)
+        subprocess.run(
+            [os.environ.get("FLOW_HOOK_HANDBACK_CMD") or "flow", "record", "dispatch", "handback",
+             "-session", payload["session_id"], "-key", key, "-C", payload["cwd"]],
+            capture_output=True, timeout=10, check=False,
+        )
+    except Exception:  # fail open: the hand-back never changes the hook's answer
+        return
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -128,6 +166,7 @@ def main() -> None:
         }))
         return
     if not children:
+        handback(payload, transcript)
         return
     ids = " ".join(children)
     print(json.dumps({

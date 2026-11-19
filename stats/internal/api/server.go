@@ -205,6 +205,8 @@ type serverOptions struct {
 	repricer    Repricer
 	experiments ExperimentStore
 	changeFiles ChangeFileStore
+	runTimings  RunTimingsStore
+	stateRoot   string
 	rolesTable  []byte
 	commitBase  string
 	build       string
@@ -395,6 +397,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/stages", listStages)
 	mux.HandleFunc("PUT /api/v1/sessions/{session}/activity", sth.putSessionActivity)
 	mux.HandleFunc("POST /api/v1/prompt-changes", sth.postPromptChange)
+	mux.HandleFunc("GET /api/v1/dispatches/open", rh.openDispatch)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}", rh.runRecord)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/cost-status", rh.costStatus)
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/render/{kind}", rh.renderRecord)
@@ -406,6 +409,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/projects", lh.projects)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/retime", rh.retimeDispatchRow)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/findings", rh.recordFinding)
 	mux.HandleFunc("PATCH /api/v1/records/{project}/{change}/findings/{ref}", rh.setFindingStatus)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/verdicts", rh.recordVerdict)
@@ -448,6 +452,11 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.guardRuns != nil {
 		grh := &guardRunHandler{store: so.guardRuns, logger: logger}
 		mux.HandleFunc("POST /api/v1/guard-runs/{project}", grh.record)
+	}
+	if so.runTimings != nil {
+		rth := &runTimingsHandler{store: so.runTimings, stateRoot: so.stateRoot, now: time.Now, log: logger}
+		mux.Handle("GET /api/v1/stats/run/{project}/{change}", http.TimeoutHandler(http.HandlerFunc(rth.get), statsWriteTimeout, statsTimeoutMessage))
+		mux.Handle("GET /api/v1/stats/run-costs", http.TimeoutHandler(http.HandlerFunc(rth.costs), statsWriteTimeout, statsTimeoutMessage))
 	}
 	if so.changeFiles != nil {
 		cfh := &changeFileHandler{store: so.changeFiles, logger: logger}
@@ -675,7 +684,7 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):
 		return http.StatusNotFound, err.Error()
-	case errors.Is(err, store.ErrAgentIDInvalid):
+	case errors.Is(err, store.ErrAgentIDInvalid), errors.Is(err, store.ErrInvalidRetime):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrInlineWindowTooShort), errors.Is(err, store.ErrDispatchWindowTooShort), errors.Is(err, store.ErrDispatchEndsBeforeStart), errors.Is(err, store.ErrInlineCommitMissing), errors.Is(err, store.ErrInlineBegunAfterCommit),
 		errors.Is(err, store.ErrTokensOnHarvestedSession), errors.Is(err, store.ErrPlannerKeyOutOfSequence):

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -509,5 +510,35 @@ func TestSpecRootLeafFrozenOpenspecIsSpectre(t *testing.T) {
 				t.Errorf("specRootLeaf = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestTasksFilesRefusesAPathWithWhitespace(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	const plan = "# p\n\n" +
+		"- [ ] 1. One\n  - [ ] **Step 1: a**\n\n**Files:** `x.go`\n**Commit:** one\n"
+	dir := t.TempDir()
+	writePlan(t, dir, "spectre", "c", plan)
+	path := filepath.Join(dir, "spectre", "changes", "c", "tasks.md")
+	for _, verb := range []string{"add", "remove"} {
+		for _, bad := range []string{"", "a b.go", "a.go\nb.go", "a.go\t"} {
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), []string{"tasks", "files", "-C", dir, "c", "1", verb, "ok.go", bad}, env.get, nil, &stdout, &stderr)
+			if code != 1 {
+				t.Errorf("%s %q: exit %d, want 1", verb, bad, code)
+			}
+			want := fmt.Sprintf("flow: tasks files: path %q is empty or carries whitespace\n", bad)
+			if stderr.String() != want {
+				t.Errorf("%s %q: stderr %q, want %q", verb, bad, stderr.String(), want)
+			}
+			got, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != plan {
+				t.Fatalf("%s %q changed the plan:\n%s", verb, bad, got)
+			}
+		}
 	}
 }

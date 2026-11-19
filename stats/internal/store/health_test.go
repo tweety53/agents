@@ -247,3 +247,62 @@ func TestRecordGuardRunFindsAPeerWorktreesProject(t *testing.T) {
 		t.Errorf("unnamed worktree: err = %v, want ErrProjectNotFound", err)
 	}
 }
+
+// TestChangeGuardRunsMatchesTheWorktreeSegment pins ChangeGuardRuns
+// (decision parent-time-guard-runs): a run is the change's when its worktree
+// carries the segment -worktrees/<change> followed by "/" or the end, in any
+// repository's worktree directory and under any project -- never a change
+// whose name only starts with it (kan-1-ab) -- and only inside the window; a
+// main-checkout run of the asked project in the window is counted unclaimed,
+// another project's is not.
+func TestChangeGuardRunsMatchesTheWorktreeSegment(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	p := fmt.Sprintf("proj-cgr-p-%d", time.Now().UnixNano())
+	q := fmt.Sprintf("proj-cgr-q-%d", time.Now().UnixNano())
+	seedChange(t, st, p, "kan-1-a")
+	seedChange(t, st, q, "kan-9")
+	from := time.Date(2034, 3, 1, 0, 0, 0, 0, time.UTC)
+	to := from.Add(time.Hour)
+	at := from.Add(30 * time.Minute)
+	run := func(wt string, when time.Time) records.GuardRun {
+		r := guardRun("check-plan-shape", "clear", 0, 1000, when)
+		r.Worktree = wt
+		return r
+	}
+	recordGuardRuns(t, st, p,
+		run("/x/gymie-worktrees/kan-1-a", at),
+		run("/x/gymie-frontend-worktrees/kan-1-a/sub", at.Add(time.Minute)),
+		run("/x/gymie-worktrees/kan-1-ab", at),
+		run("/x/gymie", at),
+		run("/x/gymie-worktrees/kan-1-a", to.Add(time.Hour)),
+	)
+	recordGuardRuns(t, st, q, run("/y/other", at), run("/z/other-worktrees/kan-1-a", at.Add(2*time.Minute)))
+
+	gs, err := st.ChangeGuardRuns(ctx, []store.GuardWindow{
+		{ProjectKey: p, Change: "kan-1-a", From: from, To: to},
+		{ProjectKey: q, Change: "kan-9", From: from, To: to},
+	})
+	if err != nil {
+		t.Fatalf("ChangeGuardRuns: %v", err)
+	}
+	if len(gs) != 2 {
+		t.Fatalf("len = %d, want one result per window", len(gs))
+	}
+	if len(gs[1].Claimed) != 0 || gs[1].Unclaimed != 1 {
+		t.Errorf("second window = %+v, want no claimed and 1 unclaimed", gs[1])
+	}
+	unclaimed := gs[0].Unclaimed
+	var got []string
+	for _, r := range gs[0].Claimed {
+		got = append(got, r.Worktree)
+	}
+	want := []string{"/x/gymie-worktrees/kan-1-a", "/x/gymie-frontend-worktrees/kan-1-a/sub", "/z/other-worktrees/kan-1-a"}
+	if !slices.Equal(got, want) {
+		t.Errorf("claimed = %v, want %v", got, want)
+	}
+	if unclaimed != 1 {
+		t.Errorf("unclaimed = %d, want 1 (the main-checkout run of %s)", unclaimed, p)
+	}
+}

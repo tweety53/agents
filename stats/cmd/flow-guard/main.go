@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,7 +58,11 @@ func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) s
 	code := run(args, reasons, out, stderr)
 	if name, ok := dispatched(args); ok {
 		if dir := workingDir(); dir != "" {
-			recordRun(getenv, dir, name, code, string(out.line), reasons.IDs(), time.Since(start), client)
+			wt := guardWorktree(args, dir)
+			if _, err := projectKey(context.Background(), wt); err != nil {
+				wt = dir // an argument that is no git checkout: record under the cwd
+			}
+			recordRun(getenv, wt, name, code, string(out.line), reasons.IDs(), time.Since(start), client)
 		}
 	}
 	return code

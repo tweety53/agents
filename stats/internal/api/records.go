@@ -108,6 +108,11 @@ type RecordStore interface {
 
 	// RecordVerifyRun and ListVerifyRuns are a change's verify-run cost log.
 	RecordVerifyRun(ctx context.Context, projectKey, change string, in records.VerifyRun) (records.VerifyRun, error)
+	// RetimeDispatch is `flow record dispatch retime`'s write: a row's
+	// instants corrected with a required reason, the originals kept in its
+	// retimed audit (decision retime-jsonb-drop-old). It is never journalled,
+	// so it sits here rather than on RecordWriter.
+	RetimeDispatch(ctx context.Context, projectKey, change string, in records.DispatchRetime) (records.Dispatch, error)
 	ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error)
 
 	// ListFindingPatterns and ListFindingPatternOccurrences are KAN-416's
@@ -169,6 +174,11 @@ type RecordStore interface {
 	// and the projects table is the store's one answer to where this
 	// machine's repositories live.
 	ProjectRoots(ctx context.Context) ([]store.ProjectRoot, error)
+
+	// OpenDispatchBySessionKey is the open-row read the hand-back route
+	// serves (decision gated-bracket-handback): the newest open dispatch
+	// a harness session holds under one key.
+	OpenDispatchBySessionKey(ctx context.Context, sessionID, key string) (id int64, projectKey, change string, found bool, err error)
 }
 
 // var _ RecordStore = (*store.Store)(nil) verifies at compile time that the
@@ -527,8 +537,8 @@ func ValidateVerifyRun(in records.VerifyRun) error {
 	if in.Label == "" {
 		return fmt.Errorf("%w: label is required", ErrInvalidRecord)
 	}
-	if in.Seconds < 0 || in.Tests < 0 || in.Failed < 0 {
-		return fmt.Errorf("%w: seconds, tests and failed must be >= 0", ErrInvalidRecord)
+	if in.Seconds < 0 || in.Tests < 0 || in.Failed < 0 || (in.Flaky != nil && *in.Flaky < 0) {
+		return fmt.Errorf("%w: seconds, tests, failed and flaky must be >= 0", ErrInvalidRecord)
 	}
 	return nil
 }
@@ -663,6 +673,25 @@ func (h *recordHandler) endDispatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("end dispatch %q for %s/%s", in.Key, project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// retimeDispatchRow is POST /api/v1/records/{project}/{change}/dispatches/retime:
+// `flow record dispatch retime`'s correction of a row's instants. A missing
+// reason or inverted instants are 400, an id this change does not hold 404.
+func (h *recordHandler) retimeDispatchRow(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+	var in records.DispatchRetime
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	out, err := h.store.RetimeDispatch(r.Context(), project, change, in)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("retime dispatch %d for %s/%s", in.ID, project, change), err)
 		writeError(w, status, msg)
 		return
 	}
@@ -944,6 +973,29 @@ func (h *recordHandler) runRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rec)
+}
+
+// openDispatch serves GET /api/v1/dispatches/open?session=&key=: the open
+// dispatch row the harness session holds under key, with its change --
+// what `flow record dispatch handback` keys its plan-check marker by. Both
+// parameters are required (400); no such open row is a 404.
+func (h *recordHandler) openDispatch(w http.ResponseWriter, r *http.Request) {
+	session, key := r.URL.Query().Get("session"), r.URL.Query().Get("key")
+	if session == "" || key == "" {
+		writeError(w, http.StatusBadRequest, "session and key are both required")
+		return
+	}
+	id, project, change, found, err := h.store.OpenDispatchBySessionKey(r.Context(), session, key)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("read the open dispatch for session %s key %s", session, key), err)
+		writeError(w, status, msg)
+		return
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("no open dispatch for session %s key %s", session, key))
+		return
+	}
+	writeJSON(w, http.StatusOK, records.OpenDispatch{ID: id, ProjectKey: project, Change: change})
 }
 
 // renderRecord serves GET /api/v1/records/{project}/{change}/render/{kind}:

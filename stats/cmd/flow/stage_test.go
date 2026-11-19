@@ -834,7 +834,9 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 // instead of printing the store-unreachable fallback a real outage gets.
 // The answer is definitive, so nothing is journalled either: replaying an
 // end for a run that never opened can only fail the same way again, which
-// is exactly the wasted journal round trip KAN-573 paid for.
+// is exactly the wasted journal round trip KAN-573 paid for. It exits 1:
+// an end that closes nothing is not a success, and a zero exit let the
+// slip go unnoticed (KAN-1132 design.md, gap 2).
 func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 	t.Parallel()
 	repo := gitRepo(t)
@@ -856,8 +858,8 @@ func TestStageEndNoOpenRunNamesMissingBegin(t *testing.T) {
 			"-command", "/flow", "-stage", "flow.review-panel", "-outcome", "completed", "kan-700-demo"},
 		env.get, strings.NewReader(""), &stdout, &stderr)
 
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0 (a definitive store answer never blocks); stderr:\n%s", code, stderr.String())
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (an end that closed nothing); stderr:\n%s", code, stderr.String())
 	}
 	if !strings.Contains(stderr.String(), "no open stage run for kan-700-demo/flow.review-panel — was `stage begin` recorded?") {
 		t.Errorf("stderr = %q, want the missing-begin diagnosis", stderr.String())
@@ -1465,7 +1467,7 @@ func TestStageKeysTakesNoPositionalArguments(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty on a usage error", stdout.String())
 	}
-	if want := "flow: stage keys takes no positional arguments"; !strings.Contains(stderr.String(), want) {
+	if want := "flow: stage keys: takes no positional arguments"; !strings.Contains(stderr.String(), want) {
 		t.Errorf("stderr = %q, want it to carry %q", stderr.String(), want)
 	}
 }
@@ -2824,5 +2826,80 @@ func TestStageEndRefusesAFallbackWithoutItsRetry(t *testing.T) {
 				t.Fatalf("stderr does not name task-55-reviewer and its retry:\n%s", stderr.String())
 			}
 		})
+	}
+}
+
+// TestStageErrorPrintsOneLine pins that a stage error is one stderr line
+// naming the verb and pointing at -h, never the usage block, exit 2.
+func TestStageErrorPrintsOneLine(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	for _, tc := range []struct {
+		verb string
+		args []string
+	}{
+		{"end", []string{"stage", "end", "-C", repo, "-command", "/flow", "-stage", "flow.verify", "kan-1"}},
+		{"begin", []string{"stage", "begin", "-C", repo, "-command", "/flow", "-stage", "flow.nope", "-session-token", "mf-k1-20261024T002513Z", "kan-1"}},
+		{"frob", []string{"stage", "frob"}},
+	} {
+		env := newTestEnv(t)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), tc.args, env.get, strings.NewReader(""), &stdout, &stderr)
+		lines := strings.Split(strings.TrimRight(stderr.String(), "\n"), "\n")
+		if code != 2 || len(lines) != 1 ||
+			!strings.HasPrefix(lines[0], "flow: stage "+tc.verb+": ") ||
+			!strings.HasSuffix(lines[0], " (flow stage -h for usage)") ||
+			strings.Contains(stderr.String(), "usage:") {
+			t.Errorf("%s: exit %d, stderr %q; want exit 2 and one line `flow: stage %s: <error> (flow stage -h for usage)`", tc.verb, code, stderr.String(), tc.verb)
+		}
+	}
+}
+
+// TestStageHelpPrintsTheUsage pins that -h, alone, still prints the usage
+// and exits 0.
+func TestStageHelpPrintsTheUsage(t *testing.T) {
+	t.Parallel()
+	for _, args := range [][]string{{"stage", "-h"}, {"stage", "end", "-h"}} {
+		env := newTestEnv(t)
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
+		if code != 0 || !strings.Contains(stdout.String()+stderr.String(), stageUsage) {
+			t.Errorf("%v: exit %d, output %q; want exit 0 and the usage", args, code, stdout.String()+stderr.String())
+		}
+	}
+}
+
+// TestStageEndWithNoOpenRunExitsOne pins that an end the store answers with
+// "no open stage run" exits 1 with the one-line missing-begin diagnosis and
+// journals nothing.
+func TestStageEndWithNoOpenRunExitsOne(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("api: no open stage run for that change, command and stage"))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.kickoff", "-outcome", "completed", "kan-1132-demo"},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	want := "⚠ flow: no open stage run for kan-1132-demo/flow.kickoff — was `stage begin` recorded?\n"
+	if code != 1 || stderr.String() != want {
+		t.Fatalf("exit %d, stderr %q; want exit 1 and exactly %q", code, stderr.String(), want)
+	}
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(env.stateRoot(), projectKey, "kan-1132-demo") + ".stage")
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("stage journal has %d entries, want 0", len(entries))
 	}
 }

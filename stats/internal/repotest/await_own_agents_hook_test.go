@@ -213,3 +213,58 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 		t.Errorf("(c) stop only quoted: out %q; want a block naming bg2", out)
 	}
 }
+
+// TestAwaitOwnAgentsHookRunsTheHandback pins decision gated-bracket-handback:
+// a stopping agent with nothing running hands its dispatch key -- its
+// prompt's `Key:` line, read from the transcript's first user message, as
+// enforce-agent-baseline.py's begin_key reads it; the conventional
+// `Task 3/22 (review)` description never names it -- to `flow record
+// dispatch handback`; the
+// hand-back's failure never changes the hook's answer, and a blocked stop
+// runs none.
+func TestAwaitOwnAgentsHookRunsTheHandback(t *testing.T) {
+	smoke.Heavy(t)
+	dir := filepath.Join(t.TempDir(), "sess", "subagents")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := func(id, parent, desc string) {
+		t.Helper()
+		b, _ := json.Marshal(map[string]any{"parentAgentId": parent, "description": desc})
+		if err := os.WriteFile(filepath.Join(dir, "agent-"+id+".meta.json"), b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cwd := t.TempDir()
+	payload, _ := json.Marshal(map[string]any{
+		"hook_event_name": "SubagentStop", "agent_id": "rev", "session_id": "sess-1", "cwd": cwd,
+		"agent_transcript_path": filepath.Join(dir, "agent-rev.jsonl"),
+	})
+	meta("rev", "", "Task 3/22 (review)")
+	first, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": "Role: gated-reviewer\nKey: task-3-reviewer\nReview task 3."}})
+	if err := os.WriteFile(filepath.Join(dir, "agent-rev.jsonl"), append(first, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rc := range []int{0, 1} {
+		cmd, log := incidentStub(t, rc)
+		out, _, hookRC := runHook(t, "await-own-agents.py", payload, "FLOW_HOOK_HANDBACK_CMD="+cmd)
+		if hookRC != 0 || out != "" {
+			t.Errorf("stub rc %d: hook rc %d, out %q; want allow", rc, hookRC, out)
+		}
+		calls := incidentCalls(t, log)
+		want := "record dispatch handback -session sess-1 -key task-3-reviewer -C " + cwd
+		if len(calls) != 1 || strings.Join(calls[0], " ") != want {
+			t.Errorf("stub rc %d: calls %v, want one %q", rc, calls, want)
+		}
+	}
+
+	meta("child", "rev", "x")
+	cmd, log := incidentStub(t, 0)
+	if out, _, _ := runHook(t, "await-own-agents.py", payload, "FLOW_HOOK_HANDBACK_CMD="+cmd); !strings.Contains(out, `"decision": "block"`) {
+		t.Errorf("running child: out %q; want a block", out)
+	}
+	if calls := incidentCalls(t, log); len(calls) != 0 {
+		t.Errorf("a blocked stop ran the hand-back: %v", calls)
+	}
+}

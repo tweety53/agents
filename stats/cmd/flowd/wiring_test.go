@@ -334,7 +334,7 @@ func TestStartupRestampsRecentStampedEnds(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RecordDispatch(%s): %v", agent, err)
 		}
-		if err := st.RetimeDispatch(ctx, row.ID, start, now.Add(-age+123456*time.Microsecond), ""); err != nil {
+		if _, err := st.RetimeDispatch(ctx, "proj-startup-restamp", "kan-1", records.DispatchRetime{ID: row.ID, StartedAt: start, EndedAt: now.Add(-age + 123456*time.Microsecond), Reason: "fixture"}); err != nil {
 			t.Fatalf("RetimeDispatch(%s): %v", agent, err)
 		}
 		agentEnds[agent] = start.Add(10 * time.Minute)

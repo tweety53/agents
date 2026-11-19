@@ -624,6 +624,9 @@ func (c *Client) FindState(ctx context.Context, name string) ([]StateChange, err
 // `flow stage sessions` the session, `flow state set`'s IN_PROGRESS gate the
 // outcome.
 type StageRunRow struct {
+	// ID and Stage let the handoff's **Stages:** line name each open run.
+	ID        int64   `json:"stageRunId"`
+	Stage     string  `json:"stage"`
 	SessionID *string `json:"sessionId,omitempty"`
 	Outcome   *string `json:"outcome,omitempty"`
 	// Request and StartedAt let a caller pick a request's latest run
@@ -638,7 +641,7 @@ type StageRunRow struct {
 }
 
 // ListStageRuns reads a change's stage runs of one command and stage
-// (GET /api/v1/stage-runs, limit 1000).
+// (GET /api/v1/stage-runs, limit 1000); an empty command or stage is no filter.
 func (c *Client) ListStageRuns(ctx context.Context, project, change, command, stage string) ([]StageRunRow, error) {
 	q := url.Values{"project_key": {project}, "name": {change}, "command": {command}, "stage": {stage}, "limit": {"1000"}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/stage-runs?"+q.Encode(), nil)
@@ -1103,6 +1106,19 @@ func (c *Client) EndDispatch(ctx context.Context, project, change string, in rec
 	return out, nil
 }
 
+// RetimeDispatch corrects a dispatch row's instants through
+// `POST .../dispatches/retime` -- `flow record dispatch retime`. It is never
+// journalled: a correction is the operator's act, retried by hand.
+func (c *Client) RetimeDispatch(ctx context.Context, project, change string, in records.DispatchRetime) (records.Dispatch, error) {
+	var out records.Dispatch
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/dispatches/retime", in,
+		map[int]bool{http.StatusOK: true}, &out)
+	if err != nil {
+		return records.Dispatch{}, err
+	}
+	return out, nil
+}
+
 // RecordFinding records one review-panel finding for project/change, or
 // replaces the one already recorded under the same ref, and returns the
 // row the daemon stored together with which of the two it did.
@@ -1164,6 +1180,30 @@ func (c *Client) GetRunRecord(ctx context.Context, project, change string) (reco
 		return records.Run{}, err
 	}
 	return out, nil
+}
+
+// OpenDispatch fetches the open dispatch row harness session session holds
+// under key (GET /api/v1/dispatches/open). A 404 -- no such open row -- is
+// found false with no error; every other failure is classified as
+// GetRunRecord's read is.
+func (c *Client) OpenDispatch(ctx context.Context, session, key string) (records.OpenDispatch, bool, error) {
+	q := url.Values{"session": {session}, "key": {key}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/dispatches/open?"+q.Encode(), nil)
+	if err != nil {
+		return records.OpenDispatch{}, false, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return records.OpenDispatch{}, false, err
+	}
+	if status == http.StatusNotFound {
+		return records.OpenDispatch{}, false, nil
+	}
+	var out records.OpenDispatch
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.OpenDispatch{}, false, err
+	}
+	return out, true, nil
 }
 
 // GetCostStatus fetches project/change's cost-status: how many of its

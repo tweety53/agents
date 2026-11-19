@@ -4,18 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
 	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/smoke"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -114,8 +121,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 		t.Fatalf("guard refused the test's own throwaway database: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
@@ -145,11 +151,11 @@ func TestSeedPopulatesFixture(t *testing.T) {
 		if project.Key == "uitest-alpha" {
 			wantChanges += 4 // seedInteractive's two sessions and seedMainExperiment's two changes, seeded beside fixtureData
 		}
-		switch project.Key { // seedDecisions' runs, seeded beside fixtureData
+		switch project.Key { // seedDecisions' runs, and seedRunCosts' two, seeded beside fixtureData
 		case "uitest-alpha":
 			wantChanges += 13
 		case "uitest-beta":
-			wantChanges += 5
+			wantChanges += 5 + 2
 		}
 		if len(changes) != wantChanges {
 			t.Fatalf("project %s: got %d changes, want %d", project.Key, len(changes), wantChanges)
@@ -273,8 +279,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 func TestSeedInteractiveSessions(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -326,8 +331,7 @@ func TestSeedInteractiveSessions(t *testing.T) {
 func TestSeedTrendFinishedChanges(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -403,8 +407,7 @@ func TestSeedTrendFinishedChanges(t *testing.T) {
 func TestSeedPricesReviewerDispatches(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
@@ -451,8 +454,7 @@ func TestSeedPricesReviewerDispatches(t *testing.T) {
 func TestSeedDrawsReviewerStates(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
@@ -525,8 +527,7 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -619,8 +620,7 @@ func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 func TestSeedGuardRunsDrawEveryState(t *testing.T) {
 	smoke.Heavy(t)
 	dsn := newUitestDatabase(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	ctx := t.Context()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -700,5 +700,171 @@ func TestSeedGuardRunsDrawEveryState(t *testing.T) {
 	want := []store.ProjectGuardRuns{{ProjectKey: "uitest-alpha", Runs: 205}, {ProjectKey: "uitest-beta", Runs: 18}}
 	if !slices.Equal(projects, want) {
 		t.Errorf("GuardHealthProjects = %+v, want %+v", projects, want)
+	}
+}
+
+// TestSeedRunCostsFixture pins the run the run-costs captures draw: two
+// FINISHED uitest-beta runs inside the thirty days before fixtureNow and
+// outside the pinned window, the first holding a row of every lane the
+// prototype draws, so its computed result fills every totals tile.
+func TestSeedRunCostsFixture(t *testing.T) {
+	smoke.Heavy(t)
+	dsn := newUitestDatabase(t)
+	ctx := t.Context()
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+	// flowd seeds the rate table before make ui-test-up runs the seeder
+	// (main.go), and RecordDispatch's metrics are priced against it.
+	if err := st.SeedPricing(ctx); err != nil {
+		t.Fatalf("seed pricing: %v", err)
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		t.Fatalf("seedFixture: %v", err)
+	}
+
+	pinnedFrom := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	for _, name := range []string{"kan-301-run-costs-a", "kan-302-run-costs-b"} {
+		c, err := st.GetChange(ctx, "uitest-beta", name)
+		if err != nil {
+			t.Fatalf("get change %s: %v", name, err)
+		}
+		if c.State != store.StateFinished || !c.UpdatedAt.After(fixtureNow.Add(-30*24*time.Hour)) || !c.UpdatedAt.Before(pinnedFrom) {
+			t.Errorf("%s = %s updated %s, want FINISHED inside the 30 days before %s and before %s", name, c.State, c.UpdatedAt, fixtureNow, pinnedFrom)
+		}
+	}
+
+	saved, err := st.GetChangeFile(ctx, "uitest-beta", "kan-301-run-costs-a", "tasks.md")
+	if err != nil {
+		t.Fatalf("saved tasks.md: %v", err)
+	}
+	openers := records.TaskOpeners([]byte(saved))
+	if !strings.HasPrefix(openers["15"], "verify") || !strings.HasPrefix(openers["16"], "visual-verify") {
+		t.Errorf("saved openers = %v, want task 15 a verify round and 16 a visual-verify round", openers)
+	}
+
+	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, st, st, st, st, st,
+		slog.New(slog.NewTextHandler(io.Discard, nil)), api.WithRunTimings(st), api.WithChangeFiles(st), api.WithGuardRuns(st))
+	if err != nil {
+		t.Fatalf("api.New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	resp, err := http.Get(ts.URL + "/api/v1/stats/run/uitest-beta/kan-301-run-costs-a")
+	if err != nil {
+		t.Fatalf("GET run: %v", err)
+	}
+	defer resp.Body.Close()
+	type value struct {
+		Value float64 `json:"value"`
+	}
+	var got struct {
+		Totals struct {
+			WallClockMs, AgentTimeMs, ParentCommandsMs, IdleMs, Cost, ParentSessionCost, VisualVerifyShare value
+			Dispatches, NoTokens, ParentCommandRuns, UnclaimedGuardRuns                                    int
+		} `json:"totals"`
+		Lanes []struct {
+			Label string `json:"label"`
+			Kind  string `json:"kind"`
+		} `json:"lanes"`
+		Counts struct {
+			Findings struct {
+				Value struct{ Critical, Important, Minor int } `json:"value"`
+			} `json:"findings"`
+			FlakyRetries struct {
+				Value struct{ Retries, Runs int } `json:"value"`
+			} `json:"flakyRetries"`
+			Departures struct {
+				Value []struct {
+					Round      string `json:"round"`
+					Departures int    `json:"departures"`
+				} `json:"value"`
+			} `json:"departures"`
+		} `json:"counts"`
+		CostPerTask []struct {
+			Task  string  `json:"task"`
+			Group string  `json:"group"`
+			Cost  float64 `json:"cost"`
+		} `json:"costPerTask"`
+		DataQuality []struct {
+			ID     string   `json:"id"`
+			Count  int      `json:"count"`
+			Detail []string `json:"detail"`
+		} `json:"dataQuality"`
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET run = %d", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode run: %v", err)
+	}
+
+	tt := got.Totals
+	for name, v := range map[string]float64{
+		"wallClockMs": tt.WallClockMs.Value, "agentTimeMs": tt.AgentTimeMs.Value, "parentCommandsMs": tt.ParentCommandsMs.Value,
+		"idleMs": tt.IdleMs.Value, "cost": tt.Cost.Value, "parentSessionCost": tt.ParentSessionCost.Value,
+		"visualVerifyShare": tt.VisualVerifyShare.Value, "dispatches": float64(tt.Dispatches), "noTokens": float64(tt.NoTokens),
+		"parentCommandRuns": float64(tt.ParentCommandRuns), "unclaimedGuardRuns": float64(tt.UnclaimedGuardRuns),
+	} {
+		if v == 0 {
+			t.Errorf("totals.%s = 0, want non-zero", name)
+		}
+	}
+
+	var stages, categories []string
+	for _, l := range got.Lanes {
+		switch l.Kind {
+		case "stage":
+			stages = append(stages, l.Label)
+		case "category":
+			categories = append(categories, l.Label)
+		}
+	}
+	if len(stages) < 4 {
+		t.Errorf("stage lanes = %v, want at least 4", stages)
+	}
+	for _, want := range []string{"planner", "explorer", "planned implementer", "gated reviewer", "gated fixer", "verify list",
+		"visual verifier", "in-run fix (verify)", "in-run fix (visual verify)", "panel reviewer", "merger", "panel fixer"} {
+		if !slices.Contains(categories, want) {
+			t.Errorf("category lanes = %v, missing %q", categories, want)
+		}
+	}
+	for _, c := range got.CostPerTask {
+		if c.Cost == 0 {
+			t.Errorf("costPerTask %s cost = 0, want the dispatch rows priced", c.Task)
+		}
+	}
+	if d := got.Counts.Departures.Value; len(d) != 2 || d[0].Departures != 3 {
+		t.Errorf("departures = %+v, want the two saved visual-verify reports' lines, 3 then 0", d)
+	}
+	if !slices.ContainsFunc(got.CostPerTask, func(c struct {
+		Task  string  `json:"task"`
+		Group string  `json:"group"`
+		Cost  float64 `json:"cost"`
+	}) bool {
+		return c.Group == "13+14"
+	}) {
+		t.Errorf("costPerTask = %+v, want a task split from group 13+14", got.CostPerTask)
+	}
+	if f := got.Counts.Findings.Value; f.Critical == 0 || f.Important == 0 || f.Minor == 0 {
+		t.Errorf("findings = %+v, want each severity", f)
+	}
+	if f := got.Counts.FlakyRetries.Value; f.Retries == 0 || f.Runs == 0 {
+		t.Errorf("flaky retries = %+v, want verify runs with a flaky count", f)
+	}
+	dq := map[string]int{}
+	for _, d := range got.DataQuality {
+		dq[d.ID] = d.Count
+		if d.ID == "no-tokens" && (len(d.Detail) == 0 || strings.HasSuffix(d.Detail[0], "not measured")) {
+			t.Errorf("no-tokens detail = %v, want a stated reason", d.Detail)
+		}
+	}
+	if dq["superseded-stage-runs"] == 0 || dq["no-tokens"] == 0 {
+		t.Errorf("data quality = %v, want a superseded stage run and a no-tokens row", dq)
 	}
 }

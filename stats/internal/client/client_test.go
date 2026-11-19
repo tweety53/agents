@@ -974,6 +974,10 @@ func (stubStageStore) RecordVerifyRun(context.Context, string, string, records.V
 	return records.VerifyRun{}, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RetimeDispatch(context.Context, string, string, records.DispatchRetime) (records.Dispatch, error) {
+	return records.Dispatch{}, nil
+}
+
 func (stubStageStore) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
 	return nil, errStageStoreNotImplemented
 }
@@ -1430,4 +1434,8 @@ func TestGetChangeIgnoresStaleRestartMarker(t *testing.T) {
 
 func (stubStageStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
 	return nil, nil
+}
+
+func (stubStageStore) OpenDispatchBySessionKey(context.Context, string, string) (int64, string, string, bool, error) {
+	return 0, "", "", false, nil
 }
