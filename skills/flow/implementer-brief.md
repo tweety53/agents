@@ -183,6 +183,8 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > the shape you construct by hand is not the shape the real producer emits. Build the value the way
 > production builds it, or assert against the real boundary.
 
+> **SCRUB A REPRODUCED ARTIFACT:** A real artifact reproduced into a committed fixture — a transcript, a log, a database dump — is reduced to the lines the test needs and scrubbed of every identifier, path, prompt text and personal datum before it is staged; the raw copy stays under `<abs-worktree>/.superpowers/sdd/`, never in the tree (kan-1132 self-review, F6).
+
 > **SCRATCH HARNESS:** A throwaway harness — a measuring spec, a repro script, a probe — lives in
 > your session scratchpad or in this change's state dir (the path `flow state dir` prints), never
 > in a new worktree or branch of any repository. Cleanup removes only the change's own worktrees

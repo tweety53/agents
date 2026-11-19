@@ -1050,6 +1050,8 @@ The parent's own `## lint`/`## test` runs, reproducer runs and boundary checks a
 > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
 > before you reject it.
 
+> **SCRUB A REPRODUCED ARTIFACT:** A real artifact reproduced into a committed fixture — a transcript, a log, a database dump — is reduced to the lines the test needs and scrubbed of every identifier, path, prompt text and personal datum before it is staged; the raw copy stays under `<abs-worktree>/.superpowers/sdd/`, never in the tree (kan-1132 self-review, F6).
+
 On BLOCKED: pause and report. Never guess. A question the report carries that takes one
 recommended option is not a guess: **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`)
 takes it, and only a question with none pauses the run.
