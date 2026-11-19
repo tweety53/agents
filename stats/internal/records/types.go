@@ -809,6 +809,7 @@ var GuardHelpers = []string{
 	"close-task",
 	"commit-split",
 	"compose-mockup-frames",
+	"fix-slot-judge",
 	"fold-fixup",
 	"gather-dispatch-context",
 	"guard-autosquash",

@@ -40,7 +40,7 @@ import (
 //   --merge-base          each worktree's merge base — one per worktree of the
 //                         set, required without --continue
 //   --worktree            every other worktree of the run's resolved set
-//   --since               a fix run's since-close sha for a worktree: its
+//   --since               a fix run's fix-start sha for a worktree: its
 //                         diff for steps 1–2 runs from it instead
 //   --round-base          a scoped round's base for a worktree
 //   --defects             a scoped round's defects: frames for a worktree, given with its --round-base

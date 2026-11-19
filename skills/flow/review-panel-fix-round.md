@@ -17,11 +17,9 @@ boundary proceeds into the round's own remaining steps — the citation pre-chec
 entry check is an entry step, and the round does not re-run it. The section's before-review planning
 commit comes first at a round boundary too.
 
-**Pass 1 runs the panel **The docs-only reduction** or **The late-fix reduction** chose — the
-decided panel, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
-where the reduction's trigger holds, or the decided panel on the since-close delta under the
-append scope, or `primary` alone on that delta under the small append — plus every slot the operator named at this stage's start
-that it did not already carry.** Only re-runs after a fix are scoped. Record
+**Pass 1 runs the panel **The docs-only reduction** chose — the decided panel, or `primary` alone
+on a docs-only branch — plus every slot the operator named at this stage's start that it did not
+already carry; a fix run's pass 1 runs the panel **The fix-run review** chose.** Only re-runs after a fix are scoped. Record
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
 `flow-guard write-panel-diff fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,

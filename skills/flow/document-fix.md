@@ -14,6 +14,11 @@ marks nothing here:
 flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**Before anything is appended, record the fix's start.** Each worktree's **fix-start sha** is
+`git -C <worktree> rev-parse HEAD`, read now; the fix run's review reads the delta from it (**The
+fix-run review**, `skills/flow/review-panel.md`). Write the fix instructions, verbatim, to
+`<abs-worktree>/.superpowers/sdd/fix-instructions-<n>.md`, `<n>` this fix run's ordinal below.
+
 **Before the planning pass, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
 line from the header of this change's `tasks.md` — the count of tasks appended at the human gate
 since the plan was first written; a plan that has never carried the line reads as 0. When the
@@ -67,12 +72,9 @@ carried one.
 every call site of the code the fix replaces and every test exercising it; the appended task's
 `**Files:**` covers each, or the task names why one stays.
 
-**An appended task is implemented and panel-checked exactly as plan-time work — by the full
-decided panel, or by `primary` alone where its delta is a small append.** The operator flag that prompted it is not a verification of its premise: its
-work lands in the fix run's diff and takes the panel beside every other task's, and the narrow
-late-fix path stays closed to an append (**The late-fix reduction**, `skills/flow/review-panel.md`).
-Its read scope is the since-close delta under **The append scope** or **The small append**
-(`skills/flow/review-panel-late-fix.md`).
+**An appended task is implemented as plan-time work.** It is panel-checked under **The fix-run
+review** (`skills/flow/review-panel.md`); the operator flag that prompted it is not a verification
+of its premise.
 Beside the plan-time paragraphs, the appended task's dispatch also carries the MUTATION PROOF
 paragraph (`skills/flow/review-panel.md`): the fix's own condition is mutated and a named test
 confirmed to fail before the run's panel stage closes, the reported `fix-mutation:` lines checked

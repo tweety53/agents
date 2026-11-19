@@ -32,7 +32,7 @@ import (
 // self-review-plan, pipeline-fix-plan, implementer, panel-fix,
 // self-review-fix, pipeline-fix-fix, design-reviewer, gated-reviewer,
 // gated-re-reviewer, panel-reviewer, panel-sanity-efficiency,
-// panel-mutation-failure, panel-rerun, late-fix, self-review-pass,
+// panel-mutation-failure, panel-rerun, self-review-pass,
 // self-review-review-1, self-review-review-r, pipeline-fix-review-1,
 // pipeline-fix-review-r, explorer and plan-designer. Every other role keeps
 // the rule it had and is refused.
@@ -107,7 +107,7 @@ var pjJudged = map[string]bool{
 	"implementer": true,
 	"panel-fix":   true, "self-review-fix": true, "pipeline-fix-fix": true,
 	"design-reviewer": true, "gated-reviewer": true, "gated-re-reviewer": true, "panel-reviewer": true,
-	"panel-sanity-efficiency": true, "panel-mutation-failure": true, "panel-rerun": true, "late-fix": true,
+	"panel-sanity-efficiency": true, "panel-mutation-failure": true, "panel-rerun": true,
 	"self-review-pass": true, "self-review-review-1": true, "self-review-review-r": true,
 	"pipeline-fix-review-1": true, "pipeline-fix-review-r": true,
 	"explorer": true, "plan-designer": true,
@@ -238,7 +238,7 @@ func pjCandidates(rows map[string][]policyRow, role string) []pjCandidate {
 
 // pjAsk runs the judge; a non-empty cause is why its answer cannot be used.
 func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidate, digest []byte) (pjCandidate, string, string) {
-	result, spend, cause := pjRun(env, rows, pjSystemPrompt(env, role, cands), digest)
+	result, spend, cause := pjRun(env, rows, "pair-judge", pjSystemPrompt(env, role, cands), digest)
 	if cause != "" {
 		return pjCandidate{}, "", cause
 	}
@@ -254,19 +254,19 @@ func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidat
 }
 
 // pjRun runs the judge -- headless `claude -p` (or FLOW_PAIR_JUDGE_CMD) on
-// the pair-judge row's first base pair, under the deadline, with system as
-// its system prompt and digest on stdin -- for pair-judge and slot-judge
-// alike (KAN-1126, decision slot-judge-reuses-pair-judge-call). result is
+// judgeRole's first base pair, under the deadline, with system as its system
+// prompt and digest on stdin -- for pair-judge (role pair-judge) and
+// fix-slot-judge (role fix-run-judge) alike. result is
 // the answer JSON's `result` text; spend the ` (judge <s>s[, $<cost>])`
 // suffix; cause, when non-empty, why there is no usable answer, already
 // carrying spend whenever the command ran.
-func pjRun(env Env, rows map[string][]policyRow, system string, digest []byte) (result, spend, cause string) {
+func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, digest []byte) (result, spend, cause string) {
 	var judge pjCandidate
-	if rs := rows["pair-judge"]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
+	if rs := rows[judgeRole]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
 		judge, _ = pjParse(rs[0].Pairs[0])
 	}
 	if judge.model == "" {
-		return "", "", "no pair-judge pair"
+		return "", "", "no " + judgeRole + " pair"
 	}
 	bin := env.Getenv("FLOW_PAIR_JUDGE_CMD")
 	if bin == "" {

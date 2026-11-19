@@ -1957,41 +1957,6 @@ func TestRunVerifyListFullNamesAnEscape(t *testing.T) {
 	}
 }
 
-// TestRunVerifyListFullSetsVerifyFastAside: -full runs every command under a
-// judged verify fast and leaves the verdict as it was.
-func TestRunVerifyListFullSetsVerifyFastAside(t *testing.T) {
-	t.Parallel()
-	fx := newFrFx(t)
-	fx.commit("notes.md")
-	if r := fx.judge("2", frFast); r.rc != 0 {
-		t.Fatalf("rc=%d stderr=%q", r.rc, r.err)
-	}
-	verdict := fx.repo + "/.superpowers/sdd/fix-run.json"
-	before, err := os.ReadFile(verdict)
-	if err != nil {
-		t.Fatal(err)
-	}
-	env := fx.env
-	environ := append(env.Environ(), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=")
-	env.Environ = func() []string { return environ }
-	getenv := env.Getenv
-	env.Getenv = func(k string) string {
-		if k == rvlOperatorFull {
-			return "1"
-		}
-		return getenv(k)
-	}
-	var out, errb bytes.Buffer
-	rc := runVerifyList([]string{"-full", fx.repo, "test"}, env, &out, &errb)
-	ran, _ := os.ReadFile(fx.log)
-	if rc != 0 || (string(ran) != "all\ngo\n" && string(ran) != "go\nall\n") || strings.Count(out.String(), "fix-run verify fast set aside") != 1 {
-		t.Errorf("-full under verify fast: rc=%d ran=%q out:\n%s%s", rc, ran, out.String(), errb.String())
-	}
-	if after, _ := os.ReadFile(verdict); !bytes.Equal(before, after) {
-		t.Errorf("-full changed fix-run.json:\n%s\nwas\n%s", after, before)
-	}
-}
-
 // TestRunVerifyListFullRunsTheVisualSuiteWhole pins
 // full-runs-the-visual-suite-whole.
 func TestRunVerifyListFullRunsTheVisualSuiteWhole(t *testing.T) {

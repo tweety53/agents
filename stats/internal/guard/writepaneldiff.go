@@ -22,7 +22,7 @@ import (
 //
 // Usage:
 //   flow-guard write-panel-diff final      <canonical-wt> <wt> <merge-base> [<wt> <merge-base>...]
-//   flow-guard write-panel-diff late-fix   <canonical-wt> <wt> <since-close-sha> [...]
+//   flow-guard write-panel-diff late-fix   <canonical-wt> <wt> <fix-start-sha> [...]
 //   flow-guard write-panel-diff fix-round <N> <canonical-wt> <wt> <fix-base> [...]
 //   flow-guard write-panel-diff slot-delta <round> <slot> <canonical-wt> <wt> <merge-base> <held-sha|-> [...]
 //   flow-guard write-panel-diff parts      <canonical-wt> <cap>
@@ -52,13 +52,13 @@ import (
 //
 // Both are sectioned per worktree, in argument order, each section opened by
 //   # worktree: <wt> — merge base <sha>
-// naming the worktree's own second argument (its merge base, since-close sha
+// naming the worktree's own second argument (its merge base, fix-start sha
 // or fix base). final-review.diff alone opens with the semantics line
 //   # final-review.diff — working tree vs merge-base, unstaged changes included
 // Each diff section is that worktree's `git diff` over the kind's range, and
 // each .touched section `git diff --name-status` over the same range:
 //   final       git diff <merge-base>          (the working tree: staged and unstaged)
-//   late-fix    git diff <since-close-sha>     (the working tree)
+//   late-fix    git diff <fix-start-sha>       (the working tree)
 //   fix-round   git diff <fix-base>..HEAD
 //   slot-delta  git diff <held-sha> HEAD; a `-` held sha — a worktree in
 //               which the slot holds no sha — reads git diff <merge-base>
@@ -90,7 +90,7 @@ func init() {
 }
 
 const wpdUsage = "usage: flow-guard write-panel-diff final <canonical-wt> <wt> <merge-base> [<wt> <merge-base>...]\n" +
-	"       flow-guard write-panel-diff late-fix <canonical-wt> <wt> <since-close-sha> [<wt> <since-close-sha>...]\n" +
+	"       flow-guard write-panel-diff late-fix <canonical-wt> <wt> <fix-start-sha> [<wt> <fix-start-sha>...]\n" +
 	"       flow-guard write-panel-diff fix-round <N> <canonical-wt> <wt> <fix-base> [<wt> <fix-base>...]\n" +
 	"       flow-guard write-panel-diff slot-delta <round> <slot> <canonical-wt> <wt> <merge-base> <held-sha|-> [...]\n" +
 	"       flow-guard write-panel-diff parts <canonical-wt> <cap>\n"

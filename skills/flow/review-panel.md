@@ -174,7 +174,7 @@ substituted in the dispatch prompt with the value named here:
 
 | Placeholder | Template | The parent substitutes |
 |---|---|---|
-| `[DIFF_PATH]` | all five | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` under the late-fix reduction, the append scope or the small append; on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
+| `[DIFF_PATH]` | all five | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` on a fix run (**The fix-run review**); on a re-run, `slot-delta-<round>-<id>.diff` or the round's `fix-round-N.diff`, whichever the panel re-run rules below assign the slot |
 | `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory the dispatch context bundle reads (`<changeRoot>`, or a satellite's canonical change directory) |
 | `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
 | `[CONTEXT_BUNDLE_PATHS]` | primary, failure-modes, test-sanity, call-efficiency | the paths the CONTEXT BUNDLE paragraph names, `<abs-worktree>/.superpowers/sdd/dispatch-context.md` once per worktree in the resolved set; on the CONTEXT BUNDLE FAILURE continue path, the literal `none — the bundle was not built` |
@@ -194,7 +194,7 @@ slots were added this way and why (the operator's own words) with `flow record p
 and record explicitly when none were: "no addition this round — the decided panel ran alone."
 
 **Model and effort belong to the dispatch's role, not the slot**: every pass-1 panel dispatch runs
-on role `panel-reviewer`, and every fix-round re-run and late-fix pass on role `panel-rerun`
+on role `panel-reviewer`, and every fix-round re-run on role `panel-rerun`
 (**Panel re-runs**), each on the pair `flow-guard pair-judge` picks for it (**Model and effort**,
 `skills/flow/brainstorm-planner.md`) — the dispatch's `subagent_type` is the pair's agent type, the
 model passed explicitly as the Agent tool's own `model` parameter — and both `model` and `-effort`
@@ -255,10 +255,8 @@ Record the verdict, the printed path where there is one, and the slots actually 
 `flow record pass -round <round>` on **every** run, beside the diff-size
 fields above.
 
-**This, the late-fix reduction below and the small append (`skills/flow/review-panel-late-fix.md`)
-are the only automatic reductions, and they only ever
-remove; the append scope (`skills/flow/review-panel-late-fix.md`) narrows the read scope and
-removes no slot.** No slot is ever added by diff
+**This and the fix-run review below are the only automatic reductions, and they only ever
+remove.** No slot is ever added by diff
 size, touched area, or any other automatic trigger, and none removes a decided `mutation`: beyond the reduced or decided panel,
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
@@ -279,12 +277,28 @@ stderr. Then dispatch the round's
 never dispatched once per worktree, save over the cap as the over-cap paragraph above splits it: one pass reads every worktree's section, so a seam between two repositories is in one pass's view. **Bundled dispatch** below states how a round's roles ride
 those dispatches.
 
-### The late-fix reduction
+### The fix-run review
 
-**Load `skills/flow/review-panel-late-fix.md` only when** this run is a fix run — a `/flow`
-invocation whose argument is fix instructions, or a plain message at `IN_PROGRESS`
-(`skills/flow/SKILL.md`) — before this stage opens its first round; it carries
-the reduction's conditions, its single dispatch, what voids it, the append scope, the small append and the fix-run judge.
+**A fix run's pass 1 reads only the fix's own delta, and runs only the decided slots that delta
+needs.** A fix run is a `/flow` invocation whose argument is fix instructions, or a plain message at
+`IN_PROGRESS` (`skills/flow/SKILL.md`); its delta runs from each worktree's fix-start sha
+(`skills/flow/document-fix.md`) to the working tree. Before its first round, run
+
+```bash
+flow-guard fix-slot-judge <worktree> <fix-start-sha> <abs-worktree>/.superpowers/sdd/fix-instructions-<n>.md <abs-worktree>/.superpowers/sdd/decision.json
+```
+
+in the canonical worktree; its header is canonical for its lines, its fallback and its exits, and
+exit 2 stops the run with its stderr. Pass 1 dispatches the decided bundles with every slot printed
+`skip` dropped — a bundle left naming none is not dispatched — each dropped slot recorded with
+`flow record pass -round <round> -note 'not dispatched — fix-slot judge: <slot> — <reason>'`. Every
+dispatch reads `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written by
+`flow-guard write-panel-diff late-fix <abs-worktree> <worktree> <fix-start-sha> [<worktree> <fix-start-sha>…]`,
+whose exits read as the pass-1 write's, and rendered with `-diff late-fix`; `mutation`, which reads
+no diff file, takes each worktree's fix-start sha as its diff base. A finding is fixed by the
+ordinary fix round (`skills/flow/review-panel-fix-round.md`), and only the slot that raised it
+re-runs. Nothing else trims or widens a fix run's review: the docs-only reduction does not apply
+to it.
 
 ### Bundled dispatch
 
@@ -416,7 +430,7 @@ untracked — a reproducer's scratch copy included.
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
 panel record names every worktree's sha beside the delta path. `-model` and `-effort` are the dispatch's role's pair
-— `panel-reviewer` in pass 1, `panel-rerun` on a fix-round re-run or a late-fix pass — or this run's override.
+— `panel-reviewer` in pass 1, `panel-rerun` on a fix-round re-run — or this run's override.
 
 **`-agent-id` is never typed on a slot's row — save a send-back `flow-guard resume-or-fresh` answered `resume` for (`skills/flow/review-panel-fix-round.md`, `skills/flow/implement.md`) — never invented** — the daemon captures the launch identifier,
 stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session — each slot's description opens with its row's `-key` (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`) — and pairing a launch whose description names no row with the begin nearest it in time;
@@ -946,8 +960,8 @@ finding leaves that slot's result current: the round's own mutation-proof (below
 fix changed. A fix of Mutation's own findings leaves Mutation's result current too: its
 reproducers' flips and the fix's `fix-mutation:` lines cover it (**Panel re-runs**,
 `skills/flow/review-panel-fix-round.md`). **The parent's inline Minor commit leaves every slot's result current** — a source change
-after a slot's last read that does not make that result stale. A delta the late-fix
-reduction read, or the small append, has its own carve-out (`skills/flow/review-panel-late-fix.md`).
+after a slot's last read that does not make that result stale, and neither does a fix run's delta
+for a slot the fix-slot judge skipped (**The fix-run review**).
 
 **Every fix subagent's dispatch prompt also carries the VERBATIM REPORT — THE FACT paragraph**:
 
@@ -1183,10 +1197,7 @@ fix landed in as `-commit`, and runs the guard again.
 
 Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
 
-Before the stage ends, the parent copies `<changeRoot>/tasks.md` to
-`<project>/.superpowers/sdd/<name>/tasks-at-close.md` in the canonical worktree — the plan as this clean close
-reviewed it, which `flow-guard check-late-fix-trigger` reads on a later fix run, since no commit holds the
-gitignored plan:
+Then the stage ends:
 
 ```bash
 flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>

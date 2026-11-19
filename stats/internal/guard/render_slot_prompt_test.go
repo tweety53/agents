@@ -449,9 +449,8 @@ func TestRenderSlotPromptPrintsTheDispatchHead(t *testing.T) {
 		{"sanity pass", "test-sanity+call-efficiency", "final", "", `DISPATCH: description "panel-2-test-sanity+call-efficiency" — prompt opens "Role: panel-sanity-efficiency"`},
 		{"main pass", "primary+principles", "final", "", `DISPATCH: description "panel-2-primary+principles" — prompt opens "Role: panel-reviewer"`},
 		{"delta re-run", "primary", "delta", "", `DISPATCH: description "panel-2-primary" — prompt opens "Role: panel-rerun"`},
-		{"late fix, no decision", "primary", "late-fix", "", `DISPATCH: description "panel-2-primary" — prompt opens "Role: late-fix"`},
-		{"late fix, default panel", "primary", "late-fix", `{"panel":"default"}`, `DISPATCH: description "panel-2-primary" — prompt opens "Role: late-fix"`},
-		{"late fix, decided panel", "primary", "late-fix", `{"panel":{"rerun_dispatch":{"model":"sonnet","effort":"low"}}}`, `DISPATCH: description "panel-2-primary" — prompt opens "Role: panel-rerun"`},
+		{"fix run, main bundle", "primary+principles", "late-fix", "", `DISPATCH: description "panel-2-primary+principles" — prompt opens "Role: panel-reviewer"`},
+		{"fix run, mutation bundle", "mutation", "late-fix", "", `DISPATCH: description "panel-2-mutation" — prompt opens "Role: panel-mutation-failure"`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			fx := rspNewFx(t)

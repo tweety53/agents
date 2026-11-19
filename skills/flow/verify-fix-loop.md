@@ -196,9 +196,10 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    A round that runs no full run — its diff touches no `ui paths` entry, it closes compose-only, or
    its scoped re-run's `close` printed `CLOSES-LOOP: yes` — opens the panel on its clean step-4
    re-run instead.
-   Its `late-fix.diff` is written, and its dispatches paired, ceilinged and recorded, as **The
-   late-fix reduction** (`skills/flow/review-panel-late-fix.md`) states its dispatch, its prompt
-   carrying the FIX-ROUND SCOPE paragraph of **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
+   Its `late-fix.diff` is written by `flow-guard write-panel-diff late-fix <abs-worktree> <worktree>
+   <close-sha> [<worktree> <close-sha>…]`, `<close-sha>` the HEAD the panel's last clean close
+   reviewed, and rendered with `-diff late-fix`, its prompt carrying the FIX-ROUND SCOPE paragraph
+   of **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).
    The panel fix's re-run is keyed as one more round's, `-fix-<k+1>` with `<k>` the loop's last
    round, so an `In-run fix` a defect it reports opens is numbered `<k+2>`; its `verify` re-run always runs — `flow-guard run-verify-list` records `skipped`
    itself where nothing a test command reads changed — since a code commit no completed or skipped
@@ -206,12 +207,9 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    The dispatches are keyed `panel-<round>-primary` and
    `panel-<round>-mutation`, `<round>` the number `flow record next-round`
    prints, and the round records its `flow record pass -round <round>` rows like any panel round.
-   That file's finding, voiding and staleness rules
-   apply as written — a clean or Minor-only read leaves every slot it did not dispatch current.
-   Once any round's read raises a Critical or Important, the reduction is void for the rest of the
-   run: every later round's step 3 opens the decided full panel, never `primary` alone.
-   `flow-guard check-late-fix-trigger` is not run: its scope-growth condition denies every appended task the late-fix reduction,
-   and this task's premise is a defect a verifier measured, not an operator's unverified flag.
+   A clean or Minor-only read leaves every slot it did not dispatch current.
+   Once any round's read raises a Critical or Important, every later round's step 3 this run opens
+   the decided full panel, never `primary` alone.
    The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).
 4. **Re-capture and re-run.** Run **Verify** (`skills/flow/verify-and-handoff.md`) again from its
    `begin` mark, then **Visual verification** from its `begin` mark, so the fix's own lint, tests and

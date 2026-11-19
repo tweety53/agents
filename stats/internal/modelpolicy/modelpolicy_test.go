@@ -57,7 +57,7 @@ func TestRowsTwoColumns(t *testing.T) {
 	}
 	for _, role := range []string{
 		"explorer", "plan-designer", "planner", "implementer", "panel-fix", "panel-reviewer", "panel-sanity-efficiency", "panel-mutation-failure", "panel-rerun", "design-reviewer", "decider", "gated-reviewer",
-		"gated-re-reviewer", "visual-verifier", "late-fix", "fix-run-judge", "panel-merger", "tooling-analyst",
+		"gated-re-reviewer", "visual-verifier", "fix-run-judge", "panel-merger", "tooling-analyst",
 		"self-review-pass", "prompt-tuning-replay", "prompt-tuning-grader", "self-review-plan", "pipeline-fix-plan", "self-review-fix", "pipeline-fix-fix",
 		"self-review-review-1", "pipeline-fix-review-1", "self-review-review-r", "pipeline-fix-review-r", "pair-judge",
 	} {

@@ -802,8 +802,8 @@ The mapping already fixes what the handshake exists to establish, and the dispat
 
 ## Moved by KAN-857 — review-panel trims
 
-Sentences `skills/flow/review-panel.md` and the files split out of it (`review-panel-late-fix.md`,
-`review-panel-fix-round.md`, `review-panel-optional-slots.md`) carried as reasons or as the
+Sentences `skills/flow/review-panel.md` and the files split out of it
+(`review-panel-fix-round.md`, `review-panel-optional-slots.md`) carried as reasons or as the
 renderer's output format, moved here verbatim. Each rule they explained stays in the run-loaded
 file.
 
@@ -855,12 +855,6 @@ A finding recorded with no reproducer renders the `none — <reason>` exemption 
 
 **The table carries no status column, on purpose.** To read a finding's state, look up its `F<n>`
 in the marker block.
-
-### review-panel.md — The late-fix reduction (KAN-857)
-
-An appended fix that a full pass would bury under re-covered ground is reviewed by one targeted dispatch on what the fix actually changed; the full-read coverage stays exactly where it earns its keep, on every round this reduction does not fire for.
-
-A consuming project typically carries none of those paths and the condition holds vacuously there; a fix to anything the panel reads as its own brief is never its own reviewer.
 
 ### review-panel.md — Panel re-runs (KAN-857)
 
@@ -1322,10 +1316,6 @@ attribution; the text after it is the passage, verbatim.
 ### integrate.md — Deciding which run this is
 
 - *guards from its own checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH`* — kan-1073's installed `commit` failed on the branch's planning commit, and its installed `flow` had no `change` command
-
-### review-panel-late-fix.md — The small append
-
-- *the small append drops is the second lens and the higher effort* — which KAN-930 spent on six append rounds that raised Minors at most
 
 ### gated-reviewer-brief.md — Gated reviewer brief
 

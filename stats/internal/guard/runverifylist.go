@@ -139,18 +139,6 @@
 // <path>=<HEAD> …`, and the row is covered, or skipped as passed at HEAD, only
 // while that line equals the current one.
 //
-// VERIFY FAST. A `test` run in a worktree whose
-// `.superpowers/sdd/fix-run.json` -- the fix-run judge's verdict, written by
-// flow-guard fix-run-floor, whose header is canonical for it -- says verify
-// fast skips every command and the visual verify, printing
-//   - `<command>` — skipped, fix-run verify fast: the change is prose
-// writes neither green file and ends its row `skipped`. The verdict holds
-// only while the change's class, re-derived from the tree, is still prose,
-// and only while `flow record findings` holds no Critical or Important
-// finding of the verdict's round or a later one; otherwise the whole list
-// runs, a voided verdict saying so on a line of its own. A `lint` list is
-// never shortened.
-//
 // A SKIPPED SUITE. A `test` command opening with `flow-guard unchanged
 // <pathspecs> ||` -- an optional path before `flow-guard`, each pathspec a
 // bare word of letters, digits and `_ . / : ! @ % + = , -` or one
@@ -172,9 +160,7 @@
 // `FLOW_VERIFY_FULL=1` after every inherited entry, so `flow-guard unchanged`
 // answers 1 and each suite runs. Neither green file skips a command and A
 // SKIPPED SUITE's check is not run, while both files are written as on any
-// run. A judged verify fast prints
-//   - fix-run verify fast set aside — -full runs the whole list
-// skips nothing and leaves fix-run.json as it was. A suite is recorded as
+// run. A suite is recorded as
 // `<name>-full` and the visual row as `visual-full`. The visual `verify` row
 // runs whenever the cell is declared, `<specs>` emptied and the `specs` row
 // not run, whatever the diff, the green sha and decision.json say, from the
@@ -405,9 +391,6 @@ import (
 // skip it, it prints `- visual verify — not run: …` and exits 0 (kan-1052
 // self-review, F2).
 //
-// A `test` list under a fix-run judge's verify fast (flow-guard fix-run-floor)
-// skips every command and ends its row skipped.
-//
 // THE FULL SUITE (decisions full-is-the-list-unskipped,
 // full-runs-the-visual-suite-whole, full-rows-carry-a-suffix,
 // full-failure-names-its-escape). `-full`, a leading flag beside `-only`,
@@ -416,9 +399,7 @@ import (
 // `FLOW_VERIFY_FULL=1` after every inherited entry, so `flow-guard unchanged`
 // answers 1 and each suite runs. Neither green file skips a command and A
 // SKIPPED SUITE's check is not run, while both files are written as on any
-// run. A judged verify fast prints
-//   - fix-run verify fast set aside — -full runs the whole list
-// skips nothing and leaves fix-run.json as it was. A suite is recorded as
+// run. A suite is recorded as
 // `<name>-full` and the visual row as `visual-full`. The visual `verify` row
 // runs whenever the cell is declared, `<specs>` emptied and the `specs` row
 // not run, whatever the diff, the green sha and decision.json say, from the
@@ -986,8 +967,7 @@ func rvlKeepPlaywrightResults(dir, dst string, since time.Time) string {
 // rvlParse reads a verify list out of `project-get <worktree> <list>`'s
 // output: every non-blank, non-`#` line inside a ```bash fence, in order.
 // inputs[i] is the pathspec list the `# inputs:` line above cmds[i] named,
-// suites[i] the `# suite:` line's name. fix-run-floor reads the `test`
-// list's inputs through it too.
+// suites[i] the `# suite:` line's name.
 func rvlParse(body string) (cmds, inputs, suites []string) {
 	pending, suite, fenced := "", "", false
 	for _, line := range strings.Split(strings.TrimRight(body, "\n"), "\n") {
@@ -1409,29 +1389,6 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			os.WriteFile(running+"-"+list, nil, 0o666)
 		}
 	}
-	// VERIFY FAST: a fix run's judged verdict (fix-run-floor) skips every
-	// `test` command while the change is still prose and the store holds no
-	// Critical or Important finding of the verdict's round or later.
-	fast, fastWhy := false, ""
-	if list == "test" {
-		if v, ok := fixRunVerdict(env, abs(wt)); ok && v.Verify == "fast" && full {
-			fmt.Fprintln(stdout, "- fix-run verify fast set aside — -full runs the whole list")
-		} else if ok && v.Verify == "fast" {
-			if change == "" {
-				branch, _ := gitOut("branch", "--show-current")
-				change = strings.TrimPrefix(branch, "spectre/")
-			}
-			store := abs(wt)
-			if canon != "" {
-				store = canon
-			}
-			if fastWhy = frSevereSince(env, store, change, v.Round); fastWhy == "" {
-				fast = true
-			} else {
-				fmt.Fprintf(stdout, "- fix-run verify fast voided — %s: the whole list runs\n", fastWhy)
-			}
-		}
-	}
 	suffixFull := "" // THE FULL SUITE: its rows are `<name>-full`
 	if full {
 		suffixFull = "-full"
@@ -1454,8 +1411,6 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	var argvs [][]string
 	for i, c := range cmds {
 		switch {
-		case fast:
-			skip[i] = true
 		case unchanged(inputs[i]):
 			skip[i] = true
 		case list == "test" && !full && slices.Contains(greenAt, c):
@@ -1475,10 +1430,6 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if list == "test" {
 		results := rgtRun(context.Background(), argvs, max(len(argvs), 1), outDir, abs(wt), cmdEnv)
 		for i, c := range cmds {
-			if fast {
-				fmt.Fprintf(stdout, "- `%s` — skipped, fix-run verify fast: the change is prose\n", c)
-				continue
-			}
 			if passedAt[i] {
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", c, headSHA)
 				continue
@@ -1502,7 +1453,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	visualRan, sibStamp := false, ""
-	if list != "lint" && !fast {
+	if list != "lint" {
 		if change == "" {
 			branch, _ := gitOut("branch", "--show-current")
 			change = strings.TrimPrefix(branch, "spectre/")
@@ -1667,15 +1618,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	// A fast run ran no command, so it stamps no green a later run could skip on.
-	if headSHA != "" && failed == 0 && !fast && clean() {
+	if headSHA != "" && failed == 0 && clean() {
 		green := headSHA + "\n"
 		if sibStamp != "" {
 			green += "siblings " + sibStamp + "\n"
 		}
 		os.WriteFile(greenFile, []byte(green), 0o666)
 	}
-	if cmdsFile != "" && !fast && clean() {
+	if cmdsFile != "" && clean() {
 		var lines []string
 		for _, c := range append(greenAt, passed...) {
 			if !slices.Contains(lines, c) {

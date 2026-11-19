@@ -122,7 +122,6 @@ ROW_KEY = (
     r"|full-suite-fix-\d+"
     r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
     r"|tooling-analysis-\d+(?:-[a-z0-9][a-z0-9-]*)?"
-    r"|fix-run-judge-\d+"
     r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
     r"|plan-review-\d+"
     r"|plan-\d+"
@@ -173,11 +172,11 @@ ROW_ROLE = {
     "implementer": "implementer", "operator-asked": "implementer",
     "gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
     "panel-reviewer": "reviewer", "panel-sanity-efficiency": "reviewer",
-    "panel-mutation-failure": "reviewer", "panel-rerun": "reviewer", "late-fix": "reviewer",
+    "panel-mutation-failure": "reviewer", "panel-rerun": "reviewer",
     "panel-merger": "merger",
     "panel-fix": "panel-fix",
     "visual-verifier": "verifier",
-    "planner": "planner", "plan-designer": "planner", "tooling-analyst": "planner", "fix-run-judge": "planner",
+    "planner": "planner", "plan-designer": "planner", "tooling-analyst": "planner",
     "explorer": "explorer",
 }
 

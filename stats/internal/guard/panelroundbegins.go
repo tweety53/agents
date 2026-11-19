@@ -38,14 +38,9 @@ import (
 // the later slots still recorded), or a round of 1 or later carries no
 // mutation-carrying slot while no earlier round's completed one
 // (`mutation-pass-missing`, stderr naming mutation+failure-modes, no begin
-// recorded; a judged roster omitting mutation owes none -- kan-1099
-// self-review, F24); 2 usage, the change's dispatch rows unreadable, no flow binary on PATH, or the
-// plan-tree snapshot failed, no begin recorded; 3 a
-// slot carries a role the fix run's judged roster omits -- in the round
-// <worktree>/.superpowers/sdd/fix-run.json governs (flow-guard fix-run-floor,
-// whose header is canonical for that file), stderr names the slot and role
-// and no begin is recorded, so hooks/enforce-agent-baseline.py denies the
-// launch.
+// recorded -- kan-1099 self-review, F24); 2 usage, the change's dispatch rows
+// unreadable, no flow binary on PATH, or the plan-tree snapshot failed, no
+// begin recorded.
 //
 // Go, in flow-guard (stats/internal/guard/panelroundbegins.go).
 
@@ -68,8 +63,7 @@ import (
 // Exit 0 every begin recorded; 1 a begin failed (its output relayed, the
 // rest still recorded) or a mutation pass is owed (no begin recorded); 2
 // usage, unreadable dispatch rows, no flow binary on PATH, or a failed
-// snapshot, no begin recorded; 3 a slot off the fix run's judged roster, no
-// begin recorded.
+// snapshot, no begin recorded.
 func init() {
 	Registry["panel-round-begins"] = panelRoundBegins
 }
@@ -108,27 +102,11 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		slots = append(slots, s)
 	}
-	// THE JUDGED ROSTER: in the round a fix run's verdict governs, a slot
-	// carrying a role the verdict's roster omits is refused before any begin.
-	v, judged := fixRunVerdict(env, smcAbs(env, wt))
-	judged = judged && strconv.Itoa(v.Round) == round
-	if judged {
-		for _, s := range slots {
-			for _, role := range strings.Split(s.name, "+") {
-				if !slices.Contains(v.Roster, role) {
-					fmt.Fprintf(stderr, "panel-round-begins: slot %s carries %s, which this fix run's judged roster (%s) omits — no begin recorded (flow-guard fix-run-floor)\n", s.name, role, strings.Join(v.Roster, ","))
-					Reason(env, "slot-role-off-roster")
-					return 3
-				}
-			}
-		}
-	}
 	// THE OWED MUTATION PASS: a round of 1 or later begins only once a
 	// mutation-carrying slot of an earlier round ended completed, or carries
 	// one itself -- a pass that never ran no mutant is owed to the next round
-	// (kan-1099 self-review, F24: rounds 0 to 3 ran none). A judged roster
-	// omitting mutation owes none.
-	if round != "0" && !(judged && !slices.Contains(v.Roster, "mutation")) &&
+	// (kan-1099 self-review, F24: rounds 0 to 3 ran none).
+	if round != "0" &&
 		!slices.ContainsFunc(slots, func(s slot) bool { return slices.Contains(strings.Split(s.name, "+"), "mutation") }) {
 		out, _, rc := pcFlow(env, false, "record", "dispatches", "-C", wt, "-change", change)
 		var rows []struct{ Key, Outcome string }

@@ -121,12 +121,11 @@ are one more.
 The test group skips what the list's last green run on a clean tree already covered: every command
 when HEAD is the sha that run recorded, otherwise each command whose `# inputs:` pathspecs the delta
 since that sha leaves untouched; a skipped command's `## Report` line says so, and the script's
-header is canonical for the rule. On a fix run it skips every command while a judged `verify: fast` is in force (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`). At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed.
+header is canonical for the rule. At the same HEAD it also skips each command an earlier run on a clean tree passed while another of that run's commands failed, its `## Report` line naming that sha, so a re-run after one failure runs only what has not passed.
 
 **The full suite is `flow-guard run-verify-list -full <worktree> test`, run only when the operator
 asks** (**Full-suite instruction**, `skills/flow/SKILL.md`). It is the same list with every skip
-off: every suite runs, no command is skipped on a green run, a judged `verify: fast` is set aside
-for that run, and the visual `verify` row runs whole. Its suite rows are recorded as
+off: every suite runs, no command is skipped on a green run, and the visual `verify` row runs whole. Its suite rows are recorded as
 `<name>-full`, and with the recording arguments its row stands as the `verify` gate. A command
 it fails that the default list passed at the same HEAD is marked `escaped the default list`; the
 script's header is canonical for the rest.
@@ -312,11 +311,10 @@ A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<
    Each worktree's diff runs from its `--merge-base` — never `origin/<base>` or another ref picked by
    hand, which matches every path the base gained since the worktree was cut as this change's own.
 
-   **On a fix run, both calls read the fix run's own diff.** A worktree that has a since-close sha this
-   run — the one **The late-fix reduction** (`skills/flow/review-panel-late-fix.md`) read for it — is
-   passed `--since <worktree>=<that sha>`, so a fix run whose delta touches no `ui paths` skips this
+   **On a fix run, both calls read the fix run's own diff.** Each worktree is passed
+   `--since <worktree>=<its fix-start sha>` (`skills/flow/document-fix.md`), so a fix run whose delta touches no `ui paths` skips this
    stage at step 2 as exit 1 does.
-   A worktree whose since-close sha is `-` is passed no `--since`, and neither is any worktree when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/flow-guard check-visual-verify-dispatched` counts), or on a sharded pass the newest row of any shard index, does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the since-close sha.
+   No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify` — the rows `<agents repo>/scripts/flow-guard check-visual-verify-dispatched` counts), or on a sharded pass the newest row of any shard index, does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of

@@ -1,7 +1,6 @@
 package guard
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -81,12 +80,10 @@ import (
 // After the path, one line names the Agent call that launches the brief:
 // `DISPATCH: description "panel-<round>-<slots>[-<repo>|-part<k>]" — prompt opens "Role: <role>"`,
 // <role> panel-mutation-failure for a dispatch carrying mutation and
-// panel-sanity-efficiency under -diff final for a dispatch whose every slot is
-// test-sanity or call-efficiency (the bundle, or either alone once shrunk),
-// panel-reviewer for any other final dispatch, panel-rerun under delta and
-// fix-round, and under late-fix `late-fix` when
-// <canonical-wt>/.superpowers/sdd/decision.json is absent or its panel is
-// "default", else panel-rerun (kan-1086 self-review, F9).
+// panel-sanity-efficiency under -diff final or late-fix for a dispatch whose
+// every slot is test-sanity or call-efficiency (the bundle, or either alone
+// once shrunk), panel-reviewer for any other final or late-fix dispatch, and
+// panel-rerun under delta and fix-round (kan-1086 self-review, F9).
 //
 // Exit codes:
 //   0  written; its path, then the DISPATCH line, on stdout
@@ -483,7 +480,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		return refuse("cannot-write-prompt", "%v", err)
 	}
 	fmt.Fprintln(stdout, path)
-	fmt.Fprintf(stdout, "DISPATCH: description %q — prompt opens \"Role: %s\"\n", "panel-"+round+"-"+slotArg+suffix, rspRole(slotArg, kind, sdd))
+	fmt.Fprintf(stdout, "DISPATCH: description %q — prompt opens \"Role: %s\"\n", "panel-"+round+"-"+slotArg+suffix, rspRole(slotArg, kind))
 	return 0
 }
 
@@ -492,12 +489,11 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 // dispatch carrying the mutation slot, alone or with failure-modes, is the
 // panel-mutation-failure bundle, and one whose every role is test-sanity or
 // call-efficiency -- the bundle, or either role alone after the slot triggers
-// shrank it (kan-1126) -- is panel-sanity-efficiency; under late-fix,
-// `late-fix` on a default panel -- decision.json absent or its panel the
-// string "default" -- and `panel-rerun` on a decided one.
-func rspRole(slotArg, kind, sdd string) string {
+// shrank it (kan-1126) -- is panel-sanity-efficiency. A late-fix dispatch
+// is a fix run's pass 1, so it takes final's roles.
+func rspRole(slotArg, kind string) string {
 	switch kind {
-	case "final":
+	case "final", "late-fix":
 		roles := strings.Split(slotArg, "+")
 		switch {
 		case slices.Contains(roles, "mutation"):
@@ -506,14 +502,6 @@ func rspRole(slotArg, kind, sdd string) string {
 			return "panel-sanity-efficiency"
 		}
 		return "panel-reviewer"
-	case "late-fix":
-		var d struct {
-			Panel json.RawMessage `json:"panel"`
-		}
-		raw, err := os.ReadFile(sdd + "decision.json")
-		if err != nil || json.Unmarshal(raw, &d) != nil || len(d.Panel) == 0 || string(d.Panel) == `"default"` {
-			return "late-fix"
-		}
 	}
 	return "panel-rerun"
 }

@@ -58,12 +58,11 @@ These nine rows are **every** Agent-tool dispatch the parent may make, across se
 |---|---|---|---|---|
 | implementer, one per group; a fixer per fix | `implementer` | `implementer` | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
 | gated reviewer bundle, one per implementer group | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
-| panel bundle, one per decided `panel` bundle, plus at most one citation send-back per re-run dispatch | `reviewer` | `panel-reviewer` on pass 1; `panel-rerun` for a re-run, its send-back and a late-fix pass | `panel-<round>-<slot\|slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
+| panel bundle, one per decided `panel` bundle, plus at most one citation send-back per re-run dispatch | `reviewer` | `panel-reviewer` on pass 1; `panel-rerun` for a re-run and its send-back | `panel-<round>-<slot\|slot+slot>` (`-cite` once per re-run dispatch) | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree, or one per shard of a sharded pass | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analyst` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
-| fix-run judge, one per fix run whose floor is prose | `planner` | `fix-run-judge` | `fix-run-judge-<n>` | `skills/flow/review-panel-late-fix.md`, **The fix-run judge** |
 | in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
 **Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
@@ -148,7 +147,7 @@ row dispatches on the `visual-verifier` role's pair (`skills/flow/visual-verify.
 a `flow-<effort>` definition, so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside it.
 
 **The handshake.** Every dispatched role in this
-pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst, fix-run judge, in-run pipeline fix — opens its first reply with the `Model:`
+pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst, in-run pipeline fix — opens its first reply with the `Model:`
 line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
 this pipeline carries that paragraph verbatim. A child launched in the background hands back one
 reply, its final message, and that message's first line is the one compared — an implementer's or
@@ -411,7 +410,7 @@ unique within the run's session token — `task-<ids>-implementer`, reused ident
 Inside a `for` loop it may expand the loop variable — `$k`, `${k}`, or a `#`/`%` strip of it — the
 only shapes the harvester reads; any other expansion leaves the row without its agent.
 `-role` is one of `implementer`, `reviewer`, `panel-fix`, `verifier` (**Verify**,
-`skills/flow/verify-and-handoff.md`) or `planner` (the tooling analyst, `skills/flow/visual-verify.md`, and the fix-run judge); `-task` is the task's
+`skills/flow/verify-and-handoff.md`) or `planner` (the tooling analyst, `skills/flow/visual-verify.md`); `-task` is the task's
 flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,
 never a shell substitution. The start and end instants are the daemon's own — never
 caller inputs.
@@ -879,7 +878,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
   `flow.verify` and the test-list run after the last group the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
   — and `document-fix.md`, `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`,
-  `implementer-brief.md`, `review-panel-late-fix.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
+  `implementer-brief.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
   `visual-verify.md` and `visual-verify-tooling-analysis.md` when their load directive or stage loads them — are each read in full
   once, at the start of the stage that needs them; a later need is served by
   `grep -n` for the heading plus `sed -n` for that section, never a second full read.

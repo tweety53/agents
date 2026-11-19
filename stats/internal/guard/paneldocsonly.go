@@ -67,7 +67,7 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	for _, p := range paths {
 		// isDocPath is the one path classifier, shared with
-		// check-panel-citation-trigger and fix-run-floor.
+		// check-panel-citation-trigger.
 		if !isDocPath(p) {
 			fmt.Fprintln(stdout, p)
 			Reason(env, "non-doc-path-touched")

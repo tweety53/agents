@@ -87,7 +87,7 @@ func TestLoadSets(t *testing.T) {
 				flow++
 			}
 		}
-		if len(lines) != 158 || flow != 8 || strings.Contains(r.err, "SKILL.md") {
+		if len(lines) != 156 || flow != 8 || strings.Contains(r.err, "SKILL.md") {
 			t.Fatalf("lines=%d flow.md=%d stderr=\n%s", len(lines), flow, r.err)
 		}
 	})
