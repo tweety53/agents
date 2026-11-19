@@ -6546,6 +6546,14 @@ func TestOpenDispatchBySessionKey(t *testing.T) {
 	if _, _, _, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-9-reviewer"); err != nil || found {
 		t.Fatalf("unknown key: found %v, err %v, want false, nil", found, err)
 	}
+	only := baseDispatch("reviewer", "sonnet")
+	only.Key, only.SessionID, only.SessionToken, only.EndedAt = "task-4-reviewer", "s1", "mf-open-d", &ended
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", only); err != nil {
+		t.Fatalf("RecordDispatch (only ended): %v", err)
+	}
+	if _, _, _, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-4-reviewer"); err != nil || found {
+		t.Fatalf("only an ended row under the key: found %v, err %v, want false, nil", found, err)
+	}
 }
 
 // TestMarkDispatchUnattributedStampsOneRow pins the per-row twin of
