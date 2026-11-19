@@ -309,3 +309,30 @@ func TestRecaptureFailsWhenNoSpecHoldsATitle(t *testing.T) {
 		}
 	}
 }
+
+// TestRcBlobsMatchesRevParse: rcBlobs' one ls-tree reads, for every path, what
+// `git rev-parse --verify --quiet <rev>:<path>` printed per path -- a nested
+// file, a name with a space, tab and non-ASCII byte, a path the rev lacks, a
+// path that is a directory there.
+func TestRcBlobsMatchesRevParse(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	fixtureRepo(t, wt, repoShape{Branch: "main"})
+	paths := []string{"top.txt", "a/b/nested.txt", "sp ace\tтаб.txt", "gone.txt", "a/b"}
+	for _, p := range paths[:3] {
+		writeFile(t, filepath.Join(wt, p), p+"\n")
+	}
+	gitRun(t, wt, "add", "-A")
+	gitRun(t, wt, "commit", "-qm", "x")
+	git := envGit(Env{Getenv: os.Getenv, Dir: wt})
+	got := rcBlobs(git, wt, "HEAD", paths)
+	for _, p := range paths {
+		want, _ := capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "HEAD:"+p))
+		if got[p] != want {
+			t.Errorf("%q: rcBlobs %q, rev-parse %q", p, got[p], want)
+		}
+	}
+	if len(got) != len(paths) {
+		t.Errorf("rcBlobs keys %v, want one per path", got)
+	}
+}

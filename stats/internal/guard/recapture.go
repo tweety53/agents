@@ -143,6 +143,32 @@ func rcReceipts(env Env, worktree string) []rcReceipt {
 	return out
 }
 
+// rcBlobs is each of paths' object at rev in worktree -- what `git rev-parse
+// --verify --quiet <rev>:<path>` prints for it, "" where rev holds no such
+// path -- read through one `git cat-file --batch-check` rather than one exec
+// per path. Paths come from line-split git output, so none holds a newline.
+func rcBlobs(git func(...string) *exec.Cmd, worktree, rev string, paths []string) map[string]string {
+	out := map[string]string{}
+	if len(paths) == 0 {
+		return out
+	}
+	var in strings.Builder
+	for _, f := range paths {
+		in.WriteString(rev + ":" + f + "\n")
+	}
+	cmd := git("-C", worktree, "cat-file", "--batch-check=%(objectname)")
+	cmd.Stdin = strings.NewReader(in.String())
+	list, _ := capture(cmd)
+	lines := strings.Split(list, "\n")
+	for i, f := range paths {
+		out[f] = ""
+		if i < len(lines) && !strings.HasSuffix(lines[i], " missing") && !strings.HasSuffix(lines[i], " ambiguous") {
+			out[f] = lines[i]
+		}
+	}
+	return out
+}
+
 // rcSourcePaths keeps the paths of a diff that are sources: no capture
 // output, and no test outside the capture root.
 func rcSourcePaths(env Env, worktree, captureRoot string, paths []string) []string {
@@ -354,10 +380,7 @@ func errorsJoinClose(err error, f *os.File) error {
 func rcCommitReceipts(env Env, worktree, captureRoot, sha string) ([]rcReceipt, bool) {
 	git := envGit(env)
 	names, _ := capture(git("-C", worktree, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", sha))
-	want := map[string]string{}
-	for _, f := range rcSourcePaths(env, worktree, captureRoot, strings.Split(names, "\n")) {
-		want[f], _ = capture(git("-C", worktree, "rev-parse", "--verify", "--quiet", sha+":"+f))
-	}
+	want := rcBlobs(git, worktree, sha, rcSourcePaths(env, worktree, captureRoot, strings.Split(names, "\n")))
 	return slices.DeleteFunc(rcReceipts(env, worktree), func(r rcReceipt) bool {
 		for f, blob := range want {
 			if got, seen := r.Blobs[f]; !seen || got != blob {
@@ -467,10 +490,7 @@ func rcCaptured(env Env, captureRoot string, bases map[string]string) []string {
 	ranged := false
 	for wt, base := range bases {
 		names, _ := capture(git("-C", wt, "diff", "--name-only", "--no-renames", base, "HEAD"))
-		want := map[string]string{}
-		for _, f := range rcSourcePaths(env, wt, captureRoot, strings.Split(names, "\n")) {
-			want[f], _ = capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "HEAD:"+f))
-		}
+		want := rcBlobs(git, wt, "HEAD", rcSourcePaths(env, wt, captureRoot, strings.Split(names, "\n")))
 		if len(want) == 0 {
 			continue
 		}
