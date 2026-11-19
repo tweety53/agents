@@ -190,6 +190,18 @@ func TestReadyGroupsReadsADeciderDecision(t *testing.T) {
 	}
 }
 
+// TestReadyGroupsUngroupedTasksAreOneTaskGroups pins that a task no decision
+// group names -- a fix run's appended task -- is a one-task group of its own,
+// numbered after the decision's groups in plan order.
+func TestReadyGroupsUngroupedTasksAreOneTaskGroups(t *testing.T) {
+	t.Parallel()
+	plan := strings.Replace(readyPlan("## a", "1|none", "2|none", "## b", "3|none", "4|none"), "- [ ] 1.", "- [x] 1.", 1)
+	r := readyRun(t, plan, `[{"tasks":["1"]}]`, `[]`)
+	if r.rc != 0 || r.stdout != "launch 2: 2 a direct\nlaunch 3: 3 b throwaway\nlaunch 4: 4 b throwaway\n" {
+		t.Errorf("rc=%d out=%q err=%q", r.rc, r.stdout, r.err)
+	}
+}
+
 // pdgProjectFixture writes plan as tasks.md beside a .flow/project.md whose
 // `## apps` table declares each of repos as the Repo root /repos/<repo>.
 func pdgProjectFixture(t *testing.T, plan string, repos ...string) string {

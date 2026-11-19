@@ -18,11 +18,13 @@ import (
 // parent's reading of `after <k>:` lines.
 //
 // Groups are the `groups[].tasks` of the decision with the highest id,
-// numbered from 1 in recorded order. A task is landed when its task line is
+// numbered from 1 in recorded order, then every plan task no such group names
+// as a one-task group of its own, in plan order -- a fix run's appended tasks
+// need no new decision. A task is landed when its task line is
 // ticked or an ended `implementer` row with outcome `completed` and key
 // exactly `task-<ids>-implementer` or `task-<ids>-implementer-retry` names it.
 // An open row with such a key whose every task the plan ticks is a returned
-// implementer whose end has not reached the store yet (close-task exit 3): it
+// implementer whose end has not reached the store yet: it
 // is neither in flight nor holds its repository. A row is in flight when it has
 // no endedAt, role `implementer` and a key opening `task-<ids>-implementer`
 // (a fix, re-commit, pick or retry row included); its repository is that of
@@ -171,18 +173,34 @@ func readyGroups(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	var groups []*rgGroup
+	var specs [][]string
+	named := map[string]bool{}
 	for g, grp := range decisions[best].Decision.Groups {
 		if len(grp.Tasks) == 0 {
 			fmt.Fprintf(stderr, "ready-groups: group %d names no tasks\n", g+1)
 			Reason(env, "no-groups")
 			return 2
 		}
-		gr := &rgGroup{n: g + 1}
-		own := map[string]bool{}
+		var ids []string
 		for _, r := range grp.Tasks {
 			id := strings.Trim(string(r), `"`)
-			gr.ids = append(gr.ids, id)
+			ids = append(ids, id)
+			named[id] = true
+		}
+		specs = append(specs, ids)
+	}
+	for _, t := range tasks {
+		if !named[t.id] {
+			named[t.id] = true
+			specs = append(specs, []string{t.id})
+		}
+	}
+
+	var groups []*rgGroup
+	for g, ids := range specs {
+		gr := &rgGroup{n: g + 1, ids: ids}
+		own := map[string]bool{}
+		for _, id := range ids {
 			own[id] = true
 		}
 		all := true
