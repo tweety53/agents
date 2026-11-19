@@ -416,7 +416,7 @@ render again.
 flow policy get
 ```
 
-— the role's `base` list, its first entry. A pair is `<model>/<agent>`: `opus/flow-low` dispatches
+— the role's `base` list, its first entry. A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
 `opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. A dispatch outside every
 role runs on `opus` or `sonnet`. A plain-language session instruction overrides the pair it names

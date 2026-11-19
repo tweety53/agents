@@ -672,7 +672,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    ```bash
    flow-guard check-tree-markers verify <worktree> <markers-file> <snapshot-file>; m=$?; echo "markers: $m"
    [ "$m" -eq 0 ] && { flow-guard close-task -session-token mf-<literal-token> -end-key <key> -end-commit <sha> [-end-key <key> -end-commit <sha>]… \
-     [-undeclared <task-id>=<path>[,<path>…]] <canonical-worktree> <name> <merge-base> <task-id>[:<task-sha>] …
+     <canonical-worktree> <name> <merge-base> <task-id>[:<task-sha>] …
      rc=$?; echo "close-task: $rc"; }
    if [ "${rc:-2}" -eq 0 ] || [ "${rc:-2}" -eq 3 ]; then
      # on exit 3, the `flow record dispatch end` line close-task printed runs next, in a second call before the launch (exit 3, below);
@@ -698,8 +698,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
    A bare `<task-id>` resolves to the newest commit since `<merge-base>` in the canonical worktree whose `Task-Id:` trailer names it.
-   `-undeclared` carries the paths the implementer's `undeclared:` lines name for that task (**The record carries
-   its own corrections**, below). The script's header (`<agents repo>/scripts/flow-guard close-task`) is
+   The script's header (`<agents repo>/scripts/flow-guard close-task`) is
    canonical for its arguments and its order.
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
@@ -738,7 +737,7 @@ entry, one or more bundles `flow-guard plan-dispatch-bundles` emits. At each bou
    bundle alone.
 
 **The review gate.** After the guard passes a task's commit, `flow-guard close-task` judges that commit's
-gate through `flow-guard check-review-gate`, with the paths its `-undeclared` flag carries for that task:
+gate through `flow-guard check-review-gate`:
 
 ```bash
 flow-guard check-review-gate <worktree> <task-id> <task-sha|map> <canonical-worktree> <name> [<refused-path>…]
@@ -770,8 +769,7 @@ disagree silently with what the run did. The implementer never edits `<project>/
 on the commit; inline, the session is both halves of that exchange. A `**Files:**` widening is
 transcribed with `flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing with
 `flow tasks files -C <worktree> <change> <id> remove <path>…`, never with a hand `sed` over
-`tasks.md`; the widened paths ride `close-task`'s `-undeclared`, so the correction cannot disarm
-the gate. This is expected practice on every task, not one implementer's habit.
+`tasks.md`. This is expected practice on every task, not one implementer's habit.
 
 **A deviation from the plan records as a dated `Correction:` paragraph.** When a task's commit
 departs from what the plan declares — a file swap, a renamed helper, an added step, any course
