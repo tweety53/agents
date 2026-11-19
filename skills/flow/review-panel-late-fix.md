@@ -118,8 +118,7 @@ docs-only guard reads. Exit 2 is reported with its stderr and takes the full pat
 A `floor_roster: primary` line dispatches the judge, once per fix run and never again within it.
 
 **The judge dispatch.** Its pair is its **Allowed pairs** row
-(`skills/flow-contracts/model-policy.md`), mapped on harnesses `zcode` and `muse` as that file's
-**Harness mapping** maps it. Its prompt opens with the line `Role: fix-run-judge` and carries,
+(`skills/flow-contracts/model-policy.md`). Its prompt opens with the line `Role: fix-run-judge` and carries,
 verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.

@@ -313,8 +313,7 @@ A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. Every dispatch has a
 role from **Allowed pairs** (`skills/flow-contracts/model-policy.md`). A plain-language session instruction overrides the pair it names
 for this run only (**Model policy**, `skills/flow-contracts/model-policy.md`), recorded in the
-decision's `overrides`. On harnesses `zcode` and `muse` the pair is replaced at dispatch
-(**Harness mapping**, `skills/flow-contracts/model-policy.md`).
+decision's `overrides`.
 
 ### Plan review gate
 

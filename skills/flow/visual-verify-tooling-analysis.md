@@ -3,8 +3,7 @@
 Loaded by **A missed defect — the tooling analysis** (`skills/flow/visual-verify.md`) only on a fix
 run with at least one miss.
 
-Its pair is its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`), mapped on harnesses
-`zcode` and `muse` per **Harness mapping** (`skills/flow-contracts/model-policy.md`). Its prompt opens with the line
+Its pair is its **Allowed pairs** row (`skills/flow-contracts/model-policy.md`). Its prompt opens with the line
 `Role: tooling-analyst` and carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.

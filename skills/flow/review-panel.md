@@ -184,7 +184,6 @@ substituted in the dispatch prompt with the value named here:
 
 **A spawn type this harness's Agent tool does not offer is substituted on the record, never
 silently**: the slot runs on `general-purpose`, and the round records `flow record pass -round <round> -note 'panel: <slot ids> on general-purpose — <type> not offered'`.
-A harness whose **Harness mapping** (`skills/flow-contracts/model-policy.md`) maps to `general-purpose` makes no such substitution.
 
 **Check for an operator-named id at two points**: at the start of this stage (has the operator, in
 this run's own argument or in the session before this stage, named an id the decided panel does not
@@ -199,7 +198,7 @@ on role `panel-reviewer`, and every fix-round re-run and late-fix pass on role `
 (**Panel re-runs**), each on the pair `flow-guard pair-judge` picks for it (**Model and effort**,
 `skills/flow/brainstorm-planner.md`) — the dispatch's `subagent_type` is the pair's agent type, the
 model passed explicitly as the Agent tool's own `model` parameter — and both `model` and `-effort`
-are recorded. A slot carries no model of its own. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own.
+are recorded. A slot carries no model of its own.
 
 **Load `skills/flow/review-panel-optional-slots.md`** before dispatching any round that
 dispatches `mutation` — it carries the mutation slot's prompt and **The throwaway worktree**.
@@ -418,9 +417,6 @@ roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
 panel record names every worktree's sha beside the delta path. `-model` and `-effort` are the dispatch's role's pair
 — `panel-reviewer` in pass 1, `panel-rerun` on a fix-round re-run or a late-fix pass — or this run's override.
-On harness `zcode` every pair this paragraph names is recorded as `glm-5.3-flash` / `high`
-instead — the one pair the store accepts on a `zcode` session token — and on harness `muse` as
-the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`).
 
 **`-agent-id` is never typed on a slot's row — save a send-back `flow-guard resume-or-fresh` answered `resume` for (`skills/flow/review-panel-fix-round.md`, `skills/flow/implement.md`) — never invented** — the daemon captures the launch identifier,
 stamping each launch onto the row its Agent-tool `description`'s first word names in the launching session — each slot's description opens with its row's `-key` (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`) — and pairing a launch whose description names no row with the begin nearest it in time;
@@ -813,7 +809,7 @@ its standards files.
 **Resolve `[PRINCIPLES_PATH]` before dispatching the principles slot.** It is the **absolute** path
 of `engineering-principles.md` **beside this file** — `skills/flow/`, always. Under the global install that is
 `~/.claude/skills/flow/engineering-principles.md`; under a
-project-local install it is `<project>/.claude/skills/…`, `<project>/.zcode/skills/…` or `<project>/.agents/skills/…`.
+project-local install it is `<project>/.claude/skills/…`.
 Resolve it from where this file was actually read — never hardcode a repo-relative
 `skills/…` path: the subagent's working directory is the project worktree, which has no
 `skills/` tree, so a relative path fails to open and the reviewer loses its principle

@@ -166,8 +166,7 @@ full-suite fix and a guard or integrate call re-run after a stop each repeat unt
 close. **A round that makes no progress — the same defect identity, on the same
 evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix
 is a fresh dispatch of that loop's own fixer row on the marked pair of its fixer role (**Allowed
-pairs**, `skills/flow-contracts/model-policy.md`, recorded with that pair, mapped on harnesses
-`zcode` and `muse` per **Harness mapping**, `skills/flow-contracts/model-policy.md`), its prompt
+pairs**, `skills/flow-contracts/model-policy.md`, recorded with that pair), its prompt
 opening with the line `No-progress escalation` and carrying every earlier round's report
 verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies
 it from those same reports by a different approach. Where the evidence itself may be wrong, the
@@ -417,7 +416,7 @@ plan's completion state, and `<agents repo>/scripts/flow-guard check-unfinished-
 count comes from no persisted record at all — the board's rows are session state, never written
 to disk.
 
-**On a harness without the mod (ZCode, Muse), `/flow` prints the equivalent block instead** — a count
+**On a harness without the mod, `/flow` prints the equivalent block instead** — a count
 line naming how many steps are done, in progress and open, followed by one line per step marked
 done or not done. One step per whichever cited stage is running at the time, at that stage's own
 granularity — brainstorming checklist items and artifacts on the creating/resuming branch, tasks on
@@ -466,7 +465,7 @@ exits 0. Never branch on its exit code; a failed mark is one line in the run's n
 `/flow` marks one stage per phase. Planning marks `flow.plan`, from kickoff to the plan gate
 (`skills/flow/brainstorm.md`); the other phases' keys are listed in **Stage keys**
 (`skills/flow/stage-keys.md`). `-harness` names the harness actually running the mark —
-`claude-code`, `zcode` or `muse` — filled in at call time from the `<harness>` placeholder.
+`claude-code` on Claude Code — filled in at call time from the `<harness>` placeholder.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.plan -harness <harness> -session-token mf-<literal-token> <name>

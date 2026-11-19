@@ -13,7 +13,7 @@ location, named here rather than left to be worked out: every `/flow*` command i
 load this file before acting, and none of them loads `<agents repo>/spectre/specs/`, so the file runtime actually
 reads is the file the rule has to live in. **State file** (`skills/flow-contracts/state-file.md`)
 cites this section for the `models` field rather than defining the roles a second time, and
-`<project>/CLAUDE.md` and `<project>/AGENTS.md` name this section for the same reason.
+`<project>/CLAUDE.md` names this section for the same reason.
 
 **There is no requirements layer above this one; change this section.**
 

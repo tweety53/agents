@@ -42,8 +42,6 @@ neither the write into the store nor the render out of it invents a model slug.
   dispatches each name their model explicitly, and the ledger line for that dispatch is what
   records that they did. Planning has no dispatch to name a model for — it runs on the session's
   own model.
-- **ZCode**: one model, see **Harness mapping** below.
-- **Muse**: the session's own model, see **Harness mapping** below.
 
 ## Allowed pairs
 
@@ -152,30 +150,3 @@ closes it `positive`; `/flow-experiment-close` calls it on a positive verdict.
 inline row.** Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and
 `<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
 
-**On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
-Every role's pair and an operator override alike resolve and are recorded as they would be on Claude Code,
-and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
-`subagent_type` is `general-purpose` (or the site's own non-flow type, unchanged) — ZCode's Agent tool offers no
-`flow-<effort>` type, `<agents repo>/setup.sh` installing those definitions into `~/.claude/agents/` alone, so the NO
-DELEGATION paragraph every such prompt carries is what keeps the dispatch from forking — and the dispatch's
-ledger line records `-model glm-5.3-flash -effort high` — the model the dispatch actually ran
-on, never the pre-mapping value. A reply's `Model:` line is not compared on this harness — the recorded mapping satisfies the handshake, per the paragraph below. The harness is
-the same value the run's `-harness` marks carry (**Stage marks**,
-`skills/flow-contracts/pipeline.md`). No other harness maps anything to a fixed pair.
-
-**On harness `muse`, every dispatch inherits the session's own model and effort.** The harness
-offers no per-dispatch model parameter and no `flow-<effort>` definitions, so the dispatch names
-neither — no `model` parameter, no `subagent_type`. Every role's pair and an
-operator override alike resolve and are recorded as they would be on Claude Code, and are replaced
-at the dispatch: the dispatch runs the session's pair, and its ledger line records `-model <parent
-model> -effort <parent effort>` — the model the dispatch actually ran on, never the pre-mapping
-value. A reply's `Model:` line
-is not compared on this harness either — the recorded mapping satisfies the handshake, per the
-paragraph below.
-
-**On a single-model harness the recorded mapping satisfies the handshake.** Where the harness maps
-every dispatch to one recorded model that no re-dispatch can change — harness `zcode`, the fixed
-pair above, and harness `muse`, the session's own pair — a first reply whose
-`Model:` line is missing or names anything else is not a mismatch: no `-outcome fallback`, no
-`<key>-retry`, no second-mismatch question. The MODEL HANDSHAKE paragraph stays in every
-dispatch prompt, and the comparison governs in full on every harness no mapping covers.

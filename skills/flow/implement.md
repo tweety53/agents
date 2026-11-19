@@ -145,8 +145,7 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 structurally does not have, not by prompt text alone. This covers the panel bundle,
 panel-fix and gated per-task reviewer rows. The verifier
 row dispatches on the `visual-verifier` role's pair (`skills/flow/visual-verify.md`),
-a `flow-<effort>` definition, so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside it. On harness `muse` no `subagent_type` is named — the harness
-offers no per-dispatch type — so the NO DELEGATION paragraph alone governs there.
+a `flow-<effort>` definition, so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside it.
 
 **The handshake.** Every dispatched role in this
 pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier, tooling analyst, fix-run judge, in-run pipeline fix — opens its first reply with the `Model:`
@@ -156,8 +155,7 @@ reply, its final message, and that message's first line is the one compared — 
 fixer's summary head opens with it (`skills/flow/implementer-brief.md`), and so does a gated
 reviewer bundle's (`skills/flow/gated-reviewer-brief.md`). Compare the line against the model this dispatch
 requested — the model of the dispatch's role's pair, or
-the run's session override, mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`)
-on harnesses `zcode` and `muse`. Effort is not handshaken. A match proceeds. A reply that opens with no `Model:` line is a mismatch too, counted as a first or a second like any other. A **first** mismatch
+the run's session override. Effort is not handshaken. A match proceeds. A reply that opens with no `Model:` line is a mismatch too, counted as a first or a second like any other. A **first** mismatch
 closes the open dispatch row `-outcome fallback` and re-dispatches once, on the same requested
 model and `subagent_type`, under `<key>-retry`:
 
@@ -176,9 +174,6 @@ that running agent, no third dispatch — or **Stop the run**. Silence takes **C
 option that moves the run forward, the substitution already on the record in the two fallback rows
 (**Unanswered mid-run asks**, `skills/flow-contracts/pipeline.md`). **A mark or a record never blocks** —
 proceed on the handshake's outcome regardless of whether any `flow` call reached the store.
-
-On a single-model harness, **Harness mapping** (`skills/flow-contracts/model-policy.md`) states when a
-reply's `Model:` line is not a mismatch.
 
 **The return.** Once a dispatch's completion notification arrives and its report file exists, read its verdict, print the change's own
 handoff or continue to the next stage, and close the record under whichever key is open:
@@ -427,7 +422,7 @@ caller inputs.
 override when one was given for the implementer role), `-effort` its effort, and the dispatch's `subagent_type` is
 `flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
-omission. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`). On harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own (`<parent model>` / `<parent effort>`, per **Harness mapping**, `skills/flow-contracts/model-policy.md`). A slot whose model the dispatcher cannot
+omission. A slot whose model the dispatcher cannot
 read records the literal `unknown (agent-defined)` and never a guess.
 
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
@@ -713,8 +708,7 @@ goes out in one reviewer Agent call beside the implementers the boundary launche
 `gated-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
 line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
 with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`); a handshake retry bundle keeps
-its original bundle's pair and Role line. On harnesses `zcode` and `muse`, **Harness mapping**
-(`skills/flow-contracts/model-policy.md`) replaces it, as it does every pair. Each task inside the bundle keeps its own pass: its own
+its original bundle's pair and Role line. Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report
 file. Record the bundle as one `dispatches` row (`-role reviewer`, `-key task-<n+n+n>-reviewer`

@@ -206,8 +206,8 @@ The branch is rebased onto its base before task 1 runs, as the base-sync step of
 context and validate the plan** (`skills/flow/implement.md`) states, with no `flow state
 add-worktree` call and `<name>` as the pushed branch.
 
-The project's instruction file is already in this session's context (`<project>/CLAUDE.md` on
-Claude Code, `<project>/AGENTS.md` on ZCode and Muse); never read either one here. Read
+The project's instruction file, `<project>/CLAUDE.md`, is already in this session's context; never
+read it here. Read
 `<project>/.flow/project.md`'s `## lint`, `## test`, `## handoff` and `## default landing route` sections, the
 first two read with `flow-guard project-get <project> <key>`, `## handoff` with
 `flow-guard project-get <project> handoff --enum required none` and `## default landing route` with

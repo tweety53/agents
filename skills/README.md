@@ -9,7 +9,7 @@ The state each phase of `/flow` ends in, and the gate that follows it, are under
 under **How the pipeline works** (`README.md`). This file copies none of them — it is read
 on demand, beside the document it would be copying, exactly as `README.md` is. What does carry the
 three-line digest is the layer that is loaded into a session before anything reads the pipeline: the
-always-on rule, and a project's own `CLAUDE.md` / `AGENTS.md`.
+always-on rule, and a project's own `CLAUDE.md`.
 
 See also: `flow-manual-review.mdc` — authored at `rules/flow-manual-review.mdc` in this repo,
 installed by `setup.sh global` to `~/.claude/rules/` and inlined into the managed block in

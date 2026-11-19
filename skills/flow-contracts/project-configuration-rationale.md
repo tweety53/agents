@@ -19,7 +19,7 @@ nameable — write it as a path (`<project>/.claude/rules/api.mdc`), which form 
 ### The per-skill link, not the `skills/` directory
 
 **The link to resolve is the per-skill one, never the `skills/` directory above it.** A global
-install is a real `~/.claude/skills/` (likewise `~/.zcode/skills/`) holding
+install is a real `~/.claude/skills/` holding
 **one symlink per skill**. Resolving the parent lands in `~/.claude`, which
 contains no per-skill scripts/ directory and is not a checkout of anything; resolving the skill's own directory lands
 in `<agents repo>/skills/<skill>/`, from which step 2 is right. Measured on a global install:
