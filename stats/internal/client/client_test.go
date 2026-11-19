@@ -879,10 +879,6 @@ func (stubStageStore) Reviewers(context.Context, store.Period, *string, *string)
 	return nil, errStageStoreNotImplemented
 }
 
-func (stubStageStore) Decisions(context.Context, store.Period, *string) ([]store.DecisionRow, error) {
-	return nil, errStageStoreNotImplemented
-}
-
 func (stubStageStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
