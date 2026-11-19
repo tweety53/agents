@@ -58,6 +58,16 @@ test("run timings page at rest", async ({ page }) => {
   await expect(page).toHaveScreenshot("run-timings.png", { fullPage: true });
 });
 
+test("run timings keeps the prototype's density", async ({ page }) => {
+  // The page is not run detail: none of `.lb-run`'s compact density applies.
+  // The second KPI: the board's own first-child rule sizes the first one.
+  const root = await openTimings(page);
+  await expect(root).toHaveCSS("row-gap", "14px");
+  await expect(root.locator(".lb-kpi").first()).toHaveCSS("padding", "10px 14px");
+  await expect(root.locator(".lb-kpi-val").nth(1)).toHaveCSS("font-size", "22px");
+  await expect(root.locator(".lb-table td").first()).toHaveCSS("padding", "7px 10px");
+});
+
 test("run timings grouped by repo", async ({ page }) => {
   const root = await openTimings(page);
   const chip = root.getByRole("group", { name: "Group by" }).getByRole("button", { name: "Repo" });

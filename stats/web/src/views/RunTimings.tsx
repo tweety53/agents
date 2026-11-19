@@ -297,7 +297,7 @@ export function RunTimings({ project, change }: { project: string; change: strin
   }, [project, change]);
 
   return (
-    <section aria-label={`Run timings and costs: ${project}/${change}`} className="dashboard lb lb-run">
+    <section aria-label={`Run timings and costs: ${project}/${change}`} className="dashboard lb lb-timings">
       <div className="lb-crumb">
         <a href={`#/run/${encodeURIComponent(project)}/${encodeURIComponent(change)}`}>← Run detail</a>
       </div>
