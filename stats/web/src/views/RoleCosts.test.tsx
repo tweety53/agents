@@ -77,3 +77,15 @@ it("splits each week's spend by stage, in a bar and a stage-by-week table", asyn
     ["Total", "$8.00", "$2.00", "$10.00"],
   ]);
 });
+
+it("shows a priced amount under a cent as <$0.01, never $0.00", async () => {
+  fetchStatsViewMock.mockResolvedValue({
+    roles: [{ role: "pair-judge", group: "Pair choice", dispatches: 1, priced: 1, failed: 0, costUSD: 0.004, agentSeconds: 3, medianSeconds: 3,
+      pairs: [{ pair: "sonnet · low", costUSD: 0.004, dispatches: 1 }] }],
+    weeks: [{ week: "2026-11-18", roles: { "pair-judge": 0.004 } }],
+  });
+  render(<RoleCosts />);
+  const table = await screen.findByRole("table", { name: "Spend and agent time per role" });
+  const row = within(table).getByRole("row", { name: /pair-judge/ });
+  expect(cells(row).slice(1, 3)).toEqual(["1", "<$0.01"]);
+});

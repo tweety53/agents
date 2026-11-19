@@ -7,7 +7,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { fetchProjects, fetchStatsView, type RoleCostsResult } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
-import { formatUsd, hm, PERIOD_DAYS, windowFor, type PeriodChip } from "../format";
+import { formatUsd as formatUsd2, hm, PERIOD_DAYS, windowFor, type PeriodChip } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 import { SHORT_DOES } from "./AgentRoles";
 
@@ -27,6 +27,8 @@ const STAGE_COLOUR: Record<string, string> = {
 const MODEL_COLOUR: Record<string, string> = { opus: "#ea580c", sonnet: "#2563eb", fable: "#9333ea" };
 const EFFORT_OPACITY: Record<string, number> = { low: 0.4, default: 0.4, medium: 0.6, high: 0.8, xhigh: 1, max: 1 };
 
+/** A priced amount under a cent reads <$0.01 -- a headless judge call costs a fraction of one. */
+const formatUsd = (v: number) => (v > 0 && v < 0.005 ? "<$0.01" : formatUsd2(v));
 const span = (s: number) => (s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.round(s / 60)}m` : hm(s * 1000));
 const pct = (n: number, d: number) => (d > 0 ? `${Math.round((100 * n) / d)}%` : "—");
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
