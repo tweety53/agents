@@ -157,7 +157,7 @@ func TestCheckLoopDispatch(t *testing.T) {
 		{name: "first review on flow-medium against a recorded flow-low", rows: lpPlanDone, key: "pipeline-fix-6-review-1", typ: "flow-medium", model: "opus", branches: []string{lpBranch},
 			design: lpDesignLow, rc: 1, out: "first-review-effort"},
 		{name: "first review on flow-low with none recorded", rows: lpPlanDone, key: "pipeline-fix-6-review-1", typ: "flow-low", model: "opus", branches: []string{lpBranch},
-			rc: 1, out: "first-review-effort"},
+			out: "LOOP-DISPATCH-OK", begin: "-role reviewer"},
 		{name: "first review on flow-medium with none recorded", rows: lpPlanDone, key: "pipeline-fix-6-review-1", typ: "flow-medium", model: "opus", branches: []string{lpBranch},
 			out: "LOOP-DISPATCH-OK", begin: "-role reviewer"},
 		{name: "a reused key", rows: lpPlanDone, key: "pipeline-fix-6-plan", typ: "flow-planner-medium", model: "opus", branches: []string{lpBranch}, rc: 1, out: "KEY-REUSED —"},

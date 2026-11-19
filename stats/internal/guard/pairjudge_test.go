@@ -28,10 +28,8 @@ func (s pjStub) candidates(t *testing.T) []string {
 var pjAnswer = pjJSON("PAIR: sonnet/flow-low\nREASON: renames only", "")
 
 // TestPairJudgeCandidates: the candidates are the role's base pairs, the
-// overlay applied, less xhigh and max, less high for the implementer and
-// every fixer, less every non-opus pair under -opus-only unless that leaves
-// none; marked and opt-in pairs are never listed. Each pair shape prints
-// parsed into model and effort.
+// overlay applied, every effort the row admits kept; marked and opt-in pairs
+// are never listed. Each pair shape prints parsed into model and effort.
 func TestPairJudgeCandidates(t *testing.T) {
 	t.Parallel()
 	const row = `{"base":["opus/flow-low","opus/flow-medium","opus/flow-high","sonnet/flow-low","opus/flow-xhigh"],"optin":["sonnet/flow-medium"],"marked":[{"pair":"opus/flow-max","marker":"No-progress escalation"}]}`
@@ -41,13 +39,8 @@ func TestPairJudgeCandidates(t *testing.T) {
 		args   []string
 		want   []string
 	}{
-		{"implementer drops high and xhigh", pjPolicy(`"implementer":` + row), []string{"implementer"}, []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low"}},
-		{"panel-fix drops high", pjPolicy(`"panel-fix":` + row), []string{"panel-fix"}, []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low"}},
-		{"self-review-fix drops high", pjPolicy(`"self-review-fix":` + row), []string{"self-review-fix"}, []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low"}},
-		{"pipeline-fix-fix drops high", pjPolicy(`"pipeline-fix-fix":` + row), []string{"pipeline-fix-fix"}, []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low"}},
-		{"planner keeps high", pjPolicy(`"planner":{"base":["opus/flow-planner-medium","opus/flow-planner-high","opus/flow-planner-xhigh","opus/flow-planner-max","sonnet/flow-planner-low"],"optin":[],"marked":[]}`), []string{"planner"}, []string{"opus/flow-planner-medium", "opus/flow-planner-high", "sonnet/flow-planner-low"}},
-		{"-opus-only leaves the opus pairs", pjPolicy(`"implementer":` + row), []string{"implementer", "-opus-only"}, []string{"opus/flow-low", "opus/flow-medium"}},
-		{"-opus-only yields on a row with no opus pair", pjPolicy(`"panel-reviewer":{"base":["sonnet/flow-low","fable/flow-medium"],"optin":[],"marked":[]}`), []string{"panel-reviewer", "-opus-only"}, []string{"sonnet/flow-low", "fable/flow-medium"}},
+		{"implementer keeps every base pair", pjPolicy(`"implementer":` + row), []string{"implementer"}, []string{"opus/flow-low", "opus/flow-medium", "opus/flow-high", "sonnet/flow-low", "opus/flow-xhigh"}},
+		{"planner keeps every base pair", pjPolicy(`"planner":{"base":["opus/flow-planner-medium","opus/flow-planner-max","sonnet/flow-planner-low"],"optin":[],"marked":[]}`), []string{"planner"}, []string{"opus/flow-planner-medium", "opus/flow-planner-max", "sonnet/flow-planner-low"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -99,7 +92,7 @@ func TestPairJudgeCandidates(t *testing.T) {
 func TestPairJudgeSingle(t *testing.T) {
 	t.Parallel()
 	stub := newPJStub(t, pjAnswer)
-	policy := pjPolicy(`"panel-fix":{"base":["opus/flow-low","opus/flow-high"],"optin":[],"marked":[]}`)
+	policy := pjPolicy(`"panel-fix":{"base":["opus/flow-low"],"optin":["opus/flow-high"],"marked":[]}`)
 	r := runGuard("pair-judge", []string{"panel-fix", pjDigest(t, "a plan")}, pjEnv(t, policy, stub))
 	if r.rc != 0 || r.stdout != "opus low single the only candidate\n" {
 		t.Fatalf("rc=%d stdout=%q, want 0 and `opus low single the only candidate`", r.rc, r.stdout)
@@ -317,14 +310,13 @@ func TestPairJudgeRefuses(t *testing.T) {
 		args []string
 		env  Env
 	}{
-		"no arguments":         {nil, env},
-		"one argument":         {[]string{"implementer"}, env},
-		"a bad third argument": {[]string{"implementer", digest, "-sonnet"}, env},
-		"four arguments":       {[]string{"implementer", digest, "-opus-only", "x"}, env},
-		"unreadable digest":    {[]string{"implementer", digest + ".absent"}, env},
-		"no policy":            {[]string{"implementer", digest}, fakeFlowEnvBare(t, "exit 1\n", "FLOW_PAIR_JUDGE_CMD="+stub.cmd())},
+		"no arguments":      {nil, env},
+		"one argument":      {[]string{"implementer"}, env},
+		"a third argument":  {[]string{"implementer", digest, "-opus-only"}, env},
+		"unreadable digest": {[]string{"implementer", digest + ".absent"}, env},
+		"no policy":         {[]string{"implementer", digest}, fakeFlowEnvBare(t, "exit 1\n", "FLOW_PAIR_JUDGE_CMD="+stub.cmd())},
 		"no candidates": {[]string{"implementer", digest}, pjEnv(t,
-			pjPolicy(`"implementer":{"base":["opus/flow-high"],"optin":[],"marked":[]}`), stub)},
+			pjPolicy(`"implementer":{"base":[],"optin":["opus/flow-high"],"marked":[]}`), stub)},
 	}
 	for _, role := range []string{"visual-verifier", "operator-asked", "tooling-analyst", "fix-run-judge", "panel-merger"} {
 		cases["role "+role] = struct {
@@ -420,57 +412,5 @@ func TestPairJudgeRunsWithoutAutoMemory(t *testing.T) {
 	}
 	if got := mustRead(t, stub.dir+"/memory"); got != "1" {
 		t.Errorf("CLAUDE_CODE_DISABLE_AUTO_MEMORY = %q in the judge's environment, want 1", got)
-	}
-}
-
-// init pins the sonnet sampling die off for every test; the ones that need a
-// draw set their own.
-func init() { pjSample = func() float64 { return 1 } }
-
-// TestPjSampleSonnetSwapsOnlyAnOpusLowPick: below pjSonnetShare an opus/low
-// pick becomes the sonnet/low candidate; at or above it, a sonnet pick, an
-// opus pick at another effort, an -opus-only dispatch and a role with no
-// sonnet/low candidate stay as picked (60/40 opus-sonnet where opus is picked).
-func TestPjSampleSonnetSwapsOnlyAnOpusLowPick(t *testing.T) {
-	opusLow := pjCandidate{"opus/flow-low", "opus", "low"}
-	opusMed := pjCandidate{"opus/flow-medium", "opus", "medium"}
-	sonnetLow := pjCandidate{"sonnet/flow-low", "sonnet", "low"}
-	both := []pjCandidate{opusLow, opusMed, sonnetLow}
-	defer func(f func() float64) { pjSample = f }(pjSample)
-	for _, c := range []struct {
-		name     string
-		draw     float64
-		pick     pjCandidate
-		cands    []pjCandidate
-		opusOnly bool
-		want     pjCandidate
-	}{
-		{"swaps below the share", 0.39, opusLow, both, false, sonnetLow},
-		{"stays at the share", 0.4, opusLow, both, false, opusLow},
-		{"a sonnet pick stays", 0.0, sonnetLow, both, false, sonnetLow},
-		{"opus at medium stays", 0.0, opusMed, both, false, opusMed},
-		{"-opus-only stays", 0.0, opusLow, both, true, opusLow},
-		{"no sonnet candidate stays", 0.0, opusLow, []pjCandidate{opusLow, opusMed}, false, opusLow},
-	} {
-		pjSample = func() float64 { return c.draw }
-		if got := pjSampleSonnet(c.pick, c.cands, c.opusOnly); got != c.want {
-			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
-		}
-	}
-}
-
-// TestPjSampledNamesTheSwapInTheReason: a sampled swap says so; a kept pick does not.
-func TestPjSampledNamesTheSwapInTheReason(t *testing.T) {
-	opusLow := pjCandidate{"opus/flow-low", "opus", "low"}
-	sonnetLow := pjCandidate{"sonnet/flow-low", "sonnet", "low"}
-	cands := []pjCandidate{opusLow, sonnetLow}
-	defer func(f func() float64) { pjSample = f }(pjSample)
-	pjSample = func() float64 { return 0 }
-	if got := pjSampled(opusLow, cands, false, "judge", "why"); got != "sonnet low judge why [sampled from opus low for data]" {
-		t.Errorf("swapped line = %q", got)
-	}
-	pjSample = func() float64 { return 1 }
-	if got := pjSampled(opusLow, cands, false, "judge", "why"); got != "opus low judge why" {
-		t.Errorf("kept line = %q", got)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +18,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
-// flow-guard pair-judge <role> <digest-file> [-opus-only] — pick one judged
+// flow-guard pair-judge <role> <digest-file> — pick one judged
 // dispatch's {model, effort} from its role's allowed pairs (KAN-1119).
 //
 // Prints one line, `<model> <effort> <judge|fallback|single> <reason>`, the
@@ -42,11 +41,9 @@ import (
 // pairs, read with `flow policy get` with any open experiment's override
 // applied (policyTable), in row order, each parsed into model and effort --
 // `opus/flow-low`, `opus/flow-planner-medium`, `sonnet/Explore@low` -- an
-// unparseable pair dropped; less xhigh and max; less high for implementer,
-// panel-fix, self-review-fix and pipeline-fix-fix; under -opus-only (a hard
-// seam, decision hard-seam-opus-only-flag) less every non-opus pair, unless
-// that leaves none (decision opus-only-yields-when-empty). Marked and opt-in
-// pairs are never candidates.
+// unparseable pair dropped. Which pairs a role admits is its row's alone: no
+// model or effort is filtered here. Marked and opt-in pairs are never
+// candidates.
 //
 // The three sources:
 //   - single: one candidate, printed with the reason `the only candidate`
@@ -97,7 +94,7 @@ import (
 // Exit 0 on the printed line, whatever the judge did. Exit 2, nothing on
 // stdout: usage (reason usage), a role outside the judged set
 // (role-not-judged), an unreadable digest (digest-unreadable), no pairs to
-// read (policy-unreadable), or no candidate left (candidates-empty).
+// read (policy-unreadable), or no base pair to pick from (candidates-empty).
 //
 // Go, in flow-guard (stats/internal/guard/pairjudge.go).
 func init() {
@@ -115,9 +112,6 @@ var pjJudged = map[string]bool{
 	"pipeline-fix-review-1": true, "pipeline-fix-review-r": true,
 	"explorer": true, "plan-designer": true,
 }
-
-// pjNoHigh are the roles flow record decision refuses a high pair for.
-var pjNoHigh = map[string]bool{"implementer": true, "panel-fix": true, "self-review-fix": true, "pipeline-fix-fix": true}
 
 var (
 	pjPairShape = regexp.MustCompile(`^([^/]+)/(?:[A-Za-z]+@|[a-z-]*-)(low|medium|high|xhigh|max)$`)
@@ -168,12 +162,12 @@ func pjParse(pair string) (pjCandidate, bool) {
 }
 
 func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) < 2 || len(args) > 3 || (len(args) == 3 && args[2] != "-opus-only") {
-		fmt.Fprintln(stderr, "usage: flow-guard pair-judge <role> <digest-file> [-opus-only]")
+	if len(args) != 2 {
+		fmt.Fprintln(stderr, "usage: flow-guard pair-judge <role> <digest-file>")
 		Reason(env, "usage")
 		return 2
 	}
-	role, opusOnly := args[0], len(args) == 3
+	role := args[0]
 	// A stale pick from an earlier run under the key must not outlive this one's refusal.
 	if err := os.Remove(strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"); err != nil && !errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintf(stderr, "pair-judge: %v\n", err)
@@ -206,9 +200,9 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "policy-unreadable")
 		return 2
 	}
-	cands := pjCandidates(rows, role, opusOnly)
+	cands := pjCandidates(rows, role)
 	if len(cands) == 0 {
-		fmt.Fprintf(stderr, "pair-judge: %s has no candidate pair left after the filters\n", role)
+		fmt.Fprintf(stderr, "pair-judge: %s has no base pair to pick from\n", role)
 		Reason(env, "candidates-empty")
 		return 2
 	}
@@ -216,9 +210,9 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(cands) == 1 {
 		line = cands[0].line("single", "the only candidate")
 	} else if pick, reason, cause := pjAsk(env, rows, role, cands, digest); cause != "" {
-		line = pjSampled(cands[0], cands, opusOnly, "fallback", cause)
+		line = cands[0].line("fallback", cause)
 	} else {
-		line = pjSampled(pick, cands, opusOnly, "judge", reason)
+		line = pick.line("judge", reason)
 	}
 	line += "\n"
 	pickFile := strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"
@@ -229,56 +223,14 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// pjSonnetShare is the share of opus/low picks swapped to a sonnet/low
-// candidate of the same role, so the operator has data on whether sonnet at
-// low effort can carry the work (a 60/40 opus-sonnet split). Only an opus pick
-// at low effort is sampled; every pick already on sonnet, every other effort
-// and any -opus-only dispatch stay as picked.
-const pjSonnetShare = 0.4
-
-// pjSample draws the sampling die; a test replaces it.
-var pjSample = rand.Float64
-
-// pjSampleSonnet returns pick, or the role's sonnet/low candidate in its place
-// for pjSonnetShare of the opus/low picks. The swap is named in the reason by
-// the caller's line only through the pair it prints; the judge's reason is kept.
-func pjSampleSonnet(pick pjCandidate, cands []pjCandidate, opusOnly bool) pjCandidate {
-	if opusOnly || pick.model != "opus" || pick.effort != "low" {
-		return pick
-	}
-	i := slices.IndexFunc(cands, func(c pjCandidate) bool { return c.model == "sonnet" && c.effort == "low" })
-	if i < 0 || pjSample() >= pjSonnetShare {
-		return pick
-	}
-	return cands[i]
-}
-
-// pjSampled prints pick's line, or the sampled sonnet/low candidate's with
-// ` [sampled from opus low for data]` added to the reason, so the swap can be
-// told from a pick the judge made.
-func pjSampled(pick pjCandidate, cands []pjCandidate, opusOnly bool, source, reason string) string {
-	got := pjSampleSonnet(pick, cands, opusOnly)
-	if got != pick {
-		reason += " [sampled from opus low for data]"
-	}
-	return got.line(source, reason)
-}
-
-// pjCandidates is role's base row, parsed and filtered.
-func pjCandidates(rows map[string][]policyRow, role string, opusOnly bool) []pjCandidate {
+// pjCandidates is role's base row, parsed.
+func pjCandidates(rows map[string][]policyRow, role string) []pjCandidate {
 	var cands []pjCandidate
 	if rs := rows[role]; len(rs) > 0 {
 		for _, p := range rs[0].Pairs {
-			c, ok := pjParse(p)
-			if !ok || c.effort == "xhigh" || c.effort == "max" || (c.effort == "high" && pjNoHigh[role]) {
-				continue
+			if c, ok := pjParse(p); ok {
+				cands = append(cands, c)
 			}
-			cands = append(cands, c)
-		}
-	}
-	if opusOnly {
-		if opus := slices.DeleteFunc(slices.Clone(cands), func(c pjCandidate) bool { return c.model != "opus" }); len(opus) > 0 {
-			cands = opus
 		}
 	}
 	return cands

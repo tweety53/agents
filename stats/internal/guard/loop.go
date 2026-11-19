@@ -265,9 +265,9 @@ var (
 // loop's worktree, <main>-worktrees/<branch name without spectre/>: the loop's
 // branch, or for a self-review on the change's own branch spectre/<name>
 // (/flow) or <name> (/flow-fast). The decision is the first such entry whose **Status:**
-// is active (or absent); flow-medium when it recorded none. ok is
-// false when the decision is recorded but its **Chosen:** line names no
-// effort: a refusal, never a silent flow-medium.
+// is active (or absent); "" when it recorded none, and the allowed pairs
+// alone judge the dispatch. ok is false when the decision is recorded but its
+// **Chosen:** line names no effort: a refusal, never a silent default.
 func lpFirstReviewType(env Env, git, repo string, lp lpLoop) (typ string, ok bool) {
 	ref := lp.token
 	for _, b := range []string{"spectre/" + lp.change, lp.change} {
@@ -278,7 +278,7 @@ func lpFirstReviewType(env Env, git, repo string, lp lpLoop) (typ string, ok boo
 	}
 	b, err := os.ReadFile(repo + "-worktrees/" + strings.TrimPrefix(ref, "spectre/") + "/spectre/changes/" + lp.token + "/design.md")
 	if err != nil {
-		return "flow-medium", true
+		return "", true
 	}
 	body := string(b)
 	entry, found := "", false
@@ -293,7 +293,7 @@ func lpFirstReviewType(env Env, git, repo string, lp lpLoop) (typ string, ok boo
 		}
 	}
 	if !found {
-		return "flow-medium", true
+		return "", true
 	}
 	c := lpChosen.FindString(entry)
 	for _, re := range []*regexp.Regexp{lpChosenBare, lpChosenTick} {
@@ -365,8 +365,8 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("first-review-effort-missing", fmt.Sprintf("EFFORT — %s: the loop's design.md first-review-effort decision names no effort on its **Chosen:** line; write low, medium, `flow-low` or `flow-medium` there", key))
 		}
 		// The allowed pairs decide: a recorded type they do not admit never refuses one they do.
-		if typ != want && policyAllows(rows, role, want, model, "", "", false) == nil {
-			return refuse("pair-off-recorded-effort", fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records (flow-medium when none); this dispatch carries %q", key, want, typ))
+		if want != "" && typ != want && policyAllows(rows, role, want, model, "", "", false) == nil {
+			return refuse("pair-off-recorded-effort", fmt.Sprintf("PAIR — %s runs on %s, as the loop's design.md first-review-effort decision records; this dispatch carries %q", key, want, typ))
 		}
 	}
 	if family == "pass" {
