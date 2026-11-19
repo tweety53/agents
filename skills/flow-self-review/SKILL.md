@@ -280,12 +280,10 @@ rounds**, `skills/flow-contracts/pipeline.md`), its prompt carrying every `revie
 `verify-<v>.log` of those rounds. Every planning dispatch runs on
 the `self-review-plan` role's pair (`pipeline-fix-plan` in a pipeline-fix loop), never an escalation. **This session plans,
 changes and reviews nothing itself** (`design.md`, `one-shot-subagent-fix-loop`), save item 4's
-ticks and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the MODEL HANDSHAKE
-paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) and the TOOLS, FOREGROUND BUILDS and
+ticks and **The base sync** below: each numbered step below that does is a fresh dispatch on the pair it names, never a fork of this session (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), its prompt carrying the TOOLS, FOREGROUND BUILDS and
 NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a review's READ-ONLY REVIEW
 (`skills/flow/gated-reviewer-brief.md`) too, and the plan's
-PLANNING DELEGATION below in place of NO DELEGATION — with **The
-handshake** there applying to each reply. Every dispatch is one-shot: no `SendMessage` to it once
+PLANNING DELEGATION below in place of NO DELEGATION. Every dispatch is one-shot: no `SendMessage` to it once
 it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on that row's `opus/flow-high` escalation, admitted only after `<agents repo>/scripts/flow-guard pipeline-fix escalate <key>` (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
 
 **The pairs are the `self-review-*` and `pipeline-fix-*` rows** of **Allowed pairs**
@@ -370,8 +368,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    implements them in that worktree, one commit per task with its declared `**Commit:**` subject
    and no `Task-Id:` trailer, never writing `<agents repo>/spectre/changes/` — the ticks are item
    4's — adding one test that fails without the fix wherever the fix changes behaviour, and running
-   the `<agents repo>/.flow/project.md` `## lint` lines its files need, save
-   `flow-guard check-task-records`, which judges those ticks. It reports each task's
+   the `<agents repo>/.flow/project.md` `## lint` lines its files need. It reports each task's
    commit, or a finding it found `big` once under way, left uncommitted. It never merges or
    pushes.
 2. **Review** — key `self-review-<name>-review-<r>` on the review pair, over

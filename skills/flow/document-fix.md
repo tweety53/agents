@@ -48,8 +48,7 @@ Record what changed **before** writing code, so the proposal never goes stale. `
 run's own ordinal — one more than the number of fix rounds already recorded in `proposal.md`/
 `tasks.md` or as `<name>-fix-N` sub-changes, the same `N` the "where should it go" prompt's
 sub-change option below names. **This planning pass is the parent's own work**, run inline on this
-session's model with the fix instructions in place of the design checklist — no dispatch, no
-handshake, no relay.
+session's model with the fix instructions in place of the design checklist — no dispatch, no relay.
 
 The planning pass opens by asking where the fix should go, asked directly by the parent, shape per
 Operator prompts (`skills/flow-contracts/operator-prompts.md`):

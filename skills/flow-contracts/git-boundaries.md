@@ -86,7 +86,7 @@ A `/flow-fast` branch's commit series is its whole record, and the route reads i
 **Commits outside every task carry a `Flow-Key:` trailer.** A commit a run makes on a change
 branch outside every task — the parent's full-suite fix, a panel fix or a gated reviewer's fix
 committed on top, the parent's inline review-Minors commit, `flow.visual-verify`'s capture
-commit, the brainstorm's handoff-asset commit, `flow-guard commit-split`'s implementation commit —
+commit, the brainstorm's handoff-asset commit, integrate's implementation commit —
 carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded under
 (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
 records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,

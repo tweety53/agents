@@ -122,7 +122,7 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   stops at its `IN_PROGRESS` handoff (**Review-before-landing instruction**, `skills/flow/SKILL.md`),
   and `/flow-fast` with `## handoff` `required` stops after its change summary; the fixes that
   testing finds are the operator's fix runs. Neither stops unless the operator set it.
-- **No recommended option.** The second model-handshake mismatch, a multiple-match pick, a finding
+- **No recommended option.** A multiple-match pick, a finding
   recorded unverifiable, and a question the run cannot honestly give one recommended option.
 - **Out of the run's reach.** A failure whose cure lies outside the run — production, a credential
   or account only the operator holds, a repository the run was not given — and a `## Question`

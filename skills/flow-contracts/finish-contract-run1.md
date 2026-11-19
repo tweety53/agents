@@ -228,9 +228,7 @@ renders from it what the bundle needs (**Temporary artifacts registry**,
 artifact source stays in the state directory until run 2 removes it; run 1 copies nothing.
 
 The sequence itself — the guarded commits, the skipped-empty rule, the failure rule and the
-symlink case — is the chain **The guarded commit chain** (`git-boundaries-commit-chain.md`) gives;
-`<agents repo>/scripts/flow-guard commit-split` is what runs it, at both this
-call site and the implement phase's PR-exception path.
+symlink case — is the chain **The guarded commit chain** (`git-boundaries-commit-chain.md`) gives.
 
 **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
 implementation commit lands — the reshape's push (**Branch backup**, `git-boundaries.md`).

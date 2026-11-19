@@ -1,9 +1,8 @@
 # Execute — `sdd` dispatch
 
 Loaded during `flow.sdd-tdd` by the load directive of **4. Execute (SDD + TDD)**
-(`skills/flow/implement.md`). `<shape>`,
-`<changeRoot>`, `<principles-path>` and `<canonical-worktree>` are the values that section defines
-(`skills/flow/implement.md`).
+(`skills/flow/implement.md`). `<changeRoot>` and `<canonical-worktree>` are the values that file
+defines (`skills/flow/implement.md`).
 
 **Dispatch one implementer per group.** The unit is the recorded decision's
 `groups` entry — its `tasks` (`skills/flow/decider-prompt.md` is canonical for how they are
@@ -31,35 +30,11 @@ nothing is dispatched into that copy. A group never spans two repositories (`ski
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its repository's wave is picked. The same
 `flow-guard close-task` call the task-close step (`skills/flow/implement.md`) runs covers each picked
-commit, with one `-end-key <key> -end-commit <picked sha>` pair per picked member in pick order, so each
-member's row closes when it is picked, never at the handoff. A pick conflict or a
+commit. A pick conflict or a
 guard failure goes to a fresh fixer (**Every fix is a fresh one-shot**, `skills/flow/implement.md`)
 — a conflict aborted first, `git -C <canonical-worktree> cherry-pick --abort`, then the pick row
 dispatched into the canonical worktree, its `FIX INPUT:` naming the member's commits; a guard
-failure the re-commit row, behind `flow-guard resume-or-fresh` on the member's own closed row — and the parent re-runs the guard on what it commits, while sibling
+failure the re-commit row — and the parent re-runs the guard on what it commits, while sibling
 members, queued groups and already-ready later waves are unaffected. A copy is removed once its group is picked —
-`flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g> --fold-back`, which first copies the group's context bundle and implementer reports back into `<worktree>` for its gated review — its own Bash call with literal absolute paths, never chained into a compound command, which the harness's rm safety check refuses. A member reporting BLOCKED follows the existing BLOCKED handback. The
+`flow-guard throwaway-worktree remove <worktree> <worktree>-wave-group-<g> --fold-back`, which first copies the group's implementer reports back into `<worktree>` for its gated review — its own Bash call with literal absolute paths, never chained into a compound command, which the harness's rm safety check refuses. A member reporting BLOCKED follows the existing BLOCKED handback. The
 one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
-
-**Gather one context bundle per group, immediately before that group's implementer goes out.**
-Take `<g>` and the group's `tasks`, verbatim:
-
-```bash
-mkdir -p <worktree>/.superpowers/sdd
-flow-guard gather-dispatch-context <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context-group-<g>.md <id>[,<id>…] <canonical-worktree> <shape>
-```
-
-A non-zero exit — including the guard being absent — is reported, and
-dispatching proceeds without a context bundle: the dispatch prompt carries the change's proposal,
-design, engineering principles and the group's own tasks inline instead; an implementer's context
-bundle never gates a run (the panel's bundle failure is its own prompt, in `skills/flow/review-panel.md`). Confirm the bundle was actually written (`test -f
-<worktree>/.superpowers/sdd/dispatch-context-group-<g>.md`) and report plainly if it is not.
-**Never read the bundle back into this context** — `test -f` is the whole check; its content is the
-implementer's input, not the dispatcher's. Report the script's stderr line for this stage (`bundle
-unchanged — reusing …` or `bundle rebuilt — …`) as part of this stage's own reporting.
-
-The sixth argument scopes the group's `## tasks.md` section to the plan header and the named
-tasks' blocks; a named id the plan does not carry is
-exit 2, a plan defect reported like a missing `**Files:**` field. The panel's and the fix
-subagent's bundles (`skills/flow/review-panel.md`) pass an empty sixth argument and keep the whole plan.

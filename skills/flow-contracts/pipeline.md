@@ -156,9 +156,7 @@ this rule broken. Ending on
 any status report that offers to continue is this rule broken too (kan-1099).
 
 **A wait on background subagents is the one turn end inside a phase.** The parent ends its turn on
-the one-shots it launched, and the harness's completion notifications resume it — never a poll;
-the `Stop` hook allows that turn end while any agent the transcript launched has not notified its
-end.
+the one-shots it launched, and the harness's completion notifications resume it — never a poll.
 
 **No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
 per-task re-review, a verify stage's fix loop, a verifier re-dispatch, the implement phase's

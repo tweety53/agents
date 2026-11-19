@@ -10,28 +10,19 @@ this file in full first: its prompt is a stub naming this file, never these para
 > pathspec-scoped** — `-- <this task's files>` — so it carries only the paths this task names,
 > whatever else the index holds; a plain commit sweeps a pre-staged foreign tree in with the
 > task's work. **Never weaken or
-> bypass a project's commit validation to fit** — no `--no-verify`. Stage for that commit only
-> through the guarded sequence below, in this order — the clearing pass runs first, before any
-> `git add`, so nothing an earlier step staged under a planning path rides the commit:
+> bypass a project's commit validation to fit** — no `--no-verify`:
 >
 > ```bash
-> flow-guard stage-task-files <abs-worktree> <this task's files> \
+> git -C <abs-worktree> add -- <this task's files> \
 >   && git -C <abs-worktree> commit -m "<the task's declared subject>" -m "Task-Id: <n>" -- <this task's files>
 > ```
 >
-> `flow-guard stage-task-files <abs-worktree> <file>…` runs that clearing reset, then the add of the task's
-> non-planning paths, then a second clearing reset, then exits 1 when git left any of this task's paths unstaged: report the lines it printed and
-> commit nothing.
-> Its header (`<agents repo>/scripts/flow-guard stage-task-files`) is canonical for the sequence.
 > Paths are relative to the worktree root, which `-C <abs-worktree>` anchors whatever directory
 > the shell is in — from a subdirectory of it, an unanchored `git add` reads them
-> against that directory and fails with a pathspec error. Both spec-tree leaf spellings are named because the
-> leaf is the project's — `spectre` or `openspec` — and a path the project does not use is a
-> reset that clears nothing. **Never a bare
+> against that directory and fails with a pathspec error. **Never a bare
 > `git add -A`, `git add .`, or `git commit -a`**:
-> any of them sweeps already-staged planning artifacts into the task commit, which
-> `flow-guard check-task-commit-planning-paths` fails at the boundary. Never
-> `<project>/spectre/changes/` either — the clearing resets do not licence a second, deliberate add of it.
+> any of them sweeps already-staged planning artifacts into the task commit. Never
+> `<project>/spectre/changes/` either.
 > **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
 > `**Files:**` names one, edit it and commit it here, in this task's own commit. **A withdrawn
 > task is backed out, not erased**: when work an earlier commit landed is withdrawn, the
@@ -41,15 +32,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 > wrote and undid before committing is never what its subject or body describes (**Revert and
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 >
-> **Check your own commit before you hand back.** Once a task's commit exists, run
-> `flow-guard check-task-commit-planning-paths <abs-worktree> HEAD~1` on it. On an exit 1, fix
-> what it names, undo the commit with
-> `git -C <abs-worktree> reset --soft HEAD~1`, re-stage through `flow-guard stage-task-files` and
-> recommit with the task's declared `**Commit:**` subject and `Task-Id: <n>` trailer, until it
-> exits 0: the parent's `flow-guard close-task` runs it again, and a refusal there costs a
-> recommit dispatch. A path the commit needed beyond `**Files:**`, or a declared path the task had
-> no reason to touch, is named on an `undeclared:` or `correction:` line of your summary head. An
-> exit 2 is reported, never worked around.
+> A path the commit needed beyond `**Files:**`, or a declared path the task had
+> no reason to touch, is named on an `undeclared:` or `correction:` line of your summary head.
 
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
@@ -79,21 +63,9 @@ this file in full first: its prompt is a stub naming this file, never these para
 > The suite proves only what it asserts; the old-vs-new diff is the proof for every output it
 > never named.
 
-> **REQUIRED READING:** the engineering principles section of the context bundle below — your
+> **REQUIRED READING:** `engineering-principles.md` beside this file — your
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them.
-
-> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context-group-<g>.md` carries this
-> change's proposal, design, engineering principles, and — under `## tasks.md` — the plan header
-> plus your group's own task(s) only, gathered for you. You **must** still read the
-> actual diff and the actual code — the bundle is shared *input*, never a substitute for the source.
-> It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do
-> not need to open `<project>/.flow/project.md` yourself for them.
-
-> **PROJECT HAZARDS:** the bundle's `## hazards` section carries this project's recorded
-> warnings, filtered to this change's shape — each one names a way this project specifically
-> bites, recorded after it cost time. They are binding: read them before your first edit and
-> never argue one away without measuring.
 
 > **PLAN AMENDMENT:** When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
@@ -163,13 +135,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 
 > **AFTER A COMPACTION:** Your context is compacted near 150,000 tokens: a summary takes the
 > place of your earlier turns. When your context opens with such a summary, re-read this brief
-> and your CONTEXT BUNDLE before your next action — the summary carries neither.
-
-> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
-> guard, a real transcript, a real process — at least one test you write MUST exercise the real
-> thing. A test backed by a fake or a hand-built value passes while the real integration is broken:
-> the shape you construct by hand is not the shape the real producer emits. Build the value the way
-> production builds it, or assert against the real boundary.
+> before your next action — the summary does not carry it.
 
 > **SCRUB A REPRODUCED ARTIFACT:** A real artifact reproduced into a committed fixture — a transcript, a log, a database dump — is reduced to the lines the test needs and scrubbed of every identifier, path, prompt text and personal datum before it is staged; the raw copy stays under `<abs-worktree>/.superpowers/sdd/`, never in the tree (kan-1132 self-review, F6).
 
@@ -185,7 +151,6 @@ this file in full first: its prompt is a stub naming this file, never these para
 > completion notification and never opens the report body:
 >
 > ```text
-> Model: <the model named in your own system prompt>
 > status: DONE | BLOCKED
 > commit: <task-id> <full sha>
 > correction: <task-id> <field> — <corrected value>
@@ -197,7 +162,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > report: <this report file's absolute path>
 > ```
 >
-> `Model:`, `status:` and `report:` appear once; every other line once per item — a `commit:` per
+> `status:` and `report:` appear once; every other line once per item — a `commit:` per
 > task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
 > `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
 
@@ -210,7 +175,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > `git -C <abs-worktree> commit -m "fix(<module>): <subject>" --trailer "Task-Id: <n>" --trailer "Flow-Key: <your key>" -- <this task's files>`,
 > `<n>` that task's id — both trailers as `--trailer` flags, never a `-m` paragraph each, since git
 > reads trailers from the last paragraph alone; a re-commit rewrites only the
-> refused, unpushed task commit, without the paths the refusal names, keeping its declared
+> refused, unpushed task commit, keeping its declared
 > `**Commit:**` subject and `Task-Id:` trailer; a pick re-applies the member's commits onto the
 > branch tip in order, each keeping its subject and trailer; a full-suite fix commits with
 > `--trailer "Flow-Key: full-suite-fix-<n>"` and no `Task-Id:`. When the line names MUTATION PROOF, follow

@@ -1,7 +1,7 @@
 # Gated reviewer brief
 
 Every gated reviewer bundle of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) — an original
-bundle, a fix re-review or a handshake retry — reads this file in full first: its prompt is a stub
+bundle or a fix re-review — reads this file in full first: its prompt is a stub
 naming this file and one `PASS task-<n>` block per task it reviews.
 
 > **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
@@ -12,12 +12,6 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
-
-> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
-> guard, a real transcript, a real process — at least one check you make MUST exercise the real
-> thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
-> and a passing test can each read plausibly and be false. Run it before you accept it, and run it
-> before you reject it.
 
 > **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
 > subagent, background agent or helper of any kind — you are the leaf of this run, and any child
@@ -58,5 +52,5 @@ and, for each `PASS task-<n>` block of your prompt:
 > findings file, the FINDINGS FILE path your prompt names: one JSON object per line for every
 > finding of every pass, carrying `task` (the pass's task id), `severity`, `location`
 > (`<file>:<line>`) and `note`, and never a `ref` — written empty when no pass raised one, beside
-> the last pass's report. Your final message opens with your `Model:` line, then one line per pass, in plan order:
+> the last pass's report. Your final message is one line per pass, in plan order:
 > `task <n>: clean|fix — Critical <n> Important <n> Minor <n> — <its report path>`.

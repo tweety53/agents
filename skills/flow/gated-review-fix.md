@@ -10,17 +10,16 @@ has returned, the `fix` reports and the Minors a gated pass left open are split,
 order, into groups of whole tasks of one repository, each of at most weight 3 — a
 `**Size:** big` task weighs 3, every other task 1 — and one fresh dispatch per group carries its tasks' reports and
 Minors. Fixers of one worktree run in series, each launched once the previous one's return has
-run; fixers of different worktrees run at once. `flow record dispatch begin` refuses a fixer
-key naming more than three tasks — the gated row of **Every fix is a
+run; fixers of different worktrees run at once. Each is the gated row of **Every fix is a
 fresh one-shot** (`skills/flow/implement.md`), keyed `task-<n+n>-implementer-fix-<k>`, the ids of
 the tasks its group fixes `+`-joined in plan order, on the `panel-fix` role's pair. Its `FIX INPUT:` line names each reviewer
 report path, each finding's ref and MUTATION PROOF. Every task commit is pushed by then, so each
 fix is one new commit on top per task, carrying that task's `Task-Id:` trailer.
 
-**Each fixer's return is one Bash call**: the markers verify, then the push, `flow record status
+**Each fixer's return is one Bash call**: the push, `flow record status
 -change <name> -ref F<n> -status fixed` for each Minor its summary head names `fixed:`, and, when a
 task's pass was `fix`, that task's `task-<n>-fix-<k>.diff` of its fix commit's own range,
-`git diff <fix-commit>^..<fix-commit>`, the snapshots and
+`git diff <fix-commit>^..<fix-commit>`, and
 the re-review bundle's `begin`. A `not-fixed:` line is the parent's to judge: withdrawn with its
 one clause, or carried to the next fixer. A finding the FRAME DEPARTURES paragraph raises is fixed in the app by its task's fix commit, and a `not-fixed:` line for it, or a fix that only adds or edits a sidecar `#` comment naming the departure, carries it to the next fixer (kan-1087 self-review, F17). A clause claiming a test passes or the finding is already
 green names the run — its command and exit — else the line is carried to the next fixer, and
