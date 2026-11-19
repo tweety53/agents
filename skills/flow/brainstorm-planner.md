@@ -83,7 +83,7 @@ states.
   a public contract, or needed competing designs; `regular` otherwise.
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
-  worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
+  worktree kickoff created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
   path is gitignored: never stage or commit it, even where the brainstorming skill says to, and
   never write it to the main checkout.
 - **A frame-specified design needs its handoff assets reachable from the tree.** When the
@@ -92,9 +92,7 @@ states.
   are committed into the repository or their location is recorded in
   `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
   mockups directory lives — **Project configuration — visual verification**,
-  `skills/flow-contracts/project-configuration-visual.md`). A commit of the assets carries
-  `-m "Flow-Key: flow.brainstorm"` (**Commits outside every task**,
-  `skills/flow-contracts/git-boundaries.md`).
+  `skills/flow-contracts/project-configuration-visual.md`).
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
@@ -130,49 +128,14 @@ states.
 fully-worked issue description, a `/flow-plan` capture or a handoff package that already carries
 the design, its decisions and the acceptance criteria.
 
-**A decision that departs from a handoff ticket's Done-when amends that line before the plan-gate
-commit.** When a `## Decisions` entry chooses otherwise than a handoff ticket's `## Done when`
-states — a branch, a landing target, an acceptance criterion — rewrite that line to what the
-decision chose, citing the decision's `**ID:**` and its date, in its own commit carrying
-`-m "Flow-Key: flow.brainstorm"`, so integrate never stops on a criterion the plan already
-overruled.
-
-A Done-when names only committed, tracked paths of the repository it belongs to — never a
-gitignored or otherwise uncommitted side output, whose removal a later cleanup turns into a done
-criterion nothing satisfies — enforced by `flow-guard check-done-when-paths`.
-
 ### Explore and design agents
 
-**Every planning dispatch** takes its pair from `flow-guard pair-judge <role> <prompt file>` per **Model and effort** below — `<role>` the
-dispatch's own `Role:` line, `explorer` or `plan-designer`, whose row the hook admits it on, and `<prompt file>` the dispatch's prompt, written first to
-`<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md` (in `/flow-plan` before capture, under the directory `flow state dir` prints) — passing the
-printed model as the Agent tool's `model` and the effort as its `effort`.
-Where the planner's own prompt carries `Granted: <role> <model> <effort>` for the dispatch's role,
-the dispatch takes that pair instead, its prompt carrying the lines `Operator pair: <role>` and
-`Worktree: <abs-worktree>` (**Allowed pairs**, `skills/flow-contracts/model-policy.md`).
-Its prompt carries the line `Worktree: <abs-worktree>` in a `/flow` planner, granted or not, the
-line `Role: explorer` for an Explore agent or `Role: plan-designer` for a Plan agent (**Allowed
-pairs**, `skills/flow-contracts/model-policy.md`), the
-two agent-baseline sentences and the report-tersely line (`~/.claude/rules/dispatch-carries-the-baseline.md`)
-and a narrow, explicit scope: what to look at, what is already known, what to return. Never a
-`fork`, and never an agent that edits files. The agents investigate and propose; you decide. Each
-planning dispatch's row is opened at its launch, by the hook or by a `begin` before its Agent
-call, and ended when its agent hands back, and
-`flow stage end` of `flow.brainstorm` refuses while one is open. In a `/flow` planner, during
-`flow.brainstorm`, whose agents' prompts name the change's worktree, `hooks/enforce-agent-baseline.py` opens the row at
-launch; `/flow-plan` and the self-review and in-run fix planners run the `begin` below first:
-
-```bash
-flow record dispatch begin -change <change> -role explorer|planner -model <m> -effort <e> -key explore-<n>|design-<n> -session-token <token> -pair-pick '<pick>'
-flow record dispatch end -change <change> -key explore-<n>|design-<n> -session-token <token> -outcome completed
-```
-
-`<m>` and `<e>` are the pair `flow-guard pair-judge` printed, `<pick>` its source and reason, `<n>` counting the session's planning dispatches from 1, and `<change>` and `<token>` the change
-and session token the planner's own prompt names. A Plan agent's row records the ledger role
-`planner` under its `design-<n>` key, whatever its `Role:` line says — `plan-designer` is the
-**Allowed pairs** role, which the stats derive from that key, and `flow record` refuses it. A
-recording command's stderr is never hidden — never redirected away or piped through `tail` — and a
-row is never back-filled with instants not read from its agent's transcript.
+**Every Explore and Plan agent** runs on its role's pair (**Model and effort** below) — `explorer`
+for an Explore agent, `plan-designer` for a Plan agent — passed as the Agent tool's `model` and
+`effort`. Its prompt carries the two agent-baseline sentences and the report-tersely line
+(`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at,
+what is already known, what to return. Never a `fork`, and never an agent that edits files. The
+agents investigate and propose; you decide. They record no ledger row.
 
 **Findings outlive the round.** Append each Explore and Plan hand-back verbatim to
 `<abs-worktree>/.superpowers/sdd/planner/findings.md` under `## <explore-<n>|design-<n>> — <the
@@ -180,13 +143,9 @@ scope it was given>` as it arrives; read that file before dispatching, and dispa
 for ground no section covers.
 
 **The cap.** One planner dispatch launches at most three Explore and three Plan agents in round 1
-and at most two agents in all in a later round or a final dispatch; a fresh dispatch **Three failed
-rounds** (`skills/flow-contracts/pipeline.md`) starts counts as a later round. A planner that needs
-more writes `Over cap: <n> agents — <reason>` in the round file's `## Summary` (a final dispatch:
-in its return) and dispatches them.
-
-Each Explore or Plan agent's `description` names its row's key, `explore-<n>` or `design-<n>` — the
-word the harvester stamps the launch's agent id onto.
+and at most two agents in all in a later round or a final dispatch. A planner that needs more
+writes `Over cap: <n> agents — <reason>` in the round file's `## Summary` (a final dispatch: in
+its return) and dispatches them.
 
 **Never end your turn while one of your agents runs.** A turn that ends to wait for a hand-back
 loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
@@ -218,62 +177,50 @@ Only once the operator picks it — never before, never in anticipation of the c
 needs — the problem and why it exists, the design as settled and why, the code it touches, its edge
 cases and what it impacts — and return it as a briefing. It then loads `skills/flow-learn-quiz/SKILL.md`
 and runs it over that briefing, the operator's understanding being what it checks, until that skill ends. It is a round, and the confirm is
-then asked again; it never ends the stage. Under the `## decisions: recommended` mode the confirm is not asked, so the option never
+then asked again. Under the `## decisions: recommended` mode the confirm is not asked, so the option never
 shows. Silence still defaults to another round, never to this option.
 
 The explicit **approve the design and move on** answer is at once the convergence exit that closes
-the checklist and the design approval the HARD GATE requires; mark `flow.brainstorm` end, then
-`flow.design-approval` begin and end, around that one answer:
-
-```bash
-flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
-flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
-# … the operator's approve-and-move-on answer — this is the HARD GATE (The checklist, skills/spectre-planning/SKILL.md) …
-flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
-```
+the checklist and the design approval the HARD GATE requires (**The checklist**,
+`skills/spectre-planning/SKILL.md`).
 
 ## C. Create the change and its artifacts
 
 ```bash
-flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
-spectre new "<name>"   # working directory: the worktree flow.kickoff created
+spectre new "<name>"   # working directory: the worktree kickoff created
 ```
-
-In a `planner` dispatch of `/flow` or `/flow-plan` the parent has made this begin mark; the
-self-review and in-run fix planners, which no parent marks for, make it themselves.
 
 `STARTED` is written before this section exists (section A of `skills/flow/brainstorm.md`), but the
 `STARTED` handoff prints at the end of the run, so its `Open questions` line shows what this section holds
-(**The `STARTED` handoff block**, `skills/flow/brainstorm.md`); the `IN_PROGRESS` handoff carries no count.
+(**The `STARTED` handoff block**, `skills/flow/brainstorm.md`).
 
 **`design.md` also carries `## Non-goals` and `## Risks`**: what the change
 deliberately does not do, and what can go wrong and what limits it. Each may be the one line
 `none — <reason>`.
 
-```bash
-flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
-```
-
-A `/flow` or `/flow-plan` final planner running section **C** stops here and returns `ARTIFACTS-WRITTEN`; section **D** is a
-fresh dispatch's, after **Plan review** (`skills/flow/brainstorm.md`) #1.
+A `/flow` or `/flow-plan` final planner continues straight into section **D** in the same dispatch.
 
 ## D. Basic Workflow #3 — Writing plans
 
-```bash
-flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
-```
+**Tell writing-plans the task shape, because it is spectre's and not writing-plans' own.** A task
+is a column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's
+steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
 
-In a `planner` dispatch of `/flow` or `/flow-plan` the parent has made this begin mark; the
-self-review and in-run fix planners, which no parent marks for, make it themselves.
+**Each task carries these fields**, each on its own column-0 line:
 
-**Load the plan-shape rules before writing `tasks.md`.** Run `flow-guard check-plan-shape -rules`:
-it prints every rule the guard holds a plan to, one `<id>  <sentence>` line each, and the plan meets
-every one. A refusal line, `path:line: <id> <message>`, names the rule it broke by that id.
+- `**Files:**` — the repo-relative paths this task's commit will touch, each backticked.
+- `**Tests:**` — the tests this task adds, each backticked, or `none`.
+- `**After:**` — `Task <id>[, <id>…]` (one `Task` prefix for the whole list) or `none`: the tasks
+  this one's own files depend on. Every task writes it, so the implementer grouping
+  (`flow-guard plan-dispatch-bundles`) never has to guess the order.
+- `**Size:**` — optional, `small`, `medium` or `big`; a task without one is `medium`. Write `big`
+  on a task expected to fill most of an implementer's context alone. `flow-guard
+  plan-dispatch-groups` weighs a `big` task 3 and every other task 1 and caps every group at 3.
+- `**Commit:**` — the commit subject line, scope naming the module the task's `**Files:**` carry
+  (**Commit scopes name the module**, `<agents repo>/rules/commit-scope-is-the-module.mdc`).
 
-**Tell it the task shape, because it is spectre's and not writing-plans' own.** A task is a
-column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's steps are
-`  - [ ] **Step N: …**` lines indented two columns beneath it. The rule in full is the `Placement`
-paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`).
+Every `## Decisions` entry whose `**Chosen:**` states behaviour is pinned by a test some task
+names in `**Tests:**`.
 
 > **Write each task's verify step as its own lint commands plus targeted tests.** A verify step
 > names the lint commands the task's own `**Files:**` actually need — never the project's whole
@@ -281,10 +228,7 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t '<name>'` for vitest), never the bare
 > module or repository suite: that run belongs to the parent's test-list run after the last
 > group (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
-> lint alone and no test command. A task whose `**Files:**` holds a Markdown file under `skills/` or
-> `rules/` is the exception: its verify step runs the whole list, `flow-guard run-verify-list <worktree>
-> lint`, because the prose guards that list carries are too many to hand-pick and the one a subset
-> leaves out fails only at `flow.verify`.
+> lint alone and no test command.
 
 > **Run only what is installed.** A step's command runs a tool already on the machine or declared
 > in `<project>/.flow/project.md` — never npx without `--no-install` or `--no`: with its yes flag,
@@ -302,20 +246,15 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > UI-test source set of their own — Compose Multiplatform's `desktopTest`, and the like — the plan
 > carries two tasks: the feature task, whose `**Files:**` names the source files and the unit-test
 > (`commonTest`) files, then one follow-on task per feature task whose `**Files:**` names only that
-> feature's UI-test file(s), all of them. The two are file-disjoint, so `flow-guard plan-dispatch-bundles`
-> keeps them separate bundles and the UI-test iteration starts in a fresh implementer at a small
-> context instead of the one that just wrote the feature. The follow-on declares
-> `**After:** Task <N>` naming its feature task, and the feature task declares its own
-> predecessors or `none` — the declarations alone run the follow-on after the feature task — and
-> the parent's test-list run after the last group still covers the pair.
+> feature's UI-test file(s), all of them, its `**After:**` naming the feature task — so the UI-test
+> iteration starts in a fresh implementer at a small context.
 
 > **Write end-to-end spec and fidelity-capture tasks to run side by side.** Each such task's
 > `**After:**` names only the feature tasks whose behaviour it exercises — never another
-> verification task, since one spec file never needs another's commit — and each seeds its own
-> accounts and data, so the tasks share one running stack (**One stack for the verification
-> tasks**, `skills/flow/implement.md`) without touching each other's state. Global Constraints
-> names the stack's start row and any build the tasks run against; no task's steps start, stop
-> or rebuild the stack.
+> verification task — and each seeds its own accounts and data, so the tasks share one running
+> stack (**One stack for the verification tasks**, `skills/flow/implement.md`) without touching
+> each other's state. Global Constraints names the stack's start row and any build the tasks run
+> against; no task's steps start, stop or rebuild the stack.
 
 > **Write a live check when the change touches a running service or persistent state — never a
 > live-verification task.** When the change under plan touches a long-running service, a daemon,
@@ -323,41 +262,25 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > `## Live check` section naming what to exercise against the real thing — the running system
 > against its real state, not its fakes — the before/after figures to record, and what the
 > change **not** working would look like, so a null result is recognisable as failure rather
-> than read as success: a check that only asserts a command exited 0 cannot tell a repaired
-> system from an untouched one. `flow.verify` runs it (**Live check**,
-> `skills/flow/verify-and-handoff.md`); no task in `tasks.md` does. When the planner judges the
-> change has no runtime to verify against, the section is one line saying so — the
-> justification is required, the check is not. Every step of the check runs at `flow.verify`,
-> before the change lands: a step that needs the change landed, a restarted shared service, or a
-> write to the change's own integrate state is written as the stand-in that runs in its place — a
-> scratch fixture, a workspace's own service, a scratch copy of the record — named in the section. When `<project>/.flow/project.md` names
-> a tool for the check's stand-in — this repository's `<project>/scripts/flow-guard
-> live-store-copy`, run from the change's own worktree — the section invokes that tool by name and
-> never re-specifies what it does. The
-> no-runtime line opens with `None`.
->
-> **The check's own inputs are checked at plan time.** Every case or fixture id the section names
-> is present, every commit it resolves exists in the checkout it names, and the credential route
-> the project declares yields the credential the check needs — each run while planning and tagged
-> `measured:` per **Plan provenance** (`skills/flow-contracts/plan-provenance.md`), never left
-> `unverified:` for `flow.verify` to find.
+> than read as success. `flow.verify` runs it (**Live check**,
+> `skills/flow/verify-and-handoff.md`); no task in `tasks.md` does. When the change has no
+> runtime to verify against, the section is one line opening with `None` and saying why. Every
+> step of the check runs at `flow.verify`, before the change lands: a step that needs the change
+> landed, a restarted shared service, or a write to the change's own integrate state is written
+> as the stand-in that runs in its place — a scratch fixture, a workspace's own service, a
+> scratch copy of the record — named in the section. When `<project>/.flow/project.md` names a
+> tool for the check's stand-in — this repository's `<project>/scripts/flow-guard
+> live-store-copy`, run from the change's own worktree — the section invokes that tool by name.
 
 > **Write a verification change so its found defects become their own tasks.** When a plan's task
 > exists to exercise a surface and report what it finds — a final-verification pass over a feature
-> group, an end-to-end sweep — its `**Allowed-collateral:**` names what the verification commit
-> itself writes, the report or record files the pass produces, never the surface it inspects, and
-> every real defect it finds becomes a new task appended to `tasks.md`, carrying the field family
-> with the fix's own `**Files:**` and `**Allowed-collateral:**`. The
-> appended task is what makes the fix declared — `flow-guard check-task-commit-fields` refuses a commit
-> touching paths no task declared — so the change stays self-contained and every fix stays
-> traceable to a declared task.
-
-> **Triage the sweep's findings before any fix runs** — a defect a verification change's sweep finds is triaged before anything is edited: its fix is its own appended task, never an edit inside the verification task itself — a pre-existing defect, or one on a surface another change owns, included (**The sweep**, `skills/flow-contracts/known-bugs.md`).
+> group, an end-to-end sweep — every real defect it finds becomes a new task appended to
+> `tasks.md`, never an edit inside the verification task itself (**The sweep**,
+> `skills/flow-contracts/known-bugs.md`).
 
 > **Never write a task that creates a worktree.** Every worktree a plan runs in exists before its
-> first task: each `## apps` repository's, on branch `spectre/<name>`, is created at `flow.kickoff`
-> (`skills/flow/brainstorm.md`) or in **2. Isolate the workspace** (`skills/flow/implement.md`), so a task names that worktree's path and no step
-> carries a `git worktree add` (self-review-backlog-flow-6).
+> first task: each `## apps` repository's, on branch `spectre/<name>`, is created at kickoff
+> (`skills/flow/brainstorm.md`) or in **2. Isolate the workspace** (`skills/flow/implement.md`).
 
 > **Sort a multi-repository plan's tasks under `## <repository>` headings.** Each repository's tasks sit under a `## <repository>` heading naming it by the basename of its `Repo root` in `<project>/.flow/project.md`'s `## apps` (`## agents`, `## gymie`); `flow-guard plan-dispatch-groups` reads those headings and never groups tasks of two repositories together. Any other heading — `## Dashboard`, `## Global constraints`, or a root nested in another declared root, agents' `## stats` — is a section of the repository above it, never a repository of its own.
 
@@ -367,551 +290,174 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > an identifier — its last verify step is one `git grep -n -F` over every string it removes, each
 > passed as its own `-e '<string>'`, scoped to the paths the task touches: the sweep prints
 > nothing when the task is done, and any hit means it is not.
-> Its paths never cover a later task's `**Files:**` while that file still holds a string the
-> sweep removes — `flow-guard check-plan-shape` refuses that sweep (F18) — nor a comment or doc line a
-> step of the plan tells the task to keep.
->
-> A removed UI tag, test id or label that a declared `regression checkout` drives
-> (**Project configuration — visual verification**,
-> `skills/flow-contracts/project-configuration-visual.md`) is swept in that checkout too, with
-> the same `-e` list, and the plan carries the task that updates every hit there.
 
-**Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
-block, every numeric claim and every assumption the plan cannot verify at plan time per **Plan
-provenance** (`skills/flow-contracts/plan-provenance.md`).
+**A premise about how a guard, harness or tool behaves is checked at plan time, never assumed.**
+When a task rests on what a command does — an exit code, a config key taking effect, how a clock
+or a rebuild behaves — run it (a spike of five minutes or less) before writing the task and say
+in the task what the run showed. A premise the run disproves strikes or rewrites the task; one it
+cannot settle in five minutes is named in the task for the implementer to check first.
 
-**A block verified on a scratch copy has passed the lint list there.** When planning verifies a
-fenced block by applying it to a scratch copy of the branch — a diff, or a script that edits the
-tree — it runs `<agents repo>/scripts/flow-guard run-verify-list <scratch copy> lint` on that copy with
-the block applied before writing the tag, fixes every red line in the block itself, and the
-`verified:` tag names that run. A block the list was not run over is tagged
-`unverified:flow-guard run-verify-list lint on the applied copy`, never `verified:`. The scratch copy is
-a detached worktree in the repository's sibling worktrees directory, `<project>-worktrees/<name>-scratch`
-— `<name>` your `Key:` on a loop planner — made with
-`<agents repo>/scripts/flow-guard throwaway-worktree create <worktree> <copy>` and removed with its `remove`
-before you hand back, never under a scratchpad or `/tmp`, outside the layout
-`flow-guard check-worktree-location` holds every worktree to.
+**A timing gate never presumes an idle machine.** A step whose outcome turns on a measured
+duration first waits, on a Monitor until-loop with a stated bound and never a foreground sleep,
+until the one-minute load average (`uptime`) is at or under the core count (`getconf
+_NPROCESSORS_ONLN`), and records that load average beside the figure.
 
-**A `verified:` block for a parser or validator is run on what it must refuse.** Planning runs it
-on one rejecting input per rejection the plan states, beside its accepting ones, and the tag names
-each rejecting input it ran.
-
-**A task premise about a guard's behaviour is run at plan time, never assumed.** When a task
-written here rests on what a guard or check currently does — that a ratchet trips or does not,
-an exit code, the figures a guard prints — planning runs that guard before the task is written
-and cites its output in the task as a `measured:` comment per **Plan provenance**
-(`skills/flow-contracts/plan-provenance.md`), naming the command and the ref and quoting the
-exit code or figures the run produced. A premise the run disproves strikes the task during
-planning, before the panel reads the plan.
-
-**A `flow-guard break-and-prove` step writes its test command as run from the repository root.** The guard runs the argv after `--` from the root, so a command a subdirectory needs is written `go -C <dir> test …`, or `sh -c 'cd <dir> && exec …'` for a runner with no directory flag — never with a separate run-from note, which the guard never reads (kan-1124 self-review, F1).
-
-**Committed content never cites a commit sha on the change's own branch.** Integrate's run 1
-reshapes that branch (**Run 1 — the branch is not merged**, `skills/flow-contracts/finish-contract-run1.md`),
-so a sha a task's committed file names stops resolving; cite a path on the default branch and the
-ticket instead. `design.md` is committed content too: run 1 writes it out as the
-change's design record (**The design record**, `skills/flow-contracts/finish-contract-run1.md`).
-
-**A task premise about a harness or tool is spiked live at plan time, never assumed.** When a
-task written here rests on how a harness or tool behaves — that a config key takes effect where
-the task puts it, how a clock or timer behaves, what a dev-stack rebuild picks up — planning runs
-a live spike of five minutes or less for each such assumption before the task is written, and
-records the result in the task as a `measured:` comment per **Plan provenance**
-(`skills/flow-contracts/plan-provenance.md`), naming the command and the ref. A premise the spike
-disproves is rewritten or struck during planning; one the spike cannot settle in five minutes
-stays tagged `unverified:<what-to-check>` for the implementer. The same spike covers a premise naming what a measured cost is spent on — that a build, a fixture or a setup step is where a test's time goes: planning times that part alone before a task cuts it, and a premise the timing disproves strikes the cut (kan-1124 self-review, F5).
-
-**A timing gate never presumes an idle machine.** A step whose outcome turns on a measured duration first waits, on a Monitor until-loop with a stated bound and never a foreground sleep, until the one-minute load average (`uptime`) is at or under the core count (`getconf _NPROCESSORS_ONLN`), as "A test runner's own timeout under outside load is the environment's failure" (`skills/flow/verify-and-handoff.md`) does; it records that load average beside the figure, and names what the task does with a figure taken while the load stays above the core count — never a raised timeout, and never the gated outcome skipped in silence (kan-1124 self-review, F2). `flow-guard check-plan-shape` F30 refuses an unticked task's line that presumes the machine otherwise idle.
-
-**An action a decision gives the parent is a tracked line, never prose alone**. When a `## Decisions` entry's `**Chosen:**` has the parent do something outside
-every task — a commit before the first task, a run action at a stage — the entry carries, beneath
-its `**Chosen:**`, a column-0 line `- [ ] Parent: <the action, and the stage it runs at>`. The
-parent performs it and ticks it (**4. Execute (SDD + TDD)**, `skills/flow/implement.md`);
-`flow-guard check-unfinished-work` holds run 1 while one stays unticked, and
-`flow-guard check-plan-shape` F25 refuses an entry whose `**Chosen:**` names the parent as actor
-and a run moment — `before the first task`, `at flow.<stage>` — and carries no such line; one
-naming no run moment designs the parent's role and needs none. The line sits in `design.md`, never `tasks.md`, where `spectre validate`
-refuses a checkbox line that is not a numbered task. A parent action a task's step needs is the same tracked line, naming the task it follows — `- [ ] Parent: after Task <n>, <the action>` — never step prose, which the task's tick closes whether the parent acted or not; `flow-guard check-plan-shape` F31 refuses an unticked task's line handing the parent a note or a record for `design.md` (kan-1124 self-review, F3).
+**Committed content never cites a commit sha on the change's own branch** — integrate may reshape
+that branch, so a sha stops resolving; cite a path on the default branch and the ticket instead.
 
 **A parent action never writes a main checkout.** `hooks/protect-main-checkout.py` denies every
-write there — an `rm`, a redirect, a commit — and no approval reaches the hook, so a
-`- [ ] Parent:` line that writes one can never be performed. A step that must write a main
-checkout is an operator handoff line instead, naming the exact command for the operator to run
-(kan-1112 self-review, F3).
-
-**Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
-with `**Build:**` per **The build-green tag**
-(`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
-`flow-task-commit-fields` requires:
-
-- `**Files:**` — the paths this task's commit will touch, with an optional
-  `**Allowed-collateral:**` glob. Every path is written literal and
-  repo-relative: a shorthand the plan's preamble defines — gs, commonMain
-  and their like — is expanded by the writer, never left in the field for
-  the guard to expand.
-- `**Tests:**` — the names of the tests this task adds. **The field is parsed, not read:** a
-  `Case <N>` label — `<N>` a number with an optional letter suffix, `Case 13b` — is checked by
-  that label alone and backticks beside it parse as nothing;
-  otherwise every backticked token becomes a declared test name the commit's diff and the tree
-  are searched for; any other prose in it is invisible to the check — write what covers the task
-  outside the field, never inside it. A token written `Class.method` is found when both its
-  segments are, so a test may be named as the pipeline's `fix-mutation:` lines name it. A task adding none writes a field opening with the literal
-  `none`, and `flow-guard check-task-commit-fields` then never reads that field's backticks as test names
-  it must find in the commit's diff. **Bold `**none**` opens such a field; italic `_none_` does
-  not** — the recognition ends on a word boundary, and `_` is a word character, so the trailing
-  underscore swallows it.
-- `**Regression:**` — per declared test, what fails if this task's commit is reverted.
-  Every `## Decisions` entry whose `**Chosen:**` states behaviour — runtime behaviour such as a
-  deadline, a cancellation path, a retry or a sweep, and build or configuration logic such as a
-  selection, a filter or a default — is pinned by a test some task names in `**Tests:**`. Logic
-  with no test seam where it lives moves, in that task, to a seam the repository already has
-  (kan-1112 self-review, F4).
-- `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`, on ONE convention the
-  plan states in its own header (`> **Baseline convention:**`, seeded below), so later tasks
-  cannot drift between counting methods: **chain-position absolutes against each commit's
-  parent** — `before` is the count at this task's own commit's parent and `after` at the commit,
-  every task measured at its own position in the chain, never a plan-time pair that a fixup
-  landing earlier in the chain stales; when a fixup shifts the counts, the guard's re-measurement
-  failure names the numbers it measured and the declaration is restated from them, never
-  re-derived by hand; **split by source set** — each Baseline counts one source set's own counter
-  (one module's `@Test` annotations, one suite's cases), never one tree-wide number that a change
-  anywhere shifts; **a word-boundary-safe counter** — whole tokens anchored, so `@Test` never
-  substring-matches `@Testcontainers`; and **no pinned ref** — the recorded command
-  carries no tree, sha, branch or revision argument anywhere inside it. The counts are
-  counted statically from test declarations (`@Test` and its language equivalents), never from a
-  test run, and each task's delta its own: `after` is `before` plus the tests the task's own
-  `**Tests:**` field names. The counts are exact integers: `after=~N` is unparseable by the guard
-  and silently disables the re-measurement. A Baseline that records a plan-provenance `<!--
-  measured: <command> @ <ref>` `-->` comment is re-measured once the task's commit exists:
-  `flow-guard check-task-commit-fields` re-runs that command at the commit's parent and at the commit, and
-  a count differing from the declared one fails the task — record a command whose stdout is one
-  integer (a `| grep -c` pipeline is the shape), and read
-  "never from a test run" as constraining how the declared numbers are derived at plan time, not
-  the guard's re-measurement. The re-measurement checks each of its two points out itself and
-  runs the command in that working tree. The
-  comment's `@ <ref>` is the provenance annotation, never part of the command.
-- `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
-  the task's own `**Files:**` field carries, per **Commit scopes name the module**
-  (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
-
-An `**After:**` field — `Task <id>[, <id>…]`, one `Task` prefix for the whole list (`Task 5, 6`, never `Task 5, Task 6`), or `none` — declares the task's predecessors, and **every
-task writes it**: a plan states its ordering in declarations, so `flow-guard plan-dispatch-bundles`
-resolves every bundle's after-set from what the tasks say and never needs a human judgment call
-about ordering. The dispatcher still reads an absent field as after every earlier task, so an
-older plan parses unchanged — the planner never relies on that inference. Name exactly the
-tasks this one's own files depend on, `none` when there are none, and write it consistently
-across a `**Squash-with:**` pair (union semantics merge the pair into one bundle).
-
-A `**Size:**` field — `small`, `medium` or `big` — states how much of an implementer's context the
-task's work is expected to take, and is optional: a task without one is `medium`. Write `big` on a
-task expected to fill most of an implementer's context alone — a wide change across interacting
-parts, a new subsystem, a task whose own verification iterates — and leave a narrow or mechanical
-task unmarked or `small`. `flow-guard plan-dispatch-groups` weighs a `big` task 3 and every other
-task 1 and cuts every group to a weight of at most 3, so a `big` task runs alone and at most three
-other tasks share one implementer. A value other than those three fails `flow-guard
-check-plan-shape` (F32) and `flow-guard plan-dispatch-bundles`; a second `**Size:**` line in one
-task, or an indented one, fails `flow-guard check-plan-shape` (F1, F3a).
-
-Add this header to `tasks.md`:
-
-```markdown
-> **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
-> `flow-guard check-task-commit-fields` passes on that task's commit.
-```
-
-Add a second header line, in the same block, declaring whether this plan relocates existing
-prose:
-
-```markdown
-> **Relocation:** yes — <one-line reason>
-```
-
-or `**Relocation:** no`. This line is required and explicit on every plan — never omitted. `yes` scopes a mechanical passage
-comparison (generated later in the pipeline, by `flow-guard generate-relocation-comparison`,
-run before the review panel's `final-review.diff`) to the union
-of every task's own `**Files:**` field across the plan.
-
-A relocation whose destination is consumed outside this repository — a skill another repository
-vendors — checks, before the plan classes a paragraph as movable, that every file, guard and stage
-the paragraph cites resolves in what that destination ships.
-
-Seed `> **Design shape:** plan-mode` into the same block of every plan: on a `tasks.md`
-carrying it, `flow-guard check-plan-shape` refuses a sibling `design.md` missing any of the six plan sections
-(**C. Create the change and its artifacts**, `skills/spectre-planning/SKILL.md`) (decision `design-shape-line`).
-
-Seed a third header line, in the same block, into every plan whose tasks declare `**Baseline:**`
-fields — the exact line below, copied verbatim, so every plan states its baselines' convention the
-same way and no later task can drift between conventions:
-
-```markdown
-> **Baseline convention:** every `**Baseline:** before=N after=M` is chain-position absolutes —
-> `before` is the count at this task's commit's parent and `after` at the commit, each task
-> measured at its own position, never a plan-wide pair — split by source set, counted by a
-> word-boundary-safe counter (`@Test` never matches `@Testcontainers`), with any `measured:`
-> command naming no ref of its own.
-```
-
-A plan whose tasks declare no Baselines states no convention and writes no line.
-
-Before continuing, run `spectre validate "<name>"` — implementation's entry check (section **1**,
-`skills/flow/implement.md`), run here so a capture it would refuse never reaches the gate — and
-repair any exit-1 finding; its exit 2 is reported and stops the plan.
-
-Before continuing, run `flow-guard check-plan-shape` — a shipped guard, run unconditionally — and the
-project's configured plan-provenance guard and its configured build-green guard, if the project
-declares them, and fix any hit. **A hit is exit 1, and only exit 1.** The refusal exits are
-never repaired by editing the plan: check-plan-provenance's exit 2 (environment) and
-exit 3 (containment — a security finding first, per the guard's own contract) and the
-not-a-verdict exit 2 the shape and build-green guards share (a missing or unreadable plan file)
-are reported and stop the plan. Provenance's exit 4 (content-classification) is the one refusal
-whose remedy is editing the plan — fix the line it names and run the guard again, its own
-prescribed course, never accepting the plan while it stands.
+write there, so a step that must write a main checkout is an operator handoff line instead, naming
+the exact command for the operator to run.
 
 > **Write a capture for every frame on the change's frame list.** When the design is specified by
 > mockup frames and the project declares `mockups`, every frame id `design.md` cites is named in
 > some task's `**Files:**` or steps, as the capture spec screenshot of the view that frame draws
 > plus its `<spec>.mockups` sidecar line (**Visual verification**,
-> `skills/flow-contracts/project-configuration-visual.md`). Before finishing, list the frame ids
-> and name the task covering each; a frame no task covers is a plan gap, closed by adding the
-> capture to the task that builds that view or by a capture task of its own. **Cite each frame by
-> its project-relative path, the `mockups` root joined to `<frame id>.png`, never as a bare
-> `<frame id>.png`** — a capture screenshot's name takes that shape too, so only the path form is
-> a citation `flow-guard check-mockup-citations` can resolve. A frame drawn in the `design repo` at a
-> tag is cited the same way with the tag as a sub-directory between the root and `<frame id>.png`, its
-> dark twin's id prefixed `dk-`.
-
-> **Write a capture task that baselines against a mockup to measure before it commits.** Such a
-> task's steps, after its capture, run `flow-guard compose-mockup-frames` on its spec's `<spec>.mockups`
-> sidecar — with `design repo` declared, after `flow-guard render-frames <worktree> <spec>.mockups` — and the band, seam and matrix reads of `flow-guard measure-visual-properties` on every pair, and
-> fix until they come back clean or each leftover is named with its cause — the rule
-> **The implementer measures before it hands back** in **The loop** (`skills/flow/verify-fix-loop.md`) states for a fix
-> round, applied at plan time. The same
-> compose-and-measure steps apply when the view's specification is an approved prototype, rendered
-> as each capture's frame per step 10 of `skills/flow/visual-verify-verifier.md`, with no declared
-> `mockups` root. Such a task pre-flights its own sidecar alone,
-> `flow-guard check-sidecar-reach <spec>.mockups <frames folder>`, never the capture folder, whose
-> other sidecars point at other frames folders. Every screenshot such a
+> `skills/flow-contracts/project-configuration-visual.md`). Cite each frame by its
+> project-relative path, the `mockups` root joined to `<frame id>.png`. Every screenshot such a
 > task's spec takes is the full page or viewport, never an element or a clipped region, and each
-> captures a state no sibling
-> capture shows — steps 8 and 9 of `skills/flow/visual-verify-verifier.md` refuse a clip and a
-> byte-identical pair.
-> The task that builds the view seeds, in its capture fixture, the data for every element and
-> state the frame or prototype draws — per-row variants, empty and zero cells, badges, an
-> overflow-length list — on data outside the windows other views' captures read; only content
-> drawn with different values is an expected leftover, never a missing element (**A departure
-> caused by missing account data is fixed by adding the data, never explained away.**,
-> `skills/flow/visual-verify.md`).
-> The one exception is a region an approved prototype draws alone, captured as an element beside
-> the view's own full-page capture, per step 8 of `skills/flow/visual-verify-verifier.md`.
-
-> **Measure a shipped view against its frame before writing its task.** A view ships when its
-> capture spec already has captures — `flow-guard resolve-visual-screenshots <worktree> <spec basename>`
-> exits 0. For each frame on the change's list that draws such a view, write the task from the
-> measured difference, never from reading the frame: point the spec's `<spec>.mockups` sidecar line
-> at the frame, run `flow-guard visual-verify-pass measure <worktree> <name> plan <spec path>` — with
-> `design repo` declared, after `flow-guard render-frames <worktree> <spec>.mockups` — and put the
-> sidecar back as git holds it, since the task that restyles the view commits that line. Its
-> manifest, `<abs-worktree>/.superpowers/sdd/visual-manifest-plan.json`, names what the shipped view
-> departs by: the task that restyles the view cites every `over` row as `<frame> #<row>` beside
-> the figures the row carries, and names every flagged band and seam. A row the change leaves
-> standing — a part a sibling ticket builds — is cited the same way with its reason. The task's
-> `**Size:**` is read off that list, never off the frame's look.
+> captures a state no sibling capture shows. The task that builds the view seeds, in its capture
+> fixture, the data for every element and state the frame or prototype draws — per-row variants,
+> empty and zero cells, badges, an overflow-length list — on data outside the windows other
+> views' captures read.
 
 > **Write a frame a sibling ticket finishes as this change's parts only.** When sibling tickets
 > share a mockup frame family and a frame on this change's list also draws parts a sibling ticket
 > builds, `design.md` records a decision naming the parts of that frame this change builds, and
 > the frame's `<spec>.mockups` sidecar line sits under a `#` comment naming the parts expected to
-> differ, the sibling ticket that builds them and that decision's ID — the verifier then reads
-> those parts as expected until the sibling lands, and judges every other part of the frame as
-> usual.
+> differ, the sibling ticket that builds them and that decision's ID.
 
-When the project declares `mockups`, also run — with `design repo` declared, after
-`flow-guard render-frames <worktree> <changeRoot>/design.md <changeRoot>/tasks.md`, whose exit 1 or 2 is
-reported and stops the plan —
-`flow-guard check-mockup-citations <worktree> <mockups root> <changeRoot>/design.md <changeRoot>/tasks.md`
-before continuing. Its exit 1 names a cited frame no file in the mockups root holds: a handoff asset
-**The checklist** above still owes, never a frame to plan against — commit the asset or record its
-location, or drop the citation and every task that rests on it. Its exit 2 is reported and stops
-the plan. Then run `flow-guard check-plan-departures <worktree> <name> <changeRoot>/tasks.md`. Its
-exit 1 names a shipped view the plan restyles with no plan-time measure, or a measured `over` row no
-task cites: measure the view, or cite the row in the task that closes it, and run the guard again.
-Its exit 2 is reported and stops the plan.
+**Count the plan's size and propose a split when it is big.** Once `tasks.md` is written, count
+its tasks and the distinct frames `design.md` cites. Above 15 tasks or 25 frames, write
+`## Story split` into `design.md`: two or more slices, each a title, one line of what it delivers
+on its own, and the task ids it takes — every slice shippable alone, the first one the slice the
+others build on. The gate asks whether to split (**Plan review gate** below).
 
-With the plan validated, record its size as the change's first task-count observation — the
-planned figure every later fix round's growth is measured against:
-
-```bash
-flow tasks count -C <worktree> <name>
-```
-
-```bash
-flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
-```
+Before returning, run `spectre validate "<name>"` and repair any exit-1 finding; its exit 2 is
+reported and stops the plan.
 
 ### Plan review
 
-**Your `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return says whether the plan is reviewed**. A change that is not
-trivial — the competing-designs test of **Explore and design agents**
-(`skills/spectre-planning/SKILL.md`) — returns the word alone, and the parent runs **Plan
-review** (`skills/flow/brainstorm.md`). A change with one obvious approach returns
-the word and, on the next line, `Plan review: skip — <reason>`, the reason being the
-one-approach reason `design.md` records under `## Recommended approach`. The self-review and in-run fix planners and a fix run's
-re-plan never write that line and are never reviewed.
+**Your `PLAN-WRITTEN` return says whether the plan is reviewed**. A change that is not trivial —
+the competing-designs test of **Explore and design agents** (`skills/spectre-planning/SKILL.md`) —
+returns the word alone, and the parent runs **Plan review** (`skills/flow/brainstorm.md`). A change
+with one obvious approach returns the word and, on the next line, `Plan review: skip — <reason>`,
+the reason being the one-approach reason `design.md` records under `## Recommended approach`. The
+self-review and in-run fix planners and a fix run's re-plan never write that line and are never
+reviewed.
 
 **A dispatch whose prompt names a plan-review report triages it.** It reads the report,
-`proposal.md` and `design.md`, and `tasks.md` when triaging `plan-review-2`; it opens a file under
-`<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer,
-naming that file in the finding's `## Triage` line. Append `## Triage` to the
-report, one line per finding: `F<k> fixed — <what changed>`, `F<k> contested — <the repository
-path:line or artifact line the reviewer could have read>`, `F<k> escalated`, or, for an
-`advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding with one obvious
-fix. Escalate a finding whose fix would change a `## Decisions` entry, or that you would contest
-without evidence the reviewer could have read: return `QUESTIONS`, the next `round-<r>.md`
-quoting the finding verbatim beside the options. After your fixes to `plan-review-2`'s findings,
-re-run `spectre validate`, `flow-guard check-plan-shape`, the configured guards and `flow tasks
-count`. Make no stage mark. Return the word your dispatch was working toward: `ARTIFACTS-WRITTEN` after triaging
-`plan-review-1`, `PLAN-WRITTEN` after `plan-review-2`. Triaging `plan-review-2`, first write each
-finding still standing into `design.md`'s `## Risks` as `Accepted: <the finding> — <why>`.
+`proposal.md`, `design.md` and `tasks.md`; it opens a file under
+`<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer.
+Append `## Triage` to the report, one line per finding: `F<k> fixed — <what changed>`, `F<k>
+contested — <the repository path:line or artifact line the reviewer could have read>`, `F<k>
+escalated`, or, for an `advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding
+with one obvious fix. Escalate a finding whose fix would change a `## Decisions` entry, or that
+you would contest without evidence the reviewer could have read: return `QUESTIONS`, the next
+`round-<r>.md` quoting the finding verbatim beside the options. Write each finding still standing
+into `design.md`'s `## Risks` as `Accepted: <the finding> — <why>`, re-run `spectre validate`, and
+return `PLAN-WRITTEN`.
 
 ### Decide
 
 Run `flow-guard plan-class <changeRoot>/tasks.md <repos> <abs-worktree> <merge-base>` — `<repos>` is the
 number of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps`
-table; `1` when every path is in this one), `<abs-worktree>` the worktree `flow.kickoff` created, and
-`<merge-base>` this run's working-notes merge base; the two trailing arguments are what let the
-script classify `micro` (**Micro** below), and the two-argument form stays valid and never
-classifies `micro`. Its `inputs:`, `class:` and `rolls:` lines carry `class_mechanical` and the
-three rolls; its `tree:`, `panel:`, `grouping:` and `experimental:` lines are **the tree** for that
-class — execution, implementer, roster, rerun policy, grouping, dispatches and the experimental
-slot, printed rather than derived by hand (the rules are the script's header).
-**You may raise `class_mechanical` one step, never lower it** — `micro`→`small`, `small`→`regular`
-or `regular`→`big` — with a one-line reason recorded as `override`; the raised value is `class`.
-On a raise, re-run the script with `-class <class>` first, so its tree lines are the raised
-class's; it exits 2 on any other step.
-Leave `override` `null` and `class = class_mechanical` otherwise. `red` and `unverified` are
-recorded from the same output and move no class.
+table; `1` when every path is in this one), `<abs-worktree>` the worktree kickoff created, and
+`<merge-base>` this run's working-notes merge base. Its `class:` line is the class — `micro`,
+`small`, `regular` or `big` — and its `panel:` and `experimental:` lines are the review panel for
+that class, printed rather than derived by hand (the rules are the script's header). **You may
+raise the class one step, never lower it**, with a one-line reason recorded as `override`; on a
+raise, re-run the script with `-class <class>` first, so its panel lines are the raised class's.
 
-**Micro** — when the script prints `class: micro`, decide collapses to a recorded default decision:
-steps 1–5 below record the micro row's values without choosing — execution `inline`, implementer
-and fixer `skipped — inline`, panel the string `default`, groups `null` — with decision.json
-carrying `class: micro`.
+Decide, in this order:
 
-Decide, in this order — step 2 only when step 1 came out `sdd`:
+1. **execution mode** — `inline` (`class` micro) or `sdd` (every other class).
+2. **review panel** — the roster the script's `panel:` and `experimental:` lines print; on
+   `micro`, the string `default` (`REVIEWERS`, `skills/flow/SKILL.md`).
+3. **implementer groups** — only when step 1 came out `sdd`: run `flow-guard plan-dispatch-bundles
+   <changeRoot>/tasks.md`, then `flow-guard plan-dispatch-groups <changeRoot>/tasks.md`, and take its
+   groups verbatim (`null` when inline).
+4. **visual verification** — `visual` is `{verify, reason}`. `not configured` when
+   `<project>/.flow/project.md` declares no `## visual verification` section. Otherwise judge from
+   the plan's `**Files:**` whether anything a user sees can change — a page, a response a page
+   consumes, the CORS, auth or routing the frontend depends on: `required` when it can, `skipped`
+   when it cannot, the `reason` naming why. A path inside a declared `ui paths` glob is not by
+   itself a reason for `required`; `required` answers genuine doubt, never an obvious no-UI change.
+   A fix run may raise `skipped` to `required` and never lowers it.
+5. **slot judge** — write the plan's tasks to
+   `<abs-worktree>/.superpowers/sdd/decide-slots.md` and run `flow-guard slot-judge` on it. Record
+   its three lines as `slot_triggers`, keyed by slot, each `{verdict, reason}`. Its exit 2 records
+   no `slot_triggers`, which runs every gated slot (**The slot triggers**,
+   `skills/flow/review-panel.md`).
 
-1. **execution mode** — `inline` (`class` micro) or `sdd` (`class` small, regular or big).
-2. **implementer and fixer model + effort** — only when step 1 came out `sdd`; two pairs, each
-   printed by `flow-guard pair-judge` per **Model and effort** below over the plan's tasks and the
-   `inputs:` line: the implementer as role `implementer`, `-opus-only` when the plan carries a
-   hard seam, and the fixer as role `panel-fix`. Both
-   recorded `skipped — inline` when step 1 is inline, where the parent applies panel fixes on its
-   own model (`skills/flow/implement.md`).
-3. **review panel** — roster, compact/experimental, rerun policy, the **rerun pair**, and its
-   **grouping** — as the script's `panel:`, `grouping:` and `experimental:` lines print them, a
-   free grouping with a one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
-   slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
-   static and a free grouping alike assign each dispatch its own pair, printed by `flow-guard
-   pair-judge panel-reviewer` over the plan's tasks, the `inputs:` line and that dispatch's
-   slots, `-opus-only` when the plan carries a hard seam. **The rerun pair** (`panel.rerun_dispatch`) is the one pair every
-   fix-round re-run dispatch runs on — one bundled dispatch carrying the round's re-running roles,
-   each targeted at the findings its role raised, the full-roster fallback separating them when
-   the bundled findings need separation (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`): `flow-guard
-   pair-judge panel-rerun` prints it over the plan's tasks and the `inputs:` line.
-4. **extra dispatches** — on every class, `micro` included: record one pair for each of
-   `flow-guard plan-class`'s two `extra:` lines, each `{slots, model, effort, reason}` — the first
-   as `extra_dispatch`, `slots` `["test-sanity", "call-efficiency"]`, printed by `flow-guard
-   pair-judge panel-sanity-efficiency`, the second as `extra_dispatch_mutation`, `slots`
-   `["mutation", "failure-modes"]`, printed by `flow-guard pair-judge panel-mutation-failure` —
-   each over the plan's tasks and the `inputs:` line. Both pairs are recorded whichever roles
-   step 7 and the panel's slot triggers later skip.
-5. **implementer groups** — on every run whose step 1 came out `sdd`: run `flow-guard plan-dispatch-bundles <changeRoot>/tasks.md`, then
-   `flow-guard plan-dispatch-groups <changeRoot>/tasks.md` for the mechanical default — a deterministic
-   grouping that caps every group at weight 3 — a `**Size:** big` task weighs 3, every other task 1,
-   and a single **Squash-with:** bundle heavier than that stays one group (no roll, no static table; at most three
-   implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
-   is `groups_mechanical` verbatim unless the planner **splits** a mechanical group into more
-   groups — a chain judged too long for one implementer's context, or a real parallel-wave benefit
-   the mechanical grouping's fold pass declined — with a one-line `groups_override` reason;
-   **never merge across the mechanical result**, since merging two groups it kept apart would
-   collapse a real parallel wave. **A mechanical group holding two or more
-   verification-only bundles** — end-to-end specs or fidelity captures, none named in another's
-   after-set — **is split, one group per such bundle**, `groups_override` naming the parallel
-   wave, since the chain merge joins each to the group holding the feature task it waits on and
-   runs them in series. `groups_override` is `null` when the mechanical grouping is
-   taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
-   reason when `groups_override` is set. **Each group carries its own `model` and `effort`**,
-   printed by `flow-guard pair-judge implementer` over that group's own tasks alone — never the
-   `inputs:` line, which counts the whole plan, and which the guard drops from a `decide-group-<g>`
-   digest — `-opus-only` when the group carries a hard seam; a plan of one group takes step 2's
-   implementer pair without a second call.
-   `flow record decision` refuses a group whose `reason` opens `judge:` while no `decide-group-<g>.pick` saved for it carries that pair.
-   `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
-   inline.
-6. **visual verification** — on every class, `micro` included: it judges what the change can
-   alter, not what its run costs. `visual` is `{verify, reason}`. `not configured` when
-   `<project>/.flow/project.md` declares no `## visual verification` section, recorded without
-   choosing. Otherwise judge from the plan's `**Files:**` whether anything a user sees can change —
-   a page, a response a page consumes, the CORS, auth or routing the frontend depends on:
-   `required` when it can, `skipped` when it cannot, the `reason` naming why. A path inside a
-   declared `ui paths` glob is not by itself a reason for `required`, since a glob is coarse;
-   `required` answers genuine doubt, never an obvious no-UI change. Worked example:
-   `**Files:**` a gateway `MetricsScrapeTokenFilter` matching only `/actuator/prometheus|metrics`,
-   management config, the Caddyfile, deploy workflows and tests — all inside the declared
-   `src/gateway/src/main/**` glob, yet nothing a user sees can change → `skipped`, reason
-   "actuator-only filter and deploy config; no page, no response a page consumes, no CORS/route
-   the frontend uses". Its contrast: a gateway CORS rule or route the frontend calls →
-   `required`. A fix run, which passes no plan gate, may raise `skipped` to `required` and never
-   lowers `required` to `skipped` — a decision row with no `visual` counts as `required`. What
-   `skipped` does is **Visual verification** (`skills/flow/verify-and-handoff.md`).
-7. **slot judge** — on every class, `micro` included, and on a fix run's Decide: write the plan's
-   tasks and the `inputs:` line to `<abs-worktree>/.superpowers/sdd/pair-judge/decide-slots.md` and
-   run `flow-guard slot-judge` on it. Record its three lines as `slot_triggers`, keyed by slot,
-   each `{verdict, reason}` — `verdict` the line's `run` or `skip`, `reason` the text after its
-   dash. Its exit 2 records no `slot_triggers`, which runs every gated slot. Its header
-   (`<agents repo>/stats/internal/guard/slotjudge.go`) is canonical for the prompt, the output and
-   the fallback; what the panel does with the verdicts is **The slot triggers**
-   (`skills/flow/review-panel.md`).
+Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json`: `class`,
+`classMechanical`, `override`, `execution`, `panel`, `groups` (objects `{bundles}`, or `null`),
+`visual`, `slot_triggers`, `overrides` (session instructions that change a dispatch's pair for
+this run; empty unless one was given). No dispatch's model or effort is recorded here — every
+dispatch takes its role's pair (**Model and effort** below).
 
-**The micro row** records defaults, never choices: what it skips is every roster, model/effort and
-grouping choice, and every roll the script printed; what it never skips is the decision record
-itself, the extra dispatches, step 6's visual judgement, step 7's slot judge, the verify stage, or the self-review.
-
-#### Model and effort
-
-**This section is canonical for how a dispatch's model is chosen.** A dispatch whose role the pair
-judge covers — the roles `<agents repo>/stats/internal/guard/pairjudge.go`'s contract lists — takes its pair
-from:
-
-```bash
-flow-guard pair-judge <role> <digest-file> [-opus-only]
-```
-
-It prints one line, `<model> <effort> <source> <reason>`, `<source>` one of `judge`, `fallback`
-or `single`, and exits 2 on a role it does not judge; every other role keeps the rule its own site
-states. The digest is what the dispatcher already holds, written to a file first: a dispatch's
-prompt goes to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, `<key>` the dispatch's key,
-and each Decide call's digest to `<abs-worktree>/.superpowers/sdd/pair-judge/decide-<field>.md`,
-`<field>` naming the pair it picks — `implementer`, `fixer`, `group-<g>`, `dispatch-<i>`, `rerun`,
-`extra` or `extra-mutation`. The dispatch runs on the printed model and effort — `subagent_type`
-`flow-<effort>`, `flow-planner-<effort>` for a planner, the Agent tool's `effort` for Explore and
-Plan — and `flow-guard pair-judge` saves that line beside the digest as `<key>.pick`, from which the
-dispatch's begin takes `-pair-pick '<source>: <reason>'`; a loop
-dispatch, whose row `flow-guard check-loop-dispatch` opens, carries the line `Pair pick: <source>:
-<reason>` in its prompt instead. A dispatch on a recorded decision pair passes neither: the pair's
-`reason` in the decision row is its record.
-
-**The guard picks inside these bounds**, each applied before the judge sees a candidate:
-
-- **the candidates** — the role's base pairs, an open allowed-pairs experiment's override applied
-  (**Experiments**, `skills/flow-contracts/model-policy.md`); marked and opt-in pairs are never
-  candidates, and no candidate runs at `xhigh` or `max`;
-- **implementer, fixer and each implementer group** — never `high`: the guard drops it from
-  `implementer`, `panel-fix`, `self-review-fix` and `pipeline-fix-fix`;
-- **a pair carrying a hard seam** — concurrency, platform interop, a data-model change,
-  performance-sensitive code — `-opus-only`, which drops every candidate not on `opus` unless that
-  leaves none — an open experiment's override on another model then stands;
-- **every other pass-1 panel dispatch** — the `panel-reviewer` role's base pairs; a pair
-  outside them only under an operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`);
-- **the extra dispatches** — `test-sanity+call-efficiency` and `mutation+failure-modes`, each judged on its own row of **Allowed pairs** — `panel-sanity-efficiency` and `panel-mutation-failure` (`skills/flow-contracts/model-policy.md`): the only pass-1 panel dispatches that may run on `sonnet` (decision `extra-dispatch-sonnet-carve-out`);
-- **every gated per-task reviewer bundle** — `flow-guard pair-judge gated-reviewer` at dispatch, since no decision pair records it, and a fix re-review bundle `flow-guard pair-judge gated-re-reviewer`;
-- **the rerun pair and the extra dispatches' effort** — `low`, held by their rows, every pair of
-  which is at `low`.
-
-**A judge that cannot answer never blocks a run**: the guard prints the role's first candidate
-with source `fallback`, the reason naming the cause, and exits 0. **A `session_cap` or a session
-override applies on top of the printed pair**: a pair above the cap is replaced by the highest
-pair the role's row admits at or under it (**`session_cap`**, `skills/flow-contracts/pipeline.md`), and an override by the pair it names, the `reason` reading
-`override: <the instruction>` in either case.
-
-`flow record decision` refuses an implementer, fixer or group pair the role's admitted pairs, the open-experiment overlay included, do not admit.
-
-A micro decision records no pair, and a dispatch with no recorded pair — a micro panel,
-**review-panel.md**'s no-decision dispatch — runs on the literal `opus`. `flow record
-decision` refuses a decision whose pairs name a model other than `opus` or `sonnet`. Pairs may repeat — two dispatches,
-or a pass-1 dispatch and the rerun pair, on the same model and effort is not a defect. **No implementer, fixer or implementer group runs at `high`.** The one `high` fix is the no-progress escalation of **Fewest
-operator actions** (`skills/flow-contracts/pipeline.md`), a dispatch no decision records. `flow
-record decision` refuses a decision whose implementer, fixer or group pair names `high`. **`high` reaches a pass-1 panel dispatch — a `panel.dispatches` entry, never a gated bundle — one way only:** the operator's explicit **Yes** at the plan
-gate (**Plan review gate** below), and that dispatch's prompt opens with the line `Operator-approved high`.
-Each pair's `reason` in the JSON is the guard's `<source>: <reason>`; the `## Decision`
-block prints it only for a group whose pair departs from the implementer's. **On harnesses `zcode` and `muse` the chosen pair is recorded as chosen and
-replaced at dispatch** — **Harness mapping** (`skills/flow-contracts/model-policy.md`).
-
-An experimental slot runs on the model/effort of the dispatch it joins; its roster entry's
-`prompt` and `description` are the path and description the `experimental:` line prints. `delta`
-is **Panel re-runs**' own rerun policy (`skills/flow/review-panel-fix-round.md`); the docs-only reduction
-there still applies and still only removes.
-
-Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — on a first creating
-run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
-(**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `class`, `classMechanical`,
-`override`, `inputs` (the four `flow-guard plan-class` booleans plus `tasks`/`files`/`repos`), `rolls`
-(`compact`, `experimental`, `bundle`), `execution`, `implementer` and `fixer` (each an object
-`{model, effort, reason}` or one of the two recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
-[{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
-`dispatches` (one to two objects `{slots, model, effort, reason}`, `slots` one to three slot ids in roster
-order — the one place a pass-1 reviewer's model and effort are recorded), `rerun_dispatch` (an object
-`{model, effort, reason}`, the rerun pair — the one place a fix-round re-run's model and effort are
-recorded),
-`grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot
-skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
-`roster`), `groups` (objects `{bundles, model, effort, reason}`, `bundles` an array of bundle ids, plus
-sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
-`groups_reason` fields, or all four `null` when `execution` is inline), `visual` (an object
-`{verify, reason}`, `verify` one of `required`, `skipped` or `not configured`), `extra_dispatch` and `extra_dispatch_mutation` (each an object `{slots, model, effort, reason}`, recorded on every class), `slot_triggers` (step 7's verdicts, an object keyed `test-sanity`, `call-efficiency` and `failure-modes`, each `{verdict, reason}`; absent when step 7 exited 2), `parent` (`{model, effort}`, the parent's own
-model/effort, per **Harness mapping** (`skills/flow-contracts/model-policy.md`): `unknown
-(agent-defined)` and `default` where the session does not state them), `overrides` (session-instruction
-overrides to a *result*, each replacing the pair(s) it names for this run; empty unless one was
-given), `session_cap` (the run-wide model and effort ceiling a session instruction or a saved memory states — `{model, effort, instruction}`, or `null` when none is given; `flow record dispatch begin` refuses a dispatch above it, an unstated `default` effort included).
-
-Once the Decide step completes, render the run's own output from that file and print its output
-verbatim — the `## Decision` block, one short line per choice; the `STARTED` handoff prints the
+Render it and print the output verbatim — the `## Decision` block; the `STARTED` handoff prints the
 same output again (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`):
 
 ```bash
 flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>' -reviewers '<REVIEWERS>'
 ```
 
-It exits 0 on a printed block and 2 on a usage error, an unreadable file or a `decision.json`
-missing a required field or carrying a malformed `visual` — correct the file and render again.
+It exits 0 on a printed block and 2 on a usage error or an unreadable file — correct the file and
+render again.
+
+#### Model and effort
+
+**Every dispatch runs on its role's first base pair**, read from:
+
+```bash
+flow policy get
+```
+
+— the role's `base` list, its first entry. A pair is `<model>/<agent>`: `opus/flow-low` dispatches
+`subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
+`opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. A dispatch outside every
+role runs on `opus` or `sonnet`. A plain-language session instruction overrides the pair it names
+for this run only (**Model policy**, `skills/flow-contracts/model-policy.md`), recorded in the
+decision's `overrides`. On harnesses `zcode` and `muse` the pair is replaced at dispatch
+(**Harness mapping**, `skills/flow-contracts/model-policy.md`).
 
 ### Plan review gate
 
 **The plan is never acted on unread.** Once the Decide step has printed its `## Decision` block,
-print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`) and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it, then ask the gate question in one **AskUserQuestion** call. The
-gate is mandatory: no answer, no commit and no implementation. It runs at the end of every
-`/flow-plan` capture (**Capturing a new change**, `skills/flow-plan/SKILL.md`) and in `/flow`
-after the `flow.decide` record sequence (**Run brainstorming and planning through the planner role**,
-`skills/flow/brainstorm.md`).
-
-The summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
-`**Plan review:** <absolute path of the last report> — clean | <n> fixed, <n> contested, <n>
+print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`) and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
+summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
+`**Plan review:** <absolute path of the report> — clean | <n> fixed, <n> contested, <n>
 accepted | not run | skipped — <reason>`.
 
 Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
 updates)**.
 
-**`/flow` never asks its gate question: it takes **Yes** at once**. The summary and the `## Decision` block still print, the high-raise question below is
-not asked and takes **No**, and the run continues to the plan snapshot and the `STARTED`
-handoff. An operator who wants the plan changed says so before running the handoff's `/flow
-<name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is still asked.
+**`/flow` never asks its gate question: it takes **Yes** at once** — unless `design.md` carries
+`## Story split`. The summary and the `## Decision` block still print, and the run ends with the
+`STARTED` handoff. An operator who wants the plan changed says so before running the handoff's
+`/flow <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is
+still asked.
 
-**A `panel.dispatches` entry the planner judges worth `high`** — a hard seam its judged effort may not carry —
-adds one question per such dispatch to the same AskUserQuestion call: **Raise `<dispatch>` to
-`high` — `<seam>`?**, **No** *(default, recommended)* / **Yes**. Only an explicit **Yes**
-re-records that pair at `high` through the `flow.decide` record sequence before implementation;
-anything else leaves its judged effort. Under the `## decisions: recommended` mode the question is
-not asked and **No** is taken.
+**A plan with `## Story split` asks one question first**, in `/flow` and `/flow-plan` alike, the
+slices printed above it: **Split into <n> stories?** — **Split** *(recommended)* / **Build it
+whole**. On **Split**, create one Jira story per slice after the first — its summary the slice
+title, its description the slice's line, the task titles it takes and the absolute path of this
+change's `design.md` — linked to this change's issue (**Follow-up issues**,
+`skills/flow-contracts/jira-followups.md`), then dispatch a fresh final planner that narrows
+`tasks.md` to the first slice and removes `## Story split`, and re-run Decide. On **Build it
+whole**, remove `## Story split` and go on. Under the `## decisions: recommended` mode the question
+is not asked and **Split** is taken.
 
-On **No**,
-take the operator's changes (a follow-up **AskUserQuestion** round when the option carried none),
-write them verbatim to the next `answers-<r>.md`, and dispatch a fresh final planner on them as a
-`QUESTIONS` return is taken (**Run brainstorming and planning through the planner role**,
-`skills/flow/brainstorm.md`) — it revises `tasks.md` and re-runs `spectre validate "<name>"`,
-`flow-guard check-plan-shape` and the project's configured guards. Then re-run the Decide step
-from `flow-guard plan-class` on, the `flow.decide` record sequence again — a second decision row —
-then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit.
-Under the `## decisions: recommended` mode the gate takes **Yes** without asking — the summary
-and the `## Decision` block still print, so the record of what was approved stays complete
-(**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`).
+On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
+carried none), write them verbatim to the next `answers-<r>.md`, and dispatch a fresh final planner
+on them as a `QUESTIONS` return is taken (**Run brainstorming and planning through the planner
+role**, `skills/flow/brainstorm.md`) — it revises `tasks.md` and re-runs `spectre validate
+"<name>"`. Then re-run the Decide step and record the decision again, print the summary and ask
+again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
+gate takes **Yes** without asking — the summary and the `## Decision` block still print, so the
+record of what was approved stays complete (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`).
 
 `/flow-plan` ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).

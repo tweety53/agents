@@ -3,7 +3,7 @@
 Which model each role runs on, how an override applies, and per-harness enforcement.
 
 **Loaded by `/flow`'s creating run, `/flow`'s implement phase and `/flow-fast`** — at
-each implementer and panel dispatch.
+each dispatch.
 
 This file is **canonical** for everything in it.
 
@@ -12,44 +12,17 @@ The reasoning behind this file lives in `skills/flow-contracts/model-policy-rati
 
 ## Model policy
 
-Planning — brainstorming, design and writing-plans — runs in the current session, on its own
-model; see **Model resolution** (`skills/flow/SKILL.md`), canonical for what the session's model
-prices. The parent session runs on the harness's own model for the whole of `/flow`, and **every
-review-panel reviewer runs on its dispatch's decision pair** — regardless of the parent model; what
-never varies is that the panel's model is *chosen*, not inherited from the parent session.
+**Every dispatch runs on its role's pair, never on a judged or recorded one**: the role's first
+pair in `flow experiment overrides` when an open experiment names the role, else its first `base`
+pair in `flow policy get` (**Model and effort**, `skills/flow/brainstorm-planner.md`). The parent
+session runs on the harness's own model for the whole of `/flow`. This **explicitly overrides**
+superpowers:subagent-driven-development's model guidance, its final review on the most capable
+model and its model escalation in fix rounds 4–5.
 
-**Implementer subagents dispatched by `/flow`'s implement phase run on their group's decision
-pair**, which **explicitly overrides** superpowers:subagent-driven-development's model
-guidance.
-
-**Two further instructions in that same upstream skill are also overridden: dispatching the final
-review on the most capable model, and escalating the model in fix rounds 4-5.** flow fixes every
-panel slot at its dispatch's decision pair instead.
-
-**The pair judge makes the choice.** The implementer, the fixer and each panel dispatch run on the
-model and effort the Decide step recorded for them from `flow-guard pair-judge`, per **Model and effort**
-(`skills/flow/brainstorm-planner.md`), canonical for the choice and its bounds. The fixer's pair is its
-own, not the implementer's; a fix-round re-run runs on the decision's `panel.rerun_dispatch` pair.
-Which model a dispatch with no recorded pair runs on — a micro panel, the no-decision dispatch —
-is **Model and effort** (`skills/flow/brainstorm-planner.md`) as well.
-
-**An explicit operator instruction overrides a decision's pair, in either direction** — raising
-the implementer to Opus for a change that warrants it, or lowering it to Sonnet for genuinely
-mechanical work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
-from a mistake.
-
-**A subagent that repairs panel findings is implementer work, so the implementer rule above governs
-it too.**
-
-**A session instruction governs the run in which it is given** and is recorded with its dispatch
-exactly as above.
-
-**The ledger records what happened.** A recorded model choice does **not** replace the per-dispatch
-ledger line, which remains the only evidence of the model a dispatch actually ran on. Every panel
-slot is a prompt-driven role
-(**The roster**, `skills/flow/review-panel.md`) and takes its dispatch's model the same way every
-other slot does. The findings merger, which reviews nothing, runs on its role's **Allowed pairs** below, and every
-gated per-task reviewer bundle and its fix re-review on the pair `flow-guard pair-judge` prints for its role.
+**An explicit operator instruction overrides a role's pair, in either direction**, for the run in
+which it is given — raising the implementer to Opus for a change that warrants it, or lowering it
+to Sonnet for genuinely mechanical work. Record it in the decision's `overrides`; an override
+nobody wrote down is indistinguishable from a mistake.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 
@@ -85,13 +58,11 @@ operator's call, made in the editor. A role's pairs come in three tiers:
 - **opt-in** — admitted only on the operator's explicit say-so for a change: the operator tells
   the session which roles may use them, the session records it with
   `flow policy grant -change <name> -roles <role>[,<role>…]`, and each such dispatch's prompt
-  carries the whole line `Operator pair: <role>`. `flow-guard check-dispatch-pair` admits an
-  opt-in pair only with both the line and a live grant for the change on the prompt's
-  `Worktree:` branch (`spectre/<name>`); the line alone grants nothing. `flow policy revoke`
-  removes a grant, and every grant lapses when its change reaches `FINISHED`.
+  carries the whole line `Operator pair: <role>`. `flow policy revoke` removes a grant, and every
+  grant lapses when its change reaches `FINISHED`.
 
-`flow policy get` caches its last good answer under the flow state directory; with flowd down the
-guards answer from that cache, and with neither every dispatch is refused, naming both.
+`flow policy get` caches its last good answer under the flow state directory; with flowd down it
+answers from that cache, and with neither a dispatch runs on `opus`.
 
 Each `###` heading below is one pipeline area, and a role sits under exactly one, with its `Does`
 cell, a plain-English line on what the role does. flowd serves both, with the role's pairs, on
@@ -154,22 +125,13 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | `pipeline-fix-review-1` | First review of the tooling fix. |
 | `pipeline-fix-review-r` | Re-review once that fix is corrected. |
 
-### Pair choice
-
-| Role | Does |
-|---|---|
-| `pair-judge` | Picks each dispatch's model and effort from its role's allowed pairs. |
-
 ## Experiments
 
 **An open experiment overrides roles' base pairs.** `flow experiment open -name <n>
--cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, every reader of the pairs
-(check-dispatch-pair, check-loop-dispatch, pair-judge, plan-agent-pair, pipeline-fix) admits the
-experiment's pairs in place of that role's base pairs, and marked and opt-in pairs are never
-overridden. `flow record decision` reads the same overlay: it refuses a decision whose implementer, fixer or group pair the role's admitted pairs do not admit. One
+-cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, `flow experiment overrides` prints its pairs, which replace
+that role's base pairs, and marked and opt-in pairs are never overridden. One
 experiment may carry several roles; a role is in at most one open experiment. Role `main` names
-the parent session's `<model>@<effort>`: `/flow` warns on a mismatch (**Model resolution**,
-`skills/flow/SKILL.md`) and only matching runs count in its after figures. flowd unreachable → no
+the parent session's `<model>@<effort>`; only matching runs count in its after figures. flowd unreachable → no
 experiment applies. **Make permanent** (`POST /api/v1/experiments/{id}/promote`, the Experiments
 view's button) writes an open experiment's cells — `main` aside — into those roles' base pairs and
 closes it `positive`; `/flow-experiment-close` calls it on a positive verdict.
@@ -181,9 +143,7 @@ inline row.** Where the session does not state one, `<parent model>` is `unknown
 `<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
 
 **On harness `zcode`, every model a dispatch would be given is `glm-5.3-flash` at effort `high`.**
-The verifier's and the tooling analyst's **Allowed pairs** rows, the literal `opus` of a dispatch
-with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an operator
-override alike resolve and are recorded as they would be on Claude Code,
+Every role's pair and an operator override alike resolve and are recorded as they would be on Claude Code,
 and are replaced at the dispatch: the Agent tool's `model` parameter is `glm-5.3-flash`, the
 `subagent_type` is `general-purpose` (or the site's own non-flow type, unchanged) — ZCode's Agent tool offers no
 `flow-<effort>` type, `<agents repo>/setup.sh` installing those definitions into `~/.claude/agents/` alone, so the NO
@@ -195,8 +155,7 @@ the same value the run's `-harness` marks carry (**Stage marks**,
 
 **On harness `muse`, every dispatch inherits the session's own model and effort.** The harness
 offers no per-dispatch model parameter and no `flow-<effort>` definitions, so the dispatch names
-neither — no `model` parameter, no `subagent_type`. The verifier's and the tooling analyst's
-**Allowed pairs** rows, the literal `opus` of a dispatch with no recorded pair, a decision's implementer, fixer, group and panel pairs, and an
+neither — no `model` parameter, no `subagent_type`. Every role's pair and an
 operator override alike resolve and are recorded as they would be on Claude Code, and are replaced
 at the dispatch: the dispatch runs the session's pair, and its ledger line records `-model <parent
 model> -effort <parent effort>` — the model the dispatch actually ran on, never the pre-mapping
