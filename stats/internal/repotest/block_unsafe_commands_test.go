@@ -1,7 +1,7 @@
 package repotest
 
-// TestProtectMainCheckout ports the retired shell harness, the
-// harness for hooks/protect-main-checkout.py.
+// TestBlockUnsafeCommands ports the retired shell harness, the
+// harness for hooks/block-unsafe-commands.py.
 //
 // It builds one bare origin with a clone whose main checkout sits on `main`
 // (origin/HEAD set), a linked worktree of it on a feature branch, and one repo
@@ -71,7 +71,7 @@ func (f *pmFixture) run(t *testing.T, cwd, tool string, input map[string]string,
 	if err := enc.Encode(map[string]any{"tool_name": tool, "tool_input": input, "cwd": cwd}); err != nil {
 		t.Fatal(err)
 	}
-	out, stderr, rc := runHook(t, "protect-main-checkout.py", buf.Bytes(), append(append([]string{}, f.env...), env...)...)
+	out, stderr, rc := runHook(t, "block-unsafe-commands.py", buf.Bytes(), append(append([]string{}, f.env...), env...)...)
 	if rc != 0 {
 		// a crashing hook prints nothing, which would read as allow
 		t.Fatalf("hook exited %d: %s", rc, stderr)
@@ -147,10 +147,10 @@ func newPMFixture(t *testing.T) (f *pmFixture, root, main, wt string) {
 	return f, root, main, wt
 }
 
-// TestProtectMainCheckoutScopesACdToItsGroup: a `cd` inside `( … )` or `$( … )` ends at its
+// TestBlockUnsafeCommandsScopesACdToItsGroup: a `cd` inside `( … )` or `$( … )` ends at its
 // close, so a redirect after the group lands in the cwd before it; and `trash` of a file git
 // tracks in a main checkout is a write, of an untracked one is not (kan-1083 self-review, F2).
-func TestProtectMainCheckoutScopesACdToItsGroup(t *testing.T) {
+func TestBlockUnsafeCommandsScopesACdToItsGroup(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f, _, main, _ := newPMFixture(t)
@@ -170,7 +170,7 @@ func TestProtectMainCheckoutScopesACdToItsGroup(t *testing.T) {
 	f.bash("trash of an untracked file in main", "allow", "{ROOT}", `trash {MAIN}/scratch.out`)
 }
 
-func TestProtectMainCheckout(t *testing.T) {
+func TestBlockUnsafeCommands(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f, root, main, wt := newPMFixture(t)
@@ -193,7 +193,7 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.bash("12 Bash cat from main", "allow", "{ROOT}", `cat {MAIN}/f.txt`)
 	f.writeTool("13 Write outside any repo", "allow", "{ROOT}/loose.txt")
 	f.check("14 malformed JSON passes through", func(t *testing.T) {
-		out, _, rc := runHook(t, "protect-main-checkout.py", []byte("not json"))
+		out, _, rc := runHook(t, "block-unsafe-commands.py", []byte("not json"))
 		if rc != 0 || strings.TrimRight(out, "\n") != "" {
 			t.Errorf("rc=%d out=%s", rc, out)
 		}
@@ -523,11 +523,11 @@ func TestProtectMainCheckout(t *testing.T) {
 	f.writeTool("3 Write in main checkout on a feature branch", "allow", "{MAIN}/new.txt")
 }
 
-// TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit pins the change-branch commit
+// TestBlockUnsafeCommandsDeniesAnUntraileredChangeBranchCommit pins the change-branch commit
 // check: a commit the command states with no trailer and no chore subject, in a worktree on
 // spectre/<name>, is denied; a trailered, chore, -F or --amend commit, and any commit on another
 // branch, passes.
-func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) {
+func TestBlockUnsafeCommandsDeniesAnUntraileredChangeBranchCommit(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -569,11 +569,11 @@ func TestProtectMainCheckoutDeniesAnUntraileredChangeBranchCommit(t *testing.T) 
 	})
 }
 
-// TestProtectMainCheckoutSkipsAMessageItCannotRead pins kan-1032's
+// TestBlockUnsafeCommandsSkipsAMessageItCannotRead pins kan-1032's
 // self-review: an apostrophe in a quoted heredoc unbalances tokenize, whose
 // raw-word fallback keeps the quote on the message; such a message is not
 // judged, so a chore commit after it is allowed.
-func TestProtectMainCheckoutSkipsAMessageItCannotRead(t *testing.T) {
+func TestBlockUnsafeCommandsSkipsAMessageItCannotRead(t *testing.T) {
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -597,10 +597,10 @@ func TestProtectMainCheckoutSkipsAMessageItCannotRead(t *testing.T) {
 		"cat <<'EOF'\nthe coordinator's note\nEOF\ngit -C {SWT} commit -q -m \"chore(spectre): plan c1\"")
 }
 
-// TestProtectMainCheckoutDeniesABareCatRedirect pins kan-1033's finding 4.2:
+// TestBlockUnsafeCommandsDeniesABareCatRedirect pins kan-1033's finding 4.2:
 // a bare `cat > <file>` reads stdin, which a Bash call never has, so it
 // hangs until the call times out; a cat with input of its own passes.
-func TestProtectMainCheckoutDeniesABareCatRedirect(t *testing.T) {
+func TestBlockUnsafeCommandsDeniesABareCatRedirect(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -659,11 +659,11 @@ func TestCommitThenPushWithUnreadableMessageIsDenied(t *testing.T) {
 	f.bash("trailered message then push", "allow", "{ROOT}", `cd {SWT} && git commit -m "fix(x): y" -m "Flow-Key: k" && git push origin spectre/x`)
 }
 
-// TestProtectMainCheckoutReadsADataHeredocBodyAsData pins kan-1025: a heredoc
+// TestBlockUnsafeCommandsReadsADataHeredocBodyAsData pins kan-1025: a heredoc
 // body fed to a command that runs no code (`flow record summary -file -`) is
 // data, not shell — while a body handed to a shell, a later runner word, a pipe
 // into `sh`, or an unquoted body's `$(…)` keeps being scanned.
-func TestProtectMainCheckoutReadsADataHeredocBodyAsData(t *testing.T) {
+func TestBlockUnsafeCommandsReadsADataHeredocBodyAsData(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -703,11 +703,11 @@ func TestProtectMainCheckoutReadsADataHeredocBodyAsData(t *testing.T) {
 	f.bash("unbalanced ) in body", "deny", "{ROOT}", "flow x <<EOF\n$(case a in a) rm {MAIN}/f.txt;; esac)\nEOF")
 }
 
-// TestProtectMainCheckoutReadsTwoDataHeredocsAsData pins the kan-1041
+// TestBlockUnsafeCommandsReadsTwoDataHeredocsAsData pins the kan-1041
 // self-review: each data heredoc's rest is judged without the other's body,
 // so a lone `.` in one and an unpaired backtick in the other no longer keep
 // both scanned; an unquoted body that runs code still counts.
-func TestProtectMainCheckoutReadsTwoDataHeredocsAsData(t *testing.T) {
+func TestBlockUnsafeCommandsReadsTwoDataHeredocsAsData(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -733,11 +733,11 @@ func TestProtectMainCheckoutReadsTwoDataHeredocsAsData(t *testing.T) {
 	f.bash("a second quoted body substituted back keeps the first scanned", "deny", "{MAIN}", "cat > {SIB}/x.sh <<'A'\nrm {MAIN}/f.txt\nA\ncat > {SIB}/y <<'B'\n{SIB}/x.sh\nB\n$(cat {SIB}/y)")
 }
 
-// TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral pins the
+// TestBlockUnsafeCommandsReadsASingleQuotedBacktickAsLiteral pins the
 // kan-1039 self-review: a backtick inside single quotes after a data
 // heredoc is a plain character, so the heredoc body stays data; an
 // unquoted or double-quoted backtick still keeps the body scanned.
-func TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
+func TestBlockUnsafeCommandsReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -767,11 +767,11 @@ func TestProtectMainCheckoutReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
 	f.bash("a quote span crossing a newline reads as before", "deny", "{MAIN}", "cat >> {SIB}/x <<'EOF'\na > b\nEOF\n# don't\necho `true` '")
 }
 
-// TestProtectMainCheckoutAdmitsRemovingALocalClone: removing a whole clone of a
+// TestBlockUnsafeCommandsAdmitsRemovingALocalClone: removing a whole clone of a
 // local non-bare working checkout is not a write to a main checkout; a path
 // inside it, a clone of a network origin and a checkout cloned from a local
 // bare repository stay denied (kan-1107 self-review, F5).
-func TestProtectMainCheckoutAdmitsRemovingALocalClone(t *testing.T) {
+func TestBlockUnsafeCommandsAdmitsRemovingALocalClone(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f, root, main, _ := newPMFixture(t)
@@ -784,12 +784,12 @@ func TestProtectMainCheckoutAdmitsRemovingALocalClone(t *testing.T) {
 	f.bash("rm -rf of a checkout cloned from a local bare repository", "deny", "{ROOT}", `rm -rf {MAIN}`)
 }
 
-// TestProtectMainCheckoutReadsALiteralExportAsData pins decisions
+// TestBlockUnsafeCommandsReadsALiteralExportAsData pins decisions
 // literal-export-is-data and deny-names-path-and-remedy (kan-1129 self-review
 // F2): an `export NAME=<literal>` beside a data heredoc keeps no body scanned,
 // while an export that may name the target, expands, or carries no value
 // still does — and a Bash deny names the path it read and the remedy.
-func TestProtectMainCheckoutReadsALiteralExportAsData(t *testing.T) {
+func TestBlockUnsafeCommandsReadsALiteralExportAsData(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())

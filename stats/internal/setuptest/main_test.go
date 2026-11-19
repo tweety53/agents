@@ -326,7 +326,7 @@ func makeFixtureRepo(d string, badRule bool) error {
 		// reports on its registration by looking for that name in settings.json — the pins in
 		// the "Core excerpts" group assert that warning, so the fixture has to install the hook
 		// the warning names for their precondition to be real.
-		{"hooks/protect-main-checkout.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
+		{"hooks/block-unsafe-commands.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
 		// The loop-dispatch hook. Named as the real one is, because install_hooks reports on
 		// its registration by looking for that name.
 		{"hooks/enforce-loop-dispatch.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},

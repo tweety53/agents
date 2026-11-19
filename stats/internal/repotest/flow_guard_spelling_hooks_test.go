@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// TestProtectMainCheckoutRecognisesFlowGuardSpelling: a guard invoked as
+// TestBlockUnsafeCommandsRecognisesFlowGuardSpelling: a guard invoked as
 // `flow-guard check-…` — bare, or as `…/scripts/flow-guard check-…` — is read
 // as a guard invocation, as its `check-….sh` spelling is: a command that only
 // names a data heredoc's target as that guard's argument keeps the body as
 // data, so the body's `rm` and `>` text is not scanned as shell.
-func TestProtectMainCheckoutRecognisesFlowGuardSpelling(t *testing.T) {
+func TestBlockUnsafeCommandsRecognisesFlowGuardSpelling(t *testing.T) {
 	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {

@@ -391,15 +391,15 @@ SNIPPET
       }
     ]
 SNIPPET
-  warn_unregistered_hook "$settings" protect-main-checkout protect-main-checkout \
-    "  ⚠ The protect-main-checkout hook is installed but NOT registered, so nothing yet stops" \
+  warn_unregistered_hook "$settings" block-unsafe-commands block-unsafe-commands \
+    "  ⚠ The block-unsafe-commands hook is installed but NOT registered, so nothing yet stops" \
     "    an agent editing, staging or committing in a main checkout on its default branch." \
     "    Add this entry to \"PreToolUse\" in $settings:" <<'SNIPPET'
 
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/protect-main-checkout.py\"", "timeout": 300 }
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/block-unsafe-commands.py\"", "timeout": 300 }
         ]
       }
 SNIPPET

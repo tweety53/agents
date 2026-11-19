@@ -248,7 +248,7 @@ func TestPipelineFixChecksHooks(t *testing.T) {
 	writeFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
 	pe := pfEnv{}
 	want := "cd stats && go test ./internal/repotest/ -count=1"
-	if cmds, rc := pfChecks(Env{Getenv: os.Getenv}, pe, wt, []string{"hooks/protect-main-checkout.py"}); rc != 0 || !slices.Contains(cmds, want) {
+	if cmds, rc := pfChecks(Env{Getenv: os.Getenv}, pe, wt, []string{"hooks/block-unsafe-commands.py"}); rc != 0 || !slices.Contains(cmds, want) {
 		t.Fatalf("a touched hook: rc %d, %q lacks %s", rc, cmds, want)
 	}
 }

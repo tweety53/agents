@@ -27,7 +27,7 @@ import (
 // without rows (LOOP-LANDING-OK … (prompt-tuning cases only)): it carries the
 // self-review's prompt-tuning cases and no code, so no review had anything to
 // judge.
-// hooks/protect-main-checkout.py runs it on a landing push typed by hand;
+// hooks/block-unsafe-commands.py runs it on a landing push typed by hand;
 // flow-guard pipeline-fix land runs the same check before its own push.
 //
 // Exit codes: 0 LOOP-LANDING-OK, or LOOP-LANDING-NA for any other branch;
@@ -42,7 +42,7 @@ import (
 // branch with none there, under the project of the agents checkout this
 // guard is installed from -- a completed plan, a completed first fix and a
 // review, every row closed, the highest review `clean` -- no Critical or Important -- and
-// no red-line fix (`fix-v<v>`) after it. protect-main-checkout.py runs it on
+// no red-line fix (`fix-v<v>`) after it. block-unsafe-commands.py runs it on
 // a landing push typed by hand; flow-guard pipeline-fix land runs it before its own.
 // One admission skips the rows: a self-review-* branch whose diff from
 // origin/HEAD touches only docs/prompt-tuning/ carries prompt-tuning cases and

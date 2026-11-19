@@ -19,7 +19,7 @@ func TestLoopHookTimeoutsFailClosed(t *testing.T) {
 	}
 	reg := regexp.MustCompile(`"timeout": ([0-9]+)`)
 	wait := regexp.MustCompile(`(?m)^[A-Z_]*TIMEOUT = ([0-9]+)`)
-	for _, hook := range []string{"enforce-loop-dispatch", "protect-main-checkout"} {
+	for _, hook := range []string{"enforce-loop-dispatch", "block-unsafe-commands"} {
 		var regs []int
 		for _, line := range strings.Split(string(setup), "\n") {
 			if !strings.Contains(line, "hooks/"+hook+".py") {

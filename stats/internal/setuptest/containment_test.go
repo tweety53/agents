@@ -76,13 +76,13 @@ func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 	g.assertContains("an unregistered flow-active-change hook is reported", g.log,
 		"flow-active-change hook is installed but NOT registered")
 
-	g.assertExists("the protect-main-checkout hook is installed", filepath.Join(hooks, "protect-main-checkout.py"))
+	g.assertExists("the block-unsafe-commands hook is installed", filepath.Join(hooks, "block-unsafe-commands.py"))
 
 	// Every hook's warning and every printed registration snippet the installers emit is
 	// pinned output: the shared registration-warning helper must keep each line byte-identical.
-	g.assertContains("the unregistered protect-main-checkout hook is reported", g.log,
-		"protect-main-checkout hook is installed but NOT registered")
-	g.assertContains("the protect-main-checkout registration snippet is printed", g.log, ".claude/hooks/protect-main-checkout.py")
+	g.assertContains("the unregistered block-unsafe-commands hook is reported", g.log,
+		"block-unsafe-commands hook is installed but NOT registered")
+	g.assertContains("the block-unsafe-commands registration snippet is printed", g.log, ".claude/hooks/block-unsafe-commands.py")
 	g.assertContains("the claude agent-baseline registration snippet is printed", g.log, ".claude/hooks/enforce-agent-baseline.py")
 	g.assertContains("the claude flow-active-change registration snippet is printed", g.log, ".claude/hooks/flow-active-change.py")
 	g.assertExists("the enforce-loop-dispatch hook is installed", filepath.Join(hooks, "enforce-loop-dispatch.py"))
@@ -261,13 +261,13 @@ func TestRegisteredHookTimeoutIsChecked(t *testing.T) {
 	g := newGroup(t)
 	home := g.newHome()
 	g.seedFile(filepath.Join(home, ".claude/settings.json"), 0o644, `{"hooks":{"PreToolUse":[
-  {"matcher":"Bash","hooks":[{"type":"command","command":"python3 \"$HOME/.claude/hooks/protect-main-checkout.py\""}]},
+  {"matcher":"Bash","hooks":[{"type":"command","command":"python3 \"$HOME/.claude/hooks/block-unsafe-commands.py\""}]},
   {"matcher":"Agent|Task","hooks":[{"type":"command","command":"python3 \"$HOME/.claude/hooks/enforce-loop-dispatch.py\"","timeout":300}]}
 ]}}`)
 	g.runSetup(repoRoot, home, "global", "")
 	g.assertRCZero("the install succeeds", g.rc, g.log)
 	g.assertContains("a registered hook missing its timeout is reported", g.log,
-		"protect-main-checkout hook is registered in "+filepath.Join(home, ".claude/settings.json")+` without "timeout": 300`)
+		"block-unsafe-commands hook is registered in "+filepath.Join(home, ".claude/settings.json")+` without "timeout": 300`)
 	g.assertNotContains("a registered hook with its timeout is not reported", g.log,
 		"enforce-loop-dispatch hook is registered in")
 }
