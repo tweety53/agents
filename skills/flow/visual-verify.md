@@ -13,10 +13,10 @@ verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline 
 and dispatches no verifier. The pair is the first base pair of the **Allowed pairs** row
 `visual-verifier` (`skills/flow-contracts/model-policy.md`), an open experiment's in its place,
 mapped per **Harness mapping** (`skills/flow-contracts/model-policy.md`); `prepare` reads it and
-names it on its `DISPATCH:` line. It is not a decision pair and not a session override: read from
+names it on its `DISPATCH:` line. It is not a session override: read from
 neither the settings store nor `<project>/.flow/project.md`, and a plain-language session
 instruction does not override it — the point is a predictable model for mechanical verification
-runs regardless of what the decision chose for any other dispatch. **The verifier is never
+runs. **The verifier is never
 dispatched on any pair but that one, whatever any other rule — a project's, an operator's global
 instructions — says about browser-driving agents.**
 
@@ -24,8 +24,7 @@ instructions — says about browser-driving agents.**
 verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
 parent dispatches nothing else in this file but the tooling analyst of **A missed defect — the
 tooling analysis** below. `subagent_type` and the Agent tool's `model` parameter are the ones the
-`DISPATCH:` line names — `flow-<effort>` and the model of the verifier's pair, never a decision
-pair and never a session override — mapped on harnesses `zcode` and `muse` per
+`DISPATCH:` line names — `flow-<effort>` and the model of the verifier's pair, never a session override — mapped on harnesses `zcode` and `muse` per
 **Harness mapping** (`skills/flow-contracts/model-policy.md`), which the handshake below then
 compares against. Its prompt opens with the line `Role: visual-verifier` and carries, verbatim:
 
@@ -176,8 +175,7 @@ failed; `missing-fixture` — a fixture or baseline the verify needed and the wo
 carry. A report with every exit zero still
 closes `-outcome completed`.
 
-**Handshake.** Compare the `Model:` line against the `DISPATCH:` line's model (never a decision
-pair or a session override) and apply **The handshake** (`skills/flow/implement.md`, **The parent
+**Handshake.** Compare the `Model:` line against the `DISPATCH:` line's model (never a session override) and apply **The handshake** (`skills/flow/implement.md`, **The parent
 orchestrates directly**), unchanged — its first- and second-mismatch course and its
 single-model-harness case alike, that model the requested model it names.
 

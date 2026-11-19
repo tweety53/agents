@@ -44,22 +44,14 @@ implements**, `skills/flow/implement.md`).
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 >
 > **Check your own commit before you hand back.** Once a task's commit exists, run
-> `flow-guard check-task-commit-fields <abs-worktree> <n> HEAD` and
-> `flow-guard check-task-commit-planning-paths <abs-worktree> HEAD~1` on it, `<n>` the task's
-> `Task-Id:`. On an exit 1, fix what they name, undo the commit with
+> `flow-guard check-task-commit-planning-paths <abs-worktree> HEAD~1` on it. On an exit 1, fix
+> what it names, undo the commit with
 > `git -C <abs-worktree> reset --soft HEAD~1`, re-stage through `flow-guard stage-task-files` and
-> recommit with the task's declared `**Commit:**` subject and `Task-Id: <n>` trailer, until both
-> exit 0: the parent's `flow-guard close-task` runs them again, and a refusal there costs a
-> recommit dispatch. A `check-task-commit-fields` exit 1 whose every line names `Files:` — a path
-> the commit needed beyond it, or a declared path the task had no reason to touch — needs no
-> recommit: name each such path on an `undeclared:` or `correction:` line of your summary head,
-> and `close-task` corrects the field from your commit. An exit 2 is reported, never worked around.
-
-**A `Build: red` task is dispatched with its `Squash-with:` partner, in one bundle.** The
-implementer runs the red task first — writes its tests, runs them, and reports the failing
-output — then the green partner, and makes **one** commit for the pair: the partner's declared
-`**Commit:**` subject and `Task-Id: <partner>` trailer. The red task never has a commit of its
-own; `flow-guard check-task-commit-fields` resolves the pair from either id against that commit.
+> recommit with the task's declared `**Commit:**` subject and `Task-Id: <n>` trailer, until it
+> exits 0: the parent's `flow-guard close-task` runs it again, and a refusal there costs a
+> recommit dispatch. A path the commit needed beyond `**Files:**`, or a declared path the task had
+> no reason to touch, is named on an `undeclared:` or `correction:` line of your summary head. An
+> exit 2 is reported, never worked around.
 
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
@@ -105,12 +97,10 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 > bites, recorded after it cost time. They are binding: read them before your first edit and
 > never argue one away without measuring.
 
-> **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
-> Establish the real API before writing against it, and report what you found. An assumption tagged
-> `unverified:` in your task is a guess to confirm before you build on it. When what you
+> **PLAN AMENDMENT:** When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
 > contradicts the plan** (`skills/flow-contracts/plan-amendment.md`). Report a correction your
-> measurement produced — a tag to retag, a number to replace, a `**Files:**` entry to add — as the
+> measurement produced — a number to replace, a `**Files:**` entry to add — as the
 > exact field and its corrected value, so it can be transcribed into the record in place
 > (The record carries its own corrections, `skills/flow/implement.md`).
 
@@ -192,8 +182,7 @@ own; `flow-guard check-task-commit-fields` resolves the pair from either id agai
 
 > **REPORT FILE:** write your report to
 > `<abs-worktree>/.superpowers/sdd/implementer-report-<k>.md` as your **last** act — after your
-> commit and your final test run — carrying each commit's sha, the failing RED output you saw,
-> and anything the plan's `unverified:` tags asked you to establish. The report opens with this
+> commit and your final test run — carrying each commit's sha and the failing RED output you saw. The report opens with this
 > summary head, and your final message is the head alone — the dispatcher reads it from your
 > completion notification and never opens the report body:
 >

@@ -21,8 +21,7 @@ func TestPlanReviewTriageScope(t *testing.T) {
 		para = para[:j]
 	}
 	for _, want := range []string{
-		"It reads the report, `proposal.md` and `design.md`, and `tasks.md` when triaging `plan-review-2`; it opens a file under `<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer",
-		"Make no stage mark.",
+		"It reads the report, `proposal.md`, `design.md` and `tasks.md`; it opens a file under `<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer",
 		"re-run `spectre validate`",
 	} {
 		if !strings.Contains(para, want) {

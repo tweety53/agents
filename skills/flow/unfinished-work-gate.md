@@ -82,7 +82,7 @@ The signals that produce that list are the script's own.
 When the verdict is structural — the plan held in another worktree with every task ticked and no
 open finding — or an item **Finish it** above cannot finish, run once, before the landing question:
 
-```bash verified:the flag set is design.md §5's; the call shape mirrors the `flow record verdict` invocation in scripts/flow-guard check-unfinished-work
+```bash
 flow record verdict false-positive -change <name> -guard check-unfinished-work \
   -reason "<the operator's reason, verbatim>" -C <canonical-worktree>
 ```

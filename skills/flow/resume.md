@@ -24,7 +24,7 @@ reaching `IN_PROGRESS` — an interrupted session, a context limit, an earlier s
 by reading, not by assuming:
 
 - **Does the worktree exist** — `git worktree list` naming `<project>-worktrees/<name>`. It is
-  created inside `flow.kickoff` (steps 1–4 of **A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between
+  created at kickoff (steps 1–4 of **A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between
   the `STARTED` write and that step: run steps 1–4 now, then continue below. `<changeRoot>` is
   always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
 - `spectre list --json`'s entry for this change's `done`/`total`, run in the worktree —
@@ -43,5 +43,5 @@ State the resumption point plainly before continuing:
 ### Resuming a recorded decision
 
 A run resumed at `STARTED` rests on **Decide** (`skills/flow/brainstorm-planner.md`): it reads
-`flow record decisions -change <name>` and follows the newest row rather than re-rolling, or
+`flow record decisions -change <name>` and follows the newest row rather than re-deciding, or
 re-runs the Decide step alone when none exists yet.

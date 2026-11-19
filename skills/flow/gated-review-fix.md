@@ -14,14 +14,11 @@ Minors. Fixers of one worktree run in series, each launched once the previous on
 run; fixers of different worktrees run at once. `flow record dispatch begin` refuses a fixer
 key naming more than three tasks — the gated row of **Every fix is a
 fresh one-shot** (`skills/flow/implement.md`), keyed `task-<n+n>-implementer-fix-<k>`, the ids of
-the tasks its group fixes `+`-joined in plan order, on the decision's `fixer` pair. Its `FIX INPUT:` line names each reviewer
+the tasks its group fixes `+`-joined in plan order, on the `panel-fix` role's pair. Its `FIX INPUT:` line names each reviewer
 report path, each finding's ref and MUTATION PROOF. Every task commit is pushed by then, so each
 fix is one new commit on top per task, carrying that task's `Task-Id:` trailer.
 
-**Each fixer's return is one Bash call**: the markers verify, then the guard on each fix commit,
-`flow-guard check-task-commit-fields <canonical> <id> <fix-sha> "" <canonical> <name>`, which
-joins every commit carrying the task's `Task-Id:` trailer — a refusal handled as "The record
-carries its own corrections" (`skills/flow/implement.md`) states — the push, `flow record status
+**Each fixer's return is one Bash call**: the markers verify, then the push, `flow record status
 -change <name> -ref F<n> -status fixed` for each Minor its summary head names `fixed:`, and, when a
 task's pass was `fix`, that task's `task-<n>-fix-<k>.diff` of its fix commit's own range,
 `git diff <fix-commit>^..<fix-commit>`, the snapshots and
@@ -32,7 +29,7 @@ green names the run — its command and exit — else the line is carried to the
 
 **One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix` — save an in-run fix task, which takes none (**The loop**, step 2, `skills/flow/verify-fix-loop.md`) — under
 `task-<n+n>-reviewer-fix-<k>`, the same convention as the fixer's key, each pass on its own fix
-diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched bundle runs on the pair `flow-guard pair-judge gated-re-reviewer <prompt file>` prints (**Model and effort**, `skills/flow/brainstorm-planner.md`),
+diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched bundle runs on the `gated-re-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`),
 its prompt opening with the line `Role: gated-re-reviewer` in place of the original bundle's.
 The re-dispatched bundle's Agent-tool `description` is `Tasks <ids>/<N> (re-review)` — `Task <x>/<N> (re-review)` <!-- citations-guard:allow -->
 for one task — so the `flow-task-list` mod shows its row as a re-review. It carries the fixer's

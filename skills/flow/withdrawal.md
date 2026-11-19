@@ -7,7 +7,7 @@ Loaded by `skills/flow/brainstorm-planner.md` when the linked issue carries `flo
 
 **A run on a filed fix/cost/speed finding verifies the defect still exists before planning.** When the
 linked issue's labels carry `flow-fix`, `flow-cost` or `flow-speed`, the checklist opens, before any design
-question, with a reachability check against the resolved base (the base the `flow.kickoff`
+question, with a reachability check against the resolved base (the base the kickoff
 worktree was created from): state the finding's defect as a claim the tree can answer, then run
 the cheapest thing that answers it — the guard the finding names, the contract section it says is
 missing, the behaviour it reports. A finding the base already delivers — the guard passes, the
@@ -24,7 +24,7 @@ A change abandoned before planning — nothing implemented, nothing merged — e
 its record's `withdrawn` field set (`skills/flow-contracts/state-file.md`), its worktree deleted
 and its branches gone, instead of littering every later candidate resolution and `/flow-status`
 report with a `STARTED` record nothing can retire. The route runs inside the creating run —
-inside the already-open `flow.brainstorm` stage, which closes with the withdrawal as its work —
+inside the already-open `flow.plan` stage, which closes with the withdrawal as its work —
 and no command exists for it.
 
 **Two offer points, both explicit asks:**

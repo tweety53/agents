@@ -108,7 +108,7 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round;
 - **on a decided panel, the round's re-running roles ride one bundled dispatch, on
-  the decision's `panel.rerun_dispatch` pair**, under the 5-minute ceiling — one **PASS** section
+  the `panel-rerun` role's pair**, under the 5-minute ceiling — one **PASS** section
   per role, the full-roster fallback (**Bundled dispatch**, `skills/flow/review-panel.md`)
   separating them one per role when the bundled findings need separation. **Each role's re-run is
   targeted at what that role raised and nothing else**: in place of
@@ -435,30 +435,8 @@ actual rendered pixels, and a fix commit for this class of bug that landed no su
 probe is rejected at the fix step — the round does not close and the finding stays open, for the
 handback below — rather than the regression being discovered next round. **The same
 walk holds a folded fix to its PLAN FIELDS obligation:** a `flow-guard fold-fixup` hunk that adds a
-test case, adds a file, or changes what a task's `**Baseline:**` counts, whose task's `**Tests:**`,
-`**Baseline:**` or `**Files:**` field in `<changeRoot>/tasks.md` does not reflect it, does not close
-the round; it goes to the handback.
-
-Beside the reproducer re-runs above, the round close re-runs the task-field guard mechanically:
-`flow-guard check-task-commit-fields <worktree> <task-id> <task-sha> "" <canonical-worktree>
-<name>` for every task a fixup folded into — `<task-id>` from that commit's `Task-Id:` trailer,
-`<task-sha>` the folded commit as it now stands, the remaining arguments resolved the way
-`skills/flow/implement.md`'s task-close step resolves them. Exit 1 does not close the round; it
-goes to the handback. Exit 2 — the guard's not-a-verdict close (the same course
-`skills/flow/implement.md`'s task-close step gives it) — stops the run: a handback cannot repair
-an inability. The stale-field classes are the guard's verdicts: a task declaring `**Baseline:** before=N
-after=M` fails when the changed files' `@Test` delta at the commit does not measure it — skipped
-where the counted set carries no `@Test` at either revision, per the skip-not-fail rule — and a
-`**Tests:**` name, backticked or bare camelCase, that the tree's content at the commit no longer
-contains fails with it. A test added to the commit with no `**Baseline:**` declared and no
-`**Tests:**` naming it stays the walk's judgment.
-
-**The round close runs the project's configured build-green guard too, when the project declares
-one (**The guard's scope**, `skills/flow-contracts/build-green.md`), over the plan's `tasks.md` —
-exit 1 does not close the round; it goes to the handback, and exit 2 — the same not-a-verdict
-close — stops the run.** This is the gate that holds a
-plan appended to mid-run to the tags it published under: tasks a fix round appends carrying
-`**Build:** pending` keep the round open until every tag reads `green` or `red`.
+test case or adds a file, whose task's `**Tests:**` or `**Files:**` field in `<changeRoot>/tasks.md`
+does not reflect it, does not close the round; it goes to the handback.
 
 This binds the fix round every run — the obligation is the round's, not a slot's.
 
@@ -501,10 +479,9 @@ edit and `end` once the fix commit lands, as that section's **Records** bullet s
 confirmed as a real defect, the fix subagent reads and follows **superpowers:systematic-debugging**
 from its file before writing its fix — on Claude Code the newest
 `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent
-carries no Skill tool. **Dispatch it on the decision's `fixer` object** — its own model and effort,
-chosen apart from the implementer's, `subagent_type:
-flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter, and
-`-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own. Record
+carries no Skill tool. **Dispatch it on the `panel-fix` role's pair** (**Model and effort**,
+`skills/flow/brainstorm-planner.md`), `subagent_type: flow-<effort>` with that `model` passed as
+the Agent tool's own `model` parameter, and `-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own. Record
 every pass with `flow record pass -round <round>`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.

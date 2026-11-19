@@ -25,7 +25,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/flow-plan` | change captured | **Creates the change worktree and pushes its empty branch** through the kickoff (**Capturing a new change**, `skills/flow-plan/SKILL.md`); commits nothing, ever |
 
 **No command writes the main checkout.** `/flow` creates `<project>-worktrees/<name>` inside
-`flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
+its kickoff, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
 capture — it reads the main checkout before then and writes nothing — and every write, stage,
 commit and push in the table above happens in a worktree. The main checkout is never checked out,
 staged, committed or written, whatever branch it sits on — save run 2's fast-forward of it, which

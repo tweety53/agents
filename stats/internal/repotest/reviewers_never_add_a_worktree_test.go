@@ -98,7 +98,7 @@ func TestSlotTriggersSkipOnlyWhenBothSay(t *testing.T) {
 		{"skills/flow/review-panel.md", "### The slot triggers", "`mutation` is never gated"},
 		{"skills/flow/review-panel.md", "### The slot triggers", "an unanswered question never reduces a panel"},
 		{"skills/flow/review-panel-fix-round.md", "**The slot triggers run again beside it**", "The decision's `slot_triggers` is never asked again"},
-		{"skills/flow/brainstorm-planner.md", "### Decide", "7. **slot judge** — on every class, `micro` included, and on a fix run's Decide"},
+		{"skills/flow/brainstorm-planner.md", "### Decide", "5. **slot judge** — write the plan's tasks to"},
 	} {
 		if got := section(c.rel, c.heading); !strings.Contains(got, c.want) {
 			t.Errorf("%s, %s, lacks %q", c.rel, c.heading, c.want)

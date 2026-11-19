@@ -39,20 +39,15 @@ SETTINGS_JSON="$(flow settings get || true)"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 ```
 
-**An open main-agent experiment is checked, never enforced.** Right after resolving the above, run
-`flow experiment main-check -model <parent model> -effort <parent effort>` (**Harness mapping**,
-`skills/flow-contracts/model-policy.md`) and print any line it prints, once; it never blocks the run (decision `main-check-and-tag`).
-
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. The read leaves the CLI's stderr visible: report it
 verbatim as the cause, and resolve `REVIEWERS` by the table's Unreachable row below, never as the
 empty list the failed read leaves. Settings unreachable is never a reason to block
 implementation.
 
-**Execution mode, every dispatch's model and effort, and the review panel are decided per change,
-never configured.** The plan's class and rolls decide them — **Decide**
-(`skills/flow/brainstorm-planner.md`) — and the run reads them from the recorded
-`decision.json`.
+**Execution mode and the review panel are decided per change, never configured.** The plan's
+class decides them — **Decide** (`skills/flow/brainstorm-planner.md`) — and the run reads them from
+the recorded `decision.json`.
 
 **`REVIEWERS` resolves from the same call, into the roster a `micro` decision's panel
 dispatches** — the one class whose `panel` is the string `default` (`skills/flow/review-panel.md`
@@ -64,18 +59,14 @@ is canonical for what dispatching it means):
 | Reachable, list empty | `primary` alone |
 | Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value |
 
-**Every other dispatch runs on its decision pair** — the implementer, every panel slot and the
-panel-fix subagent — or, with no pair recorded, on the literal `opus`. **Model and effort**
-(`skills/flow/brainstorm-planner.md`) is canonical for that no-pair `opus` and for how each pair's
-model is chosen. The verifier and the tooling analyst run on their own **Allowed pairs** rows
-(`skills/flow-contracts/model-policy.md`).
+**Every dispatch runs on its role's first base pair** from `flow policy get` — **Model and
+effort** (`skills/flow/brainstorm-planner.md`) is canonical.
 
 **A plain-language session instruction overrides the pair(s) it names for this run only** —
 "use opus for the panel", "implement on sonnet" — per **Model policy**
 (`skills/flow-contracts/model-policy.md`).
 Record the instruction with the dispatch it changes; an override nobody wrote down is
-indistinguishable from a mistake. The override never rewrites the settings store or the decision's
-pairs; it lands in the decision's `overrides`.
+indistinguishable from a mistake. The override never rewrites the settings store; it lands in the decision's `overrides`.
 
 ## Reading the state
 
@@ -141,13 +132,10 @@ section has produced it, per **Change name resolution (all `/flow*` commands)**
 (`skills/flow-contracts/pipeline.md`). This router reads state above using
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 
-**Generate this run's session token once, right here, before the first mark any phase file below
-makes — a short literal string shaped as **Stage marks** (`skills/flow-contracts/pipeline.md`)
-states — and reuse that exact same value at every `stage begin` this
-run makes, including inside every phase file it dispatches into.** One run, one token, never a fresh
-one per mark or per phase file. `<literal-token>` in each mark is that string written in place of
-the placeholder, never the placeholder itself, and a later `/flow` invocation — a resume or a fix
-run — generates its own rather than reusing an earlier run's.
+**Generate this run's session token once, right here** — shaped as **Stage marks**
+(`skills/flow-contracts/pipeline.md`) states — and reuse that exact value in every `flow record` command this run makes, including inside every
+phase file it dispatches into; a later `/flow` invocation generates its own. `<literal-token>` is
+that string written in place of the placeholder. A `stage begin` carries it too.
 
 ## Review-before-landing instruction
 

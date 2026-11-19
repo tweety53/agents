@@ -19,6 +19,7 @@ export type Phase = (typeof PHASES)[number];
 /** Every stage key the store can record (internal/stages/names.go), each in exactly one phase. */
 export const STAGE_PHASE: Record<string, Phase> = {
   "plan.session": "Planning",
+  "flow.plan": "Planning",
   "flow.kickoff": "Planning",
   "flow.brainstorm": "Planning",
   "flow.create-artifacts": "Planning",

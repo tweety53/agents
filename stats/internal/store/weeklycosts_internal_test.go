@@ -8,12 +8,15 @@ import (
 )
 
 // TestWeeklyCostStagesAreDeclared fails when a WeeklyCosts category names a
-// stage key the stages vocabulary does not declare.
+// stage key the stages vocabulary does not declare -- save the retired
+// planning keys only historical rows carry, kept so their cost stays
+// planning.
 func TestWeeklyCostStagesAreDeclared(t *testing.T) {
 	t.Parallel()
+	retired := []string{"flow.design-approval", "flow.plan-review"}
 	c := weeklyCostStages
 	for _, k := range append([]string{c.selfReview, c.visualVerify, c.implementation, c.review}, c.planning...) {
-		if _, ok := stages.Name(k); !ok {
+		if _, ok := stages.Name(k); !ok && !slices.Contains(retired, k) {
 			t.Errorf("weekly-cost stage key %q is not in the stages vocabulary", k)
 		}
 	}

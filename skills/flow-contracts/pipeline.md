@@ -202,10 +202,9 @@ next round is the escalation above, never another dispatch on the base pair (kan
 ### Caps never stop the run
 
 **Every cap, ceiling, budget or count limit this pipeline names bounds an approach, never the
-run** — a planner's agent cap, a dispatch's wall-clock ceiling, the two plan
-reviews a session token admits, a decision's `session_cap`, a read or git budget. Meeting or being
+run** — a planner's agent cap, a dispatch's wall-clock ceiling, a read or git budget. Meeting or being
 refused by one is a failed round of that approach: the next attempt differs — a smaller scope, a
-split dispatch, the highest pair the row admits at or under the bound, another route — and where
+split dispatch, another route — and where
 no different approach exists the work goes past the bound with the fact recorded. It is never a
 stop and never an ask, and it counts toward **Three failed rounds** above.
 
@@ -462,45 +461,27 @@ a harness without it prints, are not the run's status prose.
 
 ## Stage marks
 
-`/flow` marks each of its own stages: `flow stage begin` when the stage starts,
-`flow stage end` when it closes, both naming the command, the stage and the change. The stage
-identifier is the **key**, never the prose name, from **Level 1 — the stages of each command**
-(`<agents repo>/README.md`).
+A stage mark is a passive record for the stats: `flow stage begin` when a phase starts, `flow
+stage end` when it closes, naming the command, the stage key and the change. A mark never blocks,
+delays or alters the phase it marks — it refuses nothing but a caller mistake (an undocumented
+key, a missing flag), and on a store failure the CLI journals the intent, prints one warning and
+exits 0. Never branch on its exit code; a failed mark is one line in the run's narrative.
 
-**A `stage begin` mark MUST carry `-session-token` and `-harness`.** Generate the token once, near the start of
-the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
-same run; do not invent a fresh one per mark. **The token ends in the run's start time, UTC to the
-second** — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal, `mf-k1028-20261023T183402Z`
-— so no two runs share one: a name-derived token alone repeats across sessions. `flow stage begin`,
-`wrap` and `mark` refuse a token that does not end so, exit 2; a run whose token predates the rule
-reads the clock then and marks under the stamped token from there on. `-harness` names the harness actually running the mark
-— `claude-code`, `zcode` or `muse`.
-
-**Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
-filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below.**
+`/flow` marks one stage per phase. Planning marks `flow.plan`, from kickoff to the plan gate
+(`skills/flow/brainstorm.md`); the other phases' keys are listed in **Stage keys**
+(`skills/flow/stage-keys.md`). `-harness` names the harness actually running the mark —
+`claude-code`, `zcode` or `muse` — filled in at call time from the `<harness>` placeholder.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
-# … the stage's own work …
-flow stage end   -command '/flow' -stage flow.review-panel -outcome completed <name>
-# … a later stage in the same run reuses the same token, not a new one …
-flow stage begin -command '/flow' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.plan -harness <harness> -session-token mf-<literal-token> <name>
+# … the phase's own work …
+flow stage end   -command '/flow' -stage flow.plan -outcome completed <name>
 ```
 
-**The session token MUST be a literal, written directly into the command — never a shell
-substitution.**
-
-**A mark never blocks, delays, or alters the stage it marks.** The only nonzero exit is a caller mistake — an
-undocumented stage key, a missing required flag, or a session token carrying a substitution shape —
-which is a defect in the skill's own call, not an outcome of the stage, and is fixed by correcting the
-call rather than worked around — and a `stage end` the store answers with no open stage run, which
-prints the missing-begin line and exits 1: the begin was never recorded, a slip in the call. On any store failure the CLI journals the intent, prints one warning
-line, and exits 0 — the same never-block guarantee **State file**
-(`skills/flow-contracts/state-file.md`) already states for `state set`. Do not branch on
-`flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
-still exits 0, so there is nothing to react to.
-
-**`stage end` carries no session token and no harness of its own.**
+**The session token** a `stage begin` and the run's `flow record` commands carry — the
+dispatch hook reads it off the latest stage run to record a dispatch's row — ends in the run's start time, UTC to
+the second — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal,
+`mf-k1028-20261023T183402Z` — never a shell substitution, and reused unchanged for the whole run.
 
 ## Handoff output
 
@@ -570,9 +551,9 @@ covers:
 - **what this changes for a user of the app, and why** — the feature or fix in product terms
   (what was added, changed, fixed or removed, and the purpose stated in the plan's own `## Why`),
   never only the mechanics of the run. A reader who never opens the diff still learns what shipped.
-- the models the recorded decision chose for this run's dispatches — each pair, per **Model and
-  effort** (`skills/flow/brainstorm-planner.md`) — so the operator reads the run's model policy
-  off the summary without opening the ledger;
+- the pair each of this run's dispatches ran on, per **Model and effort**
+  (`skills/flow/brainstorm-planner.md`) — so the operator reads the run's model policy off the
+  summary without opening the ledger;
 - findings fixed, and findings withdrawn;
 - commits made — repo and a one-line description each, each commit named by its subject, never by
   a sha integrate's reshape rewrites;
@@ -616,9 +597,7 @@ of those is a defect, not a brief artifact.
 
 **Never compressed** — a guard or a contract parses each of these byte for byte:
 
-- a task's `Files:`, `Tests:`, `Regression:`, `Baseline:`, `Commit:`, `Build:` and `Squash-with:`
-  fields;
-- a plan's `verified:` / `unverified:` / `measured:` / `predicted:` provenance tags;
+- a task's `Files:`, `Tests:`, `After:`, `Size:` and `Commit:` fields;
 - a decision's or an open question's `ID:` and `Status:` lines;
 - a spec's normative statements and their scenarios;
 - the review panel record's marker blocks and its findings table.

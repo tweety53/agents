@@ -708,7 +708,8 @@ func (s *Store) TrendFinishedChanges(ctx context.Context, period Period) ([]Tren
 // weeklyCostStages are the stage keys each WeeklyCosts category counts,
 // drawn from the stages vocabulary; TestWeeklyCostStagesAreDeclared fails on
 // a key it does not declare, so a rename there cannot silently move cost
-// into overall-only.
+// into overall-only. flow.design-approval and flow.plan-review are retired
+// keys only historical rows carry, kept so their cost stays planning.
 var weeklyCostStages = struct {
 	selfReview, visualVerify, implementation, review string
 	planning                                         []string
@@ -717,7 +718,7 @@ var weeklyCostStages = struct {
 	visualVerify:   "flow.visual-verify",
 	implementation: "flow.sdd-tdd",
 	review:         "flow.review-panel",
-	planning:       []string{"plan.session", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.plan-review", "flow.decide"},
+	planning:       []string{"plan.session", "flow.plan", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.plan-review", "flow.decide"},
 }
 
 // WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,

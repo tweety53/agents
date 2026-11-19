@@ -188,10 +188,8 @@ substituted in the dispatch prompt with the value named here:
 | `[GLOBAL_CONSTRAINTS]` | principles | the literal `the design.md section of your context bundle` — never a selection or paraphrase; on the CONTEXT BUNDLE FAILURE continue path, the absolute path of the change's `design.md`, or `none` when it has none |
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts.
-A `default` panel, which records no pair, runs every slot on the literal `opus`
-(**Model and effort**, `skills/flow/brainstorm-planner.md`). Every slot in this table
-is dispatched on `flow-low` (`agents/flow-low.md`, on
-a `default` panel) and carries the same model rule.
+A `default` panel runs every slot on the `panel-reviewer` role's pair, like a decided one
+(**Model and effort**, `skills/flow/brainstorm-planner.md`).
 **A spawn type this harness's Agent tool does not offer is substituted on the record, never
 silently**: the slot runs on `general-purpose`, and the round records `flow record pass -round <round> -note 'roster: <slot ids> on general-purpose — <type> not offered'`.
 A harness whose **Harness mapping** (`skills/flow-contracts/model-policy.md`) maps to `general-purpose` makes no such substitution.
@@ -204,10 +202,9 @@ retroactively to a pass already closed. It is never written back to the settings
 slots were added this way and why (the operator's own words) with `flow record pass -round <round>`,
 and record explicitly when none were: "no addition this round — the resolved list ran alone."
 
-**On a decided panel** (the decision's `panel` an object), model and effort belong to the dispatch, not the slot:
-each entry of the decision's `panel.dispatches` carries its `slots` and its own `model` and
-`effort`, and every slot in it runs on that pair in pass 1 — and in every fix-round re-run on the
-decision's `panel.rerun_dispatch` pair instead (**Panel re-runs**) — the dispatch's `subagent_type` is
+**Model and effort belong to the dispatch's role, not the slot**: every pass-1 panel dispatch runs
+on the `panel-reviewer` role's pair, and every fix-round re-run on the `panel-rerun` role's pair
+(**Panel re-runs**; **Model and effort**, `skills/flow/brainstorm-planner.md`) — the dispatch's `subagent_type` is
 `flow-<effort>` — the effort comes from the definition, the model from the Agent tool's own
 `model` parameter, passed explicitly on the dispatch — and both `model` and `-effort` are recorded. The roster carries no per-slot model. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own. A compact roster
 (the decision's `panel.compact`) is recorded with `flow record pass -round 0 -note 'roster: compact — <rolled value>'`; a full
@@ -261,17 +258,15 @@ flow-guard panel-slot-triggers <worktree> <merge-base> [<worktree> <merge-base>�
 
 ### The extra dispatches
 
-**Every pass 1 dispatches two more bundles, each on its own pair: `test-sanity+call-efficiency` on
-the decision's `extra_dispatch` pair, and `mutation+failure-modes` on its
-`extra_dispatch_mutation` pair** — on a decided and a `default` panel alike, beside the dispatches
+**Every pass 1 dispatches two more bundles, each on its own role's pair: `test-sanity+call-efficiency` on
+the `panel-sanity-efficiency` role's pair, and `mutation+failure-modes` on the
+`panel-mutation-failure` role's pair** — on a decided and a `default` panel alike, beside the dispatches
 the roster resolves, and outside their `≤2 × ≤3` cap. The docs-only reduction drops
 `test-sanity+call-efficiency` and `failure-modes` — an `.md`/`.mdc`-only diff adds no test, no
 call and no I/O — each recorded `flow record pass -round 0 -note 'not dispatched — docs-only
 reduction: <slot>'`. **The slot triggers** below drop `test-sanity`, `call-efficiency` and
 `failure-modes` role by role; `mutation` is never dropped by either. A mutation pass that ran no mutant — never dispatched, or its baseline suite red — is dispatched in the next round once the suite is green, and `flow-guard panel-round-begins` refuses a later round's begins until one has completed (kan-1099 self-review, F24). The late-fix reduction and the
-small append each still dispatch both bundles as those reductions leave them. A
-decision with no such key dispatches that bundle on `opus`
-at `low`. A fix run's judged roster alone may drop a role of either (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`).
+small append each still dispatch both bundles as those reductions leave them. A fix run's judged roster alone may drop a role of either (**The fix-run judge**, `skills/flow/review-panel-late-fix.md`).
 
 | id | Slot | How to spawn |
 |---|------|---------------|
@@ -389,7 +384,7 @@ recorded with `flow record pass -round <round>`.
 
 **One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with
 `-slot` the bundle's roles `+`-joined in roster order (`primary+principles+exp-<name>`) and
-`-model`/`-effort` the bundle's own, from the decision's `panel.dispatches` entry. Every finding still records its own single role in `-slot`, with the
+`-model`/`-effort` the bundle's role's pair. Every finding still records its own single role in `-slot`, with the
 bundle's `-dispatch-seq`.
 
 An incident a round's slot caused takes the same course (the incident rule of **4. Execute
@@ -524,12 +519,9 @@ untracked — a reproducer's scratch copy included.
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
 roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
-panel record names every worktree's sha beside the delta path. `-model` is `opus` (or this run's override) on
-a `default` panel and the dispatch's own model from the decision's
-`panel.dispatches` on a decided panel — bundled or one-role alike, no exception — or, on a
-fix-round re-run on a decided panel, `panel.rerun_dispatch`'s model. `-effort` likewise:
-`low` on a `default` panel, and the dispatch's own effort on a decided panel,
-`panel.rerun_dispatch`'s `low` on a re-run. The extra dispatches are the one exception to both: each one's pass-1 `-model` and `-effort` are its own pair — `extra_dispatch` for `test-sanity+call-efficiency`, `extra_dispatch_mutation` for `mutation+failure-modes` — `opus`/`low` when the decision has none.
+panel record names every worktree's sha beside the delta path. `-model` and `-effort` are the dispatch's role's pair
+— `panel-reviewer` in pass 1, `panel-rerun` on a fix-round re-run, `panel-sanity-efficiency` and
+`panel-mutation-failure` for the extra dispatches — or this run's override.
 On harness `zcode` every pair this paragraph names is recorded as `glm-5.3-flash` / `high`
 instead — the one pair the store accepts on a `zcode` session token — and on harness `muse` as
 the session's own (**Harness mapping**, `skills/flow-contracts/model-policy.md`).
@@ -1093,8 +1085,7 @@ reduction read, or the small append, has its own carve-out (`skills/flow/review-
 > **PLAN FIELDS:** your fix owns its plan record, as part of the fix itself, when it folds into a
 > task's commit with `flow-guard fold-fixup`: when it adds a test
 > case or changes what tests a task names, update that task's `**Tests:**` field; when it changes
-> what a task's `**Baseline:**` counts or `**Files:**` paths declare — a test case added, a file
-> created — update those fields too. All of it lands in the worktree's
+> what a task's `**Files:**` paths declare — a file created — update that field too. All of it lands in the worktree's
 > `<changeRoot>/tasks.md` in this same pass — never left for a reviewer to
 > catch next round. Edit them; do not stage or commit them — the plan record is
 > a gitignored planning path, written on disk and nothing else. A fix that lands as
@@ -1302,14 +1293,6 @@ did not land in. The parent ends the row again under its own key and token with 
 fix landed in as `-commit`, and runs the guard again.
 
 Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
-
-Beside them, run the project's configured build-green guard, when the project declares one
-(**The guard's scope**, `skills/flow-contracts/build-green.md`), over the plan's `tasks.md` — the
-same gate the round close above runs, so a pass that raised nothing and closed without a fix
-round cannot close the stage over tags it never checked. Exit 0 proceeds to the stage close
-below. Exit 1 means the plan still carries a build-green violation: fix the tags as a
-planning-path edit, re-run the guard to exit 0, and only then close — a stage never closes on a
-plan the guard fails. Exit 2 stops the run.
 
 Before the stage ends, the parent copies `<changeRoot>/tasks.md` to
 `<project>/.superpowers/sdd/<name>/tasks-at-close.md` in the canonical worktree — the plan as this clean close

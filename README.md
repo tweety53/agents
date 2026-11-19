@@ -141,9 +141,8 @@ flowchart TD
 - **Run 2 runs no tests or linters** and commits nothing: it saves `tasks.md` and the self-review
   bundle to flowd, then removes the worktrees.
 - **The plan is read cold before it is implemented.** On a change that is not trivial, a fresh
-  reviewer reads the artifacts — and nothing of the conversation — twice, each time in the stage
-  `flow.plan-review`: once `proposal.md` and `design.md` are written, and once `tasks.md` is
-  planned, before `flow.decide`. The planner fixes, contests
+  reviewer reads the artifacts — and nothing of the conversation — once, after the plan is written
+  and before Decide. The planner fixes, contests
   or escalates each finding; the lenses are `skills/flow/plan-review-rubric.md`.
 - **The design outlives the change.** Run 1 commits the change's `design.md` as
   `docs/designs/<name>.md` inside the implementation commit, a point-in-time record nothing keeps
@@ -152,29 +151,25 @@ flowchart TD
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.
 
-### Deciding how to implement (`flow.decide`)
+### Deciding how to implement (Decide)
 
-**The class, the rolls and the pair judge decide execution, pairs and panel; nothing in a project configures them.**
+**The class and the rolls decide execution and panel; every dispatch runs on its role's first
+pair; nothing in a project configures them.**
 The planner prints a `## Decision` table and proceeds without asking.
 
 - **Classify.** `scripts/flow-guard plan-class` counts tasks, files and repositories, flags
-  migrations, spec edits, red tasks and `unverified:` claims, and prints `micro`, `small`, `regular`
+  migrations and spec edits, and prints `micro`, `small`, `regular`
   or `big`. The planner may raise it one step with a reason, never lower it.
 - **Roll.** Hashed from the change name, so they repeat: `compact` (smaller roster), `experimental`
   (one prompt from `skills/flow/experimental/`), `bundle` (reviewer grouping).
-- **Judge.** `scripts/flow-guard pair-judge <role> <digest-file>` picks a dispatch's model and
-  effort from its role's allowed pairs: a headless `claude -p` call, on the `pair-judge` role's own
-  pair, reads the role, the candidates and a digest of the work; any failure falls back to the
-  role's first pair.
-- **Decide.** Per the table; saved to `.superpowers/sdd/decision.json` and `flowd`, with every
-  dispatch's model.
+- **Decide.** Per the table; saved to `.superpowers/sdd/decision.json` and `flowd`.
 
 | Class | Execution | Implementer effort | Review panel |
 |-------|-----------|--------------------|--------------|
 | `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
 | `small` | inline | — | `primary`, delta re-runs |
 | `regular` | inline | — | `primary`+`principles`, delta re-runs |
-| `big` | `sdd`: subagent implementers, one per task group of at most weight 3 (a `**Size:** big` task weighs 3, any other 1) | judged per group by `pair-judge`, never `high` | same roster as `regular`, full re-runs |
+| `big` | `sdd`: subagent implementers, one per task group of at most weight 3 (a `**Size:** big` task weighs 3, any other 1) | the `implementer` role's pair | same roster as `regular`, full re-runs |
 
 - **Rosters.** `compact` shrinks any roster but `micro`'s and `small`'s to `primary`+`principles`; a
   round runs at most two review dispatches of up to three roles, beside the
@@ -196,14 +191,12 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 | Key | Name | Commands |
 |-----|------|----------|
-| `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.plan` | Plan — kickoff to the plan gate | `/flow`, `/flow-plan` |
-| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast`, `/flow-interactive`, `/flow-plan` |
-| `flow.design-approval` | Design approval | `/flow`, `/flow-plan` |
-| `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast`, `/flow-plan` |
-| `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast`, `/flow-plan` |
-| `flow.plan-review` | Plan review — a context-free read of the three artifacts | `/flow`, `/flow-plan` |
-| `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast`, `/flow-plan` |
+| `flow.kickoff` | Kickoff — write `STARTED` | `/flow-fast`, `/flow-interactive` |
+| `flow.brainstorm` | Brainstorm ▸ | `/flow-fast`, `/flow-interactive` |
+| `flow.create-artifacts` | Create the spectre artifacts | `/flow-fast` |
+| `flow.writing-plans` | Writing-plans ▸ | `/flow-fast` |
+| `flow.decide` | Decide — execution, panel (a `/flow` fix run) | `/flow`, `/flow-fast` |
 | `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
 | `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
@@ -256,13 +249,7 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 - `flow-session-activity.py` — reports each session's working/waiting state to `flowd` for the
   state board.
 
-**Plan:** `check-plan-shape` (tasks readable by the commit guards; `-rules` prints the rules it holds a plan to), `check-plan-provenance` (every
-code block and number `verified:`/`unverified:`), `check-task-build-green` (a red task names its
-squash partner), `check-plan-departures` (a shipped view the plan restyles was measured against
-its frame, every measured departure cited by a task).
-
-**Implement:** `check-task-commit-fields` (commit touches exactly its declared files),
-`check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
+**Implement:** `check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
 `check-plan-unchanged` (snapshot at a reviewer row's begin, verify at its end) + `check-tree-markers` (snapshot around each subagent),
 `check-dispatch-paragraphs`, `check-workspace-isolation` (own database, cache, bucket, ports),
 `resume-or-fresh` (an immediate send-back resumes the agent only while its cache is warm and its
@@ -280,7 +267,7 @@ context small).
 temporary artifact is gone).
 
 **This repository's lint** adds `check-references` (every ``**Section** (`file`)`` citation
-resolves), `check-stage-mark-calls` (only keys `flowd` knows) and `check-installed-rules`.
+resolves) and `check-installed-rules`.
 
 ---
 

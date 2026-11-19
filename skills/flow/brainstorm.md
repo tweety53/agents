@@ -37,11 +37,12 @@ such a name to its own existing-change destination instead.
 while planning runs. A failure is one skipped-with-reason line and planning continues; nothing about
 this call may delay or alter the run.
 
-**Mark `flow.kickoff` now that the name is fixed, and write `STARTED` immediately — before
-brainstorming begins.**
+**Mark `flow.plan` begun and write `STARTED` immediately — before brainstorming begins.** The
+mark is a passive record for the stats (**Stage marks**, `skills/flow-contracts/pipeline.md`); it
+never refuses, and a failed mark is one line in the run's narrative, never a stop.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.plan -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ```json
@@ -62,84 +63,61 @@ flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -sessio
 `planningEffort` and `models.default` are written `null` and stay `null` for the life of the
 change.
 
-**Nothing is written before this point on a creating run** but the In Progress transition
-above — the state write above is the
-first thing this invocation writes once the name is fixed, ahead of even the design conversation.
-
-**Then create the worktree, still inside `flow.kickoff` — before brainstorming, before any file
-is read or written for this change.** From this point on, the main checkout is never read, checked
-out, staged, committed or written by any phase of `/flow`; every path below resolves inside
-`<project>-worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the
-plan and the decision JSON.
-
-Run the kickoff steps 1–4 in one call — 1 `flow-guard check-worktree-location <project>`; 2 the worktree
-add at `<project>-worktrees/<name>`, the sibling of the main checkout, on
-`spectre/<name>` tracking the remote branch when a `/flow-plan` capture or an earlier run pushed
-it, else a new `spectre/<name>` from `origin/<default-branch>` — never HEAD: the main checkout may
-be on any branch and is never moved; 3 the project's `## worktree setup` commands (**Project
-configuration**, `skills/flow-contracts/project-configuration.md`); 4 the push, per **Branch
-backup** (`skills/flow-contracts/git-boundaries.md`):
+**Then create the worktree — before brainstorming, before any file is read or written for this
+change.** From this point on, the main checkout is never read, checked out, staged, committed or
+written by any phase of `/flow`; every path below resolves inside `<project>-worktrees/<name>`,
+including the design spec, `spectre new`, the three artifacts, the plan and the decision JSON.
 
 ```bash
 flow-guard kickoff-worktree <project> <name> [<base>]
 ```
 
-`<base>` is the creating run's `--base <branch>` (`skills/flow/SKILL.md`), omitted when none was
-given: the new branch is then cut from `origin/<base>` instead of `origin/<default-branch>`, and the
-base is recorded on it for `flow-guard resolve-base-branch`; `origin/<base>` missing is exit 1.
-Right after the add, the script runs `flow-guard ignore-scratch` on the new worktree.
+It adds the worktree at `<project>-worktrees/<name>`, the sibling of the main checkout, on
+`spectre/<name>` — tracking the remote branch when a `/flow-plan` capture or an earlier run pushed
+it, else a new branch from `origin/<default-branch>`, never HEAD — records it in the state through
+`flow state add-worktree`, runs the project's `## worktree setup` commands (**Project
+configuration**, `skills/flow-contracts/project-configuration.md`) and `flow-guard ignore-scratch`,
+and pushes the branch (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). `<base>` is
+the creating run's `--base <branch>` (`skills/flow/SKILL.md`), omitted when none was given; the
+base is recorded on the branch for `flow-guard resolve-base-branch`, and `origin/<base>` missing
+is exit 1.
 
-Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. **Persist the worktree into the
-state record before this step returns** — the script does, through `flow state add-worktree` right
-after the add, so a later step's failure leaves the worktree recorded. Exit 1 or 2 stops the run
-with the script's own lines: **a command's non-zero exit ends your turn** naming the command and
-its output.
-
-```bash
-flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
-```
+Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. Exit 1 or 2 stops the run with
+the script's own lines: **a command's non-zero exit ends your turn** naming the command and its
+output.
 
 ## Run brainstorming and planning through the planner role
 
-```bash
-flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
-```
-
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
 `planner-role`). A `/flow-plan` capture runs this section too, with the differences
-**Capturing a new change** (`skills/flow-plan/SKILL.md`) states. Every planner dispatch is fresh and one-shot, on `subagent_type:
-flow-planner-<effort>` with `model` and effort from `flow-guard pair-judge planner <digest>`, per
-**Model and effort** (`skills/flow/brainstorm-planner.md`): `<digest>` is
-`<abs-worktree>/.superpowers/sdd/pair-judge/plan-<n>.md`, the latest round file copied there in the
-call that judges it, and in round 1 the ticket or seeded note written there; a
-guard redispatch takes the pair the guard redispatch rule below names. `xhigh` and an opt-in pair are used only under an
-operator grant (**Allowed pairs**, `skills/flow-contracts/model-policy.md`): the parent's prompt
-then carries `Operator pair: planner`, and one line `Granted: <role> <model> <effort>` for each
-granted `explorer` or `plan-designer` role. Its prompt carries `Role: planner`, `Key: plan-<n>`, the two agent-baseline sentences, the
-report-tersely line, the PLANNING DELEGATION paragraph (`skills/flow-self-review/SKILL.md`) — its
-auto-resolution sentence replaced by "every choice is written as a question of the round file" —
-the change name, the absolute worktree, the session token and `REVIEWERS` (**Model resolution**,
-`skills/flow/SKILL.md`), already in scope from this run's own earlier resolution. `<n>` counts
-this run's planner dispatches from 1, and the Agent-tool `description` opens with `plan-<n>` —
-`plan-2 design round` — the row `hooks/enforce-agent-baseline.py` begins at launch, ended on the
-planner's return:
+**Capturing a new change** (`skills/flow-plan/SKILL.md`) states.
+
+**Every planner dispatch is fresh and one-shot**, on `subagent_type: flow-planner-<effort>` with
+the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). Its prompt
+carries the two agent-baseline sentences, the report-tersely line, the PLANNING DELEGATION
+paragraph (`skills/flow-self-review/SKILL.md`) — its auto-resolution sentence replaced by "every
+choice is written as a question of the round file" — the change name and the absolute worktree.
+The Agent-tool `description` opens with `plan-<n>` — `plan-2 design round` — `<n>` counting this
+run's planner dispatches from 1, so the hook records the dispatch; once the planner returns:
 
 ```bash
 flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal-token> -outcome completed
 ```
 
+A failed recording command is one line in the run's narrative, never a stop.
+
+No `fork` from kickoff to the plan gate: a fork copies the whole conversation and doubles the
+token spend.
+
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
    plan mode, reading the ticket, `findings.md`, the latest `round-<r>.md` and the latest
    `answers-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
-   prompt, never an earlier round or answers file —
-   dispatching its own Explore and Plan agents (the hook begins their rows and the planner ends them, `-role explorer|planner`,
-   `-key explore-<n>|design-<n>`, each pair from `flow-guard pair-judge explorer|plan-designer <prompt file>`, `<n>` continuing
-   the run's count across rounds — the parent names the next free `<n>` in each round's prompt, since
-   a reused key restarts the earlier round's row), writing or
-   updating the prototype file a visible change needs and never publishing it, and writes
-   `round-<r>.md`: the prototype file's absolute path when the round wrote or changed it, `## Summary` — at
-   most ten lines, the decisions the round settled and what is still open, which is the settled
-   prose the convergence confirm shows — the design draft, then `## Questions` — each question with two to
+   prompt, never an earlier round or answers file — dispatching its own Explore and Plan agents
+   (**Explore and design agents**, `skills/flow/brainstorm-planner.md`), writing or updating the
+   prototype file a visible change needs and never publishing it, and writes `round-<r>.md`: the
+   prototype file's absolute path when the round wrote or changed it, `## Summary` — at most ten
+   lines, the decisions the round settled and what is still open, which is the settled prose the
+   convergence confirm shows — the design draft, then `## Questions` — each question with two to
    four options, one marked recommended where one honestly is, the convergence confirm last when
    nothing else is open. `## Questions` holds only questions headed `[architectural]` or
    `[impactful: <criterion>]`; the round's auto-taken ones sit under `## Auto-taken`.
@@ -153,135 +131,72 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the
-   prototype's latest Artifact URL. An explicit approve of the convergence confirm closes brainstorming —
-   `flow.brainstorm` end, `flow.design-approval` begin and end, as **Convergence**
-   (`skills/flow/brainstorm-planner.md`) marks them; any other answer dispatches round `<r+1>`. An
-   operator message mid-planning is written to the next `answers-<r>.md` and relayed the same way.
-3. **Artifacts and plan.** Two final planner dispatches, under the run's session token. The parent
-   begins `flow.create-artifacts` in the same call that ends `flow.design-approval`, before
-   `flow record dispatch begin` of the first final planner, and `flow.writing-plans` before
-   recording the second — after **Plan review** #1 ends, or straight after the `ARTIFACTS-WRITTEN`
-   return when that review is skipped:
+   prototype's latest Artifact URL. An explicit approve of the convergence confirm closes
+   brainstorming; any other answer dispatches round `<r+1>`. An operator message mid-planning is
+   written to the next `answers-<r>.md` and relayed the same way.
+3. **Artifacts and plan.** One final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow -->
+   `skills/flow/brainstorm-planner.md` — `spectre new`, the three artifacts from the approved
+   design (read from the approved round file, its answers and `findings.md`), the plan,
+   `spectre validate` — and returns `PLAN-WRITTEN`. It returns `QUESTIONS` instead the moment
+   writing the artifacts or the plan surfaces an ambiguity (**The checklist**,
+   `skills/flow/brainstorm-planner.md`), the next `round-<r>.md` holding it: the parent relays that
+   round as step 2 does, and a fresh final dispatch — never a design round — takes its answers,
+   revising the design, the artifacts and the plan they change. A dispatch that returns a failure
+   it could not clear is redispatched fresh once, its prompt carrying that output and the absolute
+   paths of `proposal.md`, `design.md` and `tasks.md`; a second failure stops the run with both
+   returns.
 
-   ```bash
-   flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
-   flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
-   ```
-
-   A `/flow-plan` capture makes both under `-command '/flow-plan'`. Each mark is made once per run:
-   a fresh final dispatch after `QUESTIONS` or a guard failure finds it made. The planner still
-   makes both end marks.
-   - the first runs section **C** of `skills/flow/brainstorm-planner.md` — its <!-- refs-guard:allow -->
-     `flow.create-artifacts` end mark, `spectre new` and the three artifacts from the approved design,
-     read from the approved round file, its answers and `findings.md` under
-     `<abs-worktree>/.superpowers/sdd/planner/` — and returns `ARTIFACTS-WRITTEN`; the parent then runs **Plan review** #1 below;
-   - a fresh one then runs section **D** up to, not including, **Decide** — reading `proposal.md`,
-     `design.md`, `tasks.md` and `findings.md` — writing-plans, `spectre validate`, `flow-guard
-     check-plan-shape`, the configured guards and `flow tasks count` — and returns `PLAN-WRITTEN`.
-
-   A dispatch returning the guard output it could not clear is redispatched fresh on `flow-guard
-   plan-agent-pair <name> <n> planner low`, its prompt carrying that output and the absolute paths
-   of `proposal.md`, `design.md` and `tasks.md` — no round, answers or findings file; a redispatch
-   skips each mark already made and resumes at the guard that failed. A second failure of the same
-   guard is redispatched the same way on `flow-guard plan-agent-pair <name> <n> planner medium`. No
-   round count stops this loop: the third failure of the same guard is **Three failed rounds**
-   (`skills/flow-contracts/pipeline.md`) — the next is a fresh dispatch on the run's own planner
-   pair, its prompt carrying all three returns verbatim and naming the approach that failed, within the
-   later-round agent cap (**Explore and design agents**, `skills/flow/brainstorm-planner.md`). Either dispatch returns
-   `QUESTIONS` instead the moment writing the artifacts or the plan surfaces an ambiguity (**The
-   checklist**, `skills/flow/brainstorm-planner.md`), the next `round-<r>.md` holding it: the parent
-   relays that round as step 2 does, and a fresh final dispatch — never a design round — takes its
-   answers, skipping each mark already made and revising the design, the artifacts and the plan
-   they change.
-
-The parent then closes `flow.writing-plans`, runs **Plan review** #2 below unless the planner's
-return skips it, and runs **Decide**, the record sequence and the gate, as the rest of this file
-states.
-
-Run each `begin` immediately before its Agent call and its `end` once that agent returns — never
-both after it returns, which records a window of zero seconds.
-
-No `fork` from kickoff to the plan gate: a fork copies the whole conversation and doubles the
-token spend.
+The parent then runs **Plan review** below unless the planner's return skips it, then **Decide**
+(`skills/flow/brainstorm-planner.md`) and the gate.
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"
 paragraph — show that prose to the operator as ordinary text before the **AskUserQuestion** call,
 not only the bare question and options.
 
-Once the Decide step finishes, print the `## Decision`
-block verbatim — the output of `flow decision render` (**Decide**, `skills/flow/brainstorm-planner.md`) — then run the record
-sequence below:
+Once the Decide step finishes, print the `## Decision` block verbatim — the output of `flow
+decision render` (**Decide**, `skills/flow/brainstorm-planner.md`) — then record it:
 
 ```bash
-flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
 flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
-flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
 
-**A refused `flow record decision`** — exit non-zero naming a pair's JSON path and model — is a
-Decide defect, not a store failure: correct that pair in `decision.json` per **Model and effort**
-(`skills/flow/brainstorm-planner.md`) and record again before the gate; no dispatch reads a
-decision the store refused.
-
 **The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`), recording each
-re-decision through the sequence above. On **Yes**, take the plan snapshot (**Plan snapshots**,
-below), then **end the run** with
-the `STARTED` handoff (**The `STARTED` handoff block**, below),
-`/clear` above `/flow <name>`, on a creating and a resumed run alike; the next run finds
-the plan ready (**Resuming at `STARTED`**, `skills/flow/resume.md`) and implements on a fresh context.
+re-decision the same way. On **Yes**, end the planning mark and **end the run** with the `STARTED`
+handoff (**The `STARTED` handoff block**, below), `/clear` above `/flow <name>`, on a creating and
+a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`**,
+`skills/flow/resume.md`) and implements on a fresh context.
+
+```bash
+flow stage end -command '/flow' -stage flow.plan -outcome completed <name>
+```
 
 ### Plan review
 
-**A fresh reviewer that has seen nothing but the documents reads the plan, twice**
-(decisions `plan-review-after-artifacts`, `two-plan-reviews`), in `/flow`'s creating
-run and a `/flow-plan` capture:
-- `plan-review-1` once the first final planner returned `ARTIFACTS-WRITTEN` and
-  `flow.create-artifacts` has ended;
-- `plan-review-2` once the second returned `PLAN-WRITTEN` and `flow.writing-plans` has ended.
+**A fresh reviewer that has seen nothing but the documents reads the plan once**, after the final
+planner returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A return
+whose second line is `Plan review: skip — <reason>` skips it: print that line and go on. A fix
+run's re-plan, the self-review and in-run fix planners and `/flow-fast` never run it.
 
-A return whose second line is `Plan review: skip — <reason>` skips both: print that line,
-mark no `flow.plan-review` and go on. A fix run's re-plan, the self-review and
-in-run fix planners and `/flow-fast` never run it.
-
-```bash
-flow stage begin -command '/flow' -stage flow.plan-review -harness <harness> -session-token mf-<literal-token> <name>
-flow record dispatch end -change <name> -key plan-review-<n> -session-token mf-<literal-token> -outcome completed
-flow stage end -command '/flow' -stage flow.plan-review -outcome completed <name>
-```
-
-`flow.plan-review` is begun and ended around each review, and steps 1–4 apply to each; every
-dispatch, planner redispatch and question round of a review sits inside its stage.
-
-1. **Dispatch.** One Agent call on the pair `flow-guard pair-judge design-reviewer <prompt file>`
-   prints (**Model and effort**, `skills/flow/brainstorm-planner.md`) — its `description` opening
-   with `plan-review-<n>`, `<n>` counting this run's plan-review dispatches from 1. The prompt is
-   the lines `Role: design-reviewer` and `Key: plan-review-<n>`, the two agent-baseline
-   sentences, the report-tersely line, the paragraph below, and six absolute paths:
-   `<skill-dir>/plan-reviewer-prompt.md` as the file to read in full first,
+1. **Dispatch.** One Agent call on the design-reviewer role's pair (**Model and effort**,
+   `skills/flow/brainstorm-planner.md`), its `description` opening with `plan-review-1`. The
+   prompt is the two agent-baseline sentences, the report-tersely line, the paragraph below, and
+   six absolute paths: `<skill-dir>/plan-reviewer-prompt.md` as the file to read in full first,
    `<skill-dir>/plan-review-rubric.md`, the change's `proposal.md`, `design.md` and `tasks.md`
    under `<changeRoot>`, the repository root `<abs-worktree>`, and the report
-   `<abs-worktree>/.superpowers/sdd/plan-review-<n>.md` — `<skill-dir>` the directory this file
+   `<abs-worktree>/.superpowers/sdd/plan-review-1.md` — `<skill-dir>` the directory this file
    was read from. It carries no ticket text, no Jira key, no round or answers file and no
-   summary of the conversation.
-
-   > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
-   > system prompt>` and nothing else on that line. Answer it before any tool call.
-
-2. **`PLAN-REVIEW-CLEAN`** — end `flow.plan-review` and go on.
-3. **`PLAN-REVIEW-FINDINGS`** — redispatch a fresh final planner as for guard output it could
-   not clear, its prompt naming the report's absolute path; it triages the report per **Plan
-   review** (`skills/flow/brainstorm-planner.md`) and makes no stage mark. Its `QUESTIONS` return
-   is relayed as step 2 of the section above relays a round, and a fresh final dispatch takes
-   the answers. Its `ARTIFACTS-WRITTEN` or `PLAN-WRITTEN` return ends `flow.plan-review`;
-   nothing is reviewed a third time.
+   summary of the conversation. Once it returns, end its row as a planner's is ended, under key
+   `plan-review-1`.
+2. **`PLAN-REVIEW-CLEAN`** — go on.
+3. **`PLAN-REVIEW-FINDINGS`** — dispatch a fresh final planner, its prompt naming the report's
+   absolute path; it triages the report per **Plan review** (`skills/flow/brainstorm-planner.md`).
+   Its `QUESTIONS` return is relayed as step 2 of the section above relays a round, and a fresh
+   final dispatch takes the answers. Its `PLAN-WRITTEN` return closes the review; nothing is
+   reviewed a second time.
 4. **A failed reviewer.** A dispatch that errors, or returns neither verdict line, is
-   redispatched once under the next `<n>`, its row first ended `-outcome aborted` so it does not
-   count toward the two reviews `flow record dispatch begin` admits under one session token.
-   Failing again, the plan review is `not run`, never
-   clean: end the stage with `-outcome failed -reason 'plan review not run'` and go on.
-
-A `/flow-plan` capture marks the stage under `-command '/flow-plan'`.
+   redispatched once as `plan-review-2`. Failing again, the plan review is `not run`, never
+   clean: say so in the gate summary and go on.
 
 ### The `STARTED` handoff block
 
@@ -312,22 +227,3 @@ the next commands; a conditional line prints only when its condition holds.
 the decision sit directly above `Next:` even though the gate already showed them: text printed
 beside a question is hidden where the operator sees only a turn's last message (focus mode), so
 the handoff is the one place the settled plan is guaranteed to be read.
-
-## Plan snapshots
-
-`<project>/spectre/changes/` is gitignored, so no commit records the plan as it stood at a gate. A plan
-snapshot does: on the plan gate's **Yes**, at `/flow-plan`'s capture and after a fix run appends
-tasks, the run copies `tasks.md`, `proposal.md` and `design.md` of `<project>/spectre/changes/<name>/`
-in the canonical worktree into the next numbered directory
-`<abs-worktree>/.superpowers/sdd/<name>/plan-snapshots/<k>/`
-(`<k>` = 1 + the number of directories already there), never committed, with exactly this command:
-
-```bash
-d=<worktree>/.superpowers/sdd/<name>/plan-snapshots
-k=$(( $(find "$d" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l) + 1 ))
-mkdir -p "$d/$k" && cp <worktree>/spectre/changes/<name>/{tasks,proposal,design}.md "$d/$k/"
-```
-
-A non-zero exit stops the run before anything else happens. The snapshots have one reader:
-flow-eval's `case add impl` reads, for task n, the earliest snapshot holding task n, so a case sees
-the plan as it stood before any review fix wrote a Correction. No snapshot is ever rewritten.

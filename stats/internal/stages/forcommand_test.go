@@ -9,8 +9,8 @@ import (
 // stages in Table order and leaves out the stages it never runs.
 func TestForCommandKeepsTableOrder(t *testing.T) {
 	keys := ForCommand(Flow)
-	if len(keys) == 0 || keys[0] != "flow.kickoff" {
-		t.Fatalf("ForCommand(/flow) = %v, want flow.kickoff first", keys)
+	if len(keys) == 0 || keys[0] != "flow.plan" {
+		t.Fatalf("ForCommand(/flow) = %v, want flow.plan first", keys)
 	}
 	if i, j := slices.Index(keys, "flow.sdd-tdd"), slices.Index(keys, "flow.review-panel"); i < 0 || j < 0 || i > j {
 		t.Errorf("ForCommand(/flow) = %v, want flow.sdd-tdd before flow.review-panel", keys)

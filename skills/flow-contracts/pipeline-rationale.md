@@ -17,7 +17,7 @@ be nothing for one to write.
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
 harmonised belong to the command itself — **Convergence** (`skills/flow/brainstorm-planner.md`).
-`flow.design-approval`'s median wall clock was 0 s over 49 runs in this repository's dev stats
+The design-approval stage's median wall clock was 0 s over 49 runs in this repository's dev stats
 store on 2026-09-04 — the approval was a reflex seconds after the confirm — which is why one answer
 now serves as both.
 
@@ -120,17 +120,12 @@ that starts identifies itself with its own new token; a run that already has one
 later mark) reuses it.
 
 **The `<change>` argument is always a resolved change name, never a guess.**
-`<agents repo>/scripts/flow-guard check-stage-mark-calls` rejects a `stage begin` call site whose change argument is
-written as a placeholder naming a guess.
-
-`<agents repo>/scripts/flow-guard check-stage-mark-calls` rejects a hardcoded `-harness` literal in skill source the same
-way it rejects a substituted session token.
 
 `-session-token "mf-$(date +%s)-$$"` is rejected, and so is any token carrying a
 backtick or a `$VAR` reference. A reader who does not know this will
 "improve" the literal into a substitution the first chance they get, which is exactly the regression
 this paragraph, `<agents repo>/stats/cmd/flow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
-`validateSessionTokenShape`, and `<agents repo>/scripts/flow-guard check-stage-mark-calls` all exist to stop. Write a
+`validateSessionTokenShape` exist to stop. Write a
 concrete token in its place — `<literal-token>` above means "invent a short, unique string right
 here, once, and reuse it", not "leave this placeholder in the invocation" and not "invent a new one
 at every mark".

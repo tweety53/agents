@@ -6,8 +6,7 @@ license: MIT
 ---
 
 Do the work the way a careful engineer does it by hand — read, edit, verify, commit, land — and
-record it the way `/flow` does: every `flow.*` stage mark below, in this order, under one
-session token, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
+record it the way `/flow` does: every `flow.*` stage mark below, in this order, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
 `/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`, no state file
 and no three states, no staged-diff gate, no archive, and no pipeline guard. Dispatch and a review panel exist only where the recorded
 decision names them (**Dynamic decisions** below). The only isolation is git's: a
@@ -23,8 +22,8 @@ instructions on a re-run; report anything else rather than ignoring it. One exce
 
 **Every mark is a literal call.** `<harness>` is this harness's name, `ff-<literal-token>` is one
 token generated once at the start of the run, shaped as **Stage marks**
-(`skills/flow-contracts/pipeline.md`) states, and typed the same at every `stage begin` and
-`stage mark` — never a shell substitution, per the CLI's own usage text. A `flow stage mark` line
+(`skills/flow-contracts/pipeline.md`) states, and typed the same in every `flow record` command —
+never a shell substitution, per the CLI's own usage text. A mark carries none. A `flow stage mark` line
 marks each `-stages` key begun and ended `completed`, in order: the stages `/flow-fast` has nothing
 to run for; the mark stays so the run's stage set matches `/flow`'s.
 
@@ -63,15 +62,12 @@ dispatch's last sibling.
 ## Dynamic decisions
 
 `REVIEWERS` resolves per **Model resolution** (`skills/flow/SKILL.md`) before section 2; every
-dispatch's model is the recorded decision's pair, per **Model and effort**
+dispatch runs on its role's pair, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`).
-
-**An open main-agent experiment is checked, never enforced**, as **Model resolution** (`skills/flow/SKILL.md`) states for `/flow`: run its `flow experiment main-check` line here, before section 2.
 
 Every dispatch's `description` and `Role:` line follow **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
 
-`<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
-basename is what keys the rolls — and `<project>/.superpowers/` is listed in
+`<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/`, and `<project>/.superpowers/` is listed in
 `<project>/.git/info/exclude`. Every `skills/flow/` section cited below runs as written, with
 these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it
 reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha
@@ -82,19 +78,13 @@ standing wherever a cited section reads the working notes' merge base; and nothi
 skipped, the finding rows are the record. The scripts a cited section calls run as it says.
 
 - **writing-plans**: write `<changeRoot>/tasks.md` in `/flow`'s plan shape — the task line and
-  fields `flow-guard check-plan-shape` reads: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
-  `**Commit:**`, `**After:**` — plus each task's `**Build:** green` tag, the convention
-  `flow-guard check-task-build-green` requires at close time (**The build-green tag**,
-  `skills/flow-contracts/build-green.md`) — one task per file or logical unit the change touches, then run
-  `flow-guard check-plan-shape <changeRoot>/tasks.md` and fix every hit — a hit is exit 1; the guard's
-  not-a-verdict exit 2 (a missing or unreadable plan file) is reported and stops the run, never
-  fixed by editing the plan. A re-run replaces the file with
+  fields: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
+  `**Commit:**`, `**After:**` — one task per file or logical unit the change touches. A re-run replaces the file with
   the fix's own tasks. A deliberate reword or addition to the run-loaded corpus is listed, exactly as
-  the guard's FAIL lines print it after `::`, in the acknowledgement file the run shape owns:
+  `flow-guard check-verbatim-moves`'s FAIL lines print it after `::`, in the acknowledgement file the run shape owns:
   `<project>/spectre/changes/<change>/verbatim-moves.txt` on a `/flow` run,
   `<changeRoot>/verbatim-moves.txt` — `<abs-worktree>/.superpowers/sdd/<change>/` — on this one,
   never `<project>/spectre/`.
-  Run `flow-guard check-plan-shape -rules` before writing `tasks.md`, and meet every rule it prints.
   A minimal task in that shape — every field line at column 0, never indented under the task line,
   and `**Tests:**` naming the test in backticks or opening with `none — <reason>`:
 
@@ -104,16 +94,14 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 **Tests:** `TestParseNameRejectsEmpty` in `stats/internal/parse/name_test.go`
 **Commit:** fix(parse): reject an empty name
 **After:** none
-**Build:** green
 ```
 
-- **decide**: `flow-guard plan-class <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5 and 7 and the tree `flow-guard plan-class` prints
-  (`skills/flow/brainstorm-planner.md`) as written — the
-  roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
+- **decide**: `flow-guard plan-class <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5
+  (`skills/flow/brainstorm-planner.md`) as written, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
   written except its task close: `flow-guard close-task` is not run — its tick writes a spectre plan,
-  and its planning-paths guard reads a planning tree, neither of which flow-fast writes; its fields guard and gate read the run's `<changeRoot>/tasks.md`. A group closes on the implementer's
+  and its planning-paths guard reads a planning tree, neither of which flow-fast writes. A group closes on the implementer's
   `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests. On `inline`, section 4 as this file states it.
 - **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
   written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs **The extra dispatches**, as **The slot triggers** leave them, and **The findings merger** (`skills/flow/review-panel.md`) alone.
@@ -129,7 +117,7 @@ constraints on a summary-derived name. Then transition the issue to **In Progres
 **Transitions** there. Then:
 
 ```bash
-flow stage mark  -command '/flow-fast' -stages flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.kickoff -harness <harness> <name>
 ```
 
 **A re-run is detected, never recorded**: `<project>-worktrees/<name>` already existing means an
@@ -166,7 +154,7 @@ written.
 ## 2. Brainstorm
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Make every judgment call yourself and name it in the summary, each with its rejected
@@ -189,21 +177,21 @@ flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed
 ## 3. Worktree
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.create-artifacts -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 The worktree already exists — section 1 created it. This section only marks through.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.create-artifacts -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Dynamic decisions**' `writing-plans` step writes the plan.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Dynamic decisions**' `decide` step runs here.
@@ -215,7 +203,7 @@ flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <na
 ## 4. Implement
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Compose the learning note here per **Learning** (`skills/flow-contracts/learning.md`), write its
@@ -237,19 +225,19 @@ between them.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.load-context -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.isolate-workspace -harness <harness> <name>
 ```
 
 On a re-run only:
 
 ```bash
-flow stage mark  -command '/flow-fast' -stages flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.document-fix -harness <harness> <name>
 ```
 
 Then:
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Implement in the worktree, in this session — or, on a decided `sdd`, per **Dynamic decisions**'
@@ -269,8 +257,7 @@ backup**, `skills/flow-contracts/git-boundaries.md`). A branch rewritten by an a
 with `--force-with-lease`, never a bare `git push`, and never `--force`. A backing-out commit — a reverted prototype,
 a withdrawn task — carries the rejection reason in its body (**Revert and back-out commits**,
 `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
-record; no task-fields guard reads it, and section 5's lint and tests are the only close a commit
-gets. The series is read back before section 7 lands anything — `flow-guard check-fast-route-record
+record; section 5's lint and tests are the only close a commit gets. The series is read back before section 7 lands anything — `flow-guard check-fast-route-record
 <worktree> <base>` in section 5's verify stage, per **Branch backup**
 (`skills/flow-contracts/git-boundaries.md`). Fix every lint hit the project's `## lint`
 raises on the files you touched rather than suppressing it.
@@ -282,14 +269,14 @@ flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <n
 ## 5. Verify
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Dynamic decisions**' `review-panel` step runs here on every class.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Run `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint` — it runs every command of
@@ -306,7 +293,7 @@ commit rule; the run never lands red, a failing test it did not introduce includ
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.**
@@ -338,8 +325,8 @@ A product defect the pass met stops it at the end of step 2 of `/flow-self-revie
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
-flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.stage-diff -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
@@ -356,14 +343,14 @@ made by that bare re-run, not by this one.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.run-instructions -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.write-in-progress -harness <harness> <name>
 ```
 
 ## 6. Preflight
 
 ```bash
-flow stage mark  -command '/flow-fast' -stages flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
-flow stage begin -command '/flow-fast' -stage flow.unfinished-work-gate -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.preflight -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 `git -C <worktree> status --porcelain` must be empty: every edit is committed. Anything the ask
@@ -371,7 +358,7 @@ covered and this run did not finish is named in the summary above, never silentl
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.unfinished-work-gate -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 The route is what section 4's `## default landing route` `--enum` call resolved, taken without
@@ -381,13 +368,13 @@ recommended; otherwise take `pull request` without asking.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.landing-question -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.preserve-sessions,flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.preserve-sessions,flow.commit-two -harness <harness> <name>
 ```
 
 ## 7. Land
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.landing-routes -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 First, on every route, bring the branch up to date so what lands is what was verified:
@@ -427,7 +414,7 @@ section 8 runs.
 `merge and push` continues here in the same invocation.
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.verify-merge -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ```bash
@@ -440,7 +427,7 @@ nothing.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token ff-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Save the plan and the self-review bundle to flowd first — the worktree holds their only copies;
@@ -459,7 +446,7 @@ why.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.cleanup -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.refresh-main-checkout -harness <harness> -session-token ff-<literal-token> <name>
+flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.refresh-main-checkout -harness <harness> <name>
 ```
 
 Transition the Jira issue to **Done**, the same way as before. End by naming the landed commit

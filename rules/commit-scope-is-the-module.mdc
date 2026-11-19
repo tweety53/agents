@@ -28,7 +28,7 @@ the branch and the tracker already carry, and tells the reader nothing about whe
 - **A task id** — `fix(3.2): …` names a line in a plan, not a part of the codebase.
 - **A module of another repository** — `fix(group): …` on a commit touching only gymie-playwright's
   fidelity/builder.spec.ts, `group` being a gymie module, names where the change did not land.
-  The guard refuses a scope that is a path token of another `## apps` repository of the project
+  The shape is a scope that is a path token of another `## apps` repository of the project
   and is none of: a token of a path the commit touched, a word of its own repository's name, a
   scope an earlier commit of its repository used, or a directory name of its repository — every
   `-` part of the scope one, for a compound area such as `workout-ui`.
@@ -38,11 +38,7 @@ four known-wrong shapes and accepts everything else.
 
 ## The guard
 
-Inside the flow pipeline, `<agents repo>/scripts/flow-guard check-task-commit-fields` — its Go port's `tcfCheckCommitScope`
-(`<agents repo>/stats/internal/guard/taskcommitfields.go`) — enforces
-this on every task's **declared** `**Commit:**` field, at the point `/flow` commits the task —
-so a plan that declares one of the three prohibited shapes fails the guard even when the implementer
-reproduces it exactly. Outside the pipeline, this rule is the only enforcement: apply it by hand.
+No guard enforces this; apply it by hand, inside the flow pipeline and outside it.
 
 ## Examples
 

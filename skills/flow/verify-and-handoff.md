@@ -11,8 +11,7 @@ below.
 ```bash
 flow stage begin -command '/flow' \
   -stage flow.verify \
-  -harness <harness> \
-  -session-token mf-<literal-token> \
+  -harness <harness> -session-token mf-<literal-token> \
   <name>
 ```
 
@@ -107,7 +106,7 @@ that will not start ends the turn as a failed command's environment cause does.
 `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
 chunk pays the suite's start-up again.
 
-```text verified:design.md section 2 of this change
+```text
 ## Report
 - `<command>` — exit <n>
   <the command's output, verbatim, or its last 20 lines when longer, stated as truncated>
