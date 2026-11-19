@@ -110,7 +110,7 @@ defect met mid-session is fixed per **Pipeline defects found mid-run**
 itself, the log — then the code. Never answer from code alone.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.load-context -request <n> -harness <harness> <name>
+flow stage begin -command '/flow-interactive' -stage flow.load-context -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.load-context -outcome completed <name>
 ```
 
@@ -130,7 +130,7 @@ ask the operator through **AskUserQuestion**, per **Unanswered mid-run asks**
 (`skills/flow-contracts/pipeline.md`):
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.brainstorm -request <n> -harness <harness> <name>
+flow stage begin -command '/flow-interactive' -stage flow.brainstorm -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.brainstorm -outcome completed <name>
 ```
@@ -144,7 +144,7 @@ otherwise as section 4 of `/flow-fast` commits (`skills/flow-fast/SKILL.md`). No
 composed.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -harness <harness> <name>
+flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.sdd-tdd -outcome completed <name>
 ```
 
@@ -156,7 +156,7 @@ exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `
 request's last commit.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
 ```
 
@@ -179,7 +179,7 @@ must answer before anything reads it. A skipped pull is one line; on a request s
 check, the request stays open (⛔ blocked), since the live page cannot show the landed code.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.refresh-main-checkout -request <n> -harness <harness> <name>
+flow stage begin -command '/flow-interactive' -stage flow.refresh-main-checkout -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.refresh-main-checkout -outcome completed <name>
 ```
 
@@ -193,7 +193,7 @@ again inside the same request. The stage's end is its own call, made after the s
 never chained to its begin.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> <name>
+flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
@@ -281,7 +281,7 @@ as a request and the session stays open, saying so in one line. Stop:
    session's requests, never the stop invocation's diff.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
    flow stage end   -command '/flow-interactive' -stage flow.self-review -outcome completed <name>
    ```
 
@@ -293,7 +293,7 @@ as a request and the session stays open, saying so in one line. Stop:
    --delete <name>`.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.cleanup -harness <harness> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
    flow stage end   -command '/flow-interactive' -stage flow.cleanup -outcome completed <name>
    ```
 

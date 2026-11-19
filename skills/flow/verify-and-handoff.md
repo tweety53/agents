@@ -11,7 +11,7 @@ below.
 ```bash
 flow stage begin -command '/flow' \
   -stage flow.verify \
-  -harness <harness> \
+  -harness <harness> -session-token mf-<literal-token> \
   <name>
 ```
 
@@ -333,7 +333,7 @@ this stage's `end` mark.
 ## Stage, excluding the planning paths
 
 ```bash
-flow stage begin -command '/flow' -stage flow.stage-diff -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.stage-diff -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one
@@ -384,7 +384,7 @@ flow stage end -command '/flow' -stage flow.stage-diff -outcome completed <name>
 ## Resolve the run instructions
 
 ```bash
-flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Resolve the run instructions the start below uses, the handoff's `**Running:**` section prints (**Write `IN_PROGRESS`**, below) and `/flow-status` prints as its `Running:` section. It writes no file.
@@ -481,7 +481,7 @@ flow stage end -command '/flow' -stage flow.run-instructions -outcome completed 
 ## Write `IN_PROGRESS`
 
 ```bash
-flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Append this run's own narrative first.** Append to `narrative.md` in the change's directory

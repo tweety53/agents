@@ -256,7 +256,7 @@ these substitutions:
 ## 1. Load context and validate the plan
 
 ```bash
-flow stage begin -command '/flow' -stage flow.load-context -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 spectre validate "<name>"
 spectre list --json
 ```
@@ -346,7 +346,7 @@ flow stage end -command '/flow' -stage flow.load-context -outcome completed <nam
 ## 2. Isolate the workspace
 
 ```bash
-flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Resume `<project>-worktrees/<name>`, created at kickoff. Never implement on the
@@ -426,7 +426,7 @@ description sync and plan growth, and a first run marks nothing there.
 ## 4. Execute (SDD + TDD)
 
 ```bash
-flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 `flow record dispatch begin` refuses an implementer row keyed `task-…` or `operator-…` while no

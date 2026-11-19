@@ -135,7 +135,7 @@ a guess or the best available name, which is legal for a read; it is never legal
 **Generate this run's session token once, right here** — shaped as **Stage marks**
 (`skills/flow-contracts/pipeline.md`) states — and reuse that exact value in every `flow record` command this run makes, including inside every
 phase file it dispatches into; a later `/flow` invocation generates its own. `<literal-token>` is
-that string written in place of the placeholder. A stage mark carries none.
+that string written in place of the placeholder. A `stage begin` carries it too.
 
 ## Review-before-landing instruction
 

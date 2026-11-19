@@ -9,7 +9,7 @@ settings store and is canonical for. This file owns dispatch: mapping each resol
 its slot and spawning it. Every pass 1 also dispatches **The extra dispatches** below.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **The pass log is store rows, rendered — never a hand-written file.** Every fact this file records

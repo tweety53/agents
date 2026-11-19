@@ -154,7 +154,7 @@ written.
 ## 2. Brainstorm
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Make every judgment call yourself and name it in the summary, each with its rejected
@@ -177,21 +177,21 @@ flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed
 ## 3. Worktree
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.create-artifacts -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 The worktree already exists — section 1 created it. This section only marks through.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.create-artifacts -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Dynamic decisions**' `writing-plans` step writes the plan.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Dynamic decisions**' `decide` step runs here.
@@ -203,7 +203,7 @@ flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <na
 ## 4. Implement
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Compose the learning note here per **Learning** (`skills/flow-contracts/learning.md`), write its
@@ -237,7 +237,7 @@ flow stage mark  -command '/flow-fast' -stages flow.document-fix -harness <harne
 Then:
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Implement in the worktree, in this session — or, on a decided `sdd`, per **Dynamic decisions**'
@@ -269,14 +269,14 @@ flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <n
 ## 5. Verify
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Dynamic decisions**' `review-panel` step runs here on every class.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Run `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint` — it runs every command of
@@ -293,7 +293,7 @@ commit rule; the run never lands red, a failing test it did not introduce includ
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.**
@@ -326,7 +326,7 @@ A product defect the pass met stops it at the end of step 2 of `/flow-self-revie
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
 flow stage mark  -command '/flow-fast' -stages flow.stage-diff -harness <harness> <name>
-flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
@@ -350,7 +350,7 @@ flow stage mark  -command '/flow-fast' -stages flow.write-in-progress -harness <
 
 ```bash
 flow stage mark  -command '/flow-fast' -stages flow.preflight -harness <harness> <name>
-flow stage begin -command '/flow-fast' -stage flow.unfinished-work-gate -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 `git -C <worktree> status --porcelain` must be empty: every edit is committed. Anything the ask
@@ -358,7 +358,7 @@ covered and this run did not finish is named in the summary above, never silentl
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.unfinished-work-gate -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 The route is what section 4's `## default landing route` `--enum` call resolved, taken without
@@ -374,7 +374,7 @@ flow stage mark  -command '/flow-fast' -stages flow.preserve-sessions,flow.commi
 ## 7. Land
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.landing-routes -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 First, on every route, bring the branch up to date so what lands is what was verified:
@@ -414,7 +414,7 @@ section 8 runs.
 `merge and push` continues here in the same invocation.
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.verify-merge -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ```bash
@@ -427,7 +427,7 @@ nothing.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> <name>
+flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Save the plan and the self-review bundle to flowd first — the worktree holds their only copies;

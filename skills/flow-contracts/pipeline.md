@@ -473,12 +473,13 @@ exits 0. Never branch on its exit code; a failed mark is one line in the run's n
 `claude-code`, `zcode` or `muse` — filled in at call time from the `<harness>` placeholder.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.plan -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.plan -harness <harness> -session-token mf-<literal-token> <name>
 # … the phase's own work …
 flow stage end   -command '/flow' -stage flow.plan -outcome completed <name>
 ```
 
-**The session token** the run's `flow record` commands carry ends in the run's start time, UTC to
+**The session token** a `stage begin` and the run's `flow record` commands carry — the
+dispatch hook reads it off the latest stage run to record a dispatch's row — ends in the run's start time, UTC to
 the second — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal,
 `mf-k1028-20261023T183402Z` — never a shell substitution, and reused unchanged for the whole run.
 

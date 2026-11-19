@@ -11,7 +11,7 @@ section **1** runs. Every "you" here addresses the parent (**The parent orchestr
 marks nothing here:
 
 ```bash
-flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Before the planning pass, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
@@ -136,7 +136,7 @@ decision JSON and print the `## Decision` block, then record the second
 row below. **Plan review gate** (`skills/flow/brainstorm-planner.md`) does not run on a fix run:
 
 ```bash
-flow stage begin -command '/flow' -stage flow.decide -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
 flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
