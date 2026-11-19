@@ -141,6 +141,7 @@ var crExpectedZero = []struct {
 	{"reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name",
 		[]string{
 			"skills/flow/decider-prompt.md",
+			"skills/flow/plan-triage-prompt.md",
 			"skills/flow/engineering-principles.md",
 			"skills/flow/reviewer-calibration.md",
 			"skills/flow/primary-reviewer-prompt.md",

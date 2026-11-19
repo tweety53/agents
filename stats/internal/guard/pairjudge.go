@@ -29,7 +29,7 @@ import (
 // pair-pick-file); a failed save is one stderr line and leaves the exit 0.
 //
 // The judged set (decisions judged-set, judged-set-by-function): planner,
-// fix-planner, self-review-plan, pipeline-fix-plan, implementer, panel-fix,
+// planner-short, fix-planner, self-review-plan, pipeline-fix-plan, implementer, panel-fix,
 // minor-fix, self-review-fix, pipeline-fix-fix, design-reviewer, gated-reviewer,
 // gated-re-reviewer, panel-reviewer, panel-rerun, self-review-pass,
 // self-review-review-1, self-review-review-r, pipeline-fix-review-1,
@@ -102,7 +102,7 @@ func init() {
 
 // pjJudged is the judged set.
 var pjJudged = map[string]bool{
-	"planner": true, "fix-planner": true, "self-review-plan": true, "pipeline-fix-plan": true,
+	"planner": true, "planner-short": true, "fix-planner": true, "self-review-plan": true, "pipeline-fix-plan": true,
 	"implementer": true,
 	"panel-fix":   true, "minor-fix": true, "self-review-fix": true, "pipeline-fix-fix": true,
 	"design-reviewer": true, "gated-reviewer": true, "gated-re-reviewer": true, "panel-reviewer": true,

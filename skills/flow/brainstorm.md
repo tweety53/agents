@@ -86,6 +86,30 @@ Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. Exit 1 or 2 st
 the script's own lines: **a command's non-zero exit ends your turn** naming the command and its
 output.
 
+## Triage the planning
+
+**A headless triage decides whether this change gets full or short planning; nothing is asked.**
+It runs on a creating `/flow` run only, once the worktree exists and before the first planner
+dispatch. A resumed run, a `/flow-plan` capture, a fix run and `/flow-fast` never triage, and
+their planning runs full.
+
+The parent first writes the planner's ticket, `<abs-worktree>/.superpowers/sdd/planner/ticket.md`:
+the linked Jira issue's summary and description, else the operator's request verbatim. Then:
+
+```bash
+flow-guard plan-triage <abs-worktree> <abs-worktree>/.superpowers/sdd/planner/ticket.md
+```
+
+Its header is canonical for the call, its fallback and its exits;
+`skills/flow/plan-triage-prompt.md` is canonical for the criteria and the answer's shape. It
+prints one line, `TRIAGE: full|short — <reason>`: print it as the run's narrative line and go on.
+Its exit 2 stops the run with its stderr. When the run's argument carries the word `full`
+(`skills/flow/SKILL.md`), the call is skipped and the line is `TRIAGE: full — operator asked`.
+
+**`short` runs the planning below on the `planner-short` role** — every planner dispatch, key
+`plan-short-<n>` in place of `plan-<n>`, each design round a short round (step 1 below) — until a
+planner returns `ESCALATE`. **`full` runs it on `planner`**, as written.
+
 ## Run brainstorming and planning through the planner role
 
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
@@ -93,8 +117,10 @@ output.
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states.
 
 **Every planner dispatch is fresh and one-shot**, on `subagent_type: flow-planner-<effort>` with
-the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). Its prompt
-carries the two agent-baseline sentences, the report-tersely line, the PLANNING DELEGATION
+the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`) — `planner`,
+or `planner-short` on a run triaged short (**Triage the planning**, above). Its prompt carries its
+Role line, `Role: planner` or `Role: planner-short`, the two agent-baseline sentences, the
+report-tersely line, the PLANNING DELEGATION
 paragraph (`skills/flow-self-review/SKILL.md`) — its auto-resolution sentence replaced by "every
 choice is written as a question of the round file" — the change name and the absolute worktree.
 The Agent-tool `description` opens with `plan-<n>` — `plan-2 design round` — `<n>` counting this
@@ -122,6 +148,14 @@ token spend.
    nothing else is open. `## Questions` holds only questions headed `[architectural]` or
    `[impactful: <criterion>]`; the round's auto-taken ones sit under `## Auto-taken`.
    It asks the operator nothing.
+
+   **A short round** is the same round, light: the planner reads the ticket and the code it needs
+   itself — it dispatches no Explore or Plan agent, writes no `findings.md` and runs no
+   competing-designs step; its prompt carries no PLANNING DELEGATION paragraph and says so. When it finds the change `large` by the
+   `**Scope:**` criteria (**The checklist**, `skills/flow/brainstorm-planner.md`), it says so in
+   its round file and returns `ESCALATE: <reason>`: the parent prints one line,
+   `escalated to full planning — <reason>`, relays nothing from that round, and dispatches the
+   next round as a full round on `planner`, as is every later dispatch of the run.
 2. **Relay.** The parent first publishes the prototype
    (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's `## Summary` verbatim and
    the round file's absolute path — the design draft stays in the file — with the

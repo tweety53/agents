@@ -73,7 +73,9 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 |---|---|
 | `explorer` | Reads the codebase to answer a planner's question. |
 | `plan-designer` | Proposes a design or plan for the planner to choose from. |
+| `plan-triage` | Judges whether a new change needs full or short planning (headless). |
 | `planner` | Writes the design and the task plan. |
+| `planner-short` | Writes the design and the task plan of a change triaged short, reading the code itself with no Explore or Plan agents. |
 
 ### Implementation
 

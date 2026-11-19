@@ -105,7 +105,7 @@ DENY_REASON = (
 
 # A key the hook begins a row under, by a Key shape the closed list names (**Dispatch sites -- the
 # parent's closed list**, skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`,
-# `full-suite-fix-2`, a fix run's planner `fix-plan-1`, a planner's `plan-2`, the plan reviewer's `plan-review-1`, a /flow-interactive
+# `full-suite-fix-2`, a fix run's planner `fix-plan-1`, a planner's `plan-2` or `plan-short-3`, the plan reviewer's `plan-review-1`, a /flow-interactive
 # request's operator-asked `operator-58`.
 ROW_KEY = (
     r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
@@ -118,6 +118,7 @@ ROW_KEY = (
     r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
     r"|plan-review-\d+"
     r"|plan-\d+"
+    r"|plan-short-\d+"
     r"|operator-\d+(?:-[a-z0-9][a-z0-9-]*)?"
 )
 # The loop key line exactly as the harvester reads it (loopKeyPattern, stats/internal/harvest/transcript.go).
@@ -167,6 +168,7 @@ ROW_ROLE = {
     "panel-fix": "panel-fix", "minor-fix": "panel-fix",
     "visual-verifier": "verifier",
     "planner": "planner", "plan-designer": "planner", "tooling-analyst": "planner", "fix-planner": "planner",
+    "planner-short": "planner",
     "explorer": "explorer",
 }
 

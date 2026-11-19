@@ -513,7 +513,7 @@ func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
 		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
 		"panel-reviewer": "reviewer", "panel-rerun": "reviewer",
 		"panel-merger": "merger", "panel-fix": "panel-fix", "minor-fix": "panel-fix", "visual-verifier": "verifier",
-		"planner": "planner", "tooling-analyst": "planner", "fix-planner": "planner",
+		"planner": "planner", "tooling-analyst": "planner", "fix-planner": "planner", "planner-short": "planner",
 	} {
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
@@ -549,6 +549,8 @@ func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
 		{"no Key line", "Task 3/9 (x)", "Role: implementer\nimplement", "flow-low", nil, false},
 		{"fix planner", "fix-plan-1 (plan the fix)", "Role: fix-planner\nKey: fix-plan-1\nplan", "flow-planner-medium",
 			map[string]string{"-key": "fix-plan-1", "-role": "planner", "-effort": "medium"}, true},
+		{"short planner", "plan-short-2 design round", "Role: planner-short\nplan", "flow-planner-low",
+			map[string]string{"-key": "plan-short-2", "-role": "planner", "-effort": "low"}, true},
 		{"minor fix", "panel-2-minor-fix (Minors)", "Role: minor-fix\nKey: panel-2-minor-fix\nfix", "flow-low",
 			map[string]string{"-key": "panel-2-minor-fix", "-role": "panel-fix", "-effort": "low"}, true},
 	} {

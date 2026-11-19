@@ -69,7 +69,7 @@ func roleMetrics(role string) []string {
 	switch role {
 	case "main":
 		return mainMetrics
-	case "planner", "plan-designer", "explorer", "fix-planner", "self-review-plan", "pipeline-fix-plan":
+	case "planner", "planner-short", "plan-designer", "explorer", "fix-planner", "self-review-plan", "pipeline-fix-plan":
 		return plannerMetrics
 	case "implementer", "panel-fix", "minor-fix", "operator-asked", "self-review-fix", "pipeline-fix-fix", "late-fix":
 		return fixerMetrics
@@ -93,6 +93,7 @@ func roleMetrics(role string) []string {
 // implementer cell's.
 var roleDispatchSQL = map[string]string{
 	"planner":                 `d.role = 'planner' AND d.dispatch_key ~ '^plan-[0-9]+$'`,
+	"planner-short":           `d.role = 'planner' AND d.dispatch_key ~ '^plan-short-[0-9]+$'`,
 	"plan-designer":           `d.role = 'planner' AND d.dispatch_key ~ '^design-[0-9]+'`,
 	"explorer":                `d.role = 'explorer'`,
 	"tooling-analyst":         `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,

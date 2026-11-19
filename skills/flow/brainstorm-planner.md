@@ -85,7 +85,10 @@ states.
   alone is the design's whole state. The section ends with `**Scope:** small|regular|large — <one-line
   reason>`, the planner's estimate after exploring: `small` a change confined to one known area
   with one obvious approach, `large` one that spans repositories or apps, changes a data model or
-  a public contract, or needed competing designs; `regular` otherwise.
+  a public contract, or needed competing designs; `regular` otherwise. The planning triage judges
+  by the same criteria before the first round (`skills/flow/plan-triage-prompt.md`), and a short
+  round that estimates `large` returns `ESCALATE` (**Run brainstorming and planning through the
+  planner role**, `skills/flow/brainstorm.md`).
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree kickoff created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
@@ -143,7 +146,9 @@ for an Explore agent, `plan-designer` for a Plan agent — passed as the Agent t
 `effort`. Its prompt carries the two agent-baseline sentences and the report-tersely line
 (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at,
 what is already known, what to return. Never a `fork`, and never an agent that edits files. The
-agents investigate and propose; you decide. They record no ledger row.
+agents investigate and propose; you decide. They record no ledger row. **A short round dispatches
+none**, and nothing below binds it (**Run brainstorming and planning through the planner role**,
+`skills/flow/brainstorm.md`).
 
 **Findings outlive the round.** Append each Explore and Plan hand-back verbatim to
 `<abs-worktree>/.superpowers/sdd/planner/findings.md` under `## <explore-<n>|design-<n>> — <the

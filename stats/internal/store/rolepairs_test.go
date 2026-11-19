@@ -47,6 +47,8 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"prompt-tuning-grader":    {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-plan":        {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"fix-planner":             {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
+		"planner-short":           {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
+		"plan-triage":             {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-fix":         {Base: []string{"opus/flow-medium", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-review-1":    {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
 		"self-review-review-r":    {Base: []string{"sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},

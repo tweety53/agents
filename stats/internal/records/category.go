@@ -34,6 +34,7 @@ var Categories = []CategoryRow{
 	{ID: "full-suite-fixer", Label: "full-suite fixer", Key: regexp.MustCompile(`^full-suite-fix-\d+$`)},
 	{ID: "plan-reviewer", Label: "plan reviewer", Key: regexp.MustCompile(`^plan-review-\d+$`)},
 	{ID: "planner", Label: "planner", Key: regexp.MustCompile(`^(plan|design)-\d+$`)},
+	{ID: "planner-short", Label: "short planner", Key: regexp.MustCompile(`^plan-short-\d+$`)},
 	{ID: "fix-planner", Label: "fix planner", Key: regexp.MustCompile(`^fix-plan-\d+$`)},
 	{ID: "explorer", Label: "explorer", Key: regexp.MustCompile(`^explore-\d+$`)},
 	{ID: "visual-verifier", Label: "visual verifier", Key: regexp.MustCompile(`^visual-verify`)},

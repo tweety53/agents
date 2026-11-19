@@ -229,5 +229,12 @@
     "opener": "",
     "category": "fix-planner",
     "describe": "fix-plan-1"
+  },
+  {
+    "key": "plan-short-2",
+    "role": "planner",
+    "opener": "",
+    "category": "planner-short",
+    "describe": "plan-short-2"
   }
 ]
