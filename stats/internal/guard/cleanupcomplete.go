@@ -151,7 +151,6 @@ import (
 // registry-row-not-checked: Claimed cache index — this pipeline removes nothing and this guard checks nothing; the index is probed rather than derived, so run 2 has no derivation to repeat. A project that writes its claim where a probe can see it may release it in its own `remove` command and report it through `survivors`; that is the project's tooling and this marker does not claim it
 // registry-row-not-checked: Self-review context bundle — saved to flowd at
 //   cleanup and removed with the worktree
-// registry-row-not-checked: Plan snapshots — removed with the worktree
 //
 // ABSENCE IS THE ANSWER HERE, not a gap in the evidence. The run-1 gate treats
 // a file it cannot find as outstanding, because a missing record proves nothing
