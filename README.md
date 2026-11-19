@@ -231,21 +231,16 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 - `flow-session-activity.py` — reports each session's working/waiting state to `flowd` for the
   state board.
 
-**Implement:** `check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
-`check-plan-unchanged` (snapshot at a reviewer row's begin, verify at its end) + `check-tree-markers` (snapshot around each subagent),
-`check-workspace-isolation` (own database, cache, bucket, ports),
-`resume-or-fresh` (an immediate send-back resumes the agent only while its cache is warm and its
-context small).
+**Implement:** `check-workspace-isolation` (own database, cache, bucket, ports).
 
 **Verify:** `run-verify-list` (the lint and test lists, the visual `verify` row last; the test list is the default run, and `-full` — every skip off, run only when the operator asks, refused without the operator's `FLOW_OPERATOR_FULL_SUITE=1` — is the full suite; `-only <visual-failing.txt>` re-runs only the failing ones, once with one retry, a retry-pass reported flaky, each round's log kept as `visual-<mode>-r<N>.log`, and one plain run is the gate), `check-verify-green`, `visual-verify-pass` (the parent's side of `flow.visual-verify`; a scoped fix round whose every frame was re-captured and whose every changed frame was judged closes the visual loop with no `-full` run, and an unscoped single-worktree pass over more than 25 frames runs as up to four verifier shards at once), `smoke-keep` (the heavy tests a touched file keeps in the default run), `test-cost` (each test's cost from the test2json it reads on stdin, for re-profiling the heavy marks); `flow suite list -tests <suite>` prints a suite's recorded per-test costs.
 
-**Review panel:** `run-reproducer` + `prove-reproducer` (each finding red before, green after),
-`check-panel-reproducers`, `check-panel-reproducer-exit-contract`, `check-panel-findings-closed`
-(no handoff with any finding open), `mutate-and-verify` + `break-and-prove` (the `mutation` role).
+**Review panel:** `run-reproducer` (a reviewer's command, run in a capped throwaway copy),
+`mutate-and-verify` + `break-and-prove` (the `mutation` role).
 
 **Land and clean up:** `integrate-change` (every mechanical step, in four calls),
 `check-finish-preflight` (integrate vs cleanup from merge state), `check-unfinished-work`,
-`commit-split` (the implementation commit), `check-cleanup-complete` (`FINISHED` only when every
+`check-cleanup-complete` (`FINISHED` only when every
 temporary artifact is gone).
 
 **This repository's lint** adds `check-references` (every ``**Section** (`file`)`` citation
@@ -263,7 +258,7 @@ every `/flow*` command writes through the `flow` CLI.**
 - **Stages and cost** — `flow stage begin/end` marks every Level 1 stage; every 5 s `flowd` assigns
   transcript tokens to the running stage at published per-model rates (no rate: *unavailable*,
   never estimated).
-- **Records** — findings with reproducers, verdicts, dispatches, decisions, incidents
+- **Records** — findings, verdicts, dispatches, decisions, incidents
   (`flow record`); the guards read these, not Markdown.
 - **Jira** — forward-only transitions with retries (`flow jira transition`); off until the three
   `FLOWD_JIRA_*` variables are set.
