@@ -51,14 +51,9 @@ import (
 // skills/flow/visual-verify-verifier.md step 11 writes; absent, the verdict is
 // VISUAL-VERIFY-MISSING naming that path (kan-970 self-review).
 //
-// The newest qualifying verifier row must carry no round base: one begun with
-// `-round-base <sha>` is a scoped re-run, and the verdict is
-//   VISUAL-VERIFY-MISSING: the newest verifier row '<key>' ran scoped to round
-//   base <sha> — the loop's closing unscoped run is not recorded
-//   (skills/flow/verify-fix-loop.md, **One full run closes the loop**) — HEAD <sha>
-// A newest row carrying closesLoop — ended `-closes-loop` by `flow-guard
-// visual-verify-pass close`, every frame re-captured and every changed frame
-// judged — closes the loop as an unscoped run does.
+// A newest completed row begun with `-round-base <sha>` — a scoped re-run —
+// closes the loop: a full run is the operator's to ask for
+// (skills/flow/verify-fix-loop.md).
 //
 // Exit 0 on a VISUAL-VERIFY-OK verdict, exit 1 on VISUAL-VERIFY-MISSING —
 // UI paths were touched and no qualifying verifier dispatch is recorded;

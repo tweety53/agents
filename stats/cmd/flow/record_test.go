@@ -8016,6 +8016,17 @@ func TestInRunFixRefusalCountsAClosingScopedRow(t *testing.T) {
 	}
 }
 
+// TestInRunFixRefusalHintsTheScopedKey pins that the refusal of an unscoped
+// key names the scoped re-run first and never offers the -full key as an
+// equal choice: a full run is the operator's to ask for (kan-1089: the hint's
+// `[-full]` sent a run into an unrequested full visual pass).
+func TestInRunFixRefusalHintsTheScopedKey(t *testing.T) {
+	why := inRunFixRefusal([]string{"14"}, records.Run{}, "visual-verify-gymie", "")
+	if !strings.Contains(why, "visual-verify-fix-14-<repo> with -round-base") || strings.Contains(why, "[-full]") {
+		t.Fatalf("inRunFixRefusal = %q, want the scoped key with -round-base and no [-full] option", why)
+	}
+}
+
 // A landed change -- its worktree removed by cleanup, no checkout carrying
 // it -- is still this repository's change while flowd holds its record.
 func TestRequireChangeCheckoutAcceptsALandedChange(t *testing.T) {

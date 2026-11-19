@@ -125,8 +125,7 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
 - `NEXT: done` — every exit zero and no departure: `close` closed the row `-outcome completed`.
   On a scoped row that is not a `-rest` remainder, `close` printed `CLOSES-LOOP: yes` before it —
   the row ended `-closes-loop` and the loop closed with no `-full` run — or
-  `CLOSES-LOOP: no — <why>`, which keeps the closing unscoped run of the **One full run closes the
-  loop** paragraph of **The loop** (`skills/flow/verify-fix-loop.md`).
+  `CLOSES-LOOP: no — <why>`.
 
 **An `ESCALATE:` line above `NEXT: loop` or `NEXT: judge` makes the next round a No-progress
 escalation** (**Three failed rounds**, `skills/flow-contracts/pipeline.md`).

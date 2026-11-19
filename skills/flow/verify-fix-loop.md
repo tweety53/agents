@@ -29,8 +29,7 @@ commits the stage's PNGs to. **A baseline the fix moves on another screen is rec
 that screen's test, `<spec path>:<line>`, in the task's `**Regression:**`** — the task's run takes the tests a
 sidecar maps a changed file to and the tests its `**Tests:**` or `**Regression:**` names, a bare
 spec path its every test, never
-every spec a shared file reaches, which step 4's `visual-verify` re-run captures once. And every step-4 `visual-verify` re-run of the round, the closing full
-run included, names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
+every spec a shared file reaches, which step 4's `visual-verify` re-run captures once. And every step-4 `visual-verify` re-run of the round names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
 spec whose baseline moved — the verifier compares each against its mockup exactly as it does the
 change's own frames, so a screen the shared fix regressed is a departure the next round fixes.
 
@@ -210,11 +209,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    The panel fix's re-run is keyed as one more round's, `-fix-<k+1>` with `<k>` the loop's last
    round, so an `In-run fix` a defect it reports opens is numbered `<k+2>`; its `verify` re-run always runs — `flow-guard run-verify-list` records `skipped`
    itself where nothing a test command reads changed — since a code commit no completed or skipped
-   verify row covers is unfinished work (`flow-guard check-unfinished-work`). A clean scoped
-   `visual-verify` re-run of it is followed by the closing full run of **One full run closes the
-   loop** below unless its `close` printed `CLOSES-LOOP: yes`, as
-   `flow-guard check-visual-verify-dispatched` requires, and that full run does
-   not open the panel again.
+   verify row covers is unfinished work (`flow-guard check-unfinished-work`).
    The three dispatches are keyed `panel-<round>-primary`,
    `panel-<round>-test-sanity+call-efficiency` and `panel-<round>-mutation+failure-modes`, `<round>` the number `flow record next-round`
    prints, and the round records its `flow record pass -round <round>` rows like any panel round.
@@ -273,18 +268,15 @@ prints `CLOSES-LOOP: yes` — every frame on the change's list was re-captured a
 began or stands on a `captured:` spec, every frame whose capture changed since its round base, and every `--defects` frame, has a line of its own in the
 report, and no mockup or sidecar changed since that round base (`flow-guard visual-verify-pass`'s
 header) — `close` has ended its row `-closes-loop` and no `-fix-<k>-full` run follows.
-`CLOSES-LOOP: no — <why>`, a `NEXT: judge` whose row the parent ends, or no `CLOSES-LOOP:` line
-keeps the full run.
 A scoped re-run's verifier row is begun with `-round-base <sha>`, the round base its `prepare` was
-passed, and `flow-guard check-visual-verify-dispatched` refuses a worktree whose newest completed verifier
-row carries one and no `closesLoop` — the closing unscoped run is not recorded.
+passed.
 After an `In-run fix <k>` task is ticked, and until a `-fix-<k>-full` verifier row, or a `-fix-<k>`
-one carrying `closesLoop`, has completed,
+one carrying `closesLoop` or `-round-base`, has completed,
 `flow record dispatch begin` refuses a `visual-verify` key that carries neither `-fix-<k>` nor a
 later round's `-fix-<n>` — the closing panel fix's re-run of step 3 — and one
 that is not the `-full` run, carries no `-round-base` and shares its repository suffix with a
 completed verifier row.
-A completed `-fix-<j>-full` verifier row, or a completed `-fix-<j>` one carrying `closesLoop`,
+A completed `-fix-<j>-full` verifier row, or a completed `-fix-<j>` one carrying `closesLoop` or `-round-base`,
 closes every In-run fix up to `<j>`, and a `-fix-<k>-full` key begun with `-round-base` is refused,
 since the full run is unscoped.
 The clean report of the run that closed the loop is the one the handoff reports.

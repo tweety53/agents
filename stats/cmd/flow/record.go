@@ -1445,8 +1445,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		}
 	}
 
-	// After an In-run fix <k> is ticked, and until its -fix-<k>-full row
-	// completed, a visual re-run is scoped to that fix (decision
+	// After an In-run fix <k> is ticked, and until a -fix-<k>-full row, or a
+	// -fix-<k> one carrying closesLoop or a round base, completed, a visual re-run is scoped to that fix (decision
 	// sr17-tasks-md-read, skills/flow/verify-fix-loop.md). A plan or record
 	// read that fails skips the check.
 	if *role == "verifier" && strings.HasPrefix(*key, "visual-verify") && *startedAt == "" {
@@ -5126,7 +5126,8 @@ func tickedInRunFixes(plan []byte) []string {
 // round base is refused, since the full run is unscoped. A completed
 // -fix-<j>-full verifier row closes every fix up to j, and so does a
 // completed -fix-<j> verifier row carrying closesLoop -- a scoped round
-// flow-guard visual-verify-pass close found closed the loop (KAN-1122); only
+// flow-guard visual-verify-pass close found closed the loop (KAN-1122) -- or
+// carrying a round base, a scoped re-run, which closes the loop on its own; only
 // the highest unclosed k is checked, since a scoped re-run that finds a
 // defect opens the next fix without closing its own.
 func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string {
@@ -5167,7 +5168,7 @@ func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string
 		}
 	}
 	if loc == nil {
-		return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "[-full]-<repo>, or a later round's -fix-<n>, until the -fix-" + k + "-full run has completed"
+		return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "-<repo> with -round-base <the fix round's base sha>, or a later round's -fix-<n>, until a scoped -fix-" + k + " run has completed (a -full run only on the operator's request)"
 	}
 	if fullRunKey.MatchString(key) || roundBase != "" {
 		return ""
