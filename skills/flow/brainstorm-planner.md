@@ -55,6 +55,12 @@ states.
   its concrete consequence in one line, never just its name. The parent prints every question's
   `**Context:**` as text right before the **AskUserQuestion** call that asks it.
 
+- **A change too big for one plan is raised in the rounds, never after the plan is written.**
+  When the design would take more than about 15 tasks or 25 mockup frames, the round asks an
+  `[impactful: scope]` question naming the slices it would split into; the answer narrows this
+  change's design to the first slice, and the rest is filed as follow-up issues once planning
+  ends (**Follow-up issues**, `skills/flow-contracts/jira-followups.md`).
+
 - **Now or later is never asked.** Where the options are doing work the design needs in this
   change or deferring it to a later change or ticket, now is taken and recorded under
   `## Decisions`.
@@ -78,12 +84,7 @@ states.
   under `## Auto-taken` and in `answers-<r>.md`. The parent relays that section and the file's absolute path, and the
   design draft stays in the file. The design draft carries `### Settled` — every answer given so
   far, the operator's words verbatim beside the question and its round — so the latest round file
-  alone is the design's whole state. The section ends with `**Scope:** small|regular|large — <one-line
-  reason>`, the planner's estimate after exploring: `small` a change confined to one known area
-  with one obvious approach, `large` one that spans repositories or apps, changes a data model or
-  a public contract, or needed competing designs; `regular` otherwise. A short round (every new change plans
-  short first) that estimates `large` returns `ESCALATE` (**Run brainstorming and planning through the
-  planner role**, `skills/flow/brainstorm.md`).
+  alone is the design's whole state.
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
   worktree kickoff created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
@@ -109,16 +110,11 @@ states.
   sibling views — never a standalone restyle. The file draws the proposed page
   alone — no caption, note or screenshot beside it — since `flow.verify` renders the whole
   file as the capture's frame; a note to the operator goes in the message. **The operator sees the prototype
-  whenever one exists**: a planner dispatch has no Artifact tool, so it only writes the
-  file, and the session that dispatched it publishes it with the Artifact tool after every return
-  that wrote or changed it — a scratchpad copy adapted to the tool's page contract, with no
-  doctype, `html`, `head` or `body` wrappers and the title and viewport meta at its top, while the
-  file under `<project>-worktrees/<name>/.superpowers/sdd/` stays whole — and prints its URL to the operator: `/flow`'s parent
-  in the relay (**Run brainstorming and planning through the planner role**,
-  `skills/flow/brainstorm.md`), the self-review and in-run fix loops' parent in its final report.
-  A session running this section itself publishes it the same way. Only where the harness has no
-  Artifact tool at all does that session print the file's absolute path instead, saying plainly
-  that it could not be published — never silently. Cite the approved file, with its Artifact URL
+  whenever one exists**: a planner only writes the file; the session that dispatched it publishes
+  it with the Artifact tool after every return that wrote or changed it and prints its URL —
+  `/flow`'s parent in the relay, the self-review and in-run fix loops' parent in its final
+  report. Where the harness has no Artifact tool, that session prints the file's absolute path
+  and says it could not be published. Cite the approved file, with its Artifact URL
   or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
   spec the implementation and `flow.verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
@@ -141,9 +137,8 @@ for an Explore agent, `plan-designer` for a Plan agent — passed as the Agent t
 `effort`. Its prompt carries the two agent-baseline sentences and the report-tersely line
 (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at,
 what is already known, what to return. Never a `fork`, and never an agent that edits files. The
-agents investigate and propose; you decide. They record no ledger row. **A short round dispatches
-none**, and nothing below binds it (**Run brainstorming and planning through the planner role**,
-`skills/flow/brainstorm.md`).
+agents investigate and propose; you decide. They record no ledger row. Read the code yourself
+first; dispatch an agent only where that cannot settle a question.
 
 **Findings outlive the round.** Append each Explore and Plan hand-back verbatim to
 `<abs-worktree>/.superpowers/sdd/planner/findings.md` under `## <explore-<n>|design-<n>> — <the
@@ -176,17 +171,6 @@ take the recommendation without asking, per **Auto-resolution**
 Under the `## decisions: recommended` mode (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`) the confirm is not asked: the recommended
 **approve the design and move on** is taken, and the silence default (**Convergence**, `skills/spectre-planning/SKILL.md`) never fires.
-
-**A fourth option, `/flow`-only.** The convergence confirm (**Convergence**, `skills/spectre-planning/SKILL.md`) carries one more named option, listed right after **Nothing unclear — approve the design and move on**:
-
-> - **Dig deeper — quiz me on this design first** *(never recommended, never the default)*
-
-Only once the operator picks it — never before, never in anticipation of the confirm — it first dispatches one Explore agent (**Explore and design agents**, above) to collect what the quiz
-needs — the problem and why it exists, the design as settled and why, the code it touches, its edge
-cases and what it impacts — and return it as a briefing. It then loads `skills/flow-learn-quiz/SKILL.md`
-and runs it over that briefing, the operator's understanding being what it checks, until that skill ends. It is a round, and the confirm is
-then asked again. Under the `## decisions: recommended` mode the confirm is not asked, so the option never
-shows. Silence still defaults to another round, never to this option.
 
 The explicit **approve the design and move on** answer is at once the convergence exit that closes
 the checklist and the design approval the HARD GATE requires (**The checklist**,
@@ -240,12 +224,6 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
 - A frame-specified view gets a full-page capture for every frame `design.md` cites, its fixture
   seeding the data every element and state of the frame needs.
 
-**Count the plan's size and propose a split when it is big.** Once `tasks.md` is written, count
-its tasks and the distinct frames `design.md` cites. Above 15 tasks or 25 frames, write
-`## Story split` into `design.md`: two or more slices, each a title, one line of what it delivers
-on its own, and the task ids it takes — every slice shippable alone, the first one the slice the
-others build on. The gate asks whether to split (**Plan check gate** below).
-
 Before returning, run `spectre validate "<name>"` and repair any exit-1 finding; its exit 2 is
 reported and stops the plan.
 
@@ -279,7 +257,7 @@ Its header is canonical for the call, its checks, its fallback and its exits;
 `skills/flow/plan-check-prompt.md` is canonical for the lenses, the rules and the shape. It
 writes `<abs-worktree>/.superpowers/sdd/plan-check.md`, whose last line is `PLAN-CHECK-CLEAN`,
 `PLAN-CHECK-FINDINGS <n>` or `PLAN-CHECK-NOT-RUN`, and the decision. Exit 2 stops the run with its
-stderr. A story split and gate **No** re-run it as `plan-check … -decide-only`, which rewrites
+stderr. Gate **No** re-runs it as `plan-check … -decide-only`, which rewrites
 `decision.json` and leaves `plan-check.md` as it is.
 
 The parent fills `overrides` — session instructions that change a dispatch's pair for this run,
@@ -302,22 +280,10 @@ Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
 updates)**.
 
-**`/flow` never asks its gate question: it takes **Yes** at once** — unless `design.md` carries
-`## Story split`. The summary and the `## Decision` block still print, and the run ends with the
+**`/flow` never asks its gate question: it takes **Yes** at once.** The summary and the `## Decision` block still print, and the run ends with the
 `STARTED` handoff. An operator who wants the plan changed says so before running the handoff's
 `/flow <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is
 still asked.
-
-**A plan with `## Story split` asks one question first**, in `/flow` and `/flow-plan` alike, the
-slices printed above it: **Split into <n> stories?** — **Split** *(recommended)* / **Build it
-whole**. On **Split**, create one Jira story per slice after the first — its summary the slice
-title; its `## Why` the slice's line, its `## How` the task titles it takes and the absolute path
-of this change's `design.md`, its `## DoD` what the slice delivers on its own — linked to this
-change's issue (**Follow-up issues**,
-`skills/flow-contracts/jira-followups.md`), then dispatch a fresh final planner that narrows
-`tasks.md` to the first slice and removes `## Story split`, and re-run `plan-check … -decide-only`. On **Build it
-whole**, remove `## Story split` and go on. Under the `## decisions: recommended` mode the question
-is not asked and **Split** is taken.
 
 On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
 carried none), write them verbatim to the next `answers-<r>.md`, and dispatch a fresh final planner

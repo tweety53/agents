@@ -86,18 +86,6 @@ Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. Exit 1 or 2 st
 the script's own lines: **a command's non-zero exit ends your turn** naming the command and its
 output.
 
-## Plan short first
-
-**Every new change plans short first; nothing is triaged and nothing is asked.** Each planner
-dispatch runs on the `planner-short` role, key `plan-short-<n>` in place of `plan-<n>`, each
-design round a short round (step 1 below), until a planner returns `ESCALATE` — or the run's
-argument carries the word `full` (`skills/flow/SKILL.md`), when the parent writes
-`<abs-worktree>/.superpowers/sdd/planner/triage.md` holding `TRIAGE: full — operator asked` before
-the first dispatch. A `/flow-plan` capture, a fix run and `/flow-fast` plan full.
-
-**`triage.md` is the verdict a resumed run plans by**: it exists exactly when the run plans full;
-no file keeps it short. Full runs on `planner`, as written below.
-
 ## Run brainstorming and planning through the planner role
 
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
@@ -105,9 +93,8 @@ no file keeps it short. Full runs on `planner`, as written below.
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states.
 
 **Every planner dispatch is fresh and one-shot**, on `subagent_type: flow-planner-<effort>` with
-the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`) — `planner`,
-or `planner-short` on a run planning short (**Plan short first**, above). Its prompt carries its
-Role line, `Role: planner` or `Role: planner-short`, the two agent-baseline sentences, the
+the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). Its prompt
+carries the Role line `Role: planner`, the two agent-baseline sentences, the
 report-tersely line, the PLANNING DELEGATION
 paragraph (`skills/flow-self-review/SKILL.md`) — its auto-resolution sentence replaced by "every
 choice is written as a question of the round file" — the change name and the absolute worktree.
@@ -126,8 +113,9 @@ token spend.
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
    plan mode, reading the ticket, `findings.md`, the latest `round-<r>.md` and the latest
    `answers-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
-   prompt, never an earlier round or answers file — dispatching its own Explore and Plan agents
-   (**Explore and design agents**, `skills/flow/brainstorm-planner.md`), writing or updating the
+   prompt, never an earlier round or answers file — reading the code itself, and dispatching its
+   own Explore and Plan agents only where that cannot settle a question (**Explore and design
+   agents**, `skills/flow/brainstorm-planner.md`), writing or updating the
    prototype file a visible change needs and never publishing it, and writes `round-<r>.md`: the
    prototype file's absolute path when the round wrote or changed it, `## Summary` — at most ten
    lines, the decisions the round settled and what is still open, which is the settled prose the
@@ -136,19 +124,10 @@ token spend.
    nothing else is open. `## Questions` holds only questions headed `[architectural]` or
    `[impactful: <criterion>]`; the round's auto-taken ones sit under `## Auto-taken`.
    It asks the operator nothing.
-
-   **A short round** is the same round, light: the planner reads the ticket and the code it needs
-   itself — it dispatches no Explore or Plan agent, writes no `findings.md` and runs no
-   competing-designs step; its prompt carries no PLANNING DELEGATION paragraph and says so. When it finds the change `large` by the
-   `**Scope:**` criteria (**The checklist**, `skills/flow/brainstorm-planner.md`), it says so in
-   its round file and returns `ESCALATE: <reason>`: the parent prints one line,
-   `escalated to full planning — <reason>`, writes `triage.md` holding
-   `TRIAGE: full — escalated: <reason>`, relays nothing from that round, and dispatches the next
-   round as a full round on `planner`, as is every later dispatch of the run.
-2. **Relay.** The parent first publishes the prototype
-   (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's `## Summary` verbatim and
-   the round file's absolute path — the design draft stays in the file — with the
-   prototype's Artifact URL beside them whenever a prototype exists, asks its `## Questions` verbatim and no other —
+2. **Relay.** When the round wrote or changed the prototype, the parent publishes it with the
+   Artifact tool. The parent prints the round's `## Summary` verbatim and the round file's
+   absolute path — the design draft stays in the file — with the prototype's Artifact URL beside
+   them whenever a prototype exists, asks its `## Questions` verbatim and no other —
    the `[architectural]` ones first, four to an **AskUserQuestion** call, then the
    `[impactful: <criterion>]` ones, four to a call, the convergence confirm last, in round-file order — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text

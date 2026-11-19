@@ -75,7 +75,6 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | `explorer` | Reads the codebase to answer a planner's question. |
 | `plan-designer` | Proposes a design or plan for the planner to choose from. |
 | `planner` | Writes the design and the task plan. |
-| `planner-short` | Writes the design and the task plan of a change triaged short, reading the code itself with no Explore or Plan agents. |
 | `decider` | Reviews the approved plan and decides the implementer groups, the review panel's bundles and visual verification (headless, `plan-check`). |
 
 ### Implementation

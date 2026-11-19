@@ -30,10 +30,6 @@ every repository (`flow-guard kickoff-worktree <project> <name> <base>`, and
 it back for every later phase, so it is never passed again.
 A recorded base gone from origin — merged and deleted — is refused by name by `flow-guard resolve-base-branch` (`<agents repo>/scripts/flow-guard resolve-base-branch`): re-point every worktree of the change at the branch that absorbed it with the three commands integrate's `STOP: base-mismatch` answer names (`skills/flow/integrate.md`), then re-run.
 
-**A second exception: the word `full` after the change name or key on a creating run** —
-`/flow <key|name> full` — forces full planning: the run skips planning short first (**Plan short first**,
-`skills/flow/brainstorm.md`). It is no part of the name.
-
 ## Model resolution
 
 **The implementer groups, the review panel and visual verification are decided per change, never

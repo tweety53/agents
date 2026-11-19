@@ -19,7 +19,8 @@ import (
 // The call is pjRun on the decider role's first base pair, run in <worktree>
 // with tools Read, Grep and Glob under a 600 s deadline (Env.PairJudgeTimeout
 // overrides it). Its system prompt is skills/flow/plan-check-prompt.md under
-// FLOW_GUARD_REPO_ROOT; its stdin is proposal.md, design.md and tasks.md from
+// FLOW_GUARD_REPO_ROOT followed by skills/flow/plan-check-decision.md, the
+// decision rules both modes share; its stdin is proposal.md, design.md and tasks.md from
 // <changeRoot> (`none` for an absent file), skills/flow/plan-review-rubric.md,
 // and whether <worktree>/.flow/project.md declares `## visual verification`.
 //
@@ -28,7 +29,7 @@ import (
 // and must end in `PLAN-CHECK-CLEAN` or `PLAN-CHECK-FINDINGS <n>`; the decision
 // is checked by dgpvInvalid and
 // written to <out-decision.json> in the same schema. -decide-only asks
-// skills/flow/plan-check-decide-prompt.md instead — no tools, a 120 s deadline,
+// skills/flow/plan-check-decide-prompt.md, followed by the same rules, instead — no tools, a 120 s deadline,
 // no rubric, an answer of the `===DECISION===` line and the JSON alone — writes
 // the decision alone and leaves plan-check.md untouched.
 //
@@ -141,6 +142,11 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 	if err != nil {
 		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error()
 	}
+	rules, err := os.ReadFile(filepath.Join(repo, "skills", "flow", "plan-check-decision.md"))
+	if err != nil {
+		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error()
+	}
+	prompt = append(append(prompt, '\n'), rules...)
 	rows, err := policyTable(env)
 	if err != nil {
 		return "", nil, source, "", err.Error()

@@ -8,9 +8,7 @@ a missing worktree runs its steps 1–4, and every other resume point below runs
 brainstorming and planning through the planner role**. A resume at **B** re-enters the planner loop
 at the round after the last `round-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — its
 relay first when that round has no `answers-<r>.md`, the resumed round reading `findings.md`, that
-latest round file and its answers. Every planner dispatch a resume makes is full exactly when
-`<abs-worktree>/.superpowers/sdd/planner/triage.md` exists and holds `TRIAGE: full` (a legacy `TRIAGE: short` file reads as short), else short (**Plan short first**,
-`skills/flow/brainstorm.md`).
+latest round file and its answers.
 
 **Load `skills/flow/seeded-note.md`** only when the change was seeded from a note and the resume
 point is point 3 below, which never reopens the checklist that otherwise loads it.
@@ -29,15 +27,12 @@ holds; `<sdd>` is `<abs-worktree>/.superpowers/sdd`:
    always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
 2. **Design not approved** — no `<sdd>/planner/answers-<r>.md` records the operator's explicit
    approve of the convergence confirm: resume at **B**, the planner loop's next round.
-3. **Approved, plan not checked** — no `<sdd>/plan-check.md` exists: the final planner had
-   not returned `PLAN-WRITTEN`. Dispatch a final planner (step 3 of **Run brainstorming and
-   planning through the planner role**, `skills/flow/brainstorm.md`), its prompt naming every
-   artifact already under `<changeRoot>` — it keeps what is written and completes what is
-   missing — then run **Plan check**.
-4. **Check not triaged** — `<sdd>/plan-check.md` holds a finding and no `## Triage`:
-   dispatch the triaging final planner (step 3 of **Plan check**, `skills/flow/brainstorm.md`).
-5. **No recorded decision** — `flow record decisions -change <name>` names none: run **Plan check gate** (`skills/flow/brainstorm-planner.md`).
-6. **Otherwise** planning is done: go to `skills/flow/implement.md`.
+3. **Plan not done** — `flow record decisions -change <name>` names no decision: dispatch a final
+   planner (step 3 of **Run brainstorming and planning through the planner role**,
+   `skills/flow/brainstorm.md`), its prompt naming every artifact already under `<changeRoot>` —
+   it keeps what is written and completes what is missing — then run **Plan check** and the gate
+   (**Plan check gate**, `skills/flow/brainstorm-planner.md`).
+4. **Otherwise** planning is done: go to `skills/flow/implement.md`.
 
 State the resumption point plainly before continuing:
 "resuming `<name>` at `<point>`."
@@ -45,5 +40,4 @@ State the resumption point plainly before continuing:
 ### Resuming a recorded decision
 
 A run resumed at `STARTED` rests on **Plan check gate** (`skills/flow/brainstorm-planner.md`): it reads
-`flow record decisions -change <name>` and follows the newest row rather than re-deciding, or
-re-runs `plan-check … -decide-only` alone when none exists yet.
+`flow record decisions -change <name>` and follows the newest row rather than re-deciding.

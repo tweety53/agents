@@ -154,6 +154,9 @@ func TestPlanCheckDecideOnlyLeavesReport(t *testing.T) {
 	if i := slices.Index(a, "--system-prompt"); i < 0 || !strings.HasPrefix(a[i+1], "# Plan check — decision only") {
 		t.Errorf("decide-only did not use the decision-only prompt: %q", a)
 	}
+	if i := slices.Index(a, "--system-prompt"); i < 0 || !strings.Contains(a[i+1], "**1. Implementer groups.**") {
+		t.Errorf("decide-only prompt lacks the shared decision rules: %q", a)
+	}
 }
 
 // TestPlanCheckRunsWithReadOnlyTools: the runner gets Read,Grep,Glob and the
@@ -171,6 +174,9 @@ func TestPlanCheckRunsWithReadOnlyTools(t *testing.T) {
 	a := stub.argv(t)
 	if i := slices.Index(a, "--tools"); i < 0 || a[i+1] != "Read,Grep,Glob" {
 		t.Errorf("argv %q", a)
+	}
+	if i := slices.Index(a, "--system-prompt"); i < 0 || !strings.Contains(a[i+1], "**1. Implementer groups.**") {
+		t.Errorf("plan-check prompt lacks the shared decision rules: %q", a)
 	}
 	want, _ := filepath.EvalSymlinks(wt)
 	if b, _ := os.ReadFile(cwd); strings.TrimSpace(string(b)) != want {
