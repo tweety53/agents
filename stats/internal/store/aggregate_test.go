@@ -3311,7 +3311,8 @@ func TestTrendFoldsSelfReviewIntoItsChange(t *testing.T) {
 }
 
 // TestReviewersCountsGatedReviews: a gated review (task-<n>-reviewer, its
-// re-check task-<n>-reviewer-fix-<k>) records no slot on its dispatch but
+// re-check task-<n>-reviewer-fix-<k>, a batched task-<n>+<m>-reviewer)
+// records no slot on its dispatch but
 // files its findings as slot gated-reviewer; Reviewers counts it as that
 // slot, in no panel roster.
 func TestReviewersCountsGatedReviews(t *testing.T) {
@@ -3321,7 +3322,7 @@ func TestReviewersCountsGatedReviews(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-rv-gated-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 	started := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
-	for i, key := range []string{"task-3-reviewer", "task-3-reviewer-fix-1"} {
+	for i, key := range []string{"task-3-reviewer", "task-3-reviewer-fix-1", "task-4+5+6-reviewer"} {
 		d := baseDispatch("reviewer", "opus")
 		d.Key, d.StartedAt = key, started.Add(time.Duration(i)*time.Minute)
 		disp, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
@@ -3338,7 +3339,7 @@ func TestReviewersCountsGatedReviews(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reviewers: %v", err)
 	}
-	if len(rows) != 1 || rows[0].Slot != "gated-reviewer" || rows[0].Dispatches != 2 || rows[0].Important != 2 || rows[0].Description == "" {
-		t.Fatalf("rows = %+v, want one gated-reviewer row: 2 dispatches, 2 important, described", rows)
+	if len(rows) != 1 || rows[0].Slot != "gated-reviewer" || rows[0].Dispatches != 3 || rows[0].Important != 3 || rows[0].Description == "" {
+		t.Fatalf("rows = %+v, want one gated-reviewer row: 3 dispatches (one a batched review), 3 important, described", rows)
 	}
 }
