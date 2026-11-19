@@ -20,7 +20,7 @@ import (
 // --not-remotes also drops every commit reachable from a refs/remotes/origin/*
 // ref: what a push sends is only what origin lacks, so after a rebase onto a
 // moved base the base's own commits — inside <base>..HEAD, already on origin —
-// are never judged as the change's (the push hook and close-task pass it).
+// are never judged as the change's (the push hook passes it).
 //
 // WHY THIS GUARD EXISTS. A commit the run makes outside every task — a stray
 // implementer edit, a parent's unrecorded fix — was caught only by a review

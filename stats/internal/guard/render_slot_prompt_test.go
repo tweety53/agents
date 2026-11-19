@@ -187,39 +187,6 @@ func TestRenderSlotPrompt(t *testing.T) {
 		}
 	})
 
-	// review-panel-experimental-slot.md: an exp-<name> slot is dispatched
-	// like any other, its template skills/flow/experimental/<name>.md. The
-	// real tree carries no candidate (kan-959 promoted test-sanity), so a
-	// copy of the skill's top-level files gains one probe.
-	t.Run("an exp- slot renders from experimental/<name>.md", func(t *testing.T) {
-		exp := t.TempDir()
-		mds, err := filepath.Glob(skill + "/*.md")
-		if err != nil || len(mds) == 0 {
-			t.Fatalf("glob %s/*.md: %v", skill, err)
-		}
-		for _, md := range mds {
-			writeFile(t, exp+"/"+filepath.Base(md), rbRead(md))
-		}
-		mkdir(t, exp+"/experimental")
-		writeFile(t, exp+"/experimental/probe.md", "description: a probe\n\n# Probe\n\n```\n    You are a probe reviewer.\n```\n")
-		r, got := fx.run(t, exp, exp, "0", fx.canon, fx.plan, "primary+exp-probe", "-diff", "final", "--", fx.canon)
-		if r.rc != 0 {
-			t.Fatalf("exit %d\n%s", r.rc, r.out)
-		}
-		for _, want := range []string{
-			"## PASS exp-probe\n\nYou are a probe reviewer.",
-			"`" + sdd + "panel-report-0-exp-probe.md`",
-		} {
-			if !strings.Contains(got, want) {
-				t.Errorf("render lacks %q", want)
-			}
-		}
-		r, _ = fx.run(t, skill, skill, "0", fx.canon, fx.plan, "exp-no-such-prompt", "-diff", "final", "--", fx.canon)
-		if r.rc != 2 || !strings.Contains(r.err, "experimental/no-such-prompt.md") {
-			t.Errorf("absent experimental prompt: exit %d stderr %q; want 2 naming it", r.rc, r.err)
-		}
-	})
-
 	t.Run("a plan with no design.md constrains with none", func(t *testing.T) {
 		plan := t.TempDir()
 		r, got := fx.run(t, skill, skill, "0", fx.canon, plan, "principles", "-diff", "final", "--", fx.canon)

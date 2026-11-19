@@ -23,8 +23,7 @@ import (
 //      failed
 //
 // THE CHANGE'S OWN PATHS are the union of committed-since-merge-base,
-// staged and unstaged paths, exactly as flow-guard check-panel-citation-trigger
-// collects them.
+// staged and unstaged paths.
 //
 // WHY THIS GUARD EXISTS (KAN-312): a docs-only branch has no code seam for a
 // second slot to find; the implementer's self-review and the prose guards
@@ -38,8 +37,7 @@ import (
 // stdout (an empty touched-path set is 1 with nothing printed), 2 on a usage
 // error or a git invocation that failed. Resolving git, validating the
 // arguments and collecting the paths -- the union of committed-since-merge-
-// base, staged and unstaged, exactly as check-panel-citation-trigger
-// collects them -- are paneltouchedpaths.go's, never re-derived here, so the
+// base, staged and unstaged -- are paneltouchedpaths.go's, never re-derived here, so the
 // "first" path is the first after that collection's `sort -u` under the
 // caller's collation.
 func init() {
@@ -66,8 +64,7 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	for _, p := range paths {
-		// isDocPath is the one path classifier, shared with
-		// check-panel-citation-trigger.
+		// isDocPath is the one path classifier.
 		if !isDocPath(p) {
 			fmt.Fprintln(stdout, p)
 			Reason(env, "non-doc-path-touched")

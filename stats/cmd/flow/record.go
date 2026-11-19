@@ -556,9 +556,7 @@ A dispatch recorded only after it finished is a back-fill, and is ONE
 "backfill" call: begin's flags and end's together, with -started-at,
 -ended-at and -outcome required, so the row carries the dispatch's real
 instants rather than the moment it was recorded. It validates both
-instants before writing either half, then runs begin and end; a gated
-reviewer or merger back-fill runs end's plan-tree verify before the begin,
-so a refused one leaves no open row.
+instants before writing either half, then runs begin and end.
 
 -key names the dispatch within its run. It is what "end" closes, and what
 makes "begin" idempotent: a write whose response was lost is journalled
@@ -1267,8 +1265,7 @@ func launchRoleID(role, key string) string {
 
 // roundBeyondNext refuses a -round past the run's next round,
 // highestRecordedRound+1: a mistyped -round 7 after round 0 would make
-// next-round print 8 and the panel-dispatch check refuse rounds 1..6
-// (kan-1088 self-review, F3). Rounds 0 and 1 are always within it, so
+// next-round print 8 (kan-1088 self-review, F3). Rounds 0 and 1 are always within it, so
 // they read nothing; a failed read refuses nothing.
 func roundBeyondNext(ctx context.Context, f recordIdentityFlags, projectKey, kind string, round int, stderr io.Writer) bool {
 	if round <= 1 {
@@ -1334,8 +1331,6 @@ func taskWorkKey(key string) string {
 // before it in any of the change's worktrees, raised to panelFixFloor and
 // inlineFloor (kan-1003, kan-1039, kan-1046). The back-fill and a live
 // inline end both call it.
-// A panel-fix floor never lies after the commit: panelFixAfterReports
-// refuses such a fix first (kan-1117 self-review, F3).
 func inlineDerivedWindow(ctx context.Context, f recordIdentityFlags, projectKey, role, key, commit string) (start, end time.Time, ok bool) {
 	roots := mutationRoots(ctx, f, projectKey)
 	end, ok = commitTime(commit, roots)

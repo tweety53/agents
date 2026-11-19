@@ -40,10 +40,9 @@ import (
 //      but final, every `final-review.diff` in WORKTREES, REPORT FILE and
 //      INDEPENDENT PASSES reads `the **Diff file:** each PASS section names`;
 //   2. one `## PASS <id>` section per slot, in the order given: the fenced
-//      body of <skill-dir>/<id>-reviewer-prompt.md — an exp-<name> slot's
-//      <skill-dir>/experimental/<name>.md (review-panel-experimental-slot.md)
-//      — dedented, every placeholder filled per review-panel.md's
-//      placeholder table (**The roster**), then that slot's REPORT FILE block.
+//      body of <skill-dir>/<id>-reviewer-prompt.md, dedented, every
+//      placeholder filled per review-panel.md's placeholder table, then that
+//      slot's REPORT FILE block.
 //      [GLOBAL_CONSTRAINTS] is <plan-dir>/design.md, or `none` without one.
 //
 // The diff each pass reads, in <canonical-wt>/.superpowers/sdd/:
@@ -162,10 +161,10 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, s := range slots {
 		switch {
 		case s == "mutation":
-		// Any other slot is valid when its template exists -- <id>-reviewer-prompt.md,
-		// or experimental/<name>.md for exp-<name> -- so a slot added to the skill
-		// directory renders without a rebuild of this guard.
-		case !strings.Contains(s, "/") && (len(s) > len("exp-") && strings.HasPrefix(s, "exp-") || isFile(skill+"/"+s+"-reviewer-prompt.md")):
+		// Any other slot is valid when its template <id>-reviewer-prompt.md
+		// exists, so a slot added to the skill directory renders without a
+		// rebuild of this guard.
+		case !strings.Contains(s, "/") && isFile(skill+"/"+s+"-reviewer-prompt.md"):
 			roles = append(roles, s)
 		default:
 			return refuse("no-reviewer-template-for-slot", "no reviewer template for slot %q", s)
@@ -270,7 +269,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		emit(strings.Replace(b, "<fix report>", strings.Join(reports, "`, `"), 1))
 	}
 
-	// The placeholder table's values (review-panel.md, **The roster**).
+	// The placeholder table's values (review-panel.md).
 	fill := map[string]string{
 		"[ARTIFACT_PATHS]":     plan + "/proposal.md, " + plan + "/design.md, " + plan + "/tasks.md",
 		"[CALIBRATION_PATH]":   skill + "/reviewer-calibration.md",
@@ -313,9 +312,6 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		tmplPath := skill + "/" + id + "-reviewer-prompt.md"
-		if name, ok := strings.CutPrefix(id, "exp-"); ok {
-			tmplPath = skill + "/experimental/" + name + ".md"
-		}
 		tmpl, ok := read(tmplPath)
 		if !ok {
 			Reason(env, "cannot-read-template")
