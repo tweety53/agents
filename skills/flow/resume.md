@@ -4,34 +4,39 @@ Loaded by `skills/flow/SKILL.md` on a run finding `STARTED`, and by **A. Resolve
 name resolves to a change already recorded at `STARTED`.
 
 **Load `skills/flow/brainstorm.md`** only when the resume point is not `skills/flow/implement.md`:
-a missing worktree runs its steps 1–4, and a resume at **B** or **D** runs under its **Run
-brainstorming and planning through the planner role**: a resume at **B** re-enters the planner loop
+a missing worktree runs its steps 1–4, and every other resume point below runs under its **Run
+brainstorming and planning through the planner role**. A resume at **B** re-enters the planner loop
 at the round after the last `round-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — its
 relay first when that round has no `answers-<r>.md`, the resumed round reading `findings.md`, that
-latest round file and its answers — and a resume at **D** dispatches the final
-planner.
+latest round file and its answers.
 
 **Load `skills/flow/seeded-note.md`** only when the change was seeded from a note and the resume
-point is section C or D, which never reopens the checklist that otherwise loads it.
+point is point 3 below, which never reopens the checklist that otherwise loads it.
 
 ### Resuming at `STARTED`
 
 A run finding `"state": "STARTED"` already recorded is resuming a creating run that stopped before
 reaching `IN_PROGRESS` — an interrupted session, a context limit, an earlier stop. Skip **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`)
-(the name and the `STARTED` write both already exist) and determine where the run actually left off
-by reading, not by assuming:
+(the name and the `STARTED` write both already exist) and find where the run left off from what is
+on disk, never from a judgement of how finished a file looks. Take the first point whose condition
+holds; `<sdd>` is `<abs-worktree>/.superpowers/sdd`:
 
-- **Does the worktree exist** — `git worktree list` naming `<project>-worktrees/<name>`. It is
-  created at kickoff (steps 1–4 of **A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`), so a missing one means the run stopped between
-  the `STARTED` write and that step: run steps 1–4 now, then continue below. `<changeRoot>` is
-  always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
-- `spectre list --json`'s entry for this change's `done`/`total`, run in the worktree —
-  `total == 0` means no plan exists yet: the run continues at **B** in
-  `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
-- The change root's own `tasks.md` — a scaffold with no enriched steps means writing-plans has not
-  run: resume at **D** in `skills/flow/brainstorm-planner.md`. A plan meeting writing-plans <!-- refs-guard:allow -->
-  quality (exact paths, verification commands, no placeholders) means planning is fully done: skip
-  straight to `skills/flow/implement.md`.
+1. **No worktree** — `git worktree list` names no `<project>-worktrees/<name>`: the run stopped
+   between the `STARTED` write and kickoff. Run steps 1–4 of **A. Resolve the change and write
+   `STARTED`** (`skills/flow/brainstorm.md`), then take the next point. `<changeRoot>` is
+   always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
+2. **Design not approved** — no `<sdd>/planner/answers-<r>.md` records the operator's explicit
+   approve of the convergence confirm: resume at **B**, the planner loop's next round.
+3. **Approved, plan not reviewed** — no `<sdd>/plan-review-<n>.md` exists: the final planner had
+   not returned `PLAN-WRITTEN`. Dispatch a final planner (step 3 of **Run brainstorming and
+   planning through the planner role**, `skills/flow/brainstorm.md`), its prompt naming every
+   artifact already under `<changeRoot>` — it keeps what is written and completes what is
+   missing — then run **Plan review**.
+4. **Review not triaged** — the newest `plan-review-<n>.md` holds a finding and no `## Triage`:
+   dispatch the triaging final planner (step 3 of **Plan review**, `skills/flow/brainstorm.md`).
+5. **No recorded decision** — `flow record decisions -change <name>` names none: run **Decide**
+   and **Plan review gate** (`skills/flow/brainstorm-planner.md`).
+6. **Otherwise** planning is done: go to `skills/flow/implement.md`.
 
 State the resumption point plainly before continuing:
 "resuming `<name>` at `<point>`."
