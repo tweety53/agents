@@ -362,10 +362,7 @@ this session's own prose account of the run — problems hit, workarounds, time 
 gaps, operator decisions taken mid-run, every approach tried and abandoned with why it failed —
 and nothing the ledger or panel record already holds. The abandoned approaches and their failure
 reasons are recorded because the diff shows only the winning shape — a deferred self-review pass
-reads the narrative, and the negative results live nowhere else in the change's record. A
-durable process lesson this run paid for is promoted to the lessons home (**Process lessons**,
-`skills/flow-contracts/lessons.md`) — the brief is repo content, landed with this change's own
-work. The narrative itself is gitignored, written on disk and nothing else; nothing stages it.
+reads the narrative, and the negative results live nowhere else in the change's record. The narrative itself is gitignored, written on disk and nothing else; nothing stages it.
 
 **Close every open dispatch row of the change** before the state is written — only this
 run knows how its own dispatches ended. List them from the canonical worktree:

@@ -28,7 +28,7 @@ the parent resolves the worktree from the state file's `worktrees` map and conti
 **The parent's shell discipline:** the parent's own Bash work above runs in the session's
 interactive shell, and that shell is zsh — never assign `path`, the `PATH`-tied special
 variable, and never lean on unquoted variable word-splitting: loop and list values go through
-arrays or explicit lists, the re-derived footgun **Process lessons** (`skills/flow-contracts/lessons.md`) exists to end. One git command per `git -C` call, and never
+arrays or explicit lists. One git command per `git -C` call, and never
 a compound command led by `cd` — the harness hook denies those by design — a compound chain
 staying legitimate only when every member is `git -C`-led and pasted whole, as **The guarded commit chain** (`skills/flow-contracts/git-boundaries-commit-chain.md`) is. A background
 call inherits no cwd, so every path it names is absolute or `-C`-given — the standing rule the

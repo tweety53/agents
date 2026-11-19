@@ -18,10 +18,6 @@ states.
 
 ### The checklist
 
-- **A ticket that names a practice or a brief resolves it through the lessons home** (**Process
-  lessons**, `skills/flow-contracts/lessons.md`) — never by searching repositories or archived
-  narratives for it.
-
 - **Every ambiguity is classified, and only an `[architectural]` or `[impactful: <criterion>]` one
   is asked — in `/flow`'s planning up to its plan gate and in a `/flow-plan` session, and nowhere
   else.** An ambiguity is any requirement, scenario, name, format, state, edge case, ordering,

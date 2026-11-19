@@ -157,9 +157,7 @@ readings would lead to materially different work, ask once, batched, through
 **AskUserQuestion**; a question there whose options include a recommended one takes it under
 the `## decisions: recommended` mode (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`), recorded the way that section states, and a
-genuinely open one still asks. Pick the simplest implementation that meets the ask. A ticket
-that names a practice or a brief resolves it through the lessons home (**Process lessons**,
-`skills/flow-contracts/lessons.md`), never by a repository search.
+genuinely open one still asks. Pick the simplest implementation that meets the ask.
 
 ## 3. Worktree
 
@@ -263,9 +261,7 @@ the git-log source resolves from the main checkout the command resolves, as the 
 commits; the ledger and panel render from the store when the run wrote rows — then
 `## Session narrative`, one paragraph this session writes on what it
 did and where it struggled, recording every approach tried and abandoned with why it failed
-(**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`). A durable
-process lesson the run paid for is promoted to the
-lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
+(**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
 
 Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
 canonical for the four angles, the fix loop, where the fixes land — on `<name>` itself

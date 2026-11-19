@@ -756,7 +756,7 @@ type recordIdentityFlags struct {
 // The -addr default is resolveRecordsAddr(getenv), and this registration is the
 // one place that decision is wired: the record family's rows must outlive an
 // apply worktree, so this is the only flag set that resolves
-// FLOW_RECORDS_ADDR. `flow self-review bundle`, `flow lesson resolve` and
+// FLOW_RECORDS_ADDR. `flow self-review bundle` and
 // `flow suite record`/`list` register through here too, for the same reason:
 // suite runtimes are medianed across runs, so a worktree's rows must reach
 // the persistent store. `flow stage`, `flow state`, `flow settings` and

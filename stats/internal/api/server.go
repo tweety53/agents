@@ -372,7 +372,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	sth := &statsHandler{store: sts, logger: logger, commitBase: so.commitBase, changeFiles: so.changeFiles}
 	rh := &recordHandler{store: rs, logger: logger, agentEnd: so.agentEnd}
 	srb := &selfreviewHandler{store: rs, git: selfreview.ExecRunner{}, build: so.build, logger: logger}
-	lh := &lessonsHandler{store: rs, logger: logger}
+	ph := &projectsHandler{store: rs, logger: logger}
 	hz := &hazardHandler{store: rs, logger: logger}
 	suh := &suiteHandler{store: rs, logger: logger}
 	sph := &specHandler{store: rs, logger: logger}
@@ -415,8 +415,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/self-review/{project}/{change}/findings", srb.recordFinding)
 	mux.HandleFunc("GET /api/v1/self-review/{project}/{change}/findings", srb.listFindings)
 	mux.HandleFunc("GET /api/v1/self-review-themes", srb.themes)
-	mux.HandleFunc("GET /api/v1/lessons/resolve", lh.resolve)
-	mux.HandleFunc("GET /api/v1/projects", lh.projects)
+	mux.HandleFunc("GET /api/v1/projects", ph.projects)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/retime", rh.retimeDispatchRow)

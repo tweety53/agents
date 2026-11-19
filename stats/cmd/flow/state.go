@@ -49,7 +49,7 @@ func resolveDefaultAddr(getenv func(string) string) string {
 
 // resolveRecordsAddr returns the value the record family's -addr flag
 // registrations (registerRecordConnFlags, which `flow self-review bundle`,
-// `flow lesson resolve` and `flow suite record`/`list` share) take as their default: FLOW_RECORDS_ADDR when it is set to a
+// `flow suite record`/`list` share) take as their default: FLOW_RECORDS_ADDR when it is set to a
 // non-empty value, then FLOW_ADDR, then defaultAddr -- the same
 // empty-means-unset reading resolveDefaultAddr applies.
 //

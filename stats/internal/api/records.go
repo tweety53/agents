@@ -165,7 +165,7 @@ type RecordStore interface {
 	EndRequest(ctx context.Context, projectKey, change string, in records.RequestEnd) (records.Request, error)
 	ListRequests(ctx context.Context, projectKey, change string) ([]records.Request, error)
 
-	// ProjectRoots is the registered-checkouts read the lessons-resolve
+	// ProjectRoots is the registered-checkouts read the projects
 	// handler calls -- on RecordStore for the reason ChangeSummary states:
 	// the handler is wired with the same store value as the record routes,
 	// and the projects table is the store's one answer to where this
