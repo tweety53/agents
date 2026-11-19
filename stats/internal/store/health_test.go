@@ -278,7 +278,7 @@ func TestChangeGuardRunsMatchesTheWorktreeSegment(t *testing.T) {
 		run("/x/gymie", at),
 		run("/x/gymie-worktrees/kan-1-a", to.Add(time.Hour)),
 	)
-	recordGuardRuns(t, st, q, run("/y/other", at))
+	recordGuardRuns(t, st, q, run("/y/other", at), run("/z/other-worktrees/kan-1-a", at.Add(2*time.Minute)))
 
 	claimed, unclaimed, err := st.ChangeGuardRuns(ctx, p, "kan-1-a", from, to)
 	if err != nil {
@@ -288,7 +288,7 @@ func TestChangeGuardRunsMatchesTheWorktreeSegment(t *testing.T) {
 	for _, r := range claimed {
 		got = append(got, r.Worktree)
 	}
-	want := []string{"/x/gymie-worktrees/kan-1-a", "/x/gymie-frontend-worktrees/kan-1-a/sub"}
+	want := []string{"/x/gymie-worktrees/kan-1-a", "/x/gymie-frontend-worktrees/kan-1-a/sub", "/z/other-worktrees/kan-1-a"}
 	if !slices.Equal(got, want) {
 		t.Errorf("claimed = %v, want %v", got, want)
 	}
