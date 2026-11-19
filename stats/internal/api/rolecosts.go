@@ -74,8 +74,12 @@ var (
 
 // RoleOf names the allowed-pairs role (skills/flow-contracts/model-policy.md)
 // a dispatch ran as, from its stored role and dispatch key; a dispatch no
-// rule places is "other".
+// rule places is "other". A guard run's headless call (stored role
+// "headless") is the role its key names.
 func RoleOf(stored, key string) string {
+	if stored == "headless" { // a guard's headless model call: the key is its role
+		return key
+	}
 	for _, loop := range []string{"pipeline-fix", "self-review"} {
 		if !strings.HasPrefix(key, loop+"-") {
 			continue
@@ -138,7 +142,8 @@ func RoleOf(stored, key string) string {
 }
 
 // get serves GET /api/v1/stats/role-costs: every role that ran in the
-// period, costliest first, and the weekly spend per role.
+// period, grouped by pipeline stage in the roles table's order, costliest
+// first within a stage, and the weekly spend per role.
 func (h *roleCostsHandler) get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	period, project, err := parsePeriodAndProject(ctx, h.store, r.URL.Query())
@@ -153,15 +158,21 @@ func (h *roleCostsHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	groups := map[string]string{}
+	var order []string
 	if entries, err := modelpolicy.Rows(h.table); err == nil {
 		for _, e := range entries {
 			groups[e.Role] = e.Group
+			if !slices.Contains(order, e.Group) {
+				order = append(order, e.Group)
+			}
 		}
 	}
-	writeJSON(w, http.StatusOK, foldRoleCosts(rows, groups))
+	writeJSON(w, http.StatusOK, foldRoleCosts(rows, groups, append(order, "Other")))
 }
 
-func foldRoleCosts(rows []store.RoleDispatch, groups map[string]string) roleCostsResponse {
+// foldRoleCosts folds rows per role, the roles in order's stage order and
+// costliest first within a stage.
+func foldRoleCosts(rows []store.RoleDispatch, groups map[string]string, order []string) roleCostsResponse {
 	byRole := map[string]*roleCost{}
 	spans := map[string][]float64{}
 	weeks := map[string]map[string]float64{}
@@ -219,6 +230,9 @@ func foldRoleCosts(rows []store.RoleDispatch, groups map[string]string) roleCost
 		out.Roles = append(out.Roles, *c)
 	}
 	sort.Slice(out.Roles, func(i, j int) bool {
+		if gi, gj := slices.Index(order, out.Roles[i].Group), slices.Index(order, out.Roles[j].Group); gi != gj {
+			return gi < gj
+		}
 		if out.Roles[i].CostUSD != out.Roles[j].CostUSD {
 			return out.Roles[i].CostUSD > out.Roles[j].CostUSD
 		}

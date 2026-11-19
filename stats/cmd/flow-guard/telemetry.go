@@ -56,6 +56,8 @@ type guardRun struct {
 	// Reasons is the run's distinct reason ids, posted only when the run is
 	// not clear; absent, the store records NULL.
 	Reasons []string `json:"reasons,omitempty"`
+	// Headless is the run's headless model call, absent when it made none.
+	Headless *guard.Headless `json:"headless,omitempty"`
 }
 
 // outcomeFor classifies guard name's exit code and the first line it printed
@@ -137,7 +139,7 @@ func (f *firstLine) Write(p []byte) (int, error) {
 
 // recordRun records one dispatched guard's run, and reports nothing: every
 // failure is swallowed, per this file's header.
-func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, elapsed time.Duration, client *http.Client) {
+func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, headless *guard.Headless, elapsed time.Duration, client *http.Client) {
 	if telemetryOff[strings.ToLower(getenv("FLOW_GUARD_TELEMETRY"))] {
 		return
 	}
@@ -150,7 +152,7 @@ func recordRun(getenv func(string) string, dir, name string, code int, first str
 	}
 	run := guardRun{
 		Guard: name, Worktree: dir, ExitCode: code, Outcome: outcomeFor(name, code, first),
-		DurationMS: int(elapsed.Milliseconds()), RecordedAt: time.Now().UTC(),
+		DurationMS: int(elapsed.Milliseconds()), RecordedAt: time.Now().UTC(), Headless: headless,
 	}
 	if run.Outcome != "clear" {
 		run.Reasons = reasons

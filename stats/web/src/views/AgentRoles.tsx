@@ -8,7 +8,7 @@ import { PAIR_SHAPE, fetchRoles, postRolesEdit, type RoleEntry } from "../api";
 
 // Brief plain-English role names for the Does column; the full sentence is the hover.
 // ponytail: a role missing here shows its sentence's first four words.
-const SHORT_DOES: Record<string, string> = {
+export const SHORT_DOES: Record<string, string> = {
   main: "Runs the pipeline",
   explorer: "Reads the codebase",
   "plan-designer": "Proposes a plan",

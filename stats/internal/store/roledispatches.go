@@ -22,16 +22,28 @@ type RoleDispatch struct {
 }
 
 // RoleDispatches returns every dispatch started in period, of project when
-// one is given, oldest first.
+// one is given, oldest first -- and every guard run's headless model call
+// (pair-judge, plan-check's decider) as one more row, its Role "headless"
+// and its Key the role the call ran as.
 func (s *Store) RoleDispatches(ctx context.Context, period Period, project *string) ([]RoleDispatch, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT d.role, COALESCE(d.dispatch_key, ''), d.model, d.effort,
+		SELECT * FROM (
+		SELECT d.role, COALESCE(d.dispatch_key, '') AS key, d.model, d.effort,
 			d.started_at, d.ended_at, (d.metrics->>'cost_usd')::float8, COALESCE(d.outcome, '')
 		FROM dispatches d
 		JOIN changes c ON c.id = d.change_id
 		WHERE d.started_at >= $1 AND d.started_at < $2
 		  AND ($3::text IS NULL OR c.project_key = $3)
-		ORDER BY d.started_at, d.id
+		UNION ALL
+		SELECT 'headless', g.headless_role, g.headless_model, COALESCE(g.headless_effort, 'default'),
+			g.recorded_at - make_interval(secs => COALESCE(g.headless_ms, 0) / 1000.0), g.recorded_at,
+			g.headless_cost_usd, 'completed'
+		FROM guard_runs g
+		WHERE g.headless_role IS NOT NULL
+		  AND g.recorded_at >= $1 AND g.recorded_at < $2
+		  AND ($3::text IS NULL OR g.project_key = $3)
+		) r
+		ORDER BY 5, 2
 	`, period.From, period.To, project)
 	if err != nil {
 		return nil, fmt.Errorf("store: role dispatches: %w", err)

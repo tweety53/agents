@@ -295,7 +295,13 @@ func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, diges
 		Cost   *float64 `json:"total_cost_usd"`
 	}
 	jerr := json.Unmarshal(out.Bytes(), &ans)
-	spend = fmt.Sprintf(" (judge %.1fs", time.Since(start).Seconds())
+	elapsed := time.Since(start)
+	h := Headless{Role: judgeRole, Model: judge.model, Effort: judge.effort, DurationMS: int(elapsed.Milliseconds())}
+	if jerr == nil {
+		h.CostUSD = ans.Cost
+	}
+	recordHeadless(env, h)
+	spend = fmt.Sprintf(" (judge %.1fs", elapsed.Seconds())
 	if jerr == nil && ans.Cost != nil {
 		spend += fmt.Sprintf(", $%.4f", *ans.Cost)
 	}

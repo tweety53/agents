@@ -64,10 +64,19 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 		recordedAt = time.Now()
 	}
 
+	var hl struct {
+		role, model, effort *string
+		cost                *float64
+		ms                  *int
+	}
+	if h := in.Headless; h != nil {
+		hl.role, hl.model, hl.effort, hl.cost, hl.ms = &h.Role, &h.Model, &h.Effort, h.CostUSD, &h.DurationMS
+	}
 	out := in
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons)
-		SELECT p.project_key, $2, $3, $4, $5, $6, $7, $8
+		INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons,
+			headless_role, headless_model, headless_effort, headless_cost_usd, headless_ms)
+		SELECT p.project_key, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 		FROM projects p
 		WHERE p.project_key = COALESCE(
 			(SELECT project_key FROM projects WHERE project_key = $1),
@@ -75,7 +84,8 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 				WHERE $3 = k OR starts_with($3, k || '/') OR starts_with($3, k || '-wave-group-')
 				ORDER BY c.id DESC LIMIT 1))
 		RETURNING id, recorded_at, reasons
-	`, projectKey, in.Guard, in.Worktree, in.ExitCode, in.Outcome, in.DurationMS, recordedAt, reasons).Scan(&out.ID, &out.RecordedAt, &out.Reasons)
+	`, projectKey, in.Guard, in.Worktree, in.ExitCode, in.Outcome, in.DurationMS, recordedAt, reasons,
+		hl.role, hl.model, hl.effort, hl.cost, hl.ms).Scan(&out.ID, &out.RecordedAt, &out.Reasons)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return records.GuardRun{}, fmt.Errorf("%w: %s", ErrProjectNotFound, projectKey)

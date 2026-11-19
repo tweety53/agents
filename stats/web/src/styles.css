@@ -1191,11 +1191,47 @@ td.lb-clip { max-width: 0; width: 100%; }
 /* Flow health (KAN-1050): the speed-up candidate pill. */
 .lb-pill.fh-speed { color: var(--delta-up); margin-left: 6px; }
 
-/* Role costs (#/role-costs): pairs listed under each other, and one stacked bar per week. */
-.role-pairs { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
-.role-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; font-size: 12px; color: var(--text-secondary); }
-.role-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; }
-.role-week { display: grid; grid-template-columns: 90px 1fr 80px; align-items: center; gap: 10px; padding: 4px 12px; font-size: 12px; }
-.role-week-bar { display: flex; height: 14px; }
-.role-week-bar span { display: block; height: 100%; }
-.role-week .r { text-align: right; }
+/* Role costs (#/role-costs), drawn as .superpowers/sdd/<change>/role-costs-prototype.html:
+   stage rows with a stage-coloured stripe, one-line role rows, a model · effort mix, the pair list on click. */
+.role-costs .lb-panel + .lb-panel { margin-top: 16px; }
+.rc-table tr.rc-stage td { background: rgba(127, 127, 127, 0.09); padding: 9px 12px; font-size: 12px; font-weight: 700; }
+.rc-table tr.rc-stage td:first-child { border-left: 3px solid var(--sc); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-primary); }
+.rc-table tr.rc-stage td:first-child i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--sc); margin-right: 8px; vertical-align: -1px; }
+.rc-table tr.rc-role { height: 40px; cursor: pointer; }
+.rc-table tr.rc-role td { vertical-align: middle; white-space: nowrap; }
+.rc-table tr.rc-role:hover td { background: rgba(127, 127, 127, 0.06); }
+.rc-table tr.rc-role td:first-child, .rc-table tr.rc-detail td:first-child { border-left: 3px solid var(--sc); padding-left: 22px; }
+.rc-table tr.rc-detail td { padding: 4px 12px 10px; background: rgba(127, 127, 127, 0.04); vertical-align: top; }
+.role-costs b { font-weight: 500; color: var(--text-primary); }
+.role-costs code { margin-left: 6px; font-size: 12px; color: var(--text-secondary); }
+.rc-muted { color: var(--text-secondary); font-size: 12px; }
+.rc-mix { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.rc-mixbar { display: flex; width: 96px; height: 12px; border-radius: 3px; overflow: hidden; background: var(--border); flex: none; }
+.rc-mixbar span { height: 100%; border-right: 1px solid rgba(255, 255, 255, 0.6); }
+.rc-model { border-radius: 4px; padding: 0 6px; font-weight: 600; text-align: center; }
+.rc-model.opus { background: rgba(217, 119, 87, 0.16); color: #c2410c; }
+.rc-model.sonnet { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+.rc-model.fable { background: rgba(147, 51, 234, 0.14); color: #7e22ce; }
+.rc-pair { display: grid; grid-template-columns: 54px 50px 72px 40px 60px; width: 300px; align-items: center; gap: 8px; font-size: 12px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.rc-pair .r { text-align: right; }
+.rc-unpriced { width: 300px; white-space: normal; font-size: 11px; margin-top: 2px; }
+.rc-track { height: 6px; border-radius: 3px; background: var(--border); }
+.rc-track div { height: 100%; border-radius: 3px; background: var(--text-secondary); }
+.rc-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 12px 4px; font-size: 12px; color: var(--text-secondary); }
+.rc-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.rc-week { display: grid; grid-template-columns: 96px 1fr 84px; gap: 12px; align-items: center; padding: 6px 12px; font-size: 12px; }
+.rc-week .r { text-align: right; }
+.rc-weekbar { display: flex; height: 22px; border-radius: 4px; overflow: hidden; background: var(--border); }
+.rc-weekbar span { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 600; overflow: hidden; white-space: nowrap; }
+.rc-weeks td { font-variant-numeric: tabular-nums; }
+.rc-weeks tr.rc-wstage td { font-weight: 600; border-top: 1px solid var(--border); }
+.rc-weeks tr.rc-wstage td:first-child i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.rc-weeks tr.rc-wrole td { color: var(--text-secondary); font-size: 12px; }
+.rc-weeks tr.rc-wrole td:first-child { padding-left: 28px; }
+.rc-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.rc-cell .rc-track { width: 60px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .rc-model.opus { color: #fdba74; }
+  :root:not([data-theme="light"]) .rc-model.sonnet { color: #93c5fd; }
+  :root:not([data-theme="light"]) .rc-model.fable { color: #d8b4fe; }
+}

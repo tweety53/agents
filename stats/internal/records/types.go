@@ -790,6 +790,19 @@ type GuardRun struct {
 	DurationMS int       `json:"durationMs"`
 	RecordedAt time.Time `json:"recordedAt"`
 	Reasons    []string  `json:"reasons,omitempty"`
+	// Headless is the run's headless model call, nil when it made none.
+	Headless *HeadlessCall `json:"headless,omitempty"`
+}
+
+// HeadlessCall is one headless model call a guard run made -- pair-judge's
+// judge, plan-check's decider -- in guard.Headless's wire shape. CostUSD is
+// nil when the answer carried none.
+type HeadlessCall struct {
+	Role       string   `json:"role"`
+	Model      string   `json:"model"`
+	Effort     string   `json:"effort"`
+	CostUSD    *float64 `json:"costUsd,omitempty"`
+	DurationMS int      `json:"durationMs"`
 }
 
 // GuardRunOutcomes is the closed set GuardRun.Outcome accepts -- the same

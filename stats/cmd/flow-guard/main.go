@@ -62,7 +62,7 @@ func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) s
 			if _, err := projectKey(context.Background(), wt); err != nil {
 				wt = dir // an argument that is no git checkout: record under the cwd
 			}
-			recordRun(getenv, wt, name, code, string(out.line), reasons.IDs(), time.Since(start), client)
+			recordRun(getenv, wt, name, code, string(out.line), reasons.IDs(), reasons.Headless(), time.Since(start), client)
 		}
 	}
 	return code

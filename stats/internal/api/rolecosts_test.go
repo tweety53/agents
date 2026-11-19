@@ -54,6 +54,8 @@ func TestRoleOf(t *testing.T) {
 		{"reviewer", "self-review-kan-1035-analyse-review-3", "self-review-review-r"},
 		{"reviewer", "something-odd", "other"},
 		{"conductor", "", "other"},
+		{"headless", "pair-judge", "pair-judge"},
+		{"headless", "decider", "decider"},
 	} {
 		if got := api.RoleOf(c.stored, c.key); got != c.want {
 			t.Errorf("RoleOf(%q, %q) = %q, want %q", c.stored, c.key, got, c.want)
@@ -69,6 +71,7 @@ func TestRoleCostsRoute(t *testing.T) {
 		{Role: "implementer", Key: "task-1-implementer", Model: "opus", Effort: "low", StartedAt: at, EndedAt: end(10 * time.Minute), CostUSD: usd(2), Outcome: "completed"},
 		{Role: "implementer", Key: "task-2-implementer", Model: "sonnet", Effort: "low", StartedAt: at, EndedAt: end(30 * time.Minute), CostUSD: usd(1), Outcome: "failed"},
 		{Role: "implementer", Key: "task-3-implementer", Model: "opus", Effort: "low", StartedAt: at.Add(7 * 24 * time.Hour)},
+		{Role: "explorer", Key: "explore-1", Model: "sonnet", Effort: "low", StartedAt: at, EndedAt: end(time.Minute), CostUSD: usd(0.1), Outcome: "completed"},
 		{Role: "reviewer", Key: "panel-0-primary", Model: "opus", Effort: "medium", StartedAt: at, EndedAt: end(5 * time.Minute), CostUSD: usd(0.5), Outcome: "completed"},
 	}
 	table, err := os.ReadFile("../../../skills/flow-contracts/model-policy.md")
@@ -92,10 +95,10 @@ func TestRoleCostsRoute(t *testing.T) {
 	}
 	var got struct {
 		Roles []struct {
-			Role, Group                       string
-			Dispatches, Priced, Failed        int
+			Role, Group                          string
+			Dispatches, Priced, Failed           int
 			CostUSD, AgentSeconds, MedianSeconds float64
-			Pairs                             []struct {
+			Pairs                                []struct {
 				Pair       string
 				CostUSD    float64
 				Dispatches int
@@ -109,17 +112,17 @@ func TestRoleCostsRoute(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Roles) != 2 || got.Roles[0].Role != "implementer" || got.Roles[1].Role != "panel-reviewer" {
-		t.Fatalf("roles = %+v, want implementer then panel-reviewer (cost order)", got.Roles)
+	if len(got.Roles) != 3 || got.Roles[0].Role != "explorer" || got.Roles[1].Role != "implementer" || got.Roles[2].Role != "panel-reviewer" {
+		t.Fatalf("roles = %+v, want explorer (Planning), implementer, panel-reviewer: stage order before cost", got.Roles)
 	}
-	im := got.Roles[0]
+	im := got.Roles[1]
 	if im.Group != "Implementation" || im.Dispatches != 3 || im.Priced != 2 || im.Failed != 1 || im.CostUSD != 3 || im.AgentSeconds != 2400 || im.MedianSeconds != 1200 {
 		t.Errorf("implementer = %+v", im)
 	}
 	if len(im.Pairs) != 2 || im.Pairs[0].Pair != "opus · low" || im.Pairs[0].CostUSD != 2 || im.Pairs[0].Dispatches != 2 {
 		t.Errorf("implementer pairs = %+v, want opus · low first ($2, 2 dispatches)", im.Pairs)
 	}
-	if len(got.Weeks) != 1 || got.Weeks[0].Week != "2026-08-12" || got.Weeks[0].Roles["implementer"] != 3 || got.Weeks[0].Roles["panel-reviewer"] != 0.5 {
+	if len(got.Weeks) != 1 || got.Weeks[0].Week != "2026-08-12" || got.Weeks[0].Roles["implementer"] != 3 || got.Weeks[0].Roles["panel-reviewer"] != 0.5 || got.Weeks[0].Roles["explorer"] != 0.1 {
 		t.Errorf("weeks = %+v", got.Weeks)
 	}
 }

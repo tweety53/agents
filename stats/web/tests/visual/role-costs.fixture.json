@@ -1,0 +1,739 @@
+{
+ "roles": [
+  {
+   "role": "planner",
+   "group": "Planning",
+   "dispatches": 253,
+   "priced": 122,
+   "failed": 6,
+   "costUSD": 411.64130100000017,
+   "agentSeconds": 140043.91269499995,
+   "medianSeconds": 330.272542,
+   "pairs": [
+    {
+     "pair": "fable \u00b7 xhigh",
+     "costUSD": 169.25208880000002,
+     "dispatches": 22
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 119.7066562,
+     "dispatches": 35
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 61.80465079999998,
+     "dispatches": 141
+    },
+    {
+     "pair": "fable \u00b7 high",
+     "costUSD": 29.921007799999998,
+     "dispatches": 4
+    },
+    {
+     "pair": "fable \u00b7 medium",
+     "costUSD": 24.8080742,
+     "dispatches": 21
+    },
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 6.148823200000001,
+     "dispatches": 21
+    },
+    {
+     "pair": "opus \u00b7 xhigh",
+     "costUSD": 0,
+     "dispatches": 9
+    }
+   ]
+  },
+  {
+   "role": "plan-designer",
+   "group": "Planning",
+   "dispatches": 40,
+   "priced": 21,
+   "failed": 0,
+   "costUSD": 92.8086004,
+   "agentSeconds": 24575.626476,
+   "medianSeconds": 422.6539125,
+   "pairs": [
+    {
+     "pair": "fable \u00b7 xhigh",
+     "costUSD": 54.2888618,
+     "dispatches": 9
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 17.8358436,
+     "dispatches": 8
+    },
+    {
+     "pair": "fable \u00b7 high",
+     "costUSD": 16.6764716,
+     "dispatches": 3
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 2.6448634,
+     "dispatches": 8
+    },
+    {
+     "pair": "fable \u00b7 medium",
+     "costUSD": 0.7514088,
+     "dispatches": 3
+    },
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 0.6111512,
+     "dispatches": 7
+    },
+    {
+     "pair": "opus \u00b7 xhigh",
+     "costUSD": 0,
+     "dispatches": 2
+    }
+   ]
+  },
+  {
+   "role": "explorer",
+   "group": "Planning",
+   "dispatches": 200,
+   "priced": 73,
+   "failed": 7,
+   "costUSD": 54.2773728,
+   "agentSeconds": 26525.16681599999,
+   "medianSeconds": 105.0468735,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 38.75612139999999,
+     "dispatches": 102
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 9.3045916,
+     "dispatches": 93
+    },
+    {
+     "pair": "fable \u00b7 high",
+     "costUSD": 3.5921982,
+     "dispatches": 1
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 2.6244616,
+     "dispatches": 2
+    },
+    {
+     "pair": "fable \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 1
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 0,
+     "dispatches": 1
+    }
+   ]
+  },
+  {
+   "role": "decider",
+   "group": "Planning",
+   "dispatches": 50,
+   "priced": 39,
+   "failed": 0,
+   "costUSD": 19.080634200000002,
+   "agentSeconds": 2666.287602,
+   "medianSeconds": 48.5526145,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 19.080634200000002,
+     "dispatches": 50
+    }
+   ]
+  },
+  {
+   "role": "implementer",
+   "group": "Implementation",
+   "dispatches": 1065,
+   "priced": 406,
+   "failed": 27,
+   "costUSD": 1411.2102228000012,
+   "agentSeconds": 849577.5924639996,
+   "medianSeconds": 360.8588,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 807.6017072999998,
+     "dispatches": 580
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 547.1637293999999,
+     "dispatches": 168
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 45.3871395,
+     "dispatches": 62
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 11.057646600000002,
+     "dispatches": 2
+    },
+    {
+     "pair": "opus \u00b7 default",
+     "costUSD": 0,
+     "dispatches": 252
+    },
+    {
+     "pair": "sonnet \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 1
+    }
+   ]
+  },
+  {
+   "role": "gated-reviewer",
+   "group": "Implementation",
+   "dispatches": 386,
+   "priced": 218,
+   "failed": 10,
+   "costUSD": 122.08498030000004,
+   "agentSeconds": 50954.94358100001,
+   "medianSeconds": 67.3245585,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 122.08498030000004,
+     "dispatches": 305
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 81
+    }
+   ]
+  },
+  {
+   "role": "gated-re-reviewer",
+   "group": "Implementation",
+   "dispatches": 69,
+   "priced": 22,
+   "failed": 0,
+   "costUSD": 11.898497400000004,
+   "agentSeconds": 5261.502418,
+   "medianSeconds": 50.894308,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 11.898497400000004,
+     "dispatches": 55
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 0,
+     "dispatches": 14
+    }
+   ]
+  },
+  {
+   "role": "operator-asked",
+   "group": "Implementation",
+   "dispatches": 21,
+   "priced": 0,
+   "failed": 1,
+   "costUSD": 0,
+   "agentSeconds": 24800.157705999995,
+   "medianSeconds": 604.140389,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 xhigh",
+     "costUSD": 0,
+     "dispatches": 1
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 12
+    },
+    {
+     "pair": "sonnet \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 1
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 0,
+     "dispatches": 7
+    }
+   ]
+  },
+  {
+   "role": "panel-rerun",
+   "group": "Review",
+   "dispatches": 711,
+   "priced": 179,
+   "failed": 12,
+   "costUSD": 192.65242439999994,
+   "agentSeconds": 134448.474615,
+   "medianSeconds": 71.581001,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 108.41478249999999,
+     "dispatches": 427
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 81.50999479999999,
+     "dispatches": 39
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 2.7276471,
+     "dispatches": 237
+    },
+    {
+     "pair": "opus \u00b7 default",
+     "costUSD": 0,
+     "dispatches": 3
+    },
+    {
+     "pair": "sonnet \u00b7 default",
+     "costUSD": 0,
+     "dispatches": 3
+    },
+    {
+     "pair": "sonnet \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 2
+    }
+   ]
+  },
+  {
+   "role": "panel-fix",
+   "group": "Review",
+   "dispatches": 299,
+   "priced": 111,
+   "failed": 3,
+   "costUSD": 170.96242690000003,
+   "agentSeconds": 147429.06050400005,
+   "medianSeconds": 256.660261,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 157.0029186,
+     "dispatches": 190
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 8.6146222,
+     "dispatches": 27
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 4.310465700000001,
+     "dispatches": 15
+    },
+    {
+     "pair": "sonnet \u00b7 medium",
+     "costUSD": 0.5888626,
+     "dispatches": 2
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 0.4455578,
+     "dispatches": 1
+    },
+    {
+     "pair": "opus \u00b7 default",
+     "costUSD": 0,
+     "dispatches": 64
+    }
+   ]
+  },
+  {
+   "role": "panel-reviewer",
+   "group": "Review",
+   "dispatches": 309,
+   "priced": 86,
+   "failed": 6,
+   "costUSD": 111.82605670000007,
+   "agentSeconds": 93973.64760799991,
+   "medianSeconds": 153.238408,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 54.51361779999999,
+     "dispatches": 171
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 44.350679199999995,
+     "dispatches": 46
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 9.8736382,
+     "dispatches": 3
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 3.0881215000000006,
+     "dispatches": 84
+    },
+    {
+     "pair": "fable \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 5
+    }
+   ]
+  },
+  {
+   "role": "panel-merger",
+   "group": "Review",
+   "dispatches": 168,
+   "priced": 75,
+   "failed": 0,
+   "costUSD": 9.082510899999997,
+   "agentSeconds": 4253.118769,
+   "medianSeconds": 21.214048,
+   "pairs": [
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 9.082510899999997,
+     "dispatches": 168
+    }
+   ]
+  },
+  {
+   "role": "visual-verifier",
+   "group": "Verification",
+   "dispatches": 877,
+   "priced": 198,
+   "failed": 259,
+   "costUSD": 193.93806939999996,
+   "agentSeconds": 554918.8696659997,
+   "medianSeconds": 205.352831,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 168.58283759999998,
+     "dispatches": 496
+    },
+    {
+     "pair": "sonnet \u00b7 medium",
+     "costUSD": 22.8497119,
+     "dispatches": 112
+    },
+    {
+     "pair": "fable \u00b7 low",
+     "costUSD": 1.4413820000000002,
+     "dispatches": 3
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 0.6596276000000001,
+     "dispatches": 21
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 0.4045103,
+     "dispatches": 28
+    },
+    {
+     "pair": "opus \u00b7 default",
+     "costUSD": 0,
+     "dispatches": 143
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 45
+    },
+    {
+     "pair": "sonnet \u00b7 default",
+     "costUSD": 0,
+     "dispatches": 28
+    },
+    {
+     "pair": "fable \u00b7 default",
+     "costUSD": 0,
+     "dispatches": 1
+    }
+   ]
+  },
+  {
+   "role": "self-review-plan",
+   "group": "Self-review",
+   "dispatches": 115,
+   "priced": 20,
+   "failed": 1,
+   "costUSD": 77.984557,
+   "agentSeconds": 85550.76878799999,
+   "medianSeconds": 655.371276,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 76.9146614,
+     "dispatches": 105
+    },
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 1.0698956,
+     "dispatches": 10
+    }
+   ]
+  },
+  {
+   "role": "self-review-pass",
+   "group": "Self-review",
+   "dispatches": 76,
+   "priced": 20,
+   "failed": 0,
+   "costUSD": 64.8467874,
+   "agentSeconds": 35252.590047,
+   "medianSeconds": 471.73699999999997,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 64.8467874,
+     "dispatches": 76
+    }
+   ]
+  },
+  {
+   "role": "self-review-fix",
+   "group": "Self-review",
+   "dispatches": 311,
+   "priced": 58,
+   "failed": 1,
+   "costUSD": 48.041601000000014,
+   "agentSeconds": 108663.72001599998,
+   "medianSeconds": 236.367345,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 47.654359000000014,
+     "dispatches": 254
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 0.38724200000000003,
+     "dispatches": 3
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 48
+    },
+    {
+     "pair": "sonnet \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 6
+    }
+   ]
+  },
+  {
+   "role": "self-review-review-1",
+   "group": "Self-review",
+   "dispatches": 112,
+   "priced": 21,
+   "failed": 1,
+   "costUSD": 7.0264692,
+   "agentSeconds": 25001.245500000005,
+   "medianSeconds": 194.7852345,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 7.0264692,
+     "dispatches": 38
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 74
+    }
+   ]
+  },
+  {
+   "role": "self-review-review-r",
+   "group": "Self-review",
+   "dispatches": 71,
+   "priced": 7,
+   "failed": 0,
+   "costUSD": 0.7567433,
+   "agentSeconds": 5186.454209000002,
+   "medianSeconds": 30.072281,
+   "pairs": [
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 0.5695199,
+     "dispatches": 70
+    },
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 0.1872234,
+     "dispatches": 1
+    }
+   ]
+  },
+  {
+   "role": "pipeline-fix-plan",
+   "group": "Pipeline fix",
+   "dispatches": 63,
+   "priced": 21,
+   "failed": 0,
+   "costUSD": 18.5874768,
+   "agentSeconds": 14968.347666000001,
+   "medianSeconds": 161.995482,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 12.971876600000002,
+     "dispatches": 19
+    },
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 5.615600199999999,
+     "dispatches": 44
+    }
+   ]
+  },
+  {
+   "role": "pipeline-fix-fix",
+   "group": "Pipeline fix",
+   "dispatches": 93,
+   "priced": 27,
+   "failed": 0,
+   "costUSD": 7.6589816,
+   "agentSeconds": 16005.627463000004,
+   "medianSeconds": 75.859779,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 7.6589816,
+     "dispatches": 92
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 1
+    }
+   ]
+  },
+  {
+   "role": "pipeline-fix-review-1",
+   "group": "Pipeline fix",
+   "dispatches": 62,
+   "priced": 21,
+   "failed": 0,
+   "costUSD": 4.4271566,
+   "agentSeconds": 6279.8714169999985,
+   "medianSeconds": 34.427487,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 4.4271566,
+     "dispatches": 48
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 14
+    }
+   ]
+  },
+  {
+   "role": "pipeline-fix-review-r",
+   "group": "Pipeline fix",
+   "dispatches": 21,
+   "priced": 5,
+   "failed": 0,
+   "costUSD": 0.5146858,
+   "agentSeconds": 1518.9198770000003,
+   "medianSeconds": 20.667011,
+   "pairs": [
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 0.5146858,
+     "dispatches": 21
+    }
+   ]
+  },
+  {
+   "role": "other",
+   "group": "Other",
+   "dispatches": 2,
+   "priced": 0,
+   "failed": 1,
+   "costUSD": 0,
+   "agentSeconds": 136.34320300000002,
+   "medianSeconds": 68.17160150000001,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 2
+    }
+   ]
+  }
+ ],
+ "weeks": [
+  {
+   "week": "2026-11-11",
+   "roles": {
+    "decider": 18.0181918,
+    "explorer": 53.029627000000005,
+    "gated-re-reviewer": 10.226910000000002,
+    "gated-reviewer": 100.67543550000006,
+    "implementer": 1159.1746704000002,
+    "panel-fix": 127.36141439999999,
+    "panel-merger": 7.464325599999999,
+    "panel-rerun": 162.64108079999997,
+    "panel-reviewer": 93.17104370000006,
+    "pipeline-fix-fix": 4.5584679999999995,
+    "pipeline-fix-plan": 10.480592000000001,
+    "pipeline-fix-review-1": 3.1040259999999997,
+    "pipeline-fix-review-r": 0.213725,
+    "plan-designer": 88.17787940000001,
+    "planner": 386.19504520000015,
+    "self-review-fix": 45.28809400000001,
+    "self-review-pass": 59.7404542,
+    "self-review-plan": 72.21467799999999,
+    "self-review-review-1": 6.5505066,
+    "self-review-review-r": 0.5695199,
+    "visual-verifier": 95.0182381
+   }
+  },
+  {
+   "week": "2026-11-18",
+   "roles": {
+    "decider": 1.0624424000000001,
+    "explorer": 1.2477458,
+    "gated-re-reviewer": 1.6715874,
+    "gated-reviewer": 21.409544800000003,
+    "implementer": 252.03555240000017,
+    "panel-fix": 43.60101250000001,
+    "panel-merger": 1.6181853000000002,
+    "panel-rerun": 30.01134359999999,
+    "panel-reviewer": 18.655013,
+    "pipeline-fix-fix": 3.1005135999999993,
+    "pipeline-fix-plan": 8.1068848,
+    "pipeline-fix-review-1": 1.3231305999999998,
+    "pipeline-fix-review-r": 0.30096080000000003,
+    "plan-designer": 4.630721,
+    "planner": 25.446255799999996,
+    "self-review-fix": 2.753507,
+    "self-review-pass": 5.106333200000001,
+    "self-review-plan": 5.769879,
+    "self-review-review-1": 0.47596259999999996,
+    "self-review-review-r": 0.1872234,
+    "visual-verifier": 98.9198313
+   }
+  }
+ ]
+}

@@ -67,8 +67,38 @@ type Env struct {
 // Reasons collects the reason ids one guard run records: distinct ids in
 // first-seen order, safe under concurrent calls.
 type Reasons struct {
-	mu  sync.Mutex
-	ids []string
+	mu       sync.Mutex
+	ids      []string
+	headless *Headless
+}
+
+// Headless is the one headless model call a guard run made (pair-judge's
+// judge, plan-check's decider): flow-guard posts it with the run, and the
+// Role costs view counts it as a run of Role. CostUSD is nil when the
+// answer carried none.
+type Headless struct {
+	Role       string   `json:"role"`
+	Model      string   `json:"model"`
+	Effort     string   `json:"effort"`
+	CostUSD    *float64 `json:"costUsd,omitempty"`
+	DurationMS int      `json:"durationMs"`
+}
+
+// Headless returns the run's headless call, nil when it made none.
+func (r *Reasons) Headless() *Headless {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.headless
+}
+
+// recordHeadless keeps h as the run's headless call; a nil collector makes
+// it a no-op, as Reason.
+func recordHeadless(env Env, h Headless) {
+	if r := env.Reasons; r != nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.headless = &h
+	}
 }
 
 // IDs returns a copy of the recorded ids, in first-seen order.

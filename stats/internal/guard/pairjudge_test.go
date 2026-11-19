@@ -411,3 +411,20 @@ func TestPairJudgeRunsWithoutTools(t *testing.T) {
 		t.Errorf("argv %q", a)
 	}
 }
+
+// TestPairJudgeRecordsItsHeadlessCall: the judge's own model call -- role,
+// pair, cost and duration -- lands on the run's collector, which flow-guard
+// posts with the guard run, so Role costs counts it.
+func TestPairJudgeRecordsItsHeadlessCall(t *testing.T) {
+	t.Parallel()
+	stub := newPJStub(t, pjJSON("PAIR: sonnet/flow-low\nREASON: renames only", `,"total_cost_usd":0.0123`))
+	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
+	env.Reasons = &Reasons{}
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
+		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+	}
+	h := env.Reasons.Headless()
+	if h == nil || h.Role != "pair-judge" || h.Model != "sonnet" || h.Effort != "low" || h.CostUSD == nil {
+		t.Fatalf("headless = %+v, want the pair-judge call on sonnet low with its cost", h)
+	}
+}

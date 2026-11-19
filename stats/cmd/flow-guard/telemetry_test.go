@@ -124,7 +124,7 @@ func TestRecordRunPostsTheRun(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	recordRun(func(k string) string { return env[k] }, dir, "check-references", 1, "", nil, 1500*time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, dir, "check-references", 1, "", nil, nil, 1500*time.Millisecond, srv.Client())
 
 	if gotPath != "/api/v1/guard-runs/"+key {
 		t.Errorf("path = %q, want the project's guard-runs route", gotPath)
@@ -144,7 +144,7 @@ func TestRecordRunHonoursTheOptOut(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_TELEMETRY": "off"}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, time.Millisecond, srv.Client())
 	if called.Load() {
 		t.Fatal("FLOW_GUARD_TELEMETRY=off still posted a run")
 	}
@@ -161,7 +161,7 @@ func TestRecordRunIsBoundedByItsTimeout(t *testing.T) {
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
 	start := time.Now()
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, 0, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, 0, srv.Client())
 	if elapsed := time.Since(start); elapsed > 3*telemetryTimeout {
 		t.Fatalf("recordRun took %v against a hung daemon, want it bounded near %v", elapsed, telemetryTimeout)
 	}
@@ -336,5 +336,24 @@ func TestRunAndRecordFallsBackToTheCwd(t *testing.T) {
 	runAndRecord([]string{name, stale}, io.Discard, io.Discard, func(k string) string { return env[k] }, func() string { return main }, srv.Client())
 	if got.Worktree != main {
 		t.Errorf("posted worktree %q, want the cwd %q", got.Worktree, main)
+	}
+}
+
+// TestRecordRunPostsTheHeadlessCall: a run that made a headless model call
+// posts it with the run.
+func TestRecordRunPostsTheHeadlessCall(t *testing.T) {
+	t.Parallel()
+	var got guardRun
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	usd := 0.05
+	h := &guard.Headless{Role: "decider", Model: "opus", Effort: "low", CostUSD: &usd, DurationMS: 4200}
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "plan-check", 0, "", nil, h, time.Second, srv.Client())
+	if got.Headless == nil || *got.Headless.CostUSD != usd || got.Headless.Role != "decider" || got.Headless.DurationMS != 4200 {
+		t.Errorf("headless = %+v, want the decider call", got.Headless)
 	}
 }

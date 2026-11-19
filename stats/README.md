@@ -154,8 +154,11 @@ role's base and opt-in pairs editable and saved straight to the store.
 `GET /api/v1/stats/role-costs?from=&to=[&project=]` folds every dispatch started in the period by
 the allowed-pairs role it ran as — `api.RoleOf` derives it from the stored role and the dispatch
 key, a key no rule places counting as `other` — into its dispatches, cost, summed agent time
-(parallel agents add up), median run, failed count and model · effort split, costliest first, with
-the weekly spend per role. Roles are derived at read time; no stored row changes. The stats SPA's
+(parallel agents add up), median run, failed count and model · effort split, grouped by pipeline stage and costliest first within one, with
+the weekly spend per role. Roles are derived at read time; no stored row changes. Each headless model call a guard makes -- `pair-judge`'s
+judge and `plan-check`'s decider -- is posted with that guard's run (`guard_runs.headless_*`,
+migration `0082_guard_run_headless.sql`) and counted as one run of its role; calls made before
+that migration were never stored. The stats SPA's
 **Role costs** view draws it.
 
 ## Jira transitions

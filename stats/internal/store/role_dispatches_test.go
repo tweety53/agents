@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -60,5 +61,38 @@ func TestRoleDispatchesReadsThePeriodsRows(t *testing.T) {
 	all, err := st.RoleDispatches(ctx, store.Period{From: at.Add(-time.Hour), To: at.Add(2 * time.Hour)}, nil)
 	if err != nil || len(all) != 3 {
 		t.Fatalf("every project = %d rows, %v; want 3", len(all), err)
+	}
+}
+
+// TestRoleDispatchesCountsHeadlessCalls: a guard run's headless model call
+// reads back as one row of stored role "headless", its key the role it ran
+// as, ending when the run was recorded; a run with none adds no row.
+func TestRoleDispatchesCountsHeadlessCalls(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	seedChange(t, st, "p", "kan-1")
+	at := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	usd := 0.05
+	in := records.GuardRun{Guard: "plan-check", Worktree: "/w", Outcome: "clear", DurationMS: 4000, RecordedAt: at,
+		Headless: &records.HeadlessCall{Role: "decider", Model: "opus", Effort: "low", CostUSD: &usd, DurationMS: 3000}}
+	if _, err := st.RecordGuardRun(ctx, "p", in); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.RecordGuardRun(ctx, "p", records.GuardRun{Guard: "check-references", Worktree: "/w", Outcome: "clear", RecordedAt: at}); err != nil {
+		t.Fatal(err)
+	}
+	p := "p"
+	rows, err := st.RoleDispatches(ctx, store.Period{From: at.Add(-time.Hour), To: at.Add(time.Hour)}, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %+v, want the one headless call", rows)
+	}
+	r := rows[0]
+	if r.Role != "headless" || r.Key != "decider" || r.Model != "opus" || r.Effort != "low" || r.CostUSD == nil || *r.CostUSD != usd ||
+		r.EndedAt == nil || !r.EndedAt.Equal(at) || !r.StartedAt.Equal(at.Add(-3*time.Second)) || r.Outcome != "completed" {
+		t.Errorf("row = %+v", r)
 	}
 }
