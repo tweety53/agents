@@ -280,12 +280,22 @@ func TestChangeGuardRunsMatchesTheWorktreeSegment(t *testing.T) {
 	)
 	recordGuardRuns(t, st, q, run("/y/other", at), run("/z/other-worktrees/kan-1-a", at.Add(2*time.Minute)))
 
-	claimed, unclaimed, err := st.ChangeGuardRuns(ctx, p, "kan-1-a", from, to)
+	gs, err := st.ChangeGuardRuns(ctx, []store.GuardWindow{
+		{ProjectKey: p, Change: "kan-1-a", From: from, To: to},
+		{ProjectKey: q, Change: "kan-9", From: from, To: to},
+	})
 	if err != nil {
 		t.Fatalf("ChangeGuardRuns: %v", err)
 	}
+	if len(gs) != 2 {
+		t.Fatalf("len = %d, want one result per window", len(gs))
+	}
+	if len(gs[1].Claimed) != 0 || gs[1].Unclaimed != 1 {
+		t.Errorf("second window = %+v, want no claimed and 1 unclaimed", gs[1])
+	}
+	unclaimed := gs[0].Unclaimed
 	var got []string
-	for _, r := range claimed {
+	for _, r := range gs[0].Claimed {
 		got = append(got, r.Worktree)
 	}
 	want := []string{"/x/gymie-worktrees/kan-1-a", "/x/gymie-frontend-worktrees/kan-1-a/sub", "/z/other-worktrees/kan-1-a"}

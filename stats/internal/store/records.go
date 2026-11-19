@@ -415,6 +415,18 @@ type dispatchRowScanner interface {
 	Scan(dest ...any) error
 }
 
+// prefixScanner scans a row's leading column into first, then the rest
+// through the wrapped scanner's caller -- a batch read's change_id ahead
+// of a shared column list.
+type prefixScanner struct {
+	row   dispatchRowScanner
+	first any
+}
+
+func (p prefixScanner) Scan(dest ...any) error {
+	return p.row.Scan(append([]any{p.first}, dest...)...)
+}
+
 // scanDispatchRow decodes one row of dispatchColumns into a records.Dispatch,
 // mapping every nullable column back through derefOrEmpty.
 //
@@ -2406,24 +2418,32 @@ func readPanelMutations(ctx context.Context, tx pgx.Tx, changeID int64) ([]recor
 }
 
 func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Dispatch, error) {
+	m, err := readDispatchesOf(ctx, tx, []int64{changeID})
+	return m[changeID], err
+}
+
+// readDispatchesOf reads every listed change's dispatches in one query,
+// keyed by change id, each in seq order.
+func readDispatchesOf(ctx context.Context, tx pgx.Tx, changeIDs []int64) (map[int64][]records.Dispatch, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT `+dispatchColumns+`
+		SELECT change_id, `+dispatchColumns+`
 		FROM dispatches
-		WHERE change_id = $1
-		ORDER BY seq
-	`, changeID)
+		WHERE change_id = ANY($1)
+		ORDER BY change_id, seq
+	`, changeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read dispatches: %w", err)
 	}
 	defer rows.Close()
 
-	var out []records.Dispatch
+	out := map[int64][]records.Dispatch{}
 	for rows.Next() {
-		d, err := scanDispatchRow(rows)
+		var id int64
+		d, err := scanDispatchRow(prefixScanner{rows, &id})
 		if err != nil {
 			return nil, fmt.Errorf("read dispatches: scan: %w", err)
 		}
-		out = append(out, d)
+		out[id] = append(out[id], d)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read dispatches: %w", err)
@@ -2444,23 +2464,31 @@ func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.D
 // LEFT JOIN so a finding no dispatch raised still returns. Seq is the
 // identifier the wire shape carries; the row id never leaves this package.
 func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Finding, error) {
+	m, err := readFindingsOf(ctx, tx, []int64{changeID})
+	return m[changeID], err
+}
+
+// readFindingsOf reads every listed change's findings in one query, keyed
+// by change id, each in readFindings' order.
+func readFindingsOf(ctx context.Context, tx pgx.Tx, changeIDs []int64) (map[int64][]records.Finding, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.deferral_category, f.reproducer,
+		SELECT f.change_id, f.ref, d.seq, f.round, f.slot, f.severity, f.location, f.note, f.status, f.deferral_category, f.reproducer,
 		       f.supersedes, f.regression_of, fp.pattern, f.task_id
 		FROM findings f
 		LEFT JOIN dispatches d ON d.id = f.dispatch_id
 		LEFT JOIN finding_patterns fp ON fp.change_id = f.change_id AND fp.finding_ref = f.ref
-		WHERE f.change_id = $1
-		ORDER BY NULLIF(regexp_replace(f.ref, '\D', '', 'g'), '')::int NULLS LAST, f.ref
-	`, changeID)
+		WHERE f.change_id = ANY($1)
+		ORDER BY f.change_id, NULLIF(regexp_replace(f.ref, '\D', '', 'g'), '')::int NULLS LAST, f.ref
+	`, changeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read findings: %w", err)
 	}
 	defer rows.Close()
 
-	var out []records.Finding
+	out := map[int64][]records.Finding{}
 	for rows.Next() {
 		var (
+			changeID    int64
 			f           records.Finding
 			dispatchSeq *int
 			location    *string
@@ -2471,7 +2499,7 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 			pattern     *string
 			taskID      *string
 		)
-		if err := rows.Scan(&f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
+		if err := rows.Scan(&changeID, &f.Ref, &dispatchSeq, &f.Round, &f.Slot, &f.Severity, &location,
 			&f.Note, &f.Status, &category, &reproducer, &supersedes, &regression, &pattern, &taskID); err != nil {
 			return nil, fmt.Errorf("read findings: scan: %w", err)
 		}
@@ -2483,7 +2511,7 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 		f.RegressionOf = derefOrEmpty(regression)
 		f.Pattern = derefOrEmpty(pattern)
 		f.TaskID = derefOrEmpty(taskID)
-		out = append(out, f)
+		out[changeID] = append(out[changeID], f)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read findings: %w", err)

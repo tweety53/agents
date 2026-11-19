@@ -175,43 +175,79 @@ func (s *Store) GuardHealthProjects(ctx context.Context, period Period) ([]Proje
 	return out, nil
 }
 
-// ChangeGuardRuns reads the guard runs a change's run window holds
-// (decision parent-time-guard-runs). claimed are every project's runs whose
-// worktree carries the path segment -worktrees/<change> followed by "/" or
-// the end -- any repository's worktree directory of the change -- and whose
-// [recorded_at - duration_ms, recorded_at) overlaps [from, to), oldest
-// first. unclaimed counts projectKey's runs in the same window whose
+// GuardWindow is one change's run window ChangeGuardRuns reads.
+type GuardWindow struct {
+	ProjectKey, Change string
+	From, To           time.Time
+}
+
+// ChangeGuards is the guard runs one GuardWindow holds.
+type ChangeGuards struct {
+	Claimed   []records.GuardRun
+	Unclaimed int
+}
+
+// ChangeGuardRuns reads the guard runs each window holds, in two queries
+// whatever the number of windows (decision parent-time-guard-runs).
+// Claimed are every project's runs whose worktree carries the path segment
+// -worktrees/<change> followed by "/" or the end -- any repository's
+// worktree directory of the change -- and whose
+// [recorded_at - duration_ms, recorded_at) overlaps [From, To), oldest
+// first. Unclaimed counts ProjectKey's runs in the same window whose
 // worktree carries no -worktrees/ segment: main-checkout runs no change can
-// claim.
-func (s *Store) ChangeGuardRuns(ctx context.Context, projectKey, change string, from, to time.Time) (claimed []records.GuardRun, unclaimed int, err error) {
-	const inWindow = `recorded_at > $1 AND recorded_at - duration_ms * interval '1 millisecond' < $2`
-	seg := "-worktrees/" + change
+// claim. The result is in ws' order.
+func (s *Store) ChangeGuardRuns(ctx context.Context, ws []GuardWindow) ([]ChangeGuards, error) {
+	const inWindow = `g.recorded_at > w.f AND g.recorded_at - g.duration_ms * interval '1 millisecond' < w.t`
+	segs, keys := make([]string, len(ws)), make([]string, len(ws))
+	froms, tos := make([]time.Time, len(ws)), make([]time.Time, len(ws))
+	for i, w := range ws {
+		segs[i], keys[i], froms[i], tos[i] = "-worktrees/"+w.Change, w.ProjectKey, w.From, w.To
+	}
+	out := make([]ChangeGuards, len(ws))
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons
-		FROM guard_runs
-		WHERE `+inWindow+`
-		  AND (strpos(worktree, $3 || '/') > 0 OR right(worktree, length($3)) = $3)
-		ORDER BY recorded_at, id
-	`, from, to, seg)
+		SELECT w.i, g.id, g.guard, g.worktree, g.exit_code, g.outcome, g.duration_ms, g.recorded_at, g.reasons
+		FROM unnest($1::text[], $2::timestamptz[], $3::timestamptz[]) WITH ORDINALITY AS w(seg, f, t, i)
+		JOIN guard_runs g ON `+inWindow+`
+		  AND (strpos(g.worktree, w.seg || '/') > 0 OR right(g.worktree, length(w.seg)) = w.seg)
+		ORDER BY w.i, g.recorded_at, g.id
+	`, segs, froms, tos)
 	if err != nil {
-		return nil, 0, fmt.Errorf("store: guard runs of %s/%s: %w", projectKey, change, err)
+		return nil, fmt.Errorf("store: change guard runs: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var r records.GuardRun
-		if err := rows.Scan(&r.ID, &r.Guard, &r.Worktree, &r.ExitCode, &r.Outcome, &r.DurationMS, &r.RecordedAt, &r.Reasons); err != nil {
-			return nil, 0, fmt.Errorf("store: guard runs of %s/%s: scan: %w", projectKey, change, err)
+		var (
+			i int64
+			r records.GuardRun
+		)
+		if err := rows.Scan(&i, &r.ID, &r.Guard, &r.Worktree, &r.ExitCode, &r.Outcome, &r.DurationMS, &r.RecordedAt, &r.Reasons); err != nil {
+			return nil, fmt.Errorf("store: change guard runs: scan: %w", err)
 		}
-		claimed = append(claimed, r)
+		out[i-1].Claimed = append(out[i-1].Claimed, r)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("store: guard runs of %s/%s: %w", projectKey, change, err)
+		return nil, fmt.Errorf("store: change guard runs: %w", err)
 	}
-	if err := s.pool.QueryRow(ctx, `
-		SELECT COUNT(*)::int FROM guard_runs
-		WHERE `+inWindow+` AND project_key = $3 AND strpos(worktree, '-worktrees/') = 0
-	`, from, to, projectKey).Scan(&unclaimed); err != nil {
-		return nil, 0, fmt.Errorf("store: unclaimed guard runs of %s: %w", projectKey, err)
+	counts, err := s.pool.Query(ctx, `
+		SELECT w.i, COUNT(g.id)::int
+		FROM unnest($1::text[], $2::timestamptz[], $3::timestamptz[]) WITH ORDINALITY AS w(pk, f, t, i)
+		JOIN guard_runs g ON `+inWindow+` AND g.project_key = w.pk AND strpos(g.worktree, '-worktrees/') = 0
+		GROUP BY w.i
+	`, keys, froms, tos)
+	if err != nil {
+		return nil, fmt.Errorf("store: unclaimed guard runs: %w", err)
 	}
-	return claimed, unclaimed, nil
+	defer counts.Close()
+	for counts.Next() {
+		var i int64
+		var n int
+		if err := counts.Scan(&i, &n); err != nil {
+			return nil, fmt.Errorf("store: unclaimed guard runs: scan: %w", err)
+		}
+		out[i-1].Unclaimed = n
+	}
+	if err := counts.Err(); err != nil {
+		return nil, fmt.Errorf("store: unclaimed guard runs: %w", err)
+	}
+	return out, nil
 }

@@ -42,10 +42,8 @@ import (
 
 // RunTimingsStore is what the per-run route reads.
 type RunTimingsStore interface {
-	RunRecord(ctx context.Context, projectKey, change string) (records.Run, error)
-	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
-	ChangeGuardRuns(ctx context.Context, projectKey, change string, from, to time.Time) ([]records.GuardRun, int, error)
-	ListVerifyRuns(ctx context.Context, projectKey, change string) ([]records.VerifyRun, error)
+	RunInputs(ctx context.Context, refs []store.ChangeRef) ([]store.RunInputs, error)
+	ChangeGuardRuns(ctx context.Context, ws []store.GuardWindow) ([]store.ChangeGuards, error)
 	FinishedChangesInPeriod(ctx context.Context, period store.Period, project *string) ([]store.Change, error)
 	ProjectKeysByDisplayName(ctx context.Context, displayName string) ([]string, error)
 }
@@ -690,20 +688,19 @@ func lanes(stages []store.StageRun, rows []row, parent, idle []span, wallEnd int
 type runTimingsHandler struct {
 	store     RunTimingsStore
 	stateRoot string
-	saved     func(ctx context.Context) savedFile
 	now       func() time.Time
 	log       *slog.Logger
 }
 
 func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
 	project, change := r.PathValue("project"), r.PathValue("change")
-	out, err := h.run(r.Context(), project, change)
+	out, err := h.runs(r.Context(), []store.ChangeRef{{ProjectKey: project, Name: change}})
 	if err != nil {
 		status, msg := mapStoreError(h.log, fmt.Sprintf("%s for %s/%s", err.what, project, change), err.err)
 		writeError(w, status, msg)
 		return
 	}
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, out[0])
 }
 
 // runError names the read that failed computing one run.
@@ -712,59 +709,62 @@ type runError struct {
 	err  error
 }
 
-// run computes one change's result from the store; the per-run route and
-// the run-costs fold both call it, so the two never disagree.
-func (h *runTimingsHandler) run(ctx context.Context, project, change string) (RunTimings, *runError) {
-	fail := func(what string, err error) (RunTimings, *runError) { return RunTimings{}, &runError{what, err} }
-	run, err := h.store.RunRecord(ctx, project, change)
+// runs computes each change's result from a fixed number of store reads,
+// whatever the number of changes: the per-run route and the run-costs fold
+// both call it, so the two never disagree.
+func (h *runTimingsHandler) runs(ctx context.Context, refs []store.ChangeRef) ([]RunTimings, *runError) {
+	ins, err := h.store.RunInputs(ctx, refs)
 	if err != nil {
-		return fail("read the run record", err)
-	}
-	stages, _, err := h.store.QueryStageRuns(ctx, store.Query{
-		Filters: []store.Filter{
-			{Field: "project", Op: store.OpEq, Value: project},
-			{Field: "name", Op: store.OpEq, Value: change},
-		},
-		Limit: store.NoLimit,
-	})
-	if err != nil {
-		return fail("read the stage runs", err)
+		return nil, &runError{"read the run inputs", err}
 	}
 	now := h.now()
-	wall, _ := wallClock(stages, run.Dispatches, now)
-	guards, unclaimed, err := h.store.ChangeGuardRuns(ctx, project, change, time.UnixMilli(wall.from), time.UnixMilli(wall.to))
-	if err != nil {
-		return fail("read the guard runs", err)
+	ws := make([]store.GuardWindow, len(refs))
+	for i, in := range ins {
+		wall, _ := wallClock(in.Stages, in.Dispatches, now)
+		ws[i] = store.GuardWindow{ProjectKey: refs[i].ProjectKey, Change: refs[i].Name, From: time.UnixMilli(wall.from), To: time.UnixMilli(wall.to)}
 	}
+	guards, err := h.store.ChangeGuardRuns(ctx, ws)
+	if err != nil {
+		return nil, &runError{"read the guard runs", err}
+	}
+	out := make([]RunTimings, len(refs))
+	for i, in := range ins {
+		out[i] = h.compute(refs[i], in, guards[i], now)
+	}
+	return out, nil
+}
+
+// compute is one change's result from its stored rows.
+func (h *runTimingsHandler) compute(ref store.ChangeRef, in store.RunInputs, guards store.ChangeGuards, now time.Time) RunTimings {
+	project, change := ref.ProjectKey, ref.Name
 	var roots, paths []string
-	for _, s := range stages {
+	for _, s := range in.Stages {
 		if s.RepoRoot != nil && !slices.Contains(roots, *s.RepoRoot) {
 			roots = append(roots, *s.RepoRoot)
 		}
 	}
 	paths = append(paths, roots...)
-	for _, g := range guards {
+	for _, g := range guards.Claimed {
 		paths = append(paths, g.Worktree)
 	}
-	verifyRuns, err := h.store.ListVerifyRuns(ctx, project, change)
-	if err != nil {
-		return fail("read the verify runs", err)
+	saved := func(_, _, path string) ([]byte, bool) {
+		b, ok := in.Files[path]
+		return []byte(b), ok
 	}
-	saved := h.saved(ctx)
 	openers := map[string]string{}
 	b, planRead := readPlanFile(store.LiveStateRow{ProjectKey: project, Name: change, RepoRoots: roots}, change, saved)
 	if planRead {
 		openers = records.TaskOpeners(b)
 	}
 	out := computeRun(runInput{
-		Dispatches: run.Dispatches, Stages: stages, Guards: guards, Unclaimed: unclaimed,
+		Dispatches: in.Dispatches, Stages: in.Stages, Guards: guards.Claimed, Unclaimed: guards.Unclaimed,
 		Openers: openers, Repos: repoNames(paths),
-		Findings: run.Findings, VerifyRuns: verifyRuns, PlanRead: planRead,
+		Findings: in.Findings, VerifyRuns: in.VerifyRuns, PlanRead: planRead,
 		Journal:    h.journal(project, change),
-		Departures: departures(project, change, run.Dispatches, roots, saved),
+		Departures: departures(project, change, in.Dispatches, roots, saved),
 	}, now)
 	out.Project, out.Change = project, change
-	return out, nil
+	return out
 }
 
 // journalCount is the change's pending record writes, served as a number,
@@ -1128,7 +1128,7 @@ func foldRunCosts(results []RunTimings) runCosts {
 }
 
 // costs serves GET /api/v1/stats/run-costs: every finished run in the
-// period computed by the per-run function and folded.
+// period read in one batch, computed by the per-run function and folded.
 func (h *runTimingsHandler) costs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	period, project, err := parsePeriodAndProject(ctx, h.store, r.URL.Query())
@@ -1142,15 +1142,17 @@ func (h *runTimingsHandler) costs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, msg)
 		return
 	}
-	results := make([]RunTimings, 0, len(changes))
-	for _, c := range changes {
-		res, rerr := h.run(ctx, c.ProjectKey, c.Name)
-		if rerr != nil {
-			status, msg := mapStoreError(h.log, fmt.Sprintf("%s for %s/%s", rerr.what, c.ProjectKey, c.Name), rerr.err)
-			writeError(w, status, msg)
-			return
-		}
-		results = append(results, res)
+	refs := make([]store.ChangeRef, len(changes))
+	for i, c := range changes {
+		refs[i] = store.ChangeRef{ProjectKey: c.ProjectKey, Name: c.Name}
+	}
+	// One unreadable run fails the whole response: a fold missing a run
+	// would understate every total silently.
+	results, rerr := h.runs(ctx, refs)
+	if rerr != nil {
+		status, msg := mapStoreError(h.log, rerr.what+" for run-costs", rerr.err)
+		writeError(w, status, msg)
+		return
 	}
 	writeJSON(w, http.StatusOK, foldRunCosts(results))
 }

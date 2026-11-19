@@ -745,9 +745,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	}
 
 	sqlText := fmt.Sprintf(`
-		SELECT sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
-		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics, sr.auto_opened, sr.request_n,
-		       c.name, `+projectKeyExpr+`
+		SELECT `+stageRunSelect+`
 		FROM stage_runs sr
 		LEFT JOIN changes c ON c.id = sr.change_id
 		%s
@@ -761,31 +759,8 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	}
 	defer rows.Close()
 
-	var out []StageRun
-	for rows.Next() {
-		var (
-			run          StageRun
-			metrics      []byte
-			sessionID    *string
-			sessionToken *string
-			changeName   *string
-			projectKey   *string
-		)
-		if err := rows.Scan(
-			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
-			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened, &run.RequestN,
-			&changeName, &projectKey,
-		); err != nil {
-			return nil, 0, fmt.Errorf("store: query stage runs: scan: %w", err)
-		}
-		run.SessionID = sessionID
-		run.SessionToken = sessionToken
-		run.ChangeName = changeName
-		run.ProjectKey = projectKey
-		run.Metrics = metrics
-		out = append(out, run)
-	}
-	if err := rows.Err(); err != nil {
+	out, err := scanStageRuns(rows)
+	if err != nil {
 		return nil, 0, fmt.Errorf("store: query stage runs: %w", err)
 	}
 
@@ -953,4 +928,42 @@ func (s *Store) RetokenStageRun(ctx context.Context, id int64, sessionToken stri
 		return fmt.Errorf("%w: %d", ErrStageRunNotFound, id)
 	}
 	return nil
+}
+
+// stageRunSelect is the column list scanStageRuns scans, over stage_runs sr
+// LEFT JOIN changes c.
+const stageRunSelect = `sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
+		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics, sr.auto_opened, sr.request_n,
+		       c.name, ` + projectKeyExpr
+
+// scanStageRuns scans rows selecting stageRunSelect.
+func scanStageRuns(rows pgx.Rows) ([]StageRun, error) {
+	var out []StageRun
+	for rows.Next() {
+		var (
+			run          StageRun
+			metrics      []byte
+			sessionID    *string
+			sessionToken *string
+			changeName   *string
+			projectKey   *string
+		)
+		if err := rows.Scan(
+			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
+			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened, &run.RequestN,
+			&changeName, &projectKey,
+		); err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+		run.SessionID = sessionID
+		run.SessionToken = sessionToken
+		run.ChangeName = changeName
+		run.ProjectKey = projectKey
+		run.Metrics = metrics
+		out = append(out, run)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

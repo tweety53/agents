@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -224,26 +225,44 @@ func TestRunTimingsRepoFromTheKeySuffix(t *testing.T) {
 	}
 }
 
-type runTimingsFake struct{}
+// runTimingsFake serves rtInput for kan-1-a and its first three rows for
+// kan-2-b. batches, when set, counts its batch reads; gone lists a
+// finished change no store holds.
+type runTimingsFake struct {
+	batches *atomic.Int32
+	gone    bool
+}
 
-func (runTimingsFake) RunRecord(_ context.Context, project, change string) (records.Run, error) {
-	switch change {
-	case "kan-1-a":
-		return records.Run{Change: change, Dispatches: rtInput().Dispatches}, nil
-	case "kan-2-b":
-		return records.Run{Change: change, Dispatches: rtInput().Dispatches[:3]}, nil
+func (f runTimingsFake) RunInputs(_ context.Context, refs []store.ChangeRef) ([]store.RunInputs, error) {
+	if f.batches != nil {
+		f.batches.Add(1)
 	}
-	return records.Run{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, project, change)
+	out := make([]store.RunInputs, len(refs))
+	for i, r := range refs {
+		ds := rtInput().Dispatches
+		switch r.Name {
+		case "kan-1-a":
+		case "kan-2-b":
+			ds = ds[:3]
+		default:
+			return nil, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, r.ProjectKey, r.Name)
+		}
+		out[i] = store.RunInputs{Dispatches: ds, Stages: rtInput().Stages}
+	}
+	return out, nil
 }
 
 var rtChanges = []store.Change{{ProjectKey: "gymie-7c1f238a", Name: "kan-1-a"}, {ProjectKey: "agents-0a1b2c3d", Name: "kan-2-b"}}
 
-func (runTimingsFake) FinishedChangesInPeriod(_ context.Context, _ store.Period, project *string) ([]store.Change, error) {
+func (f runTimingsFake) FinishedChangesInPeriod(_ context.Context, _ store.Period, project *string) ([]store.Change, error) {
 	var out []store.Change
 	for _, c := range rtChanges {
 		if project == nil || *project == c.ProjectKey {
 			out = append(out, c)
 		}
+	}
+	if f.gone {
+		out = append(out, store.Change{ProjectKey: "gymie-7c1f238a", Name: "kan-gone"})
 	}
 	return out, nil
 }
@@ -257,16 +276,15 @@ func (runTimingsFake) ProjectKeysByDisplayName(_ context.Context, name string) (
 	return nil, nil
 }
 
-func (runTimingsFake) QueryStageRuns(context.Context, store.Query) ([]store.StageRun, int, error) {
-	return rtInput().Stages, 2, nil
-}
-
-func (runTimingsFake) ListVerifyRuns(context.Context, string, string) ([]records.VerifyRun, error) {
-	return nil, nil
-}
-
-func (runTimingsFake) ChangeGuardRuns(context.Context, string, string, time.Time, time.Time) ([]records.GuardRun, int, error) {
-	return rtInput().Guards, 1, nil
+func (f runTimingsFake) ChangeGuardRuns(_ context.Context, ws []store.GuardWindow) ([]store.ChangeGuards, error) {
+	if f.batches != nil {
+		f.batches.Add(1)
+	}
+	out := make([]store.ChangeGuards, len(ws))
+	for i := range out {
+		out[i] = store.ChangeGuards{Claimed: rtInput().Guards, Unclaimed: 1}
+	}
+	return out, nil
 }
 
 // TestRunTimingsRouteServesTheResult: the per-run route answers the
@@ -712,5 +730,37 @@ func TestRunTimingsCountsIdenticalGuardRunsOnce(t *testing.T) {
 	}, rtAt(20))
 	if got := out.Totals.ParentCommandRuns; got != 1 {
 		t.Errorf("parent command runs = %d, want 1", got)
+	}
+}
+
+// TestRunCostsReadsEveryRunInOneBatch: run-costs reads all its finished
+// runs in one RunInputs and one ChangeGuardRuns call, however many there
+// are, and one run the store cannot read fails the whole response.
+func TestRunCostsReadsEveryRunInOneBatch(t *testing.T) {
+	t.Parallel()
+	period := "/api/v1/stats/run-costs?from=2034-01-01T00:00:00Z&to=2034-02-01T00:00:00Z"
+	for _, gone := range []bool{false, true} {
+		var batches atomic.Int32
+		srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, nil,
+			WithRunTimings(runTimingsFake{batches: &batches, gone: gone}))
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
+		ts := httptest.NewServer(srv.Handler())
+		resp, err := http.Get(ts.URL + period)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		ts.Close()
+		switch {
+		case gone && resp.StatusCode != http.StatusNotFound:
+			t.Errorf("unreadable run: status %d, want 404: %s", resp.StatusCode, body)
+		case !gone && resp.StatusCode != http.StatusOK:
+			t.Errorf("status %d: %s", resp.StatusCode, body)
+		case !gone && batches.Load() != 2:
+			t.Errorf("batch reads = %d for %d runs, want 2", batches.Load(), len(rtChanges))
+		}
 	}
 }
