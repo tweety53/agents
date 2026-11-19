@@ -153,7 +153,7 @@ commit's body as `Outstanding: <text>`.
 
 `commit` reshapes, renders the ledger, runs the guarded commit chain per worktree in `## Merge order`
 and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-split`,
+(`skills/flow-contracts/finish-contract-run1.md`). Every stop there — `reshape`, `commit-two`,
 `push`, `pre-reshape` — is reported with the script's lines and leaves the change at
 `IN_PROGRESS`.
 

@@ -440,7 +440,7 @@ budget is the first final pass and its one repeat — three whole-roster reads c
 silence closes the panel, and running beyond the cap is an explicit choice, put once per run.
 
 **Rejected — a hard stop at the cap, no prompt.** A silent close is the over-cap failure
-`flow-guard check-panel-diff-size` refuses for the same reason: a decision the operator did not see. The
+the since-deleted `check-panel-diff-size` refuses for the same reason: a decision the operator did not see. The
 prompt is the bound; the operator-prompts contract's 🤖 marker in the handoff is what shows the
 silent default fired.
 
@@ -508,7 +508,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > never left for a reviewer to
 > catch next round (gymie kan-454, gymie KAN-459).
 
-> Scoped to the `flow-guard fold-fixup` route (kan-918): an on-top commit carrying `Flow-Key:` is outside
+> Scoped to the the since-deleted `fold-fixup` route (kan-918): an on-top commit carrying `Flow-Key:` is outside
 > every task, and `check-task-records`' rule 2 holds a task's `**Files:**` to that task's own
 > commit, so task 3's fields widened for an on-top fix were refused at verify and reverted.
 
@@ -615,7 +615,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > commit small enough to hold in one glance added nothing the guard and the whole-branch panel did
 > not already cover, and roughly a third of that run's ninety dispatches were of that shape. Forty
 > changed lines is the boundary below which a diff still is one glance. It is a recorded constant
-> like `flow-guard check-panel-diff-size`'s cap — re-tune it by editing this sentence with the reason,
+> like the since-deleted `check-panel-diff-size`'s cap — re-tune it by editing this sentence with the reason,
 > never by arguing it away per run.
 
 ### implement.md — The record carries its own corrections
@@ -817,13 +817,13 @@ The first line is the file's own answer to the reviewer who reads it as anything
 
 ### review-panel.md — Bundled dispatch (KAN-857)
 
-The same plan-tree discipline rides every round, re-run rounds included: `flow-guard panel-round-begins` takes the round's snapshot itself, to `<abs-worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt`, overwriting a file an earlier invocation left, pass 1's `mutation+failure-modes` call keeping the round's — never by hand — and the round's `panel-<round>-merger` row's end runs `flow-guard check-plan-unchanged verify` against that file before any finding is recorded, refusing the end on exit 1 or 2 or a missing file — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
+The same plan-tree discipline rides every round, re-run rounds included: the since-deleted `panel-round-begins` takes the round's snapshot itself, to `<abs-worktree>/.superpowers/sdd/plan-snapshot-panel-<round>.txt`, overwriting a file an earlier invocation left, pass 1's `mutation+failure-modes` call keeping the round's — never by hand — and the round's `panel-<round>-merger` row's end runs the since-deleted `check-plan-unchanged` verify` against that file before any finding is recorded, refusing the end on exit 1 or 2 or a missing file — the slots read those artifacts, and a flight that changed them has invalidated the reviews that flew.
 
 Exit 1 or 2 stops the round the same way the per-task reviewer's stop works (the plan-tree rule of **4. Execute (SDD + TDD)**, `skills/flow/implement.md`); the slots' own read-only briefs are the first line of defense, this verify is the assertion that a breach cannot slide past as a clean report.
 
 ### review-panel.md — the reproducer rule (KAN-857)
 
-`flow-guard prove-reproducer <worktree> <pre-fix-ref> <reproducer-path>` runs both legs and prints both exits for the record — the detached scratch worktree it materializes at the pre-fix commit, with the script copied to the same worktree-relative path inside it, is what keeps the pre-fix leg off the already-fixed live tree, the failure mode where a pre-fix check silently reads a fixed worktree and proves nothing.
+the since-deleted `prove-reproducer` <worktree> <pre-fix-ref> <reproducer-path>` runs both legs and prints both exits for the record — the detached scratch worktree it materializes at the pre-fix commit, with the script copied to the same worktree-relative path inside it, is what keeps the pre-fix leg off the already-fixed live tree, the failure mode where a pre-fix check silently reads a fixed worktree and proves nothing.
 
 ### review-panel.md — the rendered record's format (KAN-857; the renderer writes it, stats/internal/records/render.go)
 

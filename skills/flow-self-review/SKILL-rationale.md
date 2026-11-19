@@ -23,12 +23,12 @@ operator's request (2026-10-14).
 
 The fixer's commits carry no `Task-Id:` trailer and never write
 `<agents repo>/spectre/changes/`, following `/flow`'s own split of task commits from planning
-commits. A trailered commit touching the plan is what `flow-guard check-task-commit-planning-paths`
-reports as a sweep and what `flow-guard check-task-records` reports as an undeclared file, and `flow-guard check-fast-route-record` rejects a `Task-Id:` trailer naming no task of the run's own plan on a `/flow-fast` branch,
-where the fixes ride `<name>` itself. No guard needs the trailer here — `flow-guard check-task-records`
+commits. A trailered commit touching the plan is what the since-deleted `check-task-commit-planning-paths`
+reports as a sweep and what the since-deleted `check-task-records` reports as an undeclared file, and `flow-guard check-fast-route-record` rejects a `Task-Id:` trailer naming no task of the run's own plan on a `/flow-fast` branch,
+where the fixes ride `<name>` itself. No guard needs the trailer here — the since-deleted `check-task-records`
 finds a task's commit by its `**Commit:**` subject, and `flow-guard close-task` never runs on this loop — and
 on `spectre/<name>` a `Task-Id: <n>` would name the change's own task of that number. The ticks ride
-the archive commit, made before item 4's lint lines because `flow-guard check-task-records` reads a live
+the archive commit, made before item 4's lint lines because the since-deleted `check-task-records` reads a live
 unticked task whose subject a commit carries as a violation.
 
 ## SKILL.md — 2. Read the bundle and run the eight angles
