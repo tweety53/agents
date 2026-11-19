@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -58,83 +59,120 @@ func testDSN(dbName string) string {
 	return out
 }
 
-// newUitestDatabase creates a uniquely-named database whose name ends in
-// "_uitest" -- so requireUitestDatabase admits it -- and registers a
-// cleanup that drops it once the test finishes. It never touches the live
-// "flow" database or the shared "flow_uitest" one: both are named
-// explicitly here only as the admin connection used to create and drop
-// this test's own, disposable database. It skips cleanly, with a clear
-// message, when the compose stack is not reachable, exactly as
-// internal/store's own per-test-database helper does.
-func newUitestDatabase(t *testing.T) string {
+// seeded is the one fixture database every seed test reads: seedFixture
+// writes it once, behind the pricing table flowd seeds before make
+// ui-test-up runs the seeder (main.go), and no test writes to it, so each
+// asserts on the same rows a per-test seed would have written.
+var seeded struct {
+	once   sync.Once
+	dsn    string
+	st     *store.Store
+	err    error
+	skip   error
+	dbName string
+}
+
+// TestMain drops the shared fixture database once every test has run.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if seeded.dbName != "" {
+		if seeded.st != nil {
+			seeded.st.Close()
+		}
+		if err := dropUitestDatabase(seeded.dbName); err != nil {
+			fmt.Fprintf(os.Stderr, "drop test database %s: %v\n", seeded.dbName, err)
+		}
+	}
+	os.Exit(code)
+}
+
+// seededStore returns the store on the shared fixture database, creating,
+// migrating and seeding it on first use. The database's name ends in
+// "_uitest", so requireUitestDatabase admits it; it is never the live "flow"
+// database or the shared "flow_uitest" one. It skips cleanly when the
+// compose stack is not reachable, as internal/storetest does.
+func seededStore(t *testing.T) *store.Store {
 	t.Helper()
+	seeded.once.Do(seedOnce)
+	if seeded.skip != nil {
+		t.Skipf("flow-postgres compose stack not reachable: %v", seeded.skip)
+	}
+	if seeded.err != nil {
+		t.Fatalf("seed fixture database: %v", seeded.err)
+	}
+	return seeded.st
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func seedOnce() {
+	ctx := context.Background()
+	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-
-	adminPool, err := pgxpool.New(ctx, adminDSN())
+	adminPool, err := pgxpool.New(pingCtx, adminDSN())
+	if err == nil {
+		err = adminPool.Ping(pingCtx)
+	}
 	if err != nil {
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
+		if adminPool != nil {
+			adminPool.Close()
+		}
+		seeded.skip = err
+		return
 	}
-	if err := adminPool.Ping(ctx); err != nil {
-		adminPool.Close()
-		t.Skipf("flow-postgres compose stack not reachable: %v", err)
-	}
-
 	dbName := fmt.Sprintf("uitest_seed_test_%d_%d_uitest", os.Getpid(), time.Now().UnixNano())
-	ident := pgx.Identifier{dbName}.Sanitize()
-	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
-		adminPool.Close()
-		t.Fatalf("create test database %s: %v", dbName, err)
-	}
+	_, err = adminPool.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{dbName}.Sanitize())
 	adminPool.Close()
+	if err != nil {
+		seeded.err = fmt.Errorf("create %s: %w", dbName, err)
+		return
+	}
+	seeded.dbName = dbName
+	seeded.dsn = testDSN(dbName)
 
-	t.Cleanup(func() {
-		dropCtx, dropCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer dropCancel()
+	st, err := store.Open(ctx, seeded.dsn)
+	if err != nil {
+		seeded.err = fmt.Errorf("open store: %w", err)
+		return
+	}
+	seeded.st = st
+	if err := st.RunMigrations(ctx); err != nil {
+		seeded.err = fmt.Errorf("run migrations: %w", err)
+		return
+	}
+	if err := st.SeedPricing(ctx); err != nil {
+		seeded.err = fmt.Errorf("seed pricing: %w", err)
+		return
+	}
+	if err := seedFixture(ctx, st); err != nil {
+		seeded.err = fmt.Errorf("seedFixture: %w", err)
+	}
+}
 
-		dropPool, err := pgxpool.New(dropCtx, adminDSN())
-		if err != nil {
-			t.Logf("drop test database %s: reconnect failed: %v", dbName, err)
-			return
-		}
-		defer dropPool.Close()
-
-		if _, err := dropPool.Exec(dropCtx, "DROP DATABASE IF EXISTS "+ident+" WITH (FORCE)"); err != nil {
-			t.Logf("drop test database %s: %v", dbName, err)
-		}
-	})
-
-	return testDSN(dbName)
+func dropUitestDatabase(dbName string) error {
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, adminDSN())
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	_, err = pool.Exec(ctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{dbName}.Sanitize()+" WITH (FORCE)")
+	return err
 }
 
 // TestSeedPopulatesFixture proves seedFixture writes what
 // the UI-test-stack requirement "The test stack starts populated"
 // requires: two projects, a change in every one of the three pipeline
 // states, and at least one stage run carrying token usage a cost view
-// could render. It runs against its own throwaway "..._uitest" database,
+// could render. It runs against the package's throwaway "..._uitest" database,
 // never the live "flow" database or the shared "flow_uitest" one.
 // smoke: core — the seeder a store change can break
 func TestSeedPopulatesFixture(t *testing.T) {
-	dsn := newUitestDatabase(t)
-	if err := requireUitestDatabase(dsn); err != nil {
+	t.Parallel()
+	st := seededStore(t)
+	if err := requireUitestDatabase(seeded.dsn); err != nil {
 		t.Fatalf("guard refused the test's own throwaway database: %v", err)
 	}
 
 	ctx := t.Context()
-
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	projectKeys := make(map[string]bool)
 	statesSeen := make(map[store.State]bool)
@@ -278,19 +316,9 @@ func TestSeedPopulatesFixture(t *testing.T) {
 // three landed requests.
 func TestSeedInteractiveSessions(t *testing.T) {
 	smoke.Heavy(t)
-	dsn := newUitestDatabase(t)
+	t.Parallel()
+	st := seededStore(t)
 	ctx := t.Context()
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	states := func(change string) []string {
 		t.Helper()
@@ -330,19 +358,9 @@ func TestSeedInteractiveSessions(t *testing.T) {
 // in an agents-<8 hex> project and in one other.
 func TestSeedTrendFinishedChanges(t *testing.T) {
 	smoke.Heavy(t)
-	dsn := newUitestDatabase(t)
+	t.Parallel()
+	st := seededStore(t)
 	ctx := t.Context()
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	current := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC) // fixtureNow's Wednesday week
 	from := current.Add(-11 * 7 * 24 * time.Hour)
@@ -406,20 +424,9 @@ func TestSeedTrendFinishedChanges(t *testing.T) {
 // key, so Reviewers reads their spend (decision reviewers-seed-agent-ids).
 func TestSeedPricesReviewerDispatches(t *testing.T) {
 	smoke.Heavy(t)
-	dsn := newUitestDatabase(t)
+	t.Parallel()
+	st := seededStore(t)
 	ctx := t.Context()
-
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	period := store.Period{
 		From: time.Date(2026, 7, 16, 9, 0, 0, 0, time.UTC),
@@ -453,20 +460,9 @@ func TestSeedPricesReviewerDispatches(t *testing.T) {
 // and False alarms ranks, and enough rows to run past a 1024px viewport.
 func TestSeedDrawsReviewerStates(t *testing.T) {
 	smoke.Heavy(t)
-	dsn := newUitestDatabase(t)
+	t.Parallel()
+	st := seededStore(t)
 	ctx := t.Context()
-
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	period := store.Period{From: fixtureNow.Add(-30 * 24 * time.Hour), To: fixtureNow}
 	project := "uitest-alpha"
@@ -526,19 +522,9 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 // of PINNED_QUERY's window.
 func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 	smoke.Heavy(t)
-	dsn := newUitestDatabase(t)
+	t.Parallel()
+	st := seededStore(t)
 	ctx := t.Context()
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	seeded := regexp.MustCompile(`^kan-6\d\d-decisions$`)
 	rows, err := st.Decisions(ctx, store.Period{From: fixtureNow.Add(-30 * 24 * time.Hour), To: fixtureNow}, nil)
@@ -619,19 +605,9 @@ func TestSeedDecisionsDrawsEveryState(t *testing.T) {
 // leader, and runs outside 7d and outside 30d.
 func TestSeedGuardRunsDrawEveryState(t *testing.T) {
 	smoke.Heavy(t)
-	dsn := newUitestDatabase(t)
+	t.Parallel()
+	st := seededStore(t)
 	ctx := t.Context()
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	window := func(days int) store.Period {
 		return store.Period{From: fixtureNow.Add(-time.Duration(days) * 24 * time.Hour), To: fixtureNow}
@@ -709,24 +685,9 @@ func TestSeedGuardRunsDrawEveryState(t *testing.T) {
 // prototype draws, so its computed result fills every totals tile.
 func TestSeedRunCostsFixture(t *testing.T) {
 	smoke.Heavy(t)
-	dsn := newUitestDatabase(t)
+	t.Parallel()
+	st := seededStore(t)
 	ctx := t.Context()
-	st, err := store.Open(ctx, dsn)
-	if err != nil {
-		t.Fatalf("open store: %v", err)
-	}
-	defer st.Close()
-	if err := st.RunMigrations(ctx); err != nil {
-		t.Fatalf("run migrations: %v", err)
-	}
-	// flowd seeds the rate table before make ui-test-up runs the seeder
-	// (main.go), and RecordDispatch's metrics are priced against it.
-	if err := st.SeedPricing(ctx); err != nil {
-		t.Fatalf("seed pricing: %v", err)
-	}
-	if err := seedFixture(ctx, st); err != nil {
-		t.Fatalf("seedFixture: %v", err)
-	}
 
 	pinnedFrom := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	for _, name := range []string{"kan-301-run-costs-a", "kan-302-run-costs-b"} {

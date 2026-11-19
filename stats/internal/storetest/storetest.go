@@ -38,8 +38,9 @@ import (
 
 // reachTimeout bounds the reachability probe alone: a ping on a reachable
 // server answers in milliseconds and a down stack refuses at once, so the
-// bound does not depend on load. It never bounds setup work.
-const reachTimeout = 3 * time.Second
+// bound does not depend on load. It never bounds setup work. A var only so
+// TestMigrationWaitsOutSlowSetupInsteadOfTimingOut can outwait a short one.
+var reachTimeout = 3 * time.Second
 
 // AdminDSN is the DSN used to create and drop test databases: the
 // flow-postgres compose stack on host port 5433, overridable through

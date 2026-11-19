@@ -355,6 +355,7 @@ func TestExperimentStatsExtraBundleRoles(t *testing.T) {
 		"panel-reviewer": 3, "panel-sanity-efficiency": 1, "panel-mutation-failure": 2, "panel-rerun": 4,
 	} {
 		t.Run(role, func(t *testing.T) {
+			t.Parallel()
 			fx := newStatsFixture(t)
 			id := fx.open(map[string][]string{role: {"opus/flow-low"}})
 			fx.change("e1", `{}`, fx.day(-1))

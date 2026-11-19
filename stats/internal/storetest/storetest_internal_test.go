@@ -67,11 +67,14 @@ func TestDropLeftoverDatabasesRemovesALeftover(t *testing.T) {
 // the deterministic stand-in for a server too loaded to finish within a
 // fixed deadline -- and migrateDatabase must wait for it and succeed. With a
 // reachTimeout-sized deadline on the migration, it fails with
-// "context deadline exceeded".
+// "context deadline exceeded". reachTimeout is shortened once the database
+// exists, so the hold outlasts it without waiting out the real 3 seconds.
 func TestMigrationWaitsOutSlowSetupInsteadOfTimingOut(t *testing.T) {
 	smoke.Heavy(t)
 	ctx := context.Background()
 	dbName := NewDatabase(t)
+	defer func(was time.Duration) { reachTimeout = was }(reachTimeout)
+	reachTimeout = 100 * time.Millisecond
 
 	holder, err := pgx.Connect(ctx, dbName)
 	if err != nil {
@@ -84,7 +87,7 @@ func TestMigrationWaitsOutSlowSetupInsteadOfTimingOut(t *testing.T) {
 	}
 	released := make(chan error, 1)
 	go func() {
-		time.Sleep(reachTimeout + time.Second)
+		time.Sleep(3 * reachTimeout)
 		_, err := holder.Exec(ctx, "SELECT pg_advisory_unlock($1)", int64(migrationsLockKey))
 		released <- err
 	}()
