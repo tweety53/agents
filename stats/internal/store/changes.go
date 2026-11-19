@@ -597,4 +597,3 @@ func scanChange(row rowScanner) (Change, error) {
 	}
 	return c, nil
 }
-

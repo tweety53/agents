@@ -233,8 +233,6 @@ type fakeStore struct {
 	trendFinishedChangesErr error
 	reviewers               []store.ReviewerRow
 	reviewersErr            error
-	decisionRows            []store.DecisionRow
-	decisionRowsErr         error
 
 	// lastStatsProject records the project pointer passed to whichever
 	// aggregation method a stats test just called, so a test can assert

@@ -69,11 +69,6 @@ type StatsStore interface {
 	Reviewers(ctx context.Context, period store.Period, project, model *string) ([]store.ReviewerRow, error)
 	// ReviewerProjects backs the reviewers response's projects (decision reviewers-projects-dispatch-count).
 	ReviewerProjects(ctx context.Context, period store.Period) ([]store.ProjectDispatches, error)
-	// Decisions backs the "decisions" view (design.md's "Stats views ›
-	// decisions", task 17): one row per recorded planner decision joined to
-	// its own run's totals. It takes no model filter -- a decision spans
-	// models (store.DecisionRow's own doc comment).
-	Decisions(ctx context.Context, period store.Period, project *string) ([]store.DecisionRow, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	// GuardHealth backs the flow-health view's "guard-health" rows: one
 	// per guard that ran in the window and project (store/health.go).
@@ -138,7 +133,6 @@ const (
 	viewWeeklyCosts       viewName = "weekly-costs"
 	viewWeeklyModelEffort viewName = "weekly-model-effort-costs"
 	viewReviewers         viewName = "reviewers"
-	viewDecisions         viewName = "decisions"
 	viewGuardHealth       viewName = "guard-health"
 	viewSelfReview        viewName = "self-review"
 	viewReviewDynamics    viewName = "review-dynamics"
@@ -150,7 +144,7 @@ const (
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend, viewWeeklyCosts,
-	viewWeeklyModelEffort, viewReviewers, viewDecisions,
+	viewWeeklyModelEffort, viewReviewers,
 	viewGuardHealth, viewSelfReview, viewReviewDynamics,
 }
 
@@ -675,14 +669,6 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toReviewerDTOs(reviewers), 0, ""
 
-	case viewDecisions:
-		decisions, err := h.store.Decisions(ctx, period, project)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "decisions", err)
-			return nil, s, m
-		}
-		return toDecisionDTOs(decisions), 0, ""
-
 	case viewGuardHealth, viewSelfReview:
 		return h.healthRows(ctx, name, period, project, model)
 
@@ -1199,65 +1185,6 @@ func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
 			Dispatches: r.Dispatches, Changes: r.Changes,
 			Critical: r.Critical, Important: r.Important, Minor: r.Minor,
 			CostUSD: r.CostUSD, PricedDispatches: r.PricedDispatches, Withdrawn: r.Withdrawn,
-		}
-	}
-	return out
-}
-
-type decisionRowDTO struct {
-	Project    string `json:"project"`
-	Change     string `json:"change"`
-	RecordedAt string `json:"recordedAt"`
-
-	Class      string `json:"class"`
-	Overridden bool   `json:"overridden"`
-	Execution  string `json:"execution"`
-
-	ImplementerModel  string `json:"implementerModel"`
-	ImplementerEffort string `json:"implementerEffort"`
-	Fixer             string `json:"fixer"`
-	RerunDispatch     string `json:"rerunDispatch"`
-
-	RosterSize       int    `json:"rosterSize"`
-	Compact          bool   `json:"compact"`
-	ExperimentalSlot string `json:"experimentalSlot"`
-	Rerun            string `json:"rerun"`
-
-	Grouping          string `json:"grouping"`
-	Dispatches        string `json:"dispatches"`
-	ImplementerGroups string `json:"implementerGroups"`
-
-	WallClockSeconds float64 `json:"wallClockSeconds"`
-
-	InputTokens     int64   `json:"inputTokens"`
-	OutputTokens    int64   `json:"outputTokens"`
-	CacheReadTokens int64   `json:"cacheReadTokens"`
-	CostUsd         float64 `json:"costUsd"`
-
-	Critical  int `json:"critical"`
-	Important int `json:"important"`
-	Minor     int `json:"minor"`
-	FixRounds int `json:"fixRounds"`
-
-	Fallbacks int `json:"fallbacks"`
-	TimedOut  int `json:"timedOut"`
-}
-
-func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
-	out := make([]decisionRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = decisionRowDTO{
-			Project: r.Project, Change: r.Change, RecordedAt: r.RecordedAt.UTC().Format(time.RFC3339Nano),
-			Class: r.Class, Overridden: r.Overridden, Execution: r.Execution,
-			ImplementerModel: r.ImplementerModel, ImplementerEffort: r.ImplementerEffort,
-			Fixer: r.Fixer, RerunDispatch: r.RerunDispatch,
-			RosterSize: r.RosterSize, Compact: r.Compact, ExperimentalSlot: r.ExperimentalSlot, Rerun: r.Rerun,
-			Grouping: r.Grouping, Dispatches: r.Dispatches, ImplementerGroups: r.ImplementerGroups,
-			WallClockSeconds: r.WallClockSeconds,
-			InputTokens:      r.InputTokens, OutputTokens: r.OutputTokens, CacheReadTokens: r.CacheReadTokens,
-			CostUsd:  r.CostUsd,
-			Critical: r.Critical, Important: r.Important, Minor: r.Minor, FixRounds: r.FixRounds,
-			Fallbacks: r.Fallbacks, TimedOut: r.TimedOut,
 		}
 	}
 	return out

@@ -1009,4 +1009,3 @@ func TestFinishedAtByChangeIsTheLatestOfStateAndRuns(t *testing.T) {
 		}
 	}
 }
-

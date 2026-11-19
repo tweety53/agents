@@ -241,7 +241,7 @@ every `/flow*` command writes through the `flow` CLI.**
 
 **Web UI** at http://127.0.0.1:4173, filterable by project, period and model (`stats/web/src/views/`):
 - state board, stage leaderboard, cost and token trend, weekly costs
-- planner decisions (implementer groups and review grouping), reviewers, review dynamics, agent roles
+- reviewers, reviewer findings, role costs, agent roles
 - self-review, flow health (which guards fire, which never fire, and what they cost in run time), run detail
 
 Run detail's **Timings and costs →** opens that run's own page (`#/run-costs/<project>/<change>`):

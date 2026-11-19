@@ -13,7 +13,6 @@ const VIEWS: { view: string; label: string; query: string }[] = [
   { view: "stage-leaderboard", label: "Stage leaderboard", query: PINNED_QUERY },
   { view: "trend", label: "Trend over time", query: PINNED_QUERY },
   { view: "reviewers", label: "Reviewers", query: PINNED_QUERY },
-  { view: "decisions", label: "Decisions", query: PINNED_QUERY },
   { view: "flow-health", label: "Flow health", query: PINNED_QUERY },
   { view: "self-review", label: "Self-review fixes", query: PINNED_QUERY },
   { view: "review-dynamics", label: "Reviewer findings", query: PINNED_QUERY },

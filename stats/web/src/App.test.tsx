@@ -80,8 +80,8 @@ describe("route resolution ignores the query string (task 1)", () => {
 });
 
 // These read the URL period through the first request, so they run on
-// Self-review fixes, which keeps the dashboard bar: Trend, Reviewers and
-// Decisions send their own chip window (decisions-bar-tests-retarget-self-review).
+// Self-review fixes, which keeps the dashboard bar: Trend and Reviewers send
+// their own chip window (decisions-bar-tests-retarget-self-review).
 describe("the period is read from the URL, falling back to the default (task 2)", () => {
   // A fixed clock, not a second `new Date()` at assertion time -- the
   // latter is flaky by construction (the two calls can straddle a
@@ -238,14 +238,6 @@ it("flow health carries no dashboard bar", async () => {
   window.location.hash = "#/flow-health";
   render(<App />);
   expect(await screen.findByRole("heading", { name: "Flow health" })).toBeInTheDocument();
-  expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
-  window.location.hash = "";
-});
-
-it("decisions carries no dashboard bar", async () => {
-  window.location.hash = "#/decisions";
-  render(<App />);
-  expect(await screen.findByRole("heading", { name: "Decisions" })).toBeInTheDocument();
   expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
   window.location.hash = "";
 });

@@ -67,10 +67,6 @@ func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *str
 	f.lastStatsProject = project
 	return f.reviewers, f.reviewersErr
 }
-func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string) ([]store.DecisionRow, error) {
-	f.lastStatsProject = project
-	return f.decisionRows, f.decisionRowsErr
-}
 
 // CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured
 // have no fakeStore field of their own: this type exists purely to keep
@@ -143,7 +139,6 @@ type statsFake struct {
 	reviewerProjectsErr    error
 	// weeklyModelEffortCosts backs the weekly-model-effort-costs view.
 	weeklyModelEffortCosts []store.WeeklyModelEffortPoint
-	decisions              []store.DecisionRow
 	// guardHealth backs GuardHealth; guardHealthProjects backs
 	// GuardHealthProjects, and guardHealthProjectsCalled is set when it ran.
 	guardHealth               []store.GuardHealthRow
@@ -244,10 +239,6 @@ func (f *statsFake) ReviewerProjects(context.Context, store.Period) ([]store.Pro
 func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.reviewers, f.aggErr
-}
-func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]store.DecisionRow, error) {
-	f.lastProject = p
-	return f.decisions, f.aggErr
 }
 func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, p *string) ([]store.SelfReviewFindingRow, error) {
 	f.lastProject = p
@@ -784,66 +775,6 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 ||
 			got.CostUSD != 0.5 || got.Priced != 2 || got.Withdrawn != 1 {
 			t.Errorf("got %+v, want the seeded exp-failure-modes row unchanged", got)
-		}
-	})
-
-	t.Run("decisions", func(t *testing.T) {
-		sts := &statsFake{decisions: []store.DecisionRow{
-			{Project: "kan", Change: "kan-1", RecordedAt: time.Date(2026, 6, 10, 9, 10, 0, 0, time.UTC),
-				Class: "regular", Overridden: true, Execution: "inline",
-				ImplementerModel: "skipped — inline", ImplementerEffort: "", Fixer: "skipped — inline", RerunDispatch: "haiku/low",
-				RosterSize: 2, Compact: true, ExperimentalSlot: "exp-failure-modes", Rerun: "delta",
-				Grouping: "free", Dispatches: "primary+exp-failure-modes", ImplementerGroups: "",
-				WallClockSeconds: 600, InputTokens: 100, OutputTokens: 50, CacheReadTokens: 20, CostUsd: 1.25,
-				Critical: 1, Important: 1, Minor: 1, FixRounds: 2, Fallbacks: 1, TimedOut: 1},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("decisions"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			Project           string  `json:"project"`
-			Change            string  `json:"change"`
-			Class             string  `json:"class"`
-			Overridden        bool    `json:"overridden"`
-			Execution         string  `json:"execution"`
-			ImplementerModel  string  `json:"implementerModel"`
-			Fixer             string  `json:"fixer"`
-			RerunDispatch     string  `json:"rerunDispatch"`
-			RosterSize        int     `json:"rosterSize"`
-			Compact           bool    `json:"compact"`
-			ExperimentalSlot  string  `json:"experimentalSlot"`
-			Rerun             string  `json:"rerun"`
-			Grouping          string  `json:"grouping"`
-			Dispatches        string  `json:"dispatches"`
-			ImplementerGroups string  `json:"implementerGroups"`
-			WallClockSeconds  float64 `json:"wallClockSeconds"`
-			InputTokens       int64   `json:"inputTokens"`
-			OutputTokens      int64   `json:"outputTokens"`
-			CacheReadTokens   int64   `json:"cacheReadTokens"`
-			CostUsd           float64 `json:"costUsd"`
-			Critical          int     `json:"critical"`
-			Important         int     `json:"important"`
-			Minor             int     `json:"minor"`
-			FixRounds         int     `json:"fixRounds"`
-			Fallbacks         int     `json:"fallbacks"`
-			TimedOut          int     `json:"timedOut"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
-		}
-		got := rows[0]
-		if got.Project != "kan" || got.Change != "kan-1" || got.Class != "regular" || !got.Overridden ||
-			got.Execution != "inline" || got.ImplementerModel != "skipped — inline" || got.Fixer != "skipped — inline" ||
-			got.RerunDispatch != "haiku/low" || got.RosterSize != 2 ||
-			!got.Compact || got.ExperimentalSlot != "exp-failure-modes" || got.Rerun != "delta" ||
-			got.Grouping != "free" || got.Dispatches != "primary+exp-failure-modes" || got.ImplementerGroups != "" ||
-			got.WallClockSeconds != 600 || got.InputTokens != 100 || got.OutputTokens != 50 ||
-			got.CacheReadTokens != 20 || got.CostUsd != 1.25 || got.Critical != 1 || got.Important != 1 ||
-			got.Minor != 1 || got.FixRounds != 2 || got.Fallbacks != 1 || got.TimedOut != 1 {
-			t.Errorf("got %+v, want the seeded decision row unchanged", got)
 		}
 	})
 

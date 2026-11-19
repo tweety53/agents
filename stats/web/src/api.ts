@@ -44,7 +44,6 @@ export type ViewName =
   | "trend"
   | "weekly-costs"
   | "reviewers"
-  | "decisions"
   | "flow-health"
   | "self-review"
   | "review-dynamics"
@@ -57,7 +56,6 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "trend",
   "weekly-costs",
   "reviewers",
-  "decisions",
   "flow-health",
   "self-review",
   "review-dynamics",
@@ -536,38 +534,6 @@ export interface ReviewerRow {
 export interface ReviewerProject {
   projectKey: string;
   dispatches: number;
-}
-
-/** Mirrors decisionRowDTO. */
-export interface DecisionRow {
-  project: string;
-  change: string;
-  recordedAt: string;
-  class: string;
-  overridden: boolean;
-  execution: string;
-  implementerModel: string;
-  implementerEffort: string;
-  fixer: string;
-  rerunDispatch: string;
-  rosterSize: number;
-  compact: boolean;
-  experimentalSlot: string;
-  rerun: string;
-  grouping: string;
-  dispatches: string;
-  implementerGroups: string;
-  wallClockSeconds: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  costUsd: number;
-  critical: number;
-  important: number;
-  minor: number;
-  fixRounds: number;
-  fallbacks: number;
-  timedOut: number;
 }
 
 /**

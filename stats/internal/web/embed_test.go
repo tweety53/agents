@@ -389,10 +389,6 @@ func (fakeStore) Reviewers(context.Context, store.Period, *string, *string) ([]s
 	return nil, nil
 }
 
-func (fakeStore) Decisions(context.Context, store.Period, *string) ([]store.DecisionRow, error) {
-	return nil, nil
-}
-
 func (fakeStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }

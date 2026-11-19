@@ -15,7 +15,6 @@ import { VIEW_NAMES, type ViewName } from "./api";
 import { DashboardBar } from "./components/DashboardBar";
 import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
-import { Decisions } from "./views/Decisions";
 import { AgentRoles } from "./views/AgentRoles";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
@@ -37,7 +36,6 @@ const VIEW_LABELS: Record<ViewName, string> = {
   trend: "Trend over time",
   "weekly-costs": "Weekly costs",
   reviewers: "Reviewers",
-  decisions: "Decisions",
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
   "review-dynamics": "Reviewer findings",
@@ -51,7 +49,6 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   trend: Trend,
   "weekly-costs": WeeklyCosts,
   reviewers: Reviewers,
-  decisions: Decisions,
   "flow-health": FlowHealth,
   "self-review": SelfReview,
   "review-dynamics": ReviewDynamics,
@@ -241,8 +238,7 @@ export function App() {
             and Command chips (decision leaderboard-chip-filters); the trend view carries its own
             Period, Command and Project chips (decision trend-drops-daily-views); Reviewers carries its
             own Period, Project and Rank by chips (decision reviewers-chip-filters-period-project);
-            Decisions carries its own Period, Project, Class and Review grouping chips (decision
-            decisions-chip-filters); Flow health carries its own Period, Project and Rank by chips
+            Flow health carries its own Period, Project and Rank by chips
             (decision chip-filters-period-project-rank);
             Role costs carries its own Period and Project chips; Reviewer findings carries its own Range; Agent roles has no period. */}
         {route.kind === "view" &&
@@ -251,7 +247,6 @@ export function App() {
           route.view !== "stage-leaderboard" &&
           route.view !== "trend" &&
           route.view !== "reviewers" &&
-          route.view !== "decisions" &&
           route.view !== "flow-health" &&
           route.view !== "role-costs" &&
           route.view !== "review-dynamics" &&
