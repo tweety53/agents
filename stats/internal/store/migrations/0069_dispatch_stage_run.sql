@@ -24,5 +24,10 @@ $$;
 
 -- The back-fill: idempotent, it touches only NULL links and only those the
 -- rule resolves, so a re-run changes no row.
-UPDATE dispatches d SET stage_run_id = dispatch_stage_run(d.change_id, d.session_token, d.started_at)
-WHERE d.stage_run_id IS NULL AND dispatch_stage_run(d.change_id, d.session_token, d.started_at) IS NOT NULL;
+-- The rule runs once per unlinked row.
+UPDATE dispatches d SET stage_run_id = l.run
+FROM (
+  SELECT id, dispatch_stage_run(change_id, session_token, started_at) AS run
+  FROM dispatches WHERE stage_run_id IS NULL
+) l
+WHERE d.id = l.id AND l.run IS NOT NULL;
