@@ -3239,3 +3239,33 @@ func TestLiveStateBoardShowsAnOpenDispatchCost(t *testing.T) {
 		t.Errorf("change CostUsd = %v with the dispatch cost, %v without, want equal: a dispatch cost is a breakdown, never summed in", priced.CostUsd, unpriced.CostUsd)
 	}
 }
+
+// TestStageLeaderboardFoldsRetiredStages: a retired key counts under the slim
+// stage that replaced it (stages.Retired), one change's retired pieces of
+// that stage folding into one run, while each run recorded under the slim
+// key itself stays its own run.
+func TestStageLeaderboardFoldsRetiredStages(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-leaderboard-fold-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+	at := time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	for i, r := range []struct {
+		change, stage string
+		cost          float64
+	}{{"kan-1", "flow.load-context", 1}, {"kan-1", "flow.sdd-tdd", 2}, {"kan-2", "flow.implement", 5}} {
+		in := baseBeginInput(projectKey, r.change, "/flow", r.stage)
+		in.SessionID = ptr(fmt.Sprintf("session-fold-%d", i))
+		in.StartedAt = at.Add(time.Duration(i) * time.Hour)
+		costRun(t, st, in, r.cost)
+	}
+	rows, err := st.StageLeaderboard(ctx, store.Period{From: at.Add(-time.Hour), To: at.Add(24 * time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("StageLeaderboard: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Stage != "flow.implement" || rows[0].RunCount != 2 || rows[0].TotalCostUSD != 8 || rows[0].MedianCostUSD != 4 {
+		t.Fatalf("rows = %+v, want one flow.implement row: 2 runs ($3 folded, $5), $8 total, median $4", rows)
+	}
+}

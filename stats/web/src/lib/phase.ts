@@ -44,6 +44,8 @@ export const RETIRED: Record<string, string> = {
   "flow.verify-merge": "flow.cleanup",
   "flow.write-finished": "flow.cleanup",
   "flow.refresh-main-checkout": "flow.cleanup",
+  "flow.commit-archive": "flow.land",
+  "flow.verify-cleanup": "flow.cleanup",
 };
 
 /** A stage key as the slim pipeline names it: a retired key becomes its replacement. */

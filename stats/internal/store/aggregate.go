@@ -537,6 +537,9 @@ type StageLeaderboardRow struct {
 // StageLeaderboard ranks every costed command/stage pair by total cost
 // across period, optionally restricted to one project, uncapped (design.md's
 // leaderboard-transport-uncapped); each row also carries mean, median and p90.
+// A retired stage key counts under the slim stage stages.Retired maps it to,
+// one change's (and request's) retired pieces of that stage folding into one
+// run; a run recorded under a slim key stays its own run.
 //
 // model, when non-nil, restricts to stage runs whose metrics recorded that
 // model (per CostPerChange's own doc comment) and ranks by that model's own
@@ -544,9 +547,17 @@ type StageLeaderboardRow struct {
 // only the dispatch buckets that model served, a bucket's served model read
 // as dispatchBucket.servedModel reads it (pricing.go).
 func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, model *string) ([]StageLeaderboardRow, error) {
+	var retiredFrom, retiredTo []string
+	for from, to := range stages.Retired {
+		retiredFrom, retiredTo = append(retiredFrom, from), append(retiredTo, to)
+	}
 	rows, err := s.pool.Query(ctx, `
 		WITH costed AS (
-			SELECT sr.command, sr.stage,
+			SELECT sr.command,
+				COALESCE(($6::text[])[array_position($5::text[], sr.stage)], sr.stage) AS stage,
+				-- A retired key's runs are pieces of one slim stage: one per change and request.
+				CASE WHEN sr.stage = ANY($5::text[]) THEN 'r:' || sr.change_id || ':' || COALESCE(sr.request_n, -1)
+				     ELSE 's:' || sr.id END AS run,
 				CASE WHEN $4::text IS NULL THEN (sr.metrics->>'cost_usd')::numeric
 				     ELSE (sr.metrics->'models'->$4::text->>'cost_usd')::numeric END AS cost,
 				d.dispatch_sum, d.missing
@@ -571,9 +582,10 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 			  AND (CASE WHEN $4::text IS NULL THEN sr.metrics ? 'cost_usd'
 			            ELSE sr.metrics->'models'->$4::text ? 'cost_usd' END)
 		), mained AS (
-			SELECT command, stage, cost,
-				CASE WHEN missing THEN NULL ELSE GREATEST(cost - dispatch_sum, 0) END AS main
+			SELECT command, stage, SUM(cost) AS cost,
+				CASE WHEN bool_or(missing) THEN NULL ELSE SUM(GREATEST(cost - dispatch_sum, 0)) END AS main
 			FROM costed
+			GROUP BY command, stage, run
 		)
 		SELECT
 			command, stage, COUNT(*),
@@ -586,7 +598,7 @@ func (s *Store) StageLeaderboard(ctx context.Context, period Period, project, mo
 		FROM mained
 		GROUP BY command, stage
 		ORDER BY SUM(cost) DESC, command, stage
-	`, period.From, period.To, project, model)
+	`, period.From, period.To, project, model, retiredFrom, retiredTo)
 	if err != nil {
 		return nil, fmt.Errorf("store: stage leaderboard: %w", err)
 	}

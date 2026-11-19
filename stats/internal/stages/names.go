@@ -111,6 +111,8 @@ var Retired = map[string]string{
 	"flow.verify-merge":          "flow.cleanup",
 	"flow.write-finished":        "flow.cleanup",
 	"flow.refresh-main-checkout": "flow.cleanup",
+	"flow.commit-archive":        "flow.land",
+	"flow.verify-cleanup":        "flow.cleanup",
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that
