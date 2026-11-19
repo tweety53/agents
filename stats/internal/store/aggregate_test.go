@@ -3163,6 +3163,38 @@ func TestDecisionsReadsClassOnlyDecision(t *testing.T) {
 	}
 }
 
+// A decider decision -- groups of tasks, the panel an array of bundles --
+// renders its groups and bundles as an older decision's do.
+func TestDecisionsReadsDeciderShape(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-decisions-decider-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-decider")
+
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-decider", records.Decision{
+		SessionToken: "mf-decisions-decider",
+		Decision: json.RawMessage(`{"groups":[{"tasks":["1","2"],"reason":"r"},{"tasks":["3"],"reason":"r"}],` +
+			`"panel":[{"slots":["primary","principles"],"reason":"r"},{"slots":["mutation"],"reason":"r"}],` +
+			`"visual":{"verify":"skipped","reason":"r"},"overrides":[]}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
+	}
+
+	period := store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}
+	rows, err := st.Decisions(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("Decisions: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("Decisions returned %d rows, want 1", len(rows))
+	}
+	if r := rows[0]; r.ImplementerGroups != "1+2 · 3" || r.Dispatches != "primary+principles · mutation" || r.Class != "" {
+		t.Errorf("row = groups %q dispatches %q class %q, want 1+2 · 3, primary+principles · mutation, empty",
+			r.ImplementerGroups, r.Dispatches, r.Class)
+	}
+}
+
 // TestLiveStateBoardShowsAnOpenDispatchCost pins that an open dispatch's own
 // metrics.cost_usd reaches the board's dispatch list as a breakdown, and is
 // never added into the change's cost: the stage run's models.<m> already

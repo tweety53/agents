@@ -1216,12 +1216,14 @@ var extraDispatchDescriptions = map[string]string{
 // "panel.grouping" when panel is an object, else the literal "default".
 // Critical, Important and Minor exclude findings whose status begins
 // "withdrawn" (case-insensitive).
-// Dispatches renders "panel.dispatches" -- one to two {slots, model,
-// effort} objects -- as each entry's slot ids '+'-joined and the entries
-// themselves ' · '-joined, in roster order; empty when panel carries no
+// Dispatches renders the panel's bundles -- "panel" itself when it is an
+// array of {slots, reason} (the decider's shape), "panel.dispatches" when
+// panel is an object -- as each entry's slot ids '+'-joined and the entries
+// themselves ' · '-joined, in order; empty when panel carries no
 // dispatches to show. ImplementerGroups renders the decision's own
-// top-level "groups" the same way over {bundles, model, effort} objects;
-// empty when "groups" is JSON null (inline execution) or absent.
+// top-level "groups" the same way over each group's "tasks" ("bundles" on
+// a decision recorded before the decider); empty when "groups" is JSON null
+// (inline execution) or absent.
 type DecisionRow struct {
 	Project    string
 	Change     string
@@ -1301,7 +1303,9 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			FROM scoped_decisions sd
 			JOIN panel_meta pm ON pm.id = sd.id
 			CROSS JOIN LATERAL (VALUES
-				('dispatches', CASE WHEN pm.panel_is_object THEN sd.decision->'panel'->'dispatches' ELSE NULL END),
+				('dispatches', CASE WHEN pm.panel_is_object THEN sd.decision->'panel'->'dispatches'
+				                    WHEN jsonb_typeof(sd.decision->'panel') = 'array' THEN sd.decision->'panel'
+				                    ELSE NULL END),
 				('groups', CASE WHEN jsonb_typeof(sd.decision->'groups') = 'array' THEN sd.decision->'groups' ELSE NULL END)
 			) AS src(label, arr)
 			WHERE src.arr IS NOT NULL
@@ -1310,14 +1314,14 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 			-- Flatten one array of groups into a "·"-joined string of "+"-joined
 			-- groups, in array order -- the one shape both "dispatches" and
 			-- "groups" render into. A group is an object carrying its ids under
-			-- "slots" (dispatches) or "bundles" (groups) beside its own model and
-			-- effort.
+			-- "slots" (dispatches) or "tasks" -- "bundles" on a decision recorded
+			-- before the decider -- (groups).
 			SELECT gs.decision_id, gs.label,
 				(SELECT string_agg(joined, ' · ' ORDER BY grp.ord)
 					FROM jsonb_array_elements(gs.arr) WITH ORDINALITY AS grp(val, ord)
 					CROSS JOIN LATERAL (
 						SELECT string_agg(e.elem, '+' ORDER BY e.eord) AS joined
-						FROM jsonb_array_elements_text(COALESCE(grp.val->'slots', grp.val->'bundles'))
+						FROM jsonb_array_elements_text(COALESCE(grp.val->'slots', grp.val->'tasks', grp.val->'bundles'))
 							WITH ORDINALITY AS e(elem, eord)
 					) roles
 				) AS flattened
