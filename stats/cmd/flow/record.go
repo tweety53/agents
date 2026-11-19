@@ -1264,6 +1264,8 @@ func launchRoleID(role, key string) string {
 		return "panel-reviewer"
 	case role == "implementer" && fixImplementerKeyRE.MatchString(key):
 		return "implementer"
+	case role == "planner" && strings.HasPrefix(key, "plan-short-"):
+		return "planner-short"
 	case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
 		return "visual-verifier"
 	case role == "implementer" && strings.HasPrefix(key, "operator-"):

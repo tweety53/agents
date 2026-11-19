@@ -13,6 +13,8 @@ export const SHORT_DOES: Record<string, string> = {
   explorer: "Reads the codebase",
   "plan-designer": "Proposes a plan",
   planner: "Writes the plan",
+  "plan-triage": "Judges easy or hard",
+  "planner-short": "Plans an easy change",
   implementer: "Writes the code",
   "panel-fix": "Fixes review findings",
   "operator-asked": "Does what you asked",

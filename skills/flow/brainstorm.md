@@ -86,6 +86,41 @@ Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. Exit 1 or 2 st
 the script's own lines: **a command's non-zero exit ends your turn** naming the command and its
 output.
 
+## Judge easy or hard
+
+**A headless judge decides, before any planner runs, whether the change is easy or hard.** Write
+the ticket — the Jira issue, or the operator's request verbatim — to
+`<abs-worktree>/.superpowers/sdd/planner/ticket.md`, then:
+
+```bash
+flow-guard plan-triage <abs-worktree> <abs-worktree>/.superpowers/sdd/planner/ticket.md
+```
+
+Its header is canonical for the call, its fallback and its exits; `skills/flow/plan-triage-prompt.md`
+is canonical for what easy (`short`) and hard (`full`) mean. It prints `TRIAGE: short|full —
+<reason>` and saves that line as `triage.md` beside the ticket; any failure answers `full`.
+Print the line to the operator. A `/flow-plan` capture, a fix run and `/flow-fast` skip the judge
+and plan full.
+
+**`triage.md` is the verdict every later dispatch and a resumed run plan by**: `TRIAGE: short`
+plans easy, anything else, or no file, plans full.
+
+- **Easy** — every planner dispatch, the design rounds and the final one alike, runs on the
+  `planner-short` role, key `plan-short-<n>` in place of `plan-<n>`, its Role line `Role:
+  planner-short`. It reads the code itself and sends out Explore agents (`explorer`) only for a
+  question its own reading cannot settle — never a Plan agent, never the competing-designs step —
+  and its prompt carries no PLANNING DELEGATION paragraph and says so. Rounds, questions, the
+  design approval, the artifacts, the plan and the plan check run exactly as on the hard path.
+- **Hard** — every planner dispatch runs on `planner`, as the rest of this file states.
+
+**An easy change that turns out hard switches to full, keeping the answers.** When a
+`planner-short` round finds the change has real design alternatives, spans repositories, changes
+a data model or a public contract, or is a visible change with no mockup, it writes that round's
+`### Settled` as usual, returns `ESCALATE: <reason>` and asks nothing. The parent prints
+`escalated to full planning — <reason>`, overwrites `triage.md` with `TRIAGE: full — escalated:
+<reason>`, relays nothing from that round, and dispatches the next round on `planner`, which
+reads that round file and so every answer given so far; every later dispatch of the run is full.
+
 ## Run brainstorming and planning through the planner role
 
 **The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
@@ -93,9 +128,10 @@ output.
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states.
 
 **Every planner dispatch is fresh and one-shot**, on `subagent_type: flow-planner-<effort>` with
-the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). Its prompt
-carries the Role line `Role: planner`, the two agent-baseline sentences, the
-report-tersely line, the PLANNING DELEGATION
+the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`) — `planner`,
+or `planner-short` on an easy change (**Judge easy or hard**, above). Its prompt carries the Role
+line, `Role: planner` or `Role: planner-short`, the two agent-baseline sentences, the
+report-tersely line, on the hard path the PLANNING DELEGATION
 paragraph (`skills/flow-self-review/SKILL.md`) — its auto-resolution sentence replaced by "every
 choice is written as a question of the round file" — the change name and the absolute worktree.
 The Agent-tool `description` opens with `plan-<n>` — `plan-2 design round` — `<n>` counting this
