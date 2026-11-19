@@ -70,15 +70,12 @@ worktree path, run instructions and a staged-diff command are all wrong for it, 
 of them. Forcing both into one template would leave the rule at the top of this section
 unsatisfiable rather than merely unsatisfied — no single block is correct for both commands.
 
-### Why `Route` and `Outstanding` are run-only
+### Why `Route` is run-only
 
 The landing answer is never remembered between runs,
 per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`), so no
 field records which route was taken: a recorded `prUrl` implies the pull-request route, and
-nothing separates the other two. The
-outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
-is the implementation commit's message, which is where a later reader looks, and the state file does not
-carry it.
+nothing separates the other two.
 
 ### Why `prUrl` never splits the *not merged* row
 

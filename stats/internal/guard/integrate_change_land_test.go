@@ -113,11 +113,9 @@ g -C "$WORK/a" push -q origin main:refs/heads/feature/x
 g -C "$WORK/a" checkout -q -b feature/x --track origin/feature/x
 g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
 sut prepare "$WORK/a" demo
-check "refresh_on_recorded_base: a main checkout off its default branch stops prepare unswitched" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: main-checkout" && [ "$(git -C "$WORK/a" branch --show-current)" = feature/x ] && ! printf "%s" "$OUT" | grep -q "^DRIFT-SWITCHED:"'
-g -C "$WORK/a" checkout -q main
+check "refresh_on_recorded_base: a clean main checkout on its recorded base passes prepare unswitched" \
+  '[ "$RC" -eq 0 ] && [ "$(git -C "$WORK/a" branch --show-current)" = feature/x ] && ! printf "%s" "$OUT" | grep -q "^DRIFT-SWITCHED:"'
 to_land "refresh_on_recorded_base: "
-g -C "$WORK/a" checkout -q feature/x
 sut land "$WORK/a" demo
 check "refresh_on_recorded_base: a's main checkout on its recorded base is refreshed, not refused" \
   'printf "%s\n" "$OUT" | grep -qE "^REFRESH-(DONE|CURRENT): $WORK/a( |\$)" && ! printf "%s\n" "$OUT" | grep -q "^REFRESH-REFUSED: $WORK/a "'

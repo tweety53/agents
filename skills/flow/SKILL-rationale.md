@@ -946,7 +946,7 @@ so the dispatcher must substitute `[PRINCIPLES_PATH]` with the **absolute** path
 
 ### integrate.md — 3. Commit the staged work (reshape)
 
-Moved verbatim from the paragraph after the `flow-guard reshape-branch` call, where it followed "never the state file's now-stale pre-rebase value for that worktree."; the duplicate `reset --soft` sentence after it was cut, **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) being canonical for it:
+Moved verbatim from the paragraph after the reshape call, where it followed "never the state file's now-stale pre-rebase value for that worktree."; the duplicate `reset --soft` sentence after it was cut, **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) being canonical for it:
 
 This folds every commit since the merge base back into the index, uncommitted; using the
 stale value here would also collapse in the upstream commits the rebase just brought in, silently
@@ -1023,7 +1023,7 @@ handshake retry keeps its original bundle's pair.
 
 ## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)
 
-`flow-guard check-visual-verify-dispatched` fires `VISUAL-VERIFY-MISSING` whenever a diff touches a declared
+The integrate gate on a recorded visual-verify dispatch (deleted 2026-11-19) fired `VISUAL-VERIFY-MISSING` whenever a diff touches a declared
 `ui paths` glob and no verifier dispatch is recorded. It exists because of kan-30, where a run wrote
 `flow.visual-verify`'s marks around no verifier and shipped broken screens. A glob is coarse,
 though: gymie declares `src/gateway/src/main/**`, so kan-863's actuator-only scrape-token filter

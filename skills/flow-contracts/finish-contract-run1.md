@@ -67,10 +67,9 @@ guards exited 0, `flow-guard check-foreign-staged` printed `STAGED-CLEAN` and no
 `DRIFT-SWITCHED: <main-checkout> — <branch> -> <default>, <branch> kept at <sha> (<n> commits
 ahead of <default>)` line, and re-runs `flow-guard check-main-checkout-drift`, continuing only on
 `DRIFT-CLEAN`. The switch moves no commit: `<branch>` keeps every commit it carried, and a live
-session that had the checkout on it finds its HEAD moved, which the printed line names. Four
-shapes are never switched, and stop as below: a detached HEAD, whose commits sit on no
-branch; a checkout on a base the change records (`branch.spectre/<name>.flowBase`), which run 2's
-refresh brings forward; a switch git refuses — the default branch checked out in
+session that had the checkout on it finds its HEAD moved, which the printed line names. A clean checkout on a base the change records (`branch.spectre/<name>.flowBase`) is neither
+switched nor stopped: run 2's refresh brings it forward. Three shapes are never switched, and stop
+as below: a detached HEAD, whose commits sit on no branch; a switch git refuses — the default branch checked out in
 another worktree, an untracked file it would overwrite, no default branch to switch to, a locked
 index — which leaves the checkout as it was and adds a `DRIFT-SWITCH-REFUSED` line to the
 listing; and a re-run that does not print `DRIFT-CLEAN`. Each repository is judged on its own: one
@@ -152,8 +151,7 @@ fix's recorded sha survives), else the newest commit carrying `Flow-Key: flow.co
 All three routes then commit the work as the implementation commit, subject
 `<type>(<module>): <what the implementation does>` with `<module>` naming the area the reshaped
 diff carries. It carries, beside `Flow-Key: flow.commit-two`, the `Task-Id: <n>` trailer of every
-commit the reshape squashed. An `--outstanding` text no implementation commit carries is printed as
-`OUTSTANDING-UNRECORDED:`, never dropped. `<project>/spectre/changes/` is gitignored, so the change directory lands in no
+commit the reshape squashed. `<project>/spectre/changes/` is gitignored, so the change directory lands in no
 commit — save **The design record** below.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and

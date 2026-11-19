@@ -22,10 +22,8 @@ func (c *ic) switchBack(m string) {
 		return
 	}
 	d = strings.TrimPrefix(d, "origin/")
-	for _, k := range c.mains {
-		if base, ok := c.gitQuiet("-C", k, "config", "--get", "branch.spectre/"+c.name+".flowBase"); ok && base == b {
-			return
-		}
+	if c.onRecordedBase(b) {
+		return
 	}
 	sha, _ := c.git("-C", m, "rev-parse", "--short", "HEAD")
 	// git overwrites an ignored file the target tracks without asking.
@@ -44,6 +42,17 @@ func (c *ic) switchBack(m string) {
 	}
 }
 
+// onRecordedBase: branch b is the base the change records
+// (branch.spectre/<name>.flowBase) in any of its main checkouts.
+func (c *ic) onRecordedBase(b string) bool {
+	for _, k := range c.mains {
+		if base, ok := c.gitQuiet("-C", k, "config", "--get", "branch.spectre/"+c.name+".flowBase"); ok && base == b {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ic) prepare() {
 	c.loadSet()
 	c.markBegin("flow.preflight")
@@ -52,7 +61,8 @@ func (c *ic) prepare() {
 	}
 
 	// A main checkout holds no staged or dirty work — everything is done in
-	// worktrees — so anything but a clean checkout on its default branch stops.
+	// worktrees — so anything but a clean checkout on its default branch, or on
+	// the base the change records (KAN-911: run 2 refreshes it), stops.
 	dirty := false
 	for _, m := range c.mains {
 		c.run("check-foreign-staged", m)
@@ -63,7 +73,9 @@ func (c *ic) prepare() {
 			c.run("check-main-checkout-drift", m)
 		}
 		if !fs || !(c.rc == 0 && c.verdict("DRIFT-CLEAN") != "") {
-			dirty = true
+			b, _ := c.gitQuiet("-C", m, "branch", "--show-current")
+			onBase := fs && c.rc == 0 && c.verdict("DRIFT-DIRTY") == "" && b != "" && c.onRecordedBase(b)
+			dirty = dirty || !onBase
 		}
 	}
 	if dirty {

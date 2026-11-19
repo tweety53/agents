@@ -119,9 +119,7 @@ flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<mo
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the
 diffstat `prepare` printed under each `WORKTREE:` line, one subject per worktree the `NEXT:` line
 names. A worktree whose reshaped diff is empty has an empty implementation commit, so `NEXT:` names no
-subject for it and `commit` asks none. On **Continue** at **1** the implementation commit also
-lists the outstanding work: pass it as `--outstanding <text>`, which `commit` writes into that
-commit's body as `Outstanding: <text>`.
+subject for it and `commit` asks none.
 
 `commit` reshapes, renders the ledger, runs the guarded commit chain per worktree in `## Merge order`
 and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the branch is not merged**
@@ -195,7 +193,6 @@ blocking.
 **Change:** <name>
 **Route:** pull request | merged and pushed | manual
 **PR:** <prUrl> | none — merged directly | none — you are handling it
-**Outstanding:** <what step 1 reported and the operator integrated over> | none
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 
 <what the operator must do before the next run>

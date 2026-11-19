@@ -193,7 +193,6 @@ recorded merge base falls back to the staged-diff line and says the range could 
 **Change:** <name>
 **Route:** (run-only) <pull request, merged and pushed, or manual>
 **PR:** <prUrl, or why there is none on the route taken>
-**Outstanding:** (run-only) <what the unfinished-work gate reported and the operator integrated over, or "none">
 **Guards:** (run-only) <all present, or how many were missing and checked by hand>
 
 <what the operator must do before the next run>
@@ -205,7 +204,7 @@ Next:
 ```
 ````
 
-**`Route` and `Outstanding` are `(run-only)`.**
+**`Route` is `(run-only)`.**
 
 **Which rendering `/flow-status` regenerates.** **Merge status decides it whenever the merge
 status is known**, and the command already has that answer: it runs the merge-status test in its own
