@@ -5313,6 +5313,15 @@ func TestGiveUpStampsTheRowsReason(t *testing.T) {
 			t.Errorf("marks = %v, want row 1 stamped `launch pairing overflowed`", deps.marks)
 		}
 	})
+	t.Run("dropped row already naming an agent", func(t *testing.T) {
+		t.Parallel()
+		dir, deps := begins(t, 9)
+		deps.rows["fix-0"].agentID = "agent-named"
+		run(t, dir, deps)
+		if len(deps.marks) != 0 {
+			t.Errorf("marks = %v, want none: a dropped row naming an agent is someone else's to measure", deps.marks)
+		}
+	})
 	t.Run("dispatch-meta sidecar given up", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
@@ -5357,5 +5366,40 @@ func TestSettleOverflowDropsTheOldestBegin(t *testing.T) {
 	}
 	if want := []string{"100 settle candidates overflowed"}; !slices.Equal(deps.marks, want) {
 		t.Fatalf("marks = %v, want %v", deps.marks, want)
+	}
+}
+
+// TestSettleCountsAStoreRowItsTranscriptBeginNamesOnce pins the de-dup of a
+// closed inline store row against the transcript begin naming the same
+// token and key: 63 store rows plus one row both sources name fill the
+// candidate list exactly, so nothing overflows and no row is stamped.
+func TestSettleCountsAStoreRowItsTranscriptBeginNamesOnce(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	command, err := json.Marshal("flow record dispatch begin -change c -role implementer -key late -session-token mf-s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, stampFixtureLines(
+		`{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"s","message":{"model":"m","content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(command)+`}}]}}`,
+		mainThreadLine("00:06:00", 1),
+	), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	deps := &settleDeps{rows: map[string]*settleRow{"late": {id: 1}}, restamps: map[int64]json.RawMessage{}}
+	deps.inline = append(deps.inline, harvest.InlineRow{ID: 1, SessionToken: "mf-s", Key: "late", StartedAt: start.Add(5 * time.Minute), EndedAt: start.Add(5 * time.Minute)})
+	for i := range 63 {
+		key := fmt.Sprintf("store-%d", i)
+		deps.rows[key] = &settleRow{id: int64(100 + i)}
+		deps.inline = append(deps.inline, harvest.InlineRow{ID: int64(100 + i), SessionToken: "mf-s", Key: key, StartedAt: start.Add(time.Duration(i) * time.Second), EndedAt: start.Add(time.Minute)})
+	}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if len(deps.marks) != 0 {
+		t.Fatalf("marks = %v, want none: the row both sources name is one candidate", deps.marks)
 	}
 }
