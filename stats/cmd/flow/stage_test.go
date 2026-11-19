@@ -1819,7 +1819,7 @@ func TestStageBeginAcceptsChangeFlag(t *testing.T) {
 		args := append([]string{
 			"stage", "begin",
 			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/flow", "-stage", "flow.brainstorm",
+			"-command", "/flow", "-stage", "flow.plan",
 			"-session-token", "mf-x-20261024T000000Z",
 		}, tail...)
 		return run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr), stderr.String()
@@ -1981,9 +1981,9 @@ func TestStageEndWithNoOpenRunExitsOne(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/flow", "-stage", "flow.kickoff", "-outcome", "completed", "kan-1132-demo"},
+			"-command", "/flow", "-stage", "flow.plan", "-outcome", "completed", "kan-1132-demo"},
 		env.get, strings.NewReader(""), &stdout, &stderr)
-	want := "⚠ flow: no open stage run for kan-1132-demo/flow.kickoff — was `stage begin` recorded?\n"
+	want := "⚠ flow: no open stage run for kan-1132-demo/flow.plan — was `stage begin` recorded?\n"
 	if code != 1 || stderr.String() != want {
 		t.Fatalf("exit %d, stderr %q; want exit 1 and exactly %q", code, stderr.String(), want)
 	}
