@@ -60,7 +60,7 @@ func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 
 // RecordSelfReviewFinding validates and records one self-review finding,
 // once: a repeat of a recorded finding -- same project, change, angle and
-// disposition, and the same ref, or the same note when it carries no ref --
+// disposition, and the same ref and the same note --
 // writes no second row and returns the recorded one, its missing blast
 // radius filled from the repeat.
 func (s *Store) RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error) {
@@ -72,7 +72,7 @@ func (s *Store) RecordSelfReviewFinding(ctx context.Context, projectKey string, 
 	if err := s.pool.QueryRow(ctx, `
 		INSERT INTO self_review_findings (project_key, change, angle, note, disposition, ref, blast_radius, severity, theme)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (project_key, change, angle, disposition, (COALESCE(ref, md5(note))))
+		ON CONFLICT (project_key, change, angle, disposition, (COALESCE(ref, '')), (md5(note)))
 		DO UPDATE SET blast_radius = COALESCE(self_review_findings.blast_radius, EXCLUDED.blast_radius),
 		              severity = COALESCE(self_review_findings.severity, EXCLUDED.severity),
 		              theme = COALESCE(self_review_findings.theme, EXCLUDED.theme)

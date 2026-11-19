@@ -192,8 +192,8 @@ func TestSelfReviewFindingRecordedOnce(t *testing.T) {
 	one := 1
 	writes := []records.SelfReviewFinding{
 		{Change: "kan-1", Angle: "flow-fix", Note: "the landing's own row", Disposition: "fixed", Ref: "14a900ef"},
-		{Change: "kan-1", Angle: "flow-fix", Note: "recorded again by hand", Disposition: "fixed", Ref: "14a900ef", BlastRadius: &one},
-		{Change: "kan-1", Angle: "flow-fix", Note: "recorded again by hand", Disposition: "fixed", Ref: "14a900ef", BlastRadius: &one},
+		{Change: "kan-1", Angle: "flow-fix", Note: "the landing's own row", Disposition: "fixed", Ref: "14a900ef", BlastRadius: &one},
+		{Change: "kan-1", Angle: "flow-fix", Note: "the landing's own row", Disposition: "fixed", Ref: "14a900ef", BlastRadius: &one},
 		{Change: "kan-1", Angle: "flow-fix", Note: "the landing's own row", Disposition: "fixed", Ref: "b0d0cdd5"},
 		{Change: "kan-1", Angle: "flow-cost", Note: "an observation", Disposition: "noted", Theme: "other"},
 		{Change: "kan-1", Angle: "flow-cost", Note: "an observation", Disposition: "noted", Theme: "other"},
@@ -364,5 +364,29 @@ func TestSelfReviewThemes(t *testing.T) {
 	}
 	if later, err := st.SelfReviewThemeCounts(ctx, time.Now().Add(time.Hour)); err != nil || len(later) != 0 {
 		t.Errorf("counts since a later cutoff = %+v, %v; want none", later, err)
+	}
+}
+
+// TestSelfReviewFindingsSharingARefStayDistinct pins that findings filed
+// together under one issue -- the same ref, different notes -- each keep
+// their row: a shared ref never hides a note.
+func TestSelfReviewFindingsSharingARefStayDistinct(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+
+	for _, note := range []string{"first cost finding", "second cost finding"} {
+		if _, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{
+			Change: "kan-1", Angle: "flow-cost", Note: note, Disposition: "filed", Ref: "KAN-1136",
+		}); err != nil {
+			t.Fatalf("RecordSelfReviewFinding(%q): %v", note, err)
+		}
+	}
+	got, err := st.ListSelfReviewFindings(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("ListSelfReviewFindings: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d rows, want 2: %+v", len(got), got)
 	}
 }
