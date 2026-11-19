@@ -198,7 +198,6 @@ const (
 )
 
 var (
-	taskIDs     = regexp.MustCompile(`^tasks?-([\d+]+)-`)
 	fixRoundKey = regexp.MustCompile(`^(visual-verify-fix|verify-fix|panel-fix|full-suite-fix)-\d+`)
 )
 
@@ -225,10 +224,8 @@ func computeRun(in runInput, now time.Time) RunTimings {
 	var dispatchCost usd
 	for i, d := range in.Dispatches {
 		r := row{d: d, iv: clip(dispatchSpan(d, wall.to), wall)}
-		if m := taskIDs.FindStringSubmatch(d.Key); m != nil {
-			r.tasks = strings.Split(m[1], "+")
-			r.opener = in.Openers[r.tasks[0]]
-		}
+		r.tasks = records.TaskIDs(d.Key)
+		r.opener = in.Openers[records.FirstTaskID(d.Key)]
 		r.category, r.catLabel = records.Category(d.Key, d.Role, r.opener)
 		r.cost = costOf(d.Metrics)
 		r.noTokens = records.CostReason(d) != ""
