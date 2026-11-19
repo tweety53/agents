@@ -1294,3 +1294,25 @@ func TestCheckPlanShapeF34OpenerDepartures(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckPlanShapeF35TickedPending pins F35 (kan-1132 self-review, F7): a
+// ticked task's **Build:** never reads `pending`.
+func TestCheckPlanShapeF35TickedPending(t *testing.T) {
+	t.Parallel()
+	plan := func(box, tag string) string {
+		return psFixture(t, psTasks("a")+"\n- ["+box+"] 2. Second task\n\n**Files:** `b.txt`\n**Tests:** `test_b`\n**Build:** "+tag+"\n**Commit:** add b\n")
+	}
+	p := plan("x", "pending")
+	r := psMutant(p, "")
+	if r.rc != 1 || strings.Count(r.out, ": F35 ") != 1 || !strings.Contains(r.out, p+":7: F35 ") {
+		t.Errorf("ticked pending: rc=%d out=%q, want one F35 at line 7", r.rc, r.out)
+	}
+	if m := psMutant(p, "F35"); m.rc != 0 {
+		t.Errorf("the mutation disabling F35 still refused: rc=%d out=%q", m.rc, m.out)
+	}
+	for _, c := range [][2]string{{" ", "pending"}, {"x", "green"}} {
+		if r := psMutant(plan(c[0], c[1]), ""); r.rc != 0 {
+			t.Errorf("[%s] %s refused: rc=%d out=%q", c[0], c[1], r.rc, r.out)
+		}
+	}
+}

@@ -36,10 +36,10 @@ import (
 // scanned.
 
 // check-plan-shape checks that a tasks.md is SHAPED so the guard that later
-// judges its commits (check-task-commit-fields) can actually read it. Thirty-two
-// findings, F1-F34 (F1-F6's canonical definitions, decisions and rationale:
+// judges its commits (check-task-commit-fields) can actually read it. Thirty-three
+// findings, F1-F35 (F1-F6's canonical definitions, decisions and rationale:
 // spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-md-at-plan/
-// design.md -- not restated here; F7-F34's are the rows below).
+// design.md -- not restated here; F7-F35's are the rows below).
 //
 // The guard reads the plan with the very grammar the commit guard reads it
 // with -- tcfParseTask, tcfTaskIDs, tcfIterTasks, tcfSelectTask,
@@ -308,6 +308,12 @@ import (
 //	    the plan path above `spectre/changes/<name>/tasks.md`. An absent
 //	    report owes nothing. Reported at the task's title line, one finding
 //	    naming every uncited row.
+//	F35 A ticked task's **Build:** never reads `pending` (kan-1132
+//	    self-review, F7). A ticked task (`- [x]`) whose first **Build:**
+//	    line (the one tcfSelectBuildTag selects) reads `pending` is reported
+//	    once, at its task line. It fires at `flow-guard close-task`, which
+//	    runs this guard on the edited plan, before `flow-guard
+//	    check-task-build-green` refuses the same tag at round close.
 //
 // A duplicate task id is check-task-build-green's violation, not this
 // guard's: tcfTaskIDs keeps the first occurrence, and every per-task read
@@ -356,6 +362,7 @@ var psRules = []struct{ id, sentence string }{
 	{"F32", "A task's **Size:** value is `small`, `medium` or `big`."},
 	{"F33", "One fix round is one `In-run fix <k> — …` task: no second unticked one unless the two share a **Files:** path, none opened by a report older than the previous round's `-fix-<k>` re-run, and no task under another title after one outside **Tasks appended:**."},
 	{"F34", "An unticked task whose **Opener:** is a `visual-verify…` key cites `<frame> #<row>` for every over-tolerance row its opener's report classifies `departure`."},
+	{"F35", "A ticked task's **Build:** never reads `pending`."},
 	{"plan-suite-steps", "No step runs a module or repository test suite: go test takes `-run`, Gradle `--tests`, npm test and vitest `-t`."},
 	{"plan-script-paths", "Every `scripts/` path a task cites exists in the repository or is in some task's **Files:**."},
 	{"plan-files-paths", `Every **Files:** path names the directory its file lands in, never one with a segment dropped.`},
@@ -1026,6 +1033,11 @@ func (p *psPlan) checkTask(found tcfTaskBody) []psFinding {
 		}
 		return true
 	})
+	if tag := tcfSelectBuildTag(body); tag != nil && p.on("F35") && strings.HasPrefix(p.lines[start-1], "- [x]") {
+		if f := strings.Fields(tag.value); len(f) > 0 && f[0] == "pending" {
+			v = append(v, p.at(start, "F35", "task "+id+" is ticked but its **Build:** still reads `pending` — a ticked task's build is decided: `green`, or `red` with its reason; check-task-build-green refuses it at round close"))
+		}
+	}
 	firstGating := 0
 	tcfUnfenced(body, func(off int, line string) bool {
 		m := tcfAfterFieldRE.FindStringSubmatch(line)
