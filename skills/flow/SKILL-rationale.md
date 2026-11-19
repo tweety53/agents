@@ -640,6 +640,12 @@ decision fixer-weight-cap).
 
 ### implement.md — The gated per-task reviewer
 
+A gated bundle is a batch of weight 5, not the implementer group: slim-flow-loop's 23 tasks in
+12 groups of one to three tasks paid 12 reviewer dispatches, each re-reading the brief, the prompt
+and the three artifacts for one to three small diffs. Weight 5 halves that count while a bundle
+stays well under the fixer's measured blow-up; the fixer keeps weight 3 (kan-1131, decision
+fixer-weight-cap), since a fixer edits and re-tests where a reviewer only reads.
+
 > **one dispatch per bundle of gate-fired tasks, never one per task** (gymie KAN-527: nine one-task dispatches on the first twelve tasks of a
 > 21-task change, before the operator stopped the run — the review-dispatch count tracks the
 > change's size, never its task count).

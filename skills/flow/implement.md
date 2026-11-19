@@ -53,7 +53,7 @@ These ten rows are **every** Agent-tool dispatch the parent may make, across sec
 | Site | Role | Role line | Key shape | Owning section |
 |---|---|---|---|---|
 | implementer, one per group; a fixer per fix | `implementer`; a fixer the row role its Role line records under (**Every fix is a fresh one-shot**) | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
-| gated reviewer bundle, one per implementer group | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| gated reviewer bundle, one per batch of returned tasks of weight 5 | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, one per decided `panel` bundle | `reviewer` | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
@@ -473,10 +473,10 @@ entry. At each boundary, in this order:
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it.
 3. **A second Bash call readies each group that call printed** — a
-   `throwaway` group's copy (`skills/flow/sdd-dispatch.md`) and the returned group's reviewer bundle's diffs (**The
+   `throwaway` group's copy (`skills/flow/sdd-dispatch.md`) and, when a batch is due, its reviewer bundle's diffs (**The
    gated per-task reviewer**, below) — and **the next message launches every printed group's
-   implementer and the returned group's reviewer bundle**, each with `run_in_background: true`, and the turn ends — the wait
-   of **Turn discipline** (below). A boundary whose ready set is empty launches the reviewer
+   implementer and the due reviewer bundle**, each with `run_in_background: true`, and the turn ends — the wait
+   of **Turn discipline** (below). A boundary whose ready set is empty launches the due reviewer
    bundle alone.
 
 **The guard's pass ticks the task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
@@ -522,10 +522,11 @@ superseded decision beside its replacement. The amended plan is
 re-validated — `spectre validate` — before the next task dispatches.
 
 **The gated per-task reviewer.** One combined review per task — spec compliance and
-code quality together — but **one dispatch per implementer group, never one per task**,
+code quality together — but **one dispatch per batch of returned tasks, never one per task**,
 the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to panel rounds.
-**The bundle is the implementer group**: at a boundary, every task of the returned group
-goes out in one reviewer Agent call beside the implementers the boundary launches, on the
+**The bundle is a batch of weight 5**: returned tasks not yet reviewed accumulate, in plan order, and
+at the boundary where their weight reaches 5 — a `**Size:** big` task weighing 3, every other task 1 —
+or where no implementer of the repository is left in flight or queued, every one of them, of one repository, goes out in one reviewer Agent call beside the implementers the boundary launches, on the
 `gated-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
 line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
 with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`). Each task inside the bundle keeps its own pass: its own
