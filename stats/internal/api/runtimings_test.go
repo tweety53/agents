@@ -624,3 +624,93 @@ func TestRunCostsFoldsEachRunResult(t *testing.T) {
 		t.Errorf("missing from: status %d, want 400", s)
 	}
 }
+
+// rtMs is a dispatch of role over [from, to) milliseconds after rtT0.
+func rtMs(role string, from, to int64, cost string) records.Dispatch {
+	d := rtDispatch("x-"+role, role, 0, 0, cost)
+	d.StartedAt = rtT0.Add(time.Duration(from) * time.Millisecond)
+	end := rtT0.Add(time.Duration(to) * time.Millisecond)
+	d.EndedAt = &end
+	return d
+}
+
+// TestRunTimingsSweepGivesTheRemainderToTheEarliestRow: two rows sharing
+// a 3 ms segment get 2 ms and 1 ms, so the shares still sum to wall clock.
+func TestRunTimingsSweepGivesTheRemainderToTheEarliestRow(t *testing.T) {
+	t.Parallel()
+	st := rtStage("flow.implement", 0, 0, "0")
+	end := rtT0.Add(3 * time.Millisecond)
+	st.EndedAt = &end
+	out := computeRun(runInput{
+		Stages:     []store.StageRun{st},
+		Dispatches: []records.Dispatch{rtMs("implementer", 0, 3, ""), rtMs("reviewer", 0, 3, "")},
+	}, rtAt(10))
+	b := out.Breakdowns["role"]
+	if a, r := rtRow(t, b, "implementer").ShareMs, rtRow(t, b, "reviewer").ShareMs; a != 2 || r != 1 {
+		t.Errorf("shares = %d, %d; want 2, 1", a, r)
+	}
+}
+
+// TestRunTimingsParentSessionCostFloorsAtZero: dispatch rows costing more
+// than the stage runs leave the parent session at zero, not negative.
+func TestRunTimingsParentSessionCostFloorsAtZero(t *testing.T) {
+	t.Parallel()
+	out := computeRun(runInput{
+		Stages:     []store.StageRun{rtStage("flow.implement", 0, 10, "1")},
+		Dispatches: []records.Dispatch{rtDispatch("task-1-implementer", "implementer", 0, 5, "3")},
+	}, rtAt(20))
+	if got := out.Totals.ParentSessionCost.Value; got != 0 {
+		t.Errorf("parent session cost = %d, want 0", got)
+	}
+	if got := out.Totals.Cost.Value; got != 3_000_000 {
+		t.Errorf("cost = %d, want 3000000", got)
+	}
+}
+
+// TestRunTimingsCountsRowsWithoutTokens: rtInput's open task-4 row carries
+// no tokens and is the one row Totals.NoTokens counts.
+func TestRunTimingsCountsRowsWithoutTokens(t *testing.T) {
+	t.Parallel()
+	if got := computeRun(rtInput(), rtAt(170)).Totals.NoTokens; got != 1 {
+		t.Errorf("no tokens = %d, want 1", got)
+	}
+}
+
+// TestRunTimingsWallClockFallsBackToTheDispatchRows: a run with no stage
+// run spans its dispatch rows' extent.
+func TestRunTimingsWallClockFallsBackToTheDispatchRows(t *testing.T) {
+	t.Parallel()
+	out := computeRun(runInput{Dispatches: []records.Dispatch{
+		rtDispatch("task-1-implementer", "implementer", 10, 40, "1"),
+		rtDispatch("task-2-implementer", "implementer", 20, 60, "1"),
+	}}, rtAt(100))
+	if got := out.Totals.WallClockMs.Value; got != rtMin(50) || !out.From.Equal(rtAt(10)) {
+		t.Errorf("wall clock = %d from %v, want %d from %v", got, out.From, rtMin(50), rtAt(10))
+	}
+}
+
+// TestRunTimingsRoundsCostToTheNearestMicroDollar: $0.0000017 is 2
+// micro-dollars, not the truncated 1.
+func TestRunTimingsRoundsCostToTheNearestMicroDollar(t *testing.T) {
+	t.Parallel()
+	out := computeRun(runInput{
+		Stages:     []store.StageRun{rtStage("flow.implement", 0, 10, "0")},
+		Dispatches: []records.Dispatch{rtDispatch("task-1-implementer", "implementer", 0, 5, "0.0000017")},
+	}, rtAt(20))
+	if got := out.Totals.Cost.Value; got != 2 {
+		t.Errorf("cost = %d micro-dollars, want 2", got)
+	}
+}
+
+// TestRunTimingsCountsIdenticalGuardRunsOnce: two guard runs with the same
+// span outside every dispatch are one parent-command run.
+func TestRunTimingsCountsIdenticalGuardRunsOnce(t *testing.T) {
+	t.Parallel()
+	out := computeRun(runInput{
+		Stages: []store.StageRun{rtStage("flow.implement", 0, 10, "0")},
+		Guards: []records.GuardRun{rtGuard(2, 4), rtGuard(2, 4)},
+	}, rtAt(20))
+	if got := out.Totals.ParentCommandRuns; got != 1 {
+		t.Errorf("parent command runs = %d, want 1", got)
+	}
+}
