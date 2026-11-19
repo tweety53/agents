@@ -4,13 +4,13 @@
 // (GET /api/v1/stats/run/{project}/{change}); each carries its definition
 // and kind as a `src` badge.
 import { useEffect, useState, type ReactNode } from "react";
-import { fetchStatsView, getRunTimings, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow } from "../api";
+import { fetchStatsView, getRunTimings, NOT_CATEGORIES, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow } from "../api";
 import { Chip } from "../components/Chip";
 import { RunTimeline, hm } from "../components/RunTimeline";
+import { formatUsd } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 import { StatePill } from "./StateBoard";
 
-const usd = (v: number) => `$${v.toFixed(2)}`;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const stamp = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).replace(",", "");
@@ -26,7 +26,6 @@ type Group = (typeof GROUPS)[number][0];
 
 // The rows the prototype always draws; any other gap shows only when present.
 const DQ_ALWAYS = new Set(["open-stage-runs", "unlinked", "no-tokens", "aborted-ran", "uncategorised", "journal", "retimed"]);
-const NO_COST = new Set(["parent commands", "idle / parent"]);
 const FRACTION: Record<number, string> = { 2: "½", 3: "⅓", 4: "¼" };
 
 function Src({ kind, title }: { kind: string; title?: string }) {
@@ -67,7 +66,7 @@ function Body({ run }: { run: RunTimingsDTO }) {
 
   const b = run.breakdowns[group];
   const col = (name: string) => b.columns.find((c) => c.name === name);
-  const max = Math.max(0, ...b.rows.filter((r) => !NO_COST.has(r.label)).map((r) => r.cost));
+  const max = Math.max(0, ...b.rows.filter((r) => !NOT_CATEGORIES.has(r.label)).map((r) => r.cost));
 
   const c = run.counts;
   const deps = c.departures.value.map((d) => d.departures);
@@ -82,8 +81,8 @@ function Body({ run }: { run: RunTimingsDTO }) {
           <Kpi name="Agent time" m={t.agentTimeMs} value={hm(t.agentTimeMs.value)} hint={`sum ${hm(laneSum)} · ${pct(share(t.agentTimeMs.value))} of wall`} />
           <Kpi name="Parent commands" m={t.parentCommandsMs} value={hm(t.parentCommandsMs.value)} hint={`${t.parentCommandRuns} runs · ${pct(share(t.parentCommandsMs.value))}`} />
           <Kpi name="Idle / parent" m={t.idleMs} value={hm(t.idleMs.value)} hint={`${pct(share(t.idleMs.value))} of wall`} />
-          <Kpi name="Cost" m={t.cost} value={usd(t.cost.value)} hint={`${t.dispatches} dispatches · ${t.noTokens} unpriced`} />
-          <Kpi name="Visual-verify loops" m={t.visualVerifyShare} value={pct(t.visualVerifyShare.value)} hint={`${hm(t.visualVerifyShare.value * wall)} · ${usd(vvCost)}`} />
+          <Kpi name="Cost" m={t.cost} value={formatUsd(t.cost.value)} hint={`${t.dispatches} dispatches · ${t.noTokens} unpriced`} />
+          <Kpi name="Visual-verify loops" m={t.visualVerifyShare} value={pct(t.visualVerifyShare.value)} hint={`${hm(t.visualVerifyShare.value * wall)} · ${formatUsd(vvCost)}`} />
         </div>
       </section>
 
@@ -134,11 +133,11 @@ function Body({ run }: { run: RunTimingsDTO }) {
                     <td className="r lb-num">{hm(r.shareMs)}</td>
                     <td className="r lb-num lb-muted">{hm(r.busyMs)}</td>
                     <td className="r">
-                      {NO_COST.has(r.label) ? (
+                      {NOT_CATEGORIES.has(r.label) ? (
                         <span className="lb-muted">—</span>
                       ) : (
                         <span className="lb-costcell">
-                          <span className="lb-num">{usd(r.cost)}</span>
+                          <span className="lb-num">{formatUsd(r.cost)}</span>
                           <span className="lb-costbar"><span style={{ width: `${max ? (100 * r.cost) / max : 0}%` }} /></span>
                         </span>
                       )}
@@ -153,7 +152,7 @@ function Body({ run }: { run: RunTimingsDTO }) {
                   <td className="r lb-num">{b.total.rows}</td>
                   <td className="r lb-num">{hm(b.total.shareMs)}</td>
                   <td className="r lb-num lb-muted">—</td>
-                  <td className="r lb-num">{usd(b.total.cost)}</td>
+                  <td className="r lb-num">{formatUsd(b.total.cost)}</td>
                   <td className="r lb-num">{b.total.noTokens}</td>
                 </tr>
               </tfoot>
@@ -227,7 +226,7 @@ function Body({ run }: { run: RunTimingsDTO }) {
                       <td className="r lb-num">{k.rows}</td>
                       <td className="r lb-num">{hm(k.shareMs)}</td>
                       <td className="r lb-num">
-                        {usd(k.cost)}
+                        {formatUsd(k.cost)}
                         {k.estimated && <> <Src kind="estimated" title="A group dispatch’s cost split evenly across its tasks." /></>}
                       </td>
                     </tr>
@@ -259,7 +258,7 @@ function Body({ run }: { run: RunTimingsDTO }) {
                       <td className="r lb-num">{r.round}</td>
                       <td className="r lb-num">{dep ? dep.departures : "—"}</td>
                       <td className="r lb-num">{hm(r.shareMs)}</td>
-                      <td className="r lb-num">{usd(r.cost)}</td>
+                      <td className="r lb-num">{formatUsd(r.cost)}</td>
                     </tr>
                   );
                 })}

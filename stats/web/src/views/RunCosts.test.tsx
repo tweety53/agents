@@ -213,32 +213,32 @@ describe("RunCosts", () => {
     expect(terms[5].querySelector(".src.estimated")).not.toBeNull();
   });
 
-  it("run costs fetches each picked run once and drops a stale error or result", async () => {
+  it("run costs fetches each picked run once, keeps a late result and drops a stale error", async () => {
     const pending: Record<string, (t: RunTimingsDTO) => void> = {};
-    let fail: (e: Error) => void = () => {};
+    const failing: Record<string, (e: Error) => void> = {};
     runTimingsMock.mockImplementation(
       (_p: string, c: string) =>
         new Promise<RunTimingsDTO>((res, rej) => {
           pending[c] = res;
-          fail = rej;
+          failing[c] = rej;
         }),
     );
     render(<RunCosts />);
     await vi.waitFor(() => expect(runTimingsMock).toHaveBeenCalledTimes(2));
     pending[C1](T[C1]);
     await screen.findByText("Wall clock", { selector: "dt" });
-    const failC2 = fail;
     await userEvent.click(screen.getByRole("checkbox", { name: `Compare ${C3}` }));
     expect(runTimingsMock.mock.calls.map((c) => c[1])).toEqual([C1, C2, C3]);
 
     await userEvent.click(screen.getByRole("button", { name: "90 days" }));
     await act(async () => {});
-    await act(async () => failC2(new Error("late failure")));
+    // An error landing after the period change is not shown...
+    await act(async () => failing[C3](new Error("late failure")));
     expect(screen.queryByText("late failure")).toBeNull();
-
-    // A late success is dropped too, and its run asked for again when picked.
-    await act(async () => pending[C3](T[C3]));
-    await userEvent.click(screen.getByRole("checkbox", { name: `Compare ${C3}` }));
-    expect(runTimingsMock.mock.calls.map((c) => c[1]).slice(3)).toContain(C3);
+    // ...but a run's timings do not depend on the period: a late result still reaches Compare.
+    await act(async () => pending[C2](T[C2]));
+    const cmp = screen.getByRole("region", { name: "Compare runs" });
+    expect(within(cmp).getAllByRole("row").length).toBeGreaterThan(1);
+    expect(runTimingsMock).toHaveBeenCalledTimes(3);
   });
 });

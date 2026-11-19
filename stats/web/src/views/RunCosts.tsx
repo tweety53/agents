@@ -4,16 +4,13 @@
 // ticked runs' one-run results (getRunTimings) client-side, and the
 // Definitions those results carry.
 import { useEffect, useRef, useState } from "react";
-import { fetchProjects, fetchStatsView, getRunTimings, type RunCostsResult, type RunTimings } from "../api";
+import { fetchProjects, fetchStatsView, getRunTimings, NOT_CATEGORIES, type RunCostsResult, type RunTimings } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { hm } from "../components/RunTimeline";
-import { PERIOD_DAYS, windowFor, type PeriodChip } from "../format";
+import { formatUsd, PERIOD_DAYS, windowFor, type PeriodChip } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 
-const usd = (v: number) => `$${v.toFixed(2)}`;
 const PERIOD_LABELS: Record<PeriodChip, string> = { "7d": "7 days", "30d": "30 days", "90d": "90 days" };
-// The breakdown rows that are not categories (runtimings.go's labelParent, labelIdle).
-const NOT_CATEGORIES = ["parent commands", "idle / parent"];
 
 type Run = RunCostsResult["runs"][number];
 const runId = (r: Pick<Run, "project" | "change">) => `${r.project}/${r.change}`;
@@ -23,17 +20,17 @@ const runId = (r: Pick<Run, "project" | "change">) => `${r.project}/${r.change}`
 function compareLines(a: RunTimings, b: RunTimings): [string, number, number, (v: number) => string][] {
   const tasks = (t: RunTimings) => t.costPerTask.length;
   const fix = (t: RunTimings) => t.counts.fixRounds.value.verify + t.counts.fixRounds.value.panel;
-  const cats = (t: RunTimings) => t.breakdowns.category.rows.filter((r) => !NOT_CATEGORIES.includes(r.label));
+  const cats = (t: RunTimings) => t.breakdowns.category.rows.filter((r) => !NOT_CATEGORIES.has(r.label));
   const cost = (t: RunTimings, label: string) => cats(t).find((r) => r.label === label)?.cost ?? 0;
   const labels = [...new Set([...cats(a), ...cats(b)].map((r) => r.label))];
   return [
     ["Wall clock", a.totals.wallClockMs.value, b.totals.wallClockMs.value, hm],
     ["Agent time", a.totals.agentTimeMs.value, b.totals.agentTimeMs.value, hm],
     ["Idle / parent", a.totals.idleMs.value, b.totals.idleMs.value, hm],
-    ["Cost", a.totals.cost.value, b.totals.cost.value, usd],
+    ["Cost", a.totals.cost.value, b.totals.cost.value, formatUsd],
     ["Tasks", tasks(a), tasks(b), String],
     ["Fix rounds", fix(a), fix(b), String],
-    ...labels.map((l): [string, number, number, (v: number) => string] => [`${l} · cost`, cost(a, l), cost(b, l), usd]),
+    ...labels.map((l): [string, number, number, (v: number) => string] => [`${l} · cost`, cost(a, l), cost(b, l), formatUsd]),
   ];
 }
 
@@ -46,7 +43,7 @@ export function RunCosts() {
   // The two compared runs, older pick first; ticking a third drops the older.
   const [picks, setPicks] = useState<string[]>([]);
   const [timings, setTimings] = useState<Record<string, RunTimings>>({});
-  // gen counts period/project loads; a timings request outlived by one is stale.
+  // gen counts period/project loads; a timings error outlived by one is not shown.
   const gen = useRef(0);
 
   useEffect(() => {
@@ -70,9 +67,10 @@ export function RunCosts() {
     };
   }, [win, project]);
 
-  // Each picked run is fetched once: requested holds the ids asked for, and a
-  // result or error that lands after the period or project changed is dropped
-  // (its id released so the next pick asks again).
+  // Each picked run is fetched once: requested holds the ids asked for. A
+  // run's timings do not depend on the period, so a result is always kept; an
+  // error releases its id, and is shown only if no period or project load
+  // has since cleared the banner.
   const requested = useRef(new Set<string>());
   useEffect(() => {
     for (const id of picks) {
@@ -80,13 +78,11 @@ export function RunCosts() {
       if (!r || requested.current.has(id)) continue;
       requested.current.add(id);
       const g = gen.current;
-      const stale = () => gen.current !== g && requested.current.delete(id);
       getRunTimings(r.project, r.change).then(
-        (t) => stale() || setTimings((prev) => ({ ...prev, [id]: t })),
+        (t) => setTimings((prev) => ({ ...prev, [id]: t })),
         (e: unknown) => {
-          if (stale()) return;
           requested.current.delete(id);
-          setError(e instanceof Error ? e.message : String(e));
+          if (gen.current === g) setError(e instanceof Error ? e.message : String(e));
         },
       );
     }
@@ -145,7 +141,7 @@ export function RunCosts() {
                   <td className="r lb-num">{c.runs}</td>
                   <td className="r lb-num">{c.rows}</td>
                   <td className="r lb-num">{hm(c.seconds * 1000)}</td>
-                  <td className="r lb-num">{usd(c.cost)}</td>
+                  <td className="r lb-num">{formatUsd(c.cost)}</td>
                   <td className="r lb-num">{`${(100 * c.shareOfCost).toFixed(1)}%`}</td>
                 </tr>
               ))}
@@ -180,12 +176,12 @@ export function RunCosts() {
                     <input type="checkbox" checked={picks.includes(runId(r))} onChange={() => tick(runId(r))} aria-label={`Compare ${r.change}`} />
                   </td>
                   <td>
-                    <a href={`#/run-costs/${r.project}/${r.change}`}>{r.change}</a>
+                    <a href={`#/run-costs/${encodeURIComponent(r.project)}/${encodeURIComponent(r.change)}`}>{r.change}</a>
                   </td>
                   <td>{projectLabel(r.project)}</td>
                   <td className="r lb-num">{hm(r.wallClockMs.value)}</td>
                   <td className="r lb-num">{hm(r.agentTimeMs.value)}</td>
-                  <td className="r lb-num">{usd(r.cost.value)}</td>
+                  <td className="r lb-num">{formatUsd(r.cost.value)}</td>
                   <td className="r lb-num">{r.tasks.value}</td>
                   <td className="r lb-num">{r.fixRounds.value.verify + r.fixRounds.value.panel}</td>
                 </tr>

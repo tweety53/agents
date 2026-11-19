@@ -764,3 +764,16 @@ func TestRunCostsReadsEveryRunInOneBatch(t *testing.T) {
 		}
 	}
 }
+
+// The SPA's NOT_CATEGORIES (web/src/api.ts) is the one copy of the rows this
+// file draws outside the categories; it must name exactly labelParent and labelIdle.
+func TestSPANotCategoriesMatchesTheServerLabels(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "..", "web", "src", "api.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("NOT_CATEGORIES = new Set([%q, %q])", labelParent, labelIdle)
+	if !strings.Contains(string(src), want) {
+		t.Fatalf("web/src/api.ts lacks %s", want)
+	}
+}
