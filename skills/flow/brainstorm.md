@@ -126,8 +126,8 @@ token spend.
    (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's `## Summary` verbatim and
    the round file's absolute path — the design draft stays in the file — with the
    prototype's Artifact URL beside them whenever a prototype exists, asks its `## Questions` verbatim and no other —
-   the `[architectural]` ones together, up to four in one **AskUserQuestion** call, the
-   `[impactful: <criterion>]` ones in a second, the convergence confirm last, in round-file order — the URL appended to the text of the question that depends on the
+   the `[architectural]` ones first, four to an **AskUserQuestion** call, then the
+   `[impactful: <criterion>]` ones, four to a call, the convergence confirm last, in round-file order — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the

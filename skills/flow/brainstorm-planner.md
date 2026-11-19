@@ -39,9 +39,9 @@ states.
   takes its recommended option: it is recorded as a `## Decisions` entry and as one line,
   `<decision id>: <chosen> — <what it was chosen over>`, under the round file's `## Auto-taken`,
   and in `answers-<r>.md`; the parent's relay never prints, asks or mentions it, and the next
-  planner and the final planner read it from the file. At most four `[architectural]` and at most four `[impactful: …]`
-  questions are asked a round; beyond four, the four whose wrong pick costs most are asked and the
-  rest are held for the next round, never auto-taken. Each question is asked in the round it
+  planner and the final planner read it from the file. A round asks every question it holds — four
+  is only the limit of one **AskUserQuestion** call, so more questions take more calls in the same
+  round, never a later round. Each question is asked in the round it
   appears: from an answer, an agent's findings or the builder check, or, once the design is
   approved, from writing the artifacts or the plan, then asked before the plan review gate and its
   answer revising the design. This is a scoped override of every call `brainstorming` makes for
@@ -67,9 +67,9 @@ states.
   step produces, each becoming a `**Considered:**` line — and not a name, a format, a wording or
   a scope detail is headed `### Q<n>. [architectural] <question>` in the round file, and each of
   its options closes with `Fails under: <the condition this option stops working in>`. The
-  recommended mark stays. The parent asks the architectural questions together, up to four in one
-  **AskUserQuestion** call, in round-file order; the impactful ones in a second call; the
-  convergence confirm last, in the impactful call when it has room.
+  recommended mark stays. The parent asks the architectural questions first, four to an
+  **AskUserQuestion** call, in round-file order; then the impactful ones, four to a call; the
+  convergence confirm last, in the last call when it has room.
 
 - **An answer that contradicts an earlier one is asked about, never applied**. When
   an answer in `answers-<r>.md` contradicts an earlier answer or a decision the design draft
@@ -150,8 +150,8 @@ agents investigate and propose; you decide. They record no ledger row.
 scope it was given>` as it arrives; read that file before dispatching, and dispatch an agent only
 for ground no section covers.
 
-**The cap.** One planner dispatch launches at most three Explore and three Plan agents in round 1
-and at most two agents in all in a later round or a final dispatch. A planner that needs more
+**The cap.** One planner dispatch launches at most five Explore and five Plan agents in round 1
+and at most five agents in all in a later round or a final dispatch. A planner that needs more
 writes `Over cap: <n> agents — <reason>` in the round file's `## Summary` (a final dispatch: in
 its return) and dispatches them.
 
@@ -319,7 +319,7 @@ decision's `overrides`.
 print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`) and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
 summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
 `**Plan review:** <absolute path of the report> — clean | <n> fixed, <n> contested, <n>
-accepted | not run | skipped — <reason>`.
+accepted | not run`.
 
 Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
