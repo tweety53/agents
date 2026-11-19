@@ -23,9 +23,9 @@ Sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and
 `flow.load-context` through `flow.write-in-progress` on its behalf; the running session does it
 itself. Every "you" in those files addresses the parent. On a fix run,
 section **3** below runs first: the parent resolves the worktree from the state file's `worktrees`
-map, runs section 3's inline plan-append, Jira sync and re-decision, then continues into load-context/isolate/
-sdd-tdd on the same session, with no dispatch in between. A fix run's stage order is therefore
-document-fix → decide → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated
+map, runs section 3 — the fix planner's dispatch and the Jira sync — then continues into
+load-context/isolate/sdd-tdd on the same session. A fix run's stage order is therefore
+document-fix → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated
 after the fix's edit.
 
 **The parent's shell discipline:** the parent's own Bash work above runs in the session's
@@ -49,25 +49,26 @@ in the background still runs is that wait (**Turn discipline**, below).
 
 ### Dispatch sites — the parent's closed list
 
-These eight rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
+These ten rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
 **2** and **4** below, `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md` and
 `skills/flow-contracts/pipeline.md`'s **Pipeline defects found mid-run**:
 
 | Site | Role | Role line | Key shape | Owning section |
 |---|---|---|---|---|
-| implementer, one per group; a fixer per fix | `implementer` | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+| implementer, one per group; a fixer per fix | `implementer`; a fixer the row role its Role line records under (**Every fix is a fresh one-shot**) | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
 | gated reviewer bundle, one per implementer group | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, one per decided `panel` bundle | `reviewer` | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
-| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
+| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
+| minor fix, one per round that raised only Minors | `panel-fix` | `minor-fix` | `panel-<round>-minor-fix` | `skills/flow/review-panel.md`, **Panel re-runs** |
+| fix planner, one per fix run | `planner` | `fix-planner` | `fix-plan-<n>` | `skills/flow/document-fix.md` |
 | verifier, one per worktree, or one per shard of a sharded pass | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-fix-<k>-full`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | tooling analyst, one per worktree whose fix run reports a miss an earlier round passed | `planner` | `tooling-analyst` | `tooling-analysis-<n>` | `skills/flow/visual-verify.md`, **A missed defect — the tooling analysis** |
 | in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
 **Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
 the **Role line** column names — and runs on a pair that role's rows of **Allowed pairs**
-(`skills/flow-contracts/model-policy.md`) admit; `hooks/enforce-agent-baseline.py` refuses, in a
-flow run, a dispatch with no Role line, an unknown role, or a pair off its role's rows. A
+(`skills/flow-contracts/model-policy.md`) admit. A
 no-progress escalation carries its fixer's own Role line — `panel-fix`, or `implementer` for a
 verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line.
 
@@ -97,9 +98,7 @@ by plan id over the plan's task count, then a few words in parentheses: `Task 3/
 for one task, `Tasks 3+4+7/22 (review)` for a group, its ids in the order its key lists them. Every other row is its key and a few
 words, with no parentheses: `panel-1-primary correctness review`. The `flow-task-list` mod
 (`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
-row its description's first word names, so `hooks/enforce-agent-baseline.py` denies, in a flow run,
-a dispatch whose description opens any other way. A first
-word off the **Key shape** column above is another way. The `Role:` line is the **Role line** column's id above.
+row its description's first word names. The `Role:` line is the **Role line** column's id above.
 
 **The hook writes the row's begin.** On a flow dispatch with no open row for its key,
 `hooks/enforce-agent-baseline.py` runs `flow record dispatch begin` itself once its other checks
@@ -119,7 +118,7 @@ is a fresh dispatch.
 
 Every row's own prompt or brief carries the NO DELEGATION paragraph (`skills/flow/implementer-brief.md`,
 `skills/flow/gated-reviewer-brief.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
-nothing exists below these rows — save the in-run pipeline fix planner, which carries PLANNING
+nothing exists below these rows — save the in-run pipeline fix planner and the fix planner, which carry PLANNING
 DELEGATION in its place on a `flow-planner-<effort>` definition and may dispatch fresh Explore and
 Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`).
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
@@ -129,7 +128,7 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 structurally does not have, not by prompt text alone. This covers the panel bundle,
 panel-fix and gated per-task reviewer rows. The verifier
 row dispatches on the `visual-verifier` role's pair (`skills/flow/visual-verify.md`),
-a `flow-<effort>` definition, so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names, and `hooks/enforce-agent-baseline.py` denies a `flow-high` dispatch outside it.
+a `flow-<effort>` definition, so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names.
 
 **The return.** Once a dispatch's completion notification arrives and its report file exists, read its verdict, print the change's own
 handoff or continue to the next stage, and close the record under whichever key is open:
@@ -164,9 +163,6 @@ naming: nothing has been proposed under that name, so stop and suggest `/flow <n
 - `<changeRoot>/design.md` — how, when the change carries one
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names
 
-A file of this list this session has already read — the fix run's planning pass reads
-`proposal.md` and `tasks.md` — is not read again unless it was edited since.
-
 **Every recorded base is compared with the branch it tracks before task 1 runs.** Run
 `flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
 for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block, run its two command
@@ -177,8 +173,9 @@ again. Exit 2 → name its stderr in the handoff and continue.
 `spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change.
 
 - `total == 0` → no plan spectre can read: stop, resume at `skills/flow/resume.md`.
-- `total > 0` and `done == total` → every task is already checked: proceed to
-  `skills/flow/integrate.md`.
+- `total > 0` and `done == total` → every task is already checked: close this stage and continue
+  into `skills/flow/review-panel.md`, then `skills/flow/verify-and-handoff.md` — never straight to
+  integrate.
 
 Confirm `tasks.md` meets writing-plans quality; if it does not, invoke **superpowers:writing-plans**
 to repair it before touching code.
@@ -267,8 +264,8 @@ flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed
 
 **Load `skills/flow/document-fix.md` only when** this run is a fix run — state `IN_PROGRESS` with
 fix instructions, or a plain message at `IN_PROGRESS` (`skills/flow/SKILL.md`); it carries the
-`flow.document-fix` and `flow.decide` marks, the re-plan budget, the planning pass, the Jira
-description sync and plan growth, and a first run marks nothing there.
+`flow.document-fix` mark, the fix planner's dispatch and the Jira description sync, and a first
+run marks nothing there.
 
 ## 4. Execute (SDD + TDD)
 
@@ -280,10 +277,8 @@ flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -sessio
 agent of any name — may be in flight against a given worktree at any moment** — a reviewer is not
 one: it reads an immutable commit range, and any number of them may run beside the one mutator.
 Dispatches into different worktrees remain free to run concurrently. A visual verifier is a
-mutator here too — it builds the stack from the tree and writes `<changeRoot>/visual-verification/`
-— and `flow record dispatch begin` refuses a `visual-verify` row while an `implementer`,
-`panel-fix` or `red-partner` row of the change is open, and any of those while a `visual-verify`
-row is open. The shards of one sharded `flow.visual-verify` pass (`skills/flow/visual-verify.md`)
+mutator here too — it builds the stack from the tree and writes `<changeRoot>/visual-verification/`.
+The shards of one sharded `flow.visual-verify` pass (`skills/flow/visual-verify.md`)
 are the one exception: up to four verifiers of that pass run at once in one worktree, each writing
 only its own slice's files. This explicitly overrides
 `superpowers:subagent-driven-development`'s parallel dispatch guidance and
@@ -316,7 +311,7 @@ unique within the run's session token — `task-<ids>-implementer`, reused ident
 Inside a `for` loop it may expand the loop variable — `$k`, `${k}`, or a `#`/`%` strip of it — the
 only shapes the harvester reads; any other expansion leaves the row without its agent.
 `-role` is one of `implementer`, `reviewer`, `merger`, `panel-fix`, `verifier` (**Verify**,
-`skills/flow/verify-and-handoff.md`) or `planner` (the tooling analyst, `skills/flow/visual-verify.md`); `-task` is the task's
+`skills/flow/verify-and-handoff.md`) or `planner` (the tooling analyst, `skills/flow/visual-verify.md`, and the fix planner, `skills/flow/document-fix.md`); `-task` is the task's
 flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,
 never a shell substitution. The start and end instants are the daemon's own — never
 caller inputs.
@@ -484,7 +479,7 @@ entry. At each boundary, in this order:
    is the substitution shape **A guard you could not run is
    hand-substituted only on the record** exists to prevent, not a licence — the guard runs.
    A bare `<task-id>` resolves to the newest commit since `<merge-base>` in the canonical worktree whose `Task-Id:` trailer names it.
-   The script's header (`<agents repo>/scripts/flow-guard close-task`) is
+   The guard's header (`stats/internal/guard/closetask.go`) is
    canonical for its arguments and its order.
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
@@ -549,15 +544,6 @@ decision the pivot displaces is superseded by ID per **Decisions**
 fresh entry appended, nothing deleted or rewritten — so the record carries the
 superseded decision beside its replacement. The amended plan is
 re-validated — `spectre validate` — before the next task dispatches.
-
-**A task added after the decision row is re-decided before it runs.** Whenever `tasks.md` gains a
-task once the run's decision is recorded — a pivot, an operator's mid-run request, any append
-outside a fix run's, which re-decides on its own — the parent re-runs **Decide**
-(`skills/flow/brainstorm-planner.md`) and records the new row as **The appended plan is re-decided
-before load-context.** (`skills/flow/document-fix.md`) does — its own `flow.decide` begin/record/end
-block, opened and closed while `flow.sdd-tdd` stays open — before the added task is implemented. The
-tasks still to run follow the new row's groups and panel, never the first
-row's.
 
 **The gated per-task reviewer.** One combined review per task — spec compliance and
 code quality together — but **one dispatch per implementer group, never one per task**,
@@ -751,7 +737,7 @@ full suite, which is `flow-guard run-verify-list -full` and runs only when the o
 `full-suite-fix-<n>` keys the implement phase's full-suite fixes only; a fix at `flow.verify` is an
 `In-run fix <k>` task, its re-runs keyed `-fix-<k>` (**The loop**, `skills/flow/verify-fix-loop.md`).
 
-Every row is `-role implementer`, its prompt's `Role:` line the role whose pair the table names, recorded by `flow record
+Every row's prompt carries the `Role:` line of the role whose pair the table names, and its row records under that role — `-role panel-fix` on the `panel-fix` rows, `-role implementer` on the pick row — by `flow record
 dispatch begin` and `end` as a group's implementer is — its `-model` and `-effort` the pair the
 table names, the end's `-commit` its last commit — and launched with `run_in_background: true` like
 every child. `<k>` counts that key's fixes from 1. A fixer is a mutator: it goes out only while no
@@ -759,8 +745,7 @@ implementer writes its worktree.
 **The parent keeps every judgement**, and delegates none: whether a correction or an undeclared
 path is legitimate — an undeclared path transcribed with `flow tasks files` is a plan edit, never a
 fix; whether a finding stands, or is withdrawn with its one clause; a BLOCKED report or a question,
-per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`); a pivot and its
-re-decision; every `flow record finding`, `status` and `incident` call; and whether a fixer or a
+per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`); a pivot; every `flow record finding`, `status` and `incident` call; and whether a fixer or a
 re-review goes out. No child dispatches, waits on or resumes another.
 
 ### One stack for the verification tasks

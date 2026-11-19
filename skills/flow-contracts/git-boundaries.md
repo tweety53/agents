@@ -85,7 +85,7 @@ A `/flow-fast` branch's commit series is its whole record, and the route reads i
 
 **Commits outside every task carry a `Flow-Key:` trailer.** A commit a run makes on a change
 branch outside every task — the parent's full-suite fix, a panel fix or a gated reviewer's fix
-committed on top, the parent's inline review-Minors commit, `flow.visual-verify`'s capture
+committed on top, the `minor-fix` subagent's review-Minors commit, `flow.visual-verify`'s capture
 commit, the brainstorm's handoff-asset commit, integrate's implementation commit —
 carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded under
 (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
@@ -105,22 +105,21 @@ Run 1's unfinished-work gate lists
 every other non-`chore` commit with `flow-guard check-untasked-commits`
 (`skills/flow-contracts/finish-contract-run1.md`).
 **Before such a commit is pushed, `flow-guard check-untasked-commits` judges every commit the push sends**,
-mechanically at both points that push a change branch mid-run: `hooks/protect-main-checkout.py`
-denies a typed push of HEAD to `spectre/<name>` while it lists a commit origin's copy of that branch lacks,
-and `flow-guard close-task` refuses (exit 1, nothing ticked or pushed) on the same range per worktree
-before its push. A listed HEAD takes the trailer through `git commit --amend`, an earlier commit
-through a reword; the push or the close is then made again. A commit already on origin is not
+mechanically: `hooks/block-unsafe-commands.py`
+denies a typed push of HEAD to `spectre/<name>` while it lists a commit origin's copy of that branch lacks.
+A listed HEAD takes the trailer through `git commit --amend`, an earlier commit
+through a reword; the push is then made again. A commit already on origin is not
 judged there — run 1's unfinished-work gate lists it and handles `UNTASKED`.
 
 **A commit and its push in one command are judged together.** The push check above runs before
 the command does, so it cannot see a commit the same command makes first:
-`hooks/protect-main-checkout.py` therefore denies a command that commits and pushes a `spectre/`
+`hooks/block-unsafe-commands.py` therefore denies a command that commits and pushes a `spectre/`
 branch when that commit's own `-m` text carries neither trailer and no `chore` subject, and its
 pathspec is not limited to `<project>/<spec-root>/changes/`.
 
 ## Restoring a path with unstaged edits
 
-**A restore that would discard unstaged edits is denied.** `hooks/protect-main-checkout.py` denies
+**A restore that would discard unstaged edits is denied.** `hooks/block-unsafe-commands.py` denies
 a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names
 carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on
 it is lost with the flip a mutation proof made. Restore a flipped file

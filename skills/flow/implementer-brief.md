@@ -104,22 +104,18 @@ this file in full first: its prompt is a stub naming this file, never these para
 > line in this same commit. Every refusal or exit path the diff adds gets a test case of its
 > own.
 
-> **PROOF RUNS:** Every build, test suite or probe you start runs under
-> `<agents repo>/scripts/flow-guard run-capped --`, which kills its whole process tree past the project's
-> `## resource cap` (default 4096 MB). The cap is per command; a flow-guard run-capped started under another
-> joins the outer cap. Gradle runs with `--no-daemon` (flow-guard run-capped sets it), since a daemon
-> reparents out of the tree, and with bounded `--max-workers` and `-Xmx`. A dev stack detaches, so
-> it is bounded by its own config — worker counts and heap — not by flow-guard run-capped. A flake fix
+> **PROOF RUNS:** Keep runs bounded — never start an unbounded load, a leaking loop or a suite
+> that can exhaust the machine's memory; stop a run that does. A flake fix
 > carries one of two proofs. Either its cause is reproduced — preferably in one isolated run, a delay
 > or fault injected at the seam, the test alone or with the one test whose leftover state it reads;
 > a load reproduction (backend or frontend) is allowed only
-> under flow-guard run-capped with an explicit bounded worker count sized under the cap: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`,
-> Playwright `--workers`, vitest `--maxWorkers`, at most 5 capped runs — and the fix then shows the
+> with an explicit bounded worker count: Gradle `--max-workers`/`maxParallelForks` and `-Xmx`,
+> Playwright `--workers`, vitest `--maxWorkers`, at most 5 runs — and the fix then shows the
 > check failing with the mechanism removed (`~/.claude/rules/fix-determinism-at-the-source.md`). Or
-> the flake does not reproduce within the cap and goes straight to code: no further reproduction
+> the flake does not reproduce within those runs and goes straight to code: no further reproduction
 > loops; fix it on deeper analysis of the code and the failing run's saved artifacts, and the commit
 > body says so — that alone waives the mechanism-removed run. Your report states which, with the
-> forced condition, the cap, the worker count and the run count.
+> forced condition, the worker count and the run count.
 
 > **REWRITTEN BASELINES:** a capture that rewrites a baseline PNG in this task follows **No rewritten baseline is staged unread** (**The sweep**, `skills/flow-contracts/known-bugs.md`) before you stage it.
 

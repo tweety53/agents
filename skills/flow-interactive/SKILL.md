@@ -83,7 +83,7 @@ by that directory, and it holds the session's edit scripts. The main checkout is
 **Hook registrations.** Grep the harness's hook config for every identifier `<agents repo>/setup.sh`'s
 `warn_unregistered_hook` checks for that harness (on Claude Code: `enforce-agent-baseline`,
 `enforce-loop-dispatch`, `flow-active-change`, `flow-session-activity`, `await-own-agents`,
-`protect-main-checkout` in `~/.claude/settings.json`). Any missing gets one line naming them and
+`block-unsafe-commands` in `~/.claude/settings.json`). Any missing gets one line naming them and
 `<agents repo>/setup.sh global`, which prints each registration snippet. Never edit that file, ask
 nothing about it, and continue.
 

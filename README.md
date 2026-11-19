@@ -216,12 +216,12 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 them all. `.flow/project.md` `## lint` lists this repository's own.
 
 **Hooks, always on:**
-- `enforce-agent-baseline.py` — denies a dispatch missing the `agent-baseline.md` pointer, a pinned
-  verify role on the wrong agent type or model, or an unapproved `flow-high` dispatch
+- `enforce-agent-baseline.py` — denies a dispatch missing the `agent-baseline.md` pointer, a fork
+  in a flow session, or a loop-keyed dispatch with no `Key:` line, and begins the dispatch's row
   (`stats/internal/repotest/enforce_agent_baseline_hook_test.go`).
 - `enforce-loop-dispatch.py` — admits a pipeline-fix or self-review loop dispatch only off its pairs
   row, and records it (`scripts/flow-guard check-loop-dispatch`).
-- `protect-main-checkout.py` — denies edits, staging, commits, stashes and resets on a main
+- `block-unsafe-commands.py` — denies edits, staging, commits, stashes and resets on a main
   checkout's default branch, and an unrecorded loop-branch landing push
   (`scripts/flow-guard check-loop-landing`).
 - `flow-active-change.py` — routes a plain problem report to the open change as a fix run, or to an

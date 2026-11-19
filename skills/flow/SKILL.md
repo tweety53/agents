@@ -84,10 +84,8 @@ registered.
 **Gate.** `flow state get <name>` must answer `IN_PROGRESS`. Any other answer, or an unreachable
 store, makes the message an ordinary turn, never a wrong-state handoff, since nothing was invoked.
 
-**Ambiguity prompt.** A message that reads as either a question or a change request asks once,
-shape per **The shape** (`skills/flow-contracts/operator-prompts.md`): **Run this as a fix of
-`<name>`?** — **Yes** *(recommended)* / **No — ordinary turn**. Silence takes Yes and the handoff
-carries the 🤖 line.
+**Nothing is asked.** The session decides: a message that reads as a change request is run as a
+fix, and one that reads as a question is answered as an ordinary turn.
 
 **The run.** Announce `Using flow for change <name> — fix run from a plain message`, generate this
 run's own session token per **Generate this run's session token once** below, and continue at **3.

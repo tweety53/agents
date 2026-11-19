@@ -67,7 +67,7 @@ substituted in the dispatch prompt with the value named here:
 | `[GLOBAL_CONSTRAINTS]` | principles | the absolute path of the change's `design.md`, or `none` when it has none |
 
 **A spawn type this harness's Agent tool does not offer is substituted on the record, never
-silently**: the slot runs on `general-purpose`, and the round records `flow record pass -round <round> -note 'panel: <slot ids> on general-purpose — <type> not offered'`.
+silently**: the slot runs on the closest `flow-<effort>` type the harness offers — never `general-purpose`, which can delegate — and the round records `flow record pass -round <round> -note 'panel: <slot ids> on <the type it ran on> — <type> not offered'`.
 
 **Check for an operator-named id at two points**: at the start of this stage (has the operator, in
 this run's own argument or in the session before this stage, named an id the decided panel does not
@@ -126,7 +126,7 @@ order, with one call:
 flow-guard write-panel-diff final <abs-worktree> <worktree> <merge-base> [<worktree> <merge-base>…]
 ```
 
-Its header (`<agents repo>/scripts/flow-guard write-panel-diff`) is canonical for both files' shape. Exit 0
+Its header (`stats/internal/guard/writepaneldiff.go`) is canonical for both files' shape. Exit 0
 prints the two paths; exit 2 — it cannot answer, and nothing was written — stops the run with its
 stderr. Then dispatch the round's
 `panel` bundles in the canonical worktree, each reading the whole combined file; a role is
@@ -185,7 +185,7 @@ flow-guard render-slot-prompt <skill-dir> <round> <abs-worktree> <plan-dir> <slo
 ```
 
 `<skill-dir>` is the directory this file was read from and `<plan-dir>` the plan directory; `-standard` carries **Principles**' resolved `[STANDARDS_PATHS]`,
-and `-fix-report` a re-run's `<fix report>`. Its header (`<agents repo>/scripts/flow-guard render-slot-prompt`) is canonical for the file it
+and `-fix-report` a re-run's `<fix report>`. Its header (`stats/internal/guard/renderslotprompt.go`) is canonical for the file it
 writes: the shared paragraphs below, then one **PASS `<id>`** section per role in the bundle's order,
 each with its own REPORT FILE line. Exit 0 prints the rendered path, then a `DISPATCH:` line naming the Agent call's description and its prompt's `Role:` line — use both as printed; exit 1 names a placeholder it
 could not fill, and exit 2 means it cannot answer — either stops the round before its launches.
@@ -247,9 +247,9 @@ the foreground, while the read-only slots review (**The pass-1 panel reads while
 runs.**, `skills/flow/implement.md`).
 The `mutation` bundle stays out of pass 1's launch message: once the suite has exited, the next message launches it, before the round's wait.
 A full-suite fix is applied only once the round's wait
-ends, never under the reading slots, so once the round's reports exist, every pass-1 role re-runs in the next round over the
-delta that commit adds, under **Panel re-runs** (`skills/flow/review-panel-fix-round.md`) — a
-role that raised nothing included; a suite that passes adds no commit and re-dispatches nothing.
+ends, never under the reading slots, so once the round's reports exist, the slots that raised a
+finding re-run in the next round over the delta that commit adds, under **Panel re-runs**
+(`skills/flow/review-panel-fix-round.md`); a suite that passes adds no commit and re-dispatches nothing.
 **A live check's before figures are measured in the same window**, after the suite: when
 `design.md`'s `## Live check` names something to exercise, the parent measures each before figure
 from the merge base the way **Live check** (`skills/flow/verify-and-handoff.md`) states and writes
@@ -541,14 +541,17 @@ causes a fix round of its own.** Every Critical and Important the round raised g
 subagent below, closed by the verification that follows it — the fix diff touches a path the finding named, or one of the path condition's accepted
 alternatives below closes the finding. **A round that raised a Critical or Important sends every
 Minor it raised to that same fix**, closed by the same verification. **A round that raised no
-Critical and no Important has its Minors fixed by the parent, inline, at the round's close** — no
-fix subagent, no mutation proof, no slot re-run and no dispatch record. The
-parent edits each Minor's named location, stages the changed paths and makes one commit per
-worktree at the branch tip —
+Critical and no Important has its Minors fixed by one fresh subagent at the round's close** — role
+`minor-fix`, key `panel-<round>-minor-fix` (**Dispatch sites — the parent's closed list**,
+`skills/flow/implement.md`), its pair from `flow-guard pair-judge minor-fix`, its prompt carrying
+every fix subagent paragraph below but MUTATION PROOF and REPORT FILE, its open Minors as the
+findings, and `REPORT FILE: <abs-worktree>/.superpowers/sdd/minor-fix-report-<round>.md` — no
+mutation proof, no slot re-run. It edits each Minor's named location, stages the changed paths and makes one
+commit per worktree at the branch tip —
 `git -C <worktree> commit -m "fix(<module>): review Minors" -m "Flow-Key: flow.review-panel" -- <the changed paths>`, the scope
-naming the module the edits moved — pushed per **Branch backup**
-(`skills/flow-contracts/git-boundaries.md`), then records each finding
-`flow record status -change <name> -ref F<n> -status fixed`. `flow.verify`'s lint and tests,
+naming the module the edits moved. On its return the parent pushes that commit per **Branch
+backup** (`skills/flow-contracts/git-boundaries.md`), ends the row with it as `-commit`, and
+records each finding `flow record status -change <name> -ref F<n> -status fixed`. `flow.verify`'s lint and tests,
 which run after this stage, are that fix's verification. **A Minor is never deferred, and it names a defect only
 when it completes this sentence with a Y that is true at HEAD**: given `<an input, a state or a
 reader>`, `<location>` `<does or says Y>`; it should `<Z>`. One that cannot — a suggestion, a
@@ -558,7 +561,7 @@ change that would survive, a layout the project's formatter and lint accept — 
 the tree can resolve, with `-status 'withdrawn <reason>'`, the reason one clause naming the
 mechanism — out of scope, pre-existing and cosmetic are not reasons. **Where Y is a result shipped
 code produces at run time — an output, a stored value, an exit code, a permission, a request made —
-the inline fix carries one test that fails without it, in the same commit**; where the cause cannot
+the Minor fix carries one test that fails without it, in the same commit**; where the cause cannot
 be forced in one isolated run, the commit body says so. Then proceed to
 the stage close. **No reviewer is dispatched against a
 `review Minors` commit alone**: a further round opens only when `git log <the round's dispatch
@@ -584,7 +587,7 @@ stale by definition, not only one a fix round produced. A fix against which a sl
 finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
 fix changed. A fix of Mutation's own findings leaves Mutation's result current too: the
 fix's `fix-mutation:` lines cover it (**Panel re-runs**,
-`skills/flow/review-panel-fix-round.md`). **The parent's inline Minor commit leaves every slot's result current** — a source change
+`skills/flow/review-panel-fix-round.md`). **The `review Minors` commit leaves every slot's result current** — a source change
 after a slot's last read that does not make that result stale, and neither does a fix run's delta
 for a slot the fix-slot judge skipped (**The fix-run review**).
 
@@ -645,7 +648,8 @@ for a slot the fix-slot judge skipped (**The fix-run review**).
 > '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
 > run the module or repository suite mid-task: the `## test` list runs again in
 > `flow.verify`. Pipe a test run's output through `tail` so a green
-> run costs lines of context, not a build log.
+> run costs lines of context, not a build log. Keep every run bounded (PROOF RUNS,
+> `skills/flow/implementer-brief.md`).
 
 **Every fix subagent's dispatch prompt also carries the OUTPUT BUDGET paragraph**:
 

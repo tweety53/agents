@@ -25,7 +25,8 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 > the panel's mutating slots are the one declared exception, and they work in throwaway copies the
 > parent creates, not this tree. Inspect with Read, Grep, and the read-only git forms — `git show`, `git diff`,
 > `git log`, `git status`. A mutation you cause is indistinguishable from a defect the next
-> implementer inherits, and a restore you perform is a claim nobody can check.
+> implementer inherits, and a restore you perform is a claim nobody can check. A test or probe
+> you run is kept bounded (PROOF RUNS, `skills/flow/implementer-brief.md`).
 
 > **GO CHANGES:** When a reviewed diff includes a `*.go` file, read and follow the `go-code-review` skill
 > first. A diff with no `.go` file skips this.
