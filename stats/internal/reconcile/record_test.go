@@ -539,6 +539,7 @@ func testDispatchEnd() records.DispatchEnd {
 // replayed before the begin it closes names a row that does not exist yet.
 // smoke: core — the journal replay applies pending record entries
 func TestReplayAppliesPendingRecordEntries(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record", "chg-record"
 
@@ -577,6 +578,7 @@ func TestReplayAppliesPendingRecordEntries(t *testing.T) {
 // and "incident" -- must reach the store through applyRecordEntry's three
 // new case arms and retire, exactly as the four existing kinds do.
 func TestReplayAppliesVerdictAndIncidentEntries(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-guardlog", "chg-record-guardlog"
 
@@ -626,6 +628,7 @@ func TestReplayAppliesVerdictAndIncidentEntries(t *testing.T) {
 // with its per-test costs (KAN-1124): the suite arm decodes the whole
 // records.SuiteRun, Tests included, and hands it to the store.
 func TestReplaySuiteRunKeepsItsTests(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-suite-tests", "chg-record-suite-tests"
 
@@ -655,6 +658,7 @@ func TestReplaySuiteRunKeepsItsTests(t *testing.T) {
 // the store through applyRecordEntry's own case arm and retire, exactly as
 // every other record kind does.
 func TestReplayDecisionKind(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-decision", "chg-record-decision"
 
@@ -689,6 +693,7 @@ func TestReplayDecisionKind(t *testing.T) {
 // applyRecordEntry's own case arms and retire, exactly as every other
 // record kind does.
 func TestReplayPanelPassLogKinds(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-passlog", "chg-record-passlog"
 
@@ -733,6 +738,7 @@ func TestReplayPanelPassLogKinds(t *testing.T) {
 // died partway through -- has its complete entry applied and retired, and
 // its partial tail left exactly where it was.
 func TestPartialTrailingRecordJournalLineIsIgnored(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-partial", "chg-record-partial"
 	path := recordJournalPath(root, project, change)
@@ -783,6 +789,7 @@ func TestPartialTrailingRecordJournalLineIsIgnored(t *testing.T) {
 // the head of the file, where it would block every valid entry queued
 // behind it on every future replay. One bad line must not cost the file.
 func TestUndecodableRecordEntryIsRefusedAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-bad", "chg-record-bad"
 
@@ -834,6 +841,7 @@ func (*deferredNotMinorRecordStore) SetFindingStatus(context.Context, string, st
 // finding ref naming no row, never a stall that blocks every valid entry
 // queued behind it.
 func TestStatusRefusedAsNotMinorIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-notminor", "chg-record-notminor"
 
@@ -883,6 +891,7 @@ func (*invalidAgentIDRecordStore) RecordDispatch(context.Context, string, string
 // left the package green and the F4 stall regressable for that half. The
 // same retirement the not-Minor refusal gets, pinned for its twin.
 func TestStatusRefusedAsCategoryContradictionIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-catcon", "chg-record-catcon"
 
@@ -915,6 +924,7 @@ func TestStatusRefusedAsCategoryContradictionIsRetiredAndAppliesEntryBehindIt(t 
 // refusal keys on the request body alone -- so retiring it is what stops
 // one bad entry blocking every valid entry behind it forever.
 func TestDispatchRefusedForAnInvalidAgentIDIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-agentid", "chg-record-agentid"
 
@@ -952,6 +962,7 @@ func (*shortInlineRecordStore) EndDispatch(context.Context, string, string, reco
 // inline end refused for its window is refused identically on every
 // replay, so it retires rather than blocking the queue.
 func TestDispatchEndRefusedAsTooShortIsRetiredAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-shortinline", "chg-record-shortinline"
 
@@ -988,6 +999,7 @@ func (s *commitRefusedRecordStore) EndDispatch(context.Context, string, string, 
 // refused identically on every replay, so it retires rather than blocking
 // the queue.
 func TestDispatchEndRefusedForItsCommitIsRetired(t *testing.T) {
+	t.Parallel()
 	for _, sentinel := range []error{store.ErrInlineCommitMissing, store.ErrInlineBegunAfterCommit} {
 		root := t.TempDir()
 		const project, change = "proj-record-commitinline", "chg-record-commitinline"
@@ -1034,6 +1046,7 @@ func TestDispatchEndRefusedForItsCommitIsRetired(t *testing.T) {
 // behind it on every future replay, which is the same reasoning
 // errRecordEntryDecodeFailed already retires an undecodable body under.
 func TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow(t *testing.T) {
+	t.Parallel()
 	dispatchWithout := func(mutate func(*records.Dispatch)) records.Dispatch {
 		d := testDispatch()
 		mutate(&d)
@@ -1101,6 +1114,7 @@ func TestRecordEntryMissingARequiredFieldIsRefusedWithoutWritingARow(t *testing.
 // stamping rule exists to make impossible. A supplied instant is kept as
 // the replay override, untouched.
 func TestRecordEntryWithAZeroInstantIsStampedOnReplay(t *testing.T) {
+	t.Parallel()
 	t.Run("dispatch, no startedAt", func(t *testing.T) {
 		root := t.TempDir()
 		const project, change = "proj-record-stamp", "chg-record-stamp"
@@ -1205,6 +1219,7 @@ func TestRecordEntryWithAZeroInstantIsStampedOnReplay(t *testing.T) {
 // route, whose ref comes from the URL and is likewise handed to the store
 // unexamined.
 func TestRecordStatusEntryWithAnEmptyRefStillReachesTheStore(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-emptyref", "chg-record-emptyref"
 
@@ -1243,6 +1258,7 @@ func (notFoundRecordStore) EndDispatch(_ context.Context, projectKey, change str
 // exactly the defect the end call exists to prevent. It stays queued, and
 // resolves itself the moment the begin lands.
 func TestDispatchEndNamingNoRowStaysQueued(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-end-queued", "chg-record-end-queued"
 
@@ -1267,6 +1283,7 @@ func TestDispatchEndNamingNoRowStaysQueued(t *testing.T) {
 // dropped it would clear the deferral's classification on every drain of
 // the journal.
 func TestReplayAppliesStatusCategory(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-category", "chg-record-category"
 
@@ -1292,6 +1309,7 @@ func TestReplayAppliesStatusCategory(t *testing.T) {
 // reach the store through applyRecordEntry's own case arm and retire,
 // exactly as every other record kind does.
 func TestReplaySubstitutionKind(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-substitution", "chg-record-substitution"
 
@@ -1324,6 +1342,7 @@ func TestReplaySubstitutionKind(t *testing.T) {
 // TestReplayVerifyRunKind pins that a journalled "run" entry reaches the
 // store through applyRecordEntry's own case arm and retires.
 func TestReplayVerifyRunKind(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-run", "chg-record-run"
 
@@ -1354,6 +1373,7 @@ func TestReplayVerifyRunKind(t *testing.T) {
 // store through applyRecordEntry's own case arm and retire, exactly as the
 // decision kind beside it does.
 func TestReplaySummaryKind(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-summary", "chg-record-summary"
 
@@ -1401,6 +1421,7 @@ func (s *endTimesStore) EndDispatch(_ context.Context, _, _ string, in records.D
 // last transcript write, exactly as the live handler does; a caller-supplied
 // -ended-at is kept.
 func TestReplayClosesAJournalledEndAtTheAgentsLastWrite(t *testing.T) {
+	t.Parallel()
 	t0 := time.Date(2026, 10, 27, 17, 0, 0, 0, time.UTC)
 	for _, tc := range []struct {
 		name       string
@@ -1436,6 +1457,7 @@ func TestReplayClosesAJournalledEndAtTheAgentsLastWrite(t *testing.T) {
 // stays unresolved across passes warns once, not on every Watch tick, and
 // stays queued.
 func TestReplayWarnsOnceForAStuckEntry(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-record-stuck", "chg-record-stuck"
 	appendRecordWrite(t, root, project, change, "dispatch-end", testDispatchEnd())
@@ -1488,6 +1510,7 @@ func (f *fakeRecordStore) ListRequests(context.Context, string, string) ([]recor
 // replay through their own case arms with the instants the CLI stamped,
 // and retire.
 func TestReplayRequestEntries(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	const project, change = "proj-request", "chg-request"
 	received := time.Date(2026, 10, 30, 9, 0, 0, 0, time.UTC)

@@ -58,6 +58,7 @@ func pendingCount(t *testing.T, root, project, name string) int {
 // TestReplayAppliesPendingEntries pins the basic replay path against a
 // real store: a single pending journal entry is applied and retired.
 func TestReplayAppliesPendingEntries(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -97,6 +98,7 @@ func TestReplayAppliesPendingEntries(t *testing.T) {
 // confirming that assertion, not the GetChange one, is what actually pins
 // "retired rather than retried indefinitely".
 func TestStaleEntryCannotRegressFinished(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -146,6 +148,7 @@ func TestStaleEntryCannotRegressFinished(t *testing.T) {
 // first) both retire, and the store ends up holding the correctly
 // advanced record.
 func TestReplayRetiresRefusedEntries(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -198,6 +201,7 @@ func TestReplayRetiresRefusedEntries(t *testing.T) {
 // test fail -- Applied drops to 0 and the second entry is left pending,
 // which is exactly F1's bug.
 func TestReplayRetiresInvalidStateEntryAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -239,6 +243,7 @@ func TestReplayRetiresInvalidStateEntryAndAppliesEntryBehindIt(t *testing.T) {
 // TestReplayRetiresInvalidStateEntryAndAppliesEntryBehindIt does -- Applied
 // drops to 0 and the valid second entry never applies.
 func TestReplayRetiresUndecodableEntryAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -282,6 +287,7 @@ func TestReplayRetiresUndecodableEntryAndAppliesEntryBehindIt(t *testing.T) {
 // chosen (project, name) pair, which fails with a plain, non-monotonic
 // error exactly once to simulate a dropped connection mid-replay.
 func TestInterruptedReplayResumesWithoutDuplicating(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -469,6 +475,7 @@ func (f *fakeStore) callCount() int {
 // what the assertion actually depends on.
 // smoke: core — a data-race test of concurrent reconciler runs
 func TestReconcilerRunSerializesConcurrentCalls(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	appendEntry(t, root, "proj-concurrent", "chg-1", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
 	appendEntry(t, root, "proj-concurrent", "chg-2", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
@@ -522,6 +529,7 @@ func TestReconcilerRunSerializesConcurrentCalls(t *testing.T) {
 // but retirePrefix must preserve it rather than discard it when it removes
 // the entry that was actually processed. A second Run then picks it up.
 func TestRetirePreservesEntryAppendedDuringReplay(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	appendEntry(t, root, "proj-append", "chg-x", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
 
@@ -570,6 +578,7 @@ func TestRetirePreservesEntryAppendedDuringReplay(t *testing.T) {
 // partial tail exactly as it found it -- neither guessing at it nor
 // erroring the whole file out.
 func TestPartialTrailingJournalLineIsIgnored(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	path := journalPath(root, "proj-partial", "chg-partial")
 
@@ -636,6 +645,7 @@ func mustMarshalRawBody(t *testing.T, body []byte) string {
 // under this exact test, confirming the assertion below actually depends
 // on the lock rather than passing regardless of it.
 func TestConcurrentAppendVersusRetirePreservesEveryEntry(t *testing.T) {
+	t.Parallel()
 	const appendCount = 600
 
 	root := t.TempDir()
@@ -763,6 +773,7 @@ func TestConcurrentAppendVersusRetirePreservesEveryEntry(t *testing.T) {
 // replayFile's "unknown outcome" branch and stops the file there, which is
 // F1's bug reproduced by a different malformed field.
 func TestReplayRetiresMalformedMergeBaseEntryAndAppliesEntryBehindIt(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()

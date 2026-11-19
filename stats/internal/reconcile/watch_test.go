@@ -14,6 +14,7 @@ import (
 // replayed by Watch's next healthy tick -- not only on a ping that goes
 // from failing to succeeding, which such an outage never produces.
 func TestWatchReplaysOnHealthyTick(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	root := t.TempDir()
 	ctx, cancel := context.WithCancel(context.Background())

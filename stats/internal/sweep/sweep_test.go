@@ -51,6 +51,7 @@ func newSweeperAt(st *store.Store, timeout time.Duration, at time.Time) *sweep.S
 // the two pin both the "old and open" and "young and open" halves of the
 // predicate.
 func TestSweepClosesSilentStages(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sweep-close-%d", time.Now().UnixNano())
@@ -93,6 +94,7 @@ func TestSweepClosesSilentStages(t *testing.T) {
 // clause entirely) makes this test fail, since the run seeded here would
 // then be swept -- confirmed by running the mutation locally.
 func TestSweepLeavesActiveStagesOpen(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sweep-active-%d", time.Now().UnixNano())
@@ -134,6 +136,7 @@ func TestSweepLeavesActiveStagesOpen(t *testing.T) {
 // and stamp a new EndedAt over the first, which the EndedAt-unchanged
 // assertion below catches.
 func TestSweepIsIdempotent(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sweep-idempotent-%d", time.Now().UnixNano())
@@ -199,6 +202,7 @@ func TestSweepIsIdempotent(t *testing.T) {
 // SQL "should" be safe.
 // smoke: core — a data-race test of concurrent sweepers
 func TestConcurrentSweepersDoNotDoubleCloseOrCollide(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sweep-concurrent-%d", time.Now().UnixNano())
@@ -271,6 +275,7 @@ func TestConcurrentSweepersDoNotDoubleCloseOrCollide(t *testing.T) {
 // way the row ends up with exactly one coherent outcome; this test checks
 // that outcome is the one whichever call actually reported succeeding.
 func TestSweepRacingLiveEndDoesNotCorruptOutcome(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-sweep-race-%d", time.Now().UnixNano())
