@@ -36,18 +36,6 @@ async function openTimings(page: Page) {
   return root;
 }
 
-async function openCosts(page: Page) {
-  await open(page, "/#/run-costs");
-  await expect(page.getByRole("link", { name: "Run costs" })).toHaveAttribute("aria-current", "page");
-  const root = page.getByRole("region", { name: "Run costs", exact: true });
-  for (const r of ["Time and cost by category, across runs", "Runs", "Compare runs", "Definitions"]) {
-    await expect(root.getByRole("region", { name: r, exact: true })).toBeVisible();
-  }
-  await expect(root.getByRole("region", { name: "Definitions" }).locator(".src").first()).toBeVisible();
-  await expect(root.getByRole("checkbox", { name: `Compare ${RUN}` })).toBeVisible();
-  return root;
-}
-
 async function parkPointer(page: Page) {
   await page.mouse.move(0, 0);
 }
@@ -83,33 +71,6 @@ test("run timings data quality expanded", async ({ page }) => {
   await expect(summary.locator("xpath=..")).toHaveAttribute("open", "");
   await parkPointer(page);
   await expect(page).toHaveScreenshot("run-timings-dq-open.png", { fullPage: true });
-});
-
-test("run costs at rest", async ({ page }) => {
-  await openCosts(page);
-  await expect(page).toHaveScreenshot("run-costs.png", { fullPage: true });
-});
-
-test("run costs ninety days for one project", async ({ page }) => {
-  const root = await openCosts(page);
-  const period = root.getByRole("group", { name: "Period" }).getByRole("button", { name: "90 days" });
-  await period.click();
-  await expect(period).toHaveAttribute("aria-pressed", "true");
-  const project = root.getByRole("group", { name: "Project" }).getByRole("button", { name: "uitest-beta" });
-  await project.click();
-  await expect(project).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("Loading…")).toHaveCount(0);
-  await parkPointer(page);
-  await expect(page).toHaveScreenshot("run-costs-filtered.png", { fullPage: true });
-});
-
-test("run costs compare picked", async ({ page }) => {
-  const root = await openCosts(page);
-  const b = root.getByRole("region", { name: "Compare runs" }).locator("label", { hasText: /^B/ }).getByRole("combobox");
-  await b.selectOption(`uitest-beta/${OTHER}`);
-  await expect(b).toHaveValue(`uitest-beta/${OTHER}`);
-  await parkPointer(page);
-  await expect(page).toHaveScreenshot("run-costs-compare.png", { fullPage: true });
 });
 
 test("run detail header with the timings button", async ({ page }) => {

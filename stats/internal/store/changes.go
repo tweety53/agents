@@ -598,28 +598,3 @@ func scanChange(row rowScanner) (Change, error) {
 	return c, nil
 }
 
-// FinishedChangesInPeriod returns every FINISHED, not-withdrawn change whose
-// updated_at falls in [period.From, period.To), oldest first, narrowed to
-// project when it is non-nil. It rides QueryChanges; withdrawn is not a
-// queryable field, so withdrawn records are dropped here.
-func (s *Store) FinishedChangesInPeriod(ctx context.Context, period Period, project *string) ([]Change, error) {
-	filters := []Filter{
-		{Field: "state", Op: OpEq, Value: string(StateFinished)},
-		{Field: "updated_at", Op: OpGte, Value: period.From},
-		{Field: "updated_at", Op: OpLt, Value: period.To},
-	}
-	if project != nil {
-		filters = append(filters, Filter{Field: "project", Op: OpEq, Value: *project})
-	}
-	all, _, err := s.QueryChanges(ctx, Query{Filters: filters, Sort: []SortKey{{Field: "updated_at"}, {Field: "project"}, {Field: "name"}}, Limit: NoLimit})
-	if err != nil {
-		return nil, fmt.Errorf("store: finished changes in period: %w", err)
-	}
-	var out []Change
-	for _, c := range all {
-		if !c.Withdrawn {
-			out = append(out, c)
-		}
-	}
-	return out, nil
-}

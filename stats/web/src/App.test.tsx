@@ -276,16 +276,3 @@ it("#/run/<project>/<change> still opens run detail beside the run-costs route",
   window.location.hash = "";
 });
 
-it("run costs nav entry sits between weekly costs and reviewers", async () => {
-  fetchStatsViewMock.mockImplementation((view) =>
-    Promise.resolve(view === "run-costs" ? { columns: [], categories: [], runs: [] } : { ...aggregateEnvelope(), view }),
-  );
-  window.location.hash = "#/run-costs";
-  render(<App />);
-  expect(await screen.findByRole("region", { name: "Run costs" })).toBeInTheDocument();
-  expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
-  const links = screen.getAllByRole("link").map((a) => a.textContent);
-  const i = links.indexOf("Run costs");
-  expect(links.slice(i - 1, i + 2)).toEqual(["Weekly costs", "Run costs", "Reviewers"]);
-  window.location.hash = "";
-});

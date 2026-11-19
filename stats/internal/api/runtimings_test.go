@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -226,17 +225,12 @@ func TestRunTimingsRepoFromTheKeySuffix(t *testing.T) {
 }
 
 // runTimingsFake serves rtInput for kan-1-a and its first three rows for
-// kan-2-b. batches, when set, counts its batch reads; gone lists a
-// finished change no store holds.
+// kan-2-b; gone lists a finished change no store holds.
 type runTimingsFake struct {
-	batches *atomic.Int32
-	gone    bool
+	gone bool
 }
 
 func (f runTimingsFake) RunInputs(_ context.Context, refs []store.ChangeRef) ([]store.RunInputs, error) {
-	if f.batches != nil {
-		f.batches.Add(1)
-	}
 	out := make([]store.RunInputs, len(refs))
 	for i, r := range refs {
 		ds := rtInput().Dispatches
@@ -252,34 +246,7 @@ func (f runTimingsFake) RunInputs(_ context.Context, refs []store.ChangeRef) ([]
 	return out, nil
 }
 
-var rtChanges = []store.Change{{ProjectKey: "gymie-7c1f238a", Name: "kan-1-a"}, {ProjectKey: "agents-0a1b2c3d", Name: "kan-2-b"}}
-
-func (f runTimingsFake) FinishedChangesInPeriod(_ context.Context, _ store.Period, project *string) ([]store.Change, error) {
-	var out []store.Change
-	for _, c := range rtChanges {
-		if project == nil || *project == c.ProjectKey {
-			out = append(out, c)
-		}
-	}
-	if f.gone {
-		out = append(out, store.Change{ProjectKey: "gymie-7c1f238a", Name: "kan-gone"})
-	}
-	return out, nil
-}
-
-func (runTimingsFake) ProjectKeysByDisplayName(_ context.Context, name string) ([]string, error) {
-	for _, c := range rtChanges {
-		if strings.HasPrefix(c.ProjectKey, name+"-") {
-			return []string{c.ProjectKey}, nil
-		}
-	}
-	return nil, nil
-}
-
 func (f runTimingsFake) ChangeGuardRuns(_ context.Context, ws []store.GuardWindow) ([]store.ChangeGuards, error) {
-	if f.batches != nil {
-		f.batches.Add(1)
-	}
 	out := make([]store.ChangeGuards, len(ws))
 	for i := range out {
 		out[i] = store.ChangeGuards{Claimed: rtInput().Guards, Unclaimed: 1}
@@ -543,106 +510,6 @@ func TestEveryRunTimingsMetricCarriesADefinition(t *testing.T) {
 	}
 }
 
-// TestRunCostsFoldsEachRunResult: the across-runs view is each finished
-// run's one-run result folded — categories sum the runs' category rows and
-// each run line copies its own result.
-func TestRunCostsFoldsEachRunResult(t *testing.T) {
-	t.Parallel()
-	srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, nil, WithRunTimings(runTimingsFake{}))
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	ts := httptest.NewServer(srv.Handler())
-	t.Cleanup(ts.Close)
-	get := func(path string, v any) int {
-		t.Helper()
-		resp, err := http.Get(ts.URL + path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
-		if v != nil && resp.StatusCode == http.StatusOK {
-			if err := json.Unmarshal(body, v); err != nil {
-				t.Fatalf("decode %s: %v", body, err)
-			}
-		}
-		return resp.StatusCode
-	}
-	period := "from=2034-01-01T00:00:00Z&to=2034-02-01T00:00:00Z"
-	var got runCosts
-	if s := get("/api/v1/stats/run-costs?"+period, &got); s != http.StatusOK {
-		t.Fatalf("status %d", s)
-	}
-	// oneRun is the slice of a one-run result the fold copies.
-	type oneRun struct {
-		Totals      runTotals            `json:"totals"`
-		Breakdowns  map[string]breakdown `json:"breakdowns"`
-		CostPerTask []taskCost           `json:"costPerTask"`
-		Counts      struct {
-			FixRounds metric[fixRoundCounts] `json:"fixRounds"`
-		} `json:"counts"`
-	}
-	one := map[string]oneRun{}
-	for _, c := range rtChanges {
-		var r oneRun
-		if s := get("/api/v1/stats/run/"+c.ProjectKey+"/"+c.Name, &r); s != http.StatusOK {
-			t.Fatalf("run %s: status %d", c.Name, s)
-		}
-		one[c.Name] = r
-	}
-	want := map[string]runCostsCategory{}
-	for _, r := range one {
-		for _, row := range r.Breakdowns["category"].Rows {
-			if row.Label == labelParent || row.Label == labelIdle {
-				continue
-			}
-			w := want[row.Label]
-			w.Runs++
-			w.Rows += row.Rows
-			w.Seconds += row.BusyMs
-			w.Cost += row.Cost
-			want[row.Label] = w
-		}
-	}
-	if len(got.Categories) != len(want) {
-		t.Fatalf("categories = %d, want %d", len(got.Categories), len(want))
-	}
-	share := 0.0
-	for _, c := range got.Categories {
-		w := want[c.Category]
-		if c.Runs != w.Runs || c.Rows != w.Rows || c.Seconds != w.Seconds/1000 || c.Cost != w.Cost {
-			t.Errorf("%s = %+v, want %+v", c.Category, c, w)
-		}
-		share += c.ShareOfCost
-	}
-	if share < 0.999999 || share > 1.000001 {
-		t.Errorf("share of cost sums to %v", share)
-	}
-	if len(got.Runs) != 2 {
-		t.Fatalf("runs = %d, want 2", len(got.Runs))
-	}
-	for _, run := range got.Runs {
-		r := one[run.Change]
-		if run.WallClockMs != r.Totals.WallClockMs || run.AgentTimeMs != r.Totals.AgentTimeMs || run.IdleMs != r.Totals.IdleMs ||
-			run.Cost != r.Totals.Cost || run.Tasks.Value != len(r.CostPerTask) || run.FixRounds != r.Counts.FixRounds {
-			t.Errorf("run %s = %+v disagrees with its one-run result", run.Change, run)
-		}
-		for _, row := range r.Breakdowns["category"].Rows {
-			if row.Label != labelParent && row.Label != labelIdle && run.CategoryCost[row.Label] != row.Cost {
-				t.Errorf("run %s %s cost = %d, want %d", run.Change, row.Label, run.CategoryCost[row.Label], row.Cost)
-			}
-		}
-	}
-	var narrowed runCosts
-	if s := get("/api/v1/stats/run-costs?"+period+"&project=gymie", &narrowed); s != http.StatusOK || len(narrowed.Runs) != 1 || narrowed.Runs[0].Change != "kan-1-a" {
-		t.Errorf("project=gymie: status %d, runs %+v", s, narrowed.Runs)
-	}
-	if s := get("/api/v1/stats/run-costs?to=2034-02-01T00:00:00Z", nil); s != http.StatusBadRequest {
-		t.Errorf("missing from: status %d, want 400", s)
-	}
-}
-
 // rtMs is a dispatch of role over [from, to) milliseconds after rtT0.
 func rtMs(role string, from, to int64, cost string) records.Dispatch {
 	d := rtDispatch("x-"+role, role, 0, 0, cost)
@@ -730,38 +597,6 @@ func TestRunTimingsCountsIdenticalGuardRunsOnce(t *testing.T) {
 	}, rtAt(20))
 	if got := out.Totals.ParentCommandRuns; got != 1 {
 		t.Errorf("parent command runs = %d, want 1", got)
-	}
-}
-
-// TestRunCostsReadsEveryRunInOneBatch: run-costs reads all its finished
-// runs in one RunInputs and one ChangeGuardRuns call, however many there
-// are, and one run the store cannot read fails the whole response.
-func TestRunCostsReadsEveryRunInOneBatch(t *testing.T) {
-	t.Parallel()
-	period := "/api/v1/stats/run-costs?from=2034-01-01T00:00:00Z&to=2034-02-01T00:00:00Z"
-	for _, gone := range []bool{false, true} {
-		var batches atomic.Int32
-		srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, nil,
-			WithRunTimings(runTimingsFake{batches: &batches, gone: gone}))
-		if err != nil {
-			t.Fatalf("New: %v", err)
-		}
-		ts := httptest.NewServer(srv.Handler())
-		resp, err := http.Get(ts.URL + period)
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		ts.Close()
-		switch {
-		case gone && resp.StatusCode != http.StatusNotFound:
-			t.Errorf("unreadable run: status %d, want 404: %s", resp.StatusCode, body)
-		case !gone && resp.StatusCode != http.StatusOK:
-			t.Errorf("status %d: %s", resp.StatusCode, body)
-		case !gone && batches.Load() != 2:
-			t.Errorf("batch reads = %d for %d runs, want 2", batches.Load(), len(rtChanges))
-		}
 	}
 }
 

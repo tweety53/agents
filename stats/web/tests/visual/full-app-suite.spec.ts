@@ -19,7 +19,6 @@ const VIEWS: { view: string; label: string; query: string }[] = [
   { view: "review-dynamics", label: "Reviewer findings", query: PINNED_QUERY },
   // The view reads no period.
   { view: "agent-roles", label: "Agent roles", query: PINNED_QUERY },
-  { view: "run-costs", label: "Run costs", query: PINNED_QUERY },
   { view: "role-costs", label: "Role costs", query: PINNED_QUERY },
 ];
 

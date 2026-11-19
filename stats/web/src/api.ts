@@ -43,7 +43,6 @@ export type ViewName =
   | "stage-leaderboard"
   | "trend"
   | "weekly-costs"
-  | "run-costs"
   | "reviewers"
   | "decisions"
   | "flow-health"
@@ -57,7 +56,6 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "stage-leaderboard",
   "trend",
   "weekly-costs",
-  "run-costs",
   "reviewers",
   "decisions",
   "flow-health",
@@ -715,8 +713,7 @@ export interface RoleCostsResult {
 }
 
 /** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= --
- * `run-costs` answers its raw RunCostsResult, every other view the envelope. */
-export async function fetchStatsView(view: "run-costs", params: StatsViewParams, init?: RequestInit): Promise<RunCostsResult>;
+ * `role-costs` answers its raw RoleCostsResult, every other view the envelope. */
 export async function fetchStatsView(view: "role-costs", params: StatsViewParams, init?: RequestInit): Promise<RoleCostsResult>;
 export async function fetchStatsView<Row = unknown, Project = ProjectSpend>(
   view: StatsViewSlug,
@@ -939,24 +936,6 @@ export interface RunTimings {
   };
   dataQuality: { id: string; label: string; count: number; unknown?: boolean; detail: string[] }[];
   definitions: RunDefinition[];
-}
-
-/** Mirrors api.runCosts, GET /api/v1/stats/run-costs's result: every
- * finished run in the period folded by category, and each run's line. */
-export interface RunCostsResult {
-  columns: RunDefinition[];
-  categories: { category: string; runs: number; rows: number; seconds: number; cost: number; shareOfCost: number }[];
-  runs: {
-    project: string;
-    change: string;
-    wallClockMs: RunMetric<number>;
-    agentTimeMs: RunMetric<number>;
-    idleMs: RunMetric<number>;
-    cost: RunMetric<number>;
-    tasks: RunMetric<number>;
-    fixRounds: RunMetric<{ verify: number; panel: number }>;
-    categoryCost: Record<string, number>;
-  }[];
 }
 
 /** GET /api/v1/stats/run/{project}/{change} -- one run's timings and costs. */
