@@ -298,20 +298,20 @@ to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, `<key>` the dispatch's
 Explore or Plan agent, `explore-<n>` / `design-<n>`, then
 
 ```bash
-flow-guard pair-judge <role> <abs-worktree>/.superpowers/sdd/pair-judge/<key>.md [-opus-only]
+flow-guard pair-judge <role> <abs-worktree>/.superpowers/sdd/pair-judge/<key>.md
 ```
 
 It prints one line, `<model> <effort> <judge|fallback|single> <reason>`, and saves it beside the
-prompt as `<key>.pick`, which the dispatch hook records with the row. `-opus-only` marks a hard
-seam — concurrency, platform interop, a data-model change, performance-sensitive code. A judge
+prompt as `<key>.pick`, which the dispatch hook records with the row. The judge picks only among
+the role's allowed pairs in flowd; no pair is ever written into a prompt or a skill. A judge
 that cannot answer never blocks: it prints the role's first candidate with source `fallback`. A
 role the judge does not cover (it exits 2) runs on its first pair in `flow experiment overrides`
 when an open experiment names it, else its first `base` pair in `flow policy get`.
 
 A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
-`opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. A dispatch outside every
-role runs on `opus` or `sonnet`. A plain-language session instruction overrides the pair it names
+`opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. Every dispatch has a
+role from **Allowed pairs** (`skills/flow-contracts/model-policy.md`). A plain-language session instruction overrides the pair it names
 for this run only (**Model policy**, `skills/flow-contracts/model-policy.md`), recorded in the
 decision's `overrides`. On harnesses `zcode` and `muse` the pair is replaced at dispatch
 (**Harness mapping**, `skills/flow-contracts/model-policy.md`).
