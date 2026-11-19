@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
+// The source text is the contract here: jsdom applies neither media queries
+// nor a data-theme selector's custom properties, so a token the forced-light
+// block or the light media block lacks (49b3aecc's defect: --marker and --heat
+// missing from the forced theme) is visible only by reading theme.css itself.
 const css = readFileSync(`${process.cwd()}/src/theme.css`, "utf8");
 
 // The body of the first `{ ... }` block opened at or after `start`, nested braces included.

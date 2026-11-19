@@ -269,7 +269,7 @@ it("run-costs route resolves to the run timings page", async () => {
   window.location.hash = "";
 });
 
-it("run-costs route leaves #/run on run detail", async () => {
+it("#/run/<project>/<change> still opens run detail beside the run-costs route", async () => {
   window.location.hash = "#/run/p/c";
   render(<App />);
   expect(await screen.findByRole("region", { name: "Run detail: p/c" })).toBeInTheDocument();
