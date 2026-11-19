@@ -211,6 +211,13 @@ type serverOptions struct {
 	commitBase  string
 	build       string
 	agentEnd    func(agentID string) (time.Time, bool)
+	// statsTimeout replaces statsWriteTimeout when set -- by tests alone
+	// (export_test.go's WithStatsTimeout), so a timeout test need not wait
+	// the real 20s out.
+	statsTimeout time.Duration
+	// jira replaces the client built from cfg.Jira when set -- by tests
+	// alone (export_test.go's WithJiraTransitioner).
+	jira JiraTransitioner
 }
 
 // WithSPA mounts h at "/" as the daemon's user interface, task 12's
@@ -354,7 +361,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		logger = slog.Default()
 	}
 
-	var so serverOptions
+	so := serverOptions{statsTimeout: statsWriteTimeout}
 	for _, opt := range opts {
 		opt(&so)
 	}
@@ -382,6 +389,9 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 			APIToken: cfg.Jira.APIToken,
 		}, nil)
 	}
+	if so.jira != nil {
+		jiraTransitions = so.jira
+	}
 	jh := &jiraHandler{transitions: jiraTransitions, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/changes", h.list)
@@ -392,7 +402,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/stages/end", sh.end)
 	mux.HandleFunc("GET /api/v1/stages/{project}/{change}/{stage}/completed", rh.stageCompleted)
 	mux.HandleFunc("GET /api/v1/stage-runs", sth.listStageRuns)
-	mux.Handle("GET /api/v1/stats/{view}", http.TimeoutHandler(http.HandlerFunc(sth.view), statsWriteTimeout, statsTimeoutMessage))
+	mux.Handle("GET /api/v1/stats/{view}", http.TimeoutHandler(http.HandlerFunc(sth.view), so.statsTimeout, statsTimeoutMessage))
 	mux.HandleFunc("GET /api/v1/models", sth.listModels)
 	mux.HandleFunc("GET /api/v1/stages", listStages)
 	mux.HandleFunc("PUT /api/v1/sessions/{session}/activity", sth.putSessionActivity)
@@ -454,8 +464,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	}
 	if so.runTimings != nil {
 		rth := &runTimingsHandler{store: so.runTimings, stateRoot: so.stateRoot, now: time.Now, log: logger}
-		mux.Handle("GET /api/v1/stats/run/{project}/{change}", http.TimeoutHandler(http.HandlerFunc(rth.get), statsWriteTimeout, statsTimeoutMessage))
-		mux.Handle("GET /api/v1/stats/run-costs", http.TimeoutHandler(http.HandlerFunc(rth.costs), statsWriteTimeout, statsTimeoutMessage))
+		mux.Handle("GET /api/v1/stats/run/{project}/{change}", http.TimeoutHandler(http.HandlerFunc(rth.get), so.statsTimeout, statsTimeoutMessage))
+		mux.Handle("GET /api/v1/stats/run-costs", http.TimeoutHandler(http.HandlerFunc(rth.costs), so.statsTimeout, statsTimeoutMessage))
 	}
 	if so.changeFiles != nil {
 		cfh := &changeFileHandler{store: so.changeFiles, logger: logger}

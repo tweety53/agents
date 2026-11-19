@@ -1198,10 +1198,10 @@ func TestDispatchEndCauseUnknown(t *testing.T) {
 // contract outcome reaches the store.
 func TestDispatchEndOutcomeClosedSet(t *testing.T) {
 	t.Parallel()
-	env := newTestEnv(t)
 	for _, outcome := range []string{"done", "approve", "Completed"} {
 		t.Run("refused="+outcome, func(t *testing.T) {
-			code, _, stderr, contacted, _ := causeEndRun(t, env, "-outcome", outcome)
+			t.Parallel()
+			code, _, stderr, contacted, _ := causeEndRun(t, newTestEnv(t), "-outcome", outcome)
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
 			}
@@ -1215,11 +1215,12 @@ func TestDispatchEndOutcomeClosedSet(t *testing.T) {
 	}
 	for _, outcome := range recordOutcomes {
 		t.Run("accepted="+outcome, func(t *testing.T) {
+			t.Parallel()
 			extra := []string{"-outcome", outcome}
 			if outcome == "blocked" {
 				extra = append(extra, "-cause", "environment")
 			}
-			code, _, stderr, contacted, _ := causeEndRun(t, env, extra...)
+			code, _, stderr, contacted, _ := causeEndRun(t, newTestEnv(t), extra...)
 			if code != 0 || !contacted {
 				t.Fatalf("exit code = %d, contacted = %v, want 0 and the store contacted; stderr:\n%s", code, contacted, stderr.String())
 			}

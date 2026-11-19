@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,14 +12,15 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
-	"github.com/tweety53/agents/stats/internal/smoke"
+	"github.com/tweety53/agents/stats/internal/jira"
 )
 
 // jiraConfigFor points cfg.Jira at atlassian, a scripted stand-in for the
 // Atlassian REST API, so this file's tests drive POST
 // /api/v1/jira/transition through the real api.New wiring (the real
-// internal/jira client included) with no database and no new injection
-// surface. jiraClientConfiguredServer builds the daemon around that
+// internal/jira client included) with no database -- all but
+// TestJiraTransitionUpstreamTransientExhausted, which fakes the client's
+// exhausted ladder rather than wait it out. jiraClientConfiguredServer builds the daemon around that
 // configuration; a nil atlassian builds an unconfigured daemon.
 func jiraTestServer(t *testing.T, atlassian http.HandlerFunc) *httptest.Server {
 	t.Helper()
@@ -153,23 +155,29 @@ func TestJiraTransitionUpstreamAuthRejected(t *testing.T) {
 	}
 }
 
-// A permanently-transient upstream burns the daemon's whole retry ladder
-// (real backoff, ~4s) and answers 504 -- the one mapped failure the caller
-// may treat as "try again later".
+// A client whose retry ladder ran out answers 504 -- the one mapped failure
+// the caller may treat as "try again later". The ladder itself, real
+// backoff and all, is internal/jira's TestTransitionTransientExhausted; this
+// test fakes its outcome (api.WithJiraTransitioner) and pins the mapping.
 func TestJiraTransitionUpstreamTransientExhausted(t *testing.T) {
-	smoke.Heavy(t)
 	t.Parallel()
-	h := func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
+	exhausted := api.JiraTransitionFunc(func(_ context.Context, key string, target jira.Position) (jira.Result, error) {
+		return jira.Result{}, fmt.Errorf("%w: %s to %s: upstream 503", jira.ErrTransientExhausted, key, target)
+	})
+	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil, api.WithJiraTransitioner(exhausted))
+	if err != nil {
+		t.Fatalf("api.New: %v", err)
 	}
-	ts := jiraTestServer(t, h)
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
 
 	status, body := postTransition(t, ts, `{"key":"KAN-571","target":"In Progress"}`)
 	if status != http.StatusGatewayTimeout {
 		t.Fatalf("status = %d, body %s, want 504", status, body)
 	}
-	if !strings.Contains(body, "transient failure on every attempt") {
-		t.Fatalf("body %s does not name the exhausted ladder", body)
+	if !strings.Contains(body, "transient failure on every attempt") || !strings.Contains(body, "KAN-571") {
+		t.Fatalf("body %s does not name the exhausted ladder and the issue", body)
 	}
 }
 

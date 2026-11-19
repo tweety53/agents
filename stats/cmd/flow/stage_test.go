@@ -1240,10 +1240,11 @@ func TestRunStageWrapContextCancelTerminatesChildAndExits143(t *testing.T) {
 // force-kills it after the same bound every store call carries, and the
 // invocation ends with the end mark recorded. The child's TERM-ignoring
 // grandchild (a background sleep) dies with it: the kill reaches the whole
-// process group, so no survivor outlives the cancelled wrap.
+// process group, so no survivor outlives the cancelled wrap. WaitDelay is
+// shortened with defaultTimeout (shortDefaultTimeout), so the test is
+// sequential.
 func TestRunStageWrapContextCancelForceKillsChildIgnoringTerm(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
+	shortDefaultTimeout(t)
 	repo := gitRepo(t)
 	pidfile := t.TempDir() + "/grandchild.pid"
 	env := newTestEnv(t)

@@ -154,8 +154,13 @@ func TestSuiteRecordDecodesGoTestJSON(t *testing.T) {
 // TestSuiteRecordReturnsWhenTheChildExits pins that a descendant inheriting
 // the child's stdout and outliving it cannot hold the record open: the run
 // ends within suiteWaitDelay of the child's exit, and the child's 0 stands.
+//
+// suiteWaitDelay is shortened to 100ms for it, so it is sequential: no
+// parallel test reads the package var while it is changed.
 func TestSuiteRecordReturnsWhenTheChildExits(t *testing.T) {
-	t.Parallel()
+	old := suiteWaitDelay
+	suiteWaitDelay = 100 * time.Millisecond
+	t.Cleanup(func() { suiteWaitDelay = old })
 	repo := gitRepo(t)
 	env := newTestEnv(t)
 

@@ -27,6 +27,7 @@ func changeWorktree(t *testing.T, name string) (main, wt string) {
 // of an uncommitted, gitignored change directory is served under its
 // repository-relative label.
 func TestBundleReadsChangeFilesFromTheWorktree(t *testing.T) {
+	t.Parallel()
 	_, wt := changeWorktree(t, "demo")
 	files := map[string]string{
 		"tasks.md":               "# demo tasks\n",
@@ -67,6 +68,7 @@ func TestBundleReadsChangeFilesFromTheWorktree(t *testing.T) {
 // every commit of the change branch in, followed by the merge-order peer
 // spectre/peers names relative to the main checkout, not the worktree.
 func TestBundleFinishRangeIsMergeBaseToHead(t *testing.T) {
+	t.Parallel()
 	peer := gitRepo(t)
 	runGit(t, peer, "update-ref", "refs/remotes/origin/main", "main")
 	runGit(t, peer, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")

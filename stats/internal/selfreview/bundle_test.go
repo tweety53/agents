@@ -34,6 +34,7 @@ func (f *fakeGit) Output(repo string, args ...string) ([]byte, error) {
 }
 
 func TestBundleAssemblyRendersStoreSources(t *testing.T) {
+	t.Parallel()
 	run := records.Run{
 		Change: "demo",
 		Dispatches: []records.Dispatch{{
@@ -79,6 +80,7 @@ func TestBundleAssemblyRendersStoreSources(t *testing.T) {
 }
 
 func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
+	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, nil, g)
@@ -113,6 +115,7 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 // line, never folded into the same "skipped (absent)" a change that was
 // simply has no directory on disk wears.
 func TestBundleAssemblyNotesUnreadableRepo(t *testing.T) {
+	t.Parallel()
 	bogus := filepath.Join(t.TempDir(), "not-a-repo")
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{bogus}, nil, ExecRunner{})
@@ -133,6 +136,7 @@ func TestBundleAssemblyNotesUnreadableRepo(t *testing.T) {
 // included — a mutant probing a ref instead would stamp a false note on a
 // valid repository that simply has no commits yet.
 func TestUnreadableRepoProbeIsGitDir(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	g := &fakeGit{
 		responses: map[string]string{
@@ -153,6 +157,7 @@ func TestUnreadableRepoProbeIsGitDir(t *testing.T) {
 }
 
 func TestBundleElidesMatrixRowsUnderAnyMatrixHeading(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	commitAll(t, repo, "a.go", "package a\n", "feat(demo): a")
 	writeChangeDir(t, repo, "demo", map[string]string{
@@ -181,6 +186,7 @@ func TestBundleElidesMatrixRowsUnderAnyMatrixHeading(t *testing.T) {
 }
 
 func TestBundleElidesBandsSeamsAndInkSections(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	commitAll(t, repo, "a.go", "package a\n", "feat(demo): a")
 	writeChangeDir(t, repo, "demo", map[string]string{
@@ -212,6 +218,7 @@ func TestBundleElidesBandsSeamsAndInkSections(t *testing.T) {
 }
 
 func TestBundleElidesMatrixRowsAndPNGStatLines(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	onChangeBranch(t, repo, "demo")
 	if err := os.WriteFile(filepath.Join(repo, "shot.png"), []byte("\x89PNG"), 0o644); err != nil {
@@ -254,6 +261,7 @@ func TestBundleElidesMatrixRowsAndPNGStatLines(t *testing.T) {
 // branch. The branch's commits exist and there is no change directory;
 // absent must not be the answer.
 func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
 	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
@@ -284,6 +292,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 // a recorded base (branch.<change>.flowBase) logs against that base, so the
 // base branch's own commits never read as the change's.
 func TestBundleAssemblyGitLogHonoursRecordedBase(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
 	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
@@ -313,6 +322,7 @@ func TestBundleAssemblyGitLogHonoursRecordedBase(t *testing.T) {
 // never existed — leaves the source skipped, never a confident wrong
 // answer.
 func TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
 	runGit(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
@@ -332,6 +342,7 @@ func TestBundleAssemblyGitLogStaysAbsentWhenBranchMissing(t *testing.T) {
 // render the sections, and a ledger.md or panel.md a change
 // directory carried is never served beside them.
 func TestBundleAssemblyPrefersStoreRenderOverCommittedRecord(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	writeChangeDir(t, repo, "demo", map[string]string{
 		"tasks.md":  "# demo tasks\n",
@@ -369,6 +380,7 @@ func TestBundleAssemblyPrefersStoreRenderOverCommittedRecord(t *testing.T) {
 // under the store labels, and copies the change directory carries are
 // never read.
 func TestBundleAssemblyRendersRecordsFromTheStoreOnly(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	writeChangeDir(t, repo, "demo", map[string]string{
 		"tasks.md":  "# demo tasks\n",
@@ -396,6 +408,7 @@ func TestBundleAssemblyRendersRecordsFromTheStoreOnly(t *testing.T) {
 }
 
 func TestBundleRefusesInvalidName(t *testing.T) {
+	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 	if _, err := Bundle("../escape", records.Run{}, "", false, false, "", nil, nil, g); err == nil {
 		t.Fatal("an invalid change name must be refused, not assembled")
@@ -474,7 +487,7 @@ func runGit(t *testing.T, repo string, args ...string) {
 // inside the bound — a mutant ignoring the injected Bound would
 // blow this guard on the 10s default. The shim execs sleep so the
 // context kill lands on the git process itself: the real path returns
-// in ~500ms, not after WaitDelay.
+// in ~100ms, not after WaitDelay.
 func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 	shimDir := t.TempDir()
 	shim := filepath.Join(shimDir, "git")
@@ -484,7 +497,7 @@ func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	repo := t.TempDir()
-	runner := ExecRunner{Bound: 500 * time.Millisecond}
+	runner := ExecRunner{Bound: 100 * time.Millisecond}
 
 	done := make(chan error, 1)
 	go func() {
@@ -498,7 +511,7 @@ func TestExecRunnerBoundKillsHangingGit(t *testing.T) {
 		}
 	case <-time.After(8 * time.Second):
 		// A mutant that ignores the injected Bound runs the 10s default —
-		// past this guard. The real path returns in ~500ms; WaitDelay only
+		// past this guard. The real path returns in ~100ms; WaitDelay only
 		// extends calls whose killed git left pipes held, and sleep does
 		// not.
 		t.Fatal("Output ignored the injected bound — still blocked 5s in")
@@ -546,6 +559,7 @@ func TestBundleGitBudgetCapsSlowRepository(t *testing.T) {
 // verbatim from the store, ahead of the ledger and every history-derived
 // source, and counted in the found line.
 func TestBundleServesRecordedSummaryFirst(t *testing.T) {
+	t.Parallel()
 	run := records.Run{Change: "demo"}
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
@@ -577,6 +591,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 // with no recorded summary reports it skipped like any other absent
 // source, in the same words, and the found line counts the nine sources.
 func TestBundleSkipsAbsentSummary(t *testing.T) {
+	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, nil, g)
@@ -596,6 +611,7 @@ func TestBundleSkipsAbsentSummary(t *testing.T) {
 }
 
 func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
+	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, true, "", nil, nil, g)
@@ -620,6 +636,7 @@ func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
 }
 
 func TestBundleNoRecordsLossNoteWhenPanelDidNotRun(t *testing.T) {
+	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", nil, nil, g)
@@ -633,6 +650,7 @@ func TestBundleNoRecordsLossNoteWhenPanelDidNotRun(t *testing.T) {
 }
 
 func TestBundleNoRecordsLossNoteWhenDispatchesExist(t *testing.T) {
+	t.Parallel()
 	run := records.Run{
 		Change:     "demo",
 		Dispatches: []records.Dispatch{{Seq: 1, Role: "implementer", Model: "sonnet"}},
@@ -654,6 +672,7 @@ func TestBundleNoRecordsLossNoteWhenDispatchesExist(t *testing.T) {
 // ## Merge order names, resolved through spectre/peers relative to the
 // canonical repository's main checkout, contributes its spectre/<name> commits.
 func TestBundleAssemblyLogsEveryMergeOrderPeer(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	peer := gitRepo(t)
 	runGit(t, peer, "update-ref", "refs/remotes/origin/main", "main")
@@ -682,6 +701,7 @@ func TestBundleAssemblyLogsEveryMergeOrderPeer(t *testing.T) {
 }
 
 func TestBundleNamesTheServingBuild(t *testing.T) {
+	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 
 	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "build 02a3d012e12a (2026-10-18T20:46:11Z)", nil, nil, g)
@@ -719,6 +739,7 @@ func (r recordingRunner) Output(repo string, args ...string) ([]byte, error) {
 // branch's own log, which is empty by stop time; with no requests the
 // section is the change branch's log as before.
 func TestBundleRendersRequests(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	base := commitAll(t, repo, "base.go", "package main\n", "chore: base")
 	runGit(t, repo, "update-ref", "refs/remotes/origin/main", "main")
@@ -779,6 +800,7 @@ func TestBundleRendersRequests(t *testing.T) {
 // second names it as landed with that request; an empty title renders
 // (untitled).
 func TestRequestsLogPrintsEachCommitOnce(t *testing.T) {
+	t.Parallel()
 	repo := gitRepo(t)
 	base := commitAll(t, repo, "base.go", "package main\n", "chore: base")
 	c1 := commitAll(t, repo, "a.go", "package main\n", "feat(a): one")
@@ -812,6 +834,7 @@ func TestRequestsLogPrintsEachCommitOnce(t *testing.T) {
 }
 
 func TestBundleServesGatedReviewerFindings(t *testing.T) {
+	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
 	run := records.Run{Change: "demo", Findings: []records.Finding{
 		{Ref: "F1", Slot: records.GatedReviewerSlot, TaskID: "6", Severity: "Important", Location: "skills/flow/implement.md:12", Note: "no Model: line", Status: "fixed"},

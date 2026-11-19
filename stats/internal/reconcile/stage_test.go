@@ -162,6 +162,7 @@ func allStageRuns(t *testing.T, st *store.Store, project, name string) []store.S
 // at all, so this stage run would never have existed in the store; that
 // is the defect this test pins shut.
 func TestReplayAppliesPendingStageMarks(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -228,6 +229,7 @@ func TestReplayAppliesPendingStageMarks(t *testing.T) {
 // the same observable state a sweeper-closed run leaves behind) must be
 // retired, not retried forever and not silently treated as success.
 func TestStageEndReplayWithNoOpenRunRetiresCleanly(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -266,6 +268,7 @@ func TestStageEndReplayWithNoOpenRunRetiresCleanly(t *testing.T) {
 // by a stale binary) -- api.IsDefinitiveMarkOutcome's *stages.ErrUnknownStage
 // branch is what keeps this from stalling every entry behind it forever.
 func TestUndocumentedStageMarkReplayRetiresAsRefused(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -356,6 +359,7 @@ var _ api.StageStore = (*injectingStageStore)(nil)
 // -- once the failure clears -- must apply it, without ever re-sending the
 // first (already-applied) entry to the store.
 func TestStageReplayInterruptedResumesWithoutDuplicating(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()
@@ -420,6 +424,7 @@ func TestStageReplayInterruptedResumesWithoutDuplicating(t *testing.T) {
 // journalled with its request (KAN-1061) replays carrying it, so the stage
 // run a dead store missed is still tagged with the request it worked.
 func TestReplayBeginMarkKeepsRequest(t *testing.T) {
+	t.Parallel()
 	st := newTestStore(t)
 	ctx := context.Background()
 	root := t.TempDir()

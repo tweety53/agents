@@ -8,16 +8,17 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestPricingRepricePrintsCounts pins `flow pricing reprice` (decision
 // reprice-command): counts on success, usage on a bad -since, and the
 // client's error on an unreachable store.
+//
+// The slow store answers past a shortened defaultTimeout
+// (shortDefaultTimeout), so the test is sequential.
 func TestPricingRepricePrintsCounts(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
+	shortDefaultTimeout(t)
+	slowFor := defaultTimeout + 250*time.Millisecond
 	env := newTestEnv(t)
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/pricing/reprice" {
@@ -27,7 +28,7 @@ func TestPricingRepricePrintsCounts(t *testing.T) {
 	}))
 	defer srv.Close()
 	slow := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2500 * time.Millisecond)
+		time.Sleep(slowFor)
 		_, _ = w.Write([]byte(`{"priced":1,"skipped":0}`))
 	}))
 	defer slow.Close()
@@ -45,7 +46,7 @@ func TestPricingRepricePrintsCounts(t *testing.T) {
 		{"missing since", []string{"-addr", srv.URL}, 2, "", "usage:"},
 		{"malformed since", []string{"-addr", srv.URL, "-since", "09/01/2026"}, 2, "", "usage:"},
 		{"stray argument", []string{"-addr", srv.URL, "-since", "2026-09-01", "extra"}, 2, "", "usage:"},
-		// Reprice outlives the 2s default every other command uses.
+		// Reprice outlives the defaultTimeout every other command uses.
 		{"slow store", []string{"-addr", slow.URL, "-since", "2026-09-01"}, 0, "priced 1, skipped 0\n", ""},
 		{"unreachable", []string{"-addr", dead.URL, "-since", "2026-09-01", "-timeout", "2s"}, 1, "", "flow: pricing reprice:"},
 	} {

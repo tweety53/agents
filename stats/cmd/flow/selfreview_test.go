@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
-	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // TestRunSelfReviewBundlePrintsBundle drives `flow self-review bundle`
@@ -64,16 +63,17 @@ func TestRunSelfReviewBundlePrintsBundle(t *testing.T) {
 // TestRunSelfReviewBundleWaitsPastTheStoreDeadline pins the bundle's own
 // default deadline: the daemon assembles it from the worktree and it has no
 // fallback, so a bare call waits past the store-write deadline
-// (kan-1072 self-review, F3).
+// (kan-1072 self-review, F3). The store deadline is shortened
+// (shortDefaultTimeout), so the test is sequential.
 func TestRunSelfReviewBundleWaitsPastTheStoreDeadline(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
+	shortDefaultTimeout(t)
+	slowFor := defaultTimeout + 500*time.Millisecond
 	repo := linkedWorktree(t, gitRepo(t), "demo")
 	env := newTestEnv(t)
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/bundle") {
-			time.Sleep(defaultTimeout + 500*time.Millisecond)
+			time.Sleep(slowFor)
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("# Self-review context bundle for demo\n"))
