@@ -187,7 +187,8 @@ function Body({ run, titles }: { run: RunTimingsDTO; titles: Map<string, string>
         </div>
       </section>
 
-      <div className="lb-2">
+      {/* Full width: a task row carries its title and its group line, too wide for half a row. */}
+      <>
         <section className="lb-panel" aria-label="Cost per task">
           <div className="lb-panel-h">
             <span>
@@ -257,7 +258,7 @@ function Body({ run, titles }: { run: RunTimingsDTO; titles: Map<string, string>
             </table>
           </div>
         </section>
-      </div>
+      </>
     </>
   );
 }

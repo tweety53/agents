@@ -583,7 +583,8 @@ th button {
 .lb-hbar .r { text-align: right; }
 .lb-decision { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 0; }
 .lb-decision .lb-n { flex: none; }
-.lb-decision-why { color: var(--text-muted); text-align: right; }
+.lb-decision-prose { flex-direction: column; gap: 2px; }
+.lb-decision-why { color: var(--text-muted); }
 .lb-t { height: 10px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
 .lb-t > span { display: block; height: 100%; background: var(--series-1); }
 .lb-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }

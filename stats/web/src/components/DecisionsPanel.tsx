@@ -65,7 +65,7 @@ export function DecisionsPanel({ decision }: { decision: Decision }) {
       </div>
       <div className="lb-panel-b">
         {lines(decision).map((l, i) => (
-          <div key={i} className="lb-decision" data-testid="decision-row" title={l.prose ? undefined : l.reason}>
+          <div key={i} className={l.prose ? "lb-decision lb-decision-prose" : "lb-decision"} data-testid="decision-row" title={l.prose ? undefined : l.reason}>
             <span className="lb-n">{l.role}</span>
             <span className={l.prose ? "lb-decision-why" : "r"}>{l.model}</span>
           </div>
