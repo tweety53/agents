@@ -301,6 +301,9 @@ func TestCheckPanelReproducersAcceptsAnUnreadName(t *testing.T) {
 		{"a leading zero on the unread index", finding(0, "principles", dir+"0-principles-unread-01.sh"), 1, shape},
 		{"another slot's unread name", finding(0, "principles", dir+"0-mutation-unread-1.sh"), 1, shape},
 		{"the wrong round on an unread name", finding(0, "principles", dir+"1-principles-unread-1.sh"), 1, shape},
+		{"a part name", finding(0, "primary", dir+"0-primary-part2-1.sh"), 0, "REPRODUCERS-OK"},
+		{"a repo name in a joined slot", finding(0, "primary+principles", dir+"0-principles-gymie-3.sh"), 0, "REPRODUCERS-OK"},
+		{"another slot's part name", finding(0, "principles", dir+"0-mutation-part2-1.sh"), 1, shape},
 		{"an unread name with no index", finding(0, "principles", dir+"0-principles-unread.sh"), 1, shape},
 	}
 	for _, c := range cases {

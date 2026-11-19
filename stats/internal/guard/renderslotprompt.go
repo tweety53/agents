@@ -266,6 +266,14 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return strings.ReplaceAll(b, "`final-review.diff`", "the **Diff file:** each PASS section names")
 	}
+	// suffix names the per-repository or per-part dispatch's files; "" unsplit.
+	suffix := ""
+	if repo != "" {
+		suffix = "-" + repo
+	}
+	if part != "" {
+		suffix = "-part" + part
+	}
 	// repro is the REPRODUCER block as emitted: its `<round>`/`<id>` name
 	// the file the slot itself fills in, so the unfilled check skips it.
 	var repro string
@@ -285,6 +293,17 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 				return 2
 			}
 			b = strings.Replace(b, phrase, phrase+" — `"+round+"` here", 1)
+			// Two parts or repos of one slot would otherwise both write
+			// <round>-<id>-1.sh and overwrite each other (kan-1132 round 0).
+			if suffix != "" {
+				const shape = "`<round>-<id>-<n>.sh`"
+				if !strings.Contains(b, shape) {
+					fmt.Fprintf(stderr, "render-slot-prompt: review-panel.md's REPRODUCER block no longer carries %q — cannot state the per-dispatch name\n", shape)
+					Reason(env, "reproducer-shape-missing")
+					return 2
+				}
+				b = strings.Replace(b, shape, "`<round>-<id>"+suffix+"-<n>.sh`", 1)
+			}
 			repro = named(b)
 		}
 		if label == "WORKTREES" {
@@ -292,10 +311,7 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		emit(named(b))
 	}
-	// suffix names the per-repository dispatch's files; "" unsplit.
-	suffix := ""
 	if repo != "" {
-		suffix = "-" + repo
 		b, ok := block(panel, "review-panel.md", "SECTION")
 		if !ok {
 			Reason(env, "template-block-missing")
@@ -304,7 +320,6 @@ func renderSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		emit(strings.ReplaceAll(b, "<repo>", repo))
 	}
 	if part != "" {
-		suffix = "-part" + part
 		b, ok := block(panel, "review-panel.md", "PART")
 		if !ok {
 			Reason(env, "template-block-missing")

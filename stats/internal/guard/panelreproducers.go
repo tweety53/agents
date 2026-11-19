@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -479,8 +478,12 @@ const cprReproducersDir = ".superpowers/sdd/reproducers/"
 // exact slot id is what keeps two slots' names apart. An -unread dispatch of
 // the same slot and round names its scripts <round>-<id>-unread-<n>.sh, so
 // they never collide with the first dispatch's.
-// <id> is compared with a trailing -unread removed (kan-1090 self-review, F6). A
-// reproducer elsewhere is not name-checked.
+// <id> is compared with a trailing -unread removed (kan-1090 self-review, F6).
+// A per-part or per-repository dispatch names its scripts
+// <round>-<id>-part<k>-<n>.sh or <round>-<id>-<repo>-<n>.sh, so two parts of
+// one slot never overwrite each other (kan-1132 round 0): <id> also matches
+// when it is a slot followed by - and a plain name. A reproducer elsewhere is
+// not name-checked.
 func cprNameViolation(ref, cmd string, round int, slot string) string {
 	pathToken, _, _ := strings.Cut(cmd, " ")
 	name, ok := strings.CutPrefix(pathToken, cprReproducersDir)
@@ -491,8 +494,13 @@ func cprNameViolation(ref, cmd string, round int, slot string) string {
 		if rest, ok := strings.CutSuffix(rest, ".sh"); ok {
 			if i := strings.LastIndexByte(rest, '-'); i > 0 && cprPositive(rest[i+1:]) {
 				id := strings.TrimSuffix(rest[:i], "-unread")
-				if id == slot || slices.Contains(strings.Split(slot, "+"), id) {
+				if id == slot {
 					return ""
+				}
+				for _, s := range strings.Split(slot, "+") {
+					if tail, ok := strings.CutPrefix(id, s+"-"); id == s || ok && plainChangeName(tail) {
+						return ""
+					}
 				}
 			}
 		}

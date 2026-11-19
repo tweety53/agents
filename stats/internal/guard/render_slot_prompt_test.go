@@ -575,7 +575,7 @@ func TestRenderSlotPromptRendersAPart(t *testing.T) {
 	}
 	for _, want := range []string{
 		"`" + sdd + "panel-report-0-primary-part2.md`", "`" + sdd + "panel-report-0-principles-part2.md`",
-		"part-two-only.go",
+		"part-two-only.go", "named `<round>-<id>-part2-<n>.sh`",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("render lacks %q", want)

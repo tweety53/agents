@@ -587,7 +587,7 @@ gives it a shebang and `chmod +x`, and records that same path, the path relative
 not the `<abs-worktree>/`-prefixed form above; `flow-guard run-reproducer` refuses an absolute token.
 Mutation writes its own into the canonical worktree, never its
 `<worktree>-<slot>-<round>` copy, which is removed the moment its dispatch closes. The parent
-records the path the slot supplied verbatim — there is no rename step. `flow-guard check-panel-reproducers` refuses a recorded path under `<project>/.superpowers/sdd/reproducers/` whose name is off `<round>-<id>-<n>.sh`, `<id>` one of the finding's slots, as a malformed field. **The cwd contract**: the
+records the path the slot supplied verbatim — there is no rename step. `flow-guard check-panel-reproducers` refuses a recorded path under `<project>/.superpowers/sdd/reproducers/` whose name is off `<round>-<id>-<n>.sh`, `<id>` one of the finding's slots, as a malformed field. A per-part or per-repository dispatch of the over-cap panel names its reproducers `<round>-<id>-part<k>-<n>.sh` or `<round>-<id>-<repo>-<n>.sh` — `flow-guard render-slot-prompt` renders that shape into its REPRODUCER paragraph — so two parts of one slot never overwrite each other's scripts, and the guard accepts it for slot `<id>` (kan-1132 round 0). **The cwd contract**: the
 reproducer always executes with its working directory set to the worktree the parent passes
 `flow-guard run-reproducer` — per finding, the worktree whose copy of the recorded relative path resolves:
 the canonical worktree first, else the one other entry of the state record's `worktrees` map
