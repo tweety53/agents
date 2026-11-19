@@ -51,4 +51,23 @@ describe("DecisionsPanel", () => {
     render(<DecisionsPanel decision={{ implementer: { model: "opus", effort: "high", reason: "seam" }, overrides: [{ pairs: "planner → opus/flow-planner-xhigh", instruction: "use xhigh planner" }] }} />);
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Implementeropus · high"]);
   });
+
+  it("lists a plan-check decision's groups, review bundles and visual check with their reasons", () => {
+    render(
+      <DecisionsPanel
+        decision={{
+          groups: [{ tasks: ["1", "2"], reason: "2 builds on 1" }, { tasks: ["3"], reason: "a big task" }],
+          panel: [{ slots: ["primary", "failure-modes"], reason: "new I/O" }],
+          visual: { verify: "required", reason: "the SPA changes" },
+          overrides: [],
+        }}
+      />,
+    );
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual([
+      "Tasks 1, 22 builds on 1",
+      "Task 3a big task",
+      "Review: primary, failure-modesnew I/O",
+      "Visual check: requiredthe SPA changes",
+    ]);
+  });
 });

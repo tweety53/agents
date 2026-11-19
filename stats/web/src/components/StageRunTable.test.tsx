@@ -197,7 +197,7 @@ describe("StageRunTable request column", () => {
     expect(screen.getAllByRole("columnheader")[0]).toHaveTextContent("Request");
     const rows = [...container.querySelectorAll("tbody tr")];
     expect(rows.map((row) => row.querySelector("td")?.textContent)).toEqual(["", "R7", "R6"]);
-    expect(rows[1]).toHaveTextContent("Loading context");
+    expect(rows[1]).toHaveTextContent("Implementing");
     expect(container.querySelector(".lb-group")).toBeNull();
   });
   it("request column stays off by default", () => {

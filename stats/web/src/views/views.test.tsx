@@ -544,11 +544,11 @@ describe("views render their fixture response's actual values", () => {
     expect(cards[0]).toHaveClass("needs");
     expect(cards[0]).toHaveTextContent("Awaiting your answer");
     expect(cards[0]).toHaveTextContent("Which layout?");
-    expect(cards[0]).toHaveTextContent("Designing the change");
+    expect(cards[0]).toHaveTextContent("Planning the change");
     expect(cards[1]).toHaveTextContent("kan-16-stats-app");
     expect(cards[1]).not.toHaveClass("needs");
     expect(cards[1]).not.toHaveTextContent("Working"); // the live dot already says it
-    expect(cards[1]).toHaveTextContent("Implementing tasks · 30m");
+    expect(cards[1]).toHaveTextContent("Implementing · 30m");
     expect(cards[1]).toHaveTextContent("tasks 20/46 · self-review tasks 1/2 · $12.50");
     // The card keeps agents, main's inline work included, to a count; the run view lists them.
     expect(within(cards[1]).getByTestId("agent-count")).toHaveTextContent("main + 2 subagents running");
@@ -577,7 +577,7 @@ describe("views render their fixture response's actual values", () => {
     // with the ISO time as its title, cost; no errors column.
     const row = table.getByRole("link", { name: "kan-16-stats-app" }).closest("tr")!;
     expect(row).toHaveTextContent("Integrating");
-    expect(row).toHaveTextContent("Implementing tasks");
+    expect(row).toHaveTextContent("Implementing");
     expect(within(row).getByText("+24")).toBeInTheDocument();
     expect(within(row).getByTitle("2026-01-15T10:00:00.000Z")).toHaveTextContent("2h ago");
     expect(row).toHaveTextContent("$12.50");
@@ -804,8 +804,8 @@ describe("views render their fixture response's actual values", () => {
     render(<StageLeaderboard period={period} project={undefined} />);
     await screen.findByRole("table");
     const row = (name: string) => within([...document.querySelectorAll<HTMLElement>("tbody tr")].find((tr) => tr.textContent?.includes(name))!);
-    row("Implementing tasks").getByText("new");
-    row("Running lint and tests").getByText("+$9.50 (+1.9k%)");
+    row("Implementing").getByText("new");
+    row("Verifying").getByText("+$9.50 (+1.9k%)");
     expect(document.querySelectorAll(".sl-name .sl-cmd").length).toBeGreaterThan(0);
     await user.click(within(screen.getByRole("group", { name: "Command" })).getByRole("button", { name: /^\/flow\$/ }));
     expect(document.querySelectorAll(".sl-name .sl-cmd")).toHaveLength(0);
@@ -882,8 +882,8 @@ describe("views render their fixture response's actual values", () => {
     top.getByText("79%");
     const items = top.getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual([
-      "1Implementing tasks /flowflow.sdd-tdd$50040%",
-      "2Code review /flowflow.review-panel$30024%",
+      "1Implementing /flowflow.sdd-tdd$50040%",
+      "2Reviewing /flowflow.review-panel$30024%",
       "3Self-review /flowflow.self-review$20016%",
     ]);
 
@@ -909,7 +909,7 @@ describe("views render their fixture response's actual values", () => {
     expect(rows.map((r) => within(r).getAllByRole("cell")[0].textContent)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ""]);
 
     const first = within(rows[0]);
-    first.getByText("Implementing tasks");
+    first.getByText("Implementing");
     first.getByText("flow.sdd-tdd");
     expect(first.getByText("+$100 (+25%)")).toHaveClass("up");
     first.getByRole("cell", { name: "40%" });
@@ -1327,7 +1327,7 @@ describe("interactive session card", () => {
     const r = card(running.name);
     expect(within(r).getByText("Interactive")).toHaveClass("lb-pill");
     expect(within(r).getByTestId("running-task")).toHaveTextContent("Request 7: Show the stage's model on the Agents row");
-    expect(r).toHaveTextContent("Implementing tasks · 3m · Edit: stats/web/src/lib/phase.ts");
+    expect(r).toHaveTextContent("Implementing · 3m · Edit: stats/web/src/lib/phase.ts");
     expect(r).toHaveTextContent("requests 6/8 · $4.12");
 
     const w = card(waiting.name);
@@ -1346,7 +1346,8 @@ describe("interactive session card", () => {
 
     const f = card(flow.name);
     expect(f).toHaveTextContent("tasks 2/4 · $9.40");
-    expect(within(f).getByText("Implementing")).toHaveClass("lb-pill");
+    expect(within(f).getByTitle("state STARTED")).toHaveTextContent("Implementing");
+    expect(within(f).getByTitle("state STARTED")).toHaveClass("lb-pill");
     expect(f).not.toHaveTextContent("requests");
   });
 

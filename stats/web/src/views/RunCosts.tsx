@@ -6,8 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchProjects, fetchStatsView, getRunTimings, NOT_CATEGORIES, type RunCostsResult, type RunTimings } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
-import { hm } from "../components/RunTimeline";
-import { formatUsd, PERIOD_DAYS, windowFor, type PeriodChip } from "../format";
+import { formatUsd, hm, PERIOD_DAYS, windowFor, type PeriodChip } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 
 const PERIOD_LABELS: Record<PeriodChip, string> = { "7d": "7 days", "30d": "30 days", "90d": "90 days" };

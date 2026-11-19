@@ -31,14 +31,14 @@ import {
 } from "../metrics";
 import { formatClock, formatModel, formatSpan, formatUsd } from "../format";
 import { stageLabel } from "../lib/stageLabel";
-import { STAGE_PHASE } from "../lib/phase";
+import { stagePhase } from "../lib/phase";
 import { describeDispatch } from "../lib/describeDispatch";
 
 // --- sessions and phases (design.md's session-phase-groups) ---
 
 /** A stage's phase, from the run view's one stage-to-phase mapping (lib/phase.ts). */
 function phaseOf(stage: string): string {
-  return STAGE_PHASE[stage] ?? "Other";
+  return stagePhase(stage) ?? "Other";
 }
 
 export interface Session {

@@ -96,3 +96,9 @@ export function windowFor(period: PeriodChip): { period: PeriodChip; from: Date;
   const to = Date.now();
   return { period, from: new Date(to - PERIOD_DAYS[period] * DAY_MS), to: new Date(to) };
 }
+
+/** A duration as hours and zero-padded minutes ("4h 07m"). */
+export function hm(ms: number): string {
+  const m = Math.round(ms / 60_000);
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+}

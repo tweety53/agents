@@ -4,7 +4,7 @@
 import type { PlanTask, StageRunDTO } from "../api";
 import { formatModel, formatSpan } from "../format";
 import { describeDispatch } from "./describeDispatch";
-import { PHASES, STAGE_PHASE, type Phase } from "./phase";
+import { PHASES, stagePhase, type Phase } from "./phase";
 import { stageLabel } from "./stageLabel";
 import type { SrDispatch } from "./selfReviewNow";
 
@@ -40,8 +40,8 @@ export function mainNow(runs: StageRunDTO[], dispatches: SrDispatch[], tasks: Pl
 
 /** The main pipeline's phases in order -- Self-review included -- each done once it ran and closed, current while it holds the open stage. */
 export function mainProgress(runs: StageRunDTO[]): { phase: Phase; state: ProgressState }[] {
-  const ran = new Set(runs.map((r) => STAGE_PHASE[r.stage]));
-  const open = new Set(runs.filter((r) => !r.endedAt).map((r) => STAGE_PHASE[r.stage]));
+  const ran = new Set(runs.map((r) => stagePhase(r.stage)));
+  const open = new Set(runs.filter((r) => !r.endedAt).map((r) => stagePhase(r.stage)));
   return PHASES.map((phase) => ({
     phase,
     state: open.has(phase) ? "current" : ran.has(phase) ? "done" : "todo",

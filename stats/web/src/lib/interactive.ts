@@ -23,7 +23,7 @@ export function interactiveWaiting(row: Row): boolean {
   return currentRequest(row) === undefined && row.currentStage === undefined;
 }
 
-/** A request's own stages, in the order a request runs them (design.md's One request); flow.brainstorm joins after the first only when the request ran one. */
+/** A request's own stages, in the order a request runs them (design.md's One request). */
 export const REQUEST_STAGES = ["flow.plan", "flow.implement", "flow.verify", "flow.land"];
 
 /** The request the run view follows: the one in progress, else the highest any stage run carries. */
@@ -34,8 +34,7 @@ export function focusRequest(row: Row, runs: StageRunDTO[]): number | undefined 
 /** Request n's steps: each of its stages done once a run of it ended, current while one is open, else todo. */
 export function requestSteps(runs: StageRunDTO[], n: number): { stage: string; state: ProgressState }[] {
   const own = runs.filter((r) => r.request === n);
-  const stages = own.some((r) => r.stage === "flow.brainstorm") ? [REQUEST_STAGES[0], "flow.brainstorm", ...REQUEST_STAGES.slice(1)] : REQUEST_STAGES;
-  return stages.map((stage) => {
+  return REQUEST_STAGES.map((stage) => {
     const of = own.filter((r) => r.stage === stage);
     return { stage, state: of.some((r) => !r.endedAt) ? "current" : of.length ? "done" : "todo" };
   });

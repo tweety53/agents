@@ -2,7 +2,7 @@
 // splits IN_PROGRESS into Integrating (a stage open) and Ready for review.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { STAGE_PHASE, phase } from "./phase";
+import { RETIRED, STAGE_PHASE, phase } from "./phase";
 
 describe("phase", () => {
   it("reads a STARTED change in planning stages as Planning", () =>
@@ -25,10 +25,10 @@ describe("phases", () => {
     expect(keys.length).toBeGreaterThan(5);
     expect(keys.filter((k) => !(k in STAGE_PHASE))).toEqual([]);
   });
-  it("puts every retired key in its replacement's phase", () => {
+  it("maps every retired key as names.go's Retired does", () => {
     const go = readFileSync(`${process.cwd()}/../internal/stages/names.go`, "utf8");
     const pairs = [...go.matchAll(/"(flow\.[^"]+)":\s*"(flow\.[^"]+)"/g)];
     expect(pairs.length).toBeGreaterThan(0);
-    for (const [, old = "", repl = ""] of pairs) expect(STAGE_PHASE[old]).toBe(STAGE_PHASE[repl]);
+    expect(RETIRED).toEqual(Object.fromEntries(pairs.map(([, old, repl]) => [old, repl])));
   });
 });

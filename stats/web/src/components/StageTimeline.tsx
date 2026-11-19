@@ -14,6 +14,7 @@ import { flushSync } from "react-dom";
 import type { StageRunDTO } from "../api";
 import { formatClock, formatSpan, formatUsd } from "../format";
 import { readCostUsd } from "../metrics";
+import { canonicalStage } from "../lib/phase";
 import { stageLabel } from "../lib/stageLabel";
 
 const L = 210;
@@ -64,7 +65,8 @@ export function StageTimeline({
   const t1 = Math.max(t0 + 1, anyOpen ? now : Math.max(...stageRuns.map(end)));
   const x = (t: number) => L + ((t - t0) / (t1 - t0)) * (W - L - 10);
 
-  const lanes = [...new Set(stageRuns.map((r) => r.stage))];
+  // A retired stage key shares the lane of the slim stage that replaced it.
+  const lanes = [...new Set(stageRuns.map((r) => canonicalStage(r.stage)))];
   const pending = upcoming.filter((s) => !lanes.includes(s));
   const H = TOP + (lanes.length + pending.length) * RH + 6;
   // ponytail: hour ticks widen to 2/3/6/12/24h so a days-long change keeps at most 12 labels.
@@ -107,7 +109,7 @@ export function StageTimeline({
           points={[...stageRuns]
             .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))
             .map((r) => {
-              const y = TOP + lanes.indexOf(r.stage) * RH + 8;
+              const y = TOP + lanes.indexOf(canonicalStage(r.stage)) * RH + 8;
               return `${x(Date.parse(r.startedAt))},${y} ${Math.max(x(Date.parse(r.startedAt)) + 6, x(end(r)))},${y}`;
             })
             .join(" ")}
@@ -115,7 +117,7 @@ export function StageTimeline({
         {stageRuns.map((r) => {
           const x0 = x(Date.parse(r.startedAt));
           const next = Math.min(
-            ...stageRuns.filter((o) => o.stage === r.stage && Date.parse(o.startedAt) > Date.parse(r.startedAt)).map((o) => x(Date.parse(o.startedAt))),
+            ...stageRuns.filter((o) => canonicalStage(o.stage) === canonicalStage(r.stage) && Date.parse(o.startedAt) > Date.parse(r.startedAt)).map((o) => x(Date.parse(o.startedAt))),
           );
           const x1 = Math.max(x0 + 6, x(end(r)));
           return (
@@ -124,7 +126,7 @@ export function StageTimeline({
               className="lb-bar"
               data-testid="timeline-bar"
               x={x0}
-              y={TOP + lanes.indexOf(r.stage) * RH + 3}
+              y={TOP + lanes.indexOf(canonicalStage(r.stage)) * RH + 3}
               width={(next > x1 && next - x1 <= JOIN_GAP ? next : x1) - x0}
               height={10}
               rx={2}

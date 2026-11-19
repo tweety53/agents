@@ -1,42 +1,21 @@
+import { canonicalStage } from "./phase";
+
 // Plain-words names for the pipeline's stage ids, for the board's cards and
-// stage column; an id not listed falls back to itself.
+// stage column; a retired id reads as the stage that replaced it, and an id
+// not listed falls back to itself.
 const LABELS: Record<string, string> = {
   "plan.session": "Planning session",
   "flow.plan": "Planning the change",
   "flow.implement": "Implementing",
-  "flow.review": "Reviewing",
-  "flow.land": "Landing the change",
-  "flow.kickoff": "Starting up",
-  "flow.load-context": "Loading context",
-  "flow.brainstorm": "Designing the change",
-  "flow.design-approval": "Waiting for design approval",
-  "flow.create-artifacts": "Writing the spec",
-  "flow.writing-plans": "Writing the task plan",
-  "flow.plan-review": "Reviewing the plan",
-  "flow.decide": "Choosing models and reviewers",
-  "flow.isolate-workspace": "Setting up the worktree",
-  "flow.preflight": "Pre-flight checks",
-  "flow.sdd-tdd": "Implementing tasks",
-  "flow.review-panel": "Code review",
-  "flow.verify": "Running lint and tests",
-  "flow.visual-verify": "Checking the UI",
-  "flow.stage-diff": "Staging the diff",
-  "flow.run-instructions": "Writing test instructions",
-  "flow.write-in-progress": "Handing over for review",
-  "flow.unfinished-work-gate": "Checking for unfinished work",
-  "flow.self-review": "Self-review",
   "flow.pipeline-fix": "Pipeline fix",
-  "flow.document-fix": "Documenting a fix",
-  "flow.landing-question": "Asking how to land",
-  "flow.landing-routes": "Landing the change",
-  "flow.verify-merge": "Checking the merge",
-  "flow.commit-two": "Committing the work",
-  "flow.preserve-sessions": "Saving session logs",
-  "flow.refresh-main-checkout": "Updating the main checkout",
+  "flow.review": "Reviewing",
+  "flow.verify": "Verifying",
+  "flow.land": "Landing the change",
+  "flow.self-review": "Self-review",
   "flow.cleanup": "Cleaning up",
-  "flow.write-finished": "Finishing",
 };
 
 export function stageLabel(stage: string): string {
-  return LABELS[stage] ?? stage;
+  const key = canonicalStage(stage);
+  return LABELS[key] ?? key;
 }

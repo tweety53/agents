@@ -28,7 +28,7 @@ describe("mainNow", () => {
     expect(mainNow([run("flow.review-panel", 0)], [d("panel-2-primary", 1, undefined, { role: "reviewer" })], tasks, false, T0 + 3 * 60000)).toBe(
       "Code review round 2: primary · 2m · opus",
     ));
-  it("names the open stage when no dispatch runs", () => expect(mainNow([run("flow.verify", 0)], [], tasks, false, T0 + 4 * 60000)).toBe("Running lint and tests · 4m"));
+  it("names the open stage when no dispatch runs", () => expect(mainNow([run("flow.verify", 0)], [], tasks, false, T0 + 4 * 60000)).toBe("Verifying · 4m"));
   it("reads Done once the change finished", () => expect(mainNow([run("flow.cleanup", 0, 1)], [], tasks, true, T0 + 60000)).toBe("Done"));
   it("reads main between steps after the last thing to end", () =>
     expect(mainNow([run("flow.cleanup", 0, 2)], [d("task-1-implementer", 0, 1, { taskId: "1" })], tasks, false, T0 + 6 * 60000)).toBe(

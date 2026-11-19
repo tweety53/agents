@@ -1,13 +1,12 @@
 // RunTimings is one run's timings and costs page (KAN-1132, the
-// prototype's view B), opened from run detail's "Timings and costs →"
+// prototype's view B, its timeline dropped), opened from run detail's "Timings and costs →"
 // button at #/run-costs/<project>/<change>. Every figure is the server's
 // (GET /api/v1/stats/run/{project}/{change}); each carries its definition
 // and kind as a `src` badge.
 import { useEffect, useState, type ReactNode } from "react";
 import { fetchStatsView, getRunTimings, NOT_CATEGORIES, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow } from "../api";
 import { Chip } from "../components/Chip";
-import { RunTimeline, hm } from "../components/RunTimeline";
-import { formatUsd } from "../format";
+import { formatUsd, hm } from "../format";
 import { projectLabel } from "../lib/projectLabel";
 import { StatePill } from "./StateBoard";
 
@@ -26,7 +25,7 @@ type Group = (typeof GROUPS)[number][0];
 
 // The rows the prototype always draws; any other gap shows only when present.
 const DQ_ALWAYS = new Set(["open-stage-runs", "unlinked", "no-tokens", "aborted-ran", "uncategorised", "journal", "retimed"]);
-const FRACTION: Record<number, string> = { 2: "½", 3: "⅓", 4: "¼" };
+const SHARE: Record<number, string> = { 2: "half", 3: "a third", 4: "a quarter" };
 
 function Src({ kind, title }: { kind: string; title?: string }) {
   return (
@@ -56,7 +55,7 @@ function Kpi({ name, m, value, hint, bare }: { name: string; m: RunMetric<unknow
   );
 }
 
-function Body({ run }: { run: RunTimingsDTO }) {
+function Body({ run, titles }: { run: RunTimingsDTO; titles: Map<string, string> }) {
   const [group, setGroup] = useState<Group>("category");
   const t = run.totals;
   const wall = t.wallClockMs.value;
@@ -70,7 +69,7 @@ function Body({ run }: { run: RunTimingsDTO }) {
 
   const c = run.counts;
   const deps = c.departures.value.map((d) => d.departures);
-  const tasks = [...run.costPerTask].sort((x, y) => y.cost - x.cost).slice(0, 8);
+  const tasks = [...run.costPerTask].sort((x, y) => y.cost - x.cost);
   const dq = run.dataQuality.filter((d) => DQ_ALWAYS.has(d.id) || d.count > 0 || d.unknown);
 
   return (
@@ -83,21 +82,6 @@ function Body({ run }: { run: RunTimingsDTO }) {
           <Kpi name="Idle / parent" m={t.idleMs} value={hm(t.idleMs.value)} hint={`${pct(share(t.idleMs.value))} of wall`} />
           <Kpi name="Cost" m={t.cost} value={formatUsd(t.cost.value)} hint={`${t.dispatches} dispatches · ${t.noTokens} unpriced`} />
           <Kpi name="Visual-verify loops" m={t.visualVerifyShare} value={pct(t.visualVerifyShare.value)} hint={`${hm(t.visualVerifyShare.value * wall)} · ${formatUsd(vvCost)}`} />
-        </div>
-      </section>
-
-      <section className="lb-panel" aria-label="Timeline">
-        <div className="lb-panel-h">
-          <span>Timeline</span>
-          <span className="lb-legend">
-            <span><i className="lb-sw completed" />completed</span>
-            <span><i className="lb-sw failed" />failed / aborted</span>
-            <span><i className="lb-sw open" />open</span>
-            <span><i className="lb-sw idle" />idle / parent</span>
-          </span>
-        </div>
-        <div className="lb-panel-b lb-scroll lb-timeline">
-          <RunTimeline run={run} />
         </div>
       </section>
 
@@ -210,7 +194,7 @@ function Body({ run }: { run: RunTimingsDTO }) {
               Cost per task
               <Src kind="derived" title="Every dispatch whose key names the task (implementer, fixer, reviewer); a group key's cost is split evenly across its tasks and marked estimated." />
             </span>
-            <span className="lb-panel-note">{`top ${tasks.length} of ${run.costPerTask.length}`}</span>
+            <span className="lb-panel-note">{`${tasks.length} tasks`}</span>
           </div>
           <div className="lb-scroll">
             <table className="lb-table">
@@ -219,10 +203,17 @@ function Body({ run }: { run: RunTimingsDTO }) {
               </thead>
               <tbody>
                 {tasks.map((k) => {
-                  const n = k.group ? k.group.split("+").length : 1;
+                  const mates = k.group ? k.group.split("+") : [];
+                  const others = mates.filter((t) => t !== k.task);
+                  const title = titles.get(k.task);
                   return (
                     <tr key={k.task}>
-                      <td>{k.group ? `${k.task} · ${FRACTION[n] ?? `1/${n}`} of group ${k.group}` : k.task}</td>
+                      <td>
+                        <div>{title ? `Task ${k.task} · ${title}` : `Task ${k.task}`}</div>
+                        {others.length > 0 && (
+                          <div className="lb-hint">{`Shared with ${others.length > 1 ? "tasks" : "task"} ${others.join(", ")} — ${SHARE[mates.length] ?? `1/${mates.length}`} of their cost`}</div>
+                        )}
+                      </td>
                       <td className="r lb-num">{k.rows}</td>
                       <td className="r lb-num">{hm(k.shareMs)}</td>
                       <td className="r lb-num">
@@ -311,7 +302,7 @@ export function RunTimings({ project, change }: { project: string; change: strin
         </p>
       </div>
       {state.run ? (
-        <Body run={state.run} />
+        <Body run={state.run} titles={new Map((board?.tasks ?? []).map((t) => [String(t.n), t.title]))} />
       ) : state.error ? (
         <p role="alert" className="view-error">{state.error}</p>
       ) : (

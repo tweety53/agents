@@ -31,7 +31,7 @@ import { stageLabel } from "../lib/stageLabel";
 import { ActivityBadge, StatePill } from "./StateBoard";
 import { taskCount } from "../lib/taskCount";
 import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewNow";
-import { STAGE_PHASE, type Phase } from "../lib/phase";
+import { canonicalStage, stagePhase, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
 import { findChanges, getDecisions, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
@@ -117,7 +117,7 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
   for (const d of [...dispatches].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))) {
     const t = Date.parse(d.startedAt);
     const run = byStart.filter((r) => Date.parse(r.startedAt) <= t).pop();
-    const phase = run && STAGE_PHASE[run.stage];
+    const phase = run && stagePhase(run.stage);
     if (!phase) continue;
     out.push({
       phase,
@@ -211,11 +211,12 @@ function modelEffortLabel(d: Step): string {
 
 /**
  * The cost lines under a panel's roles, so the lines add up to its header:
- * "unattributed" for priced dispatch buckets no recorded dispatch of the
- * panel claims, then "main session" for the runs' cost no bucket carries --
+ * the priced agents no recorded dispatch of the panel claims (an explorer
+ * or fixer dispatched without `flow record dispatch`), by their
+ * descriptions, then "main session" for the runs' cost no bucket carries --
  * the main session's own turns. Null where nothing is left.
  */
-function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; main: number | null } {
+function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: string[]; main: number | null } {
   const header = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   const claimed = new Set(steps.map((d) => d.agentId).filter((a): a is string => !!a));
   let buckets = 0;
@@ -224,8 +225,13 @@ function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, nu
     buckets += c;
     if (!claimed.has(id)) unattributed += c;
   }
+  const unrecorded = runs.flatMap((r) =>
+    Object.entries(asObject(asObject(r.metrics)?.dispatches) ?? {})
+      .filter(([id]) => costs.has(id) && !claimed.has(id))
+      .map(([id, b]) => String(asObject(b)?.description ?? id)),
+  );
   const keep = (v: number) => (Math.abs(v) >= 0.005 ? v : null);
-  return { unattributed: keep(unattributed), main: header === null ? null : keep(header - buckets) };
+  return { unattributed: keep(unattributed), unrecorded, main: header === null ? null : keep(header - buckets) };
 }
 
 /** Self-review's one-line summary: its plan's done/total, its findings, and its highest fix round when one ran. */
@@ -377,8 +383,8 @@ function WorkPanel({
               ))}
               {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
               {rest.unattributed !== null && (
-                <li data-testid="phase-role" className="lb-muted" title="priced dispatches with no recorded dispatch row">
-                  <span className="lb-role">unattributed</span>
+                <li data-testid="phase-role" className="lb-muted" title={`Agents that ran with no recorded dispatch row: ${rest.unrecorded.join(", ")}`}>
+                  <span className="lb-role">unrecorded agents ×{rest.unrecorded.length}</span>
                   <span />
                   <span className="lb-num r">{formatUsd(rest.unattributed)}</span>
                   <span />
@@ -681,9 +687,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
   );
   const allFindings = [...findings, ...(sub?.findings ?? [])];
   const srSteps = steps.filter((x) => x.phase === "Self-review");
-  const srRuns = phaseRuns.filter((r) => STAGE_PHASE[r.stage] === "Self-review");
+  const srRuns = phaseRuns.filter((r) => stagePhase(r.stage) === "Self-review");
   const mainSteps = steps.filter((x) => x.phase !== "Self-review");
-  const mainRuns = runs0.filter((r) => STAGE_PHASE[r.stage] !== "Self-review");
+  const mainRuns = runs0.filter((r) => stagePhase(r.stage) !== "Self-review");
   const srStatus = workStatus(srRuns);
   const srStarted = srRuns.length > 0 || board?.currentStage === "flow.self-review";
   // The tasks Main works on: every running dispatch's, a task group's each, else the plan's in-progress one.
@@ -779,7 +785,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const totalCost = measuredSum([summary.totalCostUsd, subCost]);
           // A sub-run's every run is Self-review, so its rail splits by what each run did.
           const byStage = isSub ? selfReviewCosts(runs, dispatches) : new Map<string, number>();
-          if (!isSub) for (const r of runs) byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + (readCostUsd(r.metrics) ?? 0));
+          if (!isSub) for (const r of runs) byStage.set(canonicalStage(r.stage), (byStage.get(canonicalStage(r.stage)) ?? 0) + (readCostUsd(r.metrics) ?? 0));
           // A stage that cost nothing, or was never measured, is neither listed nor counted in "N more".
           const allStageCost = [...byStage].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
           const stageCost = allStageCost.slice(0, TOP_STAGES);

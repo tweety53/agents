@@ -15,7 +15,7 @@ vi.mock("../api", async (importOriginal) => {
   return {
     ...actual,
     getRunTimings: runTimingsMock,
-    fetchStatsView: vi.fn(async () => ({ rows: [{ name: C, project: P, state: "FINISHED", tasks: [] }] })),
+    fetchStatsView: vi.fn(async () => ({ rows: [{ name: C, project: P, state: "FINISHED", tasks: [{ n: 13, title: "Fold the guards in-process", state: "done" }] }] })),
   };
 });
 
@@ -139,20 +139,6 @@ describe("RunTimings", () => {
     expect(within(totals).getByText("183 dispatches · 2 unpriced")).toBeInTheDocument();
   });
 
-  it("run timings timeline draws a lane per category, parent commands and idle", async () => {
-    render(<RunTimings project={P} change={C} />);
-    const img = await screen.findByRole("img", { name: "Run timeline" });
-    const texts = [...img.querySelectorAll("text")].map((t) => t.textContent);
-    for (const l of ["flow.brainstorm", "dispatches", "planned implementer", "visual verifier", "parent commands", "idle / parent", "+0h", "+48h"]) {
-      expect(texts).toContain(l);
-    }
-    const titles = [...img.querySelectorAll("rect > title")].map((t) => t.textContent);
-    expect(titles).toContain("flow.brainstorm: 2h 00m (+0h 00m → +2h 00m)");
-    expect(titles).toContain("planned implementer: 3h 00m (+3h 00m → +6h 00m)");
-    expect(titles).toContain("idle / parent: 1h 00m (+6h 00m → +7h 00m)");
-    expect(img.querySelector("pattern#hatch")).not.toBeNull();
-  });
-
   it("run timings group-by chips switch the breakdown", async () => {
     render(<RunTimings project={P} change={C} />);
     const panel = await screen.findByRole("region", { name: "Time and cost by" });
@@ -198,8 +184,10 @@ describe("RunTimings", () => {
   it("run timings cost per task marks a split group estimated", async () => {
     render(<RunTimings project={P} change={C} />);
     const tasks = await screen.findByRole("region", { name: "Cost per task" });
-    expect(within(tasks).getByText("top 2 of 2")).toBeInTheDocument();
-    const row = within(tasks).getByText("13 · ¼ of group 13+14+16+20").closest("tr")!;
+    expect(within(tasks).getByText("2 tasks")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Timeline" })).toBeNull();
+    const row = (await within(tasks).findByText("Task 13 · Fold the guards in-process")).closest("tr")!;
+    expect(row).toHaveTextContent("Shared with tasks 14, 16, 20 — a quarter of their cost");
     const est = row.querySelector(".src.estimated");
     expect(est).toHaveTextContent("estimated");
     expect(est).toHaveAttribute("title", "A group dispatch’s cost split evenly across its tasks.");

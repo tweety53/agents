@@ -727,7 +727,7 @@ describe("the reworked run view (kan-1048)", () => {
 
   it("run detail shows a row's agent model and effort, else its main session's, in the Model · effort column", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    const kickoff = (await screen.findByRole("cell", { name: "Starting up" })).closest("tr")!;
+    const kickoff = (await screen.findAllByRole("cell", { name: "Planning the change" }))[0].closest("tr")!;
     expect(within(kickoff).getByTestId("run-model")).toHaveTextContent(/^opus 4\.7 · medium$/);
     // A single dispatch is the row itself, with its bucket's model and its most-served effort.
     const one = screen.getByRole("cell", { name: "Task 4/11" }).closest("tr")!;
@@ -737,7 +737,7 @@ describe("the reworked run view (kan-1048)", () => {
 
   it("run detail has no filter controls", async () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    await screen.findByRole("cell", { name: "Starting up" });
+    await screen.findAllByRole("cell", { name: "Planning the change" });
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
@@ -767,7 +767,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(board[1].change).toBe(CHANGE);
     expect(screen.getByRole("heading", { name: CHANGE }).parentElement).toHaveTextContent("Integrating");
     const kpi = (name: string) => screen.getByRole("group", { name });
-    expect(kpi("Now running")).toHaveTextContent("Implementing tasks");
+    expect(kpi("Now running")).toHaveTextContent("Implementing");
     // Both counts come from the plan it lists, never the stale stored 3/11.
     expect(kpi("Now running")).toHaveTextContent("for 1h 00m · tasks 1/3");
     expect(kpi("Now running")).toHaveTextContent("Awaiting your answer");
@@ -824,11 +824,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(sr.queryByRole("group", { name: "Full panel runs" })).toBeNull();
     // Cost by stage: summed per stage, largest first, in plain words.
     const rail = screen.getByRole("region", { name: "Cost by stage" });
-    expect(within(rail).getAllByText(/^(Implementing tasks|Designing the change|Starting up)$/).map((e) => e.textContent)).toEqual([
-      "Implementing tasks",
-      "Designing the change",
-      "Starting up",
-    ]);
+    // Retired keys fold into the slim stage that replaced them: kickoff and brainstorm are one Planning line.
+    expect(within(rail).getAllByText(/^(Implementing|Planning the change)$/).map((e) => e.textContent)).toEqual(["Implementing", "Planning the change"]);
     expect(rail).toHaveTextContent("$3.50");
   });
 
@@ -987,12 +984,12 @@ describe("the reworked run view (kan-1048)", () => {
     const rows = () => panel.querySelectorAll("tbody tr:not(.lb-group)");
     await waitFor(() => expect(rows()).toHaveLength(5));
     // The latest five: the two earliest runs are the ones left out.
-    expect(within(panel).queryByText("Starting up")).not.toBeInTheDocument();
-    expect(within(panel).queryByText("Designing the change")).not.toBeInTheDocument();
-    expect(within(panel).getByText("Checking the UI")).toBeInTheDocument();
+    // Kickoff and brainstorm are left out; decide, the one planning run among the latest five, stays.
+    expect(within(panel).getAllByText("Planning the change")).toHaveLength(1);
+    expect(within(panel).getAllByText("Verifying")).toHaveLength(2);
     await user.click(within(panel).getByRole("button", { name: "Show all 7" }));
     expect(rows()).toHaveLength(7);
-    expect(within(panel).getByText("Starting up")).toBeInTheDocument();
+    expect(within(panel).getAllByText("Planning the change")).toHaveLength(3);
     await user.click(within(panel).getByRole("button", { name: "Show latest 5" }));
     expect(rows()).toHaveLength(5);
   });
@@ -1021,7 +1018,7 @@ describe("the reworked run view (kan-1048)", () => {
     await user.click(within(sr).getByRole("button", { name: "Show" }));
     expect(within(sr).getByTestId("self-review-now")).toHaveTextContent(/^Now: Not started$/);
     expect(srTasks).toHaveTextContent("◻ 1. Fix the guard");
-    expect(within(screen.getByRole("region", { name: "Main" })).getByTestId("main-now")).toHaveTextContent(/^Now: Implementing tasks · 1h 00m$/);
+    expect(within(screen.getByRole("region", { name: "Main" })).getByTestId("main-now")).toHaveTextContent(/^Now: Implementing · 1h 00m$/);
   });
 
   it("run detail labels models as family and version, never with a placeholder default effort", async () => {
@@ -1052,27 +1049,27 @@ describe("the reworked run view (kan-1048)", () => {
     expect(main.querySelector(".lb-panel-h .lb-dot")).toBeNull();
   });
 
-  it("run detail's Cost by stage lists the ten costliest stages and folds the rest into one line", async () => {
+  it("run detail's Cost by stage sums retired stage keys into the slim stage that replaced them", async () => {
     const stages = ["flow.kickoff", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.decide", "flow.load-context", "flow.isolate-workspace", "flow.sdd-tdd", "flow.review-panel", "flow.verify", "flow.visual-verify"];
     const at = (i: number) => `2026-01-01T00:${String(i * 4).padStart(2, "0")}:00Z`;
     listStageRunsMock.mockResolvedValue(
       stageRunsResponse([
         ...stages.map((st, i) => run(30 + i, st, at(i), at(i), { metrics: { cost_usd: 12 - i } })),
-        // A zero-cost and an unmeasured stage: never listed, never in "N more".
+        // A zero-cost and an unmeasured stage add nothing.
         run(50, "flow.stage-diff", at(12), at(12), { metrics: { cost_usd: 0 } }),
         run(51, "flow.run-instructions", at(13), at(13), { metrics: {} }),
       ]),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const rail = await screen.findByRole("region", { name: "Cost by stage" });
-    await waitFor(() => expect(rail.querySelectorAll(".lb-hbar:not([data-testid])")).toHaveLength(10));
-    expect(rail.querySelector(".lb-hbar")).toHaveTextContent("Starting up$12.00");
-    // The two cheapest, $2 and $1, as one muted line, so the panel still sums to the stages' $78.
-    expect(within(rail).getByTestId("stage-cost-rest")).toHaveTextContent(/^2 more\$3\.00$/);
-    const sum = [...rail.querySelectorAll(".lb-hbar .lb-num")].reduce((a, e) => a + Number(e.textContent!.replace(/[^\d.]/g, "")), 0);
-    expect(sum).toBe(78);
-    expect(rail).not.toHaveTextContent("Staging the diff");
-    expect(rail).not.toHaveTextContent("Writing test instructions");
+    await waitFor(() => expect(rail.querySelectorAll(".lb-hbar")).toHaveLength(4));
+    expect([...rail.querySelectorAll(".lb-hbar")].map((e) => e.textContent)).toEqual([
+      "Planning the change$57.00",
+      "Implementing$15.00",
+      "Reviewing$3.00",
+      "Verifying$3.00",
+    ]);
+    expect(within(rail).queryByTestId("stage-cost-rest")).toBeNull();
   });
 
   it("run detail counts each role's dispatches per model · effort, the counts summing to the role's and the costs to its cost", async () => {
@@ -1089,6 +1086,21 @@ describe("the reworked run view (kan-1048)", () => {
     expect(line).toHaveTextContent(new RegExp(`^reviewer ×${counts}`));
     const costs = [...models.matchAll(/\(\$([\d.]+)\)/g)].reduce((a, m) => a + Number(m[1]), 0);
     expect(line.querySelector(".lb-num")).toHaveTextContent(`$${costs.toFixed(2)}`);
+  });
+
+  it("run detail names the agents that ran with no dispatch row, each by its description", async () => {
+    listStageRunsMock.mockResolvedValue(
+      stageRunsResponse([
+        run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", {
+          metrics: { cost_usd: 4, dispatches: { ex1: { cost_usd: 0.5, description: "plan-1 explore fix loop" }, ex2: { cost_usd: 0.25, description: "plan-review-1" } } },
+        }),
+      ]),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    const line = await waitFor(() => within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("unrecorded agents"))!);
+    expect(line).toHaveTextContent(/^unrecorded agents ×2\$0\.75$/);
+    expect(line).toHaveAttribute("title", "Agents that ran with no recorded dispatch row: plan-1 explore fix loop, plan-review-1");
   });
 
   it("run detail on a self-review sub-run's own page shows one Main panel of that run's work, its cost split by what each run did", async () => {
@@ -1171,7 +1183,7 @@ describe("the reworked run view (kan-1048)", () => {
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const main = (await screen.findByRole("cell", { name: "Main" })).closest("tr")!;
-    expect(main).toHaveTextContent("Mainwaiting for subagentsImplementing tasks");
+    expect(main).toHaveTextContent("Mainwaiting for subagentsImplementing");
     expect(main.querySelector(".lb-dot.waiting")).not.toBeNull();
   });
 
@@ -1232,7 +1244,7 @@ describe("the reworked run view (kan-1048)", () => {
       view === "state-board" ? Promise.reject(new Error("board down")) : Promise.resolve(aggregateEnvelope([])),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
-    expect(await screen.findByRole("cell", { name: "Starting up" })).toBeInTheDocument();
+    expect((await screen.findAllByRole("cell", { name: "Planning the change" })).length).toBeGreaterThan(0);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -1253,11 +1265,12 @@ describe("the reworked run view (kan-1048)", () => {
     const svg = await screen.findByRole("img", { name: "Stage runs over time" });
     // The stages still to run follow as muted lanes, in the command's order; a skipped one (decide) is not "upcoming".
     await waitFor(() => expect(svg.querySelectorAll("[data-testid=upcoming-lane]").length).toBe(2));
-    expect([...svg.querySelectorAll("[data-testid=upcoming-lane]")].map((t) => t.lastChild?.textContent)).toEqual(["Code review", "Running lint and tests"]);
+    expect([...svg.querySelectorAll("[data-testid=upcoming-lane]")].map((t) => t.lastChild?.textContent)).toEqual(["Reviewing", "Verifying"]);
     // Each lane reads in plain words, its stage id on hover.
     const lanes = [...svg.querySelectorAll("text.lb-lane:not(.upcoming)")];
-    expect(lanes.map((t) => t.lastChild?.textContent)).toEqual(["Starting up", "Designing the change", "Implementing tasks"]);
-    expect(lanes.map((t) => t.querySelector("title")?.textContent)).toEqual(["flow.kickoff", "flow.brainstorm", "flow.sdd-tdd"]);
+    // Retired keys share their replacement's lane: kickoff and brainstorm are one Planning lane.
+    expect(lanes.map((t) => t.lastChild?.textContent)).toEqual(["Planning the change", "Implementing"]);
+    expect(lanes.map((t) => t.querySelector("title")?.textContent)).toEqual(["flow.plan", "flow.implement"]);
     const fills = [...svg.querySelectorAll("rect.lb-bar")].map((r) => r.getAttribute("fill"));
     expect(fills).toEqual(["var(--status-ok)", "var(--status-ok)", "var(--status-critical)", "url(#lb-hatch)"]);
     expect(svg.querySelector("line.lb-now")).not.toBeNull();
@@ -1353,7 +1366,7 @@ describe("interactive run view", () => {
     expect(steps.map((s) => `${s.textContent}:${s.className}`)).toEqual([
       "Planning the change:done",
       "Implementing:cur",
-      "Running lint and tests:",
+      "Verifying:",
       "Landing the change:",
     ]);
     expect(screen.queryByRole("region", { name: "Self-review" })).toBeNull();
@@ -1442,15 +1455,8 @@ describe("interactive run view", () => {
     const panel = await screen.findByRole("region", { name: "Stage runs" });
     await waitFor(() => expect(panel.querySelectorAll("tr.lb-row")).toHaveLength(6));
     const stages = [...panel.querySelectorAll("tr.lb-row td:nth-child(2)")];
-    expect(stages.map((td) => td.textContent)).toContain("Updating the main checkout");
+    expect(stages.map((td) => td.textContent)).toContain("Cleaning up");
     for (const td of stages) expect(td.querySelector(".lb-expander")).toBeNull();
   });
 
-  it("interactive run view adds Designing the change only when the request brainstormed", async () => {
-    load([...r6, run(7, "flow.load-context", 7, 4, 3), run(9, "flow.brainstorm", 7, 3, 2), run(8, "flow.sdd-tdd", 7, 2)]);
-    render(<RunDetail project={PROJECT} change={CHANGE} />);
-    const main = await screen.findByRole("region", { name: "Main" });
-    await waitFor(() => expect(within(main).getAllByRole("listitem").map((s) => s.textContent)).toContain("Designing the change"));
-    expect(within(main).getAllByRole("listitem")[1]).toHaveTextContent("Designing the change");
-  });
 });
