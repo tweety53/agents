@@ -378,13 +378,18 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "tuple[str | None
     model = str(tool_input.get("model") or "")
     panel = PANEL_REVIEWER_KEY.fullmatch(key) if role == "reviewer" else None
     if panel:
+        # A -part<k> or -unread suffix is written <slots>@<suffix> (kan-1132 self-review, F1).
+        suffix = key[panel.end(2):].removeprefix("-")
+        slot = panel.group(2) + (f"@{suffix}" if suffix else "")
+        if "-" in panel.group(2):
+            # An unsplit -<repo> suffix: never hand back a <slot>-<repo> slot (kan-1132 self-review).
+            slot = "<slots>@<repo>"
         return (
             f"Dispatch blocked: no open ledger row for '{key}' in {change} — a review-panel reviewer "
             "row needs its slot, which an Agent call cannot pass. Record the round's begins first with "
             f"`flow-guard panel-round-begins {worktree} {change} {panel.group(1)} {token} "
-            f"{panel.group(2)}:{model}:{effort or ''}` (skills/flow/review-panel.md), or, for a key "
-            "carrying a -<repo>, -part<k> or -unread suffix, "
-            f"`flow record dispatch begin -change {change} -key {key} -slot <its slots> …`; "
+            f"{slot}:{model}:{effort or ''}` (skills/flow/review-panel.md); a key carrying a -<repo> "
+            "suffix is begun the same way, its slot written <slots>@<repo>; "
             "then re-send this call unchanged."
         ), None
     args = ["flow", "record", "dispatch", "begin", "-C", cwd, "-change", change, "-role", role,

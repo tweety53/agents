@@ -258,3 +258,46 @@ func TestPanelRoundBeginsOwesAMutationPass(t *testing.T) {
 		}
 	}
 }
+
+// TestPanelRoundBeginsRecordsASuffixedKey pins kan-1132's self-review, F1: a
+// slot written <slot>@<suffix> is begun under -slot <slot> and the key
+// panel-<round>-<slot>-<suffix>; an empty slot or suffix is refused.
+func TestPanelRoundBeginsRecordsASuffixedKey(t *testing.T) {
+	dir := t.TempDir()
+	wt := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	stub := "#!/bin/sh\ncase \"$*\" in \"record dispatches\"*) echo '[{\"key\":\"panel-0-mutation\",\"outcome\":\"completed\"}]'; exit 0;; esac\necho \"$*\" >> " + log + "\necho \"recorded: dispatch 7\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := Env{Getenv: func(k string) string {
+		if k == "PATH" {
+			return dir
+		}
+		return ""
+	}}
+	var out, errb bytes.Buffer
+	code := panelRoundBegins([]string{wt, "kan-1", "4", "mf-k1", "primary+principles@part2:opus:high", "primary@agents:opus:low", "principles@unread:opus:low:a515c200"}, env, &out, &errb)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr %s", code, errb.String())
+	}
+	calls, _ := os.ReadFile(log)
+	pre := "record dispatch begin -C " + wt + " -change kan-1 -role reviewer "
+	want := pre + "-slot primary+principles -model opus -effort high -key panel-4-primary+principles-part2 -session-token mf-k1\n" +
+		pre + "-slot primary -model opus -effort low -key panel-4-primary-agents -session-token mf-k1\n" +
+		pre + "-slot principles -model opus -effort low -diff-base a515c200 -key panel-4-principles-unread -session-token mf-k1\n"
+	if string(calls) != want {
+		t.Errorf("flow calls:\n%s\nwant:\n%s", calls, want)
+	}
+	if err := os.Remove(log); err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range []string{"primary@:opus:low", "@part2:opus:low"} {
+		if code := panelRoundBegins([]string{wt, "kan-1", "4", "mf-k1", spec}, env, &out, &errb); code != 2 {
+			t.Errorf("%s: exit %d, want 2", spec, code)
+		}
+		if _, err := os.Stat(log); err == nil {
+			t.Errorf("%s: a begin was logged", spec)
+		}
+	}
+}

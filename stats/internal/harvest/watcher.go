@@ -1497,7 +1497,9 @@ func dispatchBeginsFromCommand(command string) []dispatchBeginEvent {
 // invocation as the begins it records -- one per slot, under the key
 // panel-<round>-<slot> -- because the script runs them inside flow-guard,
 // so the transcript never holds their `flow record dispatch begin` text
-// (kan-1026's self-review). A round or token that is not a literal names
+// (kan-1026's self-review). A slot written <slot>@<suffix> keys its row
+// panel-<round>-<slot>-<suffix>, its first `@` read as `-`, as the guard
+// records it (kan-1132 self-review, F1). A round or token that is not a literal names
 // no row and yields nothing.
 func panelRoundBeginsFromInvocation(invocation string) []dispatchBeginEvent {
 	args, _ := guardArgs(strings.Fields(invocation), "panel-round-begins")
@@ -1514,7 +1516,7 @@ func panelRoundBeginsFromInvocation(invocation string) []dispatchBeginEvent {
 		if slot == "" || strings.ContainsAny(slot, "$`") {
 			continue
 		}
-		out = append(out, dispatchBeginEvent{SessionToken: token, Key: "panel-" + round + "-" + slot})
+		out = append(out, dispatchBeginEvent{SessionToken: token, Key: "panel-" + round + "-" + strings.Replace(slot, "@", "-", 1)})
 	}
 	return out
 }

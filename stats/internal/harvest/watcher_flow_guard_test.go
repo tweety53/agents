@@ -68,3 +68,40 @@ func TestWatcherParsesFlowGuardPanelRoundBegins(t *testing.T) {
 		}
 	}
 }
+
+// TestWatcherParsesASuffixedPanelRoundBegin: a slot written
+// <slot>@<suffix> yields the key panel-<round>-<slot>-<suffix>, the key the
+// guard records (kan-1132 self-review, F1).
+func TestWatcherParsesASuffixedPanelRoundBegin(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	launch2 := strings.Replace(stampLaunchLine, "a68cee7239419a7e7", "a8884ead3c626d980", 1)
+	launch2 = strings.Replace(launch2, "00:00:01Z", "00:00:02Z", 1)
+	if err := os.WriteFile(path, stampFixtureLines(stampLaunchLine, launch2), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	deps := &stampRecordingDeps{}
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, newFakeHarvestSink(), harvest.NewAttributor(&fakeWindowSource{}), deps, nil)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (launch batch): %v", err)
+	}
+	commandJSON, err := json.Marshal("flow-guard panel-round-begins /w c 0 mf-t primary+principles@part2:opus:high primary:opus:low")
+	if err != nil {
+		t.Fatalf("marshal command: %v", err)
+	}
+	appendLine(t, path, `{"type":"assistant","timestamp":"2026-01-01T00:00:03Z","sessionId":"s","message":{"model":"m","usage":{"input_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":`+string(commandJSON)+`}}]}}`)
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (begin batch): %v", err)
+	}
+	keys := map[string]bool{}
+	for _, got := range deps.stamps {
+		if got.sessionToken != "mf-t" {
+			t.Errorf("stamp %+v: token, want mf-t", got)
+		}
+		keys[got.key] = true
+	}
+	if len(deps.stamps) != 2 || !keys["panel-0-primary+principles-part2"] || !keys["panel-0-primary"] {
+		t.Errorf("stamps = %+v, want panel-0-primary+principles-part2 and panel-0-primary", deps.stamps)
+	}
+}

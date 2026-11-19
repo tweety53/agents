@@ -483,6 +483,7 @@ launches every dispatch of the round — on pass 1, every dispatch but `mutation
 each begin of a `panel-<round>-<slot>` key writes that slot's `dispatched:` pass row from its own flags, so no round begun — by the guard or by hand — lacks one, and `flow record pass` refuses a hand-written `dispatched:` note; the round's wait is the harness's completion notifications, never a poll (see
 **No forking, and a wall-clock ceiling on every slot** below); every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`).
+A key carrying a `-part<k>`, `-<repo>` or `-unread` suffix is begun by the same call, its slot written `<slot>@<suffix>` — `primary+principles@part2:opus:high` records the key `panel-0-primary+principles-part2` under `-slot primary+principles` — never by a hand `flow record dispatch begin` (kan-1132 self-review, F1).
 On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish. On any other harness the daemon reads no agent transcript, so each `end` passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
 A dispatch whose report never appears within its
 ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.

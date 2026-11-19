@@ -909,7 +909,7 @@ func TestEnforceAgentBaselineHookPointsAPanelKeyAtPanelRoundBegins(t *testing.T)
 		if !denied {
 			t.Fatalf("not denied: %s", out)
 		}
-		for _, want := range []string{"flow-guard panel-round-begins " + wt + " c1 1 mf-t1 primary+principles:opus:low", "flow record dispatch begin"} {
+		for _, want := range []string{"flow-guard panel-round-begins " + wt + " c1 1 mf-t1 primary+principles:opus:low", "@<repo>"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("reason lacks %q: %s", want, out)
 			}
@@ -923,7 +923,16 @@ func TestEnforceAgentBaselineHookPointsAPanelKeyAtPanelRoundBegins(t *testing.T)
 		main, wt := beginRepo(t)
 		env, _ := beginEnv(t, `[]`, 0)
 		denied, out := runBegin(t, beginPayload(t, main, "panel-1-primary-part2 review", "Role: panel-reviewer\nreview", "flow-low", "opus", ""), append(env, "DISPATCH_PAIR_CHECK=true")...)
-		if want := "flow-guard panel-round-begins " + wt + " c1 1 mf-t1 primary:opus:low"; !denied || !strings.Contains(out, want) {
+		if want := "flow-guard panel-round-begins " + wt + " c1 1 mf-t1 primary@part2:opus:low"; !denied || !strings.Contains(out, want) {
+			t.Errorf("denied=%v, reason lacks %q: %s", denied, want, out)
+		}
+	})
+	t.Run("repo-suffixed reviewer", func(t *testing.T) {
+		t.Parallel()
+		main, wt := beginRepo(t)
+		env, _ := beginEnv(t, `[]`, 0)
+		denied, out := runBegin(t, beginPayload(t, main, "panel-1-primary-agents review", "Role: panel-reviewer\nreview", "flow-low", "opus", ""), append(env, "DISPATCH_PAIR_CHECK=true")...)
+		if want := "flow-guard panel-round-begins " + wt + " c1 1 mf-t1 <slots>@<repo>:opus:low"; !denied || !strings.Contains(out, want) || strings.Contains(out, "primary-agents:") {
 			t.Errorf("denied=%v, reason lacks %q: %s", denied, want, out)
 		}
 	})

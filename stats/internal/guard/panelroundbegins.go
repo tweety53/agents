@@ -15,9 +15,10 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/panel-round-begins.sh shim (KAN-1058).
 //
-// flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...
+// flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>[@<suffix>]:<model>:<effort>[:<diff-base>]...
 // — records every slot's begin of one review-panel round, each under the
-// literal key panel-<round>-<slot>, in the one Bash call just before the
+// literal key panel-<round>-<slot>[-<suffix>] and -slot <slot> — the suffix
+// being part<k>, a repo name or unread (kan-1132 self-review, F1) — in the one Bash call just before the
 // round's launch message (on pass 1, every slot but a mutation-carrying extra
 // bundle, which skills/flow/review-panel.md launches after the suite exits) — hooks/enforce-agent-baseline.py denies a launch
 // whose row is not open yet (skills/flow/review-panel.md, "Every slot's
@@ -50,7 +51,9 @@ import (
 
 // panel-round-begins (flow-guard panel-round-begins) records every slot's
 // begin of one review-panel round, each under the literal key
-// panel-<round>-<slot> -- the round's begins block the parent hand-wrote
+// panel-<round>-<slot>, or panel-<round>-<slot>-<suffix> for a slot written
+// <slot>@<suffix> -- a -part<k>, -<repo> or -unread key, begun under
+// -slot <slot> (kan-1132 self-review, F1) -- the round's begins block the parent hand-wrote
 // before, where kan-1026's `-key panel-$R-$s` from `R=$(flow record
 // next-round ...)` left the daemon nothing to read the key from
 // (skills/flow/review-panel.md, "Every slot's dispatch is recorded").
@@ -71,7 +74,7 @@ func init() {
 	Registry["panel-round-begins"] = panelRoundBegins
 }
 
-const prbUsage = "usage: flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>:<model>:<effort>[:<diff-base>]...\n"
+const prbUsage = "usage: flow-guard panel-round-begins <worktree> <change> <round> <session-token> <slot>[@<suffix>]:<model>:<effort>[:<diff-base>]...\n"
 
 var prbRound = regexp.MustCompile(`^[0-9]+$`)
 
@@ -85,16 +88,21 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	wt, change, round, token := args[0], args[1], args[2], args[3]
-	type slot struct{ name, model, effort, diffBase string }
+	type slot struct{ name, suffix, model, effort, diffBase string }
 	var slots []slot
 	for _, spec := range args[4:] {
 		f := strings.Split(spec, ":")
-		if len(f) < 3 || len(f) > 4 || f[0] == "" || f[1] == "" || f[2] == "" {
-			fmt.Fprintf(stderr, "panel-round-begins: slot %q is not <slot>:<model>:<effort>[:<diff-base>]\n%s", spec, prbUsage)
+		var name, suffix string
+		var suffixed bool
+		if len(f) > 0 {
+			name, suffix, suffixed = strings.Cut(f[0], "@")
+		}
+		if len(f) < 3 || len(f) > 4 || name == "" || (suffixed && suffix == "") || f[1] == "" || f[2] == "" {
+			fmt.Fprintf(stderr, "panel-round-begins: slot %q is not <slot>[@<suffix>]:<model>:<effort>[:<diff-base>]\n%s", spec, prbUsage)
 			Reason(env, "bad-slot")
 			return 2
 		}
-		s := slot{name: f[0], model: f[1], effort: f[2]}
+		s := slot{name: name, suffix: suffix, model: f[1], effort: f[2]}
 		if len(f) == 4 {
 			s.diffBase = f[3]
 		}
@@ -174,6 +182,9 @@ func panelRoundBegins(args []string, env Env, stdout, stderr io.Writer) int {
 	code := 0
 	for _, s := range slots {
 		key := "panel-" + round + "-" + s.name
+		if s.suffix != "" {
+			key += "-" + s.suffix
+		}
 		argv := []string{"record", "dispatch", "begin", "-C", wt, "-change", change, "-role", "reviewer",
 			"-slot", s.name, "-model", s.model, "-effort", s.effort}
 		if s.diffBase != "" {
