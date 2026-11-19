@@ -354,3 +354,27 @@ func TestRetimeRelinksToTheRunHoldingTheNewBegin(t *testing.T) {
 		t.Errorf("retimed into run %d's window: stage_run_id %v -- STALE LINK", b, v)
 	}
 }
+
+// TestBeginAtARunsStartLinksToThatRun pins dispatch_stage_run's inclusive
+// lower bound: a dispatch begun at the very instant a stage run starts is
+// inside that run's [started_at, ended_at) window.
+func TestBeginAtARunsStartLinksToThatRun(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-run-start-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	start := time.Date(2026, 8, 22, 9, 0, 0, 0, time.UTC)
+	var run int64
+	if err := pool.QueryRow(ctx, `INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics, auto_opened, session_token)
+		SELECT id, 'claude-code', '/flow', 'flow.sdd-tdd', 1, $2, $3, '{}'::jsonb, false, 'mf-edge'
+		FROM changes WHERE project_key = $1 AND name = 'kan-1' RETURNING id`, projectKey, start, start.Add(time.Hour)).Scan(&run); err != nil {
+		t.Fatalf("seed run: %v", err)
+	}
+	d, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("mf-edge", "task-1-implementer", start))
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if d.StageRunID == nil || *d.StageRunID != run {
+		t.Errorf("begun at the run's start: stage_run_id %v, want %d", relinkDeref(d.StageRunID), run)
+	}
+}
