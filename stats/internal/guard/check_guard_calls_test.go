@@ -80,20 +80,20 @@ func TestCheckGuardCallsOldSpelling(t *testing.T) {
 func TestCheckGuardCallsGoLiterals(t *testing.T) {
 	t.Parallel()
 	out, code := gcTree(t, map[string]string{
-		"stats/x/a.go": "package x\n\n// plan-class.sh in a comment\nvar s = \"run plan-class.sh now\"\n",
+		"stats/x/a.go": "package x\n\n// close-task.sh in a comment\nvar s = \"run close-task.sh now\"\n",
 	})
-	if code != 1 || !strings.Contains(out, "stats/x/a.go:4: plan-class.sh") || strings.Contains(out, "a.go:3:") {
+	if code != 1 || !strings.Contains(out, "stats/x/a.go:4: close-task.sh") || strings.Contains(out, "a.go:3:") {
 		t.Fatalf("go literal: code %d, out %q", code, out)
 	}
 	out, code = gcTree(t, map[string]string{
 		"stats/x/a.go":      "package x\n\nvar s = `./setup.sh global`\n",
-		"stats/x/a_test.go": "package x\n\nvar t = \"plan-class.sh\"\n",
+		"stats/x/a_test.go": "package x\n\nvar t = \"close-task.sh\"\n",
 	})
 	if code != 0 {
 		t.Fatalf("setup.sh and _test.go: code %d, out %q", code, out)
 	}
 	out, code = gcTree(t, map[string]string{
-		"stats/x/testdata/a.go": "package x\n\nvar s = \"run plan-class.sh now\"\n",
+		"stats/x/testdata/a.go": "package x\n\nvar s = \"run close-task.sh now\"\n",
 	})
 	if code != 0 {
 		t.Fatalf("testdata is skipped: code %d, out %q", code, out)
@@ -108,14 +108,14 @@ func TestCheckGuardCallsCompanion(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out strings.Builder
-	if n := gcCompanions(&out, root, []string{"check-foo", "plan-class"}); n != 1 || !strings.Contains(out.String(), "check_foo_test.go") {
+	if n := gcCompanions(&out, root, []string{"check-foo", "close-task"}); n != 1 || !strings.Contains(out.String(), "check_foo_test.go") {
 		t.Fatalf("no companion: %d findings, out %q", n, out.String())
 	}
 	if err := os.WriteFile(filepath.Join(dir, "check_foo_test.go"), []byte("package guard\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	out.Reset()
-	if n := gcCompanions(&out, root, []string{"check-foo", "plan-class"}); n != 0 {
+	if n := gcCompanions(&out, root, []string{"check-foo", "close-task"}); n != 0 {
 		t.Fatalf("with companion: %d findings, out %q", n, out.String())
 	}
 }
