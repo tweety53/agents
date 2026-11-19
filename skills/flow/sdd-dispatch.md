@@ -9,7 +9,6 @@ Loaded during `flow.sdd-tdd` by the load directive of **4. Execute (SDD + TDD)**
 `groups` entry — its `tasks` (`skills/flow/decider-prompt.md` is canonical for how they are
 grouped), its implementer on the `implementer` role's pair. A group's implementer works
 its tasks in plan order, one commit per task, carrying that task's own `Task-Id:` trailer.
-`flow record dispatch begin` refuses a live `task-<ids>-implementer` row whose `+`-joined ids are not one group's tasks.
 
 **Waves — concurrent dispatch of ready groups.** `flow-guard ready-groups <changeRoot>/tasks.md <canonical-worktree> <name>` prints the groups
 to launch now, one `launch <g>: <ids> <repository> direct|throwaway` line each, and the

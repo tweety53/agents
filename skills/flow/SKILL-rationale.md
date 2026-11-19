@@ -1007,7 +1007,7 @@ Panels ran costlier than most changes need — `medium` below the 90 band, and a
 it, `high` included — and a hard-seam panel dispatch could reach `high` on the planner's say
 alone, without the operator ever seeing it. **panel-effort-roll-60-40:** every pass-1 panel
 dispatch and gated per-task reviewer bundle takes `low` below `effort_roll` 60 and `medium` at or
-above it, reusing the roll `flow-guard plan-class` already prints. **Rejected — a new independent
+above it, reusing the roll the since-deleted `plan-class` printed. **Rejected — a new independent
 `<name>paneleffort` roll:** a Go change and a ninth output line for no behaviour the shared roll
 lacks. **Rejected — keeping the planner's free choice above 90:** it leaves the ungated `high`
 path the ticket removes. **panel-high-operator-gated:** `high` reaches a panel dispatch only by an

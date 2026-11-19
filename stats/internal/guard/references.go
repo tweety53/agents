@@ -112,7 +112,6 @@ var crExpectedZero = []struct {
 			"commands-claude/flow.md",
 			"commands-claude/flow-plan.md",
 			"commands-claude/flow-self-review.md",
-			"commands-claude/flow-settings.md",
 			"commands-claude/flow-status.md",
 		}},
 	{"rule file — its own path citations (where present) sit in a Markdown table cell or plain prose, separated from any bold text by more than the adjacency window this guard's is_associated allows, or cite no path in a bold-adjacent shape at all",
@@ -132,7 +131,6 @@ var crExpectedZero = []struct {
 	{"contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path",
 		[]string{
 			"CLAUDE.md",
-			"skills/flow-contracts/plan-provenance.md",
 			"skills/flow-contracts/build-green.md",
 			"skills/flow-contracts/session-records.md",
 			"skills/flow-contracts/SKILL.md",
@@ -142,6 +140,7 @@ var crExpectedZero = []struct {
 		}},
 	{"reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name",
 		[]string{
+			"skills/flow/decider-prompt.md",
 			"skills/flow/engineering-principles.md",
 			"skills/flow/reviewer-calibration.md",
 			"skills/flow/primary-reviewer-prompt.md",
