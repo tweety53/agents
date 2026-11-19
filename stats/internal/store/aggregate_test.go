@@ -3309,3 +3309,36 @@ func TestTrendFoldsSelfReviewIntoItsChange(t *testing.T) {
 		t.Fatalf("rows = %+v, want kan-1 alone at $12 (its $2 self-review folded in)", got)
 	}
 }
+
+// TestReviewersCountsGatedReviews: a gated review (task-<n>-reviewer, its
+// re-check task-<n>-reviewer-fix-<k>) records no slot on its dispatch but
+// files its findings as slot gated-reviewer; Reviewers counts it as that
+// slot, in no panel roster.
+func TestReviewersCountsGatedReviews(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rv-gated-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	started := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
+	for i, key := range []string{"task-3-reviewer", "task-3-reviewer-fix-1"} {
+		d := baseDispatch("reviewer", "opus")
+		d.Key, d.StartedAt = key, started.Add(time.Duration(i)*time.Minute)
+		disp, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+		if err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+		in := baseFinding(fmt.Sprintf("G%d", i), 1)
+		in.Slot, in.Severity, in.Status, in.DispatchSeq = "gated-reviewer", "important", "fixed", &disp.Seq
+		if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("UpsertFinding: %v", err)
+		}
+	}
+	rows, err := st.Reviewers(ctx, store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Slot != "gated-reviewer" || rows[0].Dispatches != 2 || rows[0].Important != 2 || rows[0].Description == "" {
+		t.Fatalf("rows = %+v, want one gated-reviewer row: 2 dispatches, 2 important, described", rows)
+	}
+}
