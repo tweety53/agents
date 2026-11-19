@@ -951,3 +951,13 @@ func TestVisualVerifyPassCloseRemainderReadsEachCheckoutsRoundBase(t *testing.T)
 		})
 	}
 }
+
+// TestVvcParseVerdictIgnoresParenthesisedCounts: `capture 0 (28 passed)` is exit 0; a bare non-zero exit still counts.
+func TestVvcParseVerdictIgnoresParenthesisedCounts(t *testing.T) {
+	if bad, _, _ := vvcParseVerdict("- exits: setup 0, capture 0 (28 passed), spec reach 0 (132 reached), measure 0/0"); bad {
+		t.Error("a parenthesised count read as a non-zero exit")
+	}
+	if bad, _, _ := vvcParseVerdict("- exits: setup 0, capture 1 (CF5 test failure)"); !bad {
+		t.Error("a bare non-zero exit was missed")
+	}
+}

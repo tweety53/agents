@@ -327,6 +327,9 @@ func vvcVerdictBlock(report string) string {
 
 var vvcExit = regexp.MustCompile(`-?[0-9]+`)
 
+// vvcExitNote is a parenthesised note on an exit (`capture 0 (28 passed)`): its counts are not exits.
+var vvcExitNote = regexp.MustCompile(`\([^)]*\)`)
+
 // vvcParseVerdict reads the `## Verdict` block: whether `exits:` names a
 // non-zero exit, its `cause:` and its `departures:` count.
 func vvcParseVerdict(verdict string) (bool, string, int) {
@@ -338,7 +341,7 @@ func vvcParseVerdict(verdict string) (bool, string, int) {
 		}
 		switch k {
 		case "exits":
-			for _, n := range vvcExit.FindAllString(val, -1) {
+			for _, n := range vvcExit.FindAllString(vvcExitNote.ReplaceAllString(val, ""), -1) {
 				if n != "0" {
 					nonZero = true
 				}
