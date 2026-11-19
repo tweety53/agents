@@ -870,11 +870,11 @@ export interface RunDefinition {
   kind: RunMetric<unknown>["kind"];
 }
 
-/** Mirrors api.breakdownRow; cost is in dollars. */
 // The breakdown rows that are not categories and carry no category cost:
 // runtimings.go's labelParent and labelIdle, the source of these labels.
 export const NOT_CATEGORIES = new Set(["parent commands", "idle / parent"]);
 
+/** Mirrors api.breakdownRow; cost is in dollars. */
 export interface RunBreakdownRow {
   label: string;
   rows: number;
