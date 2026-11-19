@@ -12,7 +12,7 @@ The full key list, in the order each phase file marks them:
 |------------|------|
 | `skills/flow/brainstorm.md` | `flow.plan` — kickoff to the plan gate |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
-| `skills/flow/document-fix.md` | `flow.document-fix`, `flow.decide` (fix runs) — loaded only on a fix run |
+| `skills/flow/document-fix.md` | `flow.document-fix` — loaded only on a fix run |
 | `skills/flow/cross-repo-worktrees.md` | `flow.isolate-workspace` — loaded only when the change links a peer, an `## apps` entry names a repository holding no worktree for it, `## visual verification` names a `regression checkout`, or the resolved set spans more than one repository |
 | `skills/flow/sdd-dispatch.md` | `flow.sdd-tdd` |
 | `skills/flow/gated-review-fix.md` | `flow.sdd-tdd` — loaded only when, once the last group's guard has passed and every gated bundle has returned, a gated pass closed `fix` or left a Minor open |
@@ -20,7 +20,7 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/review-panel-fix-round.md` | `flow.review-panel` — loaded only once a round has recorded a Critical or Important finding; read by section where a citer names it |
 | `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded per that file's own trigger |
 | `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify` (steps 1–2), `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
-| `skills/flow/verify-fix-loop.md` | `flow.document-fix`, `flow.decide`, `flow.sdd-tdd`, `flow.review-panel`, `flow.verify`, `flow.visual-verify` — re-run through their own files; loaded only when a verify stage's final report carries a fixable defect; begins no mark of its own |
+| `skills/flow/verify-fix-loop.md` | `flow.document-fix`, `flow.sdd-tdd`, `flow.review-panel`, `flow.verify`, `flow.visual-verify` — re-run through their own files; loaded only when a verify stage's final report carries a fixable defect; begins no mark of its own |
 | `skills/flow/visual-verify.md` | `flow.visual-verify` from step 3 — loaded only when a worktree's diff matched a `ui paths` glob |
 | `skills/flow/visual-verify-tooling-analysis.md` | `flow.visual-verify` — loaded only on a fix run with at least one miss |
 | `skills/flow/integrate.md`, through `flow-guard integrate-change` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.self-review`, `flow.landing-routes` |

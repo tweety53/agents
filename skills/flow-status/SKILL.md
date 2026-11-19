@@ -186,7 +186,6 @@ Add below the table:
 - Linked Jira issue key, or "none linked"
 - Task progress — `done` of `total` from `spectre list --json`, which counts the change's
   `tasks.md` checkboxes in its worktree on disk
-- `<name>-fix-N` sub-changes, if any
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that
 - Whether the branch has reached the base branch — i.e. which bare `/flow` run comes next. For a

@@ -147,9 +147,7 @@ round's re-review begins.
 regression of a reviewed defect is still caught once the worktree is gone; a fixed Minor needs none.
 
 **A fix round that fixed a Critical or Important finding and changed no executable behaviour still
-records one `-mutated none -test <reason>` row** — the landing gate (`check-unfinished-work`)
-refuses a round of fixed Critical or Important findings with no fix-mutation row at that round or
-the next.
+records one `-mutated none -test <reason>` row.**
 
 **Record each one with one `flow record mutation -change <name> -round <round> -path <path>
 -mutated <what> -test <test>` call per line, transcribed from the fix subagent's final message — the
@@ -203,12 +201,13 @@ findings are split into sequential chunks of at most 10 — the cap that keeps o
 re-reading the whole branch across every finding — each chunk one panel-fix dispatch carrying its chunk of
 the combined list. Never one dispatch per reviewer, per slot, or per finding — that split
 fragments one diff into competing fixups against the same worktree. Chunks run in order, each
-dispatch awaited in the foreground before the next chunk begins, and no fix subagent is left in flight when the turn ends. `<round>` is the fix
+launched with `run_in_background: true` and its completion awaited at the turn's end (Turn
+discipline, **4. Execute (SDD + TDD)**, `skills/flow/implement.md`) before the next chunk begins. `<round>` is the fix
 round, one above the review round whose findings it fixes: the fix after `panel-0` is
 `panel-fix-1`. A fix commit's
 `Flow-Key:` trailer names that same fix round. The round's first
 chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
-(`panel-fix-<round>-2`, `-3`, …), contiguous from 2. A gated reviewer's fix round is no panel-fix row: it records under `-role implementer` (`skills/flow/gated-review-fix.md`), and an in-run verify fix under its appended task's implementer pair (`skills/flow/verify-fix-loop.md`). Where a finding is
+(`panel-fix-<round>-2`, `-3`, …), contiguous from 2. A gated reviewer's fix round is no `panel-fix-<round>` key: it records under its own key, `-role panel-fix` (`skills/flow/gated-review-fix.md`), and an in-run verify fix under its appended task's implementer pair (`skills/flow/verify-fix-loop.md`). Where a finding is
 confirmed as a real defect, the fix subagent reads and follows **superpowers:systematic-debugging**
 from its file before writing its fix — on Claude Code the newest
 `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent
@@ -224,9 +223,9 @@ at a time, and does not ask:
 
 - **A defect a code or document change can resolve takes another fix round** — at Critical or
   Important, and even where the fix reaches past the change's original scope. A Minor that reached
-  this loop joins that round only beside a Critical or Important taking one; with none, the parent
-  fixes it inline, as **Panel re-runs** (`skills/flow/review-panel.md`) fixes a Minor-only round's
-  Minors. No round count ends this: a round that made no progress on a defect takes **Fewest
+  this loop joins that round only beside a Critical or Important taking one; with none, the
+  `minor-fix` subagent fixes it, as **Panel re-runs** (`skills/flow/review-panel.md`) fixes a
+  Minor-only round's Minors. No round count ends this: a round that made no progress on a defect takes **Fewest
   operator actions** (`skills/flow-contracts/pipeline.md`), as does a fourth round after three
   failed ones (**Three failed rounds**, there).
 - **A finding no change to the tree can resolve is withdrawn** — a verification-only ask, a proof
@@ -265,7 +264,7 @@ under the handback above is recorded `withdrawn` with its original reason, never
 `open`, and does not stand in the way of that clean round. The last round before the stage close
 is therefore one of: a pass 1 that raised nothing, a re-run that raised nothing, a re-run whose
 only raise was a defect recorded `withdrawn` under the carve-out above, or a round every one of
-whose findings was Minor, which re-runs no slot — the parent fixes them inline at the round's
-close (**Panel re-runs**, `skills/flow/review-panel.md`) — and closes beside them. A
+whose findings was Minor, which re-runs no slot — the `minor-fix` subagent fixes them at the
+round's close (**Panel re-runs**, `skills/flow/review-panel.md`) — and closes beside them. A
 re-run that finds a fix incomplete opens the next fix round under the rules above, and the cycle repeats until a
 re-run comes back clean.

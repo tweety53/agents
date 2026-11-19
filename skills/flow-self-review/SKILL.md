@@ -69,7 +69,7 @@ fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it 
 traced", "unverified" or a cause left unknown is never a classification: such a finding goes to
 step 3's planner as a non-`big` finding whose plan opens on the trace, never into the report or
 into the run's final report as an open item. An observed test failure is fixed as **The loop** (`skills/flow/verify-fix-loop.md`) states
-for one that does not reproduce within the cap and goes straight to code, and a plan that allows closing it unreproduced is sent back.
+for one that does not reproduce within its bounded runs and goes straight to code, and a plan that allows closing it unreproduced is sent back.
 
 The pass runs the eight-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
@@ -383,8 +383,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    every task stays one commit; a commit the review judges not to fix its finding, or to make
    things worse, is dropped from the branch. **A review whose every finding is Minor is closed by
    that one dispatch, with no re-review** — the no-re-review half of **Panel re-runs**
-   (`skills/flow/review-panel.md`); unlike the panel's parent, this session fixes nothing inline,
-   so the fix stays this dispatch — and step 4 is its verification. After a review that raised a
+   (`skills/flow/review-panel.md`) — and step 4 is its verification. After a review that raised a
    Critical or Important, step 2 runs again, `<r>` plus one, until a review comes back clean or
    raises only Minors, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A
    dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once

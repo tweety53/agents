@@ -114,8 +114,7 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
 `rules/work-end-to-end.mdc`):
 
 - **Planning.** Brainstorm and design questions, the convergence-and-approval confirm, the plan
-  review gate, every `/flow-plan` prompt, a fix run's own planning pass (the re-plan-budget and
-  where-the-fix-goes prompts in `skills/flow/document-fix.md`). The operator scoped
+  review gate, every `/flow-plan` prompt. The operator scoped
   auto-resolution to implementation and fix options, not planning. The `## decisions: recommended` mode lifts the planning asks in this bullet and lifts no
   other bullet here.
 - **Manual testing the operator asked for.** A `/flow` record whose `reviewBeforeLanding` is `true`

@@ -80,8 +80,9 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 
 1. **Transcribe the fix.** Run **Documenting a fix, before implementing it**
    (`skills/flow/document-fix.md`) with the stage's final `## Report` — every defect it names,
-   verbatim — as the fix instructions. Each over-tolerance row the opener's report classifies `departure` is cited in the task as `<frame> #<row>`. Neither of its two asks is made: the fix is appended to
-   `proposal.md` and `tasks.md`, and `**Tasks appended:**` is not raised, since it counts appends
+   verbatim — as the fix instructions. Each over-tolerance row the opener's report classifies `departure` is cited in the task as `<frame> #<row>`. The fix planner's prompt carries its `Binding:` line
+   naming this step: the fix is appended to
+   `proposal.md` and `tasks.md`, never re-planned, and `**Tasks appended:**` is not raised, since it counts appends
    made at the human gate. The appended task carries the field family the verification-change
    paragraph of **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`)
    states for a found defect, and its title reads `In-run fix <k> — <stage>: <the defects>`, `<k>`
@@ -89,8 +90,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    fix's own paths, the sections of `<changeRoot>/visual-verification.md` its fix changes, as DRIFT
    CHECK (`skills/flow/implement.md`) requires; the record is never in its `**Files:**`
    — it is written on disk only, the change directory gitignored. The round's evidence directory,
-   `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**`, and is written on disk only. The re-decide runs as
-   that file states.
+   `<changeRoot>/visual-verification/`, is never named in the task's `**Files:**`, and is written on disk only.
    **One round appends one task**, carrying every defect the report names, every reviewer finding
    still open and every leftover a fixer named with its cause — never a task or a
    round per defect, and never a second task under another title. Its departures are one item per
@@ -159,7 +159,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    capture spec's pinned clock (`skills/flow/visual-verify-verifier.md`, step 8) does not
    reproduce — the task first adds a capture test that runs under the observer's conditions (clock
    running, same viewport and data) and fails without the fix, and closes only once that test
-   passes five times over in one run under `flow-guard run-capped` with one worker (Playwright
+   passes five times over in one run with one worker (Playwright
    `--repeat-each 5 --workers 1`), beside the capture spec's own exit 0.
    **Every recapture the round runs rebuilds the full app suite's zip after it** —
    `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>` in the checkout the recapture
@@ -167,14 +167,14 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    trails the baselines it archives.
    **An observed failure is never closed as "not reproduced".** This rule is canonical for every
    fixer of a test failure a run saw — this loop's, a full-suite fix's, a self-review loop's. The
-   fixer traces it from the code and the failing run's saved artifacts (a load reproduction is allowed only under flow-guard run-capped with a bounded worker count —
+   fixer traces it from the code and the failing run's saved artifacts (a load reproduction is allowed only with a bounded worker count —
    PROOF RUNS, `skills/flow/implementer-brief.md`), and keeps every
    failing run's result files (the `result files:` and `full output:` paths `flow-guard run-verify-list`
    prints, or the JUnit XMLs and logs copied out by hand) before the next run overwrites them. A
    failure that reproduces gets its determinism fix, held to the PROOF RUNS paragraph
    (`skills/flow/implementer-brief.md`). A forced cause also shows the test failing with the mechanism
-   removed; only one that does not reproduce within the cap waives that run, and it goes straight
-   to code. One that does not reproduce within the cap is fixed anyway: every source of nondeterminism the trace names as a candidate — a container
+   removed; only one that does not reproduce within its bounded runs waives that run, and it goes straight
+   to code. One that does not reproduce within its bounded runs is fixed anyway: every source of nondeterminism the trace names as a candidate — a container
    readiness wait, a shared port, an unpinned clock or order — is fixed at its source, each with a
    forced reproduction as its evidence (the candidate made to fail on purpose, a delay or a fault
    injected, failing the test without the fix and passing with it) where the candidate can be forced. The task's one commit carries

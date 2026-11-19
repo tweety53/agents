@@ -1269,7 +1269,7 @@ attribution; the text after it is the passage, verbatim.
 
 ### document-fix.md — Documenting a fix, before implementing it
 
-- *appended task's `Files:` covers each, or the task names why one stays* — (kan-1075 self-review, F18: task 5 replaced `signal.NotifyContext` in `run` alone, and the panel found `regrade` and `TestSIGTERMCancelsARun` still on it)
+- *the task's `Files:` covers each, or the task names why one stays* — (kan-1075 self-review, F18: task 5 replaced `signal.NotifyContext` in `run` alone, and the panel found `regrade` and `TestSIGTERMCancelsARun` still on it)
 
 ### unfinished-work-gate.md — A verdict the operator calls structural
 
@@ -1280,10 +1280,6 @@ attribution; the text after it is the passage, verbatim.
 ### review-panel.md — Recording findings, and the record's format
 
 - *out — never a shell loop of single `flow record finding` calls* — whose quoting of an optional flag cost kan-918's run a retry
-
-### implement.md — Dispatch sites — the parent's closed list
-
-- *A first word off the Key shape column above is another way* — kan-1029's `verify-fix-1` and `verify` launches recorded no row
 
 ### brainstorm-planner.md — D. Basic Workflow #3 — Writing plans
 

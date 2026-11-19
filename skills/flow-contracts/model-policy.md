@@ -80,7 +80,9 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | Role | Does |
 |---|---|
 | `implementer` | Writes the code for a group of tasks, tests first. |
+| `fix-planner` | Plans a fix run's fix into the change's plan: appends its tasks, or re-plans at 6 or more. |
 | `panel-fix` | Fixes what the review panel found. |
+| `minor-fix` | Fixes a review round's Minors when the round raised nothing worse. |
 | `operator-asked` | Runs a task the operator asked a subagent for, in their own words, inside a /flow-interactive request. |
 
 ### Review
