@@ -248,7 +248,7 @@ its loaded file states, as written; the change's motions, named as the paragraph
 
 **`prepare` names the mockup sources in the bundle** — `mockup sources:`, then every HTML or CSS
 path `design.md` cites that exists in the tree, or `mockup sources: none` — and decodes a bundled
-page, one carrying `<script type="__bundler/template">`, into <!-- citations-guard:allow -->
+page, one carrying `<script type="__bundler/template">`, into
 `<abs-worktree>/.superpowers/sdd/verify-mockup-<key>/`, naming that directory beside it.
 
 The verifier runs `flow-guard check-verify-report` with `--design <changeRoot>/design.md`, which refuses a
@@ -291,7 +291,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    and its merge-order record — so the stack serves `<base>`'s build, never a main checkout on the
    default branch. `flow-guard check-visual-preflight` fails a
    worktree whose branch records a flowBase while an `## apps` repository holds no
-   `<repo>-worktrees/<name>` worktree. <!-- citations-guard:allow -->
+   `<repo>-worktrees/<name>` worktree.
 
    `prepare` then runs the four checks — ports held only by their own app, the base-URL
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per

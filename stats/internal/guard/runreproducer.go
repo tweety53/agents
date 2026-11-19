@@ -676,8 +676,7 @@ var rrErrexit = regexp.MustCompile(`(?m)^\s*set\s+(-[A-Za-z]*e[A-Za-z]*|-o\s+err
 // see nearMissMarker. A marker in the middle of a line, or one buried below
 // the first 10 lines, is prose, not a declaration — the generic convention
 // applies. rrMarker and the headLines
-// call below are the canonical declaration
-// flow-guard check-mutation-reproducer-pin pins against review-panel.md and run-reproducer's header.
+// call below are the canonical declaration.
 func declaresMutation(path string) bool {
 	for _, l := range headLines(path, 10) {
 		if l == rrMarker {

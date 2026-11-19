@@ -1,9 +1,8 @@
 // Command flow's prompttuning.go implements `flow prompt-tuning`: render
 // writes a prompt-tuning case folder's index.html from its case.json and
-// repro files (internal/prompttuning), so the page is never written by hand
-// and check-prompt-tuning-cases can compare it byte for byte; record and
-// import feed the stats store's prompt_changes, the Review dynamics view's
-// markers (prompt-changes-table).
+// repro files (internal/prompttuning), so the page is never written by hand;
+// record and import feed the stats store's prompt_changes, the Review
+// dynamics view's markers (prompt-changes-table).
 package main
 
 import (

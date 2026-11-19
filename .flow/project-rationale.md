@@ -59,30 +59,9 @@ the omission is a decision, not an oversight. They are covered instead by their 
 likewise need a change in flight and a worktree passed in, so they are covered by their own
 harnesses under `## test` instead.
 
-**`flow-guard check-installed-citations` belongs in the list for the opposite reason those are excluded.**
-It takes no change-in-flight state — it derives the installed set by running a sandboxed `setup.sh`
-itself, twice per invocation, rather than being handed one — so it scans the same bare tree every
-other guard above does and exits identically regardless of what change, if any, is in flight. It is
-the only guard in this list that shells out to the installer rather than only reading files already
-on disk, which costs it real time; see the runtime note under `## test`, next to the entry its
-harness added there.
-
-**`flow-guard check-dispatch-paragraphs` keeps a required dispatch paragraph from silently
-disappearing.** It is argument-free and self-scoped exactly like `flow-guard check-guard-calls`: the
-scan root is this repository's own root. It checks a table
-of required paragraphs — REPRODUCE, DON'T READ at `skills/flow/review-panel.md` and
-`skills/flow/implement.md`, and VERBATIM REPORT — THE FACT at `skills/flow/review-panel.md` — for
-each paragraph's label and a handful of load-bearing phrases per variant, held as short literals
-rather than a copy of the whole blockquote, so a body reworded around those phrases passes clean. A
-green run proves only that each paragraph is present at its required sites and carries its phrases —
-never that any reviewer, implementer, dispatcher or fix agent actually obeyed it.
-
 The list is cited by count nowhere in this file, deliberately: a
 written count went stale the first time a guard was added to it, and the same sentence would go
 stale again on the next.
-
-`because a rule can merge and stay unreadable by every session` — which is how KAN-202's
-commit-scope rule spent a day with a dangling pointer.
 
 ## .flow/project.md — workspace isolation
 

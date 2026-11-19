@@ -75,7 +75,7 @@ import (
 // its REPORT FILE block. It reads no diff file, so a mutation-alone render
 // carries no ENTRY CONTEXT and no touched list; review-panel.md carrying no
 // brief is exit 2. MUTATION ENTRY CONTEXT and its tests, MODEL HANDSHAKE,
-// CONTEXT BUNDLE, the relocation-comparison pointer and the reproducer rule
+// CONTEXT BUNDLE and the reproducer rule
 // stay typed in the Agent call.
 //
 // After the path, one line names the Agent call that launches the brief:

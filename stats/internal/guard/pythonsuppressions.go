@@ -220,3 +220,13 @@ func psStrerror(err error) string {
 	}
 	return strings.ToUpper(msg[:1]) + msg[1:]
 }
+
+// fileLines is a file's lines as grep and awk read them: a final line without
+// its newline still counts, and a trailing newline adds no empty line.
+func fileLines(text string) []string {
+	lines := strings.Split(text, "\n")
+	if strings.HasSuffix(text, "\n") {
+		lines = lines[:len(lines)-1]
+	}
+	return lines
+}

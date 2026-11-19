@@ -83,8 +83,7 @@ import (
 //	   it cannot be decoded as text.
 //
 // Every piece of tasks.md grammar this guard reads is planparse.go's
-// pdbParseTasks, which generate-relocation-comparison and
-// plan-dispatch-groups read through too.
+// pdbParseTasks, which plan-dispatch-groups reads through too.
 //
 // A task is UNCHECKED when the mark on its OWN task line is a space; a
 // `- [x]` task takes no part in any bundle and is never reported as missing

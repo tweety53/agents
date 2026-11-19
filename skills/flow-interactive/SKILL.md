@@ -135,8 +135,7 @@ flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.brainstorm -outcome completed <name>
 ```
 
-**3. Implement.** A run-loaded prose edit the verbatim-moves guard refuses is acknowledged in
-`<changeRoot>/verbatim-moves.txt`. Rebase the worktree onto `origin/<base>` on a clean tree; a failing test first
+**3. Implement.** Rebase the worktree onto `origin/<base>` on a clean tree; a failing test first
 for each behaviour change; edits through the Edit tool, or a script written to `<changeRoot>` and
 run by path that asserts each anchor matched exactly once; never a symlinked build input (`make -s
 web-dist` runs `npm ci` itself); commit with the module as scope, no trailer; push the branch —

@@ -3,9 +3,6 @@
 // case.json's fields and the folder's files -- is §2 of
 // spectre/changes/kan-1032-prompt-tuning-angle/design.md, written by the
 // self-review's flow-prompt-tuning angle (skills/flow-self-review/SKILL.md).
-//
-// Render is deterministic so check-prompt-tuning-cases can compare a
-// folder's index.html with it byte for byte.
 package prompttuning
 
 import (

@@ -361,7 +361,7 @@ func ctRecordedWorktrees(env Env, canonical, name string) []string {
 // Task-Id: trailer, and names each on stderr (kan-1008's self-review: the
 // parent's map omitted the backend repository, and Task 13's and 14's
 // backend commits were never judged against their Files:). The base is
-// vmDefaultBase's; a worktree with none, or that git cannot read, adds
+// defaultBase's; a worktree with none, or that git cannot read, adds
 // nothing.
 func ctJoinRecorded(env Env, stderr io.Writer, canonical, id, commit string, recorded []string) string {
 	pairs := []string{canonical + "=" + commit}
@@ -379,7 +379,7 @@ func ctJoinRecorded(env Env, stderr io.Writer, canonical, id, commit string, rec
 		if have[trResolvePath(env, wt)] {
 			continue
 		}
-		base, _, ok := vmDefaultBase(git, wt)
+		base, _, ok := defaultBase(git, wt)
 		if !ok {
 			continue
 		}

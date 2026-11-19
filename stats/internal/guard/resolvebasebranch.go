@@ -217,6 +217,30 @@ func recordedBase(git func(...string) *exec.Cmd, dir, branch string) string {
 	return strings.TrimRight(strings.ReplaceAll(rec, "\x00", ""), "\n")
 }
 
+// defaultBase is the merge base of HEAD with the change's base, resolved
+// offline — the base recorded on the current branch
+// (branch.<cur>.flowBase, resolve-base-branch.sh's first answer), else
+// origin/HEAD, else origin/main, else main — so close-task never fetches. On
+// the default branch itself the base is HEAD.
+func defaultBase(git func(...string) *exec.Cmd, root string) (sha, label string, ok bool) {
+	var candidates []string
+	if cur, ok := capture(git("-C", root, "branch", "--show-current")); ok && strings.TrimSpace(cur) != "" {
+		if rec := recordedBase(git, root, strings.TrimSpace(cur)); rec != "" {
+			candidates = append(candidates, "origin/"+rec)
+		}
+	}
+	if sym, ok := capture(git("-C", root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); ok && sym != "" {
+		candidates = append(candidates, sym)
+	}
+	candidates = append(candidates, "origin/main", "main")
+	for _, c := range candidates {
+		if mb, ok := capture(git("-C", root, "merge-base", "HEAD", c)); ok && mb != "" {
+			return mb, "merge-base(HEAD, " + c + ") " + mb[:min(12, len(mb))], true
+		}
+	}
+	return "", "", false
+}
+
 // rbbRemote runs a git call that reaches origin, its process group killed
 // once rbbRemoteTimeout elapses (mvRunBounded), and returns its stdout as
 // capture does, whether it succeeded, and its exit code. A call that timed

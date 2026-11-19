@@ -14,14 +14,11 @@ import (
 // scripts/flow-guard exits when it cannot derive the binary, and the code
 // cmd/flow-guard exits for a failure of its own past the name: 4 for
 // run-reproducer (whose 2 is "refused"), mutate-and-verify and
-// break-and-prove; 1 for check-hand-notes-in-step and check-installed-rules;
-// 2 for every other guard.
+// break-and-prove; 2 for every other guard.
 func CannotAnswer(name string) int {
 	switch name {
 	case "run-reproducer", "mutate-and-verify", "break-and-prove":
 		return 4
-	case "check-hand-notes-in-step", "check-installed-rules":
-		return 1
 	}
 	return 2
 }
@@ -70,21 +67,14 @@ func siblingCmd(env Env, override, name string, args ...string) *exec.Cmd {
 // selfJudging is every guard that judges its own checkout — the guards whose
 // bash shim called flow_guard_cwd_checkout before deriving its root.
 var selfJudging = map[string]bool{
-	"check-ask-silence":             true,
-	"check-dev-stack-fresh":         true,
-	"check-installed-citations":     true,
-	"check-guard-calls":             true,
-	"check-no-bash":                 true,
-	"check-dispatch-paragraphs":     true,
-	"check-references":              true,
-	"check-markdown-integrity":      true,
-	"check-spec-reach":              true,
-	"check-uitest-overrides":        true,
-	"check-mutation-reproducer-pin": true,
-	"check-normative-inventory":     true,
-	"check-python-suppressions":     true,
-	"check-verbatim-moves":          true,
-	"plan-dispatch-bundles":         true,
+	"check-dev-stack-fresh":     true,
+	"check-guard-calls":         true,
+	"check-no-bash":             true,
+	"check-references":          true,
+	"check-spec-reach":          true,
+	"check-uitest-overrides":    true,
+	"check-python-suppressions": true,
+	"plan-dispatch-bundles":     true,
 }
 
 // CwdCheckout is the KAN-902 re-exec: for a self-judging guard called from

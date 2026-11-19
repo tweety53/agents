@@ -80,11 +80,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 - **writing-plans**: write `<changeRoot>/tasks.md` in `/flow`'s plan shape — the task line and
   fields: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
   `**Commit:**`, `**After:**` — one task per file or logical unit the change touches. A re-run replaces the file with
-  the fix's own tasks. A deliberate reword or addition to the run-loaded corpus is listed, exactly as
-  `flow-guard check-verbatim-moves`'s FAIL lines print it after `::`, in the acknowledgement file the run shape owns:
-  `<project>/spectre/changes/<change>/verbatim-moves.txt` on a `/flow` run,
-  `<changeRoot>/verbatim-moves.txt` — `<abs-worktree>/.superpowers/sdd/<change>/` — on this one,
-  never `<project>/spectre/`.
+  the fix's own tasks.
   A minimal task in that shape — every field line at column 0, never indented under the task line,
   and `**Tests:**` naming the test in backticks or opening with `none — <reason>`:
 

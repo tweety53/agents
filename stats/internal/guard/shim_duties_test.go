@@ -16,15 +16,13 @@ import (
 func TestCannotAnswerCodes(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string]int{
-		"run-reproducer":           4,
-		"mutate-and-verify":        4,
-		"break-and-prove":          4,
-		"check-hand-notes-in-step": 1,
-		"check-installed-rules":    1,
-		"close-task":               2,
-		"check-cleanup-complete":   2,
-		"no-such-guard":            2,
-		"":                         2,
+		"run-reproducer":         4,
+		"mutate-and-verify":      4,
+		"break-and-prove":        4,
+		"close-task":             2,
+		"check-cleanup-complete": 2,
+		"no-such-guard":          2,
+		"":                       2,
 	} {
 		if got := CannotAnswer(name); got != want {
 			t.Errorf("CannotAnswer(%q) = %d, want %d", name, got, want)
@@ -132,11 +130,8 @@ func TestCwdCheckoutReexec(t *testing.T) {
 func TestCwdCheckoutGuardSet(t *testing.T) {
 	t.Parallel()
 	want := []string{
-		"check-ask-silence", "check-dev-stack-fresh", "check-dispatch-paragraphs", "check-guard-calls",
-		"check-installed-citations", "check-markdown-integrity", "check-mutation-reproducer-pin", "check-no-bash",
-		"check-normative-inventory", "check-python-suppressions",
-		"check-references", "check-spec-reach",
-		"check-uitest-overrides", "check-verbatim-moves", "plan-dispatch-bundles",
+		"check-dev-stack-fresh", "check-guard-calls", "check-no-bash", "check-python-suppressions",
+		"check-references", "check-spec-reach", "check-uitest-overrides", "plan-dispatch-bundles",
 	}
 	if got := slices.Sorted(maps.Keys(selfJudging)); !slices.Equal(got, want) {
 		t.Fatalf("selfJudging = %q, want %q", got, want)

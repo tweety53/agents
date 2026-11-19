@@ -151,19 +151,6 @@ func TestCheckPanelDocsOnly(t *testing.T) {
 				is(t, run(t, fx, fx.repo, mb), 1, f)
 			}
 		}},
-		{"committed .md plus a change's verbatim-moves.txt -> exit 0 (kan-991)", func(t *testing.T) {
-			fx := newFx(t)
-			if err := os.MkdirAll(fx.repo+"/spectre/changes/c", 0o755); err != nil {
-				t.Fatal(err)
-			}
-			commit(fx, "notes.md", "spectre/changes/c/verbatim-moves.txt")
-			is(t, run(t, fx, fx.repo, mb), 0, "")
-		}},
-		{"verbatim-moves.txt outside <spec-root>/changes/ -> exit 1", func(t *testing.T) {
-			fx := newFx(t)
-			commit(fx, "notes.md", "verbatim-moves.txt")
-			is(t, run(t, fx, fx.repo, mb), 1, "verbatim-moves.txt")
-		}},
 		{"staged-only .md change -> exit 0", func(t *testing.T) {
 			fx := newFx(t)
 			stage(fx, "staged.md")

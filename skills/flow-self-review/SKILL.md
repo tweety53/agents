@@ -230,10 +230,7 @@ worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on t
 extraction does. A `reviewer` case whose `target` is `skills/flow/visual-verify-verifier.md` or
 `skills/flow/visual-verify.md` also carries `capture.png`, the capture the verifier judged, and
 `mockup.png`, the mockup frame it judged that capture against, both copied into the case folder.
-Once a case's folder is copied, run `flow prompt-tuning render <case-dir>`, then
-`<agents repo>/scripts/flow-guard check-prompt-tuning-cases` over the new folders. A red line is fixed by
-rewriting the field it names; a case no generic rewrite passes is dropped, and its report line says
-so, disposition `noted`.
+Once a case's folder is copied, run `flow prompt-tuning render <case-dir>`.
 
 The cases are committed as `docs(prompt-tuning): <name> cases` on the branch step 3 names as
 `<fix-branch>`: inside a run whose canonical repository is `<agents repo>`, the change's own branch,

@@ -114,7 +114,7 @@ judged there — run 1's unfinished-work gate lists it and handles `UNTASKED`.
 
 **A commit and its push in one command are judged together.** The push check above runs before
 the command does, so it cannot see a commit the same command makes first:
-`hooks/protect-main-checkout.py` therefore denies a command that commits and pushes a `spectre/` <!-- citations-guard:allow -->
+`hooks/protect-main-checkout.py` therefore denies a command that commits and pushes a `spectre/`
 branch when that commit's own `-m` text carries neither trailer and no `chore` subject, and its
 pathspec is not limited to `<project>/<spec-root>/changes/`.
 

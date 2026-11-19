@@ -251,7 +251,7 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 
 **Implement:** `check-task-commit-planning-paths`, `check-task-records` (no tick without a commit),
 `check-plan-unchanged` (snapshot at a reviewer row's begin, verify at its end) + `check-tree-markers` (snapshot around each subagent),
-`check-dispatch-paragraphs`, `check-workspace-isolation` (own database, cache, bucket, ports),
+`check-workspace-isolation` (own database, cache, bucket, ports),
 `resume-or-fresh` (an immediate send-back resumes the agent only while its cache is warm and its
 context small).
 
@@ -267,7 +267,7 @@ context small).
 temporary artifact is gone).
 
 **This repository's lint** adds `check-references` (every ``**Section** (`file`)`` citation
-resolves) and `check-installed-rules`.
+resolves).
 
 ---
 

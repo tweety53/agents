@@ -73,7 +73,7 @@ ahead of <default>)` line, and re-runs `flow-guard check-main-checkout-drift`, c
 `DRIFT-CLEAN`. The switch moves no commit: `<branch>` keeps every commit it carried, and a live
 session that had the checkout on it finds its HEAD moved, which the printed line names. Four
 shapes are never switched, and stop and ask as below: a detached HEAD, whose commits sit on no
-branch; a checkout on a base the change records (`branch.spectre/<name>.flowBase`), which run 2's <!-- citations-guard:allow -->
+branch; a checkout on a base the change records (`branch.spectre/<name>.flowBase`), which run 2's
 refresh brings forward; a switch git refuses — the default branch checked out in
 another worktree, an untracked file it would overwrite, no default branch to switch to, a locked
 index — which leaves the checkout as it was and adds a `DRIFT-SWITCH-REFUSED` line to the

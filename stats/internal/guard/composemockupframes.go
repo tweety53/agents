@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -643,3 +644,12 @@ func cmfSplitPath(p string) (string, string) {
 	}
 	return head, tail
 }
+
+// pyIsSpace is Python's str.isspace for one code point: Go's unicode.IsSpace
+// plus the four information separators Python also counts.
+func pyIsSpace(r rune) bool { return unicode.IsSpace(r) || r >= 0x1C && r <= 0x1F }
+
+func pyStrip(s string) string { return strings.TrimFunc(s, pyIsSpace) }
+
+// pySplit is Python's str.split() with no arguments.
+func pySplit(s string) []string { return strings.FieldsFunc(s, pyIsSpace) }

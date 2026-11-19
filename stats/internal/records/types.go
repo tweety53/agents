@@ -811,7 +811,6 @@ var GuardHelpers = []string{
 	"compose-mockup-frames",
 	"fold-fixup",
 	"gather-dispatch-context",
-	"generate-relocation-comparison",
 	"guard-autosquash",
 	"installer-sandbox-diff",
 	"integrate-change",

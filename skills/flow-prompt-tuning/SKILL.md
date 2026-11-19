@@ -1,7 +1,7 @@
 ---
 name: flow-prompt-tuning
 description: Apply the generic implementer and reviewer prompt updates the self-review's prompt-tuning angle saved, after a replay on each case's repro data proves them, and remove an applied update a replay no longer needs; record every case in docs/prompt-tuning/LEDGER.md, remove its folder and land the result. Standalone, not a pipeline stage. Use for /flow-prompt-tuning.
-allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/flow-guard check-prompt-tuning-cases:*), Bash(scripts/flow-guard project-get:*)
+allowed-tools: Bash(git:*), Bash(flow:*), Bash(scripts/flow-guard project-get:*)
 license: MIT
 compatibility: Runs from the agents repository's main checkout, which stays read-only; needs the flow CLI and the Agent tool.
 ---
@@ -49,8 +49,6 @@ in a repository.
 
 List `<worktree>/docs/prompt-tuning/*/`. None: go straight to step 5a, and with no candidate there
 either print `none pending`, remove the worktree and stop.
-Run `flow-guard check-prompt-tuning-cases <agents repo>-worktrees/prompt-tuning-<date>/docs/prompt-tuning`; a case it names in a red line is reported
-by its folder and left untouched — never replayed, applied, recorded or deleted.
 
 ### 2. Group
 
@@ -63,7 +61,7 @@ case in it.
 If a group's `before` no longer occurs in the target at `<worktree>`'s HEAD, re-locate it. If the
 gap is gone, the group is rejected as `already covered`, with the line now covering it quoted.
 Otherwise the update is rewritten against the current text and re-checked by the genericity
-rules of `flow-guard check-prompt-tuning-cases`: the `after` names no source change, no Jira key, no
+rules: the `after` names no source change, no Jira key, no
 `kan-<digits>` key and no path or basename from the case's `bad.diff`/`good.diff` headers.
 
 ### 4. Replay
@@ -85,7 +83,7 @@ produced the right behaviour on this input, not that the current text would have
   writing in a scratch directory under the session's scratchpad, never in a repository. The
   pre-change code is the tree at `source.fix_sha`'s parent in the checkout of `source.repo`; a
   case whose repository the session cannot find on this machine is reported by its folder and
-  left untouched, as a red case of step 1 is.
+  left untouched.
 
 A replay dispatch returns what its judge reads: an implementer its diff, a reviewer or verifier
 its findings with their locations.
@@ -183,7 +181,6 @@ A non-zero exit is reported with its stderr and the step continues: the store is
 
 For an applied case, `<sha>` is the commit that applied it. The ledger entries and the folder
 removals go in one commit, `docs(prompt-tuning): ledger <date>`, after the update commits.
-Before it is committed, `flow-guard check-prompt-tuning-cases` over the same root prints no line for `LEDGER.md` and none for a folder this run replayed; a line for a red case step 1 left untouched is expected and stays.
 
 ### 7. Land
 

@@ -402,12 +402,6 @@ still `open` once that round's `panel-fix` dispatch completed, so the verificati
 `flow record mutation -late '<reason>'`, which admits it at its own round and records the reason as
 a pass note of that round, `late mutation proof for <path>: <reason>`.
 
-**A fix round whose diff adds or rewords run-loaded prose acknowledges each such sentence before the
-re-review begins**, by one guard call after the verification walk:
-`flow-guard check-verbatim-moves -ack <name> -reason 'panel-fix-<round>: <the fixer's reason>'`. It appends
-every FAIL sentence to the change's `verbatim-moves.txt` under one `#` line and exits 0 — never a
-hand append, since the fix subagent never writes `<project>/spectre/changes/`.
-
 **The rendered record carries these lines in its pass-log section, one round's count after that
 round's lines, and never inside the marker block.**
 

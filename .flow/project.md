@@ -14,7 +14,7 @@ halves live in the one repo and are covered below.
 | flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-installed-citations`, `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-guard-calls`, `check-dispatch-paragraphs`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `check-installed-rules`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-normative-inventory`, `check-mutation-reproducer-pin`, `check-python-suppressions`, `check-markdown-integrity`, `plan-dispatch-bundles`, `plan-dispatch-groups`, `generate-relocation-comparison` and `check-task-records` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
+**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-references`, `check-unfinished-work`, `check-panel-reproducers`, `check-panel-findings-closed`, `check-guard-calls`, `mutate-and-verify`, `check-base-moved`, `check-panel-fix-single-dispatch`, `prove-reproducer`, `check-finish-preflight`, `check-workspace-isolation`, `check-task-reviewer-single-dispatch`, `recover-guard-incident`, `plan-class`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-task-commit-planning-paths`, `check-panel-citation-trigger`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `commit-split`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-plan-unchanged`, `check-tree-markers`, `guard-autosquash`, `check-panel-diff-size`, `check-worktree-processes`, `check-python-suppressions`, `plan-dispatch-bundles`, `plan-dispatch-groups` and `check-task-records` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
 
 **Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_task_records_test.go` for `flow-guard check-task-records` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
 
@@ -175,15 +175,6 @@ recorded so on every `flow-guard run-verify-list <worktree> test` that runs it, 
 `flow suite record -suite <name> -- <command>` — a store that cannot be reached costs one warning
 line and never changes the suite's own exit code.
 
-**`flow-guard check-installed-citations` (named in `## lint` below) is unlike every other guard in that
-list: it shells out to a sandboxed `setup.sh` three times per invocation** — once for `global`, then
-`claude-code` and `zcode` into a sandboxed project — to derive the installed set it classifies
-citations against, rather than only reading files already on disk. A single invocation measured
-about 0.84s when it made two of those runs (`global` and the since-removed `all`) — worth naming
-here since it is the one guard in this repository paying for a subprocess rather than a plain file
-scan.
-<!-- measured: time scripts/flow-guard check-installed-citations >/dev/null @ branch kan-102-citations-resolve-to-installed-paths -->
-
 ## lint
 
 ```bash
@@ -196,18 +187,8 @@ printf 'stats/web/src/App.tsx\n' | scripts/flow-guard check-visual-trigger .
 scripts/flow-guard check-spec-reach .
 scripts/flow-guard resolve-visual-screenshots . baseline.spec.ts
 scripts/flow-guard check-uitest-overrides
-scripts/flow-guard check-markdown-integrity
 scripts/flow-guard check-guard-calls
 scripts/flow-guard check-no-bash
-scripts/flow-guard check-dispatch-paragraphs
-scripts/flow-guard check-mutation-reproducer-pin
-scripts/flow-guard check-prompt-tuning-cases
-scripts/flow-guard check-installed-citations
-scripts/flow-guard check-installed-rules
-scripts/flow-guard check-hand-notes-in-step
-scripts/flow-guard check-normative-inventory
-scripts/flow-guard check-verbatim-moves
-scripts/flow-guard check-ask-silence
 cd stats && gofmt -l .
 cd stats && make -s web-dist && go vet ./...
 cd stats && make -s web-dist && cd web && npx tsc -b
@@ -221,49 +202,11 @@ rule's "run the auto-fix command first" step. There is no equivalent for the SPA
 carries no lint or format script, only `tsc -b`'s type check, so a TypeScript violation is fixed by
 hand like a guard-script one.
 
-**`flow-guard check-normative-inventory` reports a set rather than a verdict.** It prints every sentence in
-this repository's owned Markdown that carries `SHALL`, `SHALL NOT`, `MUST` or `MUST NOT` as a whole
-word — one per line, whitespace-normalised, sorted — and its exit codes are only `0` the inventory
-printed and `2` it cannot answer. It has no violation code deliberately: comparing two inventories
-is the caller's act, so a change that edits prose in bulk captures the output before its first edit
-and diffs the output after its last against it, and resolves any difference by restoring the
-sentence rather than by accepting the new inventory. Unlike every other guard here it writes its
-payload to stdout (its file and sentence counts go to stderr), so a lint run sees a handful of lines
-from it and no verdict line. It resolves the corpus through `stats/internal/guard/ownedcorpus.go`.
-
-**Its limit: it cannot prove a prose edit changed no behaviour.** It sees only the `MUST`/`SHALL`
-sentences — 8 in the whole corpus, against hundreds of rules stated with "never", "always" or
-"only" — and a `MUST` moved into a `-rationale.md`, which no run loads, leaves its output unchanged.
-`flow-guard check-verbatim-moves` is the guard for that: it fails a run-loaded sentence that was deleted or
-reworded rather than moved verbatim, and new run-loaded prose, unless the change lists the sentence
-in its `verbatim-moves.txt`. **A plan whose task edits run-loaded prose names
-`flow-guard check-verbatim-moves` in that task's verify step and writes the change's `verbatim-moves.txt`,
-listing every sentence its tasks add or reword, with the plan** — one sentence per line, exactly as the
-guard's FAIL line prints it after `::`; a reworded sentence is listed in both its old and its new form; it lives on disk only, in the
-gitignored change directory — a `/flow` implementer never writes
-`spectre/changes/`, so a verify step naming only the other prose guards lets the FAIL reach the
-review panel. A plan that only moves text verbatim writes it with `#` comment lines alone.
-A panel fix round that adds or rewords such a sentence is acknowledged by the parent, never the fixer, with
-`flow-guard check-verbatim-moves -ack <change> -reason <text>` before the re-review
-(`skills/flow/review-panel-fix-round.md`).
-
 **`flow-guard check-workspace-isolation` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
 about the text of `.flow/project.md` — so it runs against a bare tree like every other guard here.
 `flow-guard check-cleanup-complete` reads the same section and is excluded below for the opposite reason: it
 needs a change in flight.
-
-**`flow-guard check-installed-rules` and `flow-guard check-hand-notes-in-step` are the guards in this list that read
-outside the repository.** The first compares the always-on rules this checkout declares against what
-`setup.sh global` last installed
-under `$HOME` — the symlinks in `~/.claude/rules/` and the per-rule markers in the two managed
-blocks — because a rule can merge and stay unreadable by every session. The second diffs the
-hand-maintained sections of those same two installed harness files against each other, so a
-one-sided edit fails loudly instead of drifting silently. Both still run against a bare tree and take no
-change-in-flight state, so they belong here for `flow-guard check-installed-citations`'s reason. A machine
-with no global install is not a failure: the first reports `INSTALLED-RULES-NONE` and exits 0, and
-the second reports `HAND-NOTES-NONE` the same way, which is what
-keeps them runnable in CI and a fresh clone. A partial install is a failure.
 
 **Every guard in the list is currently expected to exit 0.** `flow-guard check-workspace-isolation` reports
 `ISOLATION-OK` and validates this repository's own declared section; its own header carries its

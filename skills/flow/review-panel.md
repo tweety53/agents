@@ -219,13 +219,6 @@ them never reads it.
 **Before writing `final-review.diff`**, run
 
 ```bash
-flow-guard generate-relocation-comparison <worktree> <changeRoot> <merge-base>
-```
-
-A non-zero exit (`2` — cannot answer) prints one line and the run continues without the comparison
-file. This call is never a gate — generation never blocks the panel.
-
-```bash
 flow-guard check-panel-diff-size <worktree> <merge-base>
 ```
 
@@ -310,7 +303,7 @@ whatever any of them says.
 
 **Exit 0 from
 every worktree in the resolved set — every path this branch touched, committed since the merge
-base, staged or unstaged, ends `.md` or `.mdc`, is an `.html` under `<project>/docs/`, or is a change's `<project>/<spec-root>/changes/<change>/verbatim-moves.txt` — reduces pass 1 to `primary` alone**, plus `mutation` and every
+base, staged or unstaged, ends `.md` or `.mdc`, or is an `.html` under `<project>/docs/` — reduces pass 1 to `primary` alone**, plus `mutation` and every
 slot the operator's per-run instruction
 named at this stage's start. Every other resolved slot is recorded with
 `flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
@@ -410,8 +403,7 @@ could not fill, and exit 2 means it cannot answer — either stops the round bef
 copies, `<worktree>-mutation-<round>` per repository; its MUTATION ENTRY CONTEXT paragraph and
 tests stay typed beside the rendered path. The Agent call's prompt carries only its Role line
 (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline
-pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the relocation-comparison pointer where one exists, the
-reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file. The return message carries one findings summary per role under a heading naming the
+pointer, MODEL HANDSHAKE, CONTEXT BUNDLE, the reproducer rule, GATE FOCUS where it applies, `read <rendered path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
 Every bundle prompt also carries this paragraph verbatim:
@@ -626,10 +618,7 @@ exit alone.
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape <!-- refs-guard:allow -->
 `skills/flow/implementer-brief.md` carries for an implementer; for every worktree in this run's
 resolved set, naming that worktree's own whole-plan bundle
-`<abs-worktree>/.superpowers/sdd/dispatch-context.md`, one path each. **For every worktree whose
-`<abs-worktree>/.superpowers/sdd/relocation-comparison.md` exists, every slot's dispatch prompt also
-names its absolute path**, framed as a review input to audit against the diff — never a substitute
-for reading `final-review.diff` itself.
+`<abs-worktree>/.superpowers/sdd/dispatch-context.md`, one path each.
 
 **Every slot's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
 
@@ -1179,9 +1168,9 @@ the **AskUserQuestion** it states.
 > single-file flip: it mutates `<file>`, asserts the test fails, restores `<file>` from a
 > pre-mutation byte snapshot rather than `git checkout --`, so uncommitted edits on it survive, and
 > asserts the restored run passes. `<test-command>` runs from the repository root, so a runner
-> rooted in a subdirectory names it with its own directory flag — `go -C stats test ./internal/guard` in a <!-- citations-guard:allow -->
+> rooted in a subdirectory names it with its own directory flag — `go -C stats test ./internal/guard` in a
 > repository whose `go.mod` sits in `<project>/stats/`. A runner with no such flag runs through a
-> shell that enters its directory first — `-- sh -c 'cd stats/web && exec npx vitest run <file>'` <!-- citations-guard:allow -->
+> shell that enters its directory first — `-- sh -c 'cd stats/web && exec npx vitest run <file>'`
 > for a vitest suite under `<project>/stats/web/`, since a vitest started at the root finds no config, runs
 > outside its jsdom environment and writes its cache into an untracked `<project>/node_modules/` that the
 > post-restore check refuses as drift. Each mutation alters one mechanism — where a single
