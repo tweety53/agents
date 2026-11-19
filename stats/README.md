@@ -287,7 +287,7 @@ above and this repository's `run-telemetry` capability), not a
 symptom by itself. What is a symptom: every stage run staying unbound
 minutes after it should have flushed, across every change — that is
 exactly what KAN-16 looked like. On Claude Code `sessionId` is set by the mark itself from
-`CLAUDE_CODE_SESSION_ID` (on Muse, from `MUSE_SESSION_ID`) and is present before the first harvest
+`CLAUDE_CODE_SESSION_ID` and is present before the first harvest
 cycle; only `metrics` waits on the harvester.
 
 A dispatch row begun late is corrected with `flow record dispatch retime`, which requires

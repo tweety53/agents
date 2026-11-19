@@ -11,7 +11,7 @@ synced *into* this repo from a project checkout.
 ## Quick start
 
 ```bash
-./setup.sh global                                          # install into every harness
+./setup.sh global                                          # install into ~/.claude
 go install github.com/tweety53/spectre/cmd/spectre@latest  # needed by every skill but /flow-plan
 cd stats && docker compose up -d && make build              # flowd + flow CLI (see Stats app)
 ```
@@ -30,8 +30,6 @@ cd stats && docker compose up -d && make build              # flowd + flow CLI (
 flowchart LR
     subgraph H ["Harness"]
         cc["Claude Code"]
-        zc["ZCode"]
-        mu["Muse"]
     end
     setup["setup.sh"] --> inst["rules · skills · commands<br/>agents · hooks · mods"]
     H -- reads --> inst
@@ -54,7 +52,7 @@ flowchart LR
                   non-planner types compact at 150,000 tokens (`autoCompactWindow`), which a
                   `CLAUDE_CODE_AUTO_COMPACT_WINDOW` in the environment overrides — set the session's window with
                   the `autoCompactWindow` setting instead
-├── commands-claude/  thin slash-command wrappers for Claude Code and ZCode
+├── commands-claude/  thin slash-command wrappers for Claude Code
 ├── docs/             briefs/ (lessons), designs/ (the design record run 1 writes per /flow change) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
 ├── hooks/            the Python hooks (see Guardrails)
 ├── mods/             Claude Code plugins: flow-task-list (the task band above the prompt)
@@ -63,10 +61,9 @@ flowchart LR
 ├── skills/           the /flow* skills; flow-contracts/ holds the on-demand contracts (map: skills/README.md)
 ├── spectre/          peers (cross-repo links); changes/ is gitignored, per change
 ├── stats/            flowd, the flow CLI, every guard (internal/guard/) and the web UI (web/)
-├── templates/        CLAUDE.md and AGENTS.md copied into a project that lacks one
+├── templates/        CLAUDE.md copied into a project that lacks one
 ├── setup.sh          the installer
-├── CLAUDE.md         this repository's instructions (Claude Code)
-└── AGENTS.md         the same, for ZCode and Muse
+└── CLAUDE.md         this repository's instructions (Claude Code)
 ```
 
 - **`rules/`:** whether a rule is always-on is its own `alwaysApply`; opt-in rules (e.g. the Kotlin
@@ -301,18 +298,17 @@ make build                          # flowd + flow CLI (builds the SPA first)
 ./setup.sh global
 ```
 
-Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/` and `~/.zcode/`,
-each `mods/<name>/` into `~/.claude/skills/` (auto-loaded as a plugin), writes the always-on rules'
-managed block into `~/.claude/CLAUDE.md` and `~/.zcode/AGENTS.md`, and exports `Z_COMPACT_WINDOW`
-from `~/.zshrc` (and `~/.bashrc`) for the `zcode` wrapper. No Muse layer — see **Muse** below.
+Symlinks skills, commands, agents, hooks and full-text rules into `~/.claude/`, each
+`mods/<name>/` into `~/.claude/skills/` (auto-loaded as a plugin), and writes the always-on rules'
+managed block into `~/.claude/CLAUDE.md`.
 
 - **Edits to existing skills, commands and hooks are live** (symlinks); re-run only when a file is
   added or removed.
 - **Edits to an always-on rule need a re-run.** The managed block carries rendered text (`<!-- core
   -->` plus a `Full rule:` pointer); only the text between `<!-- flow:begin -->` / `<!-- flow:end
   -->` is rewritten.
-- **Hooks are installed, never registered.** The installer prints the `settings.json` (or ZCode
-  `~/.zcode/cli/config.json`) snippet; the paste is yours.
+- **Hooks are installed, never registered.** The installer prints the `settings.json` snippet; the
+  paste is yours.
 - **Every dispatch points at `~/.claude/rules/agent-baseline.md`** — whether a subagent reads
   `CLAUDE.md` varies by harness and agent type; `enforce-agent-baseline.py` denies one that does not.
 
@@ -320,14 +316,13 @@ from `~/.zshrc` (and `~/.bashrc`) for the `zcode` wrapper. No Muse layer — see
 
 ```bash
 cd /path/to/project
-/path/to/agents/setup.sh <claude-code|zcode|muse>
+/path/to/agents/setup.sh claude-code
 ```
 
-- Links skills and commands into `.claude/` or `.zcode/`, or skills into `.agents/` on `muse` (no
-  commands, agents or hooks there).
+- Links skills, commands and agents into `.claude/`.
 - **The only way an opt-in rule reaches a project:** reads `## standards` in
   `<project>/.flow/project.md` and renders those `rules/*.mdc` into a managed block in
-  `<project>/CLAUDE.md` and `AGENTS.md`. Re-run after editing an opt-in rule.
+  `<project>/CLAUDE.md`. Re-run after editing an opt-in rule.
 
 ### Claude Code
 
@@ -335,25 +330,3 @@ cd /path/to/project
 - **The `commands-claude/` wrappers are required** — without them `/flow` fails with "Unknown
   command"; Claude Code finds skills by name, not by slash alias.
 
-### ZCode
-
-No Superpowers plugin channel; copy the skills once:
-
-```bash
-cp -R ~/.claude/plugins/cache/claude-plugins-official/superpowers/<version>/skills/* ~/.zcode/skills/
-```
-
-- Everything lives under `~/.zcode/`, rule pointers rewritten from `~/.claude/`.
-- **The model is per session**, not per command: switch to a stronger one before a creating `/flow`
-  run.
-
-### Muse
-
-- Reads project skills from `<project>/.agents/skills/` and rules from `<project>/AGENTS.md`
-  (`./setup.sh muse`); global skills and rules come through the Claude Code layer, so
-  `setup.sh global` covers it.
-- **No commands, no hooks, no per-dispatch model:** every dispatch inherits the session's model and
-  effort (**Harness mapping**, `skills/flow-contracts/model-policy.md`) — switch up before a
-  creating `/flow` run. Without `flow-active-change`, a problem report becomes a fix run from
-  context alone.
-- Superpowers: `muse skills install <path>` per skill, or copy into `.agents/skills/`.
