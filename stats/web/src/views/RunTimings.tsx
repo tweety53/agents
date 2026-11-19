@@ -4,7 +4,7 @@
 // (GET /api/v1/stats/run/{project}/{change}); each carries its definition
 // and kind as a `src` badge.
 import { useEffect, useState, type ReactNode } from "react";
-import { fetchStatsView, getRunTimings, NOT_CATEGORIES, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow } from "../api";
+import { fetchStatsView, getDecisions, getRunTimings, NOT_CATEGORIES, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow } from "../api";
 import { Chip } from "../components/Chip";
 import { formatUsd, hm } from "../format";
 import { projectLabel } from "../lib/projectLabel";
@@ -25,7 +25,6 @@ type Group = (typeof GROUPS)[number][0];
 
 // The rows the prototype always draws; any other gap shows only when present.
 const DQ_ALWAYS = new Set(["open-stage-runs", "unlinked", "no-tokens", "aborted-ran", "uncategorised", "journal", "retimed"]);
-const SHARE: Record<number, string> = { 2: "half", 3: "a third", 4: "a quarter" };
 
 function Src({ kind, title }: { kind: string; title?: string }) {
   return (
@@ -55,7 +54,7 @@ function Kpi({ name, m, value, hint, bare }: { name: string; m: RunMetric<unknow
   );
 }
 
-function Body({ run, titles }: { run: RunTimingsDTO; titles: Map<string, string> }) {
+function Body({ run, titles, planned }: { run: RunTimingsDTO; titles: Map<string, string>; planned: string[][] }) {
   const [group, setGroup] = useState<Group>("category");
   const t = run.totals;
   const wall = t.wallClockMs.value;
@@ -69,7 +68,18 @@ function Body({ run, titles }: { run: RunTimingsDTO; titles: Map<string, string>
 
   const c = run.counts;
   const deps = c.departures.value.map((d) => d.departures);
-  const tasks = [...run.costPerTask].sort((x, y) => y.cost - x.cost);
+  // The decision's implementer groups, numbered in plan order; a task no group lists stands alone, unnumbered.
+  const listed = new Set(planned.flat());
+  const groups = [
+    ...planned.map((tasks, i) => ({ n: i + 1, tasks })),
+    ...run.costPerTask.filter((k) => !listed.has(k.task)).map((k) => ({ n: 0, tasks: [k.task] })),
+  ]
+    .map((g) => {
+      const own = run.costPerTask.filter((k) => g.tasks.includes(k.task));
+      return { ...g, has: own.length > 0, cost: own.reduce((a, k) => a + k.cost, 0), shareMs: own.reduce((a, k) => a + k.shareMs, 0) };
+    })
+    .filter((g) => g.has)
+    .sort((x, y) => y.cost - x.cost);
   const dq = run.dataQuality.filter((d) => DQ_ALWAYS.has(d.id) || d.count > 0 || d.unknown);
 
   return (
@@ -187,40 +197,32 @@ function Body({ run, titles }: { run: RunTimingsDTO; titles: Map<string, string>
         </div>
       </section>
 
-      {/* Full width: a task row carries its title and its group line, too wide for half a row. */}
+      {/* Full width: a group row carries its tasks' titles, too wide for half a row. */}
       <>
-        <section className="lb-panel" aria-label="Cost per task">
+        <section className="lb-panel" aria-label="Cost per group">
           <div className="lb-panel-h">
             <span>
-              Cost per task
-              <Src kind="derived" title="Every dispatch whose key names the task (implementer, fixer, reviewer); a group key's cost is split evenly across its tasks and marked estimated." />
+              Cost per group
+              <Src kind="derived" title="Each implementer group's tasks summed: every dispatch whose key names one of them (implementer, fixer, reviewer), a dispatch shared with other tasks split evenly across them." />
             </span>
-            <span className="lb-panel-note">{`${tasks.length} tasks`}</span>
+            <span className="lb-panel-note">{`${groups.length} groups`}</span>
           </div>
           <div className="lb-scroll">
             <table className="lb-table">
               <thead>
-                <tr><th>Task</th><th className="r">Rows</th><th className="r">Time</th><th className="r">Cost</th></tr>
+                <tr><th>Group</th><th className="r">Time</th><th className="r">Cost</th></tr>
               </thead>
               <tbody>
-                {tasks.map((k) => {
-                  const mates = k.group ? k.group.split("+") : [];
-                  const others = mates.filter((t) => t !== k.task);
-                  const title = titles.get(k.task);
+                {groups.map((g) => {
+                  const named = g.tasks.map((t) => titles.get(t)).filter(Boolean);
                   return (
-                    <tr key={k.task}>
+                    <tr key={g.tasks.join("+")}>
                       <td>
-                        <div>{title ? `Task ${k.task} · ${title}` : `Task ${k.task}`}</div>
-                        {others.length > 0 && (
-                          <div className="lb-hint">{`Shared with ${others.length > 1 ? "tasks" : "task"} ${others.join(", ")} — ${SHARE[mates.length] ?? `1/${mates.length}`} of their cost`}</div>
-                        )}
+                        <div>{`${g.n ? `Group ${g.n} · ` : ""}${g.tasks.length > 1 ? "Tasks" : "Task"} ${g.tasks.join(", ")}`}</div>
+                        {named.length > 1 && <div className="lb-hint">{named.join(" · ")}</div>}
                       </td>
-                      <td className="r lb-num">{k.rows}</td>
-                      <td className="r lb-num">{hm(k.shareMs)}</td>
-                      <td className="r lb-num">
-                        {formatUsd(k.cost)}
-                        {k.estimated && <> <Src kind="estimated" title="A group dispatch’s cost split evenly across its tasks." /></>}
-                      </td>
+                      <td className="r lb-num">{hm(g.shareMs)}</td>
+                      <td className="r lb-num">{formatUsd(g.cost)}</td>
                     </tr>
                   );
                 })}
@@ -288,6 +290,18 @@ export function RunTimings({ project, change }: { project: string; change: strin
     return () => ctl.abort();
   }, [project, change]);
 
+  // The run's latest decision names its implementer groups; none leaves every task alone.
+  const [planned, setPlanned] = useState<string[][]>([]);
+  useEffect(() => {
+    const ctl = new AbortController();
+    setPlanned([]);
+    getDecisions(project, change, { signal: ctl.signal }).then(
+      (r) => setPlanned((r?.[0]?.decision?.groups ?? []).map((g) => g.tasks ?? []).filter((t) => t.length > 0)),
+      () => undefined,
+    );
+    return () => ctl.abort();
+  }, [project, change]);
+
   return (
     <section aria-label={`Run timings and costs: ${project}/${change}`} className="dashboard lb lb-timings">
       <div className="lb-crumb">
@@ -303,7 +317,7 @@ export function RunTimings({ project, change }: { project: string; change: strin
         </p>
       </div>
       {state.run ? (
-        <Body run={state.run} titles={new Map((board?.tasks ?? []).map((t) => [String(t.n), t.title]))} />
+        <Body run={state.run} titles={new Map((board?.tasks ?? []).map((t) => [String(t.n), t.title]))} planned={planned} />
       ) : state.error ? (
         <p role="alert" className="view-error">{state.error}</p>
       ) : (

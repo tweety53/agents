@@ -15,7 +15,10 @@ vi.mock("../api", async (importOriginal) => {
   return {
     ...actual,
     getRunTimings: runTimingsMock,
-    fetchStatsView: vi.fn(async () => ({ rows: [{ name: C, project: P, state: "FINISHED", tasks: [{ n: 13, title: "Fold the guards in-process", state: "done" }] }] })),
+    fetchStatsView: vi.fn(async () => ({
+      rows: [{ name: C, project: P, state: "FINISHED", tasks: [{ n: 13, title: "Fold the guards in-process", state: "done" }, { n: 14, title: "Drop the old guard", state: "done" }] }],
+    })),
+    getDecisions: vi.fn(async () => [{ decision: { groups: [{ tasks: ["13", "14"], reason: "" }, { tasks: ["31"], reason: "" }] } }]),
   };
 });
 
@@ -181,16 +184,17 @@ describe("RunTimings", () => {
     expect(items[2].querySelector("summary ul")).toBeNull();
   });
 
-  it("run timings cost per task marks a split group estimated", async () => {
+  it("run timings sums its tasks' cost per implementer group, each group's task titles beneath", async () => {
     render(<RunTimings project={P} change={C} />);
-    const tasks = await screen.findByRole("region", { name: "Cost per task" });
-    expect(within(tasks).getByText("2 tasks")).toBeInTheDocument();
+    const panel = await screen.findByRole("region", { name: "Cost per group" });
+    expect(within(panel).getByText("2 groups")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Timeline" })).toBeNull();
-    const row = (await within(tasks).findByText("Task 13 · Fold the guards in-process")).closest("tr")!;
-    expect(row).toHaveTextContent("Shared with tasks 14, 16, 20 — a quarter of their cost");
-    const est = row.querySelector(".src.estimated");
-    expect(est).toHaveTextContent("estimated");
-    expect(est).toHaveAttribute("title", "A group dispatch’s cost split evenly across its tasks.");
+    await within(panel).findByText("Fold the guards in-process · Drop the old guard");
+    const rows = within(panel).getAllByRole("row").slice(1).map((r) => [...r.querySelectorAll("td")].map((c) => c.textContent));
+    expect(rows).toEqual([
+      ["Group 2 · Task 31", "1h 00m", "$9.88"],
+      ["Group 1 · Tasks 13, 14Fold the guards in-process · Drop the old guard", "0h 30m", "$3.68"],
+    ]);
     const rounds = screen.getByRole("region", { name: "Cost per verify round" });
     expect(within(rounds).getByText("2 rounds")).toBeInTheDocument();
     const cells = within(rounds).getAllByRole("row").slice(1).map((r) => [...r.querySelectorAll("td")].map((c) => c.textContent));
