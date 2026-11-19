@@ -195,7 +195,7 @@ Every route runs from the apply worktree; none touches the main checkout or any 
 | Route | Then |
 |-------|------|
 | **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
-| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `flow-guard resolve-base-branch`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. The self-review pass then runs, and run 2 continues in the same invocation |
+| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then, `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `flow-guard resolve-base-branch`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. The self-review pass then runs, and run 2 continues in the same invocation |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
 Run 1 ends at `IN_PROGRESS`, and its handoff ends on `/flow <name>`
@@ -208,7 +208,7 @@ After the route has landed, in the canonical apply worktree on `spectre/<name>`.
 bundle — the ledger and the panel record rendered from the store, the change directory's
 `tasks.md`, `design.md`, `narrative.md`, `visual-verification.md` and `live-verification.md`
 read from the worktree on disk, and the `git log --stat` of the branch's first-parent
-`merge-base..HEAD` range, followed by each peer the `link.md`'s `## Merge order` names, its
+`<flowLandBase>..HEAD` range when that key is recorded, else `merge-base..HEAD`, followed by each peer the `link.md`'s `## Merge order` names, its
 `spectre/<name>` commits against its base under a `### <peer>` heading — and prints it as one
 Markdown document. Run inside the worktree, the command also writes it to
 `<abs-worktree>/.superpowers/sdd/<name>/self-review-context.md`, the file run 2's

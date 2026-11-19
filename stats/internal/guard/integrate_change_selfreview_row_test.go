@@ -45,6 +45,7 @@ fixture
 to_land "land_merge: " no-report
 sut land "$WORK/a" demo
 check "land_merge: land exits 0 with IN_PROGRESS" '[ "$RC" -eq 0 ] && [ "$(jq -r .state "$WORK/state.json")" = IN_PROGRESS ]'
+check "land_merge: flowLandBase is recorded" '[ -n "$(git -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowLandBase)" ]'
 check "land_merge: the worktrees stay" '[ -d "$WORK/a-worktrees/demo" ] && [ -d "$WORK/b-worktrees/demo" ]'
 check "land_merge: NEXT names the pass then cleanup" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass .*then flow-guard integrate-change cleanup"'`}})
 }

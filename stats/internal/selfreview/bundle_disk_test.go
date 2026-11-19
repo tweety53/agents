@@ -107,6 +107,32 @@ func TestBundleFinishRangeIsMergeBaseToHead(t *testing.T) {
 	}
 }
 
+// TestBundleFinishRangeUsesLandBaseAfterLand pins the post-land range: HEAD
+// equals the base, so the recorded flowLandBase is the lower bound.
+func TestBundleFinishRangeUsesLandBaseAfterLand(t *testing.T) {
+	t.Parallel()
+	main, wt := changeWorktree(t, "demo")
+	landBase := strings.TrimSpace(string(must(ExecRunner{}.Output(wt, "merge-base", "HEAD", "origin/main"))))
+	first := commitAll(t, wt, "a.go", "package a\n", "fix(demo): first")
+	second := commitAll(t, wt, "b.go", "package a\n", "fix(demo): second")
+	runGit(t, main, "update-ref", "refs/remotes/origin/main", "spectre/demo")
+	runGit(t, wt, "config", "branch.spectre/demo.flowLandBase", landBase)
+	if err := os.MkdirAll(filepath.Join(wt, "spectre/changes/demo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{wt}, nil, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	gitLog := bundle[strings.Index(bundle, "## git log --stat"):]
+	for _, sha := range []string{first, second} {
+		if !strings.Contains(gitLog, "commit "+sha) {
+			t.Errorf("git log missing the change's commit %s:\n%s", sha, gitLog)
+		}
+	}
+}
+
 func must(b []byte, err error) []byte {
 	if err != nil {
 		panic(err)

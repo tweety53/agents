@@ -247,13 +247,18 @@ func peerLogs(g Runner, repo, name string) string {
 
 // finishLog renders the change's finish-run commits in repo, the worktree on
 // spectre/<name>: the first-parent `git log --stat` of merge-base..HEAD
-// against the branch's base (baseRef). No base, or nothing above it, is "".
+// against the branch's base (baseRef). After a land HEAD equals the base, so
+// the branch's recorded flowLandBase, when set, is the lower bound instead.
+// No base, or nothing above it, is "".
 func finishLog(g Runner, repo, name string) string {
 	base := baseRef(g, repo, changeBranchPrefix+name)
 	if base == "" {
 		return ""
 	}
-	mb := trimmedOutput(g.Output(repo, "merge-base", "HEAD", base))
+	mb := trimmedOutput(g.Output(repo, "config", "--get", "branch."+changeBranchPrefix+name+".flowLandBase"))
+	if mb == "" {
+		mb = trimmedOutput(g.Output(repo, "merge-base", "HEAD", base))
+	}
 	if mb == "" {
 		return ""
 	}

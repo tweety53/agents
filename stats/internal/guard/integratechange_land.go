@@ -32,6 +32,13 @@ func (c *ic) ghPRCreate(w string) (string, bool) {
 	return lines[len(lines)-1], err == nil
 }
 
+// recordLandBase stores the pre-push merge base for the post-land self-review range.
+func (c *ic) recordLandBase(w string) {
+	if mb, ok := c.git("-C", w, "merge-base", "HEAD", "origin/"+c.base); ok && mb != "" {
+		c.gitPass("-C", w, "config", "branch.spectre/"+c.name+".flowLandBase", mb)
+	}
+}
+
 func (c *ic) land() {
 	c.canonBase = ""
 	c.loadSet()
@@ -65,6 +72,7 @@ func (c *ic) land() {
 		}
 		switch c.route {
 		case "merge and push":
+			c.recordLandBase(w)
 			if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
 				c.say("PUSH-REJECTED: " + w + " — re-syncing onto origin/" + c.base + " once")
 				c.baseOf(o)
@@ -79,6 +87,7 @@ func (c *ic) land() {
 				}
 				c.rebaseLint(w, "already pushed: "+alreadyPushed()+"; ")
 				c.pushBranch(w)
+				c.recordLandBase(w)
 				if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
 					c.stopAs("push-rejected", "push", "the second push of "+w+" to origin/"+c.base+" was rejected — report git's output; the change stays IN_PROGRESS")
 				}
