@@ -17,7 +17,6 @@ import type {
   WeeklyModelEffortViewSlug,
 } from "../api";
 import { App } from "../App";
-import { DynamicsChart } from "../components/DynamicsChart";
 import { AgentRoles } from "./AgentRoles";
 import { Decisions } from "./Decisions";
 import { FlowHealth, speedUpCandidates } from "./FlowHealth";
@@ -2162,212 +2161,56 @@ describe("flow health", () => {
 });
 
 describe("review dynamics", () => {
-  const noRangeInUrl = () => window.history.replaceState(null, "", "#/review-dynamics");
+  const lastParams = () => fetchStatsViewMock.mock.calls.at(-1)![1] as { from: Date; to: Date };
+  const days = (p: { from: Date; to: Date }) => Math.round((p.to.getTime() - p.from.getTime()) / 86400000);
 
-  it("review dynamics orders the heatmap busiest slot first and effort low to high", async () => {
-    noRangeInUrl();
+  it("review dynamics shows only the findings heatmap, busiest slot first and effort low to high", async () => {
     const rows = reviewDynamicsRows();
     const cell = (slot: string, model: string, effort: string, dispatches: number) => ({ slot, model, effort, dispatches, critical: 0, important: 1, minor: 1 });
-    const pt = (series: string, metric = "per-dispatch-effort") => ({ bucket: "2026-01-05", metric, series, value: 1, basis: 2 });
     fetchStatsViewMock.mockResolvedValue(
       envelope("review-dynamics", {
         ...rows,
-        series: [
-          ...rows.series.filter((p) => p.metric !== "per-dispatch-effort" && p.metric !== "impl-findings-per-task"),
-          ...["xhigh", "high", "default", "low", "medium"].map((e) => pt(e)),
-          pt("opus · high", "impl-findings-per-task"),
-          pt("opus · low", "impl-findings-per-task"),
-        ],
         // test-sanity is busiest and sorts last by name; sonnet's low sorts before opus's high by effort alone.
         heat: [cell("mutation", "sonnet", "low", 2), cell("test-sanity", "opus", "high", 3), cell("test-sanity", "opus", "low", 3), cell("test-sanity", "opus", "medium", 1)],
       }),
     );
-    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
+    render(<ReviewDynamics period={period} project={undefined} />);
     const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
     expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["test-sanity", "mutation"]);
     expect(within(heat).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "opuslow", "opusmedium", "opushigh", "sonnetlow"]);
-    await userEvent.click(within(screen.getByRole("group", { name: "Prompt changes" })).getByRole("button", { name: "All" }));
-    const effort = screen.getByRole("region", { name: "Findings per dispatch by reviewer effort" });
-    expect([...effort.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["low", "medium", "high", "default", "xhigh", "prompt change"]);
-    const impl = screen.getByRole("region", { name: "Panel findings per implementer task" });
-    expect([...impl.querySelectorAll(".dynamics-legend > *")].map((e) => e.textContent?.trim())).toEqual(["opus · low", "opus · high"]);
+    for (const gone of ["Review panel", "Implementer", "Visual verify"]) expect(screen.queryByText(gone)).toBeNull();
+    expect(screen.queryByRole("group", { name: "Projects" })).toBeNull();
   });
 
-  it("review dynamics draws every section with tiles against the previous range", async () => {
-    noRangeInUrl();
-    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
-    for (const heading of ["Review panel", "Implementer", "Visual verify", "Where findings come from"]) {
-      expect(await screen.findByText(heading)).toBeInTheDocument();
-    }
-    for (const title of [
-      "Findings per change by severity", "Findings per dispatch by slot", "Fix rounds per change",
-      "Findings per dispatch by reviewer model", "Findings per dispatch by reviewer effort", "Changes reviewed",
-      "Panel findings per implementer task", "Implementer dispatches blocked or aborted",
-      "Visual verify rounds per change", "Visual verify passed first time",
-    ]) {
-      expect(screen.getByRole("region", { name: title })).toBeInTheDocument();
-    }
-    const tile = (k: string) => screen.getByTestId(`tile-${k}`);
-    expect(tile("Findings per change")).toHaveTextContent("0.75");
-    expect(tile("Findings per change")).toHaveTextContent("▼ 25% · better");
-    expect(tile("Visual verify passed first time")).toHaveTextContent("60%");
-    expect(tile("Visual verify passed first time")).toHaveTextContent("better");
-    expect(tile("Changes reviewed")).not.toHaveTextContent(/better|worse/);
-    expect(tile("Critical + Important per change")).toHaveTextContent("≈ unchanged");
-    // A previous range with changes but a zero value is an earlier range.
-    expect(tile("Implementer findings per task")).toHaveTextContent("▼ 25% · better");
-  });
-
-  it("review dynamics tile rises from a previous zero", async () => {
-    noRangeInUrl();
-    const rows = reviewDynamicsRows();
-    fetchStatsViewMock.mockResolvedValue(
-      envelope("review-dynamics", { ...rows, previousSummary: { ...rows.previousSummary, meanFixRounds: 0 } }),
-    );
-    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
-    await screen.findByText("Review panel");
-    expect(screen.getByTestId("tile-Mean fix rounds")).toHaveTextContent("▲ from 0 · worse");
-  });
-
-  it("review dynamics filters by project, task size and retired reviewers", async () => {
+  it("review dynamics opens on the last 30 days and picks 7, 14, 30 or 60", async () => {
     fetchStatsViewMock.mockResolvedValue(envelope("review-dynamics", reviewDynamicsRows()));
-    const onProjectChange = vi.fn();
-    render(
-      <ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} onProjectChange={onProjectChange} />,
-    );
-    await screen.findByText("Review panel");
-
-    const projects = screen.getByRole("group", { name: "Projects" });
-    expect(within(projects).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(within(projects).getByRole("button", { name: "gymie" }));
-    expect(onProjectChange).toHaveBeenLastCalledWith("gymie-7c1f238a");
-
-    const size = screen.getByRole("group", { name: "Task size" });
-    expect(within(size).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(within(size).getByRole("button", { name: "Big" }));
-    expect(fetchStatsViewMock.mock.calls.at(-1)![1]).toMatchObject({ class: "big" });
-
-    const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
-    expect(within(heat).queryByRole("rowheader", { name: "bugbot" })).toBeNull();
-    await userEvent.click(within(screen.getByRole("group", { name: "Reviewers" })).getByRole("button", { name: "All" }));
-    expect(within(heat).getByRole("rowheader", { name: "bugbot" })).toBeInTheDocument();
+    render(<ReviewDynamics period={period} project={undefined} />);
+    await screen.findByText(/Findings per dispatch: slot/);
+    expect(days(lastParams())).toBe(30);
+    expect(Math.abs(lastParams().to.getTime() - Date.now())).toBeLessThan(60_000);
+    const range = screen.getByRole("group", { name: "Range" });
+    expect(within(range).getAllByRole("button", { pressed: false }).map((b) => b.textContent)).toEqual(["7 days", "14 days", "60 days"]);
+    await userEvent.click(within(range).getByRole("button", { name: "7 days" }));
+    await waitFor(() => expect(days(lastParams())).toBe(7));
   });
 
-  it("review dynamics range presets set the period", async () => {
-    noRangeInUrl();
-    const onPeriodChange = vi.fn();
-    render(<ReviewDynamics period={period} onPeriodChange={onPeriodChange} project={undefined} />);
-    await screen.findByText("Review panel");
-    expect(screen.getByRole("button", { name: "Last 4 weeks" })).toHaveAttribute("aria-pressed", "true");
-    const span = (p: { from: Date; to: Date }) => Math.round((p.to.getTime() - p.from.getTime()) / 86400000);
-    expect(span(onPeriodChange.mock.calls[0][0])).toBe(28);
-    // The first fetch already asks for the 4 weeks: App's default period is never fetched.
-    expect(fetchStatsViewMock).toHaveBeenCalledTimes(1);
-    expect(span(fetchStatsViewMock.mock.calls[0][1])).toBe(28);
-
-    await userEvent.click(screen.getByRole("button", { name: "Last 2 weeks" }));
-    const last = onPeriodChange.mock.calls.at(-1)![0];
-    expect(span(last)).toBe(14);
-    expect(Math.abs(last.to.getTime() - Date.now())).toBeLessThan(60000);
-    expect(screen.getByRole("button", { name: "Last 2 weeks" })).toHaveAttribute("aria-pressed", "true");
-
-    expect(screen.queryByRole("button", { name: "Since last prompt change" })).toBeNull();
-  });
-
-  it("review dynamics family and version toggle", async () => {
-    noRangeInUrl();
-    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
-    const model = await screen.findByRole("region", { name: "Findings per dispatch by reviewer model" });
-    expect(within(model).getByText("opus")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /opus/ })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Version" }));
-    const byVersion = screen.getByRole("region", { name: "Findings per dispatch by reviewer model version" });
-    expect(within(byVersion).getByText("claude-opus-5-5")).toBeInTheDocument();
-    expect(within(byVersion).getByText("opus (version unrecorded)")).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /claude-opus-5-5/ })).toBeInTheDocument();
-    expect(screen.getByText("Findings per dispatch: slot × model version · effort")).toBeInTheDocument();
-  });
-
-  it("review dynamics filters prompt-change markers by kind", async () => {
-    noRangeInUrl();
-    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
-    const severity = await screen.findByRole("region", { name: "Findings per change by severity" });
-    const kinds = screen.getByRole("group", { name: "Prompt changes" });
-    expect(within(kinds).getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "flow-prompt-tuning",
-      "All",
-      "auto prompt tuning",
-    ]);
-    expect(within(kinds).getByRole("button", { name: "flow-prompt-tuning" })).toHaveAttribute("aria-pressed", "true");
-    const tip = () => {
-      fireEvent.mouseEnter(severity.querySelector('[data-bucket="2026-01-12"]')!);
-      return within(severity).getByRole("tooltip");
-    };
-    expect(tip()).not.toHaveTextContent("Prompt edit");
-    await userEvent.click(within(kinds).getByRole("button", { name: "auto prompt tuning" }));
-    expect(tip()).toHaveTextContent("Prompt edit · primary");
-    await userEvent.click(within(kinds).getByRole("button", { name: "All" }));
-    expect(tip()).toHaveTextContent("Prompt edit · primary");
-  });
-
-  it("dynamics chart labels each tick with the value it sits at", () => {
-    const whole = (v: number) => v.toFixed(0);
-    const percent = (v: number) => `${Math.round(v * 100)}%`;
-    const tenths = (v: number) => v.toFixed(1);
-    const cases: [number, (v: number) => string, string[]][] = [
-      [0, whole, ["0", "1", "2"]],
-      [1, whole, ["0", "1", "2"]],
-      [2, whole, ["0", "1", "2"]],
-      [0, tenths, ["0.0", "0.5", "1.0"]],
-      // An empty share chart tops at 100%, never 200%.
-      [0, percent, ["0%", "50%", "100%"]],
-      // A 0.05 step would label 0.0, 0.1, 0.1.
-      [0.06, tenths, ["0.0", "0.1", "0.2"]],
-      [3, whole, ["0", "2", "4"]],
-      [5, whole, ["0", "5", "10"]],
-      // A share of 1 is 100%, never a 200% tick.
-      [1, percent, ["0%", "50%", "100%"]],
-    ];
-    for (const [peak, format, want] of cases) {
-      const { unmount } = render(
-        <DynamicsChart
-          title="Changes"
-          description=""
-          buckets={["2026-05-04", "2026-05-11"]}
-          bucketKind="week"
-          series={[{ name: "changes", values: [peak, 0], basis: [1, 1] }]}
-          markers={[]}
-          basisLabel="changes"
-          format={format}
-        />,
-      );
-      const ticks = [...document.querySelectorAll(".dynamics-tick")].filter((e) => !e.textContent?.includes("-"));
-      // Ticks run bottom to top, each label at the height of the value it names.
-      expect(ticks.map((e) => e.textContent)).toEqual(want);
-      const ys = ticks.map((e) => Number(e.getAttribute("y")));
-      expect(ys[0] - ys[1]).toBeCloseTo((ys[0] - ys[2]) / 2);
-      // The top tick leaves 12% headroom in the 136px plot.
-      expect(ys[0] - ys[2]).toBeCloseTo(136 / 1.12);
-      unmount();
-    }
-  });
-
-  it("review dynamics tooltip lists values, basis and marker", async () => {
-    noRangeInUrl();
-    render(<ReviewDynamics period={period} onPeriodChange={() => {}} project={undefined} />);
-    const severity = await screen.findByRole("region", { name: "Findings per change by severity" });
-    await userEvent.click(within(screen.getByRole("group", { name: "Prompt changes" })).getByRole("button", { name: "All" }));
-    fireEvent.mouseEnter(severity.querySelector('[data-bucket="2026-01-12"]')!);
-    const tip = within(severity).getByRole("tooltip");
-    expect(tip).toHaveTextContent("Week of 01-12");
-    expect(tip).toHaveTextContent("Critical: 0.3");
-    expect(tip).toHaveTextContent("Minor: 3.0");
-    expect(tip).toHaveTextContent("based on 4 changes");
-    expect(tip).toHaveTextContent("◆ Prompt edit · primary: re-read every writer (abc1234)");
-
-    const cell = screen.getByTitle(/primary · opus low/);
-    expect(cell.getAttribute("title")).toBe("primary · opus low\n4 dispatches\n1 critical · 2 important · 5 minor");
+  it("review dynamics steps the range back and forth by its own length, never past now", async () => {
+    fetchStatsViewMock.mockResolvedValue(envelope("review-dynamics", reviewDynamicsRows()));
+    render(<ReviewDynamics period={period} project={undefined} />);
+    await screen.findByText(/Findings per dispatch: slot/);
+    const range = screen.getByRole("group", { name: "Range" });
+    await userEvent.click(within(range).getByRole("button", { name: "7 days" }));
+    const later = within(range).getByRole("button", { name: "Later" });
+    expect(later).toBeDisabled();
+    await waitFor(() => expect(days(lastParams())).toBe(7));
+    const now = lastParams();
+    await userEvent.click(within(range).getByRole("button", { name: "Earlier" }));
+    await waitFor(() => expect(lastParams().to.getTime()).toBe(now.from.getTime()));
+    expect(days(lastParams())).toBe(7);
+    expect(later).toBeEnabled();
+    expect(range).toHaveTextContent(`${lastParams().from.toISOString().slice(5, 10)} – ${lastParams().to.toISOString().slice(5, 10)}`);
+    await userEvent.click(later);
+    await waitFor(() => expect(lastParams().to.getTime()).toBe(now.to.getTime()));
   });
 });
 

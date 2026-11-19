@@ -1,100 +1,38 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { bodyBackground, DARK_SURFACE_1 } from "./support";
 
-// The Review dynamics view (#/review-dynamics, ReviewDynamics.tsx) over the
-// eight weeks cmd/uitest-seed's seedReviewDynamics fills, 2026-05-04 ..
+// The Reviewer findings view (#/review-dynamics, ReviewDynamics.tsx): the
+// findings-per-dispatch heatmap and its one Range control, over the eight
+// weeks cmd/uitest-seed's seedReviewDynamics fills, 2026-05-04 ..
 // 2026-06-29 -- before every other view's pinned window, so this fixture
-// moves no other baseline. The range is pinned by query params, so no
-// preset is active -- but in the default-preset test, which pins the clock
-// to the fixture's end instead.
-const DYNAMICS_QUERY = "from=2026-05-04T00%3A00%3A00.000Z&to=2026-06-29T00%3A00%3A00.000Z";
-
-async function open(page: import("@playwright/test").Page) {
-  await page.goto(`/#/review-dynamics?${DYNAMICS_QUERY}`);
-  await expect(page.getByRole("link", { name: "Review dynamics", exact: true })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("heading", { name: "Review dynamics" })).toBeVisible();
+// moves no other baseline. The clock is pinned to the fixture's end, since
+// every range is counted back from now.
+async function open(page: Page) {
+  await page.clock.setFixedTime(new Date("2026-06-29T00:00:00Z"));
+  await page.goto("/#/review-dynamics");
+  await expect(page.getByRole("link", { name: "Reviewer findings", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("Loading…")).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Findings per change by severity" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Findings per dispatch: slot × model · effort" })).toBeVisible();
 }
 
-test.describe("review dynamics", () => {
-  test("review dynamics full page", async ({ page }) => {
+test.describe("reviewer findings", () => {
+  test("reviewer findings, last 30 days", async ({ page }) => {
     await open(page);
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
-    // The prototype's measures: the intro is a 12px .sub, the heatmap packs
-    // 92px cells with no row rules.
-    await expect(page.locator("section > p.dynamics-sub").first()).toHaveCSS("font-size", "12px");
-    const cell = page.locator(".dynamics-heat td").first();
-    await expect(cell).toHaveCSS("width", "92px");
-    await expect(cell).toHaveCSS("border-bottom-style", "none");
-    await expect(page).toHaveScreenshot("review-dynamics.png", { fullPage: true });
+    const range = page.getByRole("group", { name: "Range" });
+    await expect(range.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true");
+    await expect(range.getByRole("button", { name: "Later" })).toBeDisabled();
+    await expect(page).toHaveScreenshot("reviewer-findings.png", { fullPage: true });
   });
 
-  test("review dynamics by version", async ({ page }) => {
+  test("reviewer findings, 14 days stepped one range back", async ({ page }) => {
     await open(page);
-    await page.getByRole("button", { name: "Version", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Version", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await expect(page).toHaveScreenshot("review-dynamics-version.png", { fullPage: true });
-  });
-
-  test("review dynamics default preset", async ({ page }) => {
-    await page.clock.setFixedTime(new Date("2026-06-29T00:00:00Z"));
-    await page.goto("/#/review-dynamics");
-    await expect(page.getByRole("button", { name: "Last 4 weeks" })).toHaveAttribute("aria-pressed", "true");
+    const range = page.getByRole("group", { name: "Range" });
+    await range.getByRole("button", { name: "14 days" }).click();
+    await range.getByRole("button", { name: "Earlier" }).click();
+    await expect(range).toContainText("06-01 – 06-15");
+    await expect(range.getByRole("button", { name: "Later" })).toBeEnabled();
     await expect(page.getByText("Loading…")).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Findings per change by severity" })).toBeVisible();
-    await expect(page).toHaveScreenshot("review-dynamics-default-preset.png", { fullPage: true });
-  });
-
-  test("review dynamics chart hover", async ({ page }) => {
-    await open(page);
-    const severity = page.getByRole("region", { name: "Findings per change by severity" });
-    // The fixture's markers are prompt edits, which the default
-    // flow-prompt-tuning filter hides.
-    await page.getByRole("group", { name: "Prompt changes" }).getByRole("button", { name: "All" }).click();
-    // The week of 05-18 carries the primary reviewer prompt edit's marker.
-    await severity.locator('[data-bucket="2026-05-18"]').hover();
-    const tip = severity.getByRole("tooltip");
-    await expect(tip).toContainText("◆ Prompt edit · primary");
-    await expect(tip).toHaveCSS("background-color", "rgb(34, 37, 43)");
-    await expect(page).toHaveScreenshot("review-dynamics-hover.png", { fullPage: true });
-  });
-
-  test("review dynamics filters", async ({ page }) => {
-    await open(page);
-    const pick = async (group: string, name: string) => {
-      const button = page.getByRole("group", { name: group }).getByRole("button", { name, exact: true });
-      await button.click();
-      await expect(button).toHaveAttribute("aria-pressed", "true");
-    };
-    await pick("Reviewers", "All");
-    await pick("Prompt changes", "auto prompt tuning");
-    await page.mouse.move(0, 0);
-    await expect(page).toHaveScreenshot("review-dynamics-filters.png", { fullPage: true });
-    // Projects and Task size refetch: each pick presses its own button.
-    await pick("Projects", "uitest-dynamics");
-    await pick("Task size", "Big");
-    await expect(page.getByText("Loading…")).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "Projects" }).getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "false");
-    await page.mouse.move(0, 0);
-    await expect(page).toHaveScreenshot("review-dynamics-picked.png", { fullPage: true });
-  });
-
-  test("review dynamics heatmap cell hover", async ({ page }) => {
-    await open(page);
-    // The prototype's cell hover is the native title tooltip, which no
-    // screenshot draws: its text is asserted, the hovered page captured.
-    const cell = page.locator(".dynamics-heat td[title]").first();
-    await expect(cell).toHaveAttribute("title", /dispatches\n\d+ critical · \d+ important · \d+ minor$/);
-    await cell.hover();
-    await expect(page).toHaveScreenshot("review-dynamics-heat-hover.png", { fullPage: true });
-  });
-
-  test.describe("light", () => {
-    test.use({ colorScheme: "light" });
-    test("review dynamics light", async ({ page }) => {
-      await open(page);
-      await expect(page).toHaveScreenshot("review-dynamics-light.png", { fullPage: true });
-    });
+    await expect(page).toHaveScreenshot("reviewer-findings-earlier.png", { fullPage: true });
   });
 });

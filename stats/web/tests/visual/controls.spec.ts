@@ -233,18 +233,6 @@ test.describe("ChangeVariable", () => {
 });
 
 test.describe("ModelVariable", () => {
-  test("is disabled on review dynamics, with its reason stated", async ({ page }) => {
-    await page.goto(`/#/review-dynamics?${PINNED_QUERY}`);
-    const model = page.getByLabel("Model", { exact: true });
-    await expect(model).toBeDisabled();
-    const label = page.locator("label.model-variable");
-    await expect(label).toHaveAttribute(
-      "title",
-      "Review dynamics compares models itself, so a model restriction cannot apply here.",
-    );
-    await expect(label.locator(".dashboard-variable-hint")).toBeVisible();
-  });
-
   test("is enabled with real models on self-review", async ({ page }) => {
     await page.goto(`/#/self-review?${PINNED_QUERY}`);
     const model = page.getByLabel("Model", { exact: true });

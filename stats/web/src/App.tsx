@@ -42,7 +42,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   decisions: "Decisions",
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
-  "review-dynamics": "Review dynamics",
+  "review-dynamics": "Reviewer findings",
   "role-costs": "Role costs",
   "agent-roles": "Agent roles",
 };
@@ -190,13 +190,6 @@ function routePath(route: Route): string {
   return route.kind === "view" ? route.view : `${route.kind}/${encodeURIComponent(route.project)}/${encodeURIComponent(route.change)}`;
 }
 
-/**
- * Stated on the dashboard bar's model variable when it is disabled on a
- * view whose rows a model restriction cannot apply to.
- */
-const MODEL_DISABLED_REASONS: Partial<Record<ViewName, string>> = {
-  "review-dynamics": "Review dynamics compares models itself, so a model restriction cannot apply here.",
-};
 
 export function App() {
   const [period, setPeriod] = useState<Period>(currentPeriod);
@@ -229,8 +222,6 @@ export function App() {
   const ActiveView = route.kind === "view" ? VIEW_COMPONENTS[route.view] : null;
   // Review dynamics compares models itself -- every other static view
   // aggregates stage runs and accepts the restriction.
-  const modelDisabledReason = route.kind === "view" ? MODEL_DISABLED_REASONS[route.view] : undefined;
-  const modelDisabled = modelDisabledReason !== undefined;
 
   return (
     <div className="app-shell">
@@ -256,7 +247,7 @@ export function App() {
             Decisions carries its own Period, Project, Class and Review grouping chips (decision
             decisions-chip-filters); Flow health carries its own Period, Project and Rank by chips
             (decision chip-filters-period-project-rank); Run costs carries its own Period and Project chips;
-            Role costs carries its own Period and Project chips; Agent roles has no period. */}
+            Role costs carries its own Period and Project chips; Reviewer findings carries its own Range; Agent roles has no period. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
           route.view !== "run-costs" &&
@@ -267,6 +258,7 @@ export function App() {
           route.view !== "decisions" &&
           route.view !== "flow-health" &&
           route.view !== "role-costs" &&
+          route.view !== "review-dynamics" &&
           route.view !== "agent-roles" && (
           <DashboardBar
             period={period}
@@ -275,9 +267,7 @@ export function App() {
             onProjectChange={setProject}
             model={model}
             onModelChange={setModel}
-            modelDisabled={modelDisabled}
-            modelDisabledReason={modelDisabledReason}
-            showPeriod={!(route.kind === "view" && route.view === "review-dynamics")}
+            modelDisabled={false}
           />
         )}
       </header>
@@ -293,7 +283,7 @@ export function App() {
               onPeriodChange={setPeriod}
               project={project}
               onProjectChange={setProject}
-              model={modelDisabled ? undefined : model}
+              model={model}
             />
           )
         )}

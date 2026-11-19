@@ -171,8 +171,7 @@ cases are recorded too, so the same case is never re-mined:
 The last two are step 5a's: the case's `applied` entry copied under this run's date, ending `kept`,
 or `removed <sha>` with the commit that deleted its lines.
 
-Before a folder's `git rm`, every applied case is recorded in the stats store, which feeds the
-Review dynamics view's prompt-change markers:
+Before a folder's `git rm`, every applied case is recorded in the stats store as a prompt change:
 
 ```bash
 flow prompt-tuning record <case-dir> -sha <the applying commit's sha>
