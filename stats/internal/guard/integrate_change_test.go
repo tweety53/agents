@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 
@@ -49,6 +51,12 @@ sut() {
 const icHelpers = `g() { GIT_AUTHOR_DATE=2026-01-01T00:00:00Z GIT_COMMITTER_DATE=2026-01-01T00:00:00Z git -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false "$@"; }
 fixture() {
   WORK="$(cd "$(mktemp -d "$IC_TMP/work.XXXXXX")" && pwd -P)"
+  printf '\n__IC_FIXTURE__ %s\n' "$WORK"
+  read -r _ <"$IC_TMP/sut.ack"
+  ln "$IC_STUBS/flow" "$WORK/bin/flow"
+}
+fixture_build() {
+  WORK="$(cd "$(mktemp -d "$IC_TMP/work.XXXXXX")" && pwd -P)"
   local r
   for r in a b; do
     g init -q --bare -b main "$WORK/$r-origin.git"
@@ -75,7 +83,6 @@ fixture() {
   printf '# demo\n\n## Parts\n\n` + "`" + `b:demo` + "`" + `\n\n## Branch\n\nmain\n\n## Merge order\n\n1. ` + "`" + `b` + "`" + `\n2. ` + "`" + `.` + "`" + `\n' >"$c/link.md"
 
   mkdir -p "$WORK/bin" "$WORK/statedir"
-  ln "$IC_STUBS/flow" "$WORK/bin/flow"
   # Run 1 no longer calls spectre: any call fails the run.
   printf '#!/usr/bin/env bash\nexit 1\n' >"$WORK/bin/spectre"
   chmod +x "$WORK/bin/spectre"
@@ -185,6 +192,8 @@ func icRun(t *testing.T, script string) {
 		switch {
 		case l == "__IC_SUT__":
 			icServe(t, tmp)
+		case strings.HasPrefix(l, "__IC_FIXTURE__ "):
+			icFixture(t, tmp, strings.TrimPrefix(l, "__IC_FIXTURE__ "))
 		case strings.HasPrefix(l, "__IC_PASS__ "):
 			t.Run(strings.TrimPrefix(l, "__IC_PASS__ "), func(t *testing.T) {})
 		case strings.HasPrefix(l, "__IC_FAIL__ "):
@@ -200,12 +209,86 @@ func icRun(t *testing.T, script string) {
 
 // icGoEnv pins the Go caches a moved HOME would otherwise relocate.
 func icGoEnv(t *testing.T) []string {
-	out, err := exec.Command("go", "env", "GOCACHE", "GOMODCACHE", "GOPATH").Output()
+	v, err := icGoEnvOnce()
 	if err != nil {
 		t.Fatal(err)
 	}
+	return v
+}
+
+var icGoEnvOnce = sync.OnceValues(func() ([]string, error) {
+	out, err := exec.Command("go", "env", "GOCACHE", "GOMODCACHE", "GOPATH").Output()
+	if err != nil {
+		return nil, err
+	}
 	v := strings.Split(strings.TrimSpace(string(out)), "\n")
-	return []string{"GOCACHE=" + v[0], "GOMODCACHE=" + v[1], "GOPATH=" + v[2]}
+	return []string{"GOCACHE=" + v[0], "GOMODCACHE=" + v[1], "GOPATH=" + v[2]}, nil
+})
+
+// icTemplate is the harness's fixture, built once per package run by its own
+// fixture_build under execFixtures.dir and the environment a case runs under;
+// every case's fixture is a copy of it (icFixture). It returns the template's
+// WORK.
+var icTemplate = sync.OnceValues(func() (string, error) {
+	dir, err := os.MkdirTemp(execFixtures.dir, "ic-template")
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.Command("bash", "-c", icHelpers+"\nfixture_build && printf %s \"$WORK\"")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "IC_TMP="+dir, "HOME="+dir+"/home", "GIT_CONFIG_NOSYSTEM=1")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("fixture_build: %v\n%s", err, stderr.String())
+	}
+	return string(out), nil
+})
+
+// icFixture is one `fixture` call: the template copied to work, every
+// absolute path to the template's WORK in it -- the origin URLs, the
+// worktrees' gitdir links, state.json -- rewritten to work, then the
+// session acknowledged. Objects are compressed and name no path.
+func icFixture(t *testing.T, tmp, work string) {
+	t.Helper()
+	tpl, err := icTemplate()
+	if err == nil {
+		err = copyTree(tpl, work)
+	}
+	if err == nil {
+		from, to := []byte(tpl), []byte(work)
+		err = filepath.WalkDir(work, func(p string, d fs.DirEntry, err error) error {
+			switch {
+			case err != nil:
+				return err
+			case d.IsDir() && d.Name() == "objects":
+				return filepath.SkipDir
+			case !d.Type().IsRegular():
+				return nil
+			}
+			b, err := os.ReadFile(p)
+			if err != nil || !bytes.Contains(b, from) {
+				return err
+			}
+			return os.WriteFile(p, bytes.ReplaceAll(b, from, to), 0)
+		})
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	icAck(t, tmp)
+}
+
+// icAck releases the session's `read` on sut.ack.
+func icAck(t *testing.T, tmp string) {
+	t.Helper()
+	ack, err := os.OpenFile(tmp+"/sut.ack", os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ack.WriteString("\n")
+	ack.Close()
 }
 
 // icServe is one `sut` call: the session's argv and environment, run in
@@ -236,12 +319,7 @@ func icServe(t *testing.T, tmp string) {
 			t.Fatal(err)
 		}
 	}
-	ack, err := os.OpenFile(tmp+"/sut.ack", os.O_WRONLY, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ack.WriteString("\n")
-	ack.Close()
+	icAck(t, tmp)
 }
 
 // The fixture's flow stub is a link to the one inode writeExec assessed, never

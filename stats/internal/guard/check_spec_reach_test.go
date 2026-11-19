@@ -104,7 +104,7 @@ func srAssert(t *testing.T, r guardResult, rc int, wants ...string) {
 
 func srGit(t *testing.T, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", append([]string{"-c", "user.name=t", "-c", "user.email=t@example.invalid"}, args...)...)
+	cmd := exec.Command(fixtureGit, append([]string{"-c", "user.name=t", "-c", "user.email=t@example.invalid"}, args...)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
@@ -114,9 +114,7 @@ func TestCheckSpecReach(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "npm"), []byte(srFakeNpm), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeExec(t, filepath.Join(bin, "npm"), srFakeNpm)
 	path := bin + ":" + os.Getenv("PATH")
 
 	t.Run("case 1", func(t *testing.T) {

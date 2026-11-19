@@ -47,9 +47,7 @@ func TestWorkspace(t *testing.T) {
 
 	t.Run("a failing docker exec is its own non-zero exit", func(t *testing.T) {
 		bin := t.TempDir()
-		if err := os.WriteFile(bin+"/docker", []byte("#!/bin/sh\necho 'docker: daemon down' >&2\nexit 3\n"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		writeExec(t, bin+"/docker", "#!/bin/sh\necho 'docker: daemon down' >&2\nexit 3\n")
 		fenv := Env{Getenv: func(k string) string {
 			if k == "PATH" {
 				return bin
@@ -60,9 +58,7 @@ func TestWorkspace(t *testing.T) {
 		if r.rc != 3 || r.err != "docker: daemon down\nERROR: could not reach flow-postgres to check for flow_x\n" {
 			t.Fatalf("create: rc=%d stderr=%q", r.rc, r.err)
 		}
-		if err := os.WriteFile(bin+"/docker", []byte("#!/bin/sh\nkill -TERM $$\n"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		writeExec(t, bin+"/docker", "#!/bin/sh\nkill -TERM $$\n")
 		if r = runGuard("workspace", []string{"remove", "x"}, fenv); r.rc != 128+15 {
 			t.Fatalf("signal-killed docker: rc=%d, want bash's 128+15", r.rc)
 		}
@@ -111,12 +107,12 @@ func TestWorkspace(t *testing.T) {
 		}
 		defer func() { _ = hold.Process.Kill(); _ = hold.Wait() }()
 		held := false
-		for i := 0; i < 20 && !held; i++ {
+		for end := time.Now().Add(10 * time.Second); !held && time.Now().Before(end); {
 			out, _ := psql("flow", "select count(*) from pg_stat_activity where datname = '"+db2+"' and pid <> pg_backend_pid()").Output()
 			n, _ := strconv.Atoi(strings.TrimSpace(string(out)))
 			held = n > 0
 			if !held {
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 			}
 		}
 		check("a live connection is held open on "+db2, held, r)
