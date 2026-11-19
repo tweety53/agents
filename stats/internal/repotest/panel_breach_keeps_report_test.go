@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-// TestPanelBreachKeepsACompleteReport pins the breach paragraph to what
-// check-panel-findings-closed accepts (kan-1121 self-review, F3): a slot that
+// TestPanelBreachKeepsACompleteReport pins the breach paragraph (kan-1121
+// self-review, F3): a slot that
 // returned a parsable report past its ceiling keeps that report and its
 // findings, and only a slot stopped or returning none is closed timed-out and
 // re-dispatched.

@@ -101,3 +101,23 @@ func TestCapsNeverStopListsNoAsk(t *testing.T) {
 		t.Error("pipeline.md's Caps never stop the run lists the re-plan budget, which document-fix.md asks about")
 	}
 }
+
+// section is the text of the "## <heading>" section of a Markdown file, up to
+// the next level-2 heading.
+func section(t *testing.T, rel, heading string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	i := strings.Index(s, "\n## "+heading)
+	if i < 0 {
+		t.Fatalf("%s: no %q section", rel, "## "+heading)
+	}
+	s = s[i+1:]
+	if j := strings.Index(s[3:], "\n## "); j >= 0 {
+		s = s[:j+3]
+	}
+	return s
+}
