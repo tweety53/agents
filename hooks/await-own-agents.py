@@ -23,12 +23,6 @@ merely read -- a Read of a transcript, a diff of a test, a grep of a JSONL line 
 woke again after its parent had moved on -- kan-1085's fixer left a build running in the background
 and its parent waited 44 minutes on it.
 
-When the agent may stop, the hook hands its dispatch key -- its prompt's `Key:` line, else the first word of the
-`description` in its own `agent-<id>.meta.json` -- to `flow record dispatch handback` (decision
-gated-bracket-handback): a gated reviewer's plan tree is checked the moment it hands back, so the
-parent's later plan edits never block that row's end. FLOW_HOOK_HANDBACK_CMD overrides the `flow`
-binary. The hand-back is fail-open and never changes this hook's output.
-
 Fails open: any error -- bad input, unreadable folder -- exits 0 with no output.
 """
 
@@ -166,7 +160,6 @@ def main() -> None:
         }))
         return
     if not children:
-        handback(payload, transcript)
         return
     ids = " ".join(children)
     print(json.dumps({

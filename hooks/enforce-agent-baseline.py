@@ -28,9 +28,7 @@ in the parent's session; `flow record dispatches` lists its rows, and when none 
 `outcome`) under the dispatch's key the hook runs `flow record dispatch begin` itself -- the key
 the prompt's column-0 `Key:` line, else the description's first word; the role the prompt's
 `Role:` line mapped back as launchRoleID (stats/cmd/flow/record.go) maps it; the call's model and
-effort. A gated reviewer's plan tree is snapshotted to
-<worktree>/.superpowers/sdd/plan-snapshot-<key>.txt first (decision plan-check-rides-row), and a
-failed snapshot begins no row. The begin is written only after every deny check has passed, so a
+effort. The begin is written only after every deny check has passed, so a
 launch the hook denies leaves no row. The row's end stays the parent's (decision
 begin-moves-end-stays). The ledger never denies a dispatch: a dispatch with no key or no mapped
 role, a begin `flow` refuses, an unreachable store, no stage begin for the session, a stage run
@@ -104,12 +102,6 @@ DENY_REASON = (
     "context already."
 )
 
-REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-# The snapshotter the hook runs; overridable for the hook's own harness only.
-PLAN_SNAPSHOT = [os.environ["DISPATCH_PLAN_SNAPSHOT"]] if os.environ.get("DISPATCH_PLAN_SNAPSHOT") else [
-    os.path.join(REPO, "scripts", "flow-guard"), "check-plan-unchanged"
-]
-
 
 # A key the hook begins a row under, by a Key shape the closed list names (**Dispatch sites -- the
 # parent's closed list**, skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`,
@@ -163,16 +155,13 @@ BEGIN_KEY = re.compile(r"(?:" + ROW_KEY + r"|explore-\d+|design-\d+)")
 KEY_LINE = re.compile(r"^Key:[ \t]*(\S+)[ \t]*$", re.M)
 ROLE_LINE = re.compile(r"^Role:[ \t]*(\S+)[ \t]*$", re.M)
 SINGLE_TASK_KEY = re.compile(r"task-(\d+)-")
-# A gated reviewer's key, suffixed or not: its plan tree is snapshotted before the begin.
-GATED_REVIEWER_KEY = re.compile(r"task-\d+(?:\+\d+)*-reviewer")
 FLOW_EFFORT = re.compile(r"flow-(?:planner-)?([a-z]+)")
 # A prompt's `Role:` id -> the row role `flow record dispatch begin -role` takes: the inverse of
 # launchRoleID (stats/cmd/flow/record.go).
 ROW_ROLE = {
     "implementer": "implementer", "operator-asked": "implementer",
     "gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
-    "panel-reviewer": "reviewer", "panel-sanity-efficiency": "reviewer",
-    "panel-mutation-failure": "reviewer", "panel-rerun": "reviewer",
+    "panel-reviewer": "reviewer", "panel-rerun": "reviewer",
     "panel-merger": "merger",
     "panel-fix": "panel-fix",
     "visual-verifier": "verifier",
@@ -243,7 +232,7 @@ def names_worktree(prompt: str, worktree: str) -> bool:
 
 
 def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
-    """The begin to write once every deny check has passed -- [snapshot or None, begin argv] -- or
+    """The begin argv to write once every deny check has passed, or
     None: a row already open, a dispatch with no key or no mapped role, or an unanswered store.
     The hook writes the begin; the row's end stays the parent's."""
     if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
@@ -295,11 +284,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
     pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
     if pick:
         args += ["-pair-pick", pick]
-    snapshot = None
-    if GATED_REVIEWER_KEY.match(key):
-        snapshot = [*PLAN_SNAPSHOT, "snapshot", worktree, change,
-                    os.path.join(worktree, ".superpowers", "sdd", f"plan-snapshot-{key}.txt")]
-    return [snapshot, args]
+    return args
 
 
 def read_pick(path: str) -> "str | None":
@@ -313,15 +298,9 @@ def read_pick(path: str) -> "str | None":
     return f"{fields[2]}: {fields[3].strip()}" if len(fields) == 4 else None
 
 
-def write_begin(begin: list) -> None:
-    """Snapshot a gated reviewer's plan tree, then write the row's begin. Best-effort: a failed
-    snapshot writes no begin, and no failure denies the dispatch."""
-    snapshot, args = begin
+def write_begin(args: list) -> None:
+    """Write the row's begin. Best-effort: no failure denies the dispatch."""
     try:
-        if snapshot:
-            os.makedirs(os.path.dirname(snapshot[-1]), exist_ok=True)
-            if subprocess.run(snapshot, capture_output=True, text=True, timeout=bound(60), check=False).returncode != 0:
-                return
         subprocess.run(args, capture_output=True, text=True, timeout=bound(10), check=False)
     except (OSError, subprocess.SubprocessError):
         pass

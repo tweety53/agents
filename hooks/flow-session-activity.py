@@ -46,9 +46,8 @@ def activity(payload: dict) -> Optional[Tuple[str, str]]:
         if "permission" in message.lower():
             return "permission", message
         return None
-    # Every tool call reports working, before it runs and after: a Stop the
-    # stop guard refuses leaves "idle" behind, and a long call (a poll, a
-    # build) must not read as a turn that ended while it runs.
+    # Every tool call reports working, before it runs and after: a long call
+    # (a poll, a build) must not read as a turn that ended while it runs.
     if event in ("PreToolUse", "PostToolUse"):
         return "working", action(payload)
     if event == "UserPromptSubmit":
