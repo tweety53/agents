@@ -9,15 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ValidModels is the set of models the Decide step may assign a dispatch
-// pair: every model field of a recorded decision must be one of these,
-// which internal/api's ApplyDecisionRecord enforces at record time
-// (design.md's valid-models-opus-sonnet decision).
-var ValidModels = map[string]bool{
-	"opus":   true,
-	"sonnet": true,
-}
-
 // ValidReviewers is the fixed vocabulary a flow_settings.reviewers entry
 // may take. The panel dispatches exactly the resolved list; these ids
 // no longer split into a required subset and an on-demand-only subset
