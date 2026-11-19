@@ -272,3 +272,85 @@ func deref(p *int) any {
 	}
 	return *p
 }
+
+func TestReBeginRelinksToTheRunHoldingTheNewBegin(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rebegin-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	day := func(h, m int) time.Time { return time.Date(2026, 8, 22, h, m, 0, 0, time.UTC) }
+	var a, b int64
+	ins := `INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics, auto_opened, session_token)
+		SELECT id, 'claude-code', '/flow', 'flow.sdd-tdd', $4, $2, $3, '{}'::jsonb, false, 'mf-rb'
+		FROM changes WHERE project_key = $1 AND name = 'kan-1' RETURNING id`
+	if err := pool.QueryRow(ctx, ins, projectKey, day(9, 0), day(10, 0), 1).Scan(&a); err != nil {
+		t.Fatalf("seed run a: %v", err)
+	}
+	if err := pool.QueryRow(ctx, ins, projectKey, day(11, 0), nil, 2).Scan(&b); err != nil {
+		t.Fatalf("seed run b: %v", err)
+	}
+	first, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("mf-rb", "task-1-reviewer", day(9, 30)))
+	if err != nil {
+		t.Fatalf("first begin: %v", err)
+	}
+	if first.StageRunID == nil || *first.StageRunID != a {
+		t.Fatalf("first begin linked %v, want %d", first.StageRunID, a)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE dispatches SET outcome='aborted', ended_at=$2 WHERE id=$1`, first.ID, day(9, 31)); err != nil {
+		t.Fatalf("abort: %v", err)
+	}
+	again, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("mf-rb", "task-1-reviewer", day(11, 30)))
+	if err != nil {
+		t.Fatalf("re-begin: %v", err)
+	}
+	if again.ID != first.ID {
+		t.Fatalf("re-begin made a new row %d", again.ID)
+	}
+	if again.StageRunID == nil || *again.StageRunID != b {
+		t.Errorf("re-begun at %s: stage_run_id %v, want %d (the run holding the new begin); still linked to run %d ended %s",
+			again.StartedAt.Format(time.Kitchen), relinkDeref(again.StageRunID), b, a, day(10, 0).Format(time.Kitchen))
+	}
+}
+
+func relinkDeref(p *int64) any {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func TestRetimeRelinksToTheRunHoldingTheNewBegin(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-retime-link-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	at := func(h, m int) time.Time { return time.Date(2026, 8, 22, h, m, 0, 0, time.UTC) }
+	ins := `INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics, auto_opened, session_token)
+		SELECT id, 'claude-code', '/flow', $4, 1, $2, $3, '{}'::jsonb, false, 'mf-rt'
+		FROM changes WHERE project_key = $1 AND name = 'kan-1' RETURNING id`
+	var a, b int64
+	if err := pool.QueryRow(ctx, ins, projectKey, at(9, 0), at(10, 0), "flow.sdd-tdd").Scan(&a); err != nil {
+		t.Fatalf("seed a: %v", err)
+	}
+	if err := pool.QueryRow(ctx, ins, projectKey, at(11, 0), at(12, 0), "flow.verify").Scan(&b); err != nil {
+		t.Fatalf("seed b: %v", err)
+	}
+	d, err := st.RecordDispatch(ctx, projectKey, "kan-1", autoDispatch("mf-rt", "verify-lint", at(9, 30)))
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if d.StageRunID == nil || *d.StageRunID != a {
+		t.Fatalf("begin linked %v, want %d", d.StageRunID, a)
+	}
+	got, err := st.RetimeDispatch(ctx, projectKey, "kan-1", records.DispatchRetime{ID: d.ID, StartedAt: at(11, 10), EndedAt: at(11, 20), Reason: "late begin"})
+	if err != nil {
+		t.Fatalf("retime: %v", err)
+	}
+	if got.StageRunID == nil || *got.StageRunID != b {
+		var v any
+		if got.StageRunID != nil {
+			v = *got.StageRunID
+		}
+		t.Errorf("retimed into run %d's window: stage_run_id %v -- STALE LINK", b, v)
+	}
+}

@@ -661,6 +661,8 @@ func insertDispatch(ctx context.Context, q interface {
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
 			dispatch_key = EXCLUDED.dispatch_key,
+			-- a moved begin re-links to the run holding the new instant (EXCLUDED's link is that derivation)
+			stage_run_id = CASE WHEN `+reBegin+` OR (dispatches.ended_at IS NULL AND dispatches.outcome IS NULL AND EXCLUDED.started_at < dispatches.started_at) THEN COALESCE(EXCLUDED.stage_run_id, dispatches.stage_run_id) ELSE dispatches.stage_run_id END,
 			started_at = CASE WHEN `+reBegin+` THEN EXCLUDED.started_at WHEN dispatches.ended_at IS NULL AND dispatches.outcome IS NULL AND EXCLUDED.started_at < dispatches.started_at THEN EXCLUDED.started_at ELSE dispatches.started_at END,
 			ended_at = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.ended_at END,
 			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
@@ -1519,6 +1521,7 @@ func (s *Store) RetimeDispatch(ctx context.Context, projectKey, change string, i
 		UPDATE dispatches d SET
 			started_at = $4,
 			ended_at = $5,
+			stage_run_id = COALESCE(dispatch_stage_run(d.change_id, d.session_token, $4), d.stage_run_id),
 			commit_sha = COALESCE(NULLIF($6, ''), d.commit_sha),
 			retimed = jsonb_build_object(
 				'reason', $7::text,
