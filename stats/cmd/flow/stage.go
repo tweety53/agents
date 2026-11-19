@@ -13,7 +13,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -613,44 +612,6 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 		journalStageMark(projectKey, journalName(f), "end", req, stderr, getenv)
 		return 0
 	}
-}
-
-// gateVisualVerifyTrailers refuses a completed /flow flow.visual-verify end
-// while a worktree of the change's state map carries a commit outside every
-// task with no Flow-Key: trailer, so the fix loop's own commits are amended
-// before anything is pushed (kan-1016's self-review: one was pushed before
-// integrate's gate saw it). Each worktree is judged from `git merge-base HEAD
-// origin/<base>`, <base> resolve-base-branch's answer, exactly as
-// integrate's unfinished-work gate judges it. A guard that cannot answer, a
-// state map that cannot be read among them, refuses.
-// changeWorktreeMap is the change's state-map worktrees, sorted, or dir alone
-// when the map holds none; a failed store read is its error.
-func changeWorktreeMap(ctx context.Context, addr string, timeout time.Duration, dir, name string) ([]string, error) {
-	projectKey, _, err := fallback.ProjectKey(dir)
-	var body []byte
-	if err == nil {
-		body, err = getChange(ctx, addr, timeout, projectKey, name)
-	}
-	var rec struct {
-		Worktrees map[string]json.RawMessage `json:"worktrees"`
-	}
-	if err == nil {
-		err = json.Unmarshal(body, &rec)
-	}
-	if err != nil {
-		return nil, err
-	}
-	var worktrees []string
-	for wt := range rec.Worktrees {
-		if wt != "" {
-			worktrees = append(worktrees, wt)
-		}
-	}
-	if len(worktrees) == 0 {
-		worktrees = []string{dir}
-	}
-	slices.Sort(worktrees)
-	return worktrees, nil
 }
 
 // buildEndMetrics assembles the metrics patch `stage end`'s own flags

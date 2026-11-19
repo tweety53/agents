@@ -224,23 +224,6 @@ func editFilesField(plan []byte, id string, edit func(field string) (string, err
 	return nil, fmt.Errorf("task %s has no **Files:** line", id)
 }
 
-// untickedTasks returns the ids of the plan's unticked task lines, fenced
-// lines skipped as countPlanLines skips them.
-func untickedTasks(plan []byte) []string {
-	var ids []string
-	inFence := false
-	for _, line := range bytes.Split(plan, []byte("\n")) {
-		if fencePattern.Match(line) {
-			inFence = !inFence
-			continue
-		}
-		if m := taskLinePattern.FindSubmatch(line); !inFence && m != nil && string(m[1]) == " " {
-			ids = append(ids, string(m[2]))
-		}
-	}
-	return ids
-}
-
 // countPlanLines returns the number of plan lines pattern matches outside
 // fenced blocks -- taskLinePattern for the task count, correctionPattern
 // for the plan-correction count. Fence state is tracked across the whole

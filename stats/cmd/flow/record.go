@@ -25,7 +25,6 @@ import (
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
-	"github.com/tweety53/agents/stats/internal/guard"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -63,10 +62,6 @@ import (
 // findings merger): never reviewer, whose rows the panel guards read as
 // slots owing reports.
 var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier", "explorer", "merger"}
-
-// visualMutatorRoles are the roles whose open row a visual verifier never
-// begins beside, and that never begin beside an open visual verifier.
-var visualMutatorRoles = []string{"implementer", "panel-fix", "red-partner"}
 
 // locationLineRe is what a non-empty finding -location must carry: a line
 // number after a colon (path:12, path:12-20).
@@ -264,31 +259,6 @@ func validateFindingDeferralSeverity(severity, status string) error {
 	return fmt.Errorf("-status %q is only valid beside a Minor severity, not %s", status, severity)
 }
 
-// validateFindingReproducer judges a finding's -reproducer before the store
-// is contacted. Empty is always an error -- a finding with no reproducer at
-// all is a finding nobody can act on. Where the first word is exactly
-// "none" the only legal form is "none — <reason>": a bare "none" claims
-// irreproducibility without saying why, which is the one shape this change's
-// `reproducer-safety-in-shell` decision still refuses here rather than
-// leaving to the guard. Any other non-empty value is a command, and this
-// validator refuses an absolute first token here (decision
-// `finding-reproducer-relative`); metacharacters, ".." segments and later
-// tokens stay a guard-side check.
-func validateFindingReproducer(reproducer string) error {
-	if strings.TrimSpace(reproducer) == "" {
-		return fmt.Errorf("-reproducer is required")
-	}
-	if fields := strings.Fields(reproducer); len(fields) > 0 && fields[0] == "none" {
-		if rest, ok := strings.CutPrefix(reproducer, "none — "); !ok || strings.TrimSpace(rest) == "" {
-			return fmt.Errorf("-reproducer %q must be a command, or \"none — <reason>\"", reproducer)
-		}
-	}
-	if fields := strings.Fields(reproducer); strings.HasPrefix(fields[0], "/") {
-		return fmt.Errorf("-reproducer token '%s' is an absolute path — a reproducer names a path relative to the worktree", fields[0])
-	}
-	return nil
-}
-
 // validateFindingRef judges a finding ref -- -ref and, where given, a
 // lineage flag's -- before the store is contacted. F<positive int> is the
 // only shape a panel finding carries; a commit sha or a Jira key belongs
@@ -322,7 +292,6 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
        flow record dispatch retime [-addr url] [-timeout dur] [-C dir]
                              -change name -id row -started-at instant -ended-at instant
                              [-commit sha] -reason text
-       flow record dispatch handback [-addr url] [-timeout dur] -session id -key key [-C dir]
        flow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -1031,8 +1000,6 @@ func runRecordDispatchVerb(ctx context.Context, args []string, getenv func(strin
 		return runRecordDispatchEnd(ctx, args[1:], getenv, stdout, stderr)
 	case "backfill":
 		return runRecordDispatchBackfill(ctx, args[1:], getenv, stdout, stderr)
-	case "handback":
-		return runRecordDispatchHandback(ctx, args[1:], getenv, stderr)
 	case "retime":
 		return runRecordDispatchRetime(ctx, args[1:], getenv, stdout, stderr)
 	default:
@@ -1152,9 +1119,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	) {
 		return 2
 	}
-	if !panelFixKeyOK(*key, stderr) {
-		return 2
-	}
 	if !validAgentIDFlag(*agentID) {
 		fmt.Fprintf(stderr, "flow: -agent-id %q is not a harness id -- omit -agent-id and the daemon stamps the launch (skills/flow/implement.md)\n", *agentID)
 		return 2
@@ -1167,54 +1131,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		fmt.Fprintf(stderr, "flow: -role %q is not one of: %s\n", *role, strings.Join(recordRoles, ", "))
 		return 2
 	}
-	if strings.HasSuffix(*key, "-") {
-		fmt.Fprintf(stderr, "flow: -key %q ends in '-': a suffix that expanded to nothing (skills/flow/verify-and-handoff.md, verify[-<worktree basename>])\n", *key)
-		return 2
-	}
-	// kan-1032's self-review: a loop key begun by hand under the run's change is a twin of the
-	// row the loop hook records under the loop's change.
-	if strings.HasPrefix(*key, "pipeline-fix-") && !strings.HasPrefix(f.change, "pipeline-fix-") {
-		fmt.Fprintf(stderr, "flow: -key %q is a pipeline-fix loop key: hooks/enforce-loop-dispatch.py records it under the loop's change, never under %q (skills/flow-contracts/pipeline.md)\n", *key, f.change)
-		return 2
-	}
-	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); *role == "reviewer" && strings.HasPrefix(*key, "panel-") && !ok {
-		fmt.Fprintf(stderr, "flow: -key %q is not panel-<round>-<slot>: a reviewer's panel key carries its numeric round\n", *key)
-		return 2
-	}
-	// A panel reviewer row with no slot cannot be matched to the panel's
-	// slot coverage (decision panel-reviewer-slot-required).
-	if *role == "reviewer" && strings.HasPrefix(*key, "panel-") && *slot == "" {
-		fmt.Fprintf(stderr, "flow: -key %q is a review-panel reviewer key: pass -slot <slot|slot+slot+slot> (skills/flow/review-panel.md)\n", *key)
-		return 2
-	}
-	// A panel reviewer row's slot is its key's slot part, so the store
-	// credits a joined key to every role it names (decision sr1-slot-matches-key).
-	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && !records.PanelKeyNamesSlot(*key, *slot) {
-		fmt.Fprintf(stderr, "flow: -key %q does not name -slot %q: a panel reviewer key is panel-<round>-<slot>[-<suffix>], its slot part the row's -slot (skills/flow/review-panel.md)\n", *key, *slot)
-		return 2
-	}
-	// A panel round reads the whole diff, so every task closes first
-	// (kan-1007); a back-filled row records a round already run.
-	if _, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && *role == "reviewer" && *startedAt == "" {
-		if p, err := planPath(f.dir, f.change); err == nil {
-			if plan, err := os.ReadFile(p); err == nil {
-				if ids := untickedTasks(plan); len(ids) > 0 {
-					fmt.Fprintf(stderr, "flow: -key %q opens a review-panel round while tasks.md holds unticked task(s) %s — close every task with flow-guard close-task before the panel reads it (skills/flow/verify-fix-loop.md)\n", *key, strings.Join(ids, ","))
-					return 2
-				}
-			}
-		}
-	}
-	// A visual-verify verifier row with no diff base cannot say which HEAD
-	// its screenshots verified (skills/flow/visual-verify.md).
-	if *role == "verifier" && strings.HasPrefix(*key, "visual-verify") && *diffBase == "" {
-		fmt.Fprintf(stderr, "flow: -key %q is a visual-verify verifier row: pass -diff-base <the HEAD it verifies> (skills/flow/visual-verify.md)\n", *key)
-		return 2
-	}
-	if *role == "implementer" && !implementerKey.MatchString(*key) && !fixerKey.MatchString(*key) && !operatorKey.MatchString(*key) && !strings.HasPrefix(*key, "self-review-") && !strings.HasPrefix(*key, "pipeline-fix-") {
-		fmt.Fprintf(stderr, "flow: -key %q is not task-<ids>-implementer[-fix-<k>][-retry], task-<ids>-implementer-recommit-<k>, task-<ids>-implementer-pick-<k>, full-suite-fix-<n>[-retry] or operator-<n>: ids are +-joined\n", *key)
-		return 2
-	}
 	if !slices.Contains(recordEfforts, *effort) {
 		fmt.Fprintf(stderr, "flow: -effort %q is not one of: %s -- an effort the session does not state is recorded as default, never guessed\n", *effort, strings.Join(recordEfforts, ", "))
 		return 2
@@ -1223,231 +1139,11 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
-	// An inline row begins before its work's first edit (implement.md's
-	// Records); a back-filled row (-started-at) records work already done.
-	// A verifier row records a run, not an edit, and run-verify-list already
-	// writes no green sha over a dirty tree (kan-1016's self-review).
-	if *agentID == "inline" && *startedAt == "" && *role != "verifier" {
-		tree := f.dir
-		if main, carrying, err := changeCheckouts(f.dir, f.change); err == nil {
-			top, _ := exec.Command("git", "-C", f.dir, "rev-parse", "--show-toplevel").Output()
-			if slices.Contains(carrying, strings.TrimSpace(string(top))) {
-				carrying = nil // -C names a carrying worktree: read that one
-			}
-			for _, wt := range carrying {
-				if wt != main {
-					tree = wt
-					break
-				}
-			}
-		}
-		if dirty := inlineDirtyPaths(tree, f.change); len(dirty) > 0 {
-			fmt.Fprintf(stderr, "flow: -agent-id inline begins before the work's first edit, and the worktree already carries tracked modifications: %s -- commit the earlier work, or begin the row before editing (skills/flow/implement.md)\n", strings.Join(dirty, ", "))
-			return 2
-		}
-	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
-	}
-
-	// A verify run or a panel slot judges the change against its base, so a
-	// live verifier or panel begin is refused while any of the change's
-	// worktrees records a base origin no longer carries -- resolve-base-branch
-	// exit 1; exit 2 and 3 refuse nothing, and a failed worktree-map read
-	// checks -C alone (kan-1086 self-review, F7: a deleted base went
-	// unnoticed for 3h18m). A back-filled row records a dispatch already run.
-	if _, panel := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); (panel || *role == "verifier") && *startedAt == "" {
-		worktrees, err := changeWorktreeMap(ctx, f.addr, f.timeout, f.dir, f.change)
-		if err != nil {
-			worktrees = []string{f.dir}
-		}
-		for _, wt := range worktrees {
-			var out, why bytes.Buffer
-			if guard.Registry["resolve-base-branch"]([]string{wt}, guard.Env{Getenv: getenv, Dir: wt}, &out, &why) != 1 {
-				continue
-			}
-			branch, _ := exec.Command("git", "-C", wt, "rev-parse", "--abbrev-ref", "HEAD").Output()
-			fmt.Fprintf(stderr, "flow: -key %q refused on %s: %s -- re-point it: git -C %s config branch.%s.flowBase <the branch it landed on>, then rebase onto origin/<that branch>\n",
-				*key, wt, strings.TrimSpace(why.String()), wt, strings.TrimSpace(string(branch)))
-			return 2
-		}
-	}
-
-	// A panel round below one the change's records already carry splits
-	// the run's rounds (decision panel-round-floor). A read that fails in
-	// any way skips the check: an outage never becomes a refusal. A
-	// back-filled row (-started-at set, only backfill sets it) records a
-	// dispatch already run, so an earlier round's row is admitted.
-	if n, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && *startedAt == "" {
-		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-			return cl.GetRunRecord(ctx, projectKey, f.change)
-		})
-		if err == nil {
-			if top := highestRecordedRound(run); n < top {
-				fmt.Fprintf(stderr, "flow: -key %q opens panel round %d, below round %d the change's records already carry — a run's first round is what `flow record next-round` prints (skills/flow/review-panel.md)\n", *key, n, top)
-				return 2
-			}
-		}
-	}
-
-	// A live re-review of round r reads the fix round's commits, so it
-	// begins only once every fix commit names that fix round (decision
-	// rereview-refuses-offround-trailer).
-	if n, ok := records.PanelDispatchRound(records.Dispatch{Key: *key, Role: *role}); ok && *role == "reviewer" && *startedAt == "" && n >= 1 {
-		if msg := reReviewBlocked(ctx, f, projectKey, n); msg != "" {
-			fmt.Fprintf(stderr, "flow: -key %q: %s\n", *key, msg)
-			return 2
-		}
-	}
-
-	// A live panel-fix begin after round r's reviewers began fixes round r,
-	// so its key is panel-fix-<r+1> (panelFixRoundTaken). A back-fill runs
-	// the same check against its end before it calls begin.
-	if *startedAt == "" && !panelFixKeyedARoundLow(ctx, f, projectKey, *role, *key, time.Now(), stderr) {
-		return 2
-	}
-	// A panel-fix, live or back-filled, begins only once its round's
-	// findings were read through one completed findings merger (decision
-	// merger-enforced-at-begin); a failed read refuses nothing.
-	if m := panelFixRoundRE.FindStringSubmatch(*key); m != nil && panelFixKeyRE.MatchString(*key) {
-		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-			return cl.GetRunRecord(ctx, projectKey, f.change)
-		})
-		if r, _ := strconv.Atoi(m[1]); err == nil && mergerMissing(run, r-1) {
-			fmt.Fprintf(stderr, "flow: -key %q: %s\n", *key, mergerMissingMsg(r-1))
-			return 2
-		}
-	}
-	// A findings merger folds its round's reviewer reports, so a live
-	// panel-<r>-merger begins only once every reviewer row of round <r> has
-	// an end recorded (decision f12-merger-after-open-reviewers, kan-1102
-	// self-review F12). A back-fill and a failed read refuse nothing.
-	if m := mergerKeyRE.FindStringSubmatch(*key); m != nil && *role == "merger" && *startedAt == "" {
-		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-			return cl.GetRunRecord(ctx, projectKey, f.change)
-		})
-		if err != nil {
-			run = records.Run{}
-		}
-		r, _ := strconv.Atoi(m[1])
-		for _, d := range run.Dispatches {
-			if n, ok := records.PanelDispatchRound(d); ok && n == r && d.EndedAt == nil {
-				fmt.Fprintf(stderr, "flow: -key %q: reviewer row %s of round %d has no end recorded -- the findings merger folds a round's reports only once every reviewer of the round has ended (skills/flow/review-panel.md, The findings merger)\n", *key, d.Key, r)
-				return 2
-			}
-		}
-		// A section a round-<r> report leaves unread is read in the same
-		// round, before the merger (kan-1087 self-review, F21).
-		var slots []string
-		for _, d := range run.Dispatches {
-			if n, ok := records.PanelDispatchRound(d); ok && n == r && d.Role == "reviewer" && d.Slot != "" {
-				slots = append(slots, d.Slot)
-			}
-		}
-		if labels := guard.PanelUnreadUncovered(carryingWorktree(f.dir, f.change), r, slots); len(labels) > 0 {
-			var keys []string
-			for _, l := range labels {
-				name, _, _ := strings.Cut(l, " ")
-				id := strings.TrimSuffix(strings.TrimPrefix(name, fmt.Sprintf("panel-report-%d-", r)), ".md")
-				if k := fmt.Sprintf("panel-%d-%s-unread", r, id); !slices.Contains(keys, k) {
-					keys = append(keys, k)
-				}
-			}
-			fmt.Fprintf(stderr, "flow: -key %q: round %d leaves %s unread -- dispatch %s reading each section before the merger (skills/flow/review-panel.md, The findings merger)\n", *key, r, strings.Join(labels, ", "), strings.Join(keys, ", "))
-			return 2
-		}
-	}
-	// A panel-fix fixes review round <r>-1 (skills/flow/review-panel-fix-round.md),
-	// so it begins only once that round holds a Critical or Important row —
-	// save the parent's inline fix of a Minor-only round at its close —
-	// and never under a key another session of the change already used
-	// (decision panel-fix-begin-needs-findings). As above, a failed read
-	// skips both checks and a back-filled row is admitted.
-	if m := panelFixRoundRE.FindStringSubmatch(*key); m != nil && panelFixKeyRE.MatchString(*key) && *startedAt == "" {
-		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-			return cl.GetRunRecord(ctx, projectKey, f.change)
-		})
-		r, _ := strconv.Atoi(m[1])
-		if err == nil {
-			if msg := panelFixBeginRefusal(run, *key, m[1], *sessionToken, *agentID == "inline" && minorOnlyRound(run, r-1)); msg != "" {
-				fmt.Fprintf(stderr, "flow: -key %q %s\n", *key, msg)
-				return 2
-			}
-		}
-	}
-
-	// A task already holding a completed implementer row is not begun again
-	// inline (kan-1044 self-review, F1-b); a back-fill carries its own
-	// commit check, and a failed read refuses nothing.
-	if task := taskWorkKey(*key); task != "" && *agentID == "inline" && *startedAt == "" {
-		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-			return cl.GetRunRecord(ctx, projectKey, f.change)
-		})
-		if err == nil {
-			for _, d := range run.Dispatches {
-				if d.Outcome == "completed" && taskWorkKey(d.Key) == task {
-					fmt.Fprintf(stderr, "flow: -key %q begins task %s again, but completed row %q already records it -- a task's work is recorded once (skills/flow/implement.md)\n", *key, task, d.Key)
-					return 2
-				}
-			}
-		}
-	}
-
-	// A visual verifier is a mutator: it builds the stack from the tree and
-	// writes <changeRoot>/visual-verification/, so it never runs beside an
-	// open implementer, panel-fix or red-partner row of the change, nor one
-	// of those beside an open visual verifier (decision sr5-change-wide). A
-	// read that fails skips the check.
-	if isVisual, isMutator := *role == "verifier" && strings.HasPrefix(*key, "visual-verify"), slices.Contains(visualMutatorRoles, *role); (isVisual || isMutator) && *startedAt == "" {
-		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-			return cl.GetRunRecord(ctx, projectKey, f.change)
-		})
-		if err == nil {
-			for _, d := range run.Dispatches {
-				if d.EndedAt != nil {
-					continue
-				}
-				openVisual := d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify")
-				if (isVisual && slices.Contains(visualMutatorRoles, d.Role)) || (isMutator && openVisual) {
-					fmt.Fprintf(stderr, "flow: -key %q cannot begin while %q (role %s) of the change is open: a visual verifier and an implementer, panel-fix or red-partner never run together (skills/flow/implement.md)\n", *key, d.Key, d.Role)
-					return 2
-				}
-			}
-		}
-	}
-
-	// After an In-run fix <k> is ticked, and until a -fix-<k>-full row, or a
-	// -fix-<k> one carrying closesLoop or a round base, completed, a visual re-run is scoped to that fix (decision
-	// sr17-tasks-md-read, skills/flow/verify-fix-loop.md). A plan or record
-	// read that fails skips the check.
-	if *role == "verifier" && strings.HasPrefix(*key, "visual-verify") && *startedAt == "" {
-		if p, err := planPath(f.dir, f.change); err == nil {
-			if plan, err := os.ReadFile(p); err == nil {
-				if fixes := tickedInRunFixes(plan); len(fixes) > 0 {
-					run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-						return cl.GetRunRecord(ctx, projectKey, f.change)
-					})
-					if err == nil {
-						if why := inRunFixRefusal(fixes, run, *key, *roundBase); why != "" {
-							fmt.Fprintf(stderr, "flow: -key %q %s (skills/flow/verify-fix-loop.md)\n", *key, why)
-							return 2
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if *startedAt == "" {
-		if strings.Contains(*key, "-implementer-fix-") {
-			if n := strings.Count(implementerTask(*key), "+") + 1; n > 3 {
-				fmt.Fprintf(stderr, "flow: -key %s fixes %d tasks — a stage-end fixer takes at most three, one repository's tasks up to weight 3 (skills/flow/gated-review-fix.md)\n", *key, n)
-				return 2
-			}
-		}
 	}
 
 	// StartedAt is sent as nothing at all: the daemon stamps it at the
@@ -1492,16 +1188,10 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		// allocated -- which is exactly why `end` closes the row by -key
 		// and not by seq.
 		fmt.Fprintf(stdout, "recorded: dispatch %d\n", out.Seq)
-		// A re-begin of an aborted row keeps its id, so the earlier
-		// attempt's hand-back marker would vouch for this one: drop it.
-		if name := planSnapshotName(*key); name != "" {
-			_ = os.Remove(handbackMarker(filepath.Join(planWorktree(f.dir, f.change), ".superpowers", "sdd", name), out.ID))
-		}
 	}
 	code := classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr, getenv)
 	// A panel slot's begin writes that slot's `dispatched:` pass row from
-	// its own flags, so no round begun -- by panel-round-begins or by hand
-	// -- lacks one, and the line cannot contradict its row (kan-1086
+	// its own flags, so no round begun lacks one, and the line cannot contradict its row (kan-1086
 	// self-review, F8: hand-begun rounds had none, and the back-filled
 	// notes named a pair the ledger contradicts).
 	if n, ok := records.PanelDispatchRound(in); ok && code == 0 {
@@ -1551,158 +1241,14 @@ func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
 	}
 }
 
-// planSnapshotName is the plan-tree snapshot file a row's end verifies
-// against (decision plan-check-rides-row): plan-snapshot-<key>.txt for a
-// gated reviewer key, the round's plan-snapshot-panel-<r>.txt for a panel
-// merger key -- the file flow-guard panel-round-begins wrote -- and "" for
-// every other key, whose end verifies nothing.
-func planSnapshotName(key string) string {
-	if m := launchTaskKey.FindStringSubmatch(key); m != nil && m[2] == "reviewer" {
-		return "plan-snapshot-" + key + ".txt"
-	}
-	if m := mergerKeyRE.FindStringSubmatch(key); m != nil {
-		return "plan-snapshot-panel-" + m[1] + ".txt"
-	}
-	return ""
-}
-
-// planWorktree is the worktree a change's plan tree is checked in:
-// <main>-worktrees/<change> when it exists, else carryingWorktree.
-func planWorktree(dir, change string) string {
-	wt := carryingWorktree(dir, change)
-	if main, _, err := changeCheckouts(dir, change); err == nil {
-		cand := main + "-worktrees/" + change
-		if fi, err := os.Stat(cand); err == nil && fi.IsDir() {
-			wt = cand
-		}
-	}
-	return wt
-}
-
-// handbackMarker is the file `flow record dispatch handback` writes beside
-// snap for open row id: "pass", or "fail <exit>" (decision
-// gated-bracket-handback). The row id keeps a marker of an earlier row
-// under the same key from vouching for this one; a begin removes its own
-// row's marker, since a re-begun aborted row keeps its id.
-func handbackMarker(snap string, id int64) string {
-	return fmt.Sprintf("%s.handback-%d", snap, id)
-}
-
-// verifyPlanTreeForEnd runs `flow-guard check-plan-unchanged verify`
-// in-process for a gated reviewer or panel merger row's end, against the
-// snapshot planSnapshotName names under planWorktree, and returns the
-// guard's exit code: 0 lets the end proceed, 1 (the tree changed) or 2 (a
-// missing or unreadable snapshot among others) refuses it. -outcome
-// aborted, a row whose dispatch never ran, skips the verify.
-//
-// rowID is the open row this end closes, 0 where none is known. A
-// hand-back marker for that row decides instead of the live tree (decision
-// gated-bracket-handback): the hook checked the plan the moment the
-// reviewer handed back, so the parent's later plan edits never block the
-// end -- "pass" lets it proceed, "fail" refuses it.
-func verifyPlanTreeForEnd(f recordIdentityFlags, key, outcome string, rowID int64, getenv func(string) string, stderr io.Writer) int {
-	name := planSnapshotName(key)
-	if name == "" || outcome == "aborted" {
-		return 0
-	}
-	wt := planWorktree(f.dir, f.change)
-	snap := filepath.Join(wt, ".superpowers", "sdd", name)
-	refused := "flow: -key %q: the plan tree check refused this end (%s) -- skills/flow/implement.md, The plan tree survives every reviewer dispatch%s\n"
-	if rowID > 0 {
-		if b, err := os.ReadFile(handbackMarker(snap, rowID)); err == nil {
-			if strings.TrimSpace(string(b)) == "pass" {
-				return 0
-			}
-			fmt.Fprintf(stderr, refused, key, snap, ", at the reviewer's hand-back")
-			return 1
-		}
-	}
-	code := guard.Registry["check-plan-unchanged"]([]string{"verify", wt, f.change, snap}, guard.Env{Getenv: getenv, Dir: wt}, stderr, stderr)
-	if code != 0 {
-		fmt.Fprintf(stderr, refused, key, snap, " -- end the row before editing the plan")
-	}
-	return code
-}
-
-// openRowID is the id of the open row key holds under sessionToken in the
-// change's run record, 0 when there is none, the key verifies no plan, or
-// the record cannot be read.
-func openRowID(ctx context.Context, f recordIdentityFlags, key, sessionToken string) int64 {
-	if planSnapshotName(key) == "" {
-		return 0
-	}
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		return 0
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	if err != nil {
-		return 0
-	}
-	for _, d := range run.Dispatches {
-		if d.Key == key && d.SessionToken == sessionToken && d.EndedAt == nil {
-			return d.ID
-		}
-	}
-	return 0
-}
-
-// runRecordDispatchHandback implements `flow record dispatch handback`,
-// which hooks/await-own-agents.py runs the moment a subagent hands back
-// (decision gated-bracket-handback): for a key whose end verifies the plan
-// tree, it checks the tree now and writes the result as handbackMarker for
-// the session's open row, so that end judges the reviewer's own edits
-// rather than the parent's later ones. It never fails the hook: every path
-// exits 0, an unreachable daemon or a missing row with one stderr line.
-func runRecordDispatchHandback(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
-	fset := flag.NewFlagSet("flow record dispatch handback", flag.ContinueOnError)
-	fset.SetOutput(stderr)
-	var f recordIdentityFlags
-	registerRecordConnFlags(fset, &f, getenv)
-	session := fset.String("session", "", "the harness session id the dispatch ran in (required)")
-	key := fset.String("key", "", "the dispatch key that handed back (required)")
-	if err := fset.Parse(args); err != nil {
-		return 0
-	}
-	if err := finishRecordConnFlags(fset, &f); err != nil || *session == "" || *key == "" {
-		fmt.Fprintln(stderr, "flow: record dispatch handback: -session and -key are required")
-		return 0
-	}
-	name := planSnapshotName(*key)
-	if name == "" {
-		return 0
-	}
-	type openRow struct {
-		row   records.OpenDispatch
-		found bool
-	}
-	r, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (openRow, error) {
-		row, found, err := cl.OpenDispatch(ctx, *session, *key)
-		return openRow{row, found}, err
-	})
-	if err != nil || !r.found {
-		fmt.Fprintf(stderr, "flow: record dispatch handback: no open row for session %s key %s (%v) -- the end checks the live plan tree\n", *session, *key, err)
-		return 0
-	}
-	wt := planWorktree(f.dir, r.row.Change)
-	snap := filepath.Join(wt, ".superpowers", "sdd", name)
-	result := "pass"
-	if code := guard.Registry["check-plan-unchanged"]([]string{"verify", wt, r.row.Change, snap}, guard.Env{Getenv: getenv, Dir: wt}, stderr, stderr); code != 0 {
-		result = fmt.Sprintf("fail %d", code)
-	}
-	if err := os.WriteFile(handbackMarker(snap, r.row.ID), []byte(result+"\n"), 0o644); err != nil {
-		fmt.Fprintf(stderr, "flow: record dispatch handback: %v\n", err)
-	}
-	return 0
-}
-
 // launchRoleID is the policy role a dispatch's -role and -key derive, or ""
-// where they derive none -- a self-review or pipeline-fix key among them.
+// where they derive none -- a self-review or pipeline-fix key among them. A
+// task's gated-review fixer and its re-commit run on the panel-fix pair.
 func launchRoleID(role, key string) string {
 	if m := launchTaskKey.FindStringSubmatch(key); m != nil {
 		switch {
+		case m[2] == "implementer" && (strings.HasPrefix(m[3], "-fix-") || strings.HasPrefix(m[3], "-recommit-")):
+			return "panel-fix"
 		case m[2] == "implementer":
 			return "implementer"
 		case strings.HasPrefix(m[3], "-fix-"):
@@ -1769,18 +1315,7 @@ func highestRecordedRound(run records.Run) int {
 	return top
 }
 
-// implementerKey is an implementer dispatch key: task-<ids>-implementer[-fix-<k>][-retry],
-// ids +-joined (skills/flow/implement.md's dispatch table).
-// operatorKey is a /flow-interactive request's operator-asked subagent (skills/flow-interactive/SKILL.md, Operator-asked subagents).
-var operatorKey = regexp.MustCompile(`^operator-[0-9]+$`)
-
 var implementerKey = regexp.MustCompile(`^task-[0-9]+(\+[0-9]+)*-implementer(-fix-[0-9]+)?(-retry)?$`)
-
-// fixerKey is an sdd fixer's implementer key that is not a task's own work:
-// a re-commit, a wave pick and a full-suite fix (skills/flow/implement.md,
-// Every fix is a fresh one-shot). It widens the -role implementer shape
-// check only; implementerTask still reads implementerKey alone.
-var fixerKey = regexp.MustCompile(`^(task-[0-9]+(\+[0-9]+)*-implementer-(recommit|pick)-[0-9]+|full-suite-fix-[0-9]+(-retry)?)$`)
 
 // implementerTask returns the "task-<ids>" part of a task implementer key,
 // "" for any other key.
@@ -1905,9 +1440,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	if *agentID == "none" {
 		*agentID = ""
 	}
-	if code := verifyPlanTreeForEnd(f, *key, *outcome, openRowID(ctx, f, *key, *sessionToken), getenv, stderr); code != 0 {
-		return code
-	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
@@ -1930,9 +1462,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 		if ok {
 			commitAt = &t
 		}
-	}
-	if commitAt != nil && !panelFixAfterReports(ctx, f, projectKey, *key, *commitAt, stderr) {
-		return 2
 	}
 	// A live inline task implementer end derives its start as the back-fill
 	// does, so a row begun at its commit records the work before it; the
@@ -2122,15 +1651,9 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 			fmt.Fprintln(stderr, "flow: an inline back-fill with -commit takes neither -started-at nor -ended-at -- both derive from the commit")
 			return 2
 		}
-		if !panelFixRoundClosed(ctx, f, projectKey, *v["role"], *v["key"], stderr) {
-			return 2
-		}
 		startT, endT, ok := inlineDerivedWindow(ctx, f, projectKey, *v["role"], *v["key"], *v["commit"])
 		if !ok {
 			fmt.Fprintf(stderr, "flow: cannot derive the instants of commit %s (or the commit before it) from any of the change's worktrees\n", *v["commit"])
-			return 2
-		}
-		if !panelFixAfterReports(ctx, f, projectKey, *v["key"], endT, stderr) {
 			return 2
 		}
 		*v["started-at"] = startT.UTC().Format(time.RFC3339)
@@ -2154,9 +1677,6 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 	}
 	if started.After(ended) {
 		fmt.Fprintf(stderr, "flow: -started-at %s is later than -ended-at %s\n", *v["started-at"], *v["ended-at"])
-		return 2
-	}
-	if !commitPushed(ctx, f, projectKey, *v["commit"]) && !panelFixKeyedARoundLow(ctx, f, projectKey, *v["role"], *v["key"], ended, stderr) {
 		return 2
 	}
 	if _, ok := checkDispatchEndFields(*v["outcome"], *v["cause"], *v["tokens"], stderr, getenv); !ok {
@@ -2192,13 +1712,6 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 				}
 			}
 		}
-	}
-	// The end's plan-tree verify runs before the begin, so a refused
-	// reviewer or merger back-fill leaves no open row.
-	// A back-fill opens its row after this check, so no hand-back marker
-	// can name it: the live tree decides (rowID 0).
-	if code := verifyPlanTreeForEnd(f, *v["key"], *v["outcome"], 0, getenv, stderr); code != 0 {
-		return code
 	}
 	var begin, end []string
 	fset.Visit(func(fl *flag.Flag) {
@@ -2562,7 +2075,7 @@ func runRecordFinding(ctx context.Context, args []string, getenv func(string) st
 	location := fset.String("location", "", "where the finding is, e.g. path:line")
 	status := fset.String("status", "", "one of: open, fixed, withdrawn <reason> (required)")
 	category := fset.String("category", "", "the deferral category, deferred statuses only")
-	reproducer := fset.String("reproducer", "", "the command that reproduces it, or \"none — <reason>\" (required)")
+	reproducer := fset.String("reproducer", "", "how to see the defect -- a command where one exists (optional)")
 	note := fset.String("note", "", "the finding itself, in the slot's own words (required)")
 	// A dispatch's seq starts at 1, so 0 is an unambiguous "not given":
 	// a finding no single dispatch raised leaves dispatch_id NULL, which
@@ -2623,10 +2136,6 @@ func runRecordFinding(ctx context.Context, args []string, getenv func(string) st
 		return 2
 	}
 	if err := validateFindingDeferralSeverity(*severity, *status); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		return 2
-	}
-	if err := validateFindingReproducer(*reproducer); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
@@ -4327,28 +3836,6 @@ func requireChangeCheckout(ctx context.Context, addr string, timeout time.Durati
 	return false
 }
 
-// carryingWorktree is the first linked worktree on spectre/<change> that is
-// not the main checkout, else dir.
-func carryingWorktree(dir, change string) string {
-	out, err := exec.Command("git", "-C", dir, "worktree", "list", "--porcelain").Output()
-	if err != nil {
-		return dir
-	}
-	main, wt := "", ""
-	for line := range strings.Lines(string(out)) {
-		line = strings.TrimRight(line, "\n")
-		if next, ok := strings.CutPrefix(line, "worktree "); ok {
-			wt = next
-			if main == "" {
-				main = wt
-			}
-		} else if line == "branch refs/heads/spectre/"+change && wt != main {
-			return wt
-		}
-	}
-	return dir
-}
-
 // changeCheckouts scans dir's repository's worktrees: main is the first
 // `worktree` entry of `git worktree list --porcelain`, carrying every entry
 // holding change under spectre/changes/ or .superpowers/sdd/ or checked out on branch refs/heads/spectre/<change>, in
@@ -4381,37 +3868,6 @@ func changeCheckouts(dir, change string) (main string, carrying []string, err er
 		}
 	}
 	return main, carrying, nil
-}
-
-// inlineDirtyPaths is every tracked path of dir's worktree modified, staged
-// or not, save the change's own tasks.md -- flow-guard close-task's ticks stay
-// uncommitted between tasks. An inline row begun over any other records work
-// already under way (kan-920 self-review: task 5's row began after its
-// design.md edit and recorded 7 seconds). Its caller passes the change's
-// worktree, not its cwd (kan-922's self-review: a /flow parent's cwd is the
-// main checkout, where another session's edits are not the change's). A git call that fails answers
-// nothing, and the begin is not refused on it.
-func inlineDirtyPaths(dir, change string) []string {
-	out, err := exec.Command("git", "-C", dir, "status", "--porcelain=v1", "-z", "--untracked-files=no").Output()
-	if err != nil {
-		return nil
-	}
-	own := "spectre/changes/" + change + "/tasks.md"
-	var dirty []string
-	entries := strings.Split(string(out), "\x00")
-	for i := 0; i < len(entries); i++ {
-		e := entries[i]
-		if len(e) < 4 {
-			continue
-		}
-		if e[0] == 'R' || e[0] == 'C' {
-			i++ // the rename's or copy's source path is the next entry
-		}
-		if p := e[3:]; p != own {
-			dirty = append(dirty, p)
-		}
-	}
-	return dirty
 }
 
 // commitTime is sha's committer time in the first of roots that knows it.
@@ -4489,205 +3945,6 @@ func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role,
 		}
 	}
 	return floor, !floor.IsZero()
-}
-
-// panelFixKeyedARoundLow refuses, reporting false, a panel-fix-<r>[-<n>]
-// key once a reviewer row of round r began before `before` -- the fix's
-// end, or now on a live begin: that fix answers round r's findings, so its
-// round is r+1 (skills/flow/review-panel-fix-round.md; kan-1041
-// self-review: panel-fix-5 and panel-fix-7 fixed rounds 5 and 7). Any other
-// role or key, and a failed record read, pass.
-func panelFixKeyedARoundLow(ctx context.Context, f recordIdentityFlags, projectKey, role, key string, before time.Time, stderr io.Writer) bool {
-	rest, ok := strings.CutPrefix(key, "panel-fix-")
-	if role != "panel-fix" || !ok {
-		return true
-	}
-	digits, _, _ := strings.Cut(rest, "-")
-	r, err := strconv.Atoi(digits)
-	if err != nil || r < 1 {
-		return true
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	if err != nil {
-		return true
-	}
-	for _, d := range run.Dispatches {
-		if n, ok := records.PanelDispatchRound(d); ok && n == r && d.StartedAt.Before(before) {
-			fmt.Fprintf(stderr, "flow: -key %q: panel round %d's reviewers began before this fix ended, so it fixes round %d's findings and is panel-fix-%d (skills/flow/review-panel-fix-round.md)\n", key, r, r, r+1)
-			return false
-		}
-	}
-	return true
-}
-
-// reReviewBlocked names why a live reviewer begin of panel round r (r >= 1)
-// is refused, "" when it is not: a commit authored since round r-1's
-// reviewers began carries a Flow-Key: panel-fix-<k> trailer with k != r --
-// amendable while it is still the newest (kan-1059 self-review, 1a). Author
-// time, not committer time: a fixup fold rewrites the committer dates of
-// every later commit. Or round r-1 holds a fixed Critical or Important
-// finding and the run holds no fix-mutation row at the fix round (round r,
-// as reviewedRoundUnproved requires): the proof is recorded before the
-// re-review, not found as a late row after it
-// (kan-1059 self-review, 1b; uwUnprovedFixRounds's predicate). Or round r-1
-// holds a Critical or Important finding still open once panel-fix-<r>
-// completed: the verification walk's `status fixed` rows come before the
-// re-review, or the mutation gate above never sees the round it guards
-// (kan-1120 self-review, F2). A failed record or git read refuses nothing.
-func reReviewBlocked(ctx context.Context, f recordIdentityFlags, projectKey string, r int) string {
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	if err != nil {
-		return ""
-	}
-	if mergerMissing(run, r-1) {
-		return mergerMissingMsg(r - 1)
-	}
-	if refs := reviewedRoundOpen(run, r); refs != "" {
-		return fmt.Sprintf("round %d's %s still open after a completed panel-fix-%d -- record `flow record status -ref F<n> -status fixed` for every finding the verification walk verified, or take another fix round, before the re-review (skills/flow/review-panel-fix-round.md)", r-1, refs, r)
-	}
-	if reviewedRoundUnproved(run, r-1) {
-		return fmt.Sprintf("round %d holds a fixed Critical or Important finding and no fix-mutation row -- record one `flow record mutation -round %d` per fix-mutation line, or one `-mutated none -test <reason>` row, before the re-review (skills/flow/review-panel-fix-round.md)", r-1, r)
-	}
-	var since time.Time
-	for _, d := range run.Dispatches {
-		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && (since.IsZero() || d.StartedAt.Before(since)) {
-			since = d.StartedAt
-		}
-	}
-	if since.IsZero() {
-		return ""
-	}
-	want := "panel-fix-" + strconv.Itoa(r)
-	for _, root := range mutationRoots(ctx, f, projectKey) {
-		out, err := exec.Command("git", "-C", root, "log", "--since="+since.Format(time.RFC3339),
-			"--format=%H %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", "HEAD", "--not", "--remotes").Output()
-		if err != nil {
-			continue
-		}
-		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) < 3 {
-				continue
-			}
-			at, err := strconv.ParseInt(fields[1], 10, 64)
-			if err != nil || time.Unix(at, 0).Before(since) {
-				continue
-			}
-			for _, trailer := range fields[2:] {
-				if m := panelFixRoundRE.FindStringSubmatch(trailer); panelFixKeyRE.MatchString(trailer) && "panel-fix-"+m[1] != want {
-					return fmt.Sprintf("commit %s in %s carries Flow-Key: %s, but the fix round this re-review reads is %s -- amend the trailer to Flow-Key: %s before the re-review (skills/flow/review-panel-fix-round.md)", fields[0], root, trailer, want, want)
-				}
-			}
-		}
-	}
-	return ""
-}
-
-// reviewedRoundOpen lists, comma-joined, round r-1's Critical and Important
-// findings still open once a panel-fix-<r> dispatch completed — "" when
-// none is, or no such fix completed.
-func reviewedRoundOpen(run records.Run, r int) string {
-	key := "panel-fix-" + strconv.Itoa(r)
-	if !slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
-		return d.Role == "panel-fix" && (d.Key == key || strings.HasPrefix(d.Key, key+"-")) && d.EndedAt != nil && d.Outcome == "completed"
-	}) {
-		return ""
-	}
-	var refs []string
-	for _, fd := range run.Findings {
-		if sev := strings.ToLower(fd.Severity); fd.Round == r-1 && fd.Status == "open" && (sev == "critical" || sev == "important") {
-			refs = append(refs, fd.Ref)
-		}
-	}
-	return strings.Join(refs, ", ")
-}
-
-// reviewedRoundUnproved reports whether round holds a fixed Critical or
-// Important finding while run holds no mutation row at round+1, the fix round that proves it.
-func reviewedRoundUnproved(run records.Run, round int) bool {
-	for _, m := range run.Mutations {
-		if m.Round == round+1 {
-			return false
-		}
-	}
-	for _, fd := range run.Findings {
-		if sev := strings.ToLower(fd.Severity); fd.Round == round && fd.Status == "fixed" && (sev == "critical" || sev == "important") {
-			return true
-		}
-	}
-	return false
-}
-
-// panelFixAfterReports refuses, reporting false, a panel-fix-<r>[-<chunk>]
-// row whose commit precedes the end of a reviewer row of round r-1: the fix
-// cannot begin before the reports it fixes (kan-1117 self-review, F3:
-// 5bc6e17c was committed at 23:02:19, before panel-0-mutation ended at
-// 23:04:59). The latest such end is named. Any other key, and a failed
-// record read, pass.
-func panelFixAfterReports(ctx context.Context, f recordIdentityFlags, projectKey, key string, commitAt time.Time, stderr io.Writer) bool {
-	rest, ok := strings.CutPrefix(key, "panel-fix-")
-	if !ok {
-		return true
-	}
-	digits, _, _ := strings.Cut(rest, "-")
-	r, err := strconv.Atoi(digits)
-	if err != nil || r < 1 {
-		return true
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	if err != nil {
-		return true
-	}
-	var late *records.Dispatch
-	for i, d := range run.Dispatches {
-		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && d.Role == "reviewer" && d.EndedAt != nil &&
-			!strings.HasSuffix(d.Key, "-unread") && d.EndedAt.After(commitAt) && (late == nil || d.EndedAt.After(*late.EndedAt)) {
-			late = &run.Dispatches[i]
-		}
-	}
-	if late == nil {
-		return true
-	}
-	fmt.Fprintf(stderr, "flow: -key %q: its commit (%s) precedes %s's end (%s) -- the fix cannot begin before the reports it fixes (skills/flow/review-panel-fix-round.md)\n",
-		key, commitAt.UTC().Format(time.RFC3339), late.Key, late.EndedAt.UTC().Format(time.RFC3339))
-	return false
-}
-
-// panelFixRoundClosed refuses, reporting false, an inline back-fill of a
-// panel-fix-<r>[-<chunk>] key while a reviewer row of round r-1 has no end:
-// the fix cannot begin before the reports it fixes, and an open row has no
-// report to floor at yet (kan-1046 self-review, 1c: panel-fix-4 began
-// before panel-3's reviewers did). Any other role or key, a
-// full-suite-fix-<n> key, and a failed record read pass.
-func panelFixRoundClosed(ctx context.Context, f recordIdentityFlags, projectKey, role, key string, stderr io.Writer) bool {
-	rest, ok := strings.CutPrefix(key, "panel-fix-")
-	if role != "panel-fix" || !ok {
-		return true
-	}
-	digits, _, _ := strings.Cut(rest, "-")
-	r, err := strconv.Atoi(digits)
-	if err != nil || r < 1 {
-		return true
-	}
-	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
-		return cl.GetRunRecord(ctx, projectKey, f.change)
-	})
-	if err != nil {
-		return true
-	}
-	for _, d := range run.Dispatches {
-		if n, ok := records.PanelDispatchRound(d); ok && n == r-1 && d.EndedAt == nil {
-			fmt.Fprintf(stderr, "flow: -key %q: close panel round %d's reviewer rows first -- the fix cannot begin before the reports it fixes\n", key, r-1)
-			return false
-		}
-	}
-	return true
 }
 
 // inlineFloor is the latest end, not after endT, among the change's other
@@ -4778,22 +4035,6 @@ func mutationRoots(ctx context.Context, f recordIdentityFlags, projectKey string
 	return append(roots, peers...)
 }
 
-// commitPushed reports whether sha is reachable from a remote ref in any of
-// the change's worktrees: a pushed commit keeps the Flow-Key trailer it
-// carries, so a back-fill under that key cannot be asked to rename it.
-func commitPushed(ctx context.Context, f recordIdentityFlags, projectKey, sha string) bool {
-	if len(sha) != 40 {
-		return false
-	}
-	for _, root := range mutationRoots(ctx, f, projectKey) {
-		out, err := exec.Command("git", "-C", root, "branch", "-r", "--contains", sha).Output()
-		if err == nil && strings.TrimSpace(string(out)) != "" {
-			return true
-		}
-	}
-	return false
-}
-
 // mutationPathExists reports whether path, absolute as given or relative
 // joined to one of roots, is a regular file — or, relative, a path some
 // root's git history knows (`git log -1 -- path`), so a fix that deleted
@@ -4821,182 +4062,10 @@ func mutationPathExists(path string, roots []string) bool {
 	return false
 }
 
-// inRunFixTitle is a ticked In-run fix task line; group 1 is its fix number.
-var inRunFixTitle = regexp.MustCompile(`^- \[x\] [0-9]+\. In-run fix ([0-9]+) — `)
-
-// tickedInRunFixes returns the fix numbers of every ticked In-run fix task
-// in plan, outside fences.
-func tickedInRunFixes(plan []byte) []string {
-	var ks []string
-	inFence := false
-	for _, line := range bytes.Split(plan, []byte("\n")) {
-		if fencePattern.Match(line) {
-			inFence = !inFence
-			continue
-		}
-		if m := inRunFixTitle.FindSubmatch(line); !inFence && m != nil {
-			ks = append(ks, string(m[1]))
-		}
-	}
-	return ks
-}
-
-// inRunFixRefusal names why a visual-verify key may not begin after the
-// ticked in-run fixes ks, or returns "". A -fix-<k>-full key begun with a
-// round base is refused, since the full run is unscoped. A completed
-// -fix-<j>-full verifier row closes every fix up to j, and so does a
-// completed -fix-<j> verifier row carrying closesLoop -- a scoped round
-// flow-guard visual-verify-pass close found closed the loop (KAN-1122) -- or
-// carrying a round base, a scoped re-run, which closes the loop on its own; only
-// the highest unclosed k is checked, since a scoped re-run that finds a
-// defect opens the next fix without closing its own.
-func inRunFixRefusal(ks []string, run records.Run, key, roundBase string) string {
-	if roundBase != "" && fullRunKey.MatchString(key) {
-		return "is a -full run, which is unscoped: begin it with no -round-base"
-	}
-	completed := func(d records.Dispatch) bool {
-		return d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify") && d.Outcome == "completed"
-	}
-	maxFull := -1
-	for _, d := range run.Dispatches {
-		m := fullRunKey.FindStringSubmatch(d.Key)
-		if m == nil && (d.ClosesLoop || d.RoundBase != "") {
-			m = fixRoundKey.FindStringSubmatch(d.Key)
-		}
-		if completed(d) && m != nil {
-			if j, _ := strconv.Atoi(m[1]); j > maxFull {
-				maxFull = j
-			}
-		}
-	}
-	k, top := "", -1
-	for _, c := range ks {
-		if n, _ := strconv.Atoi(c); n > maxFull && n > top {
-			k, top = c, n
-		}
-	}
-	if top < 0 {
-		return ""
-	}
-	// A later round's -fix-<n> is admitted too: the loop's closing panel fix
-	// is re-verified as one more round, with no In-run fix task of its own
-	// (skills/flow/verify-fix-loop.md step 3).
-	loc := fixRoundKey.FindStringSubmatchIndex(key)
-	if loc != nil {
-		if n, _ := strconv.Atoi(key[loc[2]:loc[3]]); n < top {
-			loc = nil
-		}
-	}
-	if loc == nil {
-		return "is not scoped to In-run fix " + k + ": key it as visual-verify-fix-" + k + "-<repo> with -round-base <the fix round's base sha>, or a later round's -fix-<n>, until a scoped -fix-" + k + " run has completed (a -full run only on the operator's request)"
-	}
-	if fullRunKey.MatchString(key) || roundBase != "" {
-		return ""
-	}
-	suffix := key[loc[1]:]
-	if suffix != "" {
-		suffix = "-" + strings.TrimPrefix(suffix, "-")
-	}
-	for _, d := range run.Dispatches {
-		if completed(d) && strings.HasSuffix(d.Key, suffix) {
-			return "is a scoped re-run of In-run fix " + k + " with no -round-base while " + strconv.Quote(d.Key) + " completed in its repository: pass -round-base <the fix round's base sha>"
-		}
-	}
-	return ""
-}
-
-// fullRunKey matches a visual-verify -fix-<j>-full key, capturing j.
-var fullRunKey = regexp.MustCompile(`-fix-([0-9]+)-full(-|$)`)
-
-// fixRoundKey matches a visual-verify key's -fix-<n> round, capturing n.
-var fixRoundKey = regexp.MustCompile(`-fix-([0-9]+)(-|$)`)
-
 // panelFixKeyRE is a well-formed panel-fix key: the round counts fix rounds
 // from 1, so the fix after panel-0 is panel-fix-1 (kan-1040's self-review);
 // internal/guard's pfdKeyRE is the same expression.
 var panelFixKeyRE = regexp.MustCompile(`^panel-fix-[1-9][0-9]*(-[0-9]+)?(-retry)?$`)
-
-// panelFixRoundRE captures a panel-fix key's round.
-var panelFixRoundRE = regexp.MustCompile(`^panel-fix-([0-9]+)`)
-
-// mergerKeyRE is a findings merger's key, panel-<r>-merger[-<suffix>].
-var mergerKeyRE = regexp.MustCompile(`^panel-(\d+)-merger(-.+)?$`)
-
-// mergerMissing reports whether round holds a reviewer row and run holds no
-// panel-<round>-merger dispatch of role merger that ended completed (decisions
-// merger-enforced-at-begin, merger-gate-needs-a-reviewer-round): a round with
-// no reviewer row has nothing for a merger to read.
-func mergerMissing(run records.Run, round int) bool {
-	if !slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
-		r, ok := records.PanelDispatchRound(d)
-		return ok && r == round
-	}) {
-		return false
-	}
-	key := fmt.Sprintf("panel-%d-merger", round)
-	return !slices.ContainsFunc(run.Dispatches, func(d records.Dispatch) bool {
-		return d.Key == key && d.Role == "merger" && d.EndedAt != nil && d.Outcome == "completed"
-	})
-}
-
-// mergerMissingMsg is mergerMissing's refusal for round.
-func mergerMissingMsg(round int) string {
-	return fmt.Sprintf("round %d holds no completed panel-%d-merger row -- the parent reads a round's findings through one findings merger before it fixes or re-reviews them (skills/flow/review-panel.md)", round, round)
-}
-
-// minorOnlyRound reports whether review round holds at least one finding
-// and none of them Critical or Important — the round whose Minors the
-// parent fixes inline at its close (skills/flow/review-panel-fix-round.md).
-func minorOnlyRound(run records.Run, round int) bool {
-	found := false
-	for _, f := range run.Findings {
-		if f.Round != round {
-			continue
-		}
-		if sev := strings.ToLower(f.Severity); sev == "critical" || sev == "important" {
-			return false
-		}
-		found = true
-	}
-	return found
-}
-
-// panelFixBeginRefusal is why run refuses a panel-fix begin under key, whose
-// round is round, from session token — "" when it is admitted: review round
-// <round>-1 must hold a Critical or Important finding, and no dispatch of
-// another session may carry key with an outcome other than aborted.
-// inlineMinor waives the first check alone, for the parent's inline fix of a
-// Minor-only round.
-func panelFixBeginRefusal(run records.Run, key, round, token string, inlineMinor bool) string {
-	r, _ := strconv.Atoi(round)
-	blocking := func(round int) bool {
-		return slices.ContainsFunc(run.Findings, func(f records.Finding) bool {
-			sev := strings.ToLower(f.Severity)
-			return f.Round == round && (sev == "critical" || sev == "important")
-		})
-	}
-	if !inlineMinor && !blocking(r-1) {
-		return fmt.Sprintf("fixes review round %d, which holds no Critical or Important finding — record that round's findings with `flow record finding -from` first (skills/flow/review-panel-fix-round.md)", r-1)
-	}
-	next := r
-	for _, d := range run.Dispatches {
-		if m := panelFixRoundRE.FindStringSubmatch(d.Key); m != nil {
-			if n, _ := strconv.Atoi(m[1]); n > next {
-				next = n
-			}
-		}
-	}
-	for _, d := range run.Dispatches {
-		if d.Key == key && d.SessionToken != token && d.Outcome != "aborted" {
-			msg := fmt.Sprintf("is already used by session %s — if that attempt did not land, end its row aborted (`flow record dispatch end -key %s -session-token %s -outcome aborted`), then begin", d.SessionToken, key, d.SessionToken)
-			if blocking(next) {
-				msg += fmt.Sprintf("; a later fix round is panel-fix-%d", next+1)
-			}
-			return msg
-		}
-	}
-	return ""
-}
 
 // panelFixKeyOK refuses, on stderr, a -key with the panel-fix- prefix that
 // panelFixKeyRE does not match; every other key passes.
