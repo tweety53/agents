@@ -88,7 +88,7 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | Role | Does |
 |---|---|
 | `design-reviewer` | Reviews the plan's three artifacts before implementation, from the documents alone. |
-| `decider` | Decides the implementer groups, the review panel's bundles and visual verification from the approved plan. |
+| `decider` | Decides the implementer groups, the review panel's bundles and visual verification from the approved plan (headless). |
 | `gated-reviewer` | Reviews each implementer group's tasks as they land. |
 | `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
 | `panel-reviewer` | Reviews the whole branch, first pass: the primary + principles bundle, primary alone on a small change. |

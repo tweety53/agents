@@ -33,7 +33,7 @@ A recorded base gone from origin — merged and deleted — is refused by name b
 ## Model resolution
 
 **The implementer groups, the review panel and visual verification are decided per change, never
-configured** — by a fresh decider at **Decide** (`skills/flow/brainstorm-planner.md`) — and the
+configured** — by a headless decider at **Decide** (`skills/flow/brainstorm-planner.md`) — and the
 run reads them from the recorded `decision.json`.
 
 **Every dispatch runs on its role's pair, picked by `flow-guard pair-judge` at dispatch time** —

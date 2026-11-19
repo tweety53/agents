@@ -10,7 +10,7 @@ Follow that skill exactly. One invocation runs from the Jira key to the landed c
 issue and name per
 **Resolution (how `jiraIssue` is decided)** and **Change naming** (`skills/flow-contracts/jira-integration.md`),
 move it to In Progress per **Transitions** there, create a git worktree on a branch named after the change (git isolation only
-— no database or bucket), write `tasks.md`, have a fresh decider decide its implementer groups and review panel, implement
+— no database or bucket), write `tasks.md`, have a headless decider decide its implementer groups and review panel, implement
 through implementer subagents per group, run the project's
 `## lint` and the tests the change touches, run the self-review pass, print the change summary, then — when the project's `## handoff` is `required` — stop for the
 operator to review the branch; land by the project's `## default landing route` (asking only

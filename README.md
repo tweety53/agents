@@ -149,7 +149,7 @@ Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), a
 
 ### Deciding how to implement (Decide)
 
-**A fresh decider subagent decides the implementer groups, the review panel and visual
+**A headless decider (`scripts/flow-guard decide-groups-panel-visual`) decides the implementer groups, the review panel and visual
 verification; every dispatch runs on its role's pair from `scripts/flow-guard pair-judge`; nothing in
 a project configures them.** The run prints a `## Decision` block and proceeds without asking.
 

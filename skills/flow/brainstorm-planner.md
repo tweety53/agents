@@ -268,21 +268,19 @@ return `PLAN-WRITTEN`.
 
 ### Decide
 
-**A fresh decider decides how the plan is built and reviewed**, once the plan review has closed
-— the parent dispatches it, never decides itself. One Agent call, `description` `decide-<n>`
-(`<n>` counting this run's decider dispatches), on the decider role's pair (**Model and effort**
-below). Its prompt is the two agent-baseline sentences, the report-tersely line,
-`<skill-dir>/decider-prompt.md` as the file to read in full first, the absolute paths of the
-change's `tasks.md` and `design.md`, the repository root, whether `<project>/.flow/project.md`
-declares `## visual verification`, and the decision file
-`<abs-worktree>/.superpowers/sdd/decision.json` — `<skill-dir>` the directory this file was read
-from. It returns `DECIDED <path>`: the implementer groups, the review panel's bundles and the
-visual verdict (`skills/flow/decider-prompt.md` is canonical for the rules and the shape). A
-return without that line, or a file `flow decision render` refuses, is redispatched once; a second
-failure stops the run with both returns.
+**A headless decider decides how the plan is built and reviewed**, once the plan review has
+closed — the parent never decides itself. One call:
 
-The parent adds `overrides` — session instructions that change a dispatch's pair for this run,
-empty unless one was given — then renders the file and prints the output verbatim; the `STARTED`
+```bash
+flow-guard decide-groups-panel-visual <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json
+```
+
+Its header is canonical for the call, its checks, its fallback and its exits;
+`skills/flow/decider-prompt.md` is canonical for the rules and the shape. Exit 2 stops the run with
+its stderr.
+
+The parent fills `overrides` — session instructions that change a dispatch's pair for this run,
+left empty unless one was given — then renders the file and prints the output verbatim; the `STARTED`
 handoff prints it again (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`):
 
 ```bash

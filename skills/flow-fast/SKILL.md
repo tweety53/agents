@@ -1,6 +1,6 @@
 ---
 name: flow-fast
-description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, implementation and review panel as a fresh decider decides, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file. Use for /flow-fast.
+description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, implementation and review panel as a headless decider decides, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file. Use for /flow-fast.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
@@ -91,8 +91,8 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 **After:** none
 ```
 
-- **decide**: **Decide** (`skills/flow/brainstorm-planner.md`) as written, its decider reading
-  `<changeRoot>/tasks.md` and no `design.md`, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
+- **decide**: **Decide** (`skills/flow/brainstorm-planner.md`) as written, `<changeRoot>` the
+  directory holding this run's `tasks.md` and no `design.md`, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
 - **sdd-tdd**: **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
   written except its task close: `flow-guard close-task` is not run — its tick writes a spectre plan,
